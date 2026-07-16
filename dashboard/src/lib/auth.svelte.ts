@@ -11,6 +11,11 @@
  *   domain (Clerk's documented pattern for non-React apps - the npm
  *   package's ESM build ships without the UI renderer, so self-bundling
  *   mounts nothing; the npm package stays as a types-only devDependency).
+ *   Since clerk-js v6 the component renderer lives in a second script,
+ *   `@clerk/ui`: it must load first (it sets
+ *   `window.__internal_ClerkUICtor`) and the constructor is passed to
+ *   `Clerk.load({ ui: { ClerkUI } })` - a bare `load()` initializes
+ *   headless and `mountSignIn` throws "not loaded with Ui components".
  *   Clerk's hosted sign-in UI is mounted and the API client gets a live
  *   token getter (Clerk session JWTs are short-lived; clerk-js refreshes
  *   them, we fetch per request). If the script cannot load, the
@@ -28,24 +33,47 @@ function frontendApiFromKey(publishableKey: string): string {
   return atob(b64).replace(/\$$/, '')
 }
 
-/** Inject Clerk's hotload script from the instance domain; resolves to the
- * auto-instantiated `window.Clerk`. */
-function loadClerkScript(publishableKey: string): Promise<Clerk> {
+/** The UI-component constructor `@clerk/ui`'s browser build registers on
+ * `window`; `Clerk.load()` needs it to render any UI. */
+type ClerkUICtor = NonNullable<Parameters<Clerk['load']>[0]> extends {
+  ui?: { ClerkUI?: infer U }
+}
+  ? U
+  : unknown
+
+function injectScript(src: string, configure?: (s: HTMLScriptElement) => void): Promise<void> {
   return new Promise((resolve, reject) => {
-    const existing = (window as { Clerk?: Clerk }).Clerk
-    if (existing) return resolve(existing)
     const script = document.createElement('script')
-    script.src = `https://${frontendApiFromKey(publishableKey)}/npm/@clerk/clerk-js@6/dist/clerk.browser.js`
+    script.src = src
     script.async = true
     script.crossOrigin = 'anonymous'
-    script.setAttribute('data-clerk-publishable-key', publishableKey)
-    script.onload = () => {
-      const clerk = (window as { Clerk?: Clerk }).Clerk
-      clerk ? resolve(clerk) : reject(new Error('clerk-js did not initialize'))
-    }
-    script.onerror = () => reject(new Error('clerk-js failed to load'))
+    configure?.(script)
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error(`failed to load ${src}`))
     document.head.appendChild(script)
   })
+}
+
+/** Inject Clerk's hotload scripts from the instance domain - `@clerk/ui`
+ * first (the component renderer), then clerk-js core; resolves to the
+ * auto-instantiated `window.Clerk` plus the UI constructor to pass into
+ * `Clerk.load()`. */
+async function loadClerkScript(
+  publishableKey: string,
+): Promise<{ clerk: Clerk; ui: ClerkUICtor | undefined }> {
+  const w = window as { Clerk?: Clerk; __internal_ClerkUICtor?: ClerkUICtor }
+  const base = `https://${frontendApiFromKey(publishableKey)}/npm`
+  if (!w.__internal_ClerkUICtor) {
+    // Best-effort: without the UI script the token-paste fallback remains.
+    await injectScript(`${base}/@clerk/ui@1/dist/ui.browser.js`).catch(() => {})
+  }
+  if (!w.Clerk) {
+    await injectScript(`${base}/@clerk/clerk-js@6/dist/clerk.browser.js`, (s) =>
+      s.setAttribute('data-clerk-publishable-key', publishableKey),
+    )
+  }
+  if (!w.Clerk) throw new Error('clerk-js did not initialize')
+  return { clerk: w.Clerk, ui: w.__internal_ClerkUICtor }
 }
 
 class AuthState {
@@ -76,10 +104,12 @@ class AuthState {
 
   private async initClerk(publishableKey: string): Promise<void> {
     try {
-      const clerk = await loadClerkScript(publishableKey)
-      await clerk.load()
+      const { clerk, ui } = await loadClerkScript(publishableKey)
+      await clerk.load(ui ? { ui: { ClerkUI: ui } } : undefined)
       this.clerk = clerk
-      this.clerkReady = true
+      // Without the UI renderer, mountSignIn throws; keep the token-paste
+      // fallback surface instead of an empty scrim.
+      this.clerkReady = ui !== undefined
       if (clerk.user) {
         this.user = {
           id: clerk.user.id,
