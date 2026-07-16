@@ -7,16 +7,46 @@
  *
  * - token mode: signing in stores the bearer token where the API client
  *   already looks (`middleware.token`).
- * - clerk mode: clerk-js is loaded on demand (code-split - token/none
- *   deployments never download it), Clerk's hosted sign-in UI is mounted,
- *   and the API client gets a live token getter (Clerk session JWTs are
- *   short-lived; clerk-js refreshes them, we fetch per request). If the
- *   Clerk script cannot load, the paste-a-token fallback still works - a
- *   manually issued session token verifies server-side the same way.
+ * - clerk mode: clerk-js is hot-loaded from the Clerk instance's own
+ *   domain (Clerk's documented pattern for non-React apps - the npm
+ *   package's ESM build ships without the UI renderer, so self-bundling
+ *   mounts nothing; the npm package stays as a types-only devDependency).
+ *   Clerk's hosted sign-in UI is mounted and the API client gets a live
+ *   token getter (Clerk session JWTs are short-lived; clerk-js refreshes
+ *   them, we fetch per request). If the script cannot load, the
+ *   paste-a-token fallback still works - a manually issued session token
+ *   verifies server-side the same way.
  */
 import type { Clerk } from '@clerk/clerk-js'
 
 import { api, onUnauthorized, setTokenProvider, type AuthConfig } from './api'
+
+/** The instance's Frontend API domain, encoded in the publishable key
+ * (`pk_test_<base64 of "domain$">`). */
+function frontendApiFromKey(publishableKey: string): string {
+  const b64 = publishableKey.split('_').slice(2).join('_')
+  return atob(b64).replace(/\$$/, '')
+}
+
+/** Inject Clerk's hotload script from the instance domain; resolves to the
+ * auto-instantiated `window.Clerk`. */
+function loadClerkScript(publishableKey: string): Promise<Clerk> {
+  return new Promise((resolve, reject) => {
+    const existing = (window as { Clerk?: Clerk }).Clerk
+    if (existing) return resolve(existing)
+    const script = document.createElement('script')
+    script.src = `https://${frontendApiFromKey(publishableKey)}/npm/@clerk/clerk-js@6/dist/clerk.browser.js`
+    script.async = true
+    script.crossOrigin = 'anonymous'
+    script.setAttribute('data-clerk-publishable-key', publishableKey)
+    script.onload = () => {
+      const clerk = (window as { Clerk?: Clerk }).Clerk
+      clerk ? resolve(clerk) : reject(new Error('clerk-js did not initialize'))
+    }
+    script.onerror = () => reject(new Error('clerk-js failed to load'))
+    document.head.appendChild(script)
+  })
+}
 
 class AuthState {
   needed = $state(false)
@@ -46,8 +76,7 @@ class AuthState {
 
   private async initClerk(publishableKey: string): Promise<void> {
     try {
-      const { Clerk } = await import('@clerk/clerk-js')
-      const clerk = new Clerk(publishableKey)
+      const clerk = await loadClerkScript(publishableKey)
       await clerk.load()
       this.clerk = clerk
       this.clerkReady = true

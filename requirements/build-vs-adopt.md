@@ -348,14 +348,19 @@ is wired only on deployments that configure it; everyone else sees the
 token sign-in. This is the same graceful-degradation posture as every other
 external service (Semantic Scholar D8, the LLM provider D32, SonarQube D5, Zotero
 D9): optional, replaceable, never load-bearing.
-**Built (2026-07-16, client half):** `@clerk/clerk-js` added to the
-dashboard, dynamically imported only when `/auth/config` says `clerk` (a
-Vite code-split chunk - token/none deployments never download it). Clerk's
-hosted sign-in UI is mounted in `SignIn.svelte`; the API client takes a
-live token getter (`session.getToken()` per request - Clerk JWTs are
-short-lived and refreshed by clerk-js). If clerk-js can't load, the
-paste-a-token surface remains as the fallback; a manually issued session
-token verifies server-side identically.
+**Built (2026-07-16, client half):** clerk-js is **hot-loaded from the
+Clerk instance's own domain** (the script URL is derived from the
+publishable key), only when `/auth/config` says `clerk` - token/none
+deployments load nothing. Self-bundling the npm package was tried first
+and reverted the same day: its ESM build ships without the UI renderer
+("Clerk was not loaded with Ui components" at mount), and hotload is
+Clerk's documented pattern for non-React apps anyway. `@clerk/clerk-js`
+stays as a **types-only devDependency**. Clerk's hosted sign-in UI mounts
+in `SignIn.svelte`; the API client takes a live token getter
+(`session.getToken()` per request - Clerk JWTs are short-lived and
+refreshed by clerk-js). If the script can't load, the paste-a-token
+surface remains as the fallback; a manually issued session token verifies
+server-side identically.
 
 ### D30 - Vercel v0 - **ADOPT as design tool only** → dashboard UI iteration *(D15 stands)*
 

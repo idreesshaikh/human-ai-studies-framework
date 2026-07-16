@@ -11,6 +11,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json && vitest run"
   },
   "devDependencies": {
+    "@clerk/clerk-js": "^6.25.4",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tsconfig/svelte": "^5.0.8",
     "@types/d3-scale": "^4.0.9",
@@ -22,7 +23,6 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@clerk/clerk-js": "^6.25.4",
     "d3-scale": "^4.0.2"
   }
 }
