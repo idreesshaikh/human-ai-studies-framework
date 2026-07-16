@@ -51,21 +51,13 @@ Light / dark / system, toggled from the nav footer and persisted as
 `index.html` prevents any flash); charts reference token roles, never raw
 hex, so they re-theme for free.
 
-## Iterating the UI in v0 (design loop, D30 rev 2)
+## Hosting the dashboard on a separate origin
 
-The dashboard is a self-contained Vite app, so it can be hosted separately
-from the middleware for visual iteration:
-
-1. In Vercel/v0, create a project from this repo with **Root Directory =
-   `dashboard`** (keep it disconnected from the production pipeline - Render
-   deploys the real app).
-2. Point the preview at a live API: set `VITE_API_BASE` to the demo
-   middleware's URL at build time.
-3. On the middleware side, allow that one origin:
-   `MIDDLEWARE_CORS_ORIGINS=https://<preview>.vercel.app` (FR-OPS-6 -
-   unset means same-origin only, so nothing is exposed by default).
-4. Bring accepted iterations back as ordinary commits; `npm run check` is
-   still the gate.
+The dashboard is a self-contained Vite app, so it can be hosted apart from
+the middleware (FR-OPS-6): set `VITE_API_BASE` to the middleware's URL at
+build time, and allow that one origin on the middleware side via
+`MIDDLEWARE_CORS_ORIGINS` (unset means same-origin only, so nothing is
+exposed by default). Render serves the production app either way.
 
 ## Checks
 

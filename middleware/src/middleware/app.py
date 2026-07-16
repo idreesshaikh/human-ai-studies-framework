@@ -188,8 +188,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     app = FastAPI(title="Study ingestion middleware", version="0.1.0")
 
     # Cross-origin access is opt-in per origin (FR-OPS-6): unset = the
-    # same-origin-only default; set = e.g. a v0/Vercel dashboard preview
-    # calling the demo middleware during design iteration (D30).
+    # same-origin-only default; set = a dashboard hosted on a separate
+    # origin calling this middleware.
     if settings.cors_origins:
         from fastapi.middleware.cors import CORSMiddleware
 
