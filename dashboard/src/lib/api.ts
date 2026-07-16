@@ -236,7 +236,22 @@ export interface AuthConfig {
  */
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '')
 
-function headers(): Record<string, string> {
+/**
+ * Clerk mode injects a live token getter here (session JWTs are short-lived
+ * and refreshed by clerk-js, so they are fetched per request); token mode
+ * keeps the stored bearer token. Null getter = fall back to localStorage.
+ */
+type TokenProvider = () => Promise<string | null>
+let tokenProvider: TokenProvider | null = null
+export function setTokenProvider(provider: TokenProvider | null): void {
+  tokenProvider = provider
+}
+
+async function headers(): Promise<Record<string, string>> {
+  if (tokenProvider) {
+    const token = await tokenProvider()
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
   const token = localStorage.getItem('middleware.token')
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
@@ -253,7 +268,7 @@ export function onUnauthorized(listener: (() => void) | null): void {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(API_BASE + path, {
     ...init,
-    headers: { ...headers(), ...(init.headers ?? {}) },
+    headers: { ...(await headers()), ...(init.headers ?? {}) },
   })
   if (res.status === 401) unauthorizedListener?.()
   if (!res.ok) {
@@ -317,7 +332,7 @@ export const api = {
     const res = await fetch(API_BASE + '/ingest/files', {
       method: 'POST',
       body,
-      headers: headers(),
+      headers: await headers(),
     })
     if (!res.ok) throw new Error(`upload failed: ${res.status}`)
     return res.json()
@@ -345,18 +360,12 @@ export const api = {
       `/studies/${encodeURIComponent(study)}/papers/${encodeURIComponent(ref)}/links`,
       { targets },
     ),
-  zoteroImport: (study: string, collection: string) =>
-    send<{ imported: number; duplicates: number; skipped: number }>(
-      'POST',
-      `/studies/${encodeURIComponent(study)}/papers/zotero-import`,
-      { collection },
-    ),
   uploadPaperPdf: async (study: string, file: File): Promise<{ paperRef: string }> => {
     const body = new FormData()
     body.append('file', file)
     const res = await fetch(
       `${API_BASE}/studies/${encodeURIComponent(study)}/papers/upload`,
-      { method: 'POST', body, headers: headers() },
+      { method: 'POST', body, headers: await headers() },
     )
     if (!res.ok) throw new Error(`upload failed: ${res.status}`)
     return res.json()

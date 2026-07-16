@@ -22,6 +22,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
+    "@clerk/clerk-js": "^6.25.4",
     "d3-scale": "^4.0.2"
   }
 }

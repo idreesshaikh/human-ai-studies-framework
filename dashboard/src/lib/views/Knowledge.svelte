@@ -18,8 +18,6 @@
   let busy = $state(false)
 
   let idInput = $state('')
-  let zoteroInput = $state('')
-  let zoteroNote = $state<string | null>(null)
   let selected = $state<string | null>(null)
   let linkDraft = $state('')
 
@@ -73,17 +71,6 @@
   async function addSuggestion(ref: string): Promise<void> {
     const id = ingestIdForRef(ref)
     if (id) await run(() => api.ingestPaper(studyId, id))
-  }
-
-  async function importZotero(): Promise<void> {
-    const collection = zoteroInput.trim()
-    if (!collection) return
-    zoteroNote = null
-    await run(async () => {
-      const res = await api.zoteroImport(studyId, collection)
-      zoteroNote = `${res.imported} imported, ${res.duplicates} already present`
-    })
-    zoteroInput = ''
   }
 
   async function uploadPdf(ev: Event): Promise<void> {
@@ -188,16 +175,6 @@
         PDF<input type="file" accept="application/pdf" onchange={uploadPdf} hidden />
       </label>
     </div>
-    <div class="ingest">
-      <input
-        placeholder="Zotero collection name (Zotero app must be running)"
-        bind:value={zoteroInput}
-        onkeydown={(e) => e.key === 'Enter' && importZotero()}
-      />
-      <button onclick={importZotero} disabled={busy}>Import from Zotero</button>
-      {#if zoteroNote}<span class="small muted">{zoteroNote}</span>{/if}
-    </div>
-
     {#if busy}
       <p class="working small secondary" role="status">
         <span class="spinner" aria-hidden="true"></span>
@@ -270,8 +247,8 @@
       </div>
     {:else}
       <p class="secondary">
-        No papers yet. Add an arXiv id / DOI / PDF above, or import a Zotero
-        collection - then the neighbourhood grows from Semantic Scholar.
+        No papers yet. Add an arXiv id / DOI / PDF above - then the
+        neighbourhood grows from the citation service.
       </p>
     {/if}
   </section>

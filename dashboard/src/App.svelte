@@ -88,6 +88,9 @@
       {:else if health}
         <span class="badge good">middleware ok</span>
       {/if}
+      {#if auth.user}
+        <span class="small muted signed-in-as">{auth.user.label}</span>
+      {/if}
       {#if auth.config.mode !== 'none' && auth.hasToken}
         <button type="button" class="tour-launch" onclick={() => auth.signOut()}>
           Sign out
@@ -175,6 +178,12 @@
     flex-direction: column;
     gap: 8px;
     align-items: flex-start;
+  }
+  .signed-in-as {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+    white-space: nowrap;
   }
   .tour-launch {
     font-size: 12px;

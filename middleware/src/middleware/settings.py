@@ -87,20 +87,6 @@ class Settings:
         )
     )
 
-    #: Zotero import (FR-LIT-5, D9): the desktop app's local API, plus the
-    #: web-API fallback credentials. Unset credentials = local-only.
-    zotero_local_url: str = field(
-        default_factory=lambda: os.environ.get(
-            "MIDDLEWARE_ZOTERO_LOCAL_URL", "http://127.0.0.1:23119"
-        )
-    )
-    zotero_user_id: str | None = field(
-        default_factory=lambda: os.environ.get("MIDDLEWARE_ZOTERO_USER_ID") or None
-    )
-    zotero_api_key: str | None = field(
-        default_factory=lambda: os.environ.get("MIDDLEWARE_ZOTERO_API_KEY") or None
-    )
-
     @property
     def files_dir(self) -> Path:
         return self.data_dir / "files"

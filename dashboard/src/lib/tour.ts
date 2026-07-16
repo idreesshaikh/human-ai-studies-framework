@@ -109,7 +109,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     anchor: 'knowledge-graph',
     title: 'Your literature, connected',
     body:
-      'Papers you add - by DOI, arXiv id, PDF upload, or straight from a Zotero collection - grow a citation graph. Solid dots are in your library and link to the parts of the study they justify; hollow dots are suggestions worth reading.',
+      'Papers you add - by DOI, arXiv id, or PDF upload - grow a citation graph. Solid dots are in your library and link to the parts of the study they justify; hollow dots are suggestions worth reading.',
     why: 'Related work builds itself while you design the study.',
   },
   {

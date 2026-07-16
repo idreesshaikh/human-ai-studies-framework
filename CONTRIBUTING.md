@@ -92,7 +92,7 @@ the study, not just the build:
    imports `vscode` — that's what makes the scientific logic portable and
    testable.
 8. **External services are optional and replaceable.** Semantic Scholar,
-   the Claude API, SonarQube, Zotero, and auth providers all sit behind
+   the LLM provider, SonarQube, and auth providers all sit behind
    graceful-degradation seams: cache, warn once, never block a session,
    keep working offline. New integrations follow the same pattern.
 

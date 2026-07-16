@@ -90,7 +90,7 @@ Some things it does that we're proud of:
 - **It studies itself.** The platform logs its own defects during a study
   and drafts an improvement proposal afterwards (a human approves).
 - **Everything external is optional.** Semantic Scholar, the Claude API,
-  SonarQube, Zotero, login providers — each degrades gracefully; the
+  SonarQube, login providers — each degrades gracefully; the
   platform runs fully offline on one laptop.
 
 ## Documentation

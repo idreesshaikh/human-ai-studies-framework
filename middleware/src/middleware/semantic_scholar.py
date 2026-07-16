@@ -14,7 +14,7 @@ a :class:`SemanticScholarError` is surfaced as a warning, never blocks a
 session, and never discards an already-cached graph.
 
 Papers are keyed by the same canonical ``paperRef`` scheme the protocol's
-``literature:`` list and the Zotero importer use (``doi:``/``arxiv:``, else
+``literature:`` list uses (``doi:``/``arxiv:``, else
 ``s2:<paperId>``), so neighbours join protocol links by construction.
 """
 
@@ -111,7 +111,7 @@ def ref_for_paper(paper: dict) -> str:
 
 
 def normalize_paper(paper: dict) -> dict:
-    """One S2 paper object -> our paper record shape (matches zotero.py)."""
+    """One S2 paper object -> our canonical paper record shape."""
     authors = [a.get("name", "") for a in (paper.get("authors") or []) if a.get("name")]
     ext = paper.get("externalIds") or {}
     return {

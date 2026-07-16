@@ -127,8 +127,6 @@ All configuration is environment variables (defaults in
 | `MIDDLEWARE_AUTH` | *(unset)* | sign-in provider: `none` / `token` / `clerk`; unset = inferred (`token` when a token is set, else `none`). The dashboard shows a sign-in screen instead of raw 401s |
 | `MIDDLEWARE_CLERK_JWKS_URL` / `_CLERK_ISSUER` / `_CLERK_PUBLISHABLE_KEY` | *(unset)* | Clerk mode only (hosted deployments): session JWTs are verified server-side against this JWKS; the publishable key is exposed via `GET /auth/config` for the sign-in UI |
 | `MIDDLEWARE_CORS_ORIGINS` | *(unset)* | comma-separated origins allowed to call the API cross-origin (e.g. a separately hosted dashboard preview); unset = same-origin only |
-| `MIDDLEWARE_ZOTERO_LOCAL_URL` | `http://127.0.0.1:23119` | Zotero desktop app's local API |
-| `MIDDLEWARE_ZOTERO_USER_ID` / `MIDDLEWARE_ZOTERO_API_KEY` | *(unset)* | hosted-Zotero fallback credentials |
 | `MISTRAL_API_KEY` | *(unset)* | enables the knowledge assistant (`POST /studies/{id}/assistant`; model tier picked from the UI, D32 rev 2); unset = graceful 503, everything else works offline |
 
 Seed it with the demo session (idempotent - run it twice, no duplicates):
@@ -150,7 +148,7 @@ The API surface at a glance (see `middleware/README.md` for details):
 | `POST /files` + gate artifact uploads | lifecycle gates |
 | `GET/POST /findings` · `POST /studies/{id}/findings/scan` | operational findings log |
 | `GET/POST /tasks` | manual task-board cards |
-| `POST /studies/{id}/papers` · `/papers/upload` · `/papers/zotero-import` · `GET /papers/graph` | knowledge layer |
+| `POST /studies/{id}/papers` · `/papers/upload` · `GET /papers/graph` | knowledge layer |
 | `POST /studies/{id}/assistant` | grounded Claude assistant (sees aggregates only, enforced server-side) |
 
 ### 3.2 Dashboard

@@ -82,7 +82,7 @@ view needs. Metadata-only calls (paper IDs/titles), so NFR-5-compatible.
 Rate limits are fine at our scale; cache responses in the middleware DB so
 the graph renders offline after first fetch.
 
-### D9 - Zotero (local/web API) - **ADOPT (stretch)** → FR-LIT-5
+### ~~D9 - Zotero (local/web API) - **ADOPT (stretch)**~~ **WITHDRAWN** (2026-07-16) → FR-LIT-5
 
 The one end-user integration that proves the paper-ingest extension point;
 clean documented API. Could-priority: after the sprint.
@@ -346,8 +346,16 @@ Clerk-issued JWTs server-side against the instance's JWKS - adopted via
 verification is where security bugs come from). The Clerk *frontend* widget
 is wired only on deployments that configure it; everyone else sees the
 token sign-in. This is the same graceful-degradation posture as every other
-external service (Semantic Scholar D8, Claude D10, SonarQube D5, Zotero
+external service (Semantic Scholar D8, the LLM provider D32, SonarQube D5, Zotero
 D9): optional, replaceable, never load-bearing.
+**Built (2026-07-16, client half):** `@clerk/clerk-js` added to the
+dashboard, dynamically imported only when `/auth/config` says `clerk` (a
+Vite code-split chunk - token/none deployments never download it). Clerk's
+hosted sign-in UI is mounted in `SignIn.svelte`; the API client takes a
+live token getter (`session.getToken()` per request - Clerk JWTs are
+short-lived and refreshed by clerk-js). If clerk-js can't load, the
+paste-a-token surface remains as the fallback; a manually issued session
+token verifies server-side identically.
 
 ### D30 - Vercel v0 - **ADOPT as design tool only** → dashboard UI iteration *(D15 stands)*
 
@@ -407,7 +415,7 @@ small, decision-gated change.
 | D6 | tree-sitter, Radon | Adopt | FR-INST-4 | parsers adopted, metrics built |
 | D7 | ResearchRabbit | Reject / replicate view | FR-LIT-2 | no API; closed service |
 | D8 | Semantic Scholar API | Adopt | FR-LIT-1,2 | open citation graph + recommendations |
-| D9 | Zotero | Adopt (stretch) | FR-LIT-5 | proves ingest extension point |
+| D9 | Zotero | ~~Adopt (stretch)~~ withdrawn with FR-LIT-5 (2026-07-16) | FR-LIT-5 | proved the ingest extension point, then removed |
 | D10 | Claude API | ~~Adopt (bounded)~~ superseded by D32 (2026-07-16) | FR-LIT-4, FR-META-2 | assistant + retrospective, FR-ETH-4 bounds |
 | D11 | FastAPI/SQLite/React | Adopt | FR-ING, FR-DASH | one-laptop production (NFR-7/9) |
 | D12 | Cognitive Overlay | Keep & extend | FR-INST-5,8–13 | one extension, one pipeline |

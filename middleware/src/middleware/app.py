@@ -36,7 +36,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from middleware import assistant, auth, paper_index, pdf, semantic_scholar, zotero
+from middleware import assistant, auth, paper_index, pdf, semantic_scholar
 from middleware.db import (
     Event,
     Finding,
@@ -117,12 +117,6 @@ class RecipeRunIn(BaseModel):
 
 class TaskPatch(BaseModel):
     status: str  # open | done
-
-
-class ZoteroImportIn(BaseModel):
-    """Import one Zotero collection into the paper set (FR-LIT-5, MP-09)."""
-
-    collection: str  # collection name (case-insensitive) or 8-char key
 
 
 class PaperIngestIn(BaseModel):
@@ -872,69 +866,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     # ---------------------------------------------------------------- papers
 
-    @app.post(
-        "/studies/{study_id}/papers/zotero-import",
-        dependencies=[Depends(view_auth)],
-    )
-    def import_zotero_collection(
-        study_id: str, body: ZoteroImportIn, s: Session = Depends(db)
-    ) -> dict:
-        """Read one Zotero collection (local API, web fallback) into the
-        study's paper set (FR-LIT-5, D9). Idempotent on (study, paperRef):
-        re-importing a grown collection adds only the new papers."""
-        check_study_id(study_id)
-        try:
-            items, source = zotero.fetch_collection_items(
-                body.collection,
-                local_url=settings.zotero_local_url,
-                user_id=settings.zotero_user_id,
-                api_key=settings.zotero_api_key,
-            )
-        except zotero.ZoteroError as exc:
-            raise HTTPException(502, str(exc)) from exc
-        received = now()
-        imported = duplicates = skipped = 0
-        refs = []
-        for item in items:
-            record = zotero.normalize_item(item)
-            if record is None:
-                skipped += 1
-                continue
-            stmt = (
-                sqlite_insert(Paper)
-                .values(
-                    study_id=study_id,
-                    paper_ref=record["paperRef"],
-                    title=record["title"],
-                    authors=record["authors"],
-                    year=record["year"],
-                    venue=record["venue"],
-                    abstract=record["abstract"],
-                    doi=record["doi"],
-                    arxiv_id=record["arxivId"],
-                    url=record["url"],
-                    item_type=record["itemType"],
-                    source="zotero",
-                    zotero_key=record["zoteroKey"],
-                    added_at=received,
-                )
-                .on_conflict_do_nothing(
-                    index_elements=["study_id", "paper_ref"]
-                )
-            )
-            inserted = s.execute(stmt).rowcount
-            imported += inserted
-            duplicates += 1 - inserted
-            refs.append(record["paperRef"])
-        return {
-            "received": len(items),
-            "imported": imported,
-            "duplicates": duplicates,
-            "skipped": skipped,
-            "source": source,
-            "paperRefs": refs,
-        }
-
     @app.get("/studies/{study_id}/papers", dependencies=[Depends(view_auth)])
     def list_papers(study_id: str, s: Session = Depends(db)) -> list[dict]:
         """The study's paper set. ``inProtocolLiterature`` marks papers the
@@ -965,7 +896,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "url": p.url,
                 "itemType": p.item_type,
                 "source": p.source,
-                "zoteroKey": p.zotero_key,
                 "citationCount": p.citation_count,
                 "hasFullText": bool(p.full_text),
                 "links": sorted(links_by_ref.get(p.paper_ref, [])),

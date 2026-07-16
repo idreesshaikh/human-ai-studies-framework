@@ -28,7 +28,7 @@ use. One term per concept; synonyms listed only to ban them.
 | **Heartbeat**   | A lightweight periodic interaction signal used to classify active vs. idle time (WakaTime pattern, FR-INST-11). |
 | **Task card**   | A dashboard project-manager item auto-derived from an unsatisfied protocol condition (missing gate artifact, uncovered RQ, integrity warning) or added manually; clears itself when the condition is satisfied (FR-DASH-7). |
 | **Paper** *(artifact)* | An ingested publication (PDF / arXiv / DOI) with extracted metadata and text, linkable to protocol elements (FR-LIT-1/3). |
-| **Paper set**   | The study's collection of ingested papers, keyed by canonical `paperRef` (`doi:`/`arxiv:`/`zotero:<key>`) so protocol `literature:` links join by construction; populated by upload/ID (FR-LIT-1) or Zotero import (FR-LIT-5). *(not: library, bibliography)* |
+| **Paper set**   | The study's collection of ingested papers, keyed by canonical `paperRef` (`doi:`/`arxiv:`) so protocol `literature:` links join by construction; populated by upload/ID (FR-LIT-1). *(not: library, bibliography)* |
 | **Literature graph** | The interactive related-papers view built from citation-API edges around ingested papers (FR-LIT-2).      |
 | **Knowledge assistant** | The Claude-powered Q&A over papers + protocol + aggregate dataset summaries, always citing sources (FR-LIT-4). |
 | **Paper draft** | The generated Markdown/LaTeX write-up skeleton: methods from the frozen protocol, results from the report (FR-ANA-6). |
