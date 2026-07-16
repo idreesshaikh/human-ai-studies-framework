@@ -14,6 +14,7 @@ services:
     name: human-ai-studies-demo
     runtime: docker
     plan: free
+    region: frankfurt
     dockerfilePath: ./middleware/Dockerfile
     dockerContext: .
     dockerCommand: sh middleware/scripts/start_with_seed.sh
