@@ -228,6 +228,14 @@ export interface AuthConfig {
   clerkPublishableKey?: string
 }
 
+/**
+ * Same-origin by default (dev proxy / middleware-served SPA). Set
+ * VITE_API_BASE to a middleware URL when the dashboard is hosted elsewhere
+ * (e.g. a v0/Vercel design-iteration preview, D30) - the middleware must
+ * then allow that origin via MIDDLEWARE_CORS_ORIGINS (FR-OPS-6).
+ */
+const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '')
+
 function headers(): Record<string, string> {
   const token = localStorage.getItem('middleware.token')
   return token ? { Authorization: `Bearer ${token}` } : {}
@@ -243,7 +251,7 @@ export function onUnauthorized(listener: (() => void) | null): void {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE + path, {
     ...init,
     headers: { ...headers(), ...(init.headers ?? {}) },
   })
@@ -306,7 +314,11 @@ export const api = {
   uploadFile: async (file: File): Promise<{ id: number; duplicate: boolean }> => {
     const body = new FormData()
     body.append('file', file)
-    const res = await fetch('/ingest/files', { method: 'POST', body, headers: headers() })
+    const res = await fetch(API_BASE + '/ingest/files', {
+      method: 'POST',
+      body,
+      headers: headers(),
+    })
     if (!res.ok) throw new Error(`upload failed: ${res.status}`)
     return res.json()
   },
@@ -343,7 +355,7 @@ export const api = {
     const body = new FormData()
     body.append('file', file)
     const res = await fetch(
-      `/studies/${encodeURIComponent(study)}/papers/upload`,
+      `${API_BASE}/studies/${encodeURIComponent(study)}/papers/upload`,
       { method: 'POST', body, headers: headers() },
     )
     if (!res.ok) throw new Error(`upload failed: ${res.status}`)

@@ -18,8 +18,9 @@ data-viz conventions.
 | `metrics` | 9-metric distributions split by condition - every point drawn, per-cell n, small-n honest | FR-DASH-5 |
 | `knowledge` | mount points for the papers graph + assistant (built in MP-10) | FR-DASH-8 |
 
-Every chart/card carries a traceability chip ("answers RQ-P4", "gate:
-ethics") - click it for the full trace chain (FR-DASH-6).
+Every chart/card carries a small "i" info toggle - hover for a
+plain-language explanation, click for the full trace chain back to the
+requirement it answers (FR-DASH-6).
 
 ## Run
 
@@ -41,6 +42,30 @@ uv run python middleware/scripts/replay_session.py
 
 If the middleware sets `MIDDLEWARE_TOKEN`, store the same value in the
 browser as `localStorage['middleware.token']`.
+
+## Theme
+
+Light / dark / system, toggled from the nav footer and persisted as
+`localStorage['dashboard.theme']`. Both palettes are the design tokens in
+`src/app.css` keyed off `data-theme` on `<html>` (a pre-paint script in
+`index.html` prevents any flash); charts reference token roles, never raw
+hex, so they re-theme for free.
+
+## Iterating the UI in v0 (design loop, D30 rev 2)
+
+The dashboard is a self-contained Vite app, so it can be hosted separately
+from the middleware for visual iteration:
+
+1. In Vercel/v0, create a project from this repo with **Root Directory =
+   `dashboard`** (keep it disconnected from the production pipeline - Render
+   deploys the real app).
+2. Point the preview at a live API: set `VITE_API_BASE` to the demo
+   middleware's URL at build time.
+3. On the middleware side, allow that one origin:
+   `MIDDLEWARE_CORS_ORIGINS=https://<preview>.vercel.app` (FR-OPS-6 -
+   unset means same-origin only, so nothing is exposed by default).
+4. Bring accepted iterations back as ordinary commits; `npm run check` is
+   still the gate.
 
 ## Checks
 

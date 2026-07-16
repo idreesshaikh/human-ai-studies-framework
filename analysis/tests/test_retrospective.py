@@ -71,8 +71,8 @@ def test_offline_bundle_lists_the_findings_as_a_template(tmp_path):
     ev = retrospective.collect_evidence(
         "http://mw", "pilot-2026", None, fetch=_fake_fetch
     )
-    proposal, used_claude = retrospective.build_proposal(ev, client=None)
-    assert used_claude is False
+    proposal, used_llm = retrospective.build_proposal(ev, client=None)
+    assert used_llm is False
     # The evidence is fully assembled and cited for manual drafting.
     assert "FR-ING-3" in proposal and "FR-ANA-2" in proposal
     assert "## SRS amendments" in proposal
@@ -88,38 +88,23 @@ def test_facilitator_notes_are_folded_in(tmp_path):
     assert "DR-06" in retrospective.build_prompt(ev)
 
 
-class _Block:
-    type = "text"
-
-    def __init__(self, text):
-        self.text = text
-
-
-class _Resp:
-    def __init__(self, content):
-        self.content = content
-
-
-class FakeClaude:
-    def __init__(self):
-        self.messages = self
-
-    def create(self, **kw):
+class FakeModel:
+    def draft(self, system, prompt):
         # Echo that it saw both findings, as a real proposal would cite them.
-        assert "FR-ING-3" in kw["messages"][0]["content"]
-        return _Resp([_Block(
+        assert "FR-ING-3" in prompt
+        return (
             "## SRS amendments\n- FR-ING-3: amend - the seq-gap finding shows "
             "loss detection works [FR-ING-3].\n- FR-ANA-2: keep [FR-ANA-2].\n"
             "## Protocol-schema changes\nnone\n## Instrument config changes\n"
             "none\n## Explicitly rejected ideas\nnone\n"
-        )])
+        )
 
 
-def test_claude_draft_uses_the_evidence_and_marks_inert():
+def test_llm_draft_uses_the_evidence_and_marks_inert():
     ev = retrospective.collect_evidence(
         "http://mw", "pilot-2026", None, fetch=_fake_fetch
     )
-    proposal, used_claude = retrospective.build_proposal(ev, client=FakeClaude())
-    assert used_claude is True
+    proposal, used_llm = retrospective.build_proposal(ev, client=FakeModel())
+    assert used_llm is True
     assert "Inert until reviewed" in proposal
     assert "FR-ING-3" in proposal and "FR-ANA-2" in proposal

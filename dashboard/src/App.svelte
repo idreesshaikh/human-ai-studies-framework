@@ -6,6 +6,7 @@
   import { tour } from './lib/tour.svelte'
   import { trace } from './lib/trace.svelte'
   import GuidedTour from './lib/components/GuidedTour.svelte'
+  import ThemeToggle from './lib/components/ThemeToggle.svelte'
   import TracePanel from './lib/components/TracePanel.svelte'
   import Overview from './lib/views/Overview.svelte'
   import LifecycleBoard from './lib/views/LifecycleBoard.svelte'
@@ -72,6 +73,7 @@
       </a>
     {/each}
     <div class="foot small muted">
+      <ThemeToggle />
       {#if studyId && !offline}
         <button
           type="button"
@@ -186,8 +188,34 @@
     background: color-mix(in srgb, var(--series-1) 10%, transparent);
   }
   main {
-    padding: 20px 24px;
-    max-width: 1200px;
+    padding: clamp(14px, 2.5vw, 32px);
+    max-width: 1280px;
     width: 100%;
+  }
+
+  /* Narrow screens: the sidebar becomes a wrapping top bar. */
+  @media (max-width: 720px) {
+    .shell {
+      grid-template-columns: 1fr;
+    }
+    nav {
+      position: static;
+      height: auto;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      padding: 0 8px;
+    }
+    .foot {
+      margin-top: 0;
+      margin-left: auto;
+      flex-direction: row;
+      align-items: center;
+    }
   }
 </style>

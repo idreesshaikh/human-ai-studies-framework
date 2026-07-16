@@ -126,9 +126,10 @@ All configuration is environment variables (defaults in
 | `MIDDLEWARE_TOKEN` | *(unset)* | optional bearer token for query/task endpoints; **ingest is deliberately never authenticated** (sensors are fire-and-forget by design) |
 | `MIDDLEWARE_AUTH` | *(unset)* | sign-in provider: `none` / `token` / `clerk`; unset = inferred (`token` when a token is set, else `none`). The dashboard shows a sign-in screen instead of raw 401s |
 | `MIDDLEWARE_CLERK_JWKS_URL` / `_CLERK_ISSUER` / `_CLERK_PUBLISHABLE_KEY` | *(unset)* | Clerk mode only (hosted deployments): session JWTs are verified server-side against this JWKS; the publishable key is exposed via `GET /auth/config` for the sign-in UI |
+| `MIDDLEWARE_CORS_ORIGINS` | *(unset)* | comma-separated origins allowed to call the API cross-origin (e.g. a separately hosted dashboard preview); unset = same-origin only |
 | `MIDDLEWARE_ZOTERO_LOCAL_URL` | `http://127.0.0.1:23119` | Zotero desktop app's local API |
 | `MIDDLEWARE_ZOTERO_USER_ID` / `MIDDLEWARE_ZOTERO_API_KEY` | *(unset)* | hosted-Zotero fallback credentials |
-| `ANTHROPIC_API_KEY` | *(unset)* | enables the knowledge assistant (`POST /studies/{id}/assistant`); unset = graceful 503, everything else works offline |
+| `GEMINI_API_KEY` / `MISTRAL_API_KEY` | *(unset)* | enables the knowledge assistant (`POST /studies/{id}/assistant`); Gemini wins when both are set (D32); unset = graceful 503, everything else works offline |
 
 Seed it with the demo session (idempotent - run it twice, no duplicates):
 
@@ -287,7 +288,8 @@ cd results/pilot-2026/paper && tectonic draft.tex          # → draft.pdf
 # 4. The retrospective - the framework proposes its own fixes:
 uv run analysis retrospective protocol/examples/pilot-study.yaml \
     --findings-md study/pilot/findings.md --out retrospective
-# With ANTHROPIC_API_KEY: Claude drafts the changelist proposal (findings +
+# With GEMINI_API_KEY or MISTRAL_API_KEY: the model drafts the changelist
+# proposal (findings +
 # aggregates only, never participant rows). Without: you get the assembled evidence
 # bundle + a template to draft by hand. Either way the proposal is INERT -
 # a human applies accepted items as ordinary change-managed SRS edits.
@@ -344,7 +346,7 @@ golden paper drafts).
 | Sensor events aren't arriving | Middleware not on :8000, or wrong endpoint in the derived settings. Sensors never crash on this - they buffer to local JSONL; check `GET /health`, then re-import/replay. Loss is visible in `GET /sessions/{id}/gaps`. |
 | `analysis run` exits 2 | Not an error in itself: the report was written but some plan entries failed their requires-check (each failure names the missing event type/metric). `agent_turn`/`task_outcome` failures on the demo seed are expected until agent-leg data exists. |
 | Dashboard 404 / API-only responses at `/` | `dashboard/dist` doesn't exist - run `npm run build` in `dashboard/`, or use `npm run dev` on :5173. |
-| `POST /studies/{id}/assistant` → 503 | No `ANTHROPIC_API_KEY`. Everything else is unaffected (the platform is offline-first). |
+| `POST /studies/{id}/assistant` → 503 | No `GEMINI_API_KEY` / `MISTRAL_API_KEY`. Everything else is unaffected (the platform is offline-first). |
 | Paper compiles with overfull-hbox warnings | Cosmetic (wide result tables). No TeX engine at all? `brew install tectonic` - or skip compilation; `draft.md` carries the same content. |
 | Cognitive-complexity column empty | SonarQube not running: `docker compose --profile sonar up`, pass `--sonar-url`. The other 8 metrics degrade gracefully (never block). |
 | Rows flagged `unknown-participant` / `unknown-condition` | Ingest is protocol-aware and the row's join keys aren't in the plan. Rows are stored + flagged, never dropped; fix the session config or amend the protocol. |

@@ -3,9 +3,9 @@ own improvements, a human approves them.
 
 ``analysis retrospective`` collects the operational-findings log (FR-META-1),
 the facilitator's ``findings.md``, and recipe-coverage aggregates, then has
-Claude draft a **changelist proposal** (SRS amendments / protocol-schema
-changes / instrument-config changes / rejected ideas), each item citing the
-findings that evidence it.
+the configured model (Gemini or Mistral, D28) draft a **changelist proposal**
+(SRS amendments / protocol-schema changes / instrument-config changes /
+rejected ideas), each item citing the findings that evidence it.
 
 Two hard boundaries:
 
@@ -17,8 +17,8 @@ Two hard boundaries:
   *self-proposing*. Accepted items are applied by the researcher as ordinary,
   change-managed edits to ``requirements/srs.md`` + ``traceability.md``.
 
-Offline-degradable: without ``ANTHROPIC_API_KEY`` (or the SDK) it emits the
-collected evidence bundle plus a proposal template for the researcher to
+Offline-degradable: without ``GEMINI_API_KEY``/``MISTRAL_API_KEY`` it emits
+the collected evidence bundle plus a proposal template for the researcher to
 complete by hand - the evidence is still fully assembled and cited.
 """
 
@@ -29,7 +29,8 @@ import os
 import urllib.request
 from pathlib import Path
 
-MODEL = "claude-sonnet-5"
+GEMINI_MODEL = "gemini-flash-latest"
+MISTRAL_MODEL = "mistral-small-latest"
 
 SYSTEM_PROMPT = (
     "You are drafting a self-improvement proposal for a "
@@ -145,30 +146,81 @@ def build_prompt(evidence: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:
+    """POST JSON, return parsed JSON - the network seam tests stub out."""
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json", **headers},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as res:
+        return json.loads(res.read())
+
+
+class GeminiClient:
+    """Single-turn draft via Google AI Studio's REST API (D28)."""
+
+    def __init__(self, api_key: str, model: str = GEMINI_MODEL, post=_post_json):
+        self.api_key = api_key
+        self.model = model
+        self.post = post
+
+    def draft(self, system: str, prompt: str) -> str:
+        res = self.post(
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.model}:generateContent",
+            {
+                "system_instruction": {"parts": [{"text": system}]},
+                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "generationConfig": {"maxOutputTokens": 4096},
+            },
+            {"x-goog-api-key": self.api_key},
+        )
+        parts = (res.get("candidates") or [{}])[0].get("content", {}).get("parts", [])
+        return "".join(p.get("text", "") for p in parts)
+
+
+class MistralClient:
+    """Single-turn draft via Mistral's chat-completions REST API (D28)."""
+
+    def __init__(self, api_key: str, model: str = MISTRAL_MODEL, post=_post_json):
+        self.api_key = api_key
+        self.model = model
+        self.post = post
+
+    def draft(self, system: str, prompt: str) -> str:
+        res = self.post(
+            "https://api.mistral.ai/v1/chat/completions",
+            {
+                "model": self.model,
+                "max_tokens": 4096,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt},
+                ],
+            },
+            {"Authorization": f"Bearer {self.api_key}"},
+        )
+        msg = (res.get("choices") or [{}])[0].get("message", {})
+        return str(msg.get("content") or "")
+
+
 def make_client():
-    """Anthropic client, or None when no key/SDK (offline path). Never raises."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        return None
-    try:
-        import anthropic
-    except ImportError:
-        return None
-    return anthropic.Anthropic()
+    """The configured client - ``GEMINI_API_KEY`` wins over
+    ``MISTRAL_API_KEY`` (D28) - or None when neither is set (offline path).
+    Never raises."""
+    if key := os.environ.get("GEMINI_API_KEY"):
+        return GeminiClient(key)
+    if key := os.environ.get("MISTRAL_API_KEY"):
+        return MistralClient(key)
+    return None
 
 
-def draft_with_claude(evidence: dict, client, *, model: str = MODEL) -> str:
-    """Ask Claude for the proposal. Model/usage per D10 (verified against the
-    `claude-api` skill); no participant data crosses the boundary."""
-    response = client.messages.create(
-        model=model,
-        max_tokens=4096,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": build_prompt(evidence)}],
-    )
-    return "".join(
-        getattr(b, "text", "") for b in response.content
-        if getattr(b, "type", None) == "text"
-    )
+def draft_with_llm(evidence: dict, client) -> str:
+    """Ask the configured model for the proposal (D28); no participant data
+    crosses the boundary."""
+    return client.draft(SYSTEM_PROMPT, build_prompt(evidence))
 
 
 def evidence_bundle(evidence: dict) -> str:
@@ -176,7 +228,8 @@ def evidence_bundle(evidence: dict) -> str:
     researcher completes by hand. The findings are fully cited already."""
     return (
         "# Retrospective proposal (TEMPLATE - complete by hand)\n\n"
-        "The knowledge assistant was unavailable (no `ANTHROPIC_API_KEY`); "
+        "The knowledge assistant was unavailable (no `GEMINI_API_KEY` or "
+        "`MISTRAL_API_KEY`); "
         "this bundle collects the evidence so you can draft the proposal "
         "manually. It is **inert** until you apply accepted items as ordinary, "
         "change-managed edits to `requirements/srs.md` + "
@@ -192,9 +245,9 @@ def evidence_bundle(evidence: dict) -> str:
 
 
 def build_proposal(evidence: dict, client) -> tuple[str, bool]:
-    """Return (proposal_markdown, used_claude)."""
+    """Return (proposal_markdown, used_llm)."""
     if client is not None:
-        body = draft_with_claude(evidence, client)
+        body = draft_with_llm(evidence, client)
         header = (
             "# Retrospective changelist proposal (FR-META-2)\n\n"
             "> **Inert until reviewed.** Draft only - apply accepted items as "
@@ -227,7 +280,7 @@ def cmd_retrospective(protocol: dict, study_id: str, args) -> int:
     findings_md = getattr(args, "findings_md", None)
     evidence = collect_evidence(args.server, study_id, findings_md)
     client = make_client()
-    proposal, used_claude = build_proposal(evidence, client)
+    proposal, used_llm = build_proposal(evidence, client)
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -240,10 +293,11 @@ def cmd_retrospective(protocol: dict, study_id: str, args) -> int:
         + (" + facilitator notes" if evidence["facilitatorNotes"] else "")
     )
     print(
-        "  drafted with Claude (D10 bounds: findings + aggregates only)"
-        if used_claude
-        else "  no ANTHROPIC_API_KEY - emitted the evidence bundle + template "
-        "for manual drafting"
+        "  drafted with the configured model (D28 bounds: findings + "
+        "aggregates only)"
+        if used_llm
+        else "  no GEMINI_API_KEY/MISTRAL_API_KEY - emitted the evidence "
+        "bundle + template for manual drafting"
     )
     print(
         "  HUMAN GATE: the proposal is inert. Review it, then apply accepted "

@@ -92,7 +92,7 @@
           {/if}
         {/each}
         <footer>
-          <TraceChip id={`gate:${phase.name}`} label={`gate: ${phase.name}`} />
+          <TraceChip id={`gate:${phase.name}`} />
         </footer>
       </div>
     {/each}

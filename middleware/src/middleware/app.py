@@ -191,6 +191,20 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     app = FastAPI(title="Study ingestion middleware", version="0.1.0")
 
+    # Cross-origin access is opt-in per origin (FR-OPS-6): unset = the
+    # same-origin-only default; set = e.g. a v0/Vercel dashboard preview
+    # calling the demo middleware during design iteration (D30).
+    if settings.cors_origins:
+        from fastapi.middleware.cors import CORSMiddleware
+
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(settings.cors_origins),
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
     def db() -> Session:  # FastAPI dependency
         session = session_factory()
         try:
@@ -1255,8 +1269,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if client is None:
             raise HTTPException(
                 503,
-                "knowledge assistant unavailable: set ANTHROPIC_API_KEY. "
-                "All other views work offline.",
+                "knowledge assistant unavailable: set GEMINI_API_KEY or "
+                "MISTRAL_API_KEY. All other views work offline.",
             )
         tools = assistant.build_tools(s, protocol_doc)
         try:

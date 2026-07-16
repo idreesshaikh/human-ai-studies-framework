@@ -102,7 +102,7 @@
       {#each protocol.researchQuestions as rq (rq.id)}
         {@const cov = status.researchQuestions.find((r) => r.id === rq.id)}
         <li>
-          <TraceChip id={rq.id} label={rq.id} />
+          <TraceChip id={rq.id} />
           <span class="rq-text secondary">{rq.text}</span>
           {#if cov && cov.recipes.length > 0}
             <span class="badge good">✓ {cov.recipes.length} recipe{cov.recipes.length === 1 ? '' : 's'} planned</span>

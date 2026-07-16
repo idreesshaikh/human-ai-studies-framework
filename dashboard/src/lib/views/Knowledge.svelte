@@ -143,7 +143,7 @@
       chat = [...chat, { role: 'assistant', content: res.answer, citations: res.citations }]
     } catch (e) {
       assistantNote = String(e).includes('503')
-        ? 'The assistant needs ANTHROPIC_API_KEY set on the middleware. Every other view works offline.'
+        ? 'The assistant needs GEMINI_API_KEY or MISTRAL_API_KEY set on the middleware. Every other view works offline.'
         : String(e)
     } finally {
       asking = false
@@ -230,7 +230,7 @@
   <section class="card assistant" data-tour="knowledge-assistant">
     <div class="head">
       <h2>Assistant <TraceChip id="FR-LIT-4" /></h2>
-      <span class="secondary small">aggregates only (FR-ETH-4)</span>
+      <span class="secondary small">aggregates only</span>
     </div>
     <div class="chat">
       {#each chat as m}
@@ -270,7 +270,7 @@
         <p class="abstract secondary">{selectedPaper.abstract}</p>
       {/if}
       <label class="field">
-        Protocol links (FR-LIT-3) <TraceChip id="FR-LIT-3" />
+        Protocol links <TraceChip id="FR-LIT-3" />
         <input
           bind:value={linkDraft}
           placeholder="RQ-P4, metric:parameter_count, recipe:ziegler-acceptance-rate"

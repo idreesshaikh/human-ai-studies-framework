@@ -235,48 +235,52 @@ def test_dataset_summary_is_aggregates_only(client):
     assert "212" not in summary  # raw payload value never surfaces
 
 
-# --- one recorded assistant exchange (mocked Claude) -----------------------
+# --- one recorded assistant exchange per provider (scripted REST) ----------
+
+_CITED_ANSWER = (
+    "The ai-assisted condition recorded 2 events [dataset-summary], and "
+    "accept-rate is Ziegler's measure [arxiv:2205.06537 §0]."
+)
 
 
-class _Block:
-    def __init__(self, **kw):
-        self.__dict__.update(kw)
+def _scripted_post(responses):
+    """A ``post`` seam that replays recorded-shape provider responses."""
+
+    def post(url, body, headers):
+        return responses.pop(0)
+
+    return post
 
 
-class _Resp:
-    def __init__(self, content, stop_reason):
-        self.content = content
-        self.stop_reason = stop_reason
+def _gemini_two_rounds():
+    """Round 1: call get_dataset_summary; round 2: cited answer."""
+    return _scripted_post([
+        {"candidates": [{"content": {"parts": [
+            {"functionCall": {"name": "get_dataset_summary", "args": {}}}
+        ]}}]},
+        {"candidates": [{"content": {"parts": [{"text": _CITED_ANSWER}]}}]},
+    ])
 
 
-class FakeClaude:
-    """Scripts a two-round tool-use exchange: call get_dataset_summary, then
-    answer with a cited claim."""
-
-    def __init__(self):
-        self.messages = self
-        self._round = 0
-
-    def create(self, **kw):
-        self._round += 1
-        if self._round == 1:
-            return _Resp(
-                [_Block(type="tool_use", name="get_dataset_summary", input={},
-                        id="t1")],
-                "tool_use",
-            )
-        return _Resp(
-            [_Block(
-                type="text",
-                text="The ai-assisted condition recorded 2 events "
-                "[dataset-summary], and accept-rate is Ziegler's measure "
-                "[arxiv:2205.06537 §0].",
-            )],
-            "end_turn",
-        )
+def _mistral_two_rounds():
+    return _scripted_post([
+        {"choices": [{"message": {"role": "assistant", "content": "",
+            "tool_calls": [{"id": "t1", "function": {
+                "name": "get_dataset_summary", "arguments": "{}"}}]}}]},
+        {"choices": [{"message": {"role": "assistant",
+                                  "content": _CITED_ANSWER}}]},
+    ])
 
 
-def test_assistant_answers_with_citations_and_uses_aggregates(client):
+@pytest.mark.parametrize(
+    "provider",
+    [
+        lambda: assistant.GeminiProvider("test-key", post=_gemini_two_rounds()),
+        lambda: assistant.MistralProvider("test-key", post=_mistral_two_rounds()),
+    ],
+    ids=["gemini", "mistral"],
+)
+def test_assistant_answers_with_citations_and_uses_aggregates(client, provider):
     from middleware.db import make_session_factory
 
     _seed_events_and_metrics(client)
@@ -287,7 +291,7 @@ def test_assistant_answers_with_citations_and_uses_aggregates(client):
             "How many events did the ai-assisted condition record?",
             [],
             tools=tools,
-            client=FakeClaude(),
+            client=provider(),
         )
     assert "[dataset-summary]" in result["answer"]
     assert "dataset-summary" in result["citations"]
@@ -296,9 +300,10 @@ def test_assistant_answers_with_citations_and_uses_aggregates(client):
 
 
 def test_assistant_endpoint_503_without_api_key(client, monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     res = client.post(
         "/studies/pilot-2026/assistant", json={"question": "hi"}
     )
     assert res.status_code == 503
-    assert "ANTHROPIC_API_KEY" in res.json()["detail"]
+    assert "GEMINI_API_KEY" in res.json()["detail"]

@@ -76,6 +76,17 @@ class Settings:
         or None
     )
 
+    #: Origins allowed to call the API cross-origin (FR-OPS-6), comma-
+    #: separated - e.g. a separately hosted dashboard preview during design
+    #: iteration (D30). Unset = same-origin only (the default posture).
+    cors_origins: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            o.strip()
+            for o in os.environ.get("MIDDLEWARE_CORS_ORIGINS", "").split(",")
+            if o.strip()
+        )
+    )
+
     #: Zotero import (FR-LIT-5, D9): the desktop app's local API, plus the
     #: web-API fallback credentials. Unset credentials = local-only.
     zotero_local_url: str = field(

@@ -1,5 +1,6 @@
 """Knowledge assistant - grounded Q&A over papers + protocol + dataset
-*aggregates* (FR-LIT-4), powered by the Claude API with tool use (D10/D22).
+*aggregates* (FR-LIT-4), powered by Gemini or Mistral with tool use (D28,
+superseding D10/D22).
 
 **FR-ETH-4 is enforced here, in code, not in the prompt.** The model is
 given exactly three tools, and none can return a row-level participant
@@ -17,14 +18,13 @@ grep-the-output test asserts exactly this.
 
 The system prompt requires a source tag on every claim (``[paper-ref
 §chunk]``, ``[protocol:field]``, or ``[dataset-summary]``); an answer with
-no source must say so. Without ``ANTHROPIC_API_KEY`` the endpoint degrades
-gracefully — every other feature works offline.
+no source must say so. Provider selection is by key: ``GEMINI_API_KEY``
+(Google AI Studio) wins over ``MISTRAL_API_KEY``; with neither set the
+endpoint degrades gracefully — every other feature works offline.
 
-Model + API usage verified against the ``claude-api`` skill at build time
-(2026-07-12): ``claude-sonnet-5`` (the current Sonnet-class model, D10), no
-``temperature``/``top_p`` (rejected with a 400 on current models — steer by
-prompting instead), a hand-rolled tool-use loop (no beta dependency, and the
-tool boundary is the whole point).
+Both providers speak plain REST over stdlib ``urllib`` (D28: no vendor SDK
+- same zero-bloat call shape as the Semantic Scholar client), each with a
+hand-rolled tool-use loop, because the tool boundary is the whole point.
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ from __future__ import annotations
 import json
 import os
 import statistics
+import urllib.request
 from collections import defaultdict
 from collections.abc import Callable
 
@@ -41,7 +42,8 @@ from sqlalchemy.orm import Session
 from middleware import paper_index
 from middleware.db import Event, MetricRow
 
-MODEL = "claude-sonnet-5"
+GEMINI_MODEL = "gemini-flash-latest"
+MISTRAL_MODEL = "mistral-small-latest"
 MAX_TOKENS = 2048
 MAX_TOOL_ROUNDS = 6
 
@@ -186,19 +188,171 @@ def build_tools(
     }
 
 
-# ---------------------------------------------------------------- the loop
+# ------------------------------------------------------------- providers
+
+
+def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:
+    """POST JSON, return parsed JSON. The one network seam - tests inject a
+    scripted ``post`` into the providers instead."""
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json", **headers},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as res:
+        return json.loads(res.read())
+
+
+class GeminiProvider:
+    """Google AI Studio (Gemini) tool-use loop over the REST API (D28)."""
+
+    name = "gemini"
+
+    def __init__(self, api_key: str, model: str = GEMINI_MODEL, post=_post_json):
+        self.api_key = api_key
+        self.model = model
+        self.post = post
+
+    @staticmethod
+    def _tool_config() -> list[dict]:
+        decls = []
+        for t in TOOL_SCHEMAS:
+            decl = {"name": t["name"], "description": t["description"]}
+            # Gemini rejects an empty properties object - omit instead.
+            if t["input_schema"].get("properties"):
+                decl["parameters"] = t["input_schema"]
+            decls.append(decl)
+        return [{"functionDeclarations": decls}]
+
+    def run(
+        self, question: str, history: list[dict], tools: dict[str, Callable]
+    ) -> tuple[str, list[dict]]:
+        contents = [
+            {
+                "role": "model" if m.get("role") == "assistant" else "user",
+                "parts": [{"text": str(m.get("content", ""))}],
+            }
+            for m in history
+        ]
+        contents.append({"role": "user", "parts": [{"text": question}]})
+        tool_calls: list[dict] = []
+        for _ in range(MAX_TOOL_ROUNDS):
+            res = self.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{self.model}:generateContent",
+                {
+                    "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+                    "contents": contents,
+                    "tools": self._tool_config(),
+                    "generationConfig": {"maxOutputTokens": MAX_TOKENS},
+                },
+                {"x-goog-api-key": self.api_key},
+            )
+            candidates = res.get("candidates") or [{}]
+            parts = candidates[0].get("content", {}).get("parts", [])
+            calls = [p["functionCall"] for p in parts if "functionCall" in p]
+            if not calls:
+                return "".join(p.get("text", "") for p in parts), tool_calls
+            contents.append({"role": "model", "parts": parts})
+            responses = []
+            for call in calls:
+                name = call.get("name", "")
+                args = dict(call.get("args") or {})
+                impl = tools.get(name)
+                output = impl(args) if impl else f"Unknown tool {name}"
+                tool_calls.append({"tool": name, "input": args})
+                responses.append(
+                    {
+                        "functionResponse": {
+                            "name": name,
+                            "response": {"result": output},
+                        }
+                    }
+                )
+            contents.append({"role": "user", "parts": responses})
+        return "", tool_calls
+
+
+class MistralProvider:
+    """Mistral chat-completions tool-use loop over the REST API (D28)."""
+
+    name = "mistral"
+
+    def __init__(self, api_key: str, model: str = MISTRAL_MODEL, post=_post_json):
+        self.api_key = api_key
+        self.model = model
+        self.post = post
+
+    @staticmethod
+    def _tool_config() -> list[dict]:
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t["description"],
+                    "parameters": t["input_schema"],
+                },
+            }
+            for t in TOOL_SCHEMAS
+        ]
+
+    def run(
+        self, question: str, history: list[dict], tools: dict[str, Callable]
+    ) -> tuple[str, list[dict]]:
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            *history,
+            {"role": "user", "content": question},
+        ]
+        tool_calls: list[dict] = []
+        for _ in range(MAX_TOOL_ROUNDS):
+            res = self.post(
+                "https://api.mistral.ai/v1/chat/completions",
+                {
+                    "model": self.model,
+                    "messages": messages,
+                    "tools": self._tool_config(),
+                    "max_tokens": MAX_TOKENS,
+                },
+                {"Authorization": f"Bearer {self.api_key}"},
+            )
+            msg = (res.get("choices") or [{}])[0].get("message", {})
+            messages.append(msg)
+            calls = msg.get("tool_calls") or []
+            if not calls:
+                return str(msg.get("content") or ""), tool_calls
+            for call in calls:
+                fn = call.get("function", {})
+                name = fn.get("name", "")
+                try:
+                    args = json.loads(fn.get("arguments") or "{}")
+                except json.JSONDecodeError:
+                    args = {}
+                impl = tools.get(name)
+                output = impl(args) if impl else f"Unknown tool {name}"
+                tool_calls.append({"tool": name, "input": args})
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call.get("id", ""),
+                        "name": name,
+                        "content": output,
+                    }
+                )
+        return "", tool_calls
 
 
 def make_client():
-    """The Anthropic client, or ``None`` when no key is configured (the
+    """The configured provider - ``GEMINI_API_KEY`` wins over
+    ``MISTRAL_API_KEY`` (D28) - or ``None`` when neither key is set (the
     endpoint then degrades gracefully). Never raises."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        return None
-    try:
-        import anthropic
-    except ImportError:
-        return None
-    return anthropic.Anthropic()
+    if key := os.environ.get("GEMINI_API_KEY"):
+        return GeminiProvider(key)
+    if key := os.environ.get("MISTRAL_API_KEY"):
+        return MistralProvider(key)
+    return None
 
 
 def _extract_citations(text: str) -> list[str]:
@@ -218,46 +372,11 @@ def answer_question(
     *,
     tools: dict[str, Callable[[dict], str]],
     client,
-    model: str = MODEL,
 ) -> dict:
     """Run the grounded tool-use loop and return ``{answer, citations,
     toolCalls}``. ``client`` and ``tools`` are injected so tests drive a
-    mocked Claude and in-memory tool impls."""
-    messages: list[dict] = [*history, {"role": "user", "content": question}]
-    tool_calls: list[dict] = []
-
-    for _ in range(MAX_TOOL_ROUNDS):
-        response = client.messages.create(
-            model=model,
-            max_tokens=MAX_TOKENS,
-            system=SYSTEM_PROMPT,
-            tools=TOOL_SCHEMAS,
-            messages=messages,
-        )
-        messages.append({"role": "assistant", "content": response.content})
-        if response.stop_reason != "tool_use":
-            break
-        results = []
-        for block in response.content:
-            if getattr(block, "type", None) != "tool_use":
-                continue
-            impl = tools.get(block.name)
-            output = impl(dict(block.input)) if impl else f"Unknown tool {block.name}"
-            tool_calls.append({"tool": block.name, "input": dict(block.input)})
-            results.append(
-                {
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": output,
-                }
-            )
-        messages.append({"role": "user", "content": results})
-
-    answer = "".join(
-        getattr(b, "text", "")
-        for b in messages[-1]["content"]
-        if getattr(b, "type", None) == "text"
-    ) if isinstance(messages[-1]["content"], list) else ""
+    scripted provider and in-memory tool impls."""
+    answer, tool_calls = client.run(question, history, tools)
     return {
         "answer": answer,
         "citations": _extract_citations(answer),

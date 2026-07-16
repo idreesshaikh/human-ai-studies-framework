@@ -52,9 +52,9 @@ export const TOUR_STEPS: readonly TourStep[] = [
     id: 'trace-chips',
     view: 'overview',
     anchor: 'trace-chip',
-    title: 'The little pills decode the jargon',
+    title: 'The little "i" toggles explain everything',
     body:
-      'Codes like FR-DASH-1 are requirement IDs - lookup keys into the project’s requirements document, not vocabulary to memorize. Hover any pill for its plain-English meaning; click it for the full chain from requirement to the numbers on screen.',
+      'Every chart and card carries an info toggle. Hover it for a plain-English explanation of what the panel answers; click it for the full chain from the underlying requirement to the numbers on screen.',
     why: 'Every chart can prove why it exists and where its data comes from.',
   },
   {
