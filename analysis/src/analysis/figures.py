@@ -1,0 +1,163 @@
+"""Figure helpers following the project's data-viz conventions.
+
+One place defines the palette and chart chrome so every recipe's figures
+read as one system: the validated reference palette (same hexes as the
+dashboard's CSS custom properties), thin marks, hairline grid, labeled
+axes, honest scales (value axes include zero unless a recipe argues
+otherwise), every observation drawn at pilot n, and per-cell n printed on
+the axis - never a summary bar hiding the points.
+"""
+
+from __future__ import annotations
+
+import matplotlib
+
+matplotlib.use("Agg")  # headless; recipes never open windows
+# Deterministic SVG element ids (default is a per-process uuid4 salt, which
+# breaks the replication kit's byte-stable regeneration - NFR-6). Wall-clock
+# metadata is handled by SOURCE_DATE_EPOCH at the caller.
+matplotlib.rcParams["svg.hashsalt"] = "masters-project-analysis"
+
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+from matplotlib.figure import Figure  # noqa: E402
+
+#: Categorical slots, fixed order (dataviz reference palette, light mode).
+PALETTE = [
+    "#2a78d6",  # 1 blue
+    "#1baf7a",  # 2 aqua
+    "#eda100",  # 3 yellow
+    "#008300",  # 4 green
+    "#4a3aa7",  # 5 violet
+    "#e34948",  # 6 red
+    "#e87ba4",  # 7 magenta
+    "#eb6834",  # 8 orange
+]
+INK = "#0b0b0b"
+SECONDARY = "#52514e"
+MUTED = "#898781"
+GRID = "#e1e0d9"
+BASELINE = "#c3c2b7"
+SURFACE = "#fcfcfb"
+
+
+def condition_colors(conditions: list[str]) -> dict[str, str]:
+    """Fixed slot per condition, in dataset order - color follows the
+    entity, never its rank."""
+    return {c: PALETTE[i % len(PALETTE)] for i, c in enumerate(conditions)}
+
+
+def new_axes(
+    title: str, xlabel: str, ylabel: str, figsize: tuple[float, float] = (6.4, 4.2)
+) -> tuple[Figure, plt.Axes]:
+    """A styled figure: recessive chrome, labeled axes, surface background."""
+    fig, ax = plt.subplots(figsize=figsize, dpi=150)
+    fig.patch.set_facecolor(SURFACE)
+    ax.set_facecolor(SURFACE)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(BASELINE)
+        ax.spines[side].set_linewidth(0.8)
+    ax.grid(axis="y", color=GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+    ax.tick_params(colors=MUTED, labelsize=8)
+    ax.set_title(title, color=INK, fontsize=10, loc="left", pad=10)
+    ax.set_xlabel(xlabel, color=SECONDARY, fontsize=8)
+    ax.set_ylabel(ylabel, color=SECONDARY, fontsize=8)
+    fig.tight_layout()
+    return fig, ax
+
+
+def strip_by_condition(
+    df: pd.DataFrame,
+    value: str,
+    conditions: list[str],
+    title: str,
+    ylabel: str,
+    unit_label: str = "observation",
+    xlabel: str = "condition",
+) -> Figure:
+    """The house small-n distribution plot: every observation as a jittered
+    point, a median tick per cell, per-cell n on the axis, zero included on
+    the value axis (honest scale). ``xlabel`` names the cell variable when
+    something other than condition plays that role (e.g. outcome)."""
+    colors = condition_colors(conditions)
+    fig, ax = new_axes(title, xlabel, ylabel)
+    rng = np.random.default_rng(0)  # deterministic jitter (NFR-6)
+    for i, cond in enumerate(conditions):
+        values = pd.to_numeric(
+            df.loc[df["condition"] == cond, value], errors="coerce"
+        ).dropna()
+        x = i + rng.uniform(-0.14, 0.14, size=len(values))
+        ax.scatter(
+            x,
+            values,
+            s=26,
+            color=colors[cond],
+            edgecolors=SURFACE,
+            linewidths=1.2,
+            zorder=3,
+        )
+        if len(values):
+            ax.hlines(
+                values.median(),
+                i - 0.22,
+                i + 0.22,
+                color=colors[cond],
+                linewidth=2,
+                zorder=4,
+            )
+    ax.set_xticks(range(len(conditions)))
+    ax.set_xticklabels(
+        [
+            f"{c}\nn={int((df['condition'] == c).sum())} {unit_label}s"
+            for c in conditions
+        ]
+    )
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(min(0, lo), hi)  # value axes include zero
+    fig.tight_layout()
+    return fig
+
+
+def paired_dots(
+    wide: pd.DataFrame,
+    conditions: tuple[str, str],
+    title: str,
+    ylabel: str,
+) -> Figure:
+    """Within-subjects paired plot: one line per participant across the two
+    condition columns of ``wide`` (index = participantId)."""
+    colors = condition_colors(list(conditions))
+    fig, ax = new_axes(title, "condition", ylabel, figsize=(4.6, 4.2))
+    for pid, row in wide.iterrows():
+        ys = [row.get(conditions[0]), row.get(conditions[1])]
+        ax.plot([0, 1], ys, color=BASELINE, linewidth=1, zorder=2)
+        ax.annotate(
+            str(pid),
+            (1.02, ys[1]) if pd.notna(ys[1]) else (0.02, ys[0]),
+            fontsize=7,
+            color=MUTED,
+        )
+    for i, cond in enumerate(conditions):
+        vals = wide[cond].dropna()
+        ax.scatter(
+            [i] * len(vals),
+            vals,
+            s=30,
+            color=colors[cond],
+            edgecolors=SURFACE,
+            linewidths=1.2,
+            zorder=3,
+        )
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(
+        [f"{c}\nn={wide[c].notna().sum()}" for c in conditions]
+    )
+    ax.set_xlim(-0.35, 1.45)
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(min(0, lo), hi)
+    fig.tight_layout()
+    return fig

@@ -1,0 +1,42 @@
+[project]
+name = "human-ai-studies-framework"
+version = "0.1.0"
+description = "Framework for Conducting Human-AI Studies - workspace root"
+requires-python = ">=3.12"
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["metrics", "protocol", "middleware", "analysis", "agent-capture"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pre-commit>=4.6.0",
+    "pytest>=8.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+# metrics/corpus/ holds deliberately imperfect sample files used as parsing
+# targets by the metric extractors - they are analysis corpus, not our code.
+extend-exclude = ["metrics/corpus"]
+
+[tool.ruff.lint]
+# Correctness + import hygiene now; style expands as the codebase grows.
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI dependency injection is a function call in a default by design.
+"middleware/**" = ["B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["metrics", "protocol", "middleware", "analysis", "agent-capture"]
+
+[tool.coverage.report]
+# Ad-hoc demo entry points are exercised manually, not by the test suite.
+exclude_also = ['if __name__ == "__main__":']

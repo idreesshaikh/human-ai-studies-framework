@@ -1,0 +1,21 @@
+[project]
+name = "middleware"
+version = "0.1.0"
+description = "Ingestion middleware on :8000 - idempotent ingest, gap detection, one-timeline dataset (FR-ING-*)"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=0.116.0",
+    "fastapi>=0.139.0",
+    "protocol",
+    "pymupdf>=1.28.0",
+    "python-multipart>=0.0.32",
+    "sqlalchemy>=2.0.51",
+    "uvicorn>=0.51.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+protocol = { workspace = true }

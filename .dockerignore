@@ -1,0 +1,12 @@
+# Keep image builds lean and hermetic (NFR-9).
+**/node_modules
+**/__pycache__
+.venv
+.git
+.study-data
+*.sqlite3
+results
+shadow.git
+dashboard/dist
+extension/out
+extension/out-tests

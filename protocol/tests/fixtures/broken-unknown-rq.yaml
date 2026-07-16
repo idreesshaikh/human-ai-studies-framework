@@ -1,0 +1,31 @@
+# Deliberately malformed: schema-valid, but the analysis plan references a
+# research question that is never declared (referential integrity check).
+protocolVersion: 1
+study:
+  id: broken-study
+  title: Broken fixture
+  researchers: [Nobody]
+  ethicsRef: none
+researchQuestions:
+  - id: RQ-X1
+    text: Placeholder question
+conditions: [ai-assisted, unassisted]
+participants:
+  planned: 2
+  design: within-subjects
+  counterbalanced: true
+session:
+  durationMinutes: 60
+  taskDescription: placeholder
+instruments:
+  cognitiveOverlay:
+    session: { durationMinutes: 60 }
+    fatigue: { intervalMinutes: 15, waitForPauseSeconds: 4 }
+    stuck: { enabled: true, thresholdSeconds: 90 }
+    output: { httpEndpoint: "http://127.0.0.1:8000/events" }
+phases:
+  - name: design
+    gates: []
+analysisPlan:
+  - rq: RQ-X2
+    recipes: [some-recipe]

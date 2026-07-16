@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://masters-project.local/schemas/study-protocol.schema.json",
+  "title": "Study Protocol",
+  "description": "Machine-readable requirements specification of a study (study-as-code). Glossary terms: participant, condition, instrument, phase, gate, recipe.",
+  "type": "object",
+  "required": [
+    "protocolVersion",
+    "study",
+    "researchQuestions",
+    "conditions",
+    "participants",
+    "session",
+    "instruments",
+    "phases",
+    "analysisPlan"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "protocolVersion": {
+      "description": "Schema version of this protocol document. Consumers branch on it, never guess (FR-PROT-2, NFR-4).",
+      "const": 1
+    },
+    "study": {
+      "type": "object",
+      "required": ["id", "title", "researchers", "ethicsRef"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "researchers": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "ethicsRef": { "type": "string", "minLength": 1 }
+      }
+    },
+    "researchQuestions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^RQ-[A-Za-z0-9]+$" },
+          "text": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "conditions": {
+      "description": "Experimental arms a session runs under (not: group, treatment).",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "participants": {
+      "type": "object",
+      "required": ["planned", "design", "counterbalanced"],
+      "additionalProperties": false,
+      "properties": {
+        "planned": { "type": "integer", "minimum": 1 },
+        "design": {
+          "enum": ["within-subjects", "between-subjects"]
+        },
+        "counterbalanced": { "type": "boolean" }
+      }
+    },
+    "session": {
+      "type": "object",
+      "required": ["durationMinutes", "taskDescription"],
+      "additionalProperties": false,
+      "properties": {
+        "durationMinutes": { "type": "integer", "minimum": 1 },
+        "taskDescription": { "type": "string", "minLength": 1 }
+      }
+    },
+    "instruments": {
+      "description": "Data-collecting components configured by the protocol, keyed by instrument name.",
+      "type": "object",
+      "required": ["cognitiveOverlay"],
+      "properties": {
+        "cognitiveOverlay": {
+          "description": "Config for the Cognitive Overlay VS Code extension; nested keys mirror the real cognitiveOverlay.* settings.",
+          "type": "object",
+          "required": ["session", "fatigue", "stuck", "output"],
+          "additionalProperties": false,
+          "properties": {
+            "session": {
+              "type": "object",
+              "required": ["durationMinutes"],
+              "additionalProperties": false,
+              "properties": {
+                "durationMinutes": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "fatigue": {
+              "type": "object",
+              "required": ["intervalMinutes", "waitForPauseSeconds"],
+              "additionalProperties": false,
+              "properties": {
+                "intervalMinutes": { "type": "number", "exclusiveMinimum": 0 },
+                "waitForPauseSeconds": { "type": "number", "minimum": 0 },
+                "jitterPercent": { "type": "number", "minimum": 0 },
+                "quietTailMinutes": { "type": "number", "minimum": 0 }
+              }
+            },
+            "stuck": {
+              "type": "object",
+              "required": ["enabled", "thresholdSeconds"],
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "thresholdSeconds": { "type": "number", "exclusiveMinimum": 0 },
+                "cooldownMinutes": { "type": "number", "minimum": 0 },
+                "languages": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            },
+            "output": {
+              "type": "object",
+              "required": ["httpEndpoint"],
+              "additionalProperties": false,
+              "properties": {
+                "httpEndpoint": { "type": "string", "minLength": 1 },
+                "directory": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": { "type": "object" }
+    },
+    "phases": {
+      "description": "Study lifecycle phases with their gates: requirements-validation checkpoints listing the artifacts required to progress past each phase.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "gates"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "enum": [
+              "design",
+              "ethics",
+              "pilot",
+              "recruitment",
+              "data-collection",
+              "analysis",
+              "write-up"
+            ]
+          },
+          "gates": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "analysisPlan": {
+      "description": "Which analysis recipes answer which research question.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["rq", "recipes"],
+        "additionalProperties": false,
+        "properties": {
+          "rq": { "type": "string", "pattern": "^RQ-[A-Za-z0-9]+$" },
+          "recipes": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "literature": {
+      "description": "Papers justifying protocol elements (FR-LIT-3); consumed by Mega-Prompt 10.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["paperRef", "justifies"],
+        "additionalProperties": false,
+        "properties": {
+          "paperRef": { "type": "string", "minLength": 1 },
+          "justifies": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}
