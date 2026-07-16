@@ -1,0 +1,30 @@
+# Deliberately malformed: no `conditions`, participants.planned below minimum,
+# and an invalid participants.design enum value. Validation must name each.
+protocolVersion: 1
+study:
+  id: broken-study
+  title: Broken fixture
+  researchers: [Nobody]
+  ethicsRef: none
+researchQuestions:
+  - id: RQ-X1
+    text: Placeholder question
+participants:
+  planned: 0
+  design: sideways-subjects
+  counterbalanced: true
+session:
+  durationMinutes: 60
+  taskDescription: placeholder
+instruments:
+  cognitiveOverlay:
+    session: { durationMinutes: 60 }
+    fatigue: { intervalMinutes: 15, waitForPauseSeconds: 4 }
+    stuck: { enabled: true, thresholdSeconds: 90 }
+    output: { httpEndpoint: "http://127.0.0.1:8000/events" }
+phases:
+  - name: design
+    gates: []
+analysisPlan:
+  - rq: RQ-X1
+    recipes: [some-recipe]

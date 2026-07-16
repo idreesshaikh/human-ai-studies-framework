@@ -1,0 +1,34 @@
+# Python (uv-managed)
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / VS Code extension
+node_modules/
+out/
+out-tests/
+*.vsix
+
+# Dashboard build output
+dashboard/build/
+dashboard/.svelte-kit/
+
+# Study data & generated study artifacts (never commit participant data)
+.study-data/
+*.sqlite3
+results/
+shadow.git/
+
+# Environment & secrets
+.env
+
+# OS / editor noise
+.DS_Store
+
+# Coverage artifacts (pytest-cov, CI metrics gate)
+.coverage
+.coverage.*
+htmlcov/

@@ -1,0 +1,40 @@
+# Production posture from day one (NFR-7/9): `docker compose up` brings up
+# the ingestion middleware on :8000 with the pilot protocol loaded and seeds
+# it with the sample session so every downstream view has data.
+#
+#   docker compose up                     # middleware + demo seed
+#   docker compose --profile sonar up     # ... plus SonarQube for the
+#                                         # cognitive-complexity metric (D5)
+services:
+  middleware:
+    build:
+      context: .
+      dockerfile: middleware/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - study-data:/data
+
+  demo-seed:
+    build:
+      context: .
+      dockerfile: middleware/Dockerfile
+    depends_on:
+      middleware:
+        condition: service_healthy
+    command: >
+      uv run python middleware/scripts/replay_session.py
+      --server http://middleware:8000
+    restart: "no"
+
+  sonarqube:
+    image: sonarqube:community
+    profiles: ["sonar"]
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonar-data:/opt/sonarqube/data
+
+volumes:
+  study-data:
+  sonar-data:

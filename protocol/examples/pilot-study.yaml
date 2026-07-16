@@ -1,0 +1,141 @@
+# Pilot study protocol - the with/without-AI developer study this framework
+# exists to run (roadmap/08-pilot-study.md executes it).
+#
+# This file is the study's requirements specification ("study-as-code"):
+# instruments, gates, and analyses below are derived from it by command,
+# never hand-configured (FR-PROT-1/4).
+#
+# FROZEN: pilot-2026 v1.0 (2026-07-12, MP-08 deliverable 1; git tag
+# `protocol/pilot-2026-v1.0` at the MP-08 commit). Amendments after this
+# line require a new version marker here plus a row in the traceability
+# phase-completion log - IDs and history are never rewritten (golden rule 2).
+# AMENDED: v1.1 (2026-07-12, MP-09 item 3) - analysisPlan RQ-P3 gains
+# `meyer-fragmentation` (second replicated-paper recipe, FR-ANA-5) and the
+# literature list gains its source; no instrument or session changes.
+
+protocolVersion: 1
+
+study:
+  id: pilot-2026
+  title: "AI assistance and developer cognitive load: a within-subjects pilot"
+  researchers:
+    - Idrees Razak
+    - Project Supervisor
+  ethicsRef: "UoM CS ethics application (in preparation; gate blocks data-collection)"
+
+researchQuestions:
+  - id: RQ-P1
+    text: >-
+      How does AI assistance affect self-reported cognitive load
+      (fatigue probes, stuck episodes, TLX debrief)?
+  - id: RQ-P2
+    text: >-
+      How does AI assistance affect the static cognitive-load profile of the
+      code produced (9-metric matrix over workspace snapshots)?
+  - id: RQ-P3
+    text: >-
+      How does AI assistance change working behavior - pasting, file
+      switching, edit provenance, active vs idle time?
+  - id: RQ-P4
+    text: >-
+      How do developers review AI-generated code before accepting it
+      (review latency, scroll coverage, accept rate by suggestion size)?
+  - id: RQ-P5
+    text: >-
+      How does the conversation with the agent unfold over a session - turn
+      cadence, tool-call mix, reliance loops - and how does it relate to
+      outcomes?
+
+conditions: # glossary: condition, not group/treatment
+  - ai-assisted
+  - unassisted
+
+participants:
+  planned: 6
+  design: within-subjects
+  counterbalanced: true # condition order alternates per participant
+
+session:
+  durationMinutes: 45
+  taskDescription: >-
+    Two matched Python maintenance tasks (one per condition, order
+    counterbalanced with condition pairing per the runbook's Latin square):
+    Task A "expenses" and Task B "logbook" (study/pilot/tasks/), each a
+    small existing codebase with two seeded defects and one feature request,
+    shipped with acceptance tests providing outcome ground truth
+    (FR-INST-16, harness lands with MP-12). In ai-assisted sessions the
+    participant uses Claude Code in the integrated terminal; in unassisted
+    sessions AI tooling is disabled.
+
+instruments:
+  # Nested keys mirror the real cognitiveOverlay.* VS Code settings -
+  # `protocol derive overlay-settings` flattens this subtree verbatim.
+  cognitiveOverlay:
+    session:
+      durationMinutes: 45
+    fatigue:
+      intervalMinutes: 15
+      waitForPauseSeconds: 4
+      jitterPercent: 20
+      quietTailMinutes: 5
+    stuck:
+      enabled: true
+      thresholdSeconds: 90
+      cooldownMinutes: 5
+      languages: [python]
+    output:
+      httpEndpoint: "http://127.0.0.1:8000/ingest/events"
+  metrics:
+    metricSet: cognitive-load-9
+  # Agent leg (MP-12 consumes this; declared before the freeze so the
+  # consent form matches the content policy by construction - FR-AGENT-5,
+  # FR-ETH-2 rev 2). metadata-only: turn/tool-call timings and sizes,
+  # never conversation text.
+  agentCapture:
+    adapter: claude-code
+    contentPolicy: metadata-only
+
+phases:
+  - name: design
+    gates:
+      - protocol-validated.txt
+      - task-definitions.md
+  - name: ethics
+    gates:
+      - ethics-approval.pdf
+      - consent-form.pdf
+  - name: pilot
+    gates:
+      - dry-run-report.md
+  - name: recruitment
+    gates:
+      - participant-schedule.md
+  - name: data-collection
+    gates:
+      - dataset-export.sqlite3
+      - integrity-report.md
+  - name: analysis
+    gates:
+      - per-rq-report.md
+  - name: write-up
+    gates: []
+
+analysisPlan:
+  - rq: RQ-P1
+    recipes: [fatigue-by-condition, stuck-episodes, tlx-debrief]
+  - rq: RQ-P2
+    recipes: [code-quality-by-condition]
+  - rq: RQ-P3
+    recipes: [paste-behavior, meyer-fragmentation]
+  - rq: RQ-P4
+    recipes: [ai-review-behavior, ziegler-acceptance-rate]
+  - rq: RQ-P5
+    recipes: [agent-interaction-dynamics, task-outcome-by-condition]
+
+literature:
+  - paperRef: "arxiv:2302.06590" # Peng et al., Copilot productivity RCT
+    justifies: [RQ-P3, RQ-P4]
+  - paperRef: "arxiv:2205.06537" # Ziegler et al., acceptance rate metric
+    justifies: [RQ-P4] # replicated as the ziegler-acceptance-rate recipe
+  - paperRef: "doi:10.1109/TSE.2017.2656886" # Meyer et al., work fragmentation
+    justifies: [RQ-P3] # replicated as the meyer-fragmentation recipe

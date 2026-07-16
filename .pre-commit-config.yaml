@@ -1,0 +1,59 @@
+# Install:  uv run pre-commit install
+# Run all:  uv run pre-commit run --all-files
+#
+# Mirrors the CI gate (.github/workflows/ci.yml) at commit time. Python
+# tools run through uv so the versions are the workspace-pinned ones -
+# hooks and CI can never disagree.
+
+# metrics/corpus holds deliberately imperfect specimen files whose exact
+# bytes anchor recorded metric values, and analysis/tests/fixtures holds the
+# byte-exact golden paper drafts (FR-ANA-6 determinism) - no fixer may touch
+# either.
+exclude: ^(metrics/corpus/|analysis/tests/fixtures/)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-json
+        # .vscode/* and tsconfig* are JSONC (comments allowed)
+        exclude: (^|/)\.vscode/|tsconfig[^/]*\.json$
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff check (workspace-pinned)
+        entry: uv run ruff check --force-exclude
+        language: system
+        types: [python]
+        require_serial: true
+
+      - id: pytest
+        name: pytest (all packages)
+        entry: uv run pytest -q
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: extension-format
+        name: prettier check (extension)
+        entry: bash -c 'cd extension && npm run --silent format:check'
+        language: system
+        files: ^extension/
+        pass_filenames: false
+
+      - id: extension-lint
+        name: eslint (extension)
+        entry: bash -c 'cd extension && npm run --silent lint'
+        language: system
+        files: ^extension/(src|test)/.*\.ts$|^extension/eslint\.config\.mjs$
+        pass_filenames: false

@@ -1,0 +1,6 @@
+out/
+out-tests/
+node_modules/
+*.vsix
+.study-data/
+package-lock.json

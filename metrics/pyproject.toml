@@ -1,0 +1,17 @@
+[project]
+name = "metrics"
+version = "0.1.0"
+description = "Static code metrics leg - 9-metric cognitive-load matrix (FR-INST-4)"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=3.0.3",
+    "radon>=6.0.1",
+    "requests>=2.34.2",
+    "tree-sitter>=0.24.0",
+    "tree-sitter-python>=0.25.0",
+]
+
+# Flat script layout (src/parsers/, src/analyzers/, src/main.py) per
+# docs/implementation_plan.md - not an installable package yet.
+[tool.uv]
+package = false
