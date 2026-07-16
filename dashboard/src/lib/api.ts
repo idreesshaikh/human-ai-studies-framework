@@ -362,18 +362,18 @@ export const api = {
     return res.json()
   },
   assistantConfig: (study: string) =>
-    get<{ providers: string[] }>(
+    get<{ configured: boolean; models: string[]; defaultModel: string }>(
       `/studies/${encodeURIComponent(study)}/assistant/config`,
     ),
   assistant: (
     study: string,
     question: string,
     history: { role: string; content: string }[],
-    provider?: string,
+    model?: string,
   ) =>
     send<AssistantAnswer>('POST', `/studies/${encodeURIComponent(study)}/assistant`, {
       question,
       history,
-      ...(provider ? { provider } : {}),
+      ...(model ? { model } : {}),
     }),
 }

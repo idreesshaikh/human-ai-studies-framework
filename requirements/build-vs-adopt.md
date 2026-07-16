@@ -391,6 +391,11 @@ sources, the retrospective's output is an inert proposal a human approves,
 and absent both keys everything degrades gracefully (503 / offline
 template). Keys live only in runtime env (Render env / VM `deploy/.env`),
 never in git or CI.
+**Rev 2 (2026-07-16):** Gemini removed at the owner's request (one Mistral
+key in active use); the dashboard's picker now selects among *Mistral model
+tiers* (small/medium/large, validated server-side) instead of providers.
+The seam stays one provider class - reintroducing a second provider is a
+small, decision-gated change.
 
 | # | Candidate | Decision | Satisfies | Key reason |
 | - | --------- | -------- | --------- | ---------- |
@@ -425,4 +430,4 @@ never in git or CI.
 | D29 | Clerk + `pyjwt[crypto]` | Adopt (optional provider; partially supersedes D28) | FR-OPS-5 | hosted login without making self-hosters need an account; JWT verification never hand-rolled |
 | D30 | Vercel v0 | Adopt (design tool; rev 2: direct Svelte iteration, D15 stands) | dashboard UI, FR-OPS-6 | v0 gained Svelte support; separate Vercel project rooted at `dashboard/`; merged back via `npm run check` |
 | D31 | Public-docs architecture | Build (two-layer) | NFR-11 | product-grade public docs; RE record intact in requirements/ + docs/archive/ |
-| D32 | Gemini + Mistral APIs (REST, no SDK) | Adopt (bounded; supersedes D10, D22) | FR-LIT-4, FR-META-2 | free-tier providers; stdlib REST keeps the FR-ETH-4 tool loop as the enforcement boundary |
+| D32 | Mistral API (REST, no SDK; rev 2 dropped Gemini) | Adopt (bounded; supersedes D10, D22) | FR-LIT-4, FR-META-2 | free-tier provider in active use; UI picks the model tier; stdlib REST keeps the FR-ETH-4 tool loop as the enforcement boundary |

@@ -252,17 +252,8 @@ def _scripted_post(responses):
     return post
 
 
-def _gemini_two_rounds():
-    """Round 1: call get_dataset_summary; round 2: cited answer."""
-    return _scripted_post([
-        {"candidates": [{"content": {"parts": [
-            {"functionCall": {"name": "get_dataset_summary", "args": {}}}
-        ]}}]},
-        {"candidates": [{"content": {"parts": [{"text": _CITED_ANSWER}]}}]},
-    ])
-
-
 def _mistral_two_rounds():
+    """Round 1: call get_dataset_summary; round 2: cited answer."""
     return _scripted_post([
         {"choices": [{"message": {"role": "assistant", "content": "",
             "tool_calls": [{"id": "t1", "function": {
@@ -272,15 +263,7 @@ def _mistral_two_rounds():
     ])
 
 
-@pytest.mark.parametrize(
-    "provider",
-    [
-        lambda: assistant.GeminiProvider("test-key", post=_gemini_two_rounds()),
-        lambda: assistant.MistralProvider("test-key", post=_mistral_two_rounds()),
-    ],
-    ids=["gemini", "mistral"],
-)
-def test_assistant_answers_with_citations_and_uses_aggregates(client, provider):
+def test_assistant_answers_with_citations_and_uses_aggregates(client):
     from middleware.db import make_session_factory
 
     _seed_events_and_metrics(client)
@@ -291,7 +274,7 @@ def test_assistant_answers_with_citations_and_uses_aggregates(client, provider):
             "How many events did the ai-assisted condition record?",
             [],
             tools=tools,
-            client=provider(),
+            client=assistant.MistralProvider("test-key", post=_mistral_two_rounds()),
         )
     assert "[dataset-summary]" in result["answer"]
     assert "dataset-summary" in result["citations"]
@@ -299,29 +282,38 @@ def test_assistant_answers_with_citations_and_uses_aggregates(client, provider):
     assert result["toolCalls"][0]["tool"] == "get_dataset_summary"
 
 
-def test_assistant_config_lists_only_keyed_providers(client, monkeypatch):
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+def test_assistant_config_reports_models_only_when_keyed(client, monkeypatch):
     monkeypatch.setenv("MISTRAL_API_KEY", "k")
-    res = client.get("/studies/pilot-2026/assistant/config")
-    assert res.json() == {"providers": ["mistral"]}
+    body = client.get("/studies/pilot-2026/assistant/config").json()
+    assert body["configured"] is True
+    assert body["defaultModel"] in body["models"]
+
+    monkeypatch.delenv("MISTRAL_API_KEY")
+    body = client.get("/studies/pilot-2026/assistant/config").json()
+    assert body == {
+        "configured": False,
+        "models": [],
+        "defaultModel": assistant.MISTRAL_MODEL,
+    }
 
 
-def test_make_client_honours_provider_choice(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "g")
+def test_make_client_validates_the_model_tier(monkeypatch):
     monkeypatch.setenv("MISTRAL_API_KEY", "m")
-    assert isinstance(assistant.make_client(), assistant.GeminiProvider)
-    assert isinstance(
-        assistant.make_client("mistral"), assistant.MistralProvider
+    assert assistant.make_client().model == assistant.MISTRAL_MODEL
+    assert (
+        assistant.make_client("mistral-large-latest").model
+        == "mistral-large-latest"
     )
-    monkeypatch.delenv("GEMINI_API_KEY")
-    assert assistant.make_client("gemini") is None
+    # Unknown tiers fall back rather than reaching the API verbatim.
+    assert assistant.make_client("gpt-99").model == assistant.MISTRAL_MODEL
+    monkeypatch.delenv("MISTRAL_API_KEY")
+    assert assistant.make_client() is None
 
 
 def test_assistant_endpoint_503_without_api_key(client, monkeypatch):
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     res = client.post(
         "/studies/pilot-2026/assistant", json={"question": "hi"}
     )
     assert res.status_code == 503
-    assert "GEMINI_API_KEY" in res.json()["detail"]
+    assert "MISTRAL_API_KEY" in res.json()["detail"]

@@ -3,7 +3,7 @@ own improvements, a human approves them.
 
 ``analysis retrospective`` collects the operational-findings log (FR-META-1),
 the facilitator's ``findings.md``, and recipe-coverage aggregates, then has
-the configured model (Gemini or Mistral, D28) draft a **changelist proposal**
+Mistral (D32 rev 2) draft a **changelist proposal**
 (SRS amendments / protocol-schema changes / instrument-config changes /
 rejected ideas), each item citing the findings that evidence it.
 
@@ -17,7 +17,7 @@ Two hard boundaries:
   *self-proposing*. Accepted items are applied by the researcher as ordinary,
   change-managed edits to ``requirements/srs.md`` + ``traceability.md``.
 
-Offline-degradable: without ``GEMINI_API_KEY``/``MISTRAL_API_KEY`` it emits
+Offline-degradable: without ``MISTRAL_API_KEY`` it emits
 the collected evidence bundle plus a proposal template for the researcher to
 complete by hand - the evidence is still fully assembled and cited.
 """
@@ -29,7 +29,6 @@ import os
 import urllib.request
 from pathlib import Path
 
-GEMINI_MODEL = "gemini-flash-latest"
 MISTRAL_MODEL = "mistral-small-latest"
 
 SYSTEM_PROMPT = (
@@ -116,7 +115,7 @@ def _coverage(status: dict) -> dict:
 
 
 def build_prompt(evidence: dict) -> str:
-    """The user-message body for Claude - findings + aggregates only. This is
+    """The user-message body for the model - findings + aggregates only. This is
     the FR-ETH-4 choke point: it must contain no participant-row data."""
     lines = [
         f"# Retrospective evidence for study {evidence['studyId']}",
@@ -158,31 +157,8 @@ def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:
         return json.loads(res.read())
 
 
-class GeminiClient:
-    """Single-turn draft via Google AI Studio's REST API (D28)."""
-
-    def __init__(self, api_key: str, model: str = GEMINI_MODEL, post=_post_json):
-        self.api_key = api_key
-        self.model = model
-        self.post = post
-
-    def draft(self, system: str, prompt: str) -> str:
-        res = self.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.model}:generateContent",
-            {
-                "system_instruction": {"parts": [{"text": system}]},
-                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                "generationConfig": {"maxOutputTokens": 4096},
-            },
-            {"x-goog-api-key": self.api_key},
-        )
-        parts = (res.get("candidates") or [{}])[0].get("content", {}).get("parts", [])
-        return "".join(p.get("text", "") for p in parts)
-
-
 class MistralClient:
-    """Single-turn draft via Mistral's chat-completions REST API (D28)."""
+    """Single-turn draft via Mistral's chat-completions REST API (D32)."""
 
     def __init__(self, api_key: str, model: str = MISTRAL_MODEL, post=_post_json):
         self.api_key = api_key
@@ -207,18 +183,15 @@ class MistralClient:
 
 
 def make_client():
-    """The configured client - ``GEMINI_API_KEY`` wins over
-    ``MISTRAL_API_KEY`` (D28) - or None when neither is set (offline path).
-    Never raises."""
-    if key := os.environ.get("GEMINI_API_KEY"):
-        return GeminiClient(key)
+    """A Mistral client (D32 rev 2), or None when no key is set (offline
+    path). Never raises."""
     if key := os.environ.get("MISTRAL_API_KEY"):
         return MistralClient(key)
     return None
 
 
 def draft_with_llm(evidence: dict, client) -> str:
-    """Ask the configured model for the proposal (D28); no participant data
+    """Ask the configured model for the proposal (D32); no participant data
     crosses the boundary."""
     return client.draft(SYSTEM_PROMPT, build_prompt(evidence))
 
@@ -228,8 +201,7 @@ def evidence_bundle(evidence: dict) -> str:
     researcher completes by hand. The findings are fully cited already."""
     return (
         "# Retrospective proposal (TEMPLATE - complete by hand)\n\n"
-        "The knowledge assistant was unavailable (no `GEMINI_API_KEY` or "
-        "`MISTRAL_API_KEY`); "
+        "The knowledge assistant was unavailable (no `MISTRAL_API_KEY`); "
         "this bundle collects the evidence so you can draft the proposal "
         "manually. It is **inert** until you apply accepted items as ordinary, "
         "change-managed edits to `requirements/srs.md` + "
@@ -293,10 +265,10 @@ def cmd_retrospective(protocol: dict, study_id: str, args) -> int:
         + (" + facilitator notes" if evidence["facilitatorNotes"] else "")
     )
     print(
-        "  drafted with the configured model (D28 bounds: findings + "
+        "  drafted with the configured model (D32 bounds: findings + "
         "aggregates only)"
         if used_llm
-        else "  no GEMINI_API_KEY/MISTRAL_API_KEY - emitted the evidence "
+        else "  no MISTRAL_API_KEY - emitted the evidence "
         "bundle + template for manual drafting"
     )
     print(

@@ -1,5 +1,5 @@
 """Knowledge assistant - grounded Q&A over papers + protocol + dataset
-*aggregates* (FR-LIT-4), powered by Gemini or Mistral with tool use (D28,
+*aggregates* (FR-LIT-4), powered by Mistral with tool use (D32 rev 2,
 superseding D10/D22).
 
 **FR-ETH-4 is enforced here, in code, not in the prompt.** The model is
@@ -18,12 +18,12 @@ grep-the-output test asserts exactly this.
 
 The system prompt requires a source tag on every claim (``[paper-ref
 §chunk]``, ``[protocol:field]``, or ``[dataset-summary]``); an answer with
-no source must say so. Provider selection is by key: ``GEMINI_API_KEY``
-(Google AI Studio) wins over ``MISTRAL_API_KEY``; with neither set the
-endpoint degrades gracefully — every other feature works offline.
+no source must say so. Without ``MISTRAL_API_KEY`` the endpoint degrades
+gracefully — every other feature works offline. The dashboard picks the
+*model tier* per question (``MISTRAL_MODELS``); requests never carry keys.
 
-Both providers speak plain REST over stdlib ``urllib`` (D28: no vendor SDK
-- same zero-bloat call shape as the Semantic Scholar client), each with a
+Mistral is called over plain REST via stdlib ``urllib`` (D32: no vendor
+SDK - same zero-bloat call shape as the Semantic Scholar client), with a
 hand-rolled tool-use loop, because the tool boundary is the whole point.
 """
 
@@ -42,8 +42,13 @@ from sqlalchemy.orm import Session
 from middleware import paper_index
 from middleware.db import Event, MetricRow
 
-GEMINI_MODEL = "gemini-flash-latest"
 MISTRAL_MODEL = "mistral-small-latest"
+#: Model tiers the dashboard may select per question (validated server-side).
+MISTRAL_MODELS = (
+    "mistral-small-latest",
+    "mistral-medium-latest",
+    "mistral-large-latest",
+)
 MAX_TOKENS = 2048
 MAX_TOOL_ROUNDS = 6
 
@@ -204,78 +209,8 @@ def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:
         return json.loads(res.read())
 
 
-class GeminiProvider:
-    """Google AI Studio (Gemini) tool-use loop over the REST API (D28)."""
-
-    name = "gemini"
-
-    def __init__(self, api_key: str, model: str = GEMINI_MODEL, post=_post_json):
-        self.api_key = api_key
-        self.model = model
-        self.post = post
-
-    @staticmethod
-    def _tool_config() -> list[dict]:
-        decls = []
-        for t in TOOL_SCHEMAS:
-            decl = {"name": t["name"], "description": t["description"]}
-            # Gemini rejects an empty properties object - omit instead.
-            if t["input_schema"].get("properties"):
-                decl["parameters"] = t["input_schema"]
-            decls.append(decl)
-        return [{"functionDeclarations": decls}]
-
-    def run(
-        self, question: str, history: list[dict], tools: dict[str, Callable]
-    ) -> tuple[str, list[dict]]:
-        contents = [
-            {
-                "role": "model" if m.get("role") == "assistant" else "user",
-                "parts": [{"text": str(m.get("content", ""))}],
-            }
-            for m in history
-        ]
-        contents.append({"role": "user", "parts": [{"text": question}]})
-        tool_calls: list[dict] = []
-        for _ in range(MAX_TOOL_ROUNDS):
-            res = self.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{self.model}:generateContent",
-                {
-                    "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-                    "contents": contents,
-                    "tools": self._tool_config(),
-                    "generationConfig": {"maxOutputTokens": MAX_TOKENS},
-                },
-                {"x-goog-api-key": self.api_key},
-            )
-            candidates = res.get("candidates") or [{}]
-            parts = candidates[0].get("content", {}).get("parts", [])
-            calls = [p["functionCall"] for p in parts if "functionCall" in p]
-            if not calls:
-                return "".join(p.get("text", "") for p in parts), tool_calls
-            contents.append({"role": "model", "parts": parts})
-            responses = []
-            for call in calls:
-                name = call.get("name", "")
-                args = dict(call.get("args") or {})
-                impl = tools.get(name)
-                output = impl(args) if impl else f"Unknown tool {name}"
-                tool_calls.append({"tool": name, "input": args})
-                responses.append(
-                    {
-                        "functionResponse": {
-                            "name": name,
-                            "response": {"result": output},
-                        }
-                    }
-                )
-            contents.append({"role": "user", "parts": responses})
-        return "", tool_calls
-
-
 class MistralProvider:
-    """Mistral chat-completions tool-use loop over the REST API (D28)."""
+    """Mistral chat-completions tool-use loop over the REST API (D32)."""
 
     name = "mistral"
 
@@ -344,28 +279,21 @@ class MistralProvider:
         return "", tool_calls
 
 
-def available_providers() -> list[str]:
-    """Providers with a key configured, in default-preference order (D32)."""
-    out = []
-    if os.environ.get("GEMINI_API_KEY"):
-        out.append("gemini")
-    if os.environ.get("MISTRAL_API_KEY"):
-        out.append("mistral")
-    return out
+def configured() -> bool:
+    """Whether the assistant can run (a Mistral key is set, D32 rev 2)."""
+    return bool(os.environ.get("MISTRAL_API_KEY"))
 
 
-def make_client(provider: str | None = None):
-    """The requested provider (``gemini``/``mistral``), or the first
-    configured one when unspecified (D32). ``None`` when the choice has no
-    key - the endpoint then degrades gracefully. Never raises."""
-    if provider is None:
-        avail = available_providers()
-        provider = avail[0] if avail else None
-    if provider == "gemini" and (key := os.environ.get("GEMINI_API_KEY")):
-        return GeminiProvider(key)
-    if provider == "mistral" and (key := os.environ.get("MISTRAL_API_KEY")):
-        return MistralProvider(key)
-    return None
+def make_client(model: str | None = None):
+    """A Mistral client on the requested model tier (validated against
+    ``MISTRAL_MODELS``; unknown/unset falls back to the default), or ``None``
+    when no key is set - the endpoint then degrades gracefully. Never
+    raises."""
+    key = os.environ.get("MISTRAL_API_KEY")
+    if not key:
+        return None
+    chosen = model if model in MISTRAL_MODELS else MISTRAL_MODEL
+    return MistralProvider(key, model=chosen)
 
 
 def _extract_citations(text: str) -> list[str]:

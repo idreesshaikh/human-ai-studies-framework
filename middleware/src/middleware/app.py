@@ -140,12 +140,12 @@ class PaperLinksIn(BaseModel):
 
 class AssistantIn(BaseModel):
     """One knowledge-assistant turn (FR-LIT-4). ``history`` is prior
-    ``{role, content}`` turns (text only). ``provider`` picks one of the
-    configured providers (D32); unset = the server's default."""
+    ``{role, content}`` turns (text only). ``model`` picks a Mistral tier
+    (D32 rev 2); unset or unknown = the server's default."""
 
     question: str
     history: list[dict] = Field(default_factory=list)
-    provider: str | None = None
+    model: str | None = None
 
 
 class _ProtocolCheck:
@@ -1262,10 +1262,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/assistant/config", dependencies=[Depends(view_auth)]
     )
     def assistant_config(study_id: str) -> dict:
-        """Which providers have a key configured (D32) - the dashboard's
-        model picker. Never exposes the keys themselves."""
+        """Whether the assistant is configured and which Mistral model tiers
+        the dashboard may pick (D32 rev 2). Never exposes the key itself."""
         check_study_id(study_id)
-        return {"providers": assistant.available_providers()}
+        ready = assistant.configured()
+        return {
+            "configured": ready,
+            "models": list(assistant.MISTRAL_MODELS) if ready else [],
+            "defaultModel": assistant.MISTRAL_MODEL,
+        }
 
     @app.post("/studies/{study_id}/assistant", dependencies=[Depends(view_auth)])
     def knowledge_assistant(
@@ -1276,12 +1281,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         tool can return a row-level participant event. Absent an API key the
         endpoint degrades gracefully (503); everything else stays offline."""
         check_study_id(study_id)
-        client = assistant.make_client(body.provider)
+        client = assistant.make_client(body.model)
         if client is None:
             raise HTTPException(
                 503,
-                "knowledge assistant unavailable: set GEMINI_API_KEY or "
-                "MISTRAL_API_KEY. All other views work offline.",
+                "knowledge assistant unavailable: set MISTRAL_API_KEY. "
+                "All other views work offline.",
             )
         tools = assistant.build_tools(s, protocol_doc)
         try:

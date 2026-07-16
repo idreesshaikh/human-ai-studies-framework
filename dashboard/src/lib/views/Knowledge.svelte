@@ -127,14 +127,14 @@
   let question = $state('')
   let asking = $state(false)
   let assistantNote = $state<string | null>(null)
-  // Providers the middleware has keys for (D32); the picker only offers those.
-  let providers = $state<string[]>([])
-  let provider = $state<string | undefined>(undefined)
+  // Mistral model tiers the middleware offers (D32 rev 2).
+  let models = $state<string[]>([])
+  let model = $state<string | undefined>(undefined)
 
   $effect(() => {
     void api.assistantConfig(studyId).then((c) => {
-      providers = c.providers
-      if (!provider || !c.providers.includes(provider)) provider = c.providers[0]
+      models = c.models
+      if (!model || !c.models.includes(model)) model = c.defaultModel
     })
   })
 
@@ -153,12 +153,12 @@
         studyId,
         q,
         history.slice(0, -1),
-        provider,
+        model,
       )
       chat = [...chat, { role: 'assistant', content: res.answer, citations: res.citations }]
     } catch (e) {
       assistantNote = String(e).includes('503')
-        ? 'The assistant needs GEMINI_API_KEY or MISTRAL_API_KEY set on the middleware. Every other view works offline.'
+        ? 'The assistant needs MISTRAL_API_KEY set on the middleware. Every other view works offline.'
         : String(e)
     } finally {
       asking = false
@@ -197,6 +197,40 @@
       <button onclick={importZotero} disabled={busy}>Import from Zotero</button>
       {#if zoteroNote}<span class="small muted">{zoteroNote}</span>{/if}
     </div>
+
+    {#if busy}
+      <p class="working small secondary" role="status">
+        <span class="spinner" aria-hidden="true"></span>
+        Working — fetching metadata and the citation neighbourhood (the
+        citation service allows one request per second, so this takes a few
+        seconds)…
+      </p>
+    {/if}
+
+    {#if papers.length}
+      <div class="library">
+        <h3>Library <span class="muted small num">{papers.length}</span></h3>
+        <ul>
+          {#each papers as p (p.paperRef)}
+            <li class:sel={p.paperRef === selected}>
+              <button class="title" onclick={() => select(p.paperRef)}>
+                {p.title || p.paperRef}
+              </button>
+              {#if p.year}<span class="muted small num">{p.year}</span>{/if}
+              <button
+                class="remove"
+                title="Remove from study"
+                aria-label={`Remove ${p.title || p.paperRef}`}
+                onclick={() => removePaper(p.paperRef)}
+                disabled={busy}
+              >
+                ×
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
 
     {#if graph && graph.nodes.length}
       <svg viewBox={`0 0 ${W} ${H}`} class="graph" role="img" aria-label="citation graph">
@@ -245,14 +279,10 @@
   <section class="card assistant" data-tour="knowledge-assistant">
     <div class="head">
       <h2>Assistant <TraceChip id="FR-LIT-4" /></h2>
-      {#if providers.length > 1}
-        <select
-          class="small"
-          bind:value={provider}
-          aria-label="Assistant model provider"
-        >
-          {#each providers as p (p)}
-            <option value={p}>{p}</option>
+      {#if models.length > 1}
+        <select class="small" bind:value={model} aria-label="Assistant model">
+          {#each models as m (m)}
+            <option value={m}>{m.replace('mistral-', '').replace('-latest', '')}</option>
           {/each}
         </select>
       {/if}
@@ -320,6 +350,76 @@
     grid-template-columns: 1.4fr 1fr;
     gap: 14px;
     align-items: start;
+  }
+  .working {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+  }
+  .spinner {
+    width: 12px;
+    height: 12px;
+    flex: none;
+    border: 2px solid var(--baseline);
+    border-top-color: var(--series-1);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .library {
+    margin: 8px 0;
+  }
+  .library h3 {
+    margin-bottom: 4px;
+  }
+  .library ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .library li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px;
+    border-radius: 6px;
+  }
+  .library li.sel {
+    background: color-mix(in srgb, var(--series-1) 10%, transparent);
+  }
+  .library .title {
+    flex: 1;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .library .title:hover {
+    color: var(--series-1);
+  }
+  .library .remove {
+    background: none;
+    border: none;
+    padding: 0 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+  }
+  .library .remove:hover {
+    color: var(--status-critical);
   }
   .card {
     background: var(--surface-1);
