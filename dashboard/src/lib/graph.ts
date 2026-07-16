@@ -48,7 +48,11 @@ export function layoutGraph(
 ): PositionedNode[] {
   const width = opts.width ?? 640
   const height = opts.height ?? 440
-  const iterations = opts.iterations ?? 300
+  // Each iteration is O(n²); harvested neighbourhoods reach hundreds of
+  // nodes, so scale the iteration count down as n grows to keep a relayout
+  // comfortably under a frame budget (still deterministic - n is data).
+  const iterations =
+    opts.iterations ?? (nodes.length > 200 ? 80 : nodes.length > 100 ? 150 : 300)
   const charge = opts.charge ?? 2200
   const spring = opts.spring ?? 0.02
   const cx = width / 2

@@ -299,6 +299,24 @@ def test_assistant_answers_with_citations_and_uses_aggregates(client, provider):
     assert result["toolCalls"][0]["tool"] == "get_dataset_summary"
 
 
+def test_assistant_config_lists_only_keyed_providers(client, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    res = client.get("/studies/pilot-2026/assistant/config")
+    assert res.json() == {"providers": ["mistral"]}
+
+
+def test_make_client_honours_provider_choice(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setenv("MISTRAL_API_KEY", "m")
+    assert isinstance(assistant.make_client(), assistant.GeminiProvider)
+    assert isinstance(
+        assistant.make_client("mistral"), assistant.MistralProvider
+    )
+    monkeypatch.delenv("GEMINI_API_KEY")
+    assert assistant.make_client("gemini") is None
+
+
 def test_assistant_endpoint_503_without_api_key(client, monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)

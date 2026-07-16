@@ -127,6 +127,16 @@
   let question = $state('')
   let asking = $state(false)
   let assistantNote = $state<string | null>(null)
+  // Providers the middleware has keys for (D32); the picker only offers those.
+  let providers = $state<string[]>([])
+  let provider = $state<string | undefined>(undefined)
+
+  $effect(() => {
+    void api.assistantConfig(studyId).then((c) => {
+      providers = c.providers
+      if (!provider || !c.providers.includes(provider)) provider = c.providers[0]
+    })
+  })
 
   async function ask(): Promise<void> {
     const q = question.trim()
@@ -139,7 +149,12 @@
       const history = chat
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .map((m) => ({ role: m.role, content: m.content }))
-      const res: AssistantAnswer = await api.assistant(studyId, q, history.slice(0, -1))
+      const res: AssistantAnswer = await api.assistant(
+        studyId,
+        q,
+        history.slice(0, -1),
+        provider,
+      )
       chat = [...chat, { role: 'assistant', content: res.answer, citations: res.citations }]
     } catch (e) {
       assistantNote = String(e).includes('503')
@@ -230,6 +245,17 @@
   <section class="card assistant" data-tour="knowledge-assistant">
     <div class="head">
       <h2>Assistant <TraceChip id="FR-LIT-4" /></h2>
+      {#if providers.length > 1}
+        <select
+          class="small"
+          bind:value={provider}
+          aria-label="Assistant model provider"
+        >
+          {#each providers as p (p)}
+            <option value={p}>{p}</option>
+          {/each}
+        </select>
+      {/if}
       <span class="secondary small">aggregates only</span>
     </div>
     <div class="chat">

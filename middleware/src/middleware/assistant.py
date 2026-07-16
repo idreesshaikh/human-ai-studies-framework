@@ -344,13 +344,26 @@ class MistralProvider:
         return "", tool_calls
 
 
-def make_client():
-    """The configured provider - ``GEMINI_API_KEY`` wins over
-    ``MISTRAL_API_KEY`` (D28) - or ``None`` when neither key is set (the
-    endpoint then degrades gracefully). Never raises."""
-    if key := os.environ.get("GEMINI_API_KEY"):
+def available_providers() -> list[str]:
+    """Providers with a key configured, in default-preference order (D32)."""
+    out = []
+    if os.environ.get("GEMINI_API_KEY"):
+        out.append("gemini")
+    if os.environ.get("MISTRAL_API_KEY"):
+        out.append("mistral")
+    return out
+
+
+def make_client(provider: str | None = None):
+    """The requested provider (``gemini``/``mistral``), or the first
+    configured one when unspecified (D32). ``None`` when the choice has no
+    key - the endpoint then degrades gracefully. Never raises."""
+    if provider is None:
+        avail = available_providers()
+        provider = avail[0] if avail else None
+    if provider == "gemini" and (key := os.environ.get("GEMINI_API_KEY")):
         return GeminiProvider(key)
-    if key := os.environ.get("MISTRAL_API_KEY"):
+    if provider == "mistral" and (key := os.environ.get("MISTRAL_API_KEY")):
         return MistralProvider(key)
     return None
 

@@ -140,10 +140,12 @@ class PaperLinksIn(BaseModel):
 
 class AssistantIn(BaseModel):
     """One knowledge-assistant turn (FR-LIT-4). ``history`` is prior
-    ``{role, content}`` turns (text only)."""
+    ``{role, content}`` turns (text only). ``provider`` picks one of the
+    configured providers (D32); unset = the server's default."""
 
     question: str
     history: list[dict] = Field(default_factory=list)
+    provider: str | None = None
 
 
 class _ProtocolCheck:
@@ -1256,6 +1258,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             s.add(PaperLink(study_id=study_id, paper_ref=paper_ref, target=target))
         return {"paperRef": paper_ref, "links": wanted}
 
+    @app.get(
+        "/studies/{study_id}/assistant/config", dependencies=[Depends(view_auth)]
+    )
+    def assistant_config(study_id: str) -> dict:
+        """Which providers have a key configured (D32) - the dashboard's
+        model picker. Never exposes the keys themselves."""
+        check_study_id(study_id)
+        return {"providers": assistant.available_providers()}
+
     @app.post("/studies/{study_id}/assistant", dependencies=[Depends(view_auth)])
     def knowledge_assistant(
         study_id: str, body: AssistantIn, s: Session = Depends(db)
@@ -1265,7 +1276,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         tool can return a row-level participant event. Absent an API key the
         endpoint degrades gracefully (503); everything else stays offline."""
         check_study_id(study_id)
-        client = assistant.make_client()
+        client = assistant.make_client(body.provider)
         if client is None:
             raise HTTPException(
                 503,

@@ -361,9 +361,19 @@ export const api = {
     if (!res.ok) throw new Error(`upload failed: ${res.status}`)
     return res.json()
   },
-  assistant: (study: string, question: string, history: { role: string; content: string }[]) =>
+  assistantConfig: (study: string) =>
+    get<{ providers: string[] }>(
+      `/studies/${encodeURIComponent(study)}/assistant/config`,
+    ),
+  assistant: (
+    study: string,
+    question: string,
+    history: { role: string; content: string }[],
+    provider?: string,
+  ) =>
     send<AssistantAnswer>('POST', `/studies/${encodeURIComponent(study)}/assistant`, {
       question,
       history,
+      ...(provider ? { provider } : {}),
     }),
 }
