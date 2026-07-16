@@ -377,20 +377,6 @@ stands). Accepted iterations merge back as ordinary commits gated by
 `npm run check`. Enabled by FR-OPS-6: the SPA takes `VITE_API_BASE` and
 the middleware allows only explicitly listed origins
 (`MIDDLEWARE_CORS_ORIGINS`; unset = same-origin only).
-**Rev 3 (2026-07-17):** the Vercel project's GitHub integration also
-deployed every push to `main` (and its failures showed up as a red check
-on main's pipeline). Production hosting is Render (D25); Vercel is a
-design surface for iteration branches only. `dashboard/vercel.json` sets
-`git.deploymentEnabled.main: false` so Vercel ignores `main` and keeps
-deploying the design branches.
-**Rev 4 (2026-07-17) - RETIRED:** owner direction: remove Vercel/v0 from
-the workflow entirely. The design loop's one merge landed as fresh
-commits on `main` (traceability log, 2026-07-16); the iteration branches
-are deleted, `dashboard/vercel.json` (rev 3) is removed, and product
-docs/comments no longer reference the tool. FR-OPS-6 (separate-origin
-hosting + CORS allow-list) stays - it is a general capability, no longer
-tied to a design tool. The Vercel-side project/GitHub-App connection is
-account configuration outside this repo and must be disconnected there.
 
 ### D31 - Public-docs architecture - **BUILD (two-layer, archive internals)** → NFR-11
 
@@ -465,7 +451,7 @@ Pinned via the npm lockfile.
 | D27 | VS Code Marketplace (vsce) | Adopt | FR-OPS-3 | free publishing on final tags; RCs stay GitHub pre-release `.vsix` (no semver suffixes on Marketplace) |
 | D28 | DO / Heroku / Fly / Railway / Supabase / Clerk / Blackfire | Reject (batch) | - | DO credits sunset 2026-07-31; Heroku FS ephemeral vs SQLite; NFR-5 (Supabase); one-operator auth exists (Clerk - *partially superseded by D29*); no perf requirement (Blackfire) |
 | D29 | Clerk + `pyjwt[crypto]` | Adopt (optional provider; partially supersedes D28) | FR-OPS-5 | hosted login without making self-hosters need an account; JWT verification never hand-rolled |
-| D30 | Vercel v0 | ~~Adopt (design tool)~~ Retired (rev 4, 2026-07-17) | dashboard UI, FR-OPS-6 | design loop served its one merge; tool removed from workflow, FR-OPS-6 capability stays |
+| D30 | Vercel v0 | Adopt (design tool; rev 2: direct Svelte iteration, D15 stands) | dashboard UI, FR-OPS-6 | v0 gained Svelte support; separate Vercel project rooted at `dashboard/`; merged back via `npm run check` |
 | D31 | Public-docs architecture | Build (two-layer) | NFR-11 | product-grade public docs; RE record intact in requirements/ + docs/archive/ |
 | D32 | Mistral API (REST, no SDK; rev 2 dropped Gemini) | Adopt (bounded; supersedes D10, D22) | FR-LIT-4, FR-META-2 | free-tier provider in active use; UI picks the model tier; stdlib REST keeps the FR-ETH-4 tool loop as the enforcement boundary |
 | D33 | svelte-dnd-action | Adopt | FR-DASH-7 | standard Svelte DnD for manual task cards (v0 iteration, D30 rev 2); derived cards stay non-draggable |

@@ -230,9 +230,9 @@ export interface AuthConfig {
 
 /**
  * Same-origin by default (dev proxy / middleware-served SPA). Set
- * VITE_API_BASE to a middleware URL when the dashboard is hosted on a
- * separate origin - the middleware must then allow that origin via
- * MIDDLEWARE_CORS_ORIGINS (FR-OPS-6).
+ * VITE_API_BASE to a middleware URL when the dashboard is hosted elsewhere
+ * (e.g. a v0/Vercel design-iteration preview, D30) - the middleware must
+ * then allow that origin via MIDDLEWARE_CORS_ORIGINS (FR-OPS-6).
  */
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '')
 
