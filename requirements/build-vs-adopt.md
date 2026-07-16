@@ -377,6 +377,12 @@ stands). Accepted iterations merge back as ordinary commits gated by
 `npm run check`. Enabled by FR-OPS-6: the SPA takes `VITE_API_BASE` and
 the middleware allows only explicitly listed origins
 (`MIDDLEWARE_CORS_ORIGINS`; unset = same-origin only).
+**Rev 3 (2026-07-17):** the Vercel project's GitHub integration also
+deployed every push to `main` (and its failures showed up as a red check
+on main's pipeline). Production hosting is Render (D25); Vercel is a
+design surface for iteration branches only. `dashboard/vercel.json` sets
+`git.deploymentEnabled.main: false` so Vercel ignores `main` and keeps
+deploying the design branches.
 
 ### D31 - Public-docs architecture - **BUILD (two-layer, archive internals)** → NFR-11
 
