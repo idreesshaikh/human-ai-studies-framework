@@ -11,6 +11,7 @@
   let gaps = $state<GapReport | null>(null)
   let error = $state<string | null>(null)
   let selectedSeqs = $state<number[]>([])
+  let transcriptGhostTime = $state<number | null>(null)
 
   async function load(): Promise<void> {
     try {
@@ -61,13 +62,32 @@
 
   function selectTurn(e: StudyEvent): void {
     selectedSeqs = [e.seq]
+    transcriptGhostTime = new Date(e.ts).getTime()
+  }
+
+  function syncTranscript(event: Event): void {
+    const panel = event.currentTarget as HTMLOListElement
+    const center = panel.getBoundingClientRect().top + panel.clientHeight / 2
+    let nearest: { distance: number; event: StudyEvent } | null = null
+    for (const item of agentEvents) {
+      const element = document.getElementById(`turn-${item.seq}`)
+      if (!element) continue
+      const distance = Math.abs(element.getBoundingClientRect().top - center)
+      if (!nearest || distance < nearest.distance) nearest = { distance, event: item }
+    }
+    if (nearest) transcriptGhostTime = new Date(nearest.event.ts).getTime()
   }
 </script>
 
-<h1>
-  Session <span class="mono">{sessionId}</span>
-  <TraceChip id="FR-DASH-4" />
-</h1>
+<header class="page-head">
+  <div>
+    <p class="eyebrow">One session, every angle</p>
+    <h1>
+      Session <span class="mono">{sessionId}</span>
+      <TraceChip id="FR-DASH-4" />
+    </h1>
+  </div>
+</header>
 
 {#if error}
   <div class="card"><p class="secondary">Failed to load: {error}</p></div>
@@ -90,7 +110,7 @@
   </p>
 
   <div data-tour="timeline">
-    <Timeline {lanes} {selectedSeqs} onselect={onTimelineSelect} />
+    <Timeline {lanes} {selectedSeqs} ghostTime={transcriptGhostTime} onselect={onTimelineSelect} />
   </div>
 
   <section class="card conversation">
@@ -106,7 +126,7 @@
         content policy the participant consented to.
       </p>
     {:else}
-      <ol class="turns">
+      <ol class="turns" onscroll={syncTranscript}>
         {#each agentEvents as e (e.seq)}
           <li
             id={`turn-${e.seq}`}

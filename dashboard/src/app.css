@@ -159,6 +159,30 @@ select {
 
 /* ---- shared surfaces ---- */
 
+/* Page header language (one system across views): eyebrow kicker, title,
+   one-line plain-English intro. */
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.page-head h1 {
+  margin: 2px 0;
+}
+.page-head p {
+  margin: 0;
+  max-width: 720px;
+}
+.eyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .card {
   background: var(--surface-1);
   border: 1px solid var(--border);

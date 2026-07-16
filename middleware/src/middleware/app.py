@@ -1373,15 +1373,19 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     dist = settings.dashboard_dist
     index_html = dist / "index.html"
     if index_html.is_file():
+        # The shell must always revalidate: Vite's assets are content-hashed
+        # (safe to cache), but a cached index.html pins users to a stale
+        # bundle across deploys - the app keeps running old code from disk.
+        _no_store = {"Cache-Control": "no-cache"}
 
         @app.get("/", include_in_schema=False)
         def spa_index() -> FileResponse:
-            return FileResponse(index_html)
+            return FileResponse(index_html, headers=_no_store)
 
         @app.get("/study/{rest:path}", include_in_schema=False)
         def spa_route(rest: str) -> FileResponse:
             # Client-side routing (MP-06): deep links re-serve the shell.
-            return FileResponse(index_html)
+            return FileResponse(index_html, headers=_no_store)
 
         app.mount("/", StaticFiles(directory=dist), name="dashboard")
 

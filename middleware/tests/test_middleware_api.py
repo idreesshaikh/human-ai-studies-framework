@@ -380,9 +380,15 @@ def test_spa_is_served_when_built(tmp_path):
         dashboard_dist=dist,
     )
     client = TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
-    assert "mission control" in client.get("/").text
+    res = client.get("/")
+    assert "mission control" in res.text
+    # The shell must revalidate on every load: a cached index.html pins
+    # browsers to a stale bundle across deploys (assets are hashed, safe).
+    assert res.headers["cache-control"] == "no-cache"
     # Deep links into client-side routes re-serve the shell (NFR-7).
-    assert "mission control" in client.get("/study/pilot-2026/board").text
+    deep = client.get("/study/pilot-2026/board")
+    assert "mission control" in deep.text
+    assert deep.headers["cache-control"] == "no-cache"
     assert client.get("/assets/app.js").status_code == 200
     # The API keeps priority over the static mount.
     assert client.get("/health").json()["status"] == "ok"

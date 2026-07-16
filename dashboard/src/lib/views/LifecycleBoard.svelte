@@ -49,11 +49,16 @@
   }
 </script>
 
-<h1>Lifecycle board <TraceChip id="FR-DASH-2" /></h1>
-<p class="secondary small">
-  The current phase is <strong>computed</strong> by the lifecycle engine from
-  uploaded gate artifacts - nothing here is hand-set (FR-PROT-3).
-</p>
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Study pipeline</p>
+    <h1>Lifecycle board <TraceChip id="FR-DASH-2" /></h1>
+    <p class="secondary">
+      The current phase is <strong>computed</strong> from uploaded gate
+      documents - nothing here is hand-set, and a phase cannot open early.
+    </p>
+  </div>
+</header>
 
 {#if error}
   <div class="card"><p class="secondary">Failed to load: {error}</p></div>

@@ -410,6 +410,16 @@ tiers* (small/medium/large, validated server-side) instead of providers.
 The seam stays one provider class - reintroducing a second provider is a
 small, decision-gated change.
 
+### D33 - `svelte-dnd-action` - **ADOPT** → FR-DASH-7
+
+Drag-and-drop for the task board's manual cards, introduced by the v0
+design iteration (D30 rev 2) and kept at merge review: it is the standard
+Svelte DnD library (headless action, no UI opinions, keyboard-accessible),
+and hand-rolling HTML5 DnD with keyboard support is exactly the
+wheel-reinvention D30's workflow exists to avoid. Bounds: platform-derived
+cards stay non-draggable (they clear themselves); only manual todos move.
+Pinned via the npm lockfile.
+
 | # | Candidate | Decision | Satisfies | Key reason |
 | - | --------- | -------- | --------- | ---------- |
 | D1 | wandb | Reject / concepts only | - | human-subject data can't go to third-party cloud; wrong unit of record |
@@ -444,3 +454,4 @@ small, decision-gated change.
 | D30 | Vercel v0 | Adopt (design tool; rev 2: direct Svelte iteration, D15 stands) | dashboard UI, FR-OPS-6 | v0 gained Svelte support; separate Vercel project rooted at `dashboard/`; merged back via `npm run check` |
 | D31 | Public-docs architecture | Build (two-layer) | NFR-11 | product-grade public docs; RE record intact in requirements/ + docs/archive/ |
 | D32 | Mistral API (REST, no SDK; rev 2 dropped Gemini) | Adopt (bounded; supersedes D10, D22) | FR-LIT-4, FR-META-2 | free-tier provider in active use; UI picks the model tier; stdlib REST keeps the FR-ETH-4 tool loop as the enforcement boundary |
+| D33 | svelte-dnd-action | Adopt | FR-DASH-7 | standard Svelte DnD for manual task cards (v0 iteration, D30 rev 2); derived cards stay non-draggable |

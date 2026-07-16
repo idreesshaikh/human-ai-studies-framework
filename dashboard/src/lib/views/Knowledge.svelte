@@ -153,7 +153,16 @@
   }
 </script>
 
-<h1>Knowledge <TraceChip id="FR-DASH-8" /></h1>
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Literature &amp; grounding</p>
+    <h1>Knowledge <TraceChip id="FR-DASH-8" /></h1>
+    <p class="secondary">
+      Papers grow a citation graph around your study; the assistant answers
+      only from those papers and aggregate data - always cited.
+    </p>
+  </div>
+</header>
 
 {#if error}<p class="err">{error}</p>{/if}
 
