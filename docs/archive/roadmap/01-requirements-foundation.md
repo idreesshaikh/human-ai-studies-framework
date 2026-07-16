@@ -1,7 +1,7 @@
 # Mega-Prompt 01 - Requirements Engineering Foundation
 
 > Self-contained: execute this file in a fresh working session at the repo
-> root to (re-)execute. Read `roadmap/00-VISION.md` first for the big picture.
+> root to (re-)execute. Read `docs/archive/roadmap/00-VISION.md` first for the big picture.
 
 **Depends on:** nothing (this is the root of all traceability)
 **Status:** ✅ Done (2026-07-11) - deliverables live in `requirements/`
@@ -9,7 +9,7 @@
 ## Context
 
 This is a Masters project in **requirements engineering**. The platform being
-built (see `roadmap/00-VISION.md`) claims that a study protocol is a
+built (see `docs/archive/roadmap/00-VISION.md`) claims that a study protocol is a
 requirements specification. That claim is only credible if the platform
 itself is requirements-engineered: every later phase must trace its work to
 requirement IDs defined here. What already exists and constrains the

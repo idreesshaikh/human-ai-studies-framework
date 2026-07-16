@@ -390,7 +390,7 @@ def _tables(rid: str, result: RecipeResult, md: list, tex: list) -> None:
 
 def _threats(md: list, tex: list) -> None:
     # Known framework limitations (adaptation-notes.md; scope-discipline in
-    # roadmap/00-VISION.md), pre-filled for the researcher to extend.
+    # docs/archive/roadmap/00-VISION.md), pre-filled for the researcher to extend.
     items = [
         ("Origin-classification blind spots", "edit-provenance is a debounced "
          "heuristic (typed vs AI-injected vs pasted); rapid interleaving can "

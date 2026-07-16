@@ -4,7 +4,7 @@
 **requirements engineering**. A protocol-driven platform that instruments
 human-AI developer studies (four data legs on one timeline), manages the
 study lifecycle, and generates analysis, reports, and paper drafts.
-Read `roadmap/00-VISION.md` before any non-trivial work.
+Read `docs/archive/roadmap/00-VISION.md` before any non-trivial work.
 
 ## The golden rules (RE discipline — these are graded)
 
@@ -17,7 +17,7 @@ Read `roadmap/00-VISION.md` before any non-trivial work.
    the phase-completion log in `traceability.md`.
 3. **A phase is done only when the matrices say so.** Finishing a mega-prompt
    means: its verification steps ran green, the tracker row in
-   `roadmap/00-VISION.md` is flipped, and its requirement rows in
+   `docs/archive/roadmap/00-VISION.md` is flipped, and its requirement rows in
    `requirements/traceability.md` are flipped.
 4. **Glossary wins.** Use `requirements/glossary.md` terms in code
    identifiers, schema fields, and docs (`participant` not `user`,
@@ -31,9 +31,9 @@ Read `roadmap/00-VISION.md` before any non-trivial work.
 
 ## Execution model
 
-Work proceeds by **mega-prompts**: `roadmap/01..12` are self-contained,
+Work proceeds by **mega-prompts**: `docs/archive/roadmap/01..12` are self-contained,
 detailed phase specs. Execute them in the sprint order in
-`roadmap/00-VISION.md` (§ The one-week sprint). Each states its
+`docs/archive/roadmap/00-VISION.md` (§ The one-week sprint). Each states its
 dependencies, the requirement IDs it satisfies, deliverables, acceptance
 criteria, and verification steps — follow them literally; deviations must be
 noted in the traceability log.
@@ -43,7 +43,7 @@ noted in the traceability log.
 | Path | What | Built by |
 | ---- | ---- | -------- |
 | `requirements/` | SRS, stakeholders, RQs, glossary, traceability matrix, build-vs-adopt decisions | MP-01 ✅ |
-| `roadmap/` | Vision + mega-prompts 01–12 | — |
+| `docs/archive/roadmap/` | Vision + mega-prompts 01–12 | — |
 | `*/docs/` | Docs live with their component: `extension/docs/developer_behavior_capture.md` (+ `adaptation-notes.md` from MP-05), `metrics/docs/` (metrics matrix, implementation plan) | — |
 | `extension/` | VS Code extension "Cognitive Overlay" — cognitive + behavioral legs (TypeScript) | built v0.1; MP-05 extends |
 | `metrics/` | Static-metrics leg, 9-metric matrix (Python, flat `src/` scripts) | MP-03 |

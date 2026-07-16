@@ -1,7 +1,7 @@
 # Mega-Prompt 04 - Ingestion Middleware
 
 > Self-contained: execute this file in a fresh working session at the repo
-> root. Read `roadmap/00-VISION.md` and `requirements/srs.md` first.
+> root. Read `docs/archive/roadmap/00-VISION.md` and `requirements/srs.md` first.
 
 **Depends on:** 01 (requirement IDs); pairs naturally with 02 (protocol)
 **Status:** ✅ Done (2026-07-11)
@@ -76,5 +76,5 @@ and query endpoints the dashboard (06) and recipes (07) will consume.
 ## Verification
 
 - `pytest` green; run the replay script against a live server and show the
-  gap report + dataset export. Update `roadmap/00-VISION.md` tracker and
+  gap report + dataset export. Update `docs/archive/roadmap/00-VISION.md` tracker and
   `requirements/traceability.md`.

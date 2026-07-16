@@ -36,7 +36,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from middleware import assistant, paper_index, pdf, semantic_scholar, zotero
+from middleware import assistant, auth, paper_index, pdf, semantic_scholar, zotero
 from middleware.db import (
     Event,
     Finding,
@@ -229,14 +229,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 f"{check.study_id!r}"
             )
 
-    def view_auth(authorization: str = Header(default="")) -> None:
-        """Bearer-token gate on the dashboard-facing endpoints (MP-06).
+    # Sign-in gate on the dashboard-facing endpoints (FR-OPS-5): pluggable
+    # provider (none/token/clerk), built once at startup so misconfiguration
+    # fails loudly here, not on first request. Ingest stays open: sensors
+    # are fire-and-forget (NFR-1) on a local-first deployment (NFR-5).
+    verify_view_auth = auth.verifier_from_settings(settings)
 
-        Ingest stays open: sensors are fire-and-forget (NFR-1) on a
-        local-first deployment (NFR-5). No MIDDLEWARE_TOKEN = no auth.
-        """
-        if settings.token and authorization != f"Bearer {settings.token}":
-            raise HTTPException(401, "missing or invalid bearer token")
+    def view_auth(authorization: str = Header(default="")) -> None:
+        verify_view_auth(authorization)
 
     def require_protocol() -> dict:
         if protocol_doc is None:
@@ -1395,6 +1395,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "protocolLoaded": protocol_doc is not None,
             "knownEventSchemaVersions": sorted(KNOWN_EVENT_SCHEMA_VERSIONS),
         }
+
+    @app.get("/auth/config")
+    def auth_config() -> dict:
+        """Which sign-in surface the dashboard should render (FR-OPS-5).
+
+        Open by necessity (the dashboard asks before it can sign in);
+        carries no secrets - see ``auth.public_config``.
+        """
+        return auth.public_config(settings)
 
     # ---------------------------------------------- dashboard SPA (NFR-7)
     # Production mode serves the built dashboard from the same process:

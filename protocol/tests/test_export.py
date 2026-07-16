@@ -1,4 +1,4 @@
-"""Replication-kit tests (FR-PROT-7, NFR-6; roadmap/09 item 1).
+"""Replication-kit tests (FR-PROT-7, NFR-6; docs/archive/roadmap/09 item 1).
 
 The headline test IS the acceptance criterion: re-running the analysis
 from the kit's own dataset regenerates a byte-identical ``report.md``

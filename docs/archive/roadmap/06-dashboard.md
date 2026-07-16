@@ -1,7 +1,7 @@
 # Mega-Prompt 06 - Dashboard: the Dynamic Project Manager
 
 > Self-contained: execute this file in a fresh working session at the repo
-> root. Read first: `roadmap/00-VISION.md`, `requirements/srs.md`
+> root. Read first: `docs/archive/roadmap/00-VISION.md`, `requirements/srs.md`
 > (FR-DASH-*), the middleware API (`middleware/README.md`), and the pilot
 > protocol (`protocol/examples/pilot-study.yaml`).
 
@@ -113,6 +113,6 @@ cards). The rest stays thin.
 
 - Seed → `docker compose up` → walk each route; screenshot overview, task
   board, and timeline for the thesis (browser tools). Component tests
-  green. Update `roadmap/00-VISION.md` tracker +
+  green. Update `docs/archive/roadmap/00-VISION.md` tracker +
   `requirements/traceability.md` (FR-DASH-1–7 → ✅, FR-DASH-8 → 🔶 until
   MP-10).

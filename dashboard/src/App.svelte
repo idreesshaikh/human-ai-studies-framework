@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api, type Health } from './lib/api'
+  import { auth } from './lib/auth.svelte'
   import { lexicon } from './lib/lexicon.svelte'
   import { link, router, type View } from './lib/router.svelte'
   import { tour } from './lib/tour.svelte'
@@ -13,6 +14,7 @@
   import SessionTimeline from './lib/views/SessionTimeline.svelte'
   import MetricsCompare from './lib/views/MetricsCompare.svelte'
   import Knowledge from './lib/views/Knowledge.svelte'
+  import SignIn from './lib/components/SignIn.svelte'
 
   let health = $state<Health | null>(null)
   let offline = $state(false)
@@ -28,6 +30,7 @@
 
   async function boot(): Promise<void> {
     try {
+      await auth.init()
       health = await api.health()
       offline = false
       const study = health.studyId ?? 'adhoc'
@@ -83,6 +86,11 @@
       {:else if health}
         <span class="badge good">middleware ok</span>
       {/if}
+      {#if auth.config.mode !== 'none' && auth.hasToken}
+        <button type="button" class="tour-launch" onclick={() => auth.signOut()}>
+          Sign out
+        </button>
+      {/if}
     </div>
   </nav>
 
@@ -117,6 +125,9 @@
 
 <TracePanel />
 <GuidedTour />
+{#if auth.needed}
+  <SignIn />
+{/if}
 
 <style>
   .shell {

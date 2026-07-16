@@ -1,0 +1,5 @@
+# TLS front for the facilitator VM (FR-OPS-1b, D26). Caddy provisions and
+# renews certificates automatically for SITE_ADDRESS (set in deploy/.env).
+{$SITE_ADDRESS} {
+	reverse_proxy middleware:8000
+}

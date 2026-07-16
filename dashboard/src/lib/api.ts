@@ -222,9 +222,24 @@ export interface GlossaryEntry {
   definition: string
 }
 
+/** Sign-in surface the middleware wants (GET /auth/config). */
+export interface AuthConfig {
+  mode: 'none' | 'token' | 'clerk'
+  clerkPublishableKey?: string
+}
+
 function headers(): Record<string, string> {
   const token = localStorage.getItem('middleware.token')
   return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/**
+ * Registered by the app shell: called on any 401 so the sign-in surface
+ * can take over instead of views failing one by one.
+ */
+let unauthorizedListener: (() => void) | null = null
+export function onUnauthorized(listener: (() => void) | null): void {
+  unauthorizedListener = listener
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -232,6 +247,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
     headers: { ...headers(), ...(init.headers ?? {}) },
   })
+  if (res.status === 401) unauthorizedListener?.()
   if (!res.ok) {
     throw new Error(`${init.method ?? 'GET'} ${path} -> ${res.status} ${res.statusText}`)
   }
@@ -252,6 +268,7 @@ function send<T>(method: string, path: string, body: unknown): Promise<T> {
 
 export const api = {
   health: () => get<Health>('/health'),
+  authConfig: () => get<AuthConfig>('/auth/config'),
   protocol: (study: string) =>
     get<ProtocolSummary>(`/studies/${encodeURIComponent(study)}/protocol`),
   lifecycle: (study: string) =>

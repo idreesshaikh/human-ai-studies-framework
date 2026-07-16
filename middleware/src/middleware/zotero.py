@@ -1,4 +1,4 @@
-"""Zotero collection import (FR-LIT-5; decision D9; roadmap/09 item 2).
+"""Zotero collection import (FR-LIT-5; decision D9; docs/archive/roadmap/09 item 2).
 
 Reads one Zotero collection - the study's curated reading list - into the
 study's paper set. Local-first like the rest of the stack (NFR-5): the

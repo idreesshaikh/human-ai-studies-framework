@@ -65,5 +65,5 @@ RQ must have a data-backed answer or a documented gap.
 ## Verification
 
 - The dashboard's lifecycle board shows the study in `analysis`/`write-up`
-  with all gates green. Update `roadmap/00-VISION.md` tracker and
+  with all gates green. Update `docs/archive/roadmap/00-VISION.md` tracker and
   `requirements/traceability.md` (final status pass over every requirement).

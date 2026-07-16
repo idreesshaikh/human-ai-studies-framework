@@ -251,6 +251,117 @@ and **skips cleanly** where no TeX engine is present, so CI without a TeX
 install stays green (the LaTeX brace/environment-balance test remains the
 always-on structural proxy).
 
+### D24 - GitHub Actions + GHCR + GitHub Releases - **ADOPT** → FR-OPS-2
+
+The release/deploy pipeline lives where CI already lives (`ci.yml`).
+**Actions** is free at our scale (2,000 min/month private; the Student Pack's
+GitHub Pro also unlocks protected *environments* on private repos - the
+FR-OPS-2 manual approval gate). **GHCR** is the container registry: same
+auth (`GITHUB_TOKEN`, no extra secret), free for the repo's visibility.
+**Releases** hold the versioned artifacts (`.vsix`, image digest notes) -
+RC tags are pre-releases. Alternatives rejected: Docker Hub (second account,
+pull-rate limits), a self-hosted registry (a service to babysit, contra
+NFR-7's no-IT-department posture).
+
+### D25 - Render free tier (demo host) - **ADOPT** → FR-OPS-1(a)
+
+The public seeded demo runs the existing `middleware/Dockerfile` on Render's
+free web-service tier (still current in 2026: 750 instance-hours/month,
+Docker support, free TLS subdomain, deploy-hook URL). Its two limitations
+are *acceptable by design*: spin-down after 15 min idle (a demo tolerates a
+cold start) and an **ephemeral disk** - which would be disqualifying for
+real data, but the demo reseeds itself on every boot
+(`start_with_seed.sh`; replay is idempotent per FR-ING-2) and NFR-5 forbids
+real participant data on any public instance anyway. `autoDeploy` is off:
+the pipeline triggers the deploy hook only after CI is green, so the demo
+never runs a red build.
+
+### D26 - Azure for Students (persistent VM + on-demand Sonar VM) - **ADOPT** → FR-OPS-1(b), FR-OPS-4
+
+$100/year credit, renewable annually while enrolled, no card; includes
+750 h/month of a B1s Linux VM free for 12 months. The B1s is the persistent
+dev/staging host: `docker compose -f deploy/compose.prod.yml` pulls the
+released GHCR image, the SQLite volume persists on the VM disk (exactly the
+one-file-is-the-backup posture of D11), and **Caddy** (adopted here: single
+static binary, automatic certificates; nginx+certbot is two moving parts
+for the same job) terminates TLS on a Namecheap `.me` domain (also free in
+the pack). For FR-OPS-4, a second **B2s (4 GB - SonarQube's floor; the B1s
+1 GB cannot host it)** stays **deallocated** except during analysis
+windows - a deallocated VM bills only pennies of disk against credit -
+toggled by `sonar-vm.yml` (workflow-dispatch) or `az vm start|deallocate`.
+
+### D27 - VS Code Marketplace via `@vscode/vsce` - **ADOPT** → FR-OPS-3
+
+Publishing is free and `vsce` is already a devDependency (`npm run
+package`). The release pipeline publishes on **final tags only**, because
+the Marketplace rejects semver pre-release suffixes (`0.3.0-rc.1` is not a
+legal Marketplace version) and its pre-release *channel* imposes a version
+convention we don't want to carry - so RC builds are distributed as `.vsix`
+assets on GitHub pre-releases instead (documented in FR-OPS-3). Requires a
+one-time publisher account + `VSCE_PAT` secret; the `publisher` field in
+`extension/package.json` must match the account. An Open VSX mirror is
+deferred until someone on VSCodium asks (zero-bloat).
+
+### D28 - Remaining student-pack / free-tier candidates - **REJECT (batch)**
+
+Each was considered for the FR-OPS deployment slice and rejected:
+
+- **DigitalOcean** - the pack's $200 credit sunsets **2026-07-31**
+  (announced 2026-06-12); building on it now is building on sand.
+- **Heroku** - $13/month × 24 months of pack credit is real money, but the
+  dyno filesystem is ephemeral: SQLite (D11) would need a Postgres port
+  *purely to fit the host*. The host should fit the architecture, not the
+  reverse.
+- **Fly.io** - no free tier for new organizations; not in the pack.
+- **Railway** - trial credit only; no sustained free tier.
+- **Supabase** - hosted Postgres/auth/storage would move study data to a
+  third-party cloud (NFR-5 - same reasoning as D1's wandb reject) and
+  replace the SQLite source-of-truth for zero benefit at ≤ dozens of
+  participants.
+- **Clerk** - auth SaaS for a dashboard with exactly one operator (the
+  facilitator); `MIDDLEWARE_TOKEN` bearer auth (MP-06) already covers it,
+  and a third-party login dependency contradicts NFR-7.
+- **Blackfire.io** - profiler, free for students, but there is no open
+  performance requirement: NFR-1's latency bound is enforced by sensor
+  design (fire-and-forget, O(1) handlers) and tested. Revisit only if a
+  measured performance defect ever appears in the findings log (FR-META-1).
+
+### D29 - Clerk (+ `pyjwt[crypto]`) - **ADOPT as optional provider** → FR-OPS-5 *(partially supersedes D28's Clerk row, 2026-07-16)*
+
+D28 rejected Clerk as a *mandatory* dependency - that half stands: an
+open-source, offline-capable research tool must never require a third-party
+account to self-host. What changed (owner elicitation, 2026-07-16): the
+maintainer's *hosted* instance wants a polished login. Resolution: auth
+becomes a provider seam in the middleware (`none` / `token` / `clerk`), the
+zero-config token path stays the self-hosting default, and `clerk` verifies
+Clerk-issued JWTs server-side against the instance's JWKS - adopted via
+**`pyjwt[crypto]`** (the standard, minimal JWT library; hand-rolling RS256
+verification is where security bugs come from). The Clerk *frontend* widget
+is wired only on deployments that configure it; everyone else sees the
+token sign-in. This is the same graceful-degradation posture as every other
+external service (Semantic Scholar D8, Claude D10, SonarQube D5, Zotero
+D9): optional, replaceable, never load-bearing.
+
+### D30 - Vercel v0 - **ADOPT as design tool only** → dashboard UI iteration *(D15 stands)*
+
+v0 generates React/Next + shadcn; the dashboard is Svelte 5 (D15, owner
+preference, zero-rewrite). Decision: v0 is used to *explore* layouts and
+visual design; accepted designs are ported into Svelte components by hand.
+Migrating the dashboard to React purely to paste v0 output was considered
+and rejected as a full rewrite of a working, tested SPA. Revisit only if
+the dashboard is ever rebuilt for other reasons.
+
+### D31 - Public-docs architecture - **BUILD (two-layer, archive internals)** → NFR-11
+
+The repo is open source and must read as a product. Decision (owner,
+2026-07-16): internal build history (the mega-prompt phase specs, sprint
+plans) moves to `docs/archive/` - kept intact for the examiner, out of the
+public eye; README becomes the product front page; the contributor guide
+consolidates into one `CONTRIBUTING.md`; RUNBOOK/TOUR keep their roles but
+drop requirement-ID jargon per NFR-11. Alternatives rejected: deleting the
+history (destroys the graded execution record) and a docs site generator
+(a build system for a dozen Markdown files).
+
 ## Summary table
 
 | # | Candidate | Decision | Satisfies | Key reason |
@@ -278,3 +389,11 @@ always-on structural proxy).
 | D21 | PyMuPDF (`pymupdf`) | Adopt | FR-LIT-1 | fast single-wheel PDF text extraction; metadata still from S2 (D8) |
 | D22 | `anthropic` Python SDK | Adopt (realizes D10) | FR-LIT-4 | first-party Claude SDK; never hand-roll the wire protocol |
 | D23 | `tectonic` TeX engine | Adopt (test-time only) | FR-ANA-6 | prove `draft.tex` compiles; ~30 MB self-contained vs ~4 GB MacTeX; not in the lockfile |
+| D24 | GitHub Actions + GHCR + Releases | Adopt | FR-OPS-2 | pipeline lives with CI; GITHUB_TOKEN auth; Pro (student pack) unlocks approval environments |
+| D25 | Render free tier | Adopt | FR-OPS-1(a) | free Docker host for the demo; ephemeral disk fine - demo reseeds itself on boot |
+| D26 | Azure for Students + Caddy | Adopt | FR-OPS-1(b), FR-OPS-4 | renewable $100/yr + free B1s VM = persistent host; deallocated B2s = on-demand SonarQube |
+| D27 | VS Code Marketplace (vsce) | Adopt | FR-OPS-3 | free publishing on final tags; RCs stay GitHub pre-release `.vsix` (no semver suffixes on Marketplace) |
+| D28 | DO / Heroku / Fly / Railway / Supabase / Clerk / Blackfire | Reject (batch) | - | DO credits sunset 2026-07-31; Heroku FS ephemeral vs SQLite; NFR-5 (Supabase); one-operator auth exists (Clerk - *partially superseded by D29*); no perf requirement (Blackfire) |
+| D29 | Clerk + `pyjwt[crypto]` | Adopt (optional provider; partially supersedes D28) | FR-OPS-5 | hosted login without making self-hosters need an account; JWT verification never hand-rolled |
+| D30 | Vercel v0 | Adopt (design tool only; D15 stands) | dashboard UI | React output ported to Svelte by hand; no framework rewrite |
+| D31 | Public-docs architecture | Build (two-layer) | NFR-11 | product-grade public docs; RE record intact in requirements/ + docs/archive/ |

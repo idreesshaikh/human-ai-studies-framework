@@ -1,4 +1,4 @@
-"""Zotero import tests (FR-LIT-5, D9; roadmap/09 item 2).
+"""Zotero import tests (FR-LIT-5, D9; docs/archive/roadmap/09 item 2).
 
 The HTTP layer is faked at ``zotero._get_json`` with recorded-shape API v3
 JSON (the local and web APIs speak the same format, per the Zotero docs),

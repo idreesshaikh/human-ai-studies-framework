@@ -1,7 +1,7 @@
 # Mega-Prompt 03 - Static Metrics Orchestrator
 
 > Self-contained: execute this file in a fresh working session at the repo
-> root. Read `roadmap/00-VISION.md` first.
+> root. Read `docs/archive/roadmap/00-VISION.md` first.
 
 **Depends on:** nothing (parallel-safe with 01/02)
 **Status:** ✅ Done (2026-07-11)
@@ -60,4 +60,4 @@ additions on top:
 
 - Run the plan's verification steps; additionally run with
   `--participant P00 --condition unassisted` and confirm the columns.
-  Update `roadmap/00-VISION.md` tracker and `requirements/traceability.md`.
+  Update `docs/archive/roadmap/00-VISION.md` tracker and `requirements/traceability.md`.

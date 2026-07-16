@@ -55,6 +55,26 @@ class Settings:
     token: str | None = field(
         default_factory=lambda: os.environ.get("MIDDLEWARE_TOKEN") or None
     )
+    #: Sign-in provider (FR-OPS-5): ``none`` / ``token`` / ``clerk``.
+    #: Unset = inferred (token when MIDDLEWARE_TOKEN is set, else none).
+    auth: str | None = field(
+        default_factory=lambda: os.environ.get("MIDDLEWARE_AUTH") or None
+    )
+    #: Clerk provider config (D29) - hosted deployments only.
+    clerk_jwks_url: str | None = field(
+        default_factory=lambda: os.environ.get("MIDDLEWARE_CLERK_JWKS_URL")
+        or None
+    )
+    clerk_issuer: str | None = field(
+        default_factory=lambda: os.environ.get("MIDDLEWARE_CLERK_ISSUER")
+        or None
+    )
+    clerk_publishable_key: str | None = field(
+        default_factory=lambda: os.environ.get(
+            "MIDDLEWARE_CLERK_PUBLISHABLE_KEY"
+        )
+        or None
+    )
 
     #: Zotero import (FR-LIT-5, D9): the desktop app's local API, plus the
     #: web-API fallback credentials. Unset credentials = local-only.

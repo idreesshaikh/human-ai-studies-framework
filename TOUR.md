@@ -115,7 +115,7 @@ That's the full arc - protocol in, paper out.
 | You want | Read |
 | -------- | ---- |
 | To run any component, end to end | [`RUNBOOK.md`](RUNBOOK.md) |
-| The argument and architecture | [`roadmap/00-VISION.md`](roadmap/00-VISION.md) |
+| The argument and architecture | [`docs/archive/roadmap/00-VISION.md`](docs/archive/roadmap/00-VISION.md) |
 | What any ID means | `requirements/srs.md` (lookup, never cover-to-cover) |
-| To develop on the repo | [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md) |
+| To develop on the repo | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | To run a real participant session | [`study/pilot/runbook.md`](study/pilot/runbook.md) |

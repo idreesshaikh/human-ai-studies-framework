@@ -1,7 +1,7 @@
 # Mega-Prompt 07 - Analysis Recipes
 
 > Self-contained: execute this file in a fresh working session at the repo
-> root. Read `roadmap/00-VISION.md`, `requirements/srs.md`, and the middleware
+> root. Read `docs/archive/roadmap/00-VISION.md`, `requirements/srs.md`, and the middleware
 > dataset endpoint docs first.
 
 **Depends on:** 03 (metrics), 04 (middleware dataset export)
@@ -84,4 +84,4 @@ completion.
 ## Verification
 
 - pytest green; full run against replayed pilot data; open the figures.
-  Update `roadmap/00-VISION.md` tracker and `requirements/traceability.md`.
+  Update `docs/archive/roadmap/00-VISION.md` tracker and `requirements/traceability.md`.

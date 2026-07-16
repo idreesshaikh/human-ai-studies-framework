@@ -1,7 +1,7 @@
 # Mega-Prompt 12 - Agent Interaction Leg (+ task harness & snapshots)
 
 > Self-contained: execute this file in a fresh working session at the repo
-> root. Read first: `roadmap/00-VISION.md`, `requirements/srs.md`
+> root. Read first: `docs/archive/roadmap/00-VISION.md`, `requirements/srs.md`
 > (FR-AGENT-*, FR-INST-14/15/16, FR-ETH-2 rev 2, FR-AGENT-5),
 > `requirements/build-vs-adopt.md` (D13, D14), and the middleware API.
 > **Before writing hook configs or the transcript importer, verify current
@@ -146,6 +146,6 @@ redaction levels, snapshotter commit triggers, harness outcome events.
 ## Verification
 
 - pytest green; run the scripted session end-to-end against the live
-  stack; show the timeline's agent lane. Update `roadmap/00-VISION.md`
+  stack; show the timeline's agent lane. Update `docs/archive/roadmap/00-VISION.md`
   tracker + `requirements/traceability.md` (FR-AGENT-1/2/3/5,
   FR-INST-15/16/17 → ✅; FR-INST-14 with MP-05).

@@ -1,0 +1,44 @@
+# On-demand SonarQube VM toggle (FR-OPS-4, D26).
+#
+# SonarQube is batch-time only (cognitive-complexity metric, D5): start the
+# VM for an analysis window, deallocate it after. A deallocated Azure VM
+# bills only its disk - pennies against the student credit. The metrics
+# orchestrator stub-degrades to NaN when SonarQube is absent, so forgetting
+# to start it can never block a session.
+#
+# Setup (RUNBOOK §9): secrets.AZURE_CREDENTIALS (service principal JSON),
+# vars.SONAR_RESOURCE_GROUP, vars.SONAR_VM_NAME.
+# CLI alternative, no workflow needed:
+#   az vm start|deallocate -g <group> -n <vm>
+
+name: SonarQube VM
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Start for an analysis window, or deallocate after
+        type: choice
+        options: [start, deallocate]
+        required: true
+
+permissions: {}
+
+jobs:
+  toggle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ${{ inputs.action }} the SonarQube VM
+        run: |
+          az vm ${{ inputs.action }} \
+            -g "${{ vars.SONAR_RESOURCE_GROUP }}" \
+            -n "${{ vars.SONAR_VM_NAME }}"
+          if [ "${{ inputs.action }}" = "start" ]; then
+            echo "SonarQube coming up on:"
+            az vm show -d -g "${{ vars.SONAR_RESOURCE_GROUP }}" \
+              -n "${{ vars.SONAR_VM_NAME }}" --query publicIps -o tsv
+          fi

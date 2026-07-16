@@ -1,4 +1,5 @@
-"""Recipe contract and registry (FR-ANA-1/2, roadmap/07-analysis-recipes.md).
+"""Recipe contract and registry (FR-ANA-1/2;
+docs/archive/roadmap/07-analysis-recipes.md).
 
 A *recipe* is a pluggable analysis module that consumes the unified study
 dataset and emits tables, figures, a plain-language summary, and the exact

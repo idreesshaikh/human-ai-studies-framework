@@ -1,4 +1,4 @@
-"""Replication-kit export (FR-PROT-7, NFR-6; roadmap/09 item 1).
+"""Replication-kit export (FR-PROT-7, NFR-6; docs/archive/roadmap/09 item 1).
 
 ``protocol export replication-kit`` packages one study into a single
 archive from which a third party reproduces the analysis:

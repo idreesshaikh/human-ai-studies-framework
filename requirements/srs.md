@@ -1,7 +1,7 @@
 # Software Requirements Specification
 
 Requirements for the **Framework for Conducting Human-AI Studies**
-(`roadmap/00-VISION.md`). IDs are stable; MoSCoW priorities define the
+(`docs/archive/roadmap/00-VISION.md`). IDs are stable; MoSCoW priorities define the
 sprint cut line: **Must = the one-week production slice. Should = built if
 the day has slack, else immediately after. Could = stretch. Won't = the
 multi-year vision, deliberately deferred and argued as such.**
@@ -113,6 +113,23 @@ Status key: ✅ built · 🔶 partial · ⬜ open · - deliberately not built.
 | FR-META-1 | S | The framework SHALL log its own operational defects as structured findings - protocol validation failures, seq gaps, unknown-participant flags, gate blocks, recipe requires-failures, setup-friction notes - each linked to the requirement ID whose violation it evidences. | RQ-F2: the framework's flaws are data. | ✅ MP-11 (findings table + auto-scan for seq gaps + gate blocks; recipe requires-fails + `POST /findings`; dashboard finding cards) |
 | FR-META-2 | S | After each study, a **retrospective** SHALL analyze the operational log and the facilitator's findings and produce a proposed changelist to the SRS / protocol schema / instrument configs (Claude-assisted drafting, human-approved before any change lands). | "Self-evolving and improving" - with a human gate, so change management stays RE-disciplined. | ✅ MP-11 (`analysis retrospective`; Claude-drafted proposal, FR-ETH-4 prompt boundary grep-tested, offline template fallback, inert until human-applied) |
 
+## FR-OPS - Deployment, releases & distribution (the adoption path)
+
+Hosted instances exist so the platform can be *seen live and adopted* by
+researchers in industry or academia (S6/S7) - they are demo/dev surfaces.
+NFR-5 is untouched: real study data at rest stays on facilitator-controlled
+machines; a public instance only ever carries the seeded demo study. The
+cost constraint is a requirement, not a hope: everything below runs at $0
+on GitHub Student Pack benefits (decisions D24-D28).
+
+| ID       | P | Requirement | Rationale | Status |
+| -------- | - | ----------- | --------- | ------ |
+| FR-OPS-1 | S | The platform SHALL be deployable from its single container image (`middleware/Dockerfile` - one process serves API + dashboard, NFR-7) to (a) a free-tier container host as a public **seeded demo**, where an ephemeral disk is acceptable by design because the demo study reseeds itself on every boot (replay is idempotent, FR-ING-2), and (b) a persistent facilitator-controlled VM for dev/staging. All internet-facing instances SHALL serve TLS; any instance carrying more than the seeded demo SHALL additionally enforce the bearer token (`MIDDLEWARE_TOKEN`). | S6/S7 adoption: "see it live" without cloning; NFR-5 keeps real data off all of it; student credits keep it at $0. | 🔶 manifests + pipeline built; account provisioning pending |
+| FR-OPS-2 | S | Releases SHALL be cut by pushing a git tag `vX.Y.Z` (release candidates: `vX.Y.Z-rc.N`): one pipeline re-runs the quality gates, builds the container image (pushed to GHCR tagged with the version), packages the extension `.vsix`, and publishes a GitHub Release with artifacts attached. RC tags SHALL be marked pre-release and deploy only to the demo instance; final tags SHALL pass a manual approval gate (GitHub environment) before the persistent instance updates. | Change management: what runs is a tagged, gated build - never a laptop artifact; RQ-F3 replication kits cite exact versions. | 🔶 pipeline built; first tagged release pending |
+| FR-OPS-3 | S | The extension SHALL be distributed on the VS Code Marketplace, published by the release pipeline on final tags, so a facilitator installs it by ID and configures it entirely via `protocol derive overlay-settings` (FR-PROT-4) - no clone, no build step. RC builds SHALL be distributed as `.vsix` assets on GitHub pre-releases (the Marketplace rejects semver pre-release suffixes - D27). | "Anyone in industry or academia can conduct studies": install + derived settings = a working instrument leg. | 🔶 pipeline built; Marketplace publisher account pending |
+| FR-OPS-4 | C | SonarQube SHALL remain **on-demand in every deployment**: locally the compose `--profile sonar`; in the cloud a deallocated VM that is started for analysis windows and deallocated after (workflow-dispatch or CLI), never a 24/7 service. The metrics orchestrator already stub-degrades to NaN with one warning when it is absent (D5). | The cognitive-complexity metric is batch-time, not session-critical; 4 GB of idle Java burns credit for nothing. | 🔶 workflow built; VM provisioning pending |
+| FR-OPS-5 | S | Dashboard sign-in SHALL be a **pluggable auth provider** behind one seam: `none` (local, default when no token is set), `token` (the existing bearer token, zero-config self-hosting - stays the default whenever `MIDDLEWARE_TOKEN` is set), and `clerk` (hosted instances verify Clerk-issued JWTs against the instance's JWKS - D29). The dashboard SHALL present a sign-in surface instead of raw 401s. Ingest stays unauthenticated in every mode (NFR-1: sensors are fire-and-forget). External-service posture per NFR-4: every provider optional, replaceable, degrading gracefully. | Open-source self-hosters must never need a third-party account; the maintainer's hosted instance gets a polished login. | 🔶 seam + token sign-in built (2026-07-16); Clerk client widget pending account provisioning |
+
 ## FR-ETH - Ethics & consent
 
 | ID       | P | Requirement | Rationale | Status |
@@ -138,3 +155,4 @@ Status key: ✅ built · 🔶 partial · ⬜ open · - deliberately not built.
 | NFR-8  | M | **Analytical honesty.** All statistical output reports exact tests, effect sizes, and per-cell n; no bare p-values; small-n framed as hypothesis-generating. | S4; pilot credibility. |
 | NFR-9  | M | **Production readiness.** One-command bring-up with health checks, a seeded demo mode (replayed sample study) so every view renders without live participants, structured logs, and a smoke-test script that exercises ingest → dataset → report. "Inches from deployment" is testable, not a mood. | The one-week deliverable standard. |
 | NFR-10 | S | **Build-vs-adopt discipline.** Every subsystem records an adopt / adapt / build / reject decision with rationale in `requirements/build-vs-adopt.md` before implementation. | S4 (engineering judgment is assessed); avoids NIH waste and dependency debt alike. |
+| NFR-11 | S | **Two-layer documentation (plain language outside, IDs inside).** Requirement/decision IDs (`FR-*`, `NFR-*`, `MP-*`, `D*`) live in `requirements/` and `docs/archive/` only. Every public-facing surface - README, RUNBOOK, TOUR, contributor guide, dashboard UI copy - uses plain names ("the paper generator", "the study timeline"); the dashboard keeps its traceability chips but leads with the plain name and reveals the formal ID + SRS text on hover (FR-DASH-6/9 satisfied, inverted). Code comments keep citing IDs (they are in-code traceability). *(Added 2026-07-16: the platform is open source and must read as a product; the RE record remains complete underneath - two audiences, two layers.)* | S6/S7 + open-source adoption: lay readers get a product, the examiner gets an intact traceability spine. |

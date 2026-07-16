@@ -1,0 +1,39 @@
+# Persistent facilitator VM deployment (FR-OPS-1b, D26): pulls the
+# released image from GHCR instead of building, keeps the SQLite volume on
+# the VM disk (one file is the backup strategy, D11), and fronts it with
+# Caddy for automatic TLS on your domain.
+#
+# One-time VM setup and the release pipeline's usage: RUNBOOK §9.
+#
+#   IMAGE_TAG=v0.3.0 docker compose -f deploy/compose.prod.yml up -d
+#
+# Config via deploy/.env (gitignored): IMAGE_TAG, SITE_ADDRESS,
+# MIDDLEWARE_TOKEN (mandatory here - this instance may carry more than the
+# seeded demo, FR-OPS-1).
+
+services:
+  middleware:
+    image: ghcr.io/idreesshaikh/human-ai-studies-framework/middleware:${IMAGE_TAG:-main}
+    restart: unless-stopped
+    environment:
+      MIDDLEWARE_TOKEN: ${MIDDLEWARE_TOKEN:?set MIDDLEWARE_TOKEN in deploy/.env}
+    volumes:
+      - study-data:/data
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in deploy/.env, e.g. studies.example.me}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  study-data:
+  caddy-data:
+  caddy-config:
