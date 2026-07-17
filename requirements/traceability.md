@@ -79,7 +79,7 @@ only when its rows here are flipped. Status: ✅ done · 🔶 partial · ⬜ ope
 | FR-LIT-6 | owner elicitation 2026-07-16 | `Knowledge.svelte` library list (select/remove) + busy spinner with plain-language wait copy | post-sprint (2026-07-16) | ✅ |
 | FR-LIT-7 | owner elicitation 2026-07-16; D8 | provider seam already isolated (`semantic_scholar.get_json` + `cached_fetch`, now self-paced to 1 req/s); OpenAlex recorded as swap candidate | - | ⏳ seam ready, swap undecided |
 | FR-META-3 | owner elicitation 2026-07-16; FR-META-1/2; FR-ETH-4 | in-platform scheduled agents over the FTS5 index | MP-13 (spec written 2026-07-16) | ⏳ specced, not built |
-| FR-LIT-8 | owner elicitation 2026-07-17; FR-CONV-2, FR-TPL; D8, D36 | `scripts/corpus_harvest.py` + `docs/papers/corpus-index.json`/`CORPUS.md`; importer pending | pipeline 2026-07-17; importer MP-15 | 🔶 pipeline built + first run; importer pending |
+| FR-LIT-8 | owner elicitation 2026-07-17; FR-CONV-2, FR-TPL; D8, D36 | `scripts/corpus_harvest.py` + `docs/papers/corpus-index.json`/`CORPUS.md`; importer pending | pipeline 2026-07-17; importer MP-15 | 🔶 pipeline + first committed run (943 Tier B + 57 seeds = 1,000; F8.1/F8.3 met); importer pending |
 | FR-LIT-9 | owner elicitation 2026-07-17; FR-CONV-2; RQ-F4 | paper matcher (FTS→LLM ladder) + recommendation cards | MP-15 (to be specced) | ⬜ |
 | FR-LIT-10 | owner elicitation 2026-07-17; NFR-12; FR-LIT-4; FR-ETH-4 | living literature constellation + scoped RAG | MP-15/17 (to be specced) | ⬜ |
 | FR-PLAT-1 | S7; owner elicitation 2026-07-17 | project model (middleware + dashboard) | MP-14 (to be specced) | ⬜ |
