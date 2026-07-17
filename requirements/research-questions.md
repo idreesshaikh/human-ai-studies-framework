@@ -1,7 +1,12 @@
 # Research questions
 
-Two tiers. The framework RQs are the thesis; the pilot RQs exist to
-*evaluate* the framework by exercising it end-to-end on a real study.
+Three tiers. The framework RQs are the thesis; the pilot RQs exist to
+*evaluate* the framework by exercising it end-to-end on a real study; the
+demonstrator RQs (draft studies, 2026-07-17) exist to *prove the v2
+platform* the same way the pilot proved v1 - validation cases run by the
+facilitator, chosen because each needs a capability only this platform
+has. They are not product content: researchers design their own studies
+(FR-CONV/FR-TPL); these two are ours.
 
 ## Tier 1 - Framework RQs (the thesis contribution)
 
@@ -25,6 +30,19 @@ studies as replication kits such that a third party reproduces the report
 from the kit alone?
 *Answered by:* Mega-Prompt 07 (one published algorithm as a recipe) and
 Mega-Prompt 09 item 2 (kit re-import reproduces `report.md`).
+
+**RQ-F4 - Conversational elicitation** *(added 2026-07-17, MP-01 rev 9)*.
+Can a literature-grounded design conversation elicit a complete, valid,
+statistically sound study protocol - and capture the elicitation trail as
+a first-class traceability artifact - at least as completely as expert
+hand-specification, with every AI-proposed design element either cited
+into the corpus or visibly labeled unsourced?
+*Answered by:* MP-15 (the FR-CONV-1 F1.1 end-to-end walkthrough; the
+FR-TPL-1 F1.2 retro-fit proof that our own pilot is expressible as a
+template instance; the FR-CONV-6 chain export), evaluated against the
+falsifier: any protocol section the conversation *cannot* elicit without
+side-channel editing is a specification defect of the conversation layer,
+logged via FR-META-1 exactly as RQ-F1 treats protocol leaks.
 
 ## Tier 2 - Pilot-study RQs (the evaluation case)
 
@@ -73,6 +91,64 @@ Task outcome (FR-INST-16: acceptance-test pass rates, time-to-first-green)
 serves as the ground-truth dependent variable across RQ-P1–P5: every
 "how does AI assistance affect X" answer is interpreted against whether the
 task was actually accomplished.
+
+## Tier 3 - v2 demonstrator-study RQs (draft protocols, 2026-07-17)
+
+Two draft studies designed as the v2 platform's demonstration workload -
+chosen over straight METR/Cursor replications because each requires a
+capability only this platform has: the per-chunk four-leg join
+(comprehension-debt) and agent participants run by the harness
+(context-ablation). Draft protocols: `protocol/examples/
+comprehension-debt-2026.yaml` and `protocol/examples/
+context-ablation-2026.yaml` (the latter is FR-PROT-9's fit-criterion
+fixture and does not validate until that requirement lands).
+
+### Comprehension-debt study (human; conditions `ai-assisted` build sitting → `unassisted` maintenance sitting)
+
+**RQ-C1 - Engagement.** How deeply do developers engage with agent-produced
+code before accepting it - review time per changed line, scroll coverage,
+files opened, edits to the agent's output - and how do accepted chunks
+distribute across engagement levels?
+*Data:* FR-INST-8/9/10 + visible ranges, agent leg. *Recipes:*
+`ai-review-behavior`, `agent-interaction-dynamics`, `engagement-depth` (new).
+
+**RQ-C2 - Immediate comprehension.** How does engagement depth relate to
+comprehension of the accepted chunk (timeboxed predict-output /
+locate-change probes)?
+*Data:* comprehension probes (FR-INST-19) joined per chunk. *Recipe:*
+`comprehension-by-engagement` (new).
+
+**RQ-C3 - Comprehension debt.** In a maintenance sitting 5-7 days later,
+how do time-to-localize, time-to-fix, and fix success on injected defects
+differ between self-written code, deeply engaged agent chunks, and skimmed
+agent chunks?
+*Data:* task harness (FR-INST-16), behavioral leg, probe outcomes.
+*Recipes:* `maintenance-transfer` (new), `task-outcome-by-condition`.
+
+**RQ-C4 - Code-profile moderation.** Does the cognitive-load profile of an
+accepted chunk (9-metric matrix) moderate the engagement → comprehension →
+maintenance chain?
+*Data:* metrics leg per chunk. *Recipes:* `code-quality-by-condition`,
+`comprehension-by-engagement`.
+
+### Context-ablation study (agent participants; conditions `no-context` / `hand-written-context` / `generated-context`)
+
+**RQ-A1 - Success and cost.** How do harness pass rates,
+time-to-first-green, and cost (tokens, tool calls, wall time) differ across
+context conditions - including the platform's own generated context files
+(FR-AGF-2)?
+*Data:* task harness, agent leg. *Recipes:* `task-outcome-by-condition`,
+`cost-effectiveness-frontier` (new).
+
+**RQ-A2 - Output profile.** How does the cognitive-load profile of the
+agent's diffs differ across context conditions?
+*Data:* metrics leg over per-run diffs. *Recipe:*
+`code-quality-by-condition`.
+
+**RQ-A3 - Agent behavior.** How does the agent's working behavior differ
+across context conditions - tool-call mix, exploration-vs-editing balance,
+turn cadence, dead-end sequences?
+*Data:* agent leg. *Recipe:* `agent-interaction-dynamics`.
 
 ## Expectations discipline
 

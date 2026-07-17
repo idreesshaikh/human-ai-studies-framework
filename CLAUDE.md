@@ -1,10 +1,20 @@
 # CLAUDE.md — agent guide for this repository
 
 **Project:** Framework for Conducting Human-AI Studies — a Masters project in
-**requirements engineering**. A protocol-driven platform that instruments
-human-AI developer studies (four data legs on one timeline), manages the
-study lifecycle, and generates analysis, reports, and paper drafts.
-Read `docs/archive/roadmap/00-VISION.md` before any non-trivial work.
+**requirements engineering**. A conversational research platform:
+researchers *talk* their study into existence — a design conversation
+grounded in a 58-paper corpus proposes citable design moves that compile
+deterministically into the study-as-code protocol; paper-derived templates
+prescribe the statistical formulation; data comes from live instrumented
+sessions (four legs, one timeline) or curated GitHub mining through one
+join-key schema; studies evolve on the fly through phase-aware amendments;
+the platform itself evolves from researcher feedback. Multi-researcher
+shell (projects, roles, hero), product-grade UI (D34 React + shadcn/ui),
+agent-readable metadata throughout.
+Read `docs/VISION.md` (v2, current direction) before any non-trivial work;
+`docs/archive/roadmap/00-VISION.md` is the superseded-but-authoritative
+record of the built v1 engine (MP-01..13). Detailed v2 specs with fit
+criteria: `requirements/specs/`.
 
 ## The golden rules (RE discipline — these are graded)
 
@@ -16,8 +26,9 @@ Read `docs/archive/roadmap/00-VISION.md` before any non-trivial work.
    Supersede: strike through, note the successor and date, append a row to
    the phase-completion log in `traceability.md`.
 3. **A phase is done only when the matrices say so.** Finishing a mega-prompt
-   means: its verification steps ran green, the tracker row in
-   `docs/archive/roadmap/00-VISION.md` is flipped, and its requirement rows in
+   means: its verification steps ran green, its tracker row is flipped
+   (v1 phases: `docs/archive/roadmap/00-VISION.md`; v2 phases: the tracker
+   that lands with the MP-14..18 specs), and its requirement rows in
    `requirements/traceability.md` are flipped.
 4. **Glossary wins.** Use `requirements/glossary.md` terms in code
    identifiers, schema fields, and docs (`participant` not `user`,
@@ -26,24 +37,53 @@ Read `docs/archive/roadmap/00-VISION.md` before any non-trivial work.
 5. **Reuse needs a decision.** Before adopting any new dependency/tool/
    service, add a row to `requirements/build-vs-adopt.md`
    (adopt/adapt/build/reject + rationale). NFR-10.
-6. **MoSCoW is the cut line.** Must = the one-week production slice; don't
-   gold-plate a Must into a Could while Musts are open.
+6. **MoSCoW is the cut line.** Must is defined against the active milestone
+   (v1 families: the one-week sprint, done; FR-PLAT/TPL/CUR/AGF: the v2
+   milestone). Don't gold-plate a Must into a Could while Musts are open —
+   in v2 terms: no shell polish while the methodology engine has open Musts.
 
 ## Execution model
 
-Work proceeds by **mega-prompts**: `docs/archive/roadmap/01..12` are self-contained,
-detailed phase specs. Execute them in the sprint order in
-`docs/archive/roadmap/00-VISION.md` (§ The one-week sprint). Each states its
-dependencies, the requirement IDs it satisfies, deliverables, acceptance
-criteria, and verification steps — follow them literally; deviations must be
-noted in the traceability log.
+Work proceeds by **mega-prompts**: self-contained phase specs stating
+dependencies, the requirement IDs satisfied, deliverables, acceptance
+criteria, and verification steps — follow them literally; deviations must
+be noted in the traceability log. MP-01..13 live in
+`docs/archive/roadmap/` (v1, built). The v2 phases — MP-14 platform shell
++ v2 surface, MP-15 templates + conversational designer, MP-16
+curated-dataset leg, MP-17 agent-friendliness, MP-18 evolution
+(amendments + feedback) — are **not yet specced**; each needs its spec
+written (and any new dependencies decided in `build-vs-adopt.md`) before
+code, building on the detailed family specs in `requirements/specs/`.
+Build order and rationale: `docs/VISION.md` § Build order — the
+conversation/templates proof first, shell polish last.
+
+## The v2 direction in one paragraph
+
+The 58-paper corpus (`docs/papers/README.md`) is the product's knowledge,
+not background reading. The core interaction is the **design conversation**
+(FR-CONV): platform-proposed design moves, each grounded (cited into the
+corpus/templates) or labeled unsourced, individually accepted/rejected,
+compiled *deterministically* (no LLM in the compiler) into protocol draft
+diffs applied on human approval — the YAML protocol stays the sole
+document of record, and the conversation is stored as the study's
+elicitation record (the RE chain now starts at the idea). Templates
+(FR-TPL) encode published designs and prescribe the exact statistics;
+data converges from live capture or curated mining (FR-CUR) into one
+join-key schema; projects/roles/hero (FR-PLAT) deliver it to S7; manifest
++ generated context files (FR-AGF) make it legible to agents; NFR-12
+holds every v2 surface to a product bar. Not a task board; not an
+Overleaf/Zotero competitor; fully usable with no LLM key (the structured
+designer is the degradation path).
 
 ## Repository map
 
 | Path | What | Built by |
 | ---- | ---- | -------- |
-| `requirements/` | SRS, stakeholders, RQs, glossary, traceability matrix, build-vs-adopt decisions | MP-01 ✅ |
-| `docs/archive/roadmap/` | Vision + mega-prompts 01–12 | — |
+| `requirements/` | SRS (index of record), stakeholders S1–S7, RQs, glossary, traceability, build-vs-adopt D1–D35, **`specs/` detailed v2 family specs with fit criteria** | MP-01 ✅ (rev 9 = conversational core) |
+| `docs/VISION.md` | **v2 platform vision — the current direction (conversational research platform)** | 2026-07-17 |
+| `docs/papers/` | The corpus: Tier A seeds (`README.md`, hand-curated) + Tier B (`CORPUS.md`/`corpus-index.json`, generated by `scripts/corpus_harvest.py` — never hand-edit) | FR-LIT-8 |
+| `docs/design/` | v2 design tree: C4 architecture, UML data model, sequences, state machines, flows, UI/motion spec | 2026-07-17 |
+| `docs/archive/roadmap/` | v1 vision + mega-prompts 01–13 (superseded, kept authoritative for the built engine) | — |
 | `*/docs/` | Docs live with their component: `extension/docs/developer_behavior_capture.md` (+ `adaptation-notes.md` from MP-05), `metrics/docs/` (metrics matrix, implementation plan) | — |
 | `extension/` | VS Code extension "Cognitive Overlay" — cognitive + behavioral legs (TypeScript) | built v0.1; MP-05 extends |
 | `metrics/` | Static-metrics leg, 9-metric matrix (Python, flat `src/` scripts) | MP-03 |
@@ -51,7 +91,8 @@ noted in the traceability log.
 | `middleware/` | FastAPI ingestion service on :8000 (Python pkg) | MP-04 |
 | `analysis/` | Recipes, runner, report, paper draft (Python pkg, CLI `analysis`) | MP-07, MP-11 |
 | `agent-capture/` | Agent leg: hooks, transcript import, redaction, snapshots, task harness (Python pkg) | MP-12 |
-| `dashboard/` | Svelte 5 + Vite + TS SPA — mission control: task board, lifecycle, timeline (`npm run check` is the gate) | MP-06 ✅ |
+| `dashboard/` | Svelte 5 + Vite + TS SPA — the v1 operational console (maintained-frozen; `npm run check` is the gate) | MP-06 ✅ |
+| `platform/` | **planned** — v2 surface: React 19 + Vite + Tailwind + shadcn/ui (hero, projects, design conversation), D34/NFR-12 | MP-14/15 (unspecced) |
 
 Directory history (for stale references): `extension/` was
 `Cognitive Overlay/`; `metrics/` was `Static Code Metrics/`. The extension's
@@ -81,8 +122,18 @@ into a package mid-sprint.
 rules in `extension/PROJECT_GUIDE.md` — the sacred one: **`src/core` never
 imports `vscode`.**
 
-**Dashboard: Svelte 5 + Vite + TypeScript** (decision D15 — not React).
-Scaffolded only by MP-06. Charts follow the `dataviz` skill.
+**Frontend — two surfaces (D34):** the v1 operational console in
+`dashboard/` stays **Svelte 5 + Vite + TS** (D15, maintained-frozen: bug
+fixes only, `npm run check` gate) until the v2 surface reaches per-view
+parity. The v2 platform surface is a **new `platform/` app: React 19 +
+Vite + TypeScript + Tailwind v4 + shadcn/ui** (components vendored and
+owned, never treated as an external library look). One design-token
+system across both surfaces and all charts; charts follow the `dataviz`
+skill; experience bar specced in
+`requirements/specs/nfr-12-experience.md` (WCAG 2.2 AA, reduced-motion,
+streaming, both themes — these are requirements, not options). UI is
+designed with Claude in-repo (D35); every design iteration is an
+ordinary gated commit.
 
 ## System invariants (violating these breaks the science)
 
@@ -114,10 +165,10 @@ Scaffolded only by MP-06. Charts follow the `dataviz` skill.
   extension's formatting, ruff owns Python (`E,F,I,B,UP`, line length 88).
 - Time-dependent logic gets an injected clock and mocked-timer tests (see
   `extension/test/` for the pattern).
-- External APIs (Semantic Scholar, Claude, SonarQube) must degrade
-  gracefully: cache, warn once, never block a session. For Claude API code,
-  read the `claude-api` skill first; for Claude Code hook/transcript
-  formats, verify against current docs via the `claude-code-guide` agent —
-  not memory.
+- External APIs (Semantic Scholar, the LLM provider — Mistral per D32,
+  SonarQube, GitHub for FR-CUR mining) must degrade gracefully: cache, warn
+  once, never block a session. For Claude Code hook/transcript formats
+  (agent-capture leg), verify against current docs via the
+  `claude-code-guide` agent — not memory.
 - Before committing: `uv run pytest && uv run ruff check .` (Python) and/or
   `npm run check` in `extension/`.

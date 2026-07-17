@@ -1,7 +1,10 @@
 # Stakeholder analysis
 
-Six stakeholder roles. Goals become research questions and requirements;
+Seven stakeholder roles. Goals become research questions and requirements;
 conflicts become documented trade-offs with a decided resolution.
+*(S7 added 2026-07-17: the SRS had cited S7 since the FR-OPS revision
+without a definition here - a traceability defect found and fixed during
+the v2 platform re-alignment.)*
 
 ## S1 - Researcher / Facilitator (primary; Idrees)
 
@@ -46,6 +49,20 @@ Whoever extends the platform (including future Idrees, and JetBrains-port
 authors). **Goals:** IDE-agnostic core stays IDE-agnostic; schemas are
 versioned so old data never becomes unreadable; new instruments and recipes
 plug in without touching existing legs.
+
+## S7 - Adopting researcher (industry or academia)
+
+A researcher who is *not* the maintainer, arriving at the hosted platform to
+run their own study. **Goals:** understand within minutes what the platform
+does (hero page, live demo); sign up and create a project without reading a
+thesis; invite colleagues with appropriate roles; design a study by picking
+a published, citable design rather than reinventing methodology; be told the
+statistically correct analysis rather than having to derive it; get data
+either from live instrumented sessions or from curated external sources
+(GitHub, archives) through one flow. **Concern:** most "research platforms"
+are task boards in disguise - S7 stays only if the platform encodes real
+methodological knowledge (the paper corpus in `docs/papers/`) and saves them
+from the statistics they fear getting wrong.
 
 ## Conflicts and resolutions
 

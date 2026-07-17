@@ -434,6 +434,72 @@ wheel-reinvention D30's workflow exists to avoid. Bounds: platform-derived
 cards stay non-draggable (they clear themselves); only manual todos move.
 Pinned via the npm lockfile.
 
+### D34 - React 19 + Vite + Tailwind v4 + shadcn/ui (v2 platform surface) - **ADOPT** → FR-PLAT, FR-CONV, NFR-12 *(scopes D15, 2026-07-17)*
+
+The v2 platform surface (hero page, projects, the conversational study
+designer, chat-first study evolution) is a **new application**, not an
+increment of the mission-control SPA - different information architecture
+(marketing + auth + conversation vs. operational monitoring), different
+component vocabulary (chat threads, streaming responses, command palettes,
+forms-as-review-surfaces vs. swimlanes and gap strips). Decision (owner
+direction 2026-07-17: "elements from shadcn... no need to stick with
+Svelte"; framework call delegated to the implementer):
+
+- **React 19 + TypeScript + Vite** for the new `platform/` app. shadcn/ui's
+  canonical ecosystem is React; the AI-assisted design workflow (D35)
+  and the strongest chat-UI primitives (streaming, optimistic updates,
+  virtualized threads) live there. Vite (not Next.js): the middleware
+  already serves SPAs and owns the API - a second server runtime adds an
+  operational surface NFR-7 forbids.
+- **Tailwind v4 + shadcn/ui**: shadcn is *vendored source, not a
+  dependency* - components are copied in and owned, which fits the repo's
+  zero-bloat and own-your-marks discipline (D17) far better than a
+  component library ever did. Design tokens bridge to the existing
+  dataviz palette so charts stay consistent across both surfaces.
+- **D15 is scoped, not overturned:** the Svelte dashboard remains the v1
+  operational console - built, tested, shipping - and is *maintained
+  frozen* (bug fixes, no new features) until the v2 surface reaches
+  feature parity view-by-view; each migrated view retires its Svelte twin
+  in the same PR. No big-bang rewrite of working software.
+
+Alternatives rejected: **shadcn-svelte** (a port perpetually trailing
+upstream; the chat/streaming ecosystem gap is the real cost, not the
+components); **Next.js** (server runtime duplication, contra NFR-7);
+**big-bang Svelte→React rewrite** (discards 47 passing tests and a working
+console for zero user value during the transition).
+
+### D35 - Claude-driven design workflow ("Claude Design") - **ADOPT (workflow)** → NFR-12 *(succeeds retired D30)*
+
+The owner designs the v2 surface *with Claude* (agentic coding + design
+skills) instead of v0 (retired, D30 rev 4): design tokens, component
+composition, motion, and dataviz follow the repo's skills (`dataviz`,
+design-system conventions) applied by the agent directly in the codebase -
+no external design SaaS, no port-back step, every iteration lands as an
+ordinary gated commit. Bounds: accessibility and reduced-motion are
+requirements (NFR-12), not aesthetic options; generated UI is reviewed
+like any other code (CI gates unchanged).
+
+### D36 - Corpus growth: Semantic Scholar snowballing now, agentic paper platforms later - **BUILD (pipeline) + ADOPT (S2, extends D8); alphaXiv et al. DEFERRED** → FR-LIT-8
+
+The 1,000-paper corpus (FR-LIT-8) is grown by **citation snowballing**
+over the Semantic Scholar Graph API (D8's provider, same self-paced/
+cached posture): every reference and citation of every Tier A seed is a
+candidate; a quality gate (verifiable external ID, age-scaled citation
+floors, fresh-paper allowance) and a ranking function (freshness ×
+impact × seed-connectivity × venue) pick Tier B. Built as
+`scripts/corpus_harvest.py`, stdlib-only, resumable, deterministic given
+its cache - rerunning refreshes the corpus as the literature moves.
+**Why build:** no service emits a quality-tiered, provenance-tracked
+corpus index keyed to *our* seeds; the gate/rank logic *is* editorial
+judgment and must be ours, versioned in-repo. **Deferred, recorded as
+the FR-LIT-8 adapter extension point:** agentic discovery platforms
+(alphaXiv trending/discussion signals, Hugging Face daily papers,
+OpenAlex, Connected Papers) as additional candidate sources feeding the
+same gate - each future source is its own decision row; none may bypass
+the gate (quality is non-negotiable, and a trending signal is not a
+quality signal). Rejected: bulk arXiv category dumps (volume without
+relevance; the seed-connectivity signal is what keeps the corpus *ours*).
+
 | # | Candidate | Decision | Satisfies | Key reason |
 | - | --------- | -------- | --------- | ---------- |
 | D1 | wandb | Reject / concepts only | - | human-subject data can't go to third-party cloud; wrong unit of record |
@@ -469,3 +535,6 @@ Pinned via the npm lockfile.
 | D31 | Public-docs architecture | Build (two-layer) | NFR-11 | product-grade public docs; RE record intact in requirements/ + docs/archive/ |
 | D32 | Mistral API (REST, no SDK; rev 2 dropped Gemini) | Adopt (bounded; supersedes D10, D22) | FR-LIT-4, FR-META-2 | free-tier provider in active use; UI picks the model tier; stdlib REST keeps the FR-ETH-4 tool loop as the enforcement boundary |
 | D33 | svelte-dnd-action | Adopt | FR-DASH-7 | standard Svelte DnD for manual task cards (v0 iteration, D30 rev 2); derived cards stay non-draggable |
+| D34 | React 19 + Vite + Tailwind v4 + shadcn/ui | Adopt (v2 surface; scopes D15) | FR-PLAT, FR-CONV, NFR-12 | shadcn's canonical ecosystem + chat-UI primitives; vendored components, not a library; Svelte console frozen until parity |
+| D35 | Claude-driven design workflow | Adopt (workflow; succeeds D30) | NFR-12 | design iterations land as gated commits in-repo; no external design SaaS, no port-back |
+| D36 | Corpus snowball pipeline (S2) + agentic sources later | Build pipeline; adopt S2 (extends D8); defer alphaXiv et al. | FR-LIT-8 | gate/rank = versioned editorial judgment; no source bypasses the quality gate |

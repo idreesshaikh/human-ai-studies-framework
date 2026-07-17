@@ -1,5 +1,10 @@
 # Framework for Conducting Human-AI Studies
 
+> **Superseded 2026-07-17 by the v2 platform vision — `docs/VISION.md`
+> (MP-01 rev 8, traceability §3).** This document remains the intact record
+> of the v1 sprint: its pillars, invariants, and the mega-prompt tracker
+> below stay authoritative for MP-01..13. New work follows v2.
+
 **The Masters Project.** One-line pitch: *a requirements-engineered,
 production-ready framework that takes a human-AI study from research question
 to publishable paper on one platform - protocol-driven instruments, live

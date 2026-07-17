@@ -5,10 +5,12 @@ use. One term per concept; synonyms listed only to ban them.
 
 | Term            | Definition                                                                                                    |
 | --------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Study**       | One complete empirical investigation, specified by exactly one protocol. *(not: experiment, project)*         |
+| **Study**       | One complete empirical investigation, specified by exactly one protocol. *(not: experiment)*                  |
+| **Project**     | A collaborative workspace owning studies, papers, datasets, and members; every study belongs to exactly one project (FR-PLAT-1). *(Redefined 2026-07-17: previously banned as a synonym of study; now the container concept.)* |
+| **Role**        | A member's permission level within a project: `owner` \| `researcher` \| `viewer` (FR-PLAT-2). *(not: permission, group)* |
 | **Protocol**    | The machine-readable (YAML) requirements specification of a study: RQs, conditions, participant plan, instruments, phases, analysis plan. *(“study-as-code”)* |
 | **Condition**   | An experimental arm a session runs under. Pilot values: `ai-assisted`, `unassisted`. *(not: group, treatment)* |
-| **Participant** | A human data source, identified only by an anonymized ID (`P07`). *(not: subject, user)*                      |
+| **Participant** | A data source enrolled in a study, identified only by an anonymized ID: a human (`P07`) or an agent participant (`A01`). *(Rev 2, 2026-07-17: agent participants added, FR-PROT-9; previously humans only.)* *(not: subject, user)* |
 | **Session**     | One continuous instrumented sitting of one participant under one condition; the unit that owns a JSONL file and a `sessionId`. |
 | **Instrument**  | A data-collecting component configured by the protocol (fatigue probes, stuck detection, behavioral telemetry, static metrics). *(not: sensor, tool)* |
 | **Leg**         | One of the three instrument families sharing the study timeline: cognitive/self-report, behavioral, static code metrics. |
@@ -44,3 +46,24 @@ use. One term per concept; synonyms listed only to ban them.
 | **Snapshot**    | One shadow-git commit of the task workspace (on save + timer), enabling metric time series (FR-INST-15). |
 | **Task harness** | The per-task acceptance tests the framework runs to record outcome ground truth: pass/fail counts, time-to-first-green (FR-INST-16). |
 | **Environment snapshot** | The session-start event recording tool/OS/extension/model versions for replication provenance (FR-INST-14). |
+| **Study template** | A parameterized, citable encoding of a published study design (design type, conditions, instruments, measures, statistical plan) that instantiates into a valid protocol (FR-TPL-1). *(not: blueprint, preset)* |
+| **Statistical plan** | The template-bound prescription of exact tests, effect sizes, corrections, and per-cell-n rules a design requires (FR-TPL-2, NFR-8). *(not: stats config)* |
+| **Study designer** | The guided flow from research question to instantiated protocol: template selection, dataset-exists branch (curated vs. live), parameter form (FR-TPL-3). *(not: wizard)* |
+| **Curated dataset** | A study dataset built from external sources (GitHub API, archives, replication packages) rather than live instrumented sessions, normalized into the one-timeline event schema with join keys and a provenance record (FR-CUR-1). *(not: mined dataset, secondary data)* |
+| **Mining adapter** | A per-source importer producing curated-dataset rows behind the common normalizer contract (primary: GitHub API, FR-CUR-2). |
+| **Validity-threats record** | The mandatory provenance companion of a curated dataset: sampling frame, inclusion criteria, known biases, heuristics used (FR-CUR-3). |
+| **Platform manifest** | The machine-readable self-description of a deployment - capabilities, API surface, schemas, glossary, requirements - for AI agents operating the platform (FR-AGF-1). |
+| **Design conversation** | The persistent per-study thread in which a study is elicited, designed, and evolved - the platform's primary design surface (FR-CONV-1). *(not: chat, wizard)* |
+| **Design move** | One platform-proposed protocol change carried as a structured, individually acceptable/rejectable object alongside a conversation turn (FR-CONV-1). |
+| **Grounding** | The citation set attached to a design move - paper refs, template IDs, SRS/glossary anchors; moves without it are labeled unsourced (FR-CONV-2). *(not: sources, evidence)* |
+| **Compilation** | The deterministic, LLM-free translation of accepted design moves into a validated protocol draft diff, applied only on approval (FR-CONV-3). |
+| **Amendment** | A post-ethics-approval protocol change: version bump + recorded rationale/approver; consent-relevant amendments require re-approval before new sessions (FR-CONV-4). |
+| **Elicitation record** | The stored design conversation - turns, moves, decisions, approvals - as the study's traceable requirements-elicitation artifact (FR-CONV-6). |
+| **Corpus** | The platform's paper collection in provenance tiers: **Tier A** (hand-curated seeds with per-paper rationale), **Tier B** (pipeline-harvested, quality-gated, every row API-verifiable), plus per-study ingested papers (FR-LIT-8). *(not: library, database)* |
+| **Harvest** | The corpus-growth pipeline run: citation snowballing from Tier A seeds through the quality gate and ranking into Tier B (`scripts/corpus_harvest.py`, D36). |
+| **Paper matching** | Surfacing corpus papers against the researcher's evolving idea with a stated match reason; accepted matches join the study's paper set with the reason preserved (FR-LIT-9). |
+| **Living literature view** | The animated citation constellation doubling as the scoped-RAG surface: selection scopes retrieval, answers are chip-cited, gaps surface as halos (FR-LIT-10). *(not: graph view)* |
+| **RAG scope** | The researcher-selected subset of papers the assistant retrieves from for a given exchange - retrieval scoping, never an access-control mechanism (FR-LIT-10; FR-ETH-4 stays the boundary). |
+| **Agent participant** | An AI agent configuration (tool + model) enrolled as a study's data source, its sessions executed by the task harness; join keys and anonymized IDs apply exactly as for humans (FR-PROT-9). *(not: bot, subject system)* |
+| **Accepted chunk** | One contiguous agent-produced code contribution the participant accepted - the unit of engagement/comprehension analysis; its chunk reference joins probes, edit bursts, and agent turns (FR-INST-19). *(not: suggestion, diff)* |
+| **Comprehension probe** | A short, timeboxed, protocol-configured check (predict-output / locate-change) of the participant's understanding of an accepted chunk or injected defect, joined to its chunk (FR-INST-19). *(not: quiz, test)* |

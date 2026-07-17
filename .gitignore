@@ -32,3 +32,6 @@ shadow.git/
 .coverage
 .coverage.*
 htmlcov/
+
+# Literature PDFs (docs/papers/README.md is the tracked index)
+docs/papers/*.pdf
