@@ -83,3 +83,9 @@ is visible next to the metrics it excludes.
 - MP-09 second-recipe candidates named: Ziegler **persistence** or
   GitClear-style churn - both become computable once FR-INST-17 lands.
 - Glossary: **Churn**, **Persistence** added.
+
+*(v2 note, 2026-07-17 regroup: this audit covers the live-capture legs.
+Metrics over mined/curated data are specified in `specs/fr-cur.md`
+(normalizer event vocabulary + the reused metrics leg over checked-out
+snapshots); per-chunk metric joins for the comprehension-debt study ride
+FR-INST-19's chunk reference.)*

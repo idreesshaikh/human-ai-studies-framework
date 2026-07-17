@@ -84,38 +84,19 @@ the graph renders offline after first fetch.
 
 ### ~~D9 - Zotero (local/web API) - **ADOPT (stretch)**~~ **WITHDRAWN** (2026-07-16) → FR-LIT-5
 
-The one end-user integration that proves the paper-ingest extension point;
-clean documented API. Could-priority: after the sprint.
-**Built (MP-09, 2026-07-12):** consumed via the desktop app's local
-read-only API v3 (`localhost:23119`, no key) with the hosted API as
-fallback. We adopt the *API*, not a library - the two calls (list
-collections, list a collection's top items) are one-liners over stdlib
-`urllib`, so no `pyzotero` dependency was added (zero-bloat discipline).
+Built in MP-09 (local read-only API v3 over stdlib `urllib`, no
+`pyzotero`); withdrawn with FR-LIT-5 (owner decision): DOI/arXiv/PDF
+ingest covers the need. It proved the paper-ingest extension point.
+Full narrative in git history.
 
 ### ~~D10 - Claude API (Anthropic) - **ADOPT, bounded**~~ **SUPERSEDED by D32** (2026-07-16) → FR-LIT-4, FR-META-2
 
-Powers the knowledge assistant and retrospective drafting. Bounds are
-requirements, not implementation details: FR-ETH-4 (no row-level
-participant data leaves the machine), answers must cite sources, and the
-retrospective's output is a *proposal* a human approves. Implementer must
-check the official API docs at build time for current models/pricing;
-default to the current Sonnet-class model, temperature low, tool-use for
-querying the middleware's aggregate endpoints.
-**Built (MP-10, 2026-07-12):** the official `anthropic` Python SDK, model
-`claude-sonnet-5` (the current Sonnet-class model, verified against the
-`claude-api` skill at build time). Note the "temperature low" clause is now
-*unsatisfiable and dropped*: the current models reject `temperature`/`top_p`
-with a 400, so determinism is steered by prompting instead (documented
-deviation). FR-ETH-4 is enforced server-side in `assistant.py`: a hand-rolled
-tool-use loop exposes exactly three tools (`search_papers`, `get_protocol`,
-`get_dataset_summary`), none of which can return a row-level participant
-event - the model cannot leak what it cannot see (grep-the-output test).
-Absent `ANTHROPIC_API_KEY`, the endpoint degrades gracefully (503 with a
-plain-language message; every offline feature keeps working).
-**Superseded (2026-07-16) by D32:** the assistant and retrospective now run
-on Gemini / Mistral (owner decision: free-tier providers, no paid key). The
-FR-ETH-4 bounds, cite-every-claim prompt, and graceful-degradation posture
-carry over unchanged.
+Powered the knowledge assistant + retrospective (built MP-10 via the
+`anthropic` SDK, D22): FR-ETH-4 enforced server-side by a hand-rolled
+three-tool loop that cannot see row-level events; graceful degradation
+without a key. Superseded by D32 (owner decision: free-tier providers);
+the bounds, cite-every-claim prompt, and degradation posture carried
+over verbatim. Full narrative in git history.
 
 ### D11 - FastAPI + SQLite / ~~React~~ + Vite - **ADOPT** → FR-ING, FR-DASH
 
@@ -231,14 +212,8 @@ recorded inline in the ingest code, not a new dependency).
 
 ### ~~D22 - `anthropic` Python SDK - **ADOPT** (realizes D10)~~ **SUPERSEDED by D32** (2026-07-16) → FR-LIT-4
 
-The official first-party SDK for the Claude API, per the `claude-api`
-skill's guidance (never hand-roll the wire protocol). Realizes D10's
-adopt decision; see D10 for the model choice (`claude-sonnet-5`), the
-FR-ETH-4 server-side tool boundary, and the graceful-degradation posture.
-Pinned via the uv lockfile (D16).
-**Superseded (2026-07-16) by D32:** dependency removed with D10; the
-replacement providers are called over plain REST (stdlib `urllib`), so no
-successor SDK was adopted.
+Realized D10; removed with it. D32's provider is called over plain REST
+(stdlib `urllib`), so no successor SDK was adopted.
 
 ### D23 - `tectonic` TeX engine (paper-compile proof) - **ADOPT** → FR-ANA-6
 
@@ -362,35 +337,14 @@ refreshed by clerk-js). If the script can't load, the paste-a-token
 surface remains as the fallback; a manually issued session token verifies
 server-side identically.
 
-### D30 - Vercel v0 - **ADOPT as design tool only** → dashboard UI iteration *(D15 stands)*
+### ~~D30 - Vercel v0 - **ADOPT as design tool only**~~ **RETIRED** (rev 4, 2026-07-17) → dashboard UI iteration
 
-v0 generates React/Next + shadcn; the dashboard is Svelte 5 (D15, owner
-preference, zero-rewrite). Decision: v0 is used to *explore* layouts and
-visual design; accepted designs are ported into Svelte components by hand.
-Migrating the dashboard to React purely to paste v0 output was considered
-and rejected as a full rewrite of a working, tested SPA. Revisit only if
-the dashboard is ever rebuilt for other reasons.
-**Rev 2 (2026-07-16):** v0 now supports Svelte, so the owner iterates the
-dashboard *directly* in v0 as a separate Vercel project rooted at
-`dashboard/` (the repo stays a monorepo; no framework change - D15
-stands). Accepted iterations merge back as ordinary commits gated by
-`npm run check`. Enabled by FR-OPS-6: the SPA takes `VITE_API_BASE` and
-the middleware allows only explicitly listed origins
-(`MIDDLEWARE_CORS_ORIGINS`; unset = same-origin only).
-**Rev 3 (2026-07-17):** the Vercel project's GitHub integration also
-deployed every push to `main` (and its failures showed up as a red check
-on main's pipeline). Production hosting is Render (D25); Vercel is a
-design surface for iteration branches only. `dashboard/vercel.json` sets
-`git.deploymentEnabled.main: false` so Vercel ignores `main` and keeps
-deploying the design branches.
-**Rev 4 (2026-07-17) - RETIRED:** owner direction: remove Vercel/v0 from
-the workflow entirely. The design loop's one merge landed as fresh
-commits on `main` (traceability log, 2026-07-16); the iteration branches
-are deleted, `dashboard/vercel.json` (rev 3) is removed, and product
-docs/comments no longer reference the tool. FR-OPS-6 (separate-origin
-hosting + CORS allow-list) stays - it is a general capability, no longer
-tied to a design tool. The Vercel-side project/GitHub-App connection is
-account configuration outside this repo and must be disconnected there.
+Four revs (design-tool-only → direct Svelte iteration in v0 → main-branch
+deploys disabled → retired at owner direction) ended with Vercel/v0
+removed from the workflow; its one merge landed as ordinary gated commits
+(traceability log, 2026-07-16). FR-OPS-6 (separate-origin hosting + CORS
+allow-list) stays - a general capability, no longer tool-tied. D35 is the
+successor design workflow. Full narrative in git history.
 
 ### D31 - Public-docs architecture - **BUILD (two-layer, archive internals)** → NFR-11
 
@@ -500,41 +454,5 @@ the gate (quality is non-negotiable, and a trending signal is not a
 quality signal). Rejected: bulk arXiv category dumps (volume without
 relevance; the seed-connectivity signal is what keeps the corpus *ours*).
 
-| # | Candidate | Decision | Satisfies | Key reason |
-| - | --------- | -------- | --------- | ---------- |
-| D1 | wandb | Reject / concepts only | - | human-subject data can't go to third-party cloud; wrong unit of record |
-| D2 | Tako | Adapt | FR-INST-8,10 | AI-completion lifecycle hooks |
-| D3 | ActivityWatch | Adapt | FR-ING-1, NFR-1 | sensor→local-daemon architecture |
-| D4 | WakaTime | Adapt | FR-INST-11,12 | active/idle + language filter logic |
-| D5 | SonarQube | Adopt (optional profile) | FR-INST-4 | industry-standard cognitive complexity |
-| D6 | tree-sitter, Radon | Adopt | FR-INST-4 | parsers adopted, metrics built |
-| D7 | ResearchRabbit | Reject / replicate view | FR-LIT-2 | no API; closed service |
-| D8 | Semantic Scholar API | Adopt | FR-LIT-1,2 | open citation graph + recommendations |
-| D9 | Zotero | ~~Adopt (stretch)~~ withdrawn with FR-LIT-5 (2026-07-16) | FR-LIT-5 | proved the ingest extension point, then removed |
-| D10 | Claude API | ~~Adopt (bounded)~~ superseded by D32 (2026-07-16) | FR-LIT-4, FR-META-2 | assistant + retrospective, FR-ETH-4 bounds |
-| D11 | FastAPI/SQLite/React | Adopt | FR-ING, FR-DASH | one-laptop production (NFR-7/9) |
-| D12 | Cognitive Overlay | Keep & extend | FR-INST-5,8–13 | one extension, one pipeline |
-| D13 | Claude Code hooks + transcripts | Adopt | FR-AGENT-1,2 | only lossless machine-readable agent capture |
-| D14 | git shadow repo | Adopt | FR-INST-15 | snapshots/diffs/time-series for free |
-| D15 | Svelte 5 + Vite | Adopt (supersedes D11 frontend) | FR-DASH | compiled reactivity for data-dense live UI; maintainer preference |
-| D16 | uv + Python 3.12 workspace | Adopt | all Python | lockfile reproducibility, one-command setup |
-| D17 | LayerChart vs d3-scale | Build charts, adopt d3-scale | FR-DASH-4,5 | bespoke chart shapes; scales are the only hard part |
-| D18 | SPA routing library | Build (hand-rolled) | FR-DASH | one fixed route shape; middleware re-serves the shell |
-| D19 | Vitest | Adopt | MP-06 tests | pure-TS logic tests on the app's own Vite config |
-| D20 | pandas + scipy + matplotlib | Adopt | FR-ANA-1..5, NFR-8 | exact test distributions are not something to hand-roll; pinned via D16 |
-| D21 | PyMuPDF (`pymupdf`) | Adopt | FR-LIT-1 | fast single-wheel PDF text extraction; metadata still from S2 (D8) |
-| D22 | `anthropic` Python SDK | ~~Adopt (realizes D10)~~ superseded by D32 (2026-07-16) | FR-LIT-4 | first-party Claude SDK; never hand-roll the wire protocol |
-| D23 | `tectonic` TeX engine | Adopt (test-time only) | FR-ANA-6 | prove `draft.tex` compiles; ~30 MB self-contained vs ~4 GB MacTeX; not in the lockfile |
-| D24 | GitHub Actions + GHCR + Releases | Adopt | FR-OPS-2 | pipeline lives with CI; GITHUB_TOKEN auth; Pro (student pack) unlocks approval environments |
-| D25 | Render free tier | Adopt | FR-OPS-1(a) | free Docker host for the demo; ephemeral disk fine - demo reseeds itself on boot |
-| D26 | Azure for Students + Caddy | Adopt | FR-OPS-1(b), FR-OPS-4 | renewable $100/yr + free B1s VM = persistent host; deallocated B2s = on-demand SonarQube |
-| D27 | VS Code Marketplace (vsce) | Adopt | FR-OPS-3 | free publishing on final tags; RCs stay GitHub pre-release `.vsix` (no semver suffixes on Marketplace) |
-| D28 | DO / Heroku / Fly / Railway / Supabase / Clerk / Blackfire | Reject (batch) | - | DO credits sunset 2026-07-31; Heroku FS ephemeral vs SQLite; NFR-5 (Supabase); one-operator auth exists (Clerk - *partially superseded by D29*); no perf requirement (Blackfire) |
-| D29 | Clerk + `pyjwt[crypto]` | Adopt (optional provider; partially supersedes D28) | FR-OPS-5 | hosted login without making self-hosters need an account; JWT verification never hand-rolled |
-| D30 | Vercel v0 | ~~Adopt (design tool)~~ Retired (rev 4, 2026-07-17) | dashboard UI, FR-OPS-6 | design loop served its one merge; tool removed from workflow, FR-OPS-6 capability stays |
-| D31 | Public-docs architecture | Build (two-layer) | NFR-11 | product-grade public docs; RE record intact in requirements/ + docs/archive/ |
-| D32 | Mistral API (REST, no SDK; rev 2 dropped Gemini) | Adopt (bounded; supersedes D10, D22) | FR-LIT-4, FR-META-2 | free-tier provider in active use; UI picks the model tier; stdlib REST keeps the FR-ETH-4 tool loop as the enforcement boundary |
-| D33 | svelte-dnd-action | Adopt | FR-DASH-7 | standard Svelte DnD for manual task cards (v0 iteration, D30 rev 2); derived cards stay non-draggable |
-| D34 | React 19 + Vite + Tailwind v4 + shadcn/ui | Adopt (v2 surface; scopes D15) | FR-PLAT, FR-CONV, NFR-12 | shadcn's canonical ecosystem + chat-UI primitives; vendored components, not a library; Svelte console frozen until parity |
-| D35 | Claude-driven design workflow | Adopt (workflow; succeeds D30) | NFR-12 | design iterations land as gated commits in-repo; no external design SaaS, no port-back |
-| D36 | Corpus snowball pipeline (S2) + agentic sources later | Build pipeline; adopt S2 (extends D8); defer alphaXiv et al. | FR-LIT-8 | gate/rank = versioned editorial judgment; no source bypasses the quality gate |
+<!-- A summary table duplicating the per-decision prose above was removed
+     2026-07-17 (regroup pass); the prose is the record. Git history has it. -->

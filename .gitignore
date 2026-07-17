@@ -35,3 +35,6 @@ htmlcov/
 
 # Literature PDFs (docs/papers/README.md is the tracked index)
 docs/papers/*.pdf
+
+# Corpus harvest API cache (re-runnable; outputs docs/papers/CORPUS.md + corpus-index.json are tracked)
+.corpus-cache/

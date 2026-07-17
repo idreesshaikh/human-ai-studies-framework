@@ -87,7 +87,7 @@ designer is the degradation path).
 | `*/docs/` | Docs live with their component: `extension/docs/developer_behavior_capture.md` (+ `adaptation-notes.md` from MP-05), `metrics/docs/` (metrics matrix, implementation plan) | — |
 | `extension/` | VS Code extension "Cognitive Overlay" — cognitive + behavioral legs (TypeScript) | built v0.1; MP-05 extends |
 | `metrics/` | Static-metrics leg, 9-metric matrix (Python, flat `src/` scripts) | MP-03 |
-| `protocol/` | Study-as-code schema, validator, lifecycle (Python pkg, CLI `protocol`) | MP-02 |
+| `protocol/` | Study-as-code schema, validator, lifecycle (Python pkg, CLI `protocol`); `examples/` holds the pilot + the two v2 demonstrator drafts (comprehension-debt, context-ablation) | MP-02 |
 | `middleware/` | FastAPI ingestion service on :8000 (Python pkg) | MP-04 |
 | `analysis/` | Recipes, runner, report, paper draft (Python pkg, CLI `analysis`) | MP-07, MP-11 |
 | `agent-capture/` | Agent leg: hooks, transcript import, redaction, snapshots, task harness (Python pkg) | MP-12 |

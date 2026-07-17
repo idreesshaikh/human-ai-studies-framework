@@ -16,7 +16,7 @@ platform itself, so the claim is practiced, not just stated.
 | `srs.md`                 | Functional + non-functional requirements, MoSCoW - **the index of record** | every phase spec |
 | `specs/`                 | Detailed v2 specifications per family: data models, numbered fit criteria, degradation posture, paper grounding | MP-14..18 phase specs |
 | `traceability.md`        | The living matrix: RQ → REQ → component → data → analysis, plus REQ → phase → status, plus the phase-completion log | updated at the end of every phase |
-| `build-vs-adopt.md`      | Every reuse decision (D1..D35): adopt / adapt / build / reject + rationale (NFR-10) | phase specs, dependency changes |
+| `build-vs-adopt.md`      | Every reuse decision (D1..D36): adopt / adapt / build / reject + rationale (NFR-10) | phase specs, dependency changes |
 | `metric-coverage.md`     | Literature-grounded audit mapping every metric family to a leg (captured / specified / gap / excluded) | instrument requirements |
 
 ## Rules

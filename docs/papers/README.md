@@ -15,7 +15,7 @@ building a platform.
 > rationale; everything else belongs to the pipeline.
 
 - **58 papers**, all PDFs in this folder (`<file>.pdf` matches the *File* column).
-- ★ = paper from the professor's / our original reading list (see `../Papers.png`);
+- ★ = paper from the professor's / our original reading list;
   unmarked = found via our own related-work search.
 - PDFs are **gitignored** (≈136 MB); this index is the tracked record. Re-fetch any
   PDF from its arXiv link.
