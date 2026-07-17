@@ -31,7 +31,10 @@ class TraceState {
     if (id.startsWith('RQ-')) {
       const rq = p?.researchQuestions.find((r) => r.id === id)
       return [
-        { label: id, detail: rq?.text ?? 'Research question (protocol not loaded).' },
+        {
+          label: 'Research question',
+          detail: rq?.text ?? 'Research question (protocol not loaded).',
+        },
         {
           label: 'Planned recipes',
           detail: rq?.recipes.length
@@ -59,7 +62,7 @@ class TraceState {
           label: 'Gate artifacts',
           detail: gates.length ? gates.join(', ') : 'No gates declared.',
         },
-        { label: 'FR-PROT-3', detail: lexicon.describe('FR-PROT-3') },
+        { label: 'Why phases lock', detail: lexicon.describe('FR-PROT-3') },
         {
           label: 'How it clears',
           detail: 'Upload a file with the exact artifact name; the lifecycle engine recomputes the phase.',
@@ -69,14 +72,17 @@ class TraceState {
     const desc = lexicon.describe(id)
     if (desc) {
       return [
-        { label: id, detail: desc },
+        { label: 'In plain terms', detail: desc },
         {
-          label: 'Trace',
-          detail: `${id} -> requirements/srs.md (the requirement of record) -> requirements/traceability.md (where it was built and proven).`,
+          label: 'Where this is recorded',
+          detail:
+            `This panel exists to satisfy requirement ${id}, kept in the ` +
+            `project's requirements document; its build-and-proof history ` +
+            `lives in the traceability matrix.`,
         },
       ]
     }
-    return [{ label: id, detail: 'No trace information registered.' }]
+    return [{ label: 'No description registered', detail: id }]
   }
 }
 

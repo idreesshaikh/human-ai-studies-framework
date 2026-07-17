@@ -1,5 +1,6 @@
 """Knowledge assistant - grounded Q&A over papers + protocol + dataset
-*aggregates* (FR-LIT-4), powered by the Claude API with tool use (D10/D22).
+*aggregates* (FR-LIT-4), powered by Mistral with tool use (D32 rev 2,
+superseding D10/D22).
 
 **FR-ETH-4 is enforced here, in code, not in the prompt.** The model is
 given exactly three tools, and none can return a row-level participant
@@ -17,14 +18,13 @@ grep-the-output test asserts exactly this.
 
 The system prompt requires a source tag on every claim (``[paper-ref
 §chunk]``, ``[protocol:field]``, or ``[dataset-summary]``); an answer with
-no source must say so. Without ``ANTHROPIC_API_KEY`` the endpoint degrades
-gracefully — every other feature works offline.
+no source must say so. Without ``MISTRAL_API_KEY`` the endpoint degrades
+gracefully — every other feature works offline. The dashboard picks the
+*model tier* per question (``MISTRAL_MODELS``); requests never carry keys.
 
-Model + API usage verified against the ``claude-api`` skill at build time
-(2026-07-12): ``claude-sonnet-5`` (the current Sonnet-class model, D10), no
-``temperature``/``top_p`` (rejected with a 400 on current models — steer by
-prompting instead), a hand-rolled tool-use loop (no beta dependency, and the
-tool boundary is the whole point).
+Mistral is called over plain REST via stdlib ``urllib`` (D32: no vendor
+SDK - same zero-bloat call shape as the Semantic Scholar client), with a
+hand-rolled tool-use loop, because the tool boundary is the whole point.
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ from __future__ import annotations
 import json
 import os
 import statistics
+import urllib.request
 from collections import defaultdict
 from collections.abc import Callable
 
@@ -41,7 +42,13 @@ from sqlalchemy.orm import Session
 from middleware import paper_index
 from middleware.db import Event, MetricRow
 
-MODEL = "claude-sonnet-5"
+MISTRAL_MODEL = "mistral-small-latest"
+#: Model tiers the dashboard may select per question (validated server-side).
+MISTRAL_MODELS = (
+    "mistral-small-latest",
+    "mistral-medium-latest",
+    "mistral-large-latest",
+)
 MAX_TOKENS = 2048
 MAX_TOOL_ROUNDS = 6
 
@@ -186,19 +193,107 @@ def build_tools(
     }
 
 
-# ---------------------------------------------------------------- the loop
+# ------------------------------------------------------------- providers
 
 
-def make_client():
-    """The Anthropic client, or ``None`` when no key is configured (the
-    endpoint then degrades gracefully). Never raises."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:
+    """POST JSON, return parsed JSON. The one network seam - tests inject a
+    scripted ``post`` into the providers instead."""
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json", **headers},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as res:
+        return json.loads(res.read())
+
+
+class MistralProvider:
+    """Mistral chat-completions tool-use loop over the REST API (D32)."""
+
+    name = "mistral"
+
+    def __init__(self, api_key: str, model: str = MISTRAL_MODEL, post=_post_json):
+        self.api_key = api_key
+        self.model = model
+        self.post = post
+
+    @staticmethod
+    def _tool_config() -> list[dict]:
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t["description"],
+                    "parameters": t["input_schema"],
+                },
+            }
+            for t in TOOL_SCHEMAS
+        ]
+
+    def run(
+        self, question: str, history: list[dict], tools: dict[str, Callable]
+    ) -> tuple[str, list[dict]]:
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            *history,
+            {"role": "user", "content": question},
+        ]
+        tool_calls: list[dict] = []
+        for _ in range(MAX_TOOL_ROUNDS):
+            res = self.post(
+                "https://api.mistral.ai/v1/chat/completions",
+                {
+                    "model": self.model,
+                    "messages": messages,
+                    "tools": self._tool_config(),
+                    "max_tokens": MAX_TOKENS,
+                },
+                {"Authorization": f"Bearer {self.api_key}"},
+            )
+            msg = (res.get("choices") or [{}])[0].get("message", {})
+            messages.append(msg)
+            calls = msg.get("tool_calls") or []
+            if not calls:
+                return str(msg.get("content") or ""), tool_calls
+            for call in calls:
+                fn = call.get("function", {})
+                name = fn.get("name", "")
+                try:
+                    args = json.loads(fn.get("arguments") or "{}")
+                except json.JSONDecodeError:
+                    args = {}
+                impl = tools.get(name)
+                output = impl(args) if impl else f"Unknown tool {name}"
+                tool_calls.append({"tool": name, "input": args})
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call.get("id", ""),
+                        "name": name,
+                        "content": output,
+                    }
+                )
+        return "", tool_calls
+
+
+def configured() -> bool:
+    """Whether the assistant can run (a Mistral key is set, D32 rev 2)."""
+    return bool(os.environ.get("MISTRAL_API_KEY"))
+
+
+def make_client(model: str | None = None):
+    """A Mistral client on the requested model tier (validated against
+    ``MISTRAL_MODELS``; unknown/unset falls back to the default), or ``None``
+    when no key is set - the endpoint then degrades gracefully. Never
+    raises."""
+    key = os.environ.get("MISTRAL_API_KEY")
+    if not key:
         return None
-    try:
-        import anthropic
-    except ImportError:
-        return None
-    return anthropic.Anthropic()
+    chosen = model if model in MISTRAL_MODELS else MISTRAL_MODEL
+    return MistralProvider(key, model=chosen)
 
 
 def _extract_citations(text: str) -> list[str]:
@@ -218,46 +313,11 @@ def answer_question(
     *,
     tools: dict[str, Callable[[dict], str]],
     client,
-    model: str = MODEL,
 ) -> dict:
     """Run the grounded tool-use loop and return ``{answer, citations,
     toolCalls}``. ``client`` and ``tools`` are injected so tests drive a
-    mocked Claude and in-memory tool impls."""
-    messages: list[dict] = [*history, {"role": "user", "content": question}]
-    tool_calls: list[dict] = []
-
-    for _ in range(MAX_TOOL_ROUNDS):
-        response = client.messages.create(
-            model=model,
-            max_tokens=MAX_TOKENS,
-            system=SYSTEM_PROMPT,
-            tools=TOOL_SCHEMAS,
-            messages=messages,
-        )
-        messages.append({"role": "assistant", "content": response.content})
-        if response.stop_reason != "tool_use":
-            break
-        results = []
-        for block in response.content:
-            if getattr(block, "type", None) != "tool_use":
-                continue
-            impl = tools.get(block.name)
-            output = impl(dict(block.input)) if impl else f"Unknown tool {block.name}"
-            tool_calls.append({"tool": block.name, "input": dict(block.input)})
-            results.append(
-                {
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": output,
-                }
-            )
-        messages.append({"role": "user", "content": results})
-
-    answer = "".join(
-        getattr(b, "text", "")
-        for b in messages[-1]["content"]
-        if getattr(b, "type", None) == "text"
-    ) if isinstance(messages[-1]["content"], list) else ""
+    scripted provider and in-memory tool impls."""
+    answer, tool_calls = client.run(question, history, tools)
     return {
         "answer": answer,
         "citations": _extract_citations(answer),

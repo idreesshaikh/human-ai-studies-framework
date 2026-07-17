@@ -344,6 +344,30 @@ def test_bearer_token_gates_views_but_not_ingest(tmp_path):
     assert ok.status_code == 200
 
 
+def test_cors_is_off_by_default_and_opt_in_per_origin(tmp_path):
+    """FR-OPS-6: same-origin only unless an origin is explicitly allowed."""
+    base = dict(
+        db_path=tmp_path / "t.sqlite3",
+        data_dir=tmp_path,
+        protocol_path=PILOT,
+        dashboard_dist=tmp_path / "no-dist",
+    )
+    closed = TestClient(create_app(Settings(**base), clock=lambda: FROZEN_NOW))
+    res = closed.get("/health", headers={"Origin": "https://preview.example"})
+    assert "access-control-allow-origin" not in res.headers
+
+    open_ = TestClient(
+        create_app(
+            Settings(**base, cors_origins=("https://preview.example",)),
+            clock=lambda: FROZEN_NOW,
+        )
+    )
+    res = open_.get("/health", headers={"Origin": "https://preview.example"})
+    assert res.headers["access-control-allow-origin"] == "https://preview.example"
+    res = open_.get("/health", headers={"Origin": "https://evil.example"})
+    assert "access-control-allow-origin" not in res.headers
+
+
 def test_spa_is_served_when_built(tmp_path):
     dist = tmp_path / "dist"
     (dist / "assets").mkdir(parents=True)
@@ -356,9 +380,15 @@ def test_spa_is_served_when_built(tmp_path):
         dashboard_dist=dist,
     )
     client = TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
-    assert "mission control" in client.get("/").text
+    res = client.get("/")
+    assert "mission control" in res.text
+    # The shell must revalidate on every load: a cached index.html pins
+    # browsers to a stale bundle across deploys (assets are hashed, safe).
+    assert res.headers["cache-control"] == "no-cache"
     # Deep links into client-side routes re-serve the shell (NFR-7).
-    assert "mission control" in client.get("/study/pilot-2026/board").text
+    deep = client.get("/study/pilot-2026/board")
+    assert "mission control" in deep.text
+    assert deep.headers["cache-control"] == "no-cache"
     assert client.get("/assets/app.js").status_code == 200
     # The API keeps priority over the static mount.
     assert client.get("/health").json()["status"] == "ok"

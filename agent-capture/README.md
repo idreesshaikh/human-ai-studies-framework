@@ -6,7 +6,7 @@ Code in the VS Code integrated terminal** (decision D13) - the only
 mainstream agent tool with lossless, machine-readable capture.
 
 Satisfies FR-AGENT-1/2/3/5 and FR-INST-15/16/17. Read
-`roadmap/12-agent-interaction-leg.md` and the MP-12 row of
+`docs/archive/roadmap/12-agent-interaction-leg.md` and the MP-12 row of
 `requirements/traceability.md` (including the deviation log) before changing
 anything here.
 

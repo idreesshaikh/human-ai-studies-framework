@@ -42,4 +42,4 @@ fresh-checkout reproduction test.
 
 ## Verification
 
-Per item, demo + tests; update `roadmap/00-VISION.md` tracker.
+Per item, demo + tests; update `docs/archive/roadmap/00-VISION.md` tracker.

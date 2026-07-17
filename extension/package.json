@@ -4,6 +4,11 @@
   "description": "Zero-distraction in-IDE overlay for developer studies: fatigue Likert sampling, stuck detection with inline code prompts, and session telemetry.",
   "version": "0.2.0",
   "publisher": "hpi-research",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/idreesshaikh/human-ai-studies-framework.git",
+    "directory": "extension"
+  },
   "private": true,
   "license": "MIT",
   "author": "HPI Research",

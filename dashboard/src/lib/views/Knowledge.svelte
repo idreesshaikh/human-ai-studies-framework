@@ -18,8 +18,6 @@
   let busy = $state(false)
 
   let idInput = $state('')
-  let zoteroInput = $state('')
-  let zoteroNote = $state<string | null>(null)
   let selected = $state<string | null>(null)
   let linkDraft = $state('')
 
@@ -75,17 +73,6 @@
     if (id) await run(() => api.ingestPaper(studyId, id))
   }
 
-  async function importZotero(): Promise<void> {
-    const collection = zoteroInput.trim()
-    if (!collection) return
-    zoteroNote = null
-    await run(async () => {
-      const res = await api.zoteroImport(studyId, collection)
-      zoteroNote = `${res.imported} imported, ${res.duplicates} already present`
-    })
-    zoteroInput = ''
-  }
-
   async function uploadPdf(ev: Event): Promise<void> {
     const file = (ev.target as HTMLInputElement).files?.[0]
     if (file) await run(() => api.uploadPaperPdf(studyId, file))
@@ -127,6 +114,16 @@
   let question = $state('')
   let asking = $state(false)
   let assistantNote = $state<string | null>(null)
+  // Mistral model tiers the middleware offers (D32 rev 2).
+  let models = $state<string[]>([])
+  let model = $state<string | undefined>(undefined)
+
+  $effect(() => {
+    void api.assistantConfig(studyId).then((c) => {
+      models = c.models
+      if (!model || !c.models.includes(model)) model = c.defaultModel
+    })
+  })
 
   async function ask(): Promise<void> {
     const q = question.trim()
@@ -139,11 +136,16 @@
       const history = chat
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .map((m) => ({ role: m.role, content: m.content }))
-      const res: AssistantAnswer = await api.assistant(studyId, q, history.slice(0, -1))
+      const res: AssistantAnswer = await api.assistant(
+        studyId,
+        q,
+        history.slice(0, -1),
+        model,
+      )
       chat = [...chat, { role: 'assistant', content: res.answer, citations: res.citations }]
     } catch (e) {
       assistantNote = String(e).includes('503')
-        ? 'The assistant needs ANTHROPIC_API_KEY set on the middleware. Every other view works offline.'
+        ? 'The assistant needs MISTRAL_API_KEY set on the middleware. Every other view works offline.'
         : String(e)
     } finally {
       asking = false
@@ -151,7 +153,16 @@
   }
 </script>
 
-<h1>Knowledge <TraceChip id="FR-DASH-8" /></h1>
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Literature &amp; grounding</p>
+    <h1>Knowledge <TraceChip id="FR-DASH-8" /></h1>
+    <p class="secondary">
+      Papers grow a citation graph around your study; the assistant answers
+      only from those papers and aggregate data - always cited.
+    </p>
+  </div>
+</header>
 
 {#if error}<p class="err">{error}</p>{/if}
 
@@ -173,15 +184,39 @@
         PDF<input type="file" accept="application/pdf" onchange={uploadPdf} hidden />
       </label>
     </div>
-    <div class="ingest">
-      <input
-        placeholder="Zotero collection name (Zotero app must be running)"
-        bind:value={zoteroInput}
-        onkeydown={(e) => e.key === 'Enter' && importZotero()}
-      />
-      <button onclick={importZotero} disabled={busy}>Import from Zotero</button>
-      {#if zoteroNote}<span class="small muted">{zoteroNote}</span>{/if}
-    </div>
+    {#if busy}
+      <p class="working small secondary" role="status">
+        <span class="spinner" aria-hidden="true"></span>
+        Working — fetching metadata and the citation neighbourhood (the
+        citation service allows one request per second, so this takes a few
+        seconds)…
+      </p>
+    {/if}
+
+    {#if papers.length}
+      <div class="library">
+        <h3>Library <span class="muted small num">{papers.length}</span></h3>
+        <ul>
+          {#each papers as p (p.paperRef)}
+            <li class:sel={p.paperRef === selected}>
+              <button class="title" onclick={() => select(p.paperRef)}>
+                {p.title || p.paperRef}
+              </button>
+              {#if p.year}<span class="muted small num">{p.year}</span>{/if}
+              <button
+                class="remove"
+                title="Remove from study"
+                aria-label={`Remove ${p.title || p.paperRef}`}
+                onclick={() => removePaper(p.paperRef)}
+                disabled={busy}
+              >
+                ×
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
 
     {#if graph && graph.nodes.length}
       <svg viewBox={`0 0 ${W} ${H}`} class="graph" role="img" aria-label="citation graph">
@@ -221,8 +256,8 @@
       </div>
     {:else}
       <p class="secondary">
-        No papers yet. Add an arXiv id / DOI / PDF above, or import a Zotero
-        collection - then the neighbourhood grows from Semantic Scholar.
+        No papers yet. Add an arXiv id / DOI / PDF above - then the
+        neighbourhood grows from the citation service.
       </p>
     {/if}
   </section>
@@ -230,7 +265,14 @@
   <section class="card assistant" data-tour="knowledge-assistant">
     <div class="head">
       <h2>Assistant <TraceChip id="FR-LIT-4" /></h2>
-      <span class="secondary small">aggregates only (FR-ETH-4)</span>
+      {#if models.length > 1}
+        <select class="small" bind:value={model} aria-label="Assistant model">
+          {#each models as m (m)}
+            <option value={m}>{m.replace('mistral-', '').replace('-latest', '')}</option>
+          {/each}
+        </select>
+      {/if}
+      <span class="secondary small">aggregates only</span>
     </div>
     <div class="chat">
       {#each chat as m}
@@ -270,7 +312,7 @@
         <p class="abstract secondary">{selectedPaper.abstract}</p>
       {/if}
       <label class="field">
-        Protocol links (FR-LIT-3) <TraceChip id="FR-LIT-3" />
+        Protocol links <TraceChip id="FR-LIT-3" />
         <input
           bind:value={linkDraft}
           placeholder="RQ-P4, metric:parameter_count, recipe:ziegler-acceptance-rate"
@@ -294,6 +336,76 @@
     grid-template-columns: 1.4fr 1fr;
     gap: 14px;
     align-items: start;
+  }
+  .working {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+  }
+  .spinner {
+    width: 12px;
+    height: 12px;
+    flex: none;
+    border: 2px solid var(--baseline);
+    border-top-color: var(--series-1);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .library {
+    margin: 8px 0;
+  }
+  .library h3 {
+    margin-bottom: 4px;
+  }
+  .library ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .library li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px;
+    border-radius: 6px;
+  }
+  .library li.sel {
+    background: color-mix(in srgb, var(--series-1) 10%, transparent);
+  }
+  .library .title {
+    flex: 1;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .library .title:hover {
+    color: var(--series-1);
+  }
+  .library .remove {
+    background: none;
+    border: none;
+    padding: 0 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+  }
+  .library .remove:hover {
+    color: var(--status-critical);
   }
   .card {
     background: var(--surface-1);

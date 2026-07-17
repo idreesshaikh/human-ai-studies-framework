@@ -1,7 +1,7 @@
 # Mega-Prompt 05 - Behavioral Telemetry (third instrument leg)
 
 > Self-contained: execute this file in a fresh working session at the repo
-> root. Read first: `roadmap/00-VISION.md`, `requirements/srs.md`,
+> root. Read first: `docs/archive/roadmap/00-VISION.md`, `requirements/srs.md`,
 > `requirements/build-vs-adopt.md` (D2–D4, D12),
 > `extension/docs/developer_behavior_capture.md`, and
 > `extension/PROJECT_GUIDE.md` (architecture + conventions).
@@ -127,5 +127,5 @@ takes focus from the code (NFR-1).
 - `npm run check`; run the scripted dev-host scenario above, inspect the
   JSONL line-by-line against the table, confirm middleware ingestion and
   that the events appear in the MP-06 timeline view if built. Update
-  `roadmap/00-VISION.md` tracker + `requirements/traceability.md`
+  `docs/archive/roadmap/00-VISION.md` tracker + `requirements/traceability.md`
   (FR-INST-5,8–12 → ✅; FR-ETH-2, NFR-1 → ✅ overall).

@@ -1,0 +1,58 @@
+# Continuous deployment of the seeded demo (FR-OPS-1a, D24/D25).
+#
+# Runs only after the CI workflow finishes green on main: builds the
+# container image (middleware + dashboard, one process - NFR-7), pushes it
+# to GHCR, then triggers the Render deploy hook so the demo instance
+# rebuilds. The demo never runs a red build.
+#
+# Secrets used (all optional - steps skip cleanly when unset, so the
+# pipeline works before any account is provisioned; see RUNBOOK §9):
+#   RENDER_DEPLOY_HOOK_URL - Render service's deploy-hook URL
+
+name: Deploy demo
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    name: Build image → GHCR → demo
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and push
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}/middleware"
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          docker build -f middleware/Dockerfile -t "$IMAGE:main" -t "$IMAGE:sha-$SHA" .
+          docker push "$IMAGE:main"
+          docker push "$IMAGE:sha-$SHA"
+
+      - name: Trigger Render demo deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$HOOK" ]; then
+            curl -fsS -X POST "$HOOK" -o /dev/null
+            echo "Render deploy triggered."
+          else
+            echo "RENDER_DEPLOY_HOOK_URL not set - skipping demo deploy (RUNBOOK §9)."
+          fi

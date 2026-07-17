@@ -2,7 +2,7 @@
 
 This directory is the root of all traceability in the project. The platform
 claims that a study protocol is a requirements specification
-(`roadmap/00-VISION.md`); these artifacts requirements-engineer the platform
+(`docs/archive/roadmap/00-VISION.md`); these artifacts requirements-engineer the platform
 itself, so the claim is practiced, not just stated.
 
 ## Artifacts and how they relate
@@ -12,12 +12,12 @@ itself, so the claim is practiced, not just stated.
 | `glossary.md`            | Controlled vocabulary - all documents use these terms | everything                     |
 | `stakeholders.md`        | Who wants what, and where goals conflict              | research questions, SRS        |
 | `research-questions.md`  | Framework RQs (thesis) + pilot RQs (evaluation)       | SRS rationale, analysis plan   |
-| `srs.md`                 | Functional + non-functional requirements, MoSCoW      | every mega-prompt in `roadmap/`|
+| `srs.md`                 | Functional + non-functional requirements, MoSCoW      | every mega-prompt in `docs/archive/roadmap/`|
 | `traceability.md`        | The living matrix: RQ → REQ → component → data → analysis, plus REQ → phase → status | updated at the end of every phase |
 
 ## Rules
 
-1. **No orphan work.** Every implementation phase (`roadmap/02`–`09`) cites
+1. **No orphan work.** Every implementation phase (`docs/archive/roadmap/02`–`09`) cites
    the requirement IDs it satisfies; every Must requirement is owned by a
    phase.
 2. **IDs are stable.** Never renumber; deprecate with a strikethrough and a

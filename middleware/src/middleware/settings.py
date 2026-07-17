@@ -55,19 +55,36 @@ class Settings:
     token: str | None = field(
         default_factory=lambda: os.environ.get("MIDDLEWARE_TOKEN") or None
     )
-
-    #: Zotero import (FR-LIT-5, D9): the desktop app's local API, plus the
-    #: web-API fallback credentials. Unset credentials = local-only.
-    zotero_local_url: str = field(
+    #: Sign-in provider (FR-OPS-5): ``none`` / ``token`` / ``clerk``.
+    #: Unset = inferred (token when MIDDLEWARE_TOKEN is set, else none).
+    auth: str | None = field(
+        default_factory=lambda: os.environ.get("MIDDLEWARE_AUTH") or None
+    )
+    #: Clerk provider config (D29) - hosted deployments only.
+    clerk_jwks_url: str | None = field(
+        default_factory=lambda: os.environ.get("MIDDLEWARE_CLERK_JWKS_URL")
+        or None
+    )
+    clerk_issuer: str | None = field(
+        default_factory=lambda: os.environ.get("MIDDLEWARE_CLERK_ISSUER")
+        or None
+    )
+    clerk_publishable_key: str | None = field(
         default_factory=lambda: os.environ.get(
-            "MIDDLEWARE_ZOTERO_LOCAL_URL", "http://127.0.0.1:23119"
+            "MIDDLEWARE_CLERK_PUBLISHABLE_KEY"
         )
+        or None
     )
-    zotero_user_id: str | None = field(
-        default_factory=lambda: os.environ.get("MIDDLEWARE_ZOTERO_USER_ID") or None
-    )
-    zotero_api_key: str | None = field(
-        default_factory=lambda: os.environ.get("MIDDLEWARE_ZOTERO_API_KEY") or None
+
+    #: Origins allowed to call the API cross-origin (FR-OPS-6), comma-
+    #: separated - e.g. a separately hosted dashboard preview during design
+    #: iteration (D30). Unset = same-origin only (the default posture).
+    cors_origins: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            o.strip()
+            for o in os.environ.get("MIDDLEWARE_CORS_ORIGINS", "").split(",")
+            if o.strip()
+        )
     )
 
     @property

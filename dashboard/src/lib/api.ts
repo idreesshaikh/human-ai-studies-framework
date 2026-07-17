@@ -222,16 +222,55 @@ export interface GlossaryEntry {
   definition: string
 }
 
-function headers(): Record<string, string> {
+/** Sign-in surface the middleware wants (GET /auth/config). */
+export interface AuthConfig {
+  mode: 'none' | 'token' | 'clerk'
+  clerkPublishableKey?: string
+}
+
+/**
+ * Same-origin by default (dev proxy / middleware-served SPA). Set
+ * VITE_API_BASE to a middleware URL when the dashboard is hosted on a
+ * separate origin - the middleware must then allow that origin via
+ * MIDDLEWARE_CORS_ORIGINS (FR-OPS-6).
+ */
+const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '')
+
+/**
+ * Clerk mode injects a live token getter here (session JWTs are short-lived
+ * and refreshed by clerk-js, so they are fetched per request); token mode
+ * keeps the stored bearer token. Null getter = fall back to localStorage.
+ */
+type TokenProvider = () => Promise<string | null>
+let tokenProvider: TokenProvider | null = null
+export function setTokenProvider(provider: TokenProvider | null): void {
+  tokenProvider = provider
+}
+
+async function headers(): Promise<Record<string, string>> {
+  if (tokenProvider) {
+    const token = await tokenProvider()
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
   const token = localStorage.getItem('middleware.token')
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+/**
+ * Registered by the app shell: called on any 401 so the sign-in surface
+ * can take over instead of views failing one by one.
+ */
+let unauthorizedListener: (() => void) | null = null
+export function onUnauthorized(listener: (() => void) | null): void {
+  unauthorizedListener = listener
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE + path, {
     ...init,
-    headers: { ...headers(), ...(init.headers ?? {}) },
+    headers: { ...(await headers()), ...(init.headers ?? {}) },
   })
+  if (res.status === 401) unauthorizedListener?.()
   if (!res.ok) {
     throw new Error(`${init.method ?? 'GET'} ${path} -> ${res.status} ${res.statusText}`)
   }
@@ -252,6 +291,7 @@ function send<T>(method: string, path: string, body: unknown): Promise<T> {
 
 export const api = {
   health: () => get<Health>('/health'),
+  authConfig: () => get<AuthConfig>('/auth/config'),
   protocol: (study: string) =>
     get<ProtocolSummary>(`/studies/${encodeURIComponent(study)}/protocol`),
   lifecycle: (study: string) =>
@@ -289,7 +329,11 @@ export const api = {
   uploadFile: async (file: File): Promise<{ id: number; duplicate: boolean }> => {
     const body = new FormData()
     body.append('file', file)
-    const res = await fetch('/ingest/files', { method: 'POST', body, headers: headers() })
+    const res = await fetch(API_BASE + '/ingest/files', {
+      method: 'POST',
+      body,
+      headers: await headers(),
+    })
     if (!res.ok) throw new Error(`upload failed: ${res.status}`)
     return res.json()
   },
@@ -316,25 +360,29 @@ export const api = {
       `/studies/${encodeURIComponent(study)}/papers/${encodeURIComponent(ref)}/links`,
       { targets },
     ),
-  zoteroImport: (study: string, collection: string) =>
-    send<{ imported: number; duplicates: number; skipped: number }>(
-      'POST',
-      `/studies/${encodeURIComponent(study)}/papers/zotero-import`,
-      { collection },
-    ),
   uploadPaperPdf: async (study: string, file: File): Promise<{ paperRef: string }> => {
     const body = new FormData()
     body.append('file', file)
     const res = await fetch(
-      `/studies/${encodeURIComponent(study)}/papers/upload`,
-      { method: 'POST', body, headers: headers() },
+      `${API_BASE}/studies/${encodeURIComponent(study)}/papers/upload`,
+      { method: 'POST', body, headers: await headers() },
     )
     if (!res.ok) throw new Error(`upload failed: ${res.status}`)
     return res.json()
   },
-  assistant: (study: string, question: string, history: { role: string; content: string }[]) =>
+  assistantConfig: (study: string) =>
+    get<{ configured: boolean; models: string[]; defaultModel: string }>(
+      `/studies/${encodeURIComponent(study)}/assistant/config`,
+    ),
+  assistant: (
+    study: string,
+    question: string,
+    history: { role: string; content: string }[],
+    model?: string,
+  ) =>
     send<AssistantAnswer>('POST', `/studies/${encodeURIComponent(study)}/assistant`, {
       question,
       history,
+      ...(model ? { model } : {}),
     }),
 }

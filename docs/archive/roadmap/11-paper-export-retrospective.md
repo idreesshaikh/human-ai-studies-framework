@@ -1,7 +1,7 @@
 # Mega-Prompt 11 - Paper Draft Export + Self-Improvement Retrospective
 
 > Self-contained: execute this file in a fresh working session at the repo
-> root. Read first: `roadmap/00-VISION.md`, `requirements/srs.md` (FR-ANA-6,
+> root. Read first: `docs/archive/roadmap/00-VISION.md`, `requirements/srs.md` (FR-ANA-6,
 > FR-META-*), the recipe contract (`analysis/core.py`), and the protocol
 > schema. For the retrospective's Claude usage, **check the
 > current official API docs first** and respect D10's bounds.
@@ -92,5 +92,5 @@ The framework records its own defects as structured findings:
 ## Verification
 
 - pytest green; full demo run of paper + retrospective; open the PDF.
-  Update `roadmap/00-VISION.md` tracker + `requirements/traceability.md`
+  Update `docs/archive/roadmap/00-VISION.md` tracker + `requirements/traceability.md`
   (FR-ANA-6, FR-META-1/2 → ✅).

@@ -1,7 +1,7 @@
 # Mega-Prompt 10 - Knowledge Layer: Papers, Literature Graph, Claude Assistant
 
 > Self-contained: execute this file in a fresh working session at the repo
-> root. Read first: `roadmap/00-VISION.md`, `requirements/srs.md` (FR-LIT-*,
+> root. Read first: `docs/archive/roadmap/00-VISION.md`, `requirements/srs.md` (FR-LIT-*,
 > FR-ETH-4), `requirements/build-vs-adopt.md` (D7, D8, D10), and the
 > middleware API. **Verify Claude-API model IDs, pricing, and
 > tool-use patterns against the current official API docs before writing
@@ -103,5 +103,5 @@ one recorded end-to-end assistant exchange with mocked Claude responses.
 
 - pytest green; live demo of the acceptance flows against the seeded demo
   study; screenshot the graph for the thesis. Update
-  `roadmap/00-VISION.md` tracker + `requirements/traceability.md`
+  `docs/archive/roadmap/00-VISION.md` tracker + `requirements/traceability.md`
   (FR-LIT-1–4, FR-ETH-4 → ✅; FR-DASH-8 → ✅).

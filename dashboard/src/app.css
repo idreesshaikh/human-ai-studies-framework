@@ -1,9 +1,13 @@
 /*
  * Design tokens - the dataviz skill's reference palette, both modes
  * selected (not auto-flipped). Charts reference roles, never raw hex.
+ *
+ * Theme resolution: a pre-paint script in index.html and theme.svelte.ts
+ * stamp data-theme="light|dark" on <html>; "system" mode tracks the OS
+ * live via matchMedia. Light is the no-attribute default.
  */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
   --page: #f9f9f7;
   --surface-1: #fcfcfb;
@@ -34,9 +38,10 @@
   --mono: ui-monospace, 'SF Mono', Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --page: #0d0d0d;
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --page: #0d0d0d;
     --surface-1: #1a1a19;
     --text-primary: #ffffff;
     --text-secondary: #c3c2b7;
@@ -45,15 +50,14 @@
     --baseline: #383835;
     --border: rgba(255, 255, 255, 0.1);
 
-    --series-1: #3987e5;
-    --series-2: #199e70;
-    --series-3: #c98500;
-    --series-4: #008300;
-    --series-5: #9085e9;
-    --series-6: #e66767;
-    --series-7: #d55181;
-    --series-8: #d95926;
-  }
+  --series-1: #3987e5;
+  --series-2: #199e70;
+  --series-3: #c98500;
+  --series-4: #008300;
+  --series-5: #9085e9;
+  --series-6: #e66767;
+  --series-7: #d55181;
+  --series-8: #d95926;
 }
 
 * {
@@ -62,10 +66,34 @@
 
 body {
   margin: 0;
-  font: 14px/1.5 var(--sans);
+  /* Fluid base size: 13px on a phone, 15px on a wide desktop. */
+  font: 400 clamp(13px, 12.25px + 0.25vw, 15px) / 1.5 var(--sans);
   color: var(--text-primary);
   background: var(--page);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Fluid theme switch: surfaces cross-fade instead of snapping. */
+@media (prefers-reduced-motion: no-preference) {
+  body,
+  nav,
+  main,
+  a,
+  button,
+  input,
+  textarea,
+  select,
+  code,
+  .card,
+  .badge,
+  .trace-chip,
+  table.data th,
+  table.data td {
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease,
+      border-color 0.3s ease;
+  }
 }
 
 h1,
@@ -76,10 +104,10 @@ h3 {
   margin: 0 0 0.5rem;
 }
 h1 {
-  font-size: 20px;
+  font-size: clamp(18px, 16px + 0.5vw, 24px);
 }
 h2 {
-  font-size: 16px;
+  font-size: clamp(15px, 14px + 0.25vw, 18px);
 }
 h3 {
   font-size: 14px;
@@ -131,6 +159,30 @@ select {
 
 /* ---- shared surfaces ---- */
 
+/* Page header language (one system across views): eyebrow kicker, title,
+   one-line plain-English intro. */
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.page-head h1 {
+  margin: 2px 0;
+}
+.page-head p {
+  margin: 0;
+  max-width: 720px;
+}
+.eyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .card {
   background: var(--surface-1);
   border: 1px solid var(--border);
@@ -154,20 +206,24 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
-/* Traceability chip (FR-DASH-6): every chart/card names what it answers. */
+/* Traceability toggle (FR-DASH-6): every chart/card carries an "i" that
+   explains what it answers; the requirement chain lives in its panel. */
 .trace-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
   font-family: var(--mono);
+  font-style: italic;
+  line-height: 1;
   color: var(--text-secondary);
   background: color-mix(in srgb, var(--text-muted) 10%, transparent);
   border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 1px 8px;
+  border-radius: 50%;
+  padding: 0;
   cursor: pointer;
-  white-space: nowrap;
 }
 .trace-chip:hover {
   border-color: var(--text-muted);

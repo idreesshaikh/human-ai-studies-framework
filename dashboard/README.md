@@ -18,8 +18,9 @@ data-viz conventions.
 | `metrics` | 9-metric distributions split by condition - every point drawn, per-cell n, small-n honest | FR-DASH-5 |
 | `knowledge` | mount points for the papers graph + assistant (built in MP-10) | FR-DASH-8 |
 
-Every chart/card carries a traceability chip ("answers RQ-P4", "gate:
-ethics") - click it for the full trace chain (FR-DASH-6).
+Every chart/card carries a small "i" info toggle - hover for a
+plain-language explanation, click for the full trace chain back to the
+requirement it answers (FR-DASH-6).
 
 ## Run
 
@@ -41,6 +42,22 @@ uv run python middleware/scripts/replay_session.py
 
 If the middleware sets `MIDDLEWARE_TOKEN`, store the same value in the
 browser as `localStorage['middleware.token']`.
+
+## Theme
+
+Light / dark / system, toggled from the nav footer and persisted as
+`localStorage['dashboard.theme']`. Both palettes are the design tokens in
+`src/app.css` keyed off `data-theme` on `<html>` (a pre-paint script in
+`index.html` prevents any flash); charts reference token roles, never raw
+hex, so they re-theme for free.
+
+## Hosting the dashboard on a separate origin
+
+The dashboard is a self-contained Vite app, so it can be hosted apart from
+the middleware (FR-OPS-6): set `VITE_API_BASE` to the middleware's URL at
+build time, and allow that one origin on the middleware side via
+`MIDDLEWARE_CORS_ORIGINS` (unset means same-origin only, so nothing is
+exposed by default). Render serves the production app either way.
 
 ## Checks
 

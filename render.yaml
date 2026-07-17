@@ -1,0 +1,25 @@
+# Render blueprint for the public seeded demo (FR-OPS-1a, D25).
+#
+# Free tier: spins down after 15 min idle (a demo tolerates the ~1 min
+# cold start) and the disk is EPHEMERAL - acceptable by design, because
+# start_with_seed.sh reseeds the demo study on every boot (replay is
+# idempotent on (sessionId, seq), FR-ING-2). Real participant data never
+# runs here (NFR-5).
+#
+# autoDeploy is off: the pipeline (.github/workflows/deploy.yml) triggers
+# the deploy hook only after CI is green.
+
+services:
+  - type: web
+    name: human-ai-studies-demo
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./middleware/Dockerfile
+    dockerContext: .
+    dockerCommand: sh middleware/scripts/start_with_seed.sh
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: MIDDLEWARE_SEED_ON_START
+        value: "1"

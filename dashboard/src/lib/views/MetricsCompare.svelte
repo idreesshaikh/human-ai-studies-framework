@@ -131,12 +131,21 @@
   }
 </script>
 
-<h1>
-  Metrics compare
-  <TraceChip id="FR-DASH-5" />
-  <TraceChip id="RQ-P2" />
-  <TraceChip id="NFR-8" />
-</h1>
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Outcome instruments</p>
+    <h1>
+      Metrics compare
+      <TraceChip id="FR-DASH-5" />
+      <TraceChip id="RQ-P2" />
+      <TraceChip id="NFR-8" />
+    </h1>
+    <p class="secondary">
+      Code metrics split by condition - every observation drawn, per-group
+      sample sizes shown, exact tests only.
+    </p>
+  </div>
+</header>
 
 <div class="controls">
   <label>

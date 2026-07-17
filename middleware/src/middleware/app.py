@@ -36,7 +36,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from middleware import assistant, paper_index, pdf, semantic_scholar, zotero
+from middleware import assistant, auth, paper_index, pdf, semantic_scholar
 from middleware.db import (
     Event,
     Finding,
@@ -119,12 +119,6 @@ class TaskPatch(BaseModel):
     status: str  # open | done
 
 
-class ZoteroImportIn(BaseModel):
-    """Import one Zotero collection into the paper set (FR-LIT-5, MP-09)."""
-
-    collection: str  # collection name (case-insensitive) or 8-char key
-
-
 class PaperIngestIn(BaseModel):
     """Ingest one paper by identifier (FR-LIT-1 id path). One of the two."""
 
@@ -140,10 +134,12 @@ class PaperLinksIn(BaseModel):
 
 class AssistantIn(BaseModel):
     """One knowledge-assistant turn (FR-LIT-4). ``history`` is prior
-    ``{role, content}`` turns (text only)."""
+    ``{role, content}`` turns (text only). ``model`` picks a Mistral tier
+    (D32 rev 2); unset or unknown = the server's default."""
 
     question: str
     history: list[dict] = Field(default_factory=list)
+    model: str | None = None
 
 
 class _ProtocolCheck:
@@ -191,6 +187,20 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     app = FastAPI(title="Study ingestion middleware", version="0.1.0")
 
+    # Cross-origin access is opt-in per origin (FR-OPS-6): unset = the
+    # same-origin-only default; set = a dashboard hosted on a separate
+    # origin calling this middleware.
+    if settings.cors_origins:
+        from fastapi.middleware.cors import CORSMiddleware
+
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(settings.cors_origins),
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
     def db() -> Session:  # FastAPI dependency
         session = session_factory()
         try:
@@ -229,14 +239,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 f"{check.study_id!r}"
             )
 
-    def view_auth(authorization: str = Header(default="")) -> None:
-        """Bearer-token gate on the dashboard-facing endpoints (MP-06).
+    # Sign-in gate on the dashboard-facing endpoints (FR-OPS-5): pluggable
+    # provider (none/token/clerk), built once at startup so misconfiguration
+    # fails loudly here, not on first request. Ingest stays open: sensors
+    # are fire-and-forget (NFR-1) on a local-first deployment (NFR-5).
+    verify_view_auth = auth.verifier_from_settings(settings)
 
-        Ingest stays open: sensors are fire-and-forget (NFR-1) on a
-        local-first deployment (NFR-5). No MIDDLEWARE_TOKEN = no auth.
-        """
-        if settings.token and authorization != f"Bearer {settings.token}":
-            raise HTTPException(401, "missing or invalid bearer token")
+    def view_auth(authorization: str = Header(default="")) -> None:
+        verify_view_auth(authorization)
 
     def require_protocol() -> dict:
         if protocol_doc is None:
@@ -856,69 +866,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     # ---------------------------------------------------------------- papers
 
-    @app.post(
-        "/studies/{study_id}/papers/zotero-import",
-        dependencies=[Depends(view_auth)],
-    )
-    def import_zotero_collection(
-        study_id: str, body: ZoteroImportIn, s: Session = Depends(db)
-    ) -> dict:
-        """Read one Zotero collection (local API, web fallback) into the
-        study's paper set (FR-LIT-5, D9). Idempotent on (study, paperRef):
-        re-importing a grown collection adds only the new papers."""
-        check_study_id(study_id)
-        try:
-            items, source = zotero.fetch_collection_items(
-                body.collection,
-                local_url=settings.zotero_local_url,
-                user_id=settings.zotero_user_id,
-                api_key=settings.zotero_api_key,
-            )
-        except zotero.ZoteroError as exc:
-            raise HTTPException(502, str(exc)) from exc
-        received = now()
-        imported = duplicates = skipped = 0
-        refs = []
-        for item in items:
-            record = zotero.normalize_item(item)
-            if record is None:
-                skipped += 1
-                continue
-            stmt = (
-                sqlite_insert(Paper)
-                .values(
-                    study_id=study_id,
-                    paper_ref=record["paperRef"],
-                    title=record["title"],
-                    authors=record["authors"],
-                    year=record["year"],
-                    venue=record["venue"],
-                    abstract=record["abstract"],
-                    doi=record["doi"],
-                    arxiv_id=record["arxivId"],
-                    url=record["url"],
-                    item_type=record["itemType"],
-                    source="zotero",
-                    zotero_key=record["zoteroKey"],
-                    added_at=received,
-                )
-                .on_conflict_do_nothing(
-                    index_elements=["study_id", "paper_ref"]
-                )
-            )
-            inserted = s.execute(stmt).rowcount
-            imported += inserted
-            duplicates += 1 - inserted
-            refs.append(record["paperRef"])
-        return {
-            "received": len(items),
-            "imported": imported,
-            "duplicates": duplicates,
-            "skipped": skipped,
-            "source": source,
-            "paperRefs": refs,
-        }
-
     @app.get("/studies/{study_id}/papers", dependencies=[Depends(view_auth)])
     def list_papers(study_id: str, s: Session = Depends(db)) -> list[dict]:
         """The study's paper set. ``inProtocolLiterature`` marks papers the
@@ -949,7 +896,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "url": p.url,
                 "itemType": p.item_type,
                 "source": p.source,
-                "zoteroKey": p.zotero_key,
                 "citationCount": p.citation_count,
                 "hasFullText": bool(p.full_text),
                 "links": sorted(links_by_ref.get(p.paper_ref, [])),
@@ -1242,6 +1188,20 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             s.add(PaperLink(study_id=study_id, paper_ref=paper_ref, target=target))
         return {"paperRef": paper_ref, "links": wanted}
 
+    @app.get(
+        "/studies/{study_id}/assistant/config", dependencies=[Depends(view_auth)]
+    )
+    def assistant_config(study_id: str) -> dict:
+        """Whether the assistant is configured and which Mistral model tiers
+        the dashboard may pick (D32 rev 2). Never exposes the key itself."""
+        check_study_id(study_id)
+        ready = assistant.configured()
+        return {
+            "configured": ready,
+            "models": list(assistant.MISTRAL_MODELS) if ready else [],
+            "defaultModel": assistant.MISTRAL_MODEL,
+        }
+
     @app.post("/studies/{study_id}/assistant", dependencies=[Depends(view_auth)])
     def knowledge_assistant(
         study_id: str, body: AssistantIn, s: Session = Depends(db)
@@ -1251,11 +1211,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         tool can return a row-level participant event. Absent an API key the
         endpoint degrades gracefully (503); everything else stays offline."""
         check_study_id(study_id)
-        client = assistant.make_client()
+        client = assistant.make_client(body.model)
         if client is None:
             raise HTTPException(
                 503,
-                "knowledge assistant unavailable: set ANTHROPIC_API_KEY. "
+                "knowledge assistant unavailable: set MISTRAL_API_KEY. "
                 "All other views work offline.",
             )
         tools = assistant.build_tools(s, protocol_doc)
@@ -1396,6 +1356,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "knownEventSchemaVersions": sorted(KNOWN_EVENT_SCHEMA_VERSIONS),
         }
 
+    @app.get("/auth/config")
+    def auth_config() -> dict:
+        """Which sign-in surface the dashboard should render (FR-OPS-5).
+
+        Open by necessity (the dashboard asks before it can sign in);
+        carries no secrets - see ``auth.public_config``.
+        """
+        return auth.public_config(settings)
+
     # ---------------------------------------------- dashboard SPA (NFR-7)
     # Production mode serves the built dashboard from the same process:
     # `docker compose up` is the whole stack. Dev mode uses the Vite proxy
@@ -1404,15 +1373,19 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     dist = settings.dashboard_dist
     index_html = dist / "index.html"
     if index_html.is_file():
+        # The shell must always revalidate: Vite's assets are content-hashed
+        # (safe to cache), but a cached index.html pins users to a stale
+        # bundle across deploys - the app keeps running old code from disk.
+        _no_store = {"Cache-Control": "no-cache"}
 
         @app.get("/", include_in_schema=False)
         def spa_index() -> FileResponse:
-            return FileResponse(index_html)
+            return FileResponse(index_html, headers=_no_store)
 
         @app.get("/study/{rest:path}", include_in_schema=False)
         def spa_route(rest: str) -> FileResponse:
             # Client-side routing (MP-06): deep links re-serve the shell.
-            return FileResponse(index_html)
+            return FileResponse(index_html, headers=_no_store)
 
         app.mount("/", StaticFiles(directory=dist), name="dashboard")
 

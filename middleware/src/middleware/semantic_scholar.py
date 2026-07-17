@@ -14,7 +14,7 @@ a :class:`SemanticScholarError` is surfaced as a warning, never blocks a
 session, and never discards an already-cached graph.
 
 Papers are keyed by the same canonical ``paperRef`` scheme the protocol's
-``literature:`` list and the Zotero importer use (``doi:``/``arxiv:``, else
+``literature:`` list uses (``doi:``/``arxiv:``, else
 ``s2:<paperId>``), so neighbours join protocol links by construction.
 """
 
@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -29,6 +30,12 @@ import urllib.request
 
 GRAPH_API = "https://api.semanticscholar.org/graph/v1"
 REC_API = "https://api.semanticscholar.org/recommendations/v1"
+
+#: S2's documented free-tier limit: 1 request/second cumulative across all
+#: endpoints. We pace ourselves instead of provoking 429s.
+_MIN_INTERVAL = 1.0
+_pace_lock = threading.Lock()
+_last_request = 0.0
 
 PAPER_FIELDS = "title,authors,year,venue,abstract,externalIds,citationCount"
 EDGE_FIELDS = "title,year,externalIds,citationCount"
@@ -47,17 +54,33 @@ def _headers() -> dict[str, str]:
     return {"x-api-key": key} if key else {}
 
 
-def get_json(url: str, *, retries: int = 3) -> object:
-    """GET with 429 backoff (S2 rate-limits anonymous callers). Monkeypatched
-    in tests with recorded fixtures - the one network seam."""
+def _pace() -> None:
+    """Hold every caller to S2's 1 req/s budget (cumulative, all endpoints)."""
+    global _last_request
+    with _pace_lock:
+        wait = _MIN_INTERVAL - (time.monotonic() - _last_request)
+        if wait > 0:
+            time.sleep(wait)
+        _last_request = time.monotonic()
+
+
+def get_json(url: str, *, retries: int = 5) -> object:
+    """GET, self-paced to the documented 1 req/s budget, honouring
+    ``Retry-After`` with exponential fallback on a 429. Monkeypatched in
+    tests with recorded fixtures - the one network seam."""
     for attempt in range(retries):
+        _pace()
         req = urllib.request.Request(url, headers=_headers())
         try:
             with urllib.request.urlopen(req, timeout=20) as res:
                 return json.loads(res.read())
         except urllib.error.HTTPError as exc:
             if exc.code == 429 and attempt < retries - 1:
-                time.sleep(2**attempt)
+                retry_after = (exc.headers or {}).get("Retry-After", "")
+                delay = (
+                    float(retry_after) if retry_after.isdigit() else 2.0**attempt
+                )
+                time.sleep(min(delay, 30.0))
                 continue
             raise SemanticScholarError(f"GET {url} -> HTTP {exc.code}") from exc
         except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
@@ -88,7 +111,7 @@ def ref_for_paper(paper: dict) -> str:
 
 
 def normalize_paper(paper: dict) -> dict:
-    """One S2 paper object -> our paper record shape (matches zotero.py)."""
+    """One S2 paper object -> our canonical paper record shape."""
     authors = [a.get("name", "") for a in (paper.get("authors") or []) if a.get("name")]
     ext = paper.get("externalIds") or {}
     return {

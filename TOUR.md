@@ -23,7 +23,7 @@ analyses. The platform does the rest:
 - **manages the study itself** - a lifecycle with gates (no data collection
   before the ethics approval is uploaded) and a task board that derives its
   cards from the study's state and clears them itself,
-- **grows the literature** - papers by DOI / arXiv / PDF / Zotero become a
+- **grows the literature** - papers by DOI / arXiv / PDF become a
   citation graph plus a grounded, citing assistant,
 - **writes up honestly** - exact statistical tests with effect sizes and
   per-group sample sizes, a per-question report, a compilable LaTeX paper
@@ -59,7 +59,6 @@ The four you'll meet most often in the docs:
 | ID | In plain English |
 | -- | ---------------- |
 | FR-PROT-7 | Package a finished study so anyone can re-run it and get identical results (the replication kit) |
-| FR-LIT-5 | Pull your Zotero library into the paper graph |
 | FR-ANA-5 | Run a published paper's analysis method on your own data ("papers become recipes") |
 | NFR-6 | Same inputs → byte-identical outputs, always |
 
@@ -69,7 +68,7 @@ The four you'll meet most often in the docs:
 | ----------------- | ------------------ |
 | "Requirements collected as if by a dynamic/AI project manager" | The protocol *is* a machine-readable requirements spec; the dashboard's task board derives cards from it and they clear themselves |
 | "Derive post-analysis similar to other papers" | `analysis run` → per-question report → `analysis paper` → compilable LaTeX draft with your real numbers |
-| "References from papers with the same studies" | Knowledge view: citation graph, Zotero import, auto-seeded related-work section |
+| "References from papers with the same studies" | Knowledge view: citation graph, auto-seeded related-work section |
 | "Help them be lean, not overcomplicate" | `protocol validate` + `analysis validate` name everything missing *before* a session is wasted |
 | "Replicate studies" | `protocol export replication-kit` - byte-stable archive, proven by re-running it |
 | "Fetch algorithms directly from papers" | Two published studies already run as recipes (an AI-acceptance-rate metric, a work-fragmentation metric) |
@@ -115,7 +114,7 @@ That's the full arc - protocol in, paper out.
 | You want | Read |
 | -------- | ---- |
 | To run any component, end to end | [`RUNBOOK.md`](RUNBOOK.md) |
-| The argument and architecture | [`roadmap/00-VISION.md`](roadmap/00-VISION.md) |
+| The argument and architecture | [`docs/archive/roadmap/00-VISION.md`](docs/archive/roadmap/00-VISION.md) |
 | What any ID means | `requirements/srs.md` (lookup, never cover-to-cover) |
-| To develop on the repo | [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md) |
+| To develop on the repo | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | To run a real participant session | [`study/pilot/runbook.md`](study/pilot/runbook.md) |

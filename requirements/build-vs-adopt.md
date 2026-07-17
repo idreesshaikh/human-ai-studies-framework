@@ -82,7 +82,7 @@ view needs. Metadata-only calls (paper IDs/titles), so NFR-5-compatible.
 Rate limits are fine at our scale; cache responses in the middleware DB so
 the graph renders offline after first fetch.
 
-### D9 - Zotero (local/web API) - **ADOPT (stretch)** → FR-LIT-5
+### ~~D9 - Zotero (local/web API) - **ADOPT (stretch)**~~ **WITHDRAWN** (2026-07-16) → FR-LIT-5
 
 The one end-user integration that proves the paper-ingest extension point;
 clean documented API. Could-priority: after the sprint.
@@ -92,7 +92,7 @@ fallback. We adopt the *API*, not a library - the two calls (list
 collections, list a collection's top items) are one-liners over stdlib
 `urllib`, so no `pyzotero` dependency was added (zero-bloat discipline).
 
-### D10 - Claude API (Anthropic) - **ADOPT, bounded** → FR-LIT-4, FR-META-2
+### ~~D10 - Claude API (Anthropic) - **ADOPT, bounded**~~ **SUPERSEDED by D32** (2026-07-16) → FR-LIT-4, FR-META-2
 
 Powers the knowledge assistant and retrospective drafting. Bounds are
 requirements, not implementation details: FR-ETH-4 (no row-level
@@ -112,6 +112,10 @@ tool-use loop exposes exactly three tools (`search_papers`, `get_protocol`,
 event - the model cannot leak what it cannot see (grep-the-output test).
 Absent `ANTHROPIC_API_KEY`, the endpoint degrades gracefully (503 with a
 plain-language message; every offline feature keeps working).
+**Superseded (2026-07-16) by D32:** the assistant and retrospective now run
+on Gemini / Mistral (owner decision: free-tier providers, no paid key). The
+FR-ETH-4 bounds, cite-every-claim prompt, and graceful-degradation posture
+carry over unchanged.
 
 ### D11 - FastAPI + SQLite / ~~React~~ + Vite - **ADOPT** → FR-ING, FR-DASH
 
@@ -225,13 +229,16 @@ service (NFR-5), extraction is local. FTS over the extracted text uses
 SQLite's built-in **FTS5** - no vector DB at this scale (a build decision
 recorded inline in the ingest code, not a new dependency).
 
-### D22 - `anthropic` Python SDK - **ADOPT** (realizes D10) → FR-LIT-4
+### ~~D22 - `anthropic` Python SDK - **ADOPT** (realizes D10)~~ **SUPERSEDED by D32** (2026-07-16) → FR-LIT-4
 
 The official first-party SDK for the Claude API, per the `claude-api`
 skill's guidance (never hand-roll the wire protocol). Realizes D10's
 adopt decision; see D10 for the model choice (`claude-sonnet-5`), the
 FR-ETH-4 server-side tool boundary, and the graceful-degradation posture.
 Pinned via the uv lockfile (D16).
+**Superseded (2026-07-16) by D32:** dependency removed with D10; the
+replacement providers are called over plain REST (stdlib `urllib`), so no
+successor SDK was adopted.
 
 ### D23 - `tectonic` TeX engine (paper-compile proof) - **ADOPT** → FR-ANA-6
 
@@ -251,7 +258,181 @@ and **skips cleanly** where no TeX engine is present, so CI without a TeX
 install stays green (the LaTeX brace/environment-balance test remains the
 always-on structural proxy).
 
-## Summary table
+### D24 - GitHub Actions + GHCR + GitHub Releases - **ADOPT** → FR-OPS-2
+
+The release/deploy pipeline lives where CI already lives (`ci.yml`).
+**Actions** is free at our scale (2,000 min/month private; the Student Pack's
+GitHub Pro also unlocks protected *environments* on private repos - the
+FR-OPS-2 manual approval gate). **GHCR** is the container registry: same
+auth (`GITHUB_TOKEN`, no extra secret), free for the repo's visibility.
+**Releases** hold the versioned artifacts (`.vsix`, image digest notes) -
+RC tags are pre-releases. Alternatives rejected: Docker Hub (second account,
+pull-rate limits), a self-hosted registry (a service to babysit, contra
+NFR-7's no-IT-department posture).
+
+### D25 - Render free tier (demo host) - **ADOPT** → FR-OPS-1(a)
+
+The public seeded demo runs the existing `middleware/Dockerfile` on Render's
+free web-service tier (still current in 2026: 750 instance-hours/month,
+Docker support, free TLS subdomain, deploy-hook URL). Its two limitations
+are *acceptable by design*: spin-down after 15 min idle (a demo tolerates a
+cold start) and an **ephemeral disk** - which would be disqualifying for
+real data, but the demo reseeds itself on every boot
+(`start_with_seed.sh`; replay is idempotent per FR-ING-2) and NFR-5 forbids
+real participant data on any public instance anyway. `autoDeploy` is off:
+the pipeline triggers the deploy hook only after CI is green, so the demo
+never runs a red build.
+
+### D26 - Azure for Students (persistent VM + on-demand Sonar VM) - **ADOPT** → FR-OPS-1(b), FR-OPS-4
+
+$100/year credit, renewable annually while enrolled, no card; includes
+750 h/month of a B1s Linux VM free for 12 months. The B1s is the persistent
+dev/staging host: `docker compose -f deploy/compose.prod.yml` pulls the
+released GHCR image, the SQLite volume persists on the VM disk (exactly the
+one-file-is-the-backup posture of D11), and **Caddy** (adopted here: single
+static binary, automatic certificates; nginx+certbot is two moving parts
+for the same job) terminates TLS on a Namecheap `.me` domain (also free in
+the pack). For FR-OPS-4, a second **B2s (4 GB - SonarQube's floor; the B1s
+1 GB cannot host it)** stays **deallocated** except during analysis
+windows - a deallocated VM bills only pennies of disk against credit -
+toggled by `sonar-vm.yml` (workflow-dispatch) or `az vm start|deallocate`.
+
+### D27 - VS Code Marketplace via `@vscode/vsce` - **ADOPT** → FR-OPS-3
+
+Publishing is free and `vsce` is already a devDependency (`npm run
+package`). The release pipeline publishes on **final tags only**, because
+the Marketplace rejects semver pre-release suffixes (`0.3.0-rc.1` is not a
+legal Marketplace version) and its pre-release *channel* imposes a version
+convention we don't want to carry - so RC builds are distributed as `.vsix`
+assets on GitHub pre-releases instead (documented in FR-OPS-3). Requires a
+one-time publisher account + `VSCE_PAT` secret; the `publisher` field in
+`extension/package.json` must match the account. An Open VSX mirror is
+deferred until someone on VSCodium asks (zero-bloat).
+
+### D28 - Remaining student-pack / free-tier candidates - **REJECT (batch)**
+
+Each was considered for the FR-OPS deployment slice and rejected:
+
+- **DigitalOcean** - the pack's $200 credit sunsets **2026-07-31**
+  (announced 2026-06-12); building on it now is building on sand.
+- **Heroku** - $13/month × 24 months of pack credit is real money, but the
+  dyno filesystem is ephemeral: SQLite (D11) would need a Postgres port
+  *purely to fit the host*. The host should fit the architecture, not the
+  reverse.
+- **Fly.io** - no free tier for new organizations; not in the pack.
+- **Railway** - trial credit only; no sustained free tier.
+- **Supabase** - hosted Postgres/auth/storage would move study data to a
+  third-party cloud (NFR-5 - same reasoning as D1's wandb reject) and
+  replace the SQLite source-of-truth for zero benefit at ≤ dozens of
+  participants.
+- **Clerk** - auth SaaS for a dashboard with exactly one operator (the
+  facilitator); `MIDDLEWARE_TOKEN` bearer auth (MP-06) already covers it,
+  and a third-party login dependency contradicts NFR-7.
+- **Blackfire.io** - profiler, free for students, but there is no open
+  performance requirement: NFR-1's latency bound is enforced by sensor
+  design (fire-and-forget, O(1) handlers) and tested. Revisit only if a
+  measured performance defect ever appears in the findings log (FR-META-1).
+
+### D29 - Clerk (+ `pyjwt[crypto]`) - **ADOPT as optional provider** → FR-OPS-5 *(partially supersedes D28's Clerk row, 2026-07-16)*
+
+D28 rejected Clerk as a *mandatory* dependency - that half stands: an
+open-source, offline-capable research tool must never require a third-party
+account to self-host. What changed (owner elicitation, 2026-07-16): the
+maintainer's *hosted* instance wants a polished login. Resolution: auth
+becomes a provider seam in the middleware (`none` / `token` / `clerk`), the
+zero-config token path stays the self-hosting default, and `clerk` verifies
+Clerk-issued JWTs server-side against the instance's JWKS - adopted via
+**`pyjwt[crypto]`** (the standard, minimal JWT library; hand-rolling RS256
+verification is where security bugs come from). The Clerk *frontend* widget
+is wired only on deployments that configure it; everyone else sees the
+token sign-in. This is the same graceful-degradation posture as every other
+external service (Semantic Scholar D8, the LLM provider D32, SonarQube D5, Zotero
+D9): optional, replaceable, never load-bearing.
+**Built (2026-07-16, client half):** clerk-js is **hot-loaded from the
+Clerk instance's own domain** (the script URL is derived from the
+publishable key), only when `/auth/config` says `clerk` - token/none
+deployments load nothing. Self-bundling the npm package was tried first
+and reverted the same day: its ESM build ships without the UI renderer
+("Clerk was not loaded with Ui components" at mount), and hotload is
+Clerk's documented pattern for non-React apps anyway. `@clerk/clerk-js`
+stays as a **types-only devDependency**. Clerk's hosted sign-in UI mounts
+in `SignIn.svelte`; the API client takes a live token getter
+(`session.getToken()` per request - Clerk JWTs are short-lived and
+refreshed by clerk-js). If the script can't load, the paste-a-token
+surface remains as the fallback; a manually issued session token verifies
+server-side identically.
+
+### D30 - Vercel v0 - **ADOPT as design tool only** → dashboard UI iteration *(D15 stands)*
+
+v0 generates React/Next + shadcn; the dashboard is Svelte 5 (D15, owner
+preference, zero-rewrite). Decision: v0 is used to *explore* layouts and
+visual design; accepted designs are ported into Svelte components by hand.
+Migrating the dashboard to React purely to paste v0 output was considered
+and rejected as a full rewrite of a working, tested SPA. Revisit only if
+the dashboard is ever rebuilt for other reasons.
+**Rev 2 (2026-07-16):** v0 now supports Svelte, so the owner iterates the
+dashboard *directly* in v0 as a separate Vercel project rooted at
+`dashboard/` (the repo stays a monorepo; no framework change - D15
+stands). Accepted iterations merge back as ordinary commits gated by
+`npm run check`. Enabled by FR-OPS-6: the SPA takes `VITE_API_BASE` and
+the middleware allows only explicitly listed origins
+(`MIDDLEWARE_CORS_ORIGINS`; unset = same-origin only).
+**Rev 3 (2026-07-17):** the Vercel project's GitHub integration also
+deployed every push to `main` (and its failures showed up as a red check
+on main's pipeline). Production hosting is Render (D25); Vercel is a
+design surface for iteration branches only. `dashboard/vercel.json` sets
+`git.deploymentEnabled.main: false` so Vercel ignores `main` and keeps
+deploying the design branches.
+**Rev 4 (2026-07-17) - RETIRED:** owner direction: remove Vercel/v0 from
+the workflow entirely. The design loop's one merge landed as fresh
+commits on `main` (traceability log, 2026-07-16); the iteration branches
+are deleted, `dashboard/vercel.json` (rev 3) is removed, and product
+docs/comments no longer reference the tool. FR-OPS-6 (separate-origin
+hosting + CORS allow-list) stays - it is a general capability, no longer
+tied to a design tool. The Vercel-side project/GitHub-App connection is
+account configuration outside this repo and must be disconnected there.
+
+### D31 - Public-docs architecture - **BUILD (two-layer, archive internals)** → NFR-11
+
+The repo is open source and must read as a product. Decision (owner,
+2026-07-16): internal build history (the mega-prompt phase specs, sprint
+plans) moves to `docs/archive/` - kept intact for the examiner, out of the
+public eye; README becomes the product front page; the contributor guide
+consolidates into one `CONTRIBUTING.md`; RUNBOOK/TOUR keep their roles but
+drop requirement-ID jargon per NFR-11. Alternatives rejected: deleting the
+history (destroys the graded execution record) and a docs site generator
+(a build system for a dozen Markdown files).
+
+### D32 - Gemini + Mistral APIs (REST, no SDK) - **ADOPT, bounded** → FR-LIT-4, FR-META-2 *(supersedes D10, D22)*
+
+Replaces the Claude API for the knowledge assistant and the retrospective
+(owner decision, 2026-07-16: free-tier providers over a paid key). Two
+providers, selected by which key is set (`GEMINI_API_KEY` preferred, then
+`MISTRAL_API_KEY`; models `gemini-flash-latest` / `mistral-small-latest`),
+so the feature survives either free tier tightening. Called over plain
+REST via stdlib `urllib` - the same zero-bloat shape as the Semantic
+Scholar client (D8) - because the assistant's hand-rolled tool-use loop
+*is* the FR-ETH-4 enforcement boundary; no vendor SDK adopted. D10's
+bounds carry over verbatim: aggregates only server-side, answers must cite
+sources, the retrospective's output is an inert proposal a human approves,
+and absent both keys everything degrades gracefully (503 / offline
+template). Keys live only in runtime env (Render env / VM `deploy/.env`),
+never in git or CI.
+**Rev 2 (2026-07-16):** Gemini removed at the owner's request (one Mistral
+key in active use); the dashboard's picker now selects among *Mistral model
+tiers* (small/medium/large, validated server-side) instead of providers.
+The seam stays one provider class - reintroducing a second provider is a
+small, decision-gated change.
+
+### D33 - `svelte-dnd-action` - **ADOPT** → FR-DASH-7
+
+Drag-and-drop for the task board's manual cards, introduced by the v0
+design iteration (D30 rev 2) and kept at merge review: it is the standard
+Svelte DnD library (headless action, no UI opinions, keyboard-accessible),
+and hand-rolling HTML5 DnD with keyboard support is exactly the
+wheel-reinvention D30's workflow exists to avoid. Bounds: platform-derived
+cards stay non-draggable (they clear themselves); only manual todos move.
+Pinned via the npm lockfile.
 
 | # | Candidate | Decision | Satisfies | Key reason |
 | - | --------- | -------- | --------- | ---------- |
@@ -263,8 +444,8 @@ always-on structural proxy).
 | D6 | tree-sitter, Radon | Adopt | FR-INST-4 | parsers adopted, metrics built |
 | D7 | ResearchRabbit | Reject / replicate view | FR-LIT-2 | no API; closed service |
 | D8 | Semantic Scholar API | Adopt | FR-LIT-1,2 | open citation graph + recommendations |
-| D9 | Zotero | Adopt (stretch) | FR-LIT-5 | proves ingest extension point |
-| D10 | Claude API | Adopt (bounded) | FR-LIT-4, FR-META-2 | assistant + retrospective, FR-ETH-4 bounds |
+| D9 | Zotero | ~~Adopt (stretch)~~ withdrawn with FR-LIT-5 (2026-07-16) | FR-LIT-5 | proved the ingest extension point, then removed |
+| D10 | Claude API | ~~Adopt (bounded)~~ superseded by D32 (2026-07-16) | FR-LIT-4, FR-META-2 | assistant + retrospective, FR-ETH-4 bounds |
 | D11 | FastAPI/SQLite/React | Adopt | FR-ING, FR-DASH | one-laptop production (NFR-7/9) |
 | D12 | Cognitive Overlay | Keep & extend | FR-INST-5,8–13 | one extension, one pipeline |
 | D13 | Claude Code hooks + transcripts | Adopt | FR-AGENT-1,2 | only lossless machine-readable agent capture |
@@ -276,5 +457,15 @@ always-on structural proxy).
 | D19 | Vitest | Adopt | MP-06 tests | pure-TS logic tests on the app's own Vite config |
 | D20 | pandas + scipy + matplotlib | Adopt | FR-ANA-1..5, NFR-8 | exact test distributions are not something to hand-roll; pinned via D16 |
 | D21 | PyMuPDF (`pymupdf`) | Adopt | FR-LIT-1 | fast single-wheel PDF text extraction; metadata still from S2 (D8) |
-| D22 | `anthropic` Python SDK | Adopt (realizes D10) | FR-LIT-4 | first-party Claude SDK; never hand-roll the wire protocol |
+| D22 | `anthropic` Python SDK | ~~Adopt (realizes D10)~~ superseded by D32 (2026-07-16) | FR-LIT-4 | first-party Claude SDK; never hand-roll the wire protocol |
 | D23 | `tectonic` TeX engine | Adopt (test-time only) | FR-ANA-6 | prove `draft.tex` compiles; ~30 MB self-contained vs ~4 GB MacTeX; not in the lockfile |
+| D24 | GitHub Actions + GHCR + Releases | Adopt | FR-OPS-2 | pipeline lives with CI; GITHUB_TOKEN auth; Pro (student pack) unlocks approval environments |
+| D25 | Render free tier | Adopt | FR-OPS-1(a) | free Docker host for the demo; ephemeral disk fine - demo reseeds itself on boot |
+| D26 | Azure for Students + Caddy | Adopt | FR-OPS-1(b), FR-OPS-4 | renewable $100/yr + free B1s VM = persistent host; deallocated B2s = on-demand SonarQube |
+| D27 | VS Code Marketplace (vsce) | Adopt | FR-OPS-3 | free publishing on final tags; RCs stay GitHub pre-release `.vsix` (no semver suffixes on Marketplace) |
+| D28 | DO / Heroku / Fly / Railway / Supabase / Clerk / Blackfire | Reject (batch) | - | DO credits sunset 2026-07-31; Heroku FS ephemeral vs SQLite; NFR-5 (Supabase); one-operator auth exists (Clerk - *partially superseded by D29*); no perf requirement (Blackfire) |
+| D29 | Clerk + `pyjwt[crypto]` | Adopt (optional provider; partially supersedes D28) | FR-OPS-5 | hosted login without making self-hosters need an account; JWT verification never hand-rolled |
+| D30 | Vercel v0 | ~~Adopt (design tool)~~ Retired (rev 4, 2026-07-17) | dashboard UI, FR-OPS-6 | design loop served its one merge; tool removed from workflow, FR-OPS-6 capability stays |
+| D31 | Public-docs architecture | Build (two-layer) | NFR-11 | product-grade public docs; RE record intact in requirements/ + docs/archive/ |
+| D32 | Mistral API (REST, no SDK; rev 2 dropped Gemini) | Adopt (bounded; supersedes D10, D22) | FR-LIT-4, FR-META-2 | free-tier provider in active use; UI picks the model tier; stdlib REST keeps the FR-ETH-4 tool loop as the enforcement boundary |
+| D33 | svelte-dnd-action | Adopt | FR-DASH-7 | standard Svelte DnD for manual task cards (v0 iteration, D30 rev 2); derived cards stay non-draggable |

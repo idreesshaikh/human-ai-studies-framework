@@ -1,10 +1,12 @@
 <script lang="ts">
   import { api, type Health } from './lib/api'
+  import { auth } from './lib/auth.svelte'
   import { lexicon } from './lib/lexicon.svelte'
   import { link, router, type View } from './lib/router.svelte'
   import { tour } from './lib/tour.svelte'
   import { trace } from './lib/trace.svelte'
   import GuidedTour from './lib/components/GuidedTour.svelte'
+  import ThemeToggle from './lib/components/ThemeToggle.svelte'
   import TracePanel from './lib/components/TracePanel.svelte'
   import Overview from './lib/views/Overview.svelte'
   import LifecycleBoard from './lib/views/LifecycleBoard.svelte'
@@ -13,6 +15,7 @@
   import SessionTimeline from './lib/views/SessionTimeline.svelte'
   import MetricsCompare from './lib/views/MetricsCompare.svelte'
   import Knowledge from './lib/views/Knowledge.svelte'
+  import SignIn from './lib/components/SignIn.svelte'
 
   let health = $state<Health | null>(null)
   let offline = $state(false)
@@ -28,6 +31,7 @@
 
   async function boot(): Promise<void> {
     try {
+      await auth.init()
       health = await api.health()
       offline = false
       const study = health.studyId ?? 'adhoc'
@@ -69,6 +73,7 @@
       </a>
     {/each}
     <div class="foot small muted">
+      <ThemeToggle />
       {#if studyId && !offline}
         <button
           type="button"
@@ -82,6 +87,14 @@
         <span class="badge critical">! middleware offline</span>
       {:else if health}
         <span class="badge good">middleware ok</span>
+      {/if}
+      {#if auth.user}
+        <span class="small muted signed-in-as">{auth.user.label}</span>
+      {/if}
+      {#if auth.config.mode !== 'none' && auth.hasToken}
+        <button type="button" class="tour-launch" onclick={() => auth.signOut()}>
+          Sign out
+        </button>
       {/if}
     </div>
   </nav>
@@ -117,6 +130,9 @@
 
 <TracePanel />
 <GuidedTour />
+{#if auth.needed}
+  <SignIn />
+{/if}
 
 <style>
   .shell {
@@ -163,6 +179,12 @@
     gap: 8px;
     align-items: flex-start;
   }
+  .signed-in-as {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+    white-space: nowrap;
+  }
   .tour-launch {
     font-size: 12px;
     color: var(--series-1);
@@ -175,8 +197,34 @@
     background: color-mix(in srgb, var(--series-1) 10%, transparent);
   }
   main {
-    padding: 20px 24px;
-    max-width: 1200px;
+    padding: clamp(14px, 2.5vw, 32px);
+    max-width: 1280px;
     width: 100%;
+  }
+
+  /* Narrow screens: the sidebar becomes a wrapping top bar. */
+  @media (max-width: 720px) {
+    .shell {
+      grid-template-columns: 1fr;
+    }
+    nav {
+      position: static;
+      height: auto;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      padding: 0 8px;
+    }
+    .foot {
+      margin-top: 0;
+      margin-left: auto;
+      flex-direction: row;
+      align-items: center;
+    }
   }
 </style>

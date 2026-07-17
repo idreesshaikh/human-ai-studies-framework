@@ -120,7 +120,7 @@ class Paper(Base):
     """One paper in the study's paper set (FR-LIT-5; glossary: Paper).
 
     Keyed by the canonical ``paperRef`` the protocol's ``literature:`` list
-    uses (``doi:...`` / ``arxiv:...`` / ``zotero:<key>``), so protocol links
+    uses (``doi:...`` / ``arxiv:...``), so protocol links
     join by construction and re-imports are idempotent (FR-ING-2
     discipline). MP-10's FR-LIT-1 ingest (PDF/DOI extraction, Semantic
     Scholar enrichment) extends these rows; this table is its landing
@@ -144,8 +144,10 @@ class Paper(Base):
     arxiv_id: Mapped[str] = mapped_column(String, default="")
     url: Mapped[str] = mapped_column(String, default="")
     item_type: Mapped[str] = mapped_column(String, default="")
-    #: Where the record came from: "zotero" (MP-09); "upload"/"id" (MP-10).
-    source: Mapped[str] = mapped_column(String, default="zotero")
+    #: Where the record came from: "upload"/"id" (MP-10).
+    source: Mapped[str] = mapped_column(String, default="id")
+    #: Legacy (Zotero importer withdrawn 2026-07-16, FR-LIT-5): the
+    #: column stays so pre-existing DBs keep loading; always "" now.
     zotero_key: Mapped[str] = mapped_column(String, default="")
     #: Semantic Scholar paper id (the hash), used to harvest graph edges
     #: (FR-LIT-2). Empty for un-enriched papers.

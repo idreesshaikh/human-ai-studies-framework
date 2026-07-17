@@ -8,6 +8,7 @@ from collections import Counter
 from pathlib import Path
 
 import analysis.recipes  # noqa: F401 - register recipes
+import matplotlib.pyplot as plt
 import pytest
 import yaml
 from analysis.dataset import Dataset
@@ -19,6 +20,15 @@ from tests_support import synthetic_rows
 REPO = Path(__file__).resolve().parents[2]
 PILOT = REPO / "protocol" / "examples" / "pilot-study.yaml"
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture(autouse=True)
+def _close_figures():
+    # build_paper returns drafts holding open figures; only write_paper closes
+    # them, so tests that never write would accumulate past pyplot's 20-figure
+    # warning threshold.
+    yield
+    plt.close("all")
 
 
 def _protocol() -> dict:

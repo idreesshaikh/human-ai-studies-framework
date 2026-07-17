@@ -5,7 +5,7 @@
 {#if trace.openId}
   <aside class="panel" aria-label="Trace chain">
     <header>
-      <h3>Trace: <code>{trace.openId}</code></h3>
+      <h3>About this view</h3>
       <button onclick={() => trace.close()} aria-label="Close">x</button>
     </header>
     <ol>

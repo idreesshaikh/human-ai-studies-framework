@@ -1,7 +1,7 @@
 # Mega-Prompt 02 - Study Protocol Schema + Lifecycle State Machine
 
 > Self-contained: execute this file in a fresh working session at the repo
-> root. Read `roadmap/00-VISION.md` and `requirements/srs.md` first.
+> root. Read `docs/archive/roadmap/00-VISION.md` and `requirements/srs.md` first.
 
 **Depends on:** 01 (requirement IDs, glossary terms)
 **Status:** ✅ Done (2026-07-11)
@@ -75,5 +75,5 @@ protocol, plus the lifecycle engine.
 ## Verification
 
 - `pytest` green; run the CLI against the example and one broken fixture and
-  show output. Update `roadmap/00-VISION.md` tracker and
+  show output. Update `docs/archive/roadmap/00-VISION.md` tracker and
   `requirements/traceability.md`.

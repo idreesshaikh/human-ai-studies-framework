@@ -37,7 +37,6 @@ export const FALLBACK_REQUIREMENTS: Record<string, string> = {
   'FR-LIT-2': 'Literature graph: ingested papers plus their references, citations, and suggestions.',
   'FR-LIT-3': 'Papers link to the protocol elements they justify.',
   'FR-LIT-4': 'Knowledge assistant: cited answers grounded in the ingested papers and aggregates only.',
-  'FR-LIT-5': 'Import papers from a Zotero collection.',
   'NFR-2': 'Never lose data: local JSONL is the source of truth; loss must be detectable via seq gaps.',
   'NFR-8': 'Honest statistics: exact tests, effect sizes, per-cell n; never bare p-values.',
 }
