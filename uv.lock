@@ -907,6 +907,7 @@ name = "middleware"
 version = "0.1.0"
 source = { editable = "middleware" }
 dependencies = [
+    { name = "analysis" },
     { name = "curated" },
     { name = "fastapi" },
     { name = "protocol" },
@@ -919,6 +920,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "analysis", editable = "analysis" },
     { name = "curated", editable = "curated" },
     { name = "fastapi", specifier = ">=0.139.0" },
     { name = "protocol", editable = "protocol" },

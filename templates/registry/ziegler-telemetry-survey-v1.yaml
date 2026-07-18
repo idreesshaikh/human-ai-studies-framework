@@ -60,6 +60,33 @@ parameters:
     description: Target number of participants
     rationale: Achieves power for medium effect sizes
 
+  # Per-instantiation study identity + fill values (all defaulted so the
+  # template instantiates with no input; a researcher overrides what they want).
+  studyId:
+    type: string
+    default: ziegler-telemetry-study
+    description: Stable study id
+  title:
+    type: string
+    default: "Telemetry + self-report join for AI code completion"
+    description: Study title
+  researchers:
+    type: conditions
+    default: [Researcher]
+    description: The research team
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+    description: Ethics reference
+  taskDescription:
+    type: string
+    default: "Complete the coding tasks; accept or reject each AI completion."
+    description: Extra task detail
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+    description: The instrument's ingestion endpoint
+
 measures:
   - id: acceptance-rate
     leg: behavioral
@@ -154,8 +181,21 @@ protocolSkeleton:
       are shown by the AI assistant. Participants may accept or reject each suggestion.
       {{ taskDescription }}
   
-  instruments: "{{ instruments }}"
-  
+  instruments:
+    cognitiveOverlay:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 20
+        waitForPauseSeconds: 3
+      stuck:
+        enabled: true
+        thresholdSeconds: 60
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: code-quality-5
+
   phases:
     - name: design
       gates:
@@ -163,18 +203,24 @@ protocolSkeleton:
     - name: ethics
       gates:
         - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
     - name: data-collection
       gates: []
     - name: analysis
+      gates: []
+    - name: write-up
       gates: []
   
   analysisPlan:
     - rq: RQ-1
       recipes: [ziegler-acceptance-rate]
     - rq: RQ-2
-      recipes: [acceptance-vs-perception]
+      recipes: [ai-review-behavior]
     - rq: RQ-3
-      recipes: [completion-latency]
+      recipes: [task-outcome-by-condition]
   
   literature:
     - paperRef: arxiv:2205.06537

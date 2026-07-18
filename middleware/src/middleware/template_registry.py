@@ -1,437 +1,365 @@
-"""Template registry for MP-15 (FR-TPL-1..4).
+"""The template registry (MP-15 slice 3; FR-TPL-1/2).
 
-Manages the versioned template registry: loading, validation, and
-instantiation of study templates into protocol drafts.
+Templates are versioned YAML documents in ``templates/registry/``, each
+encoding one published, citable study design - its parameters, measures,
+statistical plan, and a ``protocolSkeleton`` that instantiates into a
+protocol passing ``protocol validate`` with zero hand edits (F1.1).
+Validation is two-layered:
 
-Templates are YAML files in the templates/registry/ directory, validated
-against templates/schemas/template.schema.json. Each template encodes a
-published, citable design with its statistical plan (FR-TPL-2).
+- **Registry validation** (:func:`validate_registry`): the template JSON
+  Schema, mandatory citations, and - earlier than instantiation, per F2.3 -
+  every recipe the skeleton's ``analysisPlan`` names must exist in the
+  analysis catalogue. A template cannot promise an analysis the platform
+  can't run.
+- **Instantiation validation**: parameter typing/bounds, then the filled
+  protocol through :func:`protocol.loader.validate_protocol` (the same
+  checks the CLI applies to a file).
 
-The registry is read-only at runtime; templates are versioned files on
-disk (same discipline as protocolVersion - consumers branch, never guess).
+Instantiation is a pure function of (template, parameters) - the FR-CONV-3
+compiler treats a template instantiation as a batch of design moves, so the
+same determinism guarantee (byte-identical replay) holds here. Which
+template@version produced a draft is recorded in the draft's generated
+header comment and the compilation row, never guessed (F1.3).
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
+from typing import Any
 
 import jsonschema
 import yaml
 
 log = logging.getLogger(__name__)
 
-# Repository root
 REPO = Path(__file__).resolve().parent.parent.parent.parent
+REGISTRY_DIR = REPO / "templates" / "registry"
+SCHEMA_FILE = REPO / "templates" / "schemas" / "template.schema.json"
 
-# Template paths
-TEMPLATES_DIR = REPO / "templates"
-REGISTRY_DIR = TEMPLATES_DIR / "registry"
-SCHEMA_FILE = TEMPLATES_DIR / "schemas" / "template.schema.json"
+#: Exact-placeholder form: the whole scalar is one parameter reference, so
+#: the *typed* value (int, list, ...) replaces the string wholesale.
+_EXACT_PLACEHOLDER = re.compile(r"^\{\{\s*(\w+)\s*\}\}$")
+#: Embedded form: interpolated into the surrounding text.
+_EMBEDDED_PLACEHOLDER = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 
-# ---------------------------------------------------------------------------
-# Schema loading
-# ---------------------------------------------------------------------------
+
+class TemplateError(Exception):
+    """A template problem with a human-readable message (mirrors
+    ``protocol.errors.ProtocolError``'s posture)."""
+
 
 def _load_schema() -> dict:
-    """Load the template JSON Schema."""
-    if not SCHEMA_FILE.exists():
-        raise FileNotFoundError(
-            f"Template schema not found at {SCHEMA_FILE}. "
-            "Run: git submodule update --init --recursive"
-        )
-    return json.loads(SCHEMA_FILE.read_text())
+    return json.loads(SCHEMA_FILE.read_text("utf-8"))
 
 
-# ---------------------------------------------------------------------------
-# Template loading and validation
-# ---------------------------------------------------------------------------
+def _read_all() -> list[tuple[Path, dict]]:
+    """Every registry document, unvalidated, sorted by filename for
+    deterministic listings."""
+    docs = []
+    for path in sorted(REGISTRY_DIR.glob("*.yaml")):
+        try:
+            doc = yaml.safe_load(path.read_text("utf-8"))
+        except yaml.YAMLError as exc:
+            raise TemplateError(f"invalid YAML in {path.name}: {exc}") from exc
+        if isinstance(doc, dict):
+            docs.append((path, doc))
+    return docs
+
 
 def load_template(template_id: str, version: int | None = None) -> dict:
-    """Load a template by ID and optional version.
-    
-    Args:
-        template_id: The template identifier (e.g., 'metr-rct-v1').
-        version: Optional version number. If None, loads the highest version.
-    
-    Returns:
-        The template dict.
-    
-    Raises:
-        FileNotFoundError: If no matching template is found.
-        jsonschema.ValidationError: If the template is invalid.
+    """Load one template by id; highest ``templateVersion`` unless pinned.
+
+    Loading an old version after a newer one exists keeps working (F1.3) -
+    versions are separate documents, never overwritten.
     """
-    # Find matching template files
-    candidates = []
-    for yaml_file in REGISTRY_DIR.glob("*.yaml"):
-        name = yaml_file.stem
-        # Parse version from filename: template-id-vN
-        if name.startswith(f"{template_id}-"):
-            try:
-                # Extract version from suffix like -v1, -v2, etc.
-                suffix = name[len(template_id) + 1:]
-                if suffix.startswith("v") and suffix[1:].isdigit():
-                    file_version = int(suffix[1:])
-                else:
-                    continue
-                candidates.append((file_version, yaml_file))
-            except (ValueError, IndexError):
-                continue
-    
+    candidates = [
+        doc
+        for _, doc in _read_all()
+        if doc.get("templateId") == template_id
+        and (version is None or doc.get("templateVersion") == version)
+    ]
     if not candidates:
-        # Try exact match
-        exact = REGISTRY_DIR / f"{template_id}.yaml"
-        if exact.exists():
-            candidates.append((1, exact))
-        else:
-            raise FileNotFoundError(
-                f"Template '{template_id}' not found in {REGISTRY_DIR}"
-            )
-    
-    # Filter by version
-    if version is not None:
-        candidates = [(v, f) for v, f in candidates if v == version]
-    
-    if not candidates:
-        raise FileNotFoundError(
-            f"Template '{template_id}' version {version} not found"
+        pin = f" version {version}" if version is not None else ""
+        raise TemplateError(
+            f"template {template_id!r}{pin} not found in {REGISTRY_DIR}"
         )
-    
-    # Sort by version (descending) and pick the highest
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    _, file_path = candidates[0]
-    
-    # Load and validate
-    template = _load_yaml(file_path)
-    validate_template(template)
-    
-    return template
+    return max(candidates, key=lambda d: d.get("templateVersion", 1))
 
 
-def _load_yaml(path: Path) -> dict:
-    """Load a YAML file."""
-    return yaml.safe_load(path.read_text())
+def validate_template(doc: dict) -> list[str]:
+    """Schema + citation + recipe-existence problems for one document."""
+    validator = jsonschema.Draft202012Validator(_load_schema())
+    problems = [
+        f"{doc.get('templateId', '?')}: "
+        + ".".join(str(p) for p in err.absolute_path)
+        + f": {err.message}"
+        for err in sorted(
+            validator.iter_errors(doc), key=lambda e: list(e.absolute_path)
+        )
+    ]
+    if problems:
+        return problems
+    tid = doc["templateId"]
+    known = _recipe_catalogue()
+    for entry in doc["protocolSkeleton"].get("analysisPlan", []):
+        for recipe_id in entry.get("recipes", []):
+            if recipe_id not in known:
+                problems.append(
+                    f"{tid}: analysisPlan names recipe {recipe_id!r} which "
+                    f"does not exist in the analysis catalogue (F2.3: a "
+                    f"template cannot promise an analysis the platform "
+                    f"can't run)"
+                )
+    # Every {{ placeholder }} in the skeleton must be a declared parameter,
+    # else the template passes validation but cannot instantiate (F1.1: a
+    # template *instantiates* into a valid protocol — validation must
+    # guarantee that, not just schema-shape).
+    declared = set(doc.get("parameters", {}))
+    used = _skeleton_placeholders(doc.get("protocolSkeleton", {}))
+    for name in sorted(used - declared):
+        problems.append(
+            f"{tid}: protocolSkeleton uses {{{{ {name} }}}} but no parameter "
+            f"{name!r} is declared — the template could not instantiate"
+        )
+    return problems
 
 
-def validate_template(template: dict) -> None:
-    """Validate a template against the schema.
-    
-    Raises:
-        jsonschema.ValidationError: If the template is invalid.
-    """
-    schema = _load_schema()
-    jsonschema.validate(template, schema)
+def _skeleton_placeholders(node: Any) -> set[str]:
+    """Every ``{{ name }}`` referenced anywhere in the skeleton."""
+    found: set[str] = set()
+    if isinstance(node, str):
+        found.update(_EMBEDDED_PLACEHOLDER.findall(node))
+    elif isinstance(node, list):
+        for item in node:
+            found |= _skeleton_placeholders(item)
+    elif isinstance(node, dict):
+        for value in node.values():
+            found |= _skeleton_placeholders(value)
+    return found
 
 
-# ---------------------------------------------------------------------------
-# Template listing and metadata
-# ---------------------------------------------------------------------------
+def _recipe_catalogue() -> frozenset[str]:
+    """Recipe ids the platform can actually run (FR-ANA-2). The analysis
+    package is a workspace sibling; if it cannot import, the check fails
+    loudly rather than passing silently."""
+    try:
+        import analysis.recipes  # noqa: F401 - registers recipes on import
+        from analysis.core import REGISTRY
+    except ImportError as exc:  # pragma: no cover - broken install only
+        raise TemplateError(
+            f"analysis recipe catalogue unavailable ({exc}); cannot verify "
+            "template statistical plans"
+        ) from exc
+    return frozenset(REGISTRY.keys())
+
+
+def validate_registry() -> list[str]:
+    """All problems across the registry ([] = every template valid)."""
+    problems = []
+    seen: set[tuple[str, int]] = set()
+    for path, doc in _read_all():
+        problems.extend(validate_template(doc))
+        key = (doc.get("templateId", path.stem), doc.get("templateVersion", 1))
+        if key in seen:
+            problems.append(
+                f"{path.name}: duplicate templateId@templateVersion {key}"
+            )
+        seen.add(key)
+    return problems
+
 
 def list_templates() -> list[dict]:
-    """List all available templates with metadata.
-    
-    Returns:
-        List of template metadata dicts: {templateId, version, title, 
-        designType, dataPath, description}.
-    """
-    templates = []
-    
-    if not REGISTRY_DIR.exists():
-        return templates
-    
-    for yaml_file in sorted(REGISTRY_DIR.glob("*.yaml")):
-        try:
-            template = _load_yaml(yaml_file)
-            # Validate to catch bad templates
-            validate_template(template)
-            
-            templates.append({
-                "templateId": template["templateId"],
-                "version": template.get("templateVersion", 1),
-                "title": template["title"],
-                "designType": template["designType"],
-                "dataPath": template["dataPath"],
-                "description": template.get("description", ""),
-                "source": template.get("source", []),
-            })
-        except (yaml.YAMLError, jsonschema.ValidationError, KeyError) as e:
-            log.warning("Skipping invalid template %s: %s", yaml_file, e)
+    """Latest version of every template, with the metadata both surfaces
+    (conversation cards and the FR-TPL-3 form) render."""
+    latest: dict[str, dict] = {}
+    for _, doc in _read_all():
+        tid = doc.get("templateId", "")
+        if not tid:
             continue
-    
-    # Sort by templateId
-    templates.sort(key=lambda x: x["templateId"])
-    return templates
+        if (
+            tid not in latest
+            or doc.get("templateVersion", 1)
+            > latest[tid].get("templateVersion", 1)
+        ):
+            latest[tid] = doc
+    return [
+        {
+            "templateId": doc["templateId"],
+            "templateVersion": doc.get("templateVersion", 1),
+            "title": doc.get("title", ""),
+            "description": doc.get("description", ""),
+            "designType": doc.get("designType", ""),
+            "dataPath": doc.get("dataPath", ""),
+            "source": doc.get("source", []),
+            "parameters": doc.get("parameters", {}),
+            "measures": doc.get("measures", []),
+            "statisticalPlan": doc.get("statisticalPlan", {}),
+            "threats": doc.get("threats", []),
+        }
+        for _, doc in sorted(
+            ((tid, d) for tid, d in latest.items()), key=lambda x: x[0]
+        )
+    ]
 
 
-def get_template_metadata(template_id: str) -> list[dict]:
-    """Get metadata for all versions of a template.
-    
-    Args:
-        template_id: The template identifier.
-    
-    Returns:
-        List of version metadata dicts, sorted by version (descending).
-    """
-    versions = []
-    for yaml_file in REGISTRY_DIR.glob("*.yaml"):
-        name = yaml_file.stem
-        if name.startswith(f"{template_id}-"):
-            try:
-                suffix = name[len(template_id) + 1:]
-                if suffix.startswith("v") and suffix[1:].isdigit():
-                    version = int(suffix[1:])
-                else:
-                    continue
-                template = _load_yaml(yaml_file)
-                versions.append({
-                    "version": version,
-                    "title": template["title"],
-                    "designType": template["designType"],
-                    "dataPath": template["dataPath"],
-                })
-            except (ValueError, IndexError, yaml.YAMLError, KeyError):
-                continue
-    
-    versions.sort(key=lambda x: x["version"], reverse=True)
-    return versions
+# ------------------------------------------------------------ parameters
 
 
-# ---------------------------------------------------------------------------
-# Template instantiation
-# ---------------------------------------------------------------------------
+def _coerce(name: str, definition: dict, value: Any) -> Any:
+    """Type-check and coerce one supplied parameter value."""
+    kind = definition.get("type", "string")
+    try:
+        if kind in ("int", "participants"):
+            value = int(value)
+        elif kind == "float":
+            value = float(value)
+        elif kind == "bool":
+            if isinstance(value, str):
+                value = value.lower() in ("true", "1", "yes")
+            value = bool(value)
+        elif kind == "conditions":
+            if not (
+                isinstance(value, list)
+                and value
+                and all(isinstance(c, str) and c for c in value)
+            ):
+                raise ValueError("must be a non-empty list of names")
+            return value
+        else:
+            value = str(value)
+    except (TypeError, ValueError) as exc:
+        raise TemplateError(f"parameter {name!r}: {exc}") from exc
+    minimum, maximum = definition.get("min"), definition.get("max")
+    if minimum is not None and isinstance(value, (int, float)) and value < minimum:
+        raise TemplateError(f"parameter {name!r}: {value} is below min {minimum}")
+    if maximum is not None and isinstance(value, (int, float)) and value > maximum:
+        raise TemplateError(f"parameter {name!r}: {value} is above max {maximum}")
+    allowed = definition.get("enum")
+    if allowed and value not in allowed:
+        raise TemplateError(
+            f"parameter {name!r}: {value!r} not one of {allowed}"
+        )
+    if kind == "string" and len(str(value)) < definition.get("minLength", 0):
+        raise TemplateError(f"parameter {name!r}: shorter than minLength")
+    return value
+
+
+def resolve_parameters(template: dict, supplied: dict) -> dict:
+    """Defaults + supplied values, typed and bounds-checked. Unknown names
+    and missing no-default parameters fail loudly (F1.3 posture: named
+    gaps, never silent ones)."""
+    definitions = template.get("parameters", {})
+    unknown = sorted(set(supplied) - set(definitions))
+    if unknown:
+        raise TemplateError(
+            f"unknown parameter(s) {', '.join(unknown)} for "
+            f"{template['templateId']}"
+        )
+    resolved = {}
+    missing = []
+    for name, definition in definitions.items():
+        if name in supplied:
+            resolved[name] = _coerce(name, definition, supplied[name])
+        elif "default" in definition:
+            resolved[name] = definition["default"]
+        else:
+            missing.append(name)
+    if missing:
+        raise TemplateError(
+            f"missing required parameter(s): {', '.join(missing)}"
+        )
+    return resolved
+
+
+def _fill(node: Any, values: dict) -> Any:
+    """Recursively fill placeholders; exact placeholders keep the value's
+    type. Any placeholder left unfilled is an error, not a silent gap."""
+    if isinstance(node, str):
+        exact = _EXACT_PLACEHOLDER.match(node)
+        if exact:
+            name = exact.group(1)
+            if name not in values:
+                raise TemplateError(f"unfilled placeholder {{{{ {name} }}}}")
+            return values[name]
+
+        def _sub(match: re.Match) -> str:
+            name = match.group(1)
+            if name not in values:
+                raise TemplateError(f"unfilled placeholder {{{{ {name} }}}}")
+            return str(values[name])
+
+        return _EMBEDDED_PLACEHOLDER.sub(_sub, node)
+    if isinstance(node, list):
+        return [_fill(item, values) for item in node]
+    if isinstance(node, dict):
+        return {key: _fill(value, values) for key, value in node.items()}
+    return node
+
 
 def instantiate_template(
     template_id: str,
-    parameters: dict[str, str | int | float | bool | list],
+    parameters: dict,
+    *,
     version: int | None = None,
 ) -> dict:
-    """Instantiate a template into a protocol draft.
-    
-    This is a pure function: (template, parameters) -> protocol draft.
-    The template's protocolSkeleton is filled with the provided parameters,
-    replacing {{param}} placeholders.
-    
-    Args:
-        template_id: The template identifier.
-        parameters: Dict of parameter name -> value.
-        version: Optional template version.
-    
-    Returns:
-        The filled protocol draft (dict).
-    
-    Raises:
-        FileNotFoundError: If template not found.
-        jsonschema.ValidationError: If template is invalid.
-        KeyError: If a required parameter is missing.
+    """Template + parameters → validated protocol dict (FR-TPL-1.4).
+
+    Returns ``{protocol, templateId, templateVersion, parameters}``; raises
+    :class:`TemplateError` when the template is invalid, a parameter is
+    missing/out-of-bounds, or the filled protocol fails validation - a
+    template instantiation can never silently produce an invalid draft
+    (same posture as FR-CONV-3.2).
     """
+    from protocol.loader import validate_protocol
+
     template = load_template(template_id, version)
-    skeleton = template["protocolSkeleton"]
-    
-    # Fill placeholders in the skeleton
-    filled = _fill_skeleton(skeleton, parameters)
-    
-    # Validate the filled protocol against the protocol schema
-    # (This would use the protocol loader, but we skip it here for now
-    # as the protocol package may not be available)
-    
-    return filled
+    problems = validate_template(template)
+    if problems:
+        raise TemplateError("; ".join(problems))
+    values = resolve_parameters(template, parameters)
+    protocol = _fill(template["protocolSkeleton"], values)
+    errors = validate_protocol(protocol)
+    if errors:
+        raise TemplateError(
+            f"{template_id} instantiation is not a valid protocol: "
+            + "; ".join(errors)
+        )
+    return {
+        "protocol": protocol,
+        "templateId": template["templateId"],
+        "templateVersion": template.get("templateVersion", 1),
+        "parameters": values,
+    }
 
 
-def _fill_skeleton(skeleton: dict | list | str, parameters: dict) -> dict | list | str:
-    """Recursively fill {{param}} placeholders in the skeleton.
-    
-    Args:
-        skeleton: The skeleton (dict, list, or string).
-        parameters: Dict of parameter name -> value.
-    
-    Returns:
-        The filled skeleton with placeholders replaced.
-    """
-    if isinstance(skeleton, str):
-        result = skeleton
-        for param, value in parameters.items():
-            placeholder = f"{{{{ {param} }}}}"
-            result = result.replace(placeholder, str(value))
-        return result
-    elif isinstance(skeleton, list):
-        return [_fill_skeleton(item, parameters) for item in skeleton]
-    elif isinstance(skeleton, dict):
-        return {k: _fill_skeleton(v, parameters) for k, v in skeleton.items()}
-    else:
-        return skeleton
+# ------------------------------------------------------- plan explainer
 
 
-# ---------------------------------------------------------------------------
-# Parameter extraction from templates
-# ---------------------------------------------------------------------------
-
-def get_template_parameters(template_id: str, version: int | None = None) -> dict:
-    """Get the parameter definitions for a template.
-    
-    Args:
-        template_id: The template identifier.
-        version: Optional template version.
-    
-    Returns:
-        Dict of parameter name -> parameter definition.
-    """
-    template = load_template(template_id, version)
-    return template.get("parameters", {})
-
-
-def get_required_parameters(template_id: str, version: int | None = None) -> list[str]:
-    """Get the list of required parameters for a template.
-    
-    Args:
-        template_id: The template identifier.
-        version: Optional template version.
-    
-    Returns:
-        List of parameter names that must be provided.
-    """
-    params = get_template_parameters(template_id, version)
-    # Parameters are required if they don't have a default
-    required = []
-    for name, defn in params.items():
-        if "default" not in defn:
-            required.append(name)
-    return required
-
-
-# ---------------------------------------------------------------------------
-# Statistical plan extraction
-# ---------------------------------------------------------------------------
-
-def get_statistical_plan(template_id: str, version: int | None = None) -> dict:
-    """Get the statistical plan for a template.
-    
-    Args:
-        template_id: The template identifier.
-        version: Optional template version.
-    
-    Returns:
-        The statisticalPlan dict from the template.
-    """
-    template = load_template(template_id, version)
-    return template.get("statisticalPlan", {})
-
-
-def validate_statistical_plan(template_id: str, version: int | None = None) -> list[str]:
-    """Validate that the statistical plan references valid recipes.
-    
-    Checks that all recipes named in the analysisPlan exist in the
-    analysis module.
-    
-    Args:
-        template_id: The template identifier.
-        version: Optional template version.
-    
-    Returns:
-        List of missing recipe names (empty if all are valid).
-    """
-    template = load_template(template_id, version)
-    skeleton = template.get("protocolSkeleton", {})
-    analysis_plan = skeleton.get("analysisPlan", [])
-    
-    missing = []
-    recipe_names = set()
-    
-    for ap in analysis_plan:
-        for recipe in ap.get("recipes", []):
-            recipe_names.add(recipe)
-    
-    # Check against known recipes (would query analysis module in production)
-    # For now, we just return the list of recipes that would need checking
-    return list(recipe_names)
-
-
-# ---------------------------------------------------------------------------
-# Template selection and recommendation
-# ---------------------------------------------------------------------------
-
-def recommend_templates(
-    query: str,
-    *,
-    design_type: str | None = None,
-    data_path: str | None = None,
-    limit: int = 5,
-) -> list[dict]:
-    """Recommend templates matching a researcher's idea.
-    
-    Uses simple keyword matching against template metadata.
-    In production, this would use the LLM with paper_index search.
-    
-    Args:
-        query: The researcher's idea (natural language).
-        design_type: Optional filter by design type.
-        data_path: Optional filter by data path.
-        limit: Maximum number of results.
-    
-    Returns:
-        List of template metadata dicts, sorted by relevance.
-    """
-    all_templates = list_templates()
-    query_lower = query.lower()
-    
-    # Score each template
-    scored = []
-    for tpl in all_templates:
-        score = 0
-        
-        # Match query terms against title and description
-        for term in re.findall(r"[a-z0-9]{4,}", query_lower):
-            if term in tpl.get("title", "").lower():
-                score += 2
-            if term in tpl.get("description", "").lower():
-                score += 1
-        
-        # Filter by design_type if specified
-        if design_type and tpl.get("designType") != design_type:
-            continue
-        
-        # Filter by data_path if specified
-        if data_path and tpl.get("dataPath") != data_path:
-            continue
-        
-        scored.append((score, tpl))
-    
-    # Sort by score (descending)
-    scored.sort(key=lambda x: x[0], reverse=True)
-    
-    return [tpl for _, tpl in scored[:limit]]
-
-
-# ---------------------------------------------------------------------------
-# Utility functions
-# ---------------------------------------------------------------------------
-
-def template_exists(template_id: str, version: int | None = None) -> bool:
-    """Check if a template exists."""
-    try:
-        load_template(template_id, version)
-        return True
-    except FileNotFoundError:
-        return False
-
-
-def get_template_version(template_id: str) -> int | None:
-    """Get the highest version number for a template."""
-    versions = get_template_metadata(template_id)
-    return versions[0]["version"] if versions else None
-
-
-if __name__ == "__main__":
-    # CLI-like test
-    print("Available templates:")
-    for tpl in list_templates():
-        print(f"  {tpl['templateId']} (v{tpl['version']}): {tpl['title']}")
-    
-    print("\nTemplate metadata for metr-rct-v1:")
-    for ver in get_template_metadata("metr-rct-v1"):
-        print(f"  v{ver['version']}: {ver['title']}")
-    
-    print("\nParameters for metr-rct-v1:")
-    params = get_template_parameters("metr-rct-v1")
-    for name, defn in params.items():
-        print(f"  {name}: {defn.get('description', 'No description')}")
+def explain_plan(template: dict) -> list[str]:
+    """The FR-TPL-2.3 plan explainer: each statistical choice in plain
+    language with its why - never a bare test name (NFR-11 tone)."""
+    plan = template.get("statisticalPlan", {})
+    lines = [
+        f"Analysis is per-{plan.get('unit', 'participant')} first - "
+        "aggregating within the unit before comparing guards against "
+        "pseudo-replication."
+    ]
+    for entry in plan.get("perRQ", []):
+        framing = entry.get("smallN", "hypothesis-generating")
+        lines.append(
+            f"{entry.get('rq', '?')}: the outcome is {entry.get('outcome')}, "
+            f"so the prescribed test is {entry.get('test')} with "
+            f"{entry.get('effectSize')} as its effect size; at small n the "
+            f"result is framed as {framing}, and never reported as a bare "
+            "p-value."
+        )
+    for threat in template.get("threats", []):
+        cite = f" (see {threat['cite']})" if threat.get("cite") else ""
+        lines.append(
+            f"Known threat - {threat.get('threat')}: mitigated by "
+            f"{threat.get('mitigation')}{cite}."
+        )
+    return lines

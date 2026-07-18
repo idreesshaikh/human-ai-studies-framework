@@ -13,7 +13,11 @@ is this phase's demand-side), MP-04 (middleware, ingestion, per-source
 streams from MP-12), MP-02 (protocol schema — gains a curated-path
 section). **Satisfies:** FR-CUR-1..3 (FR-CUR-4 stays deferred).
 **Elicited:** owner, MP-01 rev 8 ("curated mining beside live capture").
-**Status:** Open.
+**Status:** Built (2026-07-18) — Slices A–D implemented and tested offline;
+the full chain (mine → dataset → threats → report/paper) runs end to end
+against the committed cassette. The one deferred piece is live long-running
+async dispatch (the runner is already async-shaped); the NFR-12 in-browser
+evidence for the mining/dataset UI surfaces is noted below.
 
 ## The idea
 
@@ -202,3 +206,48 @@ zero tokens and zero network:
 ## Deviations log
 
 Record departures here and in `requirements/traceability.md` §3.
+
+**2026-07-18 — built.** What landed and where it differs from the spec:
+
+- **New `curated/` workspace package** holds the pure leg logic (registered
+  in `pyproject.toml` members): `contract.py` (normalized-event shape +
+  adapter protocol + sampling frame), `github_adapter.py`, `heuristics.py`
+  (versioned registry, three named heuristics), `pseudonymize.py`
+  (salted-hash actors), `threats.py` (validity-threats record + starter
+  biases + validation), `cassette.py` (offline record/replay with scripted
+  rate-limit/interruption faults), `frame.py`, `registry.py`. Event vocab
+  documented in `curated/docs/event-vocab.md`.
+- **Schema v5** registered in the middleware's `KNOWN_EVENT_SCHEMA_VERSIONS`;
+  the five `mined_*` types carry it. **Protocol schema** gains the additive
+  `curated:` section and `protocolVersion` now accepts `1|2` (consumers
+  branch — FR-PROT-2). Demo protocol: `protocol/examples/cursor-mining-2026.yaml`.
+- **Middleware**: `MiningJob`/`CuratedDataset` models; `mining.py` job runner
+  (state machine, injected sleep so tests drive it synchronously, resumable
+  from a persisted cursor, rate-limit pause); the `/studies/{id}/mining-jobs`
+  + `/curated-datasets` endpoints; a live `github_fetch.py` (stdlib urllib,
+  D39). Static-metrics-over-mined-code is *not* re-implemented — it reuses
+  the metrics leg (spec §A.5), so no code landed for it here.
+- **Analysis**: `paper.py` `_threats` injects a curated dataset's record
+  verbatim (sampling frame, heuristics with citations, biases, coverage) —
+  F3.1. The default (non-curated) path is byte-identical to before (golden
+  test still green).
+
+Deviations from the written spec:
+
+1. **Route prefix.** The endpoints mount under `/studies/{study_id}/...`
+   (the shape every other v1 study route uses, resolving the project through
+   the MP-14 choke point) rather than the spec's
+   `/projects/{p}/studies/{s}/...`. Same authorization, same scoping; the
+   path matches the codebase's actual convention.
+2. **Synchronous run.** A job runs to its gate synchronously in the start
+   request (instant and deterministic against a cassette). The runner is
+   structured for background async dispatch (checkpointed, injected sleep) —
+   wiring it to a real long-running live mine is the single deferred piece.
+3. **Conversation integration (Slice B item 5)** — proposing the sampling
+   frame as a grounded design move — waits on MP-15 slice 3's template
+   registry (`cursor-mining-v1`), which isn't built yet. The form/protocol
+   path is fully functional; the conversational surfacing is the follow-up.
+4. **Not yet done (needs a browser):** the mining-job / dataset-browser /
+   threats-record UI surfaces in `platform/` and their NFR-12 evidence. The
+   backend + record + gate + injection are complete and tested; the visual
+   surfaces are the remaining slice-C UI work.

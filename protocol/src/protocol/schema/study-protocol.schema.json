@@ -18,8 +18,12 @@
   "additionalProperties": false,
   "properties": {
     "protocolVersion": {
-      "description": "Schema version of this protocol document. Consumers branch on it, never guess (FR-PROT-2, NFR-4).",
-      "const": 1
+      "description": "Schema version of this protocol document. Consumers branch on it, never guess (FR-PROT-2, NFR-4). v1 = live-capture study; v2 = adds the optional curated: mining section (FR-CUR).",
+      "type": "integer",
+      "enum": [
+        1,
+        2
+      ]
     },
     "study": {
       "type": "object",

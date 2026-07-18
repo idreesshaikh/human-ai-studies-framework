@@ -96,8 +96,9 @@
             "enum": ["int", "float", "string", "bool", "participants", "conditions"]
           },
           "default": {
-            "description": "Default value for this parameter.",
-            "type": ["string", "integer", "number", "boolean"]
+            "description": "Default value for this parameter. A 'conditions' parameter defaults to an array of arm names; scalar parameters default to a scalar.",
+            "type": ["string", "integer", "number", "boolean", "array"],
+            "items": { "type": "string", "minLength": 1 }
           },
           "min": {
             "description": "Minimum value (for numeric types).",
@@ -150,6 +151,11 @@
             "description": "Which instrument leg this measure uses: 'cognitive' (overlay), 'behavioral' (telemetry), 'static' (code metrics), 'agent' (transcripts).",
             "type": "string",
             "enum": ["cognitive", "behavioral", "static", "agent"]
+          },
+          "description": {
+            "description": "Human-readable description of what this measure captures.",
+            "type": "string",
+            "maxLength": 300
           },
           "elements": {
             "description": "Specific data elements captured by this measure.",

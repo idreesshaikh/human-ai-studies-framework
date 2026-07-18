@@ -1,0 +1,122 @@
+# Curated-dataset demo study (MP-16, FR-CUR) — the "dataset already exists"
+# branch made real. Instead of running live sessions, this study mines merged
+# pull requests from GitHub, comparing agent-authored and human-authored work,
+# and lands the mined activity in the same one-timeline event shape a live
+# study produces — so the same recipes, report, and paper-draft mechanisms run
+# unchanged (F1.1).
+#
+# The `curated:` section is the sampling frame: the mined equivalent of "the
+# approved protocol is the executed protocol" (FR-ETH-1). The mining adapter
+# refuses to run without it (F2.2). Its `protocolVersion` is 2 because the
+# schema gained the additive `curated:` section (consumers branch on version).
+#
+# The instruments block below is declared but unused by the mined path (the
+# schema requires cognitiveOverlay); mining never consults it.
+
+protocolVersion: 2
+
+study:
+  id: cursor-mining-2026
+  title: "Agent- vs human-authored pull requests: a curated GitHub study"
+  researchers:
+    - Idrees Razak
+  ethicsRef: >-
+    Public-data study; mined authors are pseudonymized by construction
+    (salted-hash actor units) and only content-free aggregates are stored.
+
+researchQuestions:
+  - id: RQ-M1
+    text: >-
+      Do agent-authored pull requests differ from human-authored ones in
+      size (changed files, additions, deletions)?
+  - id: RQ-M2
+    text: >-
+      Do agent-authored pull requests attract different review activity
+      (review count, change-request rate)?
+
+conditions: # the comparison arms mined rows are labeled with
+  - agent-pr
+  - human-pr
+
+participants:
+  # Mined actor units, not enrolled participants. The schema requires a
+  # positive planned count; for a mined study this is the target actor count,
+  # a nominal floor — the true n is the coverage the mining job reports.
+  planned: 1
+  design: between-subjects
+  counterbalanced: false
+
+session:
+  durationMinutes: 1 # nominal; mined activity units (PRs) are not timed
+  taskDescription: >-
+    Mined merged pull requests from the sampling frame below; each PR is one
+    mined activity unit (sessionId), its author the pseudonymized actor unit.
+
+# The curated-path sampling frame (FR-CUR-1/2). Declared before mining runs.
+curated:
+  actorUnit: developer
+  contentPolicy: metadata-only
+  conditions: [agent-pr, human-pr]
+  samplingFrame:
+    query: "repo:example/app is:merged"
+    window:
+      start: "2025-01-01"
+      end: "2025-06-30"
+    inclusionRules:
+      - "merged pull requests only"
+    exclusions:
+      - draft
+    targetN: 6
+
+instruments:
+  # Declared to satisfy the schema; the mined path does not use the live
+  # cognitive overlay. No live sessions run for this study.
+  cognitiveOverlay:
+    session:
+      durationMinutes: 1
+    fatigue:
+      intervalMinutes: 15
+      waitForPauseSeconds: 4
+      jitterPercent: 20
+      quietTailMinutes: 5
+    stuck:
+      enabled: false
+      thresholdSeconds: 90
+      cooldownMinutes: 5
+      languages: [python]
+    output:
+      httpEndpoint: "http://127.0.0.1:8000/ingest/events"
+
+phases:
+  - name: design
+    gates:
+      - protocol-validated.txt
+  - name: ethics
+    gates: []
+  - name: pilot
+    gates: []
+  - name: recruitment
+    gates: []
+  - name: data-collection
+    gates:
+      # The mined dataset itself is the data-collection artifact.
+      - mined-dataset.txt
+  - name: analysis
+    gates:
+      # The validity-threats record gates analysis (FR-CUR-3 F3.2): no honest
+      # provenance record → no analysis. Written when the record is finalized.
+      - validity-threats.yaml
+  - name: write-up
+    gates: []
+
+analysisPlan:
+  - rq: RQ-M1
+    recipes: [pr-size-by-condition]
+  - rq: RQ-M2
+    recipes: [pr-review-by-condition]
+
+literature:
+  - paperRef: arxiv:2406.11544
+    justifies:
+      - RQ-M1
+      - RQ-M2

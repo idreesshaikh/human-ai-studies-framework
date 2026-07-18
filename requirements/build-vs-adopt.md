@@ -520,3 +520,26 @@ typed client with a plain `fetch`, and an in-memory backend stands in
 offline, so a cache/query layer isn't earning its weight yet. **Rejected:**
 a router that needs a server runtime (contra D34/NFR-7); a component
 library imported wholesale (the look must stay ours, D17/D34).
+
+### D39 - GitHub mining client: stdlib urllib + a fixture cassette - **BUILD (thin) + no new dependency** → FR-CUR-2 *(2026-07-18)*
+
+The curated-mining leg needs to read GitHub (PRs, commits, reviews). The
+freedom note in MP-16 allows a GitHub client *library* behind its own
+D-row, or plain HTTP with nothing. Decision: **plain stdlib** (`urllib`),
+matching the Semantic Scholar client's zero-bloat posture (D8) - the leg
+issues a couple of GET shapes, not enough surface to justify PyGithub or
+an httpx dependency. `middleware/github_fetch.py` is the thin live fetcher
+(token-scoped; maps GitHub's 403/429 rate-limit signalling onto the
+runner's pause contract, F2.3).
+
+Offline is a **fixture cassette**, not a mock library: recorded, sanitized
+(pseudonymized-at-record) API responses replayed deterministically
+(`curated/src/curated/cassette.py` + `cassettes/cursor-mining-demo.json`).
+This is the committed, zero-token, zero-network path CI and the demo run
+on (F1.1/F1.2/F2.1), and it scripts rate-limit and interruption faults so
+the pause/resume behaviour is tested without a live API. **Rejected:**
+PyGithub / a GraphQL client library (unearned dependency weight for two
+GET shapes; the look/rate-handling would be theirs, not ours); a generic
+VCR library (a ~40-line request-shape cassette is simpler and owned).
+The adapter contract keeps the source pluggable, so a heavier client is a
+later per-source decision, never a rewrite.

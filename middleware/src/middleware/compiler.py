@@ -1,477 +1,217 @@
-"""Protocol compiler for MP-15 (FR-CONV-3).
+"""The server-side protocol compiler (MP-15 slice 4, FR-CONV-3).
 
-Deterministic compilation of accepted design moves into protocol drafts.
-This is the server-side compiler that mirrors the client-side stub.
+Turns accepted design moves into a protocol draft. **Pure function**: no LLM,
+no clock, no randomness — replaying the same accepted moves against the same
+base yields a byte-identical draft (F3.1). The conversation proposes moves;
+only this deterministic step produces YAML. The protocol stays the sole
+document of record (FR-PROT-1); this emits *drafts*, applied only on approval.
 
-The compiler is a PURE FUNCTION: (base_draft, accepted_moves) -> diff + new_draft
-- No LLM in the compile step (FR-CONV-3.1)
-- Replaying the same moves against the same base yields byte-identical results (F3.1)
-- Validation runs on every compile (FR-CONV-3.2)
-- No diff applies without recorded approval (FR-CONV-3.3)
+Two kinds of move compile here:
 
-The compile process:
-1. Accepted moves are folded into a draft model
-2. The draft model is converted to protocol YAML
-3. The YAML is validated against the protocol schema
-4. A diff is generated showing the changes
-5. The new draft and diff are returned (not applied until approved)
+- **Template application** (`kind: "choose-template"`, patch carries
+  ``templateId`` + ``parameters``): instantiates a registry template into a
+  *complete, valid* protocol (the F1.1 path — a conversation reaches a
+  validating protocol without leaving the surface). The compiler treats the
+  instantiation as the draft's base.
+- **Free-text refinements** (append/set into the eight draft sections,
+  mirroring the client-side ``compiler.ts``): accumulate research questions,
+  conditions, measures, etc. Without a template these produce a *scaffold*
+  whose missing mandatory sections are named (F1.3 — never a silent gap),
+  not a valid protocol; with a template they refine the instantiated base.
+
+Every compile runs ``protocol validate`` (FR-CONV-3.2): a move that would
+break the schema surfaces as errors the conversation shows as a turn (F3.2),
+never a silently-invalid draft.
 """
 
 from __future__ import annotations
 
 import difflib
-import json
-import logging
-from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from middleware.db import make_session_factory
+from protocol.loader import validate_protocol
 
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
+#: The eight draft sections, mirroring the client model (``platform/src/lib/
+#: types.ts``). Order is fixed for deterministic rendering.
+SECTIONS: tuple[str, ...] = (
+    "researchQuestions",
+    "design",
+    "participants",
+    "conditions",
+    "measures",
+    "instruments",
+    "statisticalPlan",
+    "ethics",
+)
 
-log = logging.getLogger(__name__)
-
-
-@dataclass
-class DraftPatch:
-    """A patch operation on the protocol draft."""
-    
-    section: str  # protocol section (e.g., "researchQuestions", "conditions")
-    op: str  # "append", "set", "remove"
-    key: str | None = None  # for keyed sections
-    value: Any = None  # the value to append/set
-    old_value: Any = None  # for diff generation
+#: The mandatory protocol sections a valid draft must fill (FR-PROT-1). Drives
+#: the "unresolved slots" report (F1.3).
+MANDATORY_SLOTS: tuple[str, ...] = SECTIONS
 
 
 @dataclass
 class CompileResult:
-    """Result of compiling accepted moves."""
-    
-    # The new draft as a protocol dict
+    """The outcome of a compile: the draft protocol, its YAML, a diff from the
+    base, whether it validates, and — when it doesn't — the errors (F3.2) and
+    the named unresolved slots (F1.3)."""
+
     draft: dict
-    
-    # The YAML representation
     yaml: str
-    
-    # The diff from the base draft
     diff: str
-    
-    # List of patches that were applied
-    patches: list[DraftPatch] = field(default_factory=list)
-    
-    # Validation errors (empty if valid)
+    valid: bool
     errors: list[str] = field(default_factory=list)
-    
-    # Whether the draft is valid
-    is_valid: bool = True
+    unresolved: list[str] = field(default_factory=list)
+    template_id: str | None = None
+    template_version: int | None = None
 
 
-# ---------------------------------------------------------------------------
-# Protocol schema loading
-# ---------------------------------------------------------------------------
-
-def _load_protocol_schema() -> dict:
-    """Load the protocol JSON Schema."""
-    schema_path = (
-        Path(__file__).resolve().parent.parent.parent.parent
-        / "protocol"
-        / "src"
-        / "protocol"
-        / "schema"
-        / "study-protocol.schema.json"
-    )
-    if not schema_path.exists():
-        raise FileNotFoundError(
-            f"Protocol schema not found at {schema_path}"
-        )
-    return json.loads(schema_path.read_text())
+def empty_sections() -> dict[str, list]:
+    return {s: [] for s in SECTIONS}
 
 
-# ---------------------------------------------------------------------------
-# Draft model
-# ---------------------------------------------------------------------------
+def compile_sections(moves: list[dict]) -> dict[str, list]:
+    """Fold accepted moves' patches into the section model. Pure and
+    deterministic — the same moves always yield the same sections. Mirrors
+    the client ``compileAll``; rejecting a move (status != accepted) simply
+    leaves it out, so re-folding removes its effect cleanly."""
+    sections = empty_sections()
+    for move in moves:
+        if move.get("status") != "accepted":
+            continue
+        patch = move.get("patch")
+        if not patch:  # caution moves carry no patch
+            continue
+        section = patch.get("section")
+        if section not in sections:
+            continue
+        op = patch.get("op", "append")
+        value = patch.get("value")
+        if op == "append":
+            if value not in sections[section]:
+                sections[section].append(value)
+        elif op == "set":
+            sections[section] = [value]
+    return sections
 
-class ProtocolDraft:
-    """Client-side protocol draft model.
-    
-    This is a simplified model that mirrors the client-side types.ts.
-    The real protocol YAML is generated from this model.
-    """
-    
-    def __init__(self):
-        self.sections: dict[str, Any] = {
-            "researchQuestions": [],
-            "design": [],
-            "participants": [],
-            "conditions": [],
-            "measures": [],
-            "instruments": [],
-            "statisticalPlan": [],
-            "ethics": [],
-        }
-    
-    def to_protocol(self) -> dict:
-        """Convert the draft model to a protocol dict."""
-        protocol: dict = {
-            "protocolVersion": 1,
-            "study": {
-                "id": "draft",
-                "title": "Draft Protocol",
-                "researchers": [],
-                "ethicsRef": "",
-            },
-            "researchQuestions": self._format_rqs(),
-            "conditions": self.sections.get("conditions", []),
-            "participants": self._format_participants(),
-            "session": self._format_session(),
-            "instruments": self._format_instruments(),
-            "phases": [],
-            "analysisPlan": self._format_analysis_plan(),
-        }
-        
-        # Add literature if present
-        if self.sections.get("literature"):
-            protocol["literature"] = self.sections["literature"]
-        
-        return protocol
-    
-    def _format_rqs(self) -> list[dict]:
-        """Format research questions."""
-        rqs = self.sections.get("researchQuestions", [])
-        if not rqs:
-            return []
-        return [
-            {"id": f"RQ-{i+1}", "text": q}
-            if isinstance(q, str)
-            else q
-            for i, q in enumerate(rqs)
-        ]
-    
-    def _format_participants(self) -> dict:
-        """Format participants section."""
-        parts = self.sections.get("participants", [])
-        if not parts:
-            return {"planned": 0, "design": "within-subjects", "counterbalanced": False}
-        
-        # Simple handling for now
-        return {
-            "planned": parts[0] if parts else 0,
+
+def _find_template_move(moves: list[dict]) -> dict | None:
+    """The last accepted template-application move, if any (a later choice
+    supersedes an earlier one — deterministic: last wins)."""
+    chosen = None
+    for move in moves:
+        if move.get("status") == "accepted" and move.get("kind") == "choose-template":
+            patch = move.get("patch") or {}
+            if patch.get("templateId"):
+                chosen = patch
+    return chosen
+
+
+def _scaffold_from_sections(sections: dict[str, list]) -> dict:
+    """Build a best-effort protocol dict from free-text sections alone (no
+    template). This is deliberately a *scaffold*: it will fail validation
+    until the mandatory sections are filled, and that failure is the F1.3
+    "named unresolved slots" signal, not an error to hide."""
+    rqs = [
+        {"id": f"RQ-{i + 1}", "text": t}
+        for i, t in enumerate(sections["researchQuestions"])
+    ]
+    return {
+        "protocolVersion": 1,
+        "study": {
+            "id": "draft",
+            "title": "Design-conversation draft",
+            "researchers": ["Researcher"],
+            "ethicsRef": "",
+        },
+        "researchQuestions": rqs,
+        "conditions": list(sections["conditions"]),
+        "participants": {
+            "planned": 1,
             "design": "within-subjects",
-            "counterbalanced": True,
-        }
-    
-    def _format_session(self) -> dict:
-        """Format session section."""
-        session = self.sections.get("session", [])
-        if session:
-            return {"durationMinutes": session[0], "taskDescription": ""}
-        return {"durationMinutes": 45, "taskDescription": ""}
-    
-    def _format_instruments(self) -> dict:
-        """Format instruments section."""
-        instruments = self.sections.get("instruments", [])
-        if not instruments:
-            return {"cognitiveOverlay": {
-                "session": {"durationMinutes": 45},
-                "fatigue": {"intervalMinutes": 15, "waitForPauseSeconds": 4},
-                "stuck": {"enabled": True, "thresholdSeconds": 90},
-                "output": {"httpEndpoint": "http://127.0.0.1:8000/ingest/events"},
-            }}
-        return instruments[0] if instruments else {}
-    
-    def _format_analysis_plan(self) -> list[dict]:
-        """Format analysis plan."""
-        plan = self.sections.get("statisticalPlan", [])
-        if not plan:
-            return []
-        
-        # Simple handling for now
-        return [
-            {"rq": "RQ-1", "recipes": ["task-time-by-condition"]}
-        ]
+            "counterbalanced": False,
+        },
+        "session": {"durationMinutes": 1, "taskDescription": "draft"},
+        # Free-text measures/instruments are notes, not a valid instrument
+        # config; the scaffold leaves instruments empty so validation names it.
+        "instruments": {},
+        "phases": [{"name": "design", "gates": []}],
+        "analysisPlan": [],
+    }
 
 
-# ---------------------------------------------------------------------------
-# Move application
-# ---------------------------------------------------------------------------
-
-def apply_move(draft: ProtocolDraft, move: dict) -> list[DraftPatch]:
-    """Apply a single design move to the draft.
-    
-    Args:
-        draft: The current protocol draft.
-        move: A design move dict with kind, target, proposal, patch, grounding, status.
-    
-    Returns:
-        List of patches that were applied.
-    """
-    patches: list[DraftPatch] = []
-    
-    if move.get("status") != "accepted":
-        return patches
-    
-    patch_def = move.get("patch")
-    if not patch_def:
-        # Caution moves have no patch
-        return patches
-    
-    section = patch_def.get("section")
-    op = patch_def.get("op")
-    value = patch_def.get("value")
-    key = patch_def.get("key")
-    
-    if section not in draft.sections:
-        log.warning("Unknown section in move: %s", section)
-        return patches
-    
-    current = draft.sections[section]
-    
-    if op == "append":
-        if isinstance(current, list):
-            if value not in current:
-                old = deepcopy(current)
-                current.append(value)
-                patches.append(DraftPatch(
-                    section=section,
-                    op="append",
-                    value=value,
-                    old_value=old,
-                ))
-    elif op == "set":
-        old = deepcopy(current)
-        draft.sections[section] = [value] if isinstance(value, str) else value
-        patches.append(DraftPatch(
-            section=section,
-            op="set",
-            value=value,
-            old_value=old,
-        ))
-    elif op == "remove":
-        if isinstance(current, list) and value in current:
-            old = deepcopy(current)
-            current.remove(value)
-            patches.append(DraftPatch(
-                section=section,
-                op="remove",
-                value=value,
-                old_value=old,
-            ))
-    
-    return patches
+def _refine(protocol: dict, sections: dict[str, list]) -> dict:
+    """Apply free-text refinements onto a template-instantiated base protocol.
+    Only additive, non-destructive edits — appending research questions the
+    researcher added in conversation, and union-ing conditions. The template's
+    prescribed statistics and instruments are authoritative and untouched."""
+    out = yaml.safe_load(yaml.safe_dump(protocol))  # deep copy, plain types
+    existing_rq = {rq.get("text") for rq in out.get("researchQuestions", [])}
+    next_i = len(out.get("researchQuestions", []))
+    for t in sections["researchQuestions"]:
+        if t not in existing_rq:
+            next_i += 1
+            out.setdefault("researchQuestions", []).append(
+                {"id": f"RQ-{next_i}", "text": t}
+            )
+    for c in sections["conditions"]:
+        if c not in out.get("conditions", []):
+            out.setdefault("conditions", []).append(c)
+    return out
 
 
 def compile_moves(
-    base_draft: ProtocolDraft | None,
-    moves: list[dict],
-) -> tuple[ProtocolDraft, list[DraftPatch]]:
-    """Compile accepted moves into a draft.
-    
-    This is a PURE FUNCTION: same (base_draft, moves) always yields same result.
-    
-    Args:
-        base_draft: The base draft to start from (None = empty draft).
-        moves: List of design moves (each with status field).
-    
-    Returns:
-        Tuple of (new_draft, applied_patches).
-    """
-    draft = base_draft or ProtocolDraft()
-    all_patches: list[DraftPatch] = []
-    
-    for move in moves:
-        patches = apply_move(draft, move)
-        all_patches.extend(patches)
-    
-    return draft, all_patches
-
-
-# ---------------------------------------------------------------------------
-# YAML generation and diffing
-# ---------------------------------------------------------------------------
-
-def draft_to_yaml(draft: ProtocolDraft) -> str:
-    """Convert a draft to YAML string."""
-    protocol = draft.to_protocol()
-    return yaml.dump(protocol, sort_keys=False, default_flow_style=False)
-
-
-def generate_diff(base_yaml: str, new_yaml: str) -> str:
-    """Generate a unified diff between two YAML strings."""
-    base_lines = base_yaml.splitlines(keepends=True)
-    new_lines = new_yaml.splitlines(keepends=True)
-    
-    diff = difflib.unified_diff(
-        base_lines,
-        new_lines,
-        fromfile="base",
-        tofile="new",
-        lineterm="",
-    )
-    
-    return "".join(diff)
-
-
-# ---------------------------------------------------------------------------
-# Full compile function
-# ---------------------------------------------------------------------------
-
-def compile_protocol(
-    base_draft_yaml: str | None,
-    moves: list[dict],
+    moves: list[dict], *, base_yaml: str | None = None
 ) -> CompileResult:
-    """Full compilation: moves -> validated protocol draft + diff.
-    
-    Args:
-        base_draft_yaml: The base draft as YAML string (None = empty).
-        moves: List of design moves.
-    
-    Returns:
-        CompileResult with the new draft, YAML, diff, patches, and validation status.
+    """Compile accepted moves into a validated protocol draft.
+
+    ``base_yaml`` is the current draft (for the diff); when omitted the diff
+    is against the empty draft. Deterministic: same moves + same base → same
+    result (F3.1).
     """
-    # Parse base draft
-    if base_draft_yaml:
-        base_protocol = yaml.safe_load(base_draft_yaml)
-        base_draft = ProtocolDraft()
-        # Would populate from protocol, but simplified for now
+    sections = compile_sections(moves)
+    template_patch = _find_template_move(moves)
+
+    template_id = template_version = None
+    if template_patch:
+        # Instantiate the template into a valid base, then refine with any
+        # free-text moves. Import here to avoid a hard import cycle at module
+        # load (the registry imports the analysis catalogue).
+        from middleware import template_registry
+
+        instantiated = template_registry.instantiate_template(
+            template_patch["templateId"],
+            template_patch.get("parameters", {}),
+            version=template_patch.get("templateVersion"),
+        )
+        template_id = instantiated["templateId"]
+        template_version = instantiated["templateVersion"]
+        draft = _refine(instantiated["protocol"], sections)
     else:
-        base_draft = None
-        base_protocol = {}
-    
-    # Compile moves into draft
-    new_draft, patches = compile_moves(base_draft, moves)
-    
-    # Generate YAML
-    new_yaml = draft_to_yaml(new_draft)
-    
-    # Generate diff
-    if base_draft_yaml:
-        diff = generate_diff(base_draft_yaml, new_yaml)
-    else:
-        diff = new_yaml
-    
-    # Validate (would use protocol loader in production)
-    errors = []
-    try:
-        # Try to parse as YAML at minimum
-        yaml.safe_load(new_yaml)
-        # Would validate against schema here
-    except yaml.YAMLError as e:
-        errors.append(str(e))
-    
+        draft = _scaffold_from_sections(sections)
+
+    new_yaml = yaml.safe_dump(draft, sort_keys=False, default_flow_style=False)
+    base = base_yaml or ""
+    diff = "".join(
+        difflib.unified_diff(
+            base.splitlines(keepends=True),
+            new_yaml.splitlines(keepends=True),
+            fromfile="draft-before",
+            tofile="draft-after",
+        )
+    )
+
+    errors = validate_protocol(draft)
+    unresolved = [s for s in MANDATORY_SLOTS if not sections[s]] if not template_patch else []
+
     return CompileResult(
-        draft=new_draft.to_protocol(),
+        draft=draft,
         yaml=new_yaml,
         diff=diff,
-        patches=patches,
+        valid=not errors,
         errors=errors,
-        is_valid=len(errors) == 0,
+        unresolved=unresolved,
+        template_id=template_id,
+        template_version=template_version,
     )
-
-
-# ---------------------------------------------------------------------------
-# Database integration
-# ---------------------------------------------------------------------------
-
-from pathlib import Path
-
-
-def compile_and_store(
-    moves: list[dict],
-    db_path: Path | str | None = None,
-    study_id: str | None = None,
-    base_draft_yaml: str | None = None,
-) -> CompileResult:
-    """Compile moves and store the result in the database.
-    
-    Args:
-        db_path: Path to the SQLite database.
-        study_id: The study ID to associate with the compilation.
-        base_draft_yaml: The base draft as YAML.
-        moves: List of design moves.
-    
-    Returns:
-        CompileResult with compilation details.
-    """
-    result = compile_protocol(base_draft_yaml, moves)
-    
-    # Store in database if configured
-    if db_path and study_id:
-        try:
-            factory = make_session_factory(db_path)
-            with factory() as s:
-                _store_compilation(s, study_id, moves, result)
-        except Exception as e:
-            log.warning("Failed to store compilation: %s", e)
-    
-    return result
-
-
-def _store_compilation(
-    s: "Session",
-    study_id: str,
-    moves: list[dict],
-    result: CompileResult,
-) -> None:
-    """Store a compilation event in the database."""
-    # This would insert into a compilations table
-    # For now, just a placeholder
-    pass
-
-
-if __name__ == "__main__":
-    # Test the compiler
-    from pathlib import Path
-    
-    # Create some test moves
-    moves = [
-        {
-            "moveId": "m1",
-            "kind": "add-rq",
-            "target": "researchQuestions[]",
-            "proposal": "Add RQ about trust",
-            "patch": {
-                "section": "researchQuestions",
-                "op": "append",
-                "value": "Do developers over-trust AI-generated code?",
-            },
-            "grounding": [{"ref": "corpus:trust-in-ai-code-generation", "tier": "A"}],
-            "status": "accepted",
-        },
-        {
-            "moveId": "m2",
-            "kind": "add-measure",
-            "target": "measures[]",
-            "proposal": "Add review latency measure",
-            "patch": {
-                "section": "measures",
-                "op": "append",
-                "value": "Review latency (suggestion-visible-to-decision time)",
-            },
-            "grounding": [{"ref": "corpus:trust-in-ai-code-generation", "tier": "A"}],
-            "status": "accepted",
-        },
-        {
-            "moveId": "m3",
-            "kind": "caution",
-            "target": "measures",
-            "proposal": "Self-report alone is insufficient",
-            "patch": None,
-            "grounding": [{"ref": "corpus:metr-early-2025-dev-productivity", "tier": "A"}],
-            "status": "accepted",
-        },
-    ]
-    
-    result = compile_protocol(None, moves)
-    
-    print("Compilation result:")
-    print(f"  Valid: {result.is_valid}")
-    print(f"  Errors: {result.errors}")
-    print(f"  Patches applied: {len(result.patches)}")
-    print("\nGenerated YAML:")
-    print(result.yaml)
-    print("\nDiff:")
-    print(result.diff)

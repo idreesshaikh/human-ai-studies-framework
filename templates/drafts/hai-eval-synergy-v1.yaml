@@ -162,11 +162,11 @@ protocolSkeleton:
   
   analysisPlan:
     - rq: RQ-1
-      recipes: [accuracy-comparison-3-way]
+      recipes: [task-outcome-by-condition]
     - rq: RQ-2
-      recipes: [synergy-detection]
+      recipes: [code-quality-by-condition]
     - rq: RQ-3
-      recipes: [collaboration-pattern-analysis]
+      recipes: [agent-interaction-dynamics]
   
   literature:
     - paperRef: arxiv:2507.09089

@@ -29,6 +29,7 @@ from hashlib import sha256
 from pathlib import Path
 from urllib.parse import quote as _urlquote
 
+import yaml
 from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
@@ -42,16 +43,24 @@ from middleware import (
     assistant,
     auth,
     authz,
+    compiler,
     manifest,
+    matching,
     mining,
     paper_index,
     pdf,
     semantic_scholar,
+    template_registry,
 )
 from middleware.db import (
+    CORPUS_STUDY_ID,
     DEMO_PROJECT_SLUG,
     IMPLICIT_PROJECT_ID,
+    ApprovalEvent,
+    Compilation,
+    ConversationTurn,
     CuratedDataset,
+    DesignMoveRow,
     Event,
     Finding,
     Invitation,
@@ -62,6 +71,7 @@ from middleware.db import (
     PaperEdge,
     PaperLink,
     Project,
+    ProtocolDraftRow,
     RecipeRun,
     S2Cache,
     StoredFile,
@@ -177,11 +187,29 @@ class FromMatchIn(BaseModel):
     matchReason: str = ""
 
 
+class DesignMoveIn(BaseModel):
+    """A platform-proposed design move riding a turn (FR-CONV-1.2)."""
+
+    moveId: str
+    kind: str
+    target: str = ""
+    proposal: str = ""
+    patch: dict | None = None
+    grounding: list = Field(default_factory=list)
+    status: str = "proposed"
+
+
 class ConversationTurnIn(BaseModel):
-    """One researcher turn appended to the design conversation (FR-CONV-1)."""
+    """One turn appended to the design conversation (FR-CONV-1). A platform
+    turn may carry design moves + the refs its tools returned this exchange
+    (``retrievedRefs``) — a move may only cite grounding drawn from that set
+    (FR-CONV-2.2), enforced server-side on append."""
 
     text: str
     author: str = "Researcher"
+    role: str = "researcher"  # 'researcher' | 'platform'
+    retrievedRefs: list = Field(default_factory=list)
+    moves: list[DesignMoveIn] = Field(default_factory=list)
 
 
 class MoveDecisionIn(BaseModel):
@@ -1265,6 +1293,83 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             ],
         }
 
+    # ------------------------------------------------ FR-LIT-9 matching
+
+    @app.post(
+        "/studies/{study_id}/papers/match",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def match_study_papers(
+        study_id: str, body: MatchIn, s: Session = Depends(db)
+    ) -> dict:
+        """Idea → paper recommendations via the match ladder (FR-LIT-9).
+        The LLM rerank rung runs only when a key is configured; without one
+        the same request answers from FTS + the seed graph (F9.2)."""
+        recommendations = matching.match_papers(
+            s,
+            body.query,
+            study_id=study_id,
+            limit=body.limit,
+            use_llm=assistant.configured(),
+        )
+        return {"studyId": study_id, "recommendations": recommendations}
+
+    @app.post(
+        "/studies/{study_id}/papers/from-match",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def add_paper_from_match(
+        study_id: str, body: FromMatchIn, s: Session = Depends(db)
+    ) -> dict:
+        """One-click ingest of a recommendation card (FR-LIT-9.3): the
+        corpus row joins the study's paper set with ``addedVia=match`` and
+        the match reason kept - it is elicitation evidence. The paper is
+        immediately retrievable in the next assistant exchange (F9.3): its
+        FTS entries already exist at the shared index."""
+        corpus_row = s.execute(
+            select(Paper).where(
+                Paper.study_id == CORPUS_STUDY_ID, Paper.paper_ref == body.ref
+            )
+        ).scalar_one_or_none()
+        if corpus_row is None:
+            raise HTTPException(404, f"paper {body.ref!r} is not in the corpus")
+        stmt = (
+            sqlite_insert(Paper)
+            .values(
+                study_id=study_id,
+                paper_ref=corpus_row.paper_ref,
+                title=corpus_row.title,
+                authors=corpus_row.authors,
+                year=corpus_row.year,
+                venue=corpus_row.venue,
+                abstract=corpus_row.abstract,
+                doi=corpus_row.doi,
+                arxiv_id=corpus_row.arxiv_id,
+                url=corpus_row.url,
+                item_type=corpus_row.item_type,
+                source="match",
+                s2_id=corpus_row.s2_id,
+                citation_count=corpus_row.citation_count,
+                tier=corpus_row.tier,
+                added_via="match",
+                match_reason=body.matchReason,
+                added_at=now(),
+            )
+            .on_conflict_do_update(
+                index_elements=["study_id", "paper_ref"],
+                set_={"added_via": "match", "match_reason": body.matchReason},
+            )
+        )
+        s.execute(stmt)
+        _seed_links(s, study_id, corpus_row.paper_ref)
+        return {
+            "studyId": study_id,
+            "paperRef": corpus_row.paper_ref,
+            "title": corpus_row.title,
+            "tier": corpus_row.tier,
+            "addedVia": "match",
+        }
+
     @app.get(
         "/studies/{study_id}/papers/{paper_ref:path}/links",
         dependencies=[Depends(view_auth)],
@@ -2246,6 +2351,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         job_id = job.id
         s.commit()
         _run_and_persist(job_id, resume=False)
+        # The runner committed via its own session; expire ours so the
+        # re-read reflects the persisted state rather than the cached row.
+        s.expire_all()
         refreshed = s.get(MiningJob, job_id)
         return _job_doc(refreshed)
 
@@ -2274,6 +2382,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if job.state in (mining.COMPLETE, mining.GATED):
             return _job_doc(job)
         _run_and_persist(job_id, resume=True)
+        s.expire_all()
         return _job_doc(s.get(MiningJob, job_id))
 
     @app.post(
@@ -2326,7 +2435,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 select(Event.type, func.count())
                 .where(Event.source == "github")
                 .group_by(Event.type)
-            )
+            ).all()
         )
         return {
             "jobId": job_id,
@@ -2414,6 +2523,310 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     uploaded_at=now(),
                 )
             )
+
+    # ------------------------------- templates (MP-15 slice 3, FR-TPL)
+    #
+    # The registry serves published designs; instantiation is a pure function
+    # of (template, parameters) that produces a protocol passing validation
+    # with zero hand edits (F1.1). ``/templates`` (FR-AGF index) already
+    # exists above; these add the FR-TPL instantiation + plan-explainer.
+
+    @app.post("/templates/{template_id}/instantiate")
+    def instantiate_template(
+        template_id: str, body: TemplateInstantiateIn
+    ) -> dict:
+        """Template + parameters → a validated protocol draft (FR-TPL-1.4).
+        A template cannot silently produce an invalid protocol — a bad
+        parameter or a skeleton defect surfaces as a 422 naming it."""
+        params = dict(body.parameters)
+        if body.studyId:
+            params.setdefault("studyId", body.studyId)
+        if body.title:
+            params.setdefault("title", body.title)
+        try:
+            out = template_registry.instantiate_template(template_id, params)
+        except template_registry.TemplateError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        out["yaml"] = yaml.safe_dump(
+            out["protocol"], sort_keys=False, default_flow_style=False
+        )
+        return out
+
+    @app.get("/templates/{template_id}/plan")
+    def template_plan(template_id: str) -> dict:
+        """The statistical-plan explainer (FR-TPL-2.3): each choice in plain
+        language with its why — never a bare test name."""
+        try:
+            tpl = template_registry.load_template(template_id)
+        except template_registry.TemplateError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return {
+            "templateId": template_id,
+            "explanation": template_registry.explain_plan(tpl),
+        }
+
+    # ------------------------- design conversation (MP-15 slice 4, FR-CONV)
+    #
+    # The conversation stored as the elicitation record (FR-CONV-6): turns +
+    # moves + compilations + approvals, append-only. Compilation is
+    # deterministic and LLM-free (FR-CONV-3); a diff applies only through a
+    # recorded approval (F3.3).
+
+    def _conversation_seq(s: Session, study_id: str) -> int:
+        last = s.scalar(
+            select(func.max(ConversationTurn.seq)).where(
+                ConversationTurn.study_id == study_id
+            )
+        )
+        return (last or 0) + 1
+
+    @app.post(
+        "/studies/{study_id}/conversation/turns",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def append_turn(
+        study_id: str, body: ConversationTurnIn, s: Session = Depends(db)
+    ) -> dict:
+        """Append a turn to the design conversation (FR-CONV-1). A platform
+        turn's moves may only cite grounding drawn from this exchange's
+        ``retrievedRefs`` (FR-CONV-2.2) — a move citing an unretrieved source
+        is refused (F2.1 enforced server-side, not just displayed)."""
+        retrieved = set(body.retrievedRefs)
+        for m in body.moves:
+            cited = {g.get("ref") for g in m.grounding if isinstance(g, dict)}
+            unretrieved = {c for c in cited if c and c not in retrieved}
+            if unretrieved:
+                raise HTTPException(
+                    422,
+                    f"move {m.moveId} cites {sorted(unretrieved)} not returned "
+                    "by this exchange's tools — a design move may only cite "
+                    "what was retrieved (FR-CONV-2.2).",
+                )
+        turn = ConversationTurn(
+            id=secrets.token_hex(8),
+            study_id=study_id,
+            seq=_conversation_seq(s, study_id),
+            role=body.role,
+            author=body.author,
+            text=body.text,
+            retrieved_refs=list(body.retrievedRefs),
+            created_at=now(),
+        )
+        s.add(turn)
+        for m in body.moves:
+            s.add(
+                DesignMoveRow(
+                    id=m.moveId,
+                    study_id=study_id,
+                    turn_id=turn.id,
+                    kind=m.kind,
+                    target=m.target,
+                    proposal=m.proposal,
+                    patch=m.patch,
+                    grounding=m.grounding,
+                    status=m.status,
+                )
+            )
+        s.commit()
+        return {"turnId": turn.id, "seq": turn.seq}
+
+    @app.get(
+        "/studies/{study_id}/conversation",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def get_conversation(study_id: str, s: Session = Depends(db)) -> dict:
+        turns = s.scalars(
+            select(ConversationTurn)
+            .where(ConversationTurn.study_id == study_id)
+            .order_by(ConversationTurn.seq)
+        ).all()
+        moves_by_turn: dict[str, list] = defaultdict(list)
+        for mv in s.scalars(
+            select(DesignMoveRow).where(DesignMoveRow.study_id == study_id)
+        ):
+            moves_by_turn[mv.turn_id].append(
+                {
+                    "moveId": mv.id,
+                    "kind": mv.kind,
+                    "proposal": mv.proposal,
+                    "patch": mv.patch,
+                    "grounding": mv.grounding,
+                    "status": mv.status,
+                }
+            )
+        return {
+            "studyId": study_id,
+            "turns": [
+                {
+                    "turnId": t.id,
+                    "seq": t.seq,
+                    "role": t.role,
+                    "author": t.author,
+                    "text": "" if t.redacted else t.text,
+                    "redacted": bool(t.redacted),
+                    "moves": moves_by_turn.get(t.id, []),
+                }
+                for t in turns
+            ],
+        }
+
+    @app.post(
+        "/studies/{study_id}/conversation/moves/{move_id}/decision",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def decide_move(
+        study_id: str, move_id: str, body: MoveDecisionIn,
+        s: Session = Depends(db),
+    ) -> dict:
+        """Accept or reject a design move (FR-CONV-1.2). The decision is part
+        of the elicitation record — the row is updated, never deleted."""
+        if body.status not in ("accepted", "rejected"):
+            raise HTTPException(400, "status must be 'accepted' or 'rejected'")
+        mv = s.get(DesignMoveRow, move_id)
+        if mv is None or mv.study_id != study_id:
+            raise HTTPException(404, "design move not found")
+        mv.status = body.status
+        mv.decided_by = body.decidedBy
+        mv.decided_at = now()
+        s.commit()
+        return {"moveId": move_id, "status": mv.status}
+
+    @app.post(
+        "/studies/{study_id}/conversation/compile",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def compile_conversation(
+        study_id: str, body: CompileIn, s: Session = Depends(db)
+    ) -> dict:
+        """Compile the study's accepted moves into a protocol draft diff
+        (FR-CONV-3). Deterministic + LLM-free; runs ``protocol validate`` so
+        a schema-breaking move bounces back with errors (F3.2). Stored
+        unapplied — only an approval advances the draft (F3.3)."""
+        moves = [
+            {
+                "moveId": mv.id, "kind": mv.kind, "target": mv.target,
+                "proposal": mv.proposal, "patch": mv.patch,
+                "grounding": mv.grounding, "status": mv.status,
+            }
+            for mv in s.scalars(
+                select(DesignMoveRow)
+                .where(DesignMoveRow.study_id == study_id)
+                .order_by(DesignMoveRow.id)
+            )
+        ]
+        base_yaml = body.baseYaml
+        if base_yaml is None:
+            existing = s.get(ProtocolDraftRow, study_id)
+            base_yaml = existing.yaml if existing else ""
+        result = compiler.compile_moves(moves, base_yaml=base_yaml)
+        comp = Compilation(
+            id=secrets.token_hex(8),
+            study_id=study_id,
+            base_sha256=sha256(base_yaml.encode()).hexdigest(),
+            draft_yaml=result.yaml,
+            diff=result.diff,
+            move_ids=[m["moveId"] for m in moves if m["status"] == "accepted"],
+            errors=result.errors,
+            unresolved=result.unresolved,
+            valid=int(result.valid),
+            created_at=now(),
+        )
+        s.add(comp)
+        s.commit()
+        return {
+            "compilationId": comp.id,
+            "valid": result.valid,
+            "errors": result.errors,
+            "unresolved": result.unresolved,
+            "diff": result.diff,
+            "yaml": result.yaml,
+            "templateId": result.template_id,
+        }
+
+    @app.post(
+        "/studies/{study_id}/conversation/approve",
+        dependencies=[Depends(require_project_for_study("apply_draft"))],
+    )
+    def approve_compilation(
+        study_id: str, body: ApproveIn,
+        membership: Membership = Depends(require_project_for_study("apply_draft")),
+        s: Session = Depends(db),
+    ) -> dict:
+        """Apply a compiled diff — the audited step (FR-CONV-3.3/F3.3). No
+        other code path writes the draft. A draft that failed validation
+        cannot be applied (a conversation never produces an invalid draft
+        silently)."""
+        comp = s.get(Compilation, body.compilationId)
+        if comp is None or comp.study_id != study_id:
+            raise HTTPException(404, "compilation not found")
+        if not comp.valid:
+            raise HTTPException(
+                409,
+                "this draft did not pass validation and cannot be applied — "
+                f"resolve: {comp.errors or comp.unresolved}",
+            )
+        s.add(
+            ApprovalEvent(
+                study_id=study_id,
+                compilation_id=comp.id,
+                approved_by=body.approvedBy,
+                role=str(membership.role),
+                at=now(),
+            )
+        )
+        comp.applied_at = now()
+        draft = s.get(ProtocolDraftRow, study_id)
+        if draft is None:
+            draft = ProtocolDraftRow(study_id=study_id)
+            s.add(draft)
+        draft.yaml = comp.draft_yaml
+        draft.compilation_id = comp.id
+        draft.updated_at = now()
+        s.commit()
+        return {"applied": True, "compilationId": comp.id}
+
+    @app.get(
+        "/studies/{study_id}/conversation/export",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def export_elicitation(study_id: str, s: Session = Depends(db)) -> dict:
+        """The elicitation record (FR-CONV-6): the full chain from idea to
+        specification — turns, moves + grounding, compilations, approvals,
+        and the current draft — captured by construction, not reconstructed."""
+        conv = get_conversation(study_id, s)
+        compilations = [
+            {
+                "compilationId": c.id,
+                "valid": bool(c.valid),
+                "moveIds": c.move_ids,
+                "errors": c.errors,
+                "appliedAt": c.applied_at or None,
+            }
+            for c in s.scalars(
+                select(Compilation)
+                .where(Compilation.study_id == study_id)
+                .order_by(Compilation.created_at)
+            )
+        ]
+        approvals = [
+            {
+                "compilationId": a.compilation_id,
+                "approvedBy": a.approved_by,
+                "role": a.role,
+                "at": a.at,
+            }
+            for a in s.scalars(
+                select(ApprovalEvent).where(ApprovalEvent.study_id == study_id)
+            )
+        ]
+        draft = s.get(ProtocolDraftRow, study_id)
+        return {
+            "studyId": study_id,
+            "turns": conv["turns"],
+            "compilations": compilations,
+            "approvals": approvals,
+            "currentDraft": draft.yaml if draft else "",
+        }
 
     # ---------------------------------------------------------------- health
 

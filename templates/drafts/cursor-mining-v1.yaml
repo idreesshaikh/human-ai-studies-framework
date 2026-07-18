@@ -191,11 +191,11 @@ protocolSkeleton:
   
   analysisPlan:
     - rq: RQ-1
-      recipes: [velocity-trend-analysis]
+      recipes: [task-outcome-by-condition]
     - rq: RQ-2
-      recipes: [complexity-trend-analysis]
+      recipes: [code-quality-by-condition]
     - rq: RQ-3
-      recipes: [velocity-complexity-correlation]
+      recipes: [meyer-fragmentation]
   
   literature:
     - paperRef: arxiv:2511.04427
