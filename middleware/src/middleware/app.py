@@ -44,6 +44,7 @@ from middleware import (
     auth,
     authz,
     compiler,
+    design_assistant,
     manifest,
     matching,
     mining,
@@ -187,29 +188,15 @@ class FromMatchIn(BaseModel):
     matchReason: str = ""
 
 
-class DesignMoveIn(BaseModel):
-    """A platform-proposed design move riding a turn (FR-CONV-1.2)."""
-
-    moveId: str
-    kind: str
-    target: str = ""
-    proposal: str = ""
-    patch: dict | None = None
-    grounding: list = Field(default_factory=list)
-    status: str = "proposed"
-
-
 class ConversationTurnIn(BaseModel):
-    """One turn appended to the design conversation (FR-CONV-1). A platform
-    turn may carry design moves + the refs its tools returned this exchange
-    (``retrievedRefs``) — a move may only cite grounding drawn from that set
-    (FR-CONV-2.2), enforced server-side on append."""
+    """One researcher turn (FR-CONV-1). The researcher supplies text only;
+    the *platform* reply — its prose, design moves, and grounding — is
+    generated server-side by the design assistant, so a move can only ever
+    cite what the server's own tools retrieved (FR-CONV-2.2 true by
+    construction, not by trusting the client)."""
 
     text: str
     author: str = "Researcher"
-    role: str = "researcher"  # 'researcher' | 'platform'
-    retrievedRefs: list = Field(default_factory=list)
-    moves: list[DesignMoveIn] = Field(default_factory=list)
 
 
 class MoveDecisionIn(BaseModel):
@@ -2587,48 +2574,84 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def append_turn(
         study_id: str, body: ConversationTurnIn, s: Session = Depends(db)
     ) -> dict:
-        """Append a turn to the design conversation (FR-CONV-1). A platform
-        turn's moves may only cite grounding drawn from this exchange's
-        ``retrievedRefs`` (FR-CONV-2.2) — a move citing an unretrieved source
-        is refused (F2.1 enforced server-side, not just displayed)."""
-        retrieved = set(body.retrievedRefs)
-        for m in body.moves:
-            cited = {g.get("ref") for g in m.grounding if isinstance(g, dict)}
-            unretrieved = {c for c in cited if c and c not in retrieved}
-            if unretrieved:
-                raise HTTPException(
-                    422,
-                    f"move {m.moveId} cites {sorted(unretrieved)} not returned "
-                    "by this exchange's tools — a design move may only cite "
-                    "what was retrieved (FR-CONV-2.2).",
-                )
-        turn = ConversationTurn(
+        """Append a researcher turn and generate the platform's grounded
+        reply (FR-CONV-1). The reply's moves are built server-side from
+        corpus rows the assistant's own tools returned this exchange, so no
+        move can cite an unretrieved source (FR-CONV-2.2 / F2.1 — enforced
+        by construction, then asserted). With no LLM key the deterministic
+        design assistant answers (NFR-4); the LLM seam swaps in behind the
+        same shape."""
+        researcher = ConversationTurn(
             id=secrets.token_hex(8),
             study_id=study_id,
             seq=_conversation_seq(s, study_id),
-            role=body.role,
+            role="researcher",
             author=body.author,
             text=body.text,
-            retrieved_refs=list(body.retrievedRefs),
+            retrieved_refs=[],
             created_at=now(),
         )
-        s.add(turn)
-        for m in body.moves:
+        s.add(researcher)
+        s.flush()  # researcher.seq is now settled; the reply is the next seq
+
+        reply = design_assistant.respond(
+            s, body.text, seq=researcher.seq + 1, study_id=study_id,
+            client=assistant.make_client(),
+        )
+        retrieved = set(reply["retrievedRefs"])
+        # Belt-and-suspenders: grounding is built only from retrieved rows, so
+        # this can only fire on a coding error — but the boundary is too
+        # important to leave unasserted (mirrors the FR-ETH-4 grep test).
+        for m in reply["moves"]:
+            cited = {g["ref"] for g in m["grounding"]}
+            assert cited <= retrieved, (
+                f"move {m['moveId']} cites outside retrieved set: "
+                f"{sorted(cited - retrieved)}"
+            )
+        platform = ConversationTurn(
+            id=secrets.token_hex(8),
+            study_id=study_id,
+            seq=researcher.seq + 1,
+            role="platform",
+            author="Platform",
+            text=reply["text"],
+            retrieved_refs=sorted(retrieved),
+            created_at=now(),
+        )
+        s.add(platform)
+        for m in reply["moves"]:
             s.add(
                 DesignMoveRow(
-                    id=m.moveId,
+                    id=f"{platform.id}:{m['moveId']}",
                     study_id=study_id,
-                    turn_id=turn.id,
-                    kind=m.kind,
-                    target=m.target,
-                    proposal=m.proposal,
-                    patch=m.patch,
-                    grounding=m.grounding,
-                    status=m.status,
+                    turn_id=platform.id,
+                    kind=m["kind"],
+                    target=m["target"],
+                    proposal=m["proposal"],
+                    patch=m["patch"],
+                    grounding=m["grounding"],
+                    status="proposed",
                 )
             )
         s.commit()
-        return {"turnId": turn.id, "seq": turn.seq}
+        return {
+            "researcherTurnId": researcher.id,
+            "platformTurnId": platform.id,
+            "text": reply["text"],
+            "moves": [
+                {
+                    "moveId": f"{platform.id}:{m['moveId']}",
+                    "kind": m["kind"],
+                    "target": m["target"],
+                    "proposal": m["proposal"],
+                    "patch": m["patch"],
+                    "grounding": m["grounding"],
+                    "status": "proposed",
+                }
+                for m in reply["moves"]
+            ],
+            "recommendations": reply["recommendations"],
+        }
 
     @app.get(
         "/studies/{study_id}/conversation",

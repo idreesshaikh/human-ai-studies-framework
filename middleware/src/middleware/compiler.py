@@ -30,7 +30,6 @@ import difflib
 from dataclasses import dataclass, field
 
 import yaml
-
 from protocol.loader import validate_protocol
 
 #: The eight draft sections, mirroring the client model (``platform/src/lib/
@@ -52,6 +51,20 @@ MANDATORY_SLOTS: tuple[str, ...] = SECTIONS
 
 
 @dataclass
+class MoveTrace:
+    """One accepted move's contribution to the draft (the FR-CONV-6 chain
+    link: move → grounding → the protocol section it touched). ``grounding``
+    is the move's citation refs, or ``["none"]`` for an unsourced move — so
+    the elicitation record shows how sure we are of each change, honesty
+    recorded not merely displayed (F2.3)."""
+
+    move_id: str
+    kind: str
+    section: str
+    grounding: list[str]
+
+
+@dataclass
 class CompileResult:
     """The outcome of a compile: the draft protocol, its YAML, a diff from the
     base, whether it validates, and — when it doesn't — the errors (F3.2) and
@@ -65,6 +78,8 @@ class CompileResult:
     unresolved: list[str] = field(default_factory=list)
     template_id: str | None = None
     template_version: int | None = None
+    #: Per-move grounding trace, in application order (F6.1 chain, F2.3).
+    trace: list[MoveTrace] = field(default_factory=list)
 
 
 def empty_sections() -> dict[str, list]:
@@ -94,6 +109,28 @@ def compile_sections(moves: list[dict]) -> dict[str, list]:
         elif op == "set":
             sections[section] = [value]
     return sections
+
+
+def _build_trace(moves: list[dict]) -> list[MoveTrace]:
+    """The grounding trace for every accepted move, in order. A caution
+    (no patch) still traces — its grounding is why the researcher was
+    warned — targeting the section it advised on."""
+    trace = []
+    for move in moves:
+        if move.get("status") != "accepted":
+            continue
+        patch = move.get("patch") or {}
+        section = patch.get("section") or move.get("target", "")
+        refs = [g.get("ref", "") for g in move.get("grounding", []) if g.get("ref")]
+        trace.append(
+            MoveTrace(
+                move_id=move.get("moveId", ""),
+                kind=move.get("kind", ""),
+                section=section,
+                grounding=refs or ["none"],
+            )
+        )
+    return trace
 
 
 def _find_template_move(moves: list[dict]) -> dict | None:
@@ -203,7 +240,9 @@ def compile_moves(
     )
 
     errors = validate_protocol(draft)
-    unresolved = [s for s in MANDATORY_SLOTS if not sections[s]] if not template_patch else []
+    unresolved = (
+        [] if template_patch else [s for s in MANDATORY_SLOTS if not sections[s]]
+    )
 
     return CompileResult(
         draft=draft,
@@ -214,4 +253,5 @@ def compile_moves(
         unresolved=unresolved,
         template_id=template_id,
         template_version=template_version,
+        trace=_build_trace(moves),
     )
