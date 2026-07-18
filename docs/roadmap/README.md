@@ -61,7 +61,7 @@ flowchart LR
 
 | Phase | Title | Satisfies | Status |
 | ----- | ----- | --------- | ------ |
-| [MP-15](15-templates-and-conversational-designer.md) | Templates + conversational designer | FR-TPL-1..4, FR-CONV-1/2/3/6, FR-LIT-9, FR-LIT-8 importer | 🔶 in progress — slice 1 built (platform scaffold + conversation surface, no-LLM stub) |
+| [MP-15](15-templates-and-conversational-designer.md) | Templates + conversational designer | FR-TPL-1..4, FR-CONV-1/2/3/6, FR-LIT-9, FR-LIT-8 importer | 🔶 slices 1–4 built + tested (server compiler/approval/elicitation record, corpus importer, real match ladder, template registry); remaining: FR-TPL-3 form path + 2 of 4 seed templates in `templates/drafts/` pending their recipes |
 | [MP-16](16-curated-dataset-leg.md) | Curated-dataset leg | FR-CUR-1..3 | 🔶 built — full mine→dataset→threats→report chain green offline; live async dispatch + UI surfaces deferred |
 | [MP-14](14-platform-shell.md) | Platform shell + hero | FR-PLAT-1..5, FR-OPS-5/7 completion, NFR-12 foundation | 🔶 built — backend + shell UI green; server-seeded demo + NFR-12 evidence pending |
 | [MP-17](17-agent-friendliness.md) | Agent-friendliness | FR-AGF-1..3, FR-PROT-9 | ⬜ specced, ready |

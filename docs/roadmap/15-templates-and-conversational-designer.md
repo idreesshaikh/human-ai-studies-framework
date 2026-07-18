@@ -15,7 +15,11 @@ loads). **Satisfies:** FR-TPL-1..4, FR-CONV-1/2/3/6, FR-LIT-9, and the
 FR-LIT-8 corpus importer. **Elicited:** owner, MP-01 rev 9
 ("experiments are built from conversations, grounded in science") + rev
 13 ("start implementing" — the conversation surface is the first thing
-to become real). **Status:** In progress.
+to become real). **Status:** In progress — slices 1–4 built and tested
+(the FR-CONV loop end-to-end: importer, match ladder, template registry,
+server compiler + approval + elicitation record). Remaining: FR-TPL-3
+form path, and two seed templates (`cursor-mining`, `hai-eval`) parked in
+`templates/drafts/` until their recipes exist (MP-16/analysis).
 
 ## The idea
 
