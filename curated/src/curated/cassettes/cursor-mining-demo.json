@@ -1,0 +1,108 @@
+{
+  "meta": {
+    "recordedAt": "2026-07-18T00:00:00Z",
+    "sanitized": true,
+    "source": "github",
+    "note": "Sanitized, pseudonymized-at-record fixture for the cursor-mining-v1 demo. Two pages of PRs mixing agent and human authorship; no raw identities, message bodies, or code. Includes a scripted rate-limit fault on the /rate/limited probe (first call only) for the pause/backoff test."
+  },
+  "entries": [
+    {
+      "key": "GET /search/issues?page=1&q=repo%3Aexample%2Fapp+is%3Amerged+type%3Apr+created%3A2025-01-01..2025-06-30",
+      "status": 200,
+      "body": {
+        "total_count": 6,
+        "items": [
+          {
+            "repo": "example/app", "number": 101, "user": "cursor[bot]", "isBot": true,
+            "createdAt": "2025-02-03T10:00:00Z", "changedFiles": 4, "additions": 120,
+            "deletions": 30, "commitCount": 2, "reviewComments": 1, "appSlug": "cursor",
+            "flags": [],
+            "commits": [
+              {"author": "cursor[bot]", "isBot": true, "committedAt": "2025-02-03T09:30:00Z", "additions": 80, "deletions": 10, "changedFiles": 3},
+              {"author": "cursor[bot]", "isBot": true, "committedAt": "2025-02-03T09:45:00Z", "additions": 40, "deletions": 20, "changedFiles": 2}
+            ],
+            "reviews": [
+              {"author": "dana", "state": "APPROVED", "submittedAt": "2025-02-03T11:00:00Z"}
+            ]
+          },
+          {
+            "repo": "example/app", "number": 102, "user": "dana",
+            "createdAt": "2025-02-10T12:00:00Z", "changedFiles": 2, "additions": 45,
+            "deletions": 12, "commitCount": 1, "reviewComments": 0, "flags": [],
+            "commits": [
+              {"author": "dana", "committedAt": "2025-02-10T11:30:00Z", "additions": 45, "deletions": 12, "changedFiles": 2}
+            ],
+            "reviews": [
+              {"author": "sam", "state": "CHANGES_REQUESTED", "submittedAt": "2025-02-10T13:00:00Z"}
+            ]
+          },
+          {
+            "repo": "example/app", "number": 103, "user": "sam",
+            "createdAt": "2025-03-01T08:00:00Z", "changedFiles": 8, "additions": 210,
+            "deletions": 60, "commitCount": 3, "reviewComments": 4,
+            "coauthors": ["copilot"], "flags": [],
+            "commits": [
+              {"author": "sam", "coauthors": ["copilot"], "committedAt": "2025-03-01T07:30:00Z", "additions": 210, "deletions": 60, "changedFiles": 8}
+            ],
+            "reviews": []
+          }
+        ]
+      }
+    },
+    {
+      "key": "GET /search/issues?page=2&q=repo%3Aexample%2Fapp+is%3Amerged+type%3Apr+created%3A2025-01-01..2025-06-30",
+      "status": 200,
+      "body": {
+        "total_count": 6,
+        "items": [
+          {
+            "repo": "example/app", "number": 104, "user": "devin-ai", "appSlug": "devin",
+            "createdAt": "2025-04-05T14:00:00Z", "changedFiles": 6, "additions": 300,
+            "deletions": 15, "commitCount": 1, "reviewComments": 2, "flags": [],
+            "commits": [
+              {"author": "devin-ai", "appSlug": "devin", "committedAt": "2025-04-05T13:30:00Z", "additions": 300, "deletions": 15, "changedFiles": 6}
+            ],
+            "reviews": [
+              {"author": "dana", "state": "APPROVED", "submittedAt": "2025-04-05T15:00:00Z"}
+            ]
+          },
+          {
+            "repo": "example/app", "number": 105, "user": "dana",
+            "createdAt": "2025-05-12T09:00:00Z", "changedFiles": 1, "additions": 10,
+            "deletions": 2, "commitCount": 1, "reviewComments": 0,
+            "flags": ["draft"],
+            "commits": [
+              {"author": "dana", "committedAt": "2025-05-12T08:30:00Z", "additions": 10, "deletions": 2, "changedFiles": 1}
+            ],
+            "reviews": []
+          },
+          {
+            "repo": "example/app", "number": 106, "user": "sam",
+            "createdAt": "2025-06-20T16:00:00Z", "changedFiles": 3, "additions": 55,
+            "deletions": 25, "commitCount": 2, "reviewComments": 1, "flags": [],
+            "commits": [
+              {"author": "sam", "committedAt": "2025-06-20T15:30:00Z", "additions": 30, "deletions": 15, "changedFiles": 2},
+              {"author": "sam", "committedAt": "2025-06-20T15:45:00Z", "additions": 25, "deletions": 10, "changedFiles": 1}
+            ],
+            "reviews": [
+              {"author": "cursor[bot]", "isBot": true, "state": "COMMENTED", "submittedAt": "2025-06-20T17:00:00Z"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "GET /search/issues?page=3&q=repo%3Aexample%2Fapp+is%3Amerged+type%3Apr+created%3A2025-01-01..2025-06-30",
+      "status": 200,
+      "body": {"total_count": 6, "items": []}
+    },
+    {
+      "key": "GET /rate/limited",
+      "status": 429,
+      "rateLimited": true,
+      "onlyFirst": 1,
+      "headers": {"retry-after": "1"},
+      "body": {"message": "API rate limit exceeded"}
+    }
+  ]
+}

@@ -3,16 +3,26 @@
 **SRS rows:** FR-LIT-8 (corpus scale + pipeline), FR-LIT-9 (idea→paper
 matching), FR-LIT-10 (living literature view / scoped RAG).
 **Phases:** FR-LIT-8 pipeline built 2026-07-17 (importer MP-15);
-FR-LIT-9 MP-15; FR-LIT-10 MP-15/17. **Spec v1, 2026-07-17 (rev 10).**
+FR-LIT-9 MP-15; FR-LIT-10 MP-15/17. **Spec v1, 2026-07-17 (rev 10);
+rev 2, 2026-07-18: the corpus is uncapped and metric-rich — 1,000 is
+the floor, not the ceiling; Tier A is a continuing curation program.**
 Design detail: `docs/design/sequences.md` §2/3/5,
 `docs/design/ui-motion-spec.md` §4.
 
-## 1. FR-LIT-8 — the 1,000-paper corpus
+## 1. FR-LIT-8 — the corpus (1,000-paper floor, uncapped)
 
 ### Tiers (provenance is a first-class property)
 
 - **Tier A** — the hand-curated seeds (`docs/papers/README.md`), each
-  with a human "why it's here". Never machine-modified.
+  with a human "why it's here". Never machine-modified. **A continuing
+  curation program** (rev 2): the pipeline's `--propose-tier-a N` emits
+  a promotion shortlist of the top-scored Tier B rows with all quality
+  metrics (freshness, citations + influential citations, recognized
+  venue, open-access, seed connectivity); the curator skips
+  out-of-scope entries (generic LLM infrastructure) and writes or
+  approves every "why" — judgment stays human, mechanics get generated.
+  Promotions leave Tier B (a paper lives in exactly one tier) and widen
+  the next snowball walk.
 - **Tier B** — harvested: citation snowballing from Tier A over the
   Semantic Scholar Graph API (D36). Every entry carries `s2PaperId`,
   external IDs, `score`, and `via` (which seeds discovered it) — every
@@ -29,15 +39,26 @@ Design detail: `docs/design/sequences.md` §2/3/5,
    age-scaled citation floors (pre-2015: ≥200 — classics only;
    pre-2018: ≥100; ≥3y old: ≥10; 2y old: ≥3); papers from the last ~2
    years pass on seed-connectivity alone (**fresh precedence**).
-3. **Ranking**: `freshness×1.6 + log10(cites+1)×2 +
-   min(seedEdges,6)×1.5 + venueBonus` — fresh papers and papers woven
-   into the seed graph outrank raw citation counts.
-4. Output: `docs/papers/corpus-index.json` (machine layer) +
+3. **Selection is uncapped** (rev 2): every gate-passing candidate that
+   is *domain-woven* ships — woven = referenced/cited by ≥2 seeds, or
+   fresh (≤2 years; recent papers haven't had time to accumulate
+   edges). `--target N` remains as the legacy capped mode. The corpus
+   grows as far as quality allows; 1,000 total is a floor the pipeline
+   warns under, never a cut line.
+4. **Ranking (scoring v2)**: `freshness×1.6 + log10(cites+1)×2 +
+   log10(influentialCites+1)×1.2 + min(seedEdges,6)×1.5 + venueBonus
+   (0.5 any venue + 1.0 recognized venue) + 0.4 openAccess` — fresh
+   papers, papers whose citations actually *used* them, recognized
+   venues/labs, and reproducibility-friendly open access all count;
+   raw citation mass alone does not win. Recognized venues are a
+   versioned regex (ICSE/FSE/CHI/TSE/EMSE/NeurIPS… — editorial
+   judgment, changed only as a recorded decision, like the gate).
+5. Output: `docs/papers/corpus-index.json` (machine layer) +
    `docs/papers/CORPUS.md` (generated human index, marked
    do-not-hand-edit). PDFs are not bulk-fetched (index-of-record
    posture, consistent with the gitignored-PDF rule; full text enters
    the FTS index on ingest/demand).
-5. **Honesty invariants:** nothing synthesized; unresolvable seeds
+6. **Honesty invariants:** nothing synthesized; unresolvable seeds
    reported; deterministic given its cache; the gate/rank constants are
    versioned editorial judgment (changing them is a recorded decision).
 
@@ -50,13 +71,19 @@ source bypasses the gate. Each activation = its own D-row.
 
 ### Fit criteria
 
-- F8.1 `corpus-index.json` + README seeds total ≥ 1,000 entries; every
+- F8.1 `corpus-index.json` + README seeds total ≥ 1,000 entries (the
+  floor; uncapped mode ships every woven gate-passer above it); every
   Tier B entry resolves at the S2 API (spot-check protocol: random 20).
 - F8.2 Rerunning against the same cache is byte-identical; rerunning
   fresh only moves scores/adds papers — never invents.
 - F8.3 ≥ 60% of Tier B is ≤ 3 years old (fresh precedence, measured).
 - F8.4 The importer lands Tier B as `Paper(tier=B)` rows + FTS entries;
   the constellation renders tiers distinguishably.
+- F8.5 (rev 2) Every Tier B row carries its quality metrics
+  (citations, influential citations, venue + recognized flag,
+  open-access, publication types, via-trail) and the index records its
+  `scoringVersion`; `--propose-tier-a` renders a shortlist from those
+  metrics alone (no re-fetch).
 
 ## 2. FR-LIT-9 — matching papers to the idea
 

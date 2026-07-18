@@ -354,7 +354,7 @@ plans) moves to `docs/archive/` - kept intact for the examiner, out of the
 public eye; README becomes the product front page; the contributor guide
 consolidates into one `CONTRIBUTING.md`; RUNBOOK/TOUR keep their roles but
 drop requirement-ID jargon per NFR-11. Alternatives rejected: deleting the
-history (destroys the graded execution record) and a docs site generator
+history (destroys the execution record) and a docs site generator
 (a build system for a dozen Markdown files).
 
 ### D32 - Gemini + Mistral APIs (REST, no SDK) - **ADOPT, bounded** → FR-LIT-4, FR-META-2 *(supersedes D10, D22)*
@@ -456,3 +456,67 @@ relevance; the seed-connectivity signal is what keeps the corpus *ours*).
 
 <!-- A summary table duplicating the per-decision prose above was removed
      2026-07-17 (regroup pass); the prose is the record. Git history has it. -->
+
+### D37 - Platform app dependency substrate (the shadcn/Vite baseline) - **ADOPT (pinned, vendored where possible)** → FR-PLAT, FR-CONV, NFR-12 *(implements D34, 2026-07-17)*
+
+D34 adopted "React 19 + Vite + Tailwind v4 + shadcn/ui" as the `platform/`
+surface; this row pins the concrete package set so the adoption is a
+decision, not a drift (golden rule 5). The substrate is the minimum
+shadcn/ui requires plus the design-system primitives - nothing
+speculative:
+
+- **Build/runtime:** `react`@19, `react-dom`@19, `vite`@7, `typescript`,
+  `@vitejs/plugin-react`. Vite, not Next.js (NFR-7: the middleware owns
+  the API and serves the SPA; no second server runtime).
+- **Styling:** `tailwindcss`@4 + `@tailwindcss/vite` (v4's first-party
+  plugin - no PostCSS config file). Design tokens live in one CSS layer
+  (`src/styles/tokens.css`) bridged to the dataviz palette so charts read
+  identically across both surfaces (D34's token-bridge clause).
+- **shadcn substrate (vendored source, owned - D17):** `class-variance-
+  authority`, `clsx`, `tailwind-merge` (the `cn()` util), `lucide-react`
+  (icon set), `tw-animate-css` (v4's replacement for the retired
+  `tailwindcss-animate`). Radix primitives (`@radix-ui/react-*`) are
+  added *per vendored component*, not wholesale - a component that needs
+  no Radix primitive pulls none.
+- **Deferred to their own rows when first needed** (not adopted now):
+  data fetching (`@tanstack/react-query`), routing
+  (`react-router`), virtualized threads. The MP-15 first slice runs on a
+  deterministic local stub (no network, no LLM) so none are required yet;
+  each is a decision when the middleware wiring lands.
+
+**Why adopt, not build:** re-implementing accessible menu/dialog/tooltip
+behaviour (focus traps, ARIA, keyboard nav) is exactly what NFR-12 (WCAG
+2.2 AA) forbids getting wrong by hand; Radix is the accessibility
+substrate the industry has settled on and shadcn vendors it as owned
+source. **Own-your-marks (D17):** shadcn components are copied into
+`platform/src/components/ui/`, edited freely, never imported from an
+upstream package - so there is no "external library look" and no
+version-lock to a component vendor. Pinned via the lockfile.
+**Rejected:** a component library imported as a dependency (MUI, Chakra -
+the look is theirs, not ours; contra D34); CRA/Webpack (Vite is the
+shadcn-canonical, faster path); adopting TanStack Query / router now
+(YAGNI while the stub has no network - decide when wiring the middleware).
+
+### D38 - Platform shell libraries (routing, palette, overlays) - **ADOPT (pinned)** → FR-PLAT *(extends D37, 2026-07-18)*
+
+D37 deferred routing/overlays to "their own row when the shell needs
+them." MP-14 needs them, so this row pins the set:
+
+- **`react-router-dom`** (v7): the shell's routes (hero, projects, project
+  home, study, members, settings, invite-accept) are real URLs, so links,
+  deep-links, and the browser back button work. Client-side only — the
+  middleware serves the SPA and owns the API (no server runtime added).
+- **`cmdk`** (v1): the ⌘K project switcher. Fuzzy match + full keyboard
+  nav are exactly the accessibility behaviour we must not hand-roll; it's
+  the shadcn-canonical command primitive and vendors as owned source.
+- **`@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`**: the
+  invite dialog, delete confirmation, account menu, and member-role menu.
+  Same reason Radix was adopted in D37 — accessible focus trapping, ARIA,
+  and keyboard behaviour are requirements, not options.
+
+**Still deferred** (decide when first needed): a data-fetching library
+(`@tanstack/react-query`) — the shell talks to the API through a small
+typed client with a plain `fetch`, and an in-memory backend stands in
+offline, so a cache/query layer isn't earning its weight yet. **Rejected:**
+a router that needs a server runtime (contra D34/NFR-7); a component
+library imported wholesale (the look must stay ours, D17/D34).

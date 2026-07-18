@@ -1,0 +1,173 @@
+templateVersion: 1
+
+# HAI-Eval Synergy Template
+# Encodes the HAI-Eval human-AI synergy comparison (arxiv:2507.09089)
+templateId: hai-eval-synergy-v1
+
+title: Within-subject human-AI synergy comparison
+
+description: |
+  Compares human-only, AI-only, and human-AI collaborative performance on
+  problem-solving tasks. Measures synergy: cases where the human-AI team
+  outperforms both human-only and AI-only baselines.
+
+source:
+  - paperRef: arxiv:2507.09089
+    role: primary-design
+  - paperRef: corpus:hai-eval-human-ai-synergy
+    role: primary-design
+
+# Stol & Fitzgerald ABC: lab experiment
+designType: lab-experiment
+
+# This template supports live instrumentation
+dataPath: live
+
+parameters:
+  taskCount:
+    type: int
+    default: 6
+    min: 3
+    description: Number of tasks per participant per condition
+    rationale: Sufficient for synergy detection across conditions
+
+  sessionMinutes:
+    type: int
+    default: 60
+    min: 45
+    max: 90
+    description: Duration per condition session
+    rationale: Allows for multiple task attempts per condition
+
+  conditions:
+    type: conditions
+    default: [human-only, ai-only, human-ai-collaboration]
+    description: Three experimental arms for synergy comparison
+    rationale: Required to measure synergy (interaction effect)
+
+  participantPlan:
+    type: participants
+    min: 15
+    default: 24
+    description: Target number of participants
+    rationale: Achieves power for synergy effect detection
+
+measures:
+  - id: task-accuracy
+    leg: behavioral
+    elements: [task_outcome, solution_quality]
+    description: Objective task solution accuracy/quality
+    caution: Quality metrics must be validated against ground truth
+
+  - id: completion-time
+    leg: behavioral
+    elements: [task_start, task_end]
+    description: Time to complete each task
+    caution: Speed-quality tradeoff must be considered
+
+  - id: collaboration-pattern
+    leg: agent
+    elements: [turn_count, tool_use, human_intervention]
+    description: Pattern of human-AI interaction during collaboration
+    cite: hai-eval-human-ai-synergy
+
+instruments:
+  cognitiveOverlay:
+    session:
+      durationMinutes: "{{ sessionMinutes }}"
+    fatigue:
+      intervalMinutes: 15
+      waitForPauseSeconds: 4
+    stuck:
+      enabled: true
+      thresholdSeconds: 120
+    output:
+      httpEndpoint: "{{ outputEndpoint }}"
+  metrics:
+    metricSet: code-quality-5
+
+statisticalPlan:
+  unit: participant
+  
+  perRQ:
+    - rq: synergy-existence
+      outcome: task-accuracy (continuous) across three conditions
+      test: kruskal-wallis
+      effectSize: hedges-g
+      aggregationUnit: per-participant
+      smallN: hypothesis-generating
+      multipleComparison: fdr
+      
+    - rq: synergy-magnitude
+      outcome: completion-time (continuous, paired human-vs-collaboration)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      aggregationUnit: per-participant
+      smallN: hypothesis-generating
+
+threats:
+  - threat: order-effects
+    mitigation: Latin square counterbalancing of condition order
+    cite: guidelines-empirical-llm-se
+  
+  - threat: learning-effects
+    mitigation: Different task sets per condition with equivalent difficulty
+    cite: hai-eval-human-ai-synergy
+
+protocolSkeleton:
+  protocolVersion: 1
+  
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  
+  researchQuestions:
+    - id: RQ-1
+      text: "Does human-AI collaboration achieve higher accuracy than human-only or AI-only?"
+    - id: RQ-2
+      text: "Is there a synergy effect where human-AI collaboration outperforms the sum of individual performances?"
+    - id: RQ-3
+      text: "What collaboration patterns characterize effective human-AI teams?"
+  
+  conditions: "{{ conditions }}"
+  
+  participants:
+    planned: "{{ participantPlan }}"
+    design: within-subjects
+    counterbalanced: true
+  
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: |
+      Participants solve {{ taskCount }} problem-solving tasks under each condition:
+      human-only (no AI assistance), AI-only (AI solves tasks autonomously with
+      human review), and human-AI collaboration (human and AI work together).
+      {{ taskDescription }}
+  
+  instruments: "{{ instruments }}"
+  
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+  
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [accuracy-comparison-3-way]
+    - rq: RQ-2
+      recipes: [synergy-detection]
+    - rq: RQ-3
+      recipes: [collaboration-pattern-analysis]
+  
+  literature:
+    - paperRef: arxiv:2507.09089
+      justifies: [RQ-1, RQ-2, RQ-3]

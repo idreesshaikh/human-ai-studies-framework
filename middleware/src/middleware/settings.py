@@ -87,6 +87,23 @@ class Settings:
         )
     )
 
+    #: GitHub token for the curated-mining leg (FR-CUR-2), token-scoped.
+    #: Runtime env only, never git/CI. Unset = the live source can't be
+    #: reached; mining falls back to a configured cassette or reports the
+    #: gap plainly (NFR-4 degrade-to-cache posture).
+    github_token: str | None = field(
+        default_factory=lambda: os.environ.get("MIDDLEWARE_GITHUB_TOKEN") or None
+    )
+    #: A recorded API cassette (``curated/.../cassettes/*.json``) to mine
+    #: against instead of the live source. Set for the offline demo and CI so
+    #: mining runs with zero tokens and zero network (MP-16 Slice D). When
+    #: unset and a token exists, the live fetcher is used.
+    mining_cassette: Path | None = field(
+        default_factory=lambda: (
+            Path(p) if (p := os.environ.get("MIDDLEWARE_MINING_CASSETTE")) else None
+        )
+    )
+
     @property
     def files_dir(self) -> Path:
         return self.data_dir / "files"

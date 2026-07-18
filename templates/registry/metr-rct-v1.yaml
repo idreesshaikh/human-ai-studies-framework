@@ -1,0 +1,180 @@
+templateVersion: 1
+
+# METR RCT Template - Randomized controlled trial of AI assistance on real tasks
+# Encodes the Becker et al. METR study design (arxiv:2507.09089)
+templateId: metr-rct-v1
+
+title: Randomized controlled trial of AI assistance on real tasks
+
+description: |
+  A within-subjects RCT design where developers work on real tasks with and
+  without AI assistance. Measures both objective outcomes (task time, correctness)
+  and subjective perceptions (self-report). Demonstrates the perception gap
+  where developers believe they are faster with AI while being measurably slower.
+
+source:
+  - paperRef: arxiv:2507.09089
+    role: primary-design
+  - paperRef: corpus:metr-early-2025-dev-productivity
+    role: primary-design
+
+# Stol & Fitzgerald ABC: this is a field study (real developers, real tasks)
+designType: rct-within-subjects
+
+# This template supports live instrumentation
+dataPath: live
+
+parameters:
+  taskCount:
+    type: int
+    default: 4
+    min: 2
+    description: Number of tasks per participant (enables counterbalancing)
+    rationale: Counterbalancing requires an even number of tasks to alternate AI/non-AI
+
+  sessionMinutes:
+    type: int
+    default: 45
+    min: 30
+    max: 120
+    description: Duration of each session (AI-assisted or unassisted)
+    rationale: METR found 45 minutes sufficient to observe measurable effects
+
+  conditions:
+    type: conditions
+    default: [ai-assisted, unassisted]
+    description: Experimental arms (fixed for this RCT design)
+    rationale: Within-subjects requires both conditions for each participant
+
+  participantPlan:
+    type: participants
+    min: 4
+    default: 12
+    description: Target number of participants
+    rationale: Small-N with within-subjects + counterbalancing achieves power
+
+measures:
+  - id: task-time
+    leg: behavioral
+    elements: [session clock, task_outcome]
+    description: Objective task completion time
+    caution: Task time alone can be misleading without correctness measures
+
+  - id: perceived-speed
+    leg: cognitive
+    elements: [debrief survey]
+    description: Self-reported speed/productive perception
+    caution: perception-gap - METR found developers FELT 19% faster while being 19% slower
+    cite: arxiv:2507.09089
+
+  - id: code-correctness
+    leg: static
+    elements: [acceptance tests, defect count]
+    description: Objective code correctness via automated tests
+    cite: arxiv:2507.09089
+
+instruments:
+  cognitiveOverlay:
+    session:
+      durationMinutes: "{{ sessionMinutes }}"
+    fatigue:
+      intervalMinutes: 15
+      waitForPauseSeconds: 4
+      jitterPercent: 20
+      quietTailMinutes: 5
+    stuck:
+      enabled: true
+      thresholdSeconds: 90
+      cooldownMinutes: 5
+    output:
+      httpEndpoint: "{{ outputEndpoint }}"
+  metrics:
+    metricSet: cognitive-load-9
+
+statisticalPlan:
+  # Per-participant first, against pseudo-replication
+  unit: participant
+  
+  perRQ:
+    - rq: primary
+      outcome: task-time (continuous, paired)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      aggregationUnit: per-participant
+      smallN: hypothesis-generating
+      multipleComparison: none
+      
+    - rq: perception-gap
+      outcome: perceived-speed (ordinal) vs task-time (continuous)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      aggregationUnit: per-participant
+      smallN: hypothesis-generating
+
+threats:
+  - threat: novelty-effect
+    mitigation: Task counterbalancing (alternate AI/non-AI order per participant)
+    cite: arxiv:2507.09089
+  
+  - threat: carryover-effect
+    mitigation: Sufficient task separation and washout period between sessions
+    cite: guidelines-empirical-llm-se
+
+  - threat: self-selection bias
+    mitigation: Randomized task assignment within participants
+    cite: guidelines-empirical-llm-se
+
+protocolSkeleton:
+  protocolVersion: 1
+  
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  
+  researchQuestions:
+    - id: RQ-1
+      text: "How does AI assistance affect objective task completion time?"
+    - id: RQ-2
+      text: "Do developers perceive productivity gains that differ from measured outcomes?"
+    - id: RQ-3
+      text: "How does AI assistance affect code correctness (acceptance test pass rate)?"
+  
+  conditions: "{{ conditions }}"
+  
+  participants:
+    planned: "{{ participantPlan }}"
+    design: within-subjects
+    counterbalanced: true
+  
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: |
+      {{ taskDescription }}
+  
+  instruments: "{{ instruments }}"
+  
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+  
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [task-time-by-condition]
+    - rq: RQ-2
+      recipes: [perception-vs-actual]
+    - rq: RQ-3
+      recipes: [code-correctness-by-condition]
+  
+  literature:
+    - paperRef: arxiv:2507.09089
+      justifies: [RQ-1, RQ-2, RQ-3]

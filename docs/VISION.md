@@ -20,7 +20,7 @@ construction.*
 
 A researcher arrives with an idea, not a protocol. They open a **design
 conversation** and describe what they want to know. The platform —
-holding the 58-paper corpus, the study-template registry, and the
+holding the 1,000+-paper corpus, the study-template registry, and the
 protocol schema — converses the idea into a study:
 
 - It asks the follow-up questions a methodologist would ask.
@@ -40,7 +40,7 @@ protocol schema — converses the idea into a study:
   ethics approval, changes are version-visible and consent-relevant ones
   gate until re-approved. Fluid, never sneaky.
 - The whole thread — turns, moves, groundings, decisions — is stored as
-  the study's **elicitation record**: the requirements-engineering chain
+  the study's **elicitation record**: the study's full decision trail
   now starts at the idea, not the spec.
 
 And the platform listens the other way too: researcher feedback given in
@@ -51,8 +51,9 @@ That self-application is the thesis made product.
 
 ## What feeds the conversation
 
-1. **The corpus** — 1,000 papers in two provenance tiers (FR-LIT-8):
-   58 hand-curated seeds (`docs/papers/README.md`) plus a harvested,
+1. **The corpus** — quality-first and uncapped, 1,000 papers as the
+   floor, in two provenance tiers (FR-LIT-8 rev 2):
+   100 hand-curated seeds (`docs/papers/README.md`) plus a harvested,
    quality-gated, API-verifiable extension grown by citation snowballing
    (`scripts/corpus_harvest.py`, refreshable as the literature moves;
    agentic discovery sources join later behind the same quality gate,
@@ -148,7 +149,7 @@ By thesis proof value per unit of engineering:
 ## Scope discipline, restated
 
 One study family (human-AI developer studies), two data paths, one
-conversation. MoSCoW against the v2 milestone; the graded RE spine is
+conversation. MoSCoW against the v2 milestone; the traceability spine is
 the first deliverable of every phase. Every v1 invariant — join keys
 everywhere, schema versioning, never interrupt the participant, privacy
 by construction, honest statistics, the protocol as sole document of

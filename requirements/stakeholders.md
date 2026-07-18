@@ -29,12 +29,16 @@ the approved protocol is the protocol actually executed (no silent drift).
 The lifecycle gate mechanism exists chiefly for S3: approval is an artifact
 the platform checks, and protocol changes after approval are version-visible.
 
-## S4 - Thesis examiner (requirements engineering programme)
+## S4 - Thesis examiner
 
-Grades the project as RE work. **Goals:** see genuine RE practice -
-elicitation, specification, prioritization, V&V, traceability, change
-management - not just software. Both levels must be visible: RE *of* the
-platform (this directory) and RE *by* the platform (the protocol schema).
+*(Rev 2, 2026-07-17: reframed - RE is a subject the supervisor teaches
+and values, not the grading rubric; the project is assessed as a
+research-platform thesis.)* Assesses the built platform and its
+evidence. **Goals:** a working end-to-end platform; engineering
+decisions that are traceable and defensible; honest statistics behind
+every claim. The structured record in this directory serves those goals
+- RE practice appears where it earns its keep (the elicitation record,
+the protocol as machine-readable spec), never as a performance.
 
 ## S5 - Replicating researcher
 

@@ -1,0 +1,62 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./tokens.css";
+
+/* Map tokens onto Tailwind's theme so utilities (bg-surface, text-muted,
+ * rounded-card, duration-standard…) resolve back to the token source. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-accent-soft: var(--accent-soft);
+  --color-grounded: var(--grounded);
+  --color-unsourced: var(--unsourced);
+  --color-unsourced-soft: var(--unsourced-soft);
+
+  --radius-card: var(--radius-card);
+  --radius-chip: var(--radius-chip);
+  --radius-input: var(--radius-input);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-text);
+
+  /* Motion tokens as duration-* / ease-* utilities, so components write
+   * `duration-settle ease-out` instead of raw values. */
+  --duration-fast: var(--motion-fast);
+  --duration-standard: var(--motion-standard);
+  --duration-entrance: var(--motion-entrance);
+  --duration-settle: var(--motion-settle);
+  --ease-out: var(--ease-out);
+  --ease-in-out: var(--ease-in-out);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular numerals for anything showing numbers. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:where(button, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-input);
+}

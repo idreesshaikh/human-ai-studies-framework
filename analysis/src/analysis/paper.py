@@ -86,11 +86,15 @@ def build_paper(
     study_id: str,
     *,
     papers: list[dict] | None = None,
+    threats_record: dict | None = None,
 ) -> PaperDraft:
     """Assemble the draft. ``papers`` is the study's ingested-paper metadata
     (from the middleware ``/papers`` endpoint) for richer related-work + bib;
     when absent, the protocol's ``literature:`` list is used (still
-    deterministic)."""
+    deterministic). ``threats_record`` is a curated dataset's validity-threats
+    record (FR-CUR-3); when present its provenance detail — sampling frame,
+    the authorship heuristics with their citations, declared biases, and
+    coverage — is injected verbatim into the threats section (F3.1)."""
     findings: list[dict] = []
     results, figures = _run_recipes(dataset, protocol)
     lit = _literature(protocol, papers)
@@ -103,7 +107,7 @@ def build_paper(
     _related_work(lit, md, tex)
     _methods(protocol, md, tex, findings)
     _results(protocol, results, figures, md, tex)
-    _threats(md, tex)
+    _threats(md, tex, threats_record)
 
     tex.append("\\bibliographystyle{plainnat}")
     tex.append("\\bibliography{references}")
@@ -388,7 +392,7 @@ def _tables(rid: str, result: RecipeResult, md: list, tex: list) -> None:
         tex += ["\\bottomrule", "\\end{tabular}", "\\end{table}", ""]
 
 
-def _threats(md: list, tex: list) -> None:
+def _threats(md: list, tex: list, threats_record: dict | None = None) -> None:
     # Known framework limitations (adaptation-notes.md; scope-discipline in
     # docs/archive/roadmap/00-VISION.md), pre-filled for the researcher to extend.
     items = [
@@ -410,6 +414,50 @@ def _threats(md: list, tex: list) -> None:
     for head, body in items:
         _para(md, tex, "threats / scope-discipline",
               f"**{head}.** {body}", bold_head=head)
+    if threats_record:
+        _curated_threats(md, tex, threats_record)
+
+
+def _curated_threats(md: list, tex: list, record: dict) -> None:
+    """Inject a curated dataset's validity-threats record verbatim (FR-CUR-3
+    F3.1): the data's provenance travels into the paper's threats section."""
+    frame = record.get("samplingFrame", {})
+    window = frame.get("window", {})
+    md += ["", "### Data provenance (curated dataset)", ""]
+    tex += ["\\subsection{Data provenance (curated dataset)}", ""]
+    _para(
+        md, tex, "threats / provenance (FR-CUR-3)",
+        f"**Sampling frame.** Mined under the query `{frame.get('query', '')}` "
+        f"over {window.get('start', '?')}–{window.get('end', '?')}; actor unit "
+        f"= {frame.get('actorUnit', 'developer')}; content policy = "
+        f"{frame.get('contentPolicy', 'metadata-only')}.",
+        bold_head="Sampling frame",
+    )
+    for h in record.get("heuristics", []):
+        modes = "; ".join(h.get("knownFailureModes", []))
+        _para(
+            md, tex, "threats / heuristic (FR-CUR-3)",
+            f"**Authorship heuristic `{h.get('id')}` (v{h.get('version')}).** "
+            f"Cited to {h.get('cite')}. Known failure modes: {modes}.",
+            bold_head=f"Heuristic {h.get('id')}",
+        )
+    for b in record.get("biases", []):
+        disp = b.get("mitigation") or (f"accepted: {b.get('accepted')}")
+        _para(
+            md, tex, "threats / declared-bias (FR-CUR-3)",
+            f"**Declared bias.** {b.get('description')} "
+            f"(direction: {b.get('direction')}; {disp}).",
+            bold_head="Declared bias",
+        )
+    cov = record.get("coverage", {})
+    dropped = ", ".join(f"{k}: {v}" for k, v in (cov.get("dropped") or {}).items())
+    _para(
+        md, tex, "threats / coverage (FR-CUR-3)",
+        f"**Coverage.** Requested {cov.get('requested', 0)}, retrieved "
+        f"{cov.get('retrieved', 0)}"
+        + (f"; dropped — {dropped}." if dropped else "."),
+        bold_head="Coverage",
+    )
 
 
 # ---------------------------------------------------------------- helpers

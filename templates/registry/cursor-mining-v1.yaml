@@ -1,0 +1,202 @@
+templateVersion: 1
+
+# Cursor Mining Template
+# Encodes the Cursor repository-mining design (arxiv:2511.04427)
+# Measures velocity vs complexity tradeoffs in real repositories
+templateId: cursor-mining-v1
+
+title: Repository-mining velocity vs complexity analysis
+
+description: |
+  Mines GitHub repositories to analyze the relationship between development
+  velocity (commit frequency, lines changed) and code complexity (static metrics,
+  defect density) when using AI coding assistants like Cursor.
+
+source:
+  - paperRef: arxiv:2511.04427
+    role: primary-design
+  - paperRef: corpus:speed-at-cost-of-quality-cursor
+    role: primary-design
+
+# Stol & Fitzgerald ABC: field study (observational)
+designType: field-study
+
+# This template supports the curated data path
+dataPath: curated
+
+parameters:
+  repoCount:
+    type: int
+    default: 50
+    min: 10
+    description: Number of repositories to analyze
+    rationale: Sufficient for statistical power in mining studies
+
+  timeWindowDays:
+    type: int
+    default: 180
+    min: 30
+    max: 365
+    description: Time window for analysis (days)
+    rationale: Captures both short-term velocity and longer-term complexity effects
+
+  languageFilter:
+    type: string
+    default: ""
+    description: Language filter (comma-separated, e.g., "python,javascript")
+    rationale: Focuses analysis on relevant language ecosystems
+
+  minCommitCount:
+    type: int
+    default: 10
+    min: 5
+    description: Minimum commits per repository for inclusion
+    rationale: Filters out inactive or toy repositories
+
+  conditions:
+    type: conditions
+    default: [pre-cursor, post-cursor]
+    description: Time-based comparison (before/after Cursor adoption)
+    rationale: Quasi-experimental within-repository comparison
+
+  participantPlan:
+    type: participants
+    min: 0
+    default: 0
+    description: No human participants (mining study)
+    rationale: Observational study of existing data
+
+measures:
+  - id: commit-velocity
+    leg: static
+    elements: [commits_per_day, lines_added_per_commit, lines_removed_per_commit]
+    description: Development velocity metrics
+    caution: Lines of code may not correlate with functional progress
+
+  - id: code-complexity
+    leg: static
+    elements: [cyclomatic_complexity, file_size, function_count, coupling]
+    description: Static code complexity metrics
+    caution: Complexity metrics must be normalized by language
+
+  - id: defect-density
+    leg: static
+    elements: [bugs_per_kLOC, issue_reopen_rate]
+    description: Code quality/defect metrics
+    caution: Defect detection depends on issue tracking quality
+
+  - id: ai-usage-intensity
+    leg: agent
+    elements: [cursor_usage_minutes, completion_acceptance_rate, chat_turns]
+    description: AI assistant usage intensity
+    cite: speed-at-cost-of-quality-cursor
+
+instruments:
+  # Mining adapters (GitHub first) - no live instrumentation
+  githubMining:
+    adapter: github-api
+    rateLimit: 5000
+    repositories: "{{ repoList }}"
+    
+  staticMetrics:
+    adapter: code-metrics
+    languages: "{{ languageFilter }}"
+
+statisticalPlan:
+  unit: repository
+  
+  perRQ:
+    - rq: velocity-trend
+      outcome: commit-velocity (continuous) pre vs post Cursor adoption
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      aggregationUnit: per-repository
+      smallN: hypothesis-generating
+      
+    - rq: complexity-trend
+      outcome: code-complexity (continuous) pre vs post Cursor adoption
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      aggregationUnit: per-repository
+      smallN: hypothesis-generating
+      
+    - rq: velocity-complexity-tradeoff
+      outcome: commit-velocity (continuous) vs code-complexity (continuous)
+      test: spearman
+      effectSize: spearman-rho
+      aggregationUnit: per-repository
+      smallN: exploratory
+
+threats:
+  - threat: selection-bias
+    mitigation: Include repositories with varying adoption patterns and sizes
+    cite: guidelines-empirical-llm-se
+  
+  - threat: confounding-factors
+    mitigation: Control for repository age, size, language, team composition
+    cite: speed-at-cost-of-quality-cursor
+  
+  - threat: data-quality
+    mitigation: Manual validation of a sample of mined data
+    cite: speed-at-cost-of-quality-cursor
+
+protocolSkeleton:
+  protocolVersion: 1
+  
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  
+  researchQuestions:
+    - id: RQ-1
+      text: "How does Cursor adoption affect development velocity (commits, LOC)?"
+    - id: RQ-2
+      text: "How does Cursor adoption affect code complexity metrics?"
+    - id: RQ-3
+      text: "Is there a tradeoff between increased velocity and code complexity?"
+  
+  conditions: "{{ conditions }}"
+  
+  participants:
+    planned: "{{ participantPlan }}"
+    design: between-subjects
+    counterbalanced: false
+  
+  session:
+    durationMinutes: 0
+    taskDescription: |
+      Mining analysis of {{ repoCount }} repositories over {{ timeWindowDays }} days.
+      Compares pre- and post-Cursor adoption periods. Filters to repositories with
+      at least {{ minCommitCount }} commits. {{ taskDescription }}
+  
+  instruments: "{{ instruments }}"
+  
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+        - repository-list.csv
+    - name: data-collection
+      gates:
+        - mined-dataset.csv
+        - data-quality-report.md
+    - name: analysis
+      gates:
+        - velocity-analysis.md
+        - complexity-analysis.md
+    - name: write-up
+      gates: []
+  
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [velocity-trend-analysis]
+    - rq: RQ-2
+      recipes: [complexity-trend-analysis]
+    - rq: RQ-3
+      recipes: [velocity-complexity-correlation]
+  
+  literature:
+    - paperRef: arxiv:2511.04427
+      justifies: [RQ-1, RQ-2, RQ-3]

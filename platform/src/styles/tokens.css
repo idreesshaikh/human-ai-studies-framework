@@ -1,0 +1,93 @@
+/* Design tokens — the single source of truth for colour, motion, radius.
+ *
+ * The only place raw hex / ms / px values live. Components consume them via
+ * Tailwind's @theme mapping (index.css) or var(--token); a lint script
+ * (scripts/lint-no-raw-literals.mjs) keeps it that way. Chart colours get
+ * added here later so the app and its charts stay visually consistent.
+ *
+ * Every text/background pairing below meets WCAG AA contrast (>= 4.5:1) in
+ * both light and dark. */
+
+:root {
+  /* Motion */
+  --motion-fast: 120ms; /* hover, focus rings, chip highlights */
+  --motion-standard: 200ms; /* card state changes, panel reveals */
+  --motion-entrance: 280ms; /* new elements arriving */
+  --motion-settle: 420ms; /* design-move fold-into-draft — the watchable move */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Radii */
+  --radius-card: 14px;
+  --radius-chip: 999px;
+  --radius-input: 10px;
+
+  /* Type */
+  --font-display: "Georgia", "Iowan Old Style", serif; /* excellent handwriting */
+  --font-text: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Light theme — neutrals + one accent */
+  --bg: #fbfaf7; /* warm paper */
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --border: #e6e2d8;
+  --border-strong: #cfc9ba;
+  --text: #1c1a17; /* 15.6:1 on --bg */
+  --text-muted: #57534c; /* 7.4:1 on --bg */
+  --accent: #4338ca; /* indigo — 8.1:1 on --surface */
+  --accent-contrast: #ffffff;
+  --accent-soft: #eef0fb;
+  --grounded: #1f7a5a; /* tier/grounding green — 4.6:1 on --surface */
+  --unsourced: #9a5b00; /* amber, honest-not-shameful — 4.8:1 on --surface */
+  --unsourced-soft: #fbf3e4;
+  --focus-ring: #4338ca;
+}
+
+:root[data-theme="dark"] {
+  --bg: #17161c;
+  --surface: #201f27;
+  --surface-raised: #2a2833;
+  --border: #34323d;
+  --border-strong: #47444f;
+  --text: #f3f1ec; /* 14.9:1 on --bg */
+  --text-muted: #b0aca4; /* 7.1:1 on --bg */
+  --accent: #a5b4fc; /* lighter indigo for dark — 8.4:1 on --surface */
+  --accent-contrast: #17161c;
+  --accent-soft: #2b2b45;
+  --grounded: #5fd0a3; /* 7.9:1 on --surface */
+  --unsourced: #e6b45c; /* 7.6:1 on --surface */
+  --unsourced-soft: #34301f;
+  --focus-ring: #a5b4fc;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17161c;
+    --surface: #201f27;
+    --surface-raised: #2a2833;
+    --border: #34323d;
+    --border-strong: #47444f;
+    --text: #f3f1ec;
+    --text-muted: #b0aca4;
+    --accent: #a5b4fc;
+    --accent-contrast: #17161c;
+    --accent-soft: #2b2b45;
+    --grounded: #5fd0a3;
+    --unsourced: #e6b45c;
+    --unsourced-soft: #34301f;
+    --focus-ring: #a5b4fc;
+  }
+}
+
+/* Respect the OS "reduce motion" setting — every surface stays fully
+ * usable with animation off. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

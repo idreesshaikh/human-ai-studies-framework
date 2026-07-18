@@ -1,9 +1,9 @@
 # CLAUDE.md — agent guide for this repository
 
-**Project:** Framework for Conducting Human-AI Studies — a Masters project in
-**requirements engineering**. A conversational research platform:
+**Project:** Framework for Conducting Human-AI Studies — a Masters
+project. A conversational research platform:
 researchers *talk* their study into existence — a design conversation
-grounded in a 58-paper corpus proposes citable design moves that compile
+grounded in a 1,000+-paper corpus proposes citable design moves that compile
 deterministically into the study-as-code protocol; paper-derived templates
 prescribe the statistical formulation; data comes from live instrumented
 sessions (four legs, one timeline) or curated GitHub mining through one
@@ -16,7 +16,13 @@ Read `docs/VISION.md` (v2, current direction) before any non-trivial work;
 record of the built v1 engine (MP-01..13). Detailed v2 specs with fit
 criteria: `requirements/specs/`.
 
-## The golden rules (RE discipline — these are graded)
+## The golden rules (the structure that keeps the platform honest)
+
+*(Reframed 2026-07-17, MP-01 rev 14: the thesis is the platform, not an
+RE showcase — the supervisor values RE but does not grade on it. Keep
+these mechanics because a smart, evolving platform needs a memory and an
+audit trail; drop RE-heavy framing and ID-jargon-first writing in any
+new docs, summaries, or UI copy.)*
 
 1. **No orphan work.** Every feature traces to a requirement ID in
    `requirements/srs.md`. If asked to build something with no requirement,
@@ -27,8 +33,8 @@ criteria: `requirements/specs/`.
    the phase-completion log in `traceability.md`.
 3. **A phase is done only when the matrices say so.** Finishing a mega-prompt
    means: its verification steps ran green, its tracker row is flipped
-   (v1 phases: `docs/archive/roadmap/00-VISION.md`; v2 phases: the tracker
-   that lands with the MP-14..18 specs), and its requirement rows in
+   (v1 phases: `docs/archive/roadmap/00-VISION.md`; v2 phases:
+   `docs/roadmap/README.md`), and its requirement rows in
    `requirements/traceability.md` are flipped.
 4. **Glossary wins.** Use `requirements/glossary.md` terms in code
    identifiers, schema fields, and docs (`participant` not `user`,
@@ -48,19 +54,25 @@ Work proceeds by **mega-prompts**: self-contained phase specs stating
 dependencies, the requirement IDs satisfied, deliverables, acceptance
 criteria, and verification steps — follow them literally; deviations must
 be noted in the traceability log. MP-01..13 live in
-`docs/archive/roadmap/` (v1, built). The v2 phases — MP-14 platform shell
-+ v2 surface, MP-15 templates + conversational designer, MP-16
-curated-dataset leg, MP-17 agent-friendliness, MP-18 evolution
-(amendments + feedback) — are **not yet specced**; each needs its spec
-written (and any new dependencies decided in `build-vs-adopt.md`) before
-code, building on the detailed family specs in `requirements/specs/`.
-Build order and rationale: `docs/VISION.md` § Build order — the
-conversation/templates proof first, shell polish last.
+`docs/archive/roadmap/` (v1, built). **The living roadmap is
+`docs/roadmap/`**: a master README (the invariant "walls", an explicit
+autonomy charter stating where the builder is free, the stretch-idea
+ledger, the phase tracker) plus full UI-to-backend specs for all five
+v2 phases — MP-15 templates + conversational designer (**slice 1
+built**: the `platform/` app + design-conversation surface on a
+deterministic no-LLM stub), MP-16 curated-dataset leg, MP-14 platform
+shell + hero, MP-17 agent-friendliness (incl. FR-PROT-9 agent
+participants), MP-18 evolution (amendments + feedback). Build order and
+rationale: `docs/VISION.md` § Build order — the conversation/templates
+proof first, shell polish last. New dependencies still go through
+`build-vs-adopt.md` before code.
 
 ## The v2 direction in one paragraph
 
-The 58-paper corpus (`docs/papers/README.md`) is the product's knowledge,
-not background reading. The core interaction is the **design conversation**
+The corpus — 1,000 papers as the floor, uncapped and quality-first
+(FR-LIT-8 rev 2) — (100+ hand-curated Tier A seeds in
+`docs/papers/README.md` + harvested Tier B, FR-LIT-8) is the product's
+knowledge, not background reading. The core interaction is the **design conversation**
 (FR-CONV): platform-proposed design moves, each grounded (cited into the
 corpus/templates) or labeled unsourced, individually accepted/rejected,
 compiled *deterministically* (no LLM in the compiler) into protocol draft
@@ -79,7 +91,7 @@ designer is the degradation path).
 
 | Path | What | Built by |
 | ---- | ---- | -------- |
-| `requirements/` | SRS (index of record), stakeholders S1–S7, RQs, glossary, traceability, build-vs-adopt D1–D35, **`specs/` detailed v2 family specs with fit criteria** | MP-01 ✅ (rev 9 = conversational core) |
+| `requirements/` | SRS (index of record), stakeholders S1–S7, RQs, glossary, traceability, build-vs-adopt D1–D37, **`specs/` detailed v2 family specs with fit criteria** | MP-01 ✅ (rev 12 = regroup) |
 | `docs/VISION.md` | **v2 platform vision — the current direction (conversational research platform)** | 2026-07-17 |
 | `docs/papers/` | The corpus: Tier A seeds (`README.md`, hand-curated) + Tier B (`CORPUS.md`/`corpus-index.json`, generated by `scripts/corpus_harvest.py` — never hand-edit) | FR-LIT-8 |
 | `docs/design/` | v2 design tree: C4 architecture, UML data model, sequences, state machines, flows, UI/motion spec | 2026-07-17 |
@@ -92,7 +104,7 @@ designer is the degradation path).
 | `analysis/` | Recipes, runner, report, paper draft (Python pkg, CLI `analysis`) | MP-07, MP-11 |
 | `agent-capture/` | Agent leg: hooks, transcript import, redaction, snapshots, task harness (Python pkg) | MP-12 |
 | `dashboard/` | Svelte 5 + Vite + TS SPA — the v1 operational console (maintained-frozen; `npm run check` is the gate) | MP-06 ✅ |
-| `platform/` | **planned** — v2 surface: React 19 + Vite + Tailwind + shadcn/ui (hero, projects, design conversation), D34/NFR-12 | MP-14/15 (unspecced) |
+| `platform/` | v2 surface: React 19 + Vite + Tailwind v4 + shadcn/ui (D34/D37, NFR-12). **Built: MP-15 slice 1** — the design-conversation surface on a deterministic no-LLM stub (`npm run check` is the gate). Hero/projects (FR-PLAT) + server wiring are later slices/MP-14 | MP-15 (slice 1) |
 
 Directory history (for stale references): `extension/` was
 `Cognitive Overlay/`; `metrics/` was `Static Code Metrics/`. The extension's

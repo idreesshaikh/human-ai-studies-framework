@@ -10,7 +10,7 @@ science").
 
 The platform's core interaction is a **design conversation**: a researcher
 talks to the platform about what they want to study, and the platform —
-grounded in the 58-paper corpus and the template registry — converses the
+grounded in the 1,000+-paper corpus and the template registry — converses the
 idea into a valid, citable, statistically sound study protocol. This is
 requirements elicitation *performed by the platform*: the thesis claim
 "a study protocol is a requirements specification" gains its natural
@@ -222,9 +222,9 @@ approvals — exportable, and included (researcher-controlled) in the
 replication kit.
 
 Elaboration:
-1. This is the RE contribution: the elicitation trail from research idea
+1. This is the provenance contribution: the trail from research idea
    to specification is *captured by construction*, not reconstructed.
-   Examiner-visible chain: conversation turn → design move → grounding →
+   The full chain: conversation turn → design move → grounding →
    protocol hunk → instrument config → data element → recipe → claim →
    paper section.
 2. Storage: append-only thread + moves + decisions tables, project-scoped
