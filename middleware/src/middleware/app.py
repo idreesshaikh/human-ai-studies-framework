@@ -2433,6 +2433,50 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "contentPolicy": enrollment.content_policy(protocol),
         }
 
+    def resolve_credential(s: Session, authorization: str):
+        """Return the ``EnrollmentToken`` for a valid Bearer session
+        credential, else ``None``. Never raises — callers decide whether
+        absence is fatal (reused by the ingest route, Task A7)."""
+        from middleware.db import EnrollmentToken
+
+        if not authorization.startswith("Bearer "):
+            return None
+        cred = authorization.removeprefix("Bearer ").strip()
+        if not cred:
+            return None
+        row = s.scalar(
+            select(EnrollmentToken).where(EnrollmentToken.credential == cred)
+        )
+        if row is None or row.revoked_at:
+            return None
+        try:
+            if datetime.fromisoformat(row.expires_at) < clock():
+                return None
+        except (ValueError, TypeError):
+            pass
+        return row
+
+    @app.get("/studies/{study_id}/capture-config")
+    def get_capture_config(
+        study_id: str,
+        authorization: str = Header(default=""),
+        s: Session = Depends(db),
+    ) -> dict:
+        """Session-boundary re-pull of the capture config (FR-INST-21): the
+        extension re-fetches this at the start of each session so a protocol
+        amendment lands without re-pairing. Gated on the session credential
+        minted by ``/pair/redeem`` — never the study's project membership,
+        since the extension holds no project identity."""
+        row = resolve_credential(s, authorization)
+        if row is None or row.study_id != study_id:
+            raise HTTPException(401, "a valid session credential is required")
+        protocol = _resolve_study_protocol(s, study_id)
+        if protocol is None:
+            raise HTTPException(404, "no protocol for this study")
+        return enrollment.build_capture_config(
+            protocol, row.participant_id, row.condition
+        )
+
     @app.get("/me", dependencies=[Depends(resolve_identity)])
     def get_me(identity: auth.Identity = Depends(resolve_identity)) -> dict:
         """Identity + memberships (FR-OPS-7). The single surface both SPAs

@@ -88,3 +88,23 @@ def test_revoked_token_cannot_redeem(client_ethics_ok: TestClient):
     client_ethics_ok.delete(f"/studies/pilot/enrollment/tokens/{tok['id']}")
     raw = tok["connectionString"].split("#", 1)[1]
     assert client_ethics_ok.post("/pair/redeem", json={"token": raw}).status_code == 410
+
+
+def test_capture_config_matches_redeem_and_requires_credential(
+    client_ethics_ok: TestClient,
+):
+    tok = client_ethics_ok.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
+    ).json()[0]
+    raw = tok["connectionString"].split("#", 1)[1]
+    cred = client_ethics_ok.post("/pair/redeem", json={"token": raw}).json()[
+        "sessionCredential"
+    ]
+
+    assert client_ethics_ok.get("/studies/pilot/capture-config").status_code == 401
+    r = client_ethics_ok.get(
+        "/studies/pilot/capture-config",
+        headers={"authorization": f"Bearer {cred}"},
+    )
+    assert r.status_code == 200
+    assert r.json()["settings"]["cognitiveOverlay.participantId"] == "P01"
