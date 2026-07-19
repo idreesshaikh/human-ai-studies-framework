@@ -15,19 +15,22 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 
-# Workspace metadata first for layer caching, then the packages the service
-# needs at runtime in full: protocol (join-key validation) and curated (the
-# curated-dataset leg the mining endpoints import).
+# Workspace metadata first for layer caching, then — in full — the three
+# packages middleware declares as workspace dependencies, so uv can build each
+# wheel: protocol (join-key validation), curated (the mining leg), and analysis
+# (the retrospective + paper endpoints). All three need their source, not just
+# a pyproject stub.
 COPY pyproject.toml uv.lock ./
 COPY middleware/ middleware/
 COPY protocol/ protocol/
 COPY curated/ curated/
+COPY analysis/ analysis/
 # Documents of record for the platform's plain-language tooltips
 # (FR-DASH-9): /requirements + /glossary parse these live.
 COPY requirements/ requirements/
-# Satisfy workspace member resolution without shipping unrelated code.
+# The remaining workspace members are NOT middleware dependencies; their
+# pyproject alone satisfies workspace resolution, and uv never builds them.
 COPY metrics/pyproject.toml metrics/pyproject.toml
-COPY analysis/pyproject.toml analysis/pyproject.toml
 COPY agent-capture/pyproject.toml agent-capture/pyproject.toml
 
 RUN uv sync --frozen --no-dev --package middleware
