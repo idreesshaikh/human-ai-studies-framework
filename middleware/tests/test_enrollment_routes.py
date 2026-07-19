@@ -30,5 +30,18 @@ def test_list_then_revoke(client_ethics_ok: TestClient):
     listed = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()
     assert listed[0]["status"] == "unredeemed"
     tid = listed[0]["id"]
-    assert client_ethics_ok.delete(f"/enrollment/tokens/{tid}").status_code == 200
+    assert (
+        client_ethics_ok.delete(f"/studies/pilot/enrollment/tokens/{tid}").status_code
+        == 200
+    )
     assert client_ethics_ok.get("/studies/pilot/enrollment/tokens").json() == []
+    # IDOR guard: a token that isn't in this study cannot be revoked via it.
+    other = client_ethics_ok.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "session"}
+    ).json()[0]
+    assert (
+        client_ethics_ok.delete(
+            f"/studies/other-study/enrollment/tokens/{other['id']}"
+        ).status_code
+        in (403, 404)
+    )

@@ -2355,14 +2355,20 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return out
 
     @app.delete(
-        "/enrollment/tokens/{token_id}",
-        dependencies=[Depends(resolve_identity)],
+        "/studies/{study_id}/enrollment/tokens/{token_id}",
+        dependencies=[Depends(require_project_for_study("mint_token"))],
     )
-    def revoke_enrollment_token(token_id: str, s: Session = Depends(db)) -> dict:
+    def revoke_enrollment_token(
+        study_id: str, token_id: str, s: Session = Depends(db)
+    ) -> dict:
+        """Revoke a pairing token (researcher+, study-scoped). Keyed by study so
+        the project choke point authorizes it exactly like mint/list; a token
+        that isn't in this study 404s (never leak another study's tokens, and
+        never let a member of one study revoke another's — the IDOR guard)."""
         from middleware.db import EnrollmentToken
 
         row = s.get(EnrollmentToken, token_id)
-        if row is None:
+        if row is None or row.study_id != study_id:
             raise HTTPException(404, "enrollment token not found")
         row.revoked_at = now()
         s.commit()
