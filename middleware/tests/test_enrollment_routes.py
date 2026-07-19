@@ -39,9 +39,10 @@ def test_list_then_revoke(client_ethics_ok: TestClient):
     other = client_ethics_ok.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "session"}
     ).json()[0]
+    # 404 (not 403): a study's members must not learn another study's token exists.
     assert (
         client_ethics_ok.delete(
             f"/studies/other-study/enrollment/tokens/{other['id']}"
         ).status_code
-        in (403, 404)
+        == 404
     )
