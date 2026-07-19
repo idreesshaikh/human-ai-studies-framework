@@ -651,7 +651,7 @@ def test_revoked_token_cannot_redeem(client_ethics_ok: TestClient):
     tok = client_ethics_ok.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
     ).json()[0]
-    client_ethics_ok.delete(f"/enrollment/tokens/{tok['id']}")
+    client_ethics_ok.delete(f"/studies/pilot/enrollment/tokens/{tok['id']}")
     raw = tok["connectionString"].split("#", 1)[1]
     assert client_ethics_ok.post("/pair/redeem", json={"token": raw}).status_code == 410
 ```
@@ -1641,7 +1641,7 @@ Assisted-by: Claude (Opus 4.8)"
 - Test: extend the platform verify harness if one exists (`platform/scripts/verify-shell.mjs`); otherwise rely on `npm run build` + the component render in C2.
 
 **Interfaces:**
-- Produces (client): `mintEnrollmentTokens(studyId: string, count: number, grain: 'participant' | 'session'): Promise<EnrollmentTokenView[]>`; `listEnrollmentTokens(studyId: string): Promise<EnrollmentTokenView[]>`; `revokeEnrollmentToken(tokenId: string): Promise<void>`; `type EnrollmentTokenView = { id: string; participantId: string; condition: string; grain: string; status: 'unredeemed' | 'paired' | 'streaming' | 'revoked'; connectionString?: string }`.
+- Produces (client): `mintEnrollmentTokens(studyId: string, count: number, grain: 'participant' | 'session'): Promise<EnrollmentTokenView[]>`; `listEnrollmentTokens(studyId: string): Promise<EnrollmentTokenView[]>`; `revokeEnrollmentToken(studyId: string, tokenId: string): Promise<void>` (study-scoped path — the revoke route is `DELETE /studies/{studyId}/enrollment/tokens/{tokenId}`, gated by `mint_token`); `type EnrollmentTokenView = { id: string; participantId: string; condition: string; grain: string; status: 'unredeemed' | 'paired' | 'streaming' | 'revoked'; connectionString?: string }`.
 
 - [ ] **Step 1: Add the capability.** In `platform/src/lib/capabilities.ts`, add `"mint_token"` to the `Capability` union and to `MATRIX`:
   ```ts
@@ -1675,8 +1675,8 @@ Assisted-by: Claude (Opus 4.8)"
   async listEnrollmentTokens(studyId: string) {
     return this.get<EnrollmentTokenView[]>(`/studies/${studyId}/enrollment/tokens`);
   }
-  async revokeEnrollmentToken(tokenId: string) {
-    return this.del<{ revoked: string }>(`/enrollment/tokens/${tokenId}`);
+  async revokeEnrollmentToken(studyId: string, tokenId: string) {
+    return this.del<{ revoked: string }>(`/studies/${studyId}/enrollment/tokens/${tokenId}`);
   }
   ```
   (Use the exact helper names this file already uses for GET/POST/DELETE — grep the file; do not invent `post`/`get`/`del` if the file names them differently.)
@@ -1852,7 +1852,7 @@ export function EnrollmentPanel({ studyId, role }: { studyId: string; role: Role
                 <td className="py-1.5 text-right">
                   {canMint && t.status !== "revoked" && (
                     <Button size="sm" variant="ghost"
-                      onClick={() => void api.revokeEnrollmentToken(t.id).then(load)}>
+                      onClick={() => void api.revokeEnrollmentToken(studyId, t.id).then(load)}>
                       Revoke
                     </Button>
                   )}
