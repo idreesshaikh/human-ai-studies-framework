@@ -49,3 +49,43 @@ def build_capture_config(
         "producer": producer,
         "settings": settings,
     }
+
+
+#: Plain-language description of each agent content policy (FR-AGENT-5),
+#: stated verbatim in the consent statement.
+_POLICY_DESCRIPTIONS = {
+    "metadata-only": (
+        "only sizes, counts, and timings of the conversation — never its text"
+    ),
+    "redacted": (
+        "the conversation text with string literals and long identifiers masked"
+    ),
+    "full": "the full conversation text",
+}
+
+
+def content_policy(protocol: dict) -> str:
+    """The study's agent content policy (default metadata-only, the safest)."""
+    agent = protocol.get("instruments", {}).get("agentCapture", {})
+    return agent.get("contentPolicy", "metadata-only")
+
+
+def consent_statement(protocol: dict, condition: str) -> str:
+    """A deterministic, protocol-derived consent paragraph (wall #1, FR-AGENT-5).
+
+    States what the study is, the condition, the active content policy verbatim,
+    and the privacy-by-construction promise every instrument keeps.
+    """
+    title = protocol.get("study", {}).get("title", "this study")
+    policy = content_policy(protocol)
+    policy_desc = _POLICY_DESCRIPTIONS.get(policy, policy)
+    instruments = ", ".join(sorted(protocol.get("instruments", {}).keys())) or "none"
+    return (
+        f'You are joining "{title}" in the {condition} condition. '
+        f"While you work, this study captures aggregate signals from these "
+        f"instruments: {instruments}. It never records raw code content, "
+        f"keystrokes, or clipboard text — only sizes, shapes, timings, and "
+        f'salted hashes. Agent-conversation capture is set to "{policy}": '
+        f"{policy_desc}. You appear in all data only as an anonymized ID. "
+        f"You can stop the session at any time."
+    )

@@ -64,3 +64,24 @@ def test_build_capture_config_carries_derived_overlay_settings():
     assert cfg["captureConfigVersion"] == enrollment.capture_config_version(PROTOCOL)
     assert cfg["settings"]["cognitiveOverlay.participantId"] == "P03"
     assert cfg["settings"]["cognitiveOverlay.stuck.enabled"] is True
+
+
+def test_content_policy_defaults_to_metadata_only():
+    assert enrollment.content_policy(PROTOCOL) == "metadata-only"
+    p = {
+        **PROTOCOL,
+        "instruments": {
+            **PROTOCOL["instruments"],
+            "agentCapture": {"contentPolicy": "redacted"},
+        },
+    }
+    assert enrollment.content_policy(p) == "redacted"
+
+
+def test_consent_statement_is_derived_and_names_the_policy():
+    text = enrollment.consent_statement(PROTOCOL, "ai-assisted")
+    assert "Pilot" in text  # study title
+    assert "ai-assisted" in text  # condition
+    # active content policy stated verbatim (FR-AGENT-5)
+    assert "metadata-only" in text
+    assert "raw code" in text.lower()  # the never-captured promise
