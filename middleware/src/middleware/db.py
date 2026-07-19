@@ -390,6 +390,40 @@ class Invitation(Base):
     accepted_at: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
+class EnrollmentToken(Base):
+    """A pairing token binding a study + participant + condition (FR-INST-20).
+
+    ``grain`` is 'participant' (reusable across that participant's sessions)
+    or 'session' (single-use). ``token`` is what the participant pastes (inside
+    a connection string); ``credential`` is the short-lived bearer minted on
+    redeem and sent on ingest so the middleware can server-stamp join keys
+    (FR-ING-7). Mirrors the ``Invitation`` mint/expire/revoke shape.
+    """
+
+    __tablename__ = "enrollment_tokens"
+    __table_args__ = (
+        CheckConstraint(
+            "grain IN ('participant', 'session')", name="ck_enrollment_grain"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    study_id: Mapped[str] = mapped_column(
+        String, ForeignKey("studies.id"), index=True
+    )
+    participant_id: Mapped[str] = mapped_column(String)
+    condition: Mapped[str] = mapped_column(String)
+    grain: Mapped[str] = mapped_column(String)
+    token: Mapped[str] = mapped_column(String, unique=True, index=True)
+    #: Minted on redeem; sent as the ingest bearer. NULL until first redeem.
+    credential: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    expires_at: Mapped[str] = mapped_column(String)
+    revoked_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    redeemed_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_by: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[str] = mapped_column(String)
+
+
 class Study(Base):
     """A reified study row (FR-PLAT-1). The bridge studies -> projects.
 
