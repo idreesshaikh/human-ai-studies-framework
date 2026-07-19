@@ -4,7 +4,7 @@
 A *shadow* git repository (``--git-dir=<study-data>/shadow.git
 --work-tree=<task workspace>``) commits the whole task workspace on a save
 webhook and every N minutes. This gives the metrics leg a free time series
-(MP-03 can run per snapshot) and lets code evolution be reconstructed, not
+ and lets code evolution be reconstructed, not
 just its final state - with no custom snapshot format to invent, and
 without touching the participant's own git (separate git-dir, same
 worktree).

@@ -12,9 +12,8 @@ out/
 out-tests/
 *.vsix
 
-# Dashboard build output
-dashboard/build/
-dashboard/.svelte-kit/
+# Platform (web app) build output
+platform/dist/
 
 # Study data & generated study artifacts (never commit participant data)
 .study-data/
@@ -28,7 +27,26 @@ shadow.git/
 # OS / editor noise
 .DS_Store
 
+# AI assistant state (local only)
+.claude/
+
 # Coverage artifacts (pytest-cov, CI metrics gate)
 .coverage
 .coverage.*
 htmlcov/
+
+# Literature PDFs (docs/papers/README.md is the tracked index)
+docs/papers/*.pdf
+
+# Corpus harvest API cache (re-runnable; outputs docs/papers/CORPUS.md + corpus-index.json are tracked)
+.corpus-cache/
+
+# design-sync: staged converter, build output, machine state (durable inputs
+# under .design-sync/ — config.json, NOTES.md, conventions.md, previews/,
+# overrides/ — ARE committed; everything below is regenerated per run)
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+platform/.ds-shipped.css

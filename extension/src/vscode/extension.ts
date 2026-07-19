@@ -285,7 +285,7 @@ function bootSession(boot: BootConfig): void {
 
   if (cfg('stuck.enabled', true)) detector.start();
 
-  // Behavioral telemetry leg (MP-05). The port re-checks session state on
+  // Behavioral telemetry leg. The port re-checks session state on
   // every record so debouncer tails and burst flushes can never leak events
   // into a paused or ended session.
   if (cfg('behavior.enabled', true)) {

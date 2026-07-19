@@ -6,7 +6,7 @@ import { Disposable } from './types';
  */
 
 /**
- * Leading + trailing debounce for `editor_focus` (250 ms per MP-05): the
+ * Leading + trailing debounce for `editor_focus` (250 ms per): the
  * FIRST value in a quiet period emits immediately; rapid follow-ups are
  * coalesced and the LAST one emits when the window goes quiet. Rapid
  * tab-cycling therefore emits first + last, never the tabs in between.

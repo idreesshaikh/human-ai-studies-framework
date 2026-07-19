@@ -1,7 +1,7 @@
 # Continuous deployment of the seeded demo (FR-OPS-1a, D24/D25).
 #
 # Runs only after the CI workflow finishes green on main: builds the
-# container image (middleware + dashboard, one process - NFR-7), pushes it
+# container image (middleware + platform, one process - NFR-7), pushes it
 # to GHCR, then triggers the Render deploy hook so the demo instance
 # rebuilds. The demo never runs a red build.
 #

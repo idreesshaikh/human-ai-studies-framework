@@ -1,5 +1,5 @@
 """meyer-fragmentation (RQ-P3): work fragmentation as a recipe - the
-second published-paper replication (FR-ANA-5, docs/archive/roadmap/09 item 3).
+second published-paper replication (FR-ANA-5).
 
 Replicates the fragmentation analysis of:
 
@@ -71,12 +71,14 @@ def run(dataset: Dataset) -> RecipeResult:
     for sid, g in focus.dropna(subset=["file"]).groupby("sessionId"):
         g = g.sort_values("seq")
         changed = g[g["file"] != g["file"].shift()]
-        switches_rows.append({
-            "sessionId": sid,
-            "participantId": g["participantId"].iloc[0],
-            "condition": g["condition"].iloc[0],
-            "switches": max(len(changed) - 1, 0),
-        })
+        switches_rows.append(
+            {
+                "sessionId": sid,
+                "participantId": g["participantId"].iloc[0],
+                "condition": g["condition"].iloc[0],
+                "switches": max(len(changed) - 1, 0),
+            }
+        )
         seg = changed["ts"].diff().dt.total_seconds().dropna() / 60
         segment_rows += [
             {
@@ -89,10 +91,17 @@ def run(dataset: Dataset) -> RecipeResult:
         ]
 
     per_session = spans.merge(
-        pd.DataFrame(switches_rows, columns=[
-            "sessionId", "participantId", "condition", "switches",
-        ])[["sessionId", "switches"]],
-        on="sessionId", how="left",
+        pd.DataFrame(
+            switches_rows,
+            columns=[
+                "sessionId",
+                "participantId",
+                "condition",
+                "switches",
+            ],
+        )[["sessionId", "switches"]],
+        on="sessionId",
+        how="left",
     ).fillna({"switches": 0})
     per_session["switchesPerHour"] = per_session["switches"] / (
         per_session["durationMinutes"] / 60
@@ -134,9 +143,7 @@ def run(dataset: Dataset) -> RecipeResult:
     fatigue = dataset.of_type("fatigue_response")
     if not fatigue.empty:
         f_mean = fatigue.groupby("sessionId")["score"].mean().rename("fatigueMean")
-        joined = per_session.join(f_mean, on="sessionId").dropna(
-            subset=["fatigueMean"]
-        )
+        joined = per_session.join(f_mean, on="sessionId").dropna(subset=["fatigueMean"])
         if len(joined) >= 3:
             t = stats.spearman(
                 joined["switchesPerHour"].tolist(),

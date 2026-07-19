@@ -1,0 +1,116 @@
+import { useCallback, useEffect, useRef } from "react";
+import { Check, X } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GroundingChip } from "./GroundingChip";
+import { UnsourcedLabel } from "./UnsourcedLabel";
+import { cn } from "@/lib/cn";
+import type { DesignMove } from "@/lib/types";
+
+const KIND_LABEL: Record<DesignMove["kind"], string> = {
+  "add-rq": "Research question",
+  "choose-template": "Design",
+  "set-parameter": "Parameter",
+  "add-instrument": "Instrument",
+  "add-measure": "Measure",
+  "set-threshold": "Threshold",
+  caution: "Caution",
+};
+
+/* A proposed design move with accept/reject. Keyboard-first: a / r when the
+ * card is focused. Accepted moves fold toward the draft rail; rejected ones
+ * fade out. A caution has no patch, so accepting it just marks it noted —
+ * it never changes the draft. */
+export function MoveCard({
+  move,
+  onDecide,
+}: {
+  move: DesignMove;
+  onDecide: (moveId: string, status: "accepted" | "rejected") => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isCaution = move.kind === "caution";
+  const decided = move.status !== "proposed";
+
+  const onKey = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (decided) return;
+      if (e.key === "a") onDecide(move.moveId, "accepted");
+      if (e.key === "r") onDecide(move.moveId, "rejected");
+    },
+    [decided, move.moveId, onDecide],
+  );
+
+  // Focus the card on appearance so a / r work right away.
+  useEffect(() => {
+    if (!decided) ref.current?.focus();
+  }, [decided]);
+
+  return (
+    <Card
+      ref={ref}
+      data-agent="move-card"
+      data-agent-kind={move.kind}
+      data-agent-status={move.status}
+      tabIndex={decided ? -1 : 0}
+      onKeyDown={onKey}
+      aria-label={`${KIND_LABEL[move.kind]} move: ${move.proposal}`}
+      className={cn(
+        "transition-all",
+        move.status === "proposed" && "duration-entrance ease-out",
+        move.status === "accepted" &&
+          "duration-settle ease-in-out translate-x-2 opacity-60",
+        move.status === "rejected" && "duration-standard scale-95 opacity-40",
+      )}
+    >
+      <CardContent className="flex flex-col gap-2 p-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
+            {KIND_LABEL[move.kind]}
+          </span>
+          {move.status === "accepted" && (
+            <span className="text-xs text-grounded">
+              {isCaution ? "noted" : "in draft"}
+            </span>
+          )}
+          {move.status === "rejected" && (
+            <span className="text-xs text-text-muted">dismissed</span>
+          )}
+        </div>
+
+        <p className="text-sm text-text">{move.proposal}</p>
+
+        <div className="flex flex-wrap items-center gap-1">
+          {move.grounding.length > 0 ? (
+            move.grounding.map((g) => <GroundingChip key={g.ref} g={g} />)
+          ) : (
+            <UnsourcedLabel />
+          )}
+        </div>
+
+        {!decided && (
+          <div className="mt-1 flex gap-2">
+            <Button
+              size="sm"
+              variant="subtle"
+              data-agent="move-accept"
+              onClick={() => onDecide(move.moveId, "accepted")}
+            >
+              <Check aria-hidden />
+              {isCaution ? "Note it" : "Accept"} <kbd className="opacity-60">a</kbd>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              data-agent="move-reject"
+              onClick={() => onDecide(move.moveId, "rejected")}
+            >
+              <X aria-hidden />
+              Reject <kbd className="opacity-60">r</kbd>
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

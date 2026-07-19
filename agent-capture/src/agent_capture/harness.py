@@ -47,8 +47,16 @@ def run_pytest(tests_dir: str | Path) -> dict:
         return {"passed": 0, "failed": 0, "total": 0, "ran": False}
     try:
         proc = subprocess.run(
-            [sys.executable, "-m", "pytest", str(tests_dir), "-q", "--tb=no",
-             "-p", "no:cacheprovider"],
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                str(tests_dir),
+                "-q",
+                "--tb=no",
+                "-p",
+                "no:cacheprovider",
+            ],
             capture_output=True,
             text=True,
             timeout=600,

@@ -1,0 +1,204 @@
+templateVersion: 1
+
+# METR RCT Template — randomized controlled trial of AI assistance on real tasks.
+# Encodes the METR early-2025 developer-productivity design (arxiv:2507.09089):
+# a within-subjects RCT measuring objective outcomes (task time, correctness)
+# alongside self-reported perception, to surface the perception gap where
+# developers feel faster with AI while being measurably slower.
+templateId: metr-rct-v1
+
+title: Randomized controlled trial of AI assistance on real tasks
+
+description: |
+  A within-subjects RCT where developers work on real tasks with and without AI
+  assistance. Measures objective outcomes (task time, correctness) and subjective
+  perception (self-report), and prescribes the exact statistics: paired
+  nonparametric tests with effect sizes, small-n framed as hypothesis-generating.
+
+source:
+  - paperRef: arxiv:2507.09089
+    role: primary-design
+  - paperRef: corpus:metr-early-2025-dev-productivity
+    role: primary-design
+
+designType: rct-within-subjects
+dataPath: live
+
+# Every {{ placeholder }} in protocolSkeleton is a declared parameter here, so
+# the template instantiates into a valid protocol with zero hand edits (F1.1).
+# Parameters with defaults make the whole template instantiable with no input;
+# a researcher overrides what they want.
+parameters:
+  studyId:
+    type: string
+    default: metr-rct-study
+    description: Stable study id
+  title:
+    type: string
+    default: "AI assistance on real tasks: a within-subjects RCT"
+    description: Study title
+  researchers:
+    type: conditions # a non-empty list of names
+    default: [Researcher]
+    description: The research team
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+    description: Ethics reference
+  taskDescription:
+    type: string
+    default: >-
+      Real development tasks completed with and without AI assistance,
+      counterbalanced per participant.
+    description: What participants do
+  sessionMinutes:
+    type: int
+    default: 45
+    min: 30
+    max: 120
+    description: Duration of each session
+    rationale: METR found 45 minutes sufficient to observe measurable effects
+  conditions:
+    type: conditions
+    default: [ai-assisted, unassisted]
+    description: Experimental arms (within-subjects requires both per participant)
+    rationale: Within-subjects requires both conditions for each participant
+  participantPlan:
+    type: participants
+    min: 4
+    default: 12
+    description: Target number of participants
+    rationale: Small-n with within-subjects + counterbalancing achieves power
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+    description: The instrument's ingestion endpoint
+
+measures:
+  - id: task-time
+    leg: behavioral
+    elements: [session clock, task_outcome]
+    description: Objective task completion time
+    caution: Task time alone can mislead without a correctness measure
+  - id: perceived-speed
+    leg: cognitive
+    elements: [debrief survey]
+    description: Self-reported speed / productivity perception
+    caution: perception-gap — METR found developers felt faster while being slower
+    cite: arxiv:2507.09089
+  - id: code-correctness
+    leg: static
+    elements: [acceptance tests, defect count]
+    description: Objective code correctness via the static-metrics leg
+    cite: arxiv:2507.09089
+
+# The prescribed statistics (FR-TPL-2): per-participant first, exact paired
+# nonparametric tests with effect sizes, small-n framed honestly.
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: task completion time (continuous, paired)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      smallN: hypothesis-generating
+    - rq: RQ-2
+      outcome: perceived speed (ordinal) vs measured time (continuous)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      smallN: hypothesis-generating
+    - rq: RQ-3
+      outcome: code-correctness profile (paired)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      smallN: hypothesis-generating
+
+threats:
+  - threat: novelty-effect
+    mitigation: task counterbalancing (alternate AI / non-AI order per participant)
+    cite: arxiv:2507.09089
+  - threat: carryover-effect
+    mitigation: sufficient task separation and washout between sessions
+    cite: guidelines-empirical-llm-se
+  - threat: self-selection bias
+    mitigation: randomized task assignment within participants
+    cite: guidelines-empirical-llm-se
+
+protocolSkeleton:
+  protocolVersion: 1
+
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+
+  researchQuestions:
+    - id: RQ-1
+      text: "How does AI assistance affect objective task completion time?"
+    - id: RQ-2
+      text: "Do developers perceive productivity gains that differ from measured outcomes?"
+    - id: RQ-3
+      text: "How does AI assistance affect the static cognitive-load profile of the code produced?"
+
+  conditions: "{{ conditions }}"
+
+  participants:
+    planned: "{{ participantPlan }}"
+    design: within-subjects
+    counterbalanced: true
+
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ taskDescription }}"
+
+  instruments:
+    cognitiveOverlay:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 15
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 5
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages: [python]
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: cognitive-load-9
+
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+
+  # Recipes that exist in the analysis catalogue (F2.3 — a template cannot
+  # promise an analysis the platform can't run).
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [task-outcome-by-condition]
+    - rq: RQ-2
+      recipes: [tlx-debrief]
+    - rq: RQ-3
+      recipes: [code-quality-by-condition]
+
+  literature:
+    - paperRef: arxiv:2507.09089
+      justifies: [RQ-1, RQ-2, RQ-3]

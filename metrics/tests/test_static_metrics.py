@@ -143,9 +143,7 @@ def test_orchestrator_jsonl_mirrors_rows_with_nan_as_null(tmp_path):
     )
     assert exit_code == 0
     lines = (
-        (tmp_path / "results" / "file_metrics.jsonl")
-        .read_text("utf-8")
-        .splitlines()
+        (tmp_path / "results" / "file_metrics.jsonl").read_text("utf-8").splitlines()
     )
     assert len(lines) == 1
     record = json.loads(lines[0])

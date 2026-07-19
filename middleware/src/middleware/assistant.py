@@ -19,7 +19,7 @@ grep-the-output test asserts exactly this.
 The system prompt requires a source tag on every claim (``[paper-ref
 §chunk]``, ``[protocol:field]``, or ``[dataset-summary]``); an answer with
 no source must say so. Without ``MISTRAL_API_KEY`` the endpoint degrades
-gracefully — every other feature works offline. The dashboard picks the
+gracefully — every other feature works offline. The platform picks the
 *model tier* per question (``MISTRAL_MODELS``); requests never carry keys.
 
 Mistral is called over plain REST via stdlib ``urllib`` (D32: no vendor
@@ -43,7 +43,7 @@ from middleware import paper_index
 from middleware.db import Event, MetricRow
 
 MISTRAL_MODEL = "mistral-small-latest"
-#: Model tiers the dashboard may select per question (validated server-side).
+#: Model tiers the platform may select per question (validated server-side).
 MISTRAL_MODELS = (
     "mistral-small-latest",
     "mistral-medium-latest",
@@ -74,9 +74,7 @@ TOOL_SCHEMAS = [
         ),
         "input_schema": {
             "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "search terms"}
-            },
+            "properties": {"query": {"type": "string", "description": "search terms"}},
             "required": ["query"],
         },
     },
@@ -181,9 +179,7 @@ def get_dataset_summary_tool(s: Session) -> str:
     return json.dumps(dataset_summary(s), indent=2)
 
 
-def build_tools(
-    s: Session, protocol: dict | None
-) -> dict[str, Callable[[dict], str]]:
+def build_tools(s: Session, protocol: dict | None) -> dict[str, Callable[[dict], str]]:
     """The tool name → implementation map. Each returns a string result; none
     can reach a row-level participant event (FR-ETH-4)."""
     return {
@@ -298,7 +294,7 @@ def make_client(model: str | None = None):
 
 def _extract_citations(text: str) -> list[str]:
     """Pull the ``[...]`` source tags the system prompt requires, in order,
-    de-duplicated - the dashboard renders them as clickable chips."""
+    de-duplicated - the platform renders them as clickable chips."""
     import re
 
     seen: dict[str, None] = {}

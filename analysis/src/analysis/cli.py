@@ -51,45 +51,61 @@ def main(argv: list[str] | None = None) -> int:
     def add_data_args(p: argparse.ArgumentParser) -> None:
         p.add_argument("protocol", help="study protocol YAML (the analysis plan)")
         p.add_argument("--study", help="study id (default: the protocol's)")
-        p.add_argument("--server", default=DEFAULT_SERVER,
-                       help=f"middleware base URL (default {DEFAULT_SERVER})")
-        p.add_argument("--dataset", help="one-timeline dataset JSON file "
-                       "(instead of fetching from the middleware)")
+        p.add_argument(
+            "--server",
+            default=DEFAULT_SERVER,
+            help=f"middleware base URL (default {DEFAULT_SERVER})",
+        )
+        p.add_argument(
+            "--dataset",
+            help="one-timeline dataset JSON file "
+            "(instead of fetching from the middleware)",
+        )
 
     p_run = sub.add_parser("run", help="run the protocol's analysis plan")
     add_data_args(p_run)
-    p_run.add_argument("--out", default="results", type=Path,
-                       help="output root (default results/)")
-
-    p_val = sub.add_parser(
-        "validate", help="check recipe requirements only (FR-ANA-2)"
+    p_run.add_argument(
+        "--out", default="results", type=Path, help="output root (default results/)"
     )
+
+    p_val = sub.add_parser("validate", help="check recipe requirements only (FR-ANA-2)")
     add_data_args(p_val)
 
     p_paper = sub.add_parser(
-        "paper", help="generate a paper draft (MD + LaTeX) from protocol + "
-        "recipes (FR-ANA-6)"
+        "paper",
+        help="generate a paper draft (MD + LaTeX) from protocol + recipes (FR-ANA-6)",
     )
     add_data_args(p_paper)
-    p_paper.add_argument("--out", default="results", type=Path,
-                         help="output root (default results/)")
+    p_paper.add_argument(
+        "--out", default="results", type=Path, help="output root (default results/)"
+    )
 
     p_retro = sub.add_parser(
-        "retrospective", help="draft a self-improvement changelist proposal "
-        "from the findings log (FR-META-2)"
+        "retrospective",
+        help="draft a self-improvement changelist proposal "
+        "from the findings log (FR-META-2)",
     )
     p_retro.add_argument("protocol", help="study protocol YAML")
     p_retro.add_argument("--study", help="study id (default: the protocol's)")
-    p_retro.add_argument("--server", default=DEFAULT_SERVER,
-                         help=f"middleware base URL (default {DEFAULT_SERVER})")
-    p_retro.add_argument("--findings-md",
-                         help="facilitator findings.md (e.g. study/pilot/findings.md)")
-    p_retro.add_argument("--out", default="retrospective", type=Path,
-                         help="output directory (default retrospective/)")
+    p_retro.add_argument(
+        "--server",
+        default=DEFAULT_SERVER,
+        help=f"middleware base URL (default {DEFAULT_SERVER})",
+    )
+    p_retro.add_argument(
+        "--findings-md", help="facilitator findings.md (e.g. findings.md)"
+    )
+    p_retro.add_argument(
+        "--out",
+        default="retrospective",
+        type=Path,
+        help="output directory (default retrospective/)",
+    )
 
     p_list = sub.add_parser("list", help="list registered recipes")
     p_list.add_argument(
-        "--json", action="store_true",
+        "--json",
+        action="store_true",
         help="machine-readable registry (consumed by `protocol export "
         "replication-kit` for the kit manifest)",
     )
@@ -98,16 +114,21 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "list":
         if args.json:
-            print(json.dumps([
-                {
-                    "id": rec.id,
-                    "title": rec.title,
-                    "answers": list(rec.answers),
-                    "requiresEvents": sorted(rec.requires.events),
-                    "requiresMetrics": sorted(rec.requires.metrics),
-                }
-                for rec in sorted(REGISTRY.values(), key=lambda r: r.id)
-            ], indent=2))
+            print(
+                json.dumps(
+                    [
+                        {
+                            "id": rec.id,
+                            "title": rec.title,
+                            "answers": list(rec.answers),
+                            "requiresEvents": sorted(rec.requires.events),
+                            "requiresMetrics": sorted(rec.requires.metrics),
+                        }
+                        for rec in sorted(REGISTRY.values(), key=lambda r: r.id)
+                    ],
+                    indent=2,
+                )
+            )
             return 0
         for rec in REGISTRY.values():
             req = ", ".join(

@@ -1,0 +1,227 @@
+templateVersion: 1
+
+# Ziegler Telemetry + Survey Template
+# Encodes the Ziegler et al. design (arxiv:2205.06537)
+# Joins telemetry data with self-report survey data
+templateId: ziegler-telemetry-survey-v1
+
+title: Telemetry and self-report join for AI code completion productivity
+
+description: |
+  Combines fine-grained telemetry (acceptance rate, latency) with self-report
+  survey data to measure productivity. The recipe 'ziegler-acceptance-rate'
+  already exists (FR-ANA-5), closing the design->analysis loop.
+
+source:
+  - paperRef: arxiv:2205.06537
+    role: primary-design
+  - paperRef: corpus:copilot-productivity-ziegler
+    role: primary-design
+
+# Stol & Fitzgerald ABC: lab experiment with controlled tasks
+designType: lab-experiment
+
+# This template supports live instrumentation (telemetry + survey)
+dataPath: live
+
+parameters:
+  taskCount:
+    type: int
+    default: 10
+    min: 5
+    description: Number of coding tasks per participant
+    rationale: Sufficient for stable acceptance rate measurement
+
+  sessionMinutes:
+    type: int
+    default: 60
+    min: 45
+    max: 90
+    description: Total session duration
+    rationale: Allows for multiple code completion opportunities
+
+  completionThreshold:
+    type: int
+    default: 5
+    min: 3
+    description: Minimum number of completed tasks for inclusion
+    rationale: Ensures sufficient data for acceptance rate calculation
+
+  conditions:
+    type: conditions
+    default: [with-completion, without-completion]
+    description: Experimental arms (tool availability)
+    rationale: Within-subjects comparison of completion vs no completion
+
+  participantPlan:
+    type: participants
+    min: 10
+    default: 20
+    description: Target number of participants
+    rationale: Achieves power for medium effect sizes
+
+  # Per-instantiation study identity + fill values (all defaulted so the
+  # template instantiates with no input; a researcher overrides what they want).
+  studyId:
+    type: string
+    default: ziegler-telemetry-study
+    description: Stable study id
+  title:
+    type: string
+    default: "Telemetry + self-report join for AI code completion"
+    description: Study title
+  researchers:
+    type: conditions
+    default: [Researcher]
+    description: The research team
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+    description: Ethics reference
+  taskDescription:
+    type: string
+    default: "Complete the coding tasks; accept or reject each AI completion."
+    description: Extra task detail
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+    description: The instrument's ingestion endpoint
+
+measures:
+  - id: acceptance-rate
+    leg: behavioral
+    elements: [completion_accepted, completion_shown]
+    description: Ratio of accepted completions to shown completions
+    caution: Acceptance rate alone may not correlate with productivity
+    cite: arxiv:2205.06537
+
+  - id: latency
+    leg: behavioral
+    elements: [completion_display_time, acceptance_time]
+    description: Time from completion display to acceptance/rejection
+    cite: arxiv:2205.06537
+
+  - id: self-report-productivity
+    leg: cognitive
+    elements: [post-session survey]
+    description: Subjective productivity assessment
+    caution: Self-report may diverge from objective measures
+
+instruments:
+  cognitiveOverlay:
+    session:
+      durationMinutes: "{{ sessionMinutes }}"
+    fatigue:
+      intervalMinutes: 20
+      waitForPauseSeconds: 3
+    stuck:
+      enabled: true
+      thresholdSeconds: 60
+    output:
+      httpEndpoint: "{{ outputEndpoint }}"
+  metrics:
+    metricSet: code-quality-5
+
+statisticalPlan:
+  unit: participant
+  
+  perRQ:
+    - rq: primary
+      outcome: acceptance-rate (proportion, paired)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      aggregationUnit: per-participant
+      smallN: hypothesis-generating
+      multipleComparison: bonferroni
+      
+    - rq: correlation
+      outcome: acceptance-rate (continuous) vs self-report-productivity (ordinal)
+      test: spearman
+      effectSize: spearman-rho
+      aggregationUnit: per-participant
+      smallN: hypothesis-generating
+
+threats:
+  - threat: demand-characteristics
+    mitigation: Participants unaware of acceptance rate being measured
+    cite: guidelines-empirical-llm-se
+  
+  - threat: social-desirability-bias
+    mitigation: Anonymized responses and neutral framing
+    cite: guidelines-empirical-llm-se
+
+protocolSkeleton:
+  protocolVersion: 1
+  
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  
+  researchQuestions:
+    - id: RQ-1
+      text: "What is the acceptance rate for AI-generated code completions?"
+    - id: RQ-2
+      text: "How does acceptance rate correlate with self-reported productivity?"
+    - id: RQ-3
+      text: "What is the latency between code completion display and acceptance?"
+  
+  conditions: "{{ conditions }}"
+  
+  participants:
+    planned: "{{ participantPlan }}"
+    design: within-subjects
+    counterbalanced: true
+  
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: |
+      Participants complete {{ taskCount }} coding tasks. Code completion suggestions
+      are shown by the AI assistant. Participants may accept or reject each suggestion.
+      {{ taskDescription }}
+  
+  instruments:
+    cognitiveOverlay:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 20
+        waitForPauseSeconds: 3
+      stuck:
+        enabled: true
+        thresholdSeconds: 60
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: code-quality-5
+
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [ziegler-acceptance-rate]
+    - rq: RQ-2
+      recipes: [ai-review-behavior]
+    - rq: RQ-3
+      recipes: [task-outcome-by-condition]
+  
+  literature:
+    - paperRef: arxiv:2205.06537
+      justifies: [RQ-1, RQ-2, RQ-3]

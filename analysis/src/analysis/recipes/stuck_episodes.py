@@ -44,9 +44,7 @@ def run(dataset: Dataset) -> RecipeResult:
 
     spans = dataset.session_spans
     per_session = (
-        episodes.groupby(
-            ["sessionId", "participantId", "condition"], as_index=False
-        )
+        episodes.groupby(["sessionId", "participantId", "condition"], as_index=False)
         .agg(episodes=("type", "count"), stuckMinutes=("durationMinutes", "sum"))
         .merge(spans[["sessionId", "durationMinutes"]], on="sessionId")
     )
@@ -99,8 +97,7 @@ def run(dataset: Dataset) -> RecipeResult:
         tables=tables,
         figures={"rate_by_condition": fig, "duration_by_condition": dur_fig},
         summary=(
-            "Stuck episodes (RQ-P1). "
-            f"Rate: {rate_sentence} Duration: {dur_sentence}"
+            f"Stuck episodes (RQ-P1). Rate: {rate_sentence} Duration: {dur_sentence}"
         ),
         methods=METHODS,
     )

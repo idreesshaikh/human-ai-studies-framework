@@ -1,4 +1,4 @@
-"""Self-improvement retrospective (FR-META-2, MP-11 Part C): evidence
+"""Self-improvement retrospective (FR-META-2, Part C): evidence
 collection, the FR-ETH-4 prompt boundary, the offline bundle, and a scripted
 Claude draft."""
 
@@ -9,13 +9,17 @@ from analysis import retrospective
 # prompt must NOT leak (FR-ETH-4).
 FINDINGS = [
     {
-        "id": 1, "kind": "seq-gap", "requirementId": "FR-ING-3",
+        "id": 1,
+        "kind": "seq-gap",
+        "requirementId": "FR-ING-3",
         "message": "S1 (cognitive-overlay): 1 seq gap, 1 event missing",
         "context": {"session": "S1", "source": "cognitive-overlay"},
         "status": "open",
     },
     {
-        "id": 2, "kind": "requires-fail", "requirementId": "FR-ANA-2",
+        "id": 2,
+        "kind": "requires-fail",
+        "requirementId": "FR-ANA-2",
         "message": "agent-interaction-dynamics (RQ-P5): MISSING DATA - "
         "requires event type 'agent_turn'",
         "context": {"recipe": "agent-interaction-dynamics", "rq": "RQ-P5"},

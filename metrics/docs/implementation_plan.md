@@ -1,6 +1,6 @@
 # Static code metrics - implementation plan (as built)
 
-**Status: ✅ implemented** by Mega-Prompt 03 (2026-07-11); satisfies FR-INST-4
+**Status: ✅ implemented**; satisfies FR-INST-4
 and the metrics leg of FR-INST-6. This document is the plan *and* the
 as-built record - deviations from the original plan are marked **[revised]**.
 
@@ -105,12 +105,12 @@ suite in `tests/` replaced manual-only verification.
   - `file_metrics`: one row per file - indentation_variance, max/mean line
     width, comment_ratio, halstead_effort_total, cognitive_complexity (NaN
     while stubbed).
-- **[revised - MP-03 framework additions]** Every row is stamped with the
+- **[framework additions]** Every row is stamped with the
   join keys `participantId`, `condition`, `sessionId`, a capture timestamp
   (`--timestamp`, else per-file mtime, ISO 8601 UTC), and `schemaVersion`
   (bump on any row-shape change, NFR-4) so metrics rows join the other legs
   on one timeline (FR-INST-6). `--format jsonl` mirrors the CSV rows as
-  JSON Lines (NaN → `null`) for middleware ingestion (Mega-Prompt 04).
+  JSON Lines (NaN → `null`) for middleware ingestion.
 
 ## Verification (all run green 2026-07-11)
 
@@ -135,6 +135,6 @@ suite in `tests/` replaced manual-only verification.
 - Docker + SonarQube container deployment and scanner configuration
   (optional Docker profile, decision D5).
 - Multi-language support beyond Python.
-- Time-series runs over shadow-git workspace snapshots (Mega-Prompt 12
+- Time-series runs over shadow-git workspace snapshots (agent leg
   provides the snapshotter; the orchestrator is already parameterized by
   target directory and timestamp).

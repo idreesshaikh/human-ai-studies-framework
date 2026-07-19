@@ -302,8 +302,9 @@ class TestDuplicateNamesAndDeterminism:
     def test_repeated_runs_are_byte_identical(self):
         # Regression: tree-sitter capture/match order is not guaranteed, so an
         # unsorted iteration made duplicate resolution flip between runs.
-        results = {repr(collect_function_metrics(DUPLICATE_SOURCE.encode()))
-                   for _ in range(20)}
+        results = {
+            repr(collect_function_metrics(DUPLICATE_SOURCE.encode())) for _ in range(20)
+        }
         assert len(results) == 1
 
     @pytest.mark.parametrize("corpus_file", ["weather.py", "detect.py"])
@@ -366,9 +367,7 @@ class TestLineWidthBounds:
 
 class TestHalsteadEffort:
     def test_total_and_per_function_reported(self):
-        report = get_halstead_effort(
-            "def f(a, b):\n    return a * b + a / b\n"
-        )
+        report = get_halstead_effort("def f(a, b):\n    return a * b + a / b\n")
         assert report["total"] > 0
         assert report["functions"]["f"] > 0
 
@@ -385,9 +384,7 @@ class TestHalsteadEffort:
                 return a
             """
         )
-        first_only = get_halstead_effort(
-            "def f(a, b):\n    return a * b + a - b\n"
-        )
+        first_only = get_halstead_effort("def f(a, b):\n    return a * b + a - b\n")
         report = get_halstead_effort(source)
         assert list(report["functions"]) == ["f"]
         assert report["functions"]["f"] == first_only["functions"]["f"]

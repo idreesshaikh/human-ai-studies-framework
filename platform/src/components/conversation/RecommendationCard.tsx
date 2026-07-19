@@ -1,0 +1,47 @@
+import { Plus } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { TierBadge } from "./TierBadge";
+import type { Recommendation } from "@/lib/types";
+
+/* A recommended paper. Arrives with a small rise as if dealt onto the
+ * table. The match reason is one sentence, always shown in full. Adding it
+ * joins the paper to the study set (local-only for now). */
+export function RecommendationCard({
+  rec,
+  added,
+  onAdd,
+}: {
+  rec: Recommendation;
+  added: boolean;
+  onAdd: (ref: string) => void;
+}) {
+  return (
+    <Card
+      data-agent="recommendation-card"
+      data-agent-ref={rec.ref}
+      className="animate-in fade-in slide-in-from-bottom-2 duration-entrance"
+    >
+      <CardContent className="flex flex-col gap-2 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <TierBadge tier={rec.tier} />
+          <span className="tabular text-xs text-text-muted">{rec.year}</span>
+        </div>
+        <p className="text-sm font-medium text-text">{rec.title}</p>
+        <p className="text-xs text-text-muted">{rec.venue}</p>
+        <p className="text-sm text-text">{rec.matchReason}</p>
+        <Button
+          size="sm"
+          variant={added ? "ghost" : "outline"}
+          disabled={added}
+          data-agent="add-paper"
+          onClick={() => onAdd(rec.ref)}
+          className="self-start"
+        >
+          <Plus aria-hidden />
+          {added ? "In your paper set" : "Add to study"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}

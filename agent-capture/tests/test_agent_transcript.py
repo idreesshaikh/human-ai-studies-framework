@@ -16,9 +16,10 @@ def test_normalizes_turns_tools_and_meta(transcript_path, keys):
     assert events[0]["payload"]["agentTool"] == "claude-code"
     assert events[0]["payload"]["modelId"] == "claude-opus-4-8"
     # cwd is stored only as a content-free hash (FR-ETH-2).
-    assert events[0]["payload"]["cwdHash"] and "/work" not in events[0]["payload"][
-        "cwdHash"
-    ]
+    assert (
+        events[0]["payload"]["cwdHash"]
+        and "/work" not in events[0]["payload"]["cwdHash"]
+    )
 
     assert types.count("agent_turn") == 4  # 1 user + 3 assistant
     assert types.count("tool_call") == 2  # Read + Edit

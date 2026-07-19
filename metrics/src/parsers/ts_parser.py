@@ -91,7 +91,7 @@ def _calculate_node_penalty(node, current_depth: int) -> int:
     }
 
     if node.type in nesting_types:
-        penalty += (2 ** current_depth)
+        penalty += 2**current_depth
         current_depth += 1
 
     for child in node.named_children:
@@ -212,7 +212,6 @@ if __name__ == "__main__":
 
     parser, lang = setup_parser()
     tree = parser.parse(sample_code)
-
 
     print("--- Static Metrics Extraction ---")
 

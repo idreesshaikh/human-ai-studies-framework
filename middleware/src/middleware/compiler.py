@@ -1,0 +1,298 @@
+"""The server-side protocol compiler.
+
+Turns accepted design moves into a protocol draft. **Pure function**: no LLM,
+no clock, no randomness — replaying the same accepted moves against the same
+base yields a byte-identical draft (F3.1). The conversation proposes moves;
+only this deterministic step produces YAML. The protocol stays the sole
+document of record (FR-PROT-1); this emits *drafts*, applied only on approval.
+
+Two kinds of move compile here:
+
+- **Template application** (`kind: "choose-template"`, patch carries
+  ``templateId`` + ``parameters``): instantiates a registry template into a
+  *complete, valid* protocol (the F1.1 path — a conversation reaches a
+  validating protocol without leaving the surface). The compiler treats the
+  instantiation as the draft's base.
+- **Free-text refinements** (append/set into the eight draft sections,
+  mirroring the client-side ``compiler.ts``): accumulate research questions,
+  conditions, measures, etc. Without a template these produce a *scaffold*
+  whose missing mandatory sections are named (F1.3 — never a silent gap),
+  not a valid protocol; with a template they refine the instantiated base.
+
+Every compile runs ``protocol validate`` (FR-CONV-3.2): a move that would
+break the schema surfaces as errors the conversation shows as a turn (F3.2),
+never a silently-invalid draft.
+"""
+
+from __future__ import annotations
+
+import difflib
+from dataclasses import dataclass, field
+
+import yaml
+from protocol.loader import validate_protocol
+
+#: The eight draft sections, mirroring the client model (``platform/src/lib/
+#: types.ts``). Order is fixed for deterministic rendering.
+SECTIONS: tuple[str, ...] = (
+    "researchQuestions",
+    "design",
+    "participants",
+    "conditions",
+    "measures",
+    "instruments",
+    "statisticalPlan",
+    "ethics",
+)
+
+#: The mandatory protocol sections a valid draft must fill (FR-PROT-1). Drives
+#: the "unresolved slots" report (F1.3).
+MANDATORY_SLOTS: tuple[str, ...] = SECTIONS
+
+
+@dataclass
+class MoveTrace:
+    """One accepted move's contribution to the draft (the FR-CONV-6 chain
+    link: move → grounding → the protocol section it touched). ``grounding``
+    is the move's citation refs, or ``["none"]`` for an unsourced move — so
+    the elicitation record shows how sure we are of each change, honesty
+    recorded not merely displayed (F2.3)."""
+
+    move_id: str
+    kind: str
+    section: str
+    grounding: list[str]
+
+
+@dataclass
+class CompileResult:
+    """The outcome of a compile: the draft protocol, its YAML, a diff from the
+    base, whether it validates, and — when it doesn't — the errors (F3.2) and
+    the named unresolved slots (F1.3)."""
+
+    draft: dict
+    yaml: str
+    diff: str
+    valid: bool
+    errors: list[str] = field(default_factory=list)
+    unresolved: list[str] = field(default_factory=list)
+    template_id: str | None = None
+    template_version: int | None = None
+    #: Per-move grounding trace, in application order (F6.1 chain, F2.3).
+    trace: list[MoveTrace] = field(default_factory=list)
+
+
+def empty_sections() -> dict[str, list]:
+    return {s: [] for s in SECTIONS}
+
+
+def compile_sections(moves: list[dict]) -> dict[str, list]:
+    """Fold accepted moves' patches into the section model. Pure and
+    deterministic — the same moves always yield the same sections. Mirrors
+    the client ``compileAll``; rejecting a move (status != accepted) simply
+    leaves it out, so re-folding removes its effect cleanly."""
+    sections = empty_sections()
+    for move in moves:
+        if move.get("status") != "accepted":
+            continue
+        patch = move.get("patch")
+        if not patch:  # caution moves carry no patch
+            continue
+        section = patch.get("section")
+        if section not in sections:
+            continue
+        op = patch.get("op", "append")
+        value = patch.get("value")
+        if op == "append":
+            if value not in sections[section]:
+                sections[section].append(value)
+        elif op == "set":
+            sections[section] = [value]
+    return sections
+
+
+def _build_trace(moves: list[dict]) -> list[MoveTrace]:
+    """The grounding trace for every accepted move, in order. A caution
+    (no patch) still traces — its grounding is why the researcher was
+    warned — targeting the section it advised on."""
+    trace = []
+    for move in moves:
+        if move.get("status") != "accepted":
+            continue
+        patch = move.get("patch") or {}
+        section = patch.get("section") or move.get("target", "")
+        refs = [g.get("ref", "") for g in move.get("grounding", []) if g.get("ref")]
+        trace.append(
+            MoveTrace(
+                move_id=move.get("moveId", ""),
+                kind=move.get("kind", ""),
+                section=section,
+                grounding=refs or ["none"],
+            )
+        )
+    return trace
+
+
+def _find_template_move(moves: list[dict]) -> dict | None:
+    """The last accepted template-application move, if any (a later choice
+    supersedes an earlier one — deterministic: last wins)."""
+    chosen = None
+    for move in moves:
+        if move.get("status") == "accepted" and move.get("kind") == "choose-template":
+            patch = move.get("patch") or {}
+            if patch.get("templateId"):
+                chosen = patch
+    return chosen
+
+
+def _scaffold_from_sections(sections: dict[str, list]) -> dict:
+    """Build a best-effort protocol dict from free-text sections alone (no
+    template). This is deliberately a *scaffold*: it will fail validation
+    until the mandatory sections are filled, and that failure is the F1.3
+    "named unresolved slots" signal, not an error to hide."""
+    rqs = [
+        {"id": f"RQ-{i + 1}", "text": t}
+        for i, t in enumerate(sections["researchQuestions"])
+    ]
+    return {
+        "protocolVersion": 1,
+        "study": {
+            "id": "draft",
+            "title": "Design-conversation draft",
+            "researchers": ["Researcher"],
+            "ethicsRef": "",
+        },
+        "researchQuestions": rqs,
+        "conditions": list(sections["conditions"]),
+        "participants": {
+            "planned": 1,
+            "design": "within-subjects",
+            "counterbalanced": False,
+        },
+        "session": {"durationMinutes": 1, "taskDescription": "draft"},
+        # Free-text measures/instruments are notes, not a valid instrument
+        # config; the scaffold leaves instruments empty so validation names it.
+        "instruments": {},
+        "phases": [{"name": "design", "gates": []}],
+        "analysisPlan": [],
+    }
+
+
+def _apply_instrument_moves(draft: dict, moves: list[dict]) -> None:
+    """Apply accepted instrument moves onto the draft in place — the FR-CONV-4.4
+    "instrument evolution rides the same path" contract. Instruments is a dict
+    section (not one of the eight list-valued sections), so these moves don't
+    fold into ``compile_sections``; they add or replace a whole instrument
+    config, or deep-set one field (a threshold/interval tweak, F4.2).
+
+    Deterministic: applied in move order, last write per target wins. Adding an
+    instrument is a new data stream (consent-relevant, F4.1); a deep-set of a
+    numeric threshold is not (``evolution.consent_relevance`` draws that line).
+    """
+    instruments = draft.setdefault("instruments", {})
+    if not isinstance(instruments, dict):  # scaffold safety
+        instruments = draft["instruments"] = {}
+    for move in moves:
+        if move.get("status") != "accepted":
+            continue
+        patch = move.get("patch") or {}
+        if patch.get("section") != "instruments":
+            continue
+        name = patch.get("name")
+        if not name:
+            continue
+        op = patch.get("op")
+        if op in ("add-instrument", "set-instrument"):
+            instruments[name] = patch.get("config") or {}
+        elif op == "reconfigure":
+            target = instruments.setdefault(name, {})
+            path = list(patch.get("path") or [])
+            for key in path[:-1]:
+                nxt = target.get(key)
+                if not isinstance(nxt, dict):
+                    nxt = {}
+                    target[key] = nxt
+                target = nxt
+            if path:
+                target[path[-1]] = patch.get("value")
+
+
+def _refine(protocol: dict, sections: dict[str, list]) -> dict:
+    """Apply free-text refinements onto a template-instantiated base protocol.
+    Only additive, non-destructive edits — appending research questions the
+    researcher added in conversation, and union-ing conditions. The template's
+    prescribed statistics and instruments are authoritative and untouched."""
+    out = yaml.safe_load(yaml.safe_dump(protocol))  # deep copy, plain types
+    existing_rq = {rq.get("text") for rq in out.get("researchQuestions", [])}
+    next_i = len(out.get("researchQuestions", []))
+    for t in sections["researchQuestions"]:
+        if t not in existing_rq:
+            next_i += 1
+            out.setdefault("researchQuestions", []).append(
+                {"id": f"RQ-{next_i}", "text": t}
+            )
+    for c in sections["conditions"]:
+        if c not in out.get("conditions", []):
+            out.setdefault("conditions", []).append(c)
+    return out
+
+
+def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> CompileResult:
+    """Compile accepted moves into a validated protocol draft.
+
+    ``base_yaml`` is the current draft (for the diff); when omitted the diff
+    is against the empty draft. Deterministic: same moves + same base → same
+    result (F3.1).
+    """
+    sections = compile_sections(moves)
+    template_patch = _find_template_move(moves)
+
+    template_id = template_version = None
+    if template_patch:
+        # Instantiate the template into a valid base, then refine with any
+        # free-text moves. Import here to avoid a hard import cycle at module
+        # load (the registry imports the analysis catalogue).
+        from middleware import template_registry
+
+        instantiated = template_registry.instantiate_template(
+            template_patch["templateId"],
+            template_patch.get("parameters", {}),
+            version=template_patch.get("templateVersion"),
+        )
+        template_id = instantiated["templateId"]
+        template_version = instantiated["templateVersion"]
+        draft = _refine(instantiated["protocol"], sections)
+    else:
+        draft = _scaffold_from_sections(sections)
+
+    # Instrument moves apply to the dict section directly (F4.1/F4.2), after
+    # the base is built so an added instrument survives both paths.
+    _apply_instrument_moves(draft, moves)
+
+    new_yaml = yaml.safe_dump(draft, sort_keys=False, default_flow_style=False)
+    base = base_yaml or ""
+    diff = "".join(
+        difflib.unified_diff(
+            base.splitlines(keepends=True),
+            new_yaml.splitlines(keepends=True),
+            fromfile="draft-before",
+            tofile="draft-after",
+        )
+    )
+
+    errors = validate_protocol(draft)
+    unresolved = (
+        [] if template_patch else [s for s in MANDATORY_SLOTS if not sections[s]]
+    )
+
+    return CompileResult(
+        draft=draft,
+        yaml=new_yaml,
+        diff=diff,
+        valid=not errors,
+        errors=errors,
+        unresolved=unresolved,
+        template_id=template_id,
+        template_version=template_version,
+        trace=_build_trace(moves),
+    )

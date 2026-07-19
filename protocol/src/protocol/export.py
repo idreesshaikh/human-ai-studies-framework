@@ -1,4 +1,4 @@
-"""Replication-kit export (FR-PROT-7, NFR-6; docs/archive/roadmap/09 item 1).
+"""Replication-kit export (FR-PROT-7, NFR-6).
 
 ``protocol export replication-kit`` packages one study into a single
 archive from which a third party reproduces the analysis:
@@ -16,7 +16,7 @@ archive from which a third party reproduces the analysis:
       schema/            the study-protocol JSON schema
       uv.lock, .python-version   the pinned environment (D16)
       literature.json    the protocol's paper->element links (full paper
-                         metadata joins with MP-10's ingest)
+                         metadata joins with's ingest)
 
 Determinism (NFR-6): the archive is byte-stable - fixed tar metadata
 (mtime/uid/gid), sorted entries, gzip mtime=0 - and the report is
@@ -106,7 +106,9 @@ def _recipe_registry() -> list[dict]:
     docstring for why not an import)."""
     proc = subprocess.run(
         [sys.executable, "-m", "analysis.cli", "list", "--json"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if proc.returncode != 0:
         raise ProtocolError(
@@ -121,11 +123,20 @@ def _regenerate_report(protocol_path: Path, dataset_path: Path, out_dir: Path) -
     env = {**os.environ, "SOURCE_DATE_EPOCH": "0"}
     proc = subprocess.run(
         [
-            sys.executable, "-m", "analysis.cli", "run",
-            str(protocol_path), "--dataset", str(dataset_path),
-            "--out", str(out_dir),
+            sys.executable,
+            "-m",
+            "analysis.cli",
+            "run",
+            str(protocol_path),
+            "--dataset",
+            str(dataset_path),
+            "--out",
+            str(out_dir),
         ],
-        capture_output=True, text=True, check=False, env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
     )
     # 2 = report written with loud validation failures - part of the record.
     if proc.returncode not in (0, 2):
@@ -146,10 +157,7 @@ def _package_versions() -> dict[str, str]:
 
 
 def build_kit(
-    protocol_path: Path,
-    dataset: dict,
-    out_path: Path,
-    repo_root: Path,
+    protocol_path: Path, dataset: dict, out_path: Path, repo_root: Path
 ) -> Path:
     """Assemble the deterministic kit archive; returns ``out_path``."""
     protocol = load_protocol(protocol_path)  # validates before packaging
@@ -160,9 +168,7 @@ def build_kit(
         staging = Path(td)
         (staging / "protocol.yaml").write_bytes(Path(protocol_path).read_bytes())
         (staging / "dataset.json").write_bytes(_canonical(dataset))
-        (staging / "README.md").write_text(
-            README_TEMPLATE.format(study_id=study_id)
-        )
+        (staging / "README.md").write_text(README_TEMPLATE.format(study_id=study_id))
         (staging / "literature.json").write_bytes(
             _canonical(protocol.get("literature", []))
         )
@@ -187,18 +193,24 @@ def build_kit(
         )
 
         rows = dataset.get("rows", [])
-        (staging / "versions.json").write_bytes(_canonical({
-            "kitFormatVersion": KIT_FORMAT_VERSION,
-            "studyId": study_id,
-            "protocolVersion": protocol["protocolVersion"],
-            "pythonVersion": (repo_root / ".python-version").read_text().strip(),
-            "packages": _package_versions(),
-            "recipes": _recipe_registry(),
-            "eventSchemaVersions": sorted(
-                {r["v"] for r in rows if isinstance(r.get("v"), int)}
-            ),
-            "datasetRows": len(rows),
-        }))
+        (staging / "versions.json").write_bytes(
+            _canonical(
+                {
+                    "kitFormatVersion": KIT_FORMAT_VERSION,
+                    "studyId": study_id,
+                    "protocolVersion": protocol["protocolVersion"],
+                    "pythonVersion": (repo_root / ".python-version")
+                    .read_text()
+                    .strip(),
+                    "packages": _package_versions(),
+                    "recipes": _recipe_registry(),
+                    "eventSchemaVersions": sorted(
+                        {r["v"] for r in rows if isinstance(r.get("v"), int)}
+                    ),
+                    "datasetRows": len(rows),
+                }
+            )
+        )
 
         # Deterministic archive: sorted members, zeroed metadata, gzip mtime=0.
         out_path.parent.mkdir(parents=True, exist_ok=True)

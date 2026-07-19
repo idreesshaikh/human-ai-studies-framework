@@ -25,15 +25,21 @@ def client(tmp_path) -> TestClient:
         data_dir=tmp_path / "data",
         protocol_path=PILOT,
         port=8000,
-        # Hermetic: a dashboard build in the working copy must not add routes.
-        dashboard_dist=tmp_path / "no-dist",
+        # Hermetic: a platform build in the working copy must not add routes.
+        spa_dist=tmp_path / "no-dist",
     )
     app = create_app(settings, clock=lambda: FROZEN_NOW)
     return TestClient(app)
 
 
-def event(seq: int, session="S1", participant="P01", condition="ai-assisted",
-          type_="fatigue_response", ts=None) -> dict:
+def event(
+    seq: int,
+    session="S1",
+    participant="P01",
+    condition="ai-assisted",
+    type_="fatigue_response",
+    ts=None,
+) -> dict:
     return {
         "v": 2,
         "ts": ts or f"2026-07-11T10:00:{seq:02d}.000Z",
@@ -47,8 +53,14 @@ def event(seq: int, session="S1", participant="P01", condition="ai-assisted",
     }
 
 
-def metric_row(file="detect.py", function=None, ts="2026-07-11T10:00:05+00:00",
-               participant="P01", condition="ai-assisted", session="S1") -> dict:
+def metric_row(
+    file="detect.py",
+    function=None,
+    ts="2026-07-11T10:00:05+00:00",
+    participant="P01",
+    condition="ai-assisted",
+    session="S1",
+) -> dict:
     row = {
         "file": file,
         "indentation_variance": 9.6,
@@ -115,9 +127,7 @@ def test_gaps_404_for_unknown_session(client):
 
 
 def test_unknown_condition_is_stored_and_flagged_not_dropped(client):
-    res = client.post(
-        "/ingest/events", json=[event(0, condition="with-ai")]
-    ).json()
+    res = client.post("/ingest/events", json=[event(0, condition="with-ai")]).json()
     assert res["inserted"] == 1  # never dropped
     assert res["flagged"] == 1
     stored = client.get("/sessions/S1/events").json()[0]
@@ -154,19 +164,20 @@ def test_metrics_ingest_is_idempotent(client):
 def test_dataset_joins_legs_on_one_timeline(client):
     client.post(
         "/ingest/events",
-        json=[event(0, ts="2026-07-11T10:00:00.000Z"),
-              event(1, ts="2026-07-11T10:00:10.000Z")],
+        json=[
+            event(0, ts="2026-07-11T10:00:00.000Z"),
+            event(1, ts="2026-07-11T10:00:10.000Z"),
+        ],
     )
-    client.post(
-        "/ingest/metrics", json=[metric_row(ts="2026-07-11T10:00:05+00:00")]
-    )
+    client.post("/ingest/metrics", json=[metric_row(ts="2026-07-11T10:00:05+00:00")])
     rows = client.get("/studies/pilot-2026/dataset").json()["rows"]
     assert [r["source"] for r in rows] == [
-        "cognitive-overlay", "metrics", "cognitive-overlay",
+        "cognitive-overlay",
+        "metrics",
+        "cognitive-overlay",
     ]
     assert all(
-        r["participantId"] == "P01" and r["condition"] == "ai-assisted"
-        for r in rows
+        r["participantId"] == "P01" and r["condition"] == "ai-assisted" for r in rows
     )
 
     csv_text = client.get("/studies/pilot-2026/dataset?format=csv").text
@@ -189,10 +200,7 @@ def test_session_listing_merges_legs(client):
 
 
 def test_event_type_filter(client):
-    client.post(
-        "/ingest/events",
-        json=[event(0), event(1, type_="stuck_response")],
-    )
+    client.post("/ingest/events", json=[event(0), event(1, type_="stuck_response")])
     only = client.get("/sessions/S1/events?type=stuck_response").json()
     assert [e["seq"] for e in only] == [1]
 
@@ -208,9 +216,7 @@ def test_file_upload_is_content_addressed(client, tmp_path):
 
 
 def test_tasks_crud(client):
-    task_id = client.post(
-        "/tasks", json={"title": "print consent forms"}
-    ).json()["id"]
+    task_id = client.post("/tasks", json={"title": "print consent forms"}).json()["id"]
     assert client.get("/tasks?status=open").json()[0]["title"] == (
         "print consent forms"
     )
@@ -219,7 +225,7 @@ def test_tasks_crud(client):
 
 
 # ---------------------------------------------------------------------------
-# Dashboard support endpoints (MP-06, FR-DASH-1/2/3/7)
+# Platform support endpoints
 
 
 def upload(client, filename: str, content: bytes = b"x") -> dict:
@@ -280,7 +286,8 @@ def test_status_document_reports_sessions_gaps_and_rq_coverage(client):
 
     rqs = {rq["id"]: rq for rq in doc["researchQuestions"]}
     assert rqs["RQ-P5"]["recipes"] == [
-        "agent-interaction-dynamics", "task-outcome-by-condition",
+        "agent-interaction-dynamics",
+        "task-outcome-by-condition",
     ]
     assert all(rq["recipeRuns"] == [] for rq in rqs.values())
     assert doc["lifecycle"]["currentPhase"] == "design"
@@ -304,7 +311,7 @@ def test_recipe_runs_flow_into_status_rq_coverage(client):
     assert runs[0]["status"] == "ok"
 
     # The status document projects the run into RQ coverage (FR-DASH-7:
-    # the dashboard's un-run-recipe card for this recipe clears itself).
+    # the platform's un-run-recipe card for this recipe clears itself).
     doc = client.get("/studies/pilot-2026/status").json()
     rqs = {rq["id"]: rq for rq in doc["researchQuestions"]}
     assert rqs["RQ-P1"]["recipeRuns"] == ["fatigue-by-condition"]
@@ -328,18 +335,17 @@ def test_bearer_token_gates_views_but_not_ingest(tmp_path):
         db_path=tmp_path / "t.sqlite3",
         data_dir=tmp_path,
         protocol_path=PILOT,
-        dashboard_dist=tmp_path / "no-dist",
+        spa_dist=tmp_path / "no-dist",
         token="s3cret",
     )
     client = TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
     # Sensors keep working unauthenticated (NFR-1: never block a session).
     assert client.post("/ingest/events", json=[event(0)]).status_code == 200
     assert client.get("/health").status_code == 200
-    # Dashboard-facing reads require the token.
+    # Platform-facing reads require the token.
     assert client.get("/studies/pilot-2026/sessions").status_code == 401
     ok = client.get(
-        "/studies/pilot-2026/sessions",
-        headers={"Authorization": "Bearer s3cret"},
+        "/studies/pilot-2026/sessions", headers={"Authorization": "Bearer s3cret"}
     )
     assert ok.status_code == 200
 
@@ -350,7 +356,7 @@ def test_cors_is_off_by_default_and_opt_in_per_origin(tmp_path):
         db_path=tmp_path / "t.sqlite3",
         data_dir=tmp_path,
         protocol_path=PILOT,
-        dashboard_dist=tmp_path / "no-dist",
+        spa_dist=tmp_path / "no-dist",
     )
     closed = TestClient(create_app(Settings(**base), clock=lambda: FROZEN_NOW))
     res = closed.get("/health", headers={"Origin": "https://preview.example"})
@@ -377,7 +383,7 @@ def test_spa_is_served_when_built(tmp_path):
         db_path=tmp_path / "t.sqlite3",
         data_dir=tmp_path,
         protocol_path=PILOT,
-        dashboard_dist=dist,
+        spa_dist=dist,
     )
     client = TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
     res = client.get("/")
@@ -385,10 +391,12 @@ def test_spa_is_served_when_built(tmp_path):
     # The shell must revalidate on every load: a cached index.html pins
     # browsers to a stale bundle across deploys (assets are hashed, safe).
     assert res.headers["cache-control"] == "no-cache"
-    # Deep links into client-side routes re-serve the shell (NFR-7).
-    deep = client.get("/study/pilot-2026/board")
+    # Deep links into the platform's client-side routes re-serve the shell
+    # (NFR-7): the project workspace and the invitation-accept page.
+    deep = client.get("/p/my-lab/studies/pilot-2026")
     assert "mission control" in deep.text
     assert deep.headers["cache-control"] == "no-cache"
+    assert "mission control" in client.get("/invitations/abc123").text
     assert client.get("/assets/app.js").status_code == 200
     # The API keeps priority over the static mount.
     assert client.get("/health").json()["status"] == "ok"
@@ -415,7 +423,7 @@ def test_stale_database_schema_fails_loudly_at_startup(tmp_path):
 
     db = tmp_path / "stale.sqlite3"
     con = sqlite3.connect(db)
-    # A pre-MP-12 events table: no `source` column.
+    # A pre- events table: no `source` column.
     con.execute("CREATE TABLE events (id INTEGER PRIMARY KEY, session_id TEXT)")
     con.commit()
     con.close()

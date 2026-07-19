@@ -2,8 +2,7 @@
 
 The service every leg reports to (FR-ING-1..6): idempotent ingest of
 extension StudyEvents and static-metrics rows, artifact uploads, seq-gap
-integrity reports, and the joined one-timeline dataset export that the
-dashboard and analysis recipes consume. Storage is a single SQLite file
+integrity reports, and the joined one-timeline dataset export that theplatform and analysis recipes consume. Storage is a single SQLite file
 under `.study-data/` (gitignored - participant data never enters git).
 
 ```mermaid
@@ -83,18 +82,18 @@ report (FR-ING-3) and the one-timeline dataset summary (FR-ING-4).
 | `GET /sessions/{id}/events` | events, filterable by `type`/`since`/`until` |
 | `GET /sessions/{id}/gaps` | seq-gap integrity report |
 | `GET /studies/{id}/dataset` | one-timeline export, `?format=json\|csv` |
-| `GET /studies/{id}/protocol` | protocol summary for the dashboard overview + trace chips (MP-06) |
+| `GET /studies/{id}/protocol` | protocol summary for the platform overview + trace chips (MP-06) |
 | `GET /studies/{id}/lifecycle` | computed phase + per-gate satisfaction from uploaded artifacts (FR-DASH-2) |
 | `GET /studies/{id}/status` | factual status doc the task board derives its cards from (FR-DASH-7) |
 | `GET /studies/{id}/live` | sessions with ingests in the last 5 min + rate buckets (FR-DASH-3) |
 | `GET /files` | uploaded artifact index |
 | `POST/GET /findings` | operational-findings log (FR-META-1; full wiring MP-11) |
-| `POST/GET/PATCH /tasks` | manual task-board cards (dashboard, MP-06) |
+| `POST/GET/PATCH /tasks` | manual task-board cards (MP-06) |
 | `GET /health` | liveness + loaded protocol |
 
-With `MIDDLEWARE_DASHBOARD` pointing at a built SPA (default
-`dashboard/dist`, baked into the Docker image), the middleware also serves
-the dashboard at `/` and re-serves the shell for `/study/*` deep links -
-one process is the whole stack (NFR-7). `MIDDLEWARE_TOKEN` optionally
+With `MIDDLEWARE_WEB` pointing at a built SPA (default `platform/dist`,
+baked into the Docker image), the middleware also serves the React platform
+app at `/` and re-serves the shell for its `/p/*` and `/invitations/*` deep
+links - one process is the whole stack (NFR-7). `MIDDLEWARE_TOKEN` optionally
 bearer-gates the query/task endpoints; ingest stays open by design
 (sensors are fire-and-forget, NFR-1).

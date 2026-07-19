@@ -1,5 +1,5 @@
 """End-to-end runner test on a synthetic dataset with known answers
-(mega-prompt 07 §5): recipes produce the constructed effect, the report is
+(FR-ANA-3): recipes produce the constructed effect, the report is
 organized by RQ, and a recipe with missing data fails at validation naming
 the missing event type."""
 

@@ -11,9 +11,7 @@ def test_validate_example_ok(example_path, capsys):
 
 
 def test_validate_broken_fixture_fails_naming_field(fixtures_dir, capsys):
-    exit_code = main(
-        ["validate", str(fixtures_dir / "broken-missing-conditions.yaml")]
-    )
+    exit_code = main(["validate", str(fixtures_dir / "broken-missing-conditions.yaml")])
     assert exit_code == 1
     err = capsys.readouterr().err
     assert "conditions" in err

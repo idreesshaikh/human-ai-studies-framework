@@ -3,10 +3,8 @@
 This is the operator's guide to every runnable piece of the platform: what
 each component is, how to start it, how the pieces talk to each other, and
 the full walkthroughs from "clean checkout" to "compiled paper draft".
-For the vision and architecture, read [`docs/archive/roadmap/00-VISION.md`](docs/archive/roadmap/00-VISION.md);
-for developing *on* the repo, read [`CONTRIBUTING.md`](CONTRIBUTING.md);
-for conducting a real study session with a participant, the facilitator's
-script is [`study/pilot/runbook.md`](study/pilot/runbook.md).
+For the vision and architecture, read [`docs/VISION.md`](docs/VISION.md);
+for developing *on* the repo, read [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 Everything below was executed and verified on a clean checkout.
 
@@ -18,7 +16,7 @@ Everything below was executed and verified on a clean checkout.
 | --------- | ---------- | ------ | ---- |
 | `protocol/` | Study-as-code: validate protocols, drive the lifecycle, derive instrument configs, export replication kits | `uv run protocol …` | `uv run pytest protocol` |
 | `middleware/` | The hub: ingestion + storage + query API on **port 8000** (every sensor assumes it) | `uv run python -m middleware` | `uv run pytest middleware` |
-| `dashboard/` | Mission control SPA (Svelte 5): task board, lifecycle, live timeline, metrics, knowledge graph | `npm run dev` (dev) / built `dist/` served by the middleware (prod) | `npm run check` in `dashboard/` |
+| `platform/` | The web app (React 19): design conversation, study workspace (Library / Data / Lifecycle), projects, evolution surfaces | `npm run dev` (dev) / built `dist/` served by the middleware (prod) | `npm run check` in `platform/` |
 | `extension/` | "Cognitive Overlay" VS Code extension: cognitive + behavioral legs | F5 in VS Code → Extension Development Host | `npm run check` in `extension/` |
 | `metrics/` | Static-metrics leg: the 9-metric cognitive-load matrix over a code directory | `uv run python metrics/src/main.py …` | `uv run pytest metrics` |
 | `agent-capture/` | Agent leg: Claude Code hooks, transcript import, workspace snapshots, task harness, correlation | `uv run agent-capture …` | `uv run pytest agent-capture` |
@@ -26,7 +24,7 @@ Everything below was executed and verified on a clean checkout.
 
 Data flow in one sentence: the **protocol** configures the four instrument
 legs (extension x2, metrics, agent-capture), all legs POST to the
-**middleware** on `:8000` on one shared timeline, the **dashboard** projects
+**middleware** on `:8000` on one shared timeline, the **platform** projects
 that state live, and **analysis** pulls the joined dataset back out to
 produce the report, the paper draft, and the retrospective.
 
@@ -38,7 +36,7 @@ flowchart LR
     E -->|POST /ingest/events| M
     MET[metrics] -->|POST /ingest/metrics| M
     AC -->|POST /ingest/events| M
-    M --> D[dashboard]
+    M --> D[platform]
     M -->|GET /studies/:id/dataset| A[analysis]
     A --> R[report.md]
     A --> PD[paper/draft.tex]
@@ -52,7 +50,7 @@ flowchart LR
 | Tool | Version | Needed for |
 | ---- | ------- | ---------- |
 | Python + [uv](https://docs.astral.sh/uv/) | 3.12, uv ≥ 0.5 | everything Python (uv manages the venv - never pip/venv by hand) |
-| Node.js | ≥ 22 | `extension/` and `dashboard/` |
+| Node.js | ≥ 22 | `extension/` and `platform/` |
 | Docker | any recent | optional: the one-command composed stack + SonarQube |
 | [tectonic](https://tectonic-typesetting.github.io/) *or* `pdflatex` | any | optional: compiling the generated paper draft to PDF (`brew install tectonic`) |
 
@@ -62,7 +60,7 @@ uv sync --all-packages
 
 # 2. Node components
 (cd extension && npm install)
-(cd dashboard && npm install)
+(cd platform && npm install)
 
 # 3. Optional: commit-time gate mirroring CI
 uv run pre-commit install
@@ -70,7 +68,7 @@ uv run pre-commit install
 # 4. Prove the checkout is healthy (same gates CI runs)
 uv run pytest && uv run ruff check .
 (cd extension && npm run check)
-(cd dashboard && npm run check)
+(cd platform && npm run check)
 ```
 
 ---
@@ -78,16 +76,16 @@ uv run pytest && uv run ruff check .
 ## 2. Fastest demo: the composed stack
 
 One command brings up the middleware with the pilot protocol loaded, serves
-the dashboard at the same address, and seeds a demo session so every view
+the platform at the same address, and seeds a demo session so every view
 has data:
 
 ```bash
 docker compose up          # middleware :8000 + demo seed
-# then open http://127.0.0.1:8000  ← the dashboard
+# then open http://127.0.0.1:8000  ← the platform
 docker compose --profile sonar up   # …plus SonarQube on :9000 (cognitive-complexity metric)
 ```
 
-Verify the whole chain in one shot (health → dashboard → idempotent ingest →
+Verify the whole chain in one shot (health → platform → idempotent ingest →
 gap detection → dataset export → per-RQ report → paper draft):
 
 ```bash
@@ -122,11 +120,11 @@ All configuration is environment variables (defaults in
 | `MIDDLEWARE_DB` | `.study-data/middleware.sqlite3` | SQLite file (gitignored - participant data never enters git) |
 | `MIDDLEWARE_DATA_DIR` | `.study-data` | artifact/file store root |
 | `MIDDLEWARE_PROTOCOL` | *(unset)* | study protocol YAML; unset = accept-all ingest |
-| `MIDDLEWARE_DASHBOARD` | `dashboard/dist` | built SPA to serve at `/`; missing dir = API-only |
+| `MIDDLEWARE_WEB` | `platform/dist` | built SPA to serve at `/`; missing dir = API-only |
 | `MIDDLEWARE_TOKEN` | *(unset)* | optional bearer token for query/task endpoints; **ingest is deliberately never authenticated** (sensors are fire-and-forget by design) |
-| `MIDDLEWARE_AUTH` | *(unset)* | sign-in provider: `none` / `token` / `clerk`; unset = inferred (`token` when a token is set, else `none`). The dashboard shows a sign-in screen instead of raw 401s |
+| `MIDDLEWARE_AUTH` | *(unset)* | sign-in provider: `none` / `token` / `clerk`; unset = inferred (`token` when a token is set, else `none`). The platform shows a sign-in screen instead of raw 401s |
 | `MIDDLEWARE_CLERK_JWKS_URL` / `_CLERK_ISSUER` / `_CLERK_PUBLISHABLE_KEY` | *(unset)* | Clerk mode only (hosted deployments): session JWTs are verified server-side against this JWKS; the publishable key is exposed via `GET /auth/config` for the sign-in UI |
-| `MIDDLEWARE_CORS_ORIGINS` | *(unset)* | comma-separated origins allowed to call the API cross-origin (e.g. a separately hosted dashboard preview); unset = same-origin only |
+| `MIDDLEWARE_CORS_ORIGINS` | *(unset)* | comma-separated origins allowed to call the API cross-origin (e.g. a separately hosted platform preview); unset = same-origin only |
 | `MISTRAL_API_KEY` | *(unset)* | enables the knowledge assistant (`POST /studies/{id}/assistant`; model tier picked from the UI, D32 rev 2); unset = graceful 503, everything else works offline |
 
 Seed it with the demo session (idempotent - run it twice, no duplicates):
@@ -144,31 +142,33 @@ The API surface at a glance (see `middleware/README.md` for details):
 | `POST /ingest/events` · `POST /ingest/metrics` | the two ingest paths, idempotent per `(sessionId, source, seq)` / content hash |
 | `GET /sessions/{id}/gaps` | sequence-gap integrity report (loss is always detectable, never silent) |
 | `GET /studies/{id}/dataset?format=json\|csv` | the joined one-timeline export all analysis consumes |
-| `GET /studies/{id}/status` · `/lifecycle` · `/live` · `/protocol` | dashboard projections |
+| `GET /studies/{id}/status` · `/lifecycle` · `/live` · `/protocol` | platform projections |
 | `POST /files` + gate artifact uploads | lifecycle gates |
 | `GET/POST /findings` · `POST /studies/{id}/findings/scan` | operational findings log |
 | `GET/POST /tasks` | manual task-board cards |
 | `POST /studies/{id}/papers` · `/papers/upload` · `GET /papers/graph` | knowledge layer |
 | `POST /studies/{id}/assistant` | grounded Claude assistant (sees aggregates only, enforced server-side) |
 
-### 3.2 Dashboard
+### 3.2 Platform (the web app)
 
 **Dev** (hot reload; API calls proxy to the middleware on :8000 - start the
 middleware first):
 
 ```bash
-cd dashboard && npm run dev     # http://localhost:5173
+cd platform && npm run dev      # http://localhost:5173
 ```
 
 **Prod** (one process serves the whole stack):
 
 ```bash
-cd dashboard && npm run build   # → dashboard/dist
+cd platform && npm run build    # → platform/dist
 # restart the middleware; it serves dist/ at http://127.0.0.1:8000/
 ```
 
-Routes: `/study/pilot-2026/overview | board | tasks | live | sessions/:sid |
-metrics | knowledge`.
+The React app is entered at `/` (the hero) and routes client-side: `/projects`,
+`/p/:slug` (a project), `/p/:slug/studies/:id` (the study workspace — the design
+conversation plus the Library, Data, and Lifecycle tabs), `/p/:slug/platform`
+(the feedback→findings surface), `/demo`.
 
 ### 3.3 VS Code extension (cognitive + behavioral legs)
 
@@ -252,7 +252,7 @@ uv run protocol status   protocol/examples/pilot-study.yaml   # phase + missing 
 
 The lifecycle is gate-driven (design → ethics → pilot → recruitment →
 data-collection → analysis → write-up): a phase advances only when its gate
-artifacts are uploaded to the middleware (`POST /files` or the dashboard's
+artifacts are uploaded to the middleware (`POST /files` or the platform's
 lifecycle board). A satisfied later-phase gate never leapfrogs an earlier
 blocked one (data collection is unreachable before ethics approval is uploaded).
 
@@ -285,7 +285,7 @@ cd results/pilot-2026/paper && tectonic draft.tex          # → draft.pdf
 
 # 4. The retrospective - the framework proposes its own fixes:
 uv run analysis retrospective protocol/examples/pilot-study.yaml \
-    --findings-md study/pilot/findings.md --out retrospective
+    --out retrospective
 # With MISTRAL_API_KEY: the model drafts the changelist
 # proposal (findings +
 # aggregates only, never participant rows). Without: you get the assembled evidence
@@ -302,9 +302,7 @@ uv run protocol export replication-kit protocol/examples/pilot-study.yaml \
 
 ## 5. Running a real study session
 
-The complete facilitator script - setup checklist, Latin-square
-counterbalancing, per-session steps, incident playbook - is
-[`study/pilot/runbook.md`](study/pilot/runbook.md). The shape of a session:
+The shape of a session:
 
 1. **Pre-study (once):** ethics gate cleared (consent forms uploaded),
    demo data reset (DR-05), one interactive dev-host pass (DR-06).
@@ -327,7 +325,7 @@ counterbalancing, per-session steps, incident playbook - is
 | `uv run pytest --cov=metrics/src --cov-report=term-missing --cov-fail-under=95` | Python - pytest + ruff (coverage gate on the metrics leg) |
 | `uv run ruff check .` | Python - pytest + ruff |
 | `cd extension && npm run check` | Extension - typecheck + lint + format + test |
-| `cd dashboard && npm run check` | Dashboard - svelte-check + vitest |
+| `cd platform && npm run check` | Platform - tsc + lint + verify + build |
 | `docker build -f middleware/Dockerfile .` | Middleware image builds |
 
 `uv run pre-commit install` mirrors the same gate at commit time. Two
@@ -343,7 +341,7 @@ golden paper drafts).
 | ------- | ----------- |
 | Sensor events aren't arriving | Middleware not on :8000, or wrong endpoint in the derived settings. Sensors never crash on this - they buffer to local JSONL; check `GET /health`, then re-import/replay. Loss is visible in `GET /sessions/{id}/gaps`. |
 | `analysis run` exits 2 | Not an error in itself: the report was written but some plan entries failed their requires-check (each failure names the missing event type/metric). `agent_turn`/`task_outcome` failures on the demo seed are expected until agent-leg data exists. |
-| Dashboard 404 / API-only responses at `/` | `dashboard/dist` doesn't exist - run `npm run build` in `dashboard/`, or use `npm run dev` on :5173. |
+| API-only responses at `/` (no app) | `platform/dist` doesn't exist - run `npm run build` in `platform/`, or use `npm run dev` on :5173. |
 | `POST /studies/{id}/assistant` → 503 | No `MISTRAL_API_KEY`. Everything else is unaffected (the platform is offline-first). |
 | Paper compiles with overfull-hbox warnings | Cosmetic (wide result tables). No TeX engine at all? `brew install tectonic` - or skip compilation; `draft.md` carries the same content. |
 | Cognitive-complexity column empty | SonarQube not running: `docker compose --profile sonar up`, pass `--sonar-url`. The other 8 metrics degrade gracefully (never block). |

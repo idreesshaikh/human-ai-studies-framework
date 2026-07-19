@@ -1,6 +1,6 @@
 # Stakeholder analysis
 
-Six stakeholder roles. Goals become research questions and requirements;
+Seven stakeholder roles. Goals become research questions and requirements;
 conflicts become documented trade-offs with a decided resolution.
 
 ## S1 - Researcher / Facilitator (primary; Idrees)
@@ -26,12 +26,16 @@ the approved protocol is the protocol actually executed (no silent drift).
 The lifecycle gate mechanism exists chiefly for S3: approval is an artifact
 the platform checks, and protocol changes after approval are version-visible.
 
-## S4 - Thesis examiner (requirements engineering programme)
+## S4 - Thesis examiner
 
-Grades the project as RE work. **Goals:** see genuine RE practice -
-elicitation, specification, prioritization, V&V, traceability, change
-management - not just software. Both levels must be visible: RE *of* the
-platform (this directory) and RE *by* the platform (the protocol schema).
+*(Rev 2, 2026-07-17: reframed - RE is a subject the supervisor teaches
+and values, not the grading rubric; the project is assessed as a
+research-platform thesis.)* Assesses the built platform and its
+evidence. **Goals:** a working end-to-end platform; engineering
+decisions that are traceable and defensible; honest statistics behind
+every claim. The structured record in this directory serves those goals
+- RE practice appears where it earns its keep (the elicitation record,
+the protocol as machine-readable spec), never as a performance.
 
 ## S5 - Replicating researcher
 
@@ -46,6 +50,20 @@ Whoever extends the platform (including future Idrees, and JetBrains-port
 authors). **Goals:** IDE-agnostic core stays IDE-agnostic; schemas are
 versioned so old data never becomes unreadable; new instruments and recipes
 plug in without touching existing legs.
+
+## S7 - Adopting researcher (industry or academia)
+
+A researcher who is *not* the maintainer, arriving at the hosted platform to
+run their own study. **Goals:** understand within minutes what the platform
+does (hero page, live demo); sign up and create a project without reading a
+thesis; invite colleagues with appropriate roles; design a study by picking
+a published, citable design rather than reinventing methodology; be told the
+statistically correct analysis rather than having to derive it; get data
+either from live instrumented sessions or from curated external sources
+(GitHub, archives) through one flow. **Concern:** most "research platforms"
+are task boards in disguise - S7 stays only if the platform encodes real
+methodological knowledge (the paper corpus in `docs/papers/`) and saves them
+from the statistics they fear getting wrong.
 
 ## Conflicts and resolutions
 

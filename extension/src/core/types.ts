@@ -10,7 +10,7 @@ export type StudyCondition = 'ai-assisted' | 'unassisted' | 'unspecified';
  * Bump when the event shape or the meaning of a payload field changes, so
  * analysis scripts can branch on it instead of guessing from file dates.
  *
- * v3: behavioral telemetry leg (MP-05) - adds editor_focus, visible_range,
+ * v3: behavioral telemetry leg - adds editor_focus, visible_range,
  * edit_burst, clipboard_paste, ai_suggestion, file_save, heartbeat, and
  * environment_snapshot event types (see src/core/behavior.ts). Also carries
  * the additive `attention` event (region-level time-on-code, see

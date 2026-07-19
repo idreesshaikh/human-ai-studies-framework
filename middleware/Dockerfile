@@ -1,13 +1,13 @@
 # Build from the REPO ROOT (the uv workspace is the build context):
 #   docker build -f middleware/Dockerfile .
 
-# Stage 1: build the dashboard SPA (MP-06) so the middleware can serve it -
+# Stage 1: build the React `platform/` SPA so the middleware can serve it -
 # one process is the whole stack (NFR-7).
-FROM node:22-alpine AS dashboard
-WORKDIR /dash
-COPY dashboard/package.json dashboard/package-lock.json ./
+FROM node:22-alpine AS web
+WORKDIR /web
+COPY platform/package.json platform/package-lock.json ./
 RUN npm ci
-COPY dashboard/ ./
+COPY platform/ ./
 RUN npm run build
 
 # Stage 2: the middleware itself.
@@ -15,12 +15,14 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 
-# Workspace metadata first for layer caching, then the two packages the
-# service needs (middleware depends on protocol for FR-ING-6 validation).
+# Workspace metadata first for layer caching, then the packages the service
+# needs at runtime in full: protocol (join-key validation) and curated (the
+# curated-dataset leg the mining endpoints import).
 COPY pyproject.toml uv.lock ./
 COPY middleware/ middleware/
 COPY protocol/ protocol/
-# Documents of record for the dashboard's plain-language tooltips
+COPY curated/ curated/
+# Documents of record for the platform's plain-language tooltips
 # (FR-DASH-9): /requirements + /glossary parse these live.
 COPY requirements/ requirements/
 # Satisfy workspace member resolution without shipping unrelated code.
@@ -30,12 +32,12 @@ COPY agent-capture/pyproject.toml agent-capture/pyproject.toml
 
 RUN uv sync --frozen --no-dev --package middleware
 
-COPY --from=dashboard /dash/dist dashboard/dist
+COPY --from=web /web/dist platform/dist
 
 ENV MIDDLEWARE_DB=/data/middleware.sqlite3 \
     MIDDLEWARE_DATA_DIR=/data \
     MIDDLEWARE_PROTOCOL=/app/protocol/examples/pilot-study.yaml \
-    MIDDLEWARE_DASHBOARD=/app/dashboard/dist
+    MIDDLEWARE_WEB=/app/platform/dist
 
 EXPOSE 8000
 VOLUME /data

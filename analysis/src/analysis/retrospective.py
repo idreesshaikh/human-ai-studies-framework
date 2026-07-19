@@ -140,8 +140,12 @@ def build_prompt(evidence: dict) -> str:
         lines.append(f"- {rq['id']}: recipes {rq.get('recipes')} - ran: {ran}")
 
     if evidence["facilitatorNotes"]:
-        lines += ["", "## Facilitator notes (findings.md)", "",
-                  evidence["facilitatorNotes"].strip()]
+        lines += [
+            "",
+            "## Facilitator notes (findings.md)",
+            "",
+            evidence["facilitatorNotes"].strip(),
+        ]
     return "\n".join(lines) + "\n"
 
 
@@ -265,8 +269,7 @@ def cmd_retrospective(protocol: dict, study_id: str, args) -> int:
         + (" + facilitator notes" if evidence["facilitatorNotes"] else "")
     )
     print(
-        "  drafted with the configured model (D32 bounds: findings + "
-        "aggregates only)"
+        "  drafted with the configured model (D32 bounds: findings + aggregates only)"
         if used_llm
         else "  no MISTRAL_API_KEY - emitted the evidence "
         "bundle + template for manual drafting"

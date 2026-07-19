@@ -40,7 +40,7 @@ def test_none_text_yields_none_at_any_policy():
 
 
 def test_descriptions_exist_for_the_consent_form():
-    # The consent-form generator interpolates these verbatim (MP-08).
+    # The consent-form generator interpolates these verbatim.
     for policy in ("metadata-only", "redacted", "full"):
         assert policy_description(policy) == POLICY_DESCRIPTIONS[policy]
         assert len(policy_description(policy)) > 20

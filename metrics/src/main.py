@@ -12,7 +12,7 @@ research-ready tables (FR-INST-4):
 Every row is stamped with the join keys ``participantId``, ``condition``,
 ``sessionId``, a capture timestamp, and ``schemaVersion`` so metrics rows
 join the other legs on one timeline (FR-INST-6). ``--format jsonl`` mirrors
-the CSV rows as JSON Lines for middleware ingestion (Mega-Prompt 04).
+the CSV rows as JSON Lines for middleware ingestion.
 
 Run from the repo root:
     uv run python metrics/src/main.py [target_dir] --participant P00 ...
@@ -63,8 +63,12 @@ def analyze_file(path: Path, target: Path, sonar_url: str) -> tuple[list[dict], 
 
     halstead = get_halstead_effort(source)
     function_rows = [
-        {"file": rel_path, "function": name, **row,
-         "halstead_effort": halstead["functions"].get(name)}
+        {
+            "file": rel_path,
+            "function": name,
+            **row,
+            "halstead_effort": halstead["functions"].get(name),
+        }
         for name, row in sorted(collect_function_metrics(source_bytes).items())
     ]
 
@@ -127,7 +131,10 @@ def main(argv: list[str] | None = None) -> int:
         "directory of Python files."
     )
     parser.add_argument(
-        "target", nargs="?", default=DEFAULT_TARGET, type=Path,
+        "target",
+        nargs="?",
+        default=DEFAULT_TARGET,
+        type=Path,
         help=f"directory to analyze (default: {DEFAULT_TARGET})",
     )
     parser.add_argument("--out", default=Path("results"), type=Path)
@@ -170,8 +177,13 @@ def main(argv: list[str] | None = None) -> int:
         print("\nFile-level summary:")
         print(
             file_df[
-                ["file", "indentation_variance", "max_line_width",
-                 "comment_ratio", "halstead_effort_total"]
+                [
+                    "file",
+                    "indentation_variance",
+                    "max_line_width",
+                    "comment_ratio",
+                    "halstead_effort_total",
+                ]
             ].to_string(index=False)
         )
     return 0

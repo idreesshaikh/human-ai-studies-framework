@@ -93,7 +93,7 @@ export class JsonlSink implements EventSink {
  *  - requests time out (a hung server cannot pile up pending promises),
  *  - non-2xx responses count as failures and the batch is retried,
  *  - the retry buffer is capped, dropping the OLDEST events beyond the cap
- *    (the newest events are the ones a live dashboard cares about; the old
+ *    (the newest events are the ones a live platform cares about; the old
  *    ones are already safe in the JSONL file).
  */
 export class HttpSink implements EventSink {

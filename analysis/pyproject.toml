@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "matplotlib>=3.11.0",
     "pandas>=3.0.3",
+    "curated",
     "protocol",
     "scipy>=1.18.0",
 ]
@@ -18,4 +19,5 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
+curated = { workspace = true }
 protocol = { workspace = true }

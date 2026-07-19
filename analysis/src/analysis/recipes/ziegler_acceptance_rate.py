@@ -59,13 +59,9 @@ def run(dataset: Dataset) -> RecipeResult:
         .agg(shown=("shown", "sum"), accepted=("accepted", "sum"))
     )
     per_session = per_session[per_session["shown"] > 0].copy()
-    per_session["acceptanceRate"] = (
-        per_session["accepted"] / per_session["shown"]
-    )
+    per_session["acceptanceRate"] = per_session["accepted"] / per_session["shown"]
 
-    test, cells, sentence = compare_or_describe(
-        per_session, "acceptanceRate", dataset
-    )
+    test, cells, sentence = compare_or_describe(per_session, "acceptanceRate", dataset)
 
     tables: dict[str, pd.DataFrame] = {
         "per_session": per_session,

@@ -3,9 +3,7 @@
 You (or a new teammate, or an examiner) are looking at a lot of moving
 parts. This page is the decoder: what the platform does, what the codes
 like `FR-PROT-7` mean, and how thirty minutes of clicking shows you all of
-it. The dashboard has an interactive twin of this page - the **guided
-tour** that starts on your first visit ("✦ Take the tour" in the sidebar,
-any time after that).
+it.
 
 ## What this platform is
 
@@ -43,10 +41,10 @@ the paperwork is the science). The grammar:
 | Piece | Meaning |
 | ----- | ------- |
 | `FR-` / `NFR-` | Functional Requirement (a feature) / Non-Functional (a quality, e.g. "reproducible") |
-| `PROT` `INST` `ING` `DASH` `LIT` `ANA` `META` `ETH` `AGENT` | the area: protocol, instruments, ingestion, dashboard, literature, analysis, self-improvement, ethics, agent capture |
+| `PROT` `INST` `ING` `DASH` `LIT` `ANA` `META` `ETH` `AGENT` | the area: protocol, instruments, ingestion, study surfaces, literature, analysis, self-improvement, ethics, agent capture |
 | the number | a stable sequence number - never renumbered, so references never rot |
 
-**They are grep targets, not vocabulary.** Hover any pill in the dashboard
+**They are grep targets, not vocabulary.** Hover any pill in the platform
 to read one in plain English, or:
 
 ```bash
@@ -66,7 +64,7 @@ The four you'll meet most often in the docs:
 
 | The original idea | Where it lives now |
 | ----------------- | ------------------ |
-| "Requirements collected as if by a dynamic/AI project manager" | The protocol *is* a machine-readable requirements spec; the dashboard's task board derives cards from it and they clear themselves |
+| "Requirements collected as if by a dynamic/AI project manager" | The protocol *is* a machine-readable requirements spec; the platform derives task cards from it and they clear themselves |
 | "Derive post-analysis similar to other papers" | `analysis run` → per-question report → `analysis paper` → compilable LaTeX draft with your real numbers |
 | "References from papers with the same studies" | Knowledge view: citation graph, auto-seeded related-work section |
 | "Help them be lean, not overcomplicate" | `protocol validate` + `analysis validate` name everything missing *before* a session is wasted |
@@ -82,22 +80,22 @@ The four you'll meet most often in the docs:
 | `extension/` | The VS Code extension participants run - the feelings leg (micro-surveys) and the behavior leg (edits, focus, AI interactions) |
 | `metrics/` | Nine code-complexity measurements over the participant's code |
 | `agent-capture/` | The AI's side of the session: Claude Code hooks, transcript import, workspace snapshots, task pass/fail harness |
-| `middleware/` | The hub on port 8000 everything reports to; stores every event, detects loss, serves the joined dataset and the dashboard |
-| `dashboard/` | Mission control: overview, lifecycle, task board, live sessions, timeline, metrics, knowledge - with the guided tour |
+| `middleware/` | The hub on port 8000 everything reports to; stores every event, detects loss, serves the joined dataset and the platform |
+| `platform/` | The web app (React): the design conversation, the study workspace (Library / Data / Lifecycle), projects, and the evolution surfaces |
 | `analysis/` | Recipes → report → paper draft → retrospective |
 
 ## Thirty minutes, hands on
 
 ```bash
 docker compose up            # 1. the whole stack + demo data
-open http://127.0.0.1:8000   # 2. the tour starts on first visit
+open http://127.0.0.1:8000   # 2. the platform, pre-loaded with a demo study
 ```
 
-Take the tour (12 stops). Two things in the demo are *deliberately* broken
-so you can watch the framework catch them: the red **seq gaps** warning (a
-planted data loss - detected, never silent) and the lifecycle **parked at
-the ethics gate** (data collection is unreachable until approval documents
-are uploaded).
+Open the demo study and move through its tabs. Two things in the demo are
+*deliberately* broken so you can watch the framework catch them: the
+**seq gaps** warning (a planted data loss - detected, never silent) and the
+lifecycle **parked at the ethics gate** (data collection is unreachable
+until approval documents are uploaded).
 
 Then make the paper:
 
@@ -114,7 +112,6 @@ That's the full arc - protocol in, paper out.
 | You want | Read |
 | -------- | ---- |
 | To run any component, end to end | [`RUNBOOK.md`](RUNBOOK.md) |
-| The argument and architecture | [`docs/archive/roadmap/00-VISION.md`](docs/archive/roadmap/00-VISION.md) |
+| The argument and architecture | [`docs/VISION.md`](docs/VISION.md) |
 | What any ID means | `requirements/srs.md` (lookup, never cover-to-cover) |
 | To develop on the repo | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| To run a real participant session | [`study/pilot/runbook.md`](study/pilot/runbook.md) |

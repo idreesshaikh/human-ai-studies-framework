@@ -7,6 +7,6 @@
 *.sqlite3
 results
 shadow.git
-dashboard/dist
+platform/dist
 extension/out
 extension/out-tests

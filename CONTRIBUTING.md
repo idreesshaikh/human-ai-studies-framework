@@ -16,7 +16,7 @@ uv sync --all-packages
 
 # Node components
 (cd extension && npm install)
-(cd dashboard && npm install)
+(cd platform && npm install)
 
 # Optional: mirror the CI gate at commit time
 uv run pre-commit install
@@ -28,7 +28,7 @@ uv run pre-commit install
 uv run pytest                 # all Python tests
 uv run ruff check .           # Python lint (config in the root pyproject.toml)
 (cd extension && npm run check)   # typecheck + lint + format + tests
-(cd dashboard && npm run check)   # svelte-check + vitest
+(cd platform && npm run check)   # tsc + lint + verify + build
 bash scripts/smoke.sh         # full-stack proof: bring-up → ingest → report → paper
 ```
 
@@ -45,7 +45,7 @@ lifecycle gates, task cards, analysis, and the paper draft.
 flowchart LR
     P["📋 Study protocol (YAML)"] -- derives config --> I["🧪 Four instrument legs"]
     I -- "events, one timeline" --> M["🗄️ Middleware :8000"]
-    M --> D["📊 Dashboard"]
+    M --> D["🖥️ Platform (web app)"]
     M --> A["📈 Analysis → report → paper draft"]
 ```
 
@@ -55,8 +55,8 @@ flowchart LR
 | `extension/` | VS Code extension: self-report + behavioral capture. Deep guide: [`extension/PROJECT_GUIDE.md`](extension/PROJECT_GUIDE.md) | TypeScript, `npm run check` |
 | `metrics/` | Nine code-complexity measurements (deliberately flat scripts, not a package) | Python |
 | `agent-capture/` | The AI agent's side of a session: hooks, transcripts, snapshots, task harness | Python |
-| `middleware/` | The hub on port 8000: ingestion, storage, query API, serves the dashboard | Python (FastAPI + SQLite) |
-| `dashboard/` | Mission-control SPA | Svelte 5 + Vite + TS, `npm run check` |
+| `middleware/` | The hub on port 8000: ingestion, storage, query API, serves the platform | Python (FastAPI + SQLite) |
+| `platform/` | The web app: design conversation, study workspace (Library / Data / Lifecycle), projects, evolution surfaces | React 19 + Vite + Tailwind + shadcn, `npm run check` |
 | `analysis/` | Analysis recipes → per-question report → LaTeX paper draft → retrospective | Python |
 
 New Python packages use the src layout (`<pkg>/src/<pkg>/`), hatchling,
@@ -107,17 +107,16 @@ requirements record underneath:
 - Adding a dependency, tool, or external service? Record an
   adopt/adapt/build/reject decision with rationale in
   [`requirements/build-vs-adopt.md`](requirements/build-vs-adopt.md) first.
-- Requirement IDs are stable — supersede, never renumber or delete.
+- Requirement IDs are stable anchors — don't renumber them.
 - [`requirements/glossary.md`](requirements/glossary.md) owns terminology:
   it's `participant` (not user), `condition` (not group), `recipe` (not
   script) — in identifiers, schema fields, and docs.
-- How the platform was originally built, phase by phase:
-  [`docs/archive/`](docs/archive/README.md).
+- The phase plan, phase by phase: [`docs/roadmap/`](docs/roadmap/README.md).
 
 ## Style
 
-- Match the style of the file you're in. Prettier owns the extension's and
-  dashboard's formatting; ruff owns Python (line length 88).
+- Match the style of the file you're in. Prettier/ESLint own the extension's
+  and platform's formatting; ruff owns Python (line length 88).
 - Time-dependent logic gets an injected clock and mocked-timer tests (see
   `extension/test/` for the pattern).
 - Run the gates before committing.

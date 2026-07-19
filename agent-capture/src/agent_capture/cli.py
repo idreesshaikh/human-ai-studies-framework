@@ -80,11 +80,16 @@ def _cmd_import(args) -> int:
     return import_main(
         [
             str(args.transcript),
-            "--participant", args.participant,
-            "--condition", args.condition,
-            "--session", args.session,
-            "--content-policy", args.content_policy,
-            "--endpoint", args.endpoint,
+            "--participant",
+            args.participant,
+            "--condition",
+            args.condition,
+            "--session",
+            args.session,
+            "--content-policy",
+            args.content_policy,
+            "--endpoint",
+            args.endpoint,
             *(["--print"] if args.print else []),
         ]
     )

@@ -1,0 +1,29 @@
+{
+  // IDE-only config for the design-sync preview fixtures. These .tsx files are
+  // authored for the external design-sync converter, which resolves the bare
+  // "platform" import in synth-entry mode; the repo's own build never compiles
+  // them (platform/tsconfig.app.json includes only src/). Without a tsconfig
+  // here, an editor opens each preview in an inferred project and reports
+  // TS2307 ("Cannot find module 'platform'") plus JSX-runtime noise. This
+  // scopes them to a real project, resolves "platform" via platform-shim.d.ts,
+  // and points module/type resolution at platform/node_modules (where React and
+  // its types actually live). Not referenced by any build or `npm run check`.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "noEmit": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    // Resolve bare specifiers (react, react/jsx-runtime) against platform's
+    // installed packages, since this directory has no node_modules of its own.
+    // typeRoots loads @types/react there, whose `export as namespace React`
+    // supplies the global React namespace some previews reference (TS2503).
+    "baseUrl": "../../platform/node_modules",
+    "typeRoots": ["../../platform/node_modules/@types"]
+  },
+  "include": ["**/*.tsx", "platform-shim.d.ts"]
+}

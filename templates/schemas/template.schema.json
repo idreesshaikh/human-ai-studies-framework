@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://masters-project.local/schemas/template.schema.json",
+  "title": "Study Template",
+  "description": "Machine-readable template for a published study design. Templates are parameterized encodings of citable designs that instantiate into valid protocols (FR-TPL-1). The protocol layer is untouched: templates are protocol generators, one level above study-as-code.",
+  "type": "object",
+  "required": [
+    "templateVersion",
+    "templateId",
+    "title",
+    "source",
+    "designType",
+    "dataPath",
+    "parameters",
+    "measures",
+    "statisticalPlan",
+    "protocolSkeleton"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "templateVersion": {
+      "description": "Schema version of this template document. Consumers branch on it, never guess (FR-PROT-2 discipline, extended to templates).",
+      "type": "integer",
+      "minimum": 1
+    },
+    "templateId": {
+      "description": "Stable, never-renumbered identifier for this template (e.g., 'metr-rct-v1').",
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "title": {
+      "description": "Human-readable title of the template.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "description": {
+      "description": "One-paragraph explanation of what this template encodes.",
+      "type": "string",
+      "maxLength": 500
+    },
+    "source": {
+      "description": "Mandatory citation(s) for the design this template encodes. Array of paper references that ground this template.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["paperRef"],
+        "additionalProperties": false,
+        "properties": {
+          "paperRef": {
+            "description": "Canonical paper reference (arxiv:..., doi:..., or corpus:...).",
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "description": "Role of this paper in the template (e.g., 'primary-design', 'statistical-method', 'measure-validation').",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "designType": {
+      "description": "Design classification from Stol & Fitzgerald's ABC study-strategy vocabulary (field/lab/sample). Taxonomy ensures templates are classified in the field's own terms.",
+      "type": "string",
+      "enum": [
+        "lab-experiment",
+        "field-study",
+        "survey",
+        "rct-within-subjects",
+        "rct-between-subjects",
+        "quasi-experiment",
+        "observational",
+        "case-study",
+        "simulation"
+      ]
+    },
+    "dataPath": {
+      "description": "Which data collection path this template supports: 'live' (instrumented sessions), 'curated' (pre-existing datasets), or 'either'.",
+      "type": "string",
+      "enum": ["live", "curated", "either"]
+    },
+    "parameters": {
+      "description": "Configurable parameters for this template. Each parameter has a type, optional default, and a rationale explaining its purpose.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "description": "Parameter type.",
+            "type": "string",
+            "enum": ["int", "float", "string", "bool", "participants", "conditions"]
+          },
+          "default": {
+            "description": "Default value for this parameter. A 'conditions' parameter defaults to an array of arm names; scalar parameters default to a scalar.",
+            "type": ["string", "integer", "number", "boolean", "array"],
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "min": {
+            "description": "Minimum value (for numeric types).",
+            "type": ["integer", "number"]
+          },
+          "max": {
+            "description": "Maximum value (for numeric types).",
+            "type": ["integer", "number"]
+          },
+          "enum": {
+            "description": "Allowed values for string/enum types.",
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "minLength": {
+            "description": "Minimum length for string types.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": {
+            "description": "Human-readable description of this parameter.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "rationale": {
+            "description": "Methodological rationale for this parameter's existence.",
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      }
+    },
+    "measures": {
+      "description": "Measures this template prescribes, each mapping to instruments + data elements. The 'caution' field surfaces known validity threats or methodological cautions.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "leg"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Measure identifier.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "leg": {
+            "description": "Which instrument leg this measure uses: 'cognitive' (overlay), 'behavioral' (telemetry), 'static' (code metrics), 'agent' (transcripts).",
+            "type": "string",
+            "enum": ["cognitive", "behavioral", "static", "agent"]
+          },
+          "description": {
+            "description": "Human-readable description of what this measure captures.",
+            "type": "string",
+            "maxLength": 300
+          },
+          "elements": {
+            "description": "Specific data elements captured by this measure.",
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "caution": {
+            "description": "Named validity threat or methodological caution associated with this measure.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "cite": {
+            "description": "Paper reference that validates or defines this measure.",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "instruments": {
+      "description": "Derived instrument configurations (FR-PROT-4) for this design, per condition. This is a template for the protocol's instruments section.",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "statisticalPlan": {
+      "description": "The statistical plan encoded by this template (FR-TPL-2). This is the differentiator: each template binds concrete statistics to its design.",
+      "type": "object",
+      "required": ["unit", "perRQ"],
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "description": "Unit of analysis: 'participant', 'session', 'task', or 'repository'.",
+          "type": "string",
+          "enum": ["participant", "session", "task", "repository"]
+        },
+        "perRQ": {
+          "description": "Statistical formulation per research question slot.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["rq", "outcome", "test", "effectSize"],
+            "additionalProperties": false,
+            "properties": {
+              "rq": {
+                "description": "Research question slot identifier (e.g., 'primary', 'secondary-1').",
+                "type": "string",
+                "minLength": 1
+              },
+              "outcome": {
+                "description": "Outcome variable type and pairing structure.",
+                "type": "string",
+                "minLength": 1
+              },
+              "test": {
+                "description": "Exact statistical test from the NFR-8-compliant catalogue.",
+                "type": "string",
+                "enum": [
+                  "wilcoxon-signed-rank",
+                  "mann-whitney-u",
+                  "t-test-paired",
+                  "t-test-independent",
+                  "fisher-exact",
+                  "chi-square",
+                  "spearman",
+                  "pearson",
+                  "kruskal-wallis",
+                  "anova"
+                ]
+              },
+              "effectSize": {
+                "description": "Effect size measure paired with the test.",
+                "type": "string",
+                "enum": [
+                  "matched-pairs rank-biserial",
+                  "cliffs-delta",
+                  "cohen-d",
+                  "hedges-g",
+                  "cramers-v",
+                  "phi",
+                  "pearson-r",
+                  "spearman-rho"
+                ]
+              },
+              "smallN": {
+                "description": "Small-N framing for hypothesis-generating studies (NFR-8).",
+                "type": "string",
+                "enum": ["hypothesis-generating", "exploratory", "confirmatory"],
+                "default": "hypothesis-generating"
+              },
+              "multipleComparison": {
+                "description": "Multiple comparison correction posture.",
+                "type": "string",
+                "enum": ["none", "bonferroni", "holm", "fdr"],
+                "default": "none"
+              },
+              "aggregationUnit": {
+                "description": "Primary aggregation unit, as a guard against pseudo-replication.",
+                "type": "string",
+                "enum": ["per-participant", "per-session", "per-task", "per-repository"],
+                "default": "per-participant"
+              }
+            }
+          }
+        }
+      }
+    },
+    "threats": {
+      "description": "Named validity threats and their mitigations for this design.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["threat", "mitigation"],
+        "additionalProperties": false,
+        "properties": {
+          "threat": {
+            "description": "Name of the validity threat.",
+            "type": "string",
+            "minLength": 1
+          },
+          "mitigation": {
+            "description": "How this template mitigates the threat.",
+            "type": "string",
+            "minLength": 1
+          },
+          "cite": {
+            "description": "Paper reference documenting this threat/mitigation.",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "protocolSkeleton": {
+      "description": "The YAML skeleton that the compiler fills when instantiating this template. Contains placeholders ({{param}}) that are replaced by parameter values. This is validated against the protocol schema when filled.",
+      "type": "object"
+    }
+  }
+}

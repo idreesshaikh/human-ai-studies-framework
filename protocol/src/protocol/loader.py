@@ -33,6 +33,27 @@ def _field_path(error: jsonschema.ValidationError) -> str:
     return ".".join(parts) if parts else "(document root)"
 
 
+def validate_protocol(data: dict) -> list[str]:
+    """All validation errors for an in-memory protocol dict, [] when valid.
+
+    The same schema + referential checks :func:`load_protocol` applies to a
+    file, exposed for callers that hold a dict: the template registry
+    (FR-TPL-1.4 instantiation) and the conversation compiler (FR-CONV-3.2
+    validates on every compile). Referential checks only run once the
+    document is schema-valid, mirroring the file path exactly.
+    """
+    if not isinstance(data, dict):
+        return [f"protocol must be a mapping, got {type(data).__name__}"]
+    validator = jsonschema.Draft202012Validator(load_schema())
+    schema_errors = [
+        f"{_field_path(err)}: {err.message}"
+        for err in sorted(
+            validator.iter_errors(data), key=lambda e: list(e.absolute_path)
+        )
+    ]
+    return schema_errors or _referential_errors(data)
+
+
 def load_protocol(path: str | Path) -> dict:
     """Parse a protocol YAML file and validate it against the schema.
 
@@ -57,14 +78,7 @@ def load_protocol(path: str | Path) -> dict:
             f"level, got {type(data).__name__}"
         )
 
-    validator = jsonschema.Draft202012Validator(load_schema())
-    schema_errors = [
-        f"{_field_path(err)}: {err.message}"
-        for err in sorted(
-            validator.iter_errors(data), key=lambda e: list(e.absolute_path)
-        )
-    ]
-    errors = schema_errors or _referential_errors(data)
+    errors = validate_protocol(data)
     if errors:
         lines = [f"protocol file {path} is invalid:"]
         lines += [f"  - {err}" for err in errors]

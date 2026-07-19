@@ -42,8 +42,7 @@ def run(dataset: Dataset) -> RecipeResult:
     subscales = [
         c
         for c in surveys.columns
-        if c not in meta
-        and pd.to_numeric(surveys[c], errors="coerce").notna().any()
+        if c not in meta and pd.to_numeric(surveys[c], errors="coerce").notna().any()
     ]
 
     rows = []

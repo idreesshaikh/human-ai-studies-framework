@@ -70,9 +70,7 @@ def numstat(commit_args: list[str], cwd: str | Path) -> dict:
 
 def show_numstat(commit_hash: str, cwd: str | Path) -> dict:
     """Same shape for a single commit (``git show --numstat``)."""
-    out = git(
-        "show", "--numstat", "--format=", commit_hash, cwd=cwd
-    )
+    out = git("show", "--numstat", "--format=", commit_hash, cwd=cwd)
     files = insertions = deletions = 0
     for line in out.splitlines():
         parts = line.split("\t")

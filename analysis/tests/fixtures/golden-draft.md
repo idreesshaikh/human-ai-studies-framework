@@ -46,7 +46,7 @@ arxiv:2205.06537 motivates RQ-P4. [@arxiv_2205_06537] `TODO: summarise contribut
 We plan 6 participants in a within-subjects, counterbalanced design across the conditions ai-assisted, unassisted.
 
 <!-- trace: FR-PROT-1 / session -->
-Each session lasts 45 minutes. Two matched Python maintenance tasks (one per condition, order counterbalanced with condition pairing per the runbook's Latin square): Task A "expenses" and Task B "logbook" (study/pilot/tasks/), each a small existing codebase with two seeded defects and one feature request, shipped with acceptance tests providing outcome ground truth (FR-INST-16, harness lands with MP-12). In ai-assisted sessions the participant uses Claude Code in the integrated terminal; in unassisted sessions AI tooling is disabled.
+Each session lasts 45 minutes. Two matched Python maintenance tasks (one per condition, order counterbalanced with condition pairing per the runbook's Latin square): Task A "expenses" and Task B "logbook", each a small existing codebase with two seeded defects and one feature request, shipped with acceptance tests providing outcome ground truth (FR-INST-16, via the task harness). In ai-assisted sessions the participant uses Claude Code in the integrated terminal; in unassisted sessions AI tooling is disabled.
 
 ### Instruments
 
