@@ -30,7 +30,7 @@ from pathlib import Path
 from urllib.parse import quote as _urlquote
 
 import yaml
-from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from protocol.lifecycle import PHASE_ORDER, current_phase
@@ -45,6 +45,7 @@ from middleware import (
     authz,
     compiler,
     design_assistant,
+    enrollment,
     evolution,
     manifest,
     matching,
@@ -261,6 +262,13 @@ class TemplateInstantiateIn(BaseModel):
     title: str = ""
 
 
+class MintTokensIn(BaseModel):
+    """Mint a batch of enrollment (pairing) tokens for a study (FR-INST-20)."""
+
+    count: int = 1
+    grain: str = "participant"  # 'participant' | 'session'
+
+
 class _ProtocolCheck:
     """Validates join keys against the loaded study protocol (FR-ING-6).
 
@@ -303,6 +311,28 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         protocol_doc = load_protocol(settings.protocol_path)
     check = _ProtocolCheck(protocol_doc)
+
+    def _resolve_study_protocol(s: Session, study_id: str) -> dict | None:
+        """Resolve a study's protocol: the approved YAML snapshot wins
+        (post-ethics, FR-CONV-4); the boot protocol is the single-facilitator
+        fallback for a study never taken through the design conversation.
+
+        Named with a leading underscore (unlike the brief's ``study_protocol``)
+        because ``create_app`` already binds that name to the
+        ``GET /studies/{study_id}/protocol`` route handler (~line 774) — reusing
+        it would have the later ``def`` silently shadow this helper for every
+        caller below it, including this task's own routes. Discovered via the
+        TDD RED step (a same-named-argument ``TypeError`` at the mint route)."""
+        import yaml
+
+        from middleware.db import StudyEvolution
+
+        evo = s.get(StudyEvolution, study_id)
+        if evo is not None and evo.approved_yaml:
+            return yaml.safe_load(evo.approved_yaml)
+        if protocol_doc is not None and protocol_doc["study"]["id"] == study_id:
+            return protocol_doc
+        return None
 
     # Reify the loaded protocol's study into the studies table: the
     # project choke point resolves study_id -> studies.project_id -> membership,
@@ -2223,6 +2253,120 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "projectSlug": proj.slug if proj else "",
             "role": inv.role,
         }
+
+    # -------------------------------------------------- enrollment tokens
+
+    @app.post(
+        "/studies/{study_id}/enrollment/tokens",
+        dependencies=[Depends(require_project_for_study("mint_token"))],
+    )
+    def mint_enrollment_tokens(
+        study_id: str,
+        body: MintTokensIn,
+        request: Request,
+        s: Session = Depends(db),
+    ) -> list[dict]:
+        from datetime import timedelta as td
+
+        from middleware.db import EnrollmentToken, StudyEvolution
+
+        evo = s.get(StudyEvolution, study_id)
+        if evo is None or not evo.ethics_approved_at:
+            raise HTTPException(
+                409,
+                "Mint enrollment tokens only after the study clears its ethics "
+                "gate — you cannot collect data before approval.",
+            )
+        protocol = _resolve_study_protocol(s, study_id)
+        if protocol is None:
+            raise HTTPException(404, f"no protocol for study {study_id!r}")
+        if body.grain not in {"participant", "session"}:
+            raise HTTPException(400, "grain must be 'participant' or 'session'")
+        conditions = protocol["conditions"]
+        existing = s.scalars(
+            select(EnrollmentToken).where(EnrollmentToken.study_id == study_id)
+        ).all()
+        start = len(existing)
+        base = str(request.base_url).rstrip("/")
+        expires = (clock() + td(days=30)).isoformat(timespec="milliseconds")
+        out = []
+        for i in range(body.count):
+            n = start + i + 1
+            pid = f"P{n:02d}"
+            condition = conditions[(n - 1) % len(conditions)]
+            token = secrets.token_urlsafe(32)
+            row = EnrollmentToken(
+                id=secrets.token_hex(8),
+                study_id=study_id,
+                participant_id=pid,
+                condition=condition,
+                grain=body.grain,
+                token=token,
+                expires_at=expires,
+                created_at=now(),
+            )
+            s.add(row)
+            out.append(
+                {
+                    "id": row.id,
+                    "participantId": pid,
+                    "condition": condition,
+                    "grain": body.grain,
+                    "connectionString": enrollment.connection_string(base, token),
+                    "status": "unredeemed",
+                }
+            )
+        s.commit()
+        return out
+
+    @app.get(
+        "/studies/{study_id}/enrollment/tokens",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def list_enrollment_tokens(study_id: str, s: Session = Depends(db)) -> list[dict]:
+        """List a study's active enrollment tokens (FR-INST-20). A revoked
+        token drops off this list — DELETE is not a soft-hide-with-a-badge, it
+        removes the token from what a researcher can hand out or pair
+        against; the row itself is kept (``revoked_at`` set) for audit, just
+        not surfaced here. ``unredeemed``/``paired`` derive from redemption
+        state."""
+        from middleware.db import EnrollmentToken
+
+        rows = s.scalars(
+            select(EnrollmentToken)
+            .where(
+                EnrollmentToken.study_id == study_id,
+                EnrollmentToken.revoked_at.is_(None),
+            )
+            .order_by(EnrollmentToken.participant_id)
+        ).all()
+        out = []
+        for r in rows:
+            status = "paired" if r.redeemed_at else "unredeemed"
+            out.append(
+                {
+                    "id": r.id,
+                    "participantId": r.participant_id,
+                    "condition": r.condition,
+                    "grain": r.grain,
+                    "status": status,
+                }
+            )
+        return out
+
+    @app.delete(
+        "/enrollment/tokens/{token_id}",
+        dependencies=[Depends(resolve_identity)],
+    )
+    def revoke_enrollment_token(token_id: str, s: Session = Depends(db)) -> dict:
+        from middleware.db import EnrollmentToken
+
+        row = s.get(EnrollmentToken, token_id)
+        if row is None:
+            raise HTTPException(404, "enrollment token not found")
+        row.revoked_at = now()
+        s.commit()
+        return {"revoked": token_id}
 
     @app.get("/me", dependencies=[Depends(resolve_identity)])
     def get_me(identity: auth.Identity = Depends(resolve_identity)) -> dict:

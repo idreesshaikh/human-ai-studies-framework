@@ -74,6 +74,8 @@ CAPABILITIES: dict[str, Role] = {
     "apply_draft": Role.RESEARCHER,
     # Run mining jobs; upload gate artifacts.
     "run_recipe": Role.RESEARCHER,
+    # Mint/revoke enrollment (pairing) tokens for a study.
+    "mint_token": Role.RESEARCHER,
     # Freeze protocol; approve post-ethics amendments.
     "freeze": Role.OWNER,
     # Manage members, roles, invitations.
