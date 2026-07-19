@@ -51,10 +51,12 @@ Use these terms in code identifiers, schema fields, and prose (`participant` not
 - **Agent participant** — An AI agent configuration (tool + model) enrolled as a study's data source, its sessions executed by the task harness; join keys and anonymized IDs apply exactly as for humans (FR-PROT-9). *(not: bot, subject system)*
 - **Agent turn** — One prompt or response in the human-agent conversation, as a timestamped event (role, timing, sizes; text per content policy).
 - **Amendment** — A post-ethics-approval protocol change: version bump + recorded rationale/approver; consent-relevant amendments require re-approval before new sessions (FR-CONV-4).
+- **Capture config** — The versioned, protocol-derived set of enabled instruments/metrics an IDE applies at a session boundary (FR-INST-21).
 - **Churn** — Lines added and then reworked or removed within the same session, from the snapshot series (FR-INST-17). *(not: rework, waste)*
 - **Compilation** — The deterministic, LLM-free translation of accepted design moves into a validated protocol draft diff, applied only on approval (FR-CONV-3).
 - **Comprehension probe** — A short, timeboxed, protocol-configured check (predict-output / locate-change) of the participant's understanding of an accepted chunk or injected defect, joined to its chunk (FR-INST-19). *(not: quiz, test)*
 - **Condition** — An experimental arm a session runs under. Pilot values: `ai-assisted`, `unassisted`. *(not: group, treatment)*
+- **Connection string** — The copy-safe `serverUrl#token` a participant pastes once to connect their IDE to a study.
 - **Content policy** — The protocol-declared, consent-matched level of conversation text capture: `metadata-only` | `redacted` | `full` (FR-AGENT-5).
 - **Corpus** — The platform's paper collection in provenance tiers: Tier A (hand-curated seeds with per-paper rationale), Tier B (pipeline-harvested, quality-gated, every row API-verifiable), plus per-study ingested papers (FR-LIT-8). *(not: library, database)*
 - **Curated dataset** — A study dataset built from external sources (GitHub API, archives, replication packages) rather than live instrumented sessions, normalized into the one-timeline event schema with join keys and a provenance record (FR-CUR-1). *(not: mined dataset, secondary data)*
@@ -62,6 +64,7 @@ Use these terms in code identifiers, schema fields, and prose (`participant` not
 - **Design conversation** — The persistent per-study thread in which a study is elicited, designed, and evolved - the platform's primary design surface (FR-CONV-1). *(not: chat, wizard)*
 - **Design move** — One platform-proposed protocol change carried as a structured, individually acceptable/rejectable object alongside a conversation turn (FR-CONV-1).
 - **Elicitation record** — The stored design conversation - turns, moves, decisions, approvals - as the study's traceable requirements-elicitation artifact (FR-CONV-6).
+- **Enrollment** — A participant's IDE joining a study by redeeming a pairing token.
 - **Environment snapshot** — The session-start event recording tool/OS/extension/model versions for replication provenance (FR-INST-14).
 - **Event** — One timestamped row of collected data conforming to the StudyEvent schema (`v, ts, mono, sessionId, participantId, condition, seq, type, payload`).
 - **Facilitator** — The researcher operating a session (here: Idrees). *(not: experimenter, admin)*
@@ -78,6 +81,7 @@ Use these terms in code identifiers, schema fields, and prose (`participant` not
 - **Middleware** — The ingestion service unifying all legs into one queryable store. *(not: backend, server)*
 - **Mining adapter** — A per-source importer producing curated-dataset rows behind the common normalizer contract (primary: GitHub API, FR-CUR-2).
 - **Origin** — The provenance class of an edit burst: `human`, `ai`, `paste`, or `undo-redo` (FR-INST-10).
+- **Pairing token** — The minted, single- or multi-use secret binding a study + participant + condition, delivered inside a connection string; redeemed by an IDE to enroll (FR-INST-20). *(not: session token)*
 - **Paper** — An ingested publication (PDF / arXiv / DOI) with extracted metadata and text, linkable to protocol elements (FR-LIT-1/3).
 - **Paper draft** — The generated Markdown/LaTeX write-up skeleton: methods from the frozen protocol, results from the report (FR-ANA-6).
 - **Paper matching** — Surfacing corpus papers against the researcher's evolving idea with a stated match reason; accepted matches join the study's paper set with the reason preserved (FR-LIT-9).
@@ -97,6 +101,7 @@ Use these terms in code identifiers, schema fields, and prose (`participant` not
 - **Role** — A member's permission level within a project: `owner` | `researcher` | `viewer` (FR-PLAT-2). *(not: permission, group)*
 - **Scroll coverage** — Fraction of an injected/changed code region whose lines appeared in the visible range before acceptance or save (FR-INST-9).
 - **Session** — One continuous instrumented sitting of one participant under one condition; the unit that owns a JSONL file and a `sessionId`.
+- **Session credential** — The short-lived bearer an IDE receives when it redeems a pairing token; authenticates ingest so the middleware can server-stamp join keys (FR-ING-7).
 - **Snapshot** — One shadow-git commit of the task workspace (on save + timer), enabling metric time series (FR-INST-15).
 - **Source adapter** — A per-agent-tool capture implementation behind the agent leg's common event contract (primary: Claude Code hooks + transcripts, D13).
 - **Statistical plan** — The template-bound prescription of exact tests, effect sizes, corrections, and per-cell-n rules a design requires (FR-TPL-2, NFR-8). *(not: stats config)*
@@ -139,6 +144,8 @@ Every feature traces to a requirement ID. The full text lives in `requirements/s
 - **FR-INST-17** (S) The framework SHALL derive code-evolution / process metrics from the workspace-snapshot series (FR-INST-15) joined with origin-classified edit bursts (FR-INST-10): gross/net LOC added and deleted o… — _✅ (churn/persistence char-approximated, stated; line-level pending schema-v4 burst ranges)_
 - **FR-INST-18** (C) The behavioral leg SHOULD capture a content-free IDE health stream: workspace diagnostics counts by severity (errors/warnings, debounced on change) and build/test invocations outside the harness, a… — _⬜_
 - **FR-INST-19** (S) The cognitive leg SHALL support comprehension probes: short, timeboxed, protocol-configured checks (predict-output / locate-change) triggered when an agent-produced chunk is accepted and at mainten… — _⬜_
+- **FR-INST-20** (M) The framework SHALL let a participant's IDE enroll into a study by redeeming one pairing token (a connection string encoding middleware URL + token) that resolves its identity (participantId, condi… — _⬜_
+- **FR-INST-21** (M) The middleware SHALL serve a capture config derived deterministically from the protocol's instruments block; the IDE SHALL apply it at pair and at each session start behind a capture pre-flight; a… — _⬜_
 - **FR-AGENT-1** (M) The framework SHALL capture agent interaction as structured events on the shared timeline (join keys + schema version like every leg): conversation turns (role, timing, text per content policy, cod… — _✅_
 - **FR-AGENT-2** (M) The primary source adapter SHALL be Claude Code in the integrated terminal: real-time capture via Claude Code hooks POSTing to the middleware, plus post-session import of the on-disk transcript JSO… — _✅ (hooks + transcript importer, one normalizer)_
 - **FR-AGENT-3** (S) The framework SHALL correlate agent events with editor events: an agent code block followed by a matching-size paste/injection within a window strengthens `origin: ai` (FR-INST-10); error-paste → a… — _✅ (correlate job: reliance loops + burst annotation)_
@@ -150,6 +157,7 @@ Every feature traces to a requirement ID. The full text lives in `requirements/s
 - **FR-ING-4** (M) The middleware SHALL export a study's joined one-timeline dataset (all legs) as JSON and CSV. — _✅_
 - **FR-ING-5** (M) The middleware SHALL store uploaded files (session JSONL, consent artifacts, papers) indexed per study. — _✅_
 - **FR-ING-6** (S) Ingested rows whose participant/condition are unknown to the protocol SHALL be stored and flagged, never dropped. — _✅_
+- **FR-ING-7** (M) The middleware SHALL mint, list, and revoke pairing tokens (study-scoped, ethics-gated, role-gated) and verify them on redemption, issuing a short-lived session credential; credentialed ingest SHAL… — _⬜_
 - **FR-DASH-1** (M) The platform SHALL show a study overview: protocol summary, RQs, planned-vs-collected sessions per condition. — _✅_
 - **FR-DASH-2** (M) The platform SHALL render the lifecycle as a board whose current state is computed from gate artifacts, not hand-set. — _✅_
 - **FR-DASH-3** (S) The platform SHALL show session status with recent events and seq-gap warnings. — _✅_
@@ -159,6 +167,7 @@ Every feature traces to a requirement ID. The full text lives in `requirements/s
 - **FR-DASH-7** (M) The platform SHALL surface study state as a self-computing status view derived from the protocol (unsatisfied gate artifacts, uncovered RQs, un-run recipes, integrity warnings), clearing itself whe… — _✅_
 - **FR-DASH-8** (S) The platform SHALL host the knowledge views: the citation constellation (FR-LIT-2) and the grounded assistant (FR-LIT-4). — _✅_
 - **FR-DASH-9** (S) The platform SHALL explain itself in plain language: hover tooltips for every requirement ID, research-question ID, and domain term it surfaces - tooltip text sourced from this SRS and the glossary… — _✅ tooltip/vocabulary layer built (the standalone guided tour was dropped; hero + demo onboard)_
+- **FR-DASH-10** (S) The platform SHALL provide an enrollment surface in the study workspace: mint pairing tokens (batch/single, pick grain) as copy-links with live status (unredeemed/paired/streaming) and revoke, role… — _⬜_
 - **FR-LIT-1** (M) The framework SHALL ingest papers by PDF upload and by arXiv ID / DOI, extracting metadata (title, authors, year, venue, abstract) and full text for the assistant. — _✅_
 - **FR-LIT-2** (M) The framework SHALL build a related-papers graph around ingested papers via a citation API (Semantic Scholar: references, citations, recommendations), rendered as an interactive graph in the platfo… — _✅_
 - **FR-LIT-3** (S) Papers SHALL be linkable to the protocol elements they justify (an RQ, an instrument, a metric, a recipe), and those links SHALL appear in the traceability views and the generated paper's related-w… — _✅_
