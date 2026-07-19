@@ -46,3 +46,45 @@ def test_list_then_revoke(client_ethics_ok: TestClient):
         ).status_code
         == 404
     )
+
+
+def test_redeem_returns_identity_config_and_consent(client_ethics_ok: TestClient):
+    tok = client_ethics_ok.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
+    ).json()[0]
+    raw = tok["connectionString"].split("#", 1)[1]
+    r = client_ethics_ok.post("/pair/redeem", json={"token": raw})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["participantId"] == "P01"
+    assert body["condition"] == "ai-assisted"
+    assert body["sessionCredential"]
+    assert body["ingestEndpoint"].endswith("/ingest/events")
+    assert body["captureConfig"]["settings"]["cognitiveOverlay.participantId"] == "P01"
+    assert body["contentPolicy"] == "metadata-only"
+    # The study title, not the "pilot" study_id/URL segment, is what the
+    # consent statement embeds (enrollment.consent_statement reads
+    # protocol["study"]["title"]). client_ethics_ok compiles the METR
+    # template with no parameter overrides, so the title is the template's
+    # own default (templates/registry/metr-rct-v1.yaml) rather than the
+    # word "Pilot" — confirmed by inspecting the compiled YAML directly.
+    assert "AI assistance on real tasks" in body["consentStatement"]
+
+
+def test_session_grain_token_is_single_use(client_ethics_ok: TestClient):
+    tok = client_ethics_ok.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "session"}
+    ).json()[0]
+    raw = tok["connectionString"].split("#", 1)[1]
+    assert client_ethics_ok.post("/pair/redeem", json={"token": raw}).status_code == 200
+    second = client_ethics_ok.post("/pair/redeem", json={"token": raw})
+    assert second.status_code == 410
+
+
+def test_revoked_token_cannot_redeem(client_ethics_ok: TestClient):
+    tok = client_ethics_ok.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
+    ).json()[0]
+    client_ethics_ok.delete(f"/studies/pilot/enrollment/tokens/{tok['id']}")
+    raw = tok["connectionString"].split("#", 1)[1]
+    assert client_ethics_ok.post("/pair/redeem", json={"token": raw}).status_code == 410

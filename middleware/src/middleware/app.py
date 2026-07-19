@@ -269,6 +269,13 @@ class MintTokensIn(BaseModel):
     grain: str = "participant"  # 'participant' | 'session'
 
 
+class RedeemIn(BaseModel):
+    """The raw token half of a connection string, POSTed by the extension
+    to pair a live-capture session (FR-INST-20/21)."""
+
+    token: str
+
+
 class _ProtocolCheck:
     """Validates join keys against the loaded study protocol (FR-ING-6).
 
@@ -2373,6 +2380,58 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         row.revoked_at = now()
         s.commit()
         return {"revoked": token_id}
+
+    @app.post("/pair/redeem")
+    def pair_redeem(body: RedeemIn, request: Request, s: Session = Depends(db)) -> dict:
+        """Redeem a connection-string token into a live-capture session
+        (FR-INST-20/21). Public — no project dependency, since the token
+        itself is the credential the extension holds; a study's members
+        never need to be a project member to pair from the field."""
+        from middleware.db import EnrollmentToken, StudyEvolution
+
+        row = s.scalar(
+            select(EnrollmentToken).where(EnrollmentToken.token == body.token)
+        )
+        if row is None or row.revoked_at:
+            raise HTTPException(
+                410, "this connection link is invalid or has been revoked"
+            )
+        try:
+            if datetime.fromisoformat(row.expires_at) < clock():
+                raise HTTPException(
+                    410, "this connection link has expired — ask for a new one"
+                )
+        except (ValueError, TypeError):
+            pass
+        if row.grain == "session" and row.redeemed_at:
+            raise HTTPException(
+                410, "this single-use connection link has already been used"
+            )
+        evo = s.get(StudyEvolution, row.study_id)
+        if evo is None or not evo.ethics_approved_at:
+            raise HTTPException(409, "this study has not cleared its ethics gate")
+        protocol = _resolve_study_protocol(s, row.study_id)
+        if protocol is None:
+            raise HTTPException(404, "no protocol for this study")
+        if not row.credential:
+            row.credential = secrets.token_urlsafe(32)
+        if row.grain == "session":
+            row.redeemed_at = now()
+        elif not row.redeemed_at:
+            row.redeemed_at = now()
+        s.commit()
+        base = str(request.base_url).rstrip("/")
+        return {
+            "participantId": row.participant_id,
+            "condition": row.condition,
+            "sessionCredential": row.credential,
+            "ingestEndpoint": f"{base}/ingest/events",
+            "captureConfig": enrollment.build_capture_config(
+                protocol, row.participant_id, row.condition
+            ),
+            "consentStatement": enrollment.consent_statement(protocol, row.condition),
+            "contentPolicy": enrollment.content_policy(protocol),
+        }
 
     @app.get("/me", dependencies=[Depends(resolve_identity)])
     def get_me(identity: auth.Identity = Depends(resolve_identity)) -> dict:
