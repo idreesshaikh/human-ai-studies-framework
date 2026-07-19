@@ -1,4 +1,4 @@
-"""Pluggable sign-in for the dashboard-facing endpoints (FR-OPS-5, D29).
+"""Pluggable sign-in for the platform-facing endpoints (FR-OPS-5, D29).
 
 Three providers, one seam. The mode is ``MIDDLEWARE_AUTH`` or, when unset,
 resolved from what is configured (zero-config self-hosting stays
@@ -6,7 +6,7 @@ zero-config):
 
 - ``none``  - every request passes. The local/offline default (NFR-5).
 - ``token`` - ``Authorization: Bearer <MIDDLEWARE_TOKEN>``. The default
-  whenever ``MIDDLEWARE_TOKEN`` is set; unchanged behavior from MP-06.
+  whenever ``MIDDLEWARE_TOKEN`` is set; unchanged behavior from.
 - ``clerk`` - verify a Clerk-issued session JWT (RS256) against the
   instance's JWKS (``MIDDLEWARE_CLERK_JWKS_URL``). For hosted deployments
   that want a polished login; self-hosters never need it.
@@ -15,7 +15,7 @@ Ingest is never authenticated in any mode (NFR-1: sensors are
 fire-and-forget). Misconfiguration fails loudly at startup, like the
 stale-DB check - never quietly open.
 
-MP-14 widened the seam: a verifier now returns an :class:`Identity` (the
+ widened the seam: a verifier now returns an :class:`Identity` (the
 JWT ``sub`` + display name + mode) instead of ``None``, so the project
 choke point (:mod:`middleware.authz`) can resolve membership. Rejection
 semantics are unchanged - verifiers still raise ``HTTPException`` on
@@ -140,9 +140,7 @@ def resolve_mode(settings: Settings) -> str:
     if not mode:
         return "token" if settings.token else "none"
     if mode not in {"none", "token", "clerk"}:
-        raise ValueError(
-            f"MIDDLEWARE_AUTH={mode!r}: expected none, token, or clerk"
-        )
+        raise ValueError(f"MIDDLEWARE_AUTH={mode!r}: expected none, token, or clerk")
     return mode
 
 
@@ -155,14 +153,12 @@ def verifier_from_settings(settings: Settings) -> Verifier:
             raise ValueError("MIDDLEWARE_AUTH=token requires MIDDLEWARE_TOKEN")
         return TokenVerifier(settings.token)
     if not settings.clerk_jwks_url:
-        raise ValueError(
-            "MIDDLEWARE_AUTH=clerk requires MIDDLEWARE_CLERK_JWKS_URL"
-        )
+        raise ValueError("MIDDLEWARE_AUTH=clerk requires MIDDLEWARE_CLERK_JWKS_URL")
     return ClerkVerifier(settings.clerk_jwks_url, settings.clerk_issuer)
 
 
 def public_config(settings: Settings) -> dict:
-    """What the dashboard needs to render the right sign-in surface.
+    """What the platform needs to render the right sign-in surface.
 
     Never includes secrets: the Clerk *publishable* key is public by
     definition; the bearer token is obviously not exposed.

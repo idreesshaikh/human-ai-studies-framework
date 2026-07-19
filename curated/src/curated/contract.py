@@ -170,9 +170,7 @@ class MiningAdapter(Protocol):
         and the frame sanity-check)."""
         ...
 
-    def run(
-        self, frame: SamplingFrame, cursor: Cursor | None
-    ) -> Iterator[RunItem]:
+    def run(self, frame: SamplingFrame, cursor: Cursor | None) -> Iterator[RunItem]:
         """Mine ``frame`` from ``cursor`` (or the start when ``None``),
         yielding normalized events and periodic cursor checkpoints. Must be
         deterministic given the same source data, so ``seq`` is stable and

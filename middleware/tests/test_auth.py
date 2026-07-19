@@ -1,7 +1,7 @@
 """Sign-in provider seam (FR-OPS-5, D29).
 
 The contract under test: zero-config stays open, a configured token keeps
-its MP-06 behavior, Clerk JWTs verify against a JWKS-style key, ingest is
+its behavior, Clerk JWTs verify against a JWKS-style key, ingest is
 never authenticated in any mode, and /auth/config leaks no secrets.
 """
 
@@ -25,7 +25,7 @@ def make_settings(tmp_path, **kw) -> Settings:
         db_path=tmp_path / "db.sqlite3",
         data_dir=tmp_path / "data",
         protocol_path=None,
-        dashboard_dist=tmp_path / "nodist",
+        spa_dist=tmp_path / "nodist",
         requirements_dir=tmp_path / "noreqs",
     )
     defaults.update(kw)
@@ -154,9 +154,7 @@ def test_jwks_outage_fails_closed_with_503(rsa_key):
 
 def test_auth_config_shapes(tmp_path):
     assert public_config(make_settings(tmp_path)) == {"mode": "none"}
-    assert public_config(make_settings(tmp_path, token="sekrit")) == {
-        "mode": "token"
-    }
+    assert public_config(make_settings(tmp_path, token="sekrit")) == {"mode": "token"}
     clerk = public_config(
         make_settings(
             tmp_path,
@@ -167,9 +165,7 @@ def test_auth_config_shapes(tmp_path):
     )
     assert clerk == {"mode": "clerk", "clerkPublishableKey": "pk_test_abc"}
     # the secret token never appears in any config payload
-    assert "sekrit" not in str(
-        public_config(make_settings(tmp_path, token="sekrit"))
-    )
+    assert "sekrit" not in str(public_config(make_settings(tmp_path, token="sekrit")))
 
 
 def test_views_gated_but_ingest_open_in_token_mode(tmp_path):
@@ -182,9 +178,7 @@ def test_views_gated_but_ingest_open_in_token_mode(tmp_path):
     assert client.get("/auth/config").json() == {"mode": "token"}
     assert client.get("/tasks").status_code == 401
     assert (
-        client.get(
-            "/tasks", headers={"Authorization": "Bearer sekrit"}
-        ).status_code
+        client.get("/tasks", headers={"Authorization": "Bearer sekrit"}).status_code
         == 200
     )
     # ingest is never authenticated (sensors are fire-and-forget)

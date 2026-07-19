@@ -120,9 +120,7 @@ def test_latex_environments_and_braces_balanced():
     begins = Counter(re.findall(r"\\begin\{(\w+\*?)\}", tex))
     ends = Counter(re.findall(r"\\end\{(\w+\*?)\}", tex))
     assert begins == ends, (begins - ends, ends - begins)
-    body = "\n".join(
-        ln for ln in tex.splitlines() if not ln.lstrip().startswith("%")
-    )
+    body = "\n".join(ln for ln in tex.splitlines() if not ln.lstrip().startswith("%"))
     assert body.count("{") == body.count("}")
 
 
@@ -151,12 +149,19 @@ def test_draft_compiles_to_pdf_when_a_tex_engine_is_present(tmp_path):
     else:
         # Two pdflatex passes bracket bibtex so \citep resolves; run in the
         # paper dir so the relative figures/ + references.bib paths resolve.
-        subprocess.run([engine, "-interaction=nonstopmode", "draft.tex"],
-                       cwd=out, capture_output=True)
-        subprocess.run([shutil.which("bibtex") or "bibtex", "draft"],
-                       cwd=out, capture_output=True)
-        subprocess.run([engine, "-interaction=nonstopmode", "draft.tex"],
-                       cwd=out, capture_output=True)
+        subprocess.run(
+            [engine, "-interaction=nonstopmode", "draft.tex"],
+            cwd=out,
+            capture_output=True,
+        )
+        subprocess.run(
+            [shutil.which("bibtex") or "bibtex", "draft"], cwd=out, capture_output=True
+        )
+        subprocess.run(
+            [engine, "-interaction=nonstopmode", "draft.tex"],
+            cwd=out,
+            capture_output=True,
+        )
         cmd = [engine, "-interaction=nonstopmode", "draft.tex"]
 
     result = subprocess.run(cmd, cwd=out, capture_output=True, text=True)

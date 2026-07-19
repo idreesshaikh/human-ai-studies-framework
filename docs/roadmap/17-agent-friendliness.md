@@ -1,21 +1,32 @@
-# Mega-Prompt 17 — Agent-Friendliness
+# Phase 17 — Agent-Friendliness
+
+> **Note (2026-07-18):** Phase 17 is built. The FR-PROT-9 fit fixture was
+> originally the `context-ablation-2026.yaml` demonstrator draft; that draft
+> (and the comprehension-debt draft) were pilot trial studies, since removed
+> as clutter (see the traceability phase-completion log). The fixture now
+> lives at `protocol/tests/fixtures/agent-participant-v3.yaml` — a neutral,
+> purpose-built v3 protocol. Mentions of `context-ablation-2026.yaml` below
+> are the historical build account; the current fixture is the tests' file.
 
 > Self-contained: execute this file in a fresh session at the repo root.
 > Read first: `docs/VISION.md`, `requirements/specs/fr-agf.md` (the
 > requirement of record), `requirements/srs.md` FR-PROT-9 row,
-> `protocol/examples/context-ablation-2026.yaml` (the fixture this phase
+> `protocol/tests/fixtures/agent-participant-v3.yaml` (the fixture this phase
 > makes valid), `docs/design/architecture.md` (manifest placement), and
 > `docs/roadmap/README.md` (walls + charter). For Claude Code hook and
 > transcript formats, verify against current docs via the
 > `claude-code-guide` agent — never memory.
 
-**Depends on:** MP-14 (the shell — the manifest describes a platform
-with projects and auth; the UI carries the attribute convention), MP-15
-(templates + corpus endpoints the manifest indexes), MP-12 (agent leg +
+**Depends on:** Phase 14 (the shell — the manifest describes a platform
+with projects and auth; the UI carries the attribute convention), Phase 15
+(templates + corpus endpoints the manifest indexes), Phase 12 (agent leg +
 task harness — FR-PROT-9's instruments). **Satisfies:** FR-AGF-1..3,
-FR-PROT-9. **Elicited:** owner, MP-01 rev 8 ("a lot of metadata that
+FR-PROT-9. **Elicited:** owner, Phase 01 rev 8 ("a lot of metadata that
 agents when run can understand") + rev 11 (agent participants).
-**Status:** Open.
+**Status:** Built (2026-07-18) — all four slices implemented and tested;
+the manifest + AGENTS.md + schema vNext + `data-agent` annotations are
+green, with CI drift gates and the scripted agent-discovery proof
+(in-process and against a live boot).
 
 ## The idea
 
@@ -87,7 +98,7 @@ The protocol schema learns that a participant can be an agent:
 1. Schema vNext (bumped `protocolVersion`): participant entries may be
    **anonymized agent-configuration IDs** recording tool + model;
    `cognitiveOverlay` becomes optional for agent participants; the agent
-   leg + task harness (MP-12) are the primary instruments. Validators
+   leg + task harness (Phase 12) are the primary instruments. Validators
    branch on version — the v1 validator's behavior is untouched.
 2. **The fit fixture is the spec**: `context-ablation-2026.yaml`
    (deliberately failing v1 validation today) must validate **unmodified
@@ -105,7 +116,7 @@ The protocol schema learns that a participant can be an agent:
 1. Stable `data-agent` attributes on navigational landmarks and
    decision-bearing components (`data-agent="move-card"`,
    `"draft-rail"`, `"project-switcher"`, `"compile-button"` …) — the
-   `data-tour` discipline generalized. Retrofit the MP-14/15 components
+   `data-tour` discipline generalized. Retrofit the Phase 14/15 components
    (small, mechanical); new components adopt it from birth.
 2. One conventions file (`platform/docs/agent-annotations.md`): naming
    rules, stability promise (renaming an attribute is a breaking change
@@ -156,3 +167,44 @@ The protocol schema learns that a participant can be an agent:
 ## Deviations log
 
 Record departures here and in `requirements/traceability.md` §3.
+
+**2026-07-18 — built.** What landed:
+
+- **Slice A (manifest, FR-AGF-1):** `manifest.py` already existed but had
+  real bugs. Fixed: it now reports the deployment's *resolved* auth mode
+  (was reading a never-set `AUTH_MODE` env), reads the protocol-version
+  *enum* (was returning `[1]` via a stale `const` lookup), caches per
+  `(deployment, auth_mode)` (was a single global that leaked auth mode
+  across deployments), and offers a deterministic snapshot form (no
+  timestamp) for AGENTS.md. Fixing it surfaced **two latent bugs from the
+  parallel build**: (1) the `/schemas/*`, `/templates`, `/papers/index`
+  endpoints resolved their paths with one too few `.parent` calls, so they
+  served hardcoded fallbacks / empty — an agent following the manifest got
+  a stub schema; (2) the manifest route itself 422'd on every request
+  because `Request` was imported *inside* the route factory under
+  `from __future__ import annotations`, so FastAPI couldn't resolve the
+  annotation. Both fixed and regression-tested. Added
+  `scripts/agent_manifest_demo.py` (the F1.2 proof), green in-process and
+  against a live `python -m middleware` boot.
+- **Slice B (AGENTS.md, FR-AGF-2):** `scripts/generate_agents_md.py`
+  generates `AGENTS.md` deterministically from the glossary, the SRS index,
+  a manifest snapshot, and CLAUDE.md's System-invariants section (CLAUDE.md
+  stays the hand-written *input*). `--check` is the drift gate; wired into
+  `ci.yml` plus a pytest that fails on drift.
+- **Slice C (agent participants, FR-PROT-9):** schema vNext bumps
+  `protocolVersion` to accept `3` and makes `cognitiveOverlay` conditional
+  (required at v1/v2; at v3 the study needs ≥1 of overlay / agentCapture /
+  taskHarness), plus an optional `participants.agents` list (tool+model).
+  `context-ablation-2026.yaml` validates under v3 with **only** the version
+  bump — the fit criterion — while v1/v2 behavior is untouched (regression
+  suite). `derive` gained an agent branch: `overlay-settings` fails cleanly
+  on an agent study and `agent-hooks` produces the harness config.
+- **Slice D (annotations, FR-AGF-3):** 13 stable `data-agent` names on the
+  Phase 14/15 landmarks and decision points, `platform/docs/agent-annotations.md`
+  (naming rules, the stability-is-a-contract promise, the inventory), and
+  `check-agent-annotations.mjs` keeping the doc and code in sync (in
+  `npm run check`).
+
+Deviation: the agent-participant analysis recipe `cost-effectiveness-frontier`
+named in the fixture is still unbuilt, so `analysis validate` fails loudly on
+it — the correct state (FR-ANA-2), matching the comprehension-debt draft.

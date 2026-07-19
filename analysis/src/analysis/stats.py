@@ -83,9 +83,7 @@ def cliffs_delta(a: list[float], b: list[float]) -> float:
     return (gt - lt) / (len(a) * len(b))
 
 
-def mann_whitney(
-    a: list[float], b: list[float], labels: tuple[str, str]
-) -> TestResult:
+def mann_whitney(a: list[float], b: list[float], labels: tuple[str, str]) -> TestResult:
     """Exact Mann-Whitney U with Cliff's delta (independent cells)."""
     res = sps.mannwhitneyu(a, b, alternative="two-sided", method="exact")
     return TestResult(
@@ -194,9 +192,7 @@ def compare_by_condition(
     The per-participant aggregation avoids pseudo-replication (many events
     from one person are not independent observations).
     """
-    per = (
-        df.groupby([participant, "condition"])[value].mean().reset_index()
-    )
+    per = df.groupby([participant, "condition"])[value].mean().reset_index()
     wide = per.pivot(index=participant, columns="condition", values=value)
     for c in conditions:
         if c not in wide.columns:

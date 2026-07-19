@@ -77,9 +77,7 @@ def get_json(url: str, *, retries: int = 5) -> object:
         except urllib.error.HTTPError as exc:
             if exc.code == 429 and attempt < retries - 1:
                 retry_after = (exc.headers or {}).get("Retry-After", "")
-                delay = (
-                    float(retry_after) if retry_after.isdigit() else 2.0**attempt
-                )
+                delay = float(retry_after) if retry_after.isdigit() else 2.0**attempt
                 time.sleep(min(delay, 30.0))
                 continue
             raise SemanticScholarError(f"GET {url} -> HTTP {exc.code}") from exc
@@ -161,7 +159,9 @@ def fetch_edges(paper_ref: str, *, fetch=get_json) -> dict[str, list[dict]]:
     that kind rather than losing the others."""
     sid = urllib.parse.quote(s2_id_for_ref(paper_ref), safe=":")
     out: dict[str, list[dict]] = {
-        "references": [], "citations": [], "recommendations": []
+        "references": [],
+        "citations": [],
+        "recommendations": [],
     }
     graph = f"{GRAPH_API}/paper/{sid}"
     for kind, url in (

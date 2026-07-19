@@ -48,8 +48,16 @@ def derive_overlay_settings(
     ``instruments.cognitiveOverlay`` plus the given participant and
     condition (the join keys every event carries). Raises
     :class:`ProtocolError` if ``condition`` is not one of the protocol's
-    conditions.
+    conditions, or if this is an agent-participant study (protocolVersion 3,
+    FR-PROT-9) with no cognitiveOverlay — an agent study has no human in an
+    IDE, so ``derive agent-hooks`` is the harness-oriented target instead.
     """
+    if _PREFIX not in protocol.get("instruments", {}):
+        raise ProtocolError(
+            "this protocol declares no cognitiveOverlay instrument — it is an "
+            "agent-participant study (FR-PROT-9). Use `derive agent-hooks` for "
+            "its harness-oriented config; there is no overlay to derive."
+        )
     conditions = protocol["conditions"]
     if condition not in conditions:
         raise ProtocolError(
@@ -72,9 +80,7 @@ def derive_overlay_settings(
     return settings
 
 
-def derive_agent_hooks(
-    protocol: dict, *, command: str = "agent-capture-hook"
-) -> dict:
+def derive_agent_hooks(protocol: dict, *, command: str = "agent-capture-hook") -> dict:
     """Return the ``.claude/settings.json`` hooks section for the task
     workspace, derived from the protocol alone (FR-AGENT-2, extends
     FR-PROT-4's no-side-channel rule).

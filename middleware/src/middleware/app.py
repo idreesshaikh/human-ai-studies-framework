@@ -35,7 +35,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from protocol.lifecycle import PHASE_ORDER, current_phase
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -45,6 +45,7 @@ from middleware import (
     authz,
     compiler,
     design_assistant,
+    evolution,
     manifest,
     matching,
     mining,
@@ -57,6 +58,8 @@ from middleware.db import (
     CORPUS_STUDY_ID,
     DEMO_PROJECT_SLUG,
     IMPLICIT_PROJECT_ID,
+    AggregateShape,
+    Amendment,
     ApprovalEvent,
     Compilation,
     ConversationTurn,
@@ -75,8 +78,10 @@ from middleware.db import (
     ProtocolDraftRow,
     RecipeRun,
     S2Cache,
+    SessionOpen,
     StoredFile,
     Study,
+    StudyEvolution,
     TaskCard,
     make_session_factory,
 )
@@ -85,9 +90,9 @@ from middleware.settings import Settings
 
 #: Event schema versions this service is written against; other versions are
 #: stored and flagged, never rejected (FR-PROT-2 discipline). v2 = cognitive
-#: leg; v3 = + behavioral telemetry leg (MP-05); v4 = + agent-interaction
-#: leg, snapshots, task harness (MP-12); v5 = + curated-mining vocabulary
-#: (MP-16, `curated.CURATED_SCHEMA_VERSION`).
+#: leg; v3 = + behavioral telemetry leg; v4 = + agent-interaction
+#: leg, snapshots, task harness; v5 = + curated-mining vocabulary
+#:.
 KNOWN_EVENT_SCHEMA_VERSIONS = {2, 3, 4, 5}
 
 #: The default producer stream when an event/batch names none - the
@@ -138,7 +143,7 @@ class TaskIn(BaseModel):
 
 
 class RecipeRunIn(BaseModel):
-    """One recipe run recorded by the analysis runner (MP-07)."""
+    """One recipe run recorded by the analysis runner."""
 
     recipeId: str
     status: str = "ok"
@@ -213,10 +218,39 @@ class CompileIn(BaseModel):
 
 
 class ApproveIn(BaseModel):
-    """Apply one compiled diff (FR-CONV-3.4) - the audited step."""
+    """Apply one compiled diff (FR-CONV-3.4) - the audited step.
+
+    Post-ethics this application is an *amendment* (FR-CONV-4.2): ``rationale``
+    is the "why" the amendment record and the ethics-board delta carry."""
 
     compilationId: str
     approvedBy: str = "Researcher"
+    rationale: str = ""
+
+
+class ReapprovalIn(BaseModel):
+    """Record the updated ethics artifact that lifts a consent-relevant
+    amendment's session pause (FR-CONV-4.2, F4.1)."""
+
+    artifact: str = ""
+
+
+class SessionStartIn(BaseModel):
+    """Open a data-collection session under the study's current protocol
+    revision (FR-CONV-4, F4.2/F4.3). The gate refuses *new* sessions while a
+    consent-relevant amendment awaits re-approval; an already-open session
+    resumes untouched (NFR-1)."""
+
+    sessionId: str
+
+
+class FeedbackIn(BaseModel):
+    """Mark a conversation turn as platform feedback (FR-CONV-5.1). ``note`` is
+    the researcher's optional words; ``kind`` buckets the feedback (a UX
+    defect, a template gap, ...) — detection may *offer* it, marking confirms."""
+
+    note: str = ""
+    kind: str = "unclassified"
 
 
 class TemplateInstantiateIn(BaseModel):
@@ -270,11 +304,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         protocol_doc = load_protocol(settings.protocol_path)
     check = _ProtocolCheck(protocol_doc)
 
-    # Reify the loaded protocol's study into the studies table (MP-14): the
+    # Reify the loaded protocol's study into the studies table: the
     # project choke point resolves study_id -> studies.project_id -> membership,
     # so the protocol's study needs a row. Owned by the implicit project
     # (auto-created by _migrate_projects at boot). Idempotent: a re-run only
-    # backfills project_id on a pre-MP-14-style row. No protocol loaded = no
+    # backfills project_id on a pre--style row. No protocol loaded = no
     # study row; the v1 /studies/{id} routes still 404 as before on unknown ids.
     if check.study_id is not None:
         with session_factory() as s:
@@ -283,11 +317,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     app = FastAPI(title="Study ingestion middleware", version="0.1.0")
 
-    # Platform manifest for agent-friendliness (FR-AGF-1)
-    manifest.setup_manifest_route(app)
+    # Platform manifest for agent-friendliness (FR-AGF-1). The resolved auth
+    # mode is passed so the manifest reports what this deployment enforces.
+    manifest.setup_manifest_route(app, auth_mode=auth.resolve_mode(settings))
 
     # Cross-origin access is opt-in per origin (FR-OPS-6): unset = the
-    # same-origin-only default; set = a dashboard hosted on a separate
+    # same-origin-only default; set = a platform hosted on a separate
     # origin calling this middleware.
     if settings.cors_origins:
         from fastapi.middleware.cors import CORSMiddleware
@@ -334,11 +369,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def check_study_id(study_id: str) -> None:
         if check.study_id is not None and study_id != check.study_id:
             raise HTTPException(
-                404, f"unknown study {study_id!r}; this deployment serves "
-                f"{check.study_id!r}"
+                404,
+                f"unknown study {study_id!r}; this deployment serves "
+                f"{check.study_id!r}",
             )
 
-    # Sign-in gate on the dashboard-facing endpoints (FR-OPS-5): pluggable
+    # Sign-in gate on the platform-facing endpoints (FR-OPS-5): pluggable
     # provider (none/token/clerk), built once at startup so misconfiguration
     # fails loudly here, not on first request. Ingest stays open: sensors
     # are fire-and-forget (NFR-1) on a local-first deployment (NFR-5).
@@ -347,7 +383,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def view_auth(authorization: str = Header(default="")) -> None:
         verify_view_auth(authorization)
 
-    # The project-scoping choke point (FR-PLAT-1/2, MP-14 Slice A): one
+    # The project-scoping choke point (FR-PLAT-1/2, Slice A): one
     # seam, built once. ``require_project`` / ``require_project_for_study``
     # are dependency *factories* - a route names its capability and the
     # factory returns a dependency that resolves membership or 403/404. The
@@ -362,9 +398,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     def require_protocol() -> dict:
         if protocol_doc is None:
-            raise HTTPException(
-                404, "no protocol loaded; set MIDDLEWARE_PROTOCOL"
-            )
+            raise HTTPException(404, "no protocol loaded; set MIDDLEWARE_PROTOCOL")
         return protocol_doc
 
     # ---------------------------------------------------------------- ingest
@@ -402,9 +436,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             stmt = (
                 sqlite_insert(Event)
                 .values(rows)
-                .on_conflict_do_nothing(
-                    index_elements=["session_id", "source", "seq"]
-                )
+                .on_conflict_do_nothing(index_elements=["session_id", "source", "seq"])
             )
             inserted = s.execute(stmt).rowcount
         if flagged:
@@ -502,8 +534,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     # ----------------------------------------------------------------- query
 
-    @app.get("/studies/{study_id}/sessions",
-             dependencies=[Depends(require_project_for_study("view"))])
+    @app.get(
+        "/studies/{study_id}/sessions",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
     def list_sessions(study_id: str, s: Session = Depends(db)) -> list[dict]:
         out = {}
         event_rows = s.execute(
@@ -583,21 +617,19 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         # Each producer owns a ``seq`` stream; gaps are per (session, source).
         # The default producer's summary stays at the top level so the flat
         # shape is unchanged for single-producer sessions; ``sources`` breaks
-        # every stream out (MP-12: agent legs write the same session).
-        summaries = {
-            src: _gap_summary(sorted(seqs)) for src, seqs in by_source.items()
-        }
+        # every stream out.
+        summaries = {src: _gap_summary(sorted(seqs)) for src, seqs in by_source.items()}
         primary = DEFAULT_SOURCE if DEFAULT_SOURCE in summaries else min(summaries)
         return {
             "sessionId": session_id,
             **summaries[primary],
-            "sources": [
-                {"source": src, **summaries[src]} for src in sorted(summaries)
-            ],
+            "sources": [{"source": src, **summaries[src]} for src in sorted(summaries)],
         }
 
-    @app.get("/studies/{study_id}/dataset",
-             dependencies=[Depends(require_project_for_study("view"))])
+    @app.get(
+        "/studies/{study_id}/dataset",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
     def dataset(study_id: str, format: str = "json", s: Session = Depends(db)):
         """The joined one-timeline export all legs share (FR-ING-4).
 
@@ -638,18 +670,29 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if format == "csv":
             buf = io.StringIO()
             writer = csv.writer(buf)
-            header = ["source", "ts", "sessionId", "participantId", "condition",
-                      "type", "seq", "flags", "payload"]
+            header = [
+                "source",
+                "ts",
+                "sessionId",
+                "participantId",
+                "condition",
+                "type",
+                "seq",
+                "flags",
+                "payload",
+            ]
             writer.writerow(header)
             for r in rows:
                 writer.writerow(
-                    [r[k] if k not in ("flags", "payload") else json.dumps(r[k])
-                     for k in header]
+                    [
+                        r[k] if k not in ("flags", "payload") else json.dumps(r[k])
+                        for k in header
+                    ]
                 )
             return PlainTextResponse(buf.getvalue(), media_type="text/csv")
         raise HTTPException(400, "format must be 'json' or 'csv'")
 
-    # ------------------------------------- dashboard support (MP-06, FR-DASH)
+    # ------------------------------------- platform support
 
     def _stored_files(s: Session) -> dict[str, StoredFile]:
         """Uploaded artifacts by filename - the lifecycle's evidence set.
@@ -690,8 +733,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 {
                     "name": name,
                     "status": (
-                        "complete" if i < cur_i
-                        else "current" if i == cur_i
+                        "complete"
+                        if i < cur_i
+                        else "current"
+                        if i == cur_i
                         else "upcoming"
                     ),
                     "gates": gates,
@@ -710,8 +755,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         proto = require_protocol()
         recipes_by_rq = {
-            p["rq"]: list(p.get("recipes", []))
-            for p in proto.get("analysisPlan", [])
+            p["rq"]: list(p.get("recipes", [])) for p in proto.get("analysisPlan", [])
         }
         return {
             "studyId": proto["study"]["id"],
@@ -751,7 +795,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def study_status(study_id: str, s: Session = Depends(db)) -> dict:
         """One factual status document (FR-DASH-7).
 
-        The task board is a *projection* of this document: the dashboard
+        The task board is a *projection* of this document: the platform
         derives cards from it and they clear themselves when the fact that
         spawned them disappears. Facts only - no card state lives here.
         """
@@ -834,14 +878,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         within = participants.get("design") == "within-subjects"
         conditions = list(proto.get("conditions", []))
         recipes_by_rq = {
-            p["rq"]: list(p.get("recipes", []))
-            for p in proto.get("analysisPlan", [])
+            p["rq"]: list(p.get("recipes", [])) for p in proto.get("analysisPlan", [])
         }
         ran = set(
             s.scalars(
                 select(RecipeRun.recipe_id).where(
-                    RecipeRun.study_id == proto["study"]["id"],
-                    RecipeRun.status == "ok",
+                    RecipeRun.study_id == proto["study"]["id"], RecipeRun.status == "ok"
                 )
             )
         )
@@ -857,7 +899,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 {
                     "id": rq["id"],
                     "recipes": recipes_by_rq.get(rq["id"], []),
-                    # Recorded by `analysis run` (MP-07); planned recipes
+                    # Recorded by `analysis run`; planned recipes
                     # without a recorded ok run read as un-run.
                     "recipeRuns": [
                         r for r in recipes_by_rq.get(rq["id"], []) if r in ran
@@ -938,7 +980,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def add_recipe_run(
         study_id: str, run: RecipeRunIn, s: Session = Depends(db)
     ) -> dict:
-        """Record one analysis-recipe run (MP-07 runner -> FR-DASH-7 cards)."""
+        """Record one analysis-recipe run."""
 
         row = RecipeRun(
             study_id=study_id,
@@ -999,7 +1041,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def list_papers(study_id: str, s: Session = Depends(db)) -> list[dict]:
         """The study's paper set. ``inProtocolLiterature`` marks papers the
         protocol's ``literature:`` list already cites - links join on the
-        canonical paperRef (FR-LIT-3 builds on this in MP-10)."""
+        canonical paperRef (FR-LIT-3 builds on this in)."""
 
         proto_refs = {
             entry.get("paperRef")
@@ -1032,13 +1074,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "inProtocolLiterature": p.paper_ref in proto_refs,
             }
             for p in s.scalars(
-                select(Paper)
-                .where(Paper.study_id == study_id)
-                .order_by(Paper.id)
+                select(Paper).where(Paper.study_id == study_id).order_by(Paper.id)
             )
         ]
 
-    # --------------------------------------- paper ingest + graph (MP-10)
+    # --------------------------------------- paper ingest + graph
 
     def cached_fetch(s: Session):
         """A Semantic Scholar GET wrapped in the DB cache (D8, NFR-7): the
@@ -1122,8 +1162,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             edges = semantic_scholar.fetch_edges(paper_ref, fetch=cached_fetch(s))
         except semantic_scholar.SemanticScholarError as exc:
             log_finding(
-                s, "papers/graph", "FR-LIT-2",
-                f"edge harvest failed for {paper_ref}: {exc}", {},
+                s,
+                "papers/graph",
+                "FR-LIT-2",
+                f"edge harvest failed for {paper_ref}: {exc}",
+                {},
             )
             return 0
         n = 0
@@ -1135,8 +1178,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 stmt = (
                     sqlite_insert(PaperEdge)
                     .values(
-                        study_id=study_id, src_ref=paper_ref, dst_ref=dst,
-                        kind=kind, dst_title=nb.get("title", ""),
+                        study_id=study_id,
+                        src_ref=paper_ref,
+                        dst_ref=dst,
+                        kind=kind,
+                        dst_title=nb.get("title", ""),
                         dst_year=nb.get("year"),
                         dst_citation_count=nb.get("citationCount"),
                     )
@@ -1170,8 +1216,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(502, f"Semantic Scholar: {exc}") from exc
         upsert_paper(s, study_id, record, source="id")
         edges = harvest_edges(s, study_id, record["paperRef"])
-        return {"paperRef": record["paperRef"], "title": record["title"],
-                "edges": edges}
+        return {
+            "paperRef": record["paperRef"],
+            "title": record["title"],
+            "edges": edges,
+        }
 
     @app.post(
         "/studies/{study_id}/papers/upload",
@@ -1200,23 +1249,28 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             record = None
         if record is None:
             digest = sha256(content).hexdigest()[:16]
-            record = {"paperRef": f"pdf:{digest}", "title": title,
-                      "authors": [], "abstract": ""}
+            record = {
+                "paperRef": f"pdf:{digest}",
+                "title": title,
+                "authors": [],
+                "abstract": "",
+            }
         record["fullText"] = extracted["text"]
         upsert_paper(s, study_id, record, source="upload")
         edges = 0
         if not record["paperRef"].startswith("pdf:"):
             edges = harvest_edges(s, study_id, record["paperRef"])
-        return {"paperRef": record["paperRef"], "title": record["title"],
-                "textChars": len(extracted["text"]), "edges": edges}
+        return {
+            "paperRef": record["paperRef"],
+            "title": record["title"],
+            "textChars": len(extracted["text"]),
+            "edges": edges,
+        }
 
     @app.delete(
-        "/studies/{study_id}/papers/{paper_ref:path}",
-        dependencies=[Depends(view_auth)],
+        "/studies/{study_id}/papers/{paper_ref:path}", dependencies=[Depends(view_auth)]
     )
-    def delete_paper(
-        study_id: str, paper_ref: str, s: Session = Depends(db)
-    ) -> dict:
+    def delete_paper(study_id: str, paper_ref: str, s: Session = Depends(db)) -> dict:
 
         deleted = s.execute(
             select(Paper).where(
@@ -1255,28 +1309,30 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             p.paper_ref: p
             for p in s.scalars(select(Paper).where(Paper.study_id == study_id))
         }
-        edges = list(
-            s.scalars(select(PaperEdge).where(PaperEdge.study_id == study_id))
-        )
+        edges = list(s.scalars(select(PaperEdge).where(PaperEdge.study_id == study_id)))
         nodes: dict[str, dict] = {}
         for ref, p in ingested.items():
             nodes[ref] = {
-                "paperRef": ref, "title": p.title, "year": p.year,
-                "citationCount": p.citation_count, "ingested": True,
+                "paperRef": ref,
+                "title": p.title,
+                "year": p.year,
+                "citationCount": p.citation_count,
+                "ingested": True,
             }
         for e in edges:
             if e.dst_ref not in nodes:
                 nodes[e.dst_ref] = {
-                    "paperRef": e.dst_ref, "title": e.dst_title,
-                    "year": e.dst_year, "citationCount": e.dst_citation_count,
+                    "paperRef": e.dst_ref,
+                    "title": e.dst_title,
+                    "year": e.dst_year,
+                    "citationCount": e.dst_citation_count,
                     "ingested": False,
                 }
         return {
             "studyId": study_id,
             "nodes": sorted(nodes.values(), key=lambda n: not n["ingested"]),
             "edges": [
-                {"src": e.src_ref, "dst": e.dst_ref, "kind": e.kind}
-                for e in edges
+                {"src": e.src_ref, "dst": e.dst_ref, "kind": e.kind} for e in edges
             ],
         }
 
@@ -1368,8 +1424,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         targets = sorted(
             s.scalars(
                 select(PaperLink.target).where(
-                    PaperLink.study_id == study_id,
-                    PaperLink.paper_ref == paper_ref,
+                    PaperLink.study_id == study_id, PaperLink.paper_ref == paper_ref
                 )
             )
         )
@@ -1380,8 +1435,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         dependencies=[Depends(view_auth)],
     )
     def set_paper_links(
-        study_id: str, paper_ref: str, body: PaperLinksIn,
-        s: Session = Depends(db),
+        study_id: str, paper_ref: str, body: PaperLinksIn, s: Session = Depends(db)
     ) -> dict:
         """Replace a paper's protocol-element links (FR-LIT-3). Targets use
         the protocol's justification vocabulary (``RQ-P2``,
@@ -1405,7 +1459,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     )
     def assistant_config(study_id: str) -> dict:
         """Whether the assistant is configured and which Mistral model tiers
-        the dashboard may pick (D32 rev 2). Never exposes the key itself."""
+        the platform may pick (D32 rev 2). Never exposes the key itself."""
 
         ready = assistant.configured()
         return {
@@ -1450,9 +1504,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         the analysis runner (recipe requires-failures)."""
         s.add(
             Finding(
-                at=now(), source=finding.source, kind=finding.kind,
-                requirement_id=finding.requirementId, message=finding.message,
-                context=finding.context, status=finding.status,
+                at=now(),
+                source=finding.source,
+                kind=finding.kind,
+                requirement_id=finding.requirementId,
+                message=finding.message,
+                context=finding.context,
+                status=finding.status,
             )
         )
         return {"ok": True}
@@ -1485,8 +1543,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             if key in existing:
                 return
             existing.add(key)
-            log_finding(s, source="findings/scan", requirement_id=req,
-                        message=message, context=context, kind=kind)
+            log_finding(
+                s,
+                source="findings/scan",
+                requirement_id=req,
+                message=message,
+                context=context,
+                kind=kind,
+            )
             written += 1
 
         # Seq gaps, per (session, source).
@@ -1500,7 +1564,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             if summary["gaps"]:
                 missing = summary["expected"] - summary["received"]
                 emit(
-                    "seq-gap", "FR-ING-3",
+                    "seq-gap",
+                    "FR-ING-3",
                     f"{sid} ({src}): {len(summary['gaps'])} seq gap(s), "
                     f"{missing} event(s) missing",
                     {"session": sid, "source": src},
@@ -1516,7 +1581,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             for gate in declared.get(current, []):
                 if gate not in files:
                     emit(
-                        "gate-block", "FR-PROT-3",
+                        "gate-block",
+                        "FR-PROT-3",
                         f"phase {current!r} blocked: gate artifact {gate!r} missing",
                         {"phase": current, "gate": gate},
                     )
@@ -1535,8 +1601,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if status:
             q = q.where(TaskCard.status == status)
         return [
-            {"id": t.id, "title": t.title, "status": t.status, "note": t.note,
-             "createdAt": t.created_at}
+            {
+                "id": t.id,
+                "title": t.title,
+                "status": t.status,
+                "note": t.note,
+                "createdAt": t.created_at,
+            }
             for t in s.scalars(q)
         ]
 
@@ -1552,7 +1623,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.get("/requirements", dependencies=[Depends(view_auth)])
     def list_requirements() -> list[dict]:
-        """The SRS, parsed live from ``srs.md`` - dashboard tooltip text
+        """The SRS, parsed live from ``srs.md`` - platform tooltip text
         comes from the document of record and cannot drift."""
         return parse_srs(settings.requirements_dir / "srs.md")
 
@@ -1568,7 +1639,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     @app.get("/vocabulary/glossary")
     def agent_glossary() -> list[dict]:
         """The project glossary for agent consumption (FR-AGF-1).
-        
+
         Unauthenticated. Same data as /glossary but without auth.
         """
         return parse_glossary(settings.requirements_dir / "glossary.md")
@@ -1576,7 +1647,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     @app.get("/vocabulary/requirements")
     def agent_requirements() -> list[dict]:
         """The SRS for agent consumption (FR-AGF-1).
-        
+
         Unauthenticated. Same data as /requirements but without auth.
         """
         return parse_srs(settings.requirements_dir / "srs.md")
@@ -1587,7 +1658,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     @app.get("/schemas/event")
     def event_schema() -> dict:
         """Event schema for agent consumption (FR-AGF-1).
-        
+
         Unauthenticated. Returns the current event schema that the
         middleware accepts ( StudyEvent from extension/types.ts ).
         """
@@ -1600,24 +1671,31 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "description": "Machine-readable schema for study events.",
             "type": "object",
             "required": [
-                "v", "ts", "mono", "sessionId", 
-                "participantId", "condition", "seq", "type", "payload"
+                "v",
+                "ts",
+                "mono",
+                "sessionId",
+                "participantId",
+                "condition",
+                "seq",
+                "type",
+                "payload",
             ],
             "additionalProperties": False,
             "properties": {
                 "v": {
                     "description": (
                         "Event schema version. Current: 3 (behavioral telemetry leg, "
-                        "MP-05). v4 reserved for agent-interaction leg (MP-12)."
+                        "). v4 reserved for agent-interaction leg."
                     ),
                     "type": "integer",
                     "minimum": 2,
-                    "maximum": 4
+                    "maximum": 4,
                 },
                 "ts": {
                     "description": "ISO-8601 wall-clock timestamp with ms precision.",
                     "type": "string",
-                    "format": "date-time"
+                    "format": "date-time",
                 },
                 "mono": {
                     "description": (
@@ -1625,22 +1703,22 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                         "Immune to NTP jumps and manual clock changes."
                     ),
                     "type": "number",
-                    "minimum": 0
+                    "minimum": 0,
                 },
                 "sessionId": {
                     "description": "Unique session identifier.",
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
                 },
                 "participantId": {
                     "description": "Participant identifier.",
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
                 },
                 "condition": {
                     "description": "Study condition.",
                     "type": "string",
-                    "enum": ["ai-assisted", "unassisted", "unspecified"]
+                    "enum": ["ai-assisted", "unassisted", "unspecified"],
                 },
                 "seq": {
                     "description": (
@@ -1648,7 +1726,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                         "and gap detection."
                     ),
                     "type": "integer",
-                    "minimum": 0
+                    "minimum": 0,
                 },
                 "type": {
                     "description": (
@@ -1656,12 +1734,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                         "'stuck_response'."
                     ),
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
                 },
                 "payload": {
                     "description": "Event-specific payload data.",
                     "type": "object",
-                    "additionalProperties": True
+                    "additionalProperties": True,
                 },
                 "source": {
                     "description": (
@@ -1669,19 +1747,19 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                         "('cognitive-overlay') if not provided."
                     ),
                     "type": "string",
-                    "default": "cognitive-overlay"
-                }
-            }
+                    "default": "cognitive-overlay",
+                },
+            },
         }
 
     @app.get("/schemas/protocol")
     def protocol_schema() -> dict:
         """Protocol schema for agent consumption (FR-AGF-1).
-        
+
         Unauthenticated. Serves the study protocol schema from the protocol package.
         """
         protocol_schema_path = (
-            Path(__file__).resolve().parent.parent.parent
+            Path(__file__).resolve().parent.parent.parent.parent
             / "protocol"
             / "src"
             / "protocol"
@@ -1690,6 +1768,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         )
         if protocol_schema_path.exists():
             import json
+
             return json.loads(protocol_schema_path.read_text())
         # Fallback to minimal schema if file not found
         return {
@@ -1699,34 +1778,33 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "type": "object",
             "required": [
                 "protocolVersion",
-                "study", 
+                "study",
                 "researchQuestions",
                 "conditions",
                 "participants",
                 "session",
-                "instruments", 
+                "instruments",
                 "phases",
-                "analysisPlan"
+                "analysisPlan",
             ],
-            "properties": {
-                "protocolVersion": {"type": "integer", "const": 1}
-            }
+            "properties": {"protocolVersion": {"type": "integer", "const": 1}},
         }
 
     @app.get("/schemas/template")
     def template_schema() -> dict:
         """Template schema for agent consumption (FR-AGF-1).
-        
+
         Unauthenticated. Serves the template schema from the templates package.
         """
         template_schema_path = (
-            Path(__file__).resolve().parent.parent.parent
+            Path(__file__).resolve().parent.parent.parent.parent
             / "templates"
-            / "schemas" 
+            / "schemas"
             / "template.schema.json"
         )
         if template_schema_path.exists():
             import json
+
             return json.loads(template_schema_path.read_text())
         # Fallback to minimal schema if file not found
         return {
@@ -1736,19 +1814,17 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "type": "object",
             "required": [
                 "templateVersion",
-                "templateId", 
+                "templateId",
                 "title",
-                "source", 
+                "source",
                 "designType",
                 "dataPath",
                 "parameters",
                 "measures",
                 "statisticalPlan",
-                "protocolSkeleton"
+                "protocolSkeleton",
             ],
-            "properties": {
-                "templateVersion": {"type": "integer", "minimum": 1}
-            }
+            "properties": {"templateVersion": {"type": "integer", "minimum": 1}},
         }
 
     # ------------------------- templates endpoint for agents (FR-AGF-1)
@@ -1756,72 +1832,72 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     @app.get("/templates")
     def template_index() -> dict:
         """Template registry index for agent consumption (FR-AGF-1).
-        
+
         Unauthenticated. Returns metadata about available templates.
         """
-        repo = Path(__file__).resolve().parent.parent.parent
+        repo = Path(__file__).resolve().parent.parent.parent.parent
         templates_dir = repo / "templates" / "registry"
-        
+
         templates = []
         if templates_dir.exists():
             import yaml
+
             for template_file in sorted(templates_dir.glob("*.yaml")):
                 try:
                     with open(template_file) as f:
                         template_data = yaml.safe_load(f)
-                    templates.append({
-                        "id": template_data.get("templateId", ""),
-                        "version": template_data.get("templateVersion", 1),
-                        "title": template_data.get("title", ""),
-                        "description": template_data.get("description", ""),
-                        "designType": template_data.get("designType", ""),
-                        "dataPath": template_data.get("dataPath", ""),
-                        "source": template_data.get("source", []),
-                    })
+                    templates.append(
+                        {
+                            "id": template_data.get("templateId", ""),
+                            "version": template_data.get("templateVersion", 1),
+                            "title": template_data.get("title", ""),
+                            "description": template_data.get("description", ""),
+                            "designType": template_data.get("designType", ""),
+                            "dataPath": template_data.get("dataPath", ""),
+                            "source": template_data.get("source", []),
+                        }
+                    )
                 except Exception:
                     # Skip files that can't be parsed
                     continue
-        
-        return {
-            "templates": templates,
-            "count": len(templates),
-            "generatedAt": now()
-        }
+
+        return {"templates": templates, "count": len(templates), "generatedAt": now()}
 
     # ------------------------- corpus endpoint for agents (FR-AGF-1)
 
     @app.get("/papers/index")
     def corpus_index() -> dict:
         """Corpus index for agent consumption (FR-AGF-1).
-        
+
         Unauthenticated. Returns metadata about the paper corpus.
         """
-        repo = Path(__file__).resolve().parent.parent.parent
+        repo = Path(__file__).resolve().parent.parent.parent.parent
         corpus_index_path = repo / "docs" / "papers" / "corpus-index.json"
-        
+
         if corpus_index_path.exists():
             import json
+
             return json.loads(corpus_index_path.read_text())
-        
+
         # Fallback if corpus-index.json doesn't exist
         return {
             "generatedAt": "",
             "pipeline": "",
             "tierA": {"count": 0, "arxivResolvable": 0, "source": ""},
             "tierB": [],
-            "scoringVersion": 0
+            "scoringVersion": 0,
         }
 
-    # -------------------------------------------------- MP-14 project routes
+    # -------------------------------------------------- project routes
     # The platform API surface (FR-PLAT-1..5). Every project-scoped route
     # depends on the ``require_project(capability)`` choke point; the matrix
     # lives in ``authz.CAPABILITIES`` (data), tests iterate it (F2.1/F2.2).
 
-    @app.post("/projects",
-              dependencies=[Depends(resolve_identity)])
+    @app.post("/projects", dependencies=[Depends(resolve_identity)])
     def create_project(
-        body: dict, identity: auth.Identity = Depends(resolve_identity),
-        s: Session = Depends(db)
+        body: dict,
+        identity: auth.Identity = Depends(resolve_identity),
+        s: Session = Depends(db),
     ) -> dict:
         """Create a new project (FR-PLAT-1). Any signed-in identity may
         create a project; the creator becomes owner."""
@@ -1840,24 +1916,24 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         pid = secrets.token_hex(8)
         s.add(
             Project(
-                id=pid, name=name, slug=slug,
-                created_by=identity.sub, created_at=now(),
+                id=pid, name=name, slug=slug, created_by=identity.sub, created_at=now()
             )
         )
         s.add(
             Membership(
-                project_id=pid, identity_sub=identity.sub, role="owner",
-                invited_by="", joined_at=now(),
+                project_id=pid,
+                identity_sub=identity.sub,
+                role="owner",
+                invited_by="",
+                joined_at=now(),
             )
         )
         s.flush()
         return {"id": pid, "slug": slug, "name": name}
 
-    @app.get("/projects",
-             dependencies=[Depends(resolve_identity)])
+    @app.get("/projects", dependencies=[Depends(resolve_identity)])
     def list_projects(
-        identity: auth.Identity = Depends(resolve_identity),
-        s: Session = Depends(db)
+        identity: auth.Identity = Depends(resolve_identity), s: Session = Depends(db)
     ) -> list[dict]:
         """My project memberships (FR-PLAT-2). Returns projects where the
         caller has any membership, with their role on each."""
@@ -1878,8 +1954,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             for p, role in rows
         ]
 
-    @app.get("/projects/{slug}",
-             dependencies=[Depends(require_project("view"))])
+    @app.get("/projects/{slug}", dependencies=[Depends(require_project("view"))])
     def project_home(slug: str, s: Session = Depends(db)) -> dict:
         """Project home payload: project info, studies, members preview."""
         proj = s.scalar(select(Project).where(Project.slug == slug))
@@ -1887,9 +1962,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(404, "project not found")
         studies = [
             {"id": st.id, "phase": st.phase}
-            for st in s.scalars(
-                select(Study).where(Study.project_id == proj.id)
-            )
+            for st in s.scalars(select(Study).where(Study.project_id == proj.id))
         ]
         members = [
             {"identitySub": m.identity_sub, "role": m.role}
@@ -1898,12 +1971,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
         ]
         invitations = [
-            {"id": inv.id, "email": inv.email, "role": inv.role,
-             "expiresAt": inv.expires_at, "acceptedAt": inv.accepted_at}
+            {
+                "id": inv.id,
+                "email": inv.email,
+                "role": inv.role,
+                "expiresAt": inv.expires_at,
+                "acceptedAt": inv.accepted_at,
+            }
             for inv in s.scalars(
                 select(Invitation).where(
-                    Invitation.project_id == proj.id,
-                    Invitation.accepted_at.is_(None),
+                    Invitation.project_id == proj.id, Invitation.accepted_at.is_(None)
                 )
             )
         ]
@@ -1916,8 +1993,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "invitations": invitations,
         }
 
-    @app.patch("/projects/{slug}",
-               dependencies=[Depends(require_project("manage_members"))])
+    @app.patch(
+        "/projects/{slug}", dependencies=[Depends(require_project("manage_members"))]
+    )
     def rename_project(slug: str, body: dict, s: Session = Depends(db)) -> dict:
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
@@ -1929,8 +2007,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()
         return {"id": proj.id, "slug": proj.slug, "name": proj.name}
 
-    @app.delete("/projects/{slug}",
-                dependencies=[Depends(require_project("delete"))])
+    @app.delete("/projects/{slug}", dependencies=[Depends(require_project("delete"))])
     def delete_project(slug: str, body: dict, s: Session = Depends(db)) -> dict:
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
@@ -1938,41 +2015,39 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         confirm = str(body.get("confirm", "")).strip()
         if confirm != proj.slug:
             raise HTTPException(
-                400,
-                f"type the project slug ({proj.slug!r}) to confirm deletion",
+                400, f"type the project slug ({proj.slug!r}) to confirm deletion"
             )
         # Delete memberships + invitations cascade via FK (ondelete);
         # studies, papers etc. are scoped via the choke point, not cascaded.
-        s.execute(
-            Membership.__table__.delete().where(
-                Membership.project_id == proj.id
-            )
-        )
-        s.execute(
-            Invitation.__table__.delete().where(
-                Invitation.project_id == proj.id
-            )
-        )
+        s.execute(Membership.__table__.delete().where(Membership.project_id == proj.id))
+        s.execute(Invitation.__table__.delete().where(Invitation.project_id == proj.id))
         s.delete(proj)
         s.flush()
         return {"deleted": proj.slug}
 
-    @app.get("/projects/{slug}/members",
-             dependencies=[Depends(require_project("view"))])
+    @app.get(
+        "/projects/{slug}/members", dependencies=[Depends(require_project("view"))]
+    )
     def list_members(slug: str, s: Session = Depends(db)) -> list[dict]:
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
             raise HTTPException(404, "project not found")
         return [
-            {"identitySub": m.identity_sub, "role": m.role,
-             "invitedBy": m.invited_by, "joinedAt": m.joined_at}
+            {
+                "identitySub": m.identity_sub,
+                "role": m.role,
+                "invitedBy": m.invited_by,
+                "joinedAt": m.joined_at,
+            }
             for m in s.scalars(
                 select(Membership).where(Membership.project_id == proj.id)
             )
         ]
 
-    @app.patch("/projects/{slug}/members/{identity_sub}",
-               dependencies=[Depends(require_project("manage_members"))])
+    @app.patch(
+        "/projects/{slug}/members/{identity_sub}",
+        dependencies=[Depends(require_project("manage_members"))],
+    )
     def change_role(
         slug: str, identity_sub: str, body: dict, s: Session = Depends(db)
     ) -> dict:
@@ -1994,11 +2069,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()
         return {"identitySub": m.identity_sub, "role": m.role}
 
-    @app.delete("/projects/{slug}/members/{identity_sub}",
-                dependencies=[Depends(require_project("manage_members"))])
-    def remove_member(
-        slug: str, identity_sub: str, s: Session = Depends(db)
-    ) -> dict:
+    @app.delete(
+        "/projects/{slug}/members/{identity_sub}",
+        dependencies=[Depends(require_project("manage_members"))],
+    )
+    def remove_member(slug: str, identity_sub: str, s: Session = Depends(db)) -> dict:
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
             raise HTTPException(404, "project not found")
@@ -2013,25 +2088,23 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         # Last owner refuses (fr-plat.md §2).
         if m.role == "owner":
             owner_count = s.scalar(
-                select(func.count()).select_from(Membership).where(
-                    Membership.project_id == proj.id,
-                    Membership.role == "owner",
-                )
+                select(func.count())
+                .select_from(Membership)
+                .where(Membership.project_id == proj.id, Membership.role == "owner")
             )
             if owner_count <= 1:
                 raise HTTPException(
-                    409,
-                    "can't remove the last owner — transfer ownership first",
+                    409, "can't remove the last owner — transfer ownership first"
                 )
         s.delete(m)
         s.flush()
         return {"removed": identity_sub}
 
-    @app.post("/projects/{slug}/invitations",
-              dependencies=[Depends(require_project("manage_members"))])
-    def create_invitation(
-        slug: str, body: dict, s: Session = Depends(db)
-    ) -> dict:
+    @app.post(
+        "/projects/{slug}/invitations",
+        dependencies=[Depends(require_project("manage_members"))],
+    )
+    def create_invitation(slug: str, body: dict, s: Session = Depends(db)) -> dict:
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
             raise HTTPException(404, "project not found")
@@ -2043,13 +2116,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(400, f"role must be one of: {list(authz.ROLES)}")
         # Expiry: 7 days from now (roadmap says expiring; duration is mine).
         from datetime import timedelta as td
+
         expires = clock() + td(days=7)
         token = secrets.token_urlsafe(32)
         inv_id = secrets.token_hex(8)
         s.add(
             Invitation(
-                id=inv_id, project_id=proj.id, email=email, role=role,
-                token=token, expires_at=expires.isoformat(timespec="milliseconds"),
+                id=inv_id,
+                project_id=proj.id,
+                email=email,
+                role=role,
+                token=token,
+                expires_at=expires.isoformat(timespec="milliseconds"),
             )
         )
         s.flush()
@@ -2064,11 +2142,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "expiresAt": expires.isoformat(timespec="milliseconds"),
         }
 
-    @app.delete("/projects/{slug}/invitations/{inv_id}",
-                 dependencies=[Depends(require_project("manage_members"))])
-    def revoke_invitation(
-        slug: str, inv_id: str, s: Session = Depends(db)
-    ) -> dict:
+    @app.delete(
+        "/projects/{slug}/invitations/{inv_id}",
+        dependencies=[Depends(require_project("manage_members"))],
+    )
+    def revoke_invitation(slug: str, inv_id: str, s: Session = Depends(db)) -> dict:
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
             raise HTTPException(404, "project not found")
@@ -2085,11 +2163,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()
         return {"revoked": inv_id}
 
-    @app.post("/invitations/{token}/accept",
-              dependencies=[Depends(resolve_identity)])
+    @app.post("/invitations/{token}/accept", dependencies=[Depends(resolve_identity)])
     def accept_invitation(
-        token: str, identity: auth.Identity = Depends(resolve_identity),
-        s: Session = Depends(db)
+        token: str,
+        identity: auth.Identity = Depends(resolve_identity),
+        s: Session = Depends(db),
     ) -> dict:
         """Accept an invitation (FR-PLAT-3). Signed-in; single-use;
         expiring. The invitation token links to a project + role; accepting
@@ -2097,8 +2175,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         sub = identity.sub
         inv = s.scalar(
             select(Invitation).where(
-                Invitation.token == token,
-                Invitation.accepted_at.is_(None),
+                Invitation.token == token, Invitation.accepted_at.is_(None)
             )
         )
         if inv is None:
@@ -2124,15 +2201,17 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         # Create membership (upsert — re-accepting is idempotent).
         existing = s.scalar(
             select(Membership).where(
-                Membership.project_id == inv.project_id,
-                Membership.identity_sub == sub,
+                Membership.project_id == inv.project_id, Membership.identity_sub == sub
             )
         )
         if existing is None:
             s.add(
                 Membership(
-                    project_id=inv.project_id, identity_sub=sub,
-                    role=inv.role, invited_by=inv.id, joined_at=now(),
+                    project_id=inv.project_id,
+                    identity_sub=sub,
+                    role=inv.role,
+                    invited_by=inv.id,
+                    joined_at=now(),
                 )
             )
         else:
@@ -2145,8 +2224,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "role": inv.role,
         }
 
-    @app.get("/me",
-             dependencies=[Depends(resolve_identity)])
+    @app.get("/me", dependencies=[Depends(resolve_identity)])
     def get_me(identity: auth.Identity = Depends(resolve_identity)) -> dict:
         """Identity + memberships (FR-OPS-7). The single surface both SPAs
         share; unauthenticated returns the local identity."""
@@ -2176,21 +2254,17 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def get_demo(s: Session = Depends(db)) -> dict:
         """Public pointer to the shared demo project (FR-PLAT-4). Everyone
         shares this read-only project; the seed script creates it on boot."""
-        proj = s.scalar(
-            select(Project).where(Project.slug == DEMO_PROJECT_SLUG)
-        )
+        proj = s.scalar(select(Project).where(Project.slug == DEMO_PROJECT_SLUG))
         if proj is None:
             raise HTTPException(404, "demo project not seeded")
-        study = s.scalar(
-            select(Study).where(Study.project_id == proj.id)
-        )
+        study = s.scalar(select(Study).where(Study.project_id == proj.id))
         return {
             "projectSlug": proj.slug,
             "projectName": proj.name,
             "studyId": study.id if study else "",
         }
 
-    # ------------------------------------------- curated mining (MP-16, FR-CUR)
+    # ------------------------------------------- curated mining
     #
     # A curated study answers "the dataset already exists" by declaring a
     # sampling frame in the protocol's ``curated:`` section, running a mining
@@ -2204,7 +2278,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     CURATED_GATE_ARTIFACT = "validity-threats.yaml"
 
     def _build_fetcher():
-        """The offline cassette when one is configured (demo/CI, MP-16 Slice
+        """The offline cassette when one is configured (demo/CI, Slice
         D); otherwise a live GitHub fetcher (token-scoped, NFR-4). The live
         path is only reachable with a token and is not exercised offline."""
         if settings.mining_cassette:
@@ -2358,9 +2432,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/mining-jobs/{job_id}/resume",
         dependencies=[Depends(require_project_for_study("run_recipe"))],
     )
-    def resume_mining_job(
-        study_id: str, job_id: str, s: Session = Depends(db)
-    ) -> dict:
+    def resume_mining_job(study_id: str, job_id: str, s: Session = Depends(db)) -> dict:
         """Resume an interrupted job from its persisted cursor (F2.1). Never
         auto-restarts - resume is an explicit act."""
         job = s.get(MiningJob, job_id)
@@ -2376,9 +2448,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/mining-jobs/{job_id}/stop",
         dependencies=[Depends(require_project_for_study("run_recipe"))],
     )
-    def stop_mining_job(
-        study_id: str, job_id: str, s: Session = Depends(db)
-    ) -> dict:
+    def stop_mining_job(study_id: str, job_id: str, s: Session = Depends(db)) -> dict:
         job = s.get(MiningJob, job_id)
         if job is None or job.study_id != study_id:
             raise HTTPException(404, "mining job not found")
@@ -2402,11 +2472,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         job = s.get(MiningJob, job_id)
         if job is None or job.study_id != study_id:
             raise HTTPException(404, "mining job not found")
-        ds = s.scalar(
-            select(CuratedDataset).where(
-                CuratedDataset.job_id == job_id
-            )
-        )
+        ds = s.scalar(select(CuratedDataset).where(CuratedDataset.job_id == job_id))
         record = ds.threats_record if ds else None
         if record is None:
             frame = _mining_frame()
@@ -2452,15 +2518,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         problems = validate_record_doc(record)
         if problems:
             raise HTTPException(
-                422,
-                "the validity-threats record is incomplete: "
-                + "; ".join(problems),
+                422, "the validity-threats record is incomplete: " + "; ".join(problems)
             )
-        ds = s.scalar(
-            select(CuratedDataset).where(
-                CuratedDataset.job_id == job_id
-            )
-        )
+        ds = s.scalar(select(CuratedDataset).where(CuratedDataset.job_id == job_id))
         if ds is None:
             import secrets as _secrets
 
@@ -2511,7 +2571,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
             )
 
-    # ------------------------------- templates (MP-15 slice 3, FR-TPL)
+    # ------------------------------- templates
     #
     # The registry serves published designs; instantiation is a pure function
     # of (template, parameters) that produces a protocol passing validation
@@ -2519,9 +2579,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     # exists above; these add the FR-TPL instantiation + plan-explainer.
 
     @app.post("/templates/{template_id}/instantiate")
-    def instantiate_template(
-        template_id: str, body: TemplateInstantiateIn
-    ) -> dict:
+    def instantiate_template(template_id: str, body: TemplateInstantiateIn) -> dict:
         """Template + parameters → a validated protocol draft (FR-TPL-1.4).
         A template cannot silently produce an invalid protocol — a bad
         parameter or a skeleton defect surfaces as a 422 naming it."""
@@ -2552,7 +2610,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "explanation": template_registry.explain_plan(tpl),
         }
 
-    # ------------------------- design conversation (MP-15 slice 4, FR-CONV)
+    # ------------------------- design conversation
     #
     # The conversation stored as the elicitation record (FR-CONV-6): turns +
     # moves + compilations + approvals, append-only. Compilation is
@@ -2595,7 +2653,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()  # researcher.seq is now settled; the reply is the next seq
 
         reply = design_assistant.respond(
-            s, body.text, seq=researcher.seq + 1, study_id=study_id,
+            s,
+            body.text,
+            seq=researcher.seq + 1,
+            study_id=study_id,
             client=assistant.make_client(),
         )
         retrieved = set(reply["retrievedRefs"])
@@ -2698,8 +2759,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         dependencies=[Depends(require_project_for_study("contribute"))],
     )
     def decide_move(
-        study_id: str, move_id: str, body: MoveDecisionIn,
-        s: Session = Depends(db),
+        study_id: str, move_id: str, body: MoveDecisionIn, s: Session = Depends(db)
     ) -> dict:
         """Accept or reject a design move (FR-CONV-1.2). The decision is part
         of the elicitation record — the row is updated, never deleted."""
@@ -2727,9 +2787,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         unapplied — only an approval advances the draft (F3.3)."""
         moves = [
             {
-                "moveId": mv.id, "kind": mv.kind, "target": mv.target,
-                "proposal": mv.proposal, "patch": mv.patch,
-                "grounding": mv.grounding, "status": mv.status,
+                "moveId": mv.id,
+                "kind": mv.kind,
+                "target": mv.target,
+                "proposal": mv.proposal,
+                "patch": mv.patch,
+                "grounding": mv.grounding,
+                "status": mv.status,
             }
             for mv in s.scalars(
                 select(DesignMoveRow)
@@ -2771,14 +2835,22 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         dependencies=[Depends(require_project_for_study("apply_draft"))],
     )
     def approve_compilation(
-        study_id: str, body: ApproveIn,
+        study_id: str,
+        body: ApproveIn,
         membership: Membership = Depends(require_project_for_study("apply_draft")),
         s: Session = Depends(db),
     ) -> dict:
         """Apply a compiled diff — the audited step (FR-CONV-3.3/F3.3). No
         other code path writes the draft. A draft that failed validation
         cannot be applied (a conversation never produces an invalid draft
-        silently)."""
+        silently).
+
+        Post-ethics (an ``ethics-approval`` recorded), an application is an
+        **amendment** (FR-CONV-4.2): it needs the ``owner`` role, bumps the
+        study revision, and writes an ``Amendment`` record. The deterministic
+        consent-relevance rule (``evolution.consent_relevance``) decides
+        whether it pauses new data-collection sessions until re-approval — never
+        an LLM judgment, always version-visible, never sneaky."""
         comp = s.get(Compilation, body.compilationId)
         if comp is None or comp.study_id != study_id:
             raise HTTPException(404, "compilation not found")
@@ -2788,6 +2860,21 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "this draft did not pass validation and cannot be applied — "
                 f"resolve: {comp.errors or comp.unresolved}",
             )
+
+        evo = s.get(StudyEvolution, study_id)
+        is_amendment = evo is not None and bool(evo.ethics_approved_at)
+        amendment_out: dict | None = None
+        if is_amendment:
+            # Post-ethics: amendment approval is owner-only (FR-PLAT-2, S3).
+            if str(membership.role) != authz.Role.OWNER.value:
+                raise HTTPException(
+                    403,
+                    "This study has ethics approval, so changing its protocol "
+                    "is an amendment that only an owner may approve. Ask an "
+                    "owner to approve it.",
+                )
+            amendment_out = _record_amendment(s, evo, comp, body)
+
         s.add(
             ApprovalEvent(
                 study_id=study_id,
@@ -2806,7 +2893,112 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         draft.compilation_id = comp.id
         draft.updated_at = now()
         s.commit()
-        return {"applied": True, "compilationId": comp.id}
+        out: dict = {"applied": True, "compilationId": comp.id}
+        if amendment_out is not None:
+            out["amendment"] = amendment_out
+        return out
+
+    def _record_amendment(
+        s: Session, evo: StudyEvolution, comp: Compilation, body: ApproveIn
+    ) -> dict:
+        """Write the Amendment record for a post-ethics application and advance
+        the study's approved snapshot + revision. The consent verdict is the
+        deterministic rule's, computed from the approved snapshot vs. the new
+        draft; a relevant amendment sets the session-pause flag (F4.1)."""
+        before = yaml.safe_load(evo.approved_yaml) or {}
+        after = yaml.safe_load(comp.draft_yaml) or {}
+        relevant, reasons = evolution.consent_relevance(before, after)
+        changes = evolution.change_summary(before, after)
+        grounding = sorted(
+            {
+                ref
+                for mv in s.scalars(
+                    select(DesignMoveRow).where(DesignMoveRow.id.in_(comp.move_ids))
+                )
+                for g in (mv.grounding or [])
+                if (ref := g.get("ref")) and ref != "none"
+            }
+        )
+        from_v = evo.current_version
+        to_v = from_v + 1
+        amend = Amendment(
+            id=secrets.token_hex(8),
+            study_id=evo.study_id,
+            compilation_id=comp.id,
+            from_version=from_v,
+            to_version=to_v,
+            summary=changes[0] if changes else "protocol amendment",
+            changes=changes,
+            rationale=body.rationale,
+            grounding=grounding,
+            consent_relevant=int(relevant),
+            consent_reasons=reasons,
+            approved_by=body.approvedBy,
+            role=authz.Role.OWNER.value,
+            created_at=now(),
+        )
+        s.add(amend)
+        evo.current_version = to_v
+        evo.approved_yaml = comp.draft_yaml
+        if relevant:
+            evo.pending_reapproval = amend.id
+        evo.updated_at = now()
+        return {
+            "amendmentId": amend.id,
+            "fromVersion": from_v,
+            "toVersion": to_v,
+            "consentRelevant": relevant,
+            "consentReasons": reasons,
+            "requiresReapproval": relevant,
+        }
+
+    def _run_aggregation(s: Session) -> dict:
+        """Recompute cross-project usage shapes (FR-CONV-5.3). A full-snapshot
+        recompute (clear + rewrite) so the table is a deterministic function of
+        the conversation corpus, independent of cadence (a degree of freedom).
+        Every value written is a vocabulary token — never text or an id."""
+        templates_chosen: list[str] = []
+        studies_with_template: set[str] = set()
+        for mv in s.scalars(
+            select(DesignMoveRow).where(
+                DesignMoveRow.kind == "choose-template",
+                DesignMoveRow.status == "accepted",
+            )
+        ):
+            tid = (mv.patch or {}).get("templateId")
+            if tid:
+                templates_chosen.append(tid)
+                studies_with_template.add(mv.study_id)
+        rejected_move_kinds = [
+            mv.kind
+            for mv in s.scalars(
+                select(DesignMoveRow).where(DesignMoveRow.status == "rejected")
+            )
+        ]
+        unresolved_slots: list[str] = []
+        stalls: list[str] = []
+        for c in s.scalars(select(Compilation)):
+            unresolved_slots.extend(c.unresolved or [])
+            stalls.append(
+                evolution.stall_category(
+                    valid=bool(c.valid),
+                    errors=c.errors or [],
+                    unresolved=c.unresolved or [],
+                    has_template=c.study_id in studies_with_template,
+                )
+            )
+        shapes = evolution.accumulate_shapes(
+            templates_chosen=templates_chosen,
+            unresolved_slots=unresolved_slots,
+            stalls=stalls,
+            rejected_move_kinds=rejected_move_kinds,
+        )
+        ts = now()
+        s.execute(delete(AggregateShape))
+        for metric, key, count in shapes:
+            s.add(AggregateShape(metric=metric, key=key, count=count, computed_at=ts))
+        s.commit()
+        return {"computed": len(shapes), "computedAt": ts}
 
     @app.get(
         "/studies/{study_id}/conversation/export",
@@ -2842,14 +3034,318 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 select(ApprovalEvent).where(ApprovalEvent.study_id == study_id)
             )
         ]
+        amendments = [
+            _amendment_json(a)
+            for a in s.scalars(
+                select(Amendment)
+                .where(Amendment.study_id == study_id)
+                .order_by(Amendment.from_version)
+            )
+        ]
         draft = s.get(ProtocolDraftRow, study_id)
         return {
             "studyId": study_id,
             "turns": conv["turns"],
             "compilations": compilations,
             "approvals": approvals,
+            # The elicitation record now carries design, amendment, and feedback
+            # (FR-CONV-6 extended by amendment hunks); redaction never unmakes
+            # a decision, so amendments survive a redacted turn intact.
+            "amendments": amendments,
             "currentDraft": draft.yaml if draft else "",
         }
+
+    # -------------------------------------------------- evolution (A/B/C)
+
+    @app.post(
+        "/studies/{study_id}/ethics-approval",
+        dependencies=[Depends(require_project_for_study("freeze"))],
+    )
+    def approve_ethics(study_id: str, s: Session = Depends(db)) -> dict:
+        """Record that the study's current draft has ethics approval (owner,
+        FR-PLAT-2). This snapshots the *approved protocol* — the executed
+        protocol S3 cares about — so every later compile-approve becomes a
+        version-visible amendment diffed against it (FR-CONV-4.2). Pre-ethics,
+        amendments are ordinary compilations (FR-CONV-4.1); this is the line
+        that turns ceremony on."""
+        draft = s.get(ProtocolDraftRow, study_id)
+        if draft is None or not draft.yaml:
+            raise HTTPException(
+                409,
+                "approve a compiled protocol draft before recording ethics "
+                "approval — there is nothing to freeze yet.",
+            )
+        evo = s.get(StudyEvolution, study_id)
+        if evo is None:
+            evo = StudyEvolution(study_id=study_id, current_version=1)
+            s.add(evo)
+        evo.ethics_approved_at = now()
+        evo.approved_yaml = draft.yaml
+        evo.current_version = evo.current_version or 1
+        evo.pending_reapproval = ""
+        evo.updated_at = now()
+        s.commit()
+        return {
+            "ethicsApprovedAt": evo.ethics_approved_at,
+            "version": evo.current_version,
+        }
+
+    @app.post(
+        "/studies/{study_id}/sessions/start",
+        dependencies=[Depends(require_project_for_study("run_recipe"))],
+    )
+    def start_session(
+        study_id: str, body: SessionStartIn, s: Session = Depends(db)
+    ) -> dict:
+        """Open a data-collection session under the study's current revision
+        (FR-CONV-4). The gate refuses *new* sessions while a consent-relevant
+        amendment awaits re-approval (F4.1); a session already open resumes with
+        the revision it began under — running sessions are never touched by an
+        evolving study (NFR-1, the F4.2 in-flight guarantee)."""
+        existing = s.get(SessionOpen, body.sessionId)
+        if existing is not None:
+            return {
+                "sessionId": existing.session_id,
+                "protocolVersion": existing.protocol_version,
+                "resumed": True,
+            }
+        evo = s.get(StudyEvolution, study_id)
+        if evo is not None and evo.pending_reapproval:
+            raise HTTPException(
+                409,
+                "New sessions are paused: a consent-relevant amendment is "
+                "awaiting ethics re-approval. Upload the re-approval to resume "
+                "— already-collected data and any open sessions are unaffected.",
+            )
+        version = evo.current_version if evo is not None else 1
+        s.add(
+            SessionOpen(
+                session_id=body.sessionId,
+                study_id=study_id,
+                protocol_version=version,
+                opened_at=now(),
+            )
+        )
+        s.commit()
+        return {
+            "sessionId": body.sessionId,
+            "protocolVersion": version,
+            "resumed": False,
+        }
+
+    @app.post(
+        "/studies/{study_id}/reapproval",
+        dependencies=[Depends(require_project_for_study("freeze"))],
+    )
+    def record_reapproval(
+        study_id: str, body: ReapprovalIn, s: Session = Depends(db)
+    ) -> dict:
+        """Record the updated ethics artifact that lifts a consent-relevant
+        amendment's session pause (owner, F4.1). This is the existing gate-
+        artifact mechanism with one more artifact type — the re-approval."""
+        evo = s.get(StudyEvolution, study_id)
+        if evo is None or not evo.pending_reapproval:
+            raise HTTPException(
+                409, "no amendment on this study is awaiting re-approval."
+            )
+        amend = s.get(Amendment, evo.pending_reapproval)
+        if amend is not None:
+            amend.reapproval_artifact = body.artifact or "ethics-reapproval"
+            amend.reapproved_at = now()
+        evo.pending_reapproval = ""
+        evo.updated_at = now()
+        s.commit()
+        return {"reapproved": True, "amendmentId": amend.id if amend else ""}
+
+    @app.get(
+        "/studies/{study_id}/amendments",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def list_amendments(study_id: str, s: Session = Depends(db)) -> dict:
+        """The amendment history (FR-CONV-4.6): versions, summaries, approvers,
+        artifacts — a quiet record that evolution is normal. Carries the study's
+        current revision and whether new sessions are paused (the banner)."""
+        evo = s.get(StudyEvolution, study_id)
+        amendments = [
+            _amendment_json(a)
+            for a in s.scalars(
+                select(Amendment)
+                .where(Amendment.study_id == study_id)
+                .order_by(Amendment.from_version)
+            )
+        ]
+        return {
+            "studyId": study_id,
+            "ethicsApprovedAt": evo.ethics_approved_at if evo else "",
+            "currentVersion": evo.current_version if evo else 1,
+            "pendingReapproval": evo.pending_reapproval if evo else "",
+            "amendments": amendments,
+        }
+
+    @app.get(
+        "/studies/{study_id}/amendments/{amendment_id}/summary",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def amendment_summary(
+        study_id: str, amendment_id: str, s: Session = Depends(db)
+    ) -> PlainTextResponse:
+        """The ethics-board amendment delta as Markdown (FR-CONV-4.3): what
+        changed, why, consent impact — generated deterministically from the
+        amendment record (FR-ANA-6 style), the document S1 sends S3."""
+        amend = s.get(Amendment, amendment_id)
+        if amend is None or amend.study_id != study_id:
+            raise HTTPException(404, "amendment not found")
+        doc = evolution.amendment_summary_doc(
+            study_id=study_id,
+            from_version=amend.from_version,
+            to_version=amend.to_version,
+            rationale=amend.rationale,
+            changes=amend.changes,
+            consent_relevant=bool(amend.consent_relevant),
+            consent_reasons=amend.consent_reasons,
+            grounding=amend.grounding,
+            approved_by=amend.approved_by,
+            approved_at=amend.created_at,
+        )
+        return PlainTextResponse(doc, media_type="text/markdown")
+
+    @app.post(
+        "/studies/{study_id}/conversation/turns/{turn_id}/feedback",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def mark_feedback(
+        study_id: str, turn_id: str, body: FeedbackIn, s: Session = Depends(db)
+    ) -> dict:
+        """Mark a conversation turn as platform feedback (FR-CONV-5.1). The
+        turn becomes a Finding (the FR-META-1 pipeline) with a
+        ``conversationLocus`` pointing back at the exact turn — the platform's
+        SRS grows from its users' conversations. The finding is platform-scoped
+        data; its message carries no turn text, so rendering the locus still
+        requires project membership (the boundary holds even for meta-data)."""
+        turn = s.get(ConversationTurn, turn_id)
+        if turn is None or turn.study_id != study_id:
+            raise HTTPException(404, "conversation turn not found")
+        finding = Finding(
+            at=now(),
+            source="conversation",
+            kind="feedback",
+            requirement_id="FR-CONV-5",
+            # No turn text here: the locus points into project-scoped content,
+            # which only a member may resolve (B.3). The note is the marker's.
+            message=body.note or f"Feedback marked on turn {turn.seq}",
+            context={
+                "conversationLocus": {
+                    "studyId": study_id,
+                    "turnId": turn_id,
+                    "seq": turn.seq,
+                    "kind": body.kind,
+                }
+            },
+            status="open",
+        )
+        s.add(finding)
+        s.flush()
+        return {"findingId": finding.id, "kind": body.kind}
+
+    @app.get(
+        "/studies/{study_id}/conversation/feedback-suggestions",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def feedback_suggestions(study_id: str, s: Session = Depends(db)) -> dict:
+        """*Offer* the feedback marking when a researcher turn reads as feedback
+        (FR-CONV-5.1 — detection is a freedom, marking is the requirement).
+        Heuristic and always-confirmed: never auto-filed. Returns candidate
+        turn ids, so the UI can nudge, not decide."""
+        cues = (
+            "it would be better",
+            "i wish",
+            "the platform should",
+            "confusing",
+            "hard to",
+            "frustrating",
+            "too many clicks",
+            "couldn't find",
+            "why doesn't",
+            "annoying",
+            "unclear",
+        )
+        already = {
+            f.context.get("conversationLocus", {}).get("turnId")
+            for f in s.scalars(select(Finding).where(Finding.kind == "feedback"))
+        }
+        suggestions = []
+        for t in s.scalars(
+            select(ConversationTurn)
+            .where(
+                ConversationTurn.study_id == study_id,
+                ConversationTurn.role == "researcher",
+            )
+            .order_by(ConversationTurn.seq)
+        ):
+            if t.id in already or t.redacted:
+                continue
+            low = (t.text or "").lower()
+            if any(cue in low for cue in cues):
+                suggestions.append({"turnId": t.id, "seq": t.seq})
+        return {"studyId": study_id, "suggestions": suggestions}
+
+    @app.get("/platform/findings", dependencies=[Depends(view_auth)])
+    def platform_findings(s: Session = Depends(db)) -> list[dict]:
+        """The platform's feedback findings (FR-CONV-5.1, F5.1) — the loci only.
+        The turn text lives behind the project-scoped conversation endpoint, so
+        this platform-scoped surface leaks no project content."""
+        rows = s.scalars(
+            select(Finding).where(Finding.kind == "feedback").order_by(Finding.id)
+        )
+        return [
+            {
+                "id": f.id,
+                "at": f.at,
+                "note": f.message,
+                "status": f.status,
+                "locus": f.context.get("conversationLocus", {}),
+            }
+            for f in rows
+        ]
+
+    @app.post("/platform/aggregate", dependencies=[Depends(view_auth)])
+    def compute_aggregate(s: Session = Depends(db)) -> dict:
+        """Recompute the cross-project usage shapes (FR-CONV-5.3). Reads every
+        project's conversation *shape* — template ids, unresolved-slot names,
+        stall categories, rejected-move kinds — and writes only anonymous
+        counts. No conversation text, protocol content, or project identifier
+        is read into a shape row; the grep-the-output test (F5.3) asserts it."""
+        return _run_aggregation(s)
+
+    @app.get("/platform/aggregate", dependencies=[Depends(view_auth)])
+    def get_aggregate(s: Session = Depends(db)) -> list[dict]:
+        rows = s.scalars(
+            select(AggregateShape).order_by(AggregateShape.metric, AggregateShape.key)
+        )
+        return [
+            {
+                "metric": r.metric,
+                "key": r.key,
+                "count": r.count,
+                "computedAt": r.computed_at,
+            }
+            for r in rows
+        ]
+
+    @app.get("/platform/retrospective", dependencies=[Depends(view_auth)])
+    def platform_retrospective(s: Session = Depends(db)) -> dict:
+        """Draft the platform's own retrospective proposal (FR-CONV-5.2,
+        extends FR-META-2): an **inert** draft that cites the findings rows and
+        aggregate shapes it used. A human approves it; nothing self-applies."""
+        findings = [
+            {"id": f.id, "kind": f.kind, "context": f.context}
+            for f in s.scalars(select(Finding).where(Finding.kind == "feedback"))
+        ]
+        shapes = [
+            {"metric": r.metric, "key": r.key, "count": r.count}
+            for r in s.scalars(select(AggregateShape))
+        ]
+        return evolution.draft_proposal(findings=findings, shapes=shapes)
 
     # ---------------------------------------------------------------- health
 
@@ -2864,19 +3360,24 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.get("/auth/config")
     def auth_config() -> dict:
-        """Which sign-in surface the dashboard should render (FR-OPS-5).
+        """Which sign-in surface the platform should render (FR-OPS-5).
 
-        Open by necessity (the dashboard asks before it can sign in);
+        Open by necessity (the platform asks before it can sign in);
         carries no secrets - see ``auth.public_config``.
         """
         return auth.public_config(settings)
 
-    # ---------------------------------------------- dashboard SPA (NFR-7)
-    # Production mode serves the built dashboard from the same process:
-    # `docker compose up` is the whole stack. Dev mode uses the Vite proxy
-    # instead, so a missing build directory just means API-only.
+    # ---------------------------------------------- platform SPA (NFR-7)
+    # Production mode serves the built React `platform/` app from the same
+    # process: `docker compose up` is the whole stack. Dev mode uses the Vite
+    # proxy instead, so a missing build directory just means API-only.
+    #
+    # The app is entered at `/` (the hero) and routes client-side. The explicit
+    # fallbacks below re-serve the shell on a deep-link refresh of the app's
+    # own route prefixes. `/projects` and `/demo` are API endpoints the SPA
+    # fetches — reached in-app by navigation from `/`, not by direct load.
 
-    dist = settings.dashboard_dist
+    dist = settings.spa_dist
     index_html = dist / "index.html"
     if index_html.is_file():
         # The shell must always revalidate: Vite's assets are content-hashed
@@ -2884,22 +3385,28 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         # bundle across deploys - the app keeps running old code from disk.
         _no_store = {"Cache-Control": "no-cache"}
 
+        def _shell() -> FileResponse:
+            return FileResponse(index_html, headers=_no_store)
+
         @app.get("/", include_in_schema=False)
         def spa_index() -> FileResponse:
-            return FileResponse(index_html, headers=_no_store)
+            return _shell()
 
-        @app.get("/study/{rest:path}", include_in_schema=False)
-        def spa_route(rest: str) -> FileResponse:
-            # Client-side routing (MP-06): deep links re-serve the shell.
-            return FileResponse(index_html, headers=_no_store)
+        @app.get("/p/{rest:path}", include_in_schema=False)
+        def spa_project_route(rest: str) -> FileResponse:
+            return _shell()
 
-        app.mount("/", StaticFiles(directory=dist), name="dashboard")
+        @app.get("/invitations/{rest:path}", include_in_schema=False)
+        def spa_invite_route(rest: str) -> FileResponse:
+            return _shell()
+
+        app.mount("/", StaticFiles(directory=dist), name="platform")
 
     return app
 
 
 def _ensure_study_row(s: Session, study_id: str, protocol_doc: dict) -> None:
-    """Create or backfill a study row for the loaded protocol (MP-14).
+    """Create or backfill a study row for the loaded protocol.
 
     The row lives in the ``studies`` table, owned by the implicit project,
     so the project choke point can resolve ``study_id -> project ->
@@ -2909,7 +3416,7 @@ def _ensure_study_row(s: Session, study_id: str, protocol_doc: dict) -> None:
 
     row = s.scalar(select(Study).where(Study.id == study_id))
     if row is not None:
-        # Pre-MP-14 row with no project_id — adopt it (the migration ran
+        # Pre- row with no project_id — adopt it (the migration ran
         # for orphan studies, but this row might have been created before
         # the migration existed).
         if not row.project_id:
@@ -2950,7 +3457,7 @@ def _gap_summary(seqs: list[int]) -> dict:
 
 
 def _session_gap_facts(seqs_by_source: dict[str, list[int]]) -> dict:
-    """Aggregate one session's per-producer gap facts (MP-12).
+    """Aggregate one session's per-producer gap facts.
 
     Each ``source`` owns a contiguous ``seq`` stream, so gaps are counted
     within a stream and summed; the session is ``complete`` only when every
@@ -2967,6 +3474,28 @@ def _session_gap_facts(seqs_by_source: dict[str, list[int]]) -> dict:
         "gapCount": gap_count,
         "missingEvents": missing,
         "complete": bool(completes) and all(completes),
+    }
+
+
+def _amendment_json(a: Amendment) -> dict:
+    """One amendment row as JSON (FR-CONV-4): version delta, summary, consent
+    verdict + reasons, approver, and the re-approval artifact once uploaded."""
+    return {
+        "id": a.id,
+        "compilationId": a.compilation_id,
+        "fromVersion": a.from_version,
+        "toVersion": a.to_version,
+        "summary": a.summary,
+        "changes": a.changes,
+        "rationale": a.rationale,
+        "grounding": a.grounding,
+        "consentRelevant": bool(a.consent_relevant),
+        "consentReasons": a.consent_reasons,
+        "approvedBy": a.approved_by,
+        "role": a.role,
+        "reapprovalArtifact": a.reapproval_artifact or None,
+        "reapprovedAt": a.reapproved_at or None,
+        "at": a.created_at,
     }
 
 

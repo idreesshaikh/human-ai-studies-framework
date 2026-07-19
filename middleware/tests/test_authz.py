@@ -1,4 +1,4 @@
-"""Project scoping + the permission matrix (MP-14 Slice A).
+"""Project scoping + the permission matrix.
 
 The contract under test:
 
@@ -45,14 +45,12 @@ def _fake_verifier(authorization: str) -> Identity:
 def client(tmp_path, monkeypatch) -> TestClient:
     # Multi-tenant behaviour: swap the verifier for the header-driven fake so
     # each request can carry a different identity.
-    monkeypatch.setattr(
-        auth_mod, "verifier_from_settings", lambda _s: _fake_verifier
-    )
+    monkeypatch.setattr(auth_mod, "verifier_from_settings", lambda _s: _fake_verifier)
     settings = Settings(
         db_path=tmp_path / "authz.sqlite3",
         data_dir=tmp_path / "data",
         protocol_path=None,
-        dashboard_dist=tmp_path / "no-dist",
+        spa_dist=tmp_path / "no-dist",
     )
     return TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
 
@@ -91,9 +89,7 @@ def test_matrix_is_data_every_role_capability_pair():
     for capability, required in CAPABILITIES.items():
         for role in Role:
             expected = ROLE_RANK[role] >= ROLE_RANK[required]
-            assert has_role(role, capability) is expected, (
-                f"{role} vs {capability}"
-            )
+            assert has_role(role, capability) is expected, f"{role} vs {capability}"
 
 
 def test_non_member_never_satisfies_any_capability():
@@ -142,20 +138,35 @@ def test_manage_members_is_owner_only_with_uniform_403(client):
 def test_delete_is_owner_only(client):
     slug = make_project(client, "alice", "Lab")
     add_member(client, slug, "alice", "rea", "researcher")
-    assert client.request("DELETE",
-        f"/projects/{slug}", json={"confirm": slug}, headers=bearer("rea")
-    ).status_code == 403
+    assert (
+        client.request(
+            "DELETE", f"/projects/{slug}", json={"confirm": slug}, headers=bearer("rea")
+        ).status_code
+        == 403
+    )
     # Owner deletes with the typed confirmation.
-    assert client.request("DELETE",
-        f"/projects/{slug}", json={"confirm": slug}, headers=bearer("alice")
-    ).status_code == 200
+    assert (
+        client.request(
+            "DELETE",
+            f"/projects/{slug}",
+            json={"confirm": slug},
+            headers=bearer("alice"),
+        ).status_code
+        == 200
+    )
 
 
 def test_delete_requires_typed_confirmation(client):
     slug = make_project(client, "alice", "Lab")
-    assert client.request("DELETE",
-        f"/projects/{slug}", json={"confirm": "wrong"}, headers=bearer("alice")
-    ).status_code == 400
+    assert (
+        client.request(
+            "DELETE",
+            f"/projects/{slug}",
+            json={"confirm": "wrong"},
+            headers=bearer("alice"),
+        ).status_code
+        == 400
+    )
 
 
 # ------------------------------------------------------------ cross-project
@@ -167,9 +178,12 @@ def test_cross_project_access_refused(client):
     p2 = client.get("/projects", headers=bearer("bob")).json()[0]["slug"]
     # Alice is not a member of Bob's project — she can't read or delete it.
     assert client.get(f"/projects/{p2}", headers=bearer("alice")).status_code == 403
-    assert client.request("DELETE",
-        f"/projects/{p2}", json={"confirm": p2}, headers=bearer("alice")
-    ).status_code == 403
+    assert (
+        client.request(
+            "DELETE", f"/projects/{p2}", json={"confirm": p2}, headers=bearer("alice")
+        ).status_code
+        == 403
+    )
     # A slug that doesn't exist at all 404s (learns the prober nothing more).
     assert client.get("/projects/nope", headers=bearer("alice")).status_code == 404
     _ = p1
@@ -228,14 +242,14 @@ def _dependency_param_names(dependant) -> set:
 def test_boot_migration_adopts_orphan_studies(tmp_path, monkeypatch):
     """A study row left by a pre-projects middleware is adopted into the
     implicit project on boot, not orphaned or dropped."""
-    monkeypatch.setattr(
-        auth_mod, "verifier_from_settings", lambda _s: _fake_verifier
-    )
+    monkeypatch.setattr(auth_mod, "verifier_from_settings", lambda _s: _fake_verifier)
     db_path = tmp_path / "legacy.sqlite3"
     # First boot creates the schema (and the implicit project).
     settings = Settings(
-        db_path=db_path, data_dir=tmp_path / "d", protocol_path=None,
-        dashboard_dist=tmp_path / "no-dist",
+        db_path=db_path,
+        data_dir=tmp_path / "d",
+        protocol_path=None,
+        spa_dist=tmp_path / "no-dist",
     )
     create_app(settings, clock=lambda: FROZEN_NOW)
     # Simulate a legacy orphan study (null project_id), then reboot.
@@ -248,9 +262,7 @@ def test_boot_migration_adopts_orphan_studies(tmp_path, monkeypatch):
     con.close()
     create_app(settings, clock=lambda: FROZEN_NOW)
     con = sqlite3.connect(db_path)
-    (pid,) = con.execute(
-        "SELECT project_id FROM studies WHERE id='legacy'"
-    ).fetchone()
+    (pid,) = con.execute("SELECT project_id FROM studies WHERE id='legacy'").fetchone()
     con.close()
     assert pid == "implicit"
 
@@ -284,6 +296,7 @@ def test_expired_invitation_is_refused(client, tmp_path):
     factory = make_session_factory(tmp_path / "authz.sqlite3")
     from middleware.db import Invitation
     from sqlalchemy import select
+
     s = factory()
     row = s.scalar(select(Invitation).where(Invitation.token == inv["token"]))
     row.expires_at = "2020-01-01T00:00:00.000+00:00"
@@ -296,8 +309,6 @@ def test_expired_invitation_is_refused(client, tmp_path):
 
 def test_last_owner_cannot_be_removed(client):
     slug = make_project(client, "alice", "Lab")
-    res = client.delete(
-        f"/projects/{slug}/members/alice", headers=bearer("alice")
-    )
+    res = client.delete(f"/projects/{slug}/members/alice", headers=bearer("alice"))
     assert res.status_code == 409
     assert "owner" in res.json()["detail"].lower()

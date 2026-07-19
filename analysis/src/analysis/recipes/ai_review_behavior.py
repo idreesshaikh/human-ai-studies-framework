@@ -205,8 +205,7 @@ def run(dataset: Dataset) -> RecipeResult:
         joined = []
         for _, s in terminal.dropna(subset=["latencyS"]).iterrows():
             prior = fatigue[
-                (fatigue["sessionId"] == s["sessionId"])
-                & (fatigue["ts"] <= s["ts"])
+                (fatigue["sessionId"] == s["sessionId"]) & (fatigue["ts"] <= s["ts"])
             ]
             if len(prior):
                 joined.append(
@@ -229,9 +228,13 @@ def run(dataset: Dataset) -> RecipeResult:
                 "review latency (s)",
             )
             ax.scatter(
-                j["fatigue"], j["latencyS"], s=30,
+                j["fatigue"],
+                j["latencyS"],
+                s=30,
                 color=figures.PALETTE[0],
-                edgecolors=figures.SURFACE, linewidths=1.2, zorder=3,
+                edgecolors=figures.SURFACE,
+                linewidths=1.2,
+                zorder=3,
             )
             ax.set_xlim(0, 5.4)
             figs["latency_vs_fatigue"] = fig
@@ -241,9 +244,7 @@ def run(dataset: Dataset) -> RecipeResult:
                 "suggestion(s) - need >= 3 for a rank correlation."
             )
     else:
-        sentences.append(
-            "Latency vs fatigue: skipped - no fatigue_response events."
-        )
+        sentences.append("Latency vs fatigue: skipped - no fatigue_response events.")
 
     return RecipeResult(
         tables=tables,

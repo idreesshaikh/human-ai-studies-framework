@@ -43,9 +43,7 @@ def index_paper(s: Session, paper_ref: str, title: str, body: str) -> int:
     """(Re)index one paper's text; returns the chunk count. The title +
     abstract lead so a metadata-only paper (no PDF) is still searchable."""
     table = "paper_fts" if db.FTS5_AVAILABLE else "paper_chunks"
-    s.execute(
-        text(f"DELETE FROM {table} WHERE paper_ref = :ref"), {"ref": paper_ref}
-    )
+    s.execute(text(f"DELETE FROM {table} WHERE paper_ref = :ref"), {"ref": paper_ref})
     chunks = chunk_text(f"{title}\n\n{body}")
     for i, chunk in enumerate(chunks):
         s.execute(
@@ -60,9 +58,7 @@ def index_paper(s: Session, paper_ref: str, title: str, body: str) -> int:
 
 def deindex_paper(s: Session, paper_ref: str) -> None:
     table = "paper_fts" if db.FTS5_AVAILABLE else "paper_chunks"
-    s.execute(
-        text(f"DELETE FROM {table} WHERE paper_ref = :ref"), {"ref": paper_ref}
-    )
+    s.execute(text(f"DELETE FROM {table} WHERE paper_ref = :ref"), {"ref": paper_ref})
 
 
 def _fts_query(query: str) -> str:
@@ -92,9 +88,7 @@ def search(s: Session, query: str, *, limit: int = 6) -> list[dict]:
             ),
             {"q": match, "n": limit},
         ).all()
-        return [
-            {"paperRef": r[0], "chunkIdx": r[1], "snippet": r[2]} for r in rows
-        ]
+        return [{"paperRef": r[0], "chunkIdx": r[1], "snippet": r[2]} for r in rows]
     # LIKE fallback: rank by number of distinct terms present.
     terms = re.findall(r"[A-Za-z0-9]+", query.lower())
     rows = s.execute(text("SELECT paper_ref, chunk_idx, body FROM paper_chunks")).all()

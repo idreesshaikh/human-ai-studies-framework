@@ -18,11 +18,12 @@
   "additionalProperties": false,
   "properties": {
     "protocolVersion": {
-      "description": "Schema version of this protocol document. Consumers branch on it, never guess (FR-PROT-2, NFR-4). v1 = live-capture study; v2 = adds the optional curated: mining section (FR-CUR).",
+      "description": "Schema version of this protocol document. Consumers branch on it, never guess (FR-PROT-2, NFR-4). v1 = live-capture human study; v2 = adds the optional curated: mining section (FR-CUR); v3 = agent participants (FR-PROT-9): cognitiveOverlay optional, agent leg + task harness are the instruments.",
       "type": "integer",
       "enum": [
         1,
-        2
+        2,
+        3
       ]
     },
     "study": {
@@ -110,6 +111,33 @@
         },
         "counterbalanced": {
           "type": "boolean"
+        },
+        "agents": {
+          "description": "Agent participants (FR-PROT-9): anonymized agent-configuration IDs recording tool + model. Optional; each entry is one agent config run under the task harness (FR-INST-16). Human and agent participants are mutually intelligible \u2014 'participant' is the glossary term for both.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "tool",
+              "model"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Anonymized agent-config id, e.g. A01."
+              },
+              "tool": {
+                "type": "string",
+                "description": "Agent tool, e.g. claude-code."
+              },
+              "model": {
+                "type": "string",
+                "description": "Model identifier."
+              }
+            }
+          }
         }
       }
     },
@@ -134,9 +162,6 @@
     "instruments": {
       "description": "Data-collecting components configured by the protocol, keyed by instrument name.",
       "type": "object",
-      "required": [
-        "cognitiveOverlay"
-      ],
       "properties": {
         "cognitiveOverlay": {
           "description": "Config for the Cognitive Overlay VS Code extension; nested keys mirror the real cognitiveOverlay.* settings.",
@@ -299,7 +324,7 @@
       }
     },
     "literature": {
-      "description": "Papers justifying protocol elements (FR-LIT-3); consumed by Mega-Prompt 10.",
+      "description": "Papers justifying protocol elements (FR-LIT-3); consumed by the knowledge layer.",
       "type": "array",
       "items": {
         "type": "object",
@@ -405,5 +430,66 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "protocolVersion"
+        ],
+        "properties": {
+          "protocolVersion": {
+            "enum": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "instruments": {
+            "required": [
+              "cognitiveOverlay"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "protocolVersion"
+        ],
+        "properties": {
+          "protocolVersion": {
+            "const": 3
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "instruments": {
+            "anyOf": [
+              {
+                "required": [
+                  "cognitiveOverlay"
+                ]
+              },
+              {
+                "required": [
+                  "agentCapture"
+                ]
+              },
+              {
+                "required": [
+                  "taskHarness"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

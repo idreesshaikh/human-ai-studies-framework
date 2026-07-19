@@ -45,7 +45,7 @@ export function InviteAccept() {
           {state === "joined" ? (
             <>
               <PartyPopper className="size-10 text-accent animate-in zoom-in duration-entrance" aria-hidden />
-              <h1 className="font-display text-xl text-text">You're in</h1>
+              <h1 className="font-display text-xl font-bold uppercase tracking-tight text-text">You're in</h1>
               <p className="text-sm text-text-muted">
                 Joined as {role ? ROLE_LABELS[role] : "a member"}. Taking you
                 to the project…
@@ -53,7 +53,7 @@ export function InviteAccept() {
             </>
           ) : (
             <>
-              <h1 className="font-display text-xl text-text">
+              <h1 className="font-display text-xl font-bold uppercase tracking-tight text-text">
                 You've been invited to a project
               </h1>
               <p className="text-sm text-text-muted">

@@ -215,7 +215,7 @@ def verify_index() -> int:
         id_ok = (stored_ext or "").lower() == value.lower()
         if not id_ok and scheme == "doi":
             # DataCite arXiv DOI (10.48550/arXiv.X) ≡ arXiv id X - the
-            # same canonicalization the paper store applies (MP-09).
+            # same canonicalization the paper store applies.
             m = re.fullmatch(r"10\.48550/arxiv\.(.+)", value, flags=re.IGNORECASE)
             id_ok = bool(m) and (ext.get("ArXiv") or "").lower() == m[1].lower()
         if not id_ok:
@@ -275,9 +275,7 @@ def score(p: dict, edges: int, this_year: int) -> float:
     venue = 0.5 if (p.get("venue") or "").strip() else 0.0
     venue += 1.0 if is_recognized_venue(p) else 0.0  # recognized venue/lab
     open_access = 0.4 if p.get("openAccessPdf") else 0.0  # reproducibility
-    return round(
-        freshness + impact + influence + connectivity + venue + open_access, 3
-    )
+    return round(freshness + impact + influence + connectivity + venue + open_access, 3)
 
 
 def propose_tier_a(n: int) -> int:
@@ -307,7 +305,7 @@ def main() -> int:
         "--target",
         type=int,
         default=0,
-        help="0 (default) = uncapped: ship every gate-passing, seed-woven "
+        help="0 (default,) = uncapped: ship every gate-passing, seed-woven "
         "candidate (FR-LIT-8 rev 2); N = capped top-N legacy behavior",
     )
     ap.add_argument("--cache-dir", type=Path)
@@ -369,8 +367,7 @@ def main() -> int:
         freshness (recent papers haven't had time to accumulate edges)."""
         year = p.get("year") or 0
         return (
-            len(edges[pid]) >= MIN_EDGES_UNCAPPED
-            or year >= this_year - FRESH_WINDOW_Y
+            len(edges[pid]) >= MIN_EDGES_UNCAPPED or year >= this_year - FRESH_WINDOW_Y
         )
 
     passed = [

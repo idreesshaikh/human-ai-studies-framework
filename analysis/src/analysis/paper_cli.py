@@ -63,9 +63,7 @@ def cmd_paper(protocol: dict, dataset: Dataset, study_id: str, args) -> int:
     server = None if args.dataset else args.server
     papers = _fetch_papers(server, study_id) if server else None
     out_dir = Path(args.out) / study_id / "paper"
-    out_dir, findings = write_paper(
-        protocol, dataset, study_id, out_dir, papers=papers
-    )
+    out_dir, findings = write_paper(protocol, dataset, study_id, out_dir, papers=papers)
     print(f"paper draft: {out_dir / 'draft.tex'} (+ draft.md, references.bib)")
     if findings:
         print(
@@ -77,10 +75,7 @@ def cmd_paper(protocol: dict, dataset: Dataset, study_id: str, args) -> int:
         # Best-effort: record them to the middleware findings log.
         if server:
             _record(server, findings)
-    print(
-        "compile: cd "
-        f"{out_dir} && pdflatex draft && bibtex draft && pdflatex draft"
-    )
+    print(f"compile: cd {out_dir} && pdflatex draft && bibtex draft && pdflatex draft")
     return 2 if findings else 0
 
 

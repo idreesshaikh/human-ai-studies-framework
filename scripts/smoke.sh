@@ -4,7 +4,7 @@
 #   bash scripts/smoke.sh                 # compose up --build, then verify
 #   SMOKE_NO_COMPOSE=1 bash scripts/smoke.sh   # verify an already-running stack
 #
-# Proves, from a clean checkout: bring-up -> health -> dashboard served ->
+# Proves, from a clean checkout: bring-up -> health -> platform served ->
 # replay ingest (idempotent) -> gap detection -> one-timeline dataset export
 # -> per-RQ analysis report -> paper draft (FR-ANA-6; compiled to PDF when a
 # TeX engine is on PATH). Exits nonzero on the first failure.
@@ -35,8 +35,8 @@ echo "$health"
 echo "$health" | grep -q '"studyId":"pilot-2026"' \
   || fail "protocol not loaded (expected studyId pilot-2026)"
 
-step "dashboard SPA served at / (NFR-7: one process serves the stack)"
-curl -sf "$SERVER/" | grep -qi "<!doctype html" || fail "dashboard not served at /"
+step "platform SPA served at / (NFR-7: one process serves the stack)"
+curl -sf "$SERVER/" | grep -qi "<!doctype html" || fail "platform not served at /"
 
 step "requirements of record served (FR-DASH-9 tooltips)"
 curl -sf "$SERVER/requirements" | grep -q '"FR-DASH-9"' \
@@ -77,15 +77,15 @@ for rq in RQ-P1 RQ-P2 RQ-P3 RQ-P4 RQ-P5; do
   grep -q "^## $rq" "$report" || fail "report has no section for $rq"
 done
 # Validation failures are loud by design; only the two event types that
-# arrive with MP-12's instruments are tolerated here.
+# arrive with's instruments are tolerated here.
 if [ "$rc" -eq 2 ]; then
   unexpected="$(grep "MISSING DATA" "$report" \
     | grep -v "'agent_turn'" | grep -v "'task_outcome'" || true)"
   [ -z "$unexpected" ] || fail "unexpected validation failures: $unexpected"
-  echo "   exit 2 accepted: only the known MP-12 requires-failures (agent_turn, task_outcome)"
+  echo "   exit 2 accepted: only the known requires-failures (agent_turn, task_outcome)"
 fi
 
-# -- 6. paper draft (FR-ANA-6, MP-11) -----------------------------------------
+# -- 6. paper draft (FR-ANA-6) -----------------------------------------
 step "analysis paper -> draft.md + draft.tex + references.bib"
 uv run analysis paper protocol/examples/pilot-study.yaml \
   --server "$SERVER" --out "$OUT" || fail "analysis paper failed"

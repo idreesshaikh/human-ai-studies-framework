@@ -44,8 +44,7 @@ class Fetcher(Protocol):
     satisfy it; a rate-limit is signalled by raising
     :class:`~curated.cassette.RateLimited`."""
 
-    def get(self, method: str, path: str, params: dict | None = None) -> object:
-        ...
+    def get(self, method: str, path: str, params: dict | None = None) -> object: ...
 
 
 class DroppedCounter:
@@ -253,9 +252,7 @@ class GitHubAdapter:
         return ActorSignal(
             login=login,
             is_bot_flagged=bool(obj.get("isBot", False)),
-            coauthor_logins=tuple(
-                str(c).lower() for c in obj.get("coauthors", [])
-            ),
+            coauthor_logins=tuple(str(c).lower() for c in obj.get("coauthors", [])),
             signature_tokens=tokenize_slug(app_slug) if app_slug else (),
         )
 

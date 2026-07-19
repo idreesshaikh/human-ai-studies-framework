@@ -43,18 +43,36 @@ from analysis.dataset import Dataset
 # framework knowledge).
 METRIC_SETS: dict[str, list[tuple[str, str, str]]] = {
     "cognitive-load-9": [
-        ("Nesting penalty", "weighted count of nested control structures",
-         "nejmeh1988"),
-        ("Cognitive complexity", "SonarSource cognitive-complexity score",
-         "campbell2018"),
-        ("Parameter count", "arity vs Miller's 7+/-2 working-memory bound",
-         "miller1956"),
-        ("Halstead effort", "Halstead's effort measure over operators/operands",
-         "halstead1977"),
-        ("Scope distance", "mean lines between a name's definition and use",
-         "nejmeh1988"),
-        ("Indentation variance", "variance of leading-whitespace depth per file",
-         "hindle2008"),
+        (
+            "Nesting penalty",
+            "weighted count of nested control structures",
+            "nejmeh1988",
+        ),
+        (
+            "Cognitive complexity",
+            "SonarSource cognitive-complexity score",
+            "campbell2018",
+        ),
+        (
+            "Parameter count",
+            "arity vs Miller's 7+/-2 working-memory bound",
+            "miller1956",
+        ),
+        (
+            "Halstead effort",
+            "Halstead's effort measure over operators/operands",
+            "halstead1977",
+        ),
+        (
+            "Scope distance",
+            "mean lines between a name's definition and use",
+            "nejmeh1988",
+        ),
+        (
+            "Indentation variance",
+            "variance of leading-whitespace depth per file",
+            "hindle2008",
+        ),
         ("Line width", "mean/bounded source line length", "hindle2008"),
         ("Identifier length", "mean identifier character length", "lawrie2006"),
         ("Comment ratio", "comment lines / source lines", "nejmeh1988"),
@@ -162,8 +180,13 @@ def _title(
     n_actual = _participant_count(dataset)
 
     trace = "RQ-F1 / protocol.study / FR-PROT-1"
-    md += [f"<!-- trace: {trace} -->", f"# {title}", "",
-           "**" + "; ".join(authors) + "**", ""]
+    md += [
+        f"<!-- trace: {trace} -->",
+        f"# {title}",
+        "",
+        "**" + "; ".join(authors) + "**",
+        "",
+    ]
     tex += [
         f"%% trace: {trace}",
         f"\\title{{{_tex(title)}}}",
@@ -182,8 +205,13 @@ def _title(
         f"exact test per research question from the Results section."
     )
     md += ["## Abstract", "", f"<!-- trace: {trace} -->", _md_todo(abstract), ""]
-    tex += ["\\begin{abstract}", f"%% trace: {trace}", _tex_keep_todo(abstract),
-            "\\end{abstract}", ""]
+    tex += [
+        "\\begin{abstract}",
+        f"%% trace: {trace}",
+        _tex_keep_todo(abstract),
+        "\\end{abstract}",
+        "",
+    ]
 
 
 def _intro(protocol: dict, md: list, tex: list) -> None:
@@ -214,9 +242,7 @@ def _related_work(lit: list[dict], md: list, tex: list) -> None:
         for entry in by_group[group]:
             key = entry["citeKey"]
             just = ", ".join(entry["justifies"]) or "the study design"
-            claim = (
-                f"{entry['label']} motivates {just}."
-            )
+            claim = f"{entry['label']} motivates {just}."
             md += [
                 f"<!-- trace: FR-LIT-3 / {entry['ref']} -->",
                 f"{claim} [@{key}] `TODO: summarise contribution and contrast.`",
@@ -307,13 +333,21 @@ def _methods(protocol: dict, md: list, tex: list, findings: list) -> None:
     metric_set = instruments.get("metrics", {}).get("metricSet")
     defs = METRIC_SETS.get(metric_set or "")
     if defs:
-        md += [f"### Static code metrics ({metric_set})", "",
-               "<!-- trace: FR-INST-4 / metrics -->",
-               "| Metric | Definition | Source |", "| --- | --- | --- |"]
-        tex += [f"\\subsection{{Static code metrics ({_tex(metric_set)})}}",
-                "%% trace: FR-INST-4 / metrics",
-                "\\begin{tabular}{lll}", "\\toprule",
-                "Metric & Definition & Source \\\\", "\\midrule"]
+        md += [
+            f"### Static code metrics ({metric_set})",
+            "",
+            "<!-- trace: FR-INST-4 / metrics -->",
+            "| Metric | Definition | Source |",
+            "| --- | --- | --- |",
+        ]
+        tex += [
+            f"\\subsection{{Static code metrics ({_tex(metric_set)})}}",
+            "%% trace: FR-INST-4 / metrics",
+            "\\begin{tabular}{lll}",
+            "\\toprule",
+            "Metric & Definition & Source \\\\",
+            "\\midrule",
+        ]
         for name, definition, cite in defs:
             md.append(f"| {name} | {definition} | [@{cite}] |")
             tex.append(f"{_tex(name)} & {_tex(definition)} & \\citep{{{cite}}} \\\\")
@@ -347,24 +381,43 @@ def _results(
             answers = ",".join(REGISTRY[rid].answers) if rid in REGISTRY else "?"
             trace = f"{rq} / {rid} / {answers}"
             if result is None:
-                md += [f"<!-- trace: {trace} -->",
-                       f"**{rid}.** `TODO: recipe did not run "
-                       "(missing data or error).`", ""]
-                tex += [f"%% trace: {trace}",
-                        f"\\paragraph{{{_tex(rid)}.}} \\todo{{recipe did not run}}", ""]
+                md += [
+                    f"<!-- trace: {trace} -->",
+                    f"**{rid}.** `TODO: recipe did not run (missing data or error).`",
+                    "",
+                ]
+                tex += [
+                    f"%% trace: {trace}",
+                    f"\\paragraph{{{_tex(rid)}.}} \\todo{{recipe did not run}}",
+                    "",
+                ]
                 continue
-            md += [f"<!-- trace: {trace} -->", f"**{rid}.** {result.summary}", "",
-                   f"*Methods.* {result.methods}", ""]
-            tex += [f"%% trace: {trace}",
-                    f"\\paragraph{{{_tex(rid)}.}} {_tex(result.summary)}", "",
-                    f"\\emph{{Methods.}} {_tex(result.methods)}", ""]
+            md += [
+                f"<!-- trace: {trace} -->",
+                f"**{rid}.** {result.summary}",
+                "",
+                f"*Methods.* {result.methods}",
+                "",
+            ]
+            tex += [
+                f"%% trace: {trace}",
+                f"\\paragraph{{{_tex(rid)}.}} {_tex(result.summary)}",
+                "",
+                f"\\emph{{Methods.}} {_tex(result.methods)}",
+                "",
+            ]
             _tables(rid, result, md, tex)
             for fname in sorted(figures):
                 if fname.startswith(f"{rid}_"):
                     md += [f"![{rid}](figures/{fname}.png)", ""]
-                    tex += ["\\begin{figure}[h]", "\\centering",
-                            f"\\includegraphics[width=0.8\\linewidth]{{figures/{fname}.pdf}}",
-                            f"\\caption{{{_tex(rid)}}}", "\\end{figure}", ""]
+                    tex += [
+                        "\\begin{figure}[h]",
+                        "\\centering",
+                        f"\\includegraphics[width=0.8\\linewidth]{{figures/{fname}.pdf}}",
+                        f"\\caption{{{_tex(rid)}}}",
+                        "\\end{figure}",
+                        "",
+                    ]
 
 
 def _tables(rid: str, result: RecipeResult, md: list, tex: list) -> None:
@@ -379,41 +432,62 @@ def _tables(rid: str, result: RecipeResult, md: list, tex: list) -> None:
             if pd.api.types.is_float_dtype(show[col]):
                 show[col] = show[col].map(lambda v: "" if pd.isna(v) else f"{v:.3f}")
         cols = list(show.columns)
-        md += [f"*Table: {name}*", "", "| " + " | ".join(map(str, cols)) + " |",
-               "| " + " | ".join(["---"] * len(cols)) + " |"]
+        md += [
+            f"*Table: {name}*",
+            "",
+            "| " + " | ".join(map(str, cols)) + " |",
+            "| " + " | ".join(["---"] * len(cols)) + " |",
+        ]
         for _, row in show.iterrows():
             md.append("| " + " | ".join(_md(str(row[c])) for c in cols) + " |")
         md += [""]
-        tex += [f"\\begin{{table}}[h]\\centering\\caption{{{_tex(name)}}}",
-                "\\begin{tabular}{" + "l" * len(cols) + "}", "\\toprule",
-                " & ".join(_tex(str(c)) for c in cols) + " \\\\", "\\midrule"]
+        tex += [
+            f"\\begin{{table}}[h]\\centering\\caption{{{_tex(name)}}}",
+            "\\begin{tabular}{" + "l" * len(cols) + "}",
+            "\\toprule",
+            " & ".join(_tex(str(c)) for c in cols) + " \\\\",
+            "\\midrule",
+        ]
         for _, row in show.iterrows():
             tex.append(" & ".join(_tex(str(row[c])) for c in cols) + " \\\\")
         tex += ["\\bottomrule", "\\end{tabular}", "\\end{table}", ""]
 
 
 def _threats(md: list, tex: list, threats_record: dict | None = None) -> None:
-    # Known framework limitations (adaptation-notes.md; scope-discipline in
-    # docs/archive/roadmap/00-VISION.md), pre-filled for the researcher to extend.
+    # Known framework limitations (adaptation-notes.md; scope discipline in
+    # docs/VISION.md), pre-filled for the researcher to extend.
     items = [
-        ("Origin-classification blind spots", "edit-provenance is a debounced "
-         "heuristic (typed vs AI-injected vs pasted); rapid interleaving can "
-         "misattribute a burst - the agent-leg correlation strengthens but "
-         "does not eliminate this (FR-INST-10, FR-AGENT-3)."),
-        ("Small-n framing", "pilot samples are hypothesis-generating; exact "
-         "nonparametric tests and effect sizes are reported with per-cell n, "
-         "and no claim rests on a bare p-value (NFR-8)."),
-        ("Single-IDE, single-agent scope", "capture is VS Code + Claude Code; "
-         "generality to other editors/agents is by design, not demonstration "
-         "(scope discipline; FR-AGENT-4 extension point)."),
-        ("Self-report instruments", "fatigue and stuck probes are Likert "
-         "self-reports subject to the usual response biases."),
+        (
+            "Origin-classification blind spots",
+            "edit-provenance is a debounced "
+            "heuristic (typed vs AI-injected vs pasted); rapid interleaving can "
+            "misattribute a burst - the agent-leg correlation strengthens but "
+            "does not eliminate this (FR-INST-10, FR-AGENT-3).",
+        ),
+        (
+            "Small-n framing",
+            "pilot samples are hypothesis-generating; exact "
+            "nonparametric tests and effect sizes are reported with per-cell n, "
+            "and no claim rests on a bare p-value (NFR-8).",
+        ),
+        (
+            "Single-IDE, single-agent scope",
+            "capture is VS Code + Claude Code; "
+            "generality to other editors/agents is by design, not demonstration "
+            "(scope discipline; FR-AGENT-4 extension point).",
+        ),
+        (
+            "Self-report instruments",
+            "fatigue and stuck probes are Likert "
+            "self-reports subject to the usual response biases.",
+        ),
     ]
     md += ["## Threats to validity", ""]
     tex += ["\\section{Threats to validity}", ""]
     for head, body in items:
-        _para(md, tex, "threats / scope-discipline",
-              f"**{head}.** {body}", bold_head=head)
+        _para(
+            md, tex, "threats / scope-discipline", f"**{head}.** {body}", bold_head=head
+        )
     if threats_record:
         _curated_threats(md, tex, threats_record)
 
@@ -426,7 +500,9 @@ def _curated_threats(md: list, tex: list, record: dict) -> None:
     md += ["", "### Data provenance (curated dataset)", ""]
     tex += ["\\subsection{Data provenance (curated dataset)}", ""]
     _para(
-        md, tex, "threats / provenance (FR-CUR-3)",
+        md,
+        tex,
+        "threats / provenance (FR-CUR-3)",
         f"**Sampling frame.** Mined under the query `{frame.get('query', '')}` "
         f"over {window.get('start', '?')}–{window.get('end', '?')}; actor unit "
         f"= {frame.get('actorUnit', 'developer')}; content policy = "
@@ -436,7 +512,9 @@ def _curated_threats(md: list, tex: list, record: dict) -> None:
     for h in record.get("heuristics", []):
         modes = "; ".join(h.get("knownFailureModes", []))
         _para(
-            md, tex, "threats / heuristic (FR-CUR-3)",
+            md,
+            tex,
+            "threats / heuristic (FR-CUR-3)",
             f"**Authorship heuristic `{h.get('id')}` (v{h.get('version')}).** "
             f"Cited to {h.get('cite')}. Known failure modes: {modes}.",
             bold_head=f"Heuristic {h.get('id')}",
@@ -444,7 +522,9 @@ def _curated_threats(md: list, tex: list, record: dict) -> None:
     for b in record.get("biases", []):
         disp = b.get("mitigation") or (f"accepted: {b.get('accepted')}")
         _para(
-            md, tex, "threats / declared-bias (FR-CUR-3)",
+            md,
+            tex,
+            "threats / declared-bias (FR-CUR-3)",
             f"**Declared bias.** {b.get('description')} "
             f"(direction: {b.get('direction')}; {disp}).",
             bold_head="Declared bias",
@@ -452,10 +532,11 @@ def _curated_threats(md: list, tex: list, record: dict) -> None:
     cov = record.get("coverage", {})
     dropped = ", ".join(f"{k}: {v}" for k, v in (cov.get("dropped") or {}).items())
     _para(
-        md, tex, "threats / coverage (FR-CUR-3)",
+        md,
+        tex,
+        "threats / coverage (FR-CUR-3)",
         f"**Coverage.** Requested {cov.get('requested', 0)}, retrieved "
-        f"{cov.get('retrieved', 0)}"
-        + (f"; dropped — {dropped}." if dropped else "."),
+        f"{cov.get('retrieved', 0)}" + (f"; dropped — {dropped}." if dropped else "."),
         bold_head="Coverage",
     )
 
@@ -488,8 +569,13 @@ def _literature(protocol: dict, papers: list[dict] | None) -> list[dict]:
         ref = p.get("paperRef", "")
         rec = by_ref.setdefault(
             ref,
-            {"ref": ref, "citeKey": _cite_key(ref), "label": ref,
-             "justifies": list(p.get("links", [])), "meta": None},
+            {
+                "ref": ref,
+                "citeKey": _cite_key(ref),
+                "label": ref,
+                "justifies": list(p.get("links", [])),
+                "meta": None,
+            },
         )
         if p.get("title"):
             first_author = (p.get("authors") or ["?"])[0].split()[-1]
@@ -554,27 +640,43 @@ def _cite_key(ref: str) -> str:
 
 
 def _participant_count(dataset: Dataset) -> int:
-    ids = {
-        r.get("participantId")
-        for r in dataset.rows
-        if r.get("participantId")
-    }
+    ids = {r.get("participantId") for r in dataset.rows if r.get("participantId")}
     return len(ids)
 
 
 _TEX_ESCAPES = {
-    "&": "\\&", "%": "\\%", "$": "\\$", "#": "\\#", "_": "\\_",
-    "{": "\\{", "}": "\\}", "~": "\\textasciitilde{}", "^": "\\textasciicircum{}",
+    "&": "\\&",
+    "%": "\\%",
+    "$": "\\$",
+    "#": "\\#",
+    "_": "\\_",
+    "{": "\\{",
+    "}": "\\}",
+    "~": "\\textasciitilde{}",
+    "^": "\\textasciicircum{}",
 }
 #: Common non-ASCII glyphs recipe summaries emit -> pdflatex-safe LaTeX, so a
 #: draft compiles without extra packages regardless of the study's text.
 _TEX_UNICODE = {
-    "—": "---", "–": "--", "→": "$\\rightarrow$",
-    "≥": "$\\geq$", "≤": "$\\leq$", "±": "$\\pm$",
-    "×": "$\\times$", "²": "$^2$", "·": "$\\cdot$",
-    "…": "...", "’": "'", "‘": "'", "“": "``",
-    "”": "''", "α": "$\\alpha$", "β": "$\\beta$",
-    "Δ": "$\\Delta$", "≈": "$\\approx$", " ": " ",
+    "—": "---",
+    "–": "--",
+    "→": "$\\rightarrow$",
+    "≥": "$\\geq$",
+    "≤": "$\\leq$",
+    "±": "$\\pm$",
+    "×": "$\\times$",
+    "²": "$^2$",
+    "·": "$\\cdot$",
+    "…": "...",
+    "’": "'",
+    "‘": "'",
+    "“": "``",
+    "”": "''",
+    "α": "$\\alpha$",
+    "β": "$\\beta$",
+    "Δ": "$\\Delta$",
+    "≈": "$\\approx$",
+    " ": " ",
 }
 _TODO_RE = re.compile(r"\\todo\{([^}]*)\}")
 

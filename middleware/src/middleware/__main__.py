@@ -64,10 +64,7 @@ def main() -> None:
 
         problems = template_registry.validate_registry()
         for meta in template_registry.list_templates():
-            print(
-                f"  {meta['templateId']} v{meta['templateVersion']}: "
-                f"{meta['title']}"
-            )
+            print(f"  {meta['templateId']} v{meta['templateVersion']}: {meta['title']}")
         for problem in problems:
             print(f"  FAIL {problem}")
         sys.exit(0 if not problems else 1)

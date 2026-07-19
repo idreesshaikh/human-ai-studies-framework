@@ -1,0 +1,73 @@
+# Neutral fixture: a minimal, valid v3 agent-participant protocol (FR-PROT-9).
+#
+# This is TEST INFRASTRUCTURE, not a study. It exercises the agent-participant
+# schema path only: cognitiveOverlay is optional, the agent leg + task harness
+# are the instruments, and the bump to protocolVersion 3 is the sole schema-level
+# difference from a v1/v2 protocol. FR-PROT-9 is satisfied exactly when
+# `protocol validate` passes on this file. Loaded by test_agent_participants.py;
+# keep it minimal — every block below is the least the schema and the derive
+# helpers require.
+
+protocolVersion: 3 # FR-PROT-9 schema revision (agent participants)
+
+study:
+  id: agent-participant-fixture
+  title: "Agent-participant schema fixture (FR-PROT-9)"
+  researchers:
+    - Test Fixture
+  ethicsRef: >-
+    Not applicable - no human participants; the task harness runs an agent
+    under test on researcher-owned repositories.
+
+researchQuestions:
+  - id: RQ-A1
+    text: >-
+      Does the agent's task success and cost differ across the declared
+      conditions?
+
+conditions:
+  - baseline
+  - treatment
+
+participants:
+  # Agent participants (FR-PROT-9): the optional participants.agents list is
+  # exercised by the test; the required fields describe the run design.
+  planned: 2
+  design: within-subjects
+  counterbalanced: true
+
+session:
+  durationMinutes: 30
+  taskDescription: >-
+    One harness run of one agent participant on one task under one condition,
+    timeboxed at 30 minutes (FR-INST-16).
+
+instruments:
+  # No cognitiveOverlay: there is no human in an IDE (FR-PROT-9). The agent leg
+  # + task harness are the instruments; the declared content policy is baked
+  # into the derived agent-capture hooks.
+  agentCapture:
+    adapter: claude-code
+    contentPolicy: metadata-only
+  taskHarness:
+    runsPerCell: 5
+    timeboxMinutes: 30
+    record: [task_outcome, token_usage, tool_calls, wall_time]
+  metrics:
+    metricSet: cognitive-load-9
+    target: agent-diff
+
+phases:
+  - name: design
+    gates:
+      - protocol-validated.txt
+  - name: data-collection
+    gates:
+      - dataset-export.sqlite3
+  - name: analysis
+    gates:
+      - per-rq-report.md
+
+analysisPlan:
+  - rq: RQ-A1
+    recipes: [task-outcome-by-condition]

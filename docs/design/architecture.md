@@ -1,8 +1,8 @@
-# Architecture — v2 system design
+# Architecture — system design
 
 C4-style, two levels. Traces: FR-PLAT (shell), FR-CONV (conversation),
 FR-LIT-8/9/10 (corpus + matching + living view), FR-CUR (mining),
-FR-AGF (manifest), D34 (surfaces), plus the untouched v1 engine.
+FR-AGF (manifest), D34 (surfaces) and the instrument legs.
 
 ## Level 1 — system context
 
@@ -52,7 +52,6 @@ flowchart TB
 
     subgraph SURFACES["Surfaces (D34)"]
         PLAT["platform/ — React 19 + shadcn/ui<br/>hero · projects · design conversation ·<br/>living literature view · review surfaces"]:::ui
-        DASH["dashboard/ — Svelte 5 (frozen v1 console)<br/>task board · timeline · live sessions"]:::ui
     end
 
     subgraph MW["middleware :8000 — FastAPI (one process serves all)"]
@@ -70,7 +69,7 @@ flowchart TB
         FILES[("content-addressed file store<br/>gate artifacts · PDFs")]:::store
     end
 
-    subgraph LEGS["Instrument legs (v1 engine, untouched)"]
+    subgraph LEGS["Instrument legs"]
         EXT["extension/ Cognitive Overlay<br/>cognitive + behavioral"]:::edge
         MET["metrics/ 9-metric matrix"]:::edge
         AGC["agent-capture/ hooks + transcripts"]:::edge
@@ -81,7 +80,6 @@ flowchart TB
     PROTO["protocol/ schema · lifecycle · derive"]:::svc
 
     PLAT -->|REST + SSE| API
-    DASH --> API
     API --> CONV --> COMPILER --> PROTO
     CONV --> MATCH --> KNOW
     API --> MINE
@@ -105,13 +103,11 @@ Key placements, argued:
 3. **Harvest is a script, not a service** (D36) — corpus growth is an
    editorial batch act with a versioned gate, not a runtime behavior;
    its *output* (`corpus-index.json`) is what the platform imports.
-4. **One process still serves everything** (NFR-7) — the v2 additions
-   are routers inside the existing FastAPI app; `docker compose up`
-   remains the whole story, SSE included.
-5. **Two SPAs, one API** — during the parity window (D34) both surfaces
-   speak the same REST/SSE contract; nothing is built twice server-side.
+4. **One process serves everything** (NFR-7) — the platform, conversation,
+   knowledge, mining, and manifest are routers inside the one FastAPI app;
+   `docker compose up` remains the whole story, SSE included.
 
-## Deployment topology (unchanged posture, new surface)
+## Deployment topology
 
 ```mermaid
 flowchart LR

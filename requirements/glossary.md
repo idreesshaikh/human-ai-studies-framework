@@ -28,7 +28,7 @@ use. One term per concept; synonyms listed only to ban them.
 | **Review latency** | Time an AI suggestion was visible before the developer's accept/reject/dismiss decision (FR-INST-8).       |
 | **Scroll coverage** | Fraction of an injected/changed code region whose lines appeared in the visible range before acceptance or save (FR-INST-9). |
 | **Heartbeat**   | A lightweight periodic interaction signal used to classify active vs. idle time (WakaTime pattern, FR-INST-11). |
-| **Task card**   | A dashboard project-manager item auto-derived from an unsatisfied protocol condition (missing gate artifact, uncovered RQ, integrity warning) or added manually; clears itself when the condition is satisfied (FR-DASH-7). |
+| **Task card**   | An item in the platform's self-computing status view, auto-derived from an unsatisfied protocol condition (missing gate artifact, uncovered RQ, integrity warning); clears itself when the condition is satisfied (FR-DASH-7). |
 | **Paper** *(artifact)* | An ingested publication (PDF / arXiv / DOI) with extracted metadata and text, linkable to protocol elements (FR-LIT-1/3). |
 | **Paper set**   | The study's collection of ingested papers, keyed by canonical `paperRef` (`doi:`/`arxiv:`) so protocol `literature:` links join by construction; populated by upload/ID (FR-LIT-1). *(not: library, bibliography)* |
 | **Literature graph** | The interactive related-papers view built from citation-API edges around ingested papers (FR-LIT-2).      |

@@ -1,4 +1,4 @@
-"""The server-side protocol compiler (MP-15 slice 4, FR-CONV-3).
+"""The server-side protocol compiler.
 
 Turns accepted design moves into a protocol draft. **Pure function**: no LLM,
 no clock, no randomness — replaying the same accepted moves against the same
@@ -178,6 +178,45 @@ def _scaffold_from_sections(sections: dict[str, list]) -> dict:
     }
 
 
+def _apply_instrument_moves(draft: dict, moves: list[dict]) -> None:
+    """Apply accepted instrument moves onto the draft in place — the FR-CONV-4.4
+    "instrument evolution rides the same path" contract. Instruments is a dict
+    section (not one of the eight list-valued sections), so these moves don't
+    fold into ``compile_sections``; they add or replace a whole instrument
+    config, or deep-set one field (a threshold/interval tweak, F4.2).
+
+    Deterministic: applied in move order, last write per target wins. Adding an
+    instrument is a new data stream (consent-relevant, F4.1); a deep-set of a
+    numeric threshold is not (``evolution.consent_relevance`` draws that line).
+    """
+    instruments = draft.setdefault("instruments", {})
+    if not isinstance(instruments, dict):  # scaffold safety
+        instruments = draft["instruments"] = {}
+    for move in moves:
+        if move.get("status") != "accepted":
+            continue
+        patch = move.get("patch") or {}
+        if patch.get("section") != "instruments":
+            continue
+        name = patch.get("name")
+        if not name:
+            continue
+        op = patch.get("op")
+        if op in ("add-instrument", "set-instrument"):
+            instruments[name] = patch.get("config") or {}
+        elif op == "reconfigure":
+            target = instruments.setdefault(name, {})
+            path = list(patch.get("path") or [])
+            for key in path[:-1]:
+                nxt = target.get(key)
+                if not isinstance(nxt, dict):
+                    nxt = {}
+                    target[key] = nxt
+                target = nxt
+            if path:
+                target[path[-1]] = patch.get("value")
+
+
 def _refine(protocol: dict, sections: dict[str, list]) -> dict:
     """Apply free-text refinements onto a template-instantiated base protocol.
     Only additive, non-destructive edits — appending research questions the
@@ -198,9 +237,7 @@ def _refine(protocol: dict, sections: dict[str, list]) -> dict:
     return out
 
 
-def compile_moves(
-    moves: list[dict], *, base_yaml: str | None = None
-) -> CompileResult:
+def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> CompileResult:
     """Compile accepted moves into a validated protocol draft.
 
     ``base_yaml`` is the current draft (for the diff); when omitted the diff
@@ -227,6 +264,10 @@ def compile_moves(
         draft = _refine(instantiated["protocol"], sections)
     else:
         draft = _scaffold_from_sections(sections)
+
+    # Instrument moves apply to the dict section directly (F4.1/F4.2), after
+    # the base is built so an added instrument survives both paths.
+    _apply_instrument_moves(draft, moves)
 
     new_yaml = yaml.safe_dump(draft, sort_keys=False, default_flow_style=False)
     base = base_yaml or ""

@@ -87,5 +87,5 @@ is visible next to the metrics it excludes.
 *(v2 note, 2026-07-17 regroup: this audit covers the live-capture legs.
 Metrics over mined/curated data are specified in `specs/fr-cur.md`
 (normalizer event vocabulary + the reused metrics leg over checked-out
-snapshots); per-chunk metric joins for the comprehension-debt study ride
-FR-INST-19's chunk reference.)*
+snapshots); per-chunk comprehension metric joins ride FR-INST-19's chunk
+reference.)*

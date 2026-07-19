@@ -1,4 +1,4 @@
-# Mega-Prompt 18 — Evolution: Amendments + Feedback
+# Phase 18 — Evolution: Amendments + Feedback
 
 > Self-contained: execute this file in a fresh session at the repo root.
 > Read first: `docs/VISION.md`, `requirements/specs/fr-conv.md`
@@ -9,12 +9,12 @@
 > (AmendmentBanner; the precise register rules), and
 > `docs/roadmap/README.md` (walls + charter).
 
-**Depends on:** MP-15 complete (conversation, compiler, elicitation
-record — amendments are compilations with consequences), MP-14 (roles —
+**Depends on:** Phase 15 complete (conversation, compiler, elicitation
+record — amendments are compilations with consequences), Phase 14 (roles —
 post-freeze approval is `owner`; projects scope the feedback loop),
-MP-13 / FR-META-1..3 (findings log, retrospective, in-platform agents —
+Phase 13 / FR-META-1..3 (findings log, retrospective, in-platform agents —
 the machinery feedback flows into). **Satisfies:** FR-CONV-4, FR-CONV-5
-(+ the FR-META extensions they name). **Elicited:** owner, MP-01 rev 9
+(+ the FR-META extensions they name). **Elicited:** owner, Phase 01 rev 9
 ("study ideas and instrumentation are evolved on the fly"; "the platform
 evolves from researcher feedback"). **Status:** Open.
 
@@ -28,7 +28,7 @@ sneaky. **The platform evolves:** researcher feedback given in
 conversation becomes structured findings that feed the platform's own
 retrospective and improvement proposals — the platform grows from its
 users' conversations exactly as a study grows from its researcher's.
-This self-application is the whole thesis made product; MP-18 is the
+This self-application is the whole thesis made product; Phase 18 is the
 phase where the platform starts eating its own cooking.
 
 Non-negotiable bounds, inherited verbatim:
@@ -120,8 +120,8 @@ Non-negotiable bounds, inherited verbatim:
 
 Run the loop end to end on a real trial study:
 
-1. Take the comprehension-debt study (or the demo project's study)
-   through a **post-ethics amendment**: add an instrument
+1. Take the demo project's study (`sample-study-2026`, seeded in
+   `evolutionStub.ts`) through a **post-ethics amendment**: add an instrument
    conversationally → caution fires (new data stream ⇒ consent-relevant)
    → owner approves → new sessions blocked → upload re-approval artifact
    → sessions resume under v(n+1). Sequence per `sequences.md` §4,
@@ -179,3 +179,33 @@ Run the loop end to end on a real trial study:
 ## Deviations log
 
 Record departures here and in `requirements/traceability.md` §3.
+
+- **2026-07-18 — study-revision counter is separate from `protocolVersion`.**
+  The spec (and FR-CONV-4.2) call the amendment counter the "protocol version";
+  Phase 17 had already fixed the protocol document's `protocolVersion` field to a
+  schema-shape enum `[1, 2, 3]` (v1 human, v2 curated, v3 agents). Bumping that
+  field per amendment would break schema validation, so the amendment counter
+  lives beside the protocol as `StudyEvolution.current_version` (a DB integer),
+  stamped onto each `SessionOpen` — that integer is what the version chips
+  render (F4.3). The invariant the spec cares about (drift is version-visible)
+  holds; only the home of the counter moved. Prefer-the-invariant.
+- **2026-07-18 — new tables, never an ALTER.** Evolution state lives in four
+  new tables (`study_evolution`, `amendments`, `session_opens`,
+  `aggregate_shapes`) because the loud stale-DB check (`db._check_schema`) fires
+  on a column missing from an *existing* table; new tables let pre-Phase 18
+  databases keep loading (the NFR-1/2 "never silent data loss" posture).
+- **2026-07-18 — evolution UI runs on a deterministic offline store.** The
+  amendment banner/history, feedback marking, and platform-findings lineage are
+  built on `platform/src/lib/evolutionStub.ts` exactly as the design
+  conversation runs on `designStub.ts` — the server endpoints are built +
+  tested, and wiring the transport is the same deferred slice the conversation
+  surface carries (Phase 14 note). Browser NFR-12 screenshot/axe evidence for the
+  new surfaces is deferred with Phase 14's, pending a running stack; the surfaces
+  do pass the standing NFR-12 gates (tokens-only lint, both-theme tokens, no
+  raw literals, keyboard-reachable, unanimated consent surfaces).
+- **2026-07-18 — instrument evolution as compiler moves.** Slice A.4 rides the
+  same compile path via two new move ops on the `instruments` dict section
+  (`add-instrument` — a new data stream, consent-relevant; `reconfigure` — a
+  deep-set threshold tweak, not consent-relevant), applied by
+  `compiler._apply_instrument_moves` after the base draft is built. The design
+  assistant proposes them through the deterministic no-LLM scripts.

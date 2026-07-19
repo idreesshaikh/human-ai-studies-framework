@@ -1,5 +1,5 @@
 # Pilot study protocol - the with/without-AI developer study this framework
-# exists to run (docs/archive/roadmap/08-pilot-study.md executes it).
+# exists to run.
 #
 # This file is the study's requirements specification ("study-as-code"):
 # instruments, gates, and analyses below are derived from it by command,
@@ -60,10 +60,10 @@ session:
   taskDescription: >-
     Two matched Python maintenance tasks (one per condition, order
     counterbalanced with condition pairing per the runbook's Latin square):
-    Task A "expenses" and Task B "logbook" (study/pilot/tasks/), each a
+    Task A "expenses" and Task B "logbook", each a
     small existing codebase with two seeded defects and one feature request,
     shipped with acceptance tests providing outcome ground truth
-    (FR-INST-16, harness lands with MP-12). In ai-assisted sessions the
+    (FR-INST-16, via the task harness). In ai-assisted sessions the
     participant uses Claude Code in the integrated terminal; in unassisted
     sessions AI tooling is disabled.
 

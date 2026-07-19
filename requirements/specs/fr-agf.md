@@ -1,13 +1,13 @@
 # FR-AGF — Agent-friendliness (detailed specification)
 
-**SRS family:** FR-AGF. **Phase:** MP-17. **Spec v1, 2026-07-17.**
+**SRS family:** FR-AGF. **Phase:** 17.
 
 ## 1. Context
 
 Two kinds of AI agents operate this platform: the in-platform agents
 (FR-META-3) and external agents (a researcher's Claude Code driving the
 API, browser agents driving the UI). Owner direction: "a lot of
-metadata that agents when run can understand." The v1 seeds already
+metadata that agents when run can understand." The existing seeds already
 exist — live `/requirements` + `/glossary` endpoints (FR-DASH-9) whose
 content is parsed from the documents of record. FR-AGF generalizes that
 principle: **everything an agent needs is generated from the documents
@@ -55,7 +55,7 @@ rebuilding provably updates AGENTS.md; F2.2 CI red on drift.
 
 ## 4. Semantic UI annotations (FR-AGF-3, C)
 
-The v2 surface (D34) carries stable `data-agent` attributes on
+The platform surface (D34) carries stable `data-agent` attributes on
 navigational landmarks and design-move cards (the existing `data-tour`
 discipline generalized). Deferred until a browser-agent consumer
 exists; the convention is recorded now so components adopt it from

@@ -1,7 +1,7 @@
 """Idea → paper matching (FR-LIT-9): the ladder behind recommendation cards.
 
 The ladder, each rung optional and degrading to the one below (spec
-`fr-lit-v2.md` §2):
+`fr-lit.md` §2):
 
 1. **LLM rerank** - reorders and phrases one-line reasons for papers the
    lower rungs already retrieved (cite-what-you-were-given: the model never
@@ -82,8 +82,12 @@ def search_by_fts(s: Session, query: str, *, limit: int = 10) -> list[dict]:
         ref = hit["paperRef"]
         entry = by_ref.setdefault(
             ref,
-            {"ref": ref, "snippet": hit.get("snippet", ""), "score": 0.0,
-             "rung": "fts"},
+            {
+                "ref": ref,
+                "snippet": hit.get("snippet", ""),
+                "score": 0.0,
+                "rung": "fts",
+            },
         )
         entry["score"] += 1.0 / (rank + 1)
     ranked = sorted(by_ref.values(), key=lambda e: (-e["score"], e["ref"]))
@@ -147,13 +151,11 @@ def rerank_with_llm(query: str, candidates: list[dict]) -> list[dict] | None:
     client = assistant.make_client()
     if client is None or not candidates:
         return None
-    menu = "\n".join(
-        f"- {c['ref']}: {c.get('title', '')}" for c in candidates
-    )
+    menu = "\n".join(f"- {c['ref']}: {c.get('title', '')}" for c in candidates)
     prompt = (
         "A researcher described a study idea. Rank the following papers by "
         "relevance to it and give a one-line reason each. Reply with a JSON "
-        "array of {\"ref\", \"reason\"}; use only refs from the list.\n\n"
+        'array of {"ref", "reason"}; use only refs from the list.\n\n'
         f"Idea: {query}\n\nPapers:\n{menu}"
     )
     try:
@@ -167,9 +169,7 @@ def rerank_with_llm(query: str, candidates: list[dict]) -> list[dict] | None:
             },
             {"Authorization": f"Bearer {client.api_key}"},
         )
-        content = (res.get("choices") or [{}])[0].get("message", {}).get(
-            "content", ""
-        )
+        content = (res.get("choices") or [{}])[0].get("message", {}).get("content", "")
         parsed = json.loads(content)
         items = parsed if isinstance(parsed, list) else parsed.get("ranking", [])
     except Exception as exc:  # noqa: BLE001 - any provider failure degrades
@@ -305,9 +305,13 @@ def get_paper_metadata(s: Session, paper_ref: str) -> dict | None:
         )
     ).scalar_one_or_none()
     if row is None:
-        row = s.execute(
-            select(Paper).where(Paper.paper_ref == paper_ref).order_by(Paper.id)
-        ).scalars().first()
+        row = (
+            s.execute(
+                select(Paper).where(Paper.paper_ref == paper_ref).order_by(Paper.id)
+            )
+            .scalars()
+            .first()
+        )
     if row is None:
         return None
     return {

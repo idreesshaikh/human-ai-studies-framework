@@ -1,4 +1,4 @@
-"""Corpus importer (MP-15 slice 2; the FR-LIT-8 importer named "pending").
+"""Corpus importer.
 
 Loads the hand-curated Tier A seeds (``docs/papers/README.md``) and the
 harvested Tier B corpus (``docs/papers/corpus-index.json``) into the
@@ -157,9 +157,7 @@ def import_tier_a(s: Session) -> dict[str, int]:
 
 def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
     """Land the harvested Tier B rows + FTS entries + via-edges."""
-    seed_by_arxiv = {
-        p["arxivId"]: p["ref"] for p in parse_tier_a() if p["arxivId"]
-    }
+    seed_by_arxiv = {p["arxivId"]: p["ref"] for p in parse_tier_a() if p["arxivId"]}
     indexed: dict[str, int] = {}
     entries = parse_tier_b()
     for i, entry in enumerate(entries):
@@ -183,12 +181,9 @@ def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
             },
         )
         body = "\n\n".join(
-            part for part in (entry.get("title", ""), entry.get("venue") or "")
-            if part
+            part for part in (entry.get("title", ""), entry.get("venue") or "") if part
         )
-        indexed[ref] = paper_index.index_paper(
-            s, ref, entry.get("title", ""), body
-        )
+        indexed[ref] = paper_index.index_paper(s, ref, entry.get("title", ""), body)
         for via in entry.get("via", []):
             src = seed_by_arxiv.get(via)
             if not src:
@@ -255,22 +250,23 @@ def verify_import(db_path: Path | str) -> dict[str, bool]:
             ).scalar_one_or_none()
             checks[f"seed-row:{ref}"] = row is not None and row.tier == "A"
         count_a = s.scalar(
-            select(func.count()).select_from(Paper).where(
-                Paper.study_id == CORPUS_STUDY_ID, Paper.tier == "A"
-            )
+            select(func.count())
+            .select_from(Paper)
+            .where(Paper.study_id == CORPUS_STUDY_ID, Paper.tier == "A")
         )
         count_b = s.scalar(
-            select(func.count()).select_from(Paper).where(
-                Paper.study_id == CORPUS_STUDY_ID, Paper.tier == "B"
-            )
+            select(func.count())
+            .select_from(Paper)
+            .where(Paper.study_id == CORPUS_STUDY_ID, Paper.tier == "B")
         )
         checks["tier-a-count-matches-readme"] = count_a == expected_a
         checks["tier-b-count-matches-index"] = count_b == expected_b
         checks["corpus-floor-1000"] = (count_a + count_b) >= 1000
         edge_count = s.scalar(
-            select(func.count()).select_from(PaperEdge).where(
-                PaperEdge.study_id == CORPUS_STUDY_ID,
-                PaperEdge.kind == VIA_EDGE_KIND,
+            select(func.count())
+            .select_from(PaperEdge)
+            .where(
+                PaperEdge.study_id == CORPUS_STUDY_ID, PaperEdge.kind == VIA_EDGE_KIND
             )
         )
         checks["via-edges-landed"] = (edge_count or 0) > 0

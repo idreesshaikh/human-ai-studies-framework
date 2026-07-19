@@ -136,8 +136,7 @@ def build_record(
             requested=requested, retrieved=retrieved, dropped=dropped
         ),
         biases=list(biases) if biases is not None else list(STARTER_BIASES),
-        actor_unit_note=actor_unit_note
-        or _default_actor_unit_note(frame.actor_unit),
+        actor_unit_note=actor_unit_note or _default_actor_unit_note(frame.actor_unit),
     )
 
 

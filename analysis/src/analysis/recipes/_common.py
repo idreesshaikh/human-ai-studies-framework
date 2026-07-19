@@ -23,9 +23,7 @@ def two_conditions(df: pd.DataFrame, dataset: Dataset) -> tuple[str, str] | None
 def describe_cells(df: pd.DataFrame, value: str) -> pd.DataFrame:
     """Per-condition descriptives: n, min, median, mean, max (always
     reported next to any test - NFR-8)."""
-    vals = df.assign(_v=pd.to_numeric(df[value], errors="coerce")).dropna(
-        subset=["_v"]
-    )
+    vals = df.assign(_v=pd.to_numeric(df[value], errors="coerce")).dropna(subset=["_v"])
     out = (
         vals.groupby("condition")["_v"]
         .agg(n="count", min="min", median="median", mean="mean", max="max")

@@ -56,9 +56,7 @@ def run(stdin_json: str, argv: list[str], environ: dict) -> dict:
     policy = normalize_policy(
         args.content_policy or environ.get("STUDY_CONTENT_POLICY")
     )
-    endpoint = (
-        args.endpoint or environ.get("STUDY_INGEST_ENDPOINT") or DEFAULT_ENDPOINT
-    )
+    endpoint = args.endpoint or environ.get("STUDY_INGEST_ENDPOINT") or DEFAULT_ENDPOINT
     events = normalize_transcript(transcript_path, keys, policy)
     return post_events(events, source=SOURCE_AGENT, endpoint=endpoint)
 

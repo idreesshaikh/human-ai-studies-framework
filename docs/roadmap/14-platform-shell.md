@@ -1,4 +1,4 @@
-# Mega-Prompt 14 — Platform Shell + Hero
+# Phase 14 — Platform Shell + Hero
 
 > Self-contained: execute this file in a fresh session at the repo root.
 > Read first: `docs/VISION.md`, `requirements/specs/fr-plat.md` (the
@@ -8,11 +8,11 @@
 > D25/D26/D29/D34/D37, and `docs/roadmap/README.md` (the walls + the
 > autonomy charter — both bind this phase).
 
-**Depends on:** MP-15 slice 1 (the `platform/` app exists and hosts the
-conversation surface this shell will wrap), MP-04 (middleware), MP-13 /
+**Depends on:** Phase 15 slice 1 (the `platform/` app exists and hosts the
+conversation surface this shell will wrap), Phase 04 (middleware), Phase 13 /
 FR-OPS-5 (the auth seam: `none`/`token`/`clerk`, Clerk provisioned).
 **Satisfies:** FR-PLAT-1..5; completes FR-OPS-5/7; lays the NFR-12
-foundation every later surface inherits. **Elicited:** owner, MP-01
+foundation every later surface inherits. **Elicited:** owner, Phase 01
 rev 8 ("multi-researcher platform… projects, roles, hero").
 **Status:** Built (2026-07-18) — logic, tests, and build green; the
 in-browser NFR-12 evidence (screenshot pairs + axe) is the one remaining
@@ -26,7 +26,7 @@ scope everything; roles gate everything server-side; invitations bring
 colleagues in; a hero page makes a stranger (S7) understand and *touch*
 the product inside three interactions; and a self-hosted `none`-mode
 boot remains byte-for-byte today's experience. The conversation surface
-built in MP-15 slice 1 re-homes into the project shell — after this
+built in Phase 15 slice 1 re-homes into the project shell — after this
 phase, "open the design conversation" is something that happens *inside
 a project you belong to*.
 
@@ -50,7 +50,7 @@ Non-negotiable bounds, inherited verbatim:
 
 ### Slice A — Data layer + the scoping choke point (FR-PLAT-1/2)
 
-Backend only; no UI change; the v1 dashboard keeps working throughout.
+Backend only; no UI change; the existing dashboard keeps working throughout.
 
 1. **Tables** (names per `docs/design/data-model.md`):
 
@@ -71,7 +71,7 @@ Backend only; no UI change; the v1 dashboard keeps working throughout.
 2. **Boot migration**: on first start after upgrade, create the default
    project (slug `default`), adopt every orphan study into it, emit one
    loud log block stating exactly what moved. Additive and safe → it
-   runs without asking, but it *announces itself* (the MP-12 stale-DB
+   runs without asking, but it *announces itself* (the Phase 12 stale-DB
    posture, relaxed only because nothing is destroyed).
 
 3. **The choke point**: one FastAPI dependency, one module —
@@ -104,8 +104,8 @@ Backend only; no UI change; the v1 dashboard keeps working throughout.
    One code path everywhere; zero conditionals like `if multi_tenant`.
 3. Session identity surfaces in one place (`GET /me`: sub, display
    name, memberships) so both SPAs share it.
-4. Fit gate: the existing v1 smoke test runs unchanged against a
-   `none`-mode boot of the full v2 stack (FR-PLAT-5's criterion).
+4. Fit gate: the existing smoke test runs unchanged against a
+   `none`-mode boot of the full stack (FR-PLAT-5's criterion).
 
 ### Slice C — The shell UI (`platform/`)
 
@@ -117,7 +117,7 @@ rooms". Routes (React Router; layout components per D37 substrate):
 /demo                  the shared demo project, viewer role (public)
 /projects              project list + create        (signed in)
 /p/{slug}              project home: studies, activity, members preview
-/p/{slug}/studies/{id} study home — conversation (MP-15) mounts here
+/p/{slug}/studies/{id} study home — conversation (Phase 15) mounts here
 /p/{slug}/members      members table + invitations  (owner sees controls)
 /p/{slug}/settings     rename, danger zone           (owner)
 ```
@@ -147,7 +147,7 @@ these elements exist):
 1. **The one-liner** and a single sentence of what happens here, in
    NFR-11 plain language (zero requirement IDs, zero jargon).
 2. **The product demonstrating itself**: an embedded, *live* design
-   conversation running the MP-15 deterministic demo script (zero LLM
+   conversation running the Phase 15 deterministic demo script (zero LLM
    key, zero backend needed — the stub is the degradation path doing
    double duty as marketing). The visitor watches design moves arrive,
    can accept/reject them, sees the draft rail fill.
@@ -179,7 +179,7 @@ GET    /me                                identity + memberships
 GET    /demo                              demo project pointer (public)
 ```
 
-Every study-bound v1 endpoint gains the project prefix through the choke
+Every study-bound legacy endpoint gains the project prefix through the choke
 point — the Svelte console (frozen) keeps its paths working via the
 implicit/default project until per-view parity retires it (D34).
 
@@ -210,7 +210,7 @@ Beyond the charter in `README.md`, specifically free in this phase:
   token fails with a human explanation.
 - FR-PLAT-4: hero → report ≤ 3 interactions without an account; sign-up
   → designer ≤ 2 minutes (walkthrough, timed).
-- FR-PLAT-5: v1 smoke test green on `none`-mode v2 boot.
+- FR-PLAT-5: the existing smoke test green on `none`-mode boot.
 - NFR-12: token audit (F1), both-themes + reduced-motion screenshot
   pairs (F2), axe clean on hero/projects/members (F3), keyboard-only
   invite-accept walkthrough (F5).
@@ -224,7 +224,7 @@ Beyond the charter in `README.md`, specifically free in this phase:
 3. Demo walkthroughs, recorded: (a) hero → demo report, counting
    interactions; (b) sign-up → project → conversation open, timed;
    (c) invite flow end to end including expiry and reuse failure;
-   (d) `none`-mode boot + v1 smoke test.
+   (d) `none`-mode boot + the existing smoke test.
 4. NFR-12 evidence archived (screenshots both themes + reduced-motion,
    axe report).
 
@@ -239,8 +239,8 @@ Record departures here and in `requirements/traceability.md` §3.
   `Identity`, and all endpoints in the API surface). This pass *completed*
   them: added the `ROLES` constant the members/invitation endpoints
   referenced but that was undefined (a latent crash); made the study choke
-  point preserve the v1 permissive-sink contract in `none`/`token` mode when
-  no protocol is loaded, so FR-PLAT-5's "v1 smoke test unchanged" holds
+  point preserve the permissive-sink contract in `none`/`token` mode when
+  no protocol is loaded, so FR-PLAT-5's "smoke test unchanged" holds
   (`test_no_protocol_means_accept_all` was regressing to 404); and cleaned
   the pre-existing lint in the touched backend files.
 - **Slice A tests** landed as `middleware/tests/test_authz.py`: the matrix

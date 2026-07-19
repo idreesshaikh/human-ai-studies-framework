@@ -3,7 +3,7 @@
 Traces: FR-PLAT-1/2 (projects, roles), FR-CONV-1/3/6 (conversation,
 moves, elicitation record), FR-TPL-1/2 (templates, statistical plans),
 FR-LIT-8/9 (corpus tiers, matching), FR-CUR-1/3 (curated datasets),
-plus the v1 event/paper tables they join. SQLite throughout (D11);
+plus the event/paper tables they join. SQLite throughout (D11);
 names follow the glossary (golden rule 4).
 
 ```mermaid
@@ -209,9 +209,9 @@ classDiagram
    `study` (ingested directly by a researcher). Matching (FR-LIT-9)
    ranks across tiers but always *displays* the tier — provenance is UI,
    not just metadata.
-5. **`Event` is untouched** — every v2 concept reaches the timeline
-   through existing join keys + the `source` column (MP-12). The v1
-   engine cannot tell a curated study from a live one downstream of the
+5. **`Event` is the convergence point** — every concept reaches the
+   timeline through the join keys + the `source` column. The analysis
+   pipeline cannot tell a curated study from a live one downstream of the
    normalizer, which is exactly the point (FR-CUR-1).
 6. **`Finding.conversationLocus`** closes the feedback loop
    (FR-CONV-5): platform evolution proposals cite the exact turns that

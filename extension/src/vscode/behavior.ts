@@ -15,7 +15,7 @@ import { FirstLastDebouncer, TrailingDebouncer } from '../core/debounce';
 import { DEFAULT_IDLE_CONFIG, IdleDetector } from '../core/idle';
 
 /**
- * Behavioral telemetry adapter (MP-05): maps native VS Code events onto the
+ * Behavioral telemetry adapter: maps native VS Code events onto the
  * core aggregators and records the behavioral event types. Mechanisms and
  * their blind spots are documented in `docs/adaptation-notes.md` (NFR-10).
  *

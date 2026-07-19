@@ -1,12 +1,9 @@
-# Vision v2 — the conversational research platform
+# Vision — the conversational research platform
 
-**Framework for Conducting Human-AI Studies** — v2 direction, adopted
-2026-07-17 (rev 2 same day: the conversational core). Supersedes the v1
-sprint vision (`docs/archive/roadmap/00-VISION.md`, kept intact as the
-record of the built foundation). Requirements: `requirements/srs.md`
-families FR-PLAT, FR-TPL, FR-CONV, FR-CUR, FR-AGF + NFR-12, each with a
-detailed spec in `requirements/specs/`; elicitations logged in
-`requirements/traceability.md` §3 (MP-01 rev 8 + rev 9).
+**Framework for Conducting Human-AI Studies.** Requirements:
+`requirements/srs.md` (families indexed there, each with a detailed spec in
+`requirements/specs/`); elicitations logged in `requirements/traceability.md`;
+the phase plan in `docs/roadmap/`.
 
 ## One line
 
@@ -52,7 +49,7 @@ That self-application is the thesis made product.
 ## What feeds the conversation
 
 1. **The corpus** — quality-first and uncapped, 1,000 papers as the
-   floor, in two provenance tiers (FR-LIT-8 rev 2):
+   floor, in two provenance tiers (FR-LIT-8):
    100 hand-curated seeds (`docs/papers/README.md`) plus a harvested,
    quality-gated, API-verifiable extension grown by citation snowballing
    (`scripts/corpus_harvest.py`, refreshable as the literature moves;
@@ -69,7 +66,7 @@ That self-application is the thesis made product.
    is answered by construction.
 3. **Two data paths, one schema.** Does the dataset exist?
    *No* → live path: the four instrument legs (cognitive, behavioral,
-   static metrics, agent) — the built v1 engine.
+   static metrics, agent).
    *Yes* → curated path: mining adapters (GitHub first) normalize
    external data into the same join-key timeline, with a mandatory
    validity-threats record.
@@ -78,7 +75,7 @@ That self-application is the thesis made product.
 ## What the platform is not
 
 - **Not a task board.** Project management appears only where it falls
-  out of the protocol (the self-computing task board).
+  out of the protocol (the self-computing status view).
 - **Not an Overleaf or Zotero competitor.** We emit paper drafts and
   consume paper metadata at the boundaries; writing and reference
   management stay where they are.
@@ -89,18 +86,18 @@ That self-application is the thesis made product.
 
 ## The surface (D34/D35, NFR-12)
 
-The v2 surface is a new **React 19 + Vite + Tailwind + shadcn/ui** app
+The surface is a **React 19 + Vite + Tailwind + shadcn/ui** app
 (`platform/`): hero page, sign-up (Clerk), projects with owner-managed
 roles and invitations, the conversation + review surfaces, and the
-knowledge views — held to a product bar specified testably in
+study workspace (the design conversation plus Library, Data, and
+Lifecycle tabs) — held to a product bar specified testably in
 `requirements/specs/nfr-12-experience.md` (one token system across UI
 and charts, both themes, motion that communicates, streaming everywhere,
 WCAG 2.2 AA, keyboard-complete). Designed *with Claude* in-repo (D35);
-every iteration is a gated commit. The built Svelte dashboard stays as
-the maintained-frozen v1 operational console until the v2 surface
-reaches parity view-by-view — no big-bang rewrite of working software.
+every iteration is a gated commit. The middleware serves the built app at
+`/` — one process is the whole stack (NFR-7).
 
-## The platform loop (S7's journey)
+## The platform loop (the adopting researcher's journey)
 
 Arrive (hero, live demo one click away) → sign up → create or join a
 project (roles: owner/researcher/viewer) → open the design conversation
@@ -110,48 +107,48 @@ statistics → honest, beautiful, per-RQ reports → paper draft +
 replication kit out — and someone else's kit imports back in. The loop
 closes; the conversation records how it all happened.
 
-## Why the v1 engine survives intact
+## How the platform is built
 
-| v2 concept | Built on | Status |
+Each capability rests on a mechanism already in the codebase:
+
+| Capability | Built on | Status |
 | --- | --- | --- |
-| Design conversation | Assistant tool-loop + FR-ETH-4 boundary (FR-LIT-4) | engine ✅ |
-| Compilation | Protocol schema + validate + derive (FR-PROT-1..4) | engine ✅ |
-| Statistical plans | Recipe contract + `analysis/stats.py` honesty | engine ✅ |
-| Grounding | FTS5 paper index, citation chips, literature graph | engine ✅ |
-| Curated path | Join-key event schema + per-source streams (MP-12) | engine ✅ |
-| Live path | Four instrument legs, middleware, task harness | engine ✅ |
-| Identity | FR-OPS-5 pluggable auth + Clerk (provisioned) | partial 🔶 |
-| Feedback evolution | Findings log + retrospective + MP-13 agents | engine ✅/⏳ |
-| Agent metadata | `/requirements` + `/glossary` live endpoints | seed ✅ |
+| Design conversation | Assistant tool-loop + FR-ETH-4 boundary (FR-LIT-4) | ✅ |
+| Compilation | Protocol schema + validate + derive (FR-PROT-1..4) | ✅ |
+| Statistical plans | Recipe contract + `analysis/stats.py` honesty | ✅ |
+| Grounding | FTS5 paper index, citation chips, literature graph | ✅ |
+| Curated path | Join-key event schema + per-source streams | ✅ |
+| Live path | Four instrument legs, middleware, task harness | ✅ |
+| Identity | FR-OPS-5 pluggable auth + Clerk (provisioned) | 🔶 |
+| Feedback evolution | Findings log + retrospective + in-platform agents | ✅/⏳ |
+| Agent metadata | `/requirements` + `/glossary` live endpoints | ✅ |
 
-## Build order (phases to be specced before code)
+## Build order
 
-By thesis proof value per unit of engineering:
+By thesis proof value per unit of engineering, the platform layer
+(phases 14–18) builds on the foundation (phases 01–13):
 
-1. **MP-15 — templates + conversational designer** (FR-TPL-1..4,
+1. **Phase 15 — templates + conversational designer** (FR-TPL-1..4,
    FR-CONV-1/2/3/6): the end-to-end proof — idea → conversation →
    grounded protocol → prescribed statistics → report, on the demo
    study. Includes the retro-fit proof: our own pilot expressed as a
    template instance.
-2. **MP-16 — curated-dataset leg** (FR-CUR-1..3): the Cursor-style
+2. **Phase 16 — curated-dataset leg** (FR-CUR-1..3): the Cursor-style
    template becomes runnable; the dataset-exists branch is real.
-3. **MP-14 — platform shell + v2 surface bootstrap** (FR-PLAT-1..5,
+3. **Phase 14 — platform shell + surface bootstrap** (FR-PLAT-1..5,
    NFR-12 foundation): projects, roles, invitations, hero, the
-   `platform/` app scaffold the conversation lives in. *(Note: the
-   `platform/` scaffold itself may land first inside MP-15 if the
-   conversation needs a home before the shell — the specs allow either
-   sequencing; the traceability log records what actually happened.)*
-4. **MP-17 — agent-friendliness** (FR-AGF-1..2): manifest + generated
-   context files.
-5. **MP-18 — evolution** (FR-CONV-4/5): phase-aware amendments +
+   `platform/` app the conversation lives in.
+4. **Phase 17 — agent-friendliness** (FR-AGF-1..3): manifest + generated
+   context files + agent-participant protocol support.
+5. **Phase 18 — evolution** (FR-CONV-4/5): phase-aware amendments +
    feedback-driven platform improvement.
 
 ## Scope discipline, restated
 
 One study family (human-AI developer studies), two data paths, one
-conversation. MoSCoW against the v2 milestone; the traceability spine is
-the first deliverable of every phase. Every v1 invariant — join keys
-everywhere, schema versioning, never interrupt the participant, privacy
-by construction, honest statistics, the protocol as sole document of
-record — binds every v2 feature identically. The conversation makes the
+conversation. MoSCoW against the current milestone; the traceability
+spine is the first deliverable of every phase. Every invariant — join
+keys everywhere, schema versioning, never interrupt the participant,
+privacy by construction, honest statistics, the protocol as sole document
+of record — binds every feature identically. The conversation makes the
 platform feel alive; the invariants keep it science.

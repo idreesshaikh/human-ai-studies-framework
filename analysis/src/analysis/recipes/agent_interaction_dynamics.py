@@ -1,5 +1,5 @@
 """agent-interaction-dynamics (RQ-P5): how the conversation with the agent
-unfolds over a session (needs the agent leg, MP-12).
+unfolds over a session (needs the agent leg).
 
 Test/measure choices: turn cadence is summarized as inter-turn gaps
 (skewed durations -> medians + exact Mann-Whitney/Wilcoxon machinery when
@@ -49,14 +49,10 @@ def run(dataset: Dataset) -> RecipeResult:
     spans = dataset.session_spans
     if "responseChars" not in turns.columns:
         turns["responseChars"] = float("nan")
-    turns["responseChars"] = pd.to_numeric(
-        turns["responseChars"], errors="coerce"
-    )
+    turns["responseChars"] = pd.to_numeric(turns["responseChars"], errors="coerce")
 
     # Cadence: inter-turn gaps.
-    turns["gapS"] = (
-        turns.groupby("sessionId")["ts"].diff().dt.total_seconds()
-    )
+    turns["gapS"] = turns.groupby("sessionId")["ts"].diff().dt.total_seconds()
 
     per_session = (
         turns.groupby(["sessionId", "participantId", "condition"], as_index=False)
@@ -115,9 +111,9 @@ def run(dataset: Dataset) -> RecipeResult:
     # Reliance loops.
     loops = dataset.of_type("reliance_loop", "reliance_loop_end")
     if not loops.empty:
-        loop_stats = loops.groupby(
-            ["sessionId", "condition"], as_index=False
-        ).agg(loops=("type", "count"))
+        loop_stats = loops.groupby(["sessionId", "condition"], as_index=False).agg(
+            loops=("type", "count")
+        )
         tables["reliance_loops"] = loop_stats
         sentences.append(
             f"Reliance loops: {int(loop_stats['loops'].sum())} across "
@@ -130,9 +126,7 @@ def run(dataset: Dataset) -> RecipeResult:
     fatigue = dataset.of_type("fatigue_response")
     if not fatigue.empty and len(per_session) >= 3:
         f_mean = fatigue.groupby("sessionId")["score"].mean().rename("fatigueMean")
-        j = per_session.join(f_mean, on="sessionId").dropna(
-            subset=["fatigueMean"]
-        )
+        j = per_session.join(f_mean, on="sessionId").dropna(subset=["fatigueMean"])
         if len(j) >= 3:
             t = stats.spearman(
                 j["turnsPerHour"].tolist(), j["fatigueMean"].tolist(), "sessions"

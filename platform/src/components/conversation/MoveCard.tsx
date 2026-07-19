@@ -49,6 +49,9 @@ export function MoveCard({
   return (
     <Card
       ref={ref}
+      data-agent="move-card"
+      data-agent-kind={move.kind}
+      data-agent-status={move.status}
       tabIndex={decided ? -1 : 0}
       onKeyDown={onKey}
       aria-label={`${KIND_LABEL[move.kind]} move: ${move.proposal}`}
@@ -90,6 +93,7 @@ export function MoveCard({
             <Button
               size="sm"
               variant="subtle"
+              data-agent="move-accept"
               onClick={() => onDecide(move.moveId, "accepted")}
             >
               <Check aria-hidden />
@@ -98,6 +102,7 @@ export function MoveCard({
             <Button
               size="sm"
               variant="ghost"
+              data-agent="move-reject"
               onClick={() => onDecide(move.moveId, "rejected")}
             >
               <X aria-hidden />

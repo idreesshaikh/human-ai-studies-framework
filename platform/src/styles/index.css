@@ -3,11 +3,13 @@
 @import "./tokens.css";
 
 /* Map tokens onto Tailwind's theme so utilities (bg-surface, text-muted,
- * rounded-card, duration-standard…) resolve back to the token source. */
+ * rounded-card, border-ink, shadow-brutal, duration-standard…) resolve back
+ * to the token source. */
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
+  --color-ink: var(--ink);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-text: var(--text);
@@ -19,12 +21,32 @@
   --color-unsourced: var(--unsourced);
   --color-unsourced-soft: var(--unsourced-soft);
 
+  /* Chart palette (dataviz skill) — utilities text-series-1, stroke-series-3,
+   * bg-viz-grid, etc. resolve back to the token source, both themes. */
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
+  --color-series-5: var(--series-5);
+  --color-series-6: var(--series-6);
+  --color-series-7: var(--series-7);
+  --color-series-8: var(--series-8);
+  --color-viz-grid: var(--viz-grid);
+  --color-viz-axis: var(--viz-axis);
+  --color-status-critical: var(--status-critical);
+
   --radius-card: var(--radius-card);
   --radius-chip: var(--radius-chip);
   --radius-input: var(--radius-input);
 
+  /* The keycap signature as first-class utilities: shadow-brutal[-sm|-lg]. */
+  --shadow-brutal-sm: var(--shadow-brutal-sm);
+  --shadow-brutal: var(--shadow-brutal);
+  --shadow-brutal-lg: var(--shadow-brutal-lg);
+
   --font-display: var(--font-display);
-  --font-sans: var(--font-text);
+  --font-mono: var(--font-mono);
+  --font-sans: var(--font-sans);
 
   /* Motion tokens as duration-* / ease-* utilities, so components write
    * `duration-settle ease-out` instead of raw values. */
@@ -32,8 +54,10 @@
   --duration-standard: var(--motion-standard);
   --duration-entrance: var(--motion-entrance);
   --duration-settle: var(--motion-settle);
+  --duration-press: var(--motion-press);
   --ease-out: var(--ease-out);
   --ease-in-out: var(--ease-in-out);
+  --ease-key: var(--ease-key);
 }
 
 html,
@@ -50,13 +74,105 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* CRT / engineering-paper atmosphere — a full-viewport, non-interactive
+ * overlay: fine horizontal scanlines + a faint graph-paper grid, layered very
+ * low so text stays crisp. Fixed so it reads as the surface the app sits on. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 3px,
+      var(--scanline) 3px,
+      var(--scanline) 4px
+    ),
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size:
+    100% 4px,
+    28px 28px,
+    28px 28px;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
 /* Tabular numerals for anything showing numbers. */
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
-:where(button, a, [tabindex]):focus-visible {
-  outline: 2px solid var(--focus-ring);
+/* The keycap: an interactive object that lifts on hover and bottoms out into
+ * its own shadow on press. Applied together with `shadow-brutal`. Pointer +
+ * keyboard both trigger :active; reduced-motion flattens the transition (rule
+ * in tokens.css) so the states still apply, just without travel. */
+.keycap {
+  transition:
+    transform var(--motion-press) var(--ease-key),
+    box-shadow var(--motion-press) var(--ease-key),
+    filter var(--motion-fast) var(--ease-out);
+}
+.keycap:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-brutal-lg);
+}
+.keycap:active {
+  transform: translate(3px, 3px);
+  box-shadow: var(--shadow-brutal-sm);
+}
+
+/* The terminal cursor — a solid block that blinks. Used after the headline and
+ * in the composer prompt. Reduced-motion stops the blink (rule in tokens.css). */
+@keyframes cursor-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+.cursor-block {
+  display: inline-block;
+  width: 0.58em;
+  height: 1.05em;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: cursor-blink 1.06s steps(1) infinite;
+}
+
+/* Stronger scanlines for a framed "console" panel (the hero conversation),
+ * over the top of its own background. */
+.crt-scanlines {
+  position: relative;
+}
+.crt-scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    var(--scanline) 2px,
+    var(--scanline) 3px
+  );
+}
+
+/* Brutalist focus ring — a thick ink/phosphor rule drawn in the gutter around
+ * the object, always contrasting with the background beneath it. */
+:where(button, a, [tabindex], input, textarea, select):focus-visible {
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: var(--radius-input);
 }

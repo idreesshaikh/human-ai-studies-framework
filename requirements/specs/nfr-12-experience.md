@@ -1,13 +1,13 @@
 # NFR-12 — Experience quality (detailed specification)
 
-**SRS row:** NFR-12. **Binds:** every v2 surface (MP-14..18); realized
-first by MP-14's `platform/` app. **Decisions:** D34 (React + Tailwind +
-shadcn/ui), D35 (Claude-driven design workflow). **Spec v1, 2026-07-17.**
+**SRS row:** NFR-12. **Binds:** every platform surface; realized
+first by phase 14's `platform/` app. **Decisions:** D34 (React + Tailwind +
+shadcn/ui), D35 (Claude-driven design workflow).
 
 ## 1. The bar
 
 Owner direction: "beautiful, modern, fluid — one of its kind." Made
-testable, that means the v2 surface is held to a *product* bar, not an
+testable, that means the platform surface is held to a *product* bar, not an
 academic-tool bar. Beauty is not decoration here; it is credibility —
 S7 judges whether the platform encodes real methodological knowledge
 partly by whether it looks like someone who knew what they were doing
@@ -18,14 +18,14 @@ built it.
 1. **Tokens first.** One token set (color, type scale, space, radius,
    motion durations/easings) defined once, consumed by both the shadcn
    layer and all charts. The dataviz palette already validated for the
-   v1 dashboard is the chart-color source of truth — the two surfaces
+   the design system is the chart-color source of truth — the two surfaces
    must read as one system (charts embedded in chat turns included).
 2. **shadcn/ui as vendored source** (D34): components are copied in,
    owned, and restyled through tokens — never treated as an external
    look to inherit. Radix primitives underneath give focus management
    and ARIA for free; we never rebuild a dialog by hand.
 3. **Light + dark from birth**, system-following with manual override
-   (the v1 theming decision carries over), pre-paint stamp, no flash.
+   (the theming decision carries over), pre-paint stamp, no flash.
 4. **Type:** fluid scale (`clamp()`), one display face + one text face
    max, tabular numerals in all data contexts.
 
@@ -36,7 +36,7 @@ built it.
    shake *once*. Durations from the token set (fast 120–150 ms,
    standard 200–250 ms, entrances ≤ 300 ms); springs over linear eases
    for spatial moves.
-2. `prefers-reduced-motion` honored everywhere (v1 discipline carries).
+2. `prefers-reduced-motion` honored everywhere (the discipline carries).
 3. Perceived performance is a requirement: skeletons (not spinners) for
    structured content, optimistic UI for member/role edits, streaming
    for every LLM response (first token < 1 s or a progress affordance
@@ -57,7 +57,7 @@ built it.
 3. The protocol diff view is readable by a non-programmer: YAML hunks
    annotated with plain-language summaries (NFR-11 inside the product).
 4. Empty states teach: every empty view states what will appear and the
-   one action that gets it there (the v1 guided-tour philosophy,
+   one action that gets it there (the onboarding philosophy,
    FR-DASH-9, applied per-surface).
 
 ## 5. Accessibility (non-negotiable)
@@ -72,7 +72,7 @@ clean in CI on the core flows.
 
 - F1: token audit — zero raw hex/px literals in components (lint rule);
   charts and UI share the palette source file.
-- F2: both themes + reduced-motion verified on every MP-14..18
+- F2: both themes + reduced-motion verified on every phase 14..18
   acceptance walkthrough (screenshot pairs archived).
 - F3: axe CI job green on hero, designer, conversation, diff, board.
 - F4: streaming-response demo shows first visible token or progress

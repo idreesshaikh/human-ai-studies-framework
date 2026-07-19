@@ -1,6 +1,6 @@
 # State machines
 
-## 1. Study lifecycle (FR-PROT-3 — v1, unchanged; v2 adds the amendment loop)
+## 1. Study lifecycle (FR-PROT-3; the amendment loop is FR-CONV-4)
 
 ```mermaid
 stateDiagram-v2

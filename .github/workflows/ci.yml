@@ -22,6 +22,12 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
+      - name: AGENTS.md is not stale (FR-AGF-2 drift gate)
+        run: uv run python scripts/generate_agents_md.py --check
+
+      - name: Agent discovery demo runs (FR-AGF-1 F1.2)
+        run: uv run python scripts/agent_manifest_demo.py --in-process
+
       - name: Tests
         run: uv run pytest --cov=metrics/src --cov-report=term-missing --cov-fail-under=95
 
@@ -46,12 +52,12 @@ jobs:
       - name: Check (tsc + eslint + prettier + tests)
         run: npm run check
 
-  dashboard:
-    name: Dashboard - svelte-check + vitest
+  platform:
+    name: Platform - tsc + lint + verify + build
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: dashboard
+        working-directory: platform
     steps:
       - uses: actions/checkout@v4
 
@@ -59,12 +65,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: dashboard/package-lock.json
+          cache-dependency-path: platform/package-lock.json
 
       - name: Install
         run: npm ci
 
-      - name: Check (svelte-check + tsc + tests)
+      - name: Check (tsc + lint + verify + build)
         run: npm run check
 
   docker:

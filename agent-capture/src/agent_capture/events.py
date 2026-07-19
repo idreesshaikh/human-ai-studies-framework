@@ -8,9 +8,9 @@ workspace snapshotter, the task harness, and the correlation job - and each
 owns a private ``seq`` stream tagged with its ``source`` so they share the
 session join key without colliding (see middleware/db.py).
 
-Event-name reconciliation (deviation from the MP-12 draft table, noted in
+Event-name reconciliation (deviation from the draft table, noted in
 `requirements/traceability.md`): the type/field names below match the
-already-shipped MP-07 recipe consumers - ``tool_call`` (field ``tool``) and
+already-shipped recipe consumers - ``tool_call`` (field ``tool``) and
 ``task_outcome.firstGreenMs`` - rather than the draft table's
 ``agent_tool_call``/``toolName``/``timeToFirstGreenMs``. The consumer
 contract is tested; the producer conforms to it.

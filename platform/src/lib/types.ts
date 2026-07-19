@@ -118,3 +118,68 @@ export function emptyDraft(): ProtocolDraft {
     ethics: [],
   };
 }
+
+/* ---------------------------------------------- evolution (FR-CONV-4/5)
+ *
+ * The study evolves through phase-aware amendments; the platform evolves from
+ * feedback. These shapes mirror the server JSON (middleware app.py) so wiring
+ * the transport later is a swap, not a redesign — exactly as the conversation
+ * shapes above do. */
+
+/** One post-ethics protocol change: a version bump plus the record the ethics
+ * board relies on. `consentRelevant` is the deterministic rule's verdict (never
+ * an LLM judgment); a relevant amendment pauses new sessions until re-approval. */
+export interface Amendment {
+  id: string;
+  fromVersion: number;
+  toVersion: number;
+  summary: string;
+  changes: string[]; // plain-language "what changed" lines
+  rationale: string;
+  grounding: string[]; // citation refs, or [] for unsourced
+  consentRelevant: boolean;
+  consentReasons: string[]; // why the rule fired, verbatim
+  approvedBy: string;
+  reapprovalArtifact: string | null; // set once the ethics re-approval lands
+  at: string;
+}
+
+/** A study's amendment lifecycle: which revision it's on, whether ethics is
+ * approved, and whether new sessions are paused awaiting re-approval. */
+export interface AmendmentState {
+  studyId: string;
+  currentVersion: number;
+  ethicsApprovedAt: string; // "" before ethics approval (ordinary compiles)
+  pendingReapproval: string; // amendment id awaiting re-approval, or ""
+  amendments: Amendment[];
+}
+
+/** Platform feedback marked in a conversation, filed as a finding. The locus
+ * points back at the exact turn; resolving it needs project membership (the
+ * boundary holds even for meta-data). */
+export interface PlatformFinding {
+  id: number; // the server's integer finding id (FR-META-1 pipeline)
+  at: string;
+  note: string;
+  status: "open" | "resolved";
+  locus: {
+    studyId: string;
+    turnId: string;
+    seq: number;
+    kind: string; // ux-defect | template-gap | unclassified | …
+  };
+}
+
+/** The inert retrospective proposal drafted from feedback + shapes. It cites
+ * the findings rows it used; a human approves it — nothing self-applies. */
+export interface RetrospectiveProposal {
+  status: "draft";
+  title: string;
+  generatedFrom: { feedbackFindings: number; shapeRows: number };
+  citedFindingIds: number[];
+  items: {
+    title: string;
+    kind: "ux-defect" | "template-improvement" | "new-template";
+    evidence: Record<string, unknown>;
+  }[];
+}

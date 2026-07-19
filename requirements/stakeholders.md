@@ -2,9 +2,6 @@
 
 Seven stakeholder roles. Goals become research questions and requirements;
 conflicts become documented trade-offs with a decided resolution.
-*(S7 added 2026-07-17: the SRS had cited S7 since the FR-OPS revision
-without a definition here - a traceability defect found and fixed during
-the v2 platform re-alignment.)*
 
 ## S1 - Researcher / Facilitator (primary; Idrees)
 

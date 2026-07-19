@@ -120,6 +120,15 @@ def test_git_wrapper_ignores_enclosing_git_context(tmp_path, monkeypatch):
     assert "Initialized" in git("init", repo.name, cwd=tmp_path, check=True) or True
     (repo / "f.txt").write_text("hello\n")
     git("add", "f.txt", cwd=repo, check=True)
-    git("-c", "user.email=t@t", "-c", "user.name=t",
-        "commit", "-m", "x", cwd=repo, check=True)
+    git(
+        "-c",
+        "user.email=t@t",
+        "-c",
+        "user.name=t",
+        "commit",
+        "-m",
+        "x",
+        cwd=repo,
+        check=True,
+    )
     assert git("log", "--oneline", cwd=repo, check=True)

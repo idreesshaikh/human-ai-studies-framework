@@ -1,7 +1,7 @@
 # Detailed specifications (the spec tree)
 
 `../srs.md` is the **index of record**: stable IDs, one-line requirement
-statements, MoSCoW, status. Each v2 family additionally owns a detailed
+statements, MoSCoW, status. Each family additionally owns a detailed
 specification here — elaboration, data models, API surfaces, fit criteria
 (numbered, testable), degradation behavior, privacy analysis, and paper
 grounding. **The SRS row wins on conflict**; a spec that drifts from its
@@ -9,13 +9,13 @@ row is a defect (log it, FR-META-1).
 
 | Spec | Family | Phase |
 | ---- | ------ | ----- |
-| `fr-conv.md` | Conversational study design — *the platform's core interaction* | MP-15 (core), MP-18 (evolution) |
-| `fr-tpl.md` | Study templates & statistical plans | MP-15 |
-| `fr-cur.md` | Curated datasets & mining | MP-16 |
-| `fr-plat.md` | Platform shell: projects, roles, hero | MP-14 |
-| `fr-agf.md` | Agent-friendliness: manifest & context files | MP-17 |
-| `nfr-12-experience.md` | Experience quality: design system, motion, chat surfaces | binds MP-14..18 |
-| `fr-lit-v2.md` | Corpus at scale (tiers, harvest pipeline), idea→paper matching, living literature view | pipeline built; MP-15/17 |
+| `fr-conv.md` | Conversational study design — *the platform's core interaction* | phase 15 (core), phase 18 (evolution) |
+| `fr-tpl.md` | Study templates & statistical plans | phase 15 |
+| `fr-cur.md` | Curated datasets & mining | phase 16 |
+| `fr-plat.md` | Platform shell: projects, roles, hero | phase 14 |
+| `fr-agf.md` | Agent-friendliness: manifest & context files | phase 17 |
+| `nfr-12-experience.md` | Experience quality: design system, motion, chat surfaces | binds phase 14..18 |
+| `fr-lit.md` | Corpus at scale (tiers, harvest pipeline), idea→paper matching, living literature view | pipeline built; phases 15/17 |
 
 Design elaboration (diagrams, UI/motion contracts) lives in
 `docs/design/` — subordinate to these specs as these are to the SRS.

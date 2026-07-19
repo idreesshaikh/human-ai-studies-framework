@@ -51,7 +51,7 @@ export function Settings() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
-      <h1 className="font-display text-2xl text-text">Settings</h1>
+      <h1 className="font-display text-2xl font-bold uppercase tracking-tight text-text">Settings</h1>
 
       <RoleGate
         role={mine}

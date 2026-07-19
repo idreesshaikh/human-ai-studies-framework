@@ -1,4 +1,4 @@
-"""Replication-kit tests (FR-PROT-7, NFR-6; docs/archive/roadmap/09 item 1).
+"""Replication-kit tests (FR-PROT-7, NFR-6).
 
 The headline test IS the acceptance criterion: re-running the analysis
 from the kit's own dataset regenerates a byte-identical ``report.md``
@@ -52,22 +52,28 @@ analysisPlan:
 
 def _dataset() -> dict:
     rows = []
-    for i, (participant, condition, score) in enumerate([
-        ("P1", "ai-assisted", 2), ("P1", "unassisted", 3),
-        ("P2", "ai-assisted", 3), ("P2", "unassisted", 4),
-    ]):
+    for i, (participant, condition, score) in enumerate(
+        [
+            ("P1", "ai-assisted", 2),
+            ("P1", "unassisted", 3),
+            ("P2", "ai-assisted", 3),
+            ("P2", "unassisted", 4),
+        ]
+    ):
         for j, minute in enumerate((15, 30)):
-            rows.append({
-                "v": 3,
-                "ts": f"2026-07-12T{9 + i:02d}:{minute:02d}:00.000Z",
-                "sessionId": f"S-{participant}-{condition[:2]}",
-                "participantId": participant,
-                "condition": condition,
-                "seq": j,
-                "type": "fatigue_response",
-                "source": "cognitive-overlay",
-                "payload": {"score": score + j, "latencyMs": 3000},
-            })
+            rows.append(
+                {
+                    "v": 3,
+                    "ts": f"2026-07-12T{9 + i:02d}:{minute:02d}:00.000Z",
+                    "sessionId": f"S-{participant}-{condition[:2]}",
+                    "participantId": participant,
+                    "condition": condition,
+                    "seq": j,
+                    "type": "fatigue_response",
+                    "source": "cognitive-overlay",
+                    "payload": {"score": score + j, "latencyMs": 3000},
+                }
+            )
     return {"studyId": "kit-test", "rows": rows}
 
 
@@ -87,8 +93,13 @@ def test_kit_contents_complete(kit, tmp_path):
             tar.extractfile("kit-test-replication-kit/versions.json").read()
         )
     for member in (
-        "README.md", "protocol.yaml", "dataset.json", "versions.json",
-        "literature.json", "uv.lock", ".python-version",
+        "README.md",
+        "protocol.yaml",
+        "dataset.json",
+        "versions.json",
+        "literature.json",
+        "uv.lock",
+        ".python-version",
         "schema/study-protocol.schema.json",
         "report/kit-test/report.md",
     ):
@@ -113,12 +124,18 @@ def test_reproduction_is_byte_identical(kit, tmp_path):
     fresh = tmp_path / "fresh-results"
     proc = subprocess.run(
         [
-            sys.executable, "-m", "analysis.cli", "run",
+            sys.executable,
+            "-m",
+            "analysis.cli",
+            "run",
             str(root / "protocol.yaml"),
-            "--dataset", str(root / "dataset.json"),
-            "--out", str(fresh),
+            "--dataset",
+            str(root / "dataset.json"),
+            "--out",
+            str(fresh),
         ],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         env={**os.environ, "SOURCE_DATE_EPOCH": "0"},
     )
     assert proc.returncode == 0, proc.stderr

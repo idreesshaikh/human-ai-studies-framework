@@ -95,6 +95,7 @@ export function MembersTable({
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
+                        data-agent="member-actions"
                         className="rounded-input p-1 text-text-muted hover:bg-accent-soft"
                         aria-label={`Actions for ${m.identitySub}`}
                       >

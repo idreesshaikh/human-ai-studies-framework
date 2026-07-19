@@ -7,9 +7,14 @@ import { SlotMeter } from "./SlotMeter";
  * from the server compiler later. */
 export function DraftRail({ draft }: { draft: ProtocolDraft }) {
   return (
-    <aside className="flex h-full flex-col gap-4 border-l border-border bg-surface p-4">
+    <aside
+      data-agent="draft-rail"
+      className="flex h-full flex-col gap-4 border-l-2 border-border-strong bg-surface p-4"
+    >
       <div>
-        <h2 className="font-display text-lg text-text">Protocol draft</h2>
+        <h2 className="font-display text-lg font-bold uppercase tracking-wide text-text">
+          Protocol draft
+        </h2>
         <p className="text-xs text-text-muted">
           Compiled from the moves you've accepted.
         </p>
@@ -17,7 +22,7 @@ export function DraftRail({ draft }: { draft: ProtocolDraft }) {
 
       <SlotMeter draft={draft} />
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-input border border-border bg-bg p-3">
+      <div className="min-h-0 flex-1 overflow-auto rounded-input border-2 border-border-strong bg-bg p-3">
         <pre className="tabular whitespace-pre-wrap font-mono text-xs leading-relaxed text-text">
           {MANDATORY_SLOTS.map((s) => {
             const items = draft[s];

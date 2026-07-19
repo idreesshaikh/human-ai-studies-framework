@@ -1,7 +1,7 @@
 """SQLAlchemy models and engine setup.
 
 SQLite in a single file - participants are ≤ dozens, so the DB engine is a
-config swap (any SQLAlchemy URL), not a dependency (decision in MP-04).
+config swap (any SQLAlchemy URL), not a dependency (decision in).
 Idempotency lives in the schema, not in application checks:
 
 - ``events`` is UNIQUE on ``(session_id, source, seq)`` (FR-ING-2) - replays
@@ -12,7 +12,7 @@ Idempotency lives in the schema, not in application checks:
 ``seq`` is a *per-producer* monotonic counter, so idempotency and gap
 detection are keyed on ``source`` as well as ``session_id``: one study
 session is written by several independent fire-and-forget producers (the
-Cognitive Overlay extension, and - from MP-12 - the agent-capture
+Cognitive Overlay extension, and - from - the agent-capture
 conversation leg, the workspace snapshotter, the task harness, and the
 correlation job). Each owns its own ``seq`` stream, so their events share
 the session join key without colliding, and each stream's completeness is
@@ -44,7 +44,7 @@ log = logging.getLogger("middleware.db")
 
 #: The one auto-created project in self-hosted (none/token) modes, and the
 #: adoptor for orphan studies on first boot after upgrade (FR-PLAT-5). One
-#: code path everywhere - zero ``if multi_tenant`` conditionals (MP-14 Slice B).
+#: code path everywhere - zero ``if multi_tenant`` conditionals.
 IMPLICIT_PROJECT_SLUG = "implicit"
 IMPLICIT_PROJECT_ID = "implicit"
 IMPLICIT_IDENTITY_SUB = "local"
@@ -81,7 +81,7 @@ class Event(Base):
     session_id: Mapped[str] = mapped_column(String, index=True)
     #: Producing instrument stream (FR-ING-2): its own ``seq`` counter lives
     #: here. "cognitive-overlay" (extension), "agent-capture"/"workspace-
-    #: snapshot"/"task-harness"/"agent-derived" (MP-12).
+    #: snapshot"/"task-harness"/"agent-derived".
     source: Mapped[str] = mapped_column(String, index=True, default="cognitive-overlay")
     seq: Mapped[int] = mapped_column(Integer)
     participant_id: Mapped[str] = mapped_column(String, index=True)
@@ -127,7 +127,7 @@ class StoredFile(Base):
 
     __tablename__ = "files"
     #: Same bytes under a *different* filename is a distinct artifact: gate
-    #: satisfaction is keyed by filename (MP-06), so only the (name, content)
+    #: satisfaction is keyed by filename, so only the (name, content)
     #: pair deduplicates. The bytes are still stored once, content-addressed.
     __table_args__ = (
         UniqueConstraint("filename", "sha256", name="uq_filename_sha256"),
@@ -145,12 +145,12 @@ class StoredFile(Base):
 
 
 class Paper(Base):
-    """One paper in the study's paper set (FR-LIT-5; glossary: Paper).
+    """One paper in the study's paper set (glossary: Paper).
 
     Keyed by the canonical ``paperRef`` the protocol's ``literature:`` list
     uses (``doi:...`` / ``arxiv:...``), so protocol links
     join by construction and re-imports are idempotent (FR-ING-2
-    discipline). MP-10's FR-LIT-1 ingest (PDF/DOI extraction, Semantic
+    discipline). The FR-LIT-1 ingest (PDF/DOI extraction, Semantic
     Scholar enrichment) extends these rows; this table is its landing
     surface.
     """
@@ -172,10 +172,9 @@ class Paper(Base):
     arxiv_id: Mapped[str] = mapped_column(String, default="")
     url: Mapped[str] = mapped_column(String, default="")
     item_type: Mapped[str] = mapped_column(String, default="")
-    #: Where the record came from: "upload"/"id" (MP-10).
+    #: Where the record came from: "upload"/"id".
     source: Mapped[str] = mapped_column(String, default="id")
-    #: Legacy (Zotero importer withdrawn 2026-07-16, FR-LIT-5): the
-    #: column stays so pre-existing DBs keep loading; always "" now.
+    #: Legacy column kept so pre-existing databases keep loading; always "".
     zotero_key: Mapped[str] = mapped_column(String, default="")
     #: Semantic Scholar paper id (the hash), used to harvest graph edges
     #: (FR-LIT-2). Empty for un-enriched papers.
@@ -261,7 +260,7 @@ class Finding(Base):
     """Operational-findings log (FR-META-1): the framework's own defects as
     data. Each finding names the ``kind`` of defect and the ``requirement_id``
     whose violation it evidences (RQ-F2), and carries a ``status`` so the
-    retrospective can cite still-open ones (MP-11).
+    retrospective can cite still-open ones.
     """
 
     __tablename__ = "findings"
@@ -270,7 +269,12 @@ class Finding(Base):
     at: Mapped[str] = mapped_column(String)
     source: Mapped[str] = mapped_column(String)
     #: Defect class: 'seq-gap' | 'integrity-flag' | 'requires-fail' |
-    #: 'gate-block' | 'protocol-validation' | 'facilitator' | ''.
+    #: 'gate-block' | 'protocol-validation' | 'facilitator' | 'feedback' | ''.
+    #: 'feedback' rows are platform feedback marked in a design conversation
+    #: (FR-CONV-5.1); their ``context`` carries a ``conversationLocus`` — the
+    #: exact study/turn that motivated the finding. The platform grows its own
+    #: SRS from its users' conversations exactly as a study grows from its
+    #: researcher's (the self-application is the thesis point).
     kind: Mapped[str] = mapped_column(String, default="", index=True)
     requirement_id: Mapped[str] = mapped_column(String, default="")
     message: Mapped[str] = mapped_column(Text)
@@ -279,9 +283,9 @@ class Finding(Base):
 
 
 class RecipeRun(Base):
-    """One recorded analysis-recipe run (posted by `analysis run`, MP-07).
+    """One recorded analysis-recipe run (posted by `analysis run`).
 
-    The dashboard's task board projects un-run-recipe cards from these rows
+    The platform's task board projects un-run-recipe cards from these rows
     (FR-DASH-7); the analysis runner records best-effort - an offline
     middleware never blocks an analysis.
     """
@@ -299,7 +303,7 @@ class RecipeRun(Base):
 
 
 class TaskCard(Base):
-    """Manual task-board card (consumed by the dashboard, MP-06)."""
+    """Manual task-board card (consumed by the platform)."""
 
     __tablename__ = "tasks"
 
@@ -310,11 +314,11 @@ class TaskCard(Base):
     created_at: Mapped[str] = mapped_column(String)
 
 
-# ---------------------------------------------------- MP-14 platform layer
+# ---------------------------------------------------- platform layer
 #
 # Projects, memberships, invitations, and a reified study row (FR-PLAT-1/2/3).
 # "Study" was previously a *concept* derived from the loaded protocol
-# (``check.study_id``); MP-14 reifies it as a row so the project choke point
+# (``check.study_id``); reifies it as a row so the project choke point
 # (``authz.require_project_for_study``) can resolve study_id -> project ->
 # membership in one place. Papers/edges/links/recipe_runs already carried a
 # ``study_id`` and inherit scoping through this join; events/metric_rows/files/
@@ -389,8 +393,8 @@ class Invitation(Base):
 class Study(Base):
     """A reified study row (FR-PLAT-1). The bridge studies -> projects.
 
-    Pre-MP-14 ``study_id`` was a free string on papers/edges/links/recipe
-    runs, validated only against the loaded protocol. MP-14 reifies it so
+    Pre- ``study_id`` was a free string on papers/edges/links/recipe
+    runs, validated only against the loaded protocol. reifies it so
     every study-scoped query can resolve to a project through one choke
     point. The row is created lazily from the loaded protocol at boot and
     on first reference; existing study_id strings are adopted into the
@@ -466,7 +470,7 @@ class CuratedDataset(Base):
     created_at: Mapped[str] = mapped_column(String, default="")
 
 
-# ---------------------------------------------------- MP-15 conversation layer
+# ---------------------------------------------------- conversation layer
 #
 # The design conversation as the elicitation record (FR-CONV-6): append-only
 # turns, design moves, compilations, and approvals. Decisions are never
@@ -597,6 +601,126 @@ class ProtocolDraftRow(Base):
     updated_at: Mapped[str] = mapped_column(String, default="")
 
 
+# ---------------------------------------------------- evolution layer
+#
+# Two loops close here, and they are the same loop at two scales (FR-CONV-4/5).
+# *The study evolves*: mid-study changes compile like everything else but route
+# through phase-aware amendment rules — version-visible always, consent-gated
+# when it matters, never sneaky. *The platform evolves*: researcher feedback
+# marked in a turn becomes a Finding (the existing FR-META-1 pipeline) that
+# feeds the platform's own retrospective. Cross-project learning aggregates
+# anonymous *shape* only — no conversation text, protocol content, or project
+# identifier ever leaves a project boundary (FR-CONV-5.3, grep-the-output).
+#
+# New tables only (never an ALTER on a live table): the loud stale-DB check
+# (``_check_schema``) fires on a column missing from an *existing* table, so
+# evolution state lives in its own tables and pre- databases keep loading.
+
+
+class StudyEvolution(Base):
+    """One row per study tracking its amendment lifecycle (FR-CONV-4).
+
+    Pre-ethics a study has no row (or ``ethics_approved_at`` empty) and every
+    compile-approve is an ordinary draft application (FR-CONV-4.1 — no ceremony
+    before ceremony is owed). Ethics approval snapshots the *approved protocol*
+    (``approved_yaml`` + ``current_version``): the executed protocol S3 cares
+    about. Thereafter each approved compile is an **amendment** diffed against
+    this snapshot, and a consent-relevant one sets ``pending_reapproval`` to the
+    amendment id — the deterministic gate that pauses *new* data-collection
+    sessions until the re-approval artifact is uploaded (F4.1)."""
+
+    __tablename__ = "study_evolution"
+
+    study_id: Mapped[str] = mapped_column(String, primary_key=True)
+    #: Set by the ethics-approval endpoint; '' = pre-ethics (ordinary compiles).
+    ethics_approved_at: Mapped[str] = mapped_column(String, default="")
+    #: The approved protocol snapshot amendments diff against (consent rule).
+    approved_yaml: Mapped[str] = mapped_column(Text, default="")
+    #: The version sessions run under and dataset/timeline chips render (F4.3).
+    current_version: Mapped[int] = mapped_column(Integer, default=1)
+    #: Amendment id awaiting an ethics re-approval artifact, or '' when clear.
+    #: While set, ``sessions/start`` refuses *new* sessions (F4.1); already-open
+    #: sessions and already-collected data are untouched (NFR-1).
+    pending_reapproval: Mapped[str] = mapped_column(String, default="")
+    updated_at: Mapped[str] = mapped_column(String, default="")
+
+
+class Amendment(Base):
+    """One post-ethics protocol change (FR-CONV-4.2): a version bump plus the
+    record S3 relies on — summary, rationale, grounding, approver, timestamp.
+
+    ``consent_relevant`` is decided by the deterministic rule in
+    ``evolution.consent_relevance`` (never an LLM judgment): anything touching
+    the ethics section, the content policy, or introducing a new data stream
+    (a new instrument) is consent-relevant, by rule, testably. A consent-
+    relevant amendment carries ``reapproval_artifact``/``reapproved_at`` once
+    the updated ethics artifact is uploaded; a non-relevant one (e.g. a
+    threshold tweak) needs none and applies from the next session (F4.2)."""
+
+    __tablename__ = "amendments"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    study_id: Mapped[str] = mapped_column(String, index=True)
+    compilation_id: Mapped[str] = mapped_column(String, default="")
+    from_version: Mapped[int] = mapped_column(Integer)
+    to_version: Mapped[int] = mapped_column(Integer)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    #: The deterministic plain-language change list (evolution.change_summary),
+    #: so the ethics-board delta regenerates from this row alone.
+    changes: Mapped[list] = mapped_column(JSON, default=list)
+    rationale: Mapped[str] = mapped_column(Text, default="")
+    grounding: Mapped[list] = mapped_column(JSON, default=list)
+    consent_relevant: Mapped[int] = mapped_column(Integer, default=0)
+    #: Why the consent rule fired (or [] when it did not) — the human summary
+    #: quotes these verbatim, so the reason is recorded, not re-derived.
+    consent_reasons: Mapped[list] = mapped_column(JSON, default=list)
+    approved_by: Mapped[str] = mapped_column(String, default="")
+    role: Mapped[str] = mapped_column(String, default="")
+    #: The uploaded ethics re-approval artifact filename, '' until provided.
+    reapproval_artifact: Mapped[str] = mapped_column(String, default="")
+    reapproved_at: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[str] = mapped_column(String)
+
+
+class SessionOpen(Base):
+    """The protocol version a data-collection session opened under (FR-CONV-4.4,
+    F4.3). Recorded once at ``sessions/start``; never rewritten — a session in
+    flight keeps the version it began with even as the study evolves (NFR-1, the
+    F4.2 in-flight guarantee). Two sessions under different versions render
+    distinguishably in the dataset and timeline from these rows."""
+
+    __tablename__ = "session_opens"
+
+    session_id: Mapped[str] = mapped_column(String, primary_key=True)
+    study_id: Mapped[str] = mapped_column(String, index=True)
+    protocol_version: Mapped[int] = mapped_column(Integer)
+    opened_at: Mapped[str] = mapped_column(String)
+
+
+class AggregateShape(Base):
+    """One anonymous cross-project usage shape (FR-CONV-5.3): a count keyed by a
+    ``metric`` (which templates chosen, which slots end unresolved, where
+    conversations stall, which moves get rejected) and an opaque ``key`` drawn
+    from a fixed vocabulary — *never* conversation text, protocol content, or a
+    project identifier. The grep-the-output CI test asserts exactly that over
+    this table (mirroring FR-ETH-4's), so the boundary is enforced on the
+    output, not merely intended."""
+
+    __tablename__ = "aggregate_shapes"
+    __table_args__ = (UniqueConstraint("metric", "key", name="uq_aggregate_shape"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: 'template-chosen' | 'slot-unresolved' | 'conversation-stall' |
+    #: 'move-rejected' — the fixed taxonomy, seeded from
+    #: ``stalled-biased-confused-rca`` and grown from observed shape.
+    metric: Mapped[str] = mapped_column(String, index=True)
+    #: An opaque bucket within the metric (a template id, a slot name, a stall
+    #: category, a move kind) — vocabulary only, asserted free of PII/text.
+    key: Mapped[str] = mapped_column(String)
+    count: Mapped[int] = mapped_column(Integer, default=0)
+    computed_at: Mapped[str] = mapped_column(String, default="")
+
+
 def make_session_factory(db_path: Path | str) -> sessionmaker:
     """Create the schema if needed and return a session factory."""
     if isinstance(db_path, Path):
@@ -616,7 +740,7 @@ def _migrate_projects(engine, db_path: Path | str) -> None:
     upgrade this (1) creates the single ``implicit`` project if missing,
     (2) auto-members the local identity as ``owner`` on it, and (3) adopts
     every ``studies`` row with a null ``project_id`` into it. It announces
-    itself with one loud log block - the MP-12 stale-DB posture, relaxed
+    itself with one loud log block - the stale-DB posture, relaxed
     only because nothing is destroyed (roadmap 14 §Slice A step 2).
 
     Idempotent: re-runs are no-ops. Runs after ``create_all`` and after
@@ -643,8 +767,7 @@ def _migrate_projects(engine, db_path: Path | str) -> None:
 def _ensure_implicit_project(conn) -> bool:
     """Create the implicit project row if missing. Returns True if created."""
     row = conn.execute(
-        text("SELECT id FROM projects WHERE id = :id"),
-        {"id": IMPLICIT_PROJECT_ID},
+        text("SELECT id FROM projects WHERE id = :id"), {"id": IMPLICIT_PROJECT_ID}
     ).first()
     if row is not None:
         return False
@@ -711,7 +834,7 @@ def _check_schema(engine, db_path: Path | str) -> None:
     table shape (``create_all`` never alters existing tables).
 
     Without this, a stale file - e.g. a compose ``study-data`` volume created
-    before MP-12 added ``events.source`` - passes ``/health`` and then 500s
+    before added ``events.source`` - passes ``/health`` and then 500s
     on the first ingest, which reads as silent data loss to a sensor
     (NFR-1/NFR-2: failures must be visible and diagnosable, never quiet).
     Nothing is migrated or deleted automatically - participant data is only

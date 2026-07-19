@@ -5,7 +5,7 @@ join keys (``sessionId``, ``participantId``, ``condition``, timestamp,
 schema version - FR-INST-6), and the two legs a recipe distinguishes are
 
 - **events** - StudyEvent rows (``source != "metrics"``): cognitive,
-  behavioral, and (with MP-12) agent event types, and
+  behavioral, and (with) agent event types, and
 - **metrics** - static-metrics rows (``source == "metrics"``), function- or
   file-level per the 9-metric matrix.
 
@@ -56,9 +56,7 @@ class Dataset:
         ``seq`` + raw ``payload`` dict."""
         rows = [r for r in self.rows if r.get("source") != "metrics"]
         if not rows:
-            return pd.DataFrame(
-                columns=[*JOIN_KEYS, "ts", "type", "seq", "payload"]
-            )
+            return pd.DataFrame(columns=[*JOIN_KEYS, "ts", "type", "seq", "payload"])
         df = pd.DataFrame(rows)[[*JOIN_KEYS, "ts", "type", "seq", "payload"]]
         df["ts"] = pd.to_datetime(df["ts"], utc=True, format="mixed")
         return df.sort_values(["sessionId", "seq"]).reset_index(drop=True)
@@ -82,7 +80,7 @@ class Dataset:
                     **{
                         k: v
                         for k, v in r.get("payload", {}).items()
-                        if k not in JOIN_KEYS and k not in ("timestamp",)
+                        if k not in JOIN_KEYS and k not in ("timestamp")
                     },
                 }
                 for r in rows
@@ -143,13 +141,9 @@ class Dataset:
         matters).
         """
         if self.events.empty:
-            return pd.DataFrame(
-                columns=[*JOIN_KEYS, "start", "end", "durationMinutes"]
-            )
+            return pd.DataFrame(columns=[*JOIN_KEYS, "start", "end", "durationMinutes"])
         g = self.events.groupby(JOIN_KEYS, as_index=False).agg(
             start=("ts", "min"), end=("ts", "max")
         )
-        g["durationMinutes"] = (
-            (g["end"] - g["start"]).dt.total_seconds() / 60.0
-        )
+        g["durationMinutes"] = (g["end"] - g["start"]).dt.total_seconds() / 60.0
         return g

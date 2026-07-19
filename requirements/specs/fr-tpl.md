@@ -1,6 +1,6 @@
 # FR-TPL — Study templates & statistical plans (detailed specification)
 
-**SRS family:** FR-TPL. **Phase:** MP-15. **Spec v1, 2026-07-17.**
+**SRS family:** FR-TPL. **Phase:** 15.
 Relationship to FR-CONV: templates are the *knowledge* the design
 conversation reasons over; the conversation is the primary surface that
 instantiates them (FR-TPL-3 rev 2).
@@ -50,14 +50,14 @@ protocolSkeleton: {...}          # the YAML the compiler fills
 
 ## 3. Requirements detail
 
-### FR-TPL-1 (M, v2) — The template registry
+### FR-TPL-1 (M) — The template registry
 
 Elaboration:
 1. Registry = versioned template documents validated against a published
    template JSON Schema (sibling of the protocol schema; same
    `protocolVersion` discipline — `templateVersion`, consumers branch,
    never guess).
-2. **Seed templates (the MP-15 deliverable), each fully encoding its
+2. **Seed templates (the phase 15 deliverable), each fully encoding its
    source design:**
    - `metr-rct-v1` — within-subjects RCT on real tasks, speed +
      perception measures (`metr-early-2025-dev-productivity`); live path.
@@ -83,14 +83,16 @@ Fit criteria:
 - F1.1 All four seed templates validate against the template schema and
   instantiate into protocols that pass `protocol validate` with zero
   hand edits.
-- F1.2 `metr-rct-v1` instantiated with the pilot's parameters
-  reproduces a protocol equivalent to the hand-written pilot protocol's
-  structure (the retro-fit proof: our own v1 study is expressible as a
-  template instance).
+- F1.2 `metr-rct-v1` instantiated with the maintenance-task pilot's
+  parameters reproduces a protocol equivalent to that hand-written
+  study's structure (the retro-fit proof: an already-run study can be
+  described through a published-design template). The template is
+  platform library content; the study is a separate protocol instance —
+  a study never *is* a template.
 - F1.3 Template versioning: instantiating `templateId@v1` after a `v2`
   exists still works and records which version produced the protocol.
 
-### FR-TPL-2 (M, v2) — Statistical plans: correct statistics by construction
+### FR-TPL-2 (M) — Statistical plans: correct statistics by construction
 
 Elaboration:
 1. Each template's `statisticalPlan` binds, per RQ slot: outcome type
@@ -120,7 +122,7 @@ Fit criteria:
 - F2.3 A template referencing a nonexistent recipe fails registry
   validation (not instantiation time — earlier).
 
-### FR-TPL-3 (S, v2; rev 2 2026-07-17) — The designer as review surface
+### FR-TPL-3 (S) — The designer as review surface
 
 *Rev 2:* the guided form of rev 1 is re-scoped: **the design
 conversation (FR-CONV-1) is the primary designer**; the structured form
@@ -136,7 +138,7 @@ Fit criteria:
 - F3.2 With no LLM key configured, the form path instantiates
   `ziegler-telemetry-survey-v1` end-to-end.
 
-### FR-TPL-4 (S, v2) — Templates live in the knowledge layer
+### FR-TPL-4 (S) — Templates live in the knowledge layer
 
 Templates surface as first-class nodes in the literature graph linked to
 their source papers; the assistant answers "how would I replicate
@@ -145,10 +147,10 @@ their source papers; the assistant answers "how would I replicate
 graph renders template nodes linked to cited papers; the assistant
 exchange for a seeded paper returns its template with citation chips.
 
-### FR-TPL-5 (C, v2) — Community templates
+### FR-TPL-5 (C) — Community templates
 
 Third-party templates enter through the same schema validation +
-mandatory citation + review gate. Deferred post-v2; the contract exists
+mandatory citation + review gate. Deferred; the contract exists
 the moment FR-TPL-1's schema is published.
 
 ## 4. Paper grounding

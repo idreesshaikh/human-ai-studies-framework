@@ -38,7 +38,7 @@ export function Projects() {
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl text-text">Projects</h1>
+          <h1 className="font-display text-2xl font-bold uppercase tracking-tight text-text">Projects</h1>
           <p className="text-sm text-text-muted">The rooms your studies live in.</p>
         </div>
       </div>

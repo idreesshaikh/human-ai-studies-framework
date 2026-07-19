@@ -1,25 +1,25 @@
-# Mega-Prompt 15 — Templates + Conversational Designer
+# Phase 15 — Templates + Conversational Designer
 
 > Self-contained: execute this file in a fresh session at the repo root.
-> Read first: `docs/VISION.md` (v2 direction + build order),
+> Read first: `docs/VISION.md` (the direction + build order),
 > `requirements/specs/fr-conv.md`, `requirements/specs/fr-tpl.md`,
-> `requirements/specs/fr-lit-v2.md`, `requirements/specs/nfr-12-experience.md`,
+> `requirements/specs/fr-lit.md`, `requirements/specs/nfr-12-experience.md`,
 > `docs/design/ui-motion-spec.md` (the design contract for every surface
 > named here), and `requirements/build-vs-adopt.md` D34/D35/D37.
 
-**Depends on:** MP-02 (protocol schema + validator — the compile target),
-MP-04 (middleware — where the conversation/template endpoints mount),
-MP-10 (FTS5 corpus index + the D32 tool-use loop — grounding retrieval),
+**Depends on:** Phase 02 (protocol schema + validator — the compile target),
+Phase 04 (middleware — where the conversation/template endpoints mount),
+Phase 10 (FTS5 corpus index + the D32 tool-use loop — grounding retrieval),
 FR-LIT-8 pipeline (`scripts/corpus_harvest.py` — the corpus the importer
 loads). **Satisfies:** FR-TPL-1..4, FR-CONV-1/2/3/6, FR-LIT-9, and the
-FR-LIT-8 corpus importer. **Elicited:** owner, MP-01 rev 9
+FR-LIT-8 corpus importer. **Elicited:** owner, Phase 01 rev 9
 ("experiments are built from conversations, grounded in science") + rev
 13 ("start implementing" — the conversation surface is the first thing
 to become real). **Status:** In progress — slices 1–4 built and tested
 (the FR-CONV loop end-to-end: importer, match ladder, template registry,
 server compiler + approval + elicitation record). Remaining: FR-TPL-3
 form path, and two seed templates (`cursor-mining`, `hai-eval`) parked in
-`templates/drafts/` until their recipes exist (MP-16/analysis).
+`templates/drafts/` until their recipes exist (Phase 16/analysis).
 
 ## The idea
 
@@ -50,9 +50,9 @@ Non-negotiable bounds, inherited verbatim:
 
 ## Sequencing — slices (each independently demoable)
 
-MP-15 is built in slices so the conversation has a running home early
+Phase 15 is built in slices so the conversation has a running home early
 (the build order permits the `platform/` scaffold to land here rather
-than waiting for MP-14).
+than waiting for Phase 14).
 
 ### Slice 1 — Platform scaffold + conversation surface (no-LLM stub) 🔶 building
 
@@ -91,15 +91,16 @@ Load `docs/papers/corpus-index.json` + Tier A into the middleware's FTS5
 index (the importer FR-LIT-8 named "pending"); replace the stub's scripted
 recommendations with a real match ladder (LLM rerank → FTS → seed-graph,
 FR-LIT-9). Grounding chips resolve to real corpus rows; one-click ingest
-into the study paper set. Fit: F9.1/F9.2/F9.3 from `fr-lit-v2.md`.
+into the study paper set. Fit: F9.1/F9.2/F9.3 from `fr-lit.md`.
 
 ### Slice 3 — Template registry + statistical plans (FR-TPL-1..4)
 
 The versioned template registry + JSON Schema (sibling of the protocol
-schema); seed templates (the METR RCT `metr-rct-v1`, the comprehension-
-debt design, one curated-data template) each encoding its statistical
-plan; the conversation selects and parameterizes a template; the form
-path (FR-TPL-3) edits the same draft. Fit: FR-TPL fit criteria.
+schema); seed templates (the METR RCT `metr-rct-v1`, the Ziegler
+telemetry×survey `ziegler-telemetry-survey-v1`, plus `hai-eval` and
+`cursor-mining` drafts) each encoding its statistical plan; the
+conversation selects and parameterizes a template; the form path
+(FR-TPL-3) edits the same draft. Fit: FR-TPL fit criteria.
 
 ### Slice 4 — Server compilation + approval + elicitation record (FR-CONV-3/6)
 
@@ -150,5 +151,5 @@ the compiler's purity.
 
 Record here (and in `requirements/traceability.md`) any departure from
 this spec, per golden rule / execution model. Slice 1 landing the
-`platform/` scaffold ahead of MP-14 is *expected* (build order note),
+`platform/` scaffold ahead of Phase 14 is *expected* (build order note),
 not a deviation.

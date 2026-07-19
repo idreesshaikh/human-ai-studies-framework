@@ -1,4 +1,4 @@
-"""The mining-job runner (FR-CUR-2, MP-16 Slice B).
+"""The mining-job runner (FR-CUR-2, Slice B).
 
 Drives a mining adapter, ingests its normalized events into the events table
 (the same rows a live instrument produces - the convergence contract), and

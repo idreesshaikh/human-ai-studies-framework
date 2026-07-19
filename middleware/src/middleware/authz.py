@@ -1,4 +1,4 @@
-"""The project-scoping choke point (FR-PLAT-1/2, MP-14 Slice A).
+"""The project-scoping choke point (FR-PLAT-1/2, Slice A).
 
 One seam, testable by construction (the FR-ETH-4 pattern). Every
 project-scoped router depends on :func:`require_project` (or the
@@ -113,8 +113,7 @@ def _membership_for(
 ) -> Membership | None:
     return s.scalar(
         select(Membership).where(
-            Membership.project_id == project_id,
-            Membership.identity_sub == identity_sub,
+            Membership.project_id == project_id, Membership.identity_sub == identity_sub
         )
     )
 
@@ -149,8 +148,9 @@ def build_authz(
             raise HTTPException(status_code=404, detail="project not found")
         return proj
 
-    def _authorize(s: Session, identity: Identity, project: Project,
-                   capability: str) -> Membership:
+    def _authorize(
+        s: Session, identity: Identity, project: Project, capability: str
+    ) -> Membership:
         m = _membership_for(s, identity.sub, project.id)
         if m is None or not has_role(m.role, capability):
             raise _forbidden(capability, m.role if m else None)
@@ -164,10 +164,7 @@ def build_authz(
         path parameter named exactly ``slug``.
         """
 
-        def _dep(
-            authorization: str = Header(default=""),
-            slug: str = "",
-        ) -> Membership:
+        def _dep(authorization: str = Header(default=""), slug: str = "") -> Membership:
             identity = verify(authorization)
             s = session_factory()
             try:
@@ -179,14 +176,13 @@ def build_authz(
         return _dep
 
     def require_project_for_study(capability: str) -> Callable:
-        """The study-keyed twin for the v1 ``/studies/{study_id}/...``
-        routes. Resolves ``study_id -> studies.project_id -> membership``.
-        The frozen Svelte dashboard keeps its paths working through the
-        implicit project (FR-PLAT-5)."""
+        """The study-keyed twin for the ``/studies/{study_id}/...`` routes.
+        Resolves ``study_id -> studies.project_id -> membership``. Self-hosted
+        single-facilitator deployments resolve through the implicit project
+        (FR-PLAT-5)."""
 
         def _dep(
-            authorization: str = Header(default=""),
-            study_id: str = "",
+            authorization: str = Header(default=""), study_id: str = ""
         ) -> Membership:
             identity = verify(authorization)
             s = session_factory()
@@ -194,31 +190,25 @@ def build_authz(
                 study = s.scalar(select(Study).where(Study.id == study_id))
                 if study is None:
                     # When a protocol is loaded, its study row exists, so an
-                    # unknown id 404s exactly as the pre-MP-14 check_study_id
+                    # unknown id 404s exactly as the pre- check_study_id
                     # did. When no protocol is loaded, the middleware is a
                     # permissive sink (v1 accept-all) and single-facilitator
                     # modes have no cross-project probing to defend against -
                     # resolve to the implicit project's membership. Clerk
                     # (multi-tenant) always 404s an unknown study.
                     if loaded_study_id() is None and identity.mode != "clerk":
-                        implicit = _membership_for(
-                            s, identity.sub, IMPLICIT_PROJECT_ID
-                        )
-                        if implicit is not None and has_role(
-                            implicit.role, capability
-                        ):
+                        implicit = _membership_for(s, identity.sub, IMPLICIT_PROJECT_ID)
+                        if implicit is not None and has_role(implicit.role, capability):
                             return implicit
                     raise HTTPException(
-                        status_code=404,
-                        detail=f"unknown study {study_id!r}",
+                        status_code=404, detail=f"unknown study {study_id!r}"
                     )
                 project = s.scalar(
                     select(Project).where(Project.id == study.project_id)
                 )
                 if project is None:
                     raise HTTPException(
-                        status_code=404,
-                        detail=f"unknown study {study_id!r}",
+                        status_code=404, detail=f"unknown study {study_id!r}"
                     )
                 return _authorize(s, identity, project, capability)
             finally:
@@ -227,8 +217,7 @@ def build_authz(
         return _dep
 
     def current_membership(
-        authorization: str = Header(default=""),
-        slug: str = "",
+        authorization: str = Header(default=""), slug: str = ""
     ) -> Membership | None:
         """The viewer+ gate that also exposes the membership to the route
         (for UI-only role reflection via RoleGate). None when the caller is

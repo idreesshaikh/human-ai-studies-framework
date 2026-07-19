@@ -3,8 +3,8 @@ passes through before storage (FR-AGENT-5).
 
 The active policy is protocol-declared (``instruments.agentCapture.
 contentPolicy``) and consent-matched: the consent form the study ships
-states the active policy's plain-language description verbatim (MP-08 study
-kit), so what is captured is exactly what the participant agreed to.
+states the active policy's plain-language description verbatim, so what is
+captured is exactly what the participant agreed to.
 
 Three levels, tightest first:
 
@@ -71,10 +71,7 @@ def policy_description(policy: str | None) -> str:
 
 
 def apply_policy(
-    text: str | None,
-    policy: str | None,
-    *,
-    min_token_len: int = DEFAULT_MIN_TOKEN_LEN,
+    text: str | None, policy: str | None, *, min_token_len: int = DEFAULT_MIN_TOKEN_LEN
 ) -> str | None:
     """Return the storable form of ``text`` under ``policy``.
 

@@ -1,14 +1,12 @@
-# agent-capture - the agent interaction leg (MP-12)
+# agent-capture - the agent interaction leg
 
 The fourth instrument leg: the AI's side of an `ai-assisted` session, on the
 same timeline and join keys as every other leg. Primary source is **Claude
 Code in the VS Code integrated terminal** (decision D13) - the only
 mainstream agent tool with lossless, machine-readable capture.
 
-Satisfies FR-AGENT-1/2/3/5 and FR-INST-15/16/17. Read
-`docs/archive/roadmap/12-agent-interaction-leg.md` and the MP-12 row of
-`requirements/traceability.md` (including the deviation log) before changing
-anything here.
+Satisfies FR-AGENT-1/2/3/5 and FR-INST-15/16/17. Read the agent-leg rows of
+`requirements/traceability.md` before changing anything here.
 
 ## How capture works
 
@@ -77,5 +75,5 @@ uv run agent-capture import   <transcript.jsonl> --content-policy metadata-only
 uv run agent-capture correlate --study pilot-2026 --server http://127.0.0.1:8000
 ```
 
-Feeds MP-06's agent swimlane / conversation viewer and MP-07's
-`agent-interaction-dynamics` + `task-outcome-by-condition` recipes.
+Feeds the platform's agent views and the `agent-interaction-dynamics` +
+`task-outcome-by-condition` analysis recipes.

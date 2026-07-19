@@ -23,7 +23,6 @@ def get_adapter(source: str, *args, **kwargs) -> MiningAdapter:
         factory = ADAPTERS[source]
     except KeyError as exc:
         raise KeyError(
-            f"no mining adapter for source {source!r}; "
-            f"known: {sorted(ADAPTERS)}"
+            f"no mining adapter for source {source!r}; known: {sorted(ADAPTERS)}"
         ) from exc
     return factory(*args, **kwargs)

@@ -77,8 +77,7 @@ def find_burst_annotations(
     turns = [
         e
         for e in _of(events, "agent_turn")
-        if e.get("payload", {}).get("role") == "assistant"
-        and _turn_code_chars(e) > 0
+        if e.get("payload", {}).get("role") == "assistant" and _turn_code_chars(e) > 0
     ]
     out = []
     for burst in _of(events, "edit_burst"):
@@ -120,13 +119,15 @@ def find_reliance_loops(
     pastes = _of(ordered, "clipboard_paste")
     loops = []
     for paste in pastes:
-        user_turn = _next_after(
-            ordered, paste, "agent_turn", window_s, role="user"
-        )
+        user_turn = _next_after(ordered, paste, "agent_turn", window_s, role="user")
         if user_turn is None:
             continue
         asst_turn = _next_after(
-            ordered, user_turn, "agent_turn", window_s, role="assistant",
+            ordered,
+            user_turn,
+            "agent_turn",
+            window_s,
+            role="assistant",
             require_code=True,
         )
         if asst_turn is None:
@@ -188,16 +189,22 @@ def correlate_session(
     for payload in annotations:
         derived.append(
             study_event(
-                keys, source=SOURCE_DERIVED, seq=seq,
-                type=EVENT_BURST_ANNOTATION, payload=payload,
+                keys,
+                source=SOURCE_DERIVED,
+                seq=seq,
+                type=EVENT_BURST_ANNOTATION,
+                payload=payload,
             )
         )
         seq += 1
     for payload in loops:
         derived.append(
             study_event(
-                keys, source=SOURCE_DERIVED, seq=seq,
-                type=EVENT_RELIANCE_LOOP, payload=payload,
+                keys,
+                source=SOURCE_DERIVED,
+                seq=seq,
+                type=EVENT_RELIANCE_LOOP,
+                payload=payload,
             )
         )
         seq += 1

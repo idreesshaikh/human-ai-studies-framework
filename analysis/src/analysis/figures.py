@@ -2,7 +2,7 @@
 
 One place defines the palette and chart chrome so every recipe's figures
 read as one system: the validated reference palette (same hexes as the
-dashboard's CSS custom properties), thin marks, hairline grid, labeled
+platform's CSS custom properties), thin marks, hairline grid, labeled
 axes, honest scales (value axes include zero unless a recipe argues
 otherwise), every observation drawn at pilot n, and per-cell n printed on
 the axis - never a summary bar hiding the points.
@@ -123,10 +123,7 @@ def strip_by_condition(
 
 
 def paired_dots(
-    wide: pd.DataFrame,
-    conditions: tuple[str, str],
-    title: str,
-    ylabel: str,
+    wide: pd.DataFrame, conditions: tuple[str, str], title: str, ylabel: str
 ) -> Figure:
     """Within-subjects paired plot: one line per participant across the two
     condition columns of ``wide`` (index = participantId)."""
@@ -153,9 +150,7 @@ def paired_dots(
             zorder=3,
         )
     ax.set_xticks([0, 1])
-    ax.set_xticklabels(
-        [f"{c}\nn={wide[c].notna().sum()}" for c in conditions]
-    )
+    ax.set_xticklabels([f"{c}\nn={wide[c].notna().sum()}" for c in conditions])
     ax.set_xlim(-0.35, 1.45)
     lo, hi = ax.get_ylim()
     ax.set_ylim(min(0, lo), hi)

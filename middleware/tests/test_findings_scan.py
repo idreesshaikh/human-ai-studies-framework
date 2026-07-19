@@ -1,4 +1,4 @@
-"""Operational-findings log + integrity scan (FR-META-1, MP-11 Part B).
+"""Operational-findings log + integrity scan (FR-META-1, Part B).
 
 A seq gap and a recipe requires-failure must each become a findings row (and,
 via the status doc / findings feed, a task-board card). These rows are then
@@ -23,16 +23,21 @@ def client(tmp_path) -> TestClient:
         db_path=tmp_path / "f.sqlite3",
         data_dir=tmp_path / "data",
         protocol_path=PILOT,
-        dashboard_dist=tmp_path / "no-dist",
+        spa_dist=tmp_path / "no-dist",
     )
     return TestClient(create_app(settings, clock=lambda: FROZEN))
 
 
 def event(seq: int, session="S1", condition="ai-assisted", participant="P01") -> dict:
     return {
-        "v": 3, "ts": f"2026-07-11T10:00:{seq:02d}.000Z", "sessionId": session,
-        "seq": seq, "participantId": participant, "condition": condition,
-        "type": "fatigue_response", "payload": {"score": 3},
+        "v": 3,
+        "ts": f"2026-07-11T10:00:{seq:02d}.000Z",
+        "sessionId": session,
+        "seq": seq,
+        "participantId": participant,
+        "condition": condition,
+        "type": "fatigue_response",
+        "payload": {"score": 3},
     }
 
 
@@ -73,7 +78,8 @@ def test_requires_fail_finding_round_trips(client):
     res = client.post(
         "/findings",
         json={
-            "source": "analysis/run", "kind": "requires-fail",
+            "source": "analysis/run",
+            "kind": "requires-fail",
             "requirementId": "FR-ANA-2",
             "message": "agent-interaction-dynamics (RQ-P5): MISSING DATA - "
             "requires event type 'agent_turn'",
@@ -87,23 +93,28 @@ def test_requires_fail_finding_round_trips(client):
 
 
 def test_gap_and_requires_fail_yield_two_findings(client):
-    """Acceptance (MP-11): a fake seq gap + a failed requires-check yield two
-    findings rows - and the status doc surfaces the gap so the dashboard
+    """Acceptance: a fake seq gap + a failed requires-check yield two
+    findings rows - and the status doc surfaces the gap so the platform
     cards it, while /findings surfaces the requires-fail."""
     client.post("/ingest/events", json=[event(i) for i in (0, 1, 3)])
     client.post("/studies/pilot-2026/findings/scan")
     client.post(
         "/findings",
-        json={"source": "analysis/run", "kind": "requires-fail",
-              "requirementId": "FR-ANA-2", "message": "recipe X: MISSING DATA",
-              "context": {"recipe": "X", "rq": "RQ-P5"}},
+        json={
+            "source": "analysis/run",
+            "kind": "requires-fail",
+            "requirementId": "FR-ANA-2",
+            "message": "recipe X: MISSING DATA",
+            "context": {"recipe": "X", "rq": "RQ-P5"},
+        },
     )
     kinds = {f["kind"] for f in client.get("/findings").json()}
     assert {"seq-gap", "requires-fail"} <= kinds
 
     # The gap is a card source: the status doc reports it per session.
     (session,) = [
-        s for s in client.get("/studies/pilot-2026/status").json()["sessions"]
+        s
+        for s in client.get("/studies/pilot-2026/status").json()["sessions"]
         if s["sessionId"] == "S1"
     ]
     assert session["gapCount"] >= 1

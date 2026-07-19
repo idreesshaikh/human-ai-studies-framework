@@ -2,11 +2,10 @@
 
 Three tiers. The framework RQs are the thesis; the pilot RQs exist to
 *evaluate* the framework by exercising it end-to-end on a real study; the
-demonstrator RQs (draft studies, 2026-07-17) exist to *prove the v2
-platform* the same way the pilot proved v1 - validation cases run by the
-facilitator, chosen because each needs a capability only this platform
-has. They are not product content: researchers design their own studies
-(FR-CONV/FR-TPL); these two are ours.
+demonstrator RQs exist to *prove the platform's distinctive capabilities* -
+validation cases run by the facilitator, chosen because each needs a
+capability only this platform has. They are not product content:
+researchers design their own studies (FR-CONV/FR-TPL); these are ours.
 
 ## Tier 1 - Framework RQs (the thesis contribution)
 
@@ -14,30 +13,26 @@ has. They are not product content: researchers design their own studies
 a machine-readable requirements specification (protocol) complete enough to
 drive its instrumentation, phase gating, data validation, and analysis
 without side-channel configuration?
-*Answered by:* Mega-Prompts 02–07 (construction) + 08 (the dry run and pilot
-reveal every place the protocol was insufficient - each is a specification
-defect to report).
+*Answered by:* the protocol engine + instrument legs + analysis pipeline (construction); the dry run and pilot reveal every place the protocol was insufficient - each is a specification defect to report.
 
 **RQ-F2 - Traceability.** Does maintaining the chain RQ → requirement →
 instrument → data element → recipe → claim reduce study setup effort and
 surface design defects before data collection?
 *Answered by:* the recipe `requires`-check (defects caught at
-plan-validation time), the lifecycle gates, and the framework post-mortem in
-`study/pilot/findings.md` (setup time, defect log with RE classification).
+plan-validation time), the lifecycle gates, and the framework post-mortem (setup time, defect log with RE classification).
 
 **RQ-F3 - Replicability.** Can analyses be packaged as reusable recipes and
 studies as replication kits such that a third party reproduces the report
 from the kit alone?
-*Answered by:* Mega-Prompt 07 (one published algorithm as a recipe) and
-Mega-Prompt 09 item 2 (kit re-import reproduces `report.md`).
+*Answered by:* published algorithms implemented as cited recipes, and kit re-import reproducing `report.md` byte-for-byte.
 
-**RQ-F4 - Conversational elicitation** *(added 2026-07-17, MP-01 rev 9)*.
+**RQ-F4 - Conversational elicitation.**
 Can a literature-grounded design conversation elicit a complete, valid,
 statistically sound study protocol - and capture the elicitation trail as
 a first-class traceability artifact - at least as completely as expert
 hand-specification, with every AI-proposed design element either cited
 into the corpus or visibly labeled unsourced?
-*Answered by:* MP-15 (the FR-CONV-1 F1.1 end-to-end walkthrough; the
+*Answered by:* the FR-CONV-1 end-to-end walkthrough (the
 FR-TPL-1 F1.2 retro-fit proof that our own pilot is expressible as a
 template instance; the FR-CONV-6 chain export), evaluated against the
 falsifier: any protocol section the conversation *cannot* elicit without
@@ -64,7 +59,7 @@ indentation variance, line widths)?
 **RQ-P3 - Behavior.** How does AI assistance change working behavior -
 paste size/frequency, paste-then-edit latency, file/tab switching, edit
 burst patterns, and the human/AI/paste origin mix of the code produced?
-*Data:* behavioral telemetry leg (Mega-Prompt 05), esp. origin
+*Data:* behavioral telemetry leg, esp. origin
 classification (FR-INST-10) and active/idle denominators (FR-INST-11).
 *Recipe:* `paste-behavior`.
 
@@ -92,16 +87,17 @@ serves as the ground-truth dependent variable across RQ-P1–P5: every
 "how does AI assistance affect X" answer is interpreted against whether the
 task was actually accomplished.
 
-## Tier 3 - v2 demonstrator-study RQs (draft protocols, 2026-07-17)
+## Tier 3 - demonstrator-study RQs
 
-Two draft studies designed as the v2 platform's demonstration workload -
-chosen over straight METR/Cursor replications because each requires a
-capability only this platform has: the per-chunk four-leg join
-(comprehension-debt) and agent participants run by the harness
-(context-ablation). Draft protocols: `protocol/examples/
-comprehension-debt-2026.yaml` and `protocol/examples/
-context-ablation-2026.yaml` (the latter is FR-PROT-9's fit-criterion
-fixture and does not validate until that requirement lands).
+Two study designs frame the platform's distinctive capabilities -
+chosen over straight METR/Cursor replications because each needs something
+only this platform has: the per-chunk four-leg join (the comprehension-debt
+design) and agent participants run by the harness (the context-ablation
+design). The RQ sets below justify FR-INST-19 (comprehension probes) and
+FR-PROT-9 (agent participants). The standalone draft protocols that once
+carried them were pilot studies to prove the platform, since removed as
+clutter; FR-PROT-9's fit criterion is now a neutral test fixture
+(`protocol/tests/fixtures/agent-participant-v3.yaml`).
 
 ### Comprehension-debt study (human; conditions `ai-assisted` build sitting → `unassisted` maintenance sitting)
 

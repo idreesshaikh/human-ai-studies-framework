@@ -1,4 +1,4 @@
-# Mega-Prompt 16 — The Curated-Dataset Leg
+# Phase 16 — The Curated-Dataset Leg
 
 > Self-contained: execute this file in a fresh session at the repo root.
 > Read first: `docs/VISION.md`, `requirements/specs/fr-cur.md` (the
@@ -8,11 +8,11 @@
 > `requirements/build-vs-adopt.md` (a GitHub-client decision may be
 > needed — see freedoms), and `docs/roadmap/README.md` (walls + charter).
 
-**Depends on:** MP-15 slice 3 (the template registry — `cursor-mining-v1`
-is this phase's demand-side), MP-04 (middleware, ingestion, per-source
-streams from MP-12), MP-02 (protocol schema — gains a curated-path
+**Depends on:** Phase 15 slice 3 (the template registry — `cursor-mining-v1`
+is this phase's demand-side), Phase 04 (middleware, ingestion, per-source
+streams from Phase 12), Phase 02 (protocol schema — gains a curated-path
 section). **Satisfies:** FR-CUR-1..3 (FR-CUR-4 stays deferred).
-**Elicited:** owner, MP-01 rev 8 ("curated mining beside live capture").
+**Elicited:** owner, Phase 01 rev 8 ("curated mining beside live capture").
 **Status:** Built (2026-07-18) — Slices A–D implemented and tested offline;
 the full chain (mine → dataset → threats → report/paper) runs end to end
 against the committed cassette. The one deferred piece is live long-running
@@ -62,7 +62,7 @@ Non-negotiable bounds, inherited verbatim:
    default: sizes, counts, timings, flags, salted hashes. Payload shapes
    documented next to the existing event docs.
 2. **The adapter contract** — one Python protocol, adapters register in
-   a dict (the per-source stream mechanism from MP-12 carries the
+   a dict (the per-source stream mechanism from Phase 12 carries the
    `source` column):
 
    ```python
@@ -236,7 +236,7 @@ Deviations from the written spec:
 
 1. **Route prefix.** The endpoints mount under `/studies/{study_id}/...`
    (the shape every other v1 study route uses, resolving the project through
-   the MP-14 choke point) rather than the spec's
+   the Phase 14 choke point) rather than the spec's
    `/projects/{p}/studies/{s}/...`. Same authorization, same scoping; the
    path matches the codebase's actual convention.
 2. **Synchronous run.** A job runs to its gate synchronously in the start
@@ -244,7 +244,7 @@ Deviations from the written spec:
    structured for background async dispatch (checkpointed, injected sleep) —
    wiring it to a real long-running live mine is the single deferred piece.
 3. **Conversation integration (Slice B item 5)** — proposing the sampling
-   frame as a grounded design move — waits on MP-15 slice 3's template
+   frame as a grounded design move — waits on Phase 15 slice 3's template
    registry (`cursor-mining-v1`), which isn't built yet. The form/protocol
    path is fully functional; the conversational surfacing is the follow-up.
 4. **Not yet done (needs a browser):** the mining-job / dataset-browser /

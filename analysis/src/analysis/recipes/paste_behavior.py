@@ -3,7 +3,7 @@
 Test choice: paste sizes are heavily right-skewed character counts and
 paste rates are small counts over unequal time bases, so both use the
 exact nonparametric machinery of ``analysis.stats`` (Wilcoxon paired /
-Mann-Whitney U + Cliff's delta). Needs the behavioral leg (MP-05).
+Mann-Whitney U + Cliff's delta). Needs the behavioral leg.
 """
 
 from __future__ import annotations
@@ -85,8 +85,7 @@ def run(dataset: Dataset) -> RecipeResult:
         tables=tables,
         figures={"size_by_condition": size_fig, "rate_by_condition": rate_fig},
         summary=(
-            "Paste behavior (RQ-P3). "
-            f"Size: {size_sentence} Frequency: {rate_sentence}"
+            f"Paste behavior (RQ-P3). Size: {size_sentence} Frequency: {rate_sentence}"
         ),
         methods=METHODS,
     )

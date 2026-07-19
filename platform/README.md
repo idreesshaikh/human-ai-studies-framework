@@ -1,27 +1,28 @@
-# `platform/` — the conversational study designer
+# `platform/` — the web app
 
-The web app where a researcher describes a study idea and the platform
-proposes grounded design moves that compile into a protocol draft. React 19
-+ Vite + TypeScript + Tailwind v4 + shadcn/ui (vendored, owned in-repo).
+The sole frontend: a researcher describes a study idea and the platform
+proposes grounded design moves that compile into a protocol draft, then runs
+the study through to a paper. React 19 + Vite + TypeScript + Tailwind v4 +
+shadcn/ui (vendored, owned in-repo). The middleware serves the built app at
+`/` — one process is the whole stack (FR-PLAT, FR-CONV, NFR-12).
 
-This is the new v2 surface. The older operational console in `dashboard/`
-(Svelte) stays as-is until this app reaches feature parity view by view.
+## What's here
 
-## What's built so far
+- **The design conversation** — type an idea; the platform replies with
+  grounded design-move cards (accept/reject, keyboard `a`/`r`) and paper
+  recommendations; accepted moves compile into a live protocol-draft rail
+  with a completeness meter.
+- **The study workspace** (tabs): **Library** — live paper ingest
+  (arXiv/DOI/PDF), the citation constellation, and the grounded assistant;
+  **Data** — honest per-condition metric shapes and session integrity;
+  **Lifecycle** — the phase/gate board.
+- **Projects, roles, hero, members**, and the evolution surfaces (amendment
+  banner + history, feedback → platform findings).
 
-The design-conversation surface, runnable with **no backend and no LLM
-key**. A researcher types an idea; the platform replies with grounded
-design-move cards (accept/reject, keyboard `a`/`r`) and paper
-recommendations; accepted moves compile into a live protocol-draft rail
-with a completeness meter.
-
-With no LLM configured the conversation runs on `src/lib/designStub.ts` —
-a deterministic scripted assistant, not throwaway mock data. It's the real
-fallback path, and the backend swaps in behind the same shapes later.
-
-Still to come: loading the real paper corpus and matching against it, the
-study-template registry with statistical plans, and moving compilation +
-storage server-side.
+Everything is explorable with **no backend and no LLM key**: the conversation
+runs on a deterministic scripted assistant (`src/lib/designStub.ts`), and the
+study surfaces fall back to a curated offline seed. Live actions wire to the
+middleware where it's running; the backend swaps in behind the same shapes.
 
 ## Commands
 
@@ -29,7 +30,7 @@ storage server-side.
 npm install
 npm run dev        # dev server at localhost:5173
 npm run check      # typecheck + lint + verify + build (the gate)
-npm run verify     # runs the checks in scripts/verify-slice1.mjs
+npm run verify     # runs the verify-*.mjs harnesses
 npm run build      # production build (served by the middleware)
 ```
 
@@ -38,30 +39,33 @@ Keep `npm run check` green before committing.
 ## Conventions
 
 - **Design tokens are the source of truth.** All colour, motion, and radius
-  values live in `src/styles/tokens.css`; components use them via Tailwind
-  utilities or `var()`. `scripts/lint-no-raw-literals.mjs` fails the build
-  on a raw hex/ms/px in a component.
+  values live in `src/styles/tokens.css` (including the dataviz chart
+  palette); components use them via Tailwind utilities or `var()`.
+  `scripts/lint-no-raw-literals.mjs` fails the build on a raw hex/ms/px in a
+  component.
 - **Accessible by default.** Light and dark themes both meet WCAG AA
   contrast; `prefers-reduced-motion` turns off animation with no loss of
-  function; the conversation is fully keyboard-operable.
+  function; surfaces are keyboard-operable. Consent/ethics surfaces never
+  animate.
 - **The compiler is deterministic.** `src/lib/compiler.ts` is a pure
   `(draft, acceptedMoves) → draft'` — no LLM — so replaying the same moves
   always yields the same draft (`npm run verify` checks this).
 - **Citations are honest.** Every design move shows its source papers or is
   labelled "unsourced"; the assistant only cites papers it actually holds.
+- **Stable `data-agent` names** on landmarks and decision points, documented
+  in `docs/agent-annotations.md` and kept in sync by a lint (FR-AGF-3).
 
 ## Layout
 
 ```
 src/
-  components/ui/            base components (button, card, badge)
-  components/conversation/  MoveCard, GroundingChip, RecommendationCard,
-                            SlotMeter, DraftRail, StreamingTurn, …
-  lib/types.ts              the conversation domain model
-  lib/designStub.ts         the deterministic no-LLM assistant
-  lib/compiler.ts           the move → draft compiler
-  styles/tokens.css         the only home for raw design values
-scripts/
-  lint-no-raw-literals.mjs  token-system guard
-  verify-slice1.mjs         behavioural checks
+  pages/                    Hero, Projects, ProjectHome, StudyHome, Members, …
+  components/conversation/  the design conversation + evolution surfaces
+  components/library/        LibraryTab, Constellation, Assistant
+  components/charts/         DataTab, LifecycleTab, MetricStrip
+  components/shell/          AppFrame, ProjectSwitcher, RoleGate
+  components/ui/             vendored shadcn primitives
+  lib/                       api/studyApi clients, compiler, stubs, forceLayout
+  styles/tokens.css          the only home for raw design values
+scripts/                    lint + verify harnesses
 ```

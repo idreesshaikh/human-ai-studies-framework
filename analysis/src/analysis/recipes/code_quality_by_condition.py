@@ -4,7 +4,7 @@ Test choice: static-metric distributions are skewed and per-function /
 per-file measurements within one workspace are not independent, so every
 metric is compared with the **exact Mann-Whitney U** at measurement level
 and reported *primarily through its effect size* - **Cliff's delta** - as
-the mega-prompt demands ("effect sizes, not just p-values"). p-values are
+honest statistics demand ("effect sizes, not just p-values"). p-values are
 still shown (exact, two-sided) but the table is sorted by |delta|; the
 independence caveat is explicit in the methods text.
 """
@@ -126,22 +126,36 @@ def run(dataset: Dataset) -> RecipeResult:
             ).dropna()
             x = i + rng.uniform(-0.13, 0.13, len(vals))
             ax.scatter(
-                x, vals, s=16, color=colors[cond],
-                edgecolors=figures.SURFACE, linewidths=0.9, zorder=3,
+                x,
+                vals,
+                s=16,
+                color=colors[cond],
+                edgecolors=figures.SURFACE,
+                linewidths=0.9,
+                zorder=3,
             )
             if len(vals):
-                ax.hlines(vals.median(), i - 0.2, i + 0.2,
-                          color=colors[cond], linewidth=1.8, zorder=4)
+                ax.hlines(
+                    vals.median(),
+                    i - 0.2,
+                    i + 0.2,
+                    color=colors[cond],
+                    linewidth=1.8,
+                    zorder=4,
+                )
         ax.set_xticks(range(len(dataset.conditions)))
         ax.set_xticklabels(dataset.conditions, fontsize=6.5)
         ax.set_title(metric, fontsize=8, color=figures.INK, loc="left")
         lo, hi = ax.get_ylim()
         ax.set_ylim(min(0, lo), hi)
-    for ax in axes_flat[len(available):]:
+    for ax in axes_flat[len(available) :]:
         ax.axis("off")
     fig.suptitle(
         "Static code metrics by condition (every measurement drawn)",
-        fontsize=10, color=figures.INK, x=0.02, ha="left",
+        fontsize=10,
+        color=figures.INK,
+        x=0.02,
+        ha="left",
     )
     fig.tight_layout(rect=(0, 0, 1, 0.96))
 

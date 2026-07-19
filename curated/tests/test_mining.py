@@ -136,11 +136,7 @@ def test_adapter_mines_events_content_free():
 def test_agent_and_human_prs_land_in_declared_arms():
     adapter = GitHubAdapter(Cassette.load(CASSETTE), salt=new_salt())
     events, _ = run_all(adapter, FRAME)
-    prs = {
-        e.session_id: e.condition
-        for e in events
-        if e.type == "mined_pull_request"
-    }
+    prs = {e.session_id: e.condition for e in events if e.type == "mined_pull_request"}
     # PR 101 (cursor[bot]) is agent; PR 102 (dana) is human.
     assert prs["pr-example/app-101"] == "agent-pr"
     assert prs["pr-example/app-102"] == "human-pr"

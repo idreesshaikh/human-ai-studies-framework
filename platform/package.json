@@ -3,13 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "v2 platform surface — conversational study designer (FR-PLAT, FR-CONV, NFR-12; D34/D37)",
+  "description": "the platform — conversational study designer (FR-PLAT, FR-CONV, NFR-12; D34/D37)",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint . && node scripts/lint-no-raw-literals.mjs",
-    "verify": "node --experimental-strip-types scripts/verify-slice1.mjs && node --experimental-strip-types scripts/verify-shell.mjs",
+    "lint": "eslint . && node scripts/lint-no-raw-literals.mjs && node scripts/check-agent-annotations.mjs",
+    "verify": "node --experimental-strip-types scripts/verify-slice1.mjs && node --experimental-strip-types scripts/verify-shell.mjs && node --experimental-strip-types scripts/verify-evolution.mjs && node --experimental-strip-types scripts/verify-library.mjs",
     "check": "tsc -b && npm run lint && npm run verify && npm run build"
   },
   "dependencies": {

@@ -1,4 +1,4 @@
-"""Design-conversation end-to-end tests (MP-15 slice 4, FR-CONV-1/2/3/6).
+"""Design-conversation end-to-end tests.
 
 Drives the whole thesis loop over the HTTP API — idea → conversation →
 grounded moves → deterministic compile → approval → validating draft →
@@ -49,11 +49,7 @@ _SEEDS = [
         "Guidelines for Empirical Studies of LLMs in SE",
         "Within-subjects plus counterbalancing for small-N developer studies.",
     ),
-    (
-        "corpus:realhumaneval",
-        "RealHumanEval",
-        "Benchmark score is not human utility.",
-    ),
+    ("corpus:realhumaneval", "RealHumanEval", "Benchmark score is not human utility."),
 ]
 
 STUDY = "demo-study"
@@ -68,15 +64,21 @@ def client(tmp_path) -> TestClient:
         db_path=tmp_path / "test.sqlite3",
         data_dir=tmp_path / "data",
         port=8000,
-        dashboard_dist=tmp_path / "no-dist",
+        spa_dist=tmp_path / "no-dist",
     )
     factory = make_session_factory(settings.db_path)
     with factory() as s:
         for ref, title, why in _SEEDS:
-            s.add(Paper(
-                study_id=CORPUS_STUDY_ID, paper_ref=ref, title=title,
-                abstract=why, tier="A", added_at="",
-            ))
+            s.add(
+                Paper(
+                    study_id=CORPUS_STUDY_ID,
+                    paper_ref=ref,
+                    title=title,
+                    abstract=why,
+                    tier="A",
+                    added_at="",
+                )
+            )
             paper_index.index_paper(s, ref, title, why)
         s.commit()
     return TestClient(create_app(settings))

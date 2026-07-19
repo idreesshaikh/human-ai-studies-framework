@@ -20,7 +20,7 @@ export function ProjectHome() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
       <div>
-        <h1 className="font-display text-2xl text-text">{data.name}</h1>
+        <h1 className="font-display text-2xl font-bold uppercase tracking-tight text-text">{data.name}</h1>
         <p className="text-sm text-text-muted">/{data.slug}</p>
       </div>
 

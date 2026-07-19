@@ -1,5 +1,5 @@
 """Requirements-of-record endpoints (FR-DASH-9): the SRS + glossary parse
-into the tooltip payloads the dashboard's lexicon consumes, live from the
+into the tooltip payloads the platform's lexicon consumes, live from the
 real files - and degrade to [] when the documents are absent."""
 
 from datetime import UTC, datetime
@@ -30,7 +30,7 @@ def test_parse_srs_reads_the_real_document_of_record():
     assert "YAML protocol" in r["text"]
     assert r["status"].startswith("✅")
     # The requirement this feature itself traces to.
-    assert "guided tour" in by_id["FR-DASH-9"]["text"]
+    assert "hover tooltips" in by_id["FR-DASH-9"]["text"]
     # NFR table has no Status column - empty, never missing.
     assert by_id["NFR-1"]["status"] == ""
     assert "Non-intrusiveness" in by_id["NFR-1"]["text"]
@@ -38,9 +38,9 @@ def test_parse_srs_reads_the_real_document_of_record():
 
 def test_parse_srs_handles_superseded_and_markdown_noise():
     by_id = {r["id"]: r for r in parse_srs(REQS / "srs.md")}
-    # The struck-through row still resolves, de-struck.
-    assert "FR-PROT-6" in by_id
-    assert "~~" not in by_id["FR-PROT-6"]["text"]
+    # FR-PROT-6 is not a live requirement (its intent folded into
+    # FR-LIT-1/FR-LIT-3); it must not appear in the parsed set.
+    assert "FR-PROT-6" not in by_id
     # No row leaks emphasis markers into tooltip text.
     assert all("**" not in r["text"] for r in by_id.values())
 
@@ -74,7 +74,7 @@ def client(tmp_path) -> TestClient:
         db_path=tmp_path / "t.sqlite3",
         data_dir=tmp_path / "data",
         protocol_path=PILOT,
-        dashboard_dist=tmp_path / "no-dist",
+        spa_dist=tmp_path / "no-dist",
         requirements_dir=REQS,
     )
     return TestClient(create_app(settings, clock=lambda: FROZEN))
@@ -92,7 +92,7 @@ def test_endpoints_empty_when_documents_absent(tmp_path):
         db_path=tmp_path / "t.sqlite3",
         data_dir=tmp_path / "data",
         protocol_path=PILOT,
-        dashboard_dist=tmp_path / "no-dist",
+        spa_dist=tmp_path / "no-dist",
         requirements_dir=tmp_path / "nowhere",
     )
     client = TestClient(create_app(settings, clock=lambda: FROZEN))

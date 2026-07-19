@@ -1,10 +1,9 @@
 # FR-CONV — Conversational study design (detailed specification)
 
-**SRS family:** FR-CONV (index rows in `../srs.md`). **Phases:** MP-15
-(FR-CONV-1/2/3/6), MP-18 (FR-CONV-4/5). **Spec v1, 2026-07-17** (MP-01
-rev 9 elicitation: "experiments are built from conversations; study ideas
-and instrumentation are evolved on the fly; ideas are grounded in
-science").
+**SRS family:** FR-CONV (index rows in `../srs.md`). **Phases:** 15
+(FR-CONV-1/2/3/6), 18 (FR-CONV-4/5). Elicitation: "experiments are built
+from conversations; study ideas and instrumentation are evolved on the fly;
+ideas are grounded in science."
 
 ## 1. Context
 
@@ -26,7 +25,7 @@ template parameter form, the protocol diff, the lifecycle board) are
 prefers forms can still use them directly (FR-TPL-3) — the two surfaces
 edit the same protocol draft.
 
-Non-negotiable guardrails, inherited from v1:
+Non-negotiable guardrails, inherited:
 
 - The **protocol (YAML) remains the single document of record**
   (FR-PROT-1). Conversation produces and amends protocol drafts; it never
@@ -56,7 +55,7 @@ Non-negotiable guardrails, inherited from v1:
 
 ## 3. Requirements detail
 
-### FR-CONV-1 (M, v2) — The design conversation
+### FR-CONV-1 (M) — The design conversation
 
 Every study SHALL have a persistent design conversation from before the
 study exists (project-level "new study" thread) through write-up.
@@ -92,7 +91,7 @@ Fit criteria:
   (FR-PROT-1's list); a deliberately evasive researcher ends with
   explicit `unresolved` slots named by the platform, not silent gaps.
 
-### FR-CONV-2 (M, v2) — Grounding: ideas anchored in science
+### FR-CONV-2 (M) — Grounding: ideas anchored in science
 
 Every design move SHALL carry grounding (§2) or be visibly labeled
 unsourced.
@@ -124,7 +123,7 @@ Fit criteria:
   compile into the protocol with a `grounding: none` annotation —
   honesty is recorded, not just displayed.
 
-### FR-CONV-3 (M, v2) — Compilation: conversation → protocol, human-approved
+### FR-CONV-3 (M) — Compilation: conversation → protocol, human-approved
 
 Accepted design moves SHALL compile deterministically into a protocol
 draft diff, presented as a diff, applied only on explicit approval.
@@ -151,7 +150,7 @@ Fit criteria:
 - F3.3 No code path applies a compiled diff without a recorded approval
   event (audit table, §FR-CONV-6).
 
-### FR-CONV-4 (S, v2) — On-the-fly evolution, lifecycle-gated
+### FR-CONV-4 (S) — On-the-fly evolution, lifecycle-gated
 
 Mid-study instrumentation and design changes SHALL be expressible in the
 conversation and SHALL route through phase-aware amendment rules.
@@ -182,9 +181,9 @@ Fit criteria:
 - F4.2 A threshold tweak amendment applies to the next derived config
   and never mutates an in-flight session's settings.
 - F4.3 Two sessions run under different protocol versions render
-  distinguishably in the dataset and dashboard.
+  distinguishably in the dataset and platform.
 
-### FR-CONV-5 (S, v2) — The platform evolves from feedback
+### FR-CONV-5 (S) — The platform evolves from feedback
 
 Researcher feedback SHALL be capturable *in the conversation* and SHALL
 flow into the platform's own improvement loop.
@@ -208,13 +207,13 @@ Elaboration:
 
 Fit criteria:
 - F5.1 A feedback-marked turn produces a findings row linked to the
-  conversation locus; the findings dashboard card renders it.
+  conversation locus; the platform findings card renders it.
 - F5.2 The retrospective's drafted proposal cites at least the findings
   rows it used (existing FR-META-2 mechanism extended).
 - F5.3 Grep-the-output: cross-project aggregation tables contain no
   conversation text, protocol content, or project-identifying strings.
 
-### FR-CONV-6 (M, v2) — The conversation is the elicitation record
+### FR-CONV-6 (M) — The conversation is the elicitation record
 
 The full design conversation SHALL be stored as the study's elicitation
 artifact: turns, design moves, accept/reject decisions, compilations,
@@ -244,7 +243,7 @@ Fit criteria:
 - F6.3 A redacted turn leaves approvals and compiled diffs intact and
   verifiable.
 
-## 4. Interfaces (sketch — final shapes are MP-15's deliverable)
+## 4. Interfaces (sketch — final shapes are phase 15's deliverable)
 
 - `POST /projects/{p}/studies/{s}/conversation/turns` — append turn
   (streams the platform response; SSE).

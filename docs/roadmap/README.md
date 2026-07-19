@@ -1,12 +1,10 @@
-# The v2 roadmap — one platform, end to end
+# The roadmap — one platform, end to end
 
 This directory is the **living roadmap**: the complete, buildable plan
 for the conversational research platform, from the first pixel of the
-hero page to the last byte of the replication kit. The v1 roadmap
-(MP-01..13, the built engine) stays archived in `docs/archive/roadmap/`
-as the historical record of code that already exists — this directory is
-about what comes next, and it is written to be *executed*: every phase
-below is a self-contained mega-prompt a fresh session can pick up and
+hero page to the last byte of the replication kit. It is written to be
+*executed*: every phase
+below is a self-contained phase spec a fresh session can pick up and
 build from, with enough precision to never wonder what was meant and
 enough declared freedom to never get bogged down.
 
@@ -28,7 +26,7 @@ deterministically (no LLM in the compiler) into a versioned YAML
 protocol: the single document of record that configures instruments,
 gates the lifecycle, prescribes the exact statistics, and emits the
 report, paper draft, and replication kit. Data arrives from live
-instrumented sessions (the four v1 legs) or from curated mining of
+instrumented sessions (the four capture legs) or from curated mining of
 existing sources (GitHub first) through one join-key schema, so every
 recipe and figure works identically on both. Mid-study, the conversation
 stays open — changes flow through phase-aware amendments, visible and
@@ -43,29 +41,53 @@ structured designer and FTS matching; offline → cached corpus and local
 validation. The cloud makes it conversational; nothing load-bearing is
 cloud-owned.
 
-## The build order
+## The phases
 
-Sequenced by proof-value per unit of engineering: the methodology core
-first, shell polish after, metadata and evolution last (each one builds
-on surfaces the earlier phases create).
+The plan is one arc: **phases 01–13** build the methodology foundation (the
+protocol engine, the four instrument legs, ingestion, analysis, the knowledge
+layer, ethics/ops); **phases 14–18** build the platform layer on top of it
+(shell + hero, templates + conversational designer, curated data,
+agent-friendliness, evolution). The platform layer is sequenced by proof-value
+per unit of engineering — the methodology core first, shell polish after,
+metadata and evolution last.
+
+### Foundation (01–13)
+
+| Phase | Title | Satisfies | Status |
+| ----- | ----- | --------- | ------ |
+| [01](01-requirements-foundation.md) | Requirements & research foundation | RQ-F1..F4, NFR-10, NFR-11 | ✅ |
+| [02](02-protocol-and-lifecycle.md) | Study protocol & lifecycle | FR-PROT-1..5/7/9, FR-ETH-1 | ✅ |
+| [03](03-ingestion-middleware.md) | Ingestion middleware (the :8000 hub) | FR-ING-1..6, NFR-2/7 | ✅ |
+| [04](04-static-metrics-leg.md) | Static-metrics leg | FR-INST-4, FR-INST-6 | ✅ |
+| [05](05-cognitive-leg.md) | Cognitive leg (fatigue, stuck, session) | FR-INST-1/2/3/13/14 | ✅ |
+| [06](06-behavioral-leg.md) | Behavioral telemetry leg | FR-INST-5/8/9/10/11/12 | ✅ |
+| [07](07-agent-interaction-leg.md) | Agent-interaction leg | FR-AGENT-1/2/3/5, FR-INST-15/16/17 | ✅ |
+| [08](08-analysis-recipes.md) | Analysis recipes & honest statistics | FR-ANA-1..4, NFR-6/8 | ✅ |
+| [09](09-knowledge-layer.md) | Knowledge layer (papers, graph, assistant) | FR-LIT-1/2/3/4/6, FR-ETH-4 | ✅ |
+| [10](10-corpus-at-scale.md) | Corpus at scale + idea↔paper matching | FR-LIT-7/8/9/10 | 🔶 |
+| [11](11-paper-and-retrospective.md) | Paper draft & self-improvement retrospective | FR-ANA-6, FR-META-1/2/3 | 🔶 |
+| [12](12-replication-and-recipes.md) | Replication kit & published-paper recipes | FR-PROT-7, FR-ANA-5, RQ-F3 | ✅ |
+| [13](13-ethics-privacy-ops.md) | Ethics, privacy & operations | FR-ETH-2/3, FR-OPS-1..7, NFR-1/5 | 🔶 |
+
+### Platform layer (14–18)
 
 ```mermaid
 flowchart LR
-    MP15["MP-15\nTemplates +\nconversational designer"] --> MP16["MP-16\nCurated-dataset leg"]
-    MP15 --> MP14["MP-14\nPlatform shell +\nhero"]
-    MP14 --> MP17["MP-17\nAgent-friendliness"]
-    MP14 --> MP18["MP-18\nEvolution"]
-    MP16 -.->|cursor-mining demo| MP14
-    MP15 -.->|conversation surface\nre-homes into shell| MP14
+    P15["Phase 15\nTemplates +\nconversational designer"] --> P16["Phase 16\nCurated-dataset leg"]
+    P15 --> P14["Phase 14\nPlatform shell +\nhero"]
+    P14 --> P17["Phase 17\nAgent-friendliness"]
+    P14 --> P18["Phase 18\nEvolution"]
+    P16 -.->|cursor-mining demo| P14
+    P15 -.->|conversation surface\nre-homes into shell| P14
 ```
 
 | Phase | Title | Satisfies | Status |
 | ----- | ----- | --------- | ------ |
-| [MP-15](15-templates-and-conversational-designer.md) | Templates + conversational designer | FR-TPL-1..4, FR-CONV-1/2/3/6, FR-LIT-9, FR-LIT-8 importer | 🔶 slices 1–4 built + tested (server compiler/approval/elicitation record, corpus importer, real match ladder, template registry); remaining: FR-TPL-3 form path + 2 of 4 seed templates in `templates/drafts/` pending their recipes |
-| [MP-16](16-curated-dataset-leg.md) | Curated-dataset leg | FR-CUR-1..3 | 🔶 built — full mine→dataset→threats→report chain green offline; live async dispatch + UI surfaces deferred |
-| [MP-14](14-platform-shell.md) | Platform shell + hero | FR-PLAT-1..5, FR-OPS-5/7 completion, NFR-12 foundation | 🔶 built — backend + shell UI green; server-seeded demo + NFR-12 evidence pending |
-| [MP-17](17-agent-friendliness.md) | Agent-friendliness | FR-AGF-1..3, FR-PROT-9 | ⬜ specced, ready |
-| [MP-18](18-evolution.md) | Evolution: amendments + feedback | FR-CONV-4/5 (+ FR-META extensions) | ⬜ specced, ready |
+| [14](14-platform-shell.md) | Platform shell + hero | FR-PLAT-1..5, FR-OPS-5/7, NFR-12 foundation | 🔶 built — backend + shell UI green; server-seeded demo + browser NFR-12 evidence pending |
+| [15](15-templates-and-conversational-designer.md) | Templates + conversational designer | FR-TPL-1..4, FR-CONV-1/2/3/6, FR-LIT-9, FR-LIT-8 importer | 🔶 conversation/compiler/approval/elicitation record + corpus importer + match ladder + template registry green; remaining: FR-TPL-3 form path + 2 of 4 seed templates pending recipes |
+| [16](16-curated-dataset-leg.md) | Curated-dataset leg | FR-CUR-1..3 | 🔶 built — full mine→dataset→threats→report chain green offline; live async dispatch deferred |
+| [17](17-agent-friendliness.md) | Agent-friendliness | FR-AGF-1..3, FR-PROT-9 | ✅ built — manifest, generated AGENTS.md + CI drift gate, agent-participant protocol, `data-agent` annotations |
+| [18](18-evolution.md) | Evolution: amendments + feedback | FR-CONV-4/5 (+ FR-META extensions) | 🔶 built — amendment engine + feedback loop green server-side; UI built + gated; live transport + browser NFR-12 evidence deferred |
 
 Status key: ✅ done · 🔶 partial · ⬜ open. A phase is **done only when
 its verification steps ran green, its row here is flipped, and its
@@ -143,7 +165,7 @@ permission is a failure mode this section exists to kill.
   live in one named place (not sprinkled literals).
 - **Slice order within a phase.** Reorder or merge slices when
   dependencies allow; record what actually happened in the tracker and
-  traceability log. Landing part of a later phase early (as MP-15 slice
+  traceability log. Landing part of a later phase early (as Phase 15 slice
   1 did with the `platform/` scaffold) is expected when the build order
   note permits it.
 - **Deviate with a log line, never in silence.** If a spec detail turns
@@ -157,7 +179,7 @@ permission is a failure mode this section exists to kill.
   menu, not a fence.
 
 What is *not* free: weakening a fit criterion, adding a dependency
-without a D-row, touching v1 engine invariants, skipping the
+without a D-row, touching the platform's engine invariants, skipping the
 verification steps, or shipping a Must-displacing Could (rule 6:
 no shell polish while methodology Musts are open).
 
@@ -166,20 +188,19 @@ no shell polish while methodology Musts are open).
 The platform is proven by running real studies through it — these are
 the owner's own trial studies, not platform features:
 
-1. **The retro-fit** — the v1 pilot re-expressed as a `metr-rct-v1`
-   template instance (MP-15, FR-TPL F1.2): the platform can describe a
-   study that already happened.
-2. **Comprehension debt** (`protocol/examples/comprehension-debt-2026.yaml`)
-   — a live-path study through conversation → template → instruments →
-   report (MP-15/18 demo workload).
-3. **Context ablation** (`protocol/examples/context-ablation-2026.yaml`)
-   — agent participants under the task harness; the FR-PROT-9 fixture
-   (MP-17).
-4. **Cursor-style mining demo** — the curated path end to end on a
-   committed fixture dataset (MP-16, FR-CUR F1.1).
+1. **The retro-fit** — an already-run maintenance-task study described
+   through the platform, using the `metr-rct-v1` published-design
+   template (Phase 15, FR-TPL F1.2): proof the platform can express a study
+   that already happened. The template is library content; this trial is
+   a protocol instance — the two are separate.
+2. **Cursor-style mining demo** — the curated path end to end on a
+   committed fixture dataset (Phase 16, FR-CUR F1.1).
 
-Together they exercise every branch: live and curated, human and agent
-participants, design and amendment, no-LLM and full-conversation.
+Together they exercise the live and curated branches, human and
+agent-authored data, design and amendment, no-LLM and full-conversation.
+Agent-*participant* support (FR-PROT-9) is proven directly by its schema
+fixture and test suite (`protocol/tests/fixtures/agent-participant-v3.yaml`,
+`test_agent_participants.py`).
 
 ## Ambition ledger (stretch — each needs its SRS row before build)
 

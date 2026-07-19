@@ -1,5 +1,5 @@
 """meyer-fragmentation on a constructed dataset with known answers
-(FR-ANA-5 second replication, docs/archive/roadmap/09 item 3): switch counts are
+(FR-ANA-5 second replication): switch counts are
 hand-countable, same-file repeats must collapse, window-focus events
 (no `file` payload) must be ignored."""
 
@@ -26,34 +26,79 @@ def _ev(session, participant, condition, seq, minute, type_, payload):
 def _session(session, participant, condition, focus_files):
     """60-minute session; focus_files = [(minute, file-or-None)] where None
     means a window-focus event (no file payload)."""
-    rows = [_ev(session, participant, condition, 0, 0, "session_start",
-                {"plannedDurationMinutes": 60})]
+    rows = [
+        _ev(
+            session,
+            participant,
+            condition,
+            0,
+            0,
+            "session_start",
+            {"plannedDurationMinutes": 60},
+        )
+    ]
     seq = 1
     for minute, file in focus_files:
         payload = {"state": "focused"} if file is None else {"file": file}
-        rows.append(_ev(session, participant, condition, seq, minute,
-                        "editor_focus", payload))
+        rows.append(
+            _ev(session, participant, condition, seq, minute, "editor_focus", payload)
+        )
         seq += 1
-    rows.append(_ev(session, participant, condition, seq, 15,
-                    "fatigue_response", {"score": 2, "latencyMs": 3000}))
-    rows.append(_ev(session, participant, condition, seq + 1, 60,
-                    "session_end", {"reason": "completed"}))
+    rows.append(
+        _ev(
+            session,
+            participant,
+            condition,
+            seq,
+            15,
+            "fatigue_response",
+            {"score": 2, "latencyMs": 3000},
+        )
+    )
+    rows.append(
+        _ev(
+            session,
+            participant,
+            condition,
+            seq + 1,
+            60,
+            "session_end",
+            {"reason": "completed"},
+        )
+    )
     return rows
 
 
 @pytest.fixture()
 def dataset() -> Dataset:
     rows = _session(
-        "S1", "P01", "ai-assisted",
+        "S1",
+        "P01",
+        "ai-assisted",
         # A->B->A->C = 3 switches; the duplicate B at minute 12 collapses;
         # the None row is window focus and must not count.
-        [(1, "a.py"), (10, "b.py"), (12, "b.py"), (14, None),
-         (20, "a.py"), (30, "c.py")],
+        [
+            (1, "a.py"),
+            (10, "b.py"),
+            (12, "b.py"),
+            (14, None),
+            (20, "a.py"),
+            (30, "c.py"),
+        ],
     ) + _session(
-        "S2", "P02", "unassisted",
+        "S2",
+        "P02",
+        "unassisted",
         # 6 switches at 5-minute spacing.
-        [(1, "a.py"), (6, "b.py"), (11, "a.py"), (16, "b.py"),
-         (21, "a.py"), (26, "c.py"), (31, "a.py")],
+        [
+            (1, "a.py"),
+            (6, "b.py"),
+            (11, "a.py"),
+            (16, "b.py"),
+            (21, "a.py"),
+            (26, "c.py"),
+            (31, "a.py"),
+        ],
     )
     return Dataset(rows=rows, study_id="synthetic")
 

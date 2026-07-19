@@ -72,9 +72,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(events, indent=2))
         return 0
 
-    result = import_transcript(
-        args.transcript, keys, policy, endpoint=args.endpoint
-    )
+    result = import_transcript(args.transcript, keys, policy, endpoint=args.endpoint)
     if result.get("error"):
         print(
             f"import: normalized {result['normalized']} events but POST failed: "

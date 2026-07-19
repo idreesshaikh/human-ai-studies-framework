@@ -2,7 +2,7 @@ import { Disposable } from './types';
 
 /**
  * Region-level attention / time-on-code tracking (fills the behavior doc's
- * "time spent on a specific line of code" data point, which MP-05 left
+ * "time spent on a specific line of code" data point, which left
  * unmeasured: `heartbeat` gives whole-session active time and `editor_focus`
  * lets analysis reconstruct per-file time, but nothing measured per-region
  * dwell). Pure logic, no IDE imports (NFR-3); driven entirely by timestamped

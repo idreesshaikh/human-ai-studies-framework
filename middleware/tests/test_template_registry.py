@@ -1,4 +1,4 @@
-"""Template registry tests (MP-15 slice 3, FR-TPL-1/2).
+"""Template registry tests.
 
 F1.1 (every registry template validates and instantiates into a protocol
 that passes validation, zero hand edits), F2.3 (a template naming a
@@ -33,10 +33,13 @@ def test_nonexistent_recipe_fails_validation():
     """F2.3: a template promising a recipe the platform can't run is caught
     at registry validation, before anyone instantiates it."""
     doc = tr.load_template("metr-rct-v1")
-    doc = {**doc, "protocolSkeleton": {
-        **doc["protocolSkeleton"],
-        "analysisPlan": [{"rq": "RQ-1", "recipes": ["no-such-recipe"]}],
-    }}
+    doc = {
+        **doc,
+        "protocolSkeleton": {
+            **doc["protocolSkeleton"],
+            "analysisPlan": [{"rq": "RQ-1", "recipes": ["no-such-recipe"]}],
+        },
+    }
     problems = tr.validate_template(doc)
     assert any("no-such-recipe" in p for p in problems)
 

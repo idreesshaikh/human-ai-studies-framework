@@ -1,4 +1,4 @@
-"""The curated-mining leg wired into the middleware (MP-16, FR-CUR).
+"""The curated-mining leg wired into the middleware.
 
 Offline end to end: a mining job runs against the committed cassette, lands
 events in the one-timeline shape, and the validity-threats record gates
@@ -27,7 +27,7 @@ def client(tmp_path) -> TestClient:
         data_dir=tmp_path / "data",
         protocol_path=DEMO_PROTOCOL,
         mining_cassette=CASSETTE,
-        dashboard_dist=tmp_path / "no-dist",
+        spa_dist=tmp_path / "no-dist",
     )
     return TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
 
@@ -68,14 +68,14 @@ def test_events_are_content_free_no_raw_identities(client):
 
 def test_remining_is_idempotent_no_duplicates(client):
     first = _start(client)
-    before = client.get(
-        f"/studies/{STUDY}/curated-datasets/{first['id']}"
-    ).json()["eventCounts"]
+    before = client.get(f"/studies/{STUDY}/curated-datasets/{first['id']}").json()[
+        "eventCounts"
+    ]
     # A second job over the same cassette must not double the rows.
     second = _start(client)
-    after = client.get(
-        f"/studies/{STUDY}/curated-datasets/{second['id']}"
-    ).json()["eventCounts"]
+    after = client.get(f"/studies/{STUDY}/curated-datasets/{second['id']}").json()[
+        "eventCounts"
+    ]
     assert before == after  # same (session, source, seq) keys → replay dropped
 
 
@@ -86,7 +86,7 @@ def test_frame_refusal_without_curated_section(tmp_path):
         data_dir=tmp_path / "d",
         protocol_path=REPO / "protocol/examples/pilot-study.yaml",
         mining_cassette=CASSETTE,
-        dashboard_dist=tmp_path / "nd",
+        spa_dist=tmp_path / "nd",
     )
     c = TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
     res = c.post("/studies/pilot-2026/mining-jobs")
@@ -119,9 +119,9 @@ def test_analysis_gate_blocked_until_threats_record(client):
 
     # The generated draft record is valid (starter biases) → finalizing opens
     # the gate.
-    draft = client.get(
-        f"/studies/{STUDY}/curated-datasets/{job['id']}"
-    ).json()["threatsRecord"]
+    draft = client.get(f"/studies/{STUDY}/curated-datasets/{job['id']}").json()[
+        "threatsRecord"
+    ]
     ok = client.put(
         f"/studies/{STUDY}/curated-datasets/{job['id']}/threats",
         json={"threatsRecord": draft},
@@ -138,9 +138,9 @@ def test_analysis_gate_blocked_until_threats_record(client):
 
 def test_threats_record_has_heuristics_and_coverage(client):
     job = _start(client)
-    rec = client.get(
-        f"/studies/{STUDY}/curated-datasets/{job['id']}"
-    ).json()["threatsRecord"]
+    rec = client.get(f"/studies/{STUDY}/curated-datasets/{job['id']}").json()[
+        "threatsRecord"
+    ]
     assert rec["heuristics"]  # heuristics that fired are named + cited
     assert rec["heuristics"][0]["cite"]
     assert rec["coverage"]["retrieved"] >= 4
@@ -154,14 +154,14 @@ def test_stop_then_resume_completes_without_duplicates(client):
     # reachable synchronously against an instant cassette, so this exercises
     # the resume path's idempotency, which is the property F2.1 protects.
     job = _start(client)
-    counts_before = client.get(
-        f"/studies/{STUDY}/curated-datasets/{job['id']}"
-    ).json()["eventCounts"]
+    counts_before = client.get(f"/studies/{STUDY}/curated-datasets/{job['id']}").json()[
+        "eventCounts"
+    ]
     resumed = client.post(f"/studies/{STUDY}/mining-jobs/{job['id']}/resume")
     assert resumed.status_code == 200
-    counts_after = client.get(
-        f"/studies/{STUDY}/curated-datasets/{job['id']}"
-    ).json()["eventCounts"]
+    counts_after = client.get(f"/studies/{STUDY}/curated-datasets/{job['id']}").json()[
+        "eventCounts"
+    ]
     assert counts_before == counts_after
 
 

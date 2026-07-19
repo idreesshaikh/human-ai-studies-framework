@@ -1,6 +1,6 @@
-# Design tree — v2 platform (living documents)
+# Design tree (living documents)
 
-System design for the v2 conversational research platform. Every diagram
+System design for the conversational research platform. Every diagram
 traces to requirement IDs (`requirements/srs.md` + `requirements/specs/`);
 where a diagram and a requirement disagree, the requirement wins and the
 drift is a logged defect (FR-META-1). Diagrams are Mermaid (render in

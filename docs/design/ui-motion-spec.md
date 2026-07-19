@@ -35,7 +35,7 @@ arrival, never both competing.
 --spring:      spring(1, 220, 24)                 /* playful — warm register only */
 --radius-card: 14px;  --radius-chip: 999px;  --radius-input: 10px
 type: one display face (600/700) + one text face (400/500);
-      tabular-nums on every number; fluid clamp() scale from v1
+      tabular-nums on every number; fluid clamp() scale
 color: the validated dataviz palette is the chart source of truth;
        UI neutrals + one accent per theme; 4.5:1 minimum everywhere
 ```
@@ -132,6 +132,6 @@ sourced from the SRS/glossary endpoints (FR-DASH-9 mechanism).
 
 Protocol YAML, statistics, consent/ethics surfaces, the validity-threats
 record, and anything on the participant's screen (NFR-1 — the
-extension's surfaces stay v1-minimal). Restraint *is* the design system:
+extension's surfaces stay minimal). Restraint *is* the design system:
 the warm register earns trust for the moments the precise register
 spends it.

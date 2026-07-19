@@ -85,7 +85,7 @@ export interface BurstConfig {
   pasteCorrelationMs: number;
 }
 
-/** Defaults per MP-05; all protocol-derivable via config (FR-PROT-4). */
+/** Defaults per; all protocol-derivable via config (FR-PROT-4). */
 export const DEFAULT_BURST_CONFIG: BurstConfig = {
   gapMs: 2_000,
   checkIntervalMs: 500,

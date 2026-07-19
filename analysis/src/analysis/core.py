@@ -1,5 +1,4 @@
-"""Recipe contract and registry (FR-ANA-1/2;
-docs/archive/roadmap/07-analysis-recipes.md).
+"""Recipe contract and registry (FR-ANA-1/2).
 
 A *recipe* is a pluggable analysis module that consumes the unified study
 dataset and emits tables, figures, a plain-language summary, and the exact
@@ -46,10 +45,7 @@ class Requires:
 
     def missing(self, dataset: Dataset) -> list[str]:
         """Human-readable list of unmet requirements, empty when satisfied."""
-        out = [
-            f"event type '{t}'"
-            for t in sorted(self.events - dataset.event_types)
-        ]
+        out = [f"event type '{t}'" for t in sorted(self.events - dataset.event_types)]
         out += [
             f"metric column '{c}'"
             for c in sorted(self.metrics - dataset.metric_columns)
@@ -148,9 +144,7 @@ class PlanCheck:
         return f"{self.recipe_id} ({self.rq}): ok"
 
 
-def validate_plan(
-    analysis_plan: Sequence[dict], dataset: Dataset
-) -> list[PlanCheck]:
+def validate_plan(analysis_plan: Sequence[dict], dataset: Dataset) -> list[PlanCheck]:
     """Check every recipe the protocol's analysis plan names (FR-ANA-2).
 
     ``analysis_plan`` is the protocol's ``analysisPlan`` list

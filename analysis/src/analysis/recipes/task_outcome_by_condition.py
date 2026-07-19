@@ -1,5 +1,5 @@
 """task-outcome-by-condition (RQ-P1..P5 ground truth): acceptance-test
-pass rates and time-to-first-green (needs MP-12's task harness).
+pass rates and time-to-first-green (needs's task harness).
 
 Test choices: pass/fail counts per condition form a 2x2 table - **Fisher's
 exact test** (the only honest choice at pilot counts) with the odds ratio.
@@ -64,9 +64,7 @@ def run(dataset: Dataset) -> RecipeResult:
 
     # Pass rate x condition (Fisher exact when 2 conditions).
     rate = (
-        last.groupby("condition")["passed"]
-        .agg(n="count", passed="sum")
-        .reset_index()
+        last.groupby("condition")["passed"].agg(n="count", passed="sum").reset_index()
     )
     rate["passRate"] = rate["passed"] / rate["n"]
     tables["pass_rates"] = rate
@@ -88,8 +86,7 @@ def run(dataset: Dataset) -> RecipeResult:
         sentences.append(
             "Pass rates: one condition present - "
             + ", ".join(
-                f"{r.condition}: {int(r.passed)}/{int(r.n)}"
-                for r in rate.itertuples()
+                f"{r.condition}: {int(r.passed)}/{int(r.n)}" for r in rate.itertuples()
             )
             + " (descriptive only)."
         )

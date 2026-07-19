@@ -19,9 +19,7 @@ def _leading_whitespace(line: str) -> int:
 def get_indentation_variance(source: str) -> float:
     """Population standard deviation of leading-whitespace width over all
     non-blank lines, rounded to 2 decimals. 0.0 for < 2 non-blank lines."""
-    widths = [
-        _leading_whitespace(line) for line in source.splitlines() if line.strip()
-    ]
+    widths = [_leading_whitespace(line) for line in source.splitlines() if line.strip()]
     if len(widths) < 2:
         return 0.0
     return round(pstdev(widths), 2)

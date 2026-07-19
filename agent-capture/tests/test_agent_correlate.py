@@ -17,9 +17,7 @@ KEYS = Keys("P01", "ai-assisted", "S1")
 
 def ev(offset_s, type_, payload, *, source="agent-capture", seq=0):
     return {
-        "ts": (BASE + timedelta(seconds=offset_s)).isoformat(
-            timespec="milliseconds"
-        ),
+        "ts": (BASE + timedelta(seconds=offset_s)).isoformat(timespec="milliseconds"),
         "type": type_,
         "source": source,
         "seq": seq,
@@ -38,12 +36,16 @@ def _turn(offset, role, code_chars=0, seq=0):
 # --- a canonical error -> agent -> paste-back timeline ---------------------
 
 RELIANCE_TIMELINE = [
-    ev(0, "clipboard_paste", {"charCount": 200, "targetFile": "x"},
-       source="cognitive-overlay", seq=10),
+    ev(
+        0,
+        "clipboard_paste",
+        {"charCount": 200, "targetFile": "x"},
+        source="cognitive-overlay",
+        seq=10,
+    ),
     _turn(5, "user", seq=1),
     _turn(9, "assistant", code_chars=100, seq=2),
-    ev(15, "edit_burst",
-       {"origin": "ai", "charsAdded": 96, "charsDeleted": 0}, seq=3),
+    ev(15, "edit_burst", {"origin": "ai", "charsAdded": 96, "charsDeleted": 0}, seq=3),
 ]
 
 
@@ -97,10 +99,8 @@ def test_compute_evolution_loc_churn_and_persistence():
     events = [
         ev(0, "workspace_snapshot", {"insertions": 50, "deletions": 0}),
         ev(60, "workspace_snapshot", {"insertions": 30, "deletions": 20}),
-        ev(10, "edit_burst",
-           {"origin": "ai", "charsAdded": 200, "charsDeleted": 40}),
-        ev(20, "edit_burst",
-           {"origin": "human", "charsAdded": 100, "charsDeleted": 0}),
+        ev(10, "edit_burst", {"origin": "ai", "charsAdded": 200, "charsDeleted": 40}),
+        ev(20, "edit_burst", {"origin": "human", "charsAdded": 100, "charsDeleted": 0}),
         ev(30, "git_commit", {"hash": "abc", "insertions": 10, "deletions": 0}),
     ]
     m = compute_evolution(events)

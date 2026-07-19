@@ -1,5 +1,5 @@
 """Knowledge layer: paper ingest, graph assembly, FTS, protocol links, and
-the assistant's aggregates-only tool boundary (FR-LIT-1..4, FR-ETH-4, MP-10).
+the assistant's aggregates-only tool boundary (FR-LIT-1..4, FR-ETH-4).
 
 Semantic Scholar is mocked with recorded-shape fixtures; the assistant runs
 against a scripted fake Claude client - no network, no API key.
@@ -76,7 +76,7 @@ def client(tmp_path, monkeypatch) -> TestClient:
         db_path=tmp_path / "k.sqlite3",
         data_dir=tmp_path / "data",
         protocol_path=PILOT,
-        dashboard_dist=tmp_path / "no-dist",
+        spa_dist=tmp_path / "no-dist",
     )
     tc = TestClient(create_app(settings, clock=lambda: FROZEN))
     from protocol.loader import load_protocol
@@ -106,9 +106,7 @@ def test_ingest_by_arxiv_id_stores_metadata_and_seeds_links(client):
 
 
 def test_ingest_by_doi(client):
-    res = client.post(
-        "/studies/pilot-2026/papers", json={"doi": "10.1000/neighbour"}
-    )
+    res = client.post("/studies/pilot-2026/papers", json={"doi": "10.1000/neighbour"})
     # No paper fixture for this DOI -> S2 error surfaces as 502 (graceful).
     assert res.status_code == 502
 
@@ -131,9 +129,7 @@ def test_adding_a_suggested_node_regrows_the_graph(client):
     # The suggestion Ziegler is a stub; ingesting it promotes the node.
     client.post("/studies/pilot-2026/papers", json={"arxivId": "2205.06537"})
     graph = client.get("/studies/pilot-2026/papers/graph").json()
-    ziegler = next(
-        n for n in graph["nodes"] if n["paperRef"] == "arxiv:2205.06537"
-    )
+    ziegler = next(n for n in graph["nodes"] if n["paperRef"] == "arxiv:2205.06537")
     assert ziegler["ingested"] is True
 
 
@@ -150,7 +146,8 @@ def test_s2_responses_are_cached_offline(client, monkeypatch):
     client.post("/studies/pilot-2026/papers", json={"arxivId": "2302.06590"})
     # Break the network: a cached graph must still render (NFR-7).
     monkeypatch.setattr(
-        semantic_scholar, "get_json",
+        semantic_scholar,
+        "get_json",
         lambda url: (_ for _ in ()).throw(
             semantic_scholar.SemanticScholarError("offline")
         ),
@@ -199,21 +196,45 @@ def test_full_text_search_finds_ingested_paper(client):
 def _seed_events_and_metrics(client):
     client.post(
         "/ingest/events",
-        json={"source": "cognitive-overlay", "events": [
-            {"v": 3, "ts": "2026-07-11T10:00:00.000Z", "sessionId": "S1", "seq": 0,
-             "participantId": "P01", "condition": "ai-assisted",
-             "type": "fatigue_response", "payload": {"score": 3}},
-            {"v": 3, "ts": "2026-07-11T10:00:10.000Z", "sessionId": "S1", "seq": 1,
-             "participantId": "P01", "condition": "ai-assisted",
-             "type": "clipboard_paste", "payload": {"charCount": 212}},
-        ]},
+        json={
+            "source": "cognitive-overlay",
+            "events": [
+                {
+                    "v": 3,
+                    "ts": "2026-07-11T10:00:00.000Z",
+                    "sessionId": "S1",
+                    "seq": 0,
+                    "participantId": "P01",
+                    "condition": "ai-assisted",
+                    "type": "fatigue_response",
+                    "payload": {"score": 3},
+                },
+                {
+                    "v": 3,
+                    "ts": "2026-07-11T10:00:10.000Z",
+                    "sessionId": "S1",
+                    "seq": 1,
+                    "participantId": "P01",
+                    "condition": "ai-assisted",
+                    "type": "clipboard_paste",
+                    "payload": {"charCount": 212},
+                },
+            ],
+        },
     )
     client.post(
         "/ingest/metrics",
-        json=[{"file": "d.py", "cognitive_complexity": 9,
-               "participantId": "P01", "condition": "ai-assisted",
-               "sessionId": "S1", "timestamp": "2026-07-11T10:00:05+00:00",
-               "schemaVersion": 1}],
+        json=[
+            {
+                "file": "d.py",
+                "cognitive_complexity": 9,
+                "participantId": "P01",
+                "condition": "ai-assisted",
+                "sessionId": "S1",
+                "timestamp": "2026-07-11T10:00:05+00:00",
+                "schemaVersion": 1,
+            }
+        ],
     )
 
 
@@ -254,13 +275,30 @@ def _scripted_post(responses):
 
 def _mistral_two_rounds():
     """Round 1: call get_dataset_summary; round 2: cited answer."""
-    return _scripted_post([
-        {"choices": [{"message": {"role": "assistant", "content": "",
-            "tool_calls": [{"id": "t1", "function": {
-                "name": "get_dataset_summary", "arguments": "{}"}}]}}]},
-        {"choices": [{"message": {"role": "assistant",
-                                  "content": _CITED_ANSWER}}]},
-    ])
+    return _scripted_post(
+        [
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "",
+                            "tool_calls": [
+                                {
+                                    "id": "t1",
+                                    "function": {
+                                        "name": "get_dataset_summary",
+                                        "arguments": "{}",
+                                    },
+                                }
+                            ],
+                        }
+                    }
+                ]
+            },
+            {"choices": [{"message": {"role": "assistant", "content": _CITED_ANSWER}}]},
+        ]
+    )
 
 
 def test_assistant_answers_with_citations_and_uses_aggregates(client):
@@ -300,10 +338,7 @@ def test_assistant_config_reports_models_only_when_keyed(client, monkeypatch):
 def test_make_client_validates_the_model_tier(monkeypatch):
     monkeypatch.setenv("MISTRAL_API_KEY", "m")
     assert assistant.make_client().model == assistant.MISTRAL_MODEL
-    assert (
-        assistant.make_client("mistral-large-latest").model
-        == "mistral-large-latest"
-    )
+    assert assistant.make_client("mistral-large-latest").model == "mistral-large-latest"
     # Unknown tiers fall back rather than reaching the API verbatim.
     assert assistant.make_client("gpt-99").model == assistant.MISTRAL_MODEL
     monkeypatch.delenv("MISTRAL_API_KEY")
@@ -312,8 +347,6 @@ def test_make_client_validates_the_model_tier(monkeypatch):
 
 def test_assistant_endpoint_503_without_api_key(client, monkeypatch):
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
-    res = client.post(
-        "/studies/pilot-2026/assistant", json={"question": "hi"}
-    )
+    res = client.post("/studies/pilot-2026/assistant", json={"question": "hi"})
     assert res.status_code == 503
     assert "MISTRAL_API_KEY" in res.json()["detail"]

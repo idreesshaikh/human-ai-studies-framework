@@ -107,9 +107,7 @@ def _cmd_export_kit(args: argparse.Namespace) -> int:
     else:
         dataset = fetch_dataset(args.server, study_id)
     out = Path(args.out or f"{study_id}-replication-kit.tar.gz")
-    build_kit(
-        Path(args.file), dataset, out, repo_root=Path.cwd()
-    )
+    build_kit(Path(args.file), dataset, out, repo_root=Path.cwd())
     print(f"replication kit: {out} ({out.stat().st_size} bytes)")
     print(
         "reproduce: uv sync --all-packages && SOURCE_DATE_EPOCH=0 "
@@ -169,8 +167,7 @@ def _build_parser() -> argparse.ArgumentParser:
     agent_hooks.add_argument(
         "--command",
         default="agent-capture-hook",
-        help="hook command on the task workspace's PATH (default: "
-        "agent-capture-hook)",
+        help="hook command on the task workspace's PATH (default: agent-capture-hook)",
     )
     agent_hooks.set_defaults(func=_cmd_derive_agent_hooks)
 
@@ -186,12 +183,11 @@ def _build_parser() -> argparse.ArgumentParser:
     kit.add_argument("file")
     kit.add_argument("--study", help="study id (default: the protocol's)")
     kit.add_argument(
-        "--server", default="http://127.0.0.1:8000",
+        "--server",
+        default="http://127.0.0.1:8000",
         help="middleware to fetch the dataset from (default :8000)",
     )
-    kit.add_argument(
-        "--dataset", help="dataset JSON file (instead of fetching)"
-    )
+    kit.add_argument("--dataset", help="dataset JSON file (instead of fetching)")
     kit.add_argument("--out", help="output archive path (.tar.gz)")
     kit.set_defaults(func=_cmd_export_kit)
 

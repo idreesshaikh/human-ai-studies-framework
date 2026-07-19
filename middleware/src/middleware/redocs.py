@@ -1,13 +1,13 @@
-"""Serve the requirements of record to the dashboard (FR-DASH-9).
+"""Serve the requirements of record to the platform (FR-DASH-9).
 
-The dashboard explains every requirement ID and domain term it shows with a
+The platform explains every requirement ID and domain term it shows with a
 plain-language tooltip. That text is parsed **live from the documents of
 record** - ``requirements/srs.md`` and ``requirements/glossary.md`` - so the
 UI can never drift from the SRS (the alternative, a hand-copied map in the
 frontend, had already drifted to 13 of 71 requirements when this landed).
 
 Deliberately tolerant, line-oriented GFM-table parsing - no markdown
-dependency. Missing files degrade to empty lists (the dashboard falls back
+dependency. Missing files degrade to empty lists (the platform falls back
 to its built-in map, then to bare IDs), matching the offline posture of
 every other view (NFR-7).
 """

@@ -10,7 +10,7 @@ Plan validation runs first and fails loudly (FR-ANA-2): every unsatisfied
 requirement is printed and lands in the report's validation section naming
 the missing event type / metric column. Recipe runs are best-effort
 recorded to the middleware (`POST /studies/{id}/recipe-runs`) so the
-dashboard's un-run-recipe cards clear themselves; an offline middleware
+platform's un-run-recipe cards clear themselves; an offline middleware
 never blocks an analysis (NFR-1 discipline applies to researcher tools
 too).
 """
@@ -230,18 +230,12 @@ def _write_report(
                     lines += [f"![{rid} {f}]({rid}/{f})", ""]
                 if tables:
                     lines += [
-                        "Tables: "
-                        + ", ".join(f"[`{t}`]({rid}/{t})" for t in tables),
+                        "Tables: " + ", ".join(f"[`{t}`]({rid}/{t})" for t in tables),
                         "",
                     ]
             else:
                 check = next(
-                    (
-                        c
-                        for c in outcome.failed_validation
-                        if c.recipe_id == rid
-                    ),
-                    None,
+                    (c for c in outcome.failed_validation if c.recipe_id == rid), None
                 )
                 reason = (
                     check.describe()

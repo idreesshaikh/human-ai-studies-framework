@@ -5,6 +5,7 @@ import { DemoProject } from "@/pages/DemoProject";
 import { Projects } from "@/pages/Projects";
 import { ProjectHome } from "@/pages/ProjectHome";
 import { StudyHome } from "@/pages/StudyHome";
+import { PlatformFindings } from "@/pages/PlatformFindings";
 import { Members } from "@/pages/Members";
 import { Settings } from "@/pages/Settings";
 import { InviteAccept } from "@/pages/InviteAccept";
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="/projects" element={<Projects />} />
         <Route path="/p/:slug" element={<ProjectHome />} />
         <Route path="/p/:slug/studies/:id" element={<StudyHome />} />
+        <Route path="/p/:slug/platform" element={<PlatformFindings />} />
         <Route path="/p/:slug/members" element={<Members />} />
         <Route path="/p/:slug/settings" element={<Settings />} />
       </Route>

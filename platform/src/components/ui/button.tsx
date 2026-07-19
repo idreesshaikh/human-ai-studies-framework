@@ -3,19 +3,24 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/cn";
 
-/* Button. Colours, durations, and radii all come from design tokens via
- * Tailwind utilities. */
+/* Button — a physical keycap. Colours, durations, radii, and the hard offset
+ * shadow all come from design tokens via Tailwind utilities. `keycap` (from
+ * index.css) adds the hover-lift + press-to-bottom-out; ghost stays flat for
+ * quiet inline actions. Labels are set as key legends: mono, uppercase,
+ * tracked. */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-input text-sm font-medium transition-colors duration-fast disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-input font-display text-xs font-bold uppercase tracking-wider transition-colors duration-fast disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-accent text-accent-contrast hover:opacity-90",
+          "keycap border-2 border-border-strong bg-accent text-accent-contrast shadow-brutal",
         outline:
-          "border border-border-strong bg-surface text-text hover:bg-accent-soft",
-        ghost: "text-text hover:bg-accent-soft",
-        subtle: "bg-accent-soft text-accent hover:opacity-90",
+          "keycap border-2 border-border-strong bg-surface text-text shadow-brutal",
+        ghost:
+          "rounded-input text-text hover:bg-accent-soft hover:text-accent",
+        subtle:
+          "keycap border-2 border-border-strong bg-accent-soft text-accent shadow-brutal",
       },
       size: {
         default: "h-9 px-4 py-2",

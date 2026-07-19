@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   verify:
-    name: Gates (pytest + ruff + extension + dashboard)
+    name: Gates (pytest + ruff + extension + platform)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +52,7 @@ jobs:
           cache: npm
           cache-dependency-path: |
             extension/package-lock.json
-            dashboard/package-lock.json
+            platform/package-lock.json
 
       - name: Extension gate
         working-directory: extension
@@ -60,8 +60,8 @@ jobs:
           npm ci
           npm run check
 
-      - name: Dashboard gate
-        working-directory: dashboard
+      - name: Platform gate
+        working-directory: platform
         run: |
           npm ci
           npm run check

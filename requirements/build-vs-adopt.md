@@ -10,12 +10,12 @@ not editable: supersede with a new row. This record is itself RE evidence
 
 ### D1 - Weights & Biases (wandb) - **REJECT (adapt its concepts)**
 
-Considered for: experiment tracking, dashboards, artifact storage.
+Considered for: experiment tracking, data apps, artifact storage.
 wandb is the obvious "don't rebuild tracking" candidate - and a bad fit:
 (a) its unit of record is an ML *training run*, not a *human session*;
 our rows are consented human-subject events, and shipping them to a
 third-party cloud violates NFR-5/FR-ETH before the ethics board even asks;
-(b) its dashboards can't render our core views (lifecycle gates, task
+(b) its data apps can't render our core views (lifecycle gates, task
 board, swimlane event timelines); (c) self-hosted wandb is heavier than our
 entire stack. **What we take instead of the tool:** its conceptual model -
 run ≈ session, artifact ≈ gate artifact, workspace ≈ study - and its
@@ -30,7 +30,7 @@ accept/reject. We adapt its VS Code API hooking strategy (text-document
 mutations + inline-completion lifecycle) into our existing extension rather
 than installing it: our events must carry our join keys, schema version,
 and sink pipeline, and land in `src/core`-testable logic. Study its source
-during MP-05 before writing ours.
+during before writing ours.
 
 ### D3 - ActivityWatch (`aw-watcher-vscode`) - **ADAPT** → FR-ING-1, NFR-1
 
@@ -39,7 +39,7 @@ dumb, lightweight in-IDE sensor firing JSON heartbeats to a local daemon.
 We adopt the *architecture* (sensor → localhost:8000 middleware,
 fire-and-forget, zero typing latency) but not the daemon - our middleware
 must be protocol-aware, idempotent on `(sessionId, seq)`, and serve our
-dashboard. Their watcher code is the reference for cheap, debounced
+platform. Their watcher code is the reference for cheap, debounced
 window/file heartbeats.
 
 ### D4 - WakaTime (`vscode-wakatime`) - **ADAPT** → FR-INST-11, FR-INST-12
@@ -71,7 +71,7 @@ adopted parser, built science.
 No public API; a closed service can't sit inside a reproducible,
 self-hosted framework. What users actually love about it - seed papers →
 interactive related-work graph - we rebuild on open data (D8) in our own
-dashboard, where nodes can link back to protocol elements (FR-LIT-3),
+platform, where nodes can link back to protocol elements (FR-LIT-3),
 which ResearchRabbit could never do.
 
 ### D8 - Semantic Scholar Graph API - **ADOPT** → FR-LIT-1, FR-LIT-2
@@ -82,23 +82,23 @@ view needs. Metadata-only calls (paper IDs/titles), so NFR-5-compatible.
 Rate limits are fine at our scale; cache responses in the middleware DB so
 the graph renders offline after first fetch.
 
-### ~~D9 - Zotero (local/web API) - **ADOPT (stretch)**~~ **WITHDRAWN** (2026-07-16) → FR-LIT-5
+### D9 - Zotero (local/web API) - **ADOPT (stretch)** — **WITHDRAWN** (2026-07-16) → FR-LIT-5
 
-Built in MP-09 (local read-only API v3 over stdlib `urllib`, no
+Built in (local read-only API v3 over stdlib `urllib`, no
 `pyzotero`); withdrawn with FR-LIT-5 (owner decision): DOI/arXiv/PDF
 ingest covers the need. It proved the paper-ingest extension point.
 Full narrative in git history.
 
-### ~~D10 - Claude API (Anthropic) - **ADOPT, bounded**~~ **SUPERSEDED by D32** (2026-07-16) → FR-LIT-4, FR-META-2
+### D10 - Claude API (Anthropic) - **ADOPT, bounded** — **SUPERSEDED by D32** (2026-07-16) → FR-LIT-4, FR-META-2
 
-Powered the knowledge assistant + retrospective (built MP-10 via the
+Powered the knowledge assistant + retrospective (built via the
 `anthropic` SDK, D22): FR-ETH-4 enforced server-side by a hand-rolled
 three-tool loop that cannot see row-level events; graceful degradation
 without a key. Superseded by D32 (owner decision: free-tier providers);
 the bounds, cite-every-claim prompt, and degradation posture carried
 over verbatim. Full narrative in git history.
 
-### D11 - FastAPI + SQLite / ~~React~~ + Vite - **ADOPT** → FR-ING, FR-DASH
+### D11 - FastAPI + SQLite + Vite - **ADOPT** → FR-ING, FR-DASH
 
 Boring, single-laptop-deployable, well-documented. SQLite over Postgres:
 participant counts are ≤ dozens; one file *is* the backup strategy (NFR-7).
@@ -134,10 +134,10 @@ workspace on save + timer. Free time-series storage, diffing, and
 reconstruction; no custom snapshot format to invent. The participant's own
 git usage (if any) stays untouched - separate git-dir, same worktree.
 
-### D15 - Svelte 5 + Vite - **ADOPT** (supersedes D11's frontend half) → FR-DASH
+### D15 - Svelte 5 + Vite - **RETIRED** (superseded by D34) → FR-DASH
 
 Maintainer preference with engineering merit for this exact app: the
-dashboard is a data-dense, chart-heavy SPA where Svelte's compiled output
+platform is a data-dense, chart-heavy SPA where Svelte's compiled output
 and fine-grained reactivity keep live views (2 s polling, streaming
 assistant responses) cheap, and its single-file components keep a
 one-person codebase small. Same deployment story as before: `vite build` →
@@ -155,7 +155,7 @@ Python 3.12 (`.python-version`). ruff + pytest configured at the root.
 ### D17 - LayerChart vs hand-rolled SVG + d3-scale - **BUILD (charts), ADOPT (d3-scale)** → FR-DASH-4/5
 
 D15 left the charting approach open (LayerChart *or* hand-rolled). Decided
-during MP-06: the centerpiece charts are a swimlane event timeline and a
+during: the centerpiece charts are a swimlane event timeline and a
 small-n distribution plot - neither is a standard chart-library shape, so a
 component library would be fought, not used. Svelte renders SVG natively;
 the only genuinely hard part is scales/ticks, so we adopt **d3-scale**
@@ -166,15 +166,15 @@ bespoke charts.
 
 ### D18 - SPA routing library - **BUILD (hand-rolled)** → FR-DASH app skeleton
 
-The dashboard has one fixed route shape
+The platform has one fixed route shape
 (`/study/:id/{view|sessions/:sid}`). svelte-routing / svelte-spa-router
 rejected: a dependency for a 60-line history-API router; SvelteKit rejected
 (again, per D15) as a framework swap. Deep links work because the
 middleware re-serves the SPA shell for `/study/*` (NFR-7).
 
-### D19 - Vitest - **ADOPT** → dashboard component tests (MP-06 §4)
+### D19 - Vitest - **ADOPT** → platform component tests ( §4)
 
-The dashboard's two logic-heavy pieces (timeline lane assembly, task-card
+The platform's two logic-heavy pieces (timeline lane assembly, task-card
 derivation) are pure TypeScript modules. Vitest runs them against the same
 Vite config as the app (one toolchain, no ts-jest/babel bridge) and is
 wired into `npm run check`. The extension keeps its existing node:test
@@ -182,7 +182,7 @@ setup - no churn where nothing is gained.
 
 ### D20 - pandas + scipy + matplotlib - **ADOPT** → FR-ANA-1..5, NFR-8
 
-The recipe layer (MP-07) computes exact nonparametric statistics and emits
+The recipe layer () computes exact nonparametric statistics and emits
 publication figures. **scipy.stats** provides the exact Wilcoxon
 signed-rank / Mann-Whitney U / Fisher distributions NFR-8 demands -
 reimplementing exact test distributions by hand is where statistics bugs
@@ -192,7 +192,7 @@ timestamp joins across legs); **matplotlib** (Agg backend, headless)
 renders the house figure styles in `analysis/figures.py` following the
 data-viz conventions. Alternatives rejected: statsmodels (nothing needed
 beyond scipy's exact tests), seaborn/plotly (styling is deliberately
-hand-rolled so figures match the dashboard palette; plotly's HTML output
+hand-rolled so figures match the platform palette; plotly's HTML output
 doesn't fit a paper pipeline). All three are pinned via the uv lockfile
 (D16, NFR-6).
 
@@ -210,7 +210,7 @@ service (NFR-5), extraction is local. FTS over the extracted text uses
 SQLite's built-in **FTS5** - no vector DB at this scale (a build decision
 recorded inline in the ingest code, not a new dependency).
 
-### ~~D22 - `anthropic` Python SDK - **ADOPT** (realizes D10)~~ **SUPERSEDED by D32** (2026-07-16) → FR-LIT-4
+### D22 - `anthropic` Python SDK - **ADOPT** (realizes D10) — **SUPERSEDED by D32** (2026-07-16) → FR-LIT-4
 
 Realized D10; removed with it. D32's provider is called over plain REST
 (stdlib `urllib`), so no successor SDK was adopted.
@@ -300,8 +300,8 @@ Each was considered for the FR-OPS deployment slice and rejected:
   third-party cloud (NFR-5 - same reasoning as D1's wandb reject) and
   replace the SQLite source-of-truth for zero benefit at ≤ dozens of
   participants.
-- **Clerk** - auth SaaS for a dashboard with exactly one operator (the
-  facilitator); `MIDDLEWARE_TOKEN` bearer auth (MP-06) already covers it,
+- **Clerk** - auth SaaS for a platform with exactly one operator (the
+  facilitator); `MIDDLEWARE_TOKEN` bearer auth () already covers it,
   and a third-party login dependency contradicts NFR-7.
 - **Blackfire.io** - profiler, free for students, but there is no open
   performance requirement: NFR-1's latency bound is enforced by sensor
@@ -337,7 +337,7 @@ refreshed by clerk-js). If the script can't load, the paste-a-token
 surface remains as the fallback; a manually issued session token verifies
 server-side identically.
 
-### ~~D30 - Vercel v0 - **ADOPT as design tool only**~~ **RETIRED** (rev 4, 2026-07-17) → dashboard UI iteration
+### D30 - Vercel v0 - **ADOPT as design tool only** — **RETIRED** (rev 4, 2026-07-17) → platform UI iteration
 
 Four revs (design-tool-only → direct Svelte iteration in v0 → main-branch
 deploys disabled → retired at owner direction) ended with Vercel/v0
@@ -349,8 +349,8 @@ successor design workflow. Full narrative in git history.
 ### D31 - Public-docs architecture - **BUILD (two-layer, archive internals)** → NFR-11
 
 The repo is open source and must read as a product. Decision (owner,
-2026-07-16): internal build history (the mega-prompt phase specs, sprint
-plans) moves to `docs/archive/` - kept intact for the examiner, out of the
+2026-07-16): internal build history (the phase specs
+plans) lives in `docs/roadmap/` and `requirements/` - kept intact for the examiner, out of the
 public eye; README becomes the product front page; the contributor guide
 consolidates into one `CONTRIBUTING.md`; RUNBOOK/TOUR keep their roles but
 drop requirement-ID jargon per NFR-11. Alternatives rejected: deleting the
@@ -373,7 +373,7 @@ and absent both keys everything degrades gracefully (503 / offline
 template). Keys live only in runtime env (Render env / VM `deploy/.env`),
 never in git or CI.
 **Rev 2 (2026-07-16):** Gemini removed at the owner's request (one Mistral
-key in active use); the dashboard's picker now selects among *Mistral model
+key in active use); the platform's picker now selects among *Mistral model
 tiers* (small/medium/large, validated server-side) instead of providers.
 The seam stays one provider class - reintroducing a second provider is a
 small, decision-gated change.
@@ -388,9 +388,9 @@ wheel-reinvention D30's workflow exists to avoid. Bounds: platform-derived
 cards stay non-draggable (they clear themselves); only manual todos move.
 Pinned via the npm lockfile.
 
-### D34 - React 19 + Vite + Tailwind v4 + shadcn/ui (v2 platform surface) - **ADOPT** → FR-PLAT, FR-CONV, NFR-12 *(scopes D15, 2026-07-17)*
+### D34 - React 19 + Vite + Tailwind v4 + shadcn/ui (the platform frontend) - **ADOPT** → FR-PLAT, FR-CONV, NFR-12 *(supersedes D15's frontend choice, 2026-07-17)*
 
-The v2 platform surface (hero page, projects, the conversational study
+The platform frontend (hero page, projects, the conversational study
 designer, chat-first study evolution) is a **new application**, not an
 increment of the mission-control SPA - different information architecture
 (marketing + auth + conversation vs. operational monitoring), different
@@ -408,23 +408,20 @@ Svelte"; framework call delegated to the implementer):
 - **Tailwind v4 + shadcn/ui**: shadcn is *vendored source, not a
   dependency* - components are copied in and owned, which fits the repo's
   zero-bloat and own-your-marks discipline (D17) far better than a
-  component library ever did. Design tokens bridge to the existing
-  dataviz palette so charts stay consistent across both surfaces.
-- **D15 is scoped, not overturned:** the Svelte dashboard remains the v1
-  operational console - built, tested, shipping - and is *maintained
-  frozen* (bug fixes, no new features) until the v2 surface reaches
-  feature parity view-by-view; each migrated view retires its Svelte twin
-  in the same PR. No big-bang rewrite of working software.
+  component library ever did. Design tokens bridge to the
+  dataviz palette so charts stay consistent with the rest of the app.
+- **D15 (Svelte) is retired:** the React `platform/` app is the sole
+  frontend. Its worth-keeping surfaces (the knowledge layer, per-condition
+  metric charts, the lifecycle board) were absorbed into the study
+  workspace, and the Svelte console was removed.
 
 Alternatives rejected: **shadcn-svelte** (a port perpetually trailing
 upstream; the chat/streaming ecosystem gap is the real cost, not the
-components); **Next.js** (server runtime duplication, contra NFR-7);
-**big-bang Svelte→React rewrite** (discards 47 passing tests and a working
-console for zero user value during the transition).
+components); **Next.js** (server runtime duplication, contra NFR-7).
 
 ### D35 - Claude-driven design workflow ("Claude Design") - **ADOPT (workflow)** → NFR-12 *(succeeds retired D30)*
 
-The owner designs the v2 surface *with Claude* (agentic coding + design
+The owner designs the platform *with Claude* (agentic coding + design
 skills) instead of v0 (retired, D30 rev 4): design tokens, component
 composition, motion, and dataviz follow the repo's skills (`dataviz`,
 design-system conventions) applied by the agent directly in the codebase -
@@ -480,7 +477,7 @@ speculative:
   no Radix primitive pulls none.
 - **Deferred to their own rows when first needed** (not adopted now):
   data fetching (`@tanstack/react-query`), routing
-  (`react-router`), virtualized threads. The MP-15 first slice runs on a
+  (`react-router`), virtualized threads. The first slice runs on a
   deterministic local stub (no network, no LLM) so none are required yet;
   each is a decision when the middleware wiring lands.
 
@@ -500,7 +497,7 @@ shadcn-canonical, faster path); adopting TanStack Query / router now
 ### D38 - Platform shell libraries (routing, palette, overlays) - **ADOPT (pinned)** → FR-PLAT *(extends D37, 2026-07-18)*
 
 D37 deferred routing/overlays to "their own row when the shell needs
-them." MP-14 needs them, so this row pins the set:
+them." needs them, so this row pins the set:
 
 - **`react-router-dom`** (v7): the shell's routes (hero, projects, project
   home, study, members, settings, invite-accept) are real URLs, so links,
@@ -524,7 +521,7 @@ library imported wholesale (the look must stay ours, D17/D34).
 ### D39 - GitHub mining client: stdlib urllib + a fixture cassette - **BUILD (thin) + no new dependency** → FR-CUR-2 *(2026-07-18)*
 
 The curated-mining leg needs to read GitHub (PRs, commits, reviews). The
-freedom note in MP-16 allows a GitHub client *library* behind its own
+freedom note in allows a GitHub client *library* behind its own
 D-row, or plain HTTP with nothing. Decision: **plain stdlib** (`urllib`),
 matching the Semantic Scholar client's zero-bloat posture (D8) - the leg
 issues a couple of GET shapes, not enough surface to justify PyGithub or

@@ -1,4 +1,4 @@
-"""The template registry (MP-15 slice 3; FR-TPL-1/2).
+"""The template registry.
 
 Templates are versioned YAML documents in ``templates/registry/``, each
 encoding one published, citable study design - its parameters, measures,
@@ -164,9 +164,7 @@ def validate_registry() -> list[str]:
         problems.extend(validate_template(doc))
         key = (doc.get("templateId", path.stem), doc.get("templateVersion", 1))
         if key in seen:
-            problems.append(
-                f"{path.name}: duplicate templateId@templateVersion {key}"
-            )
+            problems.append(f"{path.name}: duplicate templateId@templateVersion {key}")
         seen.add(key)
     return problems
 
@@ -179,10 +177,8 @@ def list_templates() -> list[dict]:
         tid = doc.get("templateId", "")
         if not tid:
             continue
-        if (
-            tid not in latest
-            or doc.get("templateVersion", 1)
-            > latest[tid].get("templateVersion", 1)
+        if tid not in latest or doc.get("templateVersion", 1) > latest[tid].get(
+            "templateVersion", 1
         ):
             latest[tid] = doc
     return [
@@ -239,9 +235,7 @@ def _coerce(name: str, definition: dict, value: Any) -> Any:
         raise TemplateError(f"parameter {name!r}: {value} is above max {maximum}")
     allowed = definition.get("enum")
     if allowed and value not in allowed:
-        raise TemplateError(
-            f"parameter {name!r}: {value!r} not one of {allowed}"
-        )
+        raise TemplateError(f"parameter {name!r}: {value!r} not one of {allowed}")
     if kind == "string" and len(str(value)) < definition.get("minLength", 0):
         raise TemplateError(f"parameter {name!r}: shorter than minLength")
     return value
@@ -255,8 +249,7 @@ def resolve_parameters(template: dict, supplied: dict) -> dict:
     unknown = sorted(set(supplied) - set(definitions))
     if unknown:
         raise TemplateError(
-            f"unknown parameter(s) {', '.join(unknown)} for "
-            f"{template['templateId']}"
+            f"unknown parameter(s) {', '.join(unknown)} for {template['templateId']}"
         )
     resolved = {}
     missing = []
@@ -268,9 +261,7 @@ def resolve_parameters(template: dict, supplied: dict) -> dict:
         else:
             missing.append(name)
     if missing:
-        raise TemplateError(
-            f"missing required parameter(s): {', '.join(missing)}"
-        )
+        raise TemplateError(f"missing required parameter(s): {', '.join(missing)}")
     return resolved
 
 
@@ -300,10 +291,7 @@ def _fill(node: Any, values: dict) -> Any:
 
 
 def instantiate_template(
-    template_id: str,
-    parameters: dict,
-    *,
-    version: int | None = None,
+    template_id: str, parameters: dict, *, version: int | None = None
 ) -> dict:
     """Template + parameters → validated protocol dict (FR-TPL-1.4).
 
@@ -324,8 +312,7 @@ def instantiate_template(
     errors = validate_protocol(protocol)
     if errors:
         raise TemplateError(
-            f"{template_id} instantiation is not a valid protocol: "
-            + "; ".join(errors)
+            f"{template_id} instantiation is not a valid protocol: " + "; ".join(errors)
         )
     return {
         "protocol": protocol,

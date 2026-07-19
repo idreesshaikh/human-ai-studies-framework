@@ -144,8 +144,7 @@ class HttpBackend implements Api {
   acceptInvitation = (token: string) =>
     this.call<{ projectSlug: string; role: Role }>(
       "POST",
-      `/invitations/${token}/accept`,
-    );
+      `/invitations/${token}/accept`);
   demo = () => this.call<DemoPointer>("GET", "/demo");
 }
 
@@ -186,7 +185,12 @@ export class InMemoryBackend implements Api {
       slug: "sample-lab",
       name: "Sample Lab",
       createdAt: "2026-07-10T09:00:00.000Z",
-      studies: [{ id: "over-trust-2026", phase: "design" }],
+      studies: [
+        { id: "over-trust-2026", phase: "design" },
+        // A demo study mid-evolution: its amendment banner + history
+        // are seeded in evolutionStub.ts.
+        { id: "sample-study-2026", phase: "data-collection" },
+      ],
       members: [
         { identitySub: "you", role: "owner", joinedAt: "2026-07-10T09:00:00.000Z" },
         { identitySub: "dana@lab.test", role: "researcher", joinedAt: "2026-07-11T09:00:00.000Z" },
@@ -208,7 +212,7 @@ export class InMemoryBackend implements Api {
 
   private roleOn(slug: string): Role | null {
     const p = this.projects.get(slug);
-    return p?.members.find((m) => m.identitySub === this.sub)?.role ?? null;
+    return p?.members.find((m,) => m.identitySub === this.sub)?.role ?? null;
   }
 
   private get(slug: string): FakeProject {
@@ -220,7 +224,7 @@ export class InMemoryBackend implements Api {
   async me(): Promise<Me> {
     const memberships: Membership[] = [];
     for (const p of this.projects.values()) {
-      const m = p.members.find((x) => x.identitySub === this.sub);
+      const m = p.members.find((x,) => x.identitySub === this.sub);
       if (m) memberships.push({ projectSlug: p.slug, projectName: p.name, role: m.role });
     }
     return { sub: this.sub, displayName: "You", mode: "none", memberships };
@@ -261,7 +265,7 @@ export class InMemoryBackend implements Api {
       name: p.name,
       studies: p.studies,
       members: p.members,
-      invitations: p.invitations.filter((i) => !i.acceptedAt),
+      invitations: p.invitations.filter((i,) => !i.acceptedAt),
     };
   }
 
@@ -281,19 +285,19 @@ export class InMemoryBackend implements Api {
   }
 
   async changeRole(slug: string, sub: string, role: Role): Promise<void> {
-    const m = this.get(slug).members.find((x) => x.identitySub === sub);
+    const m = this.get(slug).members.find((x,) => x.identitySub === sub);
     if (!m) throw new ApiError(404, "member not found");
     m.role = role;
   }
 
   async removeMember(slug: string, sub: string): Promise<void> {
     const p = this.get(slug);
-    const m = p.members.find((x) => x.identitySub === sub);
+    const m = p.members.find((x,) => x.identitySub === sub);
     if (!m) throw new ApiError(404, "member not found");
-    if (m.role === "owner" && p.members.filter((x) => x.role === "owner").length <= 1) {
+    if (m.role === "owner" && p.members.filter((x,) => x.role === "owner").length <= 1) {
       throw new ApiError(409, "can't remove the last owner — transfer ownership first");
     }
-    p.members = p.members.filter((x) => x.identitySub !== sub);
+    p.members = p.members.filter((x,) => x.identitySub !== sub);
   }
 
   async createInvitation(slug: string, email: string, role: Role): Promise<Invitation> {
@@ -316,16 +320,16 @@ export class InMemoryBackend implements Api {
   async revokeInvitation(slug: string, id: string): Promise<void> {
     const p = this.get(slug);
     const before = p.invitations.length;
-    p.invitations = p.invitations.filter((i) => i.id !== id || i.acceptedAt);
+    p.invitations = p.invitations.filter((i,) => i.id !== id || i.acceptedAt);
     if (p.invitations.length === before) throw new ApiError(404, "invitation not found");
   }
 
   async acceptInvitation(token: string): Promise<{ projectSlug: string; role: Role }> {
     for (const p of this.projects.values()) {
-      const inv = p.invitations.find((i) => i.token === token && !i.acceptedAt);
+      const inv = p.invitations.find((i,) => i.token === token && !i.acceptedAt);
       if (inv) {
         inv.acceptedAt = new Date().toISOString();
-        const existing = p.members.find((m) => m.identitySub === this.sub);
+        const existing = p.members.find((m,) => m.identitySub === this.sub);
         if (existing) existing.role = inv.role;
         else p.members.push({ identitySub: this.sub, role: inv.role, invitedBy: inv.id });
         return { projectSlug: p.slug, role: inv.role };

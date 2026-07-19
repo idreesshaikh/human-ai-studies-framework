@@ -1,7 +1,6 @@
 # FR-CUR — Curated datasets & mining (detailed specification)
 
-**SRS family:** FR-CUR. **Phase:** MP-16 (FR-CUR-1..3); FR-CUR-4
-deferred post-v2. **Spec v1, 2026-07-17.**
+**SRS family:** FR-CUR. **Phase:** 16 (FR-CUR-1..3); FR-CUR-4 deferred.
 
 ## 1. Context
 
@@ -10,7 +9,7 @@ mines repositories, PRs, and conversation archives
 (`speed-at-cost-of-quality-cursor`, `aidev-ai-coding-agents-github`,
 `agentic-much-adoption`, `devgpt-developer-chatgpt`). The platform's
 "dataset exists?" branch makes that path first-class. The architectural
-bet, inherited from v1: **the join-key event schema is the convergence
+bet, inherited: **the join-key event schema is the convergence
 contract** — curated rows land in the same one-timeline shape as live
 rows, so every recipe, report, figure, and paper-draft mechanism works
 unchanged on mined data.
@@ -26,7 +25,7 @@ unchanged on mined data.
      `post-adoption`, `agent-pr` / `human-pr`); `sessionId` = the
      mined activity unit (PR, issue thread, commit-batch window);
      timestamps = the source's own event times (never import time).
-   - `source` column (the MP-12 per-producer stream mechanism) names the
+   - `source` column (the phase 12 per-producer stream mechanism) names the
      adapter; `seq` = the adapter's deterministic ordinal, so re-mining
      is idempotent under FR-ING-2 exactly like replayed live batches.
    - Schema version: curated event types are registered in the same
@@ -43,7 +42,7 @@ unchanged on mined data.
    pointed at mined refs) — no second metrics pipeline.
 
 Fit criteria:
-- F1.1 A curated demo dataset runs the full v1 chain unchanged:
+- F1.1 A curated demo dataset runs the full analysis chain unchanged:
   ingest → gap report (per-source) → dataset export → recipes → per-RQ
   report → paper draft. Zero recipe-layer changes.
 - F1.2 Re-running the same mining job produces zero duplicate rows.
@@ -85,7 +84,7 @@ biases: [{description, direction, mitigation|accepted}]
 coverage: {requested, retrieved, dropped: {reason: count}}
 ```
 
-Rendered in the dashboard beside the dataset, injected verbatim into
+Rendered in the platform beside the dataset, injected verbatim into
 the report's and paper draft's threats-to-validity section (FR-ANA-4/6)
 — honesty about provenance travels with every claim (NFR-8 extended to
 data, per `mining-coding-agent-activity`'s pitfalls and

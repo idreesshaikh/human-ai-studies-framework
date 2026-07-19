@@ -18,18 +18,13 @@ phase, `requirements/traceability.md`); until then a recipe must state the
 approximation in its methods, exactly as the metric-coverage review requires.
 
 Emitted as a single ``derived: true`` ``code_evolution`` event per session
-(a recipe-level consumer lands in MP-09/later; the derivation is the leg's
+(a recipe-level consumer lands in/later; the derivation is the leg's
 job here).
 """
 
 from __future__ import annotations
 
-from agent_capture.events import (
-    EVENT_CODE_EVOLUTION,
-    SOURCE_DERIVED,
-    Keys,
-    study_event,
-)
+from agent_capture.events import EVENT_CODE_EVOLUTION, SOURCE_DERIVED, Keys, study_event
 
 
 def _sum(events: list[dict], type_: str, field: str, *, where=None) -> int:
@@ -58,9 +53,7 @@ def compute_evolution(events: list[dict]) -> dict:
 
     commits = sum(1 for e in events if e.get("type") == "git_commit")
 
-    ai_persistence = (
-        (ai_added - ai_deleted) / ai_added if ai_added > 0 else None
-    )
+    ai_persistence = (ai_added - ai_deleted) / ai_added if ai_added > 0 else None
     ai_share = ai_added / total_added if total_added > 0 else None
 
     return {

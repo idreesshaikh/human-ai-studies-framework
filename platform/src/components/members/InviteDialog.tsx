@@ -63,7 +63,9 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">Invite</Button>
+        <Button size="sm" data-agent="invite">
+          Invite
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogTitle>Invite a colleague</DialogTitle>

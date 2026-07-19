@@ -1,4 +1,4 @@
-"""The design assistant (MP-15 slice 4; FR-CONV-1/2).
+"""The design assistant.
 
 The server-side counterpart of the client stub (``platform/src/lib/
 designStub.ts``): it turns researcher input into a platform turn — prose plus
@@ -86,8 +86,7 @@ def _over_trust_script() -> Script:
                 {
                     "section": "measures",
                     "op": "append",
-                    "value": "Review latency (suggestion-visible-to-decision "
-                    "time)",
+                    "value": "Review latency (suggestion-visible-to-decision time)",
                 },
                 ("corpus:trust-in-ai-code-generation",),
             ),
@@ -99,8 +98,7 @@ def _over_trust_script() -> Script:
                 {
                     "section": "measures",
                     "op": "append",
-                    "value": "Code-correctness outcome (acceptance-test pass "
-                    "rate)",
+                    "value": "Code-correctness outcome (acceptance-test pass rate)",
                 },
                 ("corpus:insecure-code-with-ai-assistants",),
             ),
@@ -196,6 +194,67 @@ def _benchmark_script() -> Script:
     )
 
 
+def _add_instrument_script() -> Script:
+    """Adding a capture stream mid-study — the Slice D amendment path. A new
+    instrument is a new data stream (consent-relevant by rule, F4.1); the
+    platform says so plainly rather than letting the drift be silent."""
+    return Script(
+        text=(
+            "Adding the agent-capture leg means a new data stream — the "
+            "agent's tool calls and consent-matched conversation content. "
+            "That's consent-relevant: once the study has ethics approval this "
+            "becomes a version-visible amendment that pauses new sessions "
+            "until you re-upload approval. Running sessions are untouched."
+        ),
+        moves=(
+            ScriptedMove(
+                "add-instrument",
+                "instruments.agentCapture",
+                "Add the agent-capture instrument (Claude Code adapter, "
+                "metadata-only content policy).",
+                {
+                    "section": "instruments",
+                    "op": "add-instrument",
+                    "name": "agentCapture",
+                    "config": {
+                        "adapter": "claude-code",
+                        "contentPolicy": "metadata-only",
+                    },
+                },
+                ("corpus:guidelines-empirical-llm-se",),
+            ),
+        ),
+    )
+
+
+def _threshold_script() -> Script:
+    """A pure instrument-config tweak — the F4.2 path. Not consent-relevant:
+    it changes no data stream or policy, so it applies from the next session
+    with no re-approval, and never mutates an in-flight session."""
+    return Script(
+        text=(
+            "Loosening the stuck-detector threshold is an instrument tuning "
+            "change, not a consent change. It applies from the next session; "
+            "any session already running keeps the settings it started with."
+        ),
+        moves=(
+            ScriptedMove(
+                "reconfigure-instrument",
+                "instruments.cognitiveOverlay.stuck.thresholdSeconds",
+                "Raise the stuck-detector threshold from 90s to 120s.",
+                {
+                    "section": "instruments",
+                    "op": "reconfigure",
+                    "name": "cognitiveOverlay",
+                    "path": ["stuck", "thresholdSeconds"],
+                    "value": 120,
+                },
+                (),  # a tuning decision — the researcher's, unsourced
+            ),
+        ),
+    )
+
+
 _FOLLOWUP = Script(
     text=(
         "Tell me more so I can ground a move. What's the population, and is "
@@ -209,6 +268,14 @@ _FOLLOWUP = Script(
 def _pick_script(text: str) -> Script:
     """Deterministic input → script routing (mirrors the client stub)."""
     q = text.lower()
+    # Instrument evolution: checked first so "add the agent-capture
+    # instrument" routes here, not into an over-trust/design match.
+    if any(w in q for w in ("threshold", "stuck detector", "loosen", "tune")):
+        return _threshold_script()
+    if "instrument" in q or (
+        "agent" in q and any(w in q for w in ("add", "capture", "leg", "stream"))
+    ):
+        return _add_instrument_script()
     if any(w in q for w in ("trust", "over-trust", "junior")):
         return _over_trust_script()
     if any(w in q for w in ("productiv", "faster", "speed")) and any(
@@ -245,12 +312,7 @@ def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
 
 
 def respond(
-    s: Session,
-    text: str,
-    *,
-    seq: int,
-    study_id: str | None = None,
-    client=None,
+    s: Session, text: str, *, seq: int, study_id: str | None = None, client=None
 ) -> dict:
     """One platform turn responding to researcher ``text``.
 

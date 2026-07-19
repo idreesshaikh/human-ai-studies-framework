@@ -1,9 +1,16 @@
-/* Design tokens — the single source of truth for colour, motion, radius.
+/* Design tokens — the single source of truth for colour, motion, radius,
+ * type, and the brutalist "keycap" signature.
+ *
+ * THE RESEARCH TERMINAL — a neo-brutalist, vintage-computing identity for a
+ * platform that literally compiles talk into study-as-code. Light theme is
+ * "Paper Terminal" (manila punch-card beige + warm ink); dark theme is
+ * "Phosphor Console" (a powered CRT at night). Interactive objects are
+ * physical keycaps: thick ink border, hard offset shadow (no blur), bottoming
+ * out on press.
  *
  * The only place raw hex / ms / px values live. Components consume them via
  * Tailwind's @theme mapping (index.css) or var(--token); a lint script
- * (scripts/lint-no-raw-literals.mjs) keeps it that way. Chart colours get
- * added here later so the app and its charts stay visually consistent.
+ * (scripts/lint-no-raw-literals.mjs) keeps it that way.
  *
  * Every text/background pairing below meets WCAG AA contrast (>= 4.5:1) in
  * both light and dark. */
@@ -14,73 +21,152 @@
   --motion-standard: 200ms; /* card state changes, panel reveals */
   --motion-entrance: 280ms; /* new elements arriving */
   --motion-settle: 420ms; /* design-move fold-into-draft — the watchable move */
+  --motion-press: 70ms; /* keycap bottoming out — near-instant, mechanical */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-key: cubic-bezier(0.3, 0.9, 0.4, 1); /* the springy keypress */
 
-  /* Radii */
-  --radius-card: 14px;
-  --radius-chip: 999px;
-  --radius-input: 10px;
+  /* Radii — chunky moulded-plastic keycap corners, not hairline-sharp and not
+   * pill-soft. Brutalist weight comes from borders + hard shadows, not edges. */
+  --radius-card: 6px;
+  --radius-chip: 4px; /* boxy tag, not a pill */
+  --radius-input: 5px;
 
-  /* Type */
-  --font-display: "Georgia", "Iowan Old Style", serif; /* excellent handwriting */
-  --font-text: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Type — mono-forward: the machine speaks in monospace. Display is the same
+   * family set heavy + uppercase + tight. Sans is reserved for genuinely
+   * long-form prose (kept legible per NFR-12). */
+  --font-mono: "Berkeley Mono", "JetBrains Mono", "IBM Plex Mono", ui-monospace,
+    "SF Mono", "SFMono-Regular", Menlo, "Cascadia Code", Consolas, monospace;
+  --font-display: var(--font-mono);
+  --font-text: var(--font-mono); /* body defaults to the terminal face */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    "Helvetica Neue", sans-serif; /* the long-prose escape hatch */
 
-  /* Light theme — neutrals + one accent */
-  --bg: #fbfaf7; /* warm paper */
-  --surface: #ffffff;
-  --surface-raised: #ffffff;
-  --border: #e6e2d8;
-  --border-strong: #cfc9ba;
-  --text: #1c1a17; /* 15.6:1 on --bg */
-  --text-muted: #57534c; /* 7.4:1 on --bg */
-  --accent: #4338ca; /* indigo — 8.1:1 on --surface */
-  --accent-contrast: #ffffff;
-  --accent-soft: #eef0fb;
-  --grounded: #1f7a5a; /* tier/grounding green — 4.6:1 on --surface */
-  --unsourced: #9a5b00; /* amber, honest-not-shameful — 4.8:1 on --surface */
-  --unsourced-soft: #fbf3e4;
-  --focus-ring: #4338ca;
+  /* Light theme — "Paper Terminal": aged printout beige + warm ink. */
+  --ink: #17130d; /* borders, keycap shadow, primary text — the one true ink */
+  --bg: #ede4cf; /* manila punch-card / continuous-form printout */
+  --surface: #fbf6e9; /* bright card paper, pops off the beige */
+  --surface-raised: #fffdf6; /* menus, tooltips, the topmost plane */
+  --border: #c9ba98; /* soft warm rule — incidental dividers on beige */
+  --border-strong: #17130d; /* INK — the framed-object keyline (keycaps, cards) */
+  --text: #17130d; /* 13.7:1 on --bg */
+  --text-muted: #5c513a; /* 6.4:1 on --bg */
+  --accent: #c21a74; /* hot magenta — the brand / interactive key (5.0:1 on --surface) */
+  --accent-contrast: #fff7ec; /* cream on magenta fills */
+  --accent-soft: #fbe7f2; /* pale magenta wash — active nav, subtle fills */
+  --grounded: #0b6b45; /* phosphor green — cited into the corpus (5.0:1 on --surface) */
+  --unsourced: #9c4e08; /* burnt amber — "your call", honest-not-shameful (5.9:1) */
+  --unsourced-soft: #fbefd6;
+  --focus-ring: #17130d; /* thick ink ring, drawn in the bg gutter (offset) */
+  --shadow-color: #17130d; /* the hard offset shadow under every keycap */
+
+  /* The brutalist hard shadow — offset, zero blur, ink-coloured. Reads as a
+   * physical object lifted off the page; collapses on press. */
+  --shadow-brutal-sm: 2px 2px 0 0 var(--shadow-color);
+  --shadow-brutal: 4px 4px 0 0 var(--shadow-color);
+  --shadow-brutal-lg: 7px 7px 0 0 var(--shadow-color);
+
+  /* CRT atmosphere — scanline + faint grid tint, layered very low so text
+   * stays crisp. Consumed by the body overlay in index.css. */
+  --scanline: rgba(23, 19, 13, 0.035);
+  --grid-line: rgba(23, 19, 13, 0.05);
+
+  /* Chart palette — the dataviz skill's validated categorical order (8 slots),
+   * light column. Assign hues in fixed order, never cycled; a colored mark
+   * carries identity, never the text. Grid/axis recede. (Validated: worst
+   * adjacent CVD ΔE 9.1, normal-vision ΔE 19.6.) */
+  --series-1: #2a78d6; /* blue */
+  --series-2: #008300; /* green */
+  --series-3: #e87ba4; /* magenta */
+  --series-4: #eda100; /* yellow */
+  --series-5: #1baf7a; /* aqua */
+  --series-6: #eb6834; /* orange */
+  --series-7: #4a3aa7; /* violet */
+  --series-8: #e34948; /* red */
+  --viz-grid: #d8cbab; /* recessive gridlines on beige */
+  --viz-axis: #a99a78; /* baseline / axis rule */
+  --status-critical: #b4241f;
 }
 
 :root[data-theme="dark"] {
-  --bg: #17161c;
-  --surface: #201f27;
-  --surface-raised: #2a2833;
-  --border: #34323d;
-  --border-strong: #47444f;
-  --text: #f3f1ec; /* 14.9:1 on --bg */
-  --text-muted: #b0aca4; /* 7.1:1 on --bg */
-  --accent: #a5b4fc; /* lighter indigo for dark — 8.4:1 on --surface */
-  --accent-contrast: #17161c;
-  --accent-soft: #2b2b45;
-  --grounded: #5fd0a3; /* 7.9:1 on --surface */
-  --unsourced: #e6b45c; /* 7.6:1 on --surface */
-  --unsourced-soft: #34301f;
-  --focus-ring: #a5b4fc;
+  /* Dark theme — "Phosphor Console": a powered CRT. "Ink" inverts to warm
+   * phosphor-white; framed objects wear a bright keyline; accents glow. */
+  --ink: #edead2;
+  --bg: #0c0e0a;
+  --surface: #14160f;
+  --surface-raised: #1b1d14;
+  --border: #3a3d2e; /* soft keyline */
+  --border-strong: #edead2; /* bright keyline — brutalist frames read light on dark */
+  --text: #edead2; /* 14.3:1 on --bg */
+  --text-muted: #9e9b80; /* 6.8:1 on --bg */
+  --accent: #ff57a8; /* neon magenta — glows on the console */
+  --accent-contrast: #14160f;
+  --accent-soft: #3a1e2e;
+  --grounded: #3de08a; /* CRT phosphor green */
+  --unsourced: #f2b23c; /* amber CRT glow */
+  --unsourced-soft: #33280f;
+  --focus-ring: #ff57a8;
+  --shadow-color: #57543b; /* warm olive offset — reads as a lit raised edge on dark */
+  --shadow-brutal-sm: 2px 2px 0 0 var(--shadow-color);
+  --shadow-brutal: 4px 4px 0 0 var(--shadow-color);
+  --shadow-brutal-lg: 7px 7px 0 0 var(--shadow-color);
+  --scanline: rgba(61, 224, 138, 0.04); /* faint green scanline glow */
+  --grid-line: rgba(237, 234, 210, 0.045);
+
+  /* Chart palette — the dataviz skill's dark column: the same eight hues
+   * stepped for the dark surface (not an auto-flip), validated as a set. */
+  --series-1: #3987e5;
+  --series-2: #008300;
+  --series-3: #d55181;
+  --series-4: #c98500;
+  --series-5: #199e70;
+  --series-6: #d95926;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --viz-grid: #2c2e22;
+  --viz-axis: #47493a;
+  --status-critical: #ff6b5e;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #17161c;
-    --surface: #201f27;
-    --surface-raised: #2a2833;
-    --border: #34323d;
-    --border-strong: #47444f;
-    --text: #f3f1ec;
-    --text-muted: #b0aca4;
-    --accent: #a5b4fc;
-    --accent-contrast: #17161c;
-    --accent-soft: #2b2b45;
-    --grounded: #5fd0a3;
-    --unsourced: #e6b45c;
-    --unsourced-soft: #34301f;
-    --focus-ring: #a5b4fc;
+    --ink: #edead2;
+    --bg: #0c0e0a;
+    --surface: #14160f;
+    --surface-raised: #1b1d14;
+    --border: #3a3d2e;
+    --border-strong: #edead2;
+    --text: #edead2;
+    --text-muted: #9e9b80;
+    --accent: #ff57a8;
+    --accent-contrast: #14160f;
+    --accent-soft: #3a1e2e;
+    --grounded: #3de08a;
+    --unsourced: #f2b23c;
+    --unsourced-soft: #33280f;
+    --focus-ring: #ff57a8;
+    --shadow-color: #57543b;
+    --shadow-brutal-sm: 2px 2px 0 0 var(--shadow-color);
+    --shadow-brutal: 4px 4px 0 0 var(--shadow-color);
+    --shadow-brutal-lg: 7px 7px 0 0 var(--shadow-color);
+    --scanline: rgba(61, 224, 138, 0.04);
+    --grid-line: rgba(237, 234, 210, 0.045);
+    --series-1: #3987e5;
+    --series-2: #008300;
+    --series-3: #d55181;
+    --series-4: #c98500;
+    --series-5: #199e70;
+    --series-6: #d95926;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --viz-grid: #2c2e22;
+    --viz-axis: #47493a;
+    --status-critical: #ff6b5e;
   }
 }
 
 /* Respect the OS "reduce motion" setting — every surface stays fully
- * usable with animation off. */
+ * usable with animation off (keycap press, cursor blink, scanline all still). */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

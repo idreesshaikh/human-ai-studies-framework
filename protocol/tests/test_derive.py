@@ -26,7 +26,7 @@ def test_instrument_config_flows_through(pilot):
     settings = derive_overlay_settings(pilot, "P02", "unassisted")
     assert settings["cognitiveOverlay.fatigue.intervalMinutes"] == 15
     assert settings["cognitiveOverlay.stuck.languages"] == ["python"]
-    # 45-minute sessions per the frozen pilot protocol (MP-08 deliverable 1).
+    # 45-minute sessions per the frozen pilot protocol.
     assert settings["cognitiveOverlay.session.durationMinutes"] == 45
     assert (
         settings["cognitiveOverlay.output.httpEndpoint"]

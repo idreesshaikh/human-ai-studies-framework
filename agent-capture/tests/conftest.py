@@ -39,7 +39,7 @@ def middleware(tmp_path):
         db_path=tmp_path / "test.sqlite3",
         data_dir=tmp_path / "data",
         protocol_path=_PILOT,
-        dashboard_dist=tmp_path / "no-dist",
+        spa_dist=tmp_path / "no-dist",
     )
     return TestClient(
         create_app(settings, clock=lambda: datetime(2026, 7, 12, 12, tzinfo=UTC))
