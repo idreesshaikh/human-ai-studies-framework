@@ -94,6 +94,14 @@ its verification steps ran green, its row here is flipped, and its
 requirement rows in `requirements/traceability.md` are flipped** —
 finishing the code is not finishing the phase.
 
+### Study conductor (19–21)
+
+| Phase | Title | Satisfies | Status |
+| ----- | ----- | --------- | ------ |
+| [19](19-live-capture-link.md) | The live capture link | FR-INST-20/21, FR-ING-7, FR-DASH-10 | ⬜ specced |
+| 20 | The capture console (grounded per-metric toggles) | (to be specced) | ⬜ |
+| 21 | The conductor overlay (in-editor cognitive load) | (to be specced) | ⬜ |
+
 ## The load-bearing walls (fixed in every phase)
 
 These are the platform's physics. Every slice of every phase obeys them;

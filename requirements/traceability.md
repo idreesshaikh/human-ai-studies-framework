@@ -119,6 +119,10 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | NFR-10 | S4 | `build-vs-adopt.md` | ✅ decisions recorded |
 | NFR-11 | S6,S7; open-source posture | README, CONTRIBUTING, RUNBOOK, TOUR, platform copy; internals → `docs/roadmap/` | 🔶 docs restructured; platform chip inversion pending |
 | NFR-12 | S7; D34, D35 | design system + `platform/` app (`specs/nfr-12-experience.md`) | 🔶 token system + surfaces built + gated (tokens-only lint, both themes); browser axe/screenshot evidence pending |
+| FR-INST-20 | S6,S7; platform loop | `middleware/` enrollment + `extension/` connect | ⬜ |
+| FR-ING-7 | RQ-F1; S3 | `middleware/enrollment.py` + ingest auth | ⬜ |
+| FR-INST-21 | wall #6; FR-PROT-4 | `middleware/` capture-config + `extension/` core | ⬜ |
+| FR-DASH-10 | S1; FR-DASH-3 | `platform/` EnrollmentPanel | ⬜ |
 
 ## 2. RQ → data elements → recipes (analysis coverage)
 
