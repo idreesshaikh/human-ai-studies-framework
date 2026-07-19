@@ -158,6 +158,74 @@ def test_ingest_without_credential_still_lands_flagged(client_ethics_ok: TestCli
     assert "unauthenticated" in row["flags"]
 
 
+def _db_dependency(client: TestClient):
+    """Find the exact ``db`` closure FastAPI resolved for ``/ingest/events``
+    (Task A7): dependency_overrides is keyed on callable identity, and
+    ``db`` is a closure inside ``create_app`` with no importable name, so
+    the override target must be recovered from the route's dependant tree."""
+    for route in client.app.routes:
+        if getattr(route, "path", None) == "/ingest/events":
+            for dep in route.dependant.dependencies:
+                if getattr(dep.call, "__name__", None) == "db":
+                    return dep.call
+    raise AssertionError("could not find the `db` dependency on /ingest/events")
+
+
+def test_ingest_survives_a_failing_credential_lookup(client_ethics_ok: TestClient):
+    """Task A7 (Critical): resolve_credential's docstring promises 'never
+    raises', but its DB read was unguarded. A SQLite lock / I/O error /
+    any SQLAlchemy error there must degrade to the already-correct
+    'unauthenticated' path (NFR-1/FR-ING-6: ingest never 500s, never drops
+    a row) - not surface as a 500 that discards the whole batch.
+
+    Forces the credential lookup itself to raise (not just 'no matching
+    row') by overriding the `db` dependency with a session whose FIRST
+    `.scalar(...)` call (the EnrollmentToken lookup) raises, while
+    delegating everything else to a real session bound to the same
+    on-disk sqlite file so the Event insert genuinely persists.
+    """
+    from middleware.db import make_session_factory
+
+    db_dep = _db_dependency(client_ethics_ok)
+    real_factory = make_session_factory(client_ethics_ok.db_path)
+
+    class _FailFirstScalar:
+        def __init__(self, real):
+            self._real = real
+            self._calls = 0
+
+        def scalar(self, *args, **kwargs):
+            self._calls += 1
+            if self._calls == 1:
+                raise RuntimeError("simulated DB error (lock/IO) on credential read")
+            return self._real.scalar(*args, **kwargs)
+
+        def __getattr__(self, name):
+            return getattr(self._real, name)
+
+    def failing_db():
+        real = real_factory()
+        try:
+            yield _FailFirstScalar(real)
+            real.commit()
+        finally:
+            real.close()
+
+    client_ethics_ok.app.dependency_overrides[db_dep] = failing_db
+    try:
+        r = client_ethics_ok.post(
+            "/ingest/events",
+            json=_events("P01", "ai-assisted"),
+            headers={"authorization": "Bearer anything"},
+        )
+        assert r.status_code == 200, r.text
+        rows = client_ethics_ok.get("/sessions/s1/events").json()
+        assert len(rows) == 1  # the row was NOT dropped
+        assert "unauthenticated" in rows[0]["flags"]
+    finally:
+        del client_ethics_ok.app.dependency_overrides[db_dep]
+
+
 def test_credential_never_persists_into_stored_rows(client_ethics_ok: TestClient):
     tok = client_ethics_ok.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}

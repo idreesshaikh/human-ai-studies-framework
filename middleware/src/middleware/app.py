@@ -2458,17 +2458,26 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         cred = authorization.removeprefix("Bearer ").strip()
         if not cred:
             return None
-        row = s.scalar(
-            select(EnrollmentToken).where(EnrollmentToken.credential == cred)
-        )
-        if row is None or row.revoked_at:
-            return None
         try:
-            if datetime.fromisoformat(row.expires_at) < clock():
+            row = s.scalar(
+                select(EnrollmentToken).where(EnrollmentToken.credential == cred)
+            )
+            if row is None or row.revoked_at:
                 return None
-        except (ValueError, TypeError):
-            pass
-        return row
+            try:
+                if datetime.fromisoformat(row.expires_at) < clock():
+                    return None
+            except (ValueError, TypeError):
+                pass
+            return row
+        except Exception:
+            # A DB/infra error here (SQLite lock, I/O error, any
+            # SQLAlchemy error) must never surface as a 500 that drops
+            # the whole ingest batch - degrade to the already-correct
+            # "bearer present but unresolved" path (Task A7, NFR-1/
+            # FR-ING-6). The caller flags the row `unauthenticated` and
+            # stores it anyway.
+            return None
 
     @app.get("/studies/{study_id}/capture-config")
     def get_capture_config(
