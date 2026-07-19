@@ -442,23 +442,37 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.post("/ingest/events")
     def ingest_events(
-        batch: EventBatch | list[StudyEventIn], s: Session = Depends(db)
+        batch: EventBatch | list[StudyEventIn],
+        authorization: str = Header(default=""),
+        s: Session = Depends(db),
     ) -> dict:
         events = batch if isinstance(batch, list) else batch.events
         batch_source = "" if isinstance(batch, list) else batch.source
         received = now()
+        cred_row = resolve_credential(s, authorization)
+        bearer_present = authorization.startswith("Bearer ")
         flagged = 0
         rows = []
         for e in events:
-            flags = check.flags_for(e.participantId, e.condition, e.v)
+            pid, cond = e.participantId, e.condition
+            extra_flags: list[str] = []
+            if cred_row is not None:
+                if (e.participantId and e.participantId != cred_row.participant_id) or (
+                    e.condition and e.condition != cred_row.condition
+                ):
+                    extra_flags.append("credential-mismatch")
+                pid, cond = cred_row.participant_id, cred_row.condition  # server-stamp
+            elif bearer_present:
+                extra_flags.append("unauthenticated")  # bearer sent, none valid
+            flags = check.flags_for(pid, cond, e.v) + extra_flags
             flagged += bool(flags)
             rows.append(
                 dict(
                     session_id=e.sessionId,
                     source=e.source or batch_source or DEFAULT_SOURCE,
                     seq=e.seq,
-                    participant_id=e.participantId,
-                    condition=e.condition,
+                    participant_id=pid,
+                    condition=cond,
                     v=e.v,
                     ts=e.ts,
                     mono=e.mono,

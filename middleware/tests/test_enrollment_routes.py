@@ -108,3 +108,68 @@ def test_capture_config_matches_redeem_and_requires_credential(
     )
     assert r.status_code == 200
     assert r.json()["settings"]["cognitiveOverlay.participantId"] == "P01"
+
+
+def _events(pid, cond):
+    return {
+        "events": [
+            {
+                "sessionId": "s1",
+                "seq": 0,
+                "v": 3,
+                "participantId": pid,
+                "condition": cond,
+                "type": "session_start",
+            }
+        ]
+    }
+
+
+def test_credentialed_ingest_server_stamps_join_keys(client_ethics_ok: TestClient):
+    tok = client_ethics_ok.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
+    ).json()[0]
+    raw = tok["connectionString"].split("#", 1)[1]
+    cred = client_ethics_ok.post("/pair/redeem", json={"token": raw}).json()[
+        "sessionCredential"
+    ]
+    # Client LIES about being P08; the credential says P01 -> server overrides.
+    r = client_ethics_ok.post(
+        "/ingest/events",
+        json=_events("P08", "unassisted"),
+        headers={"authorization": f"Bearer {cred}"},
+    )
+    assert r.status_code == 200
+    row = client_ethics_ok.get("/sessions/s1/events").json()[0]
+    assert row["participantId"] == "P01"  # stamped from the credential
+    assert row["condition"] == "ai-assisted"
+    assert "credential-mismatch" in row["flags"]
+
+
+def test_ingest_without_credential_still_lands_flagged(client_ethics_ok: TestClient):
+    # Bearer present but bogus -> never 401, row stored and flagged.
+    r = client_ethics_ok.post(
+        "/ingest/events",
+        json=_events("P01", "ai-assisted"),
+        headers={"authorization": "Bearer not-a-real-credential"},
+    )
+    assert r.status_code == 200
+    row = client_ethics_ok.get("/sessions/s1/events").json()[0]
+    assert "unauthenticated" in row["flags"]
+
+
+def test_credential_never_persists_into_stored_rows(client_ethics_ok: TestClient):
+    tok = client_ethics_ok.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
+    ).json()[0]
+    raw = tok["connectionString"].split("#", 1)[1]
+    cred = client_ethics_ok.post("/pair/redeem", json={"token": raw}).json()[
+        "sessionCredential"
+    ]
+    client_ethics_ok.post(
+        "/ingest/events",
+        json=_events("P01", "ai-assisted"),
+        headers={"authorization": f"Bearer {cred}"},
+    )
+    dump = client_ethics_ok.get("/sessions/s1/events").text
+    assert cred not in dump  # the secret never leaks into stored data (wall #7)
