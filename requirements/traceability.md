@@ -77,10 +77,10 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-OPS-2 | change management; RQ-F3; NFR-9 | `.github/workflows/release.yml` + `deploy.yml` (GHCR, D24) | 🔶 built; first tagged release pending |
 | FR-OPS-3 | S6,S7; FR-PROT-4 | `release.yml` marketplace job (D27); `extension/package.json` | 🔶 built; publisher account + `VSCE_PAT` pending |
 | FR-OPS-4 | D5; zero-idle-cost | `.github/workflows/sonar-vm.yml` + compose `--profile sonar` | 🔶 workflow built; sonar VM provisioning pending |
-| FR-OPS-5 | NFR-1 (ingest open); D29 | `middleware/auth.py` (none/token/clerk) + `GET /auth/config` + `platform/` sign-in + `@clerk/clerk-js` widget | ✅ code complete; live Clerk smoke pending |
+| FR-OPS-5 | NFR-1 (ingest open); D29 | `middleware/auth.py` (none/token/clerk) + `GET /auth/config` + `platform/src/lib/auth.tsx` + `SignInScreen` (hotloaded `@clerk/clerk-js`/`@clerk/ui`, token-paste fallback) | ✅ code complete (2026-07-20, rebuilt in `platform/` after the `dashboard/` retirement dropped it); live Clerk smoke pending |
 | FR-OPS-6 | D30; D34 | `platform/` `VITE_API_BASE` + `settings.cors_origins` → opt-in `CORSMiddleware` | ✅ |
 | FR-OPS-7 | D29; FR-OPS-5 | per-user preference store keyed by Clerk identity | ⏳ blocked on Clerk provisioning |
-| FR-PLAT-1 | S7 | project/membership/invitation model + boot migration (`db.py`); scoping choke point (`authz.require_project*`) | ✅ backend + tests; `platform/` projects UI |
+| FR-PLAT-1 | S7 | project/membership/invitation model + boot migration (`db.py`); scoping choke point (`authz.require_project*`) | ✅ backend + tests; `platform/` projects UI — `createApi()` (`api.ts`) fixed 2026-07-20 to default same-origin (NFR-7) instead of always falling back to the in-memory fake whenever `VITE_API_BASE` was unset, which had silently made every deployment (including the seeded demo) run on fake, non-persistent project/member data regardless of the real backend |
 | FR-PLAT-2 | S7,S3; FR-OPS-5 | roles + server-side enforcement (`authz.CAPABILITIES` matrix as data) | ✅ matrix-complete tests; `RoleGate` reflects it client-side (UI only) |
 | FR-PLAT-3 | S7 | invitations (single-use, expiring); `InviteDialog` (copy-link) | ✅ backend + UI; email-provider delivery deferred |
 | FR-PLAT-4 | S7; NFR-11 | hero page + `/demo` pointer | 🔶 hero + demo UI (offline stub); server-seeded demo project pending |

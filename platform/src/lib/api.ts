@@ -96,6 +96,38 @@ export class ApiError extends Error {
   }
 }
 
+/** The middleware is unreachable (no server, network down) — distinct from
+ * `ApiError`, which means the server answered but refused. `createApi()`
+ * catches this to fall back to the offline fake; callers that want to tell
+ * "no server" apart from "signed out" can catch it directly. */
+export class OfflineError extends Error {
+  constructor() {
+    super("This needs the running middleware (port 8000).");
+    this.name = "OfflineError";
+  }
+}
+
+/** A bearer token to send with every request, refreshed on demand — Clerk
+ * session JWTs are short-lived, so this is called per request rather than
+ * cached. Set by the auth layer once a Clerk session exists; defaults to the
+ * pasted-token fallback (`localStorage['middleware.token']`), matching
+ * `studyApi.ts`'s auth header. */
+let tokenProvider: () => Promise<string | null> = async () =>
+  localStorage.getItem("middleware.token");
+
+export function setTokenProvider(provider: () => Promise<string | null>): void {
+  tokenProvider = provider;
+}
+
+/** Notified whenever the server answers 401 — the auth layer subscribes to
+ * show the sign-in surface without every page needing to catch it itself. */
+const unauthorizedListeners = new Set<() => void>();
+
+export function onUnauthorized(listener: () => void): () => void {
+  unauthorizedListeners.add(listener);
+  return () => unauthorizedListeners.delete(listener);
+}
+
 // --------------------------------------------------------------- HTTP backend
 
 class HttpBackend implements Api {
@@ -105,12 +137,21 @@ class HttpBackend implements Api {
   }
 
   private async call<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await fetch(this.base + path, {
-      method,
-      headers: body ? { "content-type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-      credentials: "include",
-    });
+    const token = await tokenProvider();
+    let res: Response;
+    try {
+      res = await fetch(this.base + path, {
+        method,
+        headers: {
+          ...(body ? { "content-type": "application/json" } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        credentials: "include",
+      });
+    } catch {
+      throw new OfflineError();
+    }
     if (!res.ok) {
       let detail = res.statusText;
       try {
@@ -118,6 +159,7 @@ class HttpBackend implements Api {
       } catch {
         /* non-JSON error body */
       }
+      if (res.status === 401) unauthorizedListeners.forEach((l) => l());
       throw new ApiError(res.status, detail);
     }
     return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
@@ -344,10 +386,39 @@ export class InMemoryBackend implements Api {
   }
 }
 
-/** Pick the backend: the real API when VITE_API_BASE is set, else the
- * in-memory fake (offline dev, the hero demo, and tests). */
+/** Every call tries the real backend first and falls back to the in-memory
+ * fake only on `OfflineError` (no server reachable) — never on a real
+ * `ApiError`, so a genuine 401/403/404 still surfaces. Preserves offline
+ * explorability (`npm run dev` with nothing on :8000, static previews) while
+ * a deployed instance — same origin, per NFR-7 — always talks to the real
+ * server. Mirrors `studyApi.ts`'s per-call live-or-seed posture. */
+function withOfflineFallback(live: Api, offline: Api): Api {
+  const handler: ProxyHandler<Api> = {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (typeof value !== "function") return value;
+      return async (...args: unknown[]) => {
+        try {
+          return await (value as (...a: unknown[]) => unknown).apply(target, args);
+        } catch (e) {
+          if (e instanceof OfflineError) {
+            const fallback = offline[prop as keyof Api] as (...a: unknown[]) => unknown;
+            return fallback.apply(offline, args);
+          }
+          throw e;
+        }
+      };
+    },
+  };
+  return new Proxy(live, handler);
+}
+
+/** Same-origin by default — in production the middleware serves this SPA
+ * at `/` (NFR-7), so a relative base reaches the real API with no build-time
+ * config. Set VITE_API_BASE only for a separate-origin deployment (needs
+ * MIDDLEWARE_CORS_ORIGINS, FR-OPS-6, D30). */
 export function createApi(): Api {
   const base =
-    typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_BASE : undefined;
-  return base ? new HttpBackend(base) : new InMemoryBackend();
+    (typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_BASE : undefined) ?? "";
+  return withOfflineFallback(new HttpBackend(base), new InMemoryBackend());
 }
