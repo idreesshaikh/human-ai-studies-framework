@@ -23,6 +23,7 @@ import { showEndSurvey } from './endSurvey';
 import { LikertPromptHandle, showLikertQuickPick } from './fatiguePrompt';
 import {
   getStoredCredential,
+  pairFromConnectionString,
   registerPairing,
   refreshConfigAtSessionStart,
 } from './pairing';
@@ -97,6 +98,14 @@ export function activate(context: vscode.ExtensionContext): void {
     // built-in command even when no study is running.
     registerBehaviorCommands(() => study?.behavior),
     registerPairing(context),
+    vscode.window.registerUriHandler({
+      handleUri(uri: vscode.Uri) {
+        const params = new URLSearchParams(uri.query);
+        const c = params.get('c');
+        if (uri.path === '/pair' && c)
+          void pairFromConnectionString(context, c);
+      },
+    }),
   );
 
   void offerCrashRecovery();
