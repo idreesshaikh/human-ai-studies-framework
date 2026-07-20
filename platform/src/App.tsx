@@ -1,5 +1,7 @@
 import { Outlet, Route, Routes, Link } from "react-router-dom";
 import { AppFrame } from "@/components/shell/AppFrame";
+import { SignInScreen } from "@/components/shell/SignInScreen";
+import { useAuth } from "@/lib/auth.tsx";
 import { Hero } from "@/pages/Hero";
 import { DemoProject } from "@/pages/DemoProject";
 import { Projects } from "@/pages/Projects";
@@ -10,8 +12,15 @@ import { Members } from "@/pages/Members";
 import { Settings } from "@/pages/Settings";
 import { InviteAccept } from "@/pages/InviteAccept";
 
-/* Layout for the signed-in routes: the app chrome around a routed page. */
+/* Layout for the signed-in routes: the app chrome around a routed page.
+ * Gates on a credential before ever mounting project UI (FR-OPS-5) — either
+ * no credential exists yet (clerk/token mode, first visit) or the server
+ * has already 401'd one. `none` mode (self-hosted, zero-config) never
+ * gates: there's a single implicit facilitator identity, nothing to sign
+ * into. */
 function Shell() {
+  const { config, needed, hasCredential } = useAuth();
+  if (config.mode !== "none" && (needed || !hasCredential)) return <SignInScreen />;
   return (
     <AppFrame>
       <Outlet />

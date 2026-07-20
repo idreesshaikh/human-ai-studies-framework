@@ -330,12 +330,21 @@ deployments load nothing. Self-bundling the npm package was tried first
 and reverted the same day: its ESM build ships without the UI renderer
 ("Clerk was not loaded with Ui components" at mount), and hotload is
 Clerk's documented pattern for non-React apps anyway. `@clerk/clerk-js`
-stays as a **types-only devDependency**. Clerk's hosted sign-in UI mounts
-in `SignIn.svelte`; the API client takes a live token getter
-(`session.getToken()` per request - Clerk JWTs are short-lived and
-refreshed by clerk-js). If the script can't load, the paste-a-token
-surface remains as the fallback; a manually issued session token verifies
-server-side identically.
+stays as a **types-only devDependency**. If the script can't load, the
+paste-a-token surface remains as the fallback; a manually issued session
+token verifies server-side identically.
+
+**Ported (2026-07-20):** the client half above originally shipped in
+`dashboard/` (Svelte, `SignIn.svelte` + `auth.svelte.ts`) - that app was
+retired wholesale in the "collapse to one version" pivot to `platform/`
+(React, D34), and the sign-in widget was not carried over with it, leaving
+`platform/` with a working `clerk` provider server-side and no way to
+actually sign in. Re-implemented as `platform/src/lib/auth.tsx` (the
+hotload + `mountSignIn`/token-paste logic) and
+`platform/src/components/shell/SignInScreen.tsx` (the surface `Shell`
+renders in `App.tsx` in place of project UI until a credential exists);
+the API client's live token getter is `setTokenProvider` in `api.ts`. No
+new decision needed - same adopted dependency, same pattern, new host.
 
 ### D30 - Vercel v0 - **ADOPT as design tool only** — **RETIRED** (rev 4, 2026-07-17) → platform UI iteration
 

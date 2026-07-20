@@ -50,6 +50,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       setMe(await api.me());
+    } catch {
+      // Not signed in (401) — the auth layer's `onUnauthorized` listener
+      // shows the sign-in surface; this just avoids an unhandled rejection.
+      setMe(null);
     } finally {
       setLoading(false);
     }

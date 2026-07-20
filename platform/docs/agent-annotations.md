@@ -47,6 +47,7 @@ retrofitted.
 | `draft-rail` | `DraftRail` | the compiled protocol-draft view (landmark) |
 | `project-switcher` | `ProjectSwitcher` | open the ⌘K project switcher (landmark) |
 | `project-nav` | `AppFrame` | the project sidebar (landmark) |
+| `sign-in` | `SignInScreen` | the sign-in gate (landmark), shown instead of project UI until a credential exists |
 | `invite` | `InviteDialog` | open the invite dialog (decision point) |
 | `member-actions` | `MembersTable` | open a member's role/remove menu (decision point) |
 | `amendment-banner` | `AmendmentBanner` | the study's amendment state (consent surface); `data-agent-paused` refines it |

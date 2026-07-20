@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ProjectSwitcher } from "./ProjectSwitcher";
 import { useSession } from "@/lib/session";
+import { useAuth } from "@/lib/auth.tsx";
 import { applyTheme, getTheme, nextTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 
@@ -23,6 +24,7 @@ const THEME_ICON = { system: Monitor, light: Sun, dark: Moon };
  * viewports. */
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const { me } = useSession();
+  const { signOut } = useAuth();
   const { pathname } = useLocation();
   const { slug: routeSlug } = useParams<{ slug?: string }>();
   const hasProjectNav = /^\/p\/[^/]+/.test(pathname);
@@ -100,7 +102,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
               <DropdownMenuItem asChild>
                 <Link to="/projects">All projects</Link>
               </DropdownMenuItem>
-              <DropdownMenuItem destructive>
+              <DropdownMenuItem destructive onClick={signOut}>
                 <LogOut className="size-4" aria-hidden /> Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
