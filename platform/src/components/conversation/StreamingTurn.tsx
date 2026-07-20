@@ -57,7 +57,7 @@ export function StreamingTurn({
 
       {turn.moves.length > 0 && (
         <div className="flex w-full max-w-[46ch] flex-col gap-2">
-          {turn.moves.map((m,) => (
+          {turn.moves.map((m) => (
             <MoveCard key={m.moveId} move={m} onDecide={onDecide} />
           ))}
         </div>
@@ -65,7 +65,7 @@ export function StreamingTurn({
 
       {turn.recommendations.length > 0 && (
         <div className="grid w-full max-w-[46ch] gap-2 sm:grid-cols-2">
-          {turn.recommendations.map((r,) => (
+          {turn.recommendations.map((r) => (
             <RecommendationCard
               key={r.ref}
               rec={r}

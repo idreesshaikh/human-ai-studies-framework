@@ -2,10 +2,11 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/cn";
 
-/* Badge — a boxy machine tag: ink keyline, mono label, tracked. Semantic fills
- * carry meaning (magenta brand, phosphor green = cited, amber = your-call). */
+/* Badge — a small machine tag: warm keyline, mono label, sentence case.
+ * Semantic fills carry meaning (teal = brand, green = cited to the literature,
+ * sienna = your call). */
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-chip border-2 px-2 py-0.5 font-display text-xs font-semibold tracking-wide",
+  "inline-flex items-center gap-1 rounded-chip border px-2 py-0.5 font-mono text-xs font-medium tracking-tight",
   {
     variants: {
       variant: {

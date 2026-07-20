@@ -26,13 +26,13 @@ export function PlatformFindings() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-8 p-6">
       <header className="flex flex-col gap-1">
-        <h1 className="font-display text-2xl font-bold uppercase tracking-tight text-text">
+        <h1 className="font-serif text-3xl font-medium tracking-tight text-text">
           How the platform is evolving
         </h1>
         <p className="text-sm text-text-muted">
-          Feedback you flag in a design conversation becomes a finding, and
-          findings are drafted into an improvement proposal — the same loop your
-          study runs on, turned on the platform itself.
+          When you flag something in a design conversation, it becomes a
+          finding, and findings are gathered into an improvement proposal. It is
+          the same loop your study runs on, turned back on the platform itself.
         </p>
       </header>
 
@@ -50,7 +50,7 @@ export function PlatformFindings() {
           </p>
         ) : (
           <ul data-agent="platform-findings" className="flex flex-col gap-2">
-            {findings.map((f,) => (
+            {findings.map((f) => (
               <li
                 key={f.id}
                 className="rounded-card border border-border bg-surface p-3 text-sm"
@@ -91,7 +91,7 @@ export function PlatformFindings() {
         <p className="text-sm text-text-muted">
           A person approves this — nothing self-applies. It cites the findings
           it drew on:{" "}
-          {proposal.citedFindingIds.map((id,) => `#${id}`).join(", ") || "none"}.
+          {proposal.citedFindingIds.map((id) => `#${id}`).join(", ") || "none"}.
         </p>
         {proposal.items.length > 0 && (
           <ul className="flex flex-col gap-2">

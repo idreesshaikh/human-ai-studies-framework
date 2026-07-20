@@ -38,7 +38,7 @@ export function Projects() {
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold uppercase tracking-tight text-text">Projects</h1>
+          <h1 className="font-serif text-3xl font-medium tracking-tight text-text">Projects</h1>
           <p className="text-sm text-text-muted">The rooms your studies live in.</p>
         </div>
       </div>
@@ -47,7 +47,7 @@ export function Projects() {
         <CardContent className="flex flex-col gap-2 p-4">
           <div className="flex gap-2">
             <Input
-              placeholder="New project name…"
+              placeholder="Name a new project…"
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && create()}
@@ -64,7 +64,7 @@ export function Projects() {
       {loading && <p className="text-sm text-text-muted">Loading projects…</p>}
       {error && <p className="text-sm text-unsourced">{error}</p>}
       {data && data.length === 0 && (
-        <EmptyState line="Research is better with witnesses — create your first project above." />
+        <EmptyState line="Research goes better with company. Create your first project above." />
       )}
       {data && data.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2">

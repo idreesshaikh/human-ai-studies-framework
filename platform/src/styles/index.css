@@ -1,5 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+
+/* Self-hosted fonts (no external requests, NFR-5-friendly): Newsreader is the
+ * reading serif that carries the tool's voice; IBM Plex Mono is the machine
+ * face for the compiled draft, data, and labels. */
+@import "@fontsource-variable/newsreader/index.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+
 @import "./tokens.css";
 
 /* Map tokens onto Tailwind's theme so utilities (bg-surface, text-muted,
@@ -39,12 +48,14 @@
   --radius-chip: var(--radius-chip);
   --radius-input: var(--radius-input);
 
-  /* The keycap signature as first-class utilities: shadow-brutal[-sm|-lg]. */
+  /* The lifted-card signature as first-class utilities: shadow-brutal[-sm|-lg].
+   * (Name retained for continuity; the look is now a soft warm shadow.) */
   --shadow-brutal-sm: var(--shadow-brutal-sm);
   --shadow-brutal: var(--shadow-brutal);
   --shadow-brutal-lg: var(--shadow-brutal-lg);
 
   --font-display: var(--font-display);
+  --font-serif: var(--font-serif);
   --font-mono: var(--font-mono);
   --font-sans: var(--font-sans);
 
@@ -71,32 +82,27 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-text);
+  font-size: 1rem;
+  line-height: 1.65; /* an easy reading rhythm for long sessions */
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* CRT / engineering-paper atmosphere — a full-viewport, non-interactive
- * overlay: fine horizontal scanlines + a faint graph-paper grid, layered very
- * low so text stays crisp. Fixed so it reads as the surface the app sits on. */
+/* A single, very quiet paper wash behind the app: a faint warm vignette so
+ * the desk surface isn't a flat fill. No scanlines, no grid overlay — nothing
+ * that competes with the words on the page. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image:
-    repeating-linear-gradient(
-      to bottom,
-      transparent 0,
-      transparent 3px,
-      var(--scanline) 3px,
-      var(--scanline) 4px
-    ),
-    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
-  background-size:
-    100% 4px,
-    28px 28px,
-    28px 28px;
+  background:
+    radial-gradient(
+      120% 80% at 50% -10%,
+      color-mix(in srgb, var(--surface) 55%, transparent) 0%,
+      transparent 60%
+    );
 }
 
 #root {
@@ -104,75 +110,73 @@ body::before {
   z-index: 1;
 }
 
+/* Headings breathe: serif, with a touch of optical size and tighter leading
+ * than body copy. Applied by the type utilities in components; this just tunes
+ * the serif when it renders large. */
+.font-serif,
+.font-display {
+  font-optical-sizing: auto;
+  letter-spacing: -0.005em;
+}
+
 /* Tabular numerals for anything showing numbers. */
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
-/* The keycap: an interactive object that lifts on hover and bottoms out into
- * its own shadow on press. Applied together with `shadow-brutal`. Pointer +
- * keyboard both trigger :active; reduced-motion flattens the transition (rule
- * in tokens.css) so the states still apply, just without travel. */
+/* The lifted card: an interactive object that rises a little on hover and
+ * settles back on press. Applied together with `shadow-brutal`. Pointer and
+ * keyboard both trigger :active; reduced-motion (rule in tokens.css) keeps the
+ * states, just without travel. */
 .keycap {
   transition:
-    transform var(--motion-press) var(--ease-key),
-    box-shadow var(--motion-press) var(--ease-key),
+    transform var(--motion-standard) var(--ease-key),
+    box-shadow var(--motion-standard) var(--ease-key),
     filter var(--motion-fast) var(--ease-out);
 }
 .keycap:hover {
-  transform: translate(-1px, -1px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-brutal-lg);
 }
 .keycap:active {
-  transform: translate(3px, 3px);
+  transform: translateY(0);
   box-shadow: var(--shadow-brutal-sm);
+  transition-duration: var(--motion-press);
 }
 
-/* The terminal cursor — a solid block that blinks. Used after the headline and
- * in the composer prompt. Reduced-motion stops the blink (rule in tokens.css). */
-@keyframes cursor-blink {
+/* A soft typing indicator for the composer prompt: a gently pulsing dot, not
+ * a hard blinking block. Reduced-motion stops the pulse (rule in tokens.css). */
+@keyframes cursor-pulse {
   0%,
-  49% {
-    opacity: 1;
-  }
-  50%,
   100% {
-    opacity: 0;
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
   }
 }
 .cursor-block {
   display: inline-block;
-  width: 0.58em;
-  height: 1.05em;
-  vertical-align: text-bottom;
+  width: 0.4em;
+  height: 0.4em;
+  margin-left: 0.15em;
+  border-radius: 9999px;
+  vertical-align: middle;
   background: currentColor;
-  animation: cursor-blink 1.06s steps(1) infinite;
+  animation: cursor-pulse 1.4s ease-in-out infinite;
 }
 
-/* Stronger scanlines for a framed "console" panel (the hero conversation),
- * over the top of its own background. */
+/* Legacy hook: the console panels used to layer extra scanlines. The study
+ * desk has none, so this is now a no-op kept only so existing class names
+ * don't dangle. */
 .crt-scanlines {
   position: relative;
 }
-.crt-scanlines::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent 2px,
-    var(--scanline) 2px,
-    var(--scanline) 3px
-  );
-}
 
-/* Brutalist focus ring — a thick ink/phosphor rule drawn in the gutter around
- * the object, always contrasting with the background beneath it. */
+/* Focus ring — a clear, high-contrast ring in the object's own colour ink,
+ * drawn just outside it so it always reads against the surface beneath. */
 :where(button, a, [tabindex], input, textarea, select):focus-visible {
-  outline: 3px solid var(--focus-ring);
+  outline: 2.5px solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: var(--radius-input);
 }
