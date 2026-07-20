@@ -107,6 +107,7 @@ export class HttpSink implements EventSink {
   constructor(
     private readonly endpoint: string,
     flushIntervalMs = 5_000,
+    private readonly credential?: string,
   ) {
     this.timer = setInterval(() => void this.flush(), flushIntervalMs);
   }
@@ -134,9 +135,11 @@ export class HttpSink implements EventSink {
         HttpSink.REQUEST_TIMEOUT_MS,
       );
       try {
+        const headers: Record<string, string> = { 'content-type': 'application/json' };
+        if (this.credential) headers['authorization'] = `Bearer ${this.credential}`;
         const res = await fetch(this.endpoint, {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers,
           body: JSON.stringify({ source: 'cognitive-overlay', events: batch }),
           signal: ctrl.signal,
         });
