@@ -33,7 +33,7 @@ export function AmendmentHistory({ amendments }: { amendments: Amendment[] }) {
     <ol data-agent="amendment-history" className="flex flex-col gap-3">
       {[...amendments]
         .sort((a, b) => b.fromVersion - a.fromVersion)
-        .map((a,) => (
+        .map((a) => (
           <li
             key={a.id}
             className="rounded-card border border-border bg-surface p-4 text-sm"
@@ -77,7 +77,7 @@ export function AmendmentHistory({ amendments }: { amendments: Amendment[] }) {
             )}
 
             {a.consentRelevant && a.consentReasons.length > 0 && (
-              <ul className="mt-2 border-l-2 border-unsourced pl-3 text-xs text-text-muted">
+              <ul className="mt-2 border-l border-unsourced pl-3 text-xs text-text-muted">
                 {a.consentReasons.map((r, i) => (
                   <li key={i}>{r}</li>
                 ))}

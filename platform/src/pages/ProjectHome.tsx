@@ -20,7 +20,7 @@ export function ProjectHome() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
       <div>
-        <h1 className="font-display text-2xl font-bold uppercase tracking-tight text-text">{data.name}</h1>
+        <h1 className="font-serif text-3xl font-medium tracking-tight text-text">{data.name}</h1>
         <p className="text-sm text-text-muted">/{data.slug}</p>
       </div>
 
@@ -29,7 +29,7 @@ export function ProjectHome() {
           <FlaskConical className="size-4 text-text-muted" aria-hidden /> Studies
         </h2>
         {data.studies.length === 0 ? (
-          <EmptyState line="No studies yet — open the designer to talk one into existence." />
+          <EmptyState line="No studies yet. Open the designer and talk one into existence." />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {data.studies.map((st) => (

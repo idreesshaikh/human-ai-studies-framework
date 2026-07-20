@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, NavLink, useParams } from "react-router-dom";
+import { Link, NavLink, useLocation, useParams } from "react-router-dom";
 import { Menu, Moon, Sun, Monitor, LogOut, FlaskConical, Users, Settings, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -23,7 +23,13 @@ const THEME_ICON = { system: Monitor, light: Sun, dark: Moon };
  * viewports. */
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const { me } = useSession();
-  const { slug } = useParams();
+  const { pathname } = useLocation();
+  const { slug: routeSlug } = useParams<{ slug?: string }>();
+  const hasProjectNav = /^\/p\/[^/]+/.test(pathname);
+  // Use the slug from the current route; fall back to the first membership
+  // only on pages that have no slug param (shouldn't happen when hasProjectNav
+  // is true, but keeps the type-system happy).
+  const navSlug = routeSlug ?? me?.memberships?.[0]?.projectSlug ?? "";
   const [theme, setTheme] = useState<Theme>(() => getTheme());
   const [navOpen, setNavOpen] = useState(false);
   const Icon = THEME_ICON[theme];
@@ -34,14 +40,14 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
     setTheme(next);
   };
 
-  const navItem = (to: string, label: string, icon: React.ReactNode) => (
+  const navItem = (to: string, label: string, icon: React.ReactNode, end = true) => (
     <NavLink
       to={to}
-      end
+      end={end}
       onClick={() => setNavOpen(false)}
       className={({ isActive }) =>
         cn(
-          "flex items-center gap-2 rounded-input border-2 px-2.5 py-1.5 font-display text-xs font-semibold uppercase tracking-wide transition-colors duration-fast",
+          "flex items-center gap-2 rounded-input border px-2.5 py-1.5 font-mono text-sm font-medium tracking-tight transition-colors duration-fast",
           isActive
             ? "border-border-strong bg-accent text-accent-contrast shadow-brutal-sm"
             : "border-transparent text-text hover:border-border-strong hover:bg-accent-soft hover:text-accent",
@@ -55,24 +61,24 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b-2 border-border-strong bg-surface px-4 py-2">
+      <header className="flex items-center gap-3 border-b border-border-strong bg-surface px-4 py-2">
         <button
           type="button"
-          className="rounded-input border-2 border-transparent p-1 text-text hover:border-border-strong hover:bg-accent-soft lg:hidden"
+          className="rounded-input border border-transparent p-1 text-text hover:border-border-strong hover:bg-accent-soft lg:hidden"
           onClick={() => setNavOpen((v) => !v)}
           aria-label="Toggle navigation"
         >
           <Menu className="size-5" aria-hidden />
         </button>
-        <Link to="/projects" className="flex items-center gap-2" aria-label="Study Designer — home">
+        <Link to="/projects" className="flex items-center gap-2" aria-label="Study Designer, home">
           <span
             aria-hidden
-            className="inline-grid size-6 shrink-0 place-items-center rounded-input border-2 border-border-strong bg-accent font-display text-xs font-bold text-accent-contrast shadow-brutal-sm"
+            className="inline-grid size-6 shrink-0 place-items-center rounded-input border border-border-strong bg-accent font-serif text-sm font-medium text-accent-contrast shadow-brutal-sm"
           >
-            ◆
+            S
           </span>
-          <span className="font-display text-sm font-bold uppercase tracking-widest text-text">
-            Study<span className="text-accent">·</span>Designer
+          <span className="font-serif text-lg font-medium tracking-tight text-text">
+            Study Designer
           </span>
         </Link>
         <div className="ml-auto flex items-center gap-2">
@@ -103,22 +109,22 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {slug && (
+        {hasProjectNav && (
           <nav
             data-agent="project-nav"
             className={cn(
-              "w-56 shrink-0 border-r-2 border-border-strong bg-surface p-3",
+              "w-56 shrink-0 border-r border-border-strong bg-surface p-3",
               navOpen ? "block" : "hidden lg:block",
             )}
           >
-            <p className="mb-2 px-1 font-display text-[0.625rem] font-bold uppercase tracking-[0.2em] text-text-muted">
-              ── Navigation ──
+            <p className="mb-2 px-1 font-mono text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-text-muted">
+              Navigation
             </p>
             <div className="flex flex-col gap-1">
-              {navItem(`/p/${slug}`, "Studies", <FlaskConical className="size-4" aria-hidden />)}
-              {navItem(`/p/${slug}/platform`, "Platform findings", <Sparkles className="size-4" aria-hidden />)}
-              {navItem(`/p/${slug}/members`, "Members", <Users className="size-4" aria-hidden />)}
-              {navItem(`/p/${slug}/settings`, "Settings", <Settings className="size-4" aria-hidden />)}
+              {navItem(`/p/${navSlug}`, "Studies", <FlaskConical className="size-4" aria-hidden />, false)}
+              {navItem(`/p/${navSlug}/platform`, "Platform findings", <Sparkles className="size-4" aria-hidden />)}
+              {navItem(`/p/${navSlug}/members`, "Members", <Users className="size-4" aria-hidden />)}
+              {navItem(`/p/${navSlug}/settings`, "Settings", <Settings className="size-4" aria-hidden />)}
             </div>
           </nav>
         )}

@@ -123,7 +123,7 @@ export function ConversationView({ studyId = "study" }: { studyId?: string }) {
 
         <form
           data-agent="conversation-composer"
-          className="flex items-end gap-2 border-t-2 border-border-strong bg-surface p-4"
+          className="flex items-end gap-2 border-t border-border-strong bg-surface p-4"
           onSubmit={(e) => {
             e.preventDefault();
             send();
@@ -131,12 +131,12 @@ export function ConversationView({ studyId = "study" }: { studyId?: string }) {
         >
           <span
             aria-hidden
-            className="select-none self-stretch pt-2.5 font-display text-base font-bold text-accent"
+            className="select-none self-stretch pt-2.5 font-mono text-base font-medium text-accent"
           >
             &gt;
           </span>
           <textarea
-            className="min-h-11 flex-1 resize-none rounded-input border-2 border-border-strong bg-bg px-3 py-2 font-mono text-sm text-text focus-visible:border-accent"
+            className="min-h-11 flex-1 resize-none rounded-input border border-border-strong bg-bg px-3 py-2 font-mono text-sm text-text focus-visible:border-accent"
             placeholder="Describe what you want to find out…"
             value={input}
             rows={1}

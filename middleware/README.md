@@ -96,4 +96,5 @@ baked into the Docker image), the middleware also serves the React platform
 app at `/` and re-serves the shell for its `/p/*` and `/invitations/*` deep
 links - one process is the whole stack (NFR-7). `MIDDLEWARE_TOKEN` optionally
 bearer-gates the query/task endpoints; ingest stays open by design
-(sensors are fire-and-forget, NFR-1).
+(sensors are fire-and-forget, NFR-1). In `clerk` mode (FR-OPS-5), theme the
+hosted sign-in per [`docs/clerk-appearance.md`](docs/clerk-appearance.md).

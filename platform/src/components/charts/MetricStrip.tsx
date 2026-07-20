@@ -279,7 +279,7 @@ export function MetricStrip({
 
       {tip && (
         <div
-          className="pointer-events-none fixed z-50 rounded-input border-2 border-border-strong bg-surface-raised px-2 py-1 text-xs text-text shadow-brutal"
+          className="pointer-events-none fixed z-50 rounded-input border border-border-strong bg-surface-raised px-2 py-1 text-xs text-text shadow-brutal"
           style={{ left: tip.x, top: tip.y }}
         >
           {tip.text}

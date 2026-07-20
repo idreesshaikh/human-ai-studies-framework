@@ -67,7 +67,7 @@ export function FeedbackAffordance({
       className="flex w-full max-w-[46ch] flex-col gap-2 rounded-card border border-border bg-surface p-3"
     >
       <div className="flex flex-wrap gap-1">
-        {KINDS.map((k,) => (
+        {KINDS.map((k) => (
           <button
             key={k.value}
             type="button"
@@ -85,7 +85,7 @@ export function FeedbackAffordance({
       <textarea
         rows={2}
         value={note}
-        onChange={(e,) => setNote(e.target.value)}
+        onChange={(e) => setNote(e.target.value)}
         placeholder="What would make this better? (optional)"
         aria-label="Feedback note"
         className="resize-none rounded-input border border-border-strong bg-bg px-2 py-1.5 text-sm text-text outline-none focus-visible:border-accent"

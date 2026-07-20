@@ -62,8 +62,9 @@ export function StudyHome() {
           aria-label="Study sections"
           data-agent="study-tabs"
         >
-          {TABS.map((t,) => (
+          {TABS.map((t) => (
             <button
+              type="button"
               key={t.id}
               onClick={() => setTab(t.id)}
               aria-current={tab === t.id ? "page" : undefined}
@@ -85,7 +86,7 @@ export function StudyHome() {
             variant="ghost"
             data-agent="amendment-history-toggle"
             className="ml-auto text-xs text-text-muted"
-            onClick={() => setShowHistory((v,) => !v)}
+            onClick={() => setShowHistory((v) => !v)}
             aria-expanded={showHistory}
           >
             <History className="size-3" aria-hidden />

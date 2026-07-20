@@ -9,7 +9,7 @@ export const Input = React.forwardRef<
   <input
     ref={ref}
     className={cn(
-      "h-9 w-full rounded-input border-2 border-border-strong bg-bg px-3 py-1 font-mono text-sm text-text",
+      "h-9 w-full rounded-input border border-border-strong bg-bg px-3 py-1 font-mono text-sm text-text",
       "placeholder:text-text-muted focus-visible:border-accent",
       "disabled:cursor-not-allowed disabled:opacity-50",
       className,

@@ -1,8 +1,8 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
-/* Card — a framed brutalist object: thick ink keyline + a hard offset shadow,
- * lifted off the beige. Static (no keycap press); interactive cards add their
+/* Card — a clean sheet on the desk: a soft warm keyline and a low shadow,
+ * lifted gently off the paper. Static (no press); interactive cards add their
  * own affordance. */
 export const Card = React.forwardRef<
   HTMLDivElement,
@@ -11,7 +11,7 @@ export const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-card border-2 border-border-strong bg-surface text-text shadow-brutal",
+      "rounded-card border border-border-strong bg-surface text-text shadow-brutal",
       className,
     )}
     {...props}
@@ -31,7 +31,7 @@ export const CardTitle = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("font-display font-bold leading-tight", className)}
+    className={cn("font-serif text-lg font-medium leading-tight", className)}
     {...props}
   />
 );

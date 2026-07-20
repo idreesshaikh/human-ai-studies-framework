@@ -32,7 +32,7 @@ export function Members() {
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold uppercase tracking-tight text-text">Members</h1>
+          <h1 className="font-serif text-3xl font-medium tracking-tight text-text">Members</h1>
           <p className="text-sm text-text-muted">Who can see and shape this project.</p>
         </div>
         <RoleGate role={mine} capability="manage_members">

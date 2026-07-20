@@ -111,14 +111,14 @@ export function deriveProposal(findings: PlatformFinding[]): RetrospectivePropos
     items.push({
       title: `Address feedback theme: ${kind}`,
       kind: "ux-defect",
-      evidence: { findingIds: rows.map((r,) => r.id).sort(), count: rows.length },
+      evidence: { findingIds: rows.map((r) => r.id).sort(), count: rows.length },
     });
   }
   return {
     status: "draft",
     title: "Platform retrospective (drafted)",
     generatedFrom: { feedbackFindings: findings.length, shapeRows: 0 },
-    citedFindingIds: findings.map((f,) => f.id).sort((a, b) => a - b),
+    citedFindingIds: findings.map((f) => f.id).sort((a, b) => a - b),
     items,
   };
 }
@@ -140,7 +140,7 @@ class EvolutionStore {
   constructor() {
     const amendments = seedAmendments();
     const pending = amendments.find(
-      (a,) => a.consentRelevant && !a.reapprovalArtifact);
+      (a) => a.consentRelevant && !a.reapprovalArtifact);
     this.amendmentState = {
       studyId: DEMO_STUDY,
       currentVersion: amendments[amendments.length - 1].toVersion,
@@ -207,7 +207,7 @@ class EvolutionStore {
     this.amendmentState = {
       ...this.amendmentState,
       pendingReapproval: "",
-      amendments: this.amendmentState.amendments.map((a,) =>
+      amendments: this.amendmentState.amendments.map((a) =>
         a.id === id ? { ...a, reapprovalArtifact: artifact } : a),
     };
     this.emit();
