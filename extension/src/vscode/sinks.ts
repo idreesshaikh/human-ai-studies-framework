@@ -135,8 +135,11 @@ export class HttpSink implements EventSink {
         HttpSink.REQUEST_TIMEOUT_MS,
       );
       try {
-        const headers: Record<string, string> = { 'content-type': 'application/json' };
-        if (this.credential) headers['authorization'] = `Bearer ${this.credential}`;
+        const headers: Record<string, string> = {
+          'content-type': 'application/json',
+        };
+        if (this.credential)
+          headers['authorization'] = `Bearer ${this.credential}`;
         const res = await fetch(this.endpoint, {
           method: 'POST',
           headers,

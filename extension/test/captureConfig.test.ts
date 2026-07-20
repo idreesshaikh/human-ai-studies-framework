@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { overlayFlags, configChanged, CaptureConfig } from '../src/core/captureConfig';
+import {
+  overlayFlags,
+  configChanged,
+  CaptureConfig,
+} from '../src/core/captureConfig';
 
 const CFG: CaptureConfig = {
   captureConfigVersion: 'abc123',

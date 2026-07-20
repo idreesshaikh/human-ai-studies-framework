@@ -25,6 +25,12 @@ const TRACKED: { key: string; label: string }[] = [
   { key: 'behavior.captureAttention', label: 'Time-on-code' },
 ];
 
-export function preflightSummary(flags: Record<string, unknown>): PreflightItem[] {
-  return TRACKED.map(({ key, label }) => ({ key, label, on: flags[key] === true }));
+export function preflightSummary(
+  flags: Record<string, unknown>,
+): PreflightItem[] {
+  return TRACKED.map(({ key, label }) => ({
+    key,
+    label,
+    on: flags[key] === true,
+  }));
 }

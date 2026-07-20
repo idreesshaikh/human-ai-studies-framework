@@ -25,7 +25,9 @@ export class ConsentGate {
 
   assertAccepted(): void {
     if (!this._accepted) {
-      throw new ConsentNotGivenError('capture may not start before consent is acknowledged');
+      throw new ConsentNotGivenError(
+        'capture may not start before consent is acknowledged',
+      );
     }
   }
 }

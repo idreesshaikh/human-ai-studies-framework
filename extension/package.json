@@ -63,6 +63,10 @@
       {
         "command": "cognitiveOverlay.respondStuck",
         "title": "Cognitive Overlay: Respond to Stuck Prompt"
+      },
+      {
+        "command": "cognitiveOverlay.connectToStudy",
+        "title": "Cognitive Overlay: Connect to Study"
       }
     ],
     "keybindings": [
@@ -300,6 +304,11 @@
           "type": "string",
           "default": "",
           "description": "Optional middleware endpoint to POST event batches to (e.g. http://localhost:8000/cognitive). Empty = disabled."
+        },
+        "cognitiveOverlay.studyId": {
+          "type": "string",
+          "default": "",
+          "description": "The study this IDE is paired to (set automatically when you connect)."
         }
       }
     }

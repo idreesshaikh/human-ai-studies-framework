@@ -24,6 +24,9 @@ export function overlayFlags(cfg: CaptureConfig): Record<string, unknown> {
 }
 
 /** True if the incoming config differs from what is already applied. */
-export function configChanged(applied: string | undefined, incoming: string): boolean {
+export function configChanged(
+  applied: string | undefined,
+  incoming: string,
+): boolean {
   return applied !== incoming;
 }
