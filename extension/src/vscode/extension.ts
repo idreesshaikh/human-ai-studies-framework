@@ -182,7 +182,10 @@ async function startSession(): Promise<void> {
   // A session boundary is the only point capture config may change (wall
   // #6) — re-pull it now, before the clock arms, and get this IDE's paired
   // credential (if any) for the HttpSink.
-  const credential = await refreshConfigAtSessionStart(extContext);
+  const credential = await refreshConfigAtSessionStart(
+    extContext,
+    Boolean(study),
+  );
 
   bootSession({
     participantId: participantId.trim(),

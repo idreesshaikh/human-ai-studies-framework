@@ -3,7 +3,7 @@ import { decodeConnectionString } from '../core/connectionString';
 import {
   CaptureConfig,
   overlayFlags,
-  configChanged,
+  shouldApplyCaptureConfig,
 } from '../core/captureConfig';
 import { preflightSummary } from '../core/preflight';
 import { ConsentGate } from '../core/consentGate';
@@ -50,11 +50,16 @@ export async function getStoredCredential(
   return context.secrets.get(SECRET_CRED);
 }
 
-/** Re-pull the study's capture config at a session boundary and apply it if the
- * version changed. No-op when unpaired. Returns the credential to use for the
- * session's HttpSink, or undefined when unpaired. */
+/** Re-pull the study's capture config at a session boundary and apply it if
+ * the version changed AND no session is active (wall #6 — see
+ * `shouldApplyCaptureConfig`). `sessionActive` is the caller's own liveness
+ * flag (e.g. `Boolean(study)`); the only real call site passes `false`
+ * because it runs before the clock arms, but the guard fails closed even if
+ * a future call site got that wrong. No-op when unpaired. Returns the
+ * credential to use for the session's HttpSink, or undefined when unpaired. */
 export async function refreshConfigAtSessionStart(
   context: vscode.ExtensionContext,
+  sessionActive: boolean,
 ): Promise<string | undefined> {
   const cred = await context.secrets.get(SECRET_CRED);
   const server = context.workspaceState.get<string>(STATE_SERVER);
@@ -69,7 +74,13 @@ export async function refreshConfigAtSessionStart(
     if (res.ok) {
       const cfg = (await res.json()) as CaptureConfig;
       const applied = context.workspaceState.get<string>(STATE_VERSION);
-      if (configChanged(applied, cfg.captureConfigVersion)) {
+      if (
+        shouldApplyCaptureConfig(
+          sessionActive,
+          applied,
+          cfg.captureConfigVersion,
+        )
+      ) {
         await applyConfig(cfg);
         await context.workspaceState.update(
           STATE_VERSION,
