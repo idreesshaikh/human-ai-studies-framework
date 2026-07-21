@@ -29,7 +29,7 @@ export function SignInScreen() {
   return (
     <div
       data-agent="sign-in"
-      className="relative mx-auto flex min-h-full max-w-md flex-col justify-center p-6"
+      className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center p-6"
     >
       <Button
         variant="ghost"

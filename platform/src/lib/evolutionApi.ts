@@ -1,11 +1,12 @@
 import type { Amendment, AmendmentState, PlatformFinding, RetrospectiveProposal } from "./types";
+import { getAuthToken, notifyUnauthorized } from "./api.ts";
 import { OfflineError } from "./studyApi";
 import { deriveProposal, evolutionStore } from "./evolutionStub";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 async function authHeaders(): Promise<Record<string, string>> {
-  const token = localStorage.getItem("middleware.token");
+  const token = await getAuthToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -27,6 +28,7 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
     } catch {
       /* ignore */
     }
+    if (res.status === 401) notifyUnauthorized();
     throw new Error(detail);
   }
   if (res.status === 204) return undefined as T;

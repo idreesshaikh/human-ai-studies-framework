@@ -179,6 +179,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [clerkReady, setClerkReady] = useState(false);
   const [user, setUser] = useState<ClerkUser | null>(null);
   const clerkRef = useRef<ClerkInstance | null>(null);
+  // Clerk's addListener fires immediately with the *current* state on
+  // registration, not only on real changes — without this guard, a user who
+  // is already signed in (the common case: every reload) gets reloaded
+  // again the instant the listener registers, forever (the "kept
+  // refreshing" bug). Only reload on a genuine falsy->truthy transition.
+  const hadSessionRef = useRef(false);
 
   useEffect(() => onUnauthorized(() => setNeeded(true)), []);
 
@@ -192,6 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Without the UI renderer, mountSignIn throws; keep the token-paste
       // fallback surface instead of an empty scrim.
       setClerkReady(ui !== undefined);
+      hadSessionRef.current = Boolean(clerk.user);
       if (clerk.user) {
         const u = clerk.user;
         const label =
@@ -210,10 +217,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // /me (its first call may have 401'd before Clerk finished loading).
         window.dispatchEvent(new Event(CREDENTIAL_READY_EVENT));
       }
-      // The mounted sign-in UI completes in-page: once a session appears,
-      // reload so every view restarts signed in.
+      // The mounted sign-in UI completes in-page: once a *new* session
+      // appears (not the already-active one this listener is immediately
+      // handed on registration), reload so every view restarts signed in.
       clerk.addListener(({ session }) => {
-        if (session) location.reload();
+        if (session && !hadSessionRef.current) {
+          hadSessionRef.current = true;
+          location.reload();
+        } else if (!session) {
+          hadSessionRef.current = false;
+        }
       });
     } catch {
       // clerk-js unreachable (offline, blocked CDN…) — the token-paste

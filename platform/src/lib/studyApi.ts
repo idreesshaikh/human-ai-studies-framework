@@ -4,14 +4,18 @@
  *
  * Same-origin by default: in production the middleware serves this SPA (NFR-7),
  * so `''` resolves to :8000. Set VITE_API_BASE for a separate origin (needs
- * MIDDLEWARE_CORS_ORIGINS, FR-OPS-6). An optional bearer token in localStorage
- * (`middleware.token`) matches MIDDLEWARE_TOKEN; cookies ride along for Clerk.
+ * MIDDLEWARE_CORS_ORIGINS, FR-OPS-6). The bearer token comes from `api.ts`'s
+ * shared `getAuthToken()` — the pasted-token fallback (`middleware.token` in
+ * localStorage, matching MIDDLEWARE_TOKEN) or, in Clerk mode, the live Clerk
+ * session JWT `AuthProvider` installs via `setTokenProvider`.
  *
  * Offline posture: the platform is explorable with no server (the hero demo,
  * `npm run dev` with nothing on :8000). Read endpoints fall back to a curated
  * seed so the constellation and charts still render beautifully; live actions
  * (ingest, assistant) raise `OfflineError`, which the UI shows as a calm
  * "needs the running middleware" notice. Nothing load-bearing is cloud-owned. */
+
+import { getAuthToken, notifyUnauthorized } from "./api.ts";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -122,7 +126,7 @@ export interface SessionStatus {
 // ------------------------------------------------------------------- transport
 
 async function authHeaders(): Promise<Record<string, string>> {
-  const token = localStorage.getItem("middleware.token");
+  const token = await getAuthToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -145,6 +149,7 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
     } catch {
       /* non-JSON body */
     }
+    if (res.status === 401) notifyUnauthorized();
     throw new Error(detail);
   }
   if (res.status === 204) return undefined as T;

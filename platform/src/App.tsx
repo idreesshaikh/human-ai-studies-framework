@@ -37,7 +37,11 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Hero />} />
-      <Route path="/demo" element={<DemoProject />} />
+      {/* Not "/demo" — that's the backend's GET /demo API path (app.py);
+          same-path SPA route + API route can't coexist on a hard
+          navigation (refresh, bookmark, any location.reload()), which
+          bypasses the SPA shell entirely and shows the raw API response. */}
+      <Route path="/showcase" element={<DemoProject />} />
       <Route path="/invitations/:token" element={<InviteAccept />} />
       <Route element={<Shell />}>
         <Route path="/projects" element={<Projects />} />

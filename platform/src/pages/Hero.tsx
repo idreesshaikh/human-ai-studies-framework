@@ -27,7 +27,7 @@ export function Hero() {
 
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Button asChild>
-            <Link to="/demo">
+            <Link to="/showcase">
               <ArrowRight aria-hidden /> See a finished study
             </Link>
           </Button>

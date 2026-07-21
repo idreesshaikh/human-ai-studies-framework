@@ -368,6 +368,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     if check.study_id is not None:
         with session_factory() as s:
             _ensure_study_row(s, check.study_id, protocol_doc)
+            if settings.seed_on_start:
+                _ensure_demo_project(
+                    s, check.study_id, clock().isoformat(timespec="milliseconds")
+                )
             s.commit()
 
     app = FastAPI(title="Study ingestion middleware", version="0.1.0")
@@ -4185,8 +4189,23 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     #
     # The app is entered at `/` (the hero) and routes client-side. The explicit
     # fallbacks below re-serve the shell on a deep-link refresh of the app's
-    # own route prefixes. `/projects` and `/demo` are API endpoints the SPA
-    # fetches — reached in-app by navigation from `/`, not by direct load.
+    # own route prefixes.
+    #
+    # `/demo` is a GET API endpoint (below) the SPA fetches from its
+    # `/showcase` client route — deliberately different paths, precisely so
+    # a hard navigation to the SPA route never collides with this API path
+    # (2026-07-21: it used to be the same `/demo` path on both sides, which
+    # meant any hard navigation/refresh/reload while on that screen hit this
+    # JSON handler directly instead of ever reaching the SPA shell).
+    #
+    # `/projects` still has that exact same exposure today: it's both a GET
+    # API endpoint (`list_projects`, below) *and* the SPA's own client route
+    # for the same path — a hard navigation to `/projects` will hit this
+    # API's JSON response, not the SPA shell, exactly as `/demo` did. No
+    # fallback route is registered for it below because, unlike `/demo`,
+    # picking a different SPA path for the primary "my projects" navigation
+    # entry is a real user-facing URL change, not a free rename — flagged
+    # here rather than silently left as a rediscovered surprise.
 
     dist = settings.spa_dist
     index_html = dist / "index.html"
@@ -4246,6 +4265,31 @@ def _ensure_study_row(s: Session, study_id: str, protocol_doc: dict) -> None:
             phase=phase,
         )
     )
+
+
+def _ensure_demo_project(s: Session, study_id: str, created_at: str) -> None:
+    """Ensure the shared public demo project exists and owns the boot
+    study (FR-PLAT-4). Only called when ``settings.seed_on_start`` is set —
+    that flag *is* the "this deployment intends a public shared demo"
+    signal (start_with_seed.sh only sets it for exactly that posture); a
+    self-hosted researcher's real study must never be silently repointed
+    onto the public demo project. Idempotent: re-running finds the
+    already-created project/re-pointed study and does nothing further.
+    """
+    proj = s.scalar(select(Project).where(Project.slug == DEMO_PROJECT_SLUG))
+    if proj is None:
+        proj = Project(
+            id=secrets.token_hex(8),
+            name="Demo",
+            slug=DEMO_PROJECT_SLUG,
+            created_by="",
+            created_at=created_at,
+        )
+        s.add(proj)
+        s.flush()
+    study = s.scalar(select(Study).where(Study.id == study_id))
+    if study is not None and study.project_id != proj.id:
+        study.project_id = proj.id
 
 
 def _gap_summary(seqs: list[int]) -> dict:

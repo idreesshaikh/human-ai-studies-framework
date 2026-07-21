@@ -11,7 +11,7 @@ export function DemoProject() {
   const { data, loading } = useAsync(() => api.demo().catch(() => null), []);
 
   return (
-    <div className="mx-auto flex min-h-full max-w-6xl flex-col gap-6 px-6 py-8">
+    <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-6 py-8">
       <header className="flex flex-wrap items-center gap-3">
         <div className="flex-1">
           <div className="flex items-center gap-2">

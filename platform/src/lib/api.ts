@@ -189,6 +189,21 @@ export function onUnauthorized(listener: () => void): () => void {
   return () => unauthorizedListeners.delete(listener);
 }
 
+/** The live bearer token (Clerk session JWT, or the pasted-token fallback)
+ * — exported so `studyApi.ts`/`conversationApi.ts`/`evolutionApi.ts` share
+ * the exact same token source as this module instead of each re-reading
+ * `localStorage` directly, which never sees a Clerk-issued token at all. */
+export async function getAuthToken(): Promise<string | null> {
+  return tokenProvider();
+}
+
+/** Fires the same "show the sign-in surface" signal `HttpBackend` fires on
+ * its own 401s — shared so every API client's 401 converges on one global
+ * gate instead of each page rendering the raw error text itself. */
+export function notifyUnauthorized(): void {
+  unauthorizedListeners.forEach((l) => l());
+}
+
 // --------------------------------------------------------------- HTTP backend
 
 class HttpBackend implements Api {
