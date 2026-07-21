@@ -57,7 +57,6 @@ from middleware import (
 )
 from middleware.db import (
     CORPUS_STUDY_ID,
-    DEMO_PROJECT_SLUG,
     IMPLICIT_PROJECT_ID,
     AggregateShape,
     Amendment,
@@ -368,10 +367,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     if check.study_id is not None:
         with session_factory() as s:
             _ensure_study_row(s, check.study_id, protocol_doc)
-            if settings.seed_on_start:
-                _ensure_demo_project(
-                    s, check.study_id, clock().isoformat(timespec="milliseconds")
-                )
             s.commit()
 
     app = FastAPI(title="Study ingestion middleware", version="0.1.0")
@@ -2061,6 +2056,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 id=pid, name=name, slug=slug, created_by=identity.sub, created_at=now()
             )
         )
+        # Flush the project before adding its membership row: Project and
+        # Membership have no ORM relationship() between them (only a raw FK
+        # column), and SQLAlchemy's flush-time insert ordering leans on that
+        # relationship to sequence cross-table inserts correctly - without
+        # it, the two pending inserts can be emitted in whatever order the
+        # unit-of-work happens to iterate them, and Membership going first
+        # trips its own foreign-key constraint. Flushing the parent alone
+        # first makes the dependency real regardless of iteration order.
+        s.flush()
         s.add(
             Membership(
                 project_id=pid,
@@ -2841,20 +2845,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             row.updated_at = now()
         s.flush()
         return {"sub": sub, "preferences": dict(row.prefs)}
-
-    @app.get("/demo")
-    def get_demo(s: Session = Depends(db)) -> dict:
-        """Public pointer to the shared demo project (FR-PLAT-4). Everyone
-        shares this read-only project; the seed script creates it on boot."""
-        proj = s.scalar(select(Project).where(Project.slug == DEMO_PROJECT_SLUG))
-        if proj is None:
-            raise HTTPException(404, "demo project not seeded")
-        study = s.scalar(select(Study).where(Study.project_id == proj.id))
-        return {
-            "projectSlug": proj.slug,
-            "projectName": proj.name,
-            "studyId": study.id if study else "",
-        }
 
     # ------------------------------------------- curated mining
     #
@@ -4191,21 +4181,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     # fallbacks below re-serve the shell on a deep-link refresh of the app's
     # own route prefixes.
     #
-    # `/demo` is a GET API endpoint (below) the SPA fetches from its
-    # `/showcase` client route — deliberately different paths, precisely so
-    # a hard navigation to the SPA route never collides with this API path
-    # (2026-07-21: it used to be the same `/demo` path on both sides, which
-    # meant any hard navigation/refresh/reload while on that screen hit this
-    # JSON handler directly instead of ever reaching the SPA shell).
-    #
-    # `/projects` still has that exact same exposure today: it's both a GET
-    # API endpoint (`list_projects`, below) *and* the SPA's own client route
-    # for the same path — a hard navigation to `/projects` will hit this
-    # API's JSON response, not the SPA shell, exactly as `/demo` did. No
-    # fallback route is registered for it below because, unlike `/demo`,
-    # picking a different SPA path for the primary "my projects" navigation
-    # entry is a real user-facing URL change, not a free rename — flagged
-    # here rather than silently left as a rediscovered surprise.
+    # None of the SPA's client routes share a path with a GET API endpoint
+    # below (2026-07-21: `/projects` used to, until the SPA's project-list
+    # route moved to `/home` — a hard navigation/refresh/the sign-in/sign-out
+    # `location.reload()` while on that screen was hitting `list_projects`'s
+    # JSON response directly instead of ever reaching the SPA shell; same
+    # fix already applied once before for the same reason). Keep it that way
+    # for any new top-level client route: check it against the API surface
+    # first, or give it its own fallback below like `/p/*` and
+    # `/invitations/*` already have.
 
     dist = settings.spa_dist
     index_html = dist / "index.html"
@@ -4220,6 +4204,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         @app.get("/", include_in_schema=False)
         def spa_index() -> FileResponse:
+            return _shell()
+
+        @app.get("/home", include_in_schema=False)
+        def spa_home_route() -> FileResponse:
             return _shell()
 
         @app.get("/p/{rest:path}", include_in_schema=False)
@@ -4265,31 +4253,6 @@ def _ensure_study_row(s: Session, study_id: str, protocol_doc: dict) -> None:
             phase=phase,
         )
     )
-
-
-def _ensure_demo_project(s: Session, study_id: str, created_at: str) -> None:
-    """Ensure the shared public demo project exists and owns the boot
-    study (FR-PLAT-4). Only called when ``settings.seed_on_start`` is set —
-    that flag *is* the "this deployment intends a public shared demo"
-    signal (start_with_seed.sh only sets it for exactly that posture); a
-    self-hosted researcher's real study must never be silently repointed
-    onto the public demo project. Idempotent: re-running finds the
-    already-created project/re-pointed study and does nothing further.
-    """
-    proj = s.scalar(select(Project).where(Project.slug == DEMO_PROJECT_SLUG))
-    if proj is None:
-        proj = Project(
-            id=secrets.token_hex(8),
-            name="Demo",
-            slug=DEMO_PROJECT_SLUG,
-            created_by="",
-            created_at=created_at,
-        )
-        s.add(proj)
-        s.flush()
-    study = s.scalar(select(Study).where(Study.id == study_id))
-    if study is not None and study.project_id != proj.id:
-        study.project_id = proj.id
 
 
 def _gap_summary(seqs: list[int]) -> dict:

@@ -37,15 +37,11 @@ export function ConversationView({
   studyId = "study",
   /** Hero and static previews stay on the deterministic stub only. */
   stubOnly = false,
-  /** A fixed, already-captured transcript to show read-only, with no
-   * composer — for the showcase, not a live or stub conversation. */
-  replay,
 }: {
   studyId?: string;
   stubOnly?: boolean;
-  replay?: Turn[];
 }) {
-  const [turns, setTurns] = useState<Turn[]>(() => replay ?? [openingTurn()]);
+  const [turns, setTurns] = useState<Turn[]>(() => [openingTurn()]);
   const [input, setInput] = useState("");
   const [addedRefs, setAddedRefs] = useState<Set<string>>(new Set());
   const [markedTurns, setMarkedTurns] = useState<Set<string>>(new Set());
@@ -58,7 +54,6 @@ export function ConversationView({
   const threadEnd = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (replay) return;
     let cancelled = false;
     loadConversation(studyId, stubOnly).then((t) => {
       if (!cancelled) {
@@ -74,7 +69,7 @@ export function ConversationView({
     return () => {
       cancelled = true;
     };
-  }, [studyId, stubOnly, replay]);
+  }, [studyId, stubOnly]);
 
   const allMoves: DesignMove[] = useMemo(
     () => turns.flatMap((t) => t.moves),
@@ -232,60 +227,54 @@ export function ConversationView({
           </p>
         )}
 
-        {replay ? (
-          <div className="border-t border-border-strong bg-surface px-4 py-3 text-center text-xs text-text-muted sm:px-6">
-            A real, finished conversation. Start your own to talk it through live.
-          </div>
-        ) : (
-          <form
-            data-agent="conversation-composer"
-            className="flex items-end gap-2 border-t border-border-strong bg-surface p-3 sm:p-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              send();
-            }}
+        <form
+          data-agent="conversation-composer"
+          className="flex items-end gap-2 border-t border-border-strong bg-surface p-3 sm:p-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            send();
+          }}
+        >
+          <span
+            aria-hidden
+            className="select-none self-stretch pt-2.5 font-mono text-base font-medium text-accent hidden sm:inline"
           >
-            <span
-              aria-hidden
-              className="select-none self-stretch pt-2.5 font-mono text-base font-medium text-accent hidden sm:inline"
-            >
-              &gt;
-            </span>
-            <textarea
-              className="min-h-11 flex-1 resize-none rounded-input border border-border-strong bg-bg px-3 py-2 font-mono text-sm text-text focus-visible:border-accent"
-              placeholder="Describe what you want to find out…"
-              value={input}
-              rows={1}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              aria-label="Message the design assistant"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              data-agent="conversation-send"
-              aria-label="Send"
-              disabled={busy}
-            >
-              <Send aria-hidden />
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="lg:hidden"
-              aria-label={showDraft ? "Hide draft" : "Show draft"}
-              onClick={() => setShowDraft((v) => !v)}
-            >
-              {showDraft ? "×" : "≡"}
-            </Button>
-          </form>
-        )}
+            &gt;
+          </span>
+          <textarea
+            className="min-h-11 flex-1 resize-none rounded-input border border-border-strong bg-bg px-3 py-2 font-mono text-sm text-text focus-visible:border-accent"
+            placeholder="Describe what you want to find out…"
+            value={input}
+            rows={1}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+            aria-label="Message the design assistant"
+          />
+          <Button
+            type="submit"
+            size="icon"
+            data-agent="conversation-send"
+            aria-label="Send"
+            disabled={busy}
+          >
+            <Send aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="lg:hidden"
+            aria-label={showDraft ? "Hide draft" : "Show draft"}
+            onClick={() => setShowDraft((v) => !v)}
+          >
+            {showDraft ? "×" : "≡"}
+          </Button>
+        </form>
       </section>
 
       <div className={cn("lg:block", showDraft ? "block" : "hidden")}>

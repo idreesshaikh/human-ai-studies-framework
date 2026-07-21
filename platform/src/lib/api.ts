@@ -76,12 +76,6 @@ export interface ProjectHome {
   invitations: Invitation[];
 }
 
-export interface DemoPointer {
-  projectSlug: string;
-  projectName: string;
-  studyId: string;
-}
-
 export interface EnrollmentTokenCaptureConfig {
   captureConfigVersion: string;
   enabledInstruments: { name: string; enabled: boolean }[];
@@ -129,7 +123,6 @@ export interface Api {
   createInvitation(slug: string, email: string, role: Role): Promise<Invitation>;
   revokeInvitation(slug: string, id: string): Promise<void>;
   acceptInvitation(token: string): Promise<{ projectSlug: string; role: Role }>;
-  demo(): Promise<DemoPointer>;
   mintEnrollmentTokens(studyId: string, count: number, grain: "participant" | "session"): Promise<EnrollmentTokenView[]>;
   listEnrollmentTokens(studyId: string): Promise<EnrollmentTokenView[]>;
   revokeEnrollmentToken(studyId: string, tokenId: string): Promise<void>;
@@ -273,7 +266,6 @@ class HttpBackend implements Api {
     this.call<{ projectSlug: string; role: Role }>(
       "POST",
       `/invitations/${token}/accept`);
-  demo = () => this.call<DemoPointer>("GET", "/demo");
   mintEnrollmentTokens = (studyId: string, count: number, grain: "participant" | "session") =>
     this.call<EnrollmentTokenView[]>("POST", `/studies/${studyId}/enrollment/tokens`, { count, grain });
   listEnrollmentTokens = (studyId: string) =>
@@ -501,11 +493,6 @@ export class InMemoryBackend implements Api {
       }
     }
     throw new ApiError(404, "invitation not found — it may have expired or already been used");
-  }
-
-  async demo(): Promise<DemoPointer> {
-    const p = this.get("demo");
-    return { projectSlug: p.slug, projectName: p.name, studyId: p.studies[0]?.id ?? "" };
   }
 
   async mintEnrollmentTokens(studyId: string, count: number, grain: "participant" | "session"): Promise<EnrollmentTokenView[]> {

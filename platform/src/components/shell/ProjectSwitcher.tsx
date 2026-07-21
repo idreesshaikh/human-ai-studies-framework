@@ -61,7 +61,7 @@ export function ProjectSwitcher({ memberships }: { memberships: Membership[] }) 
                 <span className="ml-auto text-xs text-text-muted">{m.role}</span>
               </CommandItem>
             ))}
-            <CommandItem value="__new project" onSelect={() => go("/projects")}>
+            <CommandItem value="__new project" onSelect={() => go("/home")}>
               <Plus className="size-4 text-accent" aria-hidden />
               New project…
             </CommandItem>

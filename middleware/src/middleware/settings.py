@@ -54,14 +54,6 @@ class Settings:
             Path(p) if (p := os.environ.get("MIDDLEWARE_PROTOCOL")) else None
         )
     )
-    # The public-seeded-demo posture (start_with_seed.sh reseeds on every
-    # boot when this is "1"): only in this mode is the boot protocol's study
-    # the intentional *shared public demo* (FR-PLAT-4) — never true by
-    # default for a self-hosted researcher's real study, which must never
-    # get silently exposed as the public demo project.
-    seed_on_start: bool = field(
-        default_factory=lambda: os.environ.get("MIDDLEWARE_SEED_ON_START") == "1"
-    )
     # Priority: MIDDLEWARE_PORT (explicit operator override) > PORT (Railway
     # dynamically assigns this per-service and routes/healthchecks against
     # it — the app must actually bind here or every external probe reads

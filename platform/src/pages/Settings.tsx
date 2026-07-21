@@ -50,7 +50,7 @@ export function Settings() {
     try {
       await api.deleteProject(slug, confirm);
       await refresh();
-      navigate("/projects");
+      navigate("/home");
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Could not delete.");
     }

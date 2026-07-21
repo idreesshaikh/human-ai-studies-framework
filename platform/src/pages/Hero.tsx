@@ -30,12 +30,9 @@ export function Hero() {
 
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Button asChild>
-            <Link to="/showcase">
-              <ArrowRight aria-hidden /> See a finished study
+            <Link to="/home">
+              <ArrowRight aria-hidden /> Start your own
             </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link to="/projects">Start your own</Link>
           </Button>
         </div>
       </header>

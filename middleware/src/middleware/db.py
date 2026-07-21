@@ -54,7 +54,6 @@ log = logging.getLogger("middleware.db")
 IMPLICIT_PROJECT_SLUG = "implicit"
 IMPLICIT_PROJECT_ID = "implicit"
 IMPLICIT_IDENTITY_SUB = "local"
-DEMO_PROJECT_SLUG = "demo"
 CORPUS_STUDY_ID = "platform-corpus"
 ROLES = ("owner", "researcher", "viewer")
 
