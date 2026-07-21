@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { KiteMark } from "@/components/brand/KiteMark";
 import { ProjectSwitcher } from "./ProjectSwitcher";
 import { useSession } from "@/lib/session";
 import { useAuth } from "@/lib/auth.tsx";
@@ -78,15 +79,10 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         >
           <Menu className="size-5" aria-hidden />
         </button>
-        <Link to="/projects" className="flex items-center gap-2" aria-label="The Study Desk, home">
-          <span
-            aria-hidden
-            className="inline-grid size-6 shrink-0 place-items-center rounded-input border border-border-strong bg-accent font-serif text-sm font-medium text-accent-contrast shadow-brutal-sm"
-          >
-            S
-          </span>
+        <Link to="/home" className="flex items-center gap-2" aria-label="Phoenix, home">
+          <KiteMark size={22} />
           <span className="font-serif text-lg font-medium tracking-tight text-text">
-            The Study Desk
+            Phoenix
           </span>
         </Link>
         <div className="ml-auto flex items-center gap-2">
@@ -114,7 +110,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link to="/projects">All projects</Link>
+                <Link to="/home">All projects</Link>
               </DropdownMenuItem>
               <DropdownMenuItem destructive onClick={signOut}>
                 <LogOut className="size-4" aria-hidden /> Sign out

@@ -203,7 +203,6 @@ def test_every_project_scoped_route_carries_the_choke_point(client):
         ("GET", "/projects"),  # my memberships — self-scoped
         ("POST", "/invitations/{token}/accept"),  # token is the credential
         ("GET", "/me"),
-        ("GET", "/demo"),  # public pointer
     }
     offenders = []
     for route in app.routes:

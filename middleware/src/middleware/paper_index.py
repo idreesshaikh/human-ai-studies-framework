@@ -41,10 +41,16 @@ def chunk_text(body: str, *, size: int = CHUNK_CHARS) -> list[str]:
 
 def index_paper(s: Session, paper_ref: str, title: str, body: str) -> int:
     """(Re)index one paper's text; returns the chunk count. The title +
-    abstract lead so a metadata-only paper (no PDF) is still searchable."""
+    abstract lead so a metadata-only paper (no PDF) is still searchable.
+
+    PostgreSQL indexes ``papers.search_vector`` instead (a generated column,
+    ``_setup_pg_fts`` in db.py) - it updates automatically whenever the row's
+    title/abstract change, so there is no side table to maintain here."""
+    chunks = chunk_text(f"{title}\n\n{body}")
+    if db.PG_FTS_AVAILABLE:
+        return len(chunks)
     table = "paper_fts" if db.FTS5_AVAILABLE else "paper_chunks"
     s.execute(text(f"DELETE FROM {table} WHERE paper_ref = :ref"), {"ref": paper_ref})
-    chunks = chunk_text(f"{title}\n\n{body}")
     for i, chunk in enumerate(chunks):
         s.execute(
             text(
@@ -57,6 +63,8 @@ def index_paper(s: Session, paper_ref: str, title: str, body: str) -> int:
 
 
 def deindex_paper(s: Session, paper_ref: str) -> None:
+    if db.PG_FTS_AVAILABLE:
+        return  # the papers row's own deletion drops search_vector with it
     table = "paper_fts" if db.FTS5_AVAILABLE else "paper_chunks"
     s.execute(text(f"DELETE FROM {table} WHERE paper_ref = :ref"), {"ref": paper_ref})
 
@@ -75,6 +83,24 @@ def search(s: Session, query: str, *, limit: int = 6) -> list[dict]:
     only - never a participant event, by construction (FR-ETH-4)."""
     if not query.strip():
         return []
+    if db.PG_FTS_AVAILABLE:
+        rows = s.execute(
+            text(
+                "SELECT paper_ref, title, abstract FROM papers "
+                "WHERE search_vector @@ plainto_tsquery('english', :q) "
+                "ORDER BY ts_rank(search_vector, plainto_tsquery('english', :q)) DESC "
+                "LIMIT :n"
+            ),
+            {"q": query, "n": limit},
+        ).all()
+        return [
+            {
+                "paperRef": ref,
+                "chunkIdx": 0,
+                "snippet": (abstract or title or "")[:240],
+            }
+            for ref, title, abstract in rows
+        ]
     if db.FTS5_AVAILABLE:
         match = _fts_query(query)
         if not match:

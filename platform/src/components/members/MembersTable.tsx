@@ -14,8 +14,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { RoleGate } from "@/components/shell/RoleGate";
 import { useApi } from "@/lib/session";
+import { useAuth } from "@/lib/auth.tsx";
 import { ROLE_LABELS, type Role } from "@/lib/capabilities.ts";
 import { ApiError, type Member } from "@/lib/api.ts";
+import { memberLabel } from "@/lib/memberLabel";
 
 const ROLES: Role[] = ["owner", "researcher", "viewer"];
 
@@ -34,6 +36,7 @@ export function MembersTable({
   onChanged: () => void;
 }) {
   const api = useApi();
+  const { user } = useAuth();
   const [rows, setRows] = useState(members);
   const [error, setError] = useState("");
 
@@ -81,8 +84,8 @@ export function MembersTable({
               <TR key={m.identitySub}>
                 <TD>
                   <span className="flex items-center gap-2">
-                    <Avatar name={m.identitySub} />
-                    <span className="truncate">{m.identitySub}</span>
+                    <Avatar name={memberLabel(m, user)} />
+                    <span className="truncate">{memberLabel(m, user)}</span>
                   </span>
                 </TD>
                 <TD>
@@ -98,7 +101,7 @@ export function MembersTable({
                         <button
                           data-agent="member-actions"
                           className="rounded-input p-1 text-text-muted hover:bg-accent-soft"
-                          aria-label={`Actions for ${m.identitySub}`}
+                          aria-label={`Actions for ${memberLabel(m, user)}`}
                         >
                           <MoreHorizontal className="size-4" aria-hidden />
                         </button>
@@ -132,8 +135,8 @@ export function MembersTable({
           <div key={m.identitySub} className="rounded-input border border-border bg-surface p-3">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 min-w-0">
-                <Avatar name={m.identitySub} />
-                <span className="truncate text-sm">{m.identitySub}</span>
+                <Avatar name={memberLabel(m, user)} />
+                <span className="truncate text-sm">{memberLabel(m, user)}</span>
               </span>
               <RoleGate role={myRole} capability="manage_members">
                 <DropdownMenu>
@@ -141,7 +144,7 @@ export function MembersTable({
                     <button
                       data-agent="member-actions"
                       className="rounded-input p-2 text-text-muted hover:bg-accent-soft min-h-11 min-w-11"
-                      aria-label={`Actions for ${m.identitySub}`}
+                      aria-label={`Actions for ${memberLabel(m, user)}`}
                     >
                       <MoreHorizontal className="size-4" aria-hidden />
                     </button>

@@ -31,6 +31,7 @@
   --color-grounded: var(--grounded);
   --color-unsourced: var(--unsourced);
   --color-unsourced-soft: var(--unsourced-soft);
+  --color-thread: var(--thread);
 
   /* Chart palette (dataviz skill) — utilities text-series-1, stroke-series-3,
    * bg-viz-grid, etc. resolve back to the token source, both themes. */
@@ -181,4 +182,39 @@ body::before {
   outline: 2.5px solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: var(--radius-input);
+}
+
+/* Clerk's hosted sign-in widget (auth.tsx CLERK_APPEARANCE) mounts as plain
+ * DOM with Clerk's own stable `cl-*` class names. The `appearance` prop is
+ * the intended way to theme it, but a second, hard override here guards
+ * against any element the prop doesn't reach — without this, Clerk's own
+ * card can keep its own background regardless of theme, leaving app text
+ * rendered on top of it unreadable (worst in dark mode: light text over
+ * Clerk's own light default). Scoped to .clerk-embed so it never touches
+ * anything outside the mounted widget. */
+.clerk-embed .cl-rootBox,
+.clerk-embed .cl-cardBox,
+.clerk-embed .cl-card {
+  width: 100%;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0 !important;
+}
+.clerk-embed .cl-header,
+.clerk-embed .cl-headerTitle,
+.clerk-embed .cl-headerSubtitle {
+  display: none !important;
+}
+.clerk-embed .cl-footer {
+  background: transparent !important;
+  padding-top: 0.75rem !important;
+}
+.clerk-embed .cl-formButtonPrimary {
+  background: var(--accent) !important;
+  color: var(--accent-contrast) !important;
+  opacity: 1 !important;
+}
+.clerk-embed .cl-formButtonPrimary:disabled {
+  opacity: 0.5 !important;
 }

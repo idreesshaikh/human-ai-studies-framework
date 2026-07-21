@@ -51,6 +51,7 @@ export interface Paper {
 export interface GraphNode {
   paperRef: string;
   title: string;
+  authors?: string[];
   year: number | null;
   citationCount: number | null;
   ingested: boolean;

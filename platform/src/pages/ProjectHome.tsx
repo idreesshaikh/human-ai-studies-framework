@@ -1,17 +1,41 @@
-import { Link, useParams } from "react-router-dom";
-import { FlaskConical, Users } from "lucide-react";
+import { useNavigate, Link, useParams } from "react-router-dom";
+import { useState } from "react";
+import { FlaskConical, Users, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { useApi } from "@/lib/session";
+import { useAuth } from "@/lib/auth.tsx";
 import { useAsync } from "@/lib/useAsync";
+import { memberLabel } from "@/lib/memberLabel";
+import { ApiError } from "@/lib/api.ts";
 
 /* Project home: its studies, and a preview of who's on the team. */
 export function ProjectHome() {
   const api = useApi();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { slug = "" } = useParams();
   const { data, loading, error } = useAsync(() => api.projectHome(slug), [api, slug]);
+  const [studyName, setStudyName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+
+  const newStudy = async () => {
+    if (!studyName.trim()) return;
+    setCreating(true);
+    setCreateError("");
+    try {
+      const study = await api.createStudy(slug, studyName);
+      navigate(`/p/${slug}/studies/${study.id}`);
+    } catch (e) {
+      setCreateError(e instanceof ApiError ? e.message : "Could not create the study.");
+      setCreating(false);
+    }
+  };
 
   if (loading) return <p className="p-6 text-sm text-text-muted">Loading…</p>;
   if (error) return <p className="p-6 text-sm text-unsourced">{error}</p>;
@@ -28,8 +52,26 @@ export function ProjectHome() {
         <h2 className="flex items-center gap-2 text-sm font-medium text-text">
           <FlaskConical className="size-4 text-text-muted" aria-hidden /> Studies
         </h2>
+        <Card>
+          <CardContent className="flex flex-col gap-2 p-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Name a new study…"
+                value={studyName}
+                onChange={(e) => setStudyName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && newStudy()}
+                aria-label="New study name"
+              />
+              <Button onClick={newStudy} disabled={!studyName.trim() || creating} data-agent="new-study">
+                <Plus className="size-4" aria-hidden />
+                {creating ? "Creating…" : "Create"}
+              </Button>
+            </div>
+            {createError && <p className="text-sm text-unsourced">{createError}</p>}
+          </CardContent>
+        </Card>
         {data.studies.length === 0 ? (
-          <EmptyState line="No studies yet. Open the designer and talk one into existence." />
+          <EmptyState line="Research goes better with a study. Start one above." />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {data.studies.map((st) => (
@@ -61,8 +103,8 @@ export function ProjectHome() {
               key={m.identitySub}
               className="flex items-center gap-2 rounded-chip border border-border px-2 py-1 text-xs text-text"
             >
-              <Avatar name={m.identitySub} className="size-5" />
-              {m.identitySub}
+              <Avatar name={memberLabel(m, user)} className="size-5" />
+              {memberLabel(m, user)}
             </span>
           ))}
         </div>

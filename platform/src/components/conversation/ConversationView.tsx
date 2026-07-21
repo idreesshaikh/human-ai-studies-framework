@@ -52,6 +52,21 @@ export function ConversationView({
   const [applying, setApplying] = useState(false);
   const [showDraft, setShowDraft] = useState(false);
   const threadEnd = useRef<HTMLDivElement>(null);
+  const composer = useRef<HTMLTextAreaElement>(null);
+
+  // The composer grows with what's typed instead of clipping or scrolling
+  // inside a fixed single row — capped so a very long message still scrolls
+  // rather than pushing the send button off-screen.
+  const growComposer = useCallback(() => {
+    const el = composer.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, []);
+
+  useEffect(() => {
+    growComposer();
+  }, [input, growComposer]);
 
   useEffect(() => {
     let cancelled = false;
@@ -242,8 +257,9 @@ export function ConversationView({
             &gt;
           </span>
           <textarea
-            className="min-h-11 flex-1 resize-none rounded-input border border-border-strong bg-bg px-3 py-2 font-mono text-sm text-text focus-visible:border-accent"
-            placeholder="Describe what you want to find out…"
+            ref={composer}
+            className="min-h-11 max-h-40 flex-1 resize-none overflow-y-auto rounded-input border border-border-strong bg-bg px-3 py-2 font-mono text-sm text-text focus-visible:border-accent"
+            placeholder="What do you want to find out?"
             value={input}
             rows={1}
             onChange={(e) => setInput(e.target.value)}

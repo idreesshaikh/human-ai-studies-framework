@@ -61,7 +61,7 @@ export function InviteAccept() {
               </p>
               {error && (
                 <p className="text-sm text-unsourced">
-                  {error} <Link to="/projects" className="underline">Go to your projects</Link>.
+                  {error} <Link to="/home" className="underline">Go to your projects</Link>.
                 </p>
               )}
               <Button onClick={accept} disabled={state === "joining"}>

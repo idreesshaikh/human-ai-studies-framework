@@ -55,6 +55,9 @@ export interface Member {
   role: Role;
   invitedBy?: string;
   joinedAt?: string;
+  /** Resolved from the invitation that brought them in, when one exists —
+   * absent for the project creator or a pre-invitation-system member. */
+  email?: string | null;
 }
 
 export interface Invitation {
@@ -74,12 +77,6 @@ export interface ProjectHome {
   studies: StudyRef[];
   members: Member[];
   invitations: Invitation[];
-}
-
-export interface DemoPointer {
-  projectSlug: string;
-  projectName: string;
-  studyId: string;
 }
 
 export interface EnrollmentTokenCaptureConfig {
@@ -121,6 +118,7 @@ export interface Api {
   listProjects(): Promise<ProjectSummary[]>;
   createProject(name: string): Promise<ProjectSummary>;
   projectHome(slug: string): Promise<ProjectHome>;
+  createStudy(slug: string, name: string): Promise<{ id: string; phase: string }>;
   renameProject(slug: string, name: string): Promise<void>;
   deleteProject(slug: string, confirm: string): Promise<void>;
   members(slug: string): Promise<Member[]>;
@@ -129,7 +127,6 @@ export interface Api {
   createInvitation(slug: string, email: string, role: Role): Promise<Invitation>;
   revokeInvitation(slug: string, id: string): Promise<void>;
   acceptInvitation(token: string): Promise<{ projectSlug: string; role: Role }>;
-  demo(): Promise<DemoPointer>;
   mintEnrollmentTokens(studyId: string, count: number, grain: "participant" | "session"): Promise<EnrollmentTokenView[]>;
   listEnrollmentTokens(studyId: string): Promise<EnrollmentTokenView[]>;
   revokeEnrollmentToken(studyId: string, tokenId: string): Promise<void>;
@@ -256,6 +253,8 @@ class HttpBackend implements Api {
   createProject = (name: string) =>
     this.call<ProjectSummary>("POST", "/projects", { name });
   projectHome = (slug: string) => this.call<ProjectHome>("GET", `/projects/${slug}`);
+  createStudy = (slug: string, name: string) =>
+    this.call<{ id: string; phase: string }>("POST", `/projects/${slug}/studies`, { name });
   renameProject = (slug: string, name: string) =>
     this.call<void>("PATCH", `/projects/${slug}`, { name });
   deleteProject = (slug: string, confirm: string) =>
@@ -273,7 +272,6 @@ class HttpBackend implements Api {
     this.call<{ projectSlug: string; role: Role }>(
       "POST",
       `/invitations/${token}/accept`);
-  demo = () => this.call<DemoPointer>("GET", "/demo");
   mintEnrollmentTokens = (studyId: string, count: number, grain: "participant" | "session") =>
     this.call<EnrollmentTokenView[]>("POST", `/studies/${studyId}/enrollment/tokens`, { count, grain });
   listEnrollmentTokens = (studyId: string) =>
@@ -434,6 +432,19 @@ export class InMemoryBackend implements Api {
     };
   }
 
+  async createStudy(slug: string, name: string): Promise<{ id: string; phase: string }> {
+    const p = this.get(slug);
+    const base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "study";
+    let id = base;
+    let suffix = 1;
+    while (p.studies.some((st) => st.id === id)) {
+      suffix += 1;
+      id = `${base}-${suffix}`;
+    }
+    p.studies.push({ id, phase: "design" });
+    return { id, phase: "design" };
+  }
+
   async renameProject(slug: string, name: string): Promise<void> {
     if (!name.trim()) throw new ApiError(400, "name is required");
     this.get(slug).name = name.trim();
@@ -501,11 +512,6 @@ export class InMemoryBackend implements Api {
       }
     }
     throw new ApiError(404, "invitation not found — it may have expired or already been used");
-  }
-
-  async demo(): Promise<DemoPointer> {
-    const p = this.get("demo");
-    return { projectSlug: p.slug, projectName: p.name, studyId: p.studies[0]?.id ?? "" };
   }
 
   async mintEnrollmentTokens(studyId: string, count: number, grain: "participant" | "session"): Promise<EnrollmentTokenView[]> {

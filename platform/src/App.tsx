@@ -3,7 +3,6 @@ import { AppFrame } from "@/components/shell/AppFrame";
 import { SignInScreen } from "@/components/shell/SignInScreen";
 import { useAuth } from "@/lib/auth.tsx";
 import { Hero } from "@/pages/Hero";
-import { DemoProject } from "@/pages/DemoProject";
 import { Projects } from "@/pages/Projects";
 import { ProjectHome } from "@/pages/ProjectHome";
 import { StudyHome } from "@/pages/StudyHome";
@@ -37,14 +36,14 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Hero />} />
-      {/* Not "/demo" — that's the backend's GET /demo API path (app.py);
-          same-path SPA route + API route can't coexist on a hard
-          navigation (refresh, bookmark, any location.reload()), which
-          bypasses the SPA shell entirely and shows the raw API response. */}
-      <Route path="/showcase" element={<DemoProject />} />
       <Route path="/invitations/:token" element={<InviteAccept />} />
       <Route element={<Shell />}>
-        <Route path="/projects" element={<Projects />} />
+        {/* Not "/projects" — that's the backend's GET /projects API path
+            (app.py); same-path SPA route + API route can't coexist on a
+            hard navigation (refresh, bookmark, the sign-in/sign-out
+            location.reload()), which bypasses the SPA shell entirely and
+            shows the raw API response instead of this page. */}
+        <Route path="/home" element={<Projects />} />
         <Route path="/p/:slug" element={<ProjectHome />} />
         <Route path="/p/:slug/studies/:id" element={<StudyHome />} />
         <Route path="/p/:slug/platform" element={<PlatformFindings />} />

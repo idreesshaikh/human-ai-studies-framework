@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { KeyRound, Moon, Sun, Monitor } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { KiteMark } from "@/components/brand/KiteMark";
 import { useAuth } from "@/lib/auth.tsx";
 import { getTheme, nextTheme, applyTheme, type Theme } from "@/lib/theme";
 
@@ -31,49 +33,49 @@ export function SignInScreen() {
       data-agent="sign-in"
       className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center p-6"
     >
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute right-4 top-4"
-        onClick={() => {
-          const next = nextTheme(theme);
-          setTheme(next);
-          applyTheme(next);
-        }}
-        aria-label={`Theme: ${theme}`}
-      >
-        <ThemeIcon aria-hidden />
-      </Button>
-
-      <div className="mb-6 flex flex-col items-center gap-2 text-center">
-        <span
-          aria-hidden
-          className="inline-grid size-9 shrink-0 place-items-center rounded-input border border-border-strong bg-accent font-serif text-lg font-medium text-accent-contrast shadow-brutal-sm"
+      <div className="absolute right-4 top-4 flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            const next = nextTheme(theme);
+            setTheme(next);
+            applyTheme(next);
+          }}
+          aria-label={`Theme: ${theme}`}
         >
-          S
-        </span>
-        <span className="font-serif text-xl font-medium tracking-tight text-text">
-          The Study Desk
-        </span>
+          <ThemeIcon aria-hidden />
+        </Button>
       </div>
+
+      <Link
+        to="/"
+        className="mb-6 flex flex-col items-center gap-2 text-center"
+        aria-label="Phoenix, back to home"
+      >
+        <KiteMark size={36} />
+        <span className="font-serif text-lg font-medium tracking-tight text-text">
+          Phoenix
+        </span>
+      </Link>
 
       <Card>
         <CardContent className="flex flex-col gap-4 p-8">
-          <div>
-            <h1 className="font-serif text-2xl font-medium text-text">Sign in</h1>
-            <p className="text-sm text-text-muted">
-              {showClerkWidget
-                ? "See your projects and pick up a study where you left off."
-                : "Paste the session token this instance issued."}
-            </p>
-          </div>
+          <h1 className="font-serif text-2xl font-medium text-text">Sign in</h1>
           {showClerkWidget ? (
-            <div ref={mountRef} />
+            <div ref={mountRef} className="clerk-embed" />
           ) : (
             <TokenForm awaitingClerk={config.mode === "clerk"} />
           )}
         </CardContent>
       </Card>
+
+      <Link
+        to="/"
+        className="mt-6 text-center text-sm text-text-muted hover:text-text"
+      >
+        Back to home
+      </Link>
     </div>
   );
 }
@@ -102,8 +104,8 @@ function TokenForm({ awaitingClerk }: { awaitingClerk: boolean }) {
       </Button>
       {awaitingClerk && (
         <p className="text-xs text-text-muted">
-          Clerk's sign-in widget couldn't load — check your connection, or ask
-          an admin for a session token.
+          The sign-in widget couldn't load. Check your connection, or ask an
+          admin for a session token.
         </p>
       )}
     </form>

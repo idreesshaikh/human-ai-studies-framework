@@ -66,6 +66,7 @@
   --unsourced: #93540a; /* warm ochre — "your call", honest not shameful (4.86:1) */
   --unsourced-soft: #f3deb9;
   --focus-ring: #221a12; /* near-black ring, always high-contrast, drawn offset */
+  --thread: #9c6a1f; /* the kite-string / tether line — brand mark only, never text */
 
   /* Soft lifted-card shadow — warm, low, gently blurred. Reads as a sheet
    * resting slightly above the desk. (Legacy utility name kept as
@@ -111,6 +112,7 @@
   --unsourced: #e3a83e; /* ochre, lifted for dark */
   --unsourced-soft: #3a2a12;
   --focus-ring: #f0dec4; /* cream ring on dark */
+  --thread: #e0a94f; /* the kite-string / tether line, lifted for dark */
 
   --shadow-brutal-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-brutal: 0 3px 12px -2px rgba(0, 0, 0, 0.5),
@@ -150,6 +152,7 @@
     --unsourced: #e3a83e;
     --unsourced-soft: #3a2a12;
     --focus-ring: #f0dec4;
+    --thread: #e0a94f;
     --shadow-brutal-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-brutal: 0 3px 12px -2px rgba(0, 0, 0, 0.5),
       0 1px 3px rgba(0, 0, 0, 0.35);
