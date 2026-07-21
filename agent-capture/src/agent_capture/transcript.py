@@ -136,7 +136,13 @@ def _session_meta_payload(lines: list[dict], transcript_path: str | Path) -> dic
     }
 
 
-def _normalize_copilot_chat(lines: list[dict], keys: Keys, policy: str | None, *, min_token_len: int = DEFAULT_MIN_TOKEN_LEN) -> list[dict]:
+def _normalize_copilot_chat(
+    lines: list[dict],
+    keys: Keys,
+    policy: str | None,
+    *,
+    min_token_len: int = DEFAULT_MIN_TOKEN_LEN,
+) -> list[dict]:
     """Normalize a Copilot Chat / generic JSON transcript shape.
 
     Expected line shape: ``{timestamp, role, content, tool_name?, tool_input?}``

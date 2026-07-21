@@ -37,8 +37,10 @@ EXPOSE 8000
 # files — only their hash/path go in Postgres. On Railway this path must be
 # backed by an attached Volume (see railway.toml) or every redeploy/restart
 # silently drops them; docker-compose.yml already mounts a named volume here
-# for local dev.
-VOLUME /data
+# for local dev. No Dockerfile VOLUME instruction here — Railway's builder
+# rejects it ("use Railway Volumes" instead), and it isn't needed: Railway
+# mounts its Volume at /data by dashboard configuration regardless of any
+# image-level VOLUME declaration.
 
 HEALTHCHECK --interval=5s --timeout=3s --retries=12 CMD \
     uv run python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"

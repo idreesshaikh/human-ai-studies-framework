@@ -56,6 +56,8 @@ from middleware import (
     template_registry,
 )
 from middleware.db import (
+    CORPUS_STUDY_ID,
+    DEMO_PROJECT_SLUG,
     IMPLICIT_PROJECT_ID,
     AggregateShape,
     Amendment,

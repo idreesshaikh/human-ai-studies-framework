@@ -141,22 +141,40 @@ def box_by_condition(
         vals = pd.to_numeric(
             df.loc[df["condition"] == cond, value], errors="coerce"
         ).dropna()
-        bp = ax.boxplot(
+        ax.boxplot(
             vals,
             positions=[i],
             widths=0.4,
             patch_artist=True,
-            boxprops=dict(facecolor=colors[cond], alpha=0.25, edgecolor=colors[cond], linewidth=0.8),
+            boxprops=dict(
+                facecolor=colors[cond],
+                alpha=0.25,
+                edgecolor=colors[cond],
+                linewidth=0.8,
+            ),
             medianprops=dict(color=colors[cond], linewidth=1.5),
             whiskerprops=dict(color=colors[cond], linewidth=0.8),
             capprops=dict(color=colors[cond], linewidth=0.8),
-            flierprops=dict(marker="o", markersize=4, markerfacecolor=colors[cond], markeredgecolor=colors[cond], alpha=0.5),
+            flierprops=dict(
+                marker="o",
+                markersize=4,
+                markerfacecolor=colors[cond],
+                markeredgecolor=colors[cond],
+                alpha=0.5,
+            ),
             showfliers=False,
             zorder=2,
         )
         x = i + rng.uniform(-0.14, 0.14, size=len(vals))
         ax.scatter(
-            x, vals, s=22, color=colors[cond], edgecolors=SURFACE, linewidths=0.8, zorder=3, alpha=0.7,
+            x,
+            vals,
+            s=22,
+            color=colors[cond],
+            edgecolors=SURFACE,
+            linewidths=0.8,
+            zorder=3,
+            alpha=0.7,
         )
     ax.set_xticks(positions)
     ax.set_xticklabels(
@@ -190,7 +208,13 @@ def grouped_bar_proportion(
         p = passed / n if n > 0 else 0.0
         props[cond] = (p, n, passed)
         ax.bar(
-            i, p, width=0.5, color=colors[cond], edgecolor=SURFACE, linewidth=1.2, zorder=3,
+            i,
+            p,
+            width=0.5,
+            color=colors[cond],
+            edgecolor=SURFACE,
+            linewidth=1.2,
+            zorder=3,
         )
     ax.set_xticks(range(len(conditions)))
     ax.set_xticklabels(
@@ -220,11 +244,23 @@ def scatter_fit(
     n = min(len(x), len(y))
     x, y = x[:n], y[:n]
     if n < 2:
-        ax.text(0.5, 0.5, "too few points", transform=ax.transAxes, ha="center", va="center")
+        ax.text(
+            0.5, 0.5, "too few points", transform=ax.transAxes, ha="center", va="center"
+        )
         fig.tight_layout()
         return fig
-    ax.scatter(x, y, s=30, color=PALETTE[0], edgecolors=SURFACE, linewidths=1.2, zorder=3, alpha=0.7)
+    ax.scatter(
+        x,
+        y,
+        s=30,
+        color=PALETTE[0],
+        edgecolors=SURFACE,
+        linewidths=1.2,
+        zorder=3,
+        alpha=0.7,
+    )
     from numpy.polynomial import polynomial as poly
+
     coeffs, stats = poly.polyfit(x, y, 1, full=True)
     x_sorted = np.sort(x)
     y_fit = poly.polyval(x_sorted, coeffs)
@@ -232,7 +268,16 @@ def scatter_fit(
     ax.set_xlim(x.min(), x.max())
     ax.set_ylim(min(0, y.min()), y.max())
     n_text = f"n = {n} {label}"
-    ax.text(0.97, 0.05, n_text, transform=ax.transAxes, fontsize=7, color=MUTED, ha="right", va="bottom")
+    ax.text(
+        0.97,
+        0.05,
+        n_text,
+        transform=ax.transAxes,
+        fontsize=7,
+        color=MUTED,
+        ha="right",
+        va="bottom",
+    )
     fig.tight_layout()
     return fig
 

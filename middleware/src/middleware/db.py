@@ -541,7 +541,8 @@ class TemplateSubmission(Base):
     submitter_sub: Mapped[str] = mapped_column(String, index=True)
     name: Mapped[str] = mapped_column(String)
     template_yaml: Mapped[str] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String, default="pending")  # pending | approved | rejected
+    # status: pending | approved | rejected
+    status: Mapped[str] = mapped_column(String, default="pending")
     reviewer_sub: Mapped[str] = mapped_column(String, default="")
     review_comment: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[str] = mapped_column(String)

@@ -307,7 +307,7 @@ def test_archive_adapter_produces_deterministic_events():
     e1, _ = run_all(a1, frame)
     e2, _ = run_all(a2, frame)
     assert len(e1) == len(e2)
-    for ev1, ev2 in zip(e1, e2):
+    for ev1, ev2 in zip(e1, e2, strict=True):
         assert ev1.seq == ev2.seq
         assert ev1.participant_id == ev2.participant_id
         assert ev1.type == ev2.type
@@ -350,7 +350,7 @@ def test_archive_adapter_resume_from_cursor():
     cursor = Cursor({"skip": 2, "seen": 2})
     events, _ = run_all(adapter2, frame, cursor=cursor)
     assert len(events) == len(full_events) - 2
-    for ev, fev in zip(events, full_events[2:]):
+    for ev, fev in zip(events, full_events[2:], strict=True):
         assert ev.seq == fev.seq
         assert ev.participant_id == fev.participant_id
 

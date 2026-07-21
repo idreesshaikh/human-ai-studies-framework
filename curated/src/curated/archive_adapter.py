@@ -26,7 +26,6 @@ from curated.contract import (
     CoverageEstimate,
     Cursor,
     CursorCheckpoint,
-    MiningAdapter,
     NormalizedEvent,
     RunItem,
     SamplingFrame,
@@ -135,16 +134,35 @@ class ArchiveAdapter:
     ) -> NormalizedEvent | None:
         raw_type = str(record.get("type", "") or "")
         event_type = _EVENT_TYPE_MAP.get(raw_type, "mined_commit")
-        raw_author = str(record.get("actor") or record.get("author") or record.get("user") or "unknown")
+        raw_author = str(
+            record.get("actor")
+            or record.get("author")
+            or record.get("user")
+            or "unknown"
+        )
         pid = pseudonym(salt, raw_author, prefix="actor")
         condition = frame.conditions[0] if frame.conditions else "default"
-        session_id = str(record.get("sessionId") or record.get("repo") or record.get("session_id", f"archive-{seq}"))
-        ts = str(record.get("createdAt") or record.get("timestamp") or record.get("ts", ""))
+        session_id = str(
+            record.get("sessionId")
+            or record.get("repo")
+            or record.get("session_id", f"archive-{seq}")
+        )
+        ts = str(
+            record.get("createdAt") or record.get("timestamp") or record.get("ts", "")
+        )
 
         event_payload: dict[str, Any] = {
             "rawType": raw_type,
         }
-        for key in ("additions", "deletions", "changedFiles", "commits", "lines", "chars", "size"):
+        for key in (
+            "additions",
+            "deletions",
+            "changedFiles",
+            "commits",
+            "lines",
+            "chars",
+            "size",
+        ):
             if key in record:
                 try:
                     event_payload[key] = int(record[key])

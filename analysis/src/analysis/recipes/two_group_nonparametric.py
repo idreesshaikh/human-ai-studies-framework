@@ -24,7 +24,10 @@ FIGURE_FORMS = {
     "box": figures.box_by_condition,
 }
 _DEFAULT_FIGURE = "strip"
-FIGURE_LABELS = {"strip": "strip plot per condition", "box": "box + strip per condition"}
+FIGURE_LABELS = {
+    "strip": "strip plot per condition",
+    "box": "box + strip per condition",
+}
 
 
 def _pick_figure(form: str):

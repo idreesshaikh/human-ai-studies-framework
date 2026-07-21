@@ -4,9 +4,8 @@ Covers: submit, list (own vs. owner view), get, approve, reject, duplicate
 approve, bad YAML, non-owner rejection.
 """
 
-from pathlib import Path
-
 import uuid
+from pathlib import Path
 
 import pytest
 import yaml
@@ -64,7 +63,10 @@ VALID_TEMPLATE = yaml.safe_dump(
                 {"id": "RQ-1", "text": "How does AI affect task time?"},
             ],
             "conditions": "{{ conditions }}",
-            "participants": {"planned": "{{ participantPlan }}", "design": "within-subjects"},
+            "participants": {
+                "planned": "{{ participantPlan }}",
+                "design": "within-subjects",
+            },
             "session": {"durationMinutes": "{{ sessionMinutes }}"},
             "instruments": {
                 "tern": {

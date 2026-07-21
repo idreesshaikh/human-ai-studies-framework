@@ -21,7 +21,10 @@ FIGURE_FORMS = {
     "strip": figures.strip_by_condition,
 }
 _DEFAULT_FIGURE = "paired-dots"
-FIGURE_LABELS = {"paired-dots": "paired dots per participant", "strip": "strip plot per condition"}
+FIGURE_LABELS = {
+    "paired-dots": "paired dots per participant",
+    "strip": "strip plot per condition",
+}
 
 
 def _pick_figure(form: str):

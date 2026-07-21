@@ -211,7 +211,11 @@ def test_generic_json_unknown_format_falls_back_to_claude_code(keys):
 def test_generic_json_code_blocks_captured_as_shapes(keys):
     path = _FIXTURES / "generic-transcript.jsonl"
     events = normalize_transcript(path, keys, "redacted", format="generic-json")
-    assistant = [e for e in events if e["type"] == "agent_turn" and e["payload"].get("role") == "assistant"]
+    assistant = [
+        e
+        for e in events
+        if e["type"] == "agent_turn" and e["payload"].get("role") == "assistant"
+    ]
     assert len(assistant) >= 1
     blocks = assistant[0]["payload"].get("codeBlocks", [])
     assert len(blocks) >= 1
