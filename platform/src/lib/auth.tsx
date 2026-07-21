@@ -66,7 +66,7 @@ interface ClerkInstance {
   signOut(): Promise<void>;
 }
 
-/** Themes the hosted Clerk widget to match the Study Desk design tokens
+/** Themes the hosted Clerk widget to match Phoenix's own design tokens
  * (tokens.css) instead of Clerk's stock look. Clerk's components mount as
  * plain DOM in this page (no iframe, no shadow root), so `var(--x)` values
  * resolve live off `:root` / `[data-theme]` — the widget re-themes for free
@@ -92,8 +92,12 @@ const CLERK_APPEARANCE = {
     fontSize: "0.875rem",
   },
   elements: {
+    rootBox: "w-full",
+    cardBox: "w-full shadow-none border-none bg-transparent",
     card: "border-none bg-transparent p-0 shadow-none w-full",
     header: "hidden",
+    headerTitle: "hidden",
+    headerSubtitle: "hidden",
     footer: "bg-transparent",
     footerActionLink: "text-accent hover:text-accent",
     socialButtonsBlockButton:
