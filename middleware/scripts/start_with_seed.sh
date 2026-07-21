@@ -5,7 +5,7 @@
 # Seed failures never kill the server.
 set -eu
 
-PORT="${MIDDLEWARE_PORT:-8000}"
+PORT="${PORT:-${MIDDLEWARE_PORT:-8000}}"
 
 uv run python -m middleware &
 SERVER_PID=$!
