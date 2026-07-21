@@ -9,51 +9,63 @@ import { KiteMark } from "@/components/brand/KiteMark";
  * account needed), so a visitor watches design moves arrive and fills a
  * protocol draft with nothing to sign up for. A real, connected study talks
  * to whichever LLM the researcher configures (FR-CONV-1.4); the preview
- * intentionally doesn't oversell that with a fake "AI" flourish here. */
+ * intentionally doesn't oversell that with a fake "AI" flourish here.
+ *
+ * The header gets one staged entrance (mark, then headline, then the CTA) —
+ * the only motion this page spends; the panel below just runs. "Grounded" in
+ * the subhead borrows the app's own moss-green for cited moves (tokens.css),
+ * so the color already means something before a researcher has seen it. */
 export function Hero() {
   return (
-    <div className="mx-auto flex min-h-full max-w-6xl flex-col gap-8 px-6 py-10">
-      <header className="flex flex-col items-center gap-5 pt-6 text-center">
-        <KiteMark size={32} />
+    <div className="mx-auto flex min-h-full max-w-5xl flex-col gap-12 px-6 py-16 sm:py-20">
+      <header className="flex flex-col items-center gap-6 text-center">
+        <div className="animate-in fade-in duration-entrance ease-out">
+          <KiteMark size={40} />
+        </div>
 
-        <h1 className="max-w-3xl font-serif text-4xl font-medium leading-[1.08] tracking-tight text-text sm:text-6xl">
+        <h1 className="max-w-2xl animate-in fade-in slide-in-from-bottom-2 font-serif text-5xl font-medium leading-[1.05] tracking-tight text-text duration-entrance ease-out sm:text-6xl">
           Talk your <span className="italic text-accent">study</span> into
           existence
         </h1>
 
-        <p className="max-w-xl text-lg leading-relaxed text-text-muted">
-          Describe the study you have in mind, in plain language. The
-          platform suggests design moves drawn from the research literature.
-          Keep the ones that fit, and it writes them up as a protocol you can
-          cite.
+        <p className="max-w-lg animate-in fade-in text-lg leading-relaxed text-text-muted delay-100 duration-entrance ease-out">
+          Describe a research idea, in plain language. Phoenix proposes
+          design moves{" "}
+          <span className="font-medium text-grounded">grounded</span> in a
+          1,000+ paper corpus, cited, never invented, and compiles what you
+          keep into a protocol.
         </p>
 
-        <div className="flex flex-wrap items-center justify-center gap-3">
+        <div className="flex animate-in flex-col items-center gap-2 fade-in delay-150 duration-entrance ease-out">
           <Button asChild>
             <Link to="/home">
-              <ArrowRight aria-hidden /> Start your own
+              Start a project <ArrowRight aria-hidden />
             </Link>
           </Button>
+          <p className="text-xs text-text-muted">
+            Free to try below. No account needed.
+          </p>
         </div>
       </header>
 
       <section aria-label="Design conversation" className="flex flex-col gap-2">
         <div className="overflow-hidden rounded-card border border-border-strong bg-surface shadow-brutal-lg">
-          {/* Panel header — a quiet label strip. */}
-          <div className="border-b border-border bg-surface-raised px-4 py-2.5">
+          {/* Panel header — a quiet label strip, live dot instead of a
+              disclaimer paragraph; the opening turn below already invites a
+              real example, so the copy up here doesn't repeat it. */}
+          <div className="flex items-center gap-2 border-b border-border bg-surface-raised px-4 py-2.5">
+            <span
+              className="size-1.5 shrink-0 animate-pulse rounded-full bg-grounded"
+              aria-hidden
+            />
             <span className="font-mono text-xs font-medium tracking-wide text-text-muted">
               Design session
             </span>
-          </div>
-          <p className="border-b border-border bg-surface px-4 py-2.5 text-center text-sm text-text-muted">
-            No account needed to try this. It's a scripted preview below.
-            Start your own study and the conversation runs live, guided by
-            whichever LLM you connect. Try typing something like{" "}
-            <span className="font-medium text-accent">
-              “junior developers over-trust AI code”
+            <span className="ml-auto hidden font-mono text-[0.6875rem] text-text-muted sm:inline">
+              live preview, no account needed
             </span>
-          </p>
-          <div className="h-[50vh] min-h-[20rem] max-h-[32rem]">
+          </div>
+          <div className="h-[55vh] min-h-[22rem] max-h-[34rem]">
             <ConversationView stubOnly />
           </div>
         </div>

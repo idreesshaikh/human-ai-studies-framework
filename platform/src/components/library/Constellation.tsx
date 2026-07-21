@@ -88,7 +88,13 @@ export function Constellation({
         })}
         {positioned.map((n) => {
           const isSel = n.paperRef === selected;
-          const label = nodeLabel(n);
+          // A harvested neighbourhood runs to hundreds of suggested stubs
+          // (FR-LIT-2 fetches up to 250 per paper) - a permanent label on
+          // every one is illegible clutter, not information. Label the few
+          // that matter: ingested papers (a handful) and whichever one is
+          // selected; everything else keeps its hover title and the detail
+          // panel on click.
+          const label = n.ingested || isSel ? nodeLabel(n) : "";
           const r = radius(n);
           return (
             <g
