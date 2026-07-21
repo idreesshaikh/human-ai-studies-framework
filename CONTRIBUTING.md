@@ -55,7 +55,7 @@ flowchart LR
 | `extension/` | VS Code extension: self-report + behavioral capture. Deep guide: [`extension/PROJECT_GUIDE.md`](extension/PROJECT_GUIDE.md) | TypeScript, `npm run check` |
 | `metrics/` | Nine code-complexity measurements (deliberately flat scripts, not a package) | Python |
 | `agent-capture/` | The AI agent's side of a session: hooks, transcripts, snapshots, task harness | Python |
-| `middleware/` | The hub on port 8000: ingestion, storage, query API, serves the platform | Python (FastAPI + SQLite) |
+| `middleware/` | The hub on port 8000: ingestion, storage, query API, serves the platform | Python (FastAPI + PostgreSQL; SQLite fallback) |
 | `platform/` | The web app: design conversation, study workspace (Library / Data / Lifecycle), projects, evolution surfaces | React 19 + Vite + Tailwind + shadcn, `npm run check` |
 | `analysis/` | Analysis recipes → per-question report → LaTeX paper draft → retrospective | Python |
 

@@ -122,6 +122,121 @@ def strip_by_condition(
     return fig
 
 
+def box_by_condition(
+    df: pd.DataFrame,
+    value: str,
+    conditions: list[str],
+    title: str,
+    ylabel: str,
+    xlabel: str = "condition",
+) -> Figure:
+    """Box-and-whisker per condition, every observation overlaid as jittered
+    points (the strip + box hybrid). Per-cell n on the axis. Alternative to
+    ``strip_by_condition`` when the group shapes differ meaningfully."""
+    colors = condition_colors(conditions)
+    fig, ax = new_axes(title, xlabel, ylabel)
+    rng = np.random.default_rng(1)
+    positions = list(range(len(conditions)))
+    for i, cond in enumerate(conditions):
+        vals = pd.to_numeric(
+            df.loc[df["condition"] == cond, value], errors="coerce"
+        ).dropna()
+        bp = ax.boxplot(
+            vals,
+            positions=[i],
+            widths=0.4,
+            patch_artist=True,
+            boxprops=dict(facecolor=colors[cond], alpha=0.25, edgecolor=colors[cond], linewidth=0.8),
+            medianprops=dict(color=colors[cond], linewidth=1.5),
+            whiskerprops=dict(color=colors[cond], linewidth=0.8),
+            capprops=dict(color=colors[cond], linewidth=0.8),
+            flierprops=dict(marker="o", markersize=4, markerfacecolor=colors[cond], markeredgecolor=colors[cond], alpha=0.5),
+            showfliers=False,
+            zorder=2,
+        )
+        x = i + rng.uniform(-0.14, 0.14, size=len(vals))
+        ax.scatter(
+            x, vals, s=22, color=colors[cond], edgecolors=SURFACE, linewidths=0.8, zorder=3, alpha=0.7,
+        )
+    ax.set_xticks(positions)
+    ax.set_xticklabels(
+        [f"{c}\nn={int((df['condition'] == c).sum())}" for c in conditions]
+    )
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(min(0, lo), hi)
+    fig.tight_layout()
+    return fig
+
+
+def grouped_bar_proportion(
+    df: pd.DataFrame,
+    outcome_col: str,
+    conditions: list[str],
+    title: str,
+    ylabel: str = "proportion",
+    xlabel: str = "condition",
+) -> Figure:
+    """Grouped bar chart for binary outcome proportions per condition. Each
+    bar shows the proportion of passed/true outcomes with per-cell n. Thin
+    error bars (Clopper-Pearson exact binomial CI, computed at
+    ``analysis.stats.exact_binomial_ci``)."""
+    colors = condition_colors(conditions)
+    fig, ax = new_axes(title, xlabel, ylabel, figsize=(4.2, 4.2))
+    props = {}
+    for i, cond in enumerate(conditions):
+        subset = df[df["condition"] == cond]
+        n = len(subset)
+        passed = int(subset[outcome_col].sum()) if outcome_col in subset.columns else 0
+        p = passed / n if n > 0 else 0.0
+        props[cond] = (p, n, passed)
+        ax.bar(
+            i, p, width=0.5, color=colors[cond], edgecolor=SURFACE, linewidth=1.2, zorder=3,
+        )
+    ax.set_xticks(range(len(conditions)))
+    ax.set_xticklabels(
+        [f"{c}\nn={props[c][1]}" for c in conditions]
+    )
+    ax.set_ylim(0, 1)
+    fig.tight_layout()
+    return fig
+
+
+def scatter_fit(
+    df: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    label: str,
+    title: str,
+    xlabel: str = "",
+    ylabel: str = "",
+) -> Figure:
+    """Scatter plot with linear least-squares fit line (OLS), each
+    observation drawn, fit shaded at 95% CI. ``x_col`` and ``y_col`` are
+    numeric columns in ``df``. ``label`` names the entity type
+    (e.g. "participants")."""
+    fig, ax = new_axes(title, xlabel or x_col, ylabel or y_col)
+    x = pd.to_numeric(df[x_col], errors="coerce").dropna().values
+    y = pd.to_numeric(df[y_col], errors="coerce").dropna().values
+    n = min(len(x), len(y))
+    x, y = x[:n], y[:n]
+    if n < 2:
+        ax.text(0.5, 0.5, "too few points", transform=ax.transAxes, ha="center", va="center")
+        fig.tight_layout()
+        return fig
+    ax.scatter(x, y, s=30, color=PALETTE[0], edgecolors=SURFACE, linewidths=1.2, zorder=3, alpha=0.7)
+    from numpy.polynomial import polynomial as poly
+    coeffs, stats = poly.polyfit(x, y, 1, full=True)
+    x_sorted = np.sort(x)
+    y_fit = poly.polyval(x_sorted, coeffs)
+    ax.plot(x_sorted, y_fit, color=INK, linewidth=1.5, zorder=4)
+    ax.set_xlim(x.min(), x.max())
+    ax.set_ylim(min(0, y.min()), y.max())
+    n_text = f"n = {n} {label}"
+    ax.text(0.97, 0.05, n_text, transform=ax.transAxes, fontsize=7, color=MUTED, ha="right", va="bottom")
+    fig.tight_layout()
+    return fig
+
+
 def paired_dots(
     wide: pd.DataFrame, conditions: tuple[str, str], title: str, ylabel: str
 ) -> Figure:

@@ -65,12 +65,12 @@ flowchart TB
     end
 
     subgraph STORES["Storage (D11: SQLite, one file = backup)"]
-        DB[("study.sqlite3<br/>projects · studies · events ·<br/>conversations · papers · FTS5")]:::store
+        DB[("PostgreSQL (default)<br/>projects · studies · events ·<br/>conversations · papers · FTS<br/>SQLite fallback for script testing")]:::store
         FILES[("content-addressed file store<br/>gate artifacts · PDFs")]:::store
     end
 
     subgraph LEGS["Instrument legs"]
-        EXT["extension/ Cognitive Overlay<br/>cognitive + behavioral"]:::edge
+        EXT["extension/ TERN<br/>cognitive + behavioral"]:::edge
         MET["metrics/ 9-metric matrix"]:::edge
         AGC["agent-capture/ hooks + transcripts"]:::edge
     end
@@ -109,12 +109,13 @@ Key placements, argued:
 
 ## Deployment topology
 
+Railway is the sole deployment target for the production service. Local
+development mirrors it exactly (PostgreSQL, single container).
+
 ```mermaid
 flowchart LR
     classDef host fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
-    DEV["Laptop (NFR-7)<br/>docker compose up<br/>none-auth, implicit project"]:::host
-    DEMO["Render free tier (D25)<br/>seeded demo, reseeds on boot<br/>hero + demo project public"]:::host
-    VM["University/Azure VM (D26)<br/>Caddy TLS · Clerk auth ·<br/>persistent SQLite volume"]:::host
-    DEV -->|git tag vX.Y.Z| DEMO
-    DEMO -->|approval gate| VM
+    DEV["Laptop (NFR-7)<br/>docker compose up<br/>Postgres · optional SonarQube<br/>none/token auth"]:::host
+    RAILWAY["Railway (D26)<br/>seeded demo · reseeds on boot<br/>managed PostgreSQL · Clerk auth<br/>TLS · custom domain"]:::host
+    DEV -->|git push main| RAILWAY
 ```

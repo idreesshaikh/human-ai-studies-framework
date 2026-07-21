@@ -43,7 +43,7 @@ Non-negotiable bounds, inherited verbatim:
 - **Self-hosted continuity** (FR-PLAT-5): `none`/`token` modes run
   project-free with one implicit project — a real row, invisible in UI;
   the existing smoke test must pass unchanged.
-- **SQLite stays** (D11): scoping is a column + an index, not a database
+- **PostgreSQL stays** (D26): scoping is a column + an index, not a database
   migration adventure.
 
 ## Slices
@@ -152,7 +152,7 @@ these elements exist):
    double duty as marketing). The visitor watches design moves arrive,
    can accept/reject them, sees the draft rail fill.
 3. **One-click demo project**: a public, seeded, read-only (`viewer`)
-   project everyone shares — reseeded on boot (D25 Render posture, the
+    project everyone shares — reseeded on boot (D26 Railway posture, the
    existing seeding mechanism extended). Hero → demo project → rendered
    per-RQ report in **≤ 3 interactions, no account** (F4 fit).
 4. Sign-up CTA (Clerk) → first project → designer open in ≤ 2 minutes.

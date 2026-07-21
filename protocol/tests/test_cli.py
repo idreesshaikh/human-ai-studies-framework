@@ -65,8 +65,8 @@ def test_derive_emits_pasteable_settings_json(example_path, capsys):
         == 0
     )
     settings = json.loads(capsys.readouterr().out)
-    assert settings["cognitiveOverlay.participantId"] == "P01"
-    assert all(key.startswith("cognitiveOverlay.") for key in settings)
+    assert settings["tern.participantId"] == "P01"
+    assert all(key.startswith("tern.") for key in settings)
 
 
 def test_derive_unknown_condition_fails(example_path, capsys):

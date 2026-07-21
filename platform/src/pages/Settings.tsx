@@ -9,15 +9,19 @@ import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
 import { ApiError } from "@/lib/api.ts";
 import type { Role } from "@/lib/capabilities.ts";
+import type { Theme } from "@/lib/theme";
 
 /* Project settings: rename, and an owner-only danger zone whose delete
- * requires typing the slug to confirm. */
+ * requires typing the slug to confirm. Plus the signed-in identity's own
+ * profile (FR-OPS-7) — theme + default assistant model, persisted
+ * server-side so they follow the person across devices. */
 export function Settings() {
   const api = useApi();
-  const { me, refresh } = useSession();
+  const { me, refresh, updatePreferences } = useSession();
   const navigate = useNavigate();
   const { slug = "" } = useParams();
   const { data } = useAsync(() => api.projectHome(slug), [api, slug]);
+  const models = useAsync(() => api.assistantModels(), [api]);
   const [name, setName] = useState("");
   const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState("");
@@ -25,6 +29,9 @@ export function Settings() {
 
   const mine = (me?.memberships.find((m) => m.projectSlug === slug)?.role ??
     "viewer") as Role;
+
+  const prefs = me?.preferences ?? {};
+  const modelOptions = models.data?.models ?? [];
 
   const rename = async () => {
     setErr("");
@@ -49,9 +56,68 @@ export function Settings() {
     }
   };
 
+  const saveModel = async (value: string) => {
+    setErr("");
+    try {
+      await updatePreferences({ defaultAssistantModel: value || undefined });
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Could not save preference.");
+    }
+  };
+
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <h1 className="font-serif text-3xl font-medium tracking-tight text-text">Settings</h1>
+
+      <Card>
+        <CardContent className="flex flex-col gap-4 p-4">
+          <div>
+            <h2 className="font-medium text-text">Your profile</h2>
+            <p className="text-sm text-text-muted">
+              Preferences are saved to your account and follow you across devices.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="theme">Theme</Label>
+            <select
+              id="theme"
+              className="rounded-input border border-border-strong bg-surface px-2 py-1.5 text-sm text-text"
+              value={prefs.theme ?? "system"}
+              onChange={(e) =>
+                void updatePreferences({ theme: e.target.value as Theme })
+              }
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="model">Default assistant model</Label>
+            <select
+              id="model"
+              className="rounded-input border border-border-strong bg-surface px-2 py-1.5 text-sm text-text"
+              value={prefs.defaultAssistantModel ?? models.data?.defaultModel ?? ""}
+              onChange={(e) => void saveModel(e.target.value)}
+              disabled={modelOptions.length === 0}
+            >
+              {!prefs.defaultAssistantModel && (
+                <option value="">Use deployment default</option>
+              )}
+              {modelOptions.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+            {modelOptions.length === 0 && (
+              <p className="text-xs text-text-muted">
+                No assistant models are configured on this deployment.
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <RoleGate
         role={mine}
@@ -61,14 +127,15 @@ export function Settings() {
         <Card>
           <CardContent className="flex flex-col gap-3 p-4">
             <Label htmlFor="rename">Project name</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <Input
                 id="rename"
                 placeholder={data?.name ?? "Project name"}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                className="min-h-11"
               />
-              <Button onClick={rename} disabled={!name.trim()}>
+              <Button onClick={rename} disabled={!name.trim()} className="min-h-11">
                 Save
               </Button>
             </div>
@@ -86,18 +153,19 @@ export function Settings() {
                   Type <span className="font-mono">{slug}</span> to confirm.
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <Input
                   placeholder={slug}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   aria-label="Type the project slug to confirm deletion"
+                  className="min-h-11"
                 />
                 <Button
                   variant="outline"
                   onClick={remove}
                   disabled={confirm !== slug}
-                  className="border-unsourced text-unsourced"
+                  className="border-unsourced text-unsourced min-h-11"
                 >
                   Delete project
                 </Button>

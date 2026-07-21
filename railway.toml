@@ -1,0 +1,37 @@
+# Railway deployment configuration.
+#
+# The middleware container builds from the repo root (uv workspace context)
+# using the multi-stage Dockerfile in middleware/. Railway injects DATABASE_URL
+# automatically when a PostgreSQL plugin is attached — the middleware reads
+# it via Settings and connects with psycopg3 + SQLAlchemy 2.x.
+#
+# One-time manual step (Railway has no config-as-code volume declaration —
+# this can't live in this file): attach a persistent Volume to the service
+# — dashboard → service → Settings → Volumes → New Volume — mounted at
+# /data. Without it, uploaded files (consent PDFs, paper PDFs) written to
+# MIDDLEWARE_DATA_DIR silently vanish on every redeploy/restart, since only
+# their hash/path is in Postgres, never the bytes. Postgres itself needs no
+# such step — the PostgreSQL plugin manages its own storage.
+#
+# Required env vars to set in the Railway dashboard:
+#   MIDDLEWARE_AUTH       - "clerk" (recommended) or "token"
+#   MIDDLEWARE_TOKEN      - (when auth=token)
+#   MIDDLEWARE_CLERK_*    - (when auth=clerk)
+#
+# Optional:
+#   MIDDLEWARE_SEED_ON_START=1   - seed the demo study on boot
+#   MISTRAL_API_KEY              - enables the knowledge assistant
+#   MIDDLEWARE_S2_API_KEY        - Semantic Scholar enrichment
+#   MIDDLEWARE_GITHUB_TOKEN      - curated mining live source
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "middleware/Dockerfile"
+dockerBuildContext = "."
+
+[deploy]
+startCommand = "sh middleware/scripts/start_with_seed.sh"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

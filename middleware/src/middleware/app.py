@@ -36,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from protocol.lifecycle import PHASE_ORDER, current_phase
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy import text as sqltext
 from sqlalchemy.orm import Session
 
 from middleware import (
@@ -56,8 +56,6 @@ from middleware import (
     template_registry,
 )
 from middleware.db import (
-    CORPUS_STUDY_ID,
-    DEMO_PROJECT_SLUG,
     IMPLICIT_PROJECT_ID,
     AggregateShape,
     Amendment,
@@ -66,6 +64,7 @@ from middleware.db import (
     ConversationTurn,
     CuratedDataset,
     DesignMoveRow,
+    EnrollmentToken,
     Event,
     Finding,
     Invitation,
@@ -84,6 +83,9 @@ from middleware.db import (
     Study,
     StudyEvolution,
     TaskCard,
+    TemplateSubmission,
+    UserProfile,
+    get_engine,
     make_session_factory,
 )
 from middleware.redocs import parse_glossary, parse_srs
@@ -262,6 +264,20 @@ class TemplateInstantiateIn(BaseModel):
     title: str = ""
 
 
+class TemplateSubmitIn(BaseModel):
+    """Submit a third-party template for registry review (FR-TPL-5)."""
+
+    name: str = Field(min_length=1, max_length=200)
+    templateYaml: str = Field(min_length=1)
+
+
+class TemplateDecisionIn(BaseModel):
+    """Owner decision on a template submission (FR-TPL-5)."""
+
+    status: str = Field(pattern=r"^(approved|rejected)$")
+    reviewComment: str = ""
+
+
 class MintTokensIn(BaseModel):
     """Mint a batch of enrollment (pairing) tokens for a study (FR-INST-20)."""
 
@@ -310,7 +326,7 @@ class _ProtocolCheck:
 def create_app(settings: Settings | None = None, clock: Clock | None = None) -> FastAPI:
     settings = settings or Settings()
     clock = clock or (lambda: datetime.now(UTC))
-    session_factory = make_session_factory(settings.db_path)
+    session_factory = make_session_factory(settings.db_url)
 
     protocol_doc = None
     if settings.protocol_path is not None:
@@ -484,12 +500,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
         inserted = 0
         if rows:
-            stmt = (
-                sqlite_insert(Event)
-                .values(rows)
-                .on_conflict_do_nothing(index_elements=["session_id", "source", "seq"])
-            )
-            inserted = s.execute(stmt).rowcount
+            engine = get_engine()
+            if engine.dialect.name == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert as _pg_insert
+                stmt = _pg_insert(Event).values(rows).on_conflict_do_nothing()
+            else:
+                from sqlalchemy.dialects.sqlite import insert as _sq_insert
+                stmt = _sq_insert(Event).values(rows).on_conflict_do_nothing(
+                    index_elements=["session_id", "source", "seq"]
+                )
+            inserted = len(s.execute(stmt.returning(Event.id)).fetchall())
         if flagged:
             log_finding(
                 s,
@@ -516,23 +536,32 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 str(row.get("participantId", "")), str(row.get("condition", "")), None
             )
             flagged += bool(flags)
-            stmt = (
-                sqlite_insert(MetricRow)
-                .values(
-                    table=table,
-                    session_id=str(row.get("sessionId", "")),
-                    participant_id=str(row.get("participantId", "")),
-                    condition=str(row.get("condition", "")),
-                    timestamp=str(row.get("timestamp", "")),
-                    schema_version=int(row.get("schemaVersion", -1)),
-                    row=row,
-                    row_hash=MetricRow.hash_row(table, row),
-                    flags=flags,
-                    received_at=received,
-                )
-                .on_conflict_do_nothing(index_elements=["row_hash"])
+            _row_vals = dict(
+                table=table,
+                session_id=str(row.get("sessionId", "")),
+                participant_id=str(row.get("participantId", "")),
+                condition=str(row.get("condition", "")),
+                timestamp=str(row.get("timestamp", "")),
+                schema_version=int(row.get("schemaVersion", -1)),
+                row=row,
+                row_hash=MetricRow.hash_row(table, row),
+                flags=flags,
+                received_at=received,
             )
-            inserted += s.execute(stmt).rowcount
+            _engine = get_engine()
+            if _engine.dialect.name == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert as _pg_insert
+                stmt = (
+                    _pg_insert(MetricRow)
+                    .values([_row_vals])
+                    .on_conflict_do_nothing()
+                )
+            else:
+                from sqlalchemy.dialects.sqlite import insert as _sq_insert
+                stmt = _sq_insert(MetricRow).values([_row_vals]).on_conflict_do_nothing(
+                    index_elements=["row_hash"]
+                )
+            inserted += len(s.execute(stmt.returning(MetricRow.id)).fetchall())
         if flagged:
             log_finding(
                 s,
@@ -1148,41 +1177,50 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     def upsert_paper(s: Session, study_id: str, record: dict, *, source: str) -> None:
         """Insert-or-update one paper record and (re)index its text."""
-        stmt = (
-            sqlite_insert(Paper)
-            .values(
-                study_id=study_id,
-                paper_ref=record["paperRef"],
-                title=record.get("title", ""),
-                authors=record.get("authors", []),
-                year=record.get("year"),
-                venue=record.get("venue", ""),
-                abstract=record.get("abstract", ""),
-                doi=record.get("doi", ""),
-                arxiv_id=record.get("arxivId", ""),
-                url=record.get("url", ""),
-                item_type=record.get("itemType", "paper"),
-                source=source,
-                s2_id=record.get("s2Id", ""),
-                citation_count=record.get("citationCount"),
-                full_text=record.get("fullText", ""),
-                added_at=now(),
-            )
-            .on_conflict_do_update(
-                index_elements=["study_id", "paper_ref"],
-                set_={
-                    "title": record.get("title", ""),
-                    "abstract": record.get("abstract", ""),
-                    "s2_id": record.get("s2Id", ""),
-                    "citation_count": record.get("citationCount"),
-                    **(
-                        {"full_text": record["fullText"]}
-                        if record.get("fullText")
-                        else {}
-                    ),
-                },
-            )
+        _paper_vals = dict(
+            study_id=study_id,
+            paper_ref=record["paperRef"],
+            title=record.get("title", ""),
+            authors=record.get("authors", []),
+            year=record.get("year"),
+            venue=record.get("venue", ""),
+            abstract=record.get("abstract", ""),
+            doi=record.get("doi", ""),
+            arxiv_id=record.get("arxivId", ""),
+            url=record.get("url", ""),
+            item_type=record.get("itemType", "paper"),
+            source=source,
+            s2_id=record.get("s2Id", ""),
+            citation_count=record.get("citationCount"),
+            full_text=record.get("fullText", ""),
+            added_at=now(),
         )
+        _update_vals = {
+            "title": record.get("title", ""),
+            "abstract": record.get("abstract", ""),
+            "s2_id": record.get("s2Id", ""),
+            "citation_count": record.get("citationCount"),
+            **({"full_text": record["fullText"]} if record.get("fullText") else {}),
+        }
+        _engine = get_engine()
+        if _engine.dialect.name == "postgresql":
+            from sqlalchemy.dialects.postgresql import insert as _pg_insert
+            stmt = (
+                _pg_insert(Paper)
+                .values([_paper_vals])
+                .on_conflict_do_update(
+                    index_elements=["study_id", "paper_ref"], set_=_update_vals
+                )
+            )
+        else:
+            from sqlalchemy.dialects.sqlite import insert as _sq_insert
+            stmt = (
+                _sq_insert(Paper)
+                .values([_paper_vals])
+                .on_conflict_do_update(
+                    index_elements=["study_id", "paper_ref"], set_=_update_vals
+                )
+            )
         s.execute(stmt)
         paper_index.index_paper(
             s,
@@ -1195,16 +1233,27 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def _seed_links(s: Session, study_id: str, paper_ref: str) -> None:
         """Seed a newly-ingested paper's protocol links from the protocol's
         ``literature:`` list (FR-LIT-3), idempotently."""
+        _engine = get_engine()
         for target in assistant.protocol_literature_targets(protocol_doc).get(
             paper_ref, []
         ):
-            s.execute(
-                sqlite_insert(PaperLink)
-                .values(study_id=study_id, paper_ref=paper_ref, target=target)
-                .on_conflict_do_nothing(
-                    index_elements=["study_id", "paper_ref", "target"]
+            if _engine.dialect.name == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert as _pg_insert
+                stmt = (
+                    _pg_insert(PaperLink)
+                    .values(study_id=study_id, paper_ref=paper_ref, target=target)
+                    .on_conflict_do_nothing()
                 )
-            )
+            else:
+                from sqlalchemy.dialects.sqlite import insert as _sq_insert
+                stmt = (
+                    _sq_insert(PaperLink)
+                    .values(study_id=study_id, paper_ref=paper_ref, target=target)
+                    .on_conflict_do_nothing(
+                        index_elements=["study_id", "paper_ref", "target"]
+                    )
+                )
+            s.execute(stmt)
 
     def harvest_edges(s: Session, study_id: str, paper_ref: str) -> int:
         """Fetch and store the paper's graph neighbourhood (FR-LIT-2). Best
@@ -1221,27 +1270,38 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
             return 0
         n = 0
+        _engine = get_engine()
         for kind, neighbours in edges.items():
             for nb in neighbours:
                 dst = nb["paperRef"]
                 if dst == paper_ref:
                     continue
-                stmt = (
-                    sqlite_insert(PaperEdge)
-                    .values(
-                        study_id=study_id,
-                        src_ref=paper_ref,
-                        dst_ref=dst,
-                        kind=kind,
-                        dst_title=nb.get("title", ""),
-                        dst_year=nb.get("year"),
-                        dst_citation_count=nb.get("citationCount"),
-                    )
-                    .on_conflict_do_nothing(
-                        index_elements=["study_id", "src_ref", "dst_ref", "kind"]
-                    )
+                _edge_vals = dict(
+                    study_id=study_id,
+                    src_ref=paper_ref,
+                    dst_ref=dst,
+                    kind=kind,
+                    dst_title=nb.get("title", ""),
+                    dst_year=nb.get("year"),
+                    dst_citation_count=nb.get("citationCount"),
                 )
-                n += s.execute(stmt).rowcount
+                if _engine.dialect.name == "postgresql":
+                    from sqlalchemy.dialects.postgresql import insert as _pg_insert
+                    stmt = (
+                        _pg_insert(PaperEdge)
+                        .values([_edge_vals])
+                        .on_conflict_do_nothing()
+                    )
+                else:
+                    from sqlalchemy.dialects.sqlite import insert as _sq_insert
+                    stmt = (
+                        _sq_insert(PaperEdge)
+                        .values([_edge_vals])
+                        .on_conflict_do_nothing(
+                            index_elements=["study_id", "src_ref", "dst_ref", "kind"]
+                        )
+                    )
+                n += len(s.execute(stmt.returning(PaperEdge.id)).fetchall())
         return n
 
     @app.post(
@@ -1427,33 +1487,46 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         ).scalar_one_or_none()
         if corpus_row is None:
             raise HTTPException(404, f"paper {body.ref!r} is not in the corpus")
-        stmt = (
-            sqlite_insert(Paper)
-            .values(
-                study_id=study_id,
-                paper_ref=corpus_row.paper_ref,
-                title=corpus_row.title,
-                authors=corpus_row.authors,
-                year=corpus_row.year,
-                venue=corpus_row.venue,
-                abstract=corpus_row.abstract,
-                doi=corpus_row.doi,
-                arxiv_id=corpus_row.arxiv_id,
-                url=corpus_row.url,
-                item_type=corpus_row.item_type,
-                source="match",
-                s2_id=corpus_row.s2_id,
-                citation_count=corpus_row.citation_count,
-                tier=corpus_row.tier,
-                added_via="match",
-                match_reason=body.matchReason,
-                added_at=now(),
-            )
-            .on_conflict_do_update(
-                index_elements=["study_id", "paper_ref"],
-                set_={"added_via": "match", "match_reason": body.matchReason},
-            )
+        _match_vals = dict(
+            study_id=study_id,
+            paper_ref=corpus_row.paper_ref,
+            title=corpus_row.title,
+            authors=corpus_row.authors,
+            year=corpus_row.year,
+            venue=corpus_row.venue,
+            abstract=corpus_row.abstract,
+            doi=corpus_row.doi,
+            arxiv_id=corpus_row.arxiv_id,
+            url=corpus_row.url,
+            item_type=corpus_row.item_type,
+            source="match",
+            s2_id=corpus_row.s2_id,
+            citation_count=corpus_row.citation_count,
+            tier=corpus_row.tier,
+            added_via="match",
+            match_reason=body.matchReason,
+            added_at=now(),
         )
+        _match_update = {"added_via": "match", "match_reason": body.matchReason}
+        _engine = get_engine()
+        if _engine.dialect.name == "postgresql":
+            from sqlalchemy.dialects.postgresql import insert as _pg_insert
+            stmt = (
+                _pg_insert(Paper)
+                .values([_match_vals])
+                .on_conflict_do_update(
+                    index_elements=["study_id", "paper_ref"], set_=_match_update
+                )
+            )
+        else:
+            from sqlalchemy.dialects.sqlite import insert as _sq_insert
+            stmt = (
+                _sq_insert(Paper)
+                .values([_match_vals])
+                .on_conflict_do_update(
+                    index_elements=["study_id", "paper_ref"], set_=_match_update
+                )
+            )
         s.execute(stmt)
         _seed_links(s, study_id, corpus_row.paper_ref)
         return {
@@ -1516,6 +1589,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return {
             "configured": ready,
             "models": list(assistant.MISTRAL_MODELS) if ready else [],
+            "defaultModel": assistant.MISTRAL_MODEL,
+        }
+
+    @app.get("/assistant/models")
+    def assistant_models() -> dict:
+        """The catalog of assistant model tiers the platform may pick
+        (D32 rev 2). Unauthenticated — it names tiers, never the key. Used by
+        the profile preference "default assistant model" (FR-OPS-7)."""
+
+        return {
+            "configured": assistant.configured(),
+            "models": list(assistant.MISTRAL_MODELS),
             "defaultModel": assistant.MISTRAL_MODEL,
         }
 
@@ -2289,7 +2374,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     ) -> list[dict]:
         from datetime import timedelta as td
 
-        from middleware.db import EnrollmentToken, StudyEvolution
+        from middleware.db import StudyEvolution
 
         evo = s.get(StudyEvolution, study_id)
         if evo is None or not evo.ethics_approved_at:
@@ -2345,7 +2430,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         dependencies=[Depends(require_project_for_study("view"))],
     )
     def list_enrollment_tokens(
-        study_id: str, windowSeconds: int = 300, s: Session = Depends(db)
+        study_id: str,
+        request: Request,
+        windowSeconds: int = 300,
+        s: Session = Depends(db),
     ) -> list[dict]:
         """List a study's active enrollment tokens (FR-INST-20). A revoked
         token drops off this list — DELETE is not a soft-hide-with-a-badge, it
@@ -2360,7 +2448,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         researcher catches a forgotten toggle before "begin"."""
         from protocol.errors import ProtocolError
 
-        from middleware.db import EnrollmentToken
 
         rows = s.scalars(
             select(EnrollmentToken)
@@ -2382,6 +2469,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         )
 
         protocol = _resolve_study_protocol(s, study_id)
+        base = str(request.base_url).rstrip("/")
         out = []
         for r in rows:
             if r.redeemed_at and r.participant_id in streaming_participants:
@@ -2411,6 +2499,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "condition": r.condition,
                     "grain": r.grain,
                     "status": status,
+                    "connectionString": enrollment.connection_string(base, r.token),
                     "captureConfig": capture_config,
                 }
             )
@@ -2427,7 +2516,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         the project choke point authorizes it exactly like mint/list; a token
         that isn't in this study 404s (never leak another study's tokens, and
         never let a member of one study revoke another's — the IDOR guard)."""
-        from middleware.db import EnrollmentToken
 
         row = s.get(EnrollmentToken, token_id)
         if row is None or row.study_id != study_id:
@@ -2436,13 +2524,145 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.commit()
         return {"revoked": token_id}
 
+    # ------------------------------------------------ capture-metric toggles
+
+    @app.get(
+        "/studies/{study_id}/enrollment/toggles/catalog",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def toggles_catalog(
+        study_id: str, s: Session = Depends(db)
+    ) -> list[dict]:
+        """List togglable capture metrics for a study's protocol shape
+        (FR-DASH-11). Each entry carries the current protocol-derived value,
+        a label, and grounding (cited or unsourced)."""
+        protocol = _resolve_study_protocol(s, study_id)
+        if protocol is None:
+            raise HTTPException(404, "study not found")
+        return enrollment.toggle_catalog(protocol)
+
+    class ToggleIn(BaseModel):
+        instrument: str
+        path: list[str]
+        value: object
+        rationale: str = ""
+
+    @app.post(
+        "/studies/{study_id}/enrollment/toggles",
+        dependencies=[Depends(require_project_for_study("toggle_capture"))],
+    )
+    def apply_toggle(
+        study_id: str, body: ToggleIn, s: Session = Depends(db)
+    ) -> dict:
+        """Apply one metric toggle as a protocol amendment (FR-DASH-11).
+
+        Builds a deterministic ``reconfigure`` move, compiles it against the
+        study's current approved YAML, then runs ``consent_relevance``. If
+        relevant: records an ``Amendment`` row and pauses new sessions pending
+        re-approval (FR-CONV-4.1). If not relevant: commits the new snapshot
+        directly (F4.2). Always applies through ``compile_moves`` — never a
+        side-channel mutation of ``EnrollmentToken`` or any other table.
+        """
+        from middleware.db import Amendment, StudyEvolution
+
+        evo = s.get(StudyEvolution, study_id)
+        if evo is None:
+            raise HTTPException(404, "study not found")
+        if not evo.ethics_approved_at:
+            raise HTTPException(
+                409,
+                "Cannot toggle metrics before ethics approval — "
+                "the protocol is still in design phase.",
+            )
+
+        before = yaml.safe_load(evo.approved_yaml) or {}
+        if not before.get("instruments"):
+            raise HTTPException(400, "protocol has no instruments block")
+
+        # Build the deterministic reconfigure move.
+        toggle_move = {
+            "moveId": f"toggle-{secrets.token_hex(4)}",
+            "kind": "reconfigure-instrument",
+            "target": f"instruments.{body.instrument}",
+            "patch": {
+                "section": "instruments",
+                "name": body.instrument,
+                "op": "reconfigure",
+                "path": list(body.path),
+                "value": body.value,
+            },
+            "status": "accepted",
+        }
+
+        # Compile the move against the approved snapshot.
+        draft = yaml.safe_load(yaml.safe_dump(before))
+        compiler._apply_instrument_moves(draft, [toggle_move])
+
+        # Validate the resulting draft.
+        from protocol.loader import validate_protocol
+
+        errors = validate_protocol(draft)
+        if errors:
+            raise HTTPException(
+                422, f"toggle would produce an invalid protocol: {'; '.join(errors)}"
+            )
+
+        # Check consent relevance.
+        relevant, reasons = evolution.consent_relevance(before, draft)
+        changes = evolution.change_summary(before, draft)
+        new_yaml = yaml.safe_dump(draft, default_flow_style=False)
+
+        if relevant:
+            # Record as a formal amendment (consent-relevant).
+            from_v = evo.current_version
+            to_v = from_v + 1
+            amend = Amendment(
+                id=secrets.token_hex(8),
+                study_id=study_id,
+                compilation_id="",
+                from_version=from_v,
+                to_version=to_v,
+                summary=changes[0] if changes else "metric toggle",
+                changes=changes,
+                rationale=body.rationale,
+                grounding=[],
+                consent_relevant=1,
+                consent_reasons=reasons,
+                approved_by="",
+                role="",
+                created_at=now(),
+            )
+            s.add(amend)
+            evo.current_version = to_v
+            evo.approved_yaml = new_yaml
+            evo.pending_reapproval = amend.id
+            evo.updated_at = now()
+            s.commit()
+            return {
+                "applied": True,
+                "requiresReapproval": True,
+                "amendmentId": amend.id,
+                "fromVersion": from_v,
+                "toVersion": to_v,
+                "consentReasons": reasons,
+            }
+        else:
+            # Non-relevant: commit directly (F4.2).
+            evo.approved_yaml = new_yaml
+            evo.updated_at = now()
+            s.commit()
+            return {
+                "applied": True,
+                "requiresReapproval": False,
+            }
+
     @app.post("/pair/redeem")
     def pair_redeem(body: RedeemIn, request: Request, s: Session = Depends(db)) -> dict:
         """Redeem a connection-string token into a live-capture session
         (FR-INST-20/21). Public — no project dependency, since the token
         itself is the credential the extension holds; a study's members
         never need to be a project member to pair from the field."""
-        from middleware.db import EnrollmentToken, StudyEvolution
+        from middleware.db import StudyEvolution
 
         row = s.scalar(
             select(EnrollmentToken).where(EnrollmentToken.token == body.token)
@@ -2493,7 +2713,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         """Return the ``EnrollmentToken`` for a valid Bearer session
         credential, else ``None``. Never raises — callers decide whether
         absence is fatal (reused by the ingest route, Task A7)."""
-        from middleware.db import EnrollmentToken
 
         if not authorization.startswith("Bearer "):
             return None
@@ -2542,10 +2761,17 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             protocol, row.participant_id, row.condition
         )
 
+    def _profile_prefs(s: Session, sub: str) -> dict:
+        """The persisted prefs for ``sub`` (FR-OPS-7). Empty dict when no
+        profile row exists yet."""
+        row = s.get(UserProfile, sub)
+        return dict(row.prefs) if row is not None else {}
+
     @app.get("/me", dependencies=[Depends(resolve_identity)])
     def get_me(identity: auth.Identity = Depends(resolve_identity)) -> dict:
-        """Identity + memberships (FR-OPS-7). The single surface both SPAs
-        share; unauthenticated returns the local identity."""
+        """Identity + memberships + preferences (FR-OPS-7). The single
+        surface both SPAs share; a hosted Clerk identity carries its own
+        persisted profile (theme, default assistant model, saved views)."""
         sub = identity.sub
         mode = identity.mode
         display = identity.display_name
@@ -2564,9 +2790,51 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     {"projectSlug": p.slug, "projectName": p.name, "role": r}
                     for p, r in rows
                 ],
+                "preferences": _profile_prefs(s, sub),
             }
         finally:
             s.close()
+
+    #: The preference keys the server will persist. The blob is schema-less
+    #: beyond this allow-list so the UI owns per-key semantics; unknown keys
+    #: are dropped rather than stored (defense against a stray client).
+    KNOWN_PREF_KEYS = frozenset(
+        {"theme", "defaultAssistantModel", "savedViews"}
+    )
+
+    @app.put(
+        "/me/preferences",
+        dependencies=[Depends(resolve_identity)],
+    )
+    def put_preferences(
+        body: dict,
+        identity: auth.Identity = Depends(resolve_identity),
+        s: Session = Depends(db),
+    ) -> dict:
+        """Persist this identity's profile preferences (FR-OPS-7). Only
+        :data:`KNOWN_PREF_KEYS` are stored; everything else is ignored. The
+        new prefs (merged over the previous blob) are returned so the client
+        can reconcile without a second round-trip."""
+        sub = identity.sub
+        incoming = body.get("preferences", body)
+        if not isinstance(incoming, dict):
+            raise HTTPException(400, "preferences must be an object")
+        clean = {k: v for k, v in incoming.items() if k in KNOWN_PREF_KEYS}
+        row = s.get(UserProfile, sub)
+        if row is None:
+            row = UserProfile(
+                identity_sub=sub,
+                prefs=clean,
+                updated_at=now(),
+            )
+            s.add(row)
+        else:
+            merged = dict(row.prefs)
+            merged.update(clean)
+            row.prefs = merged
+            row.updated_at = now()
+        s.flush()
+        return {"sub": sub, "preferences": dict(row.prefs)}
 
     @app.get("/demo")
     def get_demo(s: Session = Depends(db)) -> dict:
@@ -2670,13 +2938,19 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     )
                     for r in rows
                 ]
-                stmt = (
-                    sqlite_insert(Event)
-                    .values(values)
-                    .on_conflict_do_nothing(
-                        index_elements=["session_id", "source", "seq"]
+                _mine_engine = get_engine()
+                if _mine_engine.dialect.name == "postgresql":
+                    from sqlalchemy.dialects.postgresql import insert as _pg_insert
+                    stmt = _pg_insert(Event).values(values).on_conflict_do_nothing()
+                else:
+                    from sqlalchemy.dialects.sqlite import insert as _sq_insert
+                    stmt = (
+                        _sq_insert(Event)
+                        .values(values)
+                        .on_conflict_do_nothing(
+                            index_elements=["session_id", "source", "seq"]
+                        )
                     )
-                )
                 sess.execute(stmt)
                 sess.commit()
 
@@ -2928,6 +3202,210 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "explanation": template_registry.explain_plan(tpl),
         }
 
+    # ------------------------- template submissions (FR-TPL-5)
+
+    def _owner_membership(
+        identity: auth.Identity, s: Session
+    ) -> Membership | None:
+        """Check if the caller is an owner on the implicit project."""
+        from middleware.authz import has_role
+
+        m = s.scalar(
+            select(Membership).where(
+                Membership.project_id == IMPLICIT_PROJECT_ID,
+                Membership.identity_sub == identity.sub,
+            )
+        )
+        if m is not None and has_role(m.role, "manage_members"):
+            return m
+        return None
+
+    @app.post(
+        "/templates/submissions",
+        dependencies=[Depends(resolve_identity)],
+    )
+    def submit_template(
+        body: TemplateSubmitIn,
+        identity: auth.Identity = Depends(resolve_identity),
+        s: Session = Depends(db),
+    ) -> dict:
+        """Submit a third-party template YAML for registry review (FR-TPL-5).
+
+        The YAML is validated against the template schema before storage;
+        a 422 is returned on schema violation so the submitter can fix it.
+        """
+
+        try:
+            loaded = yaml.safe_load(body.templateYaml)
+            if not isinstance(loaded, dict):
+                raise ValueError("template YAML must be a mapping")
+            problems = template_registry.validate_template(loaded)
+        except yaml.YAMLError as exc:
+            raise HTTPException(422, f"invalid YAML: {exc}") from exc
+        except Exception as exc:
+            raise HTTPException(422, str(exc)) from exc
+        if problems:
+            raise HTTPException(
+                422, f"template validation failed: {'; '.join(problems)}"
+            )
+
+        row = TemplateSubmission(
+            submitter_sub=identity.sub,
+            name=body.name,
+            template_yaml=body.templateYaml,
+            status="pending",
+            created_at=now(),
+        )
+        s.add(row)
+        s.commit()
+        return {
+            "id": row.id,
+            "name": row.name,
+            "status": row.status,
+            "createdAt": row.created_at,
+        }
+
+    @app.get("/templates/submissions")
+    def list_template_submissions(
+        identity: auth.Identity = Depends(resolve_identity),
+        s: Session = Depends(db),
+    ) -> dict:
+        """List template submissions (FR-TPL-5).
+
+        A caller sees their own submissions; owners of the implicit project
+        see all pending submissions (review dashboard).
+        """
+        owner = _owner_membership(identity, s)
+        if owner is not None:
+            rows = s.scalars(
+                select(TemplateSubmission).order_by(
+                    TemplateSubmission.created_at.desc()
+                )
+            )
+        else:
+            rows = s.scalars(
+                select(TemplateSubmission)
+                .where(TemplateSubmission.submitter_sub == identity.sub)
+                .order_by(TemplateSubmission.created_at.desc())
+            )
+        items = []
+        for r in rows:
+            items.append(
+                {
+                    "id": r.id,
+                    "name": r.name,
+                    "submitterSub": r.submitter_sub,
+                    "status": r.status,
+                    "reviewerSub": r.reviewer_sub or None,
+                    "reviewComment": r.review_comment or None,
+                    "createdAt": r.created_at,
+                    "reviewedAt": r.reviewed_at or None,
+                }
+            )
+        return {"submissions": items, "count": len(items)}
+
+    @app.get(
+        "/templates/submissions/{sub_id}",
+        dependencies=[Depends(resolve_identity)],
+    )
+    def get_template_submission(
+        sub_id: int,
+        identity: auth.Identity = Depends(resolve_identity),
+        s: Session = Depends(db),
+    ) -> dict:
+        """View a single template submission and its full YAML."""
+        row = s.scalar(
+            select(TemplateSubmission).where(TemplateSubmission.id == sub_id)
+        )
+        if row is None:
+            raise HTTPException(404, "submission not found")
+        owner = _owner_membership(identity, s)
+        if row.submitter_sub != identity.sub and owner is None:
+            raise HTTPException(403, "not your submission")
+        return {
+            "id": row.id,
+            "name": row.name,
+            "submitterSub": row.submitter_sub,
+            "status": row.status,
+            "templateYaml": row.template_yaml,
+            "reviewerSub": row.reviewer_sub or None,
+            "reviewComment": row.review_comment or None,
+            "createdAt": row.created_at,
+            "reviewedAt": row.reviewed_at or None,
+        }
+
+    @app.post(
+        "/templates/submissions/{sub_id}/decision",
+        dependencies=[Depends(resolve_identity)],
+    )
+    def decide_template_submission(
+        sub_id: int,
+        body: TemplateDecisionIn,
+        identity: auth.Identity = Depends(resolve_identity),
+        s: Session = Depends(db),
+    ) -> dict:
+        """Approve or reject a template submission (FR-TPL-5, owner only).
+
+        On **approval** the template YAML is validated and written to the
+        registry directory as a new file (``templates/registry/<id>-<name>.yaml``).
+        On **rejection** the submission is marked rejected with an optional
+        review comment.
+        """
+        owner = _owner_membership(identity, s)
+        if owner is None:
+            raise HTTPException(403, "only project owners may review submissions")
+
+        row = s.scalar(
+            select(TemplateSubmission).where(TemplateSubmission.id == sub_id)
+        )
+        if row is None:
+            raise HTTPException(404, "submission not found")
+        if row.status != "pending":
+            raise HTTPException(409, f"submission already {row.status}")
+
+        row.status = body.status
+        row.reviewer_sub = identity.sub
+        row.review_comment = body.reviewComment
+        row.reviewed_at = now()
+
+        if body.status == "approved":
+            try:
+                loaded = yaml.safe_load(row.template_yaml)
+                if not isinstance(loaded, dict):
+                    raise ValueError("template YAML must be a mapping")
+                problems = template_registry.validate_template(loaded)
+                if problems:
+                    raise ValueError(
+                        f"validation failed: {'; '.join(problems)}"
+                    )
+                repo = Path(__file__).resolve().parent.parent.parent.parent
+                reg_dir = repo / "templates" / "registry"
+                reg_dir.mkdir(parents=True, exist_ok=True)
+                slug = row.name.lower().replace(" ", "-").replace("/", "-")
+                dest = reg_dir / f"submission-{row.id}-{slug}.yaml"
+                if dest.exists():
+                    raise ValueError(
+                        f"file {dest.name} already exists in registry"
+                    )
+                dest.write_text(
+                    yaml.safe_dump(
+                        loaded, sort_keys=False, default_flow_style=False
+                    )
+                )
+            except Exception as exc:
+                s.rollback()
+                raise HTTPException(422, str(exc)) from exc
+
+        s.commit()
+        return {
+            "id": row.id,
+            "name": row.name,
+            "status": row.status,
+            "reviewerSub": row.reviewer_sub,
+            "reviewComment": row.review_comment or None,
+            "reviewedAt": row.reviewed_at,
+        }
+
     # ------------------------- design conversation
     #
     # The conversation stored as the elicitation record (FR-CONV-6): turns +
@@ -2975,7 +3453,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             body.text,
             seq=researcher.seq + 1,
             study_id=study_id,
-            client=assistant.make_client(),
+            client=assistant.make_client(assistant.MISTRAL_BEST_MODEL),
         )
         retrieved = set(reply["retrievedRefs"])
         # Belt-and-suspenders: grounding is built only from retrieved rows, so
@@ -2996,6 +3474,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             text=reply["text"],
             retrieved_refs=sorted(retrieved),
             created_at=now(),
+            source=reply["source"],
         )
         s.add(platform)
         for m in reply["moves"]:
@@ -3030,6 +3509,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 for m in reply["moves"]
             ],
             "recommendations": reply["recommendations"],
+            "source": reply["source"],
         }
 
     @app.get(
@@ -3067,6 +3547,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "text": "" if t.redacted else t.text,
                     "redacted": bool(t.redacted),
                     "moves": moves_by_turn.get(t.id, []),
+                    "source": t.source,
                 }
                 for t in turns
             ],
@@ -3669,12 +4150,22 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.get("/health")
     def health() -> dict:
-        return {
-            "status": "ok",
+        try:
+            with session_factory() as s:
+                s.execute(sqltext("SELECT 1"))
+            db_ok = True
+        except Exception:
+            db_ok = False
+        payload = {
+            "status": "ok" if db_ok else "degraded",
+            "database": "ok" if db_ok else "unreachable",
             "studyId": check.study_id,
             "protocolLoaded": protocol_doc is not None,
             "knownEventSchemaVersions": sorted(KNOWN_EVENT_SCHEMA_VERSIONS),
         }
+        if not db_ok:
+            raise HTTPException(status_code=503, detail=payload)
+        return payload
 
     @app.get("/auth/config")
     def auth_config() -> dict:

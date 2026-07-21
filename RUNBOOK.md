@@ -17,8 +17,8 @@ Everything below was executed and verified on a clean checkout.
 | `protocol/` | Study-as-code: validate protocols, drive the lifecycle, derive instrument configs, export replication kits | `uv run protocol …` | `uv run pytest protocol` |
 | `middleware/` | The hub: ingestion + storage + query API on **port 8000** (every sensor assumes it) | `uv run python -m middleware` | `uv run pytest middleware` |
 | `platform/` | The web app (React 19): design conversation, study workspace (Library / Data / Lifecycle), projects, evolution surfaces | `npm run dev` (dev) / built `dist/` served by the middleware (prod) | `npm run check` in `platform/` |
-| `extension/` | "Cognitive Overlay" VS Code extension: cognitive + behavioral legs | F5 in VS Code → Extension Development Host | `npm run check` in `extension/` |
-| `metrics/` | Static-metrics leg: the 9-metric cognitive-load matrix over a code directory | `uv run python metrics/src/main.py …` | `uv run pytest metrics` |
+| `extension/` | "TERN" VS Code extension: cognitive + behavioral legs | F5 in VS Code → Extension Development Host | `npm run check` in `extension/` |
+| `metrics/` | Static-metrics leg: 9 code complexity/readability metrics | `uv run python metrics/src/main.py …` | `uv run pytest metrics` |
 | `agent-capture/` | Agent leg: Claude Code hooks, transcript import, workspace snapshots, task harness, correlation | `uv run agent-capture …` | `uv run pytest agent-capture` |
 | `analysis/` | Recipes → per-RQ report → paper draft → retrospective | `uv run analysis …` | `uv run pytest analysis` |
 
@@ -117,7 +117,8 @@ All configuration is environment variables (defaults in
 | Env var | Default | Meaning |
 | ------- | ------- | ------- |
 | `MIDDLEWARE_PORT` | `8000` | the port every sensor assumes; change only if you also change every leg's endpoint |
-| `MIDDLEWARE_DB` | `.study-data/middleware.sqlite3` | SQLite file (gitignored - participant data never enters git) |
+| `DATABASE_URL` | *(unset)* | PostgreSQL connection string (Railway injects this automatically); takes priority over `MIDDLEWARE_DB` when set |
+| `MIDDLEWARE_DB` | `.study-data/middleware.sqlite3` | SQLite file path — used for local dev when `DATABASE_URL` is unset (gitignored) |
 | `MIDDLEWARE_DATA_DIR` | `.study-data` | artifact/file store root |
 | `MIDDLEWARE_PROTOCOL` | *(unset)* | study protocol YAML; unset = accept-all ingest |
 | `MIDDLEWARE_WEB` | `platform/dist` | built SPA to serve at `/`; missing dir = API-only |
@@ -346,7 +347,7 @@ golden paper drafts).
 | Paper compiles with overfull-hbox warnings | Cosmetic (wide result tables). No TeX engine at all? `brew install tectonic` - or skip compilation; `draft.md` carries the same content. |
 | Cognitive-complexity column empty | SonarQube not running: `docker compose --profile sonar up`, pass `--sonar-url`. The other 8 metrics degrade gracefully (never block). |
 | Rows flagged `unknown-participant` / `unknown-condition` | Ingest is protocol-aware and the row's join keys aren't in the plan. Rows are stored + flagged, never dropped; fix the session config or amend the protocol. |
-| Middleware refuses to start: "database … predates the current schema" | The SQLite file (often the compose `study-data` volume) was created by an older middleware version and the table shape has since changed. Nothing is migrated automatically - if the data is disposable demo seed, reset it (`docker compose down -v`, or delete the file locally); if it's real study data, point `MIDDLEWARE_DB` at a fresh file and migrate the old one deliberately. |
+| Middleware refuses to start: "database … predates the current schema" | SQLite only: the file (often the compose `study-data` volume) was created by an older middleware version. Nothing is migrated automatically — if the data is disposable demo seed, reset it (`docker compose down -v`, or delete the file locally); if it's real data, point `MIDDLEWARE_DB` at a fresh file and migrate deliberately. On Railway/PostgreSQL this check is skipped — a fresh managed DB is provisioned automatically. |
 | Stale demo data before a real study | `docker compose down -v`, or delete `.study-data/` locally (DR-05 - it's gitignored). |
 
 ---
@@ -368,48 +369,71 @@ golden paper drafts).
 
 ## 9. Deployment & releases (all $0 on GitHub Student Pack)
 
-Two hosted surfaces, one image, zero spend (each hosting choice is argued
-in `requirements/build-vs-adopt.md`). Real participant data never runs on
-any of it - §8 applies everywhere.
+Railway is the sole deployment target. The `railway.toml` at repo root
+drives the build from `middleware/Dockerfile`; Railway provides managed
+PostgreSQL (DATABASE_URL auto-injected), TLS, and custom domains.
 
-| Surface | Host | Data | Updated by |
-| ------- | ---- | ---- | ---------- |
-| **Seeded demo** (public) | Render free tier | ephemeral - reseeds itself every boot | every green `main` build + every tag |
-| **Facilitator VM** (persistent dev/staging) | Azure for Students B1s | SQLite volume persists | final tags only, behind manual approval |
-| Extension | VS Code Marketplace + GitHub Releases | - | final tags publish; RC tags attach a `.vsix` pre-release |
-| SonarQube | Azure B2s, **deallocated by default** | - | `sonar-vm.yml` start/deallocate, or `az vm start\|deallocate` |
+| Surface | Host | Database | Updated by |
+| ------- | ---- | -------- | ---------- |
+| **Seeded demo** (public) | Railway | PostgreSQL (managed, persistent) | every green `main` build |
+| Extension | GitHub Releases (`.vsix`) | — | final tags; RC tags attach a `.vsix` pre-release |
 
 ### 9.1 One-time provisioning (the half only you can do)
 
-1. **Render** (free, no card): New → Blueprint → point at this repo -
-   `render.yaml` defines the service. Copy the service's **deploy hook
-   URL** into the repo secret `RENDER_DEPLOY_HOOK_URL`. Done: the demo
-   redeploys after every green CI run on `main`, reseeding itself on boot.
-2. **Azure for Students** (education.github.com/pack → Azure; renews
-   yearly while enrolled): create a **B1s Ubuntu VM** (free-tier eligible),
-   install Docker, `git clone` the repo, create `deploy/.env` with
-   `SITE_ADDRESS`, `MIDDLEWARE_TOKEN`, and (private repo) `docker login
-   ghcr.io` with a read-only PAT. Point your free Namecheap `.me` domain
-   (also in the pack) at the VM's IP - Caddy fetches certificates itself.
-   First boot: `IMAGE_TAG=main docker compose -f deploy/compose.prod.yml
-   up -d`. Add repo secrets `PROD_HOST`, `PROD_USER`, `PROD_SSH_KEY`
-   (a dedicated deploy keypair), and create a GitHub **environment**
-   named `production` with yourself as required reviewer (GitHub Pro,
-   included in the pack, unlocks this on private repos).
-3. **Marketplace**: create a publisher at
-   marketplace.visualstudio.com/manage (the `publisher` field in
-   `extension/package.json` - currently `hpi-research` - must match; edit
-   it if you register a different ID), mint a PAT with *Marketplace →
-   Manage* scope, save as repo secret `VSCE_PAT`.
-4. **SonarQube VM** (optional): B2s Ubuntu VM (SonarQube needs
-   4 GB; the free B1s can't host it), `docker run -d -p 9000:9000
-   sonarqube:community`, then **deallocate it** - `az vm deallocate` bills
-   only pennies of disk. Add secret `AZURE_CREDENTIALS` (service
-   principal) + repo variables `SONAR_RESOURCE_GROUP`, `SONAR_VM_NAME` to
-   drive it from the Actions tab instead of the CLI.
+#### Railway (demo deployment)
 
-Every pipeline step guards its secret: nothing fails while provisioning
-is incomplete, steps just report themselves skipped.
+1. Sign up at [railway.app](https://railway.app) and create a new project.
+2. Add a **PostgreSQL** plugin to the project — Railway injects `DATABASE_URL`
+   into the service automatically.
+3. Add a **service** from this GitHub repo. Railway detects `railway.toml` at
+   the repo root and builds from `middleware/Dockerfile` with the repo root as
+   context.
+4. Set the following environment variables in the Railway service settings:
+
+   | Variable | Value |
+   | -------- | ----- |
+   | `MIDDLEWARE_AUTH` | `clerk` (recommended) or `token` |
+   | `MIDDLEWARE_TOKEN` | (when `auth=token`) a strong random token |
+   | `MIDDLEWARE_SEED_ON_START` | `1` (demo mode — reseeds on boot) |
+   | `MISTRAL_API_KEY` | optional — enables the knowledge assistant |
+   | `MIDDLEWARE_S2_API_KEY` | optional — Semantic Scholar enrichment |
+   | `MIDDLEWARE_GITHUB_TOKEN` | optional — curated mining live source |
+
+   `DATABASE_URL` is injected automatically by the PostgreSQL plugin; do not
+   set it manually.
+
+5. Attach a **Volume** to the service — Settings → Volumes → New Volume —
+   mounted at `/data`. This is where uploaded artifacts (consent PDFs,
+   paper PDFs) actually live; only their hash/path is in Postgres. Skip
+   this and every redeploy or crash-restart silently drops uploaded files
+   (Railway's filesystem is ephemeral otherwise). Postgres needs no
+   equivalent step — the plugin manages its own storage.
+
+6. Add the following secrets to the GitHub repo (Settings → Secrets →
+   Actions) so CI can trigger Railway deploys:
+
+   | Secret | Where to find it |
+   | ------ | ---------------- |
+   | `RAILWAY_API_TOKEN` | Railway dashboard → Account Settings → Tokens |
+   | `RAILWAY_SERVICE_ID` | Railway service settings URL (`/service/<id>`) |
+   | `RAILWAY_ENVIRONMENT_ID` | Railway environment settings (optional — omit to use the default environment) |
+
+   Once set, every green CI run on `main` triggers a Railway redeploy via
+   the `Deploy demo` workflow.
+
+7. Optionally add a custom domain in Railway → Service → Settings → Domains.
+   Railway provisions TLS automatically.
+
+#### Local PostgreSQL (mirrors Railway)
+
+To reproduce the Railway environment locally before deploying:
+
+```bash
+docker compose up
+```
+
+PostgreSQL starts by default (no `--profile` needed). Data persists in the
+`pg-data` volume. Reset with `docker compose down -v`.
 
 ### 9.2 Cutting a release
 
@@ -421,11 +445,16 @@ git tag v0.3.0-rc.1 && git push origin v0.3.0-rc.1
 # 3. Promote the same commit once the RC checks out:
 git tag v0.3.0 && git push origin v0.3.0
 #    → gates re-run → GHCR image v0.3.0 + GitHub Release
-#    → demo redeploys; VM deploy waits for your approval click
-#    → vsce publishes the extension to the Marketplace
+#    → Railway demo redeploys automatically via the Deploy demo workflow
 ```
 
-RCs never reach the Marketplace or the VM: the Marketplace rejects semver
-pre-release suffixes, and the `production` environment gate holds
-the VM. Install an RC build via its GitHub pre-release:
-`code --install-extension cognitive-overlay-<version>.vsix`.
+RCs install via their GitHub pre-release attachment:
+`code --install-extension tern-<version>.vsix`.
+
+#### SonarQube VM (optional, for cognitive complexity)
+
+SonarQube powers the cognitive-complexity metric (FR-INST-4). Run it locally:
+`docker compose --profile sonar up`. For batch analysis, an on-demand Azure
+B2s VM stays deallocated except during analysis windows — toggle via the
+`sonar-vm.yml` workflow-dispatch or `az vm start|deallocate`. The metrics
+leg stub-degrades to NaN when SonarQube is absent (never blocks a session).

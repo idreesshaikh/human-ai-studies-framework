@@ -75,7 +75,7 @@ def test_schema_endpoint_serves_the_real_schema(tmp_path):
     # hardcoded fallback stub (the parent-count path bug).
     c = _client(tmp_path)
     schema = c.get("/schemas/protocol").json()
-    assert schema["properties"]["protocolVersion"]["enum"] == [1, 2, 3]
+    assert schema["properties"]["protocolVersion"]["enum"] == [1, 2, 3, 4]
 
 
 def test_capabilities_are_feature_derived_not_hand_written(tmp_path):
@@ -84,12 +84,12 @@ def test_capabilities_are_feature_derived_not_hand_written(tmp_path):
     # generator at an empty repo yields a strictly smaller capability set —
     # proving the values are computed from documents of record, not fixed.
     full = set(
-        manifest_mod.generate_manifest(repo=REPO, deployment="self-hosted").capabilities
+        manifest_mod.generate_manifest(repo=REPO, deployment="hosted").capabilities
     )
     empty_repo = tmp_path  # no templates/, no corpus, no analysis/
     bare = set(
         manifest_mod.generate_manifest(
-            repo=empty_repo, deployment="self-hosted"
+            repo=empty_repo, deployment="hosted"
         ).capabilities
     )
     assert bare < full  # feature detection removed the absent capabilities
@@ -153,9 +153,14 @@ def test_agents_md_check_flag_detects_drift(tmp_path, monkeypatch):
 
 def test_agent_discovery_demo_runs_green():
     # The scripted proof runs against a fresh in-process app and succeeds.
+    # Run from the repo root: the demo reads requirements/ (the glossary)
+    # relative to cwd, so a middleware/-cwd subprocess can't find it.
     demo = REPO / "scripts" / "agent_manifest_demo.py"
     result = subprocess.run(
-        [sys.executable, str(demo), "--in-process"], capture_output=True, text=True
+        [sys.executable, str(demo), "--in-process"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "bootstrapped from the manifest alone" in result.stdout

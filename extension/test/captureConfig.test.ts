@@ -11,18 +11,18 @@ const CFG: CaptureConfig = {
   captureConfigVersion: 'abc123',
   producer: 'overlay',
   settings: {
-    'cognitiveOverlay.participantId': 'P01',
-    'cognitiveOverlay.stuck.enabled': true,
-    'cognitiveOverlay.behavior.captureClipboard': false,
+    'tern.participantId': 'P01',
+    'tern.stuck.enabled': true,
+    'tern.behavior.captureClipboard': false,
   },
 };
 
-test('overlayFlags strips the cognitiveOverlay prefix', () => {
+test('overlayFlags strips the tern prefix', () => {
   const f = overlayFlags(CFG);
   assert.equal(f['participantId'], 'P01');
   assert.equal(f['stuck.enabled'], true);
   assert.equal(f['behavior.captureClipboard'], false);
-  assert.equal(Object.hasOwn(f, 'cognitiveOverlay.participantId'), false);
+  assert.equal(Object.hasOwn(f, 'tern.participantId'), false);
 });
 
 test('configChanged is true only when the version differs', () => {

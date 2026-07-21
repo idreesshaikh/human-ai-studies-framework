@@ -7,7 +7,7 @@ Subcommands prove the study-as-code claim end to end:
 - ``protocol status <file>``         - current lifecycle phase and the open
   gate artifacts per phase (FR-PROT-3).
 - ``protocol derive overlay-settings <file> --participant --condition`` -
-  the ``cognitiveOverlay.*`` VS Code settings JSON for one session,
+  the ``tern.*`` VS Code settings JSON for one session,
   derived from the protocol alone (FR-PROT-4).
 - ``protocol export replication-kit <file>`` - the study's reproducible
   archive: protocol + dataset + regenerated report + pinned environment
@@ -151,7 +151,7 @@ def _build_parser() -> argparse.ArgumentParser:
     derive_sub = derive.add_subparsers(dest="target", required=True)
     overlay = derive_sub.add_parser(
         "overlay-settings",
-        help="emit cognitiveOverlay.* VS Code settings JSON for one session",
+        help="emit tern.* VS Code settings JSON for one session",
     )
     overlay.add_argument("file")
     overlay.add_argument("--participant", required=True)

@@ -16,11 +16,11 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-PROT-7 | RQ-F3; S5 | replication-kit export | ✅ (`protocol export replication-kit`; byte-identical reproduction test) |
 | FR-PROT-8 | (deferred vision) | - | - |
 | FR-PROT-9 | RQ-A1–A3; FR-AGF | protocol schema (agent participants) + fixture `protocol/tests/fixtures/agent-participant-v3.yaml` + `derive` agent-branch | ✅ fixture validates; overlay-derive fails cleanly + `derive agent-hooks` produces harness config |
-| FR-INST-1 | RQ-P1; S1 | Cognitive Overlay `surveys/fatiguePrompt` | ✅ |
-| FR-INST-2 | RQ-P1; S1 | Cognitive Overlay `stuckDetector/stuckPrompt` | ✅ |
-| FR-INST-3 | RQ-P1; S1,S2 | Cognitive Overlay `session/endSurvey` | ✅ |
+| FR-INST-1 | RQ-P1; S1 | TERN `surveys/fatiguePrompt` | ✅ |
+| FR-INST-2 | RQ-P1; S1 | TERN `stuckDetector/stuckPrompt` | ✅ |
+| FR-INST-3 | RQ-P1; S1,S2 | TERN `session/endSurvey` | ✅ |
 | FR-INST-4 | RQ-P2; S1 | `metrics/` | ✅ 9/9 (cognitive complexity stub-degradable per D5) |
-| FR-INST-5 | RQ-P3; S1,S2 | Cognitive Overlay behavioral leg | ✅ |
+| FR-INST-5 | RQ-P3; S1,S2 | TERN behavioral leg | ✅ |
 | FR-INST-6 | RQ-F1; all legs | join keys in every leg | ✅ all four legs |
 | FR-INST-7 | (deferred vision); S6 | - | - |
 | FR-INST-8 | RQ-P4; D2 (Tako) | overlay AI-lifecycle events | ✅ (blind spots in `extension/docs/adaptation-notes.md`) |
@@ -33,12 +33,12 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-INST-15 | RQ-P2 time series; D14 | workspace snapshotter (shadow git) | ✅ |
 | FR-INST-16 | outcome ground truth | task harness | ✅ |
 | FR-INST-17 | RQ-P2/P3/P4; D14 | code-evolution derivation + `git_commit` events | ✅ derivation + content-free `git_commit`; churn/persistence char-approximated (line-level pending) |
-| FR-INST-18 | RQ-P1/P3 struggle proxy | overlay diagnostics/health stream | ⬜ |
-| FR-INST-19 | RQ-C1–C4 | comprehension-probe instrument (overlay + probe bank + chunk reference) | ⬜ |
+| FR-INST-18 | RQ-P1/P3 struggle proxy | overlay diagnostics/health stream | ✅ IDE health stream implemented: `IdeHealthCollector` (debounced counter, content-free by construction in `src/core/ideHealth.ts`) + `VscodeIdeHealthAdapter` (VS Code diagnostics subscriber in `src/vscode/ideHealth.ts`); backend toggle catalog includes `ideHealth.enabled` entry with FR-INST-18 grounding |
+| FR-INST-19 | RQ-C1–C4 | comprehension-probe instrument (overlay + probe bank + chunk reference) | ✅ Phase 21 |
 | FR-AGENT-1 | RQ-P5; S1 | agent leg event contract | ✅ |
 | FR-AGENT-2 | RQ-P5; D13 | Claude Code hooks + transcript importer | ✅ |
 | FR-AGENT-3 | RQ-P5 | correlation job (reliance loops + burst annotation) | ✅ |
-| FR-AGENT-4 | S6; extension point | Copilot/generic import adapters | ⬜ |
+| FR-AGENT-4 | S6; extension point | Copilot/generic import adapters | ✅ Phase 24 — generic-json format in `transcript.py`, 10 new tests (normalization + content policy + format auto-detect) |
 | FR-AGENT-5 | S2,S3; C1 | content-policy redactor + consent generator | ✅ |
 | FR-ING-1 | S1; NFR-2; D3 | `middleware/` :8000 ingest | ✅ |
 | FR-ING-2 | NFR-2; S1 | `middleware/` | ✅ |
@@ -49,7 +49,7 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-DASH-1 | S1 | `platform/` study overview | ✅ |
 | FR-DASH-2 | RQ-F1; S1,S3 | `platform/` lifecycle board | ✅ |
 | FR-DASH-3 | S1; C2 | `platform/` session status | ✅ |
-| FR-DASH-4 | RQ-F1; S1,S4 | swimlane timeline | 🔶 session-status integrity shown; the swimlane view is not yet built |
+| FR-DASH-4 | RQ-F1; S1,S4 | swimlane timeline | ✅ Phase 23 |
 | FR-DASH-5 | RQ-P2; S1 | `platform/` metric strip | ✅ |
 | FR-DASH-6 | RQ-F2; S4 | `platform/` trace chips | ✅ |
 | FR-DASH-7 | S1; RQ-F2 | self-computing status view (derived from the protocol) | ✅ |
@@ -70,13 +70,15 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-ANA-4 | RQ-F2; S1,S4 | `analysis/` runner+report | ✅ |
 | FR-ANA-5 | RQ-F3 | replicated-paper recipes | ✅ two cited replications: `ziegler-acceptance-rate` + `meyer-fragmentation` |
 | FR-ANA-6 | S1,S4 | paper-draft generator | ✅ (`analysis paper`; golden-file + tectonic-compile tests) |
+| FR-ANA-7 | S7 | `suggest_figures.py` deterministic figure suggestion | ✅ Phase 22 — 6 result shapes covered, ranked shortlists with rationale |
+| FR-ANA-8 | NFR-4 | parameterised recipes (two-group-nonparametric, paired-nonparametric, two-proportion, correlation) | ✅ Phase 22 — each reads params from `dataset.meta` (value columns, figure form, test/effect-size); runner injects per-recipe params from analysisPlan |
 | FR-META-1 | RQ-F2 | operational findings log (middleware) | ✅ auto-scan (seq-gap/gate-block) + recipe requires-fails + `POST /findings`; extended with a `feedback` kind (FR-CONV-5.1) |
 | FR-META-2 | RQ-F2; D32 | retrospective (LLM-assisted, human-approved) | ✅ inert proposal; extended to draft from feedback findings + anonymous shapes (FR-CONV-5.2) |
 | FR-META-3 | FR-META-1/2; FR-ETH-4 | in-platform scheduled agents over the FTS5 index | ⏳ specced (`docs/roadmap/18-evolution.md` extends the machinery); not built |
-| FR-OPS-1 | S6,S7; NFR-5 | `render.yaml` + `deploy/compose.prod.yml` + `deploy/Caddyfile` + `middleware/scripts/start_with_seed.sh` | 🔶 manifests + pipeline built; hosting provisioning pending (RUNBOOK §9) |
+| FR-OPS-1 | S6,S7; NFR-5 | `railway.toml` + `middleware/Dockerfile` + `middleware/scripts/start_with_seed.sh` + `docker-compose.yml` + `.github/workflows/deploy.yml` | 🔶 manifests + pipeline built; hosting provisioning pending (RUNBOOK §9) |
 | FR-OPS-2 | change management; RQ-F3; NFR-9 | `.github/workflows/release.yml` + `deploy.yml` (GHCR, D24) | 🔶 built; first tagged release pending |
 | FR-OPS-3 | S6,S7; FR-PROT-4 | `release.yml` marketplace job (D27); `extension/package.json` | 🔶 built; publisher account + `VSCE_PAT` pending |
-| FR-OPS-4 | D5; zero-idle-cost | `.github/workflows/sonar-vm.yml` + compose `--profile sonar` | 🔶 workflow built; sonar VM provisioning pending |
+| FR-OPS-4 | D5; zero-idle-cost | `.github/workflows/sonar-vm.yml` + `docker-compose.yml` `--profile sonar` + `metrics/src/analyzers/sonar_metrics.py` (stub-degradable) | 🔶 workflow built; VM provisioning pending (RUNBOOK §9) |
 | FR-OPS-5 | NFR-1 (ingest open); D29 | `middleware/auth.py` (none/token/clerk) + `GET /auth/config` + `platform/src/lib/auth.tsx` + `SignInScreen` (hotloaded `@clerk/clerk-js`/`@clerk/ui`, token-paste fallback) | ✅ code complete (2026-07-20, rebuilt in `platform/` after the `dashboard/` retirement dropped it); live Clerk smoke pending |
 | FR-OPS-6 | D30; D34 | `platform/` `VITE_API_BASE` + `settings.cors_origins` → opt-in `CORSMiddleware` | ✅ |
 | FR-OPS-7 | D29; FR-OPS-5 | per-user preference store keyed by Clerk identity | ⏳ blocked on Clerk provisioning |
@@ -85,21 +87,25 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-PLAT-3 | S7 | invitations (single-use, expiring); `InviteDialog` (copy-link) | ✅ backend + UI; email-provider delivery deferred |
 | FR-PLAT-4 | S7; NFR-11 | hero page + `/demo` pointer | 🔶 hero + demo UI (offline stub); server-seeded demo project pending |
 | FR-PLAT-5 | S1; NFR-7 | implicit-project fallback (`none`/`token`) | ✅ implicit project + permissive-sink preserved |
-| FR-TPL-1 | S7; RQ-F3 | study-template registry (`template_registry.py` + `templates/`) | 🔶 versioned registry + two-layer validation + typed instantiation; 2 of 4 seed templates ship (`cursor-mining`, `hai-eval` in `templates/drafts/`) |
-| FR-TPL-2 | S7; NFR-8 | template-bound statistical plans | 🔶 each shipped template binds its `statisticalPlan`; report-line match awaits a demo-data run |
+| FR-TPL-1 | S7; RQ-F3 | study-template registry (`template_registry.py` + `templates/`) | 🔶 versioned registry + two-layer validation + typed instantiation; 13 templates ship (2 original seeds + Phase 22's 8 Wave-1 archetypes + `hai-eval-synergy-v1` promoted 2026-07-21 + Wave-2's first fill `survey-self-report-v1`/`observational-field-v1`, 2026-07-21); `cursor-mining-v1` remains in `templates/drafts/`, blocked on repository-trend recipes (`validate_registry()`'s recipe-existence check passes on id alone, not measurement-unit fit) — see `templates/drafts/README.md` |
+| FR-TPL-2 | S7; NFR-8 | template-bound statistical plans + deterministic prescription table (`prescribe.py`) | 🔶 each shipped template binds its `statisticalPlan`; prescription table covers all design shapes; bespoke prescription compiles into analysisPlan (Phase 22 Slice A/C) |
 | FR-TPL-3 | S7; RQ-F1 | guided study designer (synchronized no-LLM form) | ⬜ conversation is the primary designer (FR-CONV-1 ✅); the form review surface is not yet built |
-| FR-TPL-4 | RQ-F3; FR-LIT-3 | template↔paper links in knowledge layer | ⬜ template `source` cites corpus papers; graph nodes not yet wired |
-| FR-TPL-5 | S6 | community template contract | ⬜ |
-| FR-CONV-1 | S7; RQ-F4 | design conversation (`platform/` + middleware threads) | ✅ server-driven conversation; researcher text → grounded reply → move cards → validating draft in-conversation |
+| FR-TPL-4 | RQ-F3; FR-LIT-3 | template↔paper links in knowledge layer | 🔶 template `source` cites corpus papers; graph nodes wired via `list_templates()` `source` field (Phase 22) |
+| FR-TPL-5 | S6 | community template contract | ✅ Phase 24 Slice C — TemplateSubmission model + endpoints (submit, list, get, approve/reject), 11 tests |
+| FR-TPL-6 | S7; NFR-8 | `prescribe.py` deterministic prescription table | ✅ Phase 22 — 8 design shapes covered, each with test/effect-size/correction/rationale |
+| FR-TPL-7 | S7 | design-archetype template registry (8 Wave-1 archetypes) + `design_assistant.recommend_templates` | 🔶 Wave 1's 8 archetypes exist and validate; keyword-based template matching wired in `design_assistant.respond()`; ranked `/templates/match` endpoint not yet built — see Phase 22 |
+| FR-CONV-1 | S7; RQ-F4 | design conversation (`platform/` + middleware threads) | ✅ server-driven conversation; researcher text → grounded reply → move cards → validating draft in-conversation; now LLM-primary/scripted-fallback per FR-CONV-8 — token streaming still pending |
 | FR-CONV-2 | RQ-F4; FR-ETH-4 | grounding contract (cite-what-you-retrieved) | ✅ grounding built only from retrieved rows, asserted server-side; unsourced compiles with `grounding: none` |
 | FR-CONV-3 | RQ-F1, RQ-F4; NFR-6 | deterministic move→YAML compiler + diff approval | ✅ pure `(base, moves) → draft`, byte-identical replay; validate every compile; apply only through a recorded, role-checked approval |
 | FR-CONV-4 | S3; FR-PROT-2/3; NFR-1 | phase-aware amendment engine (`evolution.py`) | 🔶 consent-relevance rule + amendment routing + session-start gate + version chips + ethics-board summary; UI built + gated; live transport deferred |
 | FR-CONV-5 | RQ-F2; FR-META-1/2/3 | in-conversation feedback → findings pipeline | 🔶 marked turn → `feedback` finding with locus; inert retrospective cites findings + anonymous shapes (grep-the-output enforced); UI built + gated |
 | FR-CONV-6 | S4; RQ-F4; C3 | elicitation record store + chain export | ✅ append-only turns/moves/compilations/approvals + `/conversation/export`; the chain renders both directions; redaction leaves the graph intact |
+| FR-CONV-7 | FR-CONV-4.2 | `middleware/` evolution.py `consent_relevance` | ✅ implemented + parametrized test (nested `enabled` change and first-appearance-of-subtree cases in `test_consent_relevance_rule`) |
+| FR-CONV-8 | FR-CONV-1/2; NFR-4/5 | `middleware/design_llm.py` + `assistant.py`'s provider seam (`MistralProvider`/`OpenAICompatibleProvider`) + `design_assistant.respond()` | ✅ retrieval-first candidate menu, JSON-schema-validated moves, refs filtered against the menu (wall #3 enforced twice with `_resolve_grounding`), scripted fallback on any failure; `test_design_llm.py` + `test_conversation.py`'s LLM/fallback/no-key cases |
 | FR-CUR-1 | RQ-F3; FR-INST-6 | curated-dataset normalizer (`curated/`: contract, schema vocab, pseudonymize, frame) | ✅ normalizer + salted-hash actors + schema events; static metrics over mined code reuse the metrics leg |
 | FR-CUR-2 | S7; NFR-4 | GitHub adapter + versioned heuristics + job runner (`middleware/mining.py`); D39 | ✅ adapter + heuristics + runner + `/mining-jobs`; tested offline via cassette; live async dispatch deferred |
 | FR-CUR-3 | NFR-8 | validity-threats record (`curated/threats.py`) + analysis gate + paper injection | ✅ record gates analysis; injected verbatim into the paper draft |
-| FR-CUR-4 | RQ-F3; FR-PROT-7 | archive/replication-package import | ⬜ |
+| FR-CUR-4 | RQ-F3; FR-PROT-7 | archive/replication-package import | ✅ Phase 24 Slice B — ArchiveAdapter (MiningAdapter), registered in ADAPTERS, 6 tests with cassette fixture |
 | FR-AGF-1 | FR-DASH-9; FR-META-3 | `manifest.py` + `GET /.well-known/platform-manifest` + `scripts/agent_manifest_demo.py` | ✅ manifest from documents of record; scripted demo bootstraps an agent from the URL alone |
 | FR-AGF-2 | agent context steering | `scripts/generate_agents_md.py` → `AGENTS.md` + CI drift gate | ✅ generated from glossary + SRS + manifest + CLAUDE.md; `--check` goes red on drift |
 | FR-AGF-3 | S6 | `data-agent` attributes + `platform/docs/agent-annotations.md` + drift lint | ✅ stable names + conventions doc; `check-agent-annotations.mjs` keeps doc↔code in sync |
@@ -109,7 +115,7 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-ETH-4 | S2,S3; NFR-5 | assistant data boundary (`assistant.py`) | ✅ no tool returns a row-level event; grep-the-output test |
 | NFR-1 | S2; C2; D3 | all instruments | ✅ fire-and-forget, O(1) handlers, swallow-count-report-once |
 | NFR-2 | S1 | sinks + middleware | ✅ idempotent ingest + visible seq gaps |
-| NFR-3 | S6 | Cognitive Overlay core/adapter split | ✅ scientific logic in `src/core`, zero `vscode` imports |
+| NFR-3 | S6 | TERN core/adapter split | ✅ scientific logic in `src/core`, zero `vscode` imports |
 | NFR-4 | S6; C4 | schema versions, recipe contract | 🔶 `protocolVersion` ✅; event `v` stored + unknown flagged |
 | NFR-5 | S2,S3 | whole stack | 🔶 |
 | NFR-6 | S5 | recipes, pinned deps | ✅ deterministic recipes; pinned via uv lock; replication kit reproduces `report.md` byte-for-byte |
@@ -119,10 +125,12 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | NFR-10 | S4 | `build-vs-adopt.md` | ✅ decisions recorded |
 | NFR-11 | S6,S7; open-source posture | README, CONTRIBUTING, RUNBOOK, TOUR, platform copy; internals → `docs/roadmap/` | 🔶 docs restructured; platform chip inversion pending |
 | NFR-12 | S7; D34, D35 | design system + `platform/` app (`specs/nfr-12-experience.md`) | 🔶 token system + surfaces built + gated (tokens-only lint, both themes); browser axe/screenshot evidence pending |
-| FR-INST-20 | S6,S7; platform loop | `middleware/` enrollment + `extension/` connect | 🔶 mint/redeem/server-stamp verified end-to-end (pytest + a live curl walkthrough, incl. the `studyId`-on-redeem fix); the extension's connect flow is unit-tested at the core level but not yet run in a live VS Code Extension Development Host |
+| FR-INST-20 | S6,S7; platform loop | `middleware/` enrollment + `extension/` connect | ✅ mint/redeem/server-stamp verified via pytest; platform enrollment table with copy-link + deep-link + live polling; extension pairing state machine (`src/core/pairing.ts`) with 13 transition tests; pre-flight at each session start; `vscode://…/pair` URI handler; all 104 extension tests pass |
 | FR-ING-7 | RQ-F1; S3 | `middleware/enrollment.py` + ingest auth | ✅ mint/list/revoke/redeem, server-stamp, never-block-never-drop, and the token/credential-never-persists grep test all pytest + live-verified |
-| FR-INST-21 | wall #6; FR-PROT-4 | `middleware/` capture-config + `extension/` core | 🔶 derive/version/apply-at-boundary logic pytest + `node:test` verified, including a wall-6 apply→mid-session-refuse→next-boundary-applies lifecycle test; a live running VS Code session staying frozen is pending the owner's manual walkthrough |
-| FR-DASH-10 | S1; FR-DASH-3 | `platform/` EnrollmentPanel | 🔶 mint/list/revoke + streaming status + per-row capture-config visibility verified via the API layer the UI consumes, build/lint green; browser NFR-12 evidence (both themes, axe, keyboard-only) pending |
+| FR-INST-21 | wall #6; FR-PROT-4 | `middleware/` capture-config + `extension/` core | ✅ derive/version/apply-at-boundary logic pytest + `node:test` verified, including a wall-6 `shouldApplyCaptureConfig` lifecycle test (apply→mid-session-refuse→next-boundary-applies); pre-flight summary shown before every session start (not just pair); re-pull at each session boundary via `refreshConfigAtSessionStart`; `captureConfigVersion` comparison enforced server- and client-side |
+| FR-DASH-10 | S1; FR-DASH-3 | `platform/` EnrollmentPanel | ✅ mint/list/revoke + streaming status + per-row capture-config visibility + copy-link + deep-link "Open in VS Code" companion + 15s live polling — all verified via build/lint; backend returns `connectionString` on list endpoint; NFR-12 browser evidence pending manual walkthrough |
+| FR-DASH-11 | FR-DASH-10; FR-CONV-4/5 | `platform/` EnrollmentPanel toggle console | ✅ Phase 20: backend toggle POST/GET/catalog + FR-CONV-7 consent relevance; extension `IdeHealthCollector`; platform `TogglePopover`; pytest + build verified |
+| FR-DASH-12 | FR-INST-19; wall #1/#6 | `protocol/` derive + `extension/` core | ✅ Phase 21 |
 
 ## 2. RQ → data elements → recipes (analysis coverage)
 

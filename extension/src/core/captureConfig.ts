@@ -8,13 +8,13 @@
 export interface CaptureConfig {
   captureConfigVersion: string;
   producer: string;
-  /** Flat `cognitiveOverlay.*` settings from the middleware. */
+  /** Flat `tern.*` settings from the middleware. */
   settings: Record<string, unknown>;
 }
 
-const PREFIX = 'cognitiveOverlay.';
+const PREFIX = 'tern.';
 
-/** The capture flags to apply, with the `cognitiveOverlay.` prefix removed. */
+/** The capture flags to apply, with the `tern.` prefix removed. */
 export function overlayFlags(cfg: CaptureConfig): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(cfg.settings)) {

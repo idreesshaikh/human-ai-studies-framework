@@ -11,7 +11,7 @@ export function GroundingChip({ g }: { g: Grounding }) {
     <span className="relative inline-block">
       <button
         type="button"
-        className="cursor-help"
+        className="cursor-help min-h-9"
         aria-expanded={open}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
@@ -27,7 +27,7 @@ export function GroundingChip({ g }: { g: Grounding }) {
       {open && (
         <span
           role="tooltip"
-          className="absolute left-0 top-full z-10 mt-1 block w-72 rounded-input border border-border-strong bg-surface-raised p-3 text-xs shadow-brutal"
+          className="absolute left-0 top-full z-10 mt-1 block w-72 max-w-[calc(100vw-2rem)] rounded-input border border-border-strong bg-surface-raised p-3 text-xs shadow-brutal"
         >
           <span className="block font-medium text-text">
             {g.title}

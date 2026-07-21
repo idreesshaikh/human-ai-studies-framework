@@ -10,6 +10,7 @@ import pytest
 from curated.cassette import Cassette, RateLimited, request_key
 from curated.contract import (
     CURATED_SCHEMA_VERSION,
+    Cursor,
     CursorCheckpoint,
     NormalizedEvent,
     SamplingFrame,
@@ -24,6 +25,7 @@ CASSETTE = (
     Path(__file__).resolve().parents[1]
     / "src/curated/cassettes/cursor-mining-demo.json"
 )
+_FIXTURES = Path(__file__).parent / "cassettes"
 
 FRAME = SamplingFrame(
     query="repo:example/app is:merged",
@@ -228,6 +230,129 @@ def test_threats_record_generated_and_valid():
     assert doc["coverage"]["dropped"].get("excluded-by-inclusion-rule", 0) >= 1
     assert doc["samplingFrame"]["actorUnitWindowing"]
     assert events  # sanity
+
+
+# ---------------------------------------------------------------------------
+# Slice B — Archive adapter (FR-CUR-4)
+# ---------------------------------------------------------------------------
+
+
+def test_archive_adapter_produces_join_keyed_events():
+    from curated.archive_adapter import ArchiveAdapter
+
+    path = _FIXTURES / "archive-demo.json"
+    adapter = ArchiveAdapter(path=path, salt="test-salt")
+    frame = SamplingFrame(
+        query=str(path),
+        window_start="2025-01-01",
+        window_end="2025-06-30",
+        conditions=["default"],
+        actor_unit="developer",
+    )
+    events, checkpoints = run_all(adapter, frame)
+    assert len(events) >= 1
+    assert len(checkpoints) >= 1
+    for e in events:
+        assert isinstance(e, NormalizedEvent)
+        assert e.session_id
+        assert e.participant_id.startswith("actor-")
+        assert e.condition
+        assert e.source == "archive"
+        assert e.schema_version == 5
+        assert e.payload
+        assert "rawType" in e.payload
+    assert [e.seq for e in events] == list(range(len(events)))
+
+
+def test_archive_adapter_plan_reports_coverage():
+    from curated.archive_adapter import ArchiveAdapter
+
+    path = _FIXTURES / "archive-demo.json"
+    adapter = ArchiveAdapter(path=path, salt="test-salt")
+    frame = SamplingFrame(
+        query=str(path),
+        window_start="2025-01-01",
+        window_end="2025-06-30",
+        conditions=["default"],
+        actor_unit="developer",
+    )
+    estimate = adapter.plan(frame)
+    assert estimate.requested == 4
+    assert "records in archive" in estimate.note
+
+
+def test_archive_adapter_is_registered():
+    from curated.registry import ADAPTERS, get_adapter
+
+    assert "archive" in ADAPTERS
+    adapter = get_adapter("archive", path="/dev/null", salt="x")
+    from curated.archive_adapter import ArchiveAdapter
+
+    assert isinstance(adapter, ArchiveAdapter)
+
+
+def test_archive_adapter_produces_deterministic_events():
+    from curated.archive_adapter import ArchiveAdapter
+
+    path = _FIXTURES / "archive-demo.json"
+    a1 = ArchiveAdapter(path=path, salt="test-salt")
+    a2 = ArchiveAdapter(path=path, salt="test-salt")
+    frame = SamplingFrame(
+        query=str(path),
+        window_start="2025-01-01",
+        window_end="2025-06-30",
+        conditions=["default"],
+        actor_unit="developer",
+    )
+    e1, _ = run_all(a1, frame)
+    e2, _ = run_all(a2, frame)
+    assert len(e1) == len(e2)
+    for ev1, ev2 in zip(e1, e2):
+        assert ev1.seq == ev2.seq
+        assert ev1.participant_id == ev2.participant_id
+        assert ev1.type == ev2.type
+
+
+def test_archive_adapter_events_respect_content_free_contract():
+    from curated.archive_adapter import ArchiveAdapter
+
+    path = _FIXTURES / "archive-demo.json"
+    adapter = ArchiveAdapter(path=path, salt="test-salt")
+    frame = SamplingFrame(
+        query=str(path),
+        window_start="2025-01-01",
+        window_end="2025-06-30",
+        conditions=["default"],
+        actor_unit="developer",
+    )
+    events, _ = run_all(adapter, frame)
+    for e in events:
+        assert "rawAuthor" not in e.payload
+        assert "rawType" in e.payload
+
+
+def test_archive_adapter_resume_from_cursor():
+    from curated.archive_adapter import ArchiveAdapter
+
+    path = _FIXTURES / "archive-demo.json"
+    adapter = ArchiveAdapter(path=path, salt="test-salt")
+    frame = SamplingFrame(
+        query=str(path),
+        window_start="2025-01-01",
+        window_end="2025-06-30",
+        conditions=["default"],
+        actor_unit="developer",
+    )
+    full_events, _ = run_all(adapter, frame)
+
+    # Resume from cursor skipping the first 2 events
+    adapter2 = ArchiveAdapter(path=path, salt="test-salt")
+    cursor = Cursor({"skip": 2, "seen": 2})
+    events, _ = run_all(adapter2, frame, cursor=cursor)
+    assert len(events) == len(full_events) - 2
+    for ev, fev in zip(events, full_events[2:]):
+        assert ev.seq == fev.seq
+        assert ev.participant_id == fev.participant_id
 
 
 def test_threats_record_rejects_unmitigated_bias():

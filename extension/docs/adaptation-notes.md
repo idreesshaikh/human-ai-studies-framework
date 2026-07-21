@@ -83,7 +83,7 @@ a best-effort mirror of the JSONL source of truth; loss is *detectable* via
 
 - The **2-minute rule**: WakaTime's `TIME_BETWEEN_HEARTBEATS_MS = 120000` is
   the basis for our rolling 120 s activity window
-  (`cognitiveOverlay.behavior.idleWindowSeconds`, FR-INST-11). Improvement:
+  (`tern.behavior.idleWindowSeconds`, FR-INST-11). Improvement:
   WakaTime's idle is absence-of-heartbeats, reconstructed server-side; we
   emit explicit `heartbeat {state: active|idle}` *transitions* (two rows per
   gap, no periodic spam), so time-on-task denominators are first-class data.
@@ -109,9 +109,9 @@ Verified: Tako records pastes only as unlabeled multi-char document changes;
 `aw-watcher-vscode` and WakaTime never touch clipboard events; nobody
 intercepts `editor.action.clipboardPasteAction`. So the mechanism is ours:
 
-- **Keybinding-scoped wrapper commands** `cognitiveOverlay.behavior.copy/
+- **Keybinding-scoped wrapper commands** `tern.behavior.copy/
   cut/paste` bound to `Ctrl/Cmd+C/X/V` with
-  `when: cognitiveOverlay.sessionActive && editorTextFocus`. Each records
+  `when: tern.sessionActive && editorTextFocus`. Each records
   its measurement and *always* delegates to the built-in clipboard command
   in a `finally` (a telemetry bug must never break paste - NFR-1).
 - We deliberately do **not** shadow the built-in command ids via

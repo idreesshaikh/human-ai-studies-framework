@@ -14,6 +14,7 @@ bounces, not applied), F3.3 (no apply without a recorded approval),
 F6.1 (the full chain exports both directions).
 """
 
+import json
 from pathlib import Path
 
 import pytest
@@ -22,7 +23,7 @@ from middleware.app import create_app
 from middleware.db import CORPUS_STUDY_ID, Paper, make_session_factory
 from middleware.settings import Settings
 
-from middleware import paper_index
+from middleware import assistant, paper_index
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -66,7 +67,7 @@ def client(tmp_path) -> TestClient:
         port=8000,
         spa_dist=tmp_path / "no-dist",
     )
-    factory = make_session_factory(settings.db_path)
+    factory = make_session_factory(f"sqlite:///{settings.db_path}")
     with factory() as s:
         for ref, title, why in _SEEDS:
             s.add(
@@ -262,3 +263,72 @@ def test_export_renders_the_full_chain(client):
     assert set(comp["moveIds"]) <= move_ids
     # Backward: the approval references that compilation.
     assert export["approvals"][-1]["compilationId"] == comp["compilationId"]
+
+
+# ---------------------------------------------------------- FR-CONV-1.4 (LLM)
+
+
+def _fake_llm(reply_json: dict):
+    """A provider whose ``post`` returns ``reply_json`` verbatim, wired in
+    place of ``assistant.make_client`` — no network, no real key."""
+
+    def post(url, body, headers):
+        return {"choices": [{"message": {"content": json.dumps(reply_json)}}]}
+
+    return assistant.MistralProvider("test-key", post=post)
+
+
+def test_llm_configured_and_healthy_produces_an_llm_sourced_turn(client, monkeypatch):
+    reply = {
+        "text": "Let's ground this in the corpus.",
+        "moves": [
+            {
+                "kind": "add-measure",
+                "target": "measures[]",
+                "proposal": "Measure review latency.",
+                "patch": {
+                    "section": "measures",
+                    "op": "append",
+                    "value": "Review latency",
+                },
+                "refs": ["corpus:trust-in-ai-code-generation"],
+            }
+        ],
+    }
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
+    turn = _ask(client, "junior developers over-trust AI code")
+    assert turn["source"] == "llm"
+    assert turn["text"] == "Let's ground this in the corpus."
+    assert len(turn["moves"]) == 1
+    assert turn["moves"][0]["kind"] == "add-measure"
+    grounded_refs = {g["ref"] for g in turn["moves"][0]["grounding"]}
+    assert grounded_refs == {"corpus:trust-in-ai-code-generation"}
+
+
+def test_llm_failure_falls_back_to_the_unchanged_scripted_path(client, monkeypatch):
+    """NFR-4/5: a configured-but-failing provider degrades exactly to
+    today's scripted behavior — never a partial/hybrid turn."""
+
+    def raising_client(*a, **k):
+        class _Raises:
+            model = "test"
+            api_key = "k"
+            base_url = "https://example.invalid/chat/completions"
+
+            def post(self, *a, **k):
+                raise TimeoutError("simulated provider outage")
+
+        return _Raises()
+
+    monkeypatch.setattr(assistant, "make_client", raising_client)
+    turn = _ask(client, "I think junior developers over-trust AI-generated code")
+    assert turn["source"] == "scripted"
+    refs = {g["ref"] for m in turn["moves"] for g in m["grounding"]}
+    assert "corpus:trust-in-ai-code-generation" in refs
+
+
+def test_no_llm_key_configured_is_unaffected_by_the_new_seam(client):
+    """The default test environment has no MISTRAL_API_KEY / LLM_BASE_URL —
+    confirms the common case is untouched by this change."""
+    turn = _ask(client, "I think junior developers over-trust AI-generated code")
+    assert turn["source"] == "scripted"

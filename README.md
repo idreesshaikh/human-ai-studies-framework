@@ -1,4 +1,8 @@
-# Framework for Conducting Human-AI Studies
+# PHOENIX — Framework for Conducting Human-AI Studies
+
+*PHOENIX: **P**rotocol for **H**uman-**O**riented **E**vidence, **N**etworked
+**I**teration & e**X**perimentation — reborn each phase, the mythical bird
+matching the platform's own evolution-from-feedback story.*
 
 [![CI](https://github.com/idreesshaikh/human-ai-studies-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/idreesshaikh/human-ai-studies-framework/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -103,9 +107,10 @@ analysis/        Pluggable analysis recipes, per-question report,
   in tests.
 - **It studies itself.** The platform logs its own defects during a study and
   drafts an improvement proposal afterwards, which a human approves.
-- **Everything external is optional.** Semantic Scholar, the Claude API,
-  SonarQube, and login providers each degrade gracefully, so the platform runs
-  fully offline on one laptop.
+- **Everything external is optional.** Semantic Scholar, an LLM key (Mistral
+  by default, or any OpenAI-compatible endpoint), SonarQube, and login
+  providers each degrade gracefully, so the platform runs fully offline on
+  one laptop.
 
 ## Documentation
 

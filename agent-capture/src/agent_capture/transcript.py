@@ -136,11 +136,87 @@ def _session_meta_payload(lines: list[dict], transcript_path: str | Path) -> dic
     }
 
 
+def _normalize_copilot_chat(lines: list[dict], keys: Keys, policy: str | None, *, min_token_len: int = DEFAULT_MIN_TOKEN_LEN) -> list[dict]:
+    """Normalize a Copilot Chat / generic JSON transcript shape.
+
+    Expected line shape: ``{timestamp, role, content, tool_name?, tool_input?}``
+    where ``role`` is ``"user"`` or ``"assistant"`` and ``content`` is a bare
+    string. Produces the same event contract as Claude Code transcripts.
+    """
+    logical: list[tuple[str, str, dict]] = []
+    turn_index = 0
+    prev_ts: str | None = None
+    for line in lines:
+        ts = line.get("timestamp", "")
+        role = line.get("role", "")
+        content = line.get("content", "") or ""
+        tool_name = line.get("tool_name", "")
+        tool_input = line.get("tool_input") or {}
+
+        payload: dict = {"role": role, "turnIndex": turn_index, "chars": len(content)}
+        if prev_ts and ts:
+            payload["latencyMs"] = _delta_ms(prev_ts, ts)
+        stored = apply_policy(content, policy, min_token_len=min_token_len)
+        if stored is not None:
+            payload["content"] = stored
+        if content:
+            payload["codeBlocks"] = _code_blocks(content)
+        logical.append((ts, EVENT_TURN, payload))
+        turn_index += 1
+
+        if tool_name:
+            logical.append(
+                (
+                    ts,
+                    EVENT_TOOL_CALL,
+                    {
+                        "tool": tool_name,
+                        "success": True,
+                        "targetHash": _target_hash(tool_input) if tool_input else "",
+                    },
+                )
+            )
+        if ts:
+            prev_ts = ts
+
+    meta = {"agentTool": "generic", "modelId": "", "agentSessionId": "", "cwdHash": ""}
+    for line in lines:
+        if line.get("model"):
+            meta["modelId"] = line["model"]
+        if line.get("sessionId"):
+            meta["agentSessionId"] = line["sessionId"]
+
+    ordered = [("", EVENT_SESSION_META, meta), *logical]
+    return [
+        study_event(keys, source=SOURCE_AGENT, seq=i, type=t, payload=p, ts=ts or None)
+        for i, (ts, t, p) in enumerate(ordered)
+    ]
+
+
+def _detect_format(path: str | Path) -> str:
+    """Sniff the transcript format from the first line.
+
+    Returns ``"claude-code"`` (Anthropic-style message blocks) or ``"generic-json"``
+    (flat role/content lines). Falls back to ``"claude-code"`` when undetectable.
+    """
+    lines = read_jsonl(path)
+    if not lines:
+        return "claude-code"
+    first = lines[0]
+    msg = first.get("message")
+    if msg is not None or first.get("type") in ("assistant", "user"):
+        return "claude-code"
+    if first.get("role") in ("user", "assistant"):
+        return "generic-json"
+    return "claude-code"
+
+
 def normalize_transcript(
     transcript_path: str | Path,
     keys: Keys,
     policy: str | None,
     *,
+    format: str | None = None,
     min_token_len: int = DEFAULT_MIN_TOKEN_LEN,
 ) -> list[dict]:
     """The whole transcript as ordered agent-leg StudyEvents (seq = position).
@@ -150,8 +226,16 @@ def normalize_transcript(
     ``agent_session_meta``. Conversation text passes through the content
     policy (FR-AGENT-5); at ``metadata-only`` no ``content`` field is
     emitted at all.
+
+    ``format`` is ``"claude-code"`` (default), ``"generic-json"``, or
+    ``None`` (auto-detect). FR-AGENT-4: second-format support via the
+    same event contract.
     """
+    fmt = format or _detect_format(transcript_path)
     lines = read_jsonl(transcript_path)
+
+    if fmt == "generic-json":
+        return _normalize_copilot_chat(lines, keys, policy, min_token_len=min_token_len)
     logical: list[tuple[str, str, dict]] = []  # (ts, type, payload)
     turn_index = 0
     pending: dict[str, dict] = {}  # tool_use_id -> {name, ts, targetHash}

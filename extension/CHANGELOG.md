@@ -1,8 +1,20 @@
 # Changelog
 
-All notable changes to the Cognitive Overlay extension are documented here.
+All notable changes to the TERN extension are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## [Unreleased] - 2026-07-21
+
+### Changed
+
+- **Renamed KITE -> TERN** (Telemetry for Engineering & Reasoning Norms).
+  Every `kite.*` VS Code setting, command id, context key, and storage key
+  is now `tern.*`; the marketplace extension id changes from `kite` to
+  `tern`. The protocol schema's `instruments.kite` block is renamed to
+  `instruments.tern`, gated behind `protocolVersion: 4` (older protocols
+  on v1-v3 keep validating against `kite` unchanged — consumers branch on
+  version, never guess). No behavioral change.
 
 ## [0.2.0] - 2026-07-11
 
@@ -35,8 +47,8 @@ pipeline). Event schema version bumped to **3**.
   task ID) for replication provenance.
 - **Capture filter** - behavioral capture restricted to configured languages
   (pilot: Python) and workspace-internal files.
-- **`cognitiveOverlay.behavior.*` settings** - per-signal switches and all
-  heuristic thresholds; `cognitiveOverlay.session.*` provenance fields.
+- **`tern.behavior.*` settings** - per-signal switches and all
+  heuristic thresholds; `tern.session.*` provenance fields.
 
 ## [0.1.0] - 2026-07-07
 

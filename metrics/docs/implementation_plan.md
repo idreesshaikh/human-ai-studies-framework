@@ -6,7 +6,7 @@ as-built record - deviations from the original plan are marked **[revised]**.
 
 ## Context
 
-The 9-metric cognitive-load matrix is specified in
+The 9 static code metrics are specified in
 `metrics/docs/static_code_metrics.md`. Four metrics are tree-sitter based
 (parameter count, nesting depth penalty, average identifier length, variable
 scope distance), four come from plain text or Radon (indentation variance,

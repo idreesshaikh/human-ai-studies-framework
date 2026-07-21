@@ -66,65 +66,112 @@ export function MembersTable({
   return (
     <div className="flex flex-col gap-2">
       {error && <p className="text-sm text-unsourced">{error}</p>}
-      <Table>
-        <THead>
-          <TR>
-            <TH>Member</TH>
-            <TH>Role</TH>
-            <TH>Joined</TH>
-            <TH className="w-10" />
-          </TR>
-        </THead>
-        <TBody>
-          {rows.map((m) => (
-            <TR key={m.identitySub}>
-              <TD>
-                <span className="flex items-center gap-2">
-                  <Avatar name={m.identitySub} />
-                  <span className="truncate">{m.identitySub}</span>
-                </span>
-              </TD>
-              <TD>
-                <Badge variant="outline">{ROLE_LABELS[m.role]}</Badge>
-              </TD>
-              <TD className="tabular text-text-muted">
-                {m.joinedAt ? m.joinedAt.slice(0, 10) : "—"}
-              </TD>
-              <TD>
-                <RoleGate role={myRole} capability="manage_members">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        data-agent="member-actions"
-                        className="rounded-input p-1 text-text-muted hover:bg-accent-soft"
-                        aria-label={`Actions for ${m.identitySub}`}
-                      >
-                        <MoreHorizontal className="size-4" aria-hidden />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Set role</DropdownMenuLabel>
-                      {ROLES.map((r) => (
-                        <DropdownMenuCheckItem
-                          key={r}
-                          checked={m.role === r}
-                          onSelect={() => setRole(m.identitySub, r)}
-                        >
-                          {ROLE_LABELS[r]}
-                        </DropdownMenuCheckItem>
-                      ))}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem destructive onSelect={() => remove(m.identitySub)}>
-                        Remove from project
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </RoleGate>
-              </TD>
+      <div className="hidden sm:block">
+        <Table>
+          <THead>
+            <TR>
+              <TH>Member</TH>
+              <TH>Role</TH>
+              <TH>Joined</TH>
+              <TH className="w-10" />
             </TR>
-          ))}
-        </TBody>
-      </Table>
+          </THead>
+          <TBody>
+            {rows.map((m) => (
+              <TR key={m.identitySub}>
+                <TD>
+                  <span className="flex items-center gap-2">
+                    <Avatar name={m.identitySub} />
+                    <span className="truncate">{m.identitySub}</span>
+                  </span>
+                </TD>
+                <TD>
+                  <Badge variant="outline">{ROLE_LABELS[m.role]}</Badge>
+                </TD>
+                <TD className="tabular text-text-muted">
+                  {m.joinedAt ? m.joinedAt.slice(0, 10) : "—"}
+                </TD>
+                <TD>
+                  <RoleGate role={myRole} capability="manage_members">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          data-agent="member-actions"
+                          className="rounded-input p-1 text-text-muted hover:bg-accent-soft"
+                          aria-label={`Actions for ${m.identitySub}`}
+                        >
+                          <MoreHorizontal className="size-4" aria-hidden />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Set role</DropdownMenuLabel>
+                        {ROLES.map((r) => (
+                          <DropdownMenuCheckItem
+                            key={r}
+                            checked={m.role === r}
+                            onSelect={() => setRole(m.identitySub, r)}
+                          >
+                            {ROLE_LABELS[r]}
+                          </DropdownMenuCheckItem>
+                        ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem destructive onSelect={() => remove(m.identitySub)}>
+                          Remove from project
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </RoleGate>
+                </TD>
+              </TR>
+            ))}
+          </TBody>
+        </Table>
+      </div>
+      <div className="flex flex-col gap-2 sm:hidden">
+        {rows.map((m) => (
+          <div key={m.identitySub} className="rounded-input border border-border bg-surface p-3">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 min-w-0">
+                <Avatar name={m.identitySub} />
+                <span className="truncate text-sm">{m.identitySub}</span>
+              </span>
+              <RoleGate role={myRole} capability="manage_members">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      data-agent="member-actions"
+                      className="rounded-input p-2 text-text-muted hover:bg-accent-soft min-h-11 min-w-11"
+                      aria-label={`Actions for ${m.identitySub}`}
+                    >
+                      <MoreHorizontal className="size-4" aria-hidden />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Set role</DropdownMenuLabel>
+                    {ROLES.map((r) => (
+                      <DropdownMenuCheckItem
+                        key={r}
+                        checked={m.role === r}
+                        onSelect={() => setRole(m.identitySub, r)}
+                      >
+                        {ROLE_LABELS[r]}
+                      </DropdownMenuCheckItem>
+                    ))}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem destructive onSelect={() => remove(m.identitySub)}>
+                      Remove from project
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </RoleGate>
+            </div>
+            <div className="mt-2 flex items-center gap-3 text-xs text-text-muted">
+              <Badge variant="outline">{ROLE_LABELS[m.role]}</Badge>
+              <span className="tabular">{m.joinedAt ? m.joinedAt.slice(0, 10) : "—"}</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

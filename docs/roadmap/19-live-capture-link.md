@@ -12,7 +12,7 @@
 > `docs/design/sequences.md`.
 
 **Depends on:** Phase 03 (ingestion middleware, the `/ingest/*` contract),
-Phases 05–06 (the Cognitive Overlay extension — cognitive + behavioral
+Phases 05–06 (the TERN extension — cognitive + behavioral
 legs, the `HttpSink`, the per-signal capture flags), Phase 14 (projects,
 roles, the `authz` choke point, the `Invitation` mint/accept pattern, the
 study workspace tabs), Phase 18 / FR-CONV-4/5 (the amendment engine — how a
@@ -158,7 +158,7 @@ Middleware only; the extension and existing ingest keep working throughout.
    ```jsonc
    { "participantId": "P07", "condition": "ai-assisted",
      "sessionCredential": "<opaque>", "ingestEndpoint": "…/ingest/events",
-     "captureConfig": { "captureConfigVersion": 3, "cognitiveOverlay": {…} },
+     "captureConfig": { "captureConfigVersion": 3, "tern": {…} },
      "consentStatement": "<verbatim from protocol>",
      "contentPolicy": "metadata-only" }
    ```
@@ -171,7 +171,7 @@ Middleware only; the extension and existing ingest keep working throughout.
    derived, versioned config, produced by lifting `derive_overlay_settings`
    (today CLI-only, `protocol/src/protocol/derive.py`) behind HTTP, sliced
    per `producer` query param (`overlay` → the extension's flat
-   `cognitiveOverlay.*` flags; `agent` → content policy; extensible). Carries
+   `tern.*` flags; `agent` → content policy; extensible). Carries
    `captureConfigVersion` (bump on any `instruments.*` change, wall #5).
 
 5. **Authenticated-but-non-blocking ingest.** `POST /ingest/events` and
@@ -216,7 +216,7 @@ shape is unchanged; this is transport + config source + a consent gate.
      content policy (FR-AGENT-5 verbatim).
 
 2. **Adapter** (`src/vscode`):
-   - Command **`cognitiveOverlay.connectToStudy`** — a single input box
+   - Command **`tern.connectToStudy`** — a single input box
      ("Paste the connection string from your study invite"), calls
      `/pair/redeem`, drives the `pairing` machine, persists the credential
      to `SecretStorage` (never settings/JSON), writes the resolved

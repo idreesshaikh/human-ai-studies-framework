@@ -47,7 +47,7 @@ tasks.
 **RQ-P1 - Cognitive load.** How does AI assistance affect self-reported
 fatigue trajectories, stuck-episode frequency/duration, and end-of-session
 TLX-style workload?
-*Data:* fatigue probes, stuck events, debrief (Cognitive Overlay).
+*Data:* fatigue probes, stuck events, debrief (TERN).
 *Recipes:* `fatigue-by-condition`, `stuck-episodes`, `tlx-debrief`.
 
 **RQ-P2 - Code quality.** How does AI assistance affect the static

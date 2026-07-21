@@ -30,9 +30,10 @@ JOIN_KEYS = ["sessionId", "participantId", "condition"]
 class Dataset:
     """The one-timeline dataset for a single study."""
 
-    def __init__(self, rows: list[dict], study_id: str = ""):
+    def __init__(self, rows: list[dict], study_id: str = "", meta: dict | None = None):
         self.study_id = study_id
         self.rows = rows
+        self.meta = meta or {}
 
     # ------------------------------------------------------------- loaders
 

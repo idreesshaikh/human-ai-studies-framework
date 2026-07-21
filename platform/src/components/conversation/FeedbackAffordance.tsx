@@ -50,7 +50,7 @@ export function FeedbackAffordance({
         data-agent="feedback-mark"
         onClick={() => setOpen(true)}
         className={cn(
-          "text-xs text-text-muted",
+          "text-xs text-text-muted min-h-9",
           // The detection nudge: a soft highlight when the turn reads as
           // feedback. Still just an offer — nothing files without the confirm.
           suggested && "text-accent")}

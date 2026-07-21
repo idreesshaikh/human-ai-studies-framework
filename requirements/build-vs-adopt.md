@@ -98,14 +98,16 @@ without a key. Superseded by D32 (owner decision: free-tier providers);
 the bounds, cite-every-claim prompt, and degradation posture carried
 over verbatim. Full narrative in git history.
 
-### D11 - FastAPI + SQLite + Vite - **ADOPT** → FR-ING, FR-DASH
+### D11 - FastAPI + SQLite + Vite - **ADOPT → SUPERSEDED** → FR-ING, FR-DASH
 
-Boring, single-laptop-deployable, well-documented. SQLite over Postgres:
-participant counts are ≤ dozens; one file *is* the backup strategy (NFR-7).
-Postgres remains a config swap if a lab ever scales it. *(Frontend half
-superseded 2026-07-11 by D15: Svelte, per maintainer preference.)*
+Boring, single-laptop-deployable, well-documented. Originally chose SQLite
+over Postgres: participant counts are ≤ dozens; one file *is* the backup
+strategy (NFR-7). Postgres remained a config swap if a lab ever scaled it.
+_(Frontend half superseded 2026-07-11 by D15: Svelte, per maintainer
+preference.)_ **Superseded for the database choice by D26 (Railway +
+PostgreSQL).** SQLite is retained as a script-level testing fallback only.
 
-### D12 - Existing Cognitive Overlay - **KEEP & EXTEND** → FR-INST-5/8–12
+### D12 - Existing TERN - **KEEP & EXTEND** → FR-INST-5/8–12
 
 The behavioral leg extends the built extension (new event types, bumped
 `SCHEMA_VERSION`) rather than shipping a second plugin: one install, one
@@ -164,21 +166,40 @@ project's data-viz conventions (thin marks, hairline grid, table-view
 twins, validated palette). LayerChart rejected: a dependency tree for two
 bespoke charts.
 
-### D18 - SPA routing library - **BUILD (hand-rolled)** → FR-DASH app skeleton
+### D18 - SPA routing library - **BUILD (hand-rolled)** — **RETIRED** (superseded by `react-router-dom`, adopted alongside D34) → FR-DASH app skeleton
 
-The platform has one fixed route shape
-(`/study/:id/{view|sessions/:sid}`). svelte-routing / svelte-spa-router
-rejected: a dependency for a 60-line history-API router; SvelteKit rejected
-(again, per D15) as a framework swap. Deep links work because the
-middleware re-serves the SPA shell for `/study/*` (NFR-7).
+Original decision (Svelte era, historical context only): the platform has
+one fixed route shape (`/study/:id/{view|sessions/:sid}`); svelte-routing /
+svelte-spa-router rejected as a dependency for a 60-line history-API
+router; SvelteKit rejected (again, per D15) as a framework swap. Deep
+links work because the middleware re-serves the SPA shell for `/study/*`
+(NFR-7, unchanged). **Current state:** the React rebuild (D34) brought
+`react-router-dom` (`platform/package.json`) rather than a hand-rolled
+router — the route surface grew past the original one-fixed-shape premise
+(projects, hero, settings, the enrollment/study workspace tabs), and
+React's ecosystem router was the pragmatic fit once the frontend itself
+was no longer hand-rolled-by-necessity. NFR-10 satisfied: adopted, not
+built, with the reasoning recorded here rather than silently.
 
-### D19 - Vitest - **ADOPT** → platform component tests ( §4)
+### D19 - Vitest - **ADOPT** — **NOT ACTUALLY ADOPTED**; superseded in practice by bespoke `verify-*.mjs` scripts → platform component tests ( §4)
 
-The platform's two logic-heavy pieces (timeline lane assembly, task-card
-derivation) are pure TypeScript modules. Vitest runs them against the same
+Original decision (Svelte era): the platform's two logic-heavy pieces
+(timeline lane assembly, task-card derivation) are pure TypeScript
+modules. Vitest runs them against the same
 Vite config as the app (one toolchain, no ts-jest/babel bridge) and is
 wired into `npm run check`. The extension keeps its existing node:test
 setup - no churn where nothing is gained.
+
+**Current state:** Vitest was never actually installed
+(`platform/package.json` has no test runner dependency and no `.test.ts`
+file exists anywhere under `platform/`). What shipped instead is a bespoke
+`scripts/verify-*.mjs` convention (`verify-slice1.mjs`, `verify-shell.mjs`,
+`verify-evolution.mjs`, `verify-library.mjs`, `verify-timeline.mjs`), each
+a standalone assertion script run by `npm run check`'s `verify` step —
+functionally the same job D19 scoped, achieved without adopting a
+dependency. Leave as-is (NFR-10 is satisfied either way) rather than
+retrofitting Vitest to match a decision the practice quietly outgrew;
+update this entry, not the code, if that ever changes.
 
 ### D20 - pandas + scipy + matplotlib - **ADOPT** → FR-ANA-1..5, NFR-8
 
@@ -245,32 +266,40 @@ RC tags are pre-releases. Alternatives rejected: Docker Hub (second account,
 pull-rate limits), a self-hosted registry (a service to babysit, contra
 NFR-7's no-IT-department posture).
 
-### D25 - Render free tier (demo host) - **ADOPT** → FR-OPS-1(a)
+### D25 - Render free tier (demo host) - **SUPERSEDED** → FR-OPS-1(a)
 
-The public seeded demo runs the existing `middleware/Dockerfile` on Render's
-free web-service tier (still current in 2026: 750 instance-hours/month,
-Docker support, free TLS subdomain, deploy-hook URL). Its two limitations
-are *acceptable by design*: spin-down after 15 min idle (a demo tolerates a
-cold start) and an **ephemeral disk** - which would be disqualifying for
-real data, but the demo reseeds itself on every boot
-(`start_with_seed.sh`; replay is idempotent per FR-ING-2) and NFR-5 forbids
-real participant data on any public instance anyway. `autoDeploy` is off:
-the pipeline triggers the deploy hook only after CI is green, so the demo
-never runs a red build.
+Adopted initially (see original text below) but superseded by D26 (Railway).
+Render is no longer a deployment target — Railway handles the demo deployment
+with managed PostgreSQL and no cold-start spin-down.
 
-### D26 - Azure for Students (persistent VM + on-demand Sonar VM) - **ADOPT** → FR-OPS-1(b), FR-OPS-4
+_Original decision preserved for record:_
 
-$100/year credit, renewable annually while enrolled, no card; includes
-750 h/month of a B1s Linux VM free for 12 months. The B1s is the persistent
-dev/staging host: `docker compose -f deploy/compose.prod.yml` pulls the
-released GHCR image, the SQLite volume persists on the VM disk (exactly the
-one-file-is-the-backup posture of D11), and **Caddy** (adopted here: single
-static binary, automatic certificates; nginx+certbot is two moving parts
-for the same job) terminates TLS on a Namecheap `.me` domain (also free in
-the pack). For FR-OPS-4, a second **B2s (4 GB - SonarQube's floor; the B1s
-1 GB cannot host it)** stays **deallocated** except during analysis
-windows - a deallocated VM bills only pennies of disk against credit -
-toggled by `sonar-vm.yml` (workflow-dispatch) or `az vm start|deallocate`.
+---
+
+> The public seeded demo runs the existing `middleware/Dockerfile` on Render's
+> free web-service tier (still current in 2026: 750 instance-hours/month,
+> Docker support, free TLS subdomain, deploy-hook URL). Its two limitations
+> are *acceptable by design*: spin-down after 15 min idle (a demo tolerates a
+> cold start) and an **ephemeral disk** - which would be disqualifying for
+> real data, but the demo reseeds itself on every boot
+> (`start_with_seed.sh`; replay is idempotent per FR-ING-2) and NFR-5 forbids
+> real participant data on any public instance anyway. `autoDeploy` is off:
+> the pipeline triggers the deploy hook only after CI is green, so the demo
+> never runs a red build.
+
+### D26 - Railway (primary deployment) + Azure SonarQube VM (auxiliary) - **ADOPT** → FR-OPS-1(b), FR-OPS-4
+
+Railway is the primary deployment target for the middleware + PostgreSQL.
+The `railway.toml` at repo root drives the build from `middleware/Dockerfile`.
+Railway provides managed PostgreSQL (DATABASE_URL auto-injected), TLS
+termination, and custom domains — no Caddy needed. The container image is
+pushed to GHCR by CI, and a Railway GraphQL API call triggers redeploy.
+
+SonarQube (FR-INST-4 cognitive complexity) is a separate concern: it runs
+on-demand via `docker compose --profile sonar up` locally or an Azure B2s VM
+that stays deallocated except during analysis windows (toggled by
+`sonar-vm.yml` workflow-dispatch). The metrics leg stub-degrades to NaN when
+SonarQube is absent, so forgetting to start it never blocks a session.
 
 ### D27 - VS Code Marketplace via `@vscode/vsce` - **ADOPT** → FR-OPS-3
 
@@ -295,7 +324,9 @@ Each was considered for the FR-OPS deployment slice and rejected:
   *purely to fit the host*. The host should fit the architecture, not the
   reverse.
 - **Fly.io** - no free tier for new organizations; not in the pack.
-- **Railway** - trial credit only; no sustained free tier.
+- **Railway** - trial credit only; no sustained free tier. _(Note: later
+  adopted as the primary deployment target in D26 — the free-tier landscape
+  changed and Railway's student credits covered the demo.)_
 - **Supabase** - hosted Postgres/auth/storage would move study data to a
   third-party cloud (NFR-5 - same reasoning as D1's wandb reject) and
   replace the SQLite source-of-truth for zero benefit at ≤ dozens of
@@ -379,7 +410,7 @@ Scholar client (D8) - because the assistant's hand-rolled tool-use loop
 bounds carry over verbatim: aggregates only server-side, answers must cite
 sources, the retrospective's output is an inert proposal a human approves,
 and absent both keys everything degrades gracefully (503 / offline
-template). Keys live only in runtime env (Render env / VM `deploy/.env`),
+template). Keys live only in runtime env (Railway variables / local `.env`),
 never in git or CI.
 **Rev 2 (2026-07-16):** Gemini removed at the owner's request (one Mistral
 key in active use); the platform's picker now selects among *Mistral model
@@ -387,7 +418,10 @@ tiers* (small/medium/large, validated server-side) instead of providers.
 The seam stays one provider class - reintroducing a second provider is a
 small, decision-gated change.
 
-### D33 - `svelte-dnd-action` - **ADOPT** → FR-DASH-7
+### D33 - `svelte-dnd-action` - **ADOPT → RETIRED** → FR-DASH-7
+
+Adopted during the Svelte era (D30 rev 2). Retired when the platform was
+migrated to React (D34) — the `platform/` app is a React SPA, not Svelte.
 
 Drag-and-drop for the task board's manual cards, introduced by the v0
 design iteration (D30 rev 2) and kept at merge review: it is the standard

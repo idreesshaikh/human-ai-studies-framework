@@ -1,0 +1,136 @@
+templateVersion: 1
+templateId: observational-field-v1
+title: Observational field study of AI-assisted development in the wild
+description: |
+  A single-condition, no-manipulation field study describing how developers
+  actually work with AI assistance in situ — stuck/struggle episodes and
+  paste-provenance patterns, reported descriptively. Fills the
+  "observational/field study" design shape (a Phase 22 Wave-1 gap): unlike
+  single-arm-benchmark-v1 (evaluated against an external standard), this
+  template's posture is naturalistic description, not evaluation.
+designType: observational
+dataPath: live
+source:
+  - paperRef: arxiv:2506.12347
+    role: primary-design
+  - paperRef: corpus:sharp-tools-agentic-ai
+    role: primary-design
+parameters:
+  studyId:
+    type: string
+    default: observational-field-study
+  title:
+    type: string
+    default: "Observational field study of AI-assisted development in the wild"
+  participantPlan:
+    type: participants
+    min: 8
+    default: 19
+    rationale: Matches the observational scale of the grounding study (19 developers)
+  sessionMinutes:
+    type: int
+    default: 90
+    min: 30
+    max: 240
+  taskDescription:
+    type: string
+    default: Developers work on their own real issues/tasks with AI assistance available throughout, observed without any imposed condition
+  researchers:
+    type: conditions
+    default: [Researcher]
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+measures:
+  - id: struggle-episodes
+    leg: behavioral
+    elements: [stuck_response]
+    description: Frequency and duration of stuck/struggle episodes during real work
+    caution: Descriptive only — no comparison condition exists in this design
+  - id: paste-provenance
+    leg: behavioral
+    elements: [clipboard_paste]
+    description: Where pasted code originates (AI suggestion vs. elsewhere) during real work
+    caution: Observational; interaction style varies by task and cannot be attributed to a manipulated cause
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: struggle-episode rate and duration (descriptive, single group)
+      test: mann-whitney-u
+      effectSize: cliffs-delta
+      smallN: hypothesis-generating
+    - rq: RQ-2
+      outcome: paste-provenance mix (descriptive, single group)
+      test: fisher-exact
+      effectSize: phi
+      smallN: exploratory
+threats:
+  - threat: no-comparison-condition
+    mitigation: Explicitly single-arm and descriptive; findings framed as hypothesis-generating, never causal
+    cite: guidelines-empirical-llm-se
+  - threat: observer-effect
+    mitigation: Instrumentation is passive and background; no researcher present during sessions
+    cite: corpus:sharp-tools-agentic-ai
+  - threat: task-heterogeneity
+    mitigation: Participants work on their own real, heterogeneous tasks by design (ecological validity over control) — reported as a named limitation, not concealed
+protocolSkeleton:
+  protocolVersion: 4
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  researchQuestions:
+    - id: RQ-1
+      text: How frequently and for how long do developers get stuck while working with AI assistance on their own real tasks?
+    - id: RQ-2
+      text: When developers paste code, where does it come from (AI suggestion vs. elsewhere)?
+  conditions: [in-context]
+  participants:
+    planned: "{{ participantPlan }}"
+    design: between-subjects
+    counterbalanced: false
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ taskDescription }}"
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 30
+        waitForPauseSeconds: 4
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [stuck-episodes]
+    - rq: RQ-2
+      recipes: [paste-behavior]
+  literature:
+    - paperRef: arxiv:2506.12347
+      justifies: [RQ-1, RQ-2]

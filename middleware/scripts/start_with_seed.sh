@@ -1,9 +1,8 @@
 #!/bin/sh
-# Boot the middleware, then (re)seed the demo study once /health answers
-# (FR-OPS-1a). Replay is idempotent on (sessionId, seq) (FR-ING-2), so
-# reseeding on every boot is safe - it is how the ephemeral demo instance
-# stays populated across restarts. Seed failures never kill the server
-# (the demo degrades to empty views, it doesn't go down).
+# Boot the middleware, then (re)seed the demo study once /health answers.
+# Replay is idempotent on (sessionId, seq) (FR-ING-2), so reseeding on
+# every boot is safe — it keeps the ephemeral Railway demo populated.
+# Seed failures never kill the server.
 set -eu
 
 PORT="${MIDDLEWARE_PORT:-8000}"

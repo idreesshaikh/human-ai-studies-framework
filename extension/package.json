@@ -1,18 +1,19 @@
 {
-  "name": "cognitive-overlay",
-  "displayName": "Cognitive Overlay - Developer Study Companion",
+  "name": "tern",
+  "displayName": "TERN — Telemetry for Engineering & Reasoning Norms",
   "description": "Zero-distraction in-IDE overlay for developer studies: fatigue Likert sampling, stuck detection with inline code prompts, and session telemetry.",
   "version": "0.2.0",
-  "publisher": "hpi-research",
+  "publisher": "replace-with-your-vsce-publisher-id",
   "repository": {
     "type": "git",
     "url": "https://github.com/idreesshaikh/human-ai-studies-framework.git",
     "directory": "extension"
   },
-  "private": true,
+  "homepage": "https://github.com/idreesshaikh/human-ai-studies-framework#readme",
   "license": "MIT",
-  "author": "HPI Research",
+  "author": "Idrees Razak",
   "keywords": [
+    "tern",
     "developer-study",
     "experience-sampling",
     "telemetry",
@@ -22,6 +23,10 @@
   "engines": {
     "vscode": "^1.85.0",
     "node": ">=22"
+  },
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
   },
   "categories": [
     "Other"
@@ -33,81 +38,81 @@
   "contributes": {
     "commands": [
       {
-        "command": "cognitiveOverlay.startSession",
-        "title": "Cognitive Overlay: Start Study Session"
+        "command": "tern.startSession",
+        "title": "TERN: Start Study Session"
       },
       {
-        "command": "cognitiveOverlay.endSession",
-        "title": "Cognitive Overlay: End Study Session"
+        "command": "tern.endSession",
+        "title": "TERN: End Study Session"
       },
       {
-        "command": "cognitiveOverlay.pauseSession",
-        "title": "Cognitive Overlay: Pause Study Session"
+        "command": "tern.pauseSession",
+        "title": "TERN: Pause Study Session"
       },
       {
-        "command": "cognitiveOverlay.resumeSession",
-        "title": "Cognitive Overlay: Resume Study Session"
+        "command": "tern.resumeSession",
+        "title": "TERN: Resume Study Session"
       },
       {
-        "command": "cognitiveOverlay.logFatigueNow",
-        "title": "Cognitive Overlay: Log Fatigue Now"
+        "command": "tern.logFatigueNow",
+        "title": "TERN: Log Fatigue Now"
       },
       {
-        "command": "cognitiveOverlay.openDataFolder",
-        "title": "Cognitive Overlay: Open Study Data Folder"
+        "command": "tern.openDataFolder",
+        "title": "TERN: Open Study Data Folder"
       },
       {
-        "command": "cognitiveOverlay.statusMenu",
-        "title": "Cognitive Overlay: Session Menu"
+        "command": "tern.statusMenu",
+        "title": "TERN: Session Menu"
       },
       {
-        "command": "cognitiveOverlay.respondStuck",
-        "title": "Cognitive Overlay: Respond to Stuck Prompt"
+        "command": "tern.respondStuck",
+        "title": "TERN: Respond to Stuck Prompt"
       },
       {
-        "command": "cognitiveOverlay.connectToStudy",
-        "title": "Cognitive Overlay: Connect to Study"
+        "command": "tern.connectToStudy",
+        "title": "TERN: Connect to Study"
       }
     ],
     "keybindings": [
       {
-        "command": "cognitiveOverlay.behavior.copy",
+        "command": "tern.behavior.copy",
         "key": "ctrl+c",
         "mac": "cmd+c",
-        "when": "cognitiveOverlay.sessionActive && editorTextFocus && !findWidgetVisible"
+        "when": "tern.sessionActive && editorTextFocus && !findWidgetVisible"
       },
       {
-        "command": "cognitiveOverlay.behavior.cut",
+        "command": "tern.behavior.cut",
         "key": "ctrl+x",
         "mac": "cmd+x",
-        "when": "cognitiveOverlay.sessionActive && editorTextFocus && !editorReadonly && !findWidgetVisible"
+        "when": "tern.sessionActive && editorTextFocus && !editorReadonly && !findWidgetVisible"
       },
       {
-        "command": "cognitiveOverlay.behavior.paste",
+        "command": "tern.behavior.paste",
         "key": "ctrl+v",
         "mac": "cmd+v",
-        "when": "cognitiveOverlay.sessionActive && editorTextFocus && !editorReadonly && !findWidgetVisible"
+        "when": "tern.sessionActive && editorTextFocus && !editorReadonly && !findWidgetVisible"
       },
       {
-        "command": "cognitiveOverlay.behavior.acceptInline",
+        "command": "tern.behavior.acceptInline",
         "key": "tab",
-        "when": "cognitiveOverlay.sessionActive && inlineSuggestionVisible && editorTextFocus && !editorTabMovesFocus"
+        "when": "tern.sessionActive && inlineSuggestionVisible && editorTextFocus && !editorTabMovesFocus"
       },
       {
-        "command": "cognitiveOverlay.behavior.dismissInline",
+        "command": "tern.behavior.dismissInline",
         "key": "escape",
-        "when": "cognitiveOverlay.sessionActive && inlineSuggestionVisible && editorTextFocus"
+        "when": "tern.sessionActive && inlineSuggestionVisible && editorTextFocus"
       }
     ],
     "configuration": {
-      "title": "Cognitive Overlay",
+      "title": "TERN",
       "properties": {
-        "cognitiveOverlay.participantId": {
+        "tern.participantId": {
           "type": "string",
           "default": "",
           "description": "Default participant ID (can be overridden when starting a session)."
         },
-        "cognitiveOverlay.condition": {
+        "tern.condition": {
           "type": "string",
           "enum": [
             "ai-assisted",
@@ -117,50 +122,50 @@
           "default": "unspecified",
           "description": "A/B study condition for this session."
         },
-        "cognitiveOverlay.session.durationMinutes": {
+        "tern.session.durationMinutes": {
           "type": "number",
           "default": 60,
           "description": "Study session length in minutes. The end-of-study survey opens automatically when time is up."
         },
-        "cognitiveOverlay.fatigue.intervalMinutes": {
+        "tern.fatigue.intervalMinutes": {
           "type": "number",
           "default": 15,
           "description": "How often the fatigue Likert prompt appears during a session."
         },
-        "cognitiveOverlay.fatigue.waitForPauseSeconds": {
+        "tern.fatigue.waitForPauseSeconds": {
           "type": "number",
           "default": 4,
           "description": "The fatigue prompt waits for a typing pause of at least this many seconds before appearing (zero-distraction). It gives up waiting after 60s and shows anyway."
         },
-        "cognitiveOverlay.fatigue.jitterPercent": {
+        "tern.fatigue.jitterPercent": {
           "type": "number",
           "default": 20,
           "minimum": 0,
           "maximum": 90,
           "description": "Randomize each fatigue probe interval by ±this percent so participants can't anticipate probes (reduces experience-sampling reactivity). 0 = strictly periodic."
         },
-        "cognitiveOverlay.fatigue.quietTailMinutes": {
+        "tern.fatigue.quietTailMinutes": {
           "type": "number",
           "default": 5,
           "minimum": 0,
           "description": "Suppress fatigue probes during the final minutes of the session - a probe answered just before the debrief is redundant and annoying."
         },
-        "cognitiveOverlay.stuck.enabled": {
+        "tern.stuck.enabled": {
           "type": "boolean",
           "default": true,
           "description": "Detect when the participant appears stuck and show an inline prompt on the code."
         },
-        "cognitiveOverlay.stuck.thresholdSeconds": {
+        "tern.stuck.thresholdSeconds": {
           "type": "number",
           "default": 90,
           "description": "Seconds of dwelling on the same code region without edits (while still active) before the stuck prompt appears."
         },
-        "cognitiveOverlay.stuck.cooldownMinutes": {
+        "tern.stuck.cooldownMinutes": {
           "type": "number",
           "default": 5,
           "description": "Minimum minutes between stuck prompts."
         },
-        "cognitiveOverlay.stuck.languages": {
+        "tern.stuck.languages": {
           "type": "array",
           "items": {
             "type": "string"
@@ -168,67 +173,113 @@
           "default": [],
           "description": "Language IDs to watch for stuck detection (e.g. [\"python\"]). Empty = all languages."
         },
-        "cognitiveOverlay.session.taskId": {
+        "tern.ideHealth.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Capture aggregate IDE diagnostic and build/test counts (content-free; FR-INST-18)."
+        },
+        "tern.ideHealth.debounceSeconds": {
+          "type": "number",
+          "default": 10,
+          "description": "Debounce window in seconds before flushing a diagnostics-count event."
+        },
+        "tern.comprehensionProbe.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show comprehension probes when the participant accepts an AI-produced chunk (predict-output / locate-change; FR-INST-19)."
+        },
+        "tern.comprehensionProbe.cadence": {
+          "type": "string",
+          "default": "every-chunk",
+          "enum": [
+            "every-chunk",
+            "sampled"
+          ],
+          "description": "How often to probe: every accepted AI chunk, or a sampled subset."
+        },
+        "tern.comprehensionProbe.sampleRate": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Fraction of accepted chunks to probe (0–1). Only meaningful when cadence is 'sampled'."
+        },
+        "tern.comprehensionProbe.probeTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "predict-output",
+              "locate-change"
+            ]
+          },
+          "default": [
+            "predict-output",
+            "locate-change"
+          ],
+          "description": "Which probe types may appear. If empty, no probes are shown."
+        },
+        "tern.session.taskId": {
           "type": "string",
           "default": "",
           "description": "Protocol task ID recorded in the environment snapshot (replication provenance)."
         },
-        "cognitiveOverlay.session.agentTool": {
+        "tern.session.agentTool": {
           "type": "string",
           "default": "",
           "description": "AI agent tool used in the ai-assisted condition (e.g. claude-code), recorded in the environment snapshot."
         },
-        "cognitiveOverlay.session.agentModelId": {
+        "tern.session.agentModelId": {
           "type": "string",
           "default": "",
           "description": "Model identifier of the AI agent (e.g. claude-fable-5), recorded in the environment snapshot."
         },
-        "cognitiveOverlay.behavior.enabled": {
+        "tern.behavior.enabled": {
           "type": "boolean",
           "default": true,
           "description": "Master switch for the behavioral telemetry leg (focus, scroll, edit bursts, clipboard, AI lifecycle, saves, heartbeats)."
         },
-        "cognitiveOverlay.behavior.captureFocus": {
+        "tern.behavior.captureFocus": {
           "type": "boolean",
           "default": true,
           "description": "Record editor/tab focus switches and window focus state (editor_focus events)."
         },
-        "cognitiveOverlay.behavior.captureVisibleRanges": {
+        "tern.behavior.captureVisibleRanges": {
           "type": "boolean",
           "default": true,
           "description": "Record debounced visible line ranges for scroll-coverage analysis (visible_range events)."
         },
-        "cognitiveOverlay.behavior.captureEditBursts": {
+        "tern.behavior.captureEditBursts": {
           "type": "boolean",
           "default": true,
           "description": "Record aggregated edit bursts with origin classification (edit_burst events). Sizes and shapes only - never text content."
         },
-        "cognitiveOverlay.behavior.captureClipboard": {
+        "tern.behavior.captureClipboard": {
           "type": "boolean",
           "default": true,
           "description": "Record clipboard paste sizes and internal-copy latency (clipboard_paste events). Clipboard text is never read or stored."
         },
-        "cognitiveOverlay.behavior.captureAiLifecycle": {
+        "tern.behavior.captureAiLifecycle": {
           "type": "boolean",
           "default": true,
           "description": "Record the AI-completion lifecycle: shown/accepted/rejected/dismissed with review latency (ai_suggestion events)."
         },
-        "cognitiveOverlay.behavior.captureSaves": {
+        "tern.behavior.captureSaves": {
           "type": "boolean",
           "default": true,
           "description": "Record file save sizes (file_save events)."
         },
-        "cognitiveOverlay.behavior.captureHeartbeat": {
+        "tern.behavior.captureHeartbeat": {
           "type": "boolean",
           "default": true,
           "description": "Record active/idle state transitions (heartbeat events)."
         },
-        "cognitiveOverlay.behavior.captureAttention": {
+        "tern.behavior.captureAttention": {
           "type": "boolean",
           "default": true,
           "description": "Record region-level time-on-code from caret + mouse-hover dwell (attention events). Line numbers and durations only - never code content."
         },
-        "cognitiveOverlay.behavior.languages": {
+        "tern.behavior.languages": {
           "type": "array",
           "items": {
             "type": "string"
@@ -238,74 +289,74 @@
           ],
           "description": "Language IDs captured by the behavioral leg (pilot: python only). Empty = all languages."
         },
-        "cognitiveOverlay.behavior.workspaceInternalOnly": {
+        "tern.behavior.workspaceInternalOnly": {
           "type": "boolean",
           "default": true,
           "description": "Capture only files inside the workspace. Files outside are recorded as 'external' in focus events and otherwise ignored."
         },
-        "cognitiveOverlay.behavior.burstGapMs": {
+        "tern.behavior.burstGapMs": {
           "type": "number",
           "default": 2000,
           "description": "An edit burst closes after this many milliseconds without further edits."
         },
-        "cognitiveOverlay.behavior.aiCorrelationMs": {
+        "tern.behavior.aiCorrelationMs": {
           "type": "number",
           "default": 500,
           "description": "An edit burst within this window of an accepted AI suggestion is classified origin=ai."
         },
-        "cognitiveOverlay.behavior.aiBlockCharThreshold": {
+        "tern.behavior.aiBlockCharThreshold": {
           "type": "number",
           "default": 80,
           "description": "A block of at least this many characters landing within aiBlockMaxDurationMs is classified origin=ai (injected, not typed)."
         },
-        "cognitiveOverlay.behavior.aiBlockMaxDurationMs": {
+        "tern.behavior.aiBlockMaxDurationMs": {
           "type": "number",
           "default": 50,
           "description": "Window for the AI block-injection heuristic - humans do not type aiBlockCharThreshold characters this fast."
         },
-        "cognitiveOverlay.behavior.pasteCorrelationMs": {
+        "tern.behavior.pasteCorrelationMs": {
           "type": "number",
           "default": 100,
           "description": "An edit burst within this window of a clipboard paste is classified origin=paste."
         },
-        "cognitiveOverlay.behavior.idleWindowSeconds": {
+        "tern.behavior.idleWindowSeconds": {
           "type": "number",
           "default": 120,
           "description": "No interaction for this long marks the participant idle (heartbeat state transition)."
         },
-        "cognitiveOverlay.behavior.focusDebounceMs": {
+        "tern.behavior.focusDebounceMs": {
           "type": "number",
           "default": 250,
           "description": "Debounce for editor focus switches - rapid tab-cycling records first + last."
         },
-        "cognitiveOverlay.behavior.visibleRangeDebounceMs": {
+        "tern.behavior.visibleRangeDebounceMs": {
           "type": "number",
           "default": 500,
           "description": "Per-editor debounce for visible-range (scroll) events."
         },
-        "cognitiveOverlay.behavior.attentionRegionRadiusLines": {
+        "tern.behavior.attentionRegionRadiusLines": {
           "type": "integer",
           "minimum": 0,
           "default": 3,
           "description": "Caret/hover may wander +/- this many lines and still count as the same attention region."
         },
-        "cognitiveOverlay.behavior.attentionMinDwellMs": {
+        "tern.behavior.attentionMinDwellMs": {
           "type": "number",
           "minimum": 0,
           "default": 1500,
           "description": "Attention regions with less present-and-active time than this are dropped as pass-through glances."
         },
-        "cognitiveOverlay.output.directory": {
+        "tern.output.directory": {
           "type": "string",
           "default": "",
           "description": "Directory for JSONL study data. Empty = <workspace>/.study-data (or extension global storage if no workspace)."
         },
-        "cognitiveOverlay.output.httpEndpoint": {
+        "tern.output.httpEndpoint": {
           "type": "string",
           "default": "",
           "description": "Optional middleware endpoint to POST event batches to (e.g. http://localhost:8000/cognitive). Empty = disabled."
         },
-        "cognitiveOverlay.studyId": {
+        "tern.studyId": {
           "type": "string",
           "default": "",
           "description": "The study this IDE is paired to (set automatically when you connect)."
@@ -314,14 +365,14 @@
     },
     "walkthroughs": [
       {
-        "id": "cognitiveOverlay.gettingStarted",
+        "id": "tern.gettingStarted",
         "title": "Join a study",
         "description": "Connect your editor to a research study in one paste.",
         "steps": [
           {
             "id": "connect",
             "title": "Connect to your study",
-            "description": "Paste the connection string your researcher gave you.\n[Connect to study](command:cognitiveOverlay.connectToStudy)",
+            "description": "Paste the connection string your researcher gave you.\n[Connect to study](command:tern.connectToStudy)",
             "media": {
               "markdown": "media/walkthrough-connect.md"
             }
@@ -329,7 +380,7 @@
           {
             "id": "start",
             "title": "Start your session",
-            "description": "Review what will be captured, then begin.\n[Start session](command:cognitiveOverlay.startSession)",
+            "description": "Review what will be captured, then begin.\n[Start session](command:tern.startSession)",
             "media": {
               "markdown": "media/walkthrough-start.md"
             }

@@ -59,7 +59,7 @@ class PlatformInfo:
 
     name: str
     version: str
-    deployment: str  # "hosted" | "self-hosted" | "demo"
+    deployment: str  # "hosted" | "demo"
 
 
 @dataclass
@@ -275,7 +275,7 @@ if TYPE_CHECKING:
 def generate_manifest(
     app: FastAPI | None = None,
     repo: Path | None = None,
-    deployment: str = "self-hosted",
+    deployment: str = "hosted",
     auth_mode: str = "none",
 ) -> PlatformManifest:
     """Generate the platform manifest from documents of record.
@@ -283,7 +283,7 @@ def generate_manifest(
     Args:
         app: FastAPI application (for OpenAPI generation)
         repo: Repository root path (default: auto-detected)
-        deployment: Deployment mode ("hosted", "self-hosted", "demo")
+        deployment: Deployment mode ("hosted", "demo")
         auth_mode: The deployment's resolved auth mode (none/token/clerk).
 
     Returns:
@@ -359,7 +359,7 @@ def _generate_platform_info(repo: Path, deployment: str) -> PlatformInfo:
 
     # Determine deployment mode from environment
     env_deployment = os.environ.get("DEPLOYMENT_MODE", deployment)
-    if env_deployment in ("hosted", "self-hosted", "demo"):
+    if env_deployment in ("hosted", "demo"):
         deployment = env_deployment
 
     return PlatformInfo(
@@ -406,7 +406,7 @@ def _generate_api_info(
     mode (from ``auth.resolve_mode(settings)``), so the manifest reports what
     the running service actually enforces, not a guess."""
     how = {
-        "none": "No authentication — self-hosted, single facilitator (NFR-5).",
+        "none": "No authentication — single facilitator (NFR-5).",
         "token": "Bearer token (MIDDLEWARE_TOKEN) on platform-facing routes; "
         "ingest stays open (NFR-1).",
         "clerk": "Clerk-issued session JWT with project-scoped roles (FR-PLAT-2).",
@@ -476,7 +476,7 @@ def get_manifest(
     force_refresh: bool = False,
 ) -> PlatformManifest:
     """Get the platform manifest, cached per (deployment, auth_mode)."""
-    depl = deployment or os.environ.get("DEPLOYMENT_MODE", "self-hosted")
+    depl = deployment or os.environ.get("DEPLOYMENT_MODE", "hosted")
     key = (depl, auth_mode)
     if force_refresh or key not in _manifest_cache:
         _manifest_cache[key] = generate_manifest(app, repo, depl, auth_mode)
@@ -513,7 +513,7 @@ def setup_manifest_route(app: FastAPI, auth_mode: str = "none") -> None:
         """
         manifest = get_manifest(
             app=request.app,
-            deployment=os.environ.get("DEPLOYMENT_MODE", "self-hosted"),
+            deployment=os.environ.get("DEPLOYMENT_MODE", "hosted"),
             auth_mode=auth_mode,
         )
         manifest_dict = manifest.to_dict()
@@ -538,8 +538,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--deployment",
-        choices=["hosted", "self-hosted", "demo"],
-        default="self-hosted",
+        choices=["hosted", "demo"],
+        default="hosted",
         help="Deployment mode",
     )
     parser.add_argument(

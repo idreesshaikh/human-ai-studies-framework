@@ -8,6 +8,7 @@ dependencies = [
     "analysis",
     "curated",
     "protocol",
+    "psycopg[binary]>=3.1.0",
     "pyjwt[crypto]>=2.13.0",
     "pymupdf>=1.28.0",
     "python-multipart>=0.0.32",

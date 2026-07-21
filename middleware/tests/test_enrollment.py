@@ -8,7 +8,7 @@ PROTOCOL = {
     "participants": {"planned": 8},
     "session": {"durationMinutes": 60},
     "instruments": {
-        "cognitiveOverlay": {
+        "tern": {
             "stuck": {"enabled": True, "thresholdSeconds": 90},
             "output": {"httpEndpoint": "http://x/ingest/events"},
         }
@@ -53,7 +53,7 @@ def test_capture_config_version_is_stable_and_content_sensitive():
     assert enrollment.capture_config_version(PROTOCOL) == v1  # deterministic
     changed = {
         **PROTOCOL,
-        "instruments": {"cognitiveOverlay": {"stuck": {"enabled": False}}},
+        "instruments": {"tern": {"stuck": {"enabled": False}}},
     }
     assert enrollment.capture_config_version(changed) != v1
 
@@ -62,8 +62,8 @@ def test_build_capture_config_carries_derived_overlay_settings():
     cfg = enrollment.build_capture_config(PROTOCOL, "P03", "ai-assisted")
     assert cfg["producer"] == "overlay"
     assert cfg["captureConfigVersion"] == enrollment.capture_config_version(PROTOCOL)
-    assert cfg["settings"]["cognitiveOverlay.participantId"] == "P03"
-    assert cfg["settings"]["cognitiveOverlay.stuck.enabled"] is True
+    assert cfg["settings"]["tern.participantId"] == "P03"
+    assert cfg["settings"]["tern.stuck.enabled"] is True
 
 
 def test_enabled_instruments_summarizes_explicit_toggles():
@@ -74,9 +74,9 @@ def test_enabled_instruments_summarizes_explicit_toggles():
 
 def test_enabled_instruments_reflects_a_disabled_toggle():
     settings = {
-        "cognitiveOverlay.participantId": "P03",
-        "cognitiveOverlay.stuck.enabled": False,
-        "cognitiveOverlay.output.httpEndpoint": "http://x",
+        "tern.participantId": "P03",
+        "tern.stuck.enabled": False,
+        "tern.output.httpEndpoint": "http://x",
     }
     assert enrollment.enabled_instruments(settings) == [
         {"name": "stuck", "enabled": False}

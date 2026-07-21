@@ -24,7 +24,7 @@ export function showEndSurvey(
   if (condition === 'ai-assisted') items.push(AI_CONDITION_ITEM);
 
   const panel = vscode.window.createWebviewPanel(
-    'cognitiveOverlay.endSurvey',
+    'tern.endSurvey',
     'Study Debrief',
     vscode.ViewColumn.Active,
     { enableScripts: true, retainContextWhenHidden: true },

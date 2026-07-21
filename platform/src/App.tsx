@@ -12,12 +12,6 @@ import { Members } from "@/pages/Members";
 import { Settings } from "@/pages/Settings";
 import { InviteAccept } from "@/pages/InviteAccept";
 
-/* Layout for the signed-in routes: the app chrome around a routed page.
- * Gates on a credential before ever mounting project UI (FR-OPS-5) — either
- * no credential exists yet (clerk/token mode, first visit) or the server
- * has already 401'd one. `none` mode (self-hosted, zero-config) never
- * gates: there's a single implicit facilitator identity, nothing to sign
- * into. */
 function Shell() {
   const { config, needed, hasCredential } = useAuth();
   if (config.mode !== "none" && (needed || !hasCredential)) return <SignInScreen />;
@@ -42,11 +36,9 @@ function NotFound() {
 export default function App() {
   return (
     <Routes>
-      {/* Public / standalone */}
       <Route path="/" element={<Hero />} />
       <Route path="/demo" element={<DemoProject />} />
       <Route path="/invitations/:token" element={<InviteAccept />} />
-      {/* Signed-in shell */}
       <Route element={<Shell />}>
         <Route path="/projects" element={<Projects />} />
         <Route path="/p/:slug" element={<ProjectHome />} />

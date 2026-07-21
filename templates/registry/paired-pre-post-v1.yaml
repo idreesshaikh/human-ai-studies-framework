@@ -1,0 +1,121 @@
+templateVersion: 1
+templateId: paired-pre-post-v1
+title: Paired pre/post intervention
+description: |
+  A single group measured before and after an intervention. The simplest
+  paired design: each participant is their own control. Useful for before/after
+  training interventions or tool adoption studies. Prescribes Wilcoxon
+  signed-rank with matched-pairs rank-biserial r.
+designType: quasi-experiment
+dataPath: live
+source:
+  - paperRef: corpus:guidelines-empirical-llm-se
+    role: primary-design
+parameters:
+  studyId:
+    type: string
+    default: paired-pre-post-study
+  title:
+    type: string
+    default: "Pre/post intervention effectiveness"
+  participantPlan:
+    type: participants
+    min: 4
+    default: 12
+  sessionMinutes:
+    type: int
+    default: 90
+    min: 30
+    max: 180
+  intervention:
+    type: string
+    default: The intervention or training being evaluated
+  preTask:
+    type: string
+    default: Baseline task (pre-intervention)
+  postTask:
+    type: string
+    default: Matched task (post-intervention)
+  researchers:
+    type: conditions
+    default: [Researcher]
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+measures:
+  - id: pre-post-difference
+    leg: behavioral
+    elements: [task_outcome]
+    description: Difference in outcome from pre to post intervention
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: pre/post difference (paired)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      smallN: hypothesis-generating
+threats:
+  - threat: learning-effect
+    mitigation: task equivalence between pre and post measures
+  - threat: maturity-effect
+    mitigation: controlled time interval between pre and post sessions
+protocolSkeleton:
+  protocolVersion: 4
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  researchQuestions:
+    - id: RQ-1
+      text: Does the intervention change task performance from pre to post?
+  conditions: [pre-intervention, post-intervention]
+  participants:
+    planned: "{{ participantPlan }}"
+    design: within-subjects
+    counterbalanced: false
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ intervention }}"
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 15
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 5
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages: [python]
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: cognitive-load-9
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [paired-nonparametric]

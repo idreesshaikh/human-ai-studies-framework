@@ -5,8 +5,8 @@
 
 ## The idea
 
-One of the four data legs: a 9-metric cognitive-load matrix over a directory of
-code, each metric mapped to a working-memory or visual-friction construct. It
+One of the four data legs: 9 static code metrics over a directory of
+code, each capturing a complexity or readability dimension. It
 fans a session's files into `function_metrics` / `file_metrics` rows, every row
 stamped with the join keys so it lands on the one timeline.
 

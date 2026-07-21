@@ -53,6 +53,12 @@ def consent_relevance(before: dict, after: dict) -> tuple[bool, list[str]]:
     "why" is recorded, not re-derived). Deterministic and total: the same pair
     of protocols always yields the same verdict — this is the rule the
     table-driven test (change → relevant?) pins.
+
+    Extended for FR-CONV-7: a change to any nested ``enabled`` field, or the
+    first appearance of any previously-undeclared metric subtree, is also
+    consent-relevant — because turning capture on/off for an instrument is
+    functionally the same as adding/removing a data stream, and the old
+    flat-subkey check missed it entirely.
     """
     reasons: list[str] = []
 
@@ -84,6 +90,25 @@ def consent_relevance(before: dict, after: dict) -> tuple[bool, list[str]]:
                         f"({key}: {b.get(key)!r} → {a.get(key)!r})"
                     )
 
+    # FR-CONV-7: recursive ``enabled`` change check — turning capture on/off
+    # at any nesting depth is consent-relevant.
+    for name in sorted(set(before_instr) & set(after_instr)):
+        if _enabled_changed(before_instr.get(name) or {},
+                           after_instr.get(name) or {}, name, reasons):
+            pass  # reasons already appended by helper
+
+    # FR-CONV-7: first appearance of a previously-undeclared metric subtree
+    # (e.g. a new top-level key inside an existing instrument) is consent-relevant.
+    for name in sorted(set(before_instr) & set(after_instr)):
+        b = before_instr.get(name) or {}
+        a = after_instr.get(name) or {}
+        if not isinstance(b, dict) or not isinstance(a, dict):
+            continue
+        for subkey in sorted(set(a) - set(b)):
+            reasons.append(
+                f"adds a new metric subtree to instruments.{name}: {subkey}"
+            )
+
     # The ethics / consent subtree, whatever shape a template gives it, is a
     # consent surface in full — any change to it is relevant.
     for section in ("ethics", "consent"):
@@ -111,6 +136,33 @@ def consent_relevance(before: dict, after: dict) -> tuple[bool, list[str]]:
         reasons.append("enrolls agent participants (a new data source)")
 
     return (bool(reasons), sorted(reasons))
+
+
+def _enabled_changed(
+    before: dict, after: dict, prefix: str, reasons: list
+) -> bool:
+    """Recursively walk two dicts — if any ``enabled`` field differs at any
+    depth, append a reason and return True. FR-CONV-7."""
+    changed = False
+    for key in sorted(set(before) | set(after)):
+        bv = before.get(key)
+        av = after.get(key)
+        path = f"{prefix}.{key}"
+        if key == "enabled" and not isinstance(bv, dict) and not isinstance(av, dict):
+            if bv != av:
+                reasons.append(
+                    f"changes capture state of {prefix} "
+                    f"({key}: {bv!r} → {av!r})"
+                )
+                changed = True
+        elif isinstance(bv, dict) and isinstance(av, dict):
+            if _enabled_changed(bv, av, path, reasons):
+                changed = True
+        elif isinstance(bv, dict) or isinstance(av, dict):
+            # One side is a dict and the other isn't — structural change.
+            reasons.append(f"changes the structure of {path}")
+            changed = True
+    return changed
 
 
 def change_summary(before: dict, after: dict) -> list[str]:

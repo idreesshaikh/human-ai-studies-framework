@@ -1,0 +1,115 @@
+templateVersion: 1
+templateId: two-proportion-mcnemar-v1
+title: Two-proportion comparison
+description: |
+  Binary outcome (pass/fail, accept/reject, correct/incorrect) compared
+  across two conditions or time points. Prescribes Fisher's exact test
+  with odds ratio as effect size for 2x2 tables.
+designType: lab-experiment
+dataPath: live
+source:
+  - paperRef: corpus:guidelines-empirical-llm-se
+    role: primary-design
+parameters:
+  studyId:
+    type: string
+    default: two-proportion-study
+  title:
+    type: string
+    default: "Binary outcome comparison"
+  conditions:
+    type: conditions
+    default: [control, treatment]
+  participantPlan:
+    type: participants
+    min: 10
+    default: 30
+  sessionMinutes:
+    type: int
+    default: 30
+    min: 10
+    max: 90
+  taskDescription:
+    type: string
+    default: Task with binary pass/fail outcome
+  researchers:
+    type: conditions
+    default: [Researcher]
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+measures:
+  - id: binary-outcome
+    leg: behavioral
+    elements: [task_outcome]
+    description: Binary pass/fail outcome per trial
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: binary pass/fail (2x2 table)
+      test: fisher-exact
+      effectSize: phi
+      smallN: hypothesis-generating
+threats:
+  - threat: rare-events
+    mitigation: Fisher's exact test is valid at any count, including zero cells
+protocolSkeleton:
+  protocolVersion: 4
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  researchQuestions:
+    - id: RQ-1
+      text: Does the treatment affect the binary pass/fail rate compared to control?
+  conditions: "{{ conditions }}"
+  participants:
+    planned: "{{ participantPlan }}"
+    design: between-subjects
+    counterbalanced: false
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ taskDescription }}"
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 10
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 3
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages: [python]
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: cognitive-load-9
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [two-proportion]

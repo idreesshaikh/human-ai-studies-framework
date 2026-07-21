@@ -18,7 +18,7 @@ import pytest
 from protocol.export import KIT_FORMAT_VERSION, build_kit
 
 MINI_PROTOCOL = """\
-protocolVersion: 1
+protocolVersion: 4
 study:
   id: kit-test
   title: "Replication-kit test study"
@@ -36,7 +36,7 @@ session:
   durationMinutes: 45
   taskDescription: "synthetic"
 instruments:
-  cognitiveOverlay:
+  tern:
     session: {durationMinutes: 45}
     fatigue: {intervalMinutes: 15, waitForPauseSeconds: 4}
     stuck: {enabled: true, thresholdSeconds: 90}

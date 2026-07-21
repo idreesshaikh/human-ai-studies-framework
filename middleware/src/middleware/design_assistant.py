@@ -19,10 +19,120 @@ labeled unsourced; the grep-the-output test (F2.1) asserts exactly this.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from middleware import matching
+from middleware.db import ConversationTurn
+from middleware.template_registry import list_templates
+
+#: How many prior turns to feed the LLM as history (token-budget cap;
+#: FR-CONV-1.4). A generous-enough window for a design conversation
+#: without unbounded growth per turn.
+_LLM_HISTORY_TURNS = 20
+
+
+def recommend_templates(text: str) -> list[dict[str, Any]]:
+    """Recommend design archetype templates matching the researcher's input.
+
+    Keyword-based matching over template metadata. Returns ranked template
+    cards with match reason. Falls through to empty list on no match.
+    """
+    q = text.lower()
+    templates = list_templates()
+    scored: list[tuple[int, dict[str, Any]]] = []
+
+    keywords = {
+        "two-group-rct": ["between-subjects", "two group", "independent group",
+                          "control group", "random assignment"],
+        "within-subjects-crossover": ["within-subjects", "crossover", "paired",
+                                      "both conditions", "repeated"],
+        "paired-pre-post": ["pre-post", "before after", "pre and post",
+                            "intervention", "training effect"],
+        "multi-arm-rct": ["multi-arm", "multiple groups", "three group",
+                          "several conditions", "multiple treatments"],
+        "factorial-2x2": ["factorial", "two factors", "interaction",
+                          "2x2", "main effect"],
+        "single-group-repeated-measures": ["longitudinal", "over time",
+                                            "time point", "repeated measure",
+                                            "trend", "trajectory"],
+        "two-proportion-mcnemar": ["binary", "pass fail", "proportion",
+                                   "success rate", "completion rate"],
+        "single-arm-benchmark": ["benchmark", "single arm", "descriptive",
+                                 "exploratory", "evaluation", "pilot study"],
+    }
+
+    for t in templates:
+        tid = t.get("templateId", "")
+        profile = keywords.get(
+            tid,
+            keywords.get(tid.replace("-v1", ""), []),
+        )
+        score = sum(2 for kw in profile if kw in q)
+        if t.get("designType") and t["designType"].lower().replace("-", " ") in q:
+            score += 3
+        if t.get("title") and any(w in q for w in t["title"].lower().split()):
+            score += 1
+        if score > 0:
+            scored.append((score, t))
+
+    scored.sort(key=lambda x: -x[0])
+    return [
+        {
+            "templateId": t["templateId"],
+            "title": t.get("title", ""),
+            "description": t.get("description", ""),
+            "designType": t.get("designType", ""),
+            "designShape": t.get("statisticalPlan", {}).get("designShape", ""),
+            "matchReason": f"Matched {score} keyword(s): researcher intent",
+        }
+        for score, t in scored[:4]
+    ]
+
+
+def recommend_prescription(design_shape: str) -> dict[str, Any] | None:
+    """Look up the prescription for a design shape (FR-TPL-6).
+
+    Returns a dict with the prescription row, or None if unknown.
+    """
+    try:
+        from analysis.prescribe import prescribe
+
+        p = prescribe(design_shape)
+        if p is None:
+            return None
+        return {
+            "designShape": p.design_shape,
+            "test": p.test,
+            "effectSize": p.effect_size,
+            "correction": p.correction,
+            "sampleSizeGuidance": p.sample_size_guidance,
+            "rationale": p.rationale,
+        }
+    except ImportError:
+        return None
+
+
+def suggest_figures(result_shape: str) -> list[dict[str, Any]]:
+    """Get ranked figure suggestions for a result shape (FR-ANA-7)."""
+    try:
+        from analysis.suggest_figures import suggest_figures as sf
+
+        figs = sf(result_shape)
+        return [
+            {
+                "rank": f.rank,
+                "figureType": f.figure_type,
+                "description": f.description,
+                "rationale": f.rationale,
+                "whenToUse": f.when_to_use,
+            }
+            for f in figs
+        ]
+    except ImportError:
+        return []
 
 
 @dataclass
@@ -240,12 +350,12 @@ def _threshold_script() -> Script:
         moves=(
             ScriptedMove(
                 "reconfigure-instrument",
-                "instruments.cognitiveOverlay.stuck.thresholdSeconds",
+                "instruments.tern.stuck.thresholdSeconds",
                 "Raise the stuck-detector threshold from 90s to 120s.",
                 {
                     "section": "instruments",
                     "op": "reconfigure",
-                    "name": "cognitiveOverlay",
+                    "name": "tern",
                     "path": ["stuck", "thresholdSeconds"],
                     "value": 120,
                 },
@@ -311,19 +421,61 @@ def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
     return grounding
 
 
+def _load_history(s: Session, study_id: str | None) -> list[dict]:
+    """Prior platform-conversation turns as ``{"role", "content"}`` dicts,
+    oldest first, capped to ``_LLM_HISTORY_TURNS`` (a token-budget cap, not
+    a correctness requirement) - the shape an LLM chat-completions call
+    expects. Empty when there's no study or no history yet."""
+    if study_id is None:
+        return []
+    rows = s.execute(
+        select(ConversationTurn)
+        .where(ConversationTurn.study_id == study_id)
+        .order_by(ConversationTurn.seq.desc())
+        .limit(_LLM_HISTORY_TURNS)
+    ).scalars().all()
+    return [
+        {
+            "role": "user" if row.role == "researcher" else "assistant",
+            "content": row.text,
+        }
+        for row in reversed(rows)
+        if row.text
+    ]
+
+
 def respond(
     s: Session, text: str, *, seq: int, study_id: str | None = None, client=None
 ) -> dict:
     """One platform turn responding to researcher ``text``.
 
-    Returns ``{text, moves, recommendations, retrievedRefs}``. ``moves`` are
-    ``proposed`` (the researcher accepts/rejects each). ``retrievedRefs`` is
-    every corpus ref the tools returned this exchange — persisted on the turn
-    so the grep-the-output grounding test can verify no move cites outside it
-    (F2.1). ``client`` is the optional LLM provider seam; unused by the
-    deterministic path.
+    Returns ``{text, moves, recommendations, retrievedRefs, source}``.
+    ``moves`` are ``proposed`` (the researcher accepts/rejects each).
+    ``retrievedRefs`` is every corpus ref the tools returned this exchange —
+    persisted on the turn so the grep-the-output grounding test can verify
+    no move cites outside it (F2.1). ``source`` is ``"llm"`` or
+    ``"scripted"`` (FR-CONV-1.4): with ``client`` configured, retrieval runs
+    first (unconditional, deterministic) and the LLM only rephrases/selects
+    against what was actually retrieved; any failure — no key, timeout,
+    malformed reply — falls back to the scripted assistant (NFR-4/5).
     """
-    script = _pick_script(text)
+    script = None
+    source = "scripted"
+    llm_recommendations: list[dict] | None = None
+    if client is not None:
+        papers = matching.match_papers(
+            s, text, study_id=study_id, limit=8, use_llm=False
+        )
+        templates = recommend_templates(text)
+        history = _load_history(s, study_id)
+        from middleware import design_llm  # deferred: breaks the import cycle
+
+        script = design_llm.propose_turn(client, text, history, papers, templates)
+        if script is not None:
+            source = "llm"
+            llm_recommendations = papers
+    if script is None:
+        script = _pick_script(text)
     retrieved: set[str] = set()
 
     moves = []
@@ -342,20 +494,50 @@ def respond(
             }
         )
 
-    recommendations = []
-    if script.match_query and study_id is not None:
-        recommendations = matching.match_papers(
-            s,
-            script.match_query,
-            study_id=study_id,
-            limit=5,
-            use_llm=client is not None,
-        )
+    if llm_recommendations is not None:
+        # Reuse the same retrieval already made for the candidate menu —
+        # never a second match_papers call for the same turn.
+        recommendations = llm_recommendations
         retrieved.update(r["ref"] for r in recommendations)
+    else:
+        recommendations = []
+        if script.match_query and study_id is not None:
+            recommendations = matching.match_papers(
+                s,
+                script.match_query,
+                study_id=study_id,
+                limit=5,
+                use_llm=client is not None,
+            )
+            retrieved.update(r["ref"] for r in recommendations)
+
+    # Design recommender (Phase 22): template matches, prescription, figures.
+    template_recommendations = recommend_templates(text)
+    design_shape = None
+    for tr in template_recommendations:
+        ds = tr.get("designShape")
+        if ds:
+            design_shape = ds
+            break
+    prescription = recommend_prescription(design_shape) if design_shape else None
+    result_shape = None
+    if design_shape == "two-group":
+        result_shape = "two-group-comparison"
+    elif design_shape == "paired":
+        result_shape = "paired-comparison"
+    elif design_shape == "proportion":
+        result_shape = "proportion"
+    elif design_shape == "correlation":
+        result_shape = "correlation"
+    figure_suggestions = suggest_figures(result_shape) if result_shape else []
 
     return {
         "text": script.text,
         "moves": moves,
         "recommendations": recommendations,
+        "templateRecommendations": template_recommendations,
+        "prescription": prescription,
+        "figureSuggestions": figure_suggestions,
         "retrievedRefs": sorted(retrieved),
+        "source": source,
     }

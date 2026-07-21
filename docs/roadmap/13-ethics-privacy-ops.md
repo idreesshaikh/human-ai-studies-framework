@@ -19,16 +19,17 @@ student-pack benefits.
   all legs; anonymized participant IDs everywhere; the `redact.py` choke point
   for the one scoped exception; the assistant's aggregates-only boundary
   (FR-ETH-4, phase 09).
-- **Operations (FR-OPS):** `middleware/Dockerfile` (one process serves API +
-  the `platform/` build); `deploy/compose.prod.yml` + `deploy/Caddyfile` (VM +
-  TLS); `render.yaml` (seeded public demo that reseeds on boot); the release
-  pipeline (`.github/workflows/release.yml`, `deploy.yml`) → GHCR image + `.vsix`;
-  on-demand SonarQube (`--profile sonar` / a deallocated VM); the pluggable auth
-  seam (`middleware/auth.py`: none / token / clerk) with `GET /auth/config`.
+- **Operations (FR-OPS):** `railway.toml` + `middleware/Dockerfile` (one process
+  serves API + the `platform/` build); Railway handles TLS, domains, and
+  managed PostgreSQL; the release pipeline (`.github/workflows/release.yml`,
+  `deploy.yml`) → GHCR image → Railway redeploy; on-demand SonarQube
+  (`docker-compose.yml --profile sonar` / Azure deallocated VM) for cognitive
+  complexity; the pluggable auth seam (`middleware/auth.py`: none / token /
+  clerk) with `GET /auth/config`.
 
 ## Remaining
 
-- Hosting/account provisioning (Render/Azure/Clerk/Marketplace) and the first
+- Hosting/account provisioning (Railway/Clerk/Marketplace) and the first
   tagged release; per-user profiles (FR-OPS-7) once Clerk is provisioned.
 
 ## Verification

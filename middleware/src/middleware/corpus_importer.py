@@ -23,19 +23,22 @@ upsert on (study_id, paper_ref); FTS entries are delete-then-insert; edges
 insert-or-ignore. Re-running after a corpus update is the whole story.
 """
 
-from __future__ import annotations
-
 import json
 import logging
 import re
 from pathlib import Path
 
 from sqlalchemy import func, select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from middleware import paper_index, pdf
-from middleware.db import CORPUS_STUDY_ID, Paper, PaperEdge, make_session_factory
+from middleware.db import (
+    CORPUS_STUDY_ID,
+    Paper,
+    PaperEdge,
+    get_engine,
+    make_session_factory,
+)
 
 log = logging.getLogger(__name__)
 
@@ -118,14 +121,27 @@ def _tier_a_body(paper: dict) -> str:
 
 
 def _upsert_corpus_paper(s: Session, values: dict) -> None:
-    stmt = (
-        sqlite_insert(Paper)
-        .values(study_id=CORPUS_STUDY_ID, added_at="", **values)
-        .on_conflict_do_update(
-            index_elements=["study_id", "paper_ref"],
-            set_={k: v for k, v in values.items() if k != "paper_ref"},
+    engine = get_engine()
+    row = dict(study_id=CORPUS_STUDY_ID, added_at="", **values)
+    update_set = {k: v for k, v in values.items() if k != "paper_ref"}
+    if engine and engine.dialect.name == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert as _pg_insert
+        stmt = (
+            _pg_insert(Paper)
+            .values([row])
+            .on_conflict_do_update(
+                index_elements=["study_id", "paper_ref"], set_=update_set
+            )
         )
-    )
+    else:
+        from sqlalchemy.dialects.sqlite import insert as _sq_insert
+        stmt = (
+            _sq_insert(Paper)
+            .values([row])
+            .on_conflict_do_update(
+                index_elements=["study_id", "paper_ref"], set_=update_set
+            )
+        )
     s.execute(stmt)
 
 
@@ -188,30 +204,53 @@ def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
             src = seed_by_arxiv.get(via)
             if not src:
                 continue  # a seed the README no longer lists - skip, honest
-            s.execute(
-                sqlite_insert(PaperEdge)
-                .values(
-                    study_id=CORPUS_STUDY_ID,
-                    src_ref=src,
-                    dst_ref=ref,
-                    kind=VIA_EDGE_KIND,
-                    dst_title=entry.get("title", ""),
-                    dst_year=entry.get("year"),
-                    dst_citation_count=entry.get("citationCount"),
+            _engine = get_engine()
+            if _engine and _engine.dialect.name == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert as _pg_insert
+                edge_stmt = (
+                    _pg_insert(PaperEdge)
+                    .values([dict(
+                        study_id=CORPUS_STUDY_ID,
+                        src_ref=src,
+                        dst_ref=ref,
+                        kind=VIA_EDGE_KIND,
+                        dst_title=entry.get("title", ""),
+                        dst_year=entry.get("year"),
+                        dst_citation_count=entry.get("citationCount"),
+                    )])
+                    .on_conflict_do_nothing()
                 )
-                .on_conflict_do_nothing(
-                    index_elements=["study_id", "src_ref", "dst_ref", "kind"]
+            else:
+                from sqlalchemy.dialects.sqlite import insert as _sq_insert
+                edge_stmt = (
+                    _sq_insert(PaperEdge)
+                    .values(
+                        study_id=CORPUS_STUDY_ID,
+                        src_ref=src,
+                        dst_ref=ref,
+                        kind=VIA_EDGE_KIND,
+                        dst_title=entry.get("title", ""),
+                        dst_year=entry.get("year"),
+                        dst_citation_count=entry.get("citationCount"),
+                    )
+                    .on_conflict_do_nothing(
+                        index_elements=["study_id", "src_ref", "dst_ref", "kind"]
+                    )
                 )
-            )
+            s.execute(edge_stmt)
         if (i + 1) % batch_size == 0:
             s.commit()
             log.info("Tier B: %d/%d landed", i + 1, len(entries))
     return indexed
 
 
-def import_corpus(db_path: Path | str) -> dict:
-    """One-shot, idempotent import of both tiers. Returns count summary."""
-    factory = make_session_factory(db_path)
+def import_corpus(db_url: str) -> dict:
+    """One-shot, idempotent import of both tiers. Returns count summary.
+
+    ``db_url`` is a SQLAlchemy URL string (``sqlite:///...`` or
+    ``postgresql+psycopg://...``), as returned by ``Settings.db_url``.
+    """
+    factory = make_session_factory(db_url)
     with factory() as s:
         tier_a = import_tier_a(s)
         s.commit()
@@ -233,11 +272,14 @@ _DEMO_SEED_REFS = (
 )
 
 
-def verify_import(db_path: Path | str) -> dict[str, bool]:
+def verify_import(db_url: str) -> dict[str, bool]:
     """Spot-check an import against the source files (F8.1/F8.4): demo
     seeds present and searchable, row counts match the index, via-edges
-    landed."""
-    factory = make_session_factory(db_path)
+    landed.
+
+    ``db_url`` is a SQLAlchemy URL string, as returned by ``Settings.db_url``.
+    """
+    factory = make_session_factory(db_url)
     expected_a = len(parse_tier_a())
     expected_b = len(parse_tier_b())
     checks: dict[str, bool] = {}

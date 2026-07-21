@@ -8,7 +8,7 @@ under `.study-data/` (gitignored - participant data never enters git).
 ```mermaid
 sequenceDiagram
     autonumber
-    participant O as Cognitive Overlay (HttpSink)
+    participant O as TERN (HttpSink)
     participant X as Metrics orchestrator
     participant M as Middleware :8000
     participant R as Researcher
@@ -45,7 +45,7 @@ docker compose up                  # middleware + demo-seed (sample session)
 docker compose --profile sonar up  # ... plus SonarQube on :9000
 ```
 
-## Point the Cognitive Overlay at it
+## Point the TERN at it
 
 Set (or derive from the protocol - they are the same thing):
 
@@ -55,9 +55,9 @@ uv run protocol derive overlay-settings protocol/examples/pilot-study.yaml \
 ```
 
 The relevant setting is
-`"cognitiveOverlay.output.httpEndpoint": "http://127.0.0.1:8000/ingest/events"`.
+`"tern.output.httpEndpoint": "http://127.0.0.1:8000/ingest/events"`.
 The extension needs **zero code changes**: its HttpSink already POSTs
-`{"source": "cognitive-overlay", "events": [...]}` batches.
+`{"source": "tern", "events": [...]}` batches.
 
 ## Smoke test
 

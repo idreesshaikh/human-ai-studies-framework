@@ -4,10 +4,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { createApi, type Api, type Me } from "./api.ts";
+import { createApi, type Api, type Me, type Preferences } from "./api.ts";
+import { applyTheme } from "./theme";
+import { CREDENTIAL_READY_EVENT } from "./auth.tsx";
 
 /* Provides the API client and the signed-in identity to the tree. In
  * none/token auth modes `me.mode` tells the shell to hide project UI
@@ -37,6 +40,10 @@ interface SessionState {
   me: Me | null;
   loading: boolean;
   refresh: () => Promise<void>;
+  /** Persist part of this identity's profile (FR-OPS-7) and refresh `me`. */
+  updatePreferences: (prefs: Partial<Preferences>) => Promise<void>;
+  /** Apply a theme preference locally and persist it to the profile. */
+  setThemePreference: (theme: Preferences["theme"]) => Promise<void>;
 }
 
 const SessionContext = createContext<SessionState | null>(null);
@@ -59,11 +66,59 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [api]);
 
+  const updatePreferences = useCallback(
+    async (prefs: Partial<Preferences>) => {
+      await api.updatePreferences(prefs);
+      await refresh();
+    },
+    [api, refresh],
+  );
+
+  const setThemePreference = useCallback(
+    async (theme: Preferences["theme"]) => {
+      // Local change first so the chrome reacts instantly; persist is
+      // best-effort and doesn't block the UI.
+      if (theme) applyTheme(theme);
+      try {
+        await updatePreferences({ theme });
+      } catch {
+        /* offline / unauthenticated — local theme still applies */
+      }
+    },
+    [updatePreferences],
+  );
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  const value = useMemo(() => ({ me, loading, refresh }), [me, loading, refresh]);
+  // When the auth layer establishes a live credential (e.g. after a Clerk
+  // sign-in reload), the session's first /me may have 401'd — re-fetch now
+  // that a token is available.
+  useEffect(() => {
+    const onReady = () => {
+      void refresh();
+    };
+    window.addEventListener(CREDENTIAL_READY_EVENT, onReady);
+    return () => window.removeEventListener(CREDENTIAL_READY_EVENT, onReady);
+  }, [refresh]);
+
+  // Server profile is authoritative for the initial theme (FR-OPS-7): when a
+  // signed-in identity has a saved theme, honour it over the local default.
+  const appliedTheme = useRef(false);
+  useEffect(() => {
+    if (appliedTheme.current) return;
+    const t = me?.preferences?.theme;
+    if (t) {
+      applyTheme(t);
+      appliedTheme.current = true;
+    }
+  }, [me]);
+
+  const value = useMemo(
+    () => ({ me, loading, refresh, updatePreferences, setThemePreference }),
+    [me, loading, refresh, updatePreferences, setThemePreference],
+  );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 

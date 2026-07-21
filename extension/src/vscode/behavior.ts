@@ -44,7 +44,7 @@ const MAX_COPY_HASHES = 8;
 
 function cfg<T>(key: string, fallback: T): T {
   return vscode.workspace
-    .getConfiguration('cognitiveOverlay.behavior')
+    .getConfiguration('tern.behavior')
     .get<T>(key, fallback);
 }
 
@@ -606,27 +606,27 @@ export function registerBehaviorCommands(
 
   return vscode.Disposable.from(
     wrap(
-      'cognitiveOverlay.behavior.copy',
+      'tern.behavior.copy',
       (c) => c.noteCopy(),
       'editor.action.clipboardCopyAction',
     ),
     wrap(
-      'cognitiveOverlay.behavior.cut',
+      'tern.behavior.cut',
       (c) => c.noteCopy(),
       'editor.action.clipboardCutAction',
     ),
     wrap(
-      'cognitiveOverlay.behavior.paste',
+      'tern.behavior.paste',
       (c) => c.notePaste(),
       'editor.action.clipboardPasteAction',
     ),
     wrap(
-      'cognitiveOverlay.behavior.acceptInline',
+      'tern.behavior.acceptInline',
       (c) => c.noteInlineAccept(),
       'editor.action.inlineSuggest.commit',
     ),
     wrap(
-      'cognitiveOverlay.behavior.dismissInline',
+      'tern.behavior.dismissInline',
       (c) => c.noteInlineDismiss(),
       'editor.action.inlineSuggest.hide',
     ),
@@ -655,7 +655,7 @@ export function environmentSnapshotPayload(
       extensionVersions[ext.id] = String(ext.packageJSON?.version ?? 'unknown');
     }
   }
-  const session = vscode.workspace.getConfiguration('cognitiveOverlay.session');
+  const session = vscode.workspace.getConfiguration('tern.session');
   const agentTool = session.get<string>('agentTool', '');
   const agentModelId = session.get<string>('agentModelId', '');
   return {

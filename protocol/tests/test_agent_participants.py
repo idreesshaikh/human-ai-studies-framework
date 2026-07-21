@@ -1,8 +1,14 @@
 """Schema vNext for agent participants.
 
 The fit criterion *is* the fixture: a v3 agent-participant protocol must
-validate under vNext, and every v1 protocol must still validate under v1
-rules (the schema change is consumers-branch-on-version, not a break).
+validate under vNext, and older-versioned protocols still validate under
+their own rules (the schema change is consumers-branch-on-version, not a
+break) — including the v1/v2 -> v4 kite->tern rename (2026-07-21): v1/v2
+still require `kite` unchanged (see `protocol/tests/fixtures/broken-*.yaml`,
+still on v1), v3 still requires anyOf(kite, agentCapture, taskHarness)
+unchanged (see `agent-participant-v3.yaml`), and v4 requires anyOf(tern,
+agentCapture, taskHarness) — the live examples (`pilot-study.yaml`,
+`cursor-mining-2026.yaml`) were migrated to v4 as part of the rename.
 """
 
 from pathlib import Path
@@ -39,26 +45,34 @@ def test_v3_requires_at_least_one_real_instrument():
     assert errors and any("instruments" in e for e in errors)
 
 
-def test_v1_still_requires_cognitive_overlay():
-    # v1 behavior is untouched: a v1 study without cognitiveOverlay fails
-    # exactly as before the schema change (regression).
+def test_v4_still_requires_an_instrument():
+    # PILOT is now v4 (post kite->tern rename, 2026-07-21): a study with
+    # none of tern/agentCapture/taskHarness still fails, exactly as the
+    # pre-rename v1/v2 posture required kite specifically (regression).
+    # v4's anyOf is the same shape as v3's (see test_v3_requires_at_least_
+    # one_real_instrument above), so the error is the same generic anyOf
+    # message, not a literal "tern" mention.
     doc = _load(PILOT)
+    assert doc["protocolVersion"] == 4
     doc["instruments"] = {"metrics": {"metricSet": "cognitive-load-9"}}
     errors = validate_protocol(doc)
-    assert any("cognitiveOverlay" in e for e in errors)
+    assert errors and any("instruments" in e for e in errors)
 
 
-def test_v1_pilot_still_valid():
+def test_pilot_still_valid():
     assert validate_protocol(_load(PILOT)) == []
 
 
-def test_v2_curated_still_requires_overlay():
-    # v2 (curated) keeps the overlay requirement — only v3 relaxes it.
+def test_v4_curated_still_requires_an_instrument():
+    # cursor-mining-2026.yaml is now v4 too (post kite->tern rename): the
+    # curated path still needs a declared instrument (tern here, nominal
+    # and unused by the mined path — see the file's own header comment).
     doc = _load(EXAMPLES / "cursor-mining-2026.yaml")
-    assert doc["protocolVersion"] == 2
+    assert doc["protocolVersion"] == 4
     assert validate_protocol(doc) == []  # it declares the overlay
     doc["instruments"] = {"metrics": {"metricSet": "cognitive-load-9"}}
-    assert any("cognitiveOverlay" in e for e in validate_protocol(doc))
+    errors = validate_protocol(doc)
+    assert errors and any("instruments" in e for e in errors)
 
 
 def test_optional_agent_config_list_validates():

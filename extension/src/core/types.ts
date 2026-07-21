@@ -14,10 +14,12 @@ export type StudyCondition = 'ai-assisted' | 'unassisted' | 'unspecified';
  * edit_burst, clipboard_paste, ai_suggestion, file_save, heartbeat, and
  * environment_snapshot event types (see src/core/behavior.ts). Also carries
  * the additive `attention` event (region-level time-on-code, see
- * src/core/attention.ts) - a new event type, not a payload change, so it does
- * not bump the version (v4 is reserved for the agent-interaction leg).
+ * src/core/attention.ts).
+ * v4: comprehension probe leg - adds comprehension_probe_response event type
+ * carrying chunkReference, promptKind, answer, correct, msToAnswer, expired
+ * (Phase 21, extension/src/core/comprehensionProbe.ts).
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** One row of the study dataset. Serialized as JSON Lines. */
 export interface StudyEvent {

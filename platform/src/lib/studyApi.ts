@@ -147,7 +147,15 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
     throw new Error(detail);
   }
-  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+  if (res.status === 204) return undefined as T;
+  try {
+    return (await res.json()) as T;
+  } catch {
+    // A 200 that isn't real JSON (dev-server SPA fallback, misconfigured
+    // proxy) means there's no real API behind this origin — same offline
+    // posture as an unreachable server.
+    throw new OfflineError();
+  }
 }
 
 function post<T>(path: string, body: unknown): Promise<T> {
@@ -213,7 +221,11 @@ export const studyApi = {
       throw new OfflineError();
     }
     if (!res.ok) throw new Error(`upload failed: ${res.status}`);
-    return res.json() as Promise<{ paperRef: string }>;
+    try {
+      return (await res.json()) as { paperRef: string };
+    } catch {
+      throw new OfflineError();
+    }
   },
   assistantConfig: (study: string) =>
     liveOrSeed(
@@ -251,6 +263,11 @@ export const studyApi = {
           `/studies/${enc(study)}/status`,
         ),
       { sessions: SEED_SESSIONS, conditions: SEED_CONDITIONS },
+    ),
+  sessionEvents: (_studyId: string, sessionId: string) =>
+    liveOrSeed(
+      () => req<import("./timeline").EventRow[]>(`/sessions/${enc(sessionId)}/events`),
+      SEED_SESSION_EVENTS,
     ),
 };
 
@@ -361,6 +378,69 @@ function seedMetricRows(): DatasetRow[] {
   }
   return rows;
 }
+
+const SEED_SESSION_EVENTS: import("./timeline").EventRow[] = [
+  {
+    v: 4, ts: "2026-07-16T14:30:00.000Z", mono: 0,
+    sessionId: "S-ai-assisted", source: "cognitive-overlay",
+    participantId: "P1", condition: "ai-assisted",
+    seq: 0, type: "session_start", payload: {}, flags: [],
+  },
+  {
+    v: 4, ts: "2026-07-16T14:30:05.000Z", mono: 5_000,
+    sessionId: "S-ai-assisted", source: "cognitive-overlay",
+    participantId: "P1", condition: "ai-assisted",
+    seq: 1, type: "edit_burst", payload: { charsAdded: 120, linesTouched: 5, origin: "human" }, flags: [],
+  },
+  {
+    v: 4, ts: "2026-07-16T14:30:45.000Z", mono: 45_000,
+    sessionId: "S-ai-assisted", source: "agent-capture",
+    participantId: "P1", condition: "ai-assisted",
+    seq: 0, type: "agent_turn", payload: { role: "assistant", tool: "EditTool", chars: 450 }, flags: [],
+  },
+  {
+    v: 4, ts: "2026-07-16T14:31:10.000Z", mono: 70_000,
+    sessionId: "S-ai-assisted", source: "cognitive-overlay",
+    participantId: "P1", condition: "ai-assisted",
+    seq: 2, type: "edit_burst", payload: { charsAdded: 320, linesTouched: 12, origin: "ai" }, flags: [],
+  },
+  {
+    v: 4, ts: "2026-07-16T14:32:00.000Z", mono: 120_000,
+    sessionId: "S-ai-assisted", source: "agent-capture",
+    participantId: "P1", condition: "ai-assisted",
+    seq: 1, type: "tool_use", payload: { tool: "ReadTool", durationMs: 3_200 }, flags: [],
+  },
+  {
+    v: 4, ts: "2026-07-16T14:33:00.000Z", mono: 180_000,
+    sessionId: "S-ai-assisted", source: "cognitive-overlay",
+    participantId: "P1", condition: "ai-assisted",
+    seq: 3, type: "fatigue_prompt_shown", payload: { trigger: "scheduled" }, flags: ["unauthenticated"],
+  },
+  {
+    v: 4, ts: "2026-07-16T14:33:05.000Z", mono: 185_000,
+    sessionId: "S-ai-assisted", source: "cognitive-overlay",
+    participantId: "P1", condition: "ai-assisted",
+    seq: 4, type: "fatigue_response", payload: { value: 4, points: 7 }, flags: [],
+  },
+  {
+    v: 4, ts: "2026-07-16T14:35:00.000Z", mono: 300_000,
+    sessionId: "S-ai-assisted", source: "workspace-snapshot",
+    participantId: "P1", condition: "ai-assisted",
+    seq: 0, type: "snapshot", payload: { commit: "abc1234" }, flags: [],
+  },
+  {
+    v: 4, ts: "2026-07-16T14:38:00.000Z", mono: 480_000,
+    sessionId: "S-ai-assisted", source: "task-harness",
+    participantId: "P1", condition: "ai-assisted",
+    seq: 0, type: "test_result", payload: { passed: 3, failed: 1 }, flags: [],
+  },
+  {
+    v: 4, ts: "2026-07-16T14:40:00.000Z", mono: 600_000,
+    sessionId: "S-ai-assisted", source: "agent-capture",
+    participantId: "P1", condition: "ai-assisted",
+    seq: 2, type: "agent_turn", payload: { role: "user", chars: 80 }, flags: ["credential-mismatch"],
+  },
+];
 
 const SEED_SESSIONS: SessionStatus[] = [
   { sessionId: "S-ai-assisted", participantId: "P1", condition: "ai-assisted", events: 214, metricRows: 10, flaggedEvents: 0, flagKinds: [], gapCount: 0, missingEvents: 0, complete: true, lastReceivedAt: "2026-07-16T15:02:00.000Z" },

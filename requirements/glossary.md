@@ -72,3 +72,7 @@ use. One term per concept; synonyms listed only to ban them.
 | **Session credential** | The short-lived bearer an IDE receives when it redeems a pairing token; authenticates ingest so the middleware can server-stamp join keys (FR-ING-7). |
 | **Capture config** | The versioned, protocol-derived set of enabled instruments/metrics an IDE applies at a session boundary (FR-INST-21). |
 | **Enrollment** | A participant's IDE joining a study by redeeming a pairing token. |
+| **Design archetype** | One of ~8 canonical study-design patterns (two-group RCT, within-subjects crossover, paired pre/post, etc.) that the platform offers as instantiable templates; each archetype defines the design shape, instruments, measures, session plan, and analysis plan (FR-TPL-7). |
+| **Design shape** | The structural family of a study design — e.g., two-group, paired, multi-group, factorial, repeated-measures, proportion — which determines the correct statistical plan from the prescription table (FR-TPL-6). |
+| **Bespoke design** | A protocol design that does not match any archetype template; the design conversation proposes design moves from the prescription table alone (unsourced grounding) and the analysis plan is compiled individually. *(not: custom design)* |
+| **Statistical prescription** | The deterministic, keyed row of the prescription table mapping a design shape to its recommended test, effect size, correction, and sample-size guidance (FR-TPL-6). |

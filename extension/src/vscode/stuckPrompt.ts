@@ -106,7 +106,7 @@ export class StuckPromptController
     const lens = (title: string, answer?: StuckAnswer): vscode.CodeLens =>
       new vscode.CodeLens(anchor, {
         title,
-        command: answer ? 'cognitiveOverlay.respondStuck' : '',
+        command: answer ? 'tern.respondStuck' : '',
         arguments: answer ? [answer] : undefined,
       });
     return [

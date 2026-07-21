@@ -153,3 +153,21 @@ Record here (and in `requirements/traceability.md`) any departure from
 this spec, per golden rule / execution model. Slice 1 landing the
 `platform/` scaffold ahead of Phase 14 is *expected* (build order note),
 not a deviation.
+
+- **2026-07-21 — the LLM seam this phase always intended went unused
+  until now, discovered pre-launch.** `design_assistant.respond()` has
+  accepted a `client` parameter since this phase shipped, with a docstring
+  promising "the Mistral seam swaps in behind the same shape" — but the
+  parameter was only ever forwarded to `matching.match_papers`'s reranker,
+  never to the conversation's own prose/moves. Every design-conversation
+  reply, keyed or not, was the deterministic scripted assistant. Closed as
+  **FR-CONV-8** (new row): `middleware/design_llm.py` is the LLM proposal
+  path, wired ahead of `_pick_script` in `respond()`, retrieval-first with
+  a closed per-turn candidate menu (wall #3 enforced twice), falling back
+  to the unchanged scripted assistant on any failure (NFR-4/5). No change
+  to `compiler.py` — wall #2's byte-identical replay guarantee is untouched
+  (`test_compile_is_deterministic` still passes, unmodified). Streaming
+  (FR-CONV-1's SRS text already says "streamed," aspirationally) is still
+  not built — no SSE/EventSource infra exists anywhere in this codebase;
+  v1 ships as a blocking call with a "thinking" UI state, streaming
+  explicitly scoped out as a fast-follow, not bundled into this change.

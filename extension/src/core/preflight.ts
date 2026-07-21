@@ -5,7 +5,7 @@
  */
 
 export interface PreflightItem {
-  /** The `cognitiveOverlay.`-stripped flag key. */
+  /** The `tern.`-stripped flag key. */
   key: string;
   /** Plain-language name for the participant/researcher. */
   label: string;

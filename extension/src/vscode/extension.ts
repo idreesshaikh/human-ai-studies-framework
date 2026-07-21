@@ -1,6 +1,7 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { EditBurst } from '../core/behavior';
 import { Recorder } from '../core/recorder';
 import { StudySession } from '../core/session';
 import { DEFAULT_STUCK_CONFIG, StuckDetector } from '../core/stuckDetector';
@@ -19,20 +20,24 @@ import {
   environmentSnapshotPayload,
   registerBehaviorCommands,
 } from './behavior';
+import { ComprehensionProbeMachine } from '../core/comprehensionProbe';
+import { ComprehensionPromptController } from './comprehensionPrompt';
 import { showEndSurvey } from './endSurvey';
 import { LikertPromptHandle, showLikertQuickPick } from './fatiguePrompt';
+import { VscodeIdeHealthAdapter } from './ideHealth';
 import {
   getStoredCredential,
   pairFromConnectionString,
   registerPairing,
   refreshConfigAtSessionStart,
 } from './pairing';
+import { preflightSummary } from '../core/preflight';
 import { wireEditorSignals } from './signals';
 import { CompositeSink, HttpSink, JsonlSink } from './sinks';
 import { SessionStatusBar } from './statusBar';
 import { StuckPromptController } from './stuckPrompt';
 
-const SNAPSHOT_KEY = 'cognitiveOverlay.activeSession';
+const SNAPSHOT_KEY = 'tern.activeSession';
 /** How often (in 1 s ticks) the crash-recovery snapshot is refreshed. */
 const SNAPSHOT_EVERY_TICKS = 15;
 /** Resumption lag beyond this is not attributable to the prompt anymore. */
@@ -45,6 +50,9 @@ interface RunningStudy {
   detector: StuckDetector;
   stuckPrompt: StuckPromptController;
   behavior?: BehaviorCapture;
+  comprehensionProbe?: ComprehensionProbeMachine;
+  comprehensionPrompt?: ComprehensionPromptController;
+  ideHealth?: VscodeIdeHealthAdapter;
   signalSub: vscode.Disposable;
   dataFile: string;
   fatiguePending: boolean;
@@ -67,32 +75,42 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(statusBar);
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('cognitiveOverlay.startSession', () =>
-      startSession(),
-    ),
-    vscode.commands.registerCommand('cognitiveOverlay.endSession', () =>
+    vscode.commands.registerCommand('tern.startSession', () => startSession()),
+    vscode.commands.registerCommand('tern.endSession', () =>
       endSession('manual'),
     ),
-    vscode.commands.registerCommand(
-      'cognitiveOverlay.pauseSession',
-      pauseSession,
-    ),
-    vscode.commands.registerCommand(
-      'cognitiveOverlay.resumeSession',
-      resumeSession,
-    ),
-    vscode.commands.registerCommand('cognitiveOverlay.logFatigueNow', () =>
+    vscode.commands.registerCommand('tern.pauseSession', pauseSession),
+    vscode.commands.registerCommand('tern.resumeSession', resumeSession),
+    vscode.commands.registerCommand('tern.logFatigueNow', () =>
       runFatiguePrompt('manual'),
     ),
     vscode.commands.registerCommand(
-      'cognitiveOverlay.respondStuck',
+      'tern.respondStuck',
       (answer: StuckAnswer) => study?.stuckPrompt.resolve(answer),
     ),
-    vscode.commands.registerCommand('cognitiveOverlay.statusMenu', statusMenu),
-    vscode.commands.registerCommand(
-      'cognitiveOverlay.openDataFolder',
-      openDataFolder,
-    ),
+    vscode.commands.registerCommand('tern.answerProbe', (kind: string) => {
+      const s = study?.comprehensionPrompt;
+      if (!s) return;
+      void vscode.window
+        .showInputBox({
+          title: `Comprehension probe (${kind})`,
+          prompt:
+            kind === 'predict-output'
+              ? 'What will this code print or return?'
+              : 'Briefly describe which line changed the behavior',
+          ignoreFocusOut: false,
+        })
+        .then((answer) => {
+          if (answer !== undefined) s.resolveAnswer(answer);
+        });
+    }),
+    vscode.commands.registerCommand('tern.skipProbe', () => {
+      const s = study?.comprehensionPrompt;
+      if (!s) return;
+      s.resolveAnswer('');
+    }),
+    vscode.commands.registerCommand('tern.statusMenu', statusMenu),
+    vscode.commands.registerCommand('tern.openDataFolder', openDataFolder),
     // Clipboard / inline-suggestion wrappers: bound only while a session is
     // active (see the sessionActive context); always delegate to the
     // built-in command even when no study is running.
@@ -121,9 +139,7 @@ export function deactivate(): void {
 }
 
 function cfg<T>(key: string, fallback: T): T {
-  return vscode.workspace
-    .getConfiguration('cognitiveOverlay')
-    .get<T>(key, fallback);
+  return vscode.workspace.getConfiguration('tern').get<T>(key, fallback);
 }
 
 function dataDirectory(): string {
@@ -187,6 +203,47 @@ async function startSession(): Promise<void> {
     Boolean(study),
   );
 
+  // Show the pre-flight summary (FR-INST-21): what will and will not be
+  // captured this session. The participant can abort before the clock arms.
+  const wsCfg = vscode.workspace.getConfiguration('tern');
+  const knownPreflightKeys = [
+    'stuck.enabled',
+    'behavior.captureEditBursts',
+    'behavior.captureAiLifecycle',
+    'behavior.captureClipboard',
+    'behavior.captureVisibleRanges',
+    'behavior.captureFocus',
+    'behavior.captureHeartbeat',
+    'behavior.captureAttention',
+  ];
+  const flags: Record<string, unknown> = {};
+  for (const key of knownPreflightKeys) {
+    const val = wsCfg.inspect<unknown>(key);
+    flags[key] =
+      val?.workspaceValue ?? val?.globalValue ?? val?.defaultValue ?? false;
+  }
+  const items = preflightSummary(flags);
+  const on =
+    items
+      .filter((i) => i.on)
+      .map((i) => i.label)
+      .join(', ') || 'nothing';
+  const off =
+    items
+      .filter((i) => !i.on)
+      .map((i) => i.label)
+      .join(', ') || 'none';
+  const preflightChoice = await vscode.window.showInformationMessage(
+    `Session will capture: ${on}. Will NOT capture: ${off}. Begin?`,
+    {
+      modal: true,
+      detail: `Participant: ${participantId.trim()}, Condition: ${conditionPick.value}`,
+    },
+    'Begin session',
+    'Cancel',
+  );
+  if (preflightChoice !== 'Begin session') return;
+
   bootSession({
     participantId: participantId.trim(),
     condition: conditionPick.value,
@@ -214,9 +271,7 @@ async function startSession(): Promise<void> {
     // Stamped so a live study is replicable down to exactly which metrics
     // were on for this session (fixed for the whole session, never mutated).
     captureConfigVersion:
-      extContext.workspaceState.get<string>(
-        'cognitiveOverlay.captureConfigVersion',
-      ) ?? '',
+      extContext.workspaceState.get<string>('tern.captureConfigVersion') ?? '',
   });
   persistSnapshot();
 
@@ -269,6 +324,74 @@ function bootSession(boot: BootConfig): void {
     onStuckResolved(res.answer, res.msToAnswer, res.region),
   );
 
+  // Comprehension probe controller (Phase 21, FR-INST-19, FR-DASH-12).
+  // Gated by the effective comprehensionProbe.enabled flag, read at session
+  // start only (wall #6).
+  const comprehensionProbeEnabled = cfg('comprehensionProbe.enabled', false);
+  let comprehensionProbe: ComprehensionProbeMachine | undefined;
+  let comprehensionPrompt: ComprehensionPromptController | undefined;
+  if (comprehensionProbeEnabled) {
+    comprehensionProbe = new ComprehensionProbeMachine(
+      {
+        enabled: true,
+        cadence: cfg<'every-chunk' | 'sampled'>(
+          'comprehensionProbe.cadence',
+          'every-chunk',
+        ),
+        sampleRate: cfg('comprehensionProbe.sampleRate', 1),
+        probeTypes: cfg<Array<'predict-output' | 'locate-change'>>(
+          'comprehensionProbe.probeTypes',
+          ['predict-output', 'locate-change'],
+        ),
+      },
+      {
+        onProbe: (meta, descriptor, chunkRef) => {
+          if (!study || study.ending || study.session.paused) return;
+          comprehensionPrompt?.show(meta, descriptor, chunkRef);
+        },
+        onProbeResponse: (response) => {
+          if (!study || study.ending) return;
+          study.recorder.record('comprehension_probe_response', {
+            chunkRef: response.chunkRef,
+            promptKind: response.promptKind,
+            answer: response.answer ?? null,
+            correct: response.correct ?? null,
+            msToAnswer: response.msToAnswer,
+            expired: response.expired,
+          });
+          armResumptionLag('comprehension');
+        },
+      },
+    );
+    comprehensionPrompt = new ComprehensionPromptController((response) => {
+      const probe = study?.comprehensionProbe;
+      if (!probe) return;
+      if (response.expired || response.answer === '') {
+        probe.expire();
+      } else {
+        probe.answer(response.answer ?? '');
+      }
+    });
+  }
+
+  // IDE health/diagnostics stream (Phase 20, FR-INST-18). Gated by the
+  // effective ideHealth.enabled flag, read at session start only (wall #6).
+  let ideHealth: VscodeIdeHealthAdapter | undefined;
+  if (cfg('ideHealth.enabled', false)) {
+    ideHealth = new VscodeIdeHealthAdapter(
+      { debounceMs: cfg('ideHealth.debounceSeconds', 10) * 1000 },
+      (event) => {
+        if (!study || study.ending || study.session.paused) return;
+        study.recorder.record(event.type, {
+          errorCount: event.errorCount,
+          warningCount: event.warningCount,
+          buildInvocations: event.buildInvocations,
+          testInvocations: event.testInvocations,
+        });
+      },
+    );
+  }
+
   const session = new StudySession(
     {
       participantId: boot.participantId,
@@ -306,6 +429,9 @@ function bootSession(boot: BootConfig): void {
     sink,
     detector,
     stuckPrompt,
+    comprehensionProbe,
+    comprehensionPrompt,
+    ideHealth,
     signalSub: wireEditorSignals(
       detector,
       cfg('stuck.languages', [] as string[]),
@@ -328,16 +454,43 @@ function bootSession(boot: BootConfig): void {
         const cur = study;
         if (!cur || cur.ending || cur.session.paused) return;
         cur.recorder.record(type, payload);
+        // Feed accepted AI chunks to the comprehension probe machine (Phase
+        // 21, FR-INST-19). An ai-origin burst that survived the undo window
+        // is an "accepted chunk" — fire the state machine.
+        if (
+          type === 'edit_burst' &&
+          payload.origin === 'ai' &&
+          cur.comprehensionProbe
+        ) {
+          const burst = payload as unknown as EditBurst & {
+            editBurstId?: string;
+          };
+          const burstId = burst.editBurstId ?? `burst_${Date.now()}`;
+          const language =
+            typeof burst.file === 'string'
+              ? (burst.file.split('.').pop() ?? undefined)
+              : undefined;
+          cur.comprehensionProbe.acceptChunk(
+            {
+              editBurstId: burstId,
+              file: burst.file ?? '',
+              linesTouched: burst.linesTouched ?? 0,
+              charsAdded: burst.charsAdded ?? 0,
+              language,
+            },
+            {
+              editBurstId: burstId,
+              agentTool: cfg('session.agentTool', undefined) || undefined,
+              agentModelId: cfg('session.agentModelId', undefined) || undefined,
+            },
+          );
+        }
       },
     });
     study.behavior = behavior;
     behavior.start();
   }
-  void vscode.commands.executeCommand(
-    'setContext',
-    'cognitiveOverlay.sessionActive',
-    true,
-  );
+  void vscode.commands.executeCommand('setContext', 'tern.sessionActive', true);
 
   statusBar.tick(session.remainingMs);
 }
@@ -417,6 +570,8 @@ function pauseSession(): void {
   s.detector.stop();
   s.activeFatiguePrompt?.cancel();
   s.stuckPrompt.resolve('dismissed');
+  s.comprehensionProbe?.cancelProbe();
+  s.comprehensionPrompt?.cancel();
   s.recorder.record('session_paused', {
     minutesIntoSession: minutesIntoSession(),
   });
@@ -442,6 +597,9 @@ function resumeSession(): void {
 function teardownStudy(resetStatusBar: boolean): void {
   if (!study) return;
   study.behavior?.dispose();
+  study.comprehensionProbe?.dispose();
+  study.comprehensionPrompt?.dispose();
+  study.ideHealth?.dispose();
   study.signalSub.dispose();
   study.detector.dispose();
   study.stuckPrompt.dispose();
@@ -450,7 +608,7 @@ function teardownStudy(resetStatusBar: boolean): void {
   study = undefined;
   void vscode.commands.executeCommand(
     'setContext',
-    'cognitiveOverlay.sessionActive',
+    'tern.sessionActive',
     false,
   );
   if (resetStatusBar) statusBar.idle();
@@ -707,7 +865,7 @@ async function statusMenu(): Promise<void> {
       { label: '$(folder-opened) Open data folder', action: 'data' },
       { label: '$(debug-stop) End study session', action: 'end' },
     ],
-    { title: 'Cognitive Overlay - session menu' },
+    { title: 'TERN - session menu' },
   );
   if (pick?.action === 'pause') pauseSession();
   if (pick?.action === 'resume') resumeSession();
@@ -728,7 +886,7 @@ function reportSinkError(err: unknown): void {
   if (sinkErrorShown) return;
   sinkErrorShown = true;
   void vscode.window.showErrorMessage(
-    `Cognitive Overlay: a data write failed (${String(err)}). ` +
+    `TERN: a data write failed (${String(err)}). ` +
       'The extension switched to a fallback write path - check disk space ' +
       'and the data folder before the next session.',
   );

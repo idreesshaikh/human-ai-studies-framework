@@ -17,8 +17,8 @@ study.projectId  -- every study, paper set, curated dataset, conversation
 - Project scoping is enforced in the middleware query layer (every
   study-bound endpoint gains the project check), not per-route ad hoc —
   one choke point, testable by construction (the FR-ETH-4 pattern).
-- SQLite stays (D11): scoping is a column + index, not a database swap;
-  Postgres remains the recorded config-swap escape hatch.
+- PostgreSQL (D26): scoping is a column + index, not a database adventure;
+  SQLite remains a script-level fallback.
 - Existing single-study data migrates into a default project on first
   boot after upgrade (loud, logged, reversible — the phase 12 stale-DB
   posture: fail loudly, never migrate silently... here migration is

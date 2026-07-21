@@ -23,8 +23,8 @@ recommends into). No dependency on the conductor arc (19–21); this is the
 *design* side of the platform, they are the *capture* side.
 **Satisfies:** FR-TPL-6 (grow the registry to ~two dozen grounded archetype
 templates), FR-TPL-7 (ranked template recommendation from plain-language
-intent), FR-ANA-7 (the shared analysis toolkit — parameterized recipes that
-make templates cheap and bespoke designs runnable), FR-ANA-8 (ranked figure
+intent), FR-ANA-8 (the shared analysis toolkit — parameterized recipes that
+make templates cheap and bespoke designs runnable), FR-ANA-7 (ranked figure
 suggestion), and **completes** FR-TPL-2 (correct statistics by construction,
 now for *bespoke* designs too) and FR-TPL-4 (templates as navigable,
 grounded knowledge). Extends FR-CONV-3 (the chosen analysis + figures
@@ -126,7 +126,7 @@ Non-negotiable bounds, inherited verbatim:
 The execution model puts the traceability spine first. Before any code:
 
 1. **Add the four requirement rows** to `requirements/srs.md` (FR-TPL-6,
-   FR-TPL-7, FR-ANA-7, FR-ANA-8 — full text in § Requirements) and their
+   FR-TPL-7, FR-ANA-8, FR-ANA-7 — full text in § Requirements) and their
    `requirements/traceability.md` §1 rows (status ⬜ until verified). **Edit
    in place, and flip the two rows this phase completes** — FR-TPL-2 and
    FR-TPL-4 — only when their verification steps below are green (golden
@@ -155,7 +155,7 @@ Slices B–C are the machinery; Slice D fills the library. A live demo exists
 after **A + B + C + the first ~8 archetypes of D** (Wave 1); the rest of D
 (Wave 2) is independent template authoring that enriches the demo.
 
-### Slice A — The shared analysis toolkit (FR-ANA-7)
+### Slice A — The shared analysis toolkit (FR-ANA-8)
 
 Python only (`analysis/`); nothing else changes until it lands. This is the
 load-bearing rung: it makes bespoke designs *runnable* and templates *cheap*.
@@ -190,7 +190,7 @@ load-bearing rung: it makes bespoke designs *runnable* and templates *cheap*.
    a missing element; a golden-file test pins each figure form's output
    (headless Agg, as FR-ANA already does).
 
-### Slice B — The design-shape recommender (FR-TPL-7) + the prescription (FR-TPL-2, FR-ANA-8)
+### Slice B — The design-shape recommender (FR-TPL-7) + the prescription (FR-TPL-2, FR-ANA-7)
 
 Middleware (`middleware/`) + platform (`platform/`). Extends
 `matching.py`, `design_assistant.py`, `template_registry.py`, and the
@@ -239,7 +239,7 @@ conversation UI — no new subsystem.
      yields an **honest "no prescription — needs a test we don't hold"**, never
      a fabricated one.
 
-4. **The figure suggestion** (`suggest_figures.py`, deterministic, FR-ANA-8) —
+4. **The figure suggestion** (`suggest_figures.py`, deterministic, FR-ANA-7) —
    a named lookup keyed by `(comparisonStructure, outcomeType, smallN)` → an
    **ordered** list of figure forms from Slice A's vocabulary, best-first with
    a plain *why* (small-n numeric two-group → dot/strip-by-condition primary,
@@ -348,7 +348,7 @@ GET  /templates                              registry listing gains designType/s
   *published* study design, citing its source paper(s), and spanning the
   common **design shapes** (comparison structure × outcome type × data path)
   so a researcher's idea usually maps to a real archetype. Each SHALL reuse
-  the shared analysis toolkit (FR-ANA-7) in its analysis plan and SHALL pass
+  the shared analysis toolkit (FR-ANA-8) in its analysis plan and SHALL pass
   `validate_registry()` before entering the registry (drafts wait per F2.3).
   Source designs SHALL be chosen by the corpus's recorded quality signals —
   citations, recognised venue/lab, freshness (FR-LIT-8) — so the library does
@@ -364,7 +364,7 @@ GET  /templates                              registry listing gains designType/s
   present, reranks and phrases only, adding no template (FR-LIT-9 contract).
   *Traces to:* owner elicitation 2026-07-19; S7; RQ-F1/F3; FR-CONV-1/2;
   FR-LIT-9.
-- **FR-ANA-7 (M)** — The framework SHALL provide a **shared analysis toolkit**:
+- **FR-ANA-8 (M)** — The framework SHALL provide a **shared analysis toolkit**:
   parameterised recipes (two-group nonparametric, paired nonparametric,
   two-proportion, correlation) built on the tested `stats.py` catalogue and
   the `figures.py` primitives, not bound to one study's measures but pointed
@@ -373,7 +373,7 @@ GET  /templates                              registry listing gains designType/s
   share tested recipes instead of each shipping its own. Each SHALL honour the
   FR-ANA-1 recipe contract and the FR-ANA-2 `requires` pre-check. *Traces to:*
   RQ-F3; S1,S4,S6; owner elicitation 2026-07-19 ("creates them for you").
-- **FR-ANA-8 (S)** — The platform SHALL **suggest figures as a ranked
+- **FR-ANA-7 (S)** — The platform SHALL **suggest figures as a ranked
   shortlist** keyed by the design shape and sample-size posture, best-first
   with a plain rationale, drawn only from the tested `figures.py` vocabulary
   (dataviz conventions, NFR-12 one-token-system). The chosen form SHALL
@@ -429,10 +429,10 @@ recipe/matching/compiler machinery, and Python built-ins only (NFR-10).
   Cliff's δ** as the top prescription with a *t*-test alternative and its
   caveat, each grounded; overriding to *t* compiles with `deviatesFromTemplate`
   and the caution in the methods text.
-- FR-ANA-7: each parameterised recipe run on demo data reproduces its
+- FR-ANA-8: each parameterised recipe run on demo data reproduces its
   `stats.py` result exactly (test name, effect size, per-cell n present); a
   plan pointing a recipe at a missing data element fails the FR-ANA-2 check.
-- FR-ANA-8: a ranked figure shortlist appears for the design; the picked form
+- FR-ANA-7: a ranked figure shortlist appears for the design; the picked form
   compiles into the plan and the runner emits that figure in the report.
 - FR-CONV-3 (Level 3): replaying accepted prescription+figure moves yields a
   byte-identical protocol; that protocol validates and the `analysis` runner
