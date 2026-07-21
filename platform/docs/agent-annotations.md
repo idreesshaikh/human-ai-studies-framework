@@ -65,6 +65,7 @@ retrofitted.
 | `metric-strip` | `MetricStrip` | the per-condition metric distribution chart (landmark) |
 | `enrollment-panel` | `EnrollmentPanel` | the study's participant enrollment surface (landmark) |
 | `mint-tokens` | `MintDialog` | open the mint-enrollment-links dialog (decision point) |
+| `open-in-vscode` | `MintDialog` | the vscode:// deep-link companion to a minted connection string (decision point) |
 
 ## Changelog
 

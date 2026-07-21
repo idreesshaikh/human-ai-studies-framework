@@ -70,6 +70,11 @@ export interface DemoPointer {
   studyId: string;
 }
 
+export interface EnrollmentTokenCaptureConfig {
+  captureConfigVersion: string;
+  enabledInstruments: { name: string; enabled: boolean }[];
+}
+
 export interface EnrollmentTokenView {
   id: string;
   participantId: string;
@@ -78,6 +83,9 @@ export interface EnrollmentTokenView {
   status: "unredeemed" | "paired" | "streaming" | "revoked";
   /** Present only right after minting — the participant's one-paste link. */
   connectionString?: string;
+  /** The capture config the IDE will run under (FR-DASH-10 pre-flight
+   * visibility); null for an agent-participant study with no overlay. */
+  captureConfig?: EnrollmentTokenCaptureConfig | null;
 }
 
 export interface Api {
@@ -377,6 +385,10 @@ export class InMemoryBackend implements Api {
         grain,
         status: "unredeemed",
         connectionString: `https://demo.local#${this.id("pair")}`,
+        captureConfig: {
+          captureConfigVersion: "demo000001",
+          enabledInstruments: [{ name: "stuck", enabled: true }],
+        },
       };
       rows.push(row);
       minted.push(row);

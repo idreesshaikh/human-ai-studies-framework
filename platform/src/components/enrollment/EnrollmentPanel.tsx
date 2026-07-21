@@ -42,6 +42,7 @@ export function EnrollmentPanel({ studyId, role }: { studyId: string; role: Role
               <th className="py-1 font-medium">Condition</th>
               <th className="py-1 font-medium">Grain</th>
               <th className="py-1 font-medium">Status</th>
+              <th className="py-1 font-medium">Will capture</th>
               <th />
             </tr>
           </thead>
@@ -52,6 +53,21 @@ export function EnrollmentPanel({ studyId, role }: { studyId: string; role: Role
                 <td className="py-1.5">{t.condition}</td>
                 <td className="py-1.5">{t.grain}</td>
                 <td className={cn("py-1.5", STATUS_STYLE[t.status])}>{t.status}</td>
+                <td className="py-1.5">
+                  {t.captureConfig ? (
+                    <div className="flex flex-wrap gap-1" title={`captureConfigVersion ${t.captureConfig.captureConfigVersion}`}>
+                      {t.captureConfig.enabledInstruments.map((i) => (
+                        <span key={i.name}
+                          className={cn("rounded-input border px-1.5 py-0.5 font-mono text-xs",
+                            i.enabled ? "border-accent text-accent" : "border-border text-text-muted line-through")}>
+                          {i.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-text-muted">—</span>
+                  )}
+                </td>
                 <td className="py-1.5 text-right">
                   {canMint && t.status !== "revoked" && (
                     <Button size="sm" variant="ghost"

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, ExternalLink } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,17 @@ import { Label } from "@/components/ui/label";
 import { useApi } from "@/lib/session";
 import type { EnrollmentTokenView } from "@/lib/api";
 import { cn } from "@/lib/cn";
+
+/* The extension's publisher.name (extension/package.json) — the vscode://
+ * authority the deep link resolves to (FR-INST-20 Slice D). */
+const EXTENSION_URI_AUTHORITY = "hpi-research.cognitive-overlay";
+
+/* A participant who already has the extension installed can skip the paste
+ * entirely (Slice D item 2). `#` inside the connection string must survive
+ * as literal query data, not a URL fragment delimiter — hence the encode. */
+function vscodeDeepLink(connectionString: string): string {
+  return `vscode://${EXTENSION_URI_AUTHORITY}/pair?c=${encodeURIComponent(connectionString)}`;
+}
 
 /* Mint pairing tokens for a study. Copy-link (here: copy connection string) is
  * the primary affordance — the participant pastes it into their IDE once. */
@@ -73,7 +84,13 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
               <div key={t.id} className="flex items-center gap-2 rounded-input border border-border bg-bg px-2 py-1.5">
                 <span className="w-16 shrink-0 font-mono text-xs text-text">{t.participantId}</span>
                 <span className="truncate font-mono text-xs text-text-muted">{t.connectionString}</span>
-                <Button size="sm" variant="subtle" className="ml-auto shrink-0"
+                <Button asChild size="sm" variant="ghost" className="ml-auto shrink-0">
+                  <a href={vscodeDeepLink(t.connectionString ?? "")} data-agent="open-in-vscode">
+                    <ExternalLink aria-hidden />
+                    Open in VS Code
+                  </a>
+                </Button>
+                <Button size="sm" variant="subtle" className="shrink-0"
                   onClick={() => copy(t.connectionString ?? "", t.id)}>
                   {copied === t.id ? <Check aria-hidden /> : <Copy aria-hidden />}
                   {copied === t.id ? "Copied" : "Copy"}
