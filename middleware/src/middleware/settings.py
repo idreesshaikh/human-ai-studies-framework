@@ -54,15 +54,15 @@ class Settings:
             Path(p) if (p := os.environ.get("MIDDLEWARE_PROTOCOL")) else None
         )
     )
-    # Priority: MIDDLEWARE_PORT (explicit operator override) > PORT (Railway
-    # dynamically assigns this per-service and routes/healthchecks against
-    # it — the app must actually bind here or every external probe reads
-    # "service unavailable" even though the app is healthy internally) >
-    # 8000 (the FR-ING-1 default every instrument leg's 127.0.0.1 endpoint
+    # Priority: PORT (Railway dynamically assigns this per-service and
+    # routes/healthchecks against it — the app must actually bind here or
+    # every external probe reads "service unavailable" even though the app
+    # is healthy internally) > MIDDLEWARE_PORT (explicit operator override)
+    # > 8000 (the FR-ING-1 default every instrument leg's 127.0.0.1 endpoint
     # assumes for local/self-hosted use, where PORT is never set).
     port: int = field(
         default_factory=lambda: int(
-            os.environ.get("MIDDLEWARE_PORT") or os.environ.get("PORT") or "8000"
+            os.environ.get("PORT") or os.environ.get("MIDDLEWARE_PORT", "8000")
         )
     )
     spa_dist: Path = field(
