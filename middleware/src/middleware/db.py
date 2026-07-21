@@ -41,6 +41,7 @@ from sqlalchemy import (
     inspect,
     text,
 )
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 log = logging.getLogger("middleware.db")
@@ -693,6 +694,27 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     try:
         Base.metadata.create_all(engine)
         log.info("Schema initialised on %s", engine.dialect.name)
+    except (IntegrityError, ProgrammingError) as exc:
+        # A benign race, not a real failure: on a platform that briefly
+        # overlaps the old and new container during a redeploy (Railway),
+        # two processes can both run CREATE TABLE against the same fresh
+        # Postgres database within the same instant. One wins; the other
+        # collides on the catalog's own unique index (pg_type_typname_nsp_
+        # index / pg_class - "already exists") rather than failing more
+        # legibly. If every table this process expects is now present
+        # (created by whichever process won the race), there is nothing
+        # actually wrong - proceed instead of crash-looping forever.
+        if _is_concurrent_create_race(exc) and _all_tables_present(engine):
+            log.warning(
+                "Schema creation raced with a concurrent process on %s "
+                "(%s) - all tables already present, continuing",
+                _safe_host(db_url_str),
+                type(exc.orig).__name__ if exc.orig else type(exc).__name__,
+            )
+        else:
+            host = _safe_host(db_url_str)
+            log.critical("Schema creation failed for %s: %s", host, exc)
+            raise SystemExit(1) from exc
     except Exception as exc:
         host = _safe_host(db_url_str)
         log.critical("Schema creation failed for %s: %s", host, exc)
@@ -708,6 +730,25 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
         _create_fts(engine)
 
     return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+def _is_concurrent_create_race(exc: IntegrityError | ProgrammingError) -> bool:
+    """True for the specific concurrent-CREATE-TABLE race on Postgres's own
+    catalog (pg_type/pg_class unique indexes), never for an unrelated
+    integrity/programming error - narrow on purpose (F1.3: named gaps, not
+    silent ones swallowing real schema defects)."""
+    msg = str(exc.orig if exc.orig else exc).lower()
+    return "pg_type_typname_nsp_index" in msg or (
+        "already exists" in msg and "duplicate key" in msg
+    )
+
+
+def _all_tables_present(engine) -> bool:
+    """Every table this process's models declare already exists (the state
+    a winning concurrent CREATE TABLE would have left behind)."""
+    existing = set(inspect(engine).get_table_names())
+    expected = set(Base.metadata.tables.keys())
+    return expected.issubset(existing)
 
 
 def _safe_host(db_url: str) -> str:
