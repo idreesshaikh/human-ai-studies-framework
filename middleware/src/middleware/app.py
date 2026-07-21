@@ -30,7 +30,7 @@ from pathlib import Path
 from urllib.parse import quote as _urlquote
 
 import yaml
-from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from protocol.lifecycle import PHASE_ORDER, current_phase
@@ -45,6 +45,7 @@ from middleware import (
     authz,
     compiler,
     design_assistant,
+    enrollment,
     evolution,
     manifest,
     matching,
@@ -261,6 +262,20 @@ class TemplateInstantiateIn(BaseModel):
     title: str = ""
 
 
+class MintTokensIn(BaseModel):
+    """Mint a batch of enrollment (pairing) tokens for a study (FR-INST-20)."""
+
+    count: int = 1
+    grain: str = "participant"  # 'participant' | 'session'
+
+
+class RedeemIn(BaseModel):
+    """The raw token half of a connection string, POSTed by the extension
+    to pair a live-capture session (FR-INST-20/21)."""
+
+    token: str
+
+
 class _ProtocolCheck:
     """Validates join keys against the loaded study protocol (FR-ING-6).
 
@@ -303,6 +318,28 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         protocol_doc = load_protocol(settings.protocol_path)
     check = _ProtocolCheck(protocol_doc)
+
+    def _resolve_study_protocol(s: Session, study_id: str) -> dict | None:
+        """Resolve a study's protocol: the approved YAML snapshot wins
+        (post-ethics, FR-CONV-4); the boot protocol is the single-facilitator
+        fallback for a study never taken through the design conversation.
+
+        Named with a leading underscore (unlike the brief's ``study_protocol``)
+        because ``create_app`` already binds that name to the
+        ``GET /studies/{study_id}/protocol`` route handler (~line 774) — reusing
+        it would have the later ``def`` silently shadow this helper for every
+        caller below it, including this task's own routes. Discovered via the
+        TDD RED step (a same-named-argument ``TypeError`` at the mint route)."""
+        import yaml
+
+        from middleware.db import StudyEvolution
+
+        evo = s.get(StudyEvolution, study_id)
+        if evo is not None and evo.approved_yaml:
+            return yaml.safe_load(evo.approved_yaml)
+        if protocol_doc is not None and protocol_doc["study"]["id"] == study_id:
+            return protocol_doc
+        return None
 
     # Reify the loaded protocol's study into the studies table: the
     # project choke point resolves study_id -> studies.project_id -> membership,
@@ -405,23 +442,37 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.post("/ingest/events")
     def ingest_events(
-        batch: EventBatch | list[StudyEventIn], s: Session = Depends(db)
+        batch: EventBatch | list[StudyEventIn],
+        authorization: str = Header(default=""),
+        s: Session = Depends(db),
     ) -> dict:
         events = batch if isinstance(batch, list) else batch.events
         batch_source = "" if isinstance(batch, list) else batch.source
         received = now()
+        cred_row = resolve_credential(s, authorization)
+        bearer_present = authorization.startswith("Bearer ")
         flagged = 0
         rows = []
         for e in events:
-            flags = check.flags_for(e.participantId, e.condition, e.v)
+            pid, cond = e.participantId, e.condition
+            extra_flags: list[str] = []
+            if cred_row is not None:
+                if (e.participantId and e.participantId != cred_row.participant_id) or (
+                    e.condition and e.condition != cred_row.condition
+                ):
+                    extra_flags.append("credential-mismatch")
+                pid, cond = cred_row.participant_id, cred_row.condition  # server-stamp
+            elif bearer_present:
+                extra_flags.append("unauthenticated")  # bearer sent, none valid
+            flags = check.flags_for(pid, cond, e.v) + extra_flags
             flagged += bool(flags)
             rows.append(
                 dict(
                     session_id=e.sessionId,
                     source=e.source or batch_source or DEFAULT_SOURCE,
                     seq=e.seq,
-                    participant_id=e.participantId,
-                    condition=e.condition,
+                    participant_id=pid,
+                    condition=cond,
                     v=e.v,
                     ts=e.ts,
                     mono=e.mono,
@@ -2223,6 +2274,273 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "projectSlug": proj.slug if proj else "",
             "role": inv.role,
         }
+
+    # -------------------------------------------------- enrollment tokens
+
+    @app.post(
+        "/studies/{study_id}/enrollment/tokens",
+        dependencies=[Depends(require_project_for_study("mint_token"))],
+    )
+    def mint_enrollment_tokens(
+        study_id: str,
+        body: MintTokensIn,
+        request: Request,
+        s: Session = Depends(db),
+    ) -> list[dict]:
+        from datetime import timedelta as td
+
+        from middleware.db import EnrollmentToken, StudyEvolution
+
+        evo = s.get(StudyEvolution, study_id)
+        if evo is None or not evo.ethics_approved_at:
+            raise HTTPException(
+                409,
+                "Mint enrollment tokens only after the study clears its ethics "
+                "gate — you cannot collect data before approval.",
+            )
+        protocol = _resolve_study_protocol(s, study_id)
+        if protocol is None:
+            raise HTTPException(404, f"no protocol for study {study_id!r}")
+        if body.grain not in {"participant", "session"}:
+            raise HTTPException(400, "grain must be 'participant' or 'session'")
+        conditions = protocol["conditions"]
+        existing = s.scalars(
+            select(EnrollmentToken).where(EnrollmentToken.study_id == study_id)
+        ).all()
+        start = len(existing)
+        base = str(request.base_url).rstrip("/")
+        expires = (clock() + td(days=30)).isoformat(timespec="milliseconds")
+        out = []
+        for i in range(body.count):
+            n = start + i + 1
+            pid = f"P{n:02d}"
+            condition = conditions[(n - 1) % len(conditions)]
+            token = secrets.token_urlsafe(32)
+            row = EnrollmentToken(
+                id=secrets.token_hex(8),
+                study_id=study_id,
+                participant_id=pid,
+                condition=condition,
+                grain=body.grain,
+                token=token,
+                expires_at=expires,
+                created_at=now(),
+            )
+            s.add(row)
+            out.append(
+                {
+                    "id": row.id,
+                    "participantId": pid,
+                    "condition": condition,
+                    "grain": body.grain,
+                    "connectionString": enrollment.connection_string(base, token),
+                    "status": "unredeemed",
+                }
+            )
+        s.commit()
+        return out
+
+    @app.get(
+        "/studies/{study_id}/enrollment/tokens",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def list_enrollment_tokens(
+        study_id: str, windowSeconds: int = 300, s: Session = Depends(db)
+    ) -> list[dict]:
+        """List a study's active enrollment tokens (FR-INST-20). A revoked
+        token drops off this list — DELETE is not a soft-hide-with-a-badge, it
+        removes the token from what a researcher can hand out or pair
+        against; the row itself is kept (``revoked_at`` set) for audit, just
+        not surfaced here. ``unredeemed``/``paired``/``streaming`` derive
+        from redemption state joined against the live session-status feed
+        (FR-DASH-3): a paired participant with an event inside the window
+        reads as ``streaming``. Each row also carries the capture config the
+        IDE will run under (FR-DASH-10 pre-flight visibility) — the same
+        ``derive_overlay_settings`` output the extension applies, so a
+        researcher catches a forgotten toggle before "begin"."""
+        from protocol.errors import ProtocolError
+
+        from middleware.db import EnrollmentToken
+
+        rows = s.scalars(
+            select(EnrollmentToken)
+            .where(
+                EnrollmentToken.study_id == study_id,
+                EnrollmentToken.revoked_at.is_(None),
+            )
+            .order_by(EnrollmentToken.participant_id)
+        ).all()
+
+        cutoff = (clock() - timedelta(seconds=windowSeconds)).astimezone(UTC)
+        cutoff_s = cutoff.isoformat(timespec="milliseconds")
+        streaming_participants = set(
+            s.scalars(
+                select(Event.participant_id)
+                .where(Event.received_at >= cutoff_s)
+                .distinct()
+            ).all()
+        )
+
+        protocol = _resolve_study_protocol(s, study_id)
+        out = []
+        for r in rows:
+            if r.redeemed_at and r.participant_id in streaming_participants:
+                status = "streaming"
+            elif r.redeemed_at:
+                status = "paired"
+            else:
+                status = "unredeemed"
+            capture_config = None
+            if protocol is not None:
+                try:
+                    cfg = enrollment.build_capture_config(
+                        protocol, r.participant_id, r.condition
+                    )
+                    capture_config = {
+                        "captureConfigVersion": cfg["captureConfigVersion"],
+                        "enabledInstruments": enrollment.enabled_instruments(
+                            cfg["settings"]
+                        ),
+                    }
+                except ProtocolError:
+                    pass  # agent-participant study, no overlay to show
+            out.append(
+                {
+                    "id": r.id,
+                    "participantId": r.participant_id,
+                    "condition": r.condition,
+                    "grain": r.grain,
+                    "status": status,
+                    "captureConfig": capture_config,
+                }
+            )
+        return out
+
+    @app.delete(
+        "/studies/{study_id}/enrollment/tokens/{token_id}",
+        dependencies=[Depends(require_project_for_study("mint_token"))],
+    )
+    def revoke_enrollment_token(
+        study_id: str, token_id: str, s: Session = Depends(db)
+    ) -> dict:
+        """Revoke a pairing token (researcher+, study-scoped). Keyed by study so
+        the project choke point authorizes it exactly like mint/list; a token
+        that isn't in this study 404s (never leak another study's tokens, and
+        never let a member of one study revoke another's — the IDOR guard)."""
+        from middleware.db import EnrollmentToken
+
+        row = s.get(EnrollmentToken, token_id)
+        if row is None or row.study_id != study_id:
+            raise HTTPException(404, "enrollment token not found")
+        row.revoked_at = now()
+        s.commit()
+        return {"revoked": token_id}
+
+    @app.post("/pair/redeem")
+    def pair_redeem(body: RedeemIn, request: Request, s: Session = Depends(db)) -> dict:
+        """Redeem a connection-string token into a live-capture session
+        (FR-INST-20/21). Public — no project dependency, since the token
+        itself is the credential the extension holds; a study's members
+        never need to be a project member to pair from the field."""
+        from middleware.db import EnrollmentToken, StudyEvolution
+
+        row = s.scalar(
+            select(EnrollmentToken).where(EnrollmentToken.token == body.token)
+        )
+        if row is None or row.revoked_at:
+            raise HTTPException(
+                410, "this connection link is invalid or has been revoked"
+            )
+        try:
+            if datetime.fromisoformat(row.expires_at) < clock():
+                raise HTTPException(
+                    410, "this connection link has expired — ask for a new one"
+                )
+        except (ValueError, TypeError):
+            pass
+        if row.grain == "session" and row.redeemed_at:
+            raise HTTPException(
+                410, "this single-use connection link has already been used"
+            )
+        evo = s.get(StudyEvolution, row.study_id)
+        if evo is None or not evo.ethics_approved_at:
+            raise HTTPException(409, "this study has not cleared its ethics gate")
+        protocol = _resolve_study_protocol(s, row.study_id)
+        if protocol is None:
+            raise HTTPException(404, "no protocol for this study")
+        if not row.credential:
+            row.credential = secrets.token_urlsafe(32)
+        if row.grain == "session":
+            row.redeemed_at = now()
+        elif not row.redeemed_at:
+            row.redeemed_at = now()
+        s.commit()
+        base = str(request.base_url).rstrip("/")
+        return {
+            "studyId": row.study_id,
+            "participantId": row.participant_id,
+            "condition": row.condition,
+            "sessionCredential": row.credential,
+            "ingestEndpoint": f"{base}/ingest/events",
+            "captureConfig": enrollment.build_capture_config(
+                protocol, row.participant_id, row.condition
+            ),
+            "consentStatement": enrollment.consent_statement(protocol, row.condition),
+            "contentPolicy": enrollment.content_policy(protocol),
+        }
+
+    def resolve_credential(s: Session, authorization: str):
+        """Return the ``EnrollmentToken`` for a valid Bearer session
+        credential, else ``None``. Never raises — callers decide whether
+        absence is fatal (reused by the ingest route, Task A7)."""
+        from middleware.db import EnrollmentToken
+
+        if not authorization.startswith("Bearer "):
+            return None
+        cred = authorization.removeprefix("Bearer ").strip()
+        if not cred:
+            return None
+        try:
+            row = s.scalar(
+                select(EnrollmentToken).where(EnrollmentToken.credential == cred)
+            )
+            if row is None or row.revoked_at:
+                return None
+            try:
+                if datetime.fromisoformat(row.expires_at) < clock():
+                    return None
+            except (ValueError, TypeError):
+                pass
+            return row
+        except Exception:
+            # A DB/infra error here (SQLite lock, I/O error, any
+            # SQLAlchemy error) must never surface as a 500 that drops
+            # the whole ingest batch - degrade to the already-correct
+            # "bearer present but unresolved" path (Task A7, NFR-1/
+            # FR-ING-6). The caller flags the row `unauthenticated` and
+            # stores it anyway.
+            return None
+
+    @app.get("/studies/{study_id}/capture-config")
+    def get_capture_config(
+        study_id: str,
+        authorization: str = Header(default=""),
+        s: Session = Depends(db),
+    ) -> dict:
+        """Session-boundary re-pull of the capture config (FR-INST-21): the
+        extension re-fetches this at the start of each session so a protocol
+        amendment lands without re-pairing. Gated on the session credential
+        minted by ``/pair/redeem`` — never the study's project membership,
+        since the extension holds no project identity."""
+        row = resolve_credential(s, authorization)
+        if row is None or row.study_id != study_id:
+            raise HTTPException(401, "a valid session credential is required")
+        protocol = _resolve_study_protocol(s, study_id)
+        if protocol is None:
+            raise HTTPException(404, "no protocol for this study")
+        return enrollment.build_capture_config(
+            protocol, row.participant_id, row.condition
+        )
 
     @app.get("/me", dependencies=[Depends(resolve_identity)])
     def get_me(identity: auth.Identity = Depends(resolve_identity)) -> dict:

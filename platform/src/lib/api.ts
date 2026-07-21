@@ -70,6 +70,24 @@ export interface DemoPointer {
   studyId: string;
 }
 
+export interface EnrollmentTokenCaptureConfig {
+  captureConfigVersion: string;
+  enabledInstruments: { name: string; enabled: boolean }[];
+}
+
+export interface EnrollmentTokenView {
+  id: string;
+  participantId: string;
+  condition: string;
+  grain: "participant" | "session";
+  status: "unredeemed" | "paired" | "streaming" | "revoked";
+  /** Present only right after minting — the participant's one-paste link. */
+  connectionString?: string;
+  /** The capture config the IDE will run under (FR-DASH-10 pre-flight
+   * visibility); null for an agent-participant study with no overlay. */
+  captureConfig?: EnrollmentTokenCaptureConfig | null;
+}
+
 export interface Api {
   me(): Promise<Me>;
   listProjects(): Promise<ProjectSummary[]>;
@@ -84,6 +102,9 @@ export interface Api {
   revokeInvitation(slug: string, id: string): Promise<void>;
   acceptInvitation(token: string): Promise<{ projectSlug: string; role: Role }>;
   demo(): Promise<DemoPointer>;
+  mintEnrollmentTokens(studyId: string, count: number, grain: "participant" | "session"): Promise<EnrollmentTokenView[]>;
+  listEnrollmentTokens(studyId: string): Promise<EnrollmentTokenView[]>;
+  revokeEnrollmentToken(studyId: string, tokenId: string): Promise<void>;
 }
 
 /** Raised by both backends so callers can show the server's plain-language
@@ -188,6 +209,12 @@ class HttpBackend implements Api {
       "POST",
       `/invitations/${token}/accept`);
   demo = () => this.call<DemoPointer>("GET", "/demo");
+  mintEnrollmentTokens = (studyId: string, count: number, grain: "participant" | "session") =>
+    this.call<EnrollmentTokenView[]>("POST", `/studies/${studyId}/enrollment/tokens`, { count, grain });
+  listEnrollmentTokens = (studyId: string) =>
+    this.call<EnrollmentTokenView[]>("GET", `/studies/${studyId}/enrollment/tokens`);
+  revokeEnrollmentToken = (studyId: string, tokenId: string) =>
+    this.call<void>("DELETE", `/studies/${studyId}/enrollment/tokens/${tokenId}`);
 }
 
 // ---------------------------------------------------------- in-memory backend
@@ -208,6 +235,7 @@ function slugify(name: string): string {
 
 export class InMemoryBackend implements Api {
   private projects = new Map<string, FakeProject>();
+  private enrollments = new Map<string, EnrollmentTokenView[]>();
   private sub = "you";
   private seq = 0;
 
@@ -383,6 +411,43 @@ export class InMemoryBackend implements Api {
   async demo(): Promise<DemoPointer> {
     const p = this.get("demo");
     return { projectSlug: p.slug, projectName: p.name, studyId: p.studies[0]?.id ?? "" };
+  }
+
+  async mintEnrollmentTokens(studyId: string, count: number, grain: "participant" | "session"): Promise<EnrollmentTokenView[]> {
+    const rows = this.enrollments.get(studyId) ?? [];
+    const conditions: string[] = ["ai-assisted", "unassisted"];
+    const start = rows.length;
+    const minted: EnrollmentTokenView[] = [];
+    for (let i = 0; i < count; i++) {
+      const n = start + i + 1;
+      const row: EnrollmentTokenView = {
+        id: this.id("tok"),
+        participantId: `P${String(n).padStart(2, "0")}`,
+        condition: conditions[(n - 1) % conditions.length],
+        grain,
+        status: "unredeemed",
+        connectionString: `https://demo.local#${this.id("pair")}`,
+        captureConfig: {
+          captureConfigVersion: "demo000001",
+          enabledInstruments: [{ name: "stuck", enabled: true }],
+        },
+      };
+      rows.push(row);
+      minted.push(row);
+    }
+    this.enrollments.set(studyId, rows);
+    return minted;
+  }
+
+  async listEnrollmentTokens(studyId: string): Promise<EnrollmentTokenView[]> {
+    return (this.enrollments.get(studyId) ?? []).filter((t,) => t.status !== "revoked");
+  }
+
+  async revokeEnrollmentToken(studyId: string, tokenId: string): Promise<void> {
+    const rows = this.enrollments.get(studyId) ?? [];
+    const row = rows.find((t,) => t.id === tokenId);
+    if (!row) throw new ApiError(404, "enrollment token not found");
+    row.status = "revoked";
   }
 }
 

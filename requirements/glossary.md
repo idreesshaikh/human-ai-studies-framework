@@ -67,3 +67,8 @@ use. One term per concept; synonyms listed only to ban them.
 | **Agent participant** | An AI agent configuration (tool + model) enrolled as a study's data source, its sessions executed by the task harness; join keys and anonymized IDs apply exactly as for humans (FR-PROT-9). *(not: bot, subject system)* |
 | **Accepted chunk** | One contiguous agent-produced code contribution the participant accepted - the unit of engagement/comprehension analysis; its chunk reference joins probes, edit bursts, and agent turns (FR-INST-19). *(not: suggestion, diff)* |
 | **Comprehension probe** | A short, timeboxed, protocol-configured check (predict-output / locate-change) of the participant's understanding of an accepted chunk or injected defect, joined to its chunk (FR-INST-19). *(not: quiz, test)* |
+| **Pairing token** | The minted, single- or multi-use secret binding a study + participant + condition, delivered inside a connection string; redeemed by an IDE to enroll (FR-INST-20). *(not: session token)* |
+| **Connection string** | The copy-safe `serverUrl#token` a participant pastes once to connect their IDE to a study. |
+| **Session credential** | The short-lived bearer an IDE receives when it redeems a pairing token; authenticates ingest so the middleware can server-stamp join keys (FR-ING-7). |
+| **Capture config** | The versioned, protocol-derived set of enabled instruments/metrics an IDE applies at a session boundary (FR-INST-21). |
+| **Enrollment** | A participant's IDE joining a study by redeeming a pairing token. |

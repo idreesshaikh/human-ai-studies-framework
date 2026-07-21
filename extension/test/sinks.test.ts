@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CompositeSink, JsonlSink } from '../src/vscode/sinks';
+import { CompositeSink, HttpSink, JsonlSink } from '../src/vscode/sinks';
 import { EventSink, StudyEvent } from '../src/core/types';
 
 function makeEvent(seq: number, type = 'tick'): StudyEvent {
@@ -113,6 +113,42 @@ test('CompositeSink flush and dispose reach every sink', async () => {
   assert.equal(a.flushed, 1);
   assert.equal(b.flushed, 1);
   assert.ok(a.disposed && b.disposed);
+});
+
+test('HttpSink attaches the session credential as a bearer when set', async () => {
+  const seen: Record<string, string> = {};
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+    Object.assign(seen, init.headers as Record<string, string>);
+    return { ok: true, status: 200 } as Response;
+  }) as typeof fetch;
+  const sink = new HttpSink('http://x/ingest/events', 100_000, 'cred-xyz');
+  try {
+    sink.write(makeEvent(0, 'session_start'));
+    await sink.flush();
+    assert.equal(seen['authorization'], 'Bearer cred-xyz');
+  } finally {
+    sink.dispose();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('HttpSink omits the authorization header when no credential is set', async () => {
+  const seen: Record<string, string> = {};
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+    Object.assign(seen, init.headers as Record<string, string>);
+    return { ok: true, status: 200 } as Response;
+  }) as typeof fetch;
+  const sink = new HttpSink('http://x/ingest/events', 100_000);
+  try {
+    sink.write(makeEvent(0, 'session_start'));
+    await sink.flush();
+    assert.equal(Object.hasOwn(seen, 'authorization'), false);
+  } finally {
+    sink.dispose();
+    globalThis.fetch = originalFetch;
+  }
 });
 
 class RecordingSink implements EventSink {

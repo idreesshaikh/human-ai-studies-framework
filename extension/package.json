@@ -63,6 +63,10 @@
       {
         "command": "cognitiveOverlay.respondStuck",
         "title": "Cognitive Overlay: Respond to Stuck Prompt"
+      },
+      {
+        "command": "cognitiveOverlay.connectToStudy",
+        "title": "Cognitive Overlay: Connect to Study"
       }
     ],
     "keybindings": [
@@ -300,9 +304,39 @@
           "type": "string",
           "default": "",
           "description": "Optional middleware endpoint to POST event batches to (e.g. http://localhost:8000/cognitive). Empty = disabled."
+        },
+        "cognitiveOverlay.studyId": {
+          "type": "string",
+          "default": "",
+          "description": "The study this IDE is paired to (set automatically when you connect)."
         }
       }
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "cognitiveOverlay.gettingStarted",
+        "title": "Join a study",
+        "description": "Connect your editor to a research study in one paste.",
+        "steps": [
+          {
+            "id": "connect",
+            "title": "Connect to your study",
+            "description": "Paste the connection string your researcher gave you.\n[Connect to study](command:cognitiveOverlay.connectToStudy)",
+            "media": {
+              "markdown": "media/walkthrough-connect.md"
+            }
+          },
+          {
+            "id": "start",
+            "title": "Start your session",
+            "description": "Review what will be captured, then begin.\n[Start session](command:cognitiveOverlay.startSession)",
+            "media": {
+              "markdown": "media/walkthrough-start.md"
+            }
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "clean": "rm -rf out out-tests *.vsix",
