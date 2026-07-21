@@ -70,14 +70,18 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
       <DialogContent>
         <DialogTitle>Invite a colleague</DialogTitle>
         <DialogDescription>
-          They'll join as your chosen role. The link works once and expires in
-          7 days.
+          This doesn't send an email — you'll get a one-time link right here
+          to copy and send yourself. It works once and expires in 7 days.
         </DialogDescription>
 
         {!invite ? (
           <div className="mt-4 flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <Label htmlFor="invite-email">Email</Label>
+              <Label htmlFor="invite-email">Their email</Label>
+              <p className="text-xs text-text-muted">
+                Just a label on the invitation so you remember who it's for —
+                nothing is sent to this address.
+              </p>
               <Input
                 id="invite-email"
                 type="email"
@@ -114,8 +118,9 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
         ) : (
           <div className="mt-4 flex flex-col gap-3">
             <p className="text-sm text-text">
-              Invitation for <span className="font-medium">{invite.email}</span> as{" "}
-              {ROLE_LABELS[invite.role]}. Share this link:
+              Ready for <span className="font-medium">{invite.email}</span> as{" "}
+              {ROLE_LABELS[invite.role]}. Copy this link and send it to them
+              yourself — email, chat, however you'd normally reach them:
             </p>
             <div className="flex items-center gap-2 rounded-input border border-border bg-bg px-2 py-1.5">
               <Link2 className="size-4 shrink-0 text-text-muted" aria-hidden />

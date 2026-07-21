@@ -25,6 +25,14 @@ function radius(n: PositionedNode): number {
   return base + Math.min(6, Math.log10((n.citationCount ?? 0) + 1) * 2);
 }
 
+/** "Surname et al., 2019" — the short label a node shows without a hover. */
+function nodeLabel(n: PositionedNode): string {
+  const author = n.authors?.[0]?.split(" ").pop();
+  const who = author ? (n.authors!.length > 1 ? `${author} et al.` : author) : "";
+  if (who && n.year) return `${who}, ${n.year}`;
+  return who || (n.year ? String(n.year) : "");
+}
+
 export function Constellation({
   graph,
   selected,
@@ -80,6 +88,8 @@ export function Constellation({
         })}
         {positioned.map((n) => {
           const isSel = n.paperRef === selected;
+          const label = nodeLabel(n);
+          const r = radius(n);
           return (
             <g
               key={n.paperRef}
@@ -87,20 +97,33 @@ export function Constellation({
               className="cursor-pointer"
               role="button"
               tabIndex={0}
-              aria-label={n.title || n.paperRef}
+              aria-label={
+                (n.title || n.paperRef) + (n.ingested ? "" : " — suggested, click to add")
+              }
               onClick={() => onSelect(n.paperRef)}
               onKeyDown={(ev) => ev.key === "Enter" && onSelect(n.paperRef)}
             >
               <circle
-                r={radius(n)}
+                r={r}
                 fill={n.ingested ? "var(--accent)" : "var(--surface)"}
                 stroke={isSel ? "var(--accent)" : "var(--viz-axis)"}
                 strokeWidth={isSel ? 3 : n.ingested ? 0 : 1.5}
+                strokeDasharray={n.ingested ? undefined : "2 2"}
                 className="transition-all duration-fast"
               />
+              {label && (
+                <text
+                  y={r + 11}
+                  textAnchor="middle"
+                  className="select-none fill-text-muted text-[0.625rem]"
+                >
+                  {label}
+                </text>
+              )}
               <title>
                 {n.title || n.paperRef}
                 {n.citationCount != null ? ` · ${n.citationCount} citations` : ""}
+                {n.ingested ? "" : " · suggested — click to add to the study"}
               </title>
             </g>
           );
@@ -109,7 +132,7 @@ export function Constellation({
 
       <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
         <LegendDot filled label="ingested" />
-        <LegendDot filled={false} label="suggested" />
+        <LegendDot filled={false} label="suggested — click to add" />
         {Object.entries(EDGE).map(([kind, { color, label }]) => (
           <span key={kind} className="flex items-center gap-1">
             <span

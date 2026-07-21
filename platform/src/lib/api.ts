@@ -55,6 +55,9 @@ export interface Member {
   role: Role;
   invitedBy?: string;
   joinedAt?: string;
+  /** Resolved from the invitation that brought them in, when one exists —
+   * absent for the project creator or a pre-invitation-system member. */
+  email?: string | null;
 }
 
 export interface Invitation {
@@ -115,6 +118,7 @@ export interface Api {
   listProjects(): Promise<ProjectSummary[]>;
   createProject(name: string): Promise<ProjectSummary>;
   projectHome(slug: string): Promise<ProjectHome>;
+  createStudy(slug: string, name: string): Promise<{ id: string; phase: string }>;
   renameProject(slug: string, name: string): Promise<void>;
   deleteProject(slug: string, confirm: string): Promise<void>;
   members(slug: string): Promise<Member[]>;
@@ -249,6 +253,8 @@ class HttpBackend implements Api {
   createProject = (name: string) =>
     this.call<ProjectSummary>("POST", "/projects", { name });
   projectHome = (slug: string) => this.call<ProjectHome>("GET", `/projects/${slug}`);
+  createStudy = (slug: string, name: string) =>
+    this.call<{ id: string; phase: string }>("POST", `/projects/${slug}/studies`, { name });
   renameProject = (slug: string, name: string) =>
     this.call<void>("PATCH", `/projects/${slug}`, { name });
   deleteProject = (slug: string, confirm: string) =>
@@ -424,6 +430,19 @@ export class InMemoryBackend implements Api {
       members: p.members,
       invitations: p.invitations.filter((i) => !i.acceptedAt),
     };
+  }
+
+  async createStudy(slug: string, name: string): Promise<{ id: string; phase: string }> {
+    const p = this.get(slug);
+    const base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "study";
+    let id = base;
+    let suffix = 1;
+    while (p.studies.some((st) => st.id === id)) {
+      suffix += 1;
+      id = `${base}-${suffix}`;
+    }
+    p.studies.push({ id, phase: "design" });
+    return { id, phase: "design" };
   }
 
   async renameProject(slug: string, name: string): Promise<void> {

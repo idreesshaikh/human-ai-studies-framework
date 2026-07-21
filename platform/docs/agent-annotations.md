@@ -47,6 +47,7 @@ retrofitted.
 | `add-paper` | `RecommendationCard` | add the paper to the study set |
 | `draft-rail` | `DraftRail` | the compiled protocol-draft view (landmark) |
 | `draft-apply` | `DraftRail` | apply the server-validated compiled draft to the protocol (decision point) |
+| `new-study` | `ProjectHome` | create a new study in the project (decision point) |
 | `project-switcher` | `ProjectSwitcher` | open the ⌘K project switcher (landmark) |
 | `project-nav` | `AppFrame` | the project sidebar (landmark) |
 | `sign-in` | `SignInScreen` | the sign-in gate (landmark), shown instead of project UI until a credential exists |

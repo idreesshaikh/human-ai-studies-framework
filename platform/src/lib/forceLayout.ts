@@ -9,6 +9,7 @@
 export interface GraphNodeIn {
   paperRef: string;
   title: string;
+  authors?: string[];
   year: number | null;
   citationCount: number | null;
   ingested: boolean;

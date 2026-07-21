@@ -1427,6 +1427,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             nodes[ref] = {
                 "paperRef": ref,
                 "title": p.title,
+                "authors": p.authors,
                 "year": p.year,
                 "citationCount": p.citation_count,
                 "ingested": True,
@@ -2110,11 +2111,29 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             {"id": st.id, "phase": st.phase}
             for st in s.scalars(select(Study).where(Study.project_id == proj.id))
         ]
-        members = [
-            {"identitySub": m.identity_sub, "role": m.role}
-            for m in s.scalars(
-                select(Membership).where(Membership.project_id == proj.id)
+        member_rows = list(
+            s.scalars(select(Membership).where(Membership.project_id == proj.id))
+        )
+        # Membership only ever stores the bare identity_sub (a Clerk user id
+        # for hosted deployments) - resolve a human label from the
+        # invitation that brought each member in, where one exists, so the
+        # UI never has to show a raw "user_..." string as someone's name.
+        invited_by_ids = [m.invited_by for m in member_rows if m.invited_by]
+        invite_emails = {
+            inv.id: inv.email
+            for inv in (
+                s.scalars(select(Invitation).where(Invitation.id.in_(invited_by_ids)))
+                if invited_by_ids
+                else []
             )
+        }
+        members = [
+            {
+                "identitySub": m.identity_sub,
+                "role": m.role,
+                "email": invite_emails.get(m.invited_by) if m.invited_by else None,
+            }
+            for m in member_rows
         ]
         invitations = [
             {
@@ -2138,6 +2157,40 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "members": members,
             "invitations": invitations,
         }
+
+    @app.post(
+        "/projects/{slug}/studies",
+        dependencies=[Depends(require_project("contribute"))],
+    )
+    def create_study(slug: str, body: dict, s: Session = Depends(db)) -> dict:
+        """Start a new study in this project (FR-PLAT-1 continued): the
+        design conversation needs a study row to attach its moves/drafts to
+        before it can run — this is that row, empty and pre-design, ready
+        for the researcher to talk it into existence. Any project member
+        with at least the researcher role may start one."""
+        proj = s.scalar(select(Project).where(Project.slug == slug))
+        if proj is None:
+            raise HTTPException(404, "project not found")
+        name = str(body.get("name", "")).strip()
+        base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:40] if name else ""
+        if not base:
+            base = "study"
+        study_id = base
+        suffix = 1
+        while s.scalar(select(Study).where(Study.id == study_id)) is not None:
+            suffix += 1
+            study_id = f"{base}-{suffix}"
+        s.add(
+            Study(
+                id=study_id,
+                project_id=proj.id,
+                protocol_version="",
+                phase="design",
+                data_path="",
+            )
+        )
+        s.flush()
+        return {"id": study_id, "phase": "design"}
 
     @app.patch(
         "/projects/{slug}", dependencies=[Depends(require_project("manage_members"))]
