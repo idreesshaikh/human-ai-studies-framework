@@ -425,3 +425,37 @@ study *self-serve and honest*; it invents no new source of truth.
 
 Record departures here and in `requirements/traceability.md` §3 as they
 occur.
+
+- **2026-07-19 → 2026-07-20, tasks C1–C3 committed, then execution stopped
+  short of Slice D and E1.** The implementation plan
+  (`docs/superpowers/plans/2026-07-19-live-capture-link.md`) never authored
+  a distinct "Part D" for Slice D ("Session-boundary refresh + the deep
+  link") — its session-boundary re-pull half landed inside task B6 and its
+  deep-link half inside task B7, but the dashboard's "Open in VS Code"
+  companion (the other side of that same deep link) was never built. Slice
+  C's own spec line — "each paired/awaiting row shows the capture config
+  that IDE will run under" — was also never carried into the plan's C1/C2
+  task text, so `EnrollmentPanel` shipped with status chips only. FR-DASH-10's
+  `streaming` status was explicitly deferred at task A4 review-fix time (a
+  `paired`-only baseline, noted inline) but that deferral was never logged
+  here or in traceability.md as golden rule 3 requires. Closed 2026-07-21 as
+  tasks D1 (streaming-status derivation, joining the FR-DASH-3 live-session
+  feed), D2 (the dashboard deep-link button), D3 (per-row capture-config
+  visibility), and D4 (below) — before E1 ran, per golden rule 3.
+- **Wall #6 verification is split between an automated unit test and a
+  manual walkthrough, not one automated end-to-end test.** `src/core` stays
+  `vscode`-free (`PROJECT_GUIDE.md`), and this repo has no `vscode`-mock test
+  harness for adapter code (`extension/src/vscode/pairing.ts` calls real
+  VS Code APIs) — building one was judged out of scope for this phase. Task
+  D4 made the wall an explicit, unit-tested value
+  (`shouldApplyCaptureConfig` in `src/core/captureConfig.ts`, proven by a
+  full apply → mid-session-refuse → next-boundary-applies lifecycle test in
+  `extension/test/captureConfig.test.ts`), but the literal fact that a
+  *live, running* VS Code session's applied settings stay frozen while a
+  toggle changes server-side is verified by the manual E1 Extension
+  Development Host walkthrough (owner-run), not CI. NFR-12 evidence
+  (both-theme/reduced-motion screenshots, axe, keyboard-only mint flow) is
+  likewise captured manually as part of that same walkthrough rather than
+  scripted. The four traceability rows are flipped only after that manual
+  pass runs green, per golden rule 3 — this is a verification-method
+  deviation, not a scope cut.
