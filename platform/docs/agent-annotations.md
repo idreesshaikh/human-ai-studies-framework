@@ -64,6 +64,9 @@ retrofitted.
 | `study-tabs` | `StudyHome` | the study workspace section tabs (landmark) |
 | `constellation` | `Constellation` | the citation-graph canvas (landmark) |
 | `metric-strip` | `MetricStrip` | the per-condition metric distribution chart (landmark) |
+| `enrollment-panel` | `EnrollmentPanel` | the study's participant enrollment surface (landmark) |
+| `mint-tokens` | `MintDialog` | open the mint-enrollment-links dialog (decision point) |
+| `open-in-vscode` | `MintDialog` | the vscode:// deep-link companion to a minted connection string (decision point) |
 
 ## Changelog
 
@@ -75,3 +78,5 @@ retrofitted.
 - **2026-07-18** — knowledge-layer migration:
   study workspace tabs, citation constellation, metric-strip chart
   (FR-LIT-2/4, FR-DASH-5).
+- **2026-07-19** — live capture link: enrollment panel + mint-links dialog
+  (FR-DASH-10, Phase 19).

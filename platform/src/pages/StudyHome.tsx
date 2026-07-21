@@ -7,6 +7,7 @@ import {
   Library,
   BarChart3,
   GitBranch,
+  UserPlus,
 } from "lucide-react";
 import { ConversationView } from "@/components/conversation/ConversationView";
 import { AmendmentBanner } from "@/components/conversation/AmendmentBanner";
@@ -14,8 +15,10 @@ import { AmendmentHistory } from "@/components/conversation/AmendmentHistory";
 import { LibraryTab } from "@/components/library/LibraryTab";
 import { DataTab } from "@/components/charts/DataTab";
 import { LifecycleTab } from "@/components/charts/LifecycleTab";
+import { EnrollmentPanel } from "@/components/enrollment/EnrollmentPanel";
 import { Button } from "@/components/ui/button";
 import { evolutionStore, useEvolution } from "@/lib/evolutionStub";
+import { useSession } from "@/lib/session";
 import { cn } from "@/lib/cn";
 
 /* A study's workspace. The design conversation is the primary surface; the
@@ -26,20 +29,24 @@ import { cn } from "@/lib/cn";
  * (paused-until-re-approval when consent-relevant) and the quiet history
  *. */
 
-type Tab = "conversation" | "library" | "data" | "lifecycle";
+type Tab = "conversation" | "library" | "data" | "lifecycle" | "enrollment";
 
 const TABS: { id: Tab; label: string; icon: typeof Library }[] = [
   { id: "conversation", label: "Conversation", icon: MessagesSquare },
   { id: "library", label: "Library", icon: Library },
   { id: "data", label: "Data", icon: BarChart3 },
   { id: "lifecycle", label: "Lifecycle", icon: GitBranch },
+  { id: "enrollment", label: "Participants", icon: UserPlus },
 ];
 
 export function StudyHome() {
   const { slug = "", id = "" } = useParams();
   const { amendmentState } = useEvolution();
+  const { me } = useSession();
   const [tab, setTab] = useState<Tab>("conversation");
   const [showHistory, setShowHistory] = useState(false);
+
+  const role = me?.memberships.find((m,) => m.projectSlug === slug)?.role ?? null;
 
   // The seeded evolution state stands in for its study only when the ids line
   // up; a different study is pre-ethics and shows no amendment chrome.
@@ -121,6 +128,7 @@ export function StudyHome() {
         {tab === "library" && <LibraryTab studyId={id} />}
         {tab === "data" && <DataTab studyId={id} />}
         {tab === "lifecycle" && <LifecycleTab studyId={id} />}
+        {tab === "enrollment" && <EnrollmentPanel studyId={id} role={role} />}
       </div>
     </div>
   );

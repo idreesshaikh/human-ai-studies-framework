@@ -11,9 +11,10 @@ zero-config):
   instance's JWKS (``MIDDLEWARE_CLERK_JWKS_URL``). For hosted deployments
   that want a polished login; self-hosters never need it.
 
-Ingest is never authenticated in any mode (NFR-1: sensors are
-fire-and-forget). Misconfiguration fails loudly at startup, like the
-stale-DB check - never quietly open.
+Ingest accepts an optional per-session credential (FR-ING-7): a valid one
+server-stamps the join keys; an absent or invalid one still stores the row,
+flagged - ingest never returns 401 and never drops (NFR-1). Misconfiguration
+fails loudly at startup, like the stale-DB check - never quietly open.
 
  widened the seam: a verifier now returns an :class:`Identity` (the
 JWT ``sub`` + display name + mode) instead of ``None``, so the project

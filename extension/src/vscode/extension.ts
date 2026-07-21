@@ -21,6 +21,12 @@ import {
 } from './behavior';
 import { showEndSurvey } from './endSurvey';
 import { LikertPromptHandle, showLikertQuickPick } from './fatiguePrompt';
+import {
+  getStoredCredential,
+  pairFromConnectionString,
+  registerPairing,
+  refreshConfigAtSessionStart,
+} from './pairing';
 import { wireEditorSignals } from './signals';
 import { CompositeSink, HttpSink, JsonlSink } from './sinks';
 import { SessionStatusBar } from './statusBar';
@@ -91,6 +97,15 @@ export function activate(context: vscode.ExtensionContext): void {
     // active (see the sessionActive context); always delegate to the
     // built-in command even when no study is running.
     registerBehaviorCommands(() => study?.behavior),
+    registerPairing(context),
+    vscode.window.registerUriHandler({
+      handleUri(uri: vscode.Uri) {
+        const params = new URLSearchParams(uri.query);
+        const c = params.get('c');
+        if (uri.path === '/pair' && c)
+          void pairFromConnectionString(context, c);
+      },
+    }),
   );
 
   void offerCrashRecovery();
@@ -164,12 +179,21 @@ async function startSession(): Promise<void> {
     .replace(/[:.]/g, '-')}`;
   const dataFile = path.join(dataDirectory(), `${sessionTag}.jsonl`);
 
+  // A session boundary is the only point capture config may change (wall
+  // #6) — re-pull it now, before the clock arms, and get this IDE's paired
+  // credential (if any) for the HttpSink.
+  const credential = await refreshConfigAtSessionStart(
+    extContext,
+    Boolean(study),
+  );
+
   bootSession({
     participantId: participantId.trim(),
     condition: conditionPick.value,
     dataFile,
     durationMs: durationMin * 60_000,
     fatigueIntervalMs: cfg('fatigue.intervalMinutes', 15) * 60_000,
+    credential,
   });
 
   study!.recorder.record('session_start', {
@@ -182,10 +206,18 @@ async function startSession(): Promise<void> {
     platform: os.platform(),
     workspace: vscode.workspace.workspaceFolders?.[0]?.name ?? null,
   });
-  study!.recorder.record(
-    'environment_snapshot',
-    environmentSnapshotPayload(extContext, `${os.platform()} ${os.release()}`),
-  );
+  study!.recorder.record('environment_snapshot', {
+    ...environmentSnapshotPayload(
+      extContext,
+      `${os.platform()} ${os.release()}`,
+    ),
+    // Stamped so a live study is replicable down to exactly which metrics
+    // were on for this session (fixed for the whole session, never mutated).
+    captureConfigVersion:
+      extContext.workspaceState.get<string>(
+        'cognitiveOverlay.captureConfigVersion',
+      ) ?? '',
+  });
   persistSnapshot();
 
   void vscode.window.showInformationMessage(
@@ -200,6 +232,8 @@ interface BootConfig {
   dataFile: string;
   durationMs: number;
   fatigueIntervalMs: number;
+  /** The session credential to send with ingest, if this IDE is paired. */
+  credential?: string;
   restore?: {
     sessionId: string;
     startedAtEpochMs: number;
@@ -214,7 +248,7 @@ function bootSession(boot: BootConfig): void {
     new JsonlSink(boot.dataFile, (err) => reportSinkError(err)),
   ];
   const endpoint = cfg('output.httpEndpoint', '');
-  if (endpoint) sinks.push(new HttpSink(endpoint));
+  if (endpoint) sinks.push(new HttpSink(endpoint, undefined, boot.credential));
   const sink = new CompositeSink(sinks);
 
   const detector = new StuckDetector(
@@ -500,12 +534,18 @@ async function offerCrashRecovery(): Promise<void> {
   const gapMs = Math.max(0, Date.now() - snap.savedAtEpochMs);
   const startSeq = JsonlSink.lastSeqIn(snap.dataFile) + 1;
 
+  // A crash-recovery resume continues the interrupted session, it does not
+  // start a new one — reuse the paired credential as-is, never re-pull
+  // config here (wall #6: a running/resuming session is never reconfigured).
+  const credential = await getStoredCredential(extContext);
+
   bootSession({
     participantId: snap.participantId,
     condition: snap.condition,
     dataFile: snap.dataFile,
     durationMs: snap.plannedDurationMs,
     fatigueIntervalMs: snap.fatigueIntervalMs,
+    credential,
     restore: {
       sessionId: snap.sessionId,
       startedAtEpochMs: snap.startedAtEpochMs,
