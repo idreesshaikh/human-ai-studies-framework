@@ -56,6 +56,7 @@ def test_redeem_returns_identity_config_and_consent(client_ethics_ok: TestClient
     r = client_ethics_ok.post("/pair/redeem", json={"token": raw})
     assert r.status_code == 200
     body = r.json()
+    assert body["studyId"] == "pilot"
     assert body["participantId"] == "P01"
     assert body["condition"] == "ai-assisted"
     assert body["sessionCredential"]

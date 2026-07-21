@@ -2477,6 +2477,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.commit()
         base = str(request.base_url).rstrip("/")
         return {
+            "studyId": row.study_id,
             "participantId": row.participant_id,
             "condition": row.condition,
             "sessionCredential": row.credential,

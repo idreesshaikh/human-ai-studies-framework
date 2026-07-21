@@ -13,6 +13,7 @@ const STATE_SERVER = 'cognitiveOverlay.serverUrl';
 const STATE_VERSION = 'cognitiveOverlay.captureConfigVersion';
 
 interface RedeemResult {
+  studyId: string;
   participantId: string;
   condition: string;
   sessionCredential: string;
@@ -148,6 +149,11 @@ export async function pairFromConnectionString(
     result.captureConfig.captureConfigVersion,
   );
   const conf = vscode.workspace.getConfiguration('cognitiveOverlay');
+  await conf.update(
+    'studyId',
+    result.studyId,
+    vscode.ConfigurationTarget.Workspace,
+  );
   await conf.update(
     'participantId',
     result.participantId,
