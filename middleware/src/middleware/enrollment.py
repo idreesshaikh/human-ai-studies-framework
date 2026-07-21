@@ -51,6 +51,22 @@ def build_capture_config(
     }
 
 
+def enabled_instruments(settings: dict) -> list[dict]:
+    """The `{name, enabled}` summary of every sub-instrument this capture
+    config declares an explicit on/off switch for (keys ending ``.enabled``
+    in the flat ``derive_overlay_settings`` output). Used by the enrollment
+    surface's pre-flight visibility (FR-DASH-10) so a researcher can catch a
+    forgotten toggle before a session begins, without hand-deriving a second
+    summary that could drift from what the IDE actually applies.
+    """
+    out = []
+    for key, value in settings.items():
+        if key.endswith(".enabled") and "." in key[: -len(".enabled")]:
+            name = key.split(".", 1)[1][: -len(".enabled")]
+            out.append({"name": name, "enabled": bool(value)})
+    return sorted(out, key=lambda e: e["name"])
+
+
 #: Plain-language description of each agent content policy (FR-AGENT-5),
 #: stated verbatim in the consent statement.
 _POLICY_DESCRIPTIONS = {

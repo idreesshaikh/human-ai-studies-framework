@@ -2344,13 +2344,22 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/enrollment/tokens",
         dependencies=[Depends(require_project_for_study("view"))],
     )
-    def list_enrollment_tokens(study_id: str, s: Session = Depends(db)) -> list[dict]:
+    def list_enrollment_tokens(
+        study_id: str, windowSeconds: int = 300, s: Session = Depends(db)
+    ) -> list[dict]:
         """List a study's active enrollment tokens (FR-INST-20). A revoked
         token drops off this list — DELETE is not a soft-hide-with-a-badge, it
         removes the token from what a researcher can hand out or pair
         against; the row itself is kept (``revoked_at`` set) for audit, just
-        not surfaced here. ``unredeemed``/``paired`` derive from redemption
-        state."""
+        not surfaced here. ``unredeemed``/``paired``/``streaming`` derive
+        from redemption state joined against the live session-status feed
+        (FR-DASH-3): a paired participant with an event inside the window
+        reads as ``streaming``. Each row also carries the capture config the
+        IDE will run under (FR-DASH-10 pre-flight visibility) — the same
+        ``derive_overlay_settings`` output the extension applies, so a
+        researcher catches a forgotten toggle before "begin"."""
+        from protocol.errors import ProtocolError
+
         from middleware.db import EnrollmentToken
 
         rows = s.scalars(
@@ -2361,9 +2370,40 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
             .order_by(EnrollmentToken.participant_id)
         ).all()
+
+        cutoff = (clock() - timedelta(seconds=windowSeconds)).astimezone(UTC)
+        cutoff_s = cutoff.isoformat(timespec="milliseconds")
+        streaming_participants = set(
+            s.scalars(
+                select(Event.participant_id)
+                .where(Event.received_at >= cutoff_s)
+                .distinct()
+            ).all()
+        )
+
+        protocol = _resolve_study_protocol(s, study_id)
         out = []
         for r in rows:
-            status = "paired" if r.redeemed_at else "unredeemed"
+            if r.redeemed_at and r.participant_id in streaming_participants:
+                status = "streaming"
+            elif r.redeemed_at:
+                status = "paired"
+            else:
+                status = "unredeemed"
+            capture_config = None
+            if protocol is not None:
+                try:
+                    cfg = enrollment.build_capture_config(
+                        protocol, r.participant_id, r.condition
+                    )
+                    capture_config = {
+                        "captureConfigVersion": cfg["captureConfigVersion"],
+                        "enabledInstruments": enrollment.enabled_instruments(
+                            cfg["settings"]
+                        ),
+                    }
+                except ProtocolError:
+                    pass  # agent-participant study, no overlay to show
             out.append(
                 {
                     "id": r.id,
@@ -2371,6 +2411,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "condition": r.condition,
                     "grain": r.grain,
                     "status": status,
+                    "captureConfig": capture_config,
                 }
             )
         return out

@@ -66,6 +66,23 @@ def test_build_capture_config_carries_derived_overlay_settings():
     assert cfg["settings"]["cognitiveOverlay.stuck.enabled"] is True
 
 
+def test_enabled_instruments_summarizes_explicit_toggles():
+    cfg = enrollment.build_capture_config(PROTOCOL, "P03", "ai-assisted")
+    summary = enrollment.enabled_instruments(cfg["settings"])
+    assert summary == [{"name": "stuck", "enabled": True}]
+
+
+def test_enabled_instruments_reflects_a_disabled_toggle():
+    settings = {
+        "cognitiveOverlay.participantId": "P03",
+        "cognitiveOverlay.stuck.enabled": False,
+        "cognitiveOverlay.output.httpEndpoint": "http://x",
+    }
+    assert enrollment.enabled_instruments(settings) == [
+        {"name": "stuck", "enabled": False}
+    ]
+
+
 def test_content_policy_defaults_to_metadata_only():
     assert enrollment.content_policy(PROTOCOL) == "metadata-only"
     p = {

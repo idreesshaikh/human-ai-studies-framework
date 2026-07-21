@@ -110,6 +110,46 @@ def test_capture_config_matches_redeem_and_requires_credential(
     assert r.json()["settings"]["cognitiveOverlay.participantId"] == "P01"
 
 
+def test_list_carries_capture_config_pre_flight_visibility(
+    client_ethics_ok: TestClient,
+):
+    client_ethics_ok.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
+    )
+    row = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()[0]
+    assert row["captureConfig"]["captureConfigVersion"]
+    assert row["captureConfig"]["enabledInstruments"] == [
+        {"name": "stuck", "enabled": True}
+    ]
+
+
+def test_list_status_flips_to_streaming_once_events_arrive(
+    client_ethics_ok: TestClient,
+):
+    tok = client_ethics_ok.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
+    ).json()[0]
+    raw = tok["connectionString"].split("#", 1)[1]
+    cred = client_ethics_ok.post("/pair/redeem", json={"token": raw}).json()[
+        "sessionCredential"
+    ]
+    listed = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()
+    assert listed[0]["status"] == "paired"  # redeemed, but no events yet
+
+    client_ethics_ok.post(
+        "/ingest/events",
+        json=_events("P01", "ai-assisted"),
+        headers={"authorization": f"Bearer {cred}"},
+    )
+    listed = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()
+    assert listed[0]["status"] == "streaming"
+    # Outside the window, it reads back as merely paired.
+    stale = client_ethics_ok.get(
+        "/studies/pilot/enrollment/tokens", params={"windowSeconds": 0}
+    ).json()
+    assert stale[0]["status"] == "paired"
+
+
 def _events(pid, cond):
     return {
         "events": [
