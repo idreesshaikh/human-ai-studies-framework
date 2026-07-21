@@ -305,7 +305,7 @@ def _methods(protocol: dict, md: list, tex: list, findings: list) -> None:
     # Instruments with exact configs.
     md += ["### Instruments", ""]
     tex += ["\\subsection{Instruments}", ""]
-    overlay = instruments.get("cognitiveOverlay", {})
+    overlay = instruments.get("tern", {})
     fatigue = overlay.get("fatigue", {})
     stuck = overlay.get("stuck", {})
     if fatigue or stuck:
@@ -314,11 +314,11 @@ def _methods(protocol: dict, md: list, tex: list, findings: list) -> None:
         pause = fatigue.get("waitForPauseSeconds", q)
         thresh = stuck.get("thresholdSeconds", q)
         i_txt = (
-            f"The Cognitive Overlay samples fatigue every {interval} minutes "
+            f"TERN samples fatigue every {interval} minutes "
             f"(after a {pause}-second typing pause) and detects stuck episodes "
             f"after {thresh} seconds of inactivity (FR-INST-1/2)."
         )
-        _para(md, tex, "FR-INST-1 / FR-INST-2 / cognitiveOverlay", i_txt)
+        _para(md, tex, "FR-INST-1 / FR-INST-2 / tern", i_txt)
     agent = instruments.get("agentCapture")
     if agent:
         a_txt = (

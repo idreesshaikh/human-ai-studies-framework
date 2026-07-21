@@ -16,7 +16,8 @@ export type Capability =
   | "freeze"
   | "manage_members"
   | "delete"
-  | "mint_token";
+  | "mint_token"
+  | "toggle_capture";
 
 export const ROLE_RANK: Record<Role, number> = {
   viewer: 0,
@@ -34,6 +35,7 @@ export const MATRIX: Record<Capability, Role> = {
   manage_members: "owner",
   delete: "owner",
   mint_token: "researcher",
+  toggle_capture: "researcher",
 };
 
 /** True if `role` can exercise `capability`. A missing role (non-member)

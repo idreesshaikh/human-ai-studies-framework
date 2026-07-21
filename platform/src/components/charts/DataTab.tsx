@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { MetricStrip } from "./MetricStrip";
+import { SwimlaneTimeline } from "./SwimlaneTimeline";
 import {
   studyApi,
   type DatasetRow,
@@ -16,6 +17,7 @@ export function DataTab({ studyId }: { studyId: string }) {
   const [sessions, setSessions] = useState<SessionStatus[]>([]);
   const [conditions, setConditions] = useState<string[]>([]);
   const [rows, setRows] = useState<DatasetRow[]>([]);
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -44,45 +46,72 @@ export function DataTab({ studyId }: { studyId: string }) {
             completeness and any integrity flags.
           </p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {sessions.map((s) => (
-              <div
-                key={s.sessionId}
-                className="rounded-card border border-border bg-surface p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-text">{s.participantId}</span>
-                  <span className="rounded-chip bg-accent-soft px-2 py-0.5 text-xs text-accent">
-                    {s.condition}
-                  </span>
-                </div>
-                <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                  <Stat label="events" value={s.events} />
-                  <Stat label="metric rows" value={s.metricRows} />
-                  <Stat label="gaps" value={s.gapCount} />
-                </dl>
-                <p
-                  className={cn(
-                    "mt-2 flex items-center gap-1 text-xs",
-                    s.complete ? "text-grounded" : "text-unsourced",
-                  )}
+          <div className="flex flex-col gap-3">
+            {sessions.map((s) => {
+              const isOpen = expandedSession === s.sessionId;
+              return (
+                <div
+                  key={s.sessionId}
+                  className="rounded-card border border-border bg-surface"
                 >
-                  {s.complete ? (
-                    <>
-                      <CheckCircle2 className="size-3" aria-hidden /> complete
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle className="size-3" aria-hidden />
-                      {s.missingEvents > 0
-                        ? `${s.missingEvents} events missing`
-                        : "in progress"}
-                      {s.flagKinds.length > 0 && ` · ${s.flagKinds.join(", ")}`}
-                    </>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between p-4 text-left hover:bg-surface-raised/50"
+                    onClick={() =>
+                      setExpandedSession(isOpen ? null : s.sessionId)
+                    }
+                  >
+                    <div className="flex items-center gap-2">
+                      {isOpen ? (
+                        <ChevronDown className="size-4 text-text-muted" aria-hidden />
+                      ) : (
+                        <ChevronRight className="size-4 text-text-muted" aria-hidden />
+                      )}
+                      <div>
+                        <span className="font-medium text-text">{s.participantId}</span>
+                        <span className="ml-2 rounded-chip bg-accent-soft px-2 py-0.5 text-xs text-accent">
+                          {s.condition}
+                        </span>
+                      </div>
+                    </div>
+                    <dl className="flex gap-4 text-sm">
+                      <Stat label="events" value={s.events} />
+                      <Stat label="metric rows" value={s.metricRows} />
+                      <Stat label="gaps" value={s.gapCount} />
+                    </dl>
+                    <p
+                      className={cn(
+                        "flex items-center gap-1 text-xs",
+                        s.complete ? "text-grounded" : "text-unsourced",
+                      )}
+                    >
+                      {s.complete ? (
+                        <>
+                          <CheckCircle2 className="size-3" aria-hidden /> complete
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="size-3" aria-hidden />
+                          {s.missingEvents > 0
+                            ? `${s.missingEvents} events missing`
+                            : "in progress"}
+                          {s.flagKinds.length > 0 && ` · ${s.flagKinds.join(", ")}`}
+                        </>
+                      )}
+                    </p>
+                  </button>
+                  {isOpen && (
+                    <div className="border-t border-border px-4 pb-4 pt-3">
+                      <SwimlaneTimeline
+                        sessionId={s.sessionId}
+                        studyId={studyId}
+                        onClose={() => setExpandedSession(null)}
+                      />
+                    </div>
                   )}
-                </p>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
@@ -97,8 +126,8 @@ export function DataTab({ studyId }: { studyId: string }) {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div>
-      <dd className="tabular text-lg text-text">{value}</dd>
+    <div className="flex flex-col items-center">
+      <dd className="tabular text-base text-text">{value}</dd>
       <dt className="text-xs text-text-muted">{label}</dt>
     </div>
   );

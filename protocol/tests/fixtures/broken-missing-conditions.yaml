@@ -17,7 +17,7 @@ session:
   durationMinutes: 60
   taskDescription: placeholder
 instruments:
-  cognitiveOverlay:
+  kite:
     session: { durationMinutes: 60 }
     fatigue: { intervalMinutes: 15, waitForPauseSeconds: 4 }
     stuck: { enabled: true, thresholdSeconds: 90 }

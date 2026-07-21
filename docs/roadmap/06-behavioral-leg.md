@@ -14,7 +14,7 @@ visible-range tracking for scroll coverage, and — the differentiator — an
 
 ## What it builds
 
-Extends the Cognitive Overlay extension (`src/core`, IDE-agnostic):
+Extends the TERN extension (`src/core`, IDE-agnostic):
 - `behavior.ts`, `recorder.ts`, `debounce.ts` — edit-burst aggregation.
 - AI-completion lifecycle events: suggestion shown → accepted/rejected/dismissed
   with **review latency** and accepted size (FR-INST-8).

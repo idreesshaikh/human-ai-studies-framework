@@ -39,12 +39,14 @@ retrofitted.
 | `conversation` | `ConversationView` | the design-conversation surface (landmark) |
 | `conversation-composer` | `ConversationView` | the message form |
 | `conversation-send` | `ConversationView` | send the researcher's message |
+| `conversation-thinking` | `ConversationView` | the platform is composing a reply (LLM or scripted) — a transient landmark |
 | `move-card` | `MoveCard` | one proposed design move (decision point); `data-agent-kind`, `data-agent-status` refine it |
 | `move-accept` | `MoveCard` | accept the move |
 | `move-reject` | `MoveCard` | reject the move |
 | `recommendation-card` | `RecommendationCard` | a matched paper; `data-agent-ref` carries its corpus ref |
 | `add-paper` | `RecommendationCard` | add the paper to the study set |
 | `draft-rail` | `DraftRail` | the compiled protocol-draft view (landmark) |
+| `draft-apply` | `DraftRail` | apply the server-validated compiled draft to the protocol (decision point) |
 | `project-switcher` | `ProjectSwitcher` | open the ⌘K project switcher (landmark) |
 | `project-nav` | `AppFrame` | the project sidebar (landmark) |
 | `sign-in` | `SignInScreen` | the sign-in gate (landmark), shown instead of project UI until a credential exists |
@@ -67,6 +69,8 @@ retrofitted.
 | `enrollment-panel` | `EnrollmentPanel` | the study's participant enrollment surface (landmark) |
 | `mint-tokens` | `MintDialog` | open the mint-enrollment-links dialog (decision point) |
 | `open-in-vscode` | `MintDialog` | the vscode:// deep-link companion to a minted connection string (decision point) |
+| `toggle-popover` | `TogglePopover` | per-metric capture-toggle popover showing label, grounding, and apply button (FR-DASH-11) |
+| `swimlane-timeline` | `SwimlaneTimeline` | the per-session swimlane chart (landmark, FR-DASH-4) |
 
 ## Changelog
 
@@ -80,3 +84,15 @@ retrofitted.
   (FR-LIT-2/4, FR-DASH-5).
 - **2026-07-19** — live capture link: enrollment panel + mint-links dialog
   (FR-DASH-10, Phase 19).
+- **2026-07-21** — live conversation compile added: `draft-apply` (apply the
+  server-validated draft to the protocol).
+- **2026-07-21** — resolved a stash-pop conflict that had dropped the
+  amendment banner/history wiring from `StudyHome`; restored
+  `amendment-history-toggle`.
+- **2026-07-21** — capture-console phase: `toggle-popover` for FR-DASH-11
+  per-metric toggles on the enrollment surface.
+- **2026-07-21** — session-timeline phase: `swimlane-timeline` for FR-DASH-4
+  per-session chart.
+- **2026-07-21** — LLM-driven conversation (FR-CONV-1.4): `conversation-thinking`
+  (transient landmark while a turn is composing) + `data-agent-status="llm-guided"`
+  on `StreamingTurn`'s author line (secondary attribute, not a new landmark).

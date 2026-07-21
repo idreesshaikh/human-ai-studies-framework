@@ -154,7 +154,7 @@ def _minimal_valid_protocol() -> dict:
     """A minimal protocol the real schema accepts — enough for the agent to
     prove it can construct a valid draft from the schema alone."""
     return {
-        "protocolVersion": 1,
+        "protocolVersion": 4,
         "study": {
             "id": "agent-demo",
             "title": "Agent-constructed draft",
@@ -170,7 +170,7 @@ def _minimal_valid_protocol() -> dict:
         },
         "session": {"durationMinutes": 30, "taskDescription": "demo"},
         "instruments": {
-            "cognitiveOverlay": {
+            "tern": {
                 "session": {"durationMinutes": 30},
                 "fatigue": {"intervalMinutes": 15, "waitForPauseSeconds": 4},
                 "stuck": {"enabled": True, "thresholdSeconds": 90},

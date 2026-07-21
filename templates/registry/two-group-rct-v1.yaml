@@ -1,0 +1,118 @@
+templateVersion: 1
+templateId: two-group-rct-v1
+title: Two-group between-subjects RCT
+description: |
+  The classic two-group randomised controlled trial: participants are
+  independently assigned to one of two conditions. Between-subjects design
+  avoids carryover and fatigue confounds. Prescribes Mann-Whitney U with
+  Cliff's delta.
+designType: rct-between-subjects
+dataPath: live
+source:
+  - paperRef: corpus:guidelines-empirical-llm-se
+    role: primary-design
+parameters:
+  studyId:
+    type: string
+    default: two-group-rct-study
+  title:
+    type: string
+    default: "Two-group between-subjects RCT"
+  conditions:
+    type: conditions
+    default: [control, treatment]
+  participantPlan:
+    type: participants
+    min: 6
+    default: 20
+  sessionMinutes:
+    type: int
+    default: 60
+    min: 15
+    max: 180
+  taskDescription:
+    type: string
+    default: Development task completed under one condition
+  researchers:
+    type: conditions
+    default: [Researcher]
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+measures:
+  - id: primary-outcome
+    leg: behavioral
+    elements: [task_outcome]
+    description: Task completion time and correctness
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: primary measure (independent, two-group)
+      test: mann-whitney-u
+      effectSize: cliffs-delta
+      smallN: hypothesis-generating
+threats:
+  - threat: selection-bias
+    mitigation: random assignment to conditions
+  - threat: unequal-n
+    mitigation: Mann-Whitney U is robust to unequal cell sizes
+protocolSkeleton:
+  protocolVersion: 4
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  researchQuestions:
+    - id: RQ-1
+      text: How does the treatment affect the primary outcome compared to control?
+  conditions: "{{ conditions }}"
+  participants:
+    planned: "{{ participantPlan }}"
+    design: between-subjects
+    counterbalanced: false
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ taskDescription }}"
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 15
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 5
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages: [python]
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: cognitive-load-9
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [two-group-nonparametric]

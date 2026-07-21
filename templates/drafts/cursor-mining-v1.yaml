@@ -3,6 +3,17 @@ templateVersion: 1
 # Cursor Mining Template
 # Encodes the Cursor repository-mining design (arxiv:2511.04427)
 # Measures velocity vs complexity tradeoffs in real repositories
+#
+# STILL A DRAFT (see templates/drafts/README.md): the analysisPlan below
+# names recipes that exist in the catalogue by id, but none of them fit a
+# repository-mining measurement unit -- `task-outcome-by-condition` and
+# `meyer-fragmentation` require live-session events (`task_outcome`,
+# `editor_focus`) a curated GitHub mining run never produces, and
+# `code-quality-by-condition` is scoped to per-participant workspace
+# snapshots, not per-repository static analysis. Promoting this template
+# needs real repository-trend recipes (velocity-trend, complexity-trend,
+# PR-size/review) built in `analysis/` first (F2.3: a template cannot
+# promise an analysis the platform can't run).
 templateId: cursor-mining-v1
 
 title: Repository-mining velocity vs complexity analysis
@@ -25,6 +36,31 @@ designType: field-study
 dataPath: curated
 
 parameters:
+  studyId:
+    type: string
+    default: cursor-mining-study
+    description: Stable study id
+
+  title:
+    type: string
+    default: "Repository-mining velocity vs complexity analysis"
+    description: Study title
+
+  researchers:
+    type: conditions
+    default: [Researcher]
+    description: The research team
+
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+    description: Ethics reference
+
+  taskDescription:
+    type: string
+    default: ""
+    description: Extra task detail
+
   repoCount:
     type: int
     default: 50
@@ -96,15 +132,15 @@ instruments:
   githubMining:
     adapter: github-api
     rateLimit: 5000
-    repositories: "{{ repoList }}"
-    
+    repositories: []
+
   staticMetrics:
     adapter: code-metrics
     languages: "{{ languageFilter }}"
 
 statisticalPlan:
   unit: repository
-  
+
   perRQ:
     - rq: velocity-trend
       outcome: commit-velocity (continuous) pre vs post Cursor adoption
@@ -112,14 +148,14 @@ statisticalPlan:
       effectSize: matched-pairs rank-biserial
       aggregationUnit: per-repository
       smallN: hypothesis-generating
-      
+
     - rq: complexity-trend
       outcome: code-complexity (continuous) pre vs post Cursor adoption
       test: wilcoxon-signed-rank
       effectSize: matched-pairs rank-biserial
       aggregationUnit: per-repository
       smallN: hypothesis-generating
-      
+
     - rq: velocity-complexity-tradeoff
       outcome: commit-velocity (continuous) vs code-complexity (continuous)
       test: spearman
@@ -131,24 +167,24 @@ threats:
   - threat: selection-bias
     mitigation: Include repositories with varying adoption patterns and sizes
     cite: guidelines-empirical-llm-se
-  
+
   - threat: confounding-factors
     mitigation: Control for repository age, size, language, team composition
     cite: speed-at-cost-of-quality-cursor
-  
+
   - threat: data-quality
     mitigation: Manual validation of a sample of mined data
     cite: speed-at-cost-of-quality-cursor
 
 protocolSkeleton:
-  protocolVersion: 1
-  
+  protocolVersion: 4
+
   study:
     id: "{{ studyId }}"
     title: "{{ title }}"
     researchers: "{{ researchers }}"
     ethicsRef: "{{ ethicsRef }}"
-  
+
   researchQuestions:
     - id: RQ-1
       text: "How does Cursor adoption affect development velocity (commits, LOC)?"
@@ -156,23 +192,65 @@ protocolSkeleton:
       text: "How does Cursor adoption affect code complexity metrics?"
     - id: RQ-3
       text: "Is there a tradeoff between increased velocity and code complexity?"
-  
+
   conditions: "{{ conditions }}"
-  
+
   participants:
-    planned: "{{ participantPlan }}"
+    # Nominal floor (mined actor/repo count is reported by the mining job) -
+    # see protocol/examples/cursor-mining-2026.yaml for the convention.
+    planned: 1
     design: between-subjects
     counterbalanced: false
-  
+
   session:
-    durationMinutes: 0
+    durationMinutes: 1
     taskDescription: |
       Mining analysis of {{ repoCount }} repositories over {{ timeWindowDays }} days.
       Compares pre- and post-Cursor adoption periods. Filters to repositories with
       at least {{ minCommitCount }} commits. {{ taskDescription }}
-  
-  instruments: "{{ instruments }}"
-  
+
+  curated:
+    actorUnit: repository
+    contentPolicy: metadata-only
+    conditions: "{{ conditions }}"
+    samplingFrame:
+      query: "language:{{ languageFilter }} pushed:>2025-01-01"
+      window:
+        start: "2025-01-01"
+        end: "2025-06-30"
+      inclusionRules:
+        - "at least {{ minCommitCount }} commits in the window"
+      exclusions:
+        - "fork"
+        - "archived"
+      targetN: "{{ repoCount }}"
+
+  instruments:
+    # Declared to satisfy the schema; the mining path does not use the live
+    # cognitive overlay (see protocol/examples/cursor-mining-2026.yaml).
+    tern:
+      session:
+        durationMinutes: 1
+      fatigue:
+        intervalMinutes: 15
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 5
+      stuck:
+        enabled: false
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages: [python]
+      output:
+        httpEndpoint: "http://127.0.0.1:8000/ingest/events"
+    githubMining:
+      adapter: github-api
+      rateLimit: 5000
+      repositories: []
+    staticMetrics:
+      adapter: code-metrics
+      languages: "{{ languageFilter }}"
+
   phases:
     - name: design
       gates:
@@ -188,7 +266,10 @@ protocolSkeleton:
         - complexity-analysis.md
     - name: write-up
       gates: []
-  
+
+  # NOT YET RUNNABLE — see the header note: these recipe ids exist in the
+  # catalogue but are the wrong measurement unit for repository mining.
+  # Swap in real repository-trend recipes once built, then move to registry.
   analysisPlan:
     - rq: RQ-1
       recipes: [task-outcome-by-condition]
@@ -196,7 +277,7 @@ protocolSkeleton:
       recipes: [code-quality-by-condition]
     - rq: RQ-3
       recipes: [meyer-fragmentation]
-  
+
   literature:
     - paperRef: arxiv:2511.04427
       justifies: [RQ-1, RQ-2, RQ-3]

@@ -6,14 +6,12 @@ Usage:
     python -m middleware corpus-verify     # spot-check an existing import
     python -m middleware templates         # list + validate the registry
 
-(FR-ING-1; override the port with MIDDLEWARE_PORT, the DB with --db or
-MIDDLEWARE_DB.)"""
+(FR-ING-1; override the port with MIDDLEWARE_PORT, set DATABASE_URL for
+PostgreSQL or MIDDLEWARE_DB for SQLite fallback.)"""
 
 import argparse
 import os
 import sys
-
-DEFAULT_DB = "data/middleware.db"
 
 
 def main() -> None:
@@ -28,10 +26,16 @@ def main() -> None:
         help="Command to run (default: serve)",
     )
     parser.add_argument(
-        "--db", default=None, help="SQLite DB path (overrides MIDDLEWARE_DB)"
+        "--db",
+        default=None,
+        help="SQLite DB path (overrides MIDDLEWARE_DB; "
+        "ignored when DATABASE_URL is set)",
     )
     args = parser.parse_args()
-    db_path = args.db or os.environ.get("MIDDLEWARE_DB", DEFAULT_DB)
+
+    # Override MIDDLEWARE_DB via --db flag (SQLite only; DATABASE_URL takes precedence)
+    if args.db and not os.environ.get("DATABASE_URL"):
+        os.environ["MIDDLEWARE_DB"] = args.db
 
     if args.command == "serve":
         import uvicorn
@@ -41,10 +45,13 @@ def main() -> None:
 
         settings = Settings()
         uvicorn.run(create_app(settings), host="0.0.0.0", port=settings.port)
+
     elif args.command == "corpus-import":
         from middleware.corpus_importer import import_corpus
+        from middleware.settings import Settings
 
-        result = import_corpus(db_path)
+        settings = Settings()
+        result = import_corpus(settings.db_url)
         for tier in ("tierA", "tierB"):
             print(
                 f"{tier}: {result[tier]['count']} papers, "
@@ -52,13 +59,17 @@ def main() -> None:
             )
         ok = result["tierA"]["count"] > 0 and result["tierB"]["count"] > 0
         sys.exit(0 if ok else 1)
+
     elif args.command == "corpus-verify":
         from middleware.corpus_importer import verify_import
+        from middleware.settings import Settings
 
-        checks = verify_import(db_path)
+        settings = Settings()
+        checks = verify_import(settings.db_url)
         for name, passed in checks.items():
             print(f"  {'ok ' if passed else 'FAIL'} {name}")
         sys.exit(0 if all(checks.values()) else 1)
+
     elif args.command == "templates":
         from middleware import template_registry
 

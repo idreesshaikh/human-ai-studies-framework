@@ -7,13 +7,13 @@
 #
 # The `curated:` section is the sampling frame: the mined equivalent of "the
 # approved protocol is the executed protocol" (FR-ETH-1). The mining adapter
-# refuses to run without it (F2.2). Its `protocolVersion` is 2 because the
-# schema gained the additive `curated:` section (consumers branch on version).
+# refuses to run without it (F2.2). `protocolVersion` is 4 (kite -> tern
+# rename, 2026-07-21; the additive `curated:` section from v2 stays valid).
 #
 # The instruments block below is declared but unused by the mined path (the
-# schema requires cognitiveOverlay); mining never consults it.
+# schema requires tern); mining never consults it.
 
-protocolVersion: 2
+protocolVersion: 4
 
 study:
   id: cursor-mining-2026
@@ -71,7 +71,7 @@ curated:
 instruments:
   # Declared to satisfy the schema; the mined path does not use the live
   # cognitive overlay. No live sessions run for this study.
-  cognitiveOverlay:
+  tern:
     session:
       durationMinutes: 1
     fatigue:

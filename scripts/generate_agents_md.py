@@ -76,7 +76,7 @@ def build_agents_md() -> str:
 
     glossary = parse_glossary(GLOSSARY)
     srs = parse_srs(SRS)
-    snapshot = manifest_mod.generate_manifest(deployment="self-hosted").to_dict(
+    snapshot = manifest_mod.generate_manifest(deployment="hosted").to_dict(
         deterministic=True
     )
     invariants = _invariants_section(CLAUDE_MD.read_text("utf-8"))

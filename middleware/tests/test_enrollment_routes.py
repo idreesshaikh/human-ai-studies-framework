@@ -61,7 +61,7 @@ def test_redeem_returns_identity_config_and_consent(client_ethics_ok: TestClient
     assert body["condition"] == "ai-assisted"
     assert body["sessionCredential"]
     assert body["ingestEndpoint"].endswith("/ingest/events")
-    assert body["captureConfig"]["settings"]["cognitiveOverlay.participantId"] == "P01"
+    assert body["captureConfig"]["settings"]["tern.participantId"] == "P01"
     assert body["contentPolicy"] == "metadata-only"
     # The study title, not the "pilot" study_id/URL segment, is what the
     # consent statement embeds (enrollment.consent_statement reads
@@ -108,7 +108,7 @@ def test_capture_config_matches_redeem_and_requires_credential(
         headers={"authorization": f"Bearer {cred}"},
     )
     assert r.status_code == 200
-    assert r.json()["settings"]["cognitiveOverlay.participantId"] == "P01"
+    assert r.json()["settings"]["tern.participantId"] == "P01"
 
 
 def test_list_carries_capture_config_pre_flight_visibility(
@@ -122,6 +122,7 @@ def test_list_carries_capture_config_pre_flight_visibility(
     assert row["captureConfig"]["enabledInstruments"] == [
         {"name": "stuck", "enabled": True}
     ]
+    assert row["connectionString"] and "#" in row["connectionString"]
 
 
 def test_list_status_flips_to_streaming_once_events_arrive(
@@ -149,6 +150,89 @@ def test_list_status_flips_to_streaming_once_events_arrive(
         "/studies/pilot/enrollment/tokens", params={"windowSeconds": 0}
     ).json()
     assert stale[0]["status"] == "paired"
+
+
+# ========================================================== toggle tests
+
+
+def test_toggle_catalog_refuses_before_ethics(client_no_ethics):
+    r = client_no_ethics.get("/studies/pilot/enrollment/toggles/catalog")
+    assert r.status_code == 404  # study not built yet
+
+
+def test_toggle_catalog_returns_filtered_entries(client_ethics_ok):
+    """Only entries whose instrument is present in the protocol appear."""
+    r = client_ethics_ok.get("/studies/pilot/enrollment/toggles/catalog")
+    assert r.status_code == 200
+    entries = r.json()
+    # METR template has tern but not agentCapture.
+    names = [e["label"] for e in entries]
+    assert "Stuck detection" in names
+    assert "Fatigue probe cadence" in names
+    assert "Agent conversation content policy" not in names  # no agentCapture instr
+    assert all(e.get("grounding") for e in entries)
+
+
+def test_toggle_catalog_current_value_matches_protocol(client_ethics_ok):
+    """The currentValue field mirrors the protocol's instrument config."""
+    r = client_ethics_ok.get("/studies/pilot/enrollment/toggles/catalog")
+    stuck = [e for e in r.json() if e["path"] == ["stuck", "enabled"]]
+    assert stuck
+    assert stuck[0]["currentValue"] is True  # METR defaults stuck.enabled: true
+
+
+def test_toggle_refuses_before_ethics(client_no_ethics):
+    body = {"instrument": "tern", "path": ["stuck", "enabled"],
+            "value": False, "rationale": "test"}
+    r = client_no_ethics.post("/studies/pilot/enrollment/toggles", json=body)
+    assert r.status_code == 404
+
+
+def test_toggle_nested_enabled_is_consent_relevant(client_ethics_ok):
+    """FR-CONV-7: toggling a nested 'enabled' field records an amendment."""
+    body = {"instrument": "tern", "path": ["stuck", "enabled"],
+            "value": False, "rationale": "testing FR-CONV-7"}
+    r = client_ethics_ok.post("/studies/pilot/enrollment/toggles", json=body)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["applied"] is True
+    assert body["requiresReapproval"] is True
+    assert body["amendmentId"]
+    # Verify the amendment exists in the amendment history.
+    hist = client_ethics_ok.get("/studies/pilot/amendments").json()
+    assert hist["amendments"]
+    assert hist["pendingReapproval"] is not None
+
+
+def test_toggle_non_consent_change_applies_directly(client_ethics_ok):
+    """A threshold change is NOT consent-relevant — applies without amendment."""
+    body = {"instrument": "tern", "path": ["stuck", "thresholdSeconds"],
+            "value": 120, "rationale": "fine-tune"}
+    r = client_ethics_ok.post("/studies/pilot/enrollment/toggles", json=body)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["applied"] is True
+    assert body["requiresReapproval"] is False
+
+
+def test_toggle_catalog_reflects_amended_protocol(client_ethics_ok):
+    """After a toggle, the catalog returns the new currentValue."""
+    body = {"instrument": "tern", "path": ["stuck", "enabled"],
+            "value": False, "rationale": "turn off stuck"}
+    client_ethics_ok.post("/studies/pilot/enrollment/toggles", json=body)
+    r = client_ethics_ok.get("/studies/pilot/enrollment/toggles/catalog")
+    stuck = [e for e in r.json() if e["path"] == ["stuck", "enabled"]]
+    assert stuck[0]["currentValue"] is False
+
+
+def test_toggle_invalid_path_returns_400(client_ethics_ok):
+    body = {"instrument": "tern", "path": ["nonexistent", "value"],
+            "value": True, "rationale": "bad"}
+    r = client_ethics_ok.post("/studies/pilot/enrollment/toggles", json=body)
+    assert r.status_code == 422
+
+
+# ==========================================================
 
 
 def _events(pid, cond):

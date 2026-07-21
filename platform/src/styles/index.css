@@ -2,9 +2,11 @@
 @import "tw-animate-css";
 
 /* Self-hosted fonts (no external requests, NFR-5-friendly): Newsreader is the
- * reading serif that carries the tool's voice; IBM Plex Mono is the machine
- * face for the compiled draft, data, and labels. */
-@import "@fontsource-variable/newsreader/index.css";
+ * restrained serif for headings only; Inter is the clean grotesk for body
+ * copy and UI; IBM Plex Mono is the machine face for the compiled draft,
+ * data, and labels. */
+@import "@fontsource-variable/newsreader";
+@import "@fontsource-variable/inter";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
 @import "@fontsource/ibm-plex-mono/600.css";
@@ -83,7 +85,7 @@ body {
   color: var(--text);
   font-family: var(--font-text);
   font-size: 1rem;
-  line-height: 1.65; /* an easy reading rhythm for long sessions */
+  line-height: 1.6; /* an easy reading rhythm for long sessions */
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

@@ -1,0 +1,128 @@
+templateVersion: 1
+templateId: factorial-2x2-v1
+title: 2x2 factorial design
+description: |
+  Two independent variables at two levels each, tested simultaneously.
+  Tests main effects of each factor and their interaction. Prescribes
+  Kruskal-Wallis comparisons with Holm correction for post-hoc tests.
+designType: lab-experiment
+dataPath: live
+source:
+  - paperRef: corpus:guidelines-empirical-llm-se
+    role: primary-design
+parameters:
+  studyId:
+    type: string
+    default: factorial-2x2-study
+  title:
+    type: string
+    default: "2x2 factorial design"
+  factorA:
+    type: string
+    default: AI assistance (none / full)
+    description: First factor and its levels
+  factorB:
+    type: string
+    default: Experience (junior / senior)
+    description: Second factor and its levels
+  participantPlan:
+    type: participants
+    min: 12
+    default: 24
+    rationale: Minimum 3 per cell
+  sessionMinutes:
+    type: int
+    default: 60
+    min: 15
+    max: 180
+  taskDescription:
+    type: string
+    default: Balanced factorial task assignment
+  researchers:
+    type: conditions
+    default: [Researcher]
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+measures:
+  - id: primary-outcome
+    leg: behavioral
+    elements: [task_outcome]
+    description: Primary outcome by factor combination
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: primary measure (factorial)
+      test: kruskal-wallis
+      effectSize: cliffs-delta
+      smallN: hypothesis-generating
+      multipleComparison: holm
+threats:
+  - threat: interaction-interpretability
+    mitigation: report simple main effects alongside interaction
+  - threat: cell-size-imbalance
+    mitigation: Kruskal-Wallis is robust to modestly unequal cells
+protocolSkeleton:
+  protocolVersion: 4
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  researchQuestions:
+    - id: RQ-1
+      text: What are the main effects and interaction of {{ factorA }} and {{ factorB }}?
+  conditions:
+    - "{{ factorA }}, {{ factorB }} (A1B1)"
+    - "{{ factorA }}, {{ factorB }} (A1B2)"
+    - "{{ factorA }}, {{ factorB }} (A2B1)"
+    - "{{ factorA }}, {{ factorB }} (A2B2)"
+  participants:
+    planned: "{{ participantPlan }}"
+    design: between-subjects
+    counterbalanced: false
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ taskDescription }}"
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 15
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 5
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages: [python]
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: cognitive-load-9
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [two-group-nonparametric]

@@ -22,7 +22,7 @@ efficiency materially).
 
 ```json
 {
-  "platform": {"name", "version", "deployment": "hosted|self-hosted"},
+  "platform": {"name", "version", "deployment": "hosted|demo"},
   "capabilities": ["conversation", "templates", "curated-datasets", ...],
   "api": {"openapi": "/openapi.json", "auth": {"mode", "how"}},
   "schemas": {"event": {"versions": [3,4], "url"}, "protocol": {...},

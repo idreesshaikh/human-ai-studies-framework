@@ -139,11 +139,24 @@ def run_plan(
             seen.add(c.recipe_id)
             runnable.append(REGISTRY[c.recipe_id])
 
+    # Build per-recipe params from the analysisPlan entries.
+    plan_params: dict[str, dict] = {}
+    for entry in plan:
+        for rid in entry.get("recipes", []):
+            if isinstance(rid, dict):
+                plan_params[rid["id"]] = rid.get("params", {})
+            elif rid not in plan_params:
+                plan_params[rid] = {}
+
     results: dict[str, RecipeResult] = {}
     outputs: dict[str, tuple[list[str], list[str]]] = {}
     for rec in runnable:
         print(f"running {rec.id} ...", flush=True)
         try:
+            # Inject per-recipe params into dataset.meta before running
+            # (FR-ANA-8: parameterised recipes read from meta).
+            recipe_params = plan_params.get(rec.id, {})
+            dataset.meta = {**dataset.meta, **recipe_params}
             result = rec.run(dataset)
         except Exception as exc:  # a broken recipe must not kill the run
             outcome.errors[rec.id] = f"{type(exc).__name__}: {exc}"

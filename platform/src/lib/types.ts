@@ -47,6 +47,10 @@ export interface Turn {
   text: string;
   moves: DesignMove[];
   recommendations: Recommendation[];
+  /** Which path produced a platform turn (FR-CONV-1.4) — "llm" when a
+   * provider is configured and healthy, "scripted" on the degraded
+   * no-key/fallback path. Absent for researcher turns. */
+  source?: "llm" | "scripted";
 }
 
 /** A paper matched to the researcher's idea. */

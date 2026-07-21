@@ -31,7 +31,7 @@ the SPACE framework (Forsgren et al., ACM Queue 2021); NASA-TLX.
 
 | Literature metric | Ours | Where | Status |
 | ----------------- | ---- | ----- | ------ |
-| Static complexity / quality | 9-metric cognitive-load matrix | FR-INST-4 (MP-03) | ✅ |
+| Static complexity / quality | 9 static code metrics | FR-INST-4 (MP-03) | ✅ |
 | Quality as time series | metrics over snapshot series | FR-INST-15 (MP-12) | ✅ |
 | Correctness / tests passing, time-to-first-green | task harness outcomes | FR-INST-16 (MP-12) | ✅ |
 | **LOC added/deleted (gross, net, over time)** | per-burst `charsAdded/charsDeleted/linesTouched` existed; session-level series **was a gap** | **FR-INST-17** ← snapshot diffs (`insertions`/`deletions` in the `workspace_snapshot` series) | ✅ MP-12 |

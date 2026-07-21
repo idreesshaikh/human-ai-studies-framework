@@ -40,6 +40,8 @@ export interface AuthConfig {
 interface ClerkUser {
   id: string;
   label: string;
+  email?: string;
+  imageUrl?: string;
 }
 
 /** The handful of Clerk instance members this module actually calls — typed
@@ -50,13 +52,67 @@ interface ClerkInstance {
     id: string;
     primaryEmailAddress?: { emailAddress?: string };
     username?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    imageUrl?: string | null;
   } | null;
   session?: { getToken(): Promise<string | null> };
-  load(opts?: { ui?: { ClerkUI: unknown } }): Promise<void>;
+  load(opts?: {
+    ui?: { ClerkUI: unknown };
+    appearance?: Record<string, unknown>;
+  }): Promise<void>;
   mountSignIn(el: HTMLDivElement, opts: Record<string, unknown>): void;
   addListener(cb: (payload: { session: unknown }) => void): void;
   signOut(): Promise<void>;
 }
+
+/** Themes the hosted Clerk widget to match the Study Desk design tokens
+ * (tokens.css) instead of Clerk's stock look. Clerk's components mount as
+ * plain DOM in this page (no iframe, no shadow root), so `var(--x)` values
+ * resolve live off `:root` / `[data-theme]` — the widget re-themes for free
+ * when the app's light/dark toggle flips `data-theme`, with no rebuild or
+ * remount needed. `header`/`headerTitle`/`headerSubtitle` are hidden since
+ * `SignInScreen` renders the matching heading itself, once, above every
+ * sign-in surface (Clerk widget or token-paste fallback alike). */
+const CLERK_APPEARANCE = {
+  variables: {
+    colorPrimary: "var(--accent)",
+    colorBackground: "var(--surface)",
+    colorInputBackground: "var(--bg)",
+    colorInputText: "var(--text)",
+    colorText: "var(--text)",
+    colorTextSecondary: "var(--text-muted)",
+    colorDanger: "var(--status-critical)",
+    colorSuccess: "var(--grounded)",
+    colorNeutral: "var(--text-muted)",
+    colorShimmer: "var(--border)",
+    borderRadius: "var(--radius-input)",
+    fontFamily: "var(--font-mono)",
+    fontFamilyButtons: "var(--font-mono)",
+    fontSize: "0.875rem",
+  },
+  elements: {
+    card: "border-none bg-transparent p-0 shadow-none w-full",
+    header: "hidden",
+    footer: "bg-transparent",
+    footerActionLink: "text-accent hover:text-accent",
+    socialButtonsBlockButton:
+      "border border-border-strong bg-surface text-text shadow-brutal rounded-input font-mono text-sm font-medium normal-case hover:bg-accent-soft",
+    socialButtonsBlockButtonText: "font-mono text-sm font-medium normal-case",
+    dividerLine: "bg-border",
+    dividerText: "font-mono text-xs uppercase tracking-wide text-text-muted",
+    formFieldLabel:
+      "font-mono text-xs font-medium uppercase tracking-wide text-text-muted",
+    formFieldInput:
+      "rounded-input border border-border-strong bg-bg font-mono text-sm text-text focus:border-accent",
+    formButtonPrimary:
+      "rounded-input border border-border-strong bg-accent text-accent-contrast shadow-brutal font-mono text-sm font-medium normal-case hover:bg-accent",
+    identityPreviewText: "font-mono text-sm text-text",
+    identityPreviewEditButton: "text-accent",
+    otpCodeFieldInput: "border-border-strong bg-bg font-mono text-text",
+    formResendCodeLink: "text-accent",
+  },
+} as const;
 
 /** The instance's Frontend API domain, encoded in the publishable key
  * (`pk_test_<base64 of "domain$">`). */
@@ -123,30 +179,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [clerkReady, setClerkReady] = useState(false);
   const [user, setUser] = useState<ClerkUser | null>(null);
   const clerkRef = useRef<ClerkInstance | null>(null);
+  // Clerk's addListener fires immediately with the *current* state on
+  // registration, not only on real changes — without this guard, a user who
+  // is already signed in (the common case: every reload) gets reloaded
+  // again the instant the listener registers, forever (the "kept
+  // refreshing" bug). Only reload on a genuine falsy->truthy transition.
+  const hadSessionRef = useRef(false);
 
   useEffect(() => onUnauthorized(() => setNeeded(true)), []);
 
   const initClerk = useCallback(async (publishableKey: string) => {
     try {
       const { clerk, ui } = await loadClerkScript(publishableKey);
-      await clerk.load(ui ? { ui: { ClerkUI: ui } } : undefined);
+      await clerk.load(
+        ui ? { ui: { ClerkUI: ui }, appearance: CLERK_APPEARANCE } : undefined,
+      );
       clerkRef.current = clerk;
       // Without the UI renderer, mountSignIn throws; keep the token-paste
       // fallback surface instead of an empty scrim.
       setClerkReady(ui !== undefined);
+      hadSessionRef.current = Boolean(clerk.user);
       if (clerk.user) {
+        const u = clerk.user;
+        const label =
+          u.firstName || u.lastName
+            ? [u.firstName, u.lastName].filter(Boolean).join(" ")
+            : (u.primaryEmailAddress?.emailAddress ?? u.username ?? u.id);
         setUser({
-          id: clerk.user.id,
-          label:
-            clerk.user.primaryEmailAddress?.emailAddress ?? clerk.user.username ?? clerk.user.id,
+          id: u.id,
+          label,
+          email: u.primaryEmailAddress?.emailAddress,
+          imageUrl: u.imageUrl ?? undefined,
         });
         setTokenProvider(async () => (await clerk.session?.getToken()) ?? null);
         setNeeded(false);
+        // Tell the session layer a live token now exists so it can re-fetch
+        // /me (its first call may have 401'd before Clerk finished loading).
+        window.dispatchEvent(new Event(CREDENTIAL_READY_EVENT));
       }
-      // The mounted sign-in UI completes in-page: once a session appears,
-      // reload so every view restarts signed in.
+      // The mounted sign-in UI completes in-page: once a *new* session
+      // appears (not the already-active one this listener is immediately
+      // handed on registration), reload so every view restarts signed in.
       clerk.addListener(({ session }) => {
-        if (session) location.reload();
+        if (session && !hadSessionRef.current) {
+          hadSessionRef.current = true;
+          location.reload();
+        } else if (!session) {
+          hadSessionRef.current = false;
+        }
       });
     } catch {
       // clerk-js unreachable (offline, blocked CDN…) — the token-paste
@@ -186,7 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [initClerk]);
 
   const mountSignIn = useCallback((el: HTMLDivElement) => {
-    clerkRef.current?.mountSignIn(el, {});
+    clerkRef.current?.mountSignIn(el, { appearance: CLERK_APPEARANCE });
   }, []);
 
   const signInWithToken = useCallback((token: string) => {
@@ -231,3 +311,9 @@ export function useAuth(): AuthState {
   if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
   return ctx;
 }
+
+/** Fired (on `window`) once a credential is live so the session layer can
+ * re-fetch `/me` with the new token. Without it, the session's first `/me`
+ * (fired before Clerk finishes loading) would 401 and leave `me` stale
+ * after a Clerk sign-in reload. */
+export const CREDENTIAL_READY_EVENT = "auth:credential-ready";

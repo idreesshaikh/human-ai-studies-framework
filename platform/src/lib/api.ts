@@ -23,6 +23,18 @@ export interface Me {
   displayName: string;
   mode: "none" | "token" | "clerk";
   memberships: Membership[];
+  /** Per-user persisted preferences (FR-OPS-7): theme, default assistant
+   * model, saved views. Empty until the identity saves one. */
+  preferences: Preferences;
+}
+
+/** The shape the server persists per identity (FR-OPS-7). The server only
+ * stores keys it recognises (`theme`, `defaultAssistantModel`, `savedViews`);
+ * the UI owns their semantics. */
+export interface Preferences {
+  theme?: "light" | "dark" | "system";
+  defaultAssistantModel?: string;
+  savedViews?: string[];
 }
 
 export interface ProjectSummary {
@@ -75,6 +87,22 @@ export interface EnrollmentTokenCaptureConfig {
   enabledInstruments: { name: string; enabled: boolean }[];
 }
 
+export interface ToggleCatalogEntry {
+  instrument: string;
+  path: string[];
+  label: string;
+  description: string;
+  grounding: { ref?: string; source?: string; unsourced?: boolean };
+  currentValue: unknown;
+}
+
+export interface ToggleResult {
+  applied: boolean;
+  requiresReapproval?: boolean;
+  amendmentId?: string;
+  error?: string;
+}
+
 export interface EnrollmentTokenView {
   id: string;
   participantId: string;
@@ -105,6 +133,18 @@ export interface Api {
   mintEnrollmentTokens(studyId: string, count: number, grain: "participant" | "session"): Promise<EnrollmentTokenView[]>;
   listEnrollmentTokens(studyId: string): Promise<EnrollmentTokenView[]>;
   revokeEnrollmentToken(studyId: string, tokenId: string): Promise<void>;
+  toggleCatalog(studyId: string): Promise<ToggleCatalogEntry[]>;
+  applyToggle(studyId: string, body: { instrument: string; path: string[]; value: unknown; rationale: string }): Promise<ToggleResult>;
+  /** Persist this identity's profile preferences (FR-OPS-7) and return the
+   * server's merged copy. */
+  updatePreferences(prefs: Partial<Preferences>): Promise<Preferences>;
+  /** The catalog of assistant model tiers the platform may pick
+   * (FR-OPS-7 profile default). Unauthenticated catalog, never the key. */
+  assistantModels(): Promise<{
+    configured: boolean;
+    models: string[];
+    defaultModel: string;
+  }>;
 }
 
 /** Raised by both backends so callers can show the server's plain-language
@@ -149,6 +189,21 @@ export function onUnauthorized(listener: () => void): () => void {
   return () => unauthorizedListeners.delete(listener);
 }
 
+/** The live bearer token (Clerk session JWT, or the pasted-token fallback)
+ * — exported so `studyApi.ts`/`conversationApi.ts`/`evolutionApi.ts` share
+ * the exact same token source as this module instead of each re-reading
+ * `localStorage` directly, which never sees a Clerk-issued token at all. */
+export async function getAuthToken(): Promise<string | null> {
+  return tokenProvider();
+}
+
+/** Fires the same "show the sign-in surface" signal `HttpBackend` fires on
+ * its own 401s — shared so every API client's 401 converges on one global
+ * gate instead of each page rendering the raw error text itself. */
+export function notifyUnauthorized(): void {
+  unauthorizedListeners.forEach((l) => l());
+}
+
 // --------------------------------------------------------------- HTTP backend
 
 class HttpBackend implements Api {
@@ -183,7 +238,17 @@ class HttpBackend implements Api {
       if (res.status === 401) unauthorizedListeners.forEach((l) => l());
       throw new ApiError(res.status, detail);
     }
-    return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+    if (res.status === 204) return undefined as T;
+    try {
+      return (await res.json()) as T;
+    } catch {
+      // A 200 that isn't real JSON (e.g. a dev server's SPA-fallback
+      // index.html, or a misconfigured proxy) means there's no real API
+      // behind this origin — the same offline posture as an unreachable
+      // server, so it degrades the same way instead of throwing a raw
+      // parse error at the UI.
+      throw new OfflineError();
+    }
   }
 
   me = () => this.call<Me>("GET", "/me");
@@ -215,6 +280,21 @@ class HttpBackend implements Api {
     this.call<EnrollmentTokenView[]>("GET", `/studies/${studyId}/enrollment/tokens`);
   revokeEnrollmentToken = (studyId: string, tokenId: string) =>
     this.call<void>("DELETE", `/studies/${studyId}/enrollment/tokens/${tokenId}`);
+  toggleCatalog = (studyId: string) =>
+    this.call<ToggleCatalogEntry[]>("GET", `/studies/${studyId}/enrollment/toggles/catalog`);
+  applyToggle = (studyId: string, body: { instrument: string; path: string[]; value: unknown; rationale: string }) =>
+    this.call<ToggleResult>("POST", `/studies/${studyId}/enrollment/toggles`, body);
+  updatePreferences = (prefs: Partial<Preferences>) =>
+    this.call<{ sub: string; preferences: Preferences }>(
+      "PUT",
+      "/me/preferences",
+      { preferences: prefs },
+    ).then((r) => r.preferences);
+  assistantModels = () =>
+    this.call<{ configured: boolean; models: string[]; defaultModel: string }>(
+      "GET",
+      "/assistant/models",
+    );
 }
 
 // ---------------------------------------------------------- in-memory backend
@@ -236,8 +316,10 @@ function slugify(name: string): string {
 export class InMemoryBackend implements Api {
   private projects = new Map<string, FakeProject>();
   private enrollments = new Map<string, EnrollmentTokenView[]>();
+  private protocols = new Map<string, Record<string, unknown>>();
   private sub = "you";
   private seq = 0;
+  private prefs: Preferences = {};
 
   constructor() {
     this.seed();
@@ -278,6 +360,19 @@ export class InMemoryBackend implements Api {
       members: [{ identitySub: "you", role: "viewer" }],
       invitations: [],
     });
+
+    // Seed protocol shapes so toggleCatalog/applyToggle work offline.
+    const demoInstruments: Record<string, unknown> = {
+      cognitiveOverlay: {
+        stuck: { enabled: true, thresholdSeconds: 90, cooldownMinutes: 5, languages: ["python"] },
+        fatigue: { intervalMinutes: 15, waitForPauseSeconds: 4, jitterPercent: 20, quietTailMinutes: 5 },
+        session: { durationMinutes: 45 },
+        ideHealth: { enabled: false, debounceSeconds: 5 },
+      },
+    };
+    for (const sid of ["sample-study-2026", "demo-study"]) {
+      this.protocols.set(sid, { instruments: structuredClone(demoInstruments) });
+    }
   }
 
   private roleOn(slug: string): Role | null {
@@ -297,7 +392,7 @@ export class InMemoryBackend implements Api {
       const m = p.members.find((x) => x.identitySub === this.sub);
       if (m) memberships.push({ projectSlug: p.slug, projectName: p.name, role: m.role });
     }
-    return { sub: this.sub, displayName: "You", mode: "none", memberships };
+    return { sub: this.sub, displayName: "You", mode: "none", memberships, preferences: { ...this.prefs } };
   }
 
   async listProjects(): Promise<ProjectSummary[]> {
@@ -448,6 +543,60 @@ export class InMemoryBackend implements Api {
     const row = rows.find((t,) => t.id === tokenId);
     if (!row) throw new ApiError(404, "enrollment token not found");
     row.status = "revoked";
+  }
+
+  async toggleCatalog(studyId: string): Promise<ToggleCatalogEntry[]> {
+    const protocol = this.protocols.get(studyId) as Record<string, unknown> | undefined;
+    if (!protocol) return [];
+    const instruments = (protocol.instruments ?? {}) as Record<string, unknown>;
+    const entries: ToggleCatalogEntry[] = [];
+    const addEntry = (instrument: string, path: string[], label: string, desc: string, grounding: ToggleCatalogEntry["grounding"]) => {
+      let value: unknown = instruments[instrument];
+      if (typeof value === "object" && value !== null) {
+        for (const key of path) {
+          if (typeof value === "object" && value !== null) value = (value as Record<string, unknown>)[key];
+          else { value = undefined; break; }
+        }
+      }
+      entries.push({ instrument, path, label, description: desc, grounding, currentValue: value });
+    };
+    addEntry("cognitiveOverlay", ["stuck", "enabled"], "Stuck detection", "Detects dwell/scroll-thrash", { ref: "FR-INST-2", source: "srs" });
+    addEntry("cognitiveOverlay", ["ideHealth", "enabled"], "IDE health stream", "Captures diagnostic counts", { ref: "FR-INST-18", source: "srs" });
+    return entries;
+  }
+
+  async applyToggle(studyId: string, body: { instrument: string; path: string[]; value: unknown; rationale: string }): Promise<ToggleResult> {
+    const protocol = this.protocols.get(studyId) as Record<string, unknown> | undefined;
+    if (!protocol) throw new ApiError(404, "study not found");
+    const instruments = (protocol.instruments ?? {}) as Record<string, unknown>;
+    let node: Record<string, unknown> | undefined = instruments[body.instrument] as Record<string, unknown> | undefined;
+    if (!node) throw new ApiError(400, "instrument not found");
+    for (let i = 0; i < body.path.length - 1; i++) {
+      const n = node[body.path[i]];
+      if (typeof n !== "object" || n === null) throw new ApiError(400, "invalid path");
+      node = n as Record<string, unknown>;
+    }
+    const lastKey = body.path[body.path.length - 1];
+    node[lastKey] = body.value;
+    const relevant = body.path.includes("enabled") || body.path[body.path.length - 1] === "enabled";
+    return { applied: true, requiresReapproval: relevant, amendmentId: relevant ? "amend-demo" : undefined };
+  }
+
+  async updatePreferences(prefs: Partial<Preferences>): Promise<Preferences> {
+    this.prefs = { ...this.prefs, ...prefs };
+    return { ...this.prefs };
+  }
+
+  async assistantModels(): Promise<{
+    configured: boolean;
+    models: string[];
+    defaultModel: string;
+  }> {
+    return {
+      configured: true,
+      models: ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest"],
+      defaultModel: "mistral-small-latest",
+    };
   }
 }
 

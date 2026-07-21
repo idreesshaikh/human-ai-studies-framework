@@ -10,12 +10,12 @@ import {
   UserPlus,
 } from "lucide-react";
 import { ConversationView } from "@/components/conversation/ConversationView";
-import { AmendmentBanner } from "@/components/conversation/AmendmentBanner";
-import { AmendmentHistory } from "@/components/conversation/AmendmentHistory";
 import { LibraryTab } from "@/components/library/LibraryTab";
 import { DataTab } from "@/components/charts/DataTab";
 import { LifecycleTab } from "@/components/charts/LifecycleTab";
 import { EnrollmentPanel } from "@/components/enrollment/EnrollmentPanel";
+import { AmendmentBanner } from "@/components/conversation/AmendmentBanner";
+import { AmendmentHistory } from "@/components/conversation/AmendmentHistory";
 import { Button } from "@/components/ui/button";
 import { evolutionStore, useEvolution } from "@/lib/evolutionStub";
 import { useSession } from "@/lib/session";
@@ -51,6 +51,13 @@ export function StudyHome() {
   // The seeded evolution state stands in for its study only when the ids line
   // up; a different study is pre-ethics and shows no amendment chrome.
   const evolved = amendmentState.studyId === id ? amendmentState : null;
+  const shownState = evolved ?? {
+    studyId: id,
+    currentVersion: 1,
+    ethicsApprovedAt: "",
+    pendingReapproval: "",
+    amendments: [],
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -65,7 +72,7 @@ export function StudyHome() {
         <span className="font-medium text-text">{id}</span>
 
         <nav
-          className="flex items-center gap-1 sm:ml-4"
+          className="flex items-center gap-0.5 sm:gap-1 sm:ml-4"
           aria-label="Study sections"
           data-agent="study-tabs"
         >
@@ -76,54 +83,47 @@ export function StudyHome() {
               onClick={() => setTab(t.id)}
               aria-current={tab === t.id ? "page" : undefined}
               className={cn(
-                "flex items-center gap-1.5 rounded-input px-2.5 py-1 text-sm transition-colors duration-fast",
+                "flex items-center gap-1.5 rounded-input px-2 sm:px-2.5 py-1 text-sm transition-colors duration-fast",
                 tab === t.id
                   ? "bg-accent-soft text-accent"
                   : "text-text-muted hover:bg-accent-soft hover:text-text")}
             >
               <t.icon className="size-4" aria-hidden />
-              {t.label}
+              <span className="hidden sm:inline">{t.label}</span>
             </button>
           ))}
         </nav>
 
-        {evolved?.ethicsApprovedAt && tab === "conversation" && (
+        {shownState.ethicsApprovedAt && (
           <Button
-            size="sm"
             variant="ghost"
+            size="sm"
+            className="ml-auto"
             data-agent="amendment-history-toggle"
-            className="ml-auto text-xs text-text-muted"
             onClick={() => setShowHistory((v) => !v)}
-            aria-expanded={showHistory}
           >
-            <History className="size-3" aria-hidden />
-            {showHistory ? "Hide history" : `History · v${evolved.currentVersion}`}
+            <History className="size-4" aria-hidden />
+            {showHistory ? "Hide history" : "History"}
           </Button>
         )}
       </div>
 
-      {evolved && (
-        <AmendmentBanner
-          state={evolved}
-          onRecordReapproval={() => evolutionStore.recordReapproval()}
-        />
+      <AmendmentBanner
+        state={shownState}
+        onRecordReapproval={() => evolutionStore.recordReapproval()}
+      />
+
+      {showHistory && (
+        <div className="border-b border-border bg-surface-raised p-4">
+          <AmendmentHistory amendments={shownState.amendments} />
+        </div>
       )}
 
       <div className="flex min-h-0 flex-1">
         {tab === "conversation" && (
-          <>
-            <div className={cn("min-h-0 flex-1", showHistory && "hidden lg:block")}>
-              <ConversationView studyId={id} />
-            </div>
-            {showHistory && evolved && (
-              <aside className="w-full overflow-auto border-l border-border bg-bg p-4 lg:w-96">
-                <h2 className="mb-3 font-display text-lg text-text">
-                  Amendment history
-                </h2>
-                <AmendmentHistory amendments={evolved.amendments} />
-              </aside>
-            )}
-          </>
+          <div className="min-h-0 flex-1">
+            <ConversationView studyId={id} />
+          </div>
         )}
         {tab === "library" && <LibraryTab studyId={id} />}
         {tab === "data" && <DataTab studyId={id} />}

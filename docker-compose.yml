@@ -1,19 +1,47 @@
-# Production posture from day one (NFR-7/9): `docker compose up` brings up
-# the ingestion middleware on :8000 with the pilot protocol loaded and seeds
-# it with the sample session so every downstream view has data.
+# Local dev environment mirroring Railway production (NFR-7/9).
 #
-#   docker compose up                     # middleware + demo seed
-#   docker compose --profile sonar up     # ... plus SonarQube for the
-#                                         # cognitive-complexity metric (D5)
+# PostgreSQL is the default — the same backend Railway uses. SQLite is no
+# longer the primary path; this compose file always boots with Postgres so
+# you reproduce the Railway environment locally before deploying.
+#
+#   docker compose up                        # middleware + postgres + demo seed
+#   docker compose --profile sonar up        # ... plus SonarQube for cognitive
+#                                            # complexity metric (FR-INST-4, D5)
+#   docker compose up -d                     # detached
+#
+# All data lives in named volumes — they persist across restarts.
+# Wipe with: docker compose down -v
+
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: middleware
+      POSTGRES_USER: middleware
+      POSTGRES_PASSWORD: middleware
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U middleware"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   middleware:
     build:
       context: .
       dockerfile: middleware/Dockerfile
     ports:
       - "8000:8000"
+    environment:
+      DATABASE_URL: postgres://middleware:middleware@postgres:5432/middleware
     volumes:
       - study-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   demo-seed:
     build:
@@ -37,4 +65,5 @@ services:
 
 volumes:
   study-data:
+  pg-data:
   sonar-data:

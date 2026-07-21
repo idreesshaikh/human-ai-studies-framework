@@ -345,6 +345,42 @@ def test_make_client_validates_the_model_tier(monkeypatch):
     assert assistant.make_client() is None
 
 
+def test_make_client_prefers_the_openai_compatible_override(monkeypatch):
+    # Both configured -> the override wins, regardless of the requested
+    # Mistral tier (FR-CONV-1.4: "any better model's key just works").
+    monkeypatch.setenv("MISTRAL_API_KEY", "m")
+    monkeypatch.setenv("LLM_BASE_URL", "https://api.openai.com/v1")
+    monkeypatch.setenv("LLM_API_KEY", "sk-test")
+    monkeypatch.setenv("LLM_MODEL", "gpt-4o")
+    client = assistant.make_client("mistral-large-latest")
+    assert isinstance(client, assistant.OpenAICompatibleProvider)
+    assert client.model == "gpt-4o"
+    assert client.base_url == "https://api.openai.com/v1/chat/completions"
+    assert assistant.configured() is True
+
+
+def test_make_client_openai_compatible_defaults_model_when_unset(monkeypatch):
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_BASE_URL", "https://my-gateway.example/v1/")
+    monkeypatch.setenv("LLM_API_KEY", "sk-test")
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    client = assistant.make_client()
+    assert client.model == assistant.DEFAULT_OPENAI_COMPATIBLE_MODEL
+    # A trailing slash on the base URL doesn't produce a double slash.
+    assert client.base_url == "https://my-gateway.example/v1/chat/completions"
+
+
+def test_make_client_falls_back_to_mistral_without_the_override(monkeypatch):
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("MISTRAL_API_KEY", "m")
+    client = assistant.make_client()
+    assert isinstance(client, assistant.MistralProvider)
+    assert client.model == assistant.MISTRAL_MODEL
+    monkeypatch.delenv("MISTRAL_API_KEY")
+    assert assistant.configured() is False
+
+
 def test_assistant_endpoint_503_without_api_key(client, monkeypatch):
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     res = client.post("/studies/pilot-2026/assistant", json={"question": "hi"})

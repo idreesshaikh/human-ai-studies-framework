@@ -43,7 +43,7 @@ export function ProjectSwitcher({ memberships }: { memberships: Membership[] }) 
       >
         <FolderOpen className="size-3.5" aria-hidden />
         Switch project
-        <kbd className="rounded border border-border px-1 text-[0.65rem]">⌘K</kbd>
+        <kbd className="hidden sm:inline rounded border border-border px-1 text-[0.65rem]">⌘K</kbd>
       </button>
       <CommandDialog open={open} onOpenChange={setOpen} label="Switch project">
         <CommandInput placeholder="Find a project…" />

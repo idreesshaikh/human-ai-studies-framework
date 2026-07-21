@@ -1,13 +1,13 @@
-"""Derive Cognitive Overlay VS Code settings from a study protocol.
+"""Derive TERN VS Code settings from a study protocol.
 
-Proves the protocol drives the instruments: the flat ``cognitiveOverlay.*``
+Proves the protocol drives the instruments: the flat ``tern.*``
 settings a facilitator pastes into VS Code come from the protocol alone -
 no side-channel configuration.
 """
 
 from protocol.errors import ProtocolError
 
-_PREFIX = "cognitiveOverlay"
+_PREFIX = "tern"
 
 #: Claude Code hook events the agent leg listens on, and why (D13/FR-AGENT-2):
 #: SessionStart/Stop/SessionEnd trigger a re-normalize-and-POST of the
@@ -42,19 +42,19 @@ def _flatten(prefix: str, value: object, out: dict) -> None:
 def derive_overlay_settings(
     protocol: dict, participant_id: str, condition: str
 ) -> dict:
-    """Return the flat ``cognitiveOverlay.*`` settings for one session.
+    """Return the flat ``tern.*`` settings for one session.
 
     Everything is derived from the protocol: the instrument config under
-    ``instruments.cognitiveOverlay`` plus the given participant and
+    ``instruments.tern`` plus the given participant and
     condition (the join keys every event carries). Raises
     :class:`ProtocolError` if ``condition`` is not one of the protocol's
     conditions, or if this is an agent-participant study (protocolVersion 3,
-    FR-PROT-9) with no cognitiveOverlay — an agent study has no human in an
+    FR-PROT-9) with no tern — an agent study has no human in an
     IDE, so ``derive agent-hooks`` is the harness-oriented target instead.
     """
     if _PREFIX not in protocol.get("instruments", {}):
         raise ProtocolError(
-            "this protocol declares no cognitiveOverlay instrument — it is an "
+            "this protocol declares no tern instrument — it is an "
             "agent-participant study (FR-PROT-9). Use `derive agent-hooks` for "
             "its harness-oriented config; there is no overlay to derive."
         )

@@ -1,19 +1,26 @@
 import { useEffect, useRef, useState } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Moon, Sun, Monitor } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth.tsx";
+import { getTheme, nextTheme, applyTheme, type Theme } from "@/lib/theme";
+
+const THEME_ICON = { system: Monitor, light: Sun, dark: Moon };
 
 /* The sign-in gate for the multi-researcher shell (FR-OPS-5). `Shell`
  * (App.tsx) renders this instead of the project chrome whenever no
  * credential is present. Clerk mode mounts the hosted sign-in UI once its
- * script has loaded; every mode also accepts a pasted session token, so a
- * broken CDN or a self-hosted `token` deployment never dead-ends. */
+ * script has loaded, themed to the app's own tokens (see auth.tsx's
+ * CLERK_APPEARANCE) so it never reads as a foreign, unstyled widget; every
+ * mode also accepts a pasted session token, so a broken CDN or a
+ * self-hosted `token` deployment never dead-ends. */
 export function SignInScreen() {
   const { config, clerkReady, mountSignIn } = useAuth();
   const mountRef = useRef<HTMLDivElement>(null);
   const showClerkWidget = config.mode === "clerk" && clerkReady;
+  const [theme, setTheme] = useState<Theme>(() => getTheme());
+  const ThemeIcon = THEME_ICON[theme];
 
   useEffect(() => {
     if (showClerkWidget && mountRef.current) mountSignIn(mountRef.current);
@@ -22,15 +29,41 @@ export function SignInScreen() {
   return (
     <div
       data-agent="sign-in"
-      className="mx-auto flex min-h-full max-w-md flex-col justify-center p-6"
+      className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center p-6"
     >
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute right-4 top-4"
+        onClick={() => {
+          const next = nextTheme(theme);
+          setTheme(next);
+          applyTheme(next);
+        }}
+        aria-label={`Theme: ${theme}`}
+      >
+        <ThemeIcon aria-hidden />
+      </Button>
+
+      <div className="mb-6 flex flex-col items-center gap-2 text-center">
+        <span
+          aria-hidden
+          className="inline-grid size-9 shrink-0 place-items-center rounded-input border border-border-strong bg-accent font-serif text-lg font-medium text-accent-contrast shadow-brutal-sm"
+        >
+          S
+        </span>
+        <span className="font-serif text-xl font-medium tracking-tight text-text">
+          The Study Desk
+        </span>
+      </div>
+
       <Card>
         <CardContent className="flex flex-col gap-4 p-8">
           <div>
             <h1 className="font-serif text-2xl font-medium text-text">Sign in</h1>
             <p className="text-sm text-text-muted">
               {showClerkWidget
-                ? "Sign in to see your projects and studies."
+                ? "See your projects and pick up a study where you left off."
                 : "Paste the session token this instance issued."}
             </p>
           </div>

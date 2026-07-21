@@ -1,4 +1,4 @@
-# Project Guide - Cognitive Overlay
+# Project Guide - TERN
 
 A deep reference for developing, testing, and maintaining this VS Code
 extension. For a participant/facilitator-facing overview, see
@@ -8,7 +8,7 @@ extension. For a participant/facilitator-facing overview, see
 
 ## 1. What this is
 
-Cognitive Overlay hosts the **cognitive / self-report leg** and the
+TERN hosts the **cognitive / self-report leg** and the
 **behavioral telemetry leg** of the developer-study framework (decision D12:
 one extension, one sink pipeline). It runs inside a participant's editor
 while they complete a task (with or without AI assistance) and captures:
@@ -46,8 +46,19 @@ src/
 │  ├─ recorder.ts        Stamps events with session meta + sequence numbers
 │  ├─ behavior.ts        Edit-burst aggregator + origin classifier (MP-05)
 │  ├─ idle.ts            Active/idle rolling-window state machine (MP-05)
+│  ├─ attention.ts       Dwell-region + focus attention tracking (pure logic)
 │  ├─ captureFilter.ts   Language / workspace-internal capture predicate
-│  └─ debounce.ts        First+last and trailing debouncers for hot signals
+│  ├─ debounce.ts        First+last and trailing debouncers for hot signals
+│  ├─ connectionString.ts  Pairing connection-string codec (MP-19)
+│  ├─ captureConfig.ts   Capture-config apply + wall-#6 boundary guard (MP-19/20)
+│  ├─ preflight.ts       Pre-session "will capture" summary (MP-19)
+│  ├─ consentGate.ts     Consent-acknowledgment state machine (MP-19)
+│  ├─ ideHealth.ts       Debounced IDE diagnostics/health counter (MP-20, FR-INST-18)
+│  ├─ pairing.ts         Pairing state-machine reducer (MP-19/20; not yet wired
+│  │                     into src/vscode/pairing.ts's imperative redeem flow —
+│  │                     see that file's own note)
+│  └─ comprehensionProbe.ts  Accepted-chunk → probe → answered/expired
+│                        state machine (MP-21, FR-INST-19)
 └─ vscode/               ADAPTER - everything VS Code-specific
    ├─ signals.ts         Native events → EditorSignal (stuck detection feed)
    ├─ behavior.ts        Behavioral telemetry sensors + wrapper commands
@@ -56,6 +67,10 @@ src/
    ├─ endSurvey.ts       Glassmorphic debrief webview
    ├─ statusBar.ts       Countdown + session menu
    ├─ sinks.ts           JSONL file + batching HTTP sink
+   ├─ pairing.ts         Connect-to-study command + `vscode://…/pair` URI
+   │                     handler; the redeem/consent/apply-config flow
+   ├─ ideHealth.ts        VS Code diagnostics API → core/ideHealth.ts adapter
+   ├─ comprehensionPrompt.ts  Inline CodeLens rendering of a pending probe
    └─ extension.ts       Activation, commands, and wiring
 ```
 
@@ -113,7 +128,7 @@ npm install
 
 ### Run the extension
 
-Press **F5** in VS Code (or run the _"Run Cognitive Overlay Extension"_ launch
+Press **F5** in VS Code (or run the _"Run TERN Extension"_ launch
 config). This compiles via the `npm: compile` pre-launch task and opens an
 Extension Development Host with the extension loaded. In that window, click
 **`Study: idle`** in the status bar to start a session.
@@ -154,8 +169,8 @@ Because the source uses extensionless CommonJS imports, tests are compiled to
 
 ## 5. Configuration reference
 
-All settings live under the `cognitiveOverlay.*` namespace (VS Code Settings →
-search "Cognitive Overlay"). Defined in `package.json` under
+All settings live under the `tern.*` namespace (VS Code Settings →
+search "TERN"). Defined in `package.json` under
 `contributes.configuration`.
 
 | Setting                           | Default       | Meaning                                                                                         |

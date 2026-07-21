@@ -12,8 +12,10 @@
 # AMENDED: v1.1 (2026-07-12, MP-09 item 3) - analysisPlan RQ-P3 gains
 # `meyer-fragmentation` (second replicated-paper recipe, FR-ANA-5) and the
 # literature list gains its source; no instrument or session changes.
+# AMENDED: v1.2 (2026-07-21) - kite -> tern rename: instruments.kite becomes
+# instruments.tern, protocolVersion bumps 1 -> 4 to match; no other change.
 
-protocolVersion: 1
+protocolVersion: 4
 
 study:
   id: pilot-2026
@@ -68,9 +70,9 @@ session:
     sessions AI tooling is disabled.
 
 instruments:
-  # Nested keys mirror the real cognitiveOverlay.* VS Code settings -
+  # Nested keys mirror the real tern.* VS Code settings -
   # `protocol derive overlay-settings` flattens this subtree verbatim.
-  cognitiveOverlay:
+  tern:
     session:
       durationMinutes: 45
     fatigue:
@@ -85,6 +87,16 @@ instruments:
       languages: [python]
     output:
       httpEndpoint: "http://127.0.0.1:8000/ingest/events"
+    ideHealth:
+      enabled: false
+      debounceSeconds: 10
+    comprehensionProbe:
+      enabled: true
+      cadence: every-chunk
+      sampleRate: 1
+      probeTypes:
+        - predict-output
+        - locate-change
   metrics:
     metricSet: cognitive-load-9
   # Agent leg (MP-12 consumes this; declared before the freeze so the

@@ -108,7 +108,7 @@ measures:
     caution: Self-report may diverge from objective measures
 
 instruments:
-  cognitiveOverlay:
+  tern:
     session:
       durationMinutes: "{{ sessionMinutes }}"
     fatigue:
@@ -151,7 +151,7 @@ threats:
     cite: guidelines-empirical-llm-se
 
 protocolSkeleton:
-  protocolVersion: 1
+  protocolVersion: 4
   
   study:
     id: "{{ studyId }}"
@@ -182,7 +182,7 @@ protocolSkeleton:
       {{ taskDescription }}
   
   instruments:
-    cognitiveOverlay:
+    tern:
       session:
         durationMinutes: "{{ sessionMinutes }}"
       fatigue:

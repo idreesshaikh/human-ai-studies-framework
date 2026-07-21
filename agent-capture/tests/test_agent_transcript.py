@@ -1,10 +1,13 @@
 """Transcript import + hook normalization + reconciliation (FR-AGENT-2)."""
 
 import json
+from pathlib import Path
 
 from agent_capture.events import SOURCE_AGENT, Keys
 from agent_capture.hook import run as hook_run
 from agent_capture.transcript import normalize_transcript
+
+_FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def test_normalizes_turns_tools_and_meta(transcript_path, keys):
@@ -130,6 +133,109 @@ def test_hook_no_transcript_is_a_silent_noop():
 def test_missing_join_keys_default_empty(transcript_path):
     events = normalize_transcript(transcript_path, Keys(), "metadata-only")
     assert events[0]["participantId"] == ""
+
+
+# ---------------------------------------------------------------------------
+# Slice A — Generic / Copilot transcript adapter (FR-AGENT-4)
+# ---------------------------------------------------------------------------
+
+
+def test_generic_json_format_produces_same_event_contract(keys):
+    path = _FIXTURES / "generic-transcript.jsonl"
+    events = normalize_transcript(path, keys, "metadata-only", format="generic-json")
+    assert len(events) >= 3
+    assert events[0]["type"] == "agent_session_meta"
+    assert events[0]["payload"]["agentTool"] == "generic"
+    types = [e["type"] for e in events]
+    assert "agent_turn" in types
+    assert "tool_call" in types
+    for e in events:
+        assert e["sessionId"] == "S1"
+        assert e["participantId"] == "P01"
+        assert e["source"] == SOURCE_AGENT
+        assert e["v"] == 4
+    assert [e["seq"] for e in events] == list(range(len(events)))
+
+
+def test_generic_json_metadata_only_strips_content(keys):
+    path = _FIXTURES / "generic-transcript.jsonl"
+    events = normalize_transcript(path, keys, "metadata-only", format="generic-json")
+    blob = json.dumps(events)
+    assert "fibonacci" not in blob
+    assert all("content" not in e["payload"] for e in events)
+
+
+def test_generic_json_redacted_keeps_shape(keys):
+    path = _FIXTURES / "generic-transcript.jsonl"
+    events = normalize_transcript(path, keys, "redacted", format="generic-json")
+    turns = [e for e in events if e["type"] == "agent_turn"]
+    assert any("content" in t["payload"] for t in turns)
+    blob = json.dumps(events)
+    assert "*" in blob
+
+
+def test_generic_json_produces_dense_seq(keys):
+    path = _FIXTURES / "generic-transcript.jsonl"
+    events = normalize_transcript(path, keys, "metadata-only", format="generic-json")
+    assert [e["seq"] for e in events] == list(range(len(events)))
+
+
+def test_format_auto_detect_generic_json(keys):
+    path = _FIXTURES / "generic-transcript.jsonl"
+    events = normalize_transcript(path, keys, "metadata-only", format=None)
+    assert events[0]["payload"]["agentTool"] == "generic"
+
+
+def test_format_auto_detect_claude_code(transcript_path, keys):
+    events = normalize_transcript(transcript_path, keys, "metadata-only", format=None)
+    assert events[0]["payload"]["agentTool"] == "claude-code"
+
+
+def test_generic_json_tool_call_has_target_hash(keys):
+    path = _FIXTURES / "generic-transcript.jsonl"
+    events = normalize_transcript(path, keys, "metadata-only", format="generic-json")
+    tools = [e for e in events if e["type"] == "tool_call"]
+    assert len(tools) >= 1
+    for t in tools:
+        assert "targetHash" in t["payload"]
+        assert "fib.py" not in json.dumps(t["payload"])
+
+
+def test_generic_json_unknown_format_falls_back_to_claude_code(keys):
+    path = _FIXTURES / "generic-transcript.jsonl"
+    events = normalize_transcript(path, keys, "metadata-only", format="bogus")
+    # bogus format should be treated as claude-code by the dispatch
+    assert len(events) > 0
+
+
+def test_generic_json_code_blocks_captured_as_shapes(keys):
+    path = _FIXTURES / "generic-transcript.jsonl"
+    events = normalize_transcript(path, keys, "redacted", format="generic-json")
+    assistant = [
+        e
+        for e in events
+        if e["type"] == "agent_turn" and e["payload"].get("role") == "assistant"
+    ]
+    assert len(assistant) >= 1
+    blocks = assistant[0]["payload"].get("codeBlocks", [])
+    assert len(blocks) >= 1
+    assert blocks[0]["language"] == "python"
+    assert blocks[0]["lines"] >= 1
+
+
+def test_generic_json_and_claude_code_both_respect_policy_table_driven(
+    transcript_path, keys
+):
+    """Table-driven test: every format × policy combination produces the same
+    event contract (FR-AGENT-4)."""
+    generic_path = _FIXTURES / "generic-transcript.jsonl"
+    for fmt, path in (("claude-code", transcript_path), ("generic-json", generic_path)):
+        for policy in ("metadata-only", "redacted", "full"):
+            events = normalize_transcript(path, keys, policy, format=fmt)
+            assert events[0]["type"] == "agent_session_meta"
+            assert events[0]["v"] == 4
+            assert all(e["source"] == SOURCE_AGENT for e in events)
+            assert [e["seq"] for e in events] == list(range(len(events)))
 
 
 def test_middleware_down_then_import_recovers(transcript_path, keys, middleware):

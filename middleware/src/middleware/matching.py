@@ -160,7 +160,7 @@ def rerank_with_llm(query: str, candidates: list[dict]) -> list[dict] | None:
     )
     try:
         res = client.post(
-            "https://api.mistral.ai/v1/chat/completions",
+            client.base_url,
             {
                 "model": client.model,
                 "messages": [{"role": "user", "content": prompt}],

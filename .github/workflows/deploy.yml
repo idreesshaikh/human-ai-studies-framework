@@ -2,12 +2,14 @@
 #
 # Runs only after the CI workflow finishes green on main: builds the
 # container image (middleware + platform, one process - NFR-7), pushes it
-# to GHCR, then triggers the Render deploy hook so the demo instance
-# rebuilds. The demo never runs a red build.
+# to GHCR, then triggers a Railway deployment via the Railway API so the
+# demo instance rebuilds. The demo never runs a red build.
 #
 # Secrets used (all optional - steps skip cleanly when unset, so the
 # pipeline works before any account is provisioned; see RUNBOOK §9):
-#   RENDER_DEPLOY_HOOK_URL - Render service's deploy-hook URL
+#   RAILWAY_API_TOKEN      - Railway API token (account settings → tokens)
+#   RAILWAY_SERVICE_ID     - the Railway service ID for the demo deployment
+#   RAILWAY_ENVIRONMENT_ID - the Railway environment ID (e.g. production)
 
 name: Deploy demo
 
@@ -27,7 +29,7 @@ permissions:
 
 jobs:
   image:
-    name: Build image → GHCR → demo
+    name: Build image → GHCR → Railway demo
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -46,13 +48,29 @@ jobs:
           docker push "$IMAGE:main"
           docker push "$IMAGE:sha-$SHA"
 
-      - name: Trigger Render demo deploy
+      - name: Trigger Railway demo deploy
         env:
-          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
         run: |
-          if [ -n "$HOOK" ]; then
-            curl -fsS -X POST "$HOOK" -o /dev/null
-            echo "Render deploy triggered."
+          if [ -z "$RAILWAY_API_TOKEN" ] || [ -z "$RAILWAY_SERVICE_ID" ]; then
+            echo "RAILWAY_API_TOKEN or RAILWAY_SERVICE_ID not set - skipping Railway deploy (RUNBOOK §9)."
+            exit 0
+          fi
+          ENV_PART=""
+          if [ -n "$RAILWAY_ENVIRONMENT_ID" ]; then
+            ENV_PART=", environmentId: \"$RAILWAY_ENVIRONMENT_ID\""
+          fi
+          RESPONSE=$(curl -fsS -X POST https://backboard.railway.app/graphql/v2 \
+            -H "Authorization: Bearer $RAILWAY_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"mutation { serviceInstanceRedeploy(serviceId: \\\"$RAILWAY_SERVICE_ID\\\"$ENV_PART) }\"}" \
+            -w "\n%{http_code}")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Railway deploy triggered successfully."
           else
-            echo "RENDER_DEPLOY_HOOK_URL not set - skipping demo deploy (RUNBOOK §9)."
+            echo "Railway deploy trigger failed (HTTP $HTTP_CODE). Check token and service ID."
+            exit 1
           fi

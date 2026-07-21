@@ -1,17 +1,67 @@
-# Registry templates (a seed set, meant to grow)
+# Registry templates (13 so far, meant to keep growing)
 
 A **template** encodes one *published* study design (its structure, its
 prescribed statistics, its required instruments) so a researcher can
 instantiate it into a valid protocol with zero hand edits. The registry
 is designed as an **expandable library**: the published literature holds
 hundreds of distinct designs, and each becomes a template as its recipes
-and instruments come online. What lives here now is a **thin seed** that
-proves the mechanism, not the finished library:
+and instruments come online. Thirteen templates ship today, in four layers:
 
+**The original two seeds** (Phase 15 — proved the mechanism itself):
 - **metr-rct-v1** — the METR early-2025 developer-productivity RCT
   (arxiv:2507.09089): within-subjects, objective outcomes + perception.
 - **ziegler-telemetry-survey-v1** — the Ziegler acceptance-rate
-  telemetry-plus-survey design.
+  telemetry-plus-survey design (arxiv:2205.06537).
+
+**Wave 1 of the design-archetype library** (Phase 22,
+`docs/roadmap/22-design-recommender.md`, FR-TPL-7 — the ~8-archetype
+spread the design recommender's demo needs so a researcher's idea usually
+maps to a real archetype rather than a bespoke design):
+- **two-group-rct-v1** — two-group between-subjects RCT.
+- **within-subjects-crossover-v1** — within-subjects crossover
+  (arxiv:2507.09089).
+- **paired-pre-post-v1** — paired pre/post intervention.
+- **multi-arm-rct-v1** — multi-arm RCT.
+- **factorial-2x2-v1** — 2×2 factorial design.
+- **single-group-repeated-measures-v1** — single-group repeated measures
+  (3+ time points).
+- **two-proportion-mcnemar-v1** — two-proportion comparison.
+- **single-arm-benchmark-v1** — single-arm benchmark evaluation.
+
+**Promoted from `templates/drafts/`** (2026-07-21 — its blocking recipes
+now exist in the analysis catalogue):
+- **hai-eval-synergy-v1** — the HAI-Eval within-subject human/AI/human-AI
+  synergy comparison (arxiv:2507.09089).
+
+**Wave 2, first fill** (2026-07-21 — the two design shapes that were on
+the *original* Wave-1 spread list but never actually got built; see
+`docs/roadmap/22-design-recommender.md` §Slice D):
+- **survey-self-report-v1** — self-report-only design, no objective
+  performance measure at all (`corpus:ai-assistants-in-practice`).
+- **observational-field-v1** — single-condition, no-manipulation field
+  study describing real in-situ AI-assisted work, purely descriptive
+  (`arxiv:2506.12347` / `corpus:sharp-tools-agentic-ai`) — distinct from
+  `single-arm-benchmark-v1`, which evaluates its single arm against an
+  external benchmark rather than just describing behavior.
+
+Every other Wave-1 gap item (mixed-design, repository-mining
+velocity/quality, benchmark + real-task) turned out to already be covered
+or blocked on something other than template-authoring: `quasi-experiment`
+is already served by `paired-pre-post-v1` /
+`single-group-repeated-measures-v1`; "mixed-design" has no matching
+`designType` enum value yet (a schema change, not a template-authoring
+task); repository-mining (`cursor-mining-v1`) is blocked on real
+repository-trend recipes, not on template YAML (see
+`templates/drafts/README.md`). Two honest additions, not a padded count.
+
+Wave 1's archetypes are grounded in `corpus:guidelines-empirical-llm-se`
+(the empirical-SE-with-LLMs guidance paper); each also carries its own
+design-specific citation where one applies. **Wave 2** (up to ~24
+archetypes total, per Phase 22's spec) is independent template-authoring
+work that enriches the demo — in progress (13/~24). Beyond Wave 2,
+FR-TPL-5 (community template contribution,
+`docs/roadmap/24-import-extensibility-tail.md`) is the intended path for
+growing the registry past what the owner hand-authors alone.
 
 A template enters this directory only once `validate_registry()` passes
 for it (schema, mandatory citations, every recipe exists, and every

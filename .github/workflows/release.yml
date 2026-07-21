@@ -1,22 +1,20 @@
-# Release pipeline (FR-OPS-2/3, D24/D26/D27).
+# Release pipeline (FR-OPS-2).
 #
 # Push a tag to cut a release:
-#   v0.3.0-rc.1  → gates → GHCR image + .vsix → GitHub *pre-release*;
-#                  deploys the demo instance only.
-#   v0.3.0       → the same, as a full release, PLUS (a) the persistent
-#                  facilitator VM behind the `production` environment's
-#                  manual approval, and (b) VS Code Marketplace publish
-#                  (final tags only - the Marketplace rejects semver
-#                  pre-release suffixes, D27).
+#   v0.3.0-rc.1  → gates → GHCR image → GitHub pre-release; deploys demo.
+#   v0.3.0       → the same, as a full release.
 #
-# ci.yml also runs on tag pushes; the verify job here re-runs the gates
-# anyway so a release can never outrun a slow CI run.
+# Railway is the sole deployment target. The container image is pushed to
+# GHCR and a Railway redeploy is triggered via the Railway API. The extension
+# .vsix is attached to the GitHub Release for manual installation.
 #
-# Secrets (each deploy/publish step skips cleanly when its secret is
-# unset; see RUNBOOK §9):
-#   RENDER_DEPLOY_HOOK_URL          - demo redeploy
-#   PROD_HOST / PROD_USER / PROD_SSH_KEY - facilitator VM (Azure B1s)
-#   VSCE_PAT                        - Marketplace personal access token
+# Secrets (each step skips cleanly when its secret is unset; see RUNBOOK §9):
+#   RAILWAY_API_TOKEN      - Railway API token for demo redeploy
+#   RAILWAY_SERVICE_ID     - Railway service ID
+#   RAILWAY_ENVIRONMENT_ID - Railway environment ID (optional)
+#   VSCE_PAT               - VS Code Marketplace publish token (D27; full
+#                            releases only - the Marketplace rejects -rc.
+#                            pre-release semver, so those tags skip too)
 
 name: Release
 
@@ -94,6 +92,24 @@ jobs:
           npm ci
           npm run package
 
+      - name: Publish to VS Code Marketplace
+        working-directory: extension
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then
+            echo "VSCE_PAT not set - skipping Marketplace publish (RUNBOOK §9, D27)."
+            exit 0
+          fi
+          case "$TAG" in
+            *-rc.*)
+              echo "Pre-release tag ($TAG) - the Marketplace rejects this semver, skipping publish."
+              exit 0
+              ;;
+          esac
+          npx vsce publish -p "$VSCE_PAT"
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -104,73 +120,37 @@ jobs:
           gh release create "$TAG" --verify-tag --title "$TAG" $FLAGS \
             --notes "Container image: \`ghcr.io/${{ github.repository }}/middleware:$TAG\`
 
-          Extension \`.vsix\` attached (RCs install via \`code --install-extension\`; final versions also publish to the VS Code Marketplace)." \
+          Extension \`.vsix\` attached (install via \`code --install-extension\`)." \
             extension/*.vsix
 
   deploy-demo:
-    name: Deploy demo (all tags)
+    name: Deploy demo to Railway (all tags)
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Render demo deploy
+      - name: Trigger Railway demo deploy
         env:
-          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
         run: |
-          if [ -n "$HOOK" ]; then
-            curl -fsS -X POST "$HOOK" -o /dev/null
-            echo "Render deploy triggered."
+          if [ -z "$RAILWAY_API_TOKEN" ] || [ -z "$RAILWAY_SERVICE_ID" ]; then
+            echo "RAILWAY_API_TOKEN or RAILWAY_SERVICE_ID not set - skipping Railway deploy (RUNBOOK §9)."
+            exit 0
+          fi
+          ENV_PART=""
+          if [ -n "$RAILWAY_ENVIRONMENT_ID" ]; then
+            ENV_PART=", environmentId: \"$RAILWAY_ENVIRONMENT_ID\""
+          fi
+          RESPONSE=$(curl -fsS -X POST https://backboard.railway.app/graphql/v2 \
+            -H "Authorization: Bearer $RAILWAY_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"mutation { serviceInstanceRedeploy(serviceId: \\\"$RAILWAY_SERVICE_ID\\\"$ENV_PART) }\"}" \
+            -w "\n%{http_code}")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Railway deploy triggered successfully."
           else
-            echo "RENDER_DEPLOY_HOOK_URL not set - skipping (RUNBOOK §9)."
+            echo "Railway deploy trigger failed (HTTP $HTTP_CODE)."
+            exit 1
           fi
-
-  deploy-production:
-    name: Deploy facilitator VM (final tags, approval-gated)
-    needs: build
-    if: ${{ !contains(github.ref_name, '-rc.') }}
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Pull released image on the VM and restart
-        env:
-          PROD_HOST: ${{ secrets.PROD_HOST }}
-          PROD_USER: ${{ secrets.PROD_USER }}
-          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
-        run: |
-          if [ -z "$PROD_HOST" ]; then
-            echo "PROD_HOST not set - skipping VM deploy (RUNBOOK §9)."
-            exit 0
-          fi
-          mkdir -p ~/.ssh
-          printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
-            "$PROD_USER@$PROD_HOST" \
-            "cd ~/human-ai-studies-framework && \
-             IMAGE_TAG='${{ github.ref_name }}' docker compose -f deploy/compose.prod.yml pull middleware && \
-             IMAGE_TAG='${{ github.ref_name }}' docker compose -f deploy/compose.prod.yml up -d"
-
-  publish-marketplace:
-    name: Publish extension (final tags)
-    needs: build
-    if: ${{ !contains(github.ref_name, '-rc.') }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: extension/package-lock.json
-
-      - name: vsce publish
-        working-directory: extension
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: |
-          if [ -z "$VSCE_PAT" ]; then
-            echo "VSCE_PAT not set - skipping Marketplace publish (RUNBOOK §9)."
-            exit 0
-          fi
-          npm ci
-          npx vsce publish --pat "$VSCE_PAT"

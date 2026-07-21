@@ -1,0 +1,124 @@
+templateVersion: 1
+templateId: single-group-repeated-measures-v1
+title: Single-group repeated measures (3+ time points)
+description: |
+  A single group measured across three or more time points (e.g., weekly
+  sessions). Tests for consistent differences across time using Wilcoxon
+  signed-rank on paired time-point comparisons with Holm correction.
+designType: quasi-experiment
+dataPath: live
+source:
+  - paperRef: corpus:guidelines-empirical-llm-se
+    role: primary-design
+parameters:
+  studyId:
+    type: string
+    default: repeated-measures-study
+  title:
+    type: string
+    default: "Repeated-measures trend over time"
+  participantPlan:
+    type: participants
+    min: 4
+    default: 10
+    rationale: Minimum 4 participants x 3 time points
+  timePoints:
+    type: int
+    default: 3
+    min: 3
+    max: 10
+  sessionMinutes:
+    type: int
+    default: 45
+    min: 15
+    max: 120
+  taskDescription:
+    type: string
+    default: Repeated task measured at each time point
+  researchers:
+    type: conditions
+    default: [Researcher]
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+measures:
+  - id: time-series
+    leg: behavioral
+    elements: [task_outcome]
+    description: Repeated outcome measurement across time points
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: repeated measure (paired time-point comparisons)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      smallN: hypothesis-generating
+      multipleComparison: holm
+threats:
+  - threat: practice-effect
+    mitigation: parallel task versions across time points
+  - threat: attrition
+    mitigation: within-subjects design tolerates some dropout
+protocolSkeleton:
+  protocolVersion: 4
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  researchQuestions:
+    - id: RQ-1
+      text: How does task performance change over {{ timePoints }} measurement points?
+  conditions:
+    - time-point-1
+    - time-point-2
+    - time-point-3
+  participants:
+    planned: "{{ participantPlan }}"
+    design: within-subjects
+    counterbalanced: false
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ taskDescription }}"
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 15
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 5
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages: [python]
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: cognitive-load-9
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [paired-nonparametric]

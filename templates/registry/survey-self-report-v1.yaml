@@ -1,0 +1,120 @@
+templateVersion: 1
+templateId: survey-self-report-v1
+title: Self-report-only survey of AI-assistance experience
+description: |
+  A within-subjects design with no objective performance measure at all —
+  every research question is answered from the end-of-session self-report
+  (TLX-style subscales: mental demand, effort, frustration). Fills the
+  "survey/self-report only" design shape (Phase 22 Wave-1 spread item never
+  actually built): a researcher whose idea is purely about developer-
+  reported experience, not measured outcomes, maps here instead of being
+  forced into a benchmark or outcome-comparison template.
+designType: survey
+dataPath: live
+source:
+  - paperRef: corpus:ai-assistants-in-practice
+    role: primary-design
+parameters:
+  studyId:
+    type: string
+    default: survey-self-report-study
+  title:
+    type: string
+    default: "Self-report-only survey of AI-assistance experience"
+  conditions:
+    type: conditions
+    default: [ai-assisted, unassisted]
+  participantPlan:
+    type: participants
+    min: 8
+    default: 20
+  sessionMinutes:
+    type: int
+    default: 45
+    min: 15
+    max: 120
+  taskDescription:
+    type: string
+    default: Development task completed under each condition, followed by the end-of-session survey
+  researchers:
+    type: conditions
+    default: [Researcher]
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+measures:
+  - id: self-report-workload
+    leg: cognitive
+    elements: [end_survey]
+    description: TLX-style subscales (mental demand, effort, frustration) at end of session
+    caution: Self-report may diverge from objective measures; no behavioral or outcome data is collected in this design
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: self-reported workload subscales (ordinal, paired)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      smallN: hypothesis-generating
+threats:
+  - threat: self-report-bias
+    mitigation: Neutral survey framing; anonymized responses; no researcher present during rating
+    cite: guidelines-empirical-llm-se
+  - threat: no-objective-corroboration
+    mitigation: Explicitly scoped as a self-report-only design (not a substitute for an outcome study); framed as hypothesis-generating
+protocolSkeleton:
+  protocolVersion: 4
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  researchQuestions:
+    - id: RQ-1
+      text: How do developers self-report their workload (mental demand, effort, frustration) with vs without AI assistance?
+  conditions: "{{ conditions }}"
+  participants:
+    planned: "{{ participantPlan }}"
+    design: within-subjects
+    counterbalanced: true
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ taskDescription }}"
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 20
+        waitForPauseSeconds: 4
+      stuck:
+        enabled: false
+        thresholdSeconds: 90
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [tlx-debrief]
+  literature:
+    - paperRef: corpus:ai-assistants-in-practice
+      justifies: [RQ-1]

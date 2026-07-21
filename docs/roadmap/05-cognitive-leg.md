@@ -14,7 +14,7 @@ participant's eyes stay on their work.
 
 ## What it builds
 
-`extension/` (VS Code extension "Cognitive Overlay", TypeScript), respecting
+`extension/` (VS Code extension "TERN", TypeScript), respecting
 the core/adapter split (NFR-3 — `src/core` never imports `vscode`):
 - `src/core/` — `surveys.ts`, `stuckDetector.ts`, `session.ts`, `idle.ts`,
   `attention.ts` (IDE-agnostic logic, mocked-timer tested).

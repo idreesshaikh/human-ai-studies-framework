@@ -237,7 +237,7 @@ def upload(client, filename: str, content: bytes = b"x") -> dict:
 def test_protocol_summary_merges_analysis_plan(client):
     doc = client.get("/studies/pilot-2026/protocol").json()
     assert doc["studyId"] == "pilot-2026"
-    assert doc["protocolVersion"] == 1
+    assert doc["protocolVersion"] == 4
     assert doc["conditions"] == ["ai-assisted", "unassisted"]
     assert doc["participants"]["planned"] == 6
     rqs = {rq["id"]: rq["recipes"] for rq in doc["researchQuestions"]}

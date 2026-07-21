@@ -1,0 +1,118 @@
+templateVersion: 1
+templateId: single-arm-benchmark-v1
+title: Single-arm benchmark evaluation
+description: |
+  A single-condition study with no comparison group. All measures are
+  descriptive only — no inferential tests computed. Use when evaluating
+  a system against an absolute benchmark or exploring a new phenomenon.
+  Explicitly framed as hypothesis-generating.
+designType: case-study
+dataPath: live
+source:
+  - paperRef: corpus:guidelines-empirical-llm-se
+    role: design-reference
+parameters:
+  studyId:
+    type: string
+    default: single-arm-benchmark-study
+  title:
+    type: string
+    default: "Single-arm benchmark evaluation"
+  participantPlan:
+    type: participants
+    min: 1
+    default: 5
+  sessionMinutes:
+    type: int
+    default: 60
+    min: 5
+    max: 240
+  taskDescription:
+    type: string
+    default: Task evaluated against benchmark criteria
+  benchmark:
+    type: string
+    default: Benchmark or standard for comparison
+  researchers:
+    type: conditions
+    default: [Researcher]
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+measures:
+  - id: benchmark-outcome
+    leg: behavioral
+    elements: [task_outcome]
+    description: Outcome against absolute benchmark
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: descriptive only (no comparison)
+      test: wilcoxon-signed-rank
+      effectSize: cliffs-delta
+      smallN: hypothesis-generating
+threats:
+  - threat: no-comparison-group
+    mitigation: Results explicitly framed as descriptive and hypothesis-generating
+  - threat: generalisability
+    mitigation: Single-arm limits external validity — caveat stated in report
+protocolSkeleton:
+  protocolVersion: 4
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  researchQuestions:
+    - id: RQ-1
+      text: How does the system perform against the {{ benchmark }} benchmark?
+  conditions: [benchmark]
+  participants:
+    planned: "{{ participantPlan }}"
+    design: within-subjects
+    counterbalanced: false
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ taskDescription }}"
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 15
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 5
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages: [python]
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: cognitive-load-9
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [paired-nonparametric]

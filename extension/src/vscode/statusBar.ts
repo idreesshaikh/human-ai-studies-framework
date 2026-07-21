@@ -12,14 +12,14 @@ export class SessionStatusBar implements vscode.Disposable {
       vscode.StatusBarAlignment.Right,
       1000,
     );
-    this.item.command = 'cognitiveOverlay.statusMenu';
+    this.item.command = 'tern.statusMenu';
     this.idle();
     this.item.show();
   }
 
   idle(): void {
     this.item.text = '$(beaker) Study: idle';
-    this.item.tooltip = 'Cognitive Overlay - click to start a study session';
+    this.item.tooltip = 'TERN - click to start a study session';
     this.item.backgroundColor = undefined;
   }
 

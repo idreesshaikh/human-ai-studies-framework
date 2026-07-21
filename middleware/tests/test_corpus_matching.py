@@ -46,7 +46,7 @@ _TIER_B = [
 
 @pytest.fixture()
 def session(tmp_path):
-    factory = make_session_factory(tmp_path / "corpus.sqlite3")
+    factory = make_session_factory(f"sqlite:///{tmp_path / 'corpus.sqlite3'}")
     with factory() as s:
         for ref, title, why in _TIER_A:
             s.add(

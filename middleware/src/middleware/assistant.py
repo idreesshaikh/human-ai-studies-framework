@@ -25,6 +25,12 @@ gracefully — every other feature works offline. The platform picks the
 Mistral is called over plain REST via stdlib ``urllib`` (D32: no vendor
 SDK - same zero-bloat call shape as the Semantic Scholar client), with a
 hand-rolled tool-use loop, because the tool boundary is the whole point.
+
+``make_client()`` is the one provider-resolution seam every LLM-consuming
+feature in this codebase calls through (this module, ``design_llm.py``,
+``matching.rerank_with_llm``): set ``LLM_BASE_URL``/``LLM_API_KEY``
+(+ optional ``LLM_MODEL``) to point everything at any OpenAI-compatible
+host instead, with no code change (FR-CONV-1.4).
 """
 
 from __future__ import annotations
@@ -35,6 +41,7 @@ import statistics
 import urllib.request
 from collections import defaultdict
 from collections.abc import Callable
+from typing import Protocol
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -43,12 +50,23 @@ from middleware import paper_index
 from middleware.db import Event, MetricRow
 
 MISTRAL_MODEL = "mistral-small-latest"
+#: The design conversation's own default (FR-CONV-1.4) — the best Mistral
+#: tier, distinct from the knowledge assistant's own per-question tier
+#: picker above, which keeps its existing default unchanged.
+MISTRAL_BEST_MODEL = "mistral-large-latest"
 #: Model tiers the platform may select per question (validated server-side).
 MISTRAL_MODELS = (
     "mistral-small-latest",
     "mistral-medium-latest",
     "mistral-large-latest",
 )
+#: A generic OpenAI-compatible override (FR-CONV-1.4): set LLM_BASE_URL +
+#: LLM_API_KEY (+ optionally LLM_MODEL) to point every LLM-consuming
+#: feature in this module at any host that speaks the OpenAI
+#: chat-completions shape - OpenAI itself, or a compatible gateway in
+#: front of another model - with no code change. Takes priority over
+#: MISTRAL_API_KEY when both are set.
+DEFAULT_OPENAI_COMPATIBLE_MODEL = "gpt-4o-mini"
 MAX_TOKENS = 2048
 MAX_TOOL_ROUNDS = 6
 
@@ -205,12 +223,30 @@ def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:
         return json.loads(res.read())
 
 
-class MistralProvider:
-    """Mistral chat-completions tool-use loop over the REST API (D32)."""
+class LLMClient(Protocol):
+    """The shape every LLM-consuming feature in this module calls against
+    (the knowledge assistant, the design conversation's ``design_llm.py``,
+    and ``matching.rerank_with_llm``) - formalized now that a second
+    provider (``OpenAICompatibleProvider``) is real, not just a duck-typed
+    convention."""
 
-    name = "mistral"
+    model: str
 
-    def __init__(self, api_key: str, model: str = MISTRAL_MODEL, post=_post_json):
+    def run(
+        self, question: str, history: list[dict], tools: dict[str, Callable]
+    ) -> tuple[str, list[dict]]: ...
+
+
+class _ChatCompletionsProvider:
+    """A tool-use loop over any host that speaks the OpenAI
+    chat-completions shape - Mistral's REST API already speaks this exact
+    shape (D32), so an OpenAI-compatible override is the same loop pointed
+    at a different ``base_url``/``model``, not a second implementation."""
+
+    name = "chat-completions"
+
+    def __init__(self, base_url: str, api_key: str, model: str, post=_post_json):
+        self.base_url = base_url
         self.api_key = api_key
         self.model = model
         self.post = post
@@ -240,7 +276,7 @@ class MistralProvider:
         tool_calls: list[dict] = []
         for _ in range(MAX_TOOL_ROUNDS):
             res = self.post(
-                "https://api.mistral.ai/v1/chat/completions",
+                self.base_url,
                 {
                     "model": self.model,
                     "messages": messages,
@@ -275,16 +311,61 @@ class MistralProvider:
         return "", tool_calls
 
 
+class MistralProvider(_ChatCompletionsProvider):
+    """Mistral chat-completions tool-use loop over the REST API (D32)."""
+
+    name = "mistral"
+
+    def __init__(self, api_key: str, model: str = MISTRAL_MODEL, post=_post_json):
+        super().__init__(
+            "https://api.mistral.ai/v1/chat/completions", api_key, model, post
+        )
+
+
+class OpenAICompatibleProvider(_ChatCompletionsProvider):
+    """Any OpenAI-compatible host (OpenAI itself, or a compatible gateway
+    in front of another model), configured entirely via env vars
+    (``LLM_BASE_URL``/``LLM_API_KEY``/``LLM_MODEL``) - drop in a better
+    model's API key and it works immediately, no code change (FR-CONV-1.4).
+    """
+
+    name = "openai-compatible"
+
+    def __init__(self, base_url: str, api_key: str, model: str, post=_post_json):
+        root = base_url.rstrip("/")
+        endpoint = (
+            root if root.endswith("/chat/completions") else f"{root}/chat/completions"
+        )
+        super().__init__(endpoint, api_key, model, post)
+
+
 def configured() -> bool:
-    """Whether the assistant can run (a Mistral key is set, D32 rev 2)."""
+    """Whether an LLM client can be built - the OpenAI-compatible override
+    or a Mistral key (D32 rev 2). Without either, LLM-dependent endpoints
+    degrade gracefully - every other feature works offline."""
+    if os.environ.get("LLM_BASE_URL") and os.environ.get("LLM_API_KEY"):
+        return True
     return bool(os.environ.get("MISTRAL_API_KEY"))
 
 
-def make_client(model: str | None = None):
-    """A Mistral client on the requested model tier (validated against
-    ``MISTRAL_MODELS``; unknown/unset falls back to the default), or ``None``
-    when no key is set - the endpoint then degrades gracefully. Never
-    raises."""
+def make_client(model: str | None = None) -> LLMClient | None:
+    """Resolve the configured LLM client, or ``None`` when nothing is
+    configured (callers then degrade gracefully - never raises).
+
+    Resolution order: an OpenAI-compatible override (``LLM_BASE_URL`` +
+    ``LLM_API_KEY``, optionally ``LLM_MODEL``) takes priority when set -
+    any OpenAI-compatible host works with no code change. Otherwise, a
+    Mistral client on the requested tier (``model``, validated against
+    ``MISTRAL_MODELS``; unset/invalid falls back to ``MISTRAL_MODEL``, the
+    knowledge assistant's own default - pass ``MISTRAL_BEST_MODEL``
+    explicitly for the design conversation's "best tier by default"
+    behavior, FR-CONV-1.4).
+    """
+    base_url = os.environ.get("LLM_BASE_URL")
+    override_key = os.environ.get("LLM_API_KEY")
+    if base_url and override_key:
+        override_model = os.environ.get("LLM_MODEL") or DEFAULT_OPENAI_COMPATIBLE_MODEL
+        return OpenAICompatibleProvider(base_url, override_key, override_model)
     key = os.environ.get("MISTRAL_API_KEY")
     if not key:
         return None

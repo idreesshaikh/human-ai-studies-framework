@@ -94,19 +94,21 @@ export function MoveCard({
               size="sm"
               variant="subtle"
               data-agent="move-accept"
+              className="min-h-9"
               onClick={() => onDecide(move.moveId, "accepted")}
             >
               <Check aria-hidden />
-              {isCaution ? "Note it" : "Accept"} <kbd className="opacity-60">a</kbd>
+              {isCaution ? "Note it" : "Accept"} <kbd className="hidden sm:inline opacity-60">a</kbd>
             </Button>
             <Button
               size="sm"
               variant="ghost"
               data-agent="move-reject"
+              className="min-h-9"
               onClick={() => onDecide(move.moveId, "rejected")}
             >
               <X aria-hidden />
-              Reject <kbd className="opacity-60">r</kbd>
+              Reject <kbd className="hidden sm:inline opacity-60">r</kbd>
             </Button>
           </div>
         )}

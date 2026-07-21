@@ -24,6 +24,36 @@ designType: lab-experiment
 dataPath: live
 
 parameters:
+  studyId:
+    type: string
+    default: hai-eval-synergy-study
+    description: Stable study id
+
+  title:
+    type: string
+    default: "Within-subject human-AI synergy comparison"
+    description: Study title
+
+  researchers:
+    type: conditions
+    default: [Researcher]
+    description: The research team
+
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+    description: Ethics reference
+
+  taskDescription:
+    type: string
+    default: ""
+    description: Extra task detail
+
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+    description: The instrument's ingestion endpoint
+
   taskCount:
     type: int
     default: 6
@@ -72,7 +102,7 @@ measures:
     cite: hai-eval-human-ai-synergy
 
 instruments:
-  cognitiveOverlay:
+  tern:
     session:
       durationMinutes: "{{ sessionMinutes }}"
     fatigue:
@@ -88,7 +118,7 @@ instruments:
 
 statisticalPlan:
   unit: participant
-  
+
   perRQ:
     - rq: synergy-existence
       outcome: task-accuracy (continuous) across three conditions
@@ -97,7 +127,7 @@ statisticalPlan:
       aggregationUnit: per-participant
       smallN: hypothesis-generating
       multipleComparison: fdr
-      
+
     - rq: synergy-magnitude
       outcome: completion-time (continuous, paired human-vs-collaboration)
       test: wilcoxon-signed-rank
@@ -109,20 +139,20 @@ threats:
   - threat: order-effects
     mitigation: Latin square counterbalancing of condition order
     cite: guidelines-empirical-llm-se
-  
+
   - threat: learning-effects
     mitigation: Different task sets per condition with equivalent difficulty
     cite: hai-eval-human-ai-synergy
 
 protocolSkeleton:
-  protocolVersion: 1
-  
+  protocolVersion: 4
+
   study:
     id: "{{ studyId }}"
     title: "{{ title }}"
     researchers: "{{ researchers }}"
     ethicsRef: "{{ ethicsRef }}"
-  
+
   researchQuestions:
     - id: RQ-1
       text: "Does human-AI collaboration achieve higher accuracy than human-only or AI-only?"
@@ -130,14 +160,14 @@ protocolSkeleton:
       text: "Is there a synergy effect where human-AI collaboration outperforms the sum of individual performances?"
     - id: RQ-3
       text: "What collaboration patterns characterize effective human-AI teams?"
-  
+
   conditions: "{{ conditions }}"
-  
+
   participants:
     planned: "{{ participantPlan }}"
     design: within-subjects
     counterbalanced: true
-  
+
   session:
     durationMinutes: "{{ sessionMinutes }}"
     taskDescription: |
@@ -145,9 +175,22 @@ protocolSkeleton:
       human-only (no AI assistance), AI-only (AI solves tasks autonomously with
       human review), and human-AI collaboration (human and AI work together).
       {{ taskDescription }}
-  
-  instruments: "{{ instruments }}"
-  
+
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 15
+        waitForPauseSeconds: 4
+      stuck:
+        enabled: true
+        thresholdSeconds: 120
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: code-quality-5
+
   phases:
     - name: design
       gates:
@@ -159,7 +202,7 @@ protocolSkeleton:
       gates: []
     - name: analysis
       gates: []
-  
+
   analysisPlan:
     - rq: RQ-1
       recipes: [task-outcome-by-condition]
@@ -167,7 +210,7 @@ protocolSkeleton:
       recipes: [code-quality-by-condition]
     - rq: RQ-3
       recipes: [agent-interaction-dynamics]
-  
+
   literature:
     - paperRef: arxiv:2507.09089
       justifies: [RQ-1, RQ-2, RQ-3]

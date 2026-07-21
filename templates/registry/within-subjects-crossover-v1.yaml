@@ -1,0 +1,133 @@
+templateVersion: 1
+templateId: within-subjects-crossover-v1
+title: Within-subjects crossover
+description: |
+  Every participant experiences both conditions in counterbalanced order.
+  Paired within-subjects design is the most statistically efficient for small
+  n, as each participant serves as their own control. Prescribes Wilcoxon
+  signed-rank with matched-pairs rank-biserial r.
+designType: rct-within-subjects
+dataPath: live
+source:
+  - paperRef: arxiv:2507.09089
+    role: primary-design
+  - paperRef: corpus:metr-early-2025-dev-productivity
+    role: design-reference
+parameters:
+  studyId:
+    type: string
+    default: within-subjects-crossover-study
+  title:
+    type: string
+    default: "Within-subjects crossover: AI vs unassisted"
+  conditions:
+    type: conditions
+    default: [ai-assisted, unassisted]
+  participantPlan:
+    type: participants
+    min: 4
+    default: 12
+  sessionMinutes:
+    type: int
+    default: 45
+    min: 15
+    max: 120
+  taskDescription:
+    type: string
+    default: Development tasks completed under both conditions, counterbalanced
+  researchers:
+    type: conditions
+    default: [Researcher]
+  ethicsRef:
+    type: string
+    default: "ethics application (in preparation; gate blocks data-collection)"
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+measures:
+  - id: primary-outcome
+    leg: behavioral
+    elements: [task_outcome]
+    description: Task time and correctness per condition per participant
+  - id: self-report
+    leg: cognitive
+    elements: [debrief survey]
+    description: Participant self-report after each session
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: task time (paired)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      smallN: hypothesis-generating
+    - rq: RQ-2
+      outcome: self-report (paired)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      smallN: hypothesis-generating
+threats:
+  - threat: carryover-effect
+    mitigation: counterbalanced task order across participants
+  - threat: fatigue-effect
+    mitigation: sufficiently separated sessions with washout intervals
+protocolSkeleton:
+  protocolVersion: 4
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  researchQuestions:
+    - id: RQ-1
+      text: Does AI assistance affect objective task time compared to unassisted work?
+    - id: RQ-2
+      text: How do participants perceive the AI-assisted vs unassisted experience?
+  conditions: "{{ conditions }}"
+  participants:
+    planned: "{{ participantPlan }}"
+    design: within-subjects
+    counterbalanced: true
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ taskDescription }}"
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 15
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 5
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages: [python]
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: cognitive-load-9
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [paired-nonparametric]
+    - rq: RQ-2
+      recipes: [tlx-debrief]

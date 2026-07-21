@@ -3,8 +3,8 @@
 Traces: FR-PLAT-1/2 (projects, roles), FR-CONV-1/3/6 (conversation,
 moves, elicitation record), FR-TPL-1/2 (templates, statistical plans),
 FR-LIT-8/9 (corpus tiers, matching), FR-CUR-1/3 (curated datasets),
-plus the event/paper tables they join. SQLite throughout (D11);
-names follow the glossary (golden rule 4).
+plus the event/paper tables they join. PostgreSQL throughout (D26); SQLite
+fallback for script-only testing. Names follow the glossary (golden rule 4).
 
 ```mermaid
 classDiagram

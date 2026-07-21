@@ -17,6 +17,7 @@ prints the gap report (FR-ING-3) and the one-timeline dataset summary
 
 import argparse
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -24,6 +25,19 @@ import uuid
 from pathlib import Path
 
 SAMPLE_DIR = Path(__file__).resolve().parents[1] / "sample-data"
+
+#: Platform-facing endpoints (lifecycle/gaps/dataset) are auth-gated
+#: whenever MIDDLEWARE_AUTH requires it (unlike /ingest/*, which NFR-1
+#: keeps unauthenticated in every mode). In `token` mode this script can
+#: authenticate itself with the same shared secret; in `clerk` mode there
+#: is no static service credential, so those calls degrade gracefully
+#: instead of crashing the seed run (F1: seed failures never kill the
+#: server, and now never spuriously fail the report either).
+_AUTH_HEADERS = (
+    {"Authorization": f"Bearer {os.environ['MIDDLEWARE_TOKEN']}"}
+    if os.environ.get("MIDDLEWARE_TOKEN")
+    else {}
+)
 
 #: Design-phase gate artifacts (see protocol/examples/pilot-study.yaml).
 #: Seeding these leaves the demo blocked at the *ethics* gate - the
@@ -41,9 +55,8 @@ DESIGN_ARTIFACTS = {
 
 def _call(method: str, url: str, body: object | None = None) -> dict | list:
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(
-        url, data=data, method=method, headers={"content-type": "application/json"}
-    )
+    headers = {"content-type": "application/json", **_AUTH_HEADERS}
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
     with urllib.request.urlopen(req, timeout=10) as res:
         return json.loads(res.read())
 
@@ -68,7 +81,10 @@ def _upload(server: str, filename: str, content: bytes) -> dict:
         f"{server}/ingest/files",
         data=body,
         method="POST",
-        headers={"content-type": f"multipart/form-data; boundary={boundary}"},
+        headers={
+            "content-type": f"multipart/form-data; boundary={boundary}",
+            **_AUTH_HEADERS,
+        },
     )
     with urllib.request.urlopen(req, timeout=10) as res:
         return json.loads(res.read())
@@ -152,21 +168,36 @@ def main() -> int:
             f"lifecycle: current phase {lifecycle['currentPhase']!r} "
             "(computed from artifacts)"
         )
-    except urllib.error.HTTPError:
-        pass  # no protocol loaded - lifecycle endpoints are protocol-scoped
+    except urllib.error.HTTPError as exc:
+        if exc.code == 401:
+            print("lifecycle: skipped (401 - no service credential for this auth mode)")
+        else:
+            pass  # no protocol loaded - lifecycle endpoints are protocol-scoped
 
-    gaps = _call("GET", f"{args.server}/sessions/{session_id}/gaps")
-    print(
-        f"\ngap report for {session_id}: received {gaps['received']}/"
-        f"{gaps['expected']} (seq {gaps['firstSeq']}..{gaps['lastSeq']})"
-    )
-    for g in gaps["gaps"]:
+    try:
+        gaps = _call("GET", f"{args.server}/sessions/{session_id}/gaps")
         print(
-            f"  missing {g['missing']} event(s) between seq "
-            f"{g['afterSeq']} and {g['beforeSeq']}"
+            f"\ngap report for {session_id}: received {gaps['received']}/"
+            f"{gaps['expected']} (seq {gaps['firstSeq']}..{gaps['lastSeq']})"
         )
+        for g in gaps["gaps"]:
+            print(
+                f"  missing {g['missing']} event(s) between seq "
+                f"{g['afterSeq']} and {g['beforeSeq']}"
+            )
+    except urllib.error.HTTPError as exc:
+        if exc.code != 401:
+            raise
+        print(f"\ngap report for {session_id}: skipped (401 - no service credential)")
 
-    dataset = _call("GET", f"{args.server}/studies/{study_id}/dataset")
+    try:
+        dataset = _call("GET", f"{args.server}/studies/{study_id}/dataset")
+    except urllib.error.HTTPError as exc:
+        if exc.code != 401:
+            raise
+        print("\ndataset summary: skipped (401 - no service credential for this auth "
+              "mode; data was still ingested - MIDDLEWARE_AUTH never gates /ingest/*)")
+        return 0
     rows = dataset["rows"]
     by_source: dict[str, int] = {}
     for r in rows:

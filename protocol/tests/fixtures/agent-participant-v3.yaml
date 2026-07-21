@@ -1,7 +1,7 @@
 # Neutral fixture: a minimal, valid v3 agent-participant protocol (FR-PROT-9).
 #
 # This is TEST INFRASTRUCTURE, not a study. It exercises the agent-participant
-# schema path only: cognitiveOverlay is optional, the agent leg + task harness
+# schema path only: kite is optional, the agent leg + task harness
 # are the instruments, and the bump to protocolVersion 3 is the sole schema-level
 # difference from a v1/v2 protocol. FR-PROT-9 is satisfied exactly when
 # `protocol validate` passes on this file. Loaded by test_agent_participants.py;
@@ -43,7 +43,7 @@ session:
     timeboxed at 30 minutes (FR-INST-16).
 
 instruments:
-  # No cognitiveOverlay: there is no human in an IDE (FR-PROT-9). The agent leg
+  # No kite: there is no human in an IDE (FR-PROT-9). The agent leg
   # + task harness are the instruments; the declared content policy is baked
   # into the derived agent-capture hooks.
   agentCapture:

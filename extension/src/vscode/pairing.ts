@@ -8,9 +8,9 @@ import {
 import { preflightSummary } from '../core/preflight';
 import { ConsentGate } from '../core/consentGate';
 
-const SECRET_CRED = 'cognitiveOverlay.sessionCredential';
-const STATE_SERVER = 'cognitiveOverlay.serverUrl';
-const STATE_VERSION = 'cognitiveOverlay.captureConfigVersion';
+const SECRET_CRED = 'tern.sessionCredential';
+const STATE_SERVER = 'tern.serverUrl';
+const STATE_VERSION = 'tern.captureConfigVersion';
 
 interface RedeemResult {
   studyId: string;
@@ -32,11 +32,11 @@ const IDENTITY_KEYS = new Set([
   'output.httpEndpoint',
 ]);
 
-/** Apply a capture config's overlay flags into `cognitiveOverlay.*` settings
+/** Apply a capture config's overlay flags into `tern.*` settings
  * (workspace scope). Called only at a session boundary (wall #6). */
 async function applyConfig(cfg: CaptureConfig): Promise<void> {
   const flags = overlayFlags(cfg);
-  const conf = vscode.workspace.getConfiguration('cognitiveOverlay');
+  const conf = vscode.workspace.getConfiguration('tern');
   for (const [key, value] of Object.entries(flags)) {
     if (IDENTITY_KEYS.has(key)) continue; // identity/endpoint come from the redeem
     await conf.update(key, value, vscode.ConfigurationTarget.Workspace);
@@ -65,7 +65,7 @@ export async function refreshConfigAtSessionStart(
   const cred = await context.secrets.get(SECRET_CRED);
   const server = context.workspaceState.get<string>(STATE_SERVER);
   const studyId = vscode.workspace
-    .getConfiguration('cognitiveOverlay')
+    .getConfiguration('tern')
     .get<string>('studyId');
   if (!cred || !server || !studyId) return cred ?? undefined;
   try {
@@ -148,7 +148,7 @@ export async function pairFromConnectionString(
     STATE_VERSION,
     result.captureConfig.captureConfigVersion,
   );
-  const conf = vscode.workspace.getConfiguration('cognitiveOverlay');
+  const conf = vscode.workspace.getConfiguration('tern');
   await conf.update(
     'studyId',
     result.studyId,
@@ -179,23 +179,20 @@ export async function pairFromConnectionString(
       .map((i) => i.label)
       .join(', ') || 'nothing';
   void vscode.window.showInformationMessage(
-    `Connected as ${result.participantId} (${result.condition}). This study will capture: ${on}. Run “Cognitive Overlay: Start session” when you're ready.`,
+    `Connected as ${result.participantId} (${result.condition}). This study will capture: ${on}. Run “TERN: Start session” when you're ready.`,
   );
 }
 
 export function registerPairing(
   context: vscode.ExtensionContext,
 ): vscode.Disposable {
-  return vscode.commands.registerCommand(
-    'cognitiveOverlay.connectToStudy',
-    async () => {
-      const raw = await vscode.window.showInputBox({
-        title: 'Connect to study',
-        prompt: 'Paste the connection string your researcher gave you',
-        ignoreFocusOut: true,
-      });
-      if (!raw) return;
-      await pairFromConnectionString(context, raw);
-    },
-  );
+  return vscode.commands.registerCommand('tern.connectToStudy', async () => {
+    const raw = await vscode.window.showInputBox({
+      title: 'Connect to study',
+      prompt: 'Paste the connection string your researcher gave you',
+      ignoreFocusOut: true,
+    });
+    if (!raw) return;
+    await pairFromConnectionString(context, raw);
+  });
 }

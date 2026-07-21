@@ -99,8 +99,26 @@ finishing the code is not finishing the phase.
 | Phase | Title | Satisfies | Status |
 | ----- | ----- | --------- | ------ |
 | [19](19-live-capture-link.md) | The live capture link | FR-INST-20/21, FR-ING-7, FR-DASH-10 | 🔶 built — mint/redeem/capture-config/server-stamped-ingest/streaming-status/pre-flight-visibility green (pytest + `node:test` + a live API walkthrough); the VS Code Extension Dev Host walkthrough and browser NFR-12 evidence are owner-run, pending |
-| 20 | The capture console (grounded per-metric toggles) | (to be specced) | ⬜ |
-| 21 | The conductor overlay (in-editor cognitive load) | (to be specced) | ⬜ |
+| [20](20-capture-console.md) | The capture console (grounded per-metric toggles) | FR-INST-18, FR-DASH-11, FR-CONV-7 | ✅ built — toggle-as-amendment endpoint + catalog + FR-CONV-7 consent-relevance + `IdeHealthCollector` + `TogglePopover` — all pytest + `node:test` + build verified |
+| [21](21-conductor-overlay.md) | The conductor overlay (in-editor cognitive load) | FR-INST-19, FR-DASH-12 | ✅ built |
+
+### Study designer (22)
+
+| Phase | Title | Satisfies | Status |
+| ----- | ----- | --------- | ------ |
+| [22](22-design-recommender.md) | The design recommender & archetype library | FR-TPL-4/6/7, FR-ANA-7/8 | 🔶 built — Slice A (parameterised recipes + figure forms + meta wiring to runner) + Slice C (analysisPlan compiler for prescription+figure moves) + design_assistant wired for prescription/figure suggestions; Wave-1 archetypes in registry; prescribe.py + suggest_figures.py complete. Remaining: Slice B platform UI (ranked shortlist cards), verify scripts, Slice D Wave-2 fill, NFR-12 evidence. |
+
+### The session timeline (23)
+
+| Phase | Title | Satisfies | Status |
+| ----- | ----- | --------- | ------ |
+| [23](23-session-timeline.md) | The session timeline (the swimlane view) | FR-DASH-4 | ✅ built |
+
+### Import & extensibility tail (24)
+
+| Phase | Title | Satisfies | Status |
+| ----- | ----- | --------- | ------ |
+| [24](24-import-extensibility-tail.md) | Import & extensibility tail | FR-AGENT-4, FR-CUR-4, FR-TPL-5 | 🔶 Slice A (generic-json transcript) + Slice B (ArchiveAdapter) + Slice C (TemplateSubmission endpoints) built; Slice C writes to live registry cannot be integration-tested without polluting committed files — unit tests validate schema + routing |
 
 ## The load-bearing walls (fixed in every phase)
 
@@ -133,8 +151,8 @@ no degree of freedom below ever overrides them.
    small-n framing; never a bare p-value. Statistics never animate.
 9. **Everything degrades** (NFR-4/5/7). No LLM key, no GitHub token, no
    network: the platform loses convenience, never function. One process,
-   one SQLite file, `docker compose up` is the whole story; port 8000 is
-   the contract.
+   PostgreSQL by default (SQLite fallback), `docker compose up` is the
+   whole story; port 8000 is the contract.
 10. **The experience bar is a requirement** (NFR-12). Both themes, WCAG
     2.2 AA, reduced-motion parity, streaming without layout shift, zero
     raw hex/ms/px in components, keyboard-complete. Every phase's
@@ -144,7 +162,7 @@ no degree of freedom below ever overrides them.
     identifiers, schema fields, and UI copy alike.
 12. **New dependency ⇒ decision row first** (`build-vs-adopt.md`,
     NFR-10). The substrate is decided (D34/D37: React 19 + Vite +
-    Tailwind v4 + vendored shadcn; D11: SQLite; D32: Mistral REST);
+    Tailwind v4 + vendored shadcn; D11: SQLite → superseded by D26 PostgreSQL; D32: Mistral REST);
     anything beyond it needs its D-row before `npm install`.
 
 ## The autonomy charter (where the builder is free)

@@ -97,7 +97,7 @@ The protocol schema learns that a participant can be an agent:
 
 1. Schema vNext (bumped `protocolVersion`): participant entries may be
    **anonymized agent-configuration IDs** recording tool + model;
-   `cognitiveOverlay` becomes optional for agent participants; the agent
+   `tern` becomes optional for agent participants; the agent
    leg + task harness (Phase 12) are the primary instruments. Validators
    branch on version — the v1 validator's behavior is untouched.
 2. **The fit fixture is the spec**: `context-ablation-2026.yaml`
@@ -192,7 +192,7 @@ Record departures here and in `requirements/traceability.md` §3.
   stays the hand-written *input*). `--check` is the drift gate; wired into
   `ci.yml` plus a pytest that fails on drift.
 - **Slice C (agent participants, FR-PROT-9):** schema vNext bumps
-  `protocolVersion` to accept `3` and makes `cognitiveOverlay` conditional
+  `protocolVersion` to accept `3` and makes `tern` conditional
   (required at v1/v2; at v3 the study needs ≥1 of overlay / agentCapture /
   taskHarness), plus an optional `participants.agents` list (tool+model).
   `context-ablation-2026.yaml` validates under v3 with **only** the version

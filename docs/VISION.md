@@ -1,6 +1,7 @@
 # Vision — the conversational research platform
 
-**Framework for Conducting Human-AI Studies.** Requirements:
+**PHOENIX** (Protocol for Human-Oriented Evidence, Networked Iteration &
+eXperimentation) — Framework for Conducting Human-AI Studies. Requirements:
 `requirements/srs.md` (families indexed there, each with a detailed spec in
 `requirements/specs/`); elicitations logged in `requirements/traceability.md`;
 the phase plan in `docs/roadmap/`.

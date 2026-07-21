@@ -1,4 +1,4 @@
-# Cognitive Overlay - Developer Study Companion
+# TERN - Developer Study Companion
 
 A zero-distraction VS Code extension for developer studies. While a participant
 works on a task (with or without AI assistance), it:
@@ -52,7 +52,7 @@ Open this folder in VS Code and press **F5** → an Extension Development Host
 window opens with the extension loaded. In that window:
 
 1. Click **`Study: idle`** in the status bar (or run
-   _Cognitive Overlay: Start Study Session_ from the command palette).
+   _TERN: Start Study Session_ from the command palette).
 2. Enter a participant ID (e.g. `P07`) and pick the condition.
 3. Work normally. The countdown runs in the status bar; fatigue prompts appear
    every 15 min (default); stuck prompts appear inline when the heuristics fire.
@@ -60,10 +60,10 @@ window opens with the extension loaded. In that window:
    opens and the data file is finalized.
 
 To install for real participants: `npm run package` produces a `.vsix`, then
-`code --install-extension cognitive-overlay-0.2.0.vsix`.
+`code --install-extension tern-0.2.0.vsix`.
 
-To try the stuck prompt quickly, set `cognitiveOverlay.stuck.thresholdSeconds`
-to `15` and `cognitiveOverlay.stuck.cooldownMinutes` to `1`, start a session,
+To try the stuck prompt quickly, set `tern.stuck.thresholdSeconds`
+to `15` and `tern.stuck.cooldownMinutes` to `1`, start a session,
 place the cursor in a file and wiggle it occasionally without typing.
 
 ### Development
@@ -125,7 +125,7 @@ Events land in `<workspace>/.study-data/<participant>_<timestamp>.jsonl`
 The behavioral leg (MP-05) adds the event types below. All payloads are
 FR-ETH-2-safe: sizes, shapes, and timings only - never code content,
 keystrokes, clipboard text, or off-workspace paths. Capture is filtered to
-protocol-declared languages (`cognitiveOverlay.behavior.languages`, pilot:
+protocol-declared languages (`tern.behavior.languages`, pilot:
 Python) and workspace-internal files.
 
 | Event type             | When                                                                           | Key payload fields                                                                                                                                                         |
@@ -140,12 +140,12 @@ Python) and workspace-internal files.
 | `attention`            | Caret/hover left a line-region band, or file switch                            | file, startLine, endLine, focusMs, cursorMs, hoverMs, edited, mode (`reading`/`editing`/`mixed`), exitReason - region-level time-on-code, present-gated (idle/blur paused) |
 | `environment_snapshot` | Once at session start                                                          | vscodeVersion, extensionVersions, os, agentTool, agentModelId, taskId (FR-INST-14 replication provenance)                                                                  |
 
-Set `cognitiveOverlay.output.httpEndpoint` (e.g.
+Set `tern.output.httpEndpoint` (e.g.
 `http://localhost:8000/cognitive`) to also stream batched events to the
 middleware - same decoupled "lightweight sensor → local daemon" architecture
 as ActivityWatch. The JSONL file is always written regardless, so a dead
 server never loses data. Batches POST as
-`{"source":"cognitive-overlay","events":[...]}` every 5 s.
+`{"source":"tern","events":[...]}` every 5 s.
 
 ---
 
@@ -164,8 +164,8 @@ focus - is required before anything is classified as "stuck" rather than
 
 Both share a cooldown (default 5 min), pause while any prompt is on screen,
 and are suppressed when the window loses focus. All thresholds are settings
-under `cognitiveOverlay.stuck.*`; restrict detection to certain languages with
-`cognitiveOverlay.stuck.languages` (e.g. `["python"]` for the first study
+under `tern.stuck.*`; restrict detection to certain languages with
+`tern.stuck.languages` (e.g. `["python"]` for the first study
 stage).
 
 The heuristics live in pure TypeScript (`src/core/stuckDetector.ts`) and can

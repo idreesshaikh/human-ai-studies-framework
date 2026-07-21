@@ -237,6 +237,61 @@ def _refine(protocol: dict, sections: dict[str, list]) -> dict:
     return out
 
 
+def _apply_analysis_moves(draft: dict, moves: list[dict]) -> None:
+    """Compile accepted prescription and figure moves into the draft's
+    analysisPlan (Phase 22 / Slice C — FR-CONV-3 Level 3).
+
+    A ``prescribe-statistics`` move adds or updates a recipe entry in the
+    analysis plan with its test, effect size, and parameters. A
+    ``suggest-figure`` move sets the figure form on an existing recipe
+    entry. Both are deterministic: last accepted move per recipeId wins.
+
+    The entry structure follows FR-ANA-8 parameterised recipe contract:
+    ``{rq, recipes: [{id, params: {...}}]}``.
+    """
+    plan = draft.setdefault("analysisPlan", [])
+    plan_by_rq: dict[str, dict] = {}
+    for entry in plan:
+        plan_by_rq.setdefault(entry["rq"], entry)
+
+    for move in moves:
+        if move.get("status") != "accepted":
+            continue
+        patch = move.get("patch") or {}
+
+        if move["kind"] == "prescribe-statistics":
+            recipe_id = patch.get("recipeId")
+            rq = patch.get("rq", "RQ-1")
+            params = patch.get("params", {})
+            deviates = patch.get("deviatesFromTemplate", False)
+
+            if rq not in plan_by_rq:
+                plan_by_rq[rq] = {"rq": rq, "recipes": []}
+            entry = plan_by_rq[rq]
+            existing = [r for r in entry["recipes"] if r.get("id") == recipe_id]
+            if existing:
+                existing[0]["params"] = params
+                if deviates:
+                    existing[0]["deviatesFromTemplate"] = True
+            else:
+                recipe = {"id": recipe_id, "params": params}
+                if deviates:
+                    recipe["deviatesFromTemplate"] = True
+                entry["recipes"].append(recipe)
+
+        elif move["kind"] == "suggest-figure":
+            recipe_id = patch.get("recipeId")
+            figure = patch.get("figure")
+            rq = patch.get("rq")
+            if rq and rq in plan_by_rq:
+                for r in plan_by_rq[rq]["recipes"]:
+                    if r.get("id") == recipe_id:
+                        r.setdefault("params", {})["figure"] = figure
+                        break
+
+    draft["analysisPlan"] = list(plan_by_rq.values())
+
+
 def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> CompileResult:
     """Compile accepted moves into a validated protocol draft.
 
@@ -268,6 +323,10 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
     # Instrument moves apply to the dict section directly (F4.1/F4.2), after
     # the base is built so an added instrument survives both paths.
     _apply_instrument_moves(draft, moves)
+
+    # Prescription/figure moves (Phase 22 / Slice C): compile the chosen test
+    # and figure into the protocol's analysisPlan as runnable recipe entries.
+    _apply_analysis_moves(draft, moves)
 
     new_yaml = yaml.safe_dump(draft, sort_keys=False, default_flow_style=False)
     base = base_yaml or ""

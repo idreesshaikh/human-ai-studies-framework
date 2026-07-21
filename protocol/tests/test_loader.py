@@ -4,7 +4,7 @@ from protocol.loader import load_protocol, uncovered_rqs
 
 
 def test_pilot_example_validates(pilot):
-    assert pilot["protocolVersion"] == 1
+    assert pilot["protocolVersion"] == 4
     assert pilot["conditions"] == ["ai-assisted", "unassisted"]
 
 

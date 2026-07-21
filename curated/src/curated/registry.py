@@ -9,11 +9,17 @@ from collections.abc import Callable
 from curated.contract import MiningAdapter
 from curated.github_adapter import GitHubAdapter
 
-#: source -> factory(fetcher, salt) -> adapter. The GitHub adapter needs a
-#: fetcher (cassette or live); other sources register the same way.
+#: source -> factory(...) -> adapter. The GitHub adapter needs a fetcher
+#: (cassette or live); the archive adapter takes a file path and salt.
 ADAPTERS: dict[str, Callable[..., MiningAdapter]] = {
     GitHubAdapter.source: GitHubAdapter,
 }
+try:
+    from curated.archive_adapter import ArchiveAdapter
+
+    ADAPTERS[ArchiveAdapter.source] = ArchiveAdapter
+except ImportError:
+    pass  # archive adapter optional; degrade gracefully
 
 
 def get_adapter(source: str, *args, **kwargs) -> MiningAdapter:

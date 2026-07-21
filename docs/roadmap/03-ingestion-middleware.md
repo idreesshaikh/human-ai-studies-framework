@@ -17,7 +17,7 @@ app at `/` — but the ingestion contract here is the foundation.
 
 `middleware/` (Python package, `python -m middleware`):
 - `app.py` — the FastAPI app and routes.
-- `db.py` — SQLAlchemy models over one SQLite file; idempotency lives in the
+- `db.py` — SQLAlchemy models over PostgreSQL (SQLite fallback); idempotency lives in the
   schema (`UNIQUE(session_id, source, seq)`), so replays are dropped by the DB.
 - ingest: `POST /ingest/events` · `POST /ingest/metrics` · `POST /ingest/files`.
 - integrity: `GET /sessions/{id}/gaps` reports per-producer `seq` gaps —

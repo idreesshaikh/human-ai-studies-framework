@@ -18,12 +18,13 @@
   "additionalProperties": false,
   "properties": {
     "protocolVersion": {
-      "description": "Schema version of this protocol document. Consumers branch on it, never guess (FR-PROT-2, NFR-4). v1 = live-capture human study; v2 = adds the optional curated: mining section (FR-CUR); v3 = agent participants (FR-PROT-9): cognitiveOverlay optional, agent leg + task harness are the instruments.",
+      "description": "Schema version of this protocol document. Consumers branch on it, never guess (FR-PROT-2, NFR-4). v1 = live-capture human study; v2 = adds the optional curated: mining section (FR-CUR); v3 = agent participants (FR-PROT-9): kite optional, agent leg + task harness are the instruments; v4 = the kite->tern rename (2026-07-21): instruments.tern replaces instruments.kite, agent-participant studies use anyOf(tern, agentCapture, taskHarness).",
       "type": "integer",
       "enum": [
         1,
         2,
-        3
+        3,
+        4
       ]
     },
     "study": {
@@ -163,8 +164,8 @@
       "description": "Data-collecting components configured by the protocol, keyed by instrument name.",
       "type": "object",
       "properties": {
-        "cognitiveOverlay": {
-          "description": "Config for the Cognitive Overlay VS Code extension; nested keys mirror the real cognitiveOverlay.* settings.",
+        "tern": {
+          "description": "Config for the TERN VS Code extension; nested keys mirror the real tern.* settings.",
           "type": "object",
           "required": [
             "session",
@@ -253,6 +254,60 @@
                 },
                 "directory": {
                   "type": "string"
+                }
+              }
+            },
+            "ideHealth": {
+              "description": "Content-free IDE health/diagnostics stream (FR-INST-18). Optional — when absent the stream is disabled.",
+              "type": "object",
+              "required": [
+                "enabled",
+                "debounceSeconds"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "debounceSeconds": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "comprehensionProbe": {
+              "description": "Comprehension probe cadence (FR-DASH-12, FR-INST-19). Optional — when absent probes are disabled.",
+              "type": "object",
+              "required": [
+                "enabled",
+                "cadence",
+                "probeTypes"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "cadence": {
+                  "description": "How often to probe accepted chunks.",
+                  "type": "string",
+                  "enum": ["every-chunk", "sampled"]
+                },
+                "sampleRate": {
+                  "description": "Fraction of chunks to probe (0–1, only meaningful when cadence is sampled).",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "probeTypes": {
+                  "description": "Which probe types may be shown.",
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "enum": ["predict-output", "locate-change"]
+                  }
                 }
               }
             }
@@ -450,7 +505,7 @@
         "properties": {
           "instruments": {
             "required": [
-              "cognitiveOverlay"
+              "kite"
             ]
           }
         }
@@ -473,7 +528,43 @@
             "anyOf": [
               {
                 "required": [
-                  "cognitiveOverlay"
+                  "kite"
+                ]
+              },
+              {
+                "required": [
+                  "agentCapture"
+                ]
+              },
+              {
+                "required": [
+                  "taskHarness"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "$comment": "kite -> tern rename (2026-07-21): v4 requires tern in place of kite, retaining the agent-participant anyOf.",
+      "if": {
+        "required": [
+          "protocolVersion"
+        ],
+        "properties": {
+          "protocolVersion": {
+            "const": 4
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "instruments": {
+            "anyOf": [
+              {
+                "required": [
+                  "tern"
                 ]
               },
               {

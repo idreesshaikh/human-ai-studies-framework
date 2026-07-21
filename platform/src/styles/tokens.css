@@ -1,13 +1,15 @@
 /* Design tokens — the single source of truth for colour, motion, radius,
  * type, and the lifted-card signature.
  *
- * THE STUDY DESK — a warm, unhurried identity for a tool researchers live
- * inside for hours. Light theme is "Daylight desk" (soft oat paper + warm
- * ink); dark theme is "Lamplit desk" (the same desk after dark, parchment on
- * charcoal). Prose is set in a literary serif so long reading feels human;
- * monospace is reserved for the things that are genuinely machine artifacts
- * (the compiled YAML draft, data, code, structural labels). The accent is a
- * quiet petrol teal that reads as ink, not neon.
+ * THE STUDY DESK — a warm-peach identity for a tool researchers trust with
+ * real studies. Earlier passes tried a full retro-tech "Skip Labs" treatment
+ * (condensed display type, pill buttons, hard offset shadows); it read as a
+ * dev-tool marketing site, not a research instrument, so only the palette
+ * survived. Headings are a restrained literary serif (credible, editorial);
+ * body copy and UI are a clean grotesk (legible at data-table sizes); mono is
+ * reserved for the same machine artifacts as before (the compiled YAML
+ * draft, data, code, structural labels). Cards are quiet rectangles with a
+ * soft lift, not a costume.
  *
  * This is the only place raw hex / ms / px values live. Components consume
  * them via Tailwind's @theme mapping (index.css) or var(--token); a lint
@@ -27,49 +29,52 @@
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-key: cubic-bezier(0.3, 0.9, 0.4, 1); /* the gentle lift + settle */
 
-  /* Radii — softened for a friendlier, less machined feel. Weight now comes
-   * from warm paper, type, and soft shadow rather than hard edges. */
+  /* Radii — modest and consistent. Chips are a small rounded tag shape, not
+   * a pill; cards/inputs match it so nothing reads as a differently-designed
+   * layer. */
   --radius-card: 10px;
   --radius-chip: 6px;
   --radius-input: 8px;
 
-  /* Type — three clear roles. Serif is the voice of the tool (headings and
-   * prose); mono is the voice of the machine (draft, data, code, labels);
-   * sans is a rarely-needed neutral fallback. */
-  --font-serif: "Newsreader Variable", "Newsreader", Georgia, "Iowan Old Style",
-    "Times New Roman", serif;
+  /* Type — three clear roles. A restrained serif carries headings only
+   * (credible, editorial, never a full paragraph); a clean grotesk carries
+   * body copy and UI so data-dense screens stay legible; mono is the
+   * machine's voice (draft, data, code, labels). */
+  --font-display: "Newsreader Variable", "Newsreader", Georgia,
+    "Iowan Old Style", "Times New Roman", serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", "SFMono-Regular", Menlo,
     "Cascadia Code", Consolas, monospace;
-  --font-display: var(--font-serif); /* large headings read as warm serif */
-  --font-text: var(--font-serif); /* body prose defaults to the reading serif */
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    "Helvetica Neue", sans-serif; /* neutral fallback, rarely used */
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-text: var(--font-sans); /* body prose reads in the clean grotesk */
+  --font-serif: var(--font-display); /* alias — some components still write
+    font-serif for headings; both resolve to the one display face */
 
-  /* Light theme — "Daylight desk": soft oat paper + warm ink. */
-  --ink: #26221b; /* the one warm ink: primary text, frames, wordmark */
-  --bg: #f1ebdd; /* soft oat paper — the desk surface */
-  --surface: #fbf7ee; /* a clean sheet laid on the desk */
-  --surface-raised: #fffdf8; /* menus, tooltips, the topmost plane */
-  --border: #d9cdb2; /* soft warm rule — incidental dividers */
-  --border-strong: #3a3124; /* warm bark — framed-object keyline (softer than black) */
-  --text: #26221b; /* 13.3:1 on --bg */
-  --text-muted: #63583f; /* 5.9:1 on --bg */
-  --accent: #2c6e72; /* petrol teal — the brand / interactive ink (5.5:1 on --surface) */
-  --accent-contrast: #fbf7ee; /* paper on teal fills */
-  --accent-soft: #e1eae7; /* pale teal wash — active nav, quiet fills */
-  --grounded: #2f7a52; /* pressed-leaf green — cited into the corpus (4.9:1) */
-  --unsourced: #9e5514; /* warm sienna — "your call", honest not shameful (5.2:1) */
-  --unsourced-soft: #f6e7ce;
-  --focus-ring: #26221b; /* warm-ink ring, always high-contrast, drawn offset */
+  /* Light theme — "Daylight desk": warm peach paper + near-black ink. */
+  --ink: #221a12; /* the one near-black ink: primary text, frames, wordmark */
+  --bg: #fbe4ce; /* warm peach paper — the station surface */
+  --surface: #fdeedf; /* a clean sheet laid on the paper */
+  --surface-raised: #fff8ef; /* menus, tooltips, the topmost plane */
+  --border: #e7c7a2; /* soft tan rule — incidental dividers */
+  --border-strong: #221a12; /* near-black keyline — framed-object stroke */
+  --text: #221a12; /* 13.96:1 on --bg */
+  --text-muted: #6e5a44; /* 5.33:1 on --bg */
+  --accent: #b93a14; /* burnt ember — brand ink, mostly text/strokes (4.65:1 on --bg) */
+  --accent-contrast: #fbe4ce; /* peach on the rare solid ember fill */
+  --accent-soft: #f3cba8; /* pale ember wash — active nav, quiet fills */
+  --grounded: #3e6b30; /* moss green — cited into the corpus (5.10:1) */
+  --unsourced: #93540a; /* warm ochre — "your call", honest not shameful (4.86:1) */
+  --unsourced-soft: #f3deb9;
+  --focus-ring: #221a12; /* near-black ring, always high-contrast, drawn offset */
 
   /* Soft lifted-card shadow — warm, low, gently blurred. Reads as a sheet
    * resting slightly above the desk. (Legacy utility name kept as
    * shadow-brutal* to avoid churn across ~30 call sites.) */
-  --shadow-brutal-sm: 0 1px 2px rgba(38, 34, 27, 0.1);
-  --shadow-brutal: 0 3px 10px -2px rgba(38, 34, 27, 0.14),
-    0 1px 3px rgba(38, 34, 27, 0.08);
-  --shadow-brutal-lg: 0 12px 28px -6px rgba(38, 34, 27, 0.18),
-    0 2px 6px rgba(38, 34, 27, 0.07);
+  --shadow-brutal-sm: 0 1px 2px rgba(34, 26, 18, 0.1);
+  --shadow-brutal: 0 3px 10px -2px rgba(34, 26, 18, 0.14),
+    0 1px 3px rgba(34, 26, 18, 0.08);
+  --shadow-brutal-lg: 0 12px 28px -6px rgba(34, 26, 18, 0.18),
+    0 2px 6px rgba(34, 26, 18, 0.07);
 
   /* Chart palette — the dataviz skill's validated categorical order (8 slots),
    * light column. Assign hues in fixed order, never cycled; a colored mark
@@ -89,23 +94,23 @@
 }
 
 :root[data-theme="dark"] {
-  /* Dark theme — "Lamplit desk": the same desk after dark. Parchment ink on
-   * warm charcoal; the teal warms to catch the lamplight. */
-  --ink: #ece3d0;
-  --bg: #191510;
-  --surface: #221d16;
-  --surface-raised: #2a2419;
-  --border: #423b2d; /* soft warm keyline */
-  --border-strong: #c9bfa5; /* pale bark — frames read light on dark */
-  --text: #ece3d0; /* 14.2:1 on --bg */
-  --text-muted: #a79c84; /* 6.7:1 on --bg */
-  --accent: #63b7b0; /* lamplit teal (7.1:1 on --surface) */
-  --accent-contrast: #191510;
-  --accent-soft: #22352f;
-  --grounded: #57c98b; /* leaf green, lifted for dark */
-  --unsourced: #e7b45a; /* warm sienna, lifted for dark */
-  --unsourced-soft: #2c2412;
-  --focus-ring: #ece3d0; /* parchment ring on dark */
+  /* Dark theme — "Lamplit desk": the same desk after dark. Warm cream ink on
+   * near-black; the ember brightens to hold its own against the dark. */
+  --ink: #f0dec4;
+  --bg: #17120d;
+  --surface: #201810;
+  --surface-raised: #2a2015;
+  --border: #3c2e1e; /* soft warm keyline */
+  --border-strong: #f0dec4; /* pale cream — frames read light on dark */
+  --text: #f0dec4; /* 14.13:1 on --bg */
+  --text-muted: #b9a588; /* 7.80:1 on --bg */
+  --accent: #ff7a45; /* ember, brightened for dark (7.20:1 on --bg) */
+  --accent-contrast: #17120d;
+  --accent-soft: #3a2413;
+  --grounded: #7fbd5e; /* moss green, lifted for dark */
+  --unsourced: #e3a83e; /* ochre, lifted for dark */
+  --unsourced-soft: #3a2a12;
+  --focus-ring: #f0dec4; /* cream ring on dark */
 
   --shadow-brutal-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-brutal: 0 3px 12px -2px rgba(0, 0, 0, 0.5),
@@ -130,21 +135,21 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ink: #ece3d0;
-    --bg: #191510;
-    --surface: #221d16;
-    --surface-raised: #2a2419;
-    --border: #423b2d;
-    --border-strong: #c9bfa5;
-    --text: #ece3d0;
-    --text-muted: #a79c84;
-    --accent: #63b7b0;
-    --accent-contrast: #191510;
-    --accent-soft: #22352f;
-    --grounded: #57c98b;
-    --unsourced: #e7b45a;
-    --unsourced-soft: #2c2412;
-    --focus-ring: #ece3d0;
+    --ink: #f0dec4;
+    --bg: #17120d;
+    --surface: #201810;
+    --surface-raised: #2a2015;
+    --border: #3c2e1e;
+    --border-strong: #f0dec4;
+    --text: #f0dec4;
+    --text-muted: #b9a588;
+    --accent: #ff7a45;
+    --accent-contrast: #17120d;
+    --accent-soft: #3a2413;
+    --grounded: #7fbd5e;
+    --unsourced: #e3a83e;
+    --unsourced-soft: #3a2a12;
+    --focus-ring: #f0dec4;
     --shadow-brutal-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-brutal: 0 3px 12px -2px rgba(0, 0, 0, 0.5),
       0 1px 3px rgba(0, 0, 0, 0.35);

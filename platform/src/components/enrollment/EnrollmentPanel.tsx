@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Copy, Check, ExternalLink } from "lucide-react";
 import { useApi } from "@/lib/session";
 import { hasRole, type Role } from "@/lib/capabilities";
-import type { EnrollmentTokenView } from "@/lib/api";
+import type { EnrollmentTokenView, ToggleCatalogEntry } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { MintDialog } from "./MintDialog";
+import { TogglePopover } from "./TogglePopover";
 import { cn } from "@/lib/cn";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -13,16 +15,44 @@ const STATUS_STYLE: Record<string, string> = {
   revoked: "text-unsourced line-through",
 };
 
+const EXTENSION_URI_AUTHORITY = "hpi-research.cognitive-overlay";
+
+function vscodeDeepLink(connectionString: string): string {
+  return `vscode://${EXTENSION_URI_AUTHORITY}/pair?c=${encodeURIComponent(connectionString)}`;
+}
+
 /* The study's enrollment surface (FR-DASH-10): mint pairing links, see who has
- * paired / is streaming, revoke. Lives inside the study workspace — running a
- * study is part of the study, not a separate tool. */
+ * paired / is streaming with live polling, revoke, and toggle per-metric
+ * capture (FR-DASH-11). Lives inside the study workspace — running a study is
+ * part of the study. */
 export function EnrollmentPanel({ studyId, role }: { studyId: string; role: Role | null }) {
   const api = useApi();
   const [rows, setRows] = useState<EnrollmentTokenView[]>([]);
+  const [catalog, setCatalog] = useState<ToggleCatalogEntry[]>([]);
+  const [popoverEntry, setPopoverEntry] = useState<ToggleCatalogEntry | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
   const canMint = hasRole(role, "mint_token");
+  const canToggle = hasRole(role, "toggle_capture");
 
-  const load = () => void api.listEnrollmentTokens(studyId).then(setRows);
-  useEffect(load, [studyId]);
+  const load = useCallback(() => {
+    void api.listEnrollmentTokens(studyId).then(setRows);
+    void api.toggleCatalog(studyId).then(setCatalog);
+  }, [studyId, api]);
+  useEffect(load, [load]);
+
+  // Live polling: refresh statuses every 15s while the panel is mounted.
+  const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  useEffect(() => {
+    pollRef.current = setInterval(load, 15_000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [load]);
+
+  const copy = (text: string, id: string) => {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(id);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  };
 
   return (
     <div className="flex flex-col gap-4 p-4" data-agent="enrollment-panel">
@@ -42,6 +72,7 @@ export function EnrollmentPanel({ studyId, role }: { studyId: string; role: Role
               <th className="py-1 font-medium">Condition</th>
               <th className="py-1 font-medium">Grain</th>
               <th className="py-1 font-medium">Status</th>
+              <th className="py-1 font-medium">Link</th>
               <th className="py-1 font-medium">Will capture</th>
               <th />
             </tr>
@@ -54,15 +85,49 @@ export function EnrollmentPanel({ studyId, role }: { studyId: string; role: Role
                 <td className="py-1.5">{t.grain}</td>
                 <td className={cn("py-1.5", STATUS_STYLE[t.status])}>{t.status}</td>
                 <td className="py-1.5">
+                  {t.status === "unredeemed" && t.connectionString ? (
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="subtle" className="shrink-0 text-xs"
+                        onClick={() => copy(t.connectionString ?? "", t.id)}
+                        title="Copy connection string">
+                        {copied === t.id ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+                        {copied === t.id ? "Copied" : "Copy link"}
+                      </Button>
+                      <Button asChild size="sm" variant="ghost" className="shrink-0">
+                        <a href={vscodeDeepLink(t.connectionString)} data-agent="open-in-vscode"
+                          title="Open in VS Code (requires extension)">
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                        </a>
+                      </Button>
+                    </div>
+                  ) : t.status === "paired" || t.status === "streaming" ? (
+                    <span className="text-xs text-text-muted">Paired</span>
+                  ) : (
+                    <span className="text-xs text-text-muted">—</span>
+                  )}
+                </td>
+                <td className="py-1.5">
                   {t.captureConfig ? (
                     <div className="flex flex-wrap gap-1" title={`captureConfigVersion ${t.captureConfig.captureConfigVersion}`}>
-                      {t.captureConfig.enabledInstruments.map((i) => (
-                        <span key={i.name}
-                          className={cn("rounded-input border px-1.5 py-0.5 font-mono text-xs",
-                            i.enabled ? "border-accent text-accent" : "border-border text-text-muted line-through")}>
-                          {i.name}
-                        </span>
-                      ))}
+                      {t.captureConfig.enabledInstruments.map((i) => {
+                        const cat = catalog.find((c) =>
+                          c.instrument === "cognitiveOverlay" &&
+                          c.path[0] === i.name &&
+                          c.path[c.path.length - 1] === "enabled");
+                        const chip = (
+                          <span key={i.name}
+                            role={canToggle ? "button" : undefined}
+                            tabIndex={canToggle ? 0 : undefined}
+                            onClick={() => { if (canToggle && cat) setPopoverEntry(cat); }}
+                            onKeyDown={(e) => { if (canToggle && cat && (e.key === "Enter" || e.key === " ")) setPopoverEntry(cat); }}
+                            className={cn("rounded-input border px-1.5 py-0.5 font-mono text-xs",
+                              canToggle ? "cursor-pointer hover:ring-1 hover:ring-accent" : "",
+                              i.enabled ? "border-accent text-accent" : "border-border text-text-muted line-through")}>
+                            {i.name}
+                          </span>
+                        );
+                        return chip;
+                      })}
                     </div>
                   ) : (
                     <span className="text-text-muted">—</span>
@@ -80,6 +145,15 @@ export function EnrollmentPanel({ studyId, role }: { studyId: string; role: Role
             ))}
           </tbody>
         </table>
+      )}
+      {popoverEntry && (
+        <TogglePopover
+          studyId={studyId}
+          entry={popoverEntry}
+          role={role}
+          onToggle={() => { setPopoverEntry(null); load(); }}
+          onClose={() => setPopoverEntry(null)}
+        />
       )}
     </div>
   );

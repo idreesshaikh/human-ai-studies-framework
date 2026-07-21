@@ -1,0 +1,6 @@
+[
+  {"type": "PullRequest", "actor": "dev-user-1", "repo": "org/repo-a", "createdAt": "2025-03-01T10:00:00Z", "additions": 150, "deletions": 30, "changedFiles": 5},
+  {"type": "Commit", "actor": "dev-user-2", "repo": "org/repo-a", "createdAt": "2025-03-01T11:00:00Z", "lines": 80},
+  {"type": "PullRequest", "actor": "dev-user-1", "repo": "org/repo-b", "createdAt": "2025-03-02T10:00:00Z", "additions": 40, "deletions": 10, "changedFiles": 2},
+  {"type": "ReviewComment", "actor": "dev-user-3", "repo": "org/repo-a", "createdAt": "2025-03-01T12:00:00Z", "lines": 20}
+]

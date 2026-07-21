@@ -13,9 +13,9 @@ This file orients an AI agent (Claude Code, a browser agent, or an SDK agent) wo
 - **Name:** Framework for Conducting Human-AI Studies
 - **Version:** 0.1.0
 - **Capabilities:** analysis-recipes, conversation, corpus, curated-datasets, paper-matching, protocol-compilation, templates
-- **Protocol schema versions:** [1, 2, 3] (consumers branch on version, never guess)
+- **Protocol schema versions:** [1, 2, 3, 4] (consumers branch on version, never guess)
 - **Event schema versions:** [2, 3, 4, 5]
-- **Corpus:** 15000 papers (100 Tier A + 14900 Tier B); **templates:** 2
+- **Corpus:** 15000 papers (100 Tier A + 14900 Tier B); **templates:** 13
 
 ## System invariants (violating these breaks the science)
 
@@ -32,14 +32,16 @@ This file orients an AI agent (Claude Code, a browser agent, or an SDK agent) wo
 - **Privacy by construction:** no raw code content, keystrokes, or clipboard
   text in any instrument — aggregates, shapes, salted hashes only. The two
   scoped exceptions (agent-conversation content, workspace snapshots) are
-  governed by the protocol's consent-matched content policy (FR-ETH-2,
-  FR-AGENT-5). The knowledge assistant may only ever see aggregates
+  governed by the protocol's consent-matched content policy (FR-AGENT-5,
+  FR-ETH-2). The knowledge assistant may only ever see aggregates
   (FR-ETH-4) — enforce server-side, test with grep-the-output.
 - **Port 8000** is the middleware contract all sensors assume (FR-ING-1).
 - **Honest statistics:** exact tests, effect sizes, per-cell n; never bare
   p-values (NFR-8).
 - **Participant data never enters git:** `.study-data/`, `*.sqlite3`,
   `results/`, `shadow.git/` are gitignored — keep it that way.
+- **Railway deploys from `railway.toml`** at the repo root. The container
+  image is the sole artifact; Railway handles TLS, domains, and PostgreSQL.
 
 ## Vocabulary
 
@@ -51,6 +53,7 @@ Use these terms in code identifiers, schema fields, and prose (`participant` not
 - **Agent participant** — An AI agent configuration (tool + model) enrolled as a study's data source, its sessions executed by the task harness; join keys and anonymized IDs apply exactly as for humans (FR-PROT-9). *(not: bot, subject system)*
 - **Agent turn** — One prompt or response in the human-agent conversation, as a timestamped event (role, timing, sizes; text per content policy).
 - **Amendment** — A post-ethics-approval protocol change: version bump + recorded rationale/approver; consent-relevant amendments require re-approval before new sessions (FR-CONV-4).
+- **Bespoke design** — A protocol design that does not match any archetype template; the design conversation proposes design moves from the prescription table alone (unsourced grounding) and the analysis plan is compiled individually. *(not: custom design)*
 - **Capture config** — The versioned, protocol-derived set of enabled instruments/metrics an IDE applies at a session boundary (FR-INST-21).
 - **Churn** — Lines added and then reworked or removed within the same session, from the snapshot series (FR-INST-17). *(not: rework, waste)*
 - **Compilation** — The deterministic, LLM-free translation of accepted design moves into a validated protocol draft diff, applied only on approval (FR-CONV-3).
@@ -61,8 +64,10 @@ Use these terms in code identifiers, schema fields, and prose (`participant` not
 - **Corpus** — The platform's paper collection in provenance tiers: Tier A (hand-curated seeds with per-paper rationale), Tier B (pipeline-harvested, quality-gated, every row API-verifiable), plus per-study ingested papers (FR-LIT-8). *(not: library, database)*
 - **Curated dataset** — A study dataset built from external sources (GitHub API, archives, replication packages) rather than live instrumented sessions, normalized into the one-timeline event schema with join keys and a provenance record (FR-CUR-1). *(not: mined dataset, secondary data)*
 - **Dataset** — The middleware's joined, one-timeline export for a study - what recipes consume.
+- **Design archetype** — One of ~8 canonical study-design patterns (two-group RCT, within-subjects crossover, paired pre/post, etc.) that the platform offers as instantiable templates; each archetype defines the design shape, instruments, measures, session plan, and analysis plan (FR-TPL-7).
 - **Design conversation** — The persistent per-study thread in which a study is elicited, designed, and evolved - the platform's primary design surface (FR-CONV-1). *(not: chat, wizard)*
 - **Design move** — One platform-proposed protocol change carried as a structured, individually acceptable/rejectable object alongside a conversation turn (FR-CONV-1).
+- **Design shape** — The structural family of a study design — e.g., two-group, paired, multi-group, factorial, repeated-measures, proportion — which determines the correct statistical plan from the prescription table (FR-TPL-6).
 - **Elicitation record** — The stored design conversation - turns, moves, decisions, approvals - as the study's traceable requirements-elicitation artifact (FR-CONV-6).
 - **Enrollment** — A participant's IDE joining a study by redeeming a pairing token.
 - **Environment snapshot** — The session-start event recording tool/OS/extension/model versions for replication provenance (FR-INST-14).
@@ -105,6 +110,7 @@ Use these terms in code identifiers, schema fields, and prose (`participant` not
 - **Snapshot** — One shadow-git commit of the task workspace (on save + timer), enabling metric time series (FR-INST-15).
 - **Source adapter** — A per-agent-tool capture implementation behind the agent leg's common event contract (primary: Claude Code hooks + transcripts, D13).
 - **Statistical plan** — The template-bound prescription of exact tests, effect sizes, corrections, and per-cell-n rules a design requires (FR-TPL-2, NFR-8). *(not: stats config)*
+- **Statistical prescription** — The deterministic, keyed row of the prescription table mapping a design shape to its recommended test, effect size, correction, and sample-size guidance (FR-TPL-6).
 - **Study** — One complete empirical investigation, specified by exactly one protocol. *(not: experiment)*
 - **Study designer** — The guided flow from research question to instantiated protocol: template selection, dataset-exists branch (curated vs. live), parameter form (FR-TPL-3). *(not: wizard)*
 - **Study template** — A parameterized, citable encoding of a published study design (design type, conditions, instruments, measures, statistical plan) that instantiates into a valid protocol (FR-TPL-1). *(not: blueprint, preset)*
@@ -120,15 +126,15 @@ Every feature traces to a requirement ID. The full text lives in `requirements/s
 - **FR-PROT-1** (M) A study SHALL be specified by exactly one YAML protocol validated against a published JSON Schema, covering metadata, RQs, conditions, participant plan, instruments+config, session plan, phases+gat… — _✅_
 - **FR-PROT-2** (M) The protocol schema SHALL carry a `protocolVersion`, and validators SHALL branch on it rather than guess. — _✅_
 - **FR-PROT-3** (M) The framework SHALL model the lifecycle `design → ethics → pilot → recruitment → data-collection → analysis → write-up`, where each phase transition is guarded by gates over required artifacts, and… — _✅_
-- **FR-PROT-4** (M) Instrument configuration (e.g. `cognitiveOverlay.*` settings for a given participant/condition) SHALL be derivable from the protocol by command, with no hand-maintained side configuration. — _✅_
+- **FR-PROT-4** (M) Instrument configuration (e.g. `tern.*` settings for a given participant/condition) SHALL be derivable from the protocol by command, with no hand-maintained side configuration. — _✅_
 - **FR-PROT-5** (M) The protocol's analysis plan SHALL map each RQ to the recipes answering it; the framework SHALL be able to verify every RQ is covered. — _✅_
 - **FR-PROT-7** (S) The framework SHALL export a replication kit: frozen protocol, schema+recipe versions, anonymized dataset, report. — _✅_
 - **FR-PROT-8** (W) Support for arbitrary study types beyond agent–human developer studies. — _-_
 - **FR-PROT-9** (S) The protocol schema SHALL support agent participants: studies whose sessions are harness-executed runs of an agent under test (participant = anonymized agent-configuration ID recording tool + model… — _✅_
-- **FR-INST-1** (M) The cognitive leg SHALL sample fatigue via Likert micro-probes timed into typing pauses, with jitter and a quiet tail. — _✅ Cognitive Overlay v0.1_
+- **FR-INST-1** (M) The cognitive leg SHALL sample fatigue via Likert micro-probes timed into typing pauses, with jitter and a quiet tail. — _✅ TERN v0.1_
 - **FR-INST-2** (M) The cognitive leg SHALL detect stuck episodes (dwell / scroll-thrash) and prompt inline without stealing focus. — _✅_
 - **FR-INST-3** (M) Sessions SHALL be governed by a pausable, crash-recoverable clock ending in a TLX-style debrief. — _✅_
-- **FR-INST-4** (M) The static-metrics leg SHALL extract the full 9-metric cognitive-load matrix of `metrics/docs/static_code_metrics.md`: nesting depth penalty (exponential, tree-sitter), cognitive complexity (SonarQ… — _✅ (9/9)_
+- **FR-INST-4** (M) The static-metrics leg SHALL extract all 9 metrics defined in `metrics/docs/static_code_metrics.md`: nesting depth penalty (tree-sitter), cognitive complexity (SonarQube API, stub-degradable), para… — _✅ (9/9)_
 - **FR-INST-5** (M) The behavioral leg SHALL capture: tab/file focus switches (with workspace-relative paths), aggregated edit bursts (chars added/deleted, lines, duration, language), clipboard-paste events (size, lin… — _✅_
 - **FR-INST-6** (M) Every data row of every leg SHALL carry the join keys (`participantId`, `condition`, `sessionId`, timestamp) and a schema version. — _✅ all four legs (overlay + behavioral, metrics, agent)_
 - **FR-INST-7** (W) A JetBrains adapter reusing the IDE-agnostic core. — _-_
@@ -142,14 +148,14 @@ Every feature traces to a requirement ID. The full text lives in `requirements/s
 - **FR-INST-15** (S) The framework SHALL snapshot the task workspace over time (shadow git repo: commit on save + every N minutes, protocol-configurable) so static metrics can be computed as a time series and code evol… — _✅ (shadow-git snapshotter)_
 - **FR-INST-16** (M) Each task SHALL ship acceptance tests; the framework SHALL run them at session end (and optionally on save) and record pass/fail counts and time-to-first-green as events. — _✅ (task harness)_
 - **FR-INST-17** (S) The framework SHALL derive code-evolution / process metrics from the workspace-snapshot series (FR-INST-15) joined with origin-classified edit bursts (FR-INST-10): gross/net LOC added and deleted o… — _✅ (churn/persistence char-approximated, stated; line-level pending schema-v4 burst ranges)_
-- **FR-INST-18** (C) The behavioral leg SHOULD capture a content-free IDE health stream: workspace diagnostics counts by severity (errors/warnings, debounced on change) and build/test invocations outside the harness, a… — _⬜_
-- **FR-INST-19** (S) The cognitive leg SHALL support comprehension probes: short, timeboxed, protocol-configured checks (predict-output / locate-change) triggered when an agent-produced chunk is accepted and at mainten… — _⬜_
+- **FR-INST-18** (C) The behavioral leg SHOULD capture a content-free IDE health stream: workspace diagnostics counts by severity (errors/warnings, debounced on change) and build/test invocations outside the harness, a… — _✅_
+- **FR-INST-19** (S) The cognitive leg SHALL support comprehension probes: short, timeboxed, protocol-configured checks (predict-output / locate-change) triggered when an agent-produced chunk is accepted and at mainten… — _✅ Phase 21_
 - **FR-INST-20** (M) The framework SHALL let a participant's IDE enroll into a study by redeeming one pairing token (a connection string encoding middleware URL + token) that resolves its identity (participantId, condi… — _⬜_
 - **FR-INST-21** (M) The middleware SHALL serve a capture config derived deterministically from the protocol's instruments block; the IDE SHALL apply it at pair and at each session start behind a capture pre-flight; a… — _⬜_
 - **FR-AGENT-1** (M) The framework SHALL capture agent interaction as structured events on the shared timeline (join keys + schema version like every leg): conversation turns (role, timing, text per content policy, cod… — _✅_
 - **FR-AGENT-2** (M) The primary source adapter SHALL be Claude Code in the integrated terminal: real-time capture via Claude Code hooks POSTing to the middleware, plus post-session import of the on-disk transcript JSO… — _✅ (hooks + transcript importer, one normalizer)_
 - **FR-AGENT-3** (S) The framework SHALL correlate agent events with editor events: an agent code block followed by a matching-size paste/injection within a window strengthens `origin: ai` (FR-INST-10); error-paste → a… — _✅ (correlate job: reliance loops + burst annotation)_
-- **FR-AGENT-4** (C) Additional source adapters (Copilot Chat export import; generic markdown/JSON conversation import) MAY be added behind the same event contract. — _⬜_
+- **FR-AGENT-4** (C) Additional source adapters (Copilot Chat export import; generic markdown/JSON conversation import) MAY be added behind the same event contract. — _✅ Phase 24 — generic-json format in `transcript.py`_
 - **FR-AGENT-5** (M) Conversation content policy SHALL be protocol-declared and consent-matched: `metadata-only` (sizes/timings/counts only - the default), `redacted` (text with string literals and identifiers ≥ N char… — _✅ (`redact.py` choke point; `metadata-only` default, grep-the-output tested)_
 - **FR-ING-1** (M) The middleware SHALL listen on port 8000 (configurable) and accept event batches over HTTP matching the extension's existing HttpSink payload, unchanged. — _✅_
 - **FR-ING-2** (M) Ingestion SHALL be idempotent on `(sessionId, seq)`: replayed batches create no duplicates. — _✅_
@@ -161,13 +167,15 @@ Every feature traces to a requirement ID. The full text lives in `requirements/s
 - **FR-DASH-1** (M) The platform SHALL show a study overview: protocol summary, RQs, planned-vs-collected sessions per condition. — _✅_
 - **FR-DASH-2** (M) The platform SHALL render the lifecycle as a board whose current state is computed from gate artifacts, not hand-set. — _✅_
 - **FR-DASH-3** (S) The platform SHALL show session status with recent events and seq-gap warnings. — _✅_
-- **FR-DASH-4** (M) The platform SHALL render a per-session swimlane timeline interleaving events from all legs on one time axis. — _🔶 deferred (session status shows integrity; the swimlane view is not yet built)_
+- **FR-DASH-4** (M) The platform SHALL render a per-session swimlane timeline interleaving events from all legs on one time axis. — _✅ Phase 23_
 - **FR-DASH-5** (S) The platform SHALL show static-metric distributions split by condition. — _✅_
 - **FR-DASH-6** (S) Every chart SHALL display which RQ/requirement it answers, sourced from the protocol's analysis plan. — _✅_
 - **FR-DASH-7** (M) The platform SHALL surface study state as a self-computing status view derived from the protocol (unsatisfied gate artifacts, uncovered RQs, un-run recipes, integrity warnings), clearing itself whe… — _✅_
 - **FR-DASH-8** (S) The platform SHALL host the knowledge views: the citation constellation (FR-LIT-2) and the grounded assistant (FR-LIT-4). — _✅_
 - **FR-DASH-9** (S) The platform SHALL explain itself in plain language: hover tooltips for every requirement ID, research-question ID, and domain term it surfaces - tooltip text sourced from this SRS and the glossary… — _✅ tooltip/vocabulary layer built (the standalone guided tour was dropped; hero + demo onboard)_
 - **FR-DASH-10** (S) The platform SHALL provide an enrollment surface in the study workspace: mint pairing tokens (batch/single, pick grain) as copy-links with live status (unredeemed/paired/streaming) and revoke, role… — _⬜_
+- **FR-DASH-11** (M) The platform SHALL let a researcher toggle an individual capture metric on or off from the enrollment surface, each toggle grounded (cited or explicitly labeled unsourced per FR-CONV-2) and applied… — _✅_
+- **FR-DASH-12** (C) The middleware SHALL derive a comprehension-probe config (enabled, cadence, sample rate, probe-type set) from the protocol's `instruments.tern.comprehensionProbe` block, using the same derivation p… — _✅ Phase 21_
 - **FR-LIT-1** (M) The framework SHALL ingest papers by PDF upload and by arXiv ID / DOI, extracting metadata (title, authors, year, venue, abstract) and full text for the assistant. — _✅_
 - **FR-LIT-2** (M) The framework SHALL build a related-papers graph around ingested papers via a citation API (Semantic Scholar: references, citations, recommendations), rendered as an interactive graph in the platfo… — _✅_
 - **FR-LIT-3** (S) Papers SHALL be linkable to the protocol elements they justify (an RQ, an instrument, a metric, a recipe), and those links SHALL appear in the traceability views and the generated paper's related-w… — _✅_
@@ -183,6 +191,8 @@ Every feature traces to a requirement ID. The full text lives in `requirements/s
 - **FR-ANA-4** (M) A runner SHALL execute the protocol's analysis plan and emit a per-study report organized by RQ. — _✅_
 - **FR-ANA-5** (C) At least one published paper's analysis SHALL be implemented as a recipe, cited. — _✅_
 - **FR-ANA-6** (M) The framework SHALL generate a paper draft from a completed study: Markdown + LaTeX skeleton with methods synthesized from the frozen protocol, results/figures/tables inserted from the recipe repor… — _✅ (`analysis paper`; golden-file + tectonic-compile tests)_
+- **FR-ANA-7** (S) The framework SHALL provide a figure-suggestion engine that maps each recipe's result shape to a ranked list of recommended visualizations (violin + jitter, paired-difference strip, slope chart, ba… — _✅ Phase 22 — `suggest_figures.py` covers 6 result shapes, each with ranked shortlist_
+- **FR-ANA-8** (S) The framework SHALL support parameterised recipes: a single recipe whose design-variant parameters (test type, direction, correction, effect-size family) are supplied by the protocol's analysis pla… — _✅ Phase 22 — 4 parameterised recipes (two-group, paired, proportion, correlation); each reads params from `dataset.meta` (value columns, figure form, test/effect-size)_
 - **FR-META-1** (S) The framework SHALL log its own operational defects as structured findings - protocol validation failures, seq gaps, unknown-participant flags, gate blocks, recipe requires-failures, setup-friction… — _✅ (findings table + auto-scan for seq gaps + gate blocks; recipe requires-fails + `POST /findings`; platform finding cards)_
 - **FR-META-2** (S) After each study, a retrospective SHALL analyze the operational log and the facilitator's findings and produce a proposed changelist to the SRS / protocol schema / instrument configs (Claude-assist… — _✅ (`analysis retrospective`; model-drafted proposal per D32, FR-ETH-4 prompt boundary grep-tested, offline template fallback, inert until human-applied)_
 - **FR-META-3** (S) The platform SHALL run in-platform agents: scheduled, autonomous workflows hosted by the middleware that (a) scan for operational findings and integrity gaps on a cadence, (b) draft retrospective/p… — _⏳ specced (`docs/roadmap/18-evolution.md` extends the machinery); build not started_
@@ -198,21 +208,25 @@ Every feature traces to a requirement ID. The full text lives in `requirements/s
 - **FR-PLAT-3** (S) Members SHALL be invitable by email link, landing with the assigned role after sign-in. — _✅_
 - **FR-PLAT-4** (S) The platform SHALL present a public hero page: what it does, entry to the live seeded demo, and sign-up - readable by a lay researcher per NFR-11. — _🔶 (built; server-seeded demo pending)_
 - **FR-PLAT-5** (S) Self-hosted `none`/`token` deployments (FR-OPS-5) SHALL keep working project-free: a single implicit project, no sign-up, no regression for the one-facilitator laptop posture. — _✅_
-- **FR-TPL-1** (M) The platform SHALL provide a study-template registry: parameterized, citable encodings of published study designs (design type, conditions, instruments, measures, session plan, analysis plan) that… — _🔶 (registry + statistical plans built; 2 of 4 seed templates ship)_
-- **FR-TPL-2** (M) Every template SHALL bind a statistical plan: the exact tests, effect sizes, corrections, and per-cell-n rules its design requires (NFR-8 by construction), emitted into the instantiated protocol's… — _🔶_
+- **FR-TPL-1** (M) The platform SHALL provide a study-template registry: parameterized, citable encodings of published study designs (design type, conditions, instruments, measures, session plan, analysis plan) that… — _🔶 (registry + statistical plans built; 10 templates ship — 2 original seeds + Phase 22's 8 Wave-1 archetypes; `cursor-mining`/`hai-eval` remain drafts, blocked on their own dependencies)_
+- **FR-TPL-2** (M) Every template SHALL bind a statistical plan: the exact tests, effect sizes, corrections, and per-cell-n rules its design requires (NFR-8 by construction), emitted into the instantiated protocol's… — _🔶 Phase 22: prescription table (`prescribe.py`) covers all design shapes; bespoke prescriptions compile via compiler; template plans bound per FR-TPL-1_
 - **FR-TPL-3** (S) The structured study designer SHALL be the synchronized review surface over the same protocol draft (the design conversation, FR-CONV-1, is the primary designer) - template parameters, the dataset-… — _⬜_
-- **FR-TPL-4** (S) Templates SHALL cite their source papers by `paperRef` and surface in the knowledge layer (graph, assistant, FR-LIT-2/4), so "replicate this paper" is navigable from the literature view and every t… — _⬜_
-- **FR-TPL-5** (C) Third-party templates MAY be contributed behind the same contract (schema validation + mandatory citation), reviewed before publication in the registry. — _⬜_
+- **FR-TPL-4** (S) Templates SHALL cite their source papers by `paperRef` and surface in the knowledge layer (graph, assistant, FR-LIT-2/4), so "replicate this paper" is navigable from the literature view and every t… — _🔶 Phase 22: template `source` cites corpus papers; `list_templates()` exposes source refs for graph wiring_
+- **FR-TPL-5** (C) Third-party templates MAY be contributed behind the same contract (schema validation + mandatory citation), reviewed before publication in the registry. — _✅ Phase 24 Slice C — TemplateSubmission model + endpoints_
+- **FR-TPL-6** (S) The platform SHALL maintain a prescription table that maps each design shape (two-group, paired, multi-group, multi-factorial, repeated-measures, proportion, correlation, single-arm) to a recommend… — _✅ Phase 22_
+- **FR-TPL-7** (S) The platform SHALL maintain a design-archetype template registry of ~8 archetype designs (e.g., two-group between-subjects RCT, within-subjects crossover, paired pre/post, multi-arm RCT, 2×2 factor… — _🔶 Phase 22: 8 Wave-1 archetypes in registry + validated; keyword template matching in design_assistant; ranked /templates/match endpoint not yet built_
 - **FR-CONV-1** (M) Every study SHALL have a persistent design conversation - the primary surface through which a study is elicited, designed, and evolved; platform proposals arrive as individually acceptable/rejectab… — _✅_
 - **FR-CONV-2** (M) Every design move SHALL carry grounding (citations into the paper corpus, template registry, or SRS/glossary) or be visibly labeled unsourced; the assistant may only cite sources retrieved in that… — _✅_
 - **FR-CONV-3** (M) Accepted design moves SHALL compile deterministically (no LLM in the compile step) into a protocol draft diff, validated on every compile, applied only on role-checked human approval; validation fa… — _✅_
 - **FR-CONV-4** (S) Mid-study design/instrumentation changes SHALL route through phase-aware amendment rules: post-ethics amendments produce version bumps + amendment records; consent-relevant changes block new data-c… — _🔶 (engine + tests green; UI built + gated; live transport + browser evidence deferred)_
 - **FR-CONV-5** (S) Researcher feedback SHALL be capturable in-conversation as structured findings feeding the retrospective and in-platform agents (FR-META-1/2/3) as inert, human-approved proposals; cross-project lea… — _🔶 (feedback→findings→inert proposal + aggregates-only shapes green; grep-the-output enforced; UI built + gated)_
 - **FR-CONV-6** (M) The full conversation (turns, moves, decisions, compilations, approvals) SHALL be stored as the study's elicitation record - the traceable chain conversation turn → design move → grounding → protoc… — _✅_
+- **FR-CONV-7** (S) The evolution engine's `consent_relevance` check SHALL treat a change to a metric's `enabled` state, and the first appearance of a previously-undeclared metric subtree, as consent-relevant — not on… — _✅_
+- **FR-CONV-8** (S) When an LLM provider is configured (Mistral, or an OpenAI-compatible override), the design conversation's prose and proposed moves SHALL be generated by that provider, constrained to a closed per-t… — _✅_
 - **FR-CUR-1** (M) The platform SHALL support studies whose data is a curated dataset: rows imported from external sources, normalized into the one-timeline event schema with the join keys (FR-INST-6) and a schema ve… — _✅_
 - **FR-CUR-2** (S) A GitHub mining adapter SHALL import repositories, pull requests, commits, and issues via the GitHub API into curated-dataset rows - rate-limited, cached, resumable, degrading gracefully (NFR-4 ext… — _✅_
 - **FR-CUR-3** (S) Every curated dataset SHALL carry a validity-threats record - sampling frame, inclusion criteria, known biases, heuristics used - surfaced in reports (FR-ANA-4) and paper drafts (FR-ANA-6). — _✅_
-- **FR-CUR-4** (C) Published replication packages and research archives (e.g. DevGPT, arXiv:2309.03914) MAY be importable behind the same normalizer contract. — _⬜_
+- **FR-CUR-4** (C) Published replication packages and research archives (e.g. DevGPT, arXiv:2309.03914) MAY be importable behind the same normalizer contract. — _✅ Phase 24 Slice B — ArchiveAdapter_
 - **FR-AGF-1** (S) Deployments SHALL expose a platform manifest: machine-readable capabilities, API surface, event schemas, glossary, and requirements - extending the existing `/requirements` + `/glossary` endpoints… — _✅_
 - **FR-AGF-2** (S) Repository and deployments SHALL ship agent context files (the AGENTS.md pattern) generated from the documents of record (SRS, glossary, protocol schema), never hand-maintained copies that drift. — _✅_
 - **FR-AGF-3** (C) Platform surfaces MAY carry stable semantic annotations (`data-*` attributes) so browser-driving agents can operate the UI reliably. — _✅_

@@ -69,7 +69,7 @@ def client(tmp_path) -> TestClient:
         port=8000,
         spa_dist=tmp_path / "no-dist",
     )
-    factory = make_session_factory(settings.db_path)
+    factory = make_session_factory(f"sqlite:///{settings.db_path}")
     with factory() as s:
         for ref, title, why in _SEEDS:
             s.add(
@@ -151,7 +151,7 @@ def _start(client, session_id, study=STUDY):
 # rule S3 relies on; every branch is pinned here, LLM-free and deterministic.
 
 _BASE = {
-    "instruments": {"cognitiveOverlay": {"stuck": {"thresholdSeconds": 90}}},
+    "instruments": {"tern": {"stuck": {"thresholdSeconds": 90}}},
     "conditions": ["a", "b"],
     "ethics": {"contentPolicy": "metadata-only"},
 }
@@ -170,7 +170,7 @@ def _mut(**changes):
         (
             _mut(
                 instruments={
-                    "cognitiveOverlay": {"stuck": {"thresholdSeconds": 90}},
+                    "tern": {"stuck": {"thresholdSeconds": 90}},
                     "agentCapture": {"adapter": "claude-code"},
                 }
             ),
@@ -180,7 +180,7 @@ def _mut(**changes):
         (
             _mut(
                 instruments={
-                    "cognitiveOverlay": {"stuck": {"thresholdSeconds": 120}},
+                    "tern": {"stuck": {"thresholdSeconds": 120}},
                 }
             ),
             False,
@@ -189,7 +189,7 @@ def _mut(**changes):
         (
             _mut(
                 instruments={
-                    "cognitiveOverlay": {
+                    "tern": {
                         "stuck": {"thresholdSeconds": 90},
                         "contentPolicy": "full-content",
                     },
@@ -207,6 +207,31 @@ def _mut(**changes):
         (_mut(participants={"agents": [{"id": "A1"}]}), True),
         # No change at all — not relevant.
         (_mut(), False),
+        # FR-CONV-7: a nested ``enabled`` field change on an existing
+        # instrument is consent-relevant (turning capture on/off).
+        (
+            _mut(
+                instruments={
+                    "tern": {
+                        "stuck": {"enabled": False, "thresholdSeconds": 90},
+                    },
+                }
+            ),
+            True,
+        ),
+        # FR-CONV-7: first appearance of a metric subtree (a new top-level
+        # key inside an existing instrument) is consent-relevant.
+        (
+            _mut(
+                instruments={
+                    "tern": {
+                        "stuck": {"thresholdSeconds": 90},
+                        "ideHealth": {"enabled": True},
+                    },
+                }
+            ),
+            True,
+        ),
     ],
 )
 def test_consent_relevance_rule(after, expected):
@@ -352,7 +377,7 @@ def test_threshold_tweak_is_not_consent_relevant_and_applies_next_session(client
     doc = yaml.safe_load(
         client.get(f"/studies/{STUDY}/conversation/export").json()["currentDraft"]
     )
-    assert doc["instruments"]["cognitiveOverlay"]["stuck"]["thresholdSeconds"] == 120
+    assert doc["instruments"]["tern"]["stuck"]["thresholdSeconds"] == 120
 
 
 # ==================================================== F4.3 version visibility

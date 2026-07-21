@@ -76,6 +76,8 @@ CAPABILITIES: dict[str, Role] = {
     "run_recipe": Role.RESEARCHER,
     # Mint/revoke enrollment (pairing) tokens for a study.
     "mint_token": Role.RESEARCHER,
+    # Toggle individual capture metrics (Phase 20, FR-DASH-11).
+    "toggle_capture": Role.RESEARCHER,
     # Freeze protocol; approve post-ethics amendments.
     "freeze": Role.OWNER,
     # Manage members, roles, invitations.
