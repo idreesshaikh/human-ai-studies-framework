@@ -1,9 +1,15 @@
 # Railway deployment configuration.
 #
 # The middleware container builds from the repo root (uv workspace context)
-# using the multi-stage Dockerfile in middleware/. Railway injects DATABASE_URL
-# automatically when a PostgreSQL plugin is attached — the middleware reads
-# it via Settings and connects with psycopg3 + SQLAlchemy 2.x.
+# using the multi-stage Dockerfile in middleware/. A PostgreSQL plugin does
+# NOT automatically inject DATABASE_URL into a separate service — add an
+# explicit variable reference on the middleware service (Variables tab ->
+# + New Variable -> Add Reference -> the Postgres service -> DATABASE_URL).
+# Skip this and the middleware silently falls back to local SQLite (fails
+# loudly it does not; DATABASE_URL is simply absent from its environment),
+# which is ephemeral on Railway and gets wiped on every redeploy. The
+# middleware reads it via Settings and connects with psycopg3 + SQLAlchemy
+# 2.x once the reference is wired up.
 #
 # One-time manual step (Railway has no config-as-code volume declaration —
 # this can't live in this file): attach a persistent Volume to the service

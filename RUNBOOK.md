@@ -117,7 +117,7 @@ All configuration is environment variables (defaults in
 | Env var | Default | Meaning |
 | ------- | ------- | ------- |
 | `MIDDLEWARE_PORT` | `8000` | the port every sensor assumes; change only if you also change every leg's endpoint |
-| `DATABASE_URL` | *(unset)* | PostgreSQL connection string (Railway injects this automatically); takes priority over `MIDDLEWARE_DB` when set |
+| `DATABASE_URL` | *(unset)* | PostgreSQL connection string; on Railway this must be a variable **Reference** to the Postgres plugin — it is not auto-injected into another service; takes priority over `MIDDLEWARE_DB` when set |
 | `MIDDLEWARE_DB` | `.study-data/middleware.sqlite3` | SQLite file path — used for local dev when `DATABASE_URL` is unset (gitignored) |
 | `MIDDLEWARE_DATA_DIR` | `.study-data` | artifact/file store root |
 | `MIDDLEWARE_PROTOCOL` | *(unset)* | study protocol YAML; unset = accept-all ingest |
@@ -371,7 +371,9 @@ golden paper drafts).
 
 Railway is the sole deployment target. The `railway.toml` at repo root
 drives the build from `middleware/Dockerfile`; Railway provides managed
-PostgreSQL (DATABASE_URL auto-injected), TLS, and custom domains.
+PostgreSQL, TLS, and custom domains — `DATABASE_URL` must be wired to the
+Postgres plugin as an explicit variable **Reference** on the middleware
+service (§9.1 step 4); it is not injected automatically.
 
 | Surface | Host | Database | Updated by |
 | ------- | ---- | -------- | ---------- |
@@ -383,8 +385,7 @@ PostgreSQL (DATABASE_URL auto-injected), TLS, and custom domains.
 #### Railway (demo deployment)
 
 1. Sign up at [railway.app](https://railway.app) and create a new project.
-2. Add a **PostgreSQL** plugin to the project — Railway injects `DATABASE_URL`
-   into the service automatically.
+2. Add a **PostgreSQL** plugin to the project.
 3. Add a **service** from this GitHub repo. Railway detects `railway.toml` at
    the repo root and builds from `middleware/Dockerfile` with the repo root as
    context.
@@ -392,15 +393,13 @@ PostgreSQL (DATABASE_URL auto-injected), TLS, and custom domains.
 
    | Variable | Value |
    | -------- | ----- |
+   | `DATABASE_URL` | **a Reference**, not a plain value — Variables tab → + New Variable → Add Reference → the Postgres service → `DATABASE_URL`. A Postgres plugin does **not** automatically inject its variables into another service; skipping this step means `DATABASE_URL` is simply absent and the middleware silently falls back to local SQLite (ephemeral, wiped on every redeploy) — check the boot log says `postgresql://...`, not `sqlite:///...` |
    | `MIDDLEWARE_AUTH` | `clerk` (recommended) or `token` |
    | `MIDDLEWARE_TOKEN` | (when `auth=token`) a strong random token |
    | `MIDDLEWARE_SEED_ON_START` | `1` (demo mode — reseeds on boot) |
    | `MISTRAL_API_KEY` | optional — enables the knowledge assistant |
    | `MIDDLEWARE_S2_API_KEY` | optional — Semantic Scholar enrichment |
    | `MIDDLEWARE_GITHUB_TOKEN` | optional — curated mining live source |
-
-   `DATABASE_URL` is injected automatically by the PostgreSQL plugin; do not
-   set it manually.
 
 5. Attach a **Volume** to the service — Settings → Volumes → New Volume —
    mounted at `/data`. This is where uploaded artifacts (consent PDFs,

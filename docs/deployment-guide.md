@@ -72,9 +72,13 @@ jump to Phase 3.
       `sh middleware/scripts/start_with_seed.sh`, healthcheck = `/health`)
       — do not override these; if Railway asks, confirm the Dockerfile
       path is `middleware/Dockerfile`
-- [ ] In the same project, **+ New** → **Database** → **Add PostgreSQL** —
-      Railway injects `DATABASE_URL` into the middleware service
-      automatically; you never set this by hand
+- [ ] In the same project, **+ New** → **Database** → **Add PostgreSQL**.
+      **A Postgres plugin does NOT automatically inject `DATABASE_URL`
+      into another service** — you still wire it in Phase 4 below as an
+      explicit variable reference; skip that step and the middleware
+      silently falls back to local SQLite (ephemeral — wiped on every
+      redeploy) with no error, just a `sqlite:///...` line in the boot log
+      instead of `postgresql://...`
 - [ ] Service → **Settings** → **Volumes** → **New Volume** → mount path
       `/data`. **Do not skip this** — without it, every uploaded consent
       PDF or paper PDF is silently lost on the next redeploy or restart
@@ -90,6 +94,7 @@ Service → **Variables**. Set:
 
 | Variable | Required? | Value |
 | -------- | ---------- | ----- |
+| `DATABASE_URL` | yes | **Add Reference**, not a plain value — click the "+" next to the value field, or type `${{` and pick your Postgres service's `DATABASE_URL`. A plain-value paste of the connection string also works but won't track credential rotation the way a reference does |
 | `MIDDLEWARE_AUTH` | yes | `clerk` (if you did Phase 2) or `token` |
 | `MIDDLEWARE_TOKEN` | if `auth=token` | a long random string (`openssl rand -hex 32`) |
 | `MIDDLEWARE_CLERK_JWKS_URL` | if `auth=clerk` | from Phase 2 |
@@ -100,10 +105,12 @@ Service → **Variables**. Set:
 | `MIDDLEWARE_S2_API_KEY` | optional | Semantic Scholar enrichment for the literature corpus |
 | `MIDDLEWARE_GITHUB_TOKEN` | optional | needed only for the curated-mining (GitHub) leg's live source |
 
-`DATABASE_URL` — do not set manually; the PostgreSQL plugin already injected it in Phase 3.
-
 - [ ] All required variables set → **Deploy** (Railway triggers the first
       build automatically once variables are saved)
+- [ ] Check the deploy log for `PROJECT MIGRATION on postgresql://...` —
+      if it instead says `sqlite:///.study-data/middleware.sqlite3`,
+      `DATABASE_URL` didn't reach the container; go back and fix the
+      reference above, then redeploy
 
 ---
 
@@ -162,6 +169,7 @@ manual Railway click after today.
 | `MIDDLEWARE_AUTH=clerk` requests get 401/503 at startup | `MIDDLEWARE_CLERK_JWKS_URL` missing or wrong — the service fails loudly by design (never "quietly open") rather than silently accepting requests |
 | `Deploy demo` Action shows "skipping Railway deploy" | `RAILWAY_API_TOKEN` or `RAILWAY_SERVICE_ID` GitHub secret is unset or misnamed |
 | Demo has no data after a fresh deploy | `MIDDLEWARE_SEED_ON_START` not set to `1` |
+| Boot log shows `PROJECT MIGRATION on sqlite:///...` instead of `postgresql://...` | `DATABASE_URL` isn't reaching the container — a Postgres plugin does not auto-inject into another service; add it as an explicit variable Reference (Phase 4), then redeploy. Data written under SQLite in the meantime lives on the container's ephemeral disk and is gone on the next redeploy |
 
 ---
 
