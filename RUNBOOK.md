@@ -116,7 +116,7 @@ All configuration is environment variables (defaults in
 
 | Env var | Default | Meaning |
 | ------- | ------- | ------- |
-| `MIDDLEWARE_PORT` | `8000` | the port every sensor assumes; change only if you also change every leg's endpoint |
+| `MIDDLEWARE_PORT` | `8000`, or Railway's `PORT` if set | the port every sensor assumes locally; change only if you also change every leg's endpoint. On Railway, the app binds to the platform-assigned `PORT` automatically (`MIDDLEWARE_PORT` still overrides both if set) — otherwise Railway's external healthcheck probe fails ("service unavailable") even though the app is healthy on 8000 internally, since it's probing a different port than the app is listening on |
 | `DATABASE_URL` | *(unset)* | PostgreSQL connection string; on Railway this must be a variable **Reference** to the Postgres plugin — it is not auto-injected into another service; takes priority over `MIDDLEWARE_DB` when set |
 | `MIDDLEWARE_DB` | `.study-data/middleware.sqlite3` | SQLite file path — used for local dev when `DATABASE_URL` is unset (gitignored) |
 | `MIDDLEWARE_DATA_DIR` | `.study-data` | artifact/file store root |

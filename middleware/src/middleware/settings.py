@@ -1,9 +1,10 @@
 """Environment-driven configuration.
 
-Railway is the primary deployment target: PostgreSQL via DATABASE_URL (auto-
-injected by the Railway Postgres plugin) and Clerk authentication. Local
-development uses the same PostgreSQL path via docker-compose.yml — SQLite is
-a fallback for script-level testing only.
+Railway is the primary deployment target: PostgreSQL via DATABASE_URL (wired
+to the Railway Postgres plugin as an explicit variable Reference — Railway
+does NOT auto-inject a plugin's variables into another service) and Clerk
+authentication. Local development uses the same PostgreSQL path via
+docker-compose.yml — SQLite is a fallback for script-level testing only.
 """
 
 import os
@@ -53,8 +54,16 @@ class Settings:
             Path(p) if (p := os.environ.get("MIDDLEWARE_PROTOCOL")) else None
         )
     )
+    # Priority: MIDDLEWARE_PORT (explicit operator override) > PORT (Railway
+    # dynamically assigns this per-service and routes/healthchecks against
+    # it — the app must actually bind here or every external probe reads
+    # "service unavailable" even though the app is healthy internally) >
+    # 8000 (the FR-ING-1 default every instrument leg's 127.0.0.1 endpoint
+    # assumes for local/self-hosted use, where PORT is never set).
     port: int = field(
-        default_factory=lambda: int(os.environ.get("MIDDLEWARE_PORT", "8000"))
+        default_factory=lambda: int(
+            os.environ.get("MIDDLEWARE_PORT") or os.environ.get("PORT") or "8000"
+        )
     )
     spa_dist: Path = field(
         default_factory=lambda: Path(os.environ.get("MIDDLEWARE_WEB", "platform/dist"))

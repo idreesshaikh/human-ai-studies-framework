@@ -170,6 +170,8 @@ manual Railway click after today.
 | `Deploy demo` Action shows "skipping Railway deploy" | `RAILWAY_API_TOKEN` or `RAILWAY_SERVICE_ID` GitHub secret is unset or misnamed |
 | Demo has no data after a fresh deploy | `MIDDLEWARE_SEED_ON_START` not set to `1` |
 | Boot log shows `PROJECT MIGRATION on sqlite:///...` instead of `postgresql://...` | `DATABASE_URL` isn't reaching the container — a Postgres plugin does not auto-inject into another service; add it as an explicit variable Reference (Phase 4), then redeploy. Data written under SQLite in the meantime lives on the container's ephemeral disk and is gone on the next redeploy |
+| Schema creation fails with `failed to resolve host 'postgres.railway.internal'`, repeating across restarts | You referenced `DATABASE_URL` (the private one) instead of `DATABASE_PUBLIC_URL`, or private networking isn't set up between the two services. Fastest fix: point the middleware's `DATABASE_URL` variable at `${{Postgres.DATABASE_PUBLIC_URL}}` instead (Postgres service → Connect tab → Public Network, for the raw value) |
+| Deploy logs show `Application startup complete` / `Uvicorn running on http://0.0.0.0:8000` and `200 OK` on `/health`, but Railway's healthcheck still times out as "service unavailable" | The app is healthy but bound to the wrong port for Railway's router — Railway assigns a `PORT` env var per-service and routes/healthchecks against it, not always the Dockerfile's `EXPOSE`d port. The middleware now reads `PORT` automatically (falls back to `MIDDLEWARE_PORT`, then 8000) — if you still see this, confirm no `MIDDLEWARE_PORT` variable is pinning it to something Railway isn't routing to |
 
 ---
 
