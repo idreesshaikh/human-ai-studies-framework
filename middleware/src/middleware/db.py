@@ -26,6 +26,7 @@ Full-text search:
 
 import json
 import logging
+import time
 from hashlib import sha256
 from pathlib import Path
 
@@ -41,7 +42,7 @@ from sqlalchemy import (
     inspect,
     text,
 )
-from sqlalchemy.exc import IntegrityError, ProgrammingError
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 log = logging.getLogger("middleware.db")
@@ -690,35 +691,7 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
         )
 
     _engine = engine
-
-    try:
-        Base.metadata.create_all(engine)
-        log.info("Schema initialised on %s", engine.dialect.name)
-    except (IntegrityError, ProgrammingError) as exc:
-        # A benign race, not a real failure: on a platform that briefly
-        # overlaps the old and new container during a redeploy (Railway),
-        # two processes can both run CREATE TABLE against the same fresh
-        # Postgres database within the same instant. One wins; the other
-        # collides on the catalog's own unique index (pg_type_typname_nsp_
-        # index / pg_class - "already exists") rather than failing more
-        # legibly. If every table this process expects is now present
-        # (created by whichever process won the race), there is nothing
-        # actually wrong - proceed instead of crash-looping forever.
-        if _is_concurrent_create_race(exc) and _all_tables_present(engine):
-            log.warning(
-                "Schema creation raced with a concurrent process on %s "
-                "(%s) - all tables already present, continuing",
-                _safe_host(db_url_str),
-                type(exc.orig).__name__ if exc.orig else type(exc).__name__,
-            )
-        else:
-            host = _safe_host(db_url_str)
-            log.critical("Schema creation failed for %s: %s", host, exc)
-            raise SystemExit(1) from exc
-    except Exception as exc:
-        host = _safe_host(db_url_str)
-        log.critical("Schema creation failed for %s: %s", host, exc)
-        raise SystemExit(1) from exc
+    _create_schema(engine, db_url_str)
 
     if is_pg:
         _setup_pg_fts(engine)
@@ -730,6 +703,78 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
         _create_fts(engine)
 
     return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+#: Bounded retry for the *initial* connection only - a managed database can
+#: be briefly unreachable right after provisioning (DNS not yet propagated
+#: on a platform like Railway) or during its own maintenance blip. A
+#: persistent misconfiguration (wrong host, wrong project/network) still
+#: surfaces the same fatal error once attempts are exhausted - this never
+#: silently swallows a real problem, it only gives a transient one time to
+#: heal within a single container lifetime instead of crash-looping on the
+#: very first hiccup.
+_SCHEMA_CONNECT_ATTEMPTS = 5
+_SCHEMA_CONNECT_BASE_DELAY_SECONDS = 2.0
+
+
+def _create_schema(engine, db_url_str: str) -> None:
+    """``Base.metadata.create_all`` with the retry/race handling above."""
+    for attempt in range(1, _SCHEMA_CONNECT_ATTEMPTS + 1):
+        try:
+            Base.metadata.create_all(engine)
+            log.info("Schema initialised on %s", engine.dialect.name)
+            return
+        except OperationalError as exc:
+            # Connection-level failure (DNS resolution, refused, timeout) -
+            # the class of error a transient provisioning/network blip
+            # produces. Retry with backoff; only fatal once exhausted.
+            if attempt == _SCHEMA_CONNECT_ATTEMPTS:
+                host = _safe_host(db_url_str)
+                log.critical(
+                    "Schema creation failed for %s after %d attempts: %s",
+                    host,
+                    _SCHEMA_CONNECT_ATTEMPTS,
+                    exc,
+                )
+                raise SystemExit(1) from exc
+            delay = _SCHEMA_CONNECT_BASE_DELAY_SECONDS * (2 ** (attempt - 1))
+            log.warning(
+                "Schema creation attempt %d/%d could not connect to %s (%s) "
+                "- retrying in %.0fs",
+                attempt,
+                _SCHEMA_CONNECT_ATTEMPTS,
+                _safe_host(db_url_str),
+                exc,
+                delay,
+            )
+            time.sleep(delay)
+        except (IntegrityError, ProgrammingError) as exc:
+            # A benign race, not a real failure: on a platform that briefly
+            # overlaps the old and new container during a redeploy
+            # (Railway), two processes can both run CREATE TABLE against
+            # the same fresh Postgres database within the same instant.
+            # One wins; the other collides on the catalog's own unique
+            # index (pg_type_typname_nsp_index / pg_class - "already
+            # exists") rather than failing more legibly. If every table
+            # this process expects is now present (created by whichever
+            # process won the race), there is nothing actually wrong -
+            # proceed instead of crash-looping forever. Not retried - a
+            # second attempt can't change whether the tables now exist.
+            if _is_concurrent_create_race(exc) and _all_tables_present(engine):
+                log.warning(
+                    "Schema creation raced with a concurrent process on %s "
+                    "(%s) - all tables already present, continuing",
+                    _safe_host(db_url_str),
+                    type(exc.orig).__name__ if exc.orig else type(exc).__name__,
+                )
+                return
+            host = _safe_host(db_url_str)
+            log.critical("Schema creation failed for %s: %s", host, exc)
+            raise SystemExit(1) from exc
+        except Exception as exc:
+            host = _safe_host(db_url_str)
+            log.critical("Schema creation failed for %s: %s", host, exc)
+            raise SystemExit(1) from exc
 
 
 def _is_concurrent_create_race(exc: IntegrityError | ProgrammingError) -> bool:
