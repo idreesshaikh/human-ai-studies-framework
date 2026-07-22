@@ -30,6 +30,11 @@ export function MoveCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const isCaution = move.kind === "caution";
+  // A non-caution move can still land here with no patch (e.g. the LLM
+  // proposed a section the compiler doesn't recognize and it got dropped
+  // at validation) — "in draft" would be a lie in that case, since neither
+  // compiler folds a patch-less move into the draft.
+  const compiled = Boolean(move.patch);
   const decided = move.status !== "proposed";
 
   const onKey = useCallback(
@@ -69,8 +74,13 @@ export function MoveCard({
             {KIND_LABEL[move.kind]}
           </span>
           {move.status === "accepted" && (
-            <span className="text-xs text-grounded">
-              {isCaution ? "noted" : "in draft"}
+            <span
+              className={cn(
+                "text-xs",
+                compiled ? "text-grounded" : "text-text-muted",
+              )}
+            >
+              {compiled ? "in draft" : "noted"}
             </span>
           )}
           {move.status === "rejected" && (

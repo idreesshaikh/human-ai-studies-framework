@@ -61,6 +61,12 @@ _PATCHABLE_SECTIONS = frozenset(
     }
 )
 
+#: Rendered into SYSTEM_PROMPT so the model's `patch.section` choices always
+#: match what `_validate_patch` actually accepts — drifting these apart is
+#: exactly what silently drops a move's patch (it still renders and can
+#: still be "accepted", but never lands in the compiled draft).
+_SECTION_LIST = ", ".join(sorted(_PATCHABLE_SECTIONS))
+
 SYSTEM_PROMPT = (
     "You are the design-conversation partner for a human-AI developer study "
     "platform. A researcher describes a study idea in plain language; "
@@ -78,7 +84,20 @@ SYSTEM_PROMPT = (
     '"one sentence", "patch": {...} or null, "refs": ["..."]}]}\n\n'
     "Valid kinds: add-rq, add-measure, set-parameter, choose-template, "
     "add-instrument, reconfigure-instrument, caution. `refs` entries must "
-    "come from the candidate menu only (a paper's ref or a template's id)."
+    "come from the candidate menu only (a paper's ref or a template's id).\n\n"
+    "`patch` shapes (anything else is dropped and the move never reaches "
+    "the draft, even if accepted):\n"
+    f'- add-rq, add-measure, set-parameter: {{"section": one of '
+    f'[{_SECTION_LIST}], "op": "append" or "set", "value": "..."}}. Pick '
+    "whichever section the change actually belongs to — e.g. a sample-size "
+    'or alpha parameter is "participants" or "statisticalPlan", not '
+    '"parameters" (not a real section).\n'
+    '- choose-template: {"templateId": "...", "parameters": {...}}\n'
+    '- add-instrument: {"section": "instruments", "op": "add-instrument" or '
+    '"set-instrument", "name": "...", "config": {...}}\n'
+    '- reconfigure-instrument: {"section": "instruments", "op": '
+    '"reconfigure", "name": "...", "path": ["..."], "value": ...}\n'
+    '- caution: patch is always null.'
 )
 
 
