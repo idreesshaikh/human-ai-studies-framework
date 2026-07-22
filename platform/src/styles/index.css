@@ -74,6 +74,14 @@
   --ease-key: var(--ease-key);
 }
 
+html {
+  /* Reserve the scrollbar's width on every page, scrollable or not — without
+   * this, centered (mx-auto) content shifts sideways by the scrollbar's
+   * width whenever navigation moves from a taller page (scrollbar showing)
+   * to a shorter one (scrollbar gone), e.g. Hero → the sign-in gate. */
+  scrollbar-gutter: stable;
+}
+
 html,
 body,
 #root {
