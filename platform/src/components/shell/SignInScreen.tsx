@@ -63,7 +63,11 @@ export function SignInScreen() {
         <CardContent className="flex flex-col gap-4 p-8">
           <h1 className="font-serif text-2xl font-medium text-text">Sign in</h1>
           {showClerkWidget ? (
-            <div ref={mountRef} className="clerk-embed" />
+            /* `relative`: Clerk's internal step-transition wrapper is
+             * absolutely positioned; without a positioned ancestor here it
+             * anchors to the outer screen wrapper (also `relative`) instead,
+             * floating the widget free of this card. */
+            <div ref={mountRef} className="clerk-embed relative" />
           ) : (
             <TokenForm awaitingClerk={config.mode === "clerk"} />
           )}

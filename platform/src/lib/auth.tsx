@@ -75,6 +75,12 @@ interface ClerkInstance {
  * `SignInScreen` renders the matching heading itself, once, above every
  * sign-in surface (Clerk widget or token-paste fallback alike). */
 const CLERK_APPEARANCE = {
+  /* Matches the `clerk` layer named in index.css's @layer order — without
+   * it, Clerk's own (unlayered) CSS always beats our Tailwind v4 utility
+   * classes below (bg-transparent, shadow-none, w-full…) regardless of
+   * specificity, since Tailwind v4 utilities live inside a cascade layer
+   * and unlayered rules automatically outrank any layer. */
+  cssLayerName: "clerk",
   variables: {
     colorPrimary: "var(--accent)",
     colorBackground: "var(--surface)",
