@@ -1,3 +1,13 @@
+/* Cascade layer order: Tailwind v4's own utilities live in a layer, so any
+ * unlayered CSS a third-party widget injects (Clerk's hosted sign-in UI)
+ * automatically wins over our utility classes regardless of specificity —
+ * that's what was leaving Clerk's default card chrome (background,
+ * shadow, padding) showing through the `bg-transparent`/`shadow-none`
+ * classes passed via CLERK_APPEARANCE.elements (auth.tsx). Naming a `clerk`
+ * layer here, matched by `cssLayerName: "clerk"` in CLERK_APPEARANCE, makes
+ * Clerk inject into that layer instead — placed before `utilities` in this
+ * order, so our utility classes now cascade after Clerk's and win. */
+@layer theme, base, clerk, components, utilities;
 @import "tailwindcss";
 @import "tw-animate-css";
 
