@@ -106,6 +106,10 @@ export function isTemplatePatch(p: DraftPatch): p is TemplatePatch {
   return "templateId" in p;
 }
 
+export function isInstrumentPatch(p: DraftPatch): p is InstrumentPatch {
+  return "op" in p && (p.op === "add-instrument" || p.op === "set-instrument" || p.op === "reconfigure");
+}
+
 export interface ProtocolDraft {
   researchQuestions: string[];
   design: string[];

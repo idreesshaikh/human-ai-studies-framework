@@ -93,6 +93,24 @@ ok("accepting a choose-template move fills the draft's design slot",
   templateDraft.design.includes("two-group-rct-v1"),
   templateDraft.design.join(", "));
 
+// Same regression, for add-instrument's {section: "instruments", op, name,
+// config} patch shape - also not the generic {section, op, value} shape, so
+// it was also silently dropped from the preview (instruments stayed
+// "unresolved" no matter what got accepted).
+const instrumentMove = {
+  moveId: "t1-m2",
+  kind: "add-instrument",
+  target: "instruments",
+  proposal: "Add a post-task survey instrument.",
+  patch: { section: "instruments", op: "add-instrument", name: "post-task-survey", config: {} },
+  grounding: [],
+  status: "accepted",
+};
+const instrumentDraft = compile(emptyDraft(), [instrumentMove]);
+ok("accepting an add-instrument move fills the draft's instruments slot",
+  instrumentDraft.instruments.includes("post-task-survey"),
+  instrumentDraft.instruments.join(", "));
+
 // Vague input names the empty sections rather than going silent.
 const vague = respondTo("i dunno, something about ai");
 ok("vague input names the unresolved sections",

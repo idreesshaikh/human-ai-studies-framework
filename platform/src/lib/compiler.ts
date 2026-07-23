@@ -1,5 +1,6 @@
 import {
   emptyDraft,
+  isInstrumentPatch,
   isSectionPatch,
   isTemplatePatch,
   type DesignMove,
@@ -25,7 +26,20 @@ export function compile(
       draft.design = [move.patch.templateId];
       continue;
     }
-    if (!isSectionPatch(move.patch)) continue; // instrument patches: not folded into this preview
+    if (isInstrumentPatch(move.patch)) {
+      const { op, name } = move.patch;
+      if (
+        (op === "add-instrument" || op === "set-instrument") &&
+        !draft.instruments.includes(name)
+      ) {
+        draft.instruments.push(name);
+      }
+      // `reconfigure` tweaks an already-added instrument's config — it
+      // never fills the slot on its own (matches the server: an add/set
+      // move is what makes the instrument exist at all).
+      continue;
+    }
+    if (!isSectionPatch(move.patch)) continue;
     const { section, op, value } = move.patch;
     if (op === "append") {
       const list = draft[section];
