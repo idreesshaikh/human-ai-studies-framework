@@ -100,6 +100,23 @@ class Settings:
     github_token: str | None = field(
         default_factory=lambda: os.environ.get("MIDDLEWARE_GITHUB_TOKEN") or None
     )
+    # --- email delivery (member invitations, FR-PLAT-3) -----------------
+    # Optional: when a Resend API key is set, invitations are emailed. Absent,
+    # the platform degrades to the copy-link flow (no third-party required —
+    # the invite still works, the researcher just shares the link themselves).
+    resend_api_key: str | None = field(
+        default_factory=lambda: os.environ.get("RESEND_API_KEY") or None
+    )
+    invite_from_email: str = field(
+        default_factory=lambda: os.environ.get(
+            "MIDDLEWARE_INVITE_FROM", "PHOENIX <onboarding@resend.dev>"
+        )
+    )
+    # Absolute base for accept links in emails (e.g. https://app.example.com).
+    # Falls back to the first CORS origin, then a relative link.
+    public_base_url: str | None = field(
+        default_factory=lambda: os.environ.get("MIDDLEWARE_PUBLIC_URL") or None
+    )
     mining_cassette: Path | None = field(
         default_factory=lambda: (
             Path(p) if (p := os.environ.get("MIDDLEWARE_MINING_CASSETTE")) else None

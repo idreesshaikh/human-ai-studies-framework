@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { TierBadge } from "./TierBadge";
+import { Confidence } from "./Confidence";
 import type { Grounding } from "@/lib/types";
 
 /* A citation chip: tier badge + the paper title. Hover (or click/focus for
@@ -36,6 +37,10 @@ export function GroundingChip({ g }: { g: Grounding }) {
           {g.venue && (
             <span className="block text-text-muted">{g.venue}</span>
           )}
+          <span className="mt-1.5 flex items-center gap-2">
+            <span className="text-text-muted">Confidence</span>
+            <Confidence value={g.confidence} />
+          </span>
           <span className="mt-1 block text-text">{g.why}</span>
           <span className="mt-1 block font-mono text-text-muted">{g.ref}</span>
         </span>

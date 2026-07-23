@@ -33,6 +33,7 @@ from pathlib import Path
 from sqlalchemy import (
     JSON,
     CheckConstraint,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -157,6 +158,12 @@ class Paper(Base):
     citation_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     full_text: Mapped[str] = mapped_column(Text, default="")
     tier: Mapped[str] = mapped_column(String, default="study", index=True)
+    # The harvest quality score (FR-LIT-8): a continuous merit signal per
+    # paper, replacing the binary Tier A/B hierarchy as the thing that ranks
+    # groundings. Tier B rows carry their computed score; Tier A seeds get a
+    # curated-seed prior. `confidence` (0..1) is derived from this at read
+    # time — see paper_confidence().
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
     added_via: Mapped[str] = mapped_column(String, default="")
     match_reason: Mapped[str] = mapped_column(Text, default="")
     added_at: Mapped[str] = mapped_column(String)

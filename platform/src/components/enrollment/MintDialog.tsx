@@ -31,6 +31,19 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
   const api = useApi();
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(1);
+  // The field holds raw text so it can be cleared and retyped; `count` is the
+  // validated whole number in [1, 100] the mint call actually uses.
+  const [countText, setCountText] = useState("1");
+  const onCountChange = (raw: string) => {
+    setCountText(raw);
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n) && n >= 1 && n <= 100) setCount(n);
+  };
+  const onCountBlur = () => {
+    const n = Math.min(100, Math.max(1, parseInt(countText, 10) || 1));
+    setCount(n);
+    setCountText(String(n));
+  };
   const [grain, setGrain] = useState<"participant" | "session">("participant");
   const [minted, setMinted] = useState<EnrollmentTokenView[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
@@ -61,8 +74,11 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
           <div className="mt-4 flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <Label htmlFor="count">How many</Label>
-              <Input id="count" type="number" min={1} max={100} value={count}
-                onChange={(e) => setCount(Math.max(1, Number(e.target.value)))} />
+              <Input id="count" type="number" min={1} max={100} inputMode="numeric"
+                value={countText}
+                onChange={(e) => onCountChange(e.target.value)}
+                onBlur={onCountBlur} />
+              <p className="text-xs text-text-muted">A whole number from 1 to 100.</p>
             </div>
             <div className="flex flex-col gap-1">
               <Label>Grain</Label>

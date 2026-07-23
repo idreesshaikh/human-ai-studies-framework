@@ -5,15 +5,15 @@ import { ConversationView } from "@/components/conversation/ConversationView";
 import { KiteMark } from "@/components/brand/KiteMark";
 
 /* The public front. It doesn't describe the product, it runs it: the
- * conversation below is a scripted preview (deliberately deterministic, no
- * account needed), so a visitor watches design moves arrive and fills a
- * protocol draft with nothing to sign up for. A real, connected study talks
- * to whichever LLM the researcher configures (FR-CONV-1.4); the preview
- * intentionally doesn't oversell that with a fake "AI" flourish here.
+ * conversation below is the real design assistant (the rate-limited,
+ * stateless /demo endpoint, FR-CONV-1.4) — a visitor types a real idea and
+ * gets a real, corpus-grounded reply with no account. Nothing they type is
+ * stored. If the demo endpoint is unreachable it falls back to the scripted
+ * assistant, so the page always runs.
  *
  * The header gets one staged entrance (mark, then headline, then the CTA) —
  * the only motion this page spends; the panel below just runs. "Grounded" in
- * the subhead borrows the app's own moss-green for cited moves (tokens.css),
+ * the subhead borrows the app's own accent for cited moves (tokens.css),
  * so the color already means something before a researcher has seen it. */
 export function Hero() {
   return (
@@ -62,11 +62,11 @@ export function Hero() {
               Design session
             </span>
             <span className="ml-auto hidden font-mono text-[0.6875rem] text-text-muted sm:inline">
-              live preview, no account needed
+              live, no account needed
             </span>
           </div>
           <div className="h-[55vh] min-h-[22rem] max-h-[34rem]">
-            <ConversationView stubOnly />
+            <ConversationView demo />
           </div>
         </div>
       </section>

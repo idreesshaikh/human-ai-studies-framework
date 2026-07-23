@@ -123,4 +123,15 @@ def test_grounding_lookup_resolves_corpus_seed(session):
         session, "corpus:metr-early-2025-dev-productivity"
     )
     assert meta is not None and meta["tier"] == "A"
+
+
+def test_corpus_search_path_returns_confidence_ranked_hits(session):
+    """The /corpus/search endpoint's exact call — no study, corpus-only — used
+    by the 'turn a paper into a template' picker. Hits carry a confidence."""
+    results = matching.match_papers(
+        session, "trust in ai generated code", study_id=None, limit=8, use_llm=False
+    )
+    assert results, "a corpus-only search should surface matching papers"
+    # Confidence rides on every hit (the continuous quality signal, FR-LIT-8).
+    assert all("confidence" in r for r in results)
     assert matching.get_paper_metadata(session, "arxiv:9999.99999") is None

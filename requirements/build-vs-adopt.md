@@ -583,3 +583,19 @@ GET shapes; the look/rate-handling would be theirs, not ours); a generic
 VCR library (a ~40-line request-shape cassette is simpler and owned).
 The adapter contract keeps the source pluggable, so a heavier client is a
 later per-source decision, never a rewrite.
+
+### D40 - Member-invite email delivery: Resend REST (no SDK), key-gated - **ADOPT, bounded** → FR-PLAT-3 *(2026-07-23)*
+
+FR-PLAT-3 wants email-link invitations; delivery was deferred to a manual
+copy-link. Decision: **send via Resend's REST API** (`POST
+https://api.resend.com/emails`) over stdlib `urllib`, matching the
+no-SDK posture of D32/D8 - one POST shape, no dependency earned. Gated on
+`RESEND_API_KEY`: absent, the platform **degrades to the copy-link flow**
+exactly as before, so the no-third-party-required posture (fr-plat.md §2)
+holds and CI/offline never call out. `middleware/mailer.py` is the thin
+sender (best-effort; a send failure never blocks the invitation record -
+the link still returns). **Rejected:** an SMTP stack (more config, worse
+deliverability for a solo researcher) and the Resend Python SDK (unearned
+weight for one request). Invite creation is also lowered from `owner` to a
+new `invite_member` capability held by researchers+, so members invite
+peers (fr-plat.md §2 role matrix updated).

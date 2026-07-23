@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { KeyRound, Moon, Sun, Monitor } from "lucide-react";
+import { KeyRound, Moon, Sun } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { KiteMark } from "@/components/brand/KiteMark";
 import { useAuth } from "@/lib/auth.tsx";
 import { getTheme, nextTheme, applyTheme, type Theme } from "@/lib/theme";
 
-const THEME_ICON = { system: Monitor, light: Sun, dark: Moon };
+const THEME_ICON = { light: Sun, dark: Moon };
 
 /* The sign-in gate for the multi-researcher shell (FR-OPS-5). `Shell`
  * (App.tsx) renders this instead of the project chrome whenever no
@@ -50,15 +50,19 @@ export function SignInScreen() {
 
       <Link
         to="/"
-        className="mb-6 flex flex-col items-center gap-2 text-center"
+        className="mb-8 flex flex-col items-center gap-2 text-center"
         aria-label="Phoenix, back to home"
       >
-        <KiteMark size={36} />
-        <span className="font-serif text-lg font-medium tracking-tight text-text">
+        <KiteMark size={40} />
+        <span className="font-serif text-xl font-medium tracking-tight text-text">
           Phoenix
         </span>
       </Link>
 
+      {/* One clean card is the sign-in frame. Clerk's hosted widget mounts
+       * inside it rendered transparent (CLERK_APPEARANCE strips its own card
+       * chrome and hides its heading, auth.tsx), so there's a single frame,
+       * not a card-within-a-card, and our own "Sign in" heading shows once. */}
       <Card>
         <CardContent className="flex flex-col gap-4 p-8">
           <h1 className="font-serif text-2xl font-medium text-text">Sign in</h1>
@@ -76,7 +80,7 @@ export function SignInScreen() {
 
       <Link
         to="/"
-        className="mt-6 text-center text-sm text-text-muted hover:text-text"
+        className="mt-8 text-center text-sm text-text-muted hover:text-text"
       >
         Back to home
       </Link>

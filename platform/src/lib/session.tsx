@@ -77,8 +77,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const setThemePreference = useCallback(
     async (theme: Preferences["theme"]) => {
       // Local change first so the chrome reacts instantly; persist is
-      // best-effort and doesn't block the UI.
-      if (theme) applyTheme(theme);
+      // best-effort and doesn't block the UI. A legacy "system" preference
+      // resolves to light — the app no longer auto-follows the OS.
+      if (theme) applyTheme(theme === "dark" ? "dark" : "light");
       try {
         await updatePreferences({ theme });
       } catch {
@@ -110,7 +111,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (appliedTheme.current) return;
     const t = me?.preferences?.theme;
     if (t) {
-      applyTheme(t);
+      applyTheme(t === "dark" ? "dark" : "light");
       appliedTheme.current = true;
     }
   }, [me]);

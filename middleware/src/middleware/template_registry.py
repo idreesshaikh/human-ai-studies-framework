@@ -24,6 +24,7 @@ header comment and the compilation row, never guessed (F1.3).
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import re
@@ -320,6 +321,127 @@ def instantiate_template(
         "templateVersion": template.get("templateVersion", 1),
         "parameters": values,
     }
+
+
+# --------------------------------------------------- runtime merging (FR-TPL)
+
+
+def _merge_protocols(protocols: list[dict], template_ids: list[str]) -> dict:
+    """Merge instantiated protocols into one novel-but-grounded protocol.
+
+    Each input was individually valid (instantiated from a template), so this
+    only has to reconcile them: the *primary* (first) protocol supplies the
+    study frame — study, participants, session, conditions, phases — and the
+    others contribute their research questions, measures/instruments, analysis
+    recipes, and cited literature. Research-question ids are renumbered
+    sequentially so two templates that both start at ``RQ-1`` don't collide,
+    and every analysis-plan entry is remapped to the new id. Deterministic:
+    same inputs, same output (no LLM, FR-CONV-3)."""
+    merged = copy.deepcopy(protocols[0])
+    merged_rqs: list[dict] = []
+    merged_plan: list[dict] = []
+    # instruments is a dict keyed by leg ("tern", "metrics"): the primary's
+    # configuration wins; other templates only add legs the primary lacks
+    # (merging two configs for the same leg would fabricate a setup neither
+    # paper used).
+    instruments: dict = dict(merged.get("instruments", {}) or {})
+    # literature is [{paperRef, justifies:[rq-id]}]; union by paperRef, and the
+    # justifies ids get the same renumbering the RQs do.
+    lit_by_ref: dict[str, set] = {}
+
+    n = 0
+    for proto in protocols:
+        remap: dict[str, str] = {}
+        for rq in proto.get("researchQuestions", []):
+            n += 1
+            new_id = f"RQ-{n}"
+            remap[rq["id"]] = new_id
+            merged_rqs.append({**rq, "id": new_id})
+        for entry in proto.get("analysisPlan", []):
+            merged_plan.append({**entry, "rq": remap.get(entry["rq"], entry["rq"])})
+        for leg, cfg in (proto.get("instruments", {}) or {}).items():
+            instruments.setdefault(leg, cfg)
+        for lit in proto.get("literature", []):
+            ref = lit.get("paperRef")
+            if not ref:
+                continue
+            justifies = lit_by_ref.setdefault(ref, set())
+            for rq_id in lit.get("justifies", []):
+                justifies.add(remap.get(rq_id, rq_id))
+
+    merged["researchQuestions"] = merged_rqs
+    merged["analysisPlan"] = merged_plan
+    merged["instruments"] = instruments
+    merged["literature"] = [
+        {"paperRef": ref, "justifies": sorted(rqs)}
+        for ref, rqs in sorted(lit_by_ref.items())
+    ]
+    ids = ", ".join(template_ids)
+    merged.setdefault("study", {})["title"] = f"Merged design ({ids})"
+    return merged
+
+
+def merge_templates(template_ids: list[str], parameters: dict) -> dict:
+    """Compose several templates into one protocol at runtime (FR-TPL) — the
+    "borrow a measure from here, an analysis from there" move that lets a
+    researcher build something novel that's still grounded in every source
+    paper it draws from.
+
+    Each template is instantiated with its own subset of ``parameters`` (so a
+    shared name like ``studyId`` fills all of them), then the protocols are
+    merged and revalidated. Provenance is preserved: ``sources`` lists every
+    contributing template and the papers it cites. Raises
+    :class:`TemplateError` if fewer than two templates are given or the merged
+    protocol doesn't validate."""
+    from protocol.loader import validate_protocol
+
+    if len(template_ids) < 2:
+        raise TemplateError("merging needs at least two templates")
+    templates = [load_template(t) for t in template_ids]
+    protocols = []
+    for t in templates:
+        own = {k: v for k, v in parameters.items() if k in t.get("parameters", {})}
+        protocols.append(instantiate_template(t["templateId"], own)["protocol"])
+    merged = _merge_protocols(protocols, template_ids)
+    errors = validate_protocol(merged)
+    if errors:
+        raise TemplateError("merged protocol is not valid: " + "; ".join(errors))
+    sources = [
+        {
+            "templateId": t["templateId"],
+            "papers": [src["paperRef"] for src in t.get("source", [])],
+        }
+        for t in templates
+    ]
+    return {"protocol": merged, "templateIds": template_ids, "sources": sources}
+
+
+def derive_template_from_paper(
+    paper_ref: str, base_template_id: str, *, title: str = "", year: int | None = None
+) -> dict:  # noqa: ARG001 - year kept for a symmetric caller signature / future use
+    """Bind a corpus paper to a base archetype, producing a template
+    specialised to that paper (FR-TPL-4) — this is how the corpus's thousands
+    of papers become executable starting points without hand-authoring one
+    template each: any paper is "run" through the nearest archetype, cited as
+    the design's primary source. Deterministic given the archetype."""
+    base = load_template(base_template_id)
+    derived = copy.deepcopy(base)
+    slug = re.sub(r"[^a-z0-9]+", "-", paper_ref.lower())
+    derived["templateId"] = f"{base_template_id}--{slug}"
+    label = title or paper_ref
+    base_title = base.get("title", base_template_id)
+    derived["title"] = f"{base_title} — after {label}"
+    derived["description"] = (
+        f"The {base.get('designType', 'study')} archetype specialised toward "
+        f"{label}. Cite this paper as the design's source; adjust parameters to "
+        f"your replication or extension."
+    )
+    # The paper leads the provenance; the archetype's own sources follow.
+    derived["source"] = [
+        {"paperRef": paper_ref, "role": "primary-design"},
+        *base.get("source", []),
+    ]
+    return derived
 
 
 # ------------------------------------------------------- plan explainer
