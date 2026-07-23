@@ -207,10 +207,14 @@ def test_event_type_filter(client):
 
 def test_file_upload_is_content_addressed(client, tmp_path):
     upload = {"file": ("consent-form.pdf", b"pdf-bytes", "application/pdf")}
-    first = client.post("/ingest/files", data={"sessionId": "S1"}, files=upload)
+    first = client.post(
+        "/ingest/files", data={"sessionId": "S1", "studyId": "pilot-2026"}, files=upload
+    )
     assert first.status_code == 200
     assert first.json()["duplicate"] is False
-    again = client.post("/ingest/files", files=upload).json()
+    again = client.post(
+        "/ingest/files", data={"studyId": "pilot-2026"}, files=upload
+    ).json()
     assert again["duplicate"] is True
     assert again["sha256"] == first.json()["sha256"]
 
@@ -228,9 +232,13 @@ def test_tasks_crud(client):
 # Platform support endpoints
 
 
-def upload(client, filename: str, content: bytes = b"x") -> dict:
+def upload(
+    client, filename: str, content: bytes = b"x", study: str = "pilot-2026"
+) -> dict:
     return client.post(
-        "/ingest/files", files={"file": (filename, content, "text/plain")}
+        "/ingest/files",
+        data={"studyId": study},
+        files={"file": (filename, content, "text/plain")},
     ).json()
 
 

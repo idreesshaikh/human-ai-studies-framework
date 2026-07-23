@@ -30,7 +30,7 @@ from pathlib import Path
 from urllib.parse import quote as _urlquote
 
 import yaml
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from protocol.lifecycle import PHASE_ORDER, current_phase
@@ -621,8 +621,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     @app.post("/ingest/files")
     async def ingest_files(
         file: UploadFile,
-        sessionId: str | None = None,
-        participantId: str | None = None,
+        sessionId: str | None = Form(default=None),
+        participantId: str | None = Form(default=None),
+        studyId: str | None = Form(default=None),
         s: Session = Depends(db),
     ) -> dict:
         content = await file.read()
@@ -631,6 +632,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             select(StoredFile).where(
                 StoredFile.sha256 == digest,
                 StoredFile.filename == (file.filename or "unnamed"),
+                StoredFile.study_id == studyId,
             )
         )
         if existing:
@@ -646,6 +648,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             sha256=digest,
             session_id=sessionId,
             participant_id=participantId,
+            study_id=studyId,
             uploaded_at=now(),
         )
         s.add(record)
@@ -814,20 +817,27 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     # ------------------------------------- platform support
 
-    def _stored_files(s: Session) -> dict[str, StoredFile]:
-        """Uploaded artifacts by filename - the lifecycle's evidence set.
+    def _stored_files(s: Session, study_id: str) -> dict[str, StoredFile]:
+        """Uploaded artifacts by filename, scoped to one study - the
+        lifecycle's evidence set.
 
         Later uploads win on filename collision (re-upload supersedes).
         """
-        files = s.scalars(select(StoredFile).order_by(StoredFile.id))
+        files = s.scalars(
+            select(StoredFile)
+            .where(StoredFile.study_id == study_id)
+            .order_by(StoredFile.id)
+        )
         return {f.filename: f for f in files}
 
-    def _lifecycle_doc(s: Session) -> dict:
+    def _lifecycle_doc(s: Session, study_id: str) -> dict:
         """The computed lifecycle (FR-DASH-2): the current phase is derived
         from uploaded gate artifacts via the lifecycle engine, never hand-set.
         """
-        proto = require_protocol()
-        files = _stored_files(s)
+        proto = _resolve_study_protocol(s, study_id)
+        if proto is None:
+            raise HTTPException(404, f"no protocol for study {study_id!r}")
+        files = _stored_files(s, study_id)
         declared = {p["name"]: list(p.get("gates", [])) for p in proto["phases"]}
         current = current_phase(proto, set(files))
         cur_i = PHASE_ORDER.index(current)
@@ -868,12 +878,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/protocol",
         dependencies=[Depends(require_project_for_study("view"))],
     )
-    def study_protocol(study_id: str) -> dict:
+    def study_protocol(study_id: str, s: Session = Depends(db)) -> dict:
         """Protocol summary for the overview card (FR-DASH-1) and the
         traceability chips (FR-DASH-6): RQ -> planned recipes comes verbatim
         from the protocol's analysis plan."""
 
-        proto = require_protocol()
+        proto = _resolve_study_protocol(s, study_id)
+        if proto is None:
+            raise HTTPException(404, f"no protocol for study {study_id!r}")
         recipes_by_rq = {
             p["rq"]: list(p.get("recipes", [])) for p in proto.get("analysisPlan", [])
         }
@@ -906,7 +918,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     )
     def study_lifecycle(study_id: str, s: Session = Depends(db)) -> dict:
 
-        return _lifecycle_doc(s)
+        return _lifecycle_doc(s, study_id)
 
     @app.post(
         "/studies/{study_id}/lifecycle/gates/{artifact}/attest",
@@ -924,8 +936,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         step), and the note + who attested are kept as evidence."""
         if not body.confirmed:
             raise HTTPException(400, "attestation needs explicit confirmation")
-        proto = require_protocol()
-        current = current_phase(proto, set(_stored_files(s)))
+        proto = _resolve_study_protocol(s, study_id)
+        if proto is None:
+            raise HTTPException(404, f"no protocol for study {study_id!r}")
+        current = current_phase(proto, set(_stored_files(s, study_id)))
         current_gates = next(
             (list(p.get("gates", [])) for p in proto["phases"] if p["name"] == current),
             [],
@@ -947,7 +961,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             study_id,
         )
         s.commit()
-        return _lifecycle_doc(s)
+        return _lifecycle_doc(s, study_id)
 
     @app.get(
         "/studies/{study_id}/status",
@@ -961,7 +975,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         spawned them disappears. Facts only - no card state lives here.
         """
 
-        proto = require_protocol()
+        proto = _resolve_study_protocol(s, study_id)
+        if proto is None:
+            raise HTTPException(404, f"no protocol for study {study_id!r}")
 
         # ``seq`` is per (session, source); gap facts aggregate over the
         # session's producer streams (each owns a contiguous stream).
@@ -1051,7 +1067,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return {
             "studyId": proto["study"]["id"],
             "generatedAt": now(),
-            "lifecycle": _lifecycle_doc(s),
+            "lifecycle": _lifecycle_doc(s, study_id),
             "conditions": conditions,
             "plannedParticipants": int(participants.get("planned", 0)),
             "plannedSessionsPerParticipant": len(conditions) if within else 1,
@@ -1790,12 +1806,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
 
         # Gate blocks: the current phase's unsatisfied gates.
-        if protocol_doc is not None:
-            files = _stored_files(s)
+        proto = _resolve_study_protocol(s, study_id)
+        if proto is not None:
+            files = _stored_files(s, study_id)
             declared = {
-                p["name"]: list(p.get("gates", [])) for p in protocol_doc["phases"]
+                p["name"]: list(p.get("gates", [])) for p in proto["phases"]
             }
-            current = current_phase(protocol_doc, set(files))
+            current = current_phase(proto, set(files))
             for gate in declared.get(current, []):
                 if gate not in files:
                     emit(
@@ -3307,7 +3324,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         path.write_bytes(content)
         existing = s.scalar(
             select(StoredFile).where(
-                StoredFile.filename == filename, StoredFile.sha256 == digest
+                StoredFile.filename == filename,
+                StoredFile.sha256 == digest,
+                StoredFile.study_id == study_id,
             )
         )
         if existing is None:
@@ -3318,7 +3337,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     content_type="application/x-yaml",
                     size=len(content),
                     sha256=digest,
-                    session_id=study_id,
+                    study_id=study_id,
                     uploaded_at=now(),
                 )
             )

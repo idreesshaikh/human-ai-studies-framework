@@ -129,6 +129,7 @@ class StoredFile(Base):
     sha256: Mapped[str] = mapped_column(String, index=True)
     session_id: Mapped[str | None] = mapped_column(String, nullable=True)
     participant_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    study_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     uploaded_at: Mapped[str] = mapped_column(String)
 
 
@@ -698,6 +699,7 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
 
     _engine = engine
     _create_schema(engine, db_url_str)
+    _migrate_stored_file_study_id(engine)
 
     if is_pg:
         _setup_pg_fts(engine)
@@ -781,6 +783,21 @@ def _create_schema(engine, db_url_str: str) -> None:
             host = _safe_host(db_url_str)
             log.critical("Schema creation failed for %s: %s", host, exc)
             raise SystemExit(1) from exc
+
+
+def _migrate_stored_file_study_id(engine) -> None:
+    """Add ``files.study_id`` if missing (both dialects, idempotent).
+
+    Files uploaded before this column existed were visible to every study's
+    lifecycle computation, not just the one they were meant to gate - this
+    backfills the column (existing rows stay NULL/unscoped) so new uploads
+    can be scoped per study.
+    """
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("files")}
+        if "study_id" not in cols:
+            conn.execute(text("ALTER TABLE files ADD COLUMN study_id VARCHAR"))
+            log.info("Added study_id column to files (per-study lifecycle scoping)")
 
 
 def _is_concurrent_create_race(exc: IntegrityError | ProgrammingError) -> bool:
