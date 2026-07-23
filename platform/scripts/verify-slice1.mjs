@@ -10,7 +10,8 @@
  *   - no move cites a paper the assistant didn't hold in that exchange
  */
 import { respondTo, resetStub } from "../src/lib/designStub.ts";
-import { compileAll } from "../src/lib/compiler.ts";
+import { compileAll, compile } from "../src/lib/compiler.ts";
+import { emptyDraft } from "../src/lib/types.ts";
 
 let failures = 0;
 const ok = (name, cond, detail = "") => {
@@ -71,6 +72,26 @@ const allGrounding = [
 ok("every cited paper has a title and a reason",
   allGrounding.every((g) => g.ref && g.title && g.why),
   `${allGrounding.length} citations checked`);
+
+// A real choose-template move's patch is {templateId, parameters} - not
+// the generic {section, op, value} shape every other move kind uses.
+// Regression: the compiler only knew the generic shape, so accepting a
+// choose-template move silently did nothing (shown as "noted" instead of
+// "in draft", and the draft's mandatory `design` slot never filled, no
+// matter how many other moves were accepted).
+const templateMove = {
+  moveId: "t1-m1",
+  kind: "choose-template",
+  target: "design",
+  proposal: "Adopt the two-group RCT template.",
+  patch: { templateId: "two-group-rct-v1", parameters: {} },
+  grounding: [],
+  status: "accepted",
+};
+const templateDraft = compile(emptyDraft(), [templateMove]);
+ok("accepting a choose-template move fills the draft's design slot",
+  templateDraft.design.includes("two-group-rct-v1"),
+  templateDraft.design.join(", "));
 
 // Vague input names the empty sections rather than going silent.
 const vague = respondTo("i dunno, something about ai");

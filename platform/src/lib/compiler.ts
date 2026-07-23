@@ -1,5 +1,7 @@
 import {
   emptyDraft,
+  isSectionPatch,
+  isTemplatePatch,
   type DesignMove,
   type ProtocolDraft,
 } from "./types.ts";
@@ -18,6 +20,12 @@ export function compile(
   const draft = structuredClone(base);
   for (const move of moves) {
     if (move.status !== "accepted" || !move.patch) continue; // cautions have no patch
+    if (isTemplatePatch(move.patch)) {
+      // The only move kind that can ever fill the mandatory `design` slot.
+      draft.design = [move.patch.templateId];
+      continue;
+    }
+    if (!isSectionPatch(move.patch)) continue; // instrument patches: not folded into this preview
     const { section, op, value } = move.patch;
     if (op === "append") {
       const list = draft[section];
