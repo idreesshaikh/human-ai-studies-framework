@@ -256,7 +256,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
 
       {/* The assistant rides alongside, full height. */}
       <div className="min-h-0 min-w-0 lg:sticky lg:top-0 lg:h-[calc(100vh-9rem)]">
-        <div className="hidden lg:block">
+        <div className="hidden h-full min-h-0 lg:block">
           <Assistant studyId={studyId} />
         </div>
         <details className="lg:hidden">

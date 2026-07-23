@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, Circle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { studyApi, type Gate, type LifecycleDoc } from "@/lib/studyApi";
+import { studyApi, EMPTY_LIFECYCLE, type Gate, type LifecycleDoc } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
 /* The lifecycle board (FR-DASH-2) — the study's phases and their gate
@@ -19,7 +19,12 @@ export function LifecycleTab({ studyId }: { studyId: string }) {
 
   useEffect(() => {
     let live = true;
-    studyApi.lifecycle(studyId).then((d) => live && setDoc(d));
+    studyApi
+      .lifecycle(studyId)
+      .then((d) => live && setDoc(d))
+      // A fresh study with no protocol resolved yet shouldn't hang on "Loading…"
+      // — fall back to the honest first-phase board (nothing attested yet).
+      .catch(() => live && setDoc(EMPTY_LIFECYCLE));
     return () => {
       live = false;
     };

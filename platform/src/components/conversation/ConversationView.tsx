@@ -39,14 +39,9 @@ export function ConversationView({
   studyId = "study",
   /** Static previews stay on the deterministic stub only. */
   stubOnly = false,
-  /** The public hero: talk to the real LLM through the stateless, rate-limited
-   * /demo endpoint (no account, nothing persisted). Falls back to the scripted
-   * stub if the demo endpoint is unreachable. */
-  demo = false,
 }: {
   studyId?: string;
   stubOnly?: boolean;
-  demo?: boolean;
 }) {
   const [turns, setTurns] = useState<Turn[]>(() => [openingTurn()]);
   const [input, setInput] = useState("");
@@ -78,12 +73,6 @@ export function ConversationView({
   }, [input, growComposer]);
 
   useEffect(() => {
-    // The demo talks to the stateless /demo endpoint, not a stored study —
-    // it just opens with the greeting and never loads or persists a thread.
-    if (demo) {
-      setTurns([openingTurn()]);
-      return;
-    }
     let cancelled = false;
     loadConversation(studyId, stubOnly).then((t) => {
       if (!cancelled) {
@@ -99,7 +88,7 @@ export function ConversationView({
     return () => {
       cancelled = true;
     };
-  }, [studyId, stubOnly, demo]);
+  }, [studyId, stubOnly]);
 
   const allMoves: DesignMove[] = useMemo(
     () => turns.flatMap((t) => t.moves),
@@ -108,18 +97,18 @@ export function ConversationView({
   const clientDraft = useMemo(() => compileAll(allMoves), [allMoves]);
 
   const refreshCompile = useCallback(async () => {
-    if (!live || stubOnly || demo) return;
+    if (!live || stubOnly) return;
     try {
       const result = await conversationApi.compile(studyId);
       setCompileResult(result);
     } catch {
       setCompileResult(null);
     }
-  }, [live, stubOnly, demo, studyId]);
+  }, [live, stubOnly, studyId]);
 
   useEffect(() => {
-    if (live && !stubOnly && !demo) void refreshCompile();
-  }, [allMoves, live, stubOnly, demo, refreshCompile]);
+    if (live && !stubOnly) void refreshCompile();
+  }, [allMoves, live, stubOnly, refreshCompile]);
 
   async function send() {
     const text = input.trim();
@@ -127,9 +116,8 @@ export function ConversationView({
 
     // "finish" / "wrap up" / "done" opens the protocol-review moment rather
     // than sending a turn — the researcher is signalling they're ready to
-    // compile, not asking another question. (Not in the public demo, which
-    // has no protocol draft to prepare.)
-    if (!demo && /^\s*(finish|wrap up|wrap-up|done|i'?m done|that'?s it)\b/i.test(text)) {
+    // compile, not asking another question.
+    if (/^\s*(finish|wrap up|wrap-up|done|i'?m done|that'?s it)\b/i.test(text)) {
       setInput("");
       await refreshCompile();
       setShowFinish(true);
@@ -158,21 +146,7 @@ export function ConversationView({
     scrollDown();
 
     try {
-      if (demo) {
-        // Public hero: real LLM via the stateless demo endpoint. Send the
-        // visitor's prior turns as history so it's conversational, persisting
-        // nothing.
-        const history = turns
-          .filter((t) => t.text)
-          .map((t) => ({
-            role: (t.role === "researcher" ? "user" : "assistant") as
-              | "user"
-              | "assistant",
-            content: t.text,
-          }));
-        const reply = await conversationApi.demoTurn(text, history);
-        setTurns((prev) => [...prev, reply]);
-      } else if (live && !stubOnly) {
+      if (live && !stubOnly) {
         // sendTurn returns [researcher(server id), platform]; replace our
         // optimistic turn with the server pair so ids reconcile without a
         // duplicated message.
@@ -206,7 +180,7 @@ export function ConversationView({
         ),
       })),
     );
-    if (live && !stubOnly && !demo) {
+    if (live && !stubOnly) {
       conversationApi.decide(studyId, moveId, status).catch(() => {});
     }
   }
@@ -214,8 +188,8 @@ export function ConversationView({
   async function addPaper(ref: string) {
     // Optimistic: mark it added immediately so the card settles.
     setAddedRefs((prev) => new Set(prev).add(ref));
-    // Hero demo / offline previews stay local-only — there's no study to write to.
-    if (demo || !live || stubOnly) return;
+    // Offline previews stay local-only — there's no study to write to.
+    if (!live || stubOnly) return;
     const rec = turns
       .flatMap((t) => t.recommendations)
       .find((r) => r.ref === ref);
@@ -263,11 +237,7 @@ export function ConversationView({
   return (
     <div
       data-agent="conversation"
-      className={cn(
-        "grid h-full grid-cols-1",
-        // The demo is just the conversation — no protocol draft rail.
-        !demo && "lg:grid-cols-[1fr_380px]",
-      )}
+      className="grid h-full grid-cols-1 lg:grid-cols-[1fr_380px]"
     >
       <section className="flex h-full min-h-0 flex-col">
         <div className="min-h-0 flex-1 space-y-6 overflow-auto p-4 sm:p-6">
@@ -348,33 +318,29 @@ export function ConversationView({
           >
             <Send aria-hidden />
           </Button>
-          {!demo && (
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="lg:hidden"
-              aria-label={showDraft ? "Hide draft" : "Show draft"}
-              onClick={() => setShowDraft((v) => !v)}
-            >
-              {showDraft ? "×" : "≡"}
-            </Button>
-          )}
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="lg:hidden"
+            aria-label={showDraft ? "Hide draft" : "Show draft"}
+            onClick={() => setShowDraft((v) => !v)}
+          >
+            {showDraft ? "×" : "≡"}
+          </Button>
         </form>
       </section>
 
-      {!demo && (
-        <div className={cn("lg:block", showDraft ? "block" : "hidden")}>
-          <DraftRail
-            draft={clientDraft}
-            serverYaml={compileResult?.yaml}
-            compileValid={compileResult?.valid}
-            onApply={live && !stubOnly ? applyDraft : undefined}
-            applying={applying}
-            onFinish={live && !stubOnly ? () => { void refreshCompile(); setShowFinish(true); } : undefined}
-          />
-        </div>
-      )}
+      <div className={cn("lg:block", showDraft ? "block" : "hidden")}>
+        <DraftRail
+          draft={clientDraft}
+          serverYaml={compileResult?.yaml}
+          compileValid={compileResult?.valid}
+          onApply={live && !stubOnly ? applyDraft : undefined}
+          applying={applying}
+          onFinish={live && !stubOnly ? () => { void refreshCompile(); setShowFinish(true); } : undefined}
+        />
+      </div>
 
       <FinishReview
         open={showFinish}

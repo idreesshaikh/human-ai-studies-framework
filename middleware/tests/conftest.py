@@ -30,12 +30,13 @@ from middleware.settings import Settings
 STUDY = "pilot"
 
 
-def _build_client(tmp_path) -> TestClient:
+def _build_client(tmp_path, *, dev_mode: bool = False) -> TestClient:
     settings = Settings(
         db_path=tmp_path / "test.sqlite3",
         data_dir=tmp_path / "data",
         port=8000,
         spa_dist=tmp_path / "no-dist",
+        dev_mode=dev_mode,
     )
     tc = TestClient(create_app(settings))
     tc.db_path = settings.db_path
@@ -107,4 +108,14 @@ def client_ethics_ok(tmp_path) -> TestClient:
     tc = _build_client(tmp_path)
     _reach_approved_protocol(tc)
     _approve_ethics(tc)
+    return tc
+
+
+@pytest.fixture()
+def client_dev_mode_no_ethics(tmp_path) -> TestClient:
+    """Developer mode (MIDDLEWARE_DEV_MODE): an approved protocol but *no*
+    ethics approval — the gate that normally blocks minting. Lets a developer
+    exercise the whole enrollment flow on a study that hasn't cleared ethics."""
+    tc = _build_client(tmp_path, dev_mode=True)
+    _reach_approved_protocol(tc)
     return tc
