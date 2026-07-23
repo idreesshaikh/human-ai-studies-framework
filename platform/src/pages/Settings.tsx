@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,18 @@ export function Settings() {
 
   const mine = (me?.memberships.find((m) => m.projectSlug === slug)?.role ??
     "viewer") as Role;
+
+  // `me` is fetched once at session start; a project created earlier this
+  // session may not be in its memberships yet, which would leave `mine`
+  // stuck at the "viewer" fallback and hide the owner-only danger zone (the
+  // "delete doesn't work" symptom). Refresh once on mount so the real role
+  // resolves. Guard on the slug being absent from memberships to avoid a loop.
+  const hasMembership = me?.memberships.some((m) => m.projectSlug === slug);
+  useEffect(() => {
+    // Only re-run when the slug's membership presence changes, not on every
+    // `me` update (which would loop). refresh is stable from the session ctx.
+    if (me && !hasMembership) void refresh();
+  }, [slug, hasMembership, me, refresh]);
 
   const prefs = me?.preferences ?? {};
   const modelOptions = models.data?.models ?? [];

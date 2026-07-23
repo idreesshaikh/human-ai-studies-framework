@@ -1,5 +1,8 @@
 import {
   emptyDraft,
+  isInstrumentPatch,
+  isSectionPatch,
+  isTemplatePatch,
   type DesignMove,
   type ProtocolDraft,
 } from "./types.ts";
@@ -18,6 +21,25 @@ export function compile(
   const draft = structuredClone(base);
   for (const move of moves) {
     if (move.status !== "accepted" || !move.patch) continue; // cautions have no patch
+    if (isTemplatePatch(move.patch)) {
+      // The only move kind that can ever fill the mandatory `design` slot.
+      draft.design = [move.patch.templateId];
+      continue;
+    }
+    if (isInstrumentPatch(move.patch)) {
+      const { op, name } = move.patch;
+      if (
+        (op === "add-instrument" || op === "set-instrument") &&
+        !draft.instruments.includes(name)
+      ) {
+        draft.instruments.push(name);
+      }
+      // `reconfigure` tweaks an already-added instrument's config — it
+      // never fills the slot on its own (matches the server: an add/set
+      // move is what makes the instrument exist at all).
+      continue;
+    }
+    if (!isSectionPatch(move.patch)) continue;
     const { section, op, value } = move.patch;
     if (op === "append") {
       const list = draft[section];

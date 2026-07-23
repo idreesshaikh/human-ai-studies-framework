@@ -34,11 +34,24 @@ from middleware.template_registry import list_templates
 _LLM_HISTORY_TURNS = 20
 
 
+#: Design-intent signal shared with :func:`_pick_script`'s scripted-fallback
+#: routing: a message carrying one of these words is asking about design at
+#: all, even when it names none of a specific template's jargon (e.g.
+#: "help me with design" matches no template's own keyword profile below).
+_DESIGN_INTENT_WORDS = ("design", "statistic", "test", "how many", "template")
+
+
 def recommend_templates(text: str) -> list[dict[str, Any]]:
     """Recommend design archetype templates matching the researcher's input.
 
-    Keyword-based matching over template metadata. Returns ranked template
-    cards with match reason. Falls through to empty list on no match.
+    Keyword-based matching over template metadata, ranked by match strength.
+    A message with clear design intent but no template-specific jargon
+    (score 0 on every template) still gets the full catalog as candidates -
+    an empty list would silently block the LLM (constrained to cite only
+    what this function retrieves, ``design_llm.propose_turn``) from ever
+    proposing a template for exactly the open-ended asks researchers
+    actually type. Only a message with *no* design intent at all falls
+    through to an empty list.
     """
     q = text.lower()
     templates = list_templates()
@@ -46,7 +59,10 @@ def recommend_templates(text: str) -> list[dict[str, Any]]:
 
     keywords = {
         "two-group-rct": ["between-subjects", "two group", "independent group",
-                          "control group", "random assignment"],
+                          "control group", "random assignment", "rct",
+                          "randomized controlled", "randomised controlled",
+                          "randomized trial", "randomised trial",
+                          "random control", "randomly assign"],
         "within-subjects-crossover": ["within-subjects", "crossover", "paired",
                                       "both conditions", "repeated"],
         "paired-pre-post": ["pre-post", "before after", "pre and post",
@@ -79,6 +95,8 @@ def recommend_templates(text: str) -> list[dict[str, Any]]:
             scored.append((score, t))
 
     scored.sort(key=lambda x: -x[0])
+    if not scored and any(w in q for w in _DESIGN_INTENT_WORDS):
+        scored = [(0, t) for t in templates]
     return [
         {
             "templateId": t["templateId"],
@@ -86,7 +104,11 @@ def recommend_templates(text: str) -> list[dict[str, Any]]:
             "description": t.get("description", ""),
             "designType": t.get("designType", ""),
             "designShape": t.get("statisticalPlan", {}).get("designShape", ""),
-            "matchReason": f"Matched {score} keyword(s): researcher intent",
+            "matchReason": (
+                f"Matched {score} keyword(s): researcher intent"
+                if score > 0
+                else "No specific match — offered from the full catalog"
+            ),
         }
         for score, t in scored[:4]
     ]
@@ -390,7 +412,7 @@ def _pick_script(text: str) -> Script:
         w in q for w in ("self-report", "survey", "ask", "perceiv")
     ):
         return _self_report_script()
-    if any(w in q for w in ("design", "statistic", "test", "how many", "template")):
+    if any(w in q for w in _DESIGN_INTENT_WORDS):
         return _design_script()
     if any(w in q for w in ("benchmark", "humaneval", "pass@")):
         return _benchmark_script()

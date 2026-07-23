@@ -21,12 +21,22 @@ COPY protocol/ protocol/
 COPY curated/ curated/
 COPY analysis/ analysis/
 COPY requirements/ requirements/
+# The template registry (FR-TPL): read from templates/registry at runtime by
+# template_registry.py. Without it the deployed platform shows zero templates.
+COPY templates/ templates/
 COPY metrics/pyproject.toml metrics/pyproject.toml
 COPY agent-capture/pyproject.toml agent-capture/pyproject.toml
 
 RUN uv sync --frozen --no-dev --package middleware
 
 COPY --from=web /web/dist platform/dist
+
+# The corpus the grounding engine reads (FR-LIT-8): the Tier A seed table and
+# the harvested Tier B index. Without these the `papers` table can't be
+# imported, so `match_papers` finds nothing and every design move degrades to
+# "unsourced". A late layer (changes only on re-harvest) so it doesn't bust the
+# dependency cache. PDFs are gitignored/optional — title+why text suffices.
+COPY docs/papers/README.md docs/papers/corpus-index.json docs/papers/
 
 ENV MIDDLEWARE_DATA_DIR=/data \
     MIDDLEWARE_PROTOCOL=/app/protocol/examples/pilot-study.yaml \

@@ -121,6 +121,7 @@ export interface Api {
   createProject(name: string): Promise<ProjectSummary>;
   projectHome(slug: string): Promise<ProjectHome>;
   createStudy(slug: string, name: string): Promise<{ id: string; phase: string }>;
+  deleteStudy(studyId: string): Promise<void>;
   renameProject(slug: string, name: string): Promise<void>;
   deleteProject(slug: string, confirm: string): Promise<void>;
   members(slug: string): Promise<Member[]>;
@@ -257,6 +258,8 @@ class HttpBackend implements Api {
   projectHome = (slug: string) => this.call<ProjectHome>("GET", `/projects/${slug}`);
   createStudy = (slug: string, name: string) =>
     this.call<{ id: string; phase: string }>("POST", `/projects/${slug}/studies`, { name });
+  deleteStudy = (studyId: string) =>
+    this.call<void>("DELETE", `/studies/${studyId}`);
   renameProject = (slug: string, name: string) =>
     this.call<void>("PATCH", `/projects/${slug}`, { name });
   deleteProject = (slug: string, confirm: string) =>
@@ -445,6 +448,16 @@ export class InMemoryBackend implements Api {
     }
     p.studies.push({ id, phase: "design" });
     return { id, phase: "design" };
+  }
+
+  async deleteStudy(studyId: string): Promise<void> {
+    for (const p of this.projects.values()) {
+      const i = p.studies.findIndex((st) => st.id === studyId);
+      if (i !== -1) {
+        p.studies.splice(i, 1);
+        return;
+      }
+    }
   }
 
   async renameProject(slug: string, name: string): Promise<void> {

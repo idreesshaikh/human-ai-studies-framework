@@ -69,12 +69,45 @@ export interface Recommendation {
  * the YAML the compiler emits; this is the in-progress projection the slot
  * meter and draft rail read from. */
 
-export interface DraftPatch {
+/** The generic section patch — the shape ``add-rq``/``add-measure``/
+ * ``set-parameter`` moves carry. */
+export interface SectionPatch {
   section: keyof ProtocolDraft;
   /** append to a list section, or set a scalar/keyed section. */
   op: "append" | "set";
   key?: string;
   value: string;
+}
+
+/** A ``choose-template`` move's patch — the *only* thing that can fill the
+ * draft's mandatory `design` slot (server: design_llm.py). */
+export interface TemplatePatch {
+  templateId: string;
+  parameters?: Record<string, unknown>;
+}
+
+/** An ``add-instrument``/``reconfigure-instrument`` move's patch. */
+export interface InstrumentPatch {
+  section: "instruments";
+  op: "add-instrument" | "set-instrument" | "reconfigure";
+  name: string;
+  config?: Record<string, unknown>;
+  path?: string[];
+  value?: unknown;
+}
+
+export type DraftPatch = SectionPatch | TemplatePatch | InstrumentPatch;
+
+export function isSectionPatch(p: DraftPatch): p is SectionPatch {
+  return "op" in p && (p.op === "append" || p.op === "set");
+}
+
+export function isTemplatePatch(p: DraftPatch): p is TemplatePatch {
+  return "templateId" in p;
+}
+
+export function isInstrumentPatch(p: DraftPatch): p is InstrumentPatch {
+  return "op" in p && (p.op === "add-instrument" || p.op === "set-instrument" || p.op === "reconfigure");
 }
 
 export interface ProtocolDraft {

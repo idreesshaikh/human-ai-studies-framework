@@ -1,29 +1,51 @@
 import { useNavigate, Link, useParams } from "react-router-dom";
 import { useState } from "react";
-import { FlaskConical, Users, Plus } from "lucide-react";
+import { FlaskConical, Users, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shell/EmptyState";
+import { RoleGate } from "@/components/shell/RoleGate";
 import { useApi, useSession } from "@/lib/session";
 import { useAuth } from "@/lib/auth.tsx";
 import { useAsync } from "@/lib/useAsync";
 import { memberLabel } from "@/lib/memberLabel";
 import { ApiError } from "@/lib/api.ts";
+import type { Role } from "@/lib/capabilities.ts";
+import { cn } from "@/lib/cn";
 
 /* Project home: its studies, and a preview of who's on the team. */
 export function ProjectHome() {
   const api = useApi();
-  const { refresh } = useSession();
+  const { me, refresh } = useSession();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { slug = "" } = useParams();
-  const { data, loading, error } = useAsync(() => api.projectHome(slug), [api, slug]);
+  const { data, loading, error, reload } = useAsync(() => api.projectHome(slug), [api, slug]);
   const [studyName, setStudyName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  // Two-step confirm for study deletion: first click arms, second deletes.
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const mine = (me?.memberships.find((m) => m.projectSlug === slug)?.role ??
+    "viewer") as Role;
+
+  const removeStudy = async (studyId: string) => {
+    setDeleting(studyId);
+    try {
+      await api.deleteStudy(studyId);
+      setConfirmDelete(null);
+      reload();
+    } catch {
+      // Leave the row; the reload below (or a retry) reflects the real state.
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   const newStudy = async () => {
     if (!studyName.trim()) return;
@@ -78,16 +100,53 @@ export function ProjectHome() {
         {data.studies.length === 0 ? (
           <EmptyState line="Research goes better with a study. Start one above." />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {data.studies.map((st) => (
-              <Link key={st.id} to={`/p/${slug}/studies/${st.id}`}>
-                <Card className="transition-colors duration-fast hover:border-accent">
-                  <CardContent className="flex items-center justify-between p-4">
-                    <span className="font-medium text-text">{st.id}</span>
+              <Card
+                key={st.id}
+                className="group relative transition-colors duration-fast hover:border-accent"
+              >
+                <Link to={`/p/${slug}/studies/${st.id}`} className="block">
+                  <CardContent className="flex items-center justify-between gap-2 p-4">
+                    <span className="min-w-0 flex-1 truncate font-medium text-text">
+                      {st.id}
+                    </span>
                     <Badge variant="outline">{st.phase}</Badge>
                   </CardContent>
-                </Card>
-              </Link>
+                </Link>
+                <RoleGate role={mine} capability="delete">
+                  {confirmDelete === st.id ? (
+                    <div className="flex items-center gap-1 border-t border-border px-3 py-1.5 text-xs">
+                      <span className="flex-1 text-text-muted">Delete this study?</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-status-critical"
+                        disabled={deleting === st.id}
+                        onClick={() => removeStudy(st.id)}
+                      >
+                        {deleting === st.id ? "Deleting…" : "Delete"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(st.id)}
+                      aria-label={`Delete study ${st.id}`}
+                      className={cn(
+                        "absolute right-2 top-2 rounded-input p-1 text-text-muted",
+                        "opacity-0 transition-opacity duration-fast hover:bg-accent-soft hover:text-status-critical",
+                        "focus-visible:opacity-100 group-hover:opacity-100",
+                      )}
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                    </button>
+                  )}
+                </RoleGate>
+              </Card>
             ))}
           </div>
         )}

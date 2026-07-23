@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, Circle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api";
 import { studyApi, EMPTY_LIFECYCLE, type Gate, type LifecycleDoc } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
@@ -9,8 +10,18 @@ import { cn } from "@/lib/cn";
  * surface: the current phase is highlighted, satisfied gates read green, and an
  * unsatisfied gate on the current phase can be attested to advance the study.
  * Consent-adjacent, so it does not animate. */
-export function LifecycleTab({ studyId }: { studyId: string }) {
+export function LifecycleTab({
+  studyId,
+  onGoToConversation,
+}: {
+  studyId: string;
+  onGoToConversation?: () => void;
+}) {
   const [doc, setDoc] = useState<LifecycleDoc | null>(null);
+  // Distinct from "server unreachable": the study genuinely has no compiled
+  // protocol yet, so there is nothing to gate against - the design
+  // conversation isn't finished, not a bug.
+  const [noProtocol, setNoProtocol] = useState(false);
   const [attesting, setAttesting] = useState<string | null>(null); // gate artifact
   const [agreed, setAgreed] = useState(false);
   const [note, setNote] = useState("");
@@ -19,12 +30,21 @@ export function LifecycleTab({ studyId }: { studyId: string }) {
 
   useEffect(() => {
     let live = true;
+    setDoc(null);
+    setNoProtocol(false);
     studyApi
       .lifecycle(studyId)
       .then((d) => live && setDoc(d))
-      // A fresh study with no protocol resolved yet shouldn't hang on "Loading…"
-      // — fall back to the honest first-phase board (nothing attested yet).
-      .catch(() => live && setDoc(EMPTY_LIFECYCLE));
+      .catch((e) => {
+        if (!live) return;
+        if (e instanceof ApiError && e.status === 404) {
+          setNoProtocol(true);
+        } else {
+          // Server unreachable/other error: fall back to the honest
+          // first-phase board rather than hang on "Loading…" forever.
+          setDoc(EMPTY_LIFECYCLE);
+        }
+      });
     return () => {
       live = false;
     };
@@ -49,6 +69,24 @@ export function LifecycleTab({ studyId }: { studyId: string }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (noProtocol) {
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col gap-3 p-6">
+        <h2 className="text-sm font-medium text-text">Lifecycle</h2>
+        <p className="text-sm text-text-muted">
+          This study doesn't have a compiled protocol yet, so there's nothing to gate
+          against. Finish the design conversation — choose a design, compile it, and
+          approve the draft — and the lifecycle board will pick up from there.
+        </p>
+        {onGoToConversation && (
+          <Button size="sm" className="w-fit" onClick={onGoToConversation}>
+            Go to Conversation
+          </Button>
+        )}
+      </div>
+    );
   }
 
   if (!doc) return <p className="p-6 text-sm text-text-muted">Loading…</p>;
