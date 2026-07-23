@@ -33,7 +33,7 @@ import yaml
 from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
-from protocol.lifecycle import PHASE_ORDER, current_phase
+from protocol.lifecycle import PHASE_ORDER, current_phase, gates_by_phase
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy import text as sqltext
@@ -842,7 +842,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if proto is None:
             raise HTTPException(404, f"no protocol for study {study_id!r}")
         files = _stored_files(s, study_id)
-        declared = {p["name"]: list(p.get("gates", [])) for p in proto["phases"]}
+        # The engine's gate view, not the raw declarations: a gateless phase
+        # carries its implicit completion attestation (FR-PROT-10), so the
+        # board shows the manual advance instead of silently ticking past.
+        guarded = gates_by_phase(proto)
         current = current_phase(proto, set(files))
         cur_i = PHASE_ORDER.index(current)
         phases = []
@@ -861,7 +864,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                         else None
                     ),
                 }
-                for g in declared.get(name, [])
+                for g in guarded.get(name, [])
             ]
             phases.append(
                 {
@@ -944,10 +947,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if proto is None:
             raise HTTPException(404, f"no protocol for study {study_id!r}")
         current = current_phase(proto, set(_stored_files(s, study_id)))
-        current_gates = next(
-            (list(p.get("gates", [])) for p in proto["phases"] if p["name"] == current),
-            [],
-        )
+        # The engine's gate view includes the implicit completion attestation
+        # of a gateless phase (FR-PROT-10) — the manual advance is attested
+        # through the same one-gated-step-at-a-time door as declared gates.
+        current_gates = gates_by_phase(proto).get(current, [])
         if artifact not in current_gates:
             raise HTTPException(
                 409,
@@ -1809,15 +1812,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     {"session": sid, "source": src},
                 )
 
-        # Gate blocks: the current phase's unsatisfied gates.
+        # Gate blocks: the current phase's unsatisfied gates (including a
+        # gateless phase's implicit completion attestation, FR-PROT-10).
         proto = _resolve_study_protocol_for_lifecycle(s, study_id)
         if proto is not None:
             files = _stored_files(s, study_id)
-            declared = {
-                p["name"]: list(p.get("gates", [])) for p in proto["phases"]
-            }
             current = current_phase(proto, set(files))
-            for gate in declared.get(current, []):
+            for gate in gates_by_phase(proto).get(current, []):
                 if gate not in files:
                     emit(
                         "gate-block",

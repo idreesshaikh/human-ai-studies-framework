@@ -277,6 +277,44 @@ def test_lifecycle_phase_is_computed_from_uploaded_artifacts(client):
     assert all(g["satisfied"] and g["satisfiedBy"] for g in ethics["gates"])
 
 
+def test_gateless_phase_needs_explicit_attested_advance(tmp_path):
+    """FR-PROT-10: a phase declaring no gates carries an implicit completion
+    attestation — one satisfied gate must not silently tick every gateless
+    phase after it. The curated demo protocol (gateless ethics) is the shape
+    that used to jump straight past ethics/pilot/recruitment."""
+    settings = Settings(
+        db_path=tmp_path / "test.sqlite3",
+        data_dir=tmp_path / "data",
+        protocol_path=REPO_ROOT / "protocol" / "examples" / "cursor-mining-2026.yaml",
+        port=8000,
+        spa_dist=tmp_path / "no-dist",
+    )
+    c = TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
+    study = "cursor-mining-2026"
+
+    upload(c, "protocol-validated.txt", study=study)
+    doc = c.get(f"/studies/{study}/lifecycle").json()
+    assert doc["currentPhase"] == "ethics"
+    ethics = next(p for p in doc["phases"] if p["name"] == "ethics")
+    assert [g["artifact"] for g in ethics["gates"]] == ["ethics-complete.txt"]
+    assert not ethics["gates"][0]["satisfied"]
+
+    # A later phase's implicit gate can't be attested out of order.
+    skip = c.post(
+        f"/studies/{study}/lifecycle/gates/pilot-complete.txt/attest",
+        json={"confirmed": True},
+    )
+    assert skip.status_code == 409
+
+    # Attesting the current phase's completion advances exactly one phase.
+    ok = c.post(
+        f"/studies/{study}/lifecycle/gates/ethics-complete.txt/attest",
+        json={"confirmed": True, "note": "no human participants — mined data"},
+    )
+    assert ok.status_code == 200
+    assert ok.json()["currentPhase"] == "pilot"
+
+
 def test_status_document_reports_sessions_gaps_and_rq_coverage(client):
     client.post("/ingest/events", json=[event(i) for i in [0, 1, 4]])
     client.post("/ingest/metrics", json=[metric_row()])
