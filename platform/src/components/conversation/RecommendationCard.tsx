@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TierBadge } from "./TierBadge";
+import { Confidence } from "./Confidence";
 import type { Recommendation } from "@/lib/types";
 
 /* A recommended paper. Arrives with a small rise as if dealt onto the
@@ -24,7 +25,10 @@ export function RecommendationCard({
     >
       <CardContent className="flex flex-col gap-2 p-3">
         <div className="flex items-center justify-between gap-2">
-          <TierBadge tier={rec.tier} />
+          <div className="flex items-center gap-2">
+            <Confidence value={rec.confidence} />
+            <TierBadge tier={rec.tier} />
+          </div>
           <span className="tabular text-xs text-text-muted">{rec.year}</span>
         </div>
         <p className="text-sm font-medium text-text">{rec.title}</p>

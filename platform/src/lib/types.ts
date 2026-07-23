@@ -8,6 +8,7 @@ export type Tier = "A" | "B" | "study";
 export interface Grounding {
   ref: string; // corpus ref, e.g. "arxiv:2506.xxxxx", or template id
   tier: Tier;
+  confidence?: number; // 0..1 continuous quality signal — the primary rank, not the tier
   title: string;
   year?: number;
   venue?: string;
@@ -57,6 +58,7 @@ export interface Turn {
 export interface Recommendation {
   ref: string;
   tier: Tier;
+  confidence?: number; // 0..1 continuous quality signal
   title: string;
   year: number;
   venue: string;

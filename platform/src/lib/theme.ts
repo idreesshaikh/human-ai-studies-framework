@@ -1,27 +1,23 @@
-/* Theme control. Light is the default for a first-time visitor; the toggle
- * stamps data-theme on <html> to override it (light/dark/system), and the
- * choice persists. "system" remains a selectable option (follows the OS
- * setting) — it just isn't what a brand-new visitor sees before choosing. */
-export type Theme = "light" | "dark" | "system";
+/* Theme control. The app always starts in light; dark is an explicit choice
+ * the researcher makes with the toggle, and it persists. There is no
+ * OS-"system" auto-dark — a first load (and any load before a choice) is
+ * light, every time, on every machine. A pre-paint inline script in
+ * index.html applies the stored choice before first paint so there's no
+ * flash. */
+export type Theme = "light" | "dark";
 
 const KEY = "platform-theme";
 
 export function getTheme(): Theme {
-  return (localStorage.getItem(KEY) as Theme | null) ?? "light";
+  return localStorage.getItem(KEY) === "dark" ? "dark" : "light";
 }
 
 export function applyTheme(theme: Theme) {
-  const root = document.documentElement;
-  if (theme === "system") {
-    root.removeAttribute("data-theme");
-    localStorage.removeItem(KEY);
-  } else {
-    root.setAttribute("data-theme", theme);
-    localStorage.setItem(KEY, theme);
-  }
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem(KEY, theme);
 }
 
-/** Cycle system → light → dark → system. */
+/** Toggle light ↔ dark. */
 export function nextTheme(t: Theme): Theme {
-  return t === "system" ? "light" : t === "light" ? "dark" : "system";
+  return t === "light" ? "dark" : "light";
 }

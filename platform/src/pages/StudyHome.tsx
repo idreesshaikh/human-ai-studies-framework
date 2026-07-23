@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ChevronLeft,
   History,
+  HelpCircle,
   MessagesSquare,
   Library,
   BarChart3,
@@ -16,6 +17,7 @@ import { LifecycleTab } from "@/components/charts/LifecycleTab";
 import { EnrollmentPanel } from "@/components/enrollment/EnrollmentPanel";
 import { AmendmentBanner } from "@/components/conversation/AmendmentBanner";
 import { AmendmentHistory } from "@/components/conversation/AmendmentHistory";
+import { StudyTour, tourSeen, markTourSeen } from "@/components/shell/StudyTour";
 import { Button } from "@/components/ui/button";
 import { evolutionStore, useEvolution } from "@/lib/evolutionStub";
 import { useSession } from "@/lib/session";
@@ -45,6 +47,17 @@ export function StudyHome() {
   const { me } = useSession();
   const [tab, setTab] = useState<Tab>("conversation");
   const [showHistory, setShowHistory] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+
+  // First study: run the walkthrough once (persisted). Re-openable via "?".
+  useEffect(() => {
+    if (!tourSeen()) setShowTour(true);
+  }, []);
+
+  const closeTour = () => {
+    markTourSeen();
+    setShowTour(false);
+  };
 
   const role = me?.memberships.find((m,) => m.projectSlug === slug)?.role ?? null;
 
@@ -81,6 +94,7 @@ export function StudyHome() {
               type="button"
               key={t.id}
               onClick={() => setTab(t.id)}
+              aria-label={t.label}
               aria-current={tab === t.id ? "page" : undefined}
               className={cn(
                 "flex items-center gap-1.5 rounded-input px-2 sm:px-2.5 py-1 text-sm transition-colors duration-fast",
@@ -94,18 +108,28 @@ export function StudyHome() {
           ))}
         </nav>
 
-        {shownState.ethicsApprovedAt && (
+        <div className="ml-auto flex items-center gap-1">
+          {shownState.ethicsApprovedAt && (
+            <Button
+              variant="ghost"
+              size="sm"
+              data-agent="amendment-history-toggle"
+              onClick={() => setShowHistory((v) => !v)}
+            >
+              <History className="size-4" aria-hidden />
+              {showHistory ? "Hide history" : "History"}
+            </Button>
+          )}
           <Button
             variant="ghost"
-            size="sm"
-            className="ml-auto"
-            data-agent="amendment-history-toggle"
-            onClick={() => setShowHistory((v) => !v)}
+            size="icon"
+            aria-label="How this workspace works"
+            data-agent="tour-open"
+            onClick={() => setShowTour(true)}
           >
-            <History className="size-4" aria-hidden />
-            {showHistory ? "Hide history" : "History"}
+            <HelpCircle className="size-4" aria-hidden />
           </Button>
-        )}
+        </div>
       </div>
 
       <AmendmentBanner
@@ -130,6 +154,10 @@ export function StudyHome() {
         {tab === "lifecycle" && <LifecycleTab studyId={id} />}
         {tab === "enrollment" && <EnrollmentPanel studyId={id} role={role} />}
       </div>
+
+      {showTour && (
+        <StudyTour onTab={(t) => setTab(t as Tab)} onClose={closeTour} />
+      )}
     </div>
   );
 }

@@ -51,6 +51,14 @@ CORPUS_INDEX = PAPERS_DIR / "corpus-index.json"
 #: provenance edges differently.
 VIA_EDGE_KIND = "harvested-via"
 
+# Tier A seeds are hand-curated but carry no harvest score. Give them a
+# curated-seed prior on the same score scale as Tier B so a single continuous
+# confidence ranks every paper on merit — the top ~8% of harvested Tier B
+# (score > ~14) can still outrank a seed, so the 100 aren't categorically
+# privileged over the 14,900. (Tier B distribution: median 10.6, p90 13.6,
+# max 21.7.) Tune here, not by re-tiering.
+TIER_A_SEED_SCORE = 14.0
+
 #: Tier A table row: | `file-stem` | [Title](url) - authors | Year | Why |
 _TIER_A_ROW = re.compile(
     r"^\|\s*`([^`]+)`\s*\|\s*(.+?)\s*\|\s*(\d{4})\s*\|\s*(.+?)\s*\|\s*$"
@@ -162,6 +170,7 @@ def import_tier_a(s: Session) -> dict[str, int]:
                 "item_type": "paper",
                 "source": "docs/papers/README.md",
                 "tier": "A",
+                "score": TIER_A_SEED_SCORE,
             },
         )
         body = _tier_a_body(paper)
@@ -194,6 +203,7 @@ def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
                 "s2_id": entry.get("s2PaperId", ""),
                 "citation_count": entry.get("citationCount"),
                 "tier": "B",
+                "score": entry.get("score"),
             },
         )
         body = "\n\n".join(

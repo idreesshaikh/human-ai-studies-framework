@@ -50,32 +50,35 @@
   --font-serif: var(--font-display); /* alias — some components still write
     font-serif for headings; both resolve to the one display face */
 
-  /* Light theme — "Daylight desk": warm peach paper + near-black ink. */
-  --ink: #221a12; /* the one near-black ink: primary text, frames, wordmark */
-  --bg: #fbe4ce; /* warm peach paper — the station surface */
-  --surface: #fdeedf; /* a clean sheet laid on the paper */
-  --surface-raised: #fff8ef; /* menus, tooltips, the topmost plane */
-  --border: #e7c7a2; /* soft tan rule — incidental dividers */
-  --border-strong: #221a12; /* near-black keyline — framed-object stroke */
-  --text: #221a12; /* 13.96:1 on --bg */
-  --text-muted: #6e5a44; /* 5.33:1 on --bg */
-  --accent: #b93a14; /* burnt ember — brand ink, mostly text/strokes (4.65:1 on --bg) */
-  --accent-contrast: #fbe4ce; /* peach on the rare solid ember fill */
-  --accent-soft: #f3cba8; /* pale ember wash — active nav, quiet fills */
-  --grounded: #3e6b30; /* moss green — cited into the corpus (5.10:1) */
-  --unsourced: #93540a; /* warm ochre — "your call", honest not shameful (4.86:1) */
-  --unsourced-soft: #f3deb9;
-  --focus-ring: #221a12; /* near-black ring, always high-contrast, drawn offset */
-  --thread: #9c6a1f; /* the kite-string / tether line — brand mark only, never text */
+  /* Light theme — "Daylight instrument": cool slate paper + deep ink-navy.
+   * Deliberately NOT the warm-peach desk (that reads as the default AI look);
+   * this is an evidence instrument, so the base is cool and the one accent is
+   * a confident signal-blue. */
+  --ink: #16202e; /* the one deep ink-navy: primary text, frames, wordmark */
+  --bg: #e9edf3; /* cool slate paper — the instrument surface */
+  --surface: #f7f9fc; /* a clean sheet laid on the paper */
+  --surface-raised: #ffffff; /* menus, tooltips, the topmost plane */
+  --border: #ccd6e3; /* cool hairline rule — incidental dividers */
+  --border-strong: #16202e; /* ink-navy keyline — framed-object stroke */
+  --text: #16202e; /* 13.6:1 on --bg */
+  --text-muted: #55627a; /* 5.6:1 on --bg */
+  --accent: #2a45c0; /* signal blue — brand ink, mostly text/strokes (6.2:1 on --bg) */
+  --accent-contrast: #ffffff; /* white on the rare solid signal fill */
+  --accent-soft: #dbe3fb; /* pale signal wash — active nav, quiet fills */
+  --grounded: #1f7a4d; /* clear green — cited into the corpus (4.9:1) */
+  --unsourced: #8a5710; /* amber — "your call", honest not shameful (4.8:1 on surface) */
+  --unsourced-soft: #f4e6c8;
+  --focus-ring: #16202e; /* ink-navy ring, always high-contrast, drawn offset */
+  --thread: #2a45c0; /* the kite-string / tether line — brand mark only, never text */
 
-  /* Soft lifted-card shadow — warm, low, gently blurred. Reads as a sheet
-   * resting slightly above the desk. (Legacy utility name kept as
+  /* Soft lifted-card shadow — cool, low, gently blurred. Reads as a sheet
+   * resting slightly above the surface. (Legacy utility name kept as
    * shadow-brutal* to avoid churn across ~30 call sites.) */
-  --shadow-brutal-sm: 0 1px 2px rgba(34, 26, 18, 0.1);
-  --shadow-brutal: 0 3px 10px -2px rgba(34, 26, 18, 0.14),
-    0 1px 3px rgba(34, 26, 18, 0.08);
-  --shadow-brutal-lg: 0 12px 28px -6px rgba(34, 26, 18, 0.18),
-    0 2px 6px rgba(34, 26, 18, 0.07);
+  --shadow-brutal-sm: 0 1px 2px rgba(16, 32, 46, 0.1);
+  --shadow-brutal: 0 3px 10px -2px rgba(16, 32, 46, 0.13),
+    0 1px 3px rgba(16, 32, 46, 0.08);
+  --shadow-brutal-lg: 0 12px 28px -6px rgba(16, 32, 46, 0.16),
+    0 2px 6px rgba(16, 32, 46, 0.07);
 
   /* Chart palette — the dataviz skill's validated categorical order (8 slots),
    * light column. Assign hues in fixed order, never cycled; a colored mark
@@ -89,36 +92,38 @@
   --series-6: #eb6834; /* orange */
   --series-7: #4a3aa7; /* violet */
   --series-8: #e34948; /* red */
-  --viz-grid: #ddd0b3; /* recessive gridlines on oat paper */
-  --viz-axis: #a99a78; /* baseline / axis rule */
-  --status-critical: #b4241f;
+  --viz-grid: #d4dce7; /* recessive gridlines on cool paper */
+  --viz-axis: #97a6bc; /* baseline / axis rule */
+  --status-critical: #c0281f;
 }
 
 :root[data-theme="dark"] {
-  /* Dark theme — "Lamplit desk": the same desk after dark. Warm cream ink on
-   * near-black; the ember brightens to hold its own against the dark. */
-  --ink: #f0dec4;
-  --bg: #17120d;
-  --surface: #201810;
-  --surface-raised: #2a2015;
-  --border: #3c2e1e; /* soft warm keyline */
-  --border-strong: #f0dec4; /* pale cream — frames read light on dark */
-  --text: #f0dec4; /* 14.13:1 on --bg */
-  --text-muted: #b9a588; /* 7.80:1 on --bg */
-  --accent: #ff7a45; /* ember, brightened for dark (7.20:1 on --bg) */
-  --accent-contrast: #17120d;
-  --accent-soft: #3a2413;
-  --grounded: #7fbd5e; /* moss green, lifted for dark */
-  --unsourced: #e3a83e; /* ochre, lifted for dark */
-  --unsourced-soft: #3a2a12;
-  --focus-ring: #f0dec4; /* cream ring on dark */
-  --thread: #e0a94f; /* the kite-string / tether line, lifted for dark */
+  /* Dark theme — "Observatory": deep navy-slate, not muddy brown. The three
+   * planes step in clear luminance so cards and panels separate on the dark
+   * (the flat, one-plane feel was the main dark-mode complaint); the signal
+   * accent brightens to a luminous blue to hold its own. */
+  --ink: #e6ecf5;
+  --bg: #0e1420; /* deepest plane */
+  --surface: #172033; /* +1 step — a card on the dark */
+  --surface-raised: #202d45; /* +2 step — menus, the topmost plane */
+  --border: #2b3a54; /* cool keyline */
+  --border-strong: #e6ecf5; /* pale — frames read light on dark */
+  --text: #e6ecf5; /* 15.3:1 on --bg */
+  --text-muted: #9fb0c8; /* 8.6:1 on --bg */
+  --accent: #6ea8ff; /* signal blue, brightened for dark (7.6:1 on --bg) */
+  --accent-contrast: #0e1420;
+  --accent-soft: #1c2c48;
+  --grounded: #4ec98a; /* green, lifted for dark */
+  --unsourced: #e0a94f; /* amber, lifted for dark */
+  --unsourced-soft: #2a2412;
+  --focus-ring: #e6ecf5; /* pale ring on dark */
+  --thread: #6ea8ff; /* the kite-string / tether line, lifted for dark */
 
-  --shadow-brutal-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-brutal: 0 3px 12px -2px rgba(0, 0, 0, 0.5),
-    0 1px 3px rgba(0, 0, 0, 0.35);
-  --shadow-brutal-lg: 0 14px 32px -6px rgba(0, 0, 0, 0.6),
-    0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-brutal-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-brutal: 0 3px 12px -2px rgba(0, 0, 0, 0.55),
+    0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-brutal-lg: 0 14px 32px -6px rgba(0, 0, 0, 0.65),
+    0 2px 6px rgba(0, 0, 0, 0.45);
 
   /* Chart palette — the dataviz skill's dark column: the same eight hues
    * stepped for the dark surface (not an auto-flip), validated as a set. */
@@ -130,47 +135,16 @@
   --series-6: #d95926;
   --series-7: #9085e9;
   --series-8: #e66767;
-  --viz-grid: #2c2e22;
-  --viz-axis: #47493a;
+  --viz-grid: #223049;
+  --viz-axis: #3a4a68;
   --status-critical: #ff6b5e;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --ink: #f0dec4;
-    --bg: #17120d;
-    --surface: #201810;
-    --surface-raised: #2a2015;
-    --border: #3c2e1e;
-    --border-strong: #f0dec4;
-    --text: #f0dec4;
-    --text-muted: #b9a588;
-    --accent: #ff7a45;
-    --accent-contrast: #17120d;
-    --accent-soft: #3a2413;
-    --grounded: #7fbd5e;
-    --unsourced: #e3a83e;
-    --unsourced-soft: #3a2a12;
-    --focus-ring: #f0dec4;
-    --thread: #e0a94f;
-    --shadow-brutal-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-brutal: 0 3px 12px -2px rgba(0, 0, 0, 0.5),
-      0 1px 3px rgba(0, 0, 0, 0.35);
-    --shadow-brutal-lg: 0 14px 32px -6px rgba(0, 0, 0, 0.6),
-      0 2px 6px rgba(0, 0, 0, 0.4);
-    --series-1: #3987e5;
-    --series-2: #008300;
-    --series-3: #d55181;
-    --series-4: #c98500;
-    --series-5: #199e70;
-    --series-6: #d95926;
-    --series-7: #9085e9;
-    --series-8: #e66767;
-    --viz-grid: #2c2e22;
-    --viz-axis: #47493a;
-    --status-critical: #ff6b5e;
-  }
-}
+/* Dark is an explicit choice only (see theme.ts): the app always starts in
+ * light, so there is deliberately no `prefers-color-scheme: dark` block that
+ * would flip a fresh visitor to dark on an OS-dark machine. The dark palette
+ * lives solely under [data-theme="dark"] above, applied by the toggle and a
+ * pre-paint script in index.html. */
 
 /* Respect the OS "reduce motion" setting — every surface stays fully usable
  * with animation off; the lift and settle simply happen instantly. */

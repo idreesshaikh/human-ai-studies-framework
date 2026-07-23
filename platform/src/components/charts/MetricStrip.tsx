@@ -139,6 +139,10 @@ export function MetricStrip({
       </div>
       <p className="text-xs text-text-muted">{metric.definition}</p>
 
+      {/* A stable min-height keeps the section from jumping when the selected
+          metric has no rows (short notice) vs. a full chart/table — the
+          layout-shift the researcher saw when switching metric/condition. */}
+      <div className="min-h-[19rem]">
       {points.length === 0 ? (
         <p className="rounded-card border border-border bg-surface p-6 text-sm text-text-muted">
           No metric rows carry <code className="font-mono">{metric.key}</code> yet.
@@ -276,6 +280,7 @@ export function MetricStrip({
           </p>
         </div>
       )}
+      </div>
 
       {tip && (
         <div

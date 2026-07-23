@@ -14,6 +14,7 @@ export type Capability =
   | "apply_draft"
   | "run_recipe"
   | "freeze"
+  | "invite_member"
   | "manage_members"
   | "delete"
   | "mint_token"
@@ -32,6 +33,7 @@ export const MATRIX: Record<Capability, Role> = {
   apply_draft: "researcher",
   run_recipe: "researcher",
   freeze: "owner",
+  invite_member: "researcher",
   manage_members: "owner",
   delete: "owner",
   mint_token: "researcher",

@@ -122,17 +122,52 @@ def test_manage_members_is_owner_only_with_uniform_403(client):
     slug = make_project(client, "alice", "Lab")
     add_member(client, slug, "alice", "rea", "researcher")
     add_member(client, slug, "alice", "vic", "viewer")
-    # A researcher and a viewer replaying an owner-only request both get 403,
-    # each with a plain-language body (not an empty/opaque error).
+    # A researcher and a viewer replaying an owner-only request (changing a
+    # member's role) both get 403, each with a plain-language body (not an
+    # empty/opaque error).
     for sub in ("rea", "vic"):
-        res = client.post(
-            f"/projects/{slug}/invitations",
-            json={"email": "x", "role": "viewer"},
+        res = client.patch(
+            f"/projects/{slug}/members/vic",
+            json={"role": "researcher"},
             headers=bearer(sub),
         )
         assert res.status_code == 403
         detail = res.json()["detail"]
         assert detail and "role" in detail.lower()
+
+
+def test_researcher_can_invite_but_not_mint_owner(client):
+    # D40: inviting a colleague is a researcher+ capability (members invite
+    # peers), but only an owner can invite another owner.
+    slug = make_project(client, "alice", "Lab")
+    add_member(client, slug, "alice", "rea", "researcher")
+    add_member(client, slug, "alice", "vic", "viewer")
+
+    ok = client.post(
+        f"/projects/{slug}/invitations",
+        json={"email": "peer@lab.example", "role": "researcher"},
+        headers=bearer("rea"),
+    )
+    assert ok.status_code == 200
+    assert ok.json()["url"].startswith("/invitations/")
+    # No mail key configured in tests → degrades to copy-link, never sends.
+    assert ok.json()["emailed"] is False
+
+    # A researcher cannot escalate by inviting an owner.
+    escalate = client.post(
+        f"/projects/{slug}/invitations",
+        json={"email": "boss@lab.example", "role": "owner"},
+        headers=bearer("rea"),
+    )
+    assert escalate.status_code == 403
+
+    # A viewer cannot invite at all.
+    denied = client.post(
+        f"/projects/{slug}/invitations",
+        json={"email": "x@lab.example", "role": "viewer"},
+        headers=bearer("vic"),
+    )
+    assert denied.status_code == 403
 
 
 def test_delete_is_owner_only(client):

@@ -16,6 +16,7 @@
  * "needs the running middleware" notice. Nothing load-bearing is cloud-owned. */
 
 import { getAuthToken, notifyUnauthorized } from "./api.ts";
+import type { Recommendation } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -110,6 +111,28 @@ export interface LifecycleDoc {
   phases: LifecyclePhase[];
 }
 
+export interface Prescription {
+  designShape: string;
+  test: string;
+  effectSize: string;
+  correction: string;
+  sampleSizeGuidance: string;
+  rationale: string;
+}
+
+export interface MiningJob {
+  id: string;
+  studyId: string;
+  source: string;
+  state: string;
+  cursor: string | null;
+  coverage: Record<string, number>;
+  firedHeuristics: string[];
+  statusMessage: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SessionStatus {
   sessionId: string;
   participantId: string;
@@ -175,11 +198,30 @@ function post<T>(path: string, body: unknown): Promise<T> {
 /** Run a read against the server, but fall back to `seed` when offline so the
  * surface still renders (the constellation and charts are worth showing even
  * with nothing on :8000). Non-offline errors propagate. */
+// When the middleware is unreachable, reads fall back to built-in sample data
+// so the UI stays explorable — but that must never be mistaken for a live
+// study's real data. Anything that falls back fires this signal so surfaces
+// (the Data tab) can say so honestly.
+type SeededListener = () => void;
+const seededListeners = new Set<SeededListener>();
+
+export function onSeededData(listener: SeededListener): () => void {
+  seededListeners.add(listener);
+  return () => seededListeners.delete(listener);
+}
+
+function notifySeeded(): void {
+  for (const l of seededListeners) l();
+}
+
 async function liveOrSeed<T>(run: () => Promise<T>, seed: T): Promise<T> {
   try {
     return await run();
   } catch (e) {
-    if (e instanceof OfflineError) return seed;
+    if (e instanceof OfflineError) {
+      notifySeeded();
+      return seed;
+    }
     throw e;
   }
 }
@@ -203,6 +245,23 @@ export const studyApi = {
     req<{ deleted: string }>(`/studies/${enc(study)}/papers/${enc(ref)}`, {
       method: "DELETE",
     }),
+  /** Corpus recommendations for a free-text query (FR-LIT-9) — drives the
+   * conversation's live recommender box. */
+  matchPapers: (study: string, query: string, limit = 5) =>
+    post<{ studyId: string; recommendations: Recommendation[] }>(
+      `/studies/${enc(study)}/papers/match`,
+      { query, limit },
+    ),
+  /** One-click accept of a recommendation into the study's Library, keeping
+   * the match reason as elicitation evidence (FR-LIT-9.3). */
+  addPaperFromMatch: (study: string, ref: string, matchReason = "") =>
+    post<{
+      studyId: string;
+      paperRef: string;
+      title: string;
+      tier: string;
+      addedVia: string;
+    }>(`/studies/${enc(study)}/papers/from-match`, { ref, matchReason }),
   setPaperLinks: (study: string, ref: string, targets: string[]) =>
     req<{ paperRef: string; links: string[] }>(
       `/studies/${enc(study)}/papers/${enc(ref)}/links`,
@@ -261,6 +320,31 @@ export const studyApi = {
     liveOrSeed(
       () => req<LifecycleDoc>(`/studies/${enc(study)}/lifecycle`),
       SEED_LIFECYCLE,
+    ),
+  /** Attest that a gate's requirement is met, advancing the study a phase
+   * (FR-DASH-2). Returns the recomputed lifecycle. */
+  attestGate: (study: string, artifact: string, note = "") =>
+    post<LifecycleDoc>(
+      `/studies/${enc(study)}/lifecycle/gates/${enc(artifact)}/attest`,
+      { note, attestedBy: "Researcher", confirmed: true },
+    ),
+  /** Start a curated GitHub-mining job (FR-CUR-2). Rejects (422) if the
+   * study's protocol declares no `curated:` sampling frame. */
+  startMiningJob: (study: string) =>
+    post<MiningJob>(`/studies/${enc(study)}/mining-jobs`, {}),
+  miningJob: (study: string, jobId: string) =>
+    req<MiningJob>(`/studies/${enc(study)}/mining-jobs/${enc(jobId)}`),
+  resumeMiningJob: (study: string, jobId: string) =>
+    post<MiningJob>(`/studies/${enc(study)}/mining-jobs/${enc(jobId)}/resume`, {}),
+  /** The deterministic prescription table (FR-TPL-6): design shape → exact
+   * test, effect size, correction, sample-size guidance. Not study-scoped. */
+  prescriptions: () =>
+    liveOrSeed(
+      () =>
+        req<{ prescriptions: Prescription[] }>(`/analysis/prescriptions`).then(
+          (d) => d.prescriptions,
+        ),
+      SEED_PRESCRIPTIONS,
     ),
   status: (study: string) =>
     liveOrSeed(
@@ -465,3 +549,25 @@ const SEED_LIFECYCLE: LifecycleDoc = {
     { name: "write-up", status: "upcoming", gates: [] },
   ],
 };
+
+// Offline fallback for the prescription table (the live values come from the
+// analysis engine at /analysis/prescriptions). Kept short — the two shapes a
+// small-N developer study most often lands on.
+const SEED_PRESCRIPTIONS: Prescription[] = [
+  {
+    designShape: "paired",
+    test: "Wilcoxon signed-rank (exact, two-sided)",
+    effectSize: "Matched-pairs rank-biserial correlation (r)",
+    correction: "none",
+    sampleSizeGuidance: "Report per-cell n; small-N is hypothesis-generating.",
+    rationale: "Within-subjects pairs each participant to themselves — the exact paired test needs no normality assumption.",
+  },
+  {
+    designShape: "two-group",
+    test: "Mann-Whitney U (exact, two-sided)",
+    effectSize: "Cliff's delta",
+    correction: "none",
+    sampleSizeGuidance: "Report per-cell n; small-N is hypothesis-generating.",
+    rationale: "Two independent groups with no distribution assumption; Cliff's delta reports the effect honestly at small N.",
+  },
+];

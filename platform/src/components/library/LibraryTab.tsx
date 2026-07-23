@@ -76,8 +76,8 @@ export function LibraryTab({ studyId }: { studyId: string }) {
   const selectedNode = graph?.nodes.find((n) => n.paperRef === selected) ?? null;
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-4 overflow-auto p-4 lg:grid-cols-[1.5fr_1fr]">
-      <section className="flex min-h-0 flex-col gap-4">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-4 overflow-y-auto overflow-x-hidden p-4 lg:grid-cols-[1.6fr_1fr]">
+      <section className="flex min-h-0 min-w-0 flex-col gap-4">
         {/* Ingest bar — the live-fetch moment. */}
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -110,13 +110,16 @@ export function LibraryTab({ studyId }: { studyId: string }) {
           </p>
         )}
 
-        {/* Library list. */}
+        {/* Library list — the study's primary paper set. Papers accepted from
+            the design conversation's recommendations land here too. */}
         <div className="rounded-card border border-border bg-surface">
           <div className="flex items-center justify-between border-b border-border px-4 py-2">
             <h3 className="text-sm font-medium text-text">Library</h3>
-            <span className="text-xs text-text-muted">{papers.length} papers</span>
+            <span className="text-xs text-text-muted">
+              {papers.length} {papers.length === 1 ? "paper" : "papers"}
+            </span>
           </div>
-          <ul className="max-h-48 overflow-auto">
+          <ul className="max-h-72 overflow-y-auto overflow-x-hidden">
             {papers.map((p) => (
               <li
                 key={p.paperRef}
@@ -252,7 +255,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
       </section>
 
       {/* The assistant rides alongside, full height. */}
-      <div className="min-h-0 lg:sticky lg:top-0 lg:h-[calc(100vh-9rem)]">
+      <div className="min-h-0 min-w-0 lg:sticky lg:top-0 lg:h-[calc(100vh-9rem)]">
         <div className="hidden lg:block">
           <Assistant studyId={studyId} />
         </div>

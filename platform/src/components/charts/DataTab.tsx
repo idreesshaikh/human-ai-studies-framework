@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
+import { Info } from "lucide-react";
 import { MetricStrip } from "./MetricStrip";
 import { SwimlaneTimeline } from "./SwimlaneTimeline";
+import { PrescriptionPanel } from "./PrescriptionPanel";
+import { DataProvenance } from "./DataProvenance";
 import {
   studyApi,
+  onSeededData,
   type DatasetRow,
   type SessionStatus,
 } from "@/lib/studyApi";
@@ -18,8 +22,11 @@ export function DataTab({ studyId }: { studyId: string }) {
   const [conditions, setConditions] = useState<string[]>([]);
   const [rows, setRows] = useState<DatasetRow[]>([]);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [seeded, setSeeded] = useState(false);
 
   useEffect(() => {
+    // If any read falls back to built-in sample data, say so honestly.
+    const off = onSeededData(() => setSeeded(true));
     let live = true;
     Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)]).then(
       ([s, d]) => {
@@ -31,6 +38,7 @@ export function DataTab({ studyId }: { studyId: string }) {
     );
     return () => {
       live = false;
+      off();
     };
   }, [studyId]);
 
@@ -38,6 +46,22 @@ export function DataTab({ studyId }: { studyId: string }) {
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 overflow-auto p-6">
+      {seeded && (
+        <p
+          className="flex items-center gap-2 rounded-input border border-border-strong bg-unsourced-soft px-3 py-2 text-xs text-text"
+          role="status"
+        >
+          <Info className="size-4 shrink-0 text-unsourced" aria-hidden />
+          Showing built-in sample data — not connected to a live study. Start the
+          middleware to see this study's real sessions and metrics.
+        </p>
+      )}
+      {/* Before any data exists, the provenance decision comes first: collect
+          it live or curate it from GitHub. */}
+      {sessions.length === 0 && (
+        <DataProvenance studyId={studyId} conditions={conditions} />
+      )}
+
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-text">Sessions</h2>
         {sessions.length === 0 ? (
@@ -120,6 +144,8 @@ export function DataTab({ studyId }: { studyId: string }) {
         <h2 className="text-sm font-medium text-text">Metrics by condition</h2>
         <MetricStrip rows={metricRows} conditions={conditions} />
       </section>
+
+      <PrescriptionPanel />
     </div>
   );
 }

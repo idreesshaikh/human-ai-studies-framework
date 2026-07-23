@@ -80,7 +80,11 @@ CAPABILITIES: dict[str, Role] = {
     "toggle_capture": Role.RESEARCHER,
     # Freeze protocol; approve post-ethics amendments.
     "freeze": Role.OWNER,
-    # Manage members, roles, invitations.
+    # Invite a colleague to the project (D40): researchers+ can invite peers,
+    # separate from managing roles/removals. The invited person still lands
+    # with a pre-assigned role, and only owners can grant the owner role.
+    "invite_member": Role.RESEARCHER,
+    # Manage members, roles, invitations (change roles, remove, revoke).
     "manage_members": Role.OWNER,
     # Delete study / project.
     "delete": Role.OWNER,

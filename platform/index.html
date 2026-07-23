@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Phoenix</title>
+    <script>
+      // Apply the theme before first paint so there's no flash. Always light
+      // unless the researcher has explicitly chosen dark (see theme.ts).
+      document.documentElement.setAttribute(
+        "data-theme",
+        localStorage.getItem("platform-theme") === "dark" ? "dark" : "light",
+      );
+    </script>
   </head>
   <body>
     <div id="root"></div>

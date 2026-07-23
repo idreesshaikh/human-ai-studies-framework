@@ -56,6 +56,7 @@ function mapGrounding(raw: unknown[]): Grounding[] {
     return {
       ref: String(row.ref ?? ""),
       tier: (row.tier as Grounding["tier"]) ?? "B",
+      confidence: typeof row.confidence === "number" ? row.confidence : undefined,
       title: String(row.title ?? row.ref ?? ""),
       year: typeof row.year === "number" ? row.year : undefined,
       venue: typeof row.venue === "string" ? row.venue : undefined,
@@ -155,6 +156,30 @@ export const conversationApi = {
       source: reply.source,
     };
     return { turns: [researcher, platform] };
+  },
+
+  /** The public hero's real-LLM demo turn (FR-CONV-1.4): stateless and
+   * unauthenticated, so the visitor's prior turns ride along as history and
+   * nothing is persisted. Rate-limited server-side. */
+  async demoTurn(
+    text: string,
+    history: { role: "user" | "assistant"; content: string }[],
+  ): Promise<Turn> {
+    const reply = await post<{
+      text: string;
+      moves: Record<string, unknown>[];
+      recommendations: Recommendation[];
+      source?: "llm" | "scripted";
+    }>(`/demo/conversation/turns`, { text, history });
+    return {
+      turnId: `demo-${history.length}`,
+      role: "platform",
+      author: "Platform",
+      text: reply.text,
+      moves: reply.moves.map(mapMove),
+      recommendations: reply.recommendations ?? [],
+      source: reply.source,
+    };
   },
 
   decide(studyId: string, moveId: string, status: "accepted" | "rejected") {

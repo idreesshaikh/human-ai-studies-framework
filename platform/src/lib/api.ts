@@ -66,6 +66,7 @@ export interface Invitation {
   role: Role;
   token?: string;
   url?: string;
+  emailed?: boolean; // true when the invite email was actually sent (D40)
   expiresAt: string;
   acceptedAt?: string | null;
 }
@@ -486,6 +487,7 @@ export class InMemoryBackend implements Api {
       role,
       token,
       url: `/invitations/${token}`,
+      emailed: false, // offline mock never sends mail
       expiresAt: new Date(Date.now() + 7 * 864e5).toISOString(),
       acceptedAt: null,
     };

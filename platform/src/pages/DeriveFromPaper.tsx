@@ -1,0 +1,158 @@
+import { useState } from "react";
+import { Search, Loader2, Sparkles, BookOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Confidence } from "@/components/conversation/Confidence";
+import {
+  templatesApi,
+  type TemplateSummary,
+  type CorpusHit,
+  type DerivedTemplate,
+} from "@/lib/templatesApi";
+import { OfflineError } from "@/lib/studyApi";
+
+/* Turn any corpus paper into an executable template (FR-TPL-4). Search the
+ * 15,000-paper corpus, pick a paper, pick a base archetype, and the platform
+ * binds them: the paper becomes the design's primary source and the archetype
+ * supplies the runnable structure. This is how the whole corpus becomes a set
+ * of executable starting points, not just the hand-authored templates. */
+export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] }) {
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<CorpusHit[] | null>(null);
+  const [paper, setPaper] = useState<CorpusHit | null>(null);
+  const [baseId, setBaseId] = useState("");
+  const [derived, setDerived] = useState<DerivedTemplate | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function search() {
+    if (!q.trim()) return;
+    setSearching(true);
+    setError(null);
+    setDerived(null);
+    try {
+      setHits(await templatesApi.searchCorpus(q));
+    } catch (e) {
+      setError(
+        e instanceof OfflineError
+          ? "Start the middleware to search the corpus."
+          : "Couldn't search the corpus.",
+      );
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function derive() {
+    if (!paper || !baseId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setDerived(await templatesApi.fromPaper(paper.ref, baseId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't derive the template.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4">
+      <div>
+        <h2 className="flex items-center gap-2 text-sm font-medium text-text">
+          <Sparkles className="size-4 text-accent" aria-hidden /> Start from a paper
+        </h2>
+        <p className="mt-1 text-xs text-text-muted">
+          Search the corpus, pick a paper, and run it through an archetype — the
+          paper becomes your design's primary citation.
+        </p>
+      </div>
+
+      <div className="flex gap-2">
+        <div className="flex flex-1 items-center gap-2 rounded-input border border-border-strong bg-bg px-2">
+          <Search className="size-4 shrink-0 text-text-muted" aria-hidden />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && search()}
+            placeholder="e.g. trust in AI-generated code"
+            aria-label="Search the corpus"
+            className="min-h-9 flex-1 bg-transparent text-sm text-text outline-none"
+          />
+        </div>
+        <Button size="sm" variant="subtle" onClick={search} disabled={searching || !q.trim()}>
+          {searching ? <Loader2 className="size-4 animate-spin" aria-hidden /> : "Search"}
+        </Button>
+      </div>
+
+      {error && <p className="text-xs text-unsourced">{error}</p>}
+
+      {hits && hits.length === 0 && (
+        <p className="text-xs text-text-muted">No corpus papers match that. Try other terms.</p>
+      )}
+
+      {hits && hits.length > 0 && (
+        <ul className="flex max-h-56 flex-col gap-1 overflow-auto">
+          {hits.map((h) => (
+            <li key={h.ref}>
+              <button
+                onClick={() => { setPaper(h); setDerived(null); }}
+                className={
+                  "flex w-full items-center gap-2 rounded-input border px-2 py-1.5 text-left text-sm transition-colors duration-fast " +
+                  (paper?.ref === h.ref
+                    ? "border-accent bg-accent-soft"
+                    : "border-transparent hover:bg-accent-soft")
+                }
+              >
+                <Confidence value={h.confidence ?? undefined} />
+                <span className="min-w-0 flex-1 truncate text-text">{h.title}</span>
+                {h.year && <span className="tabular text-xs text-text-muted">{h.year}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {paper && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          <span className="text-xs text-text-muted">Run</span>
+          <span className="max-w-56 truncate text-xs font-medium text-text">{paper.title}</span>
+          <span className="text-xs text-text-muted">through</span>
+          <select
+            value={baseId}
+            onChange={(e) => setBaseId(e.target.value)}
+            aria-label="Base archetype"
+            className="min-h-9 rounded-input border border-border-strong bg-bg px-2 text-sm text-text outline-none focus-visible:border-accent"
+          >
+            <option value="">Choose an archetype…</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.designType} — {t.title}
+              </option>
+            ))}
+          </select>
+          <Button size="sm" onClick={derive} disabled={!baseId || busy}>
+            {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
+            Derive template
+          </Button>
+        </div>
+      )}
+
+      {derived && (
+        <div className="rounded-input border border-border-strong bg-surface-raised p-3">
+          <p className="text-sm font-medium text-text">{derived.template.title}</p>
+          <div className="mt-1 flex items-center gap-2">
+            <Badge variant="outline">{derived.template.designType}</Badge>
+            <Confidence value={derived.paper.confidence ?? undefined} />
+          </div>
+          <p className="mt-2 text-xs text-text-muted">{derived.template.description}</p>
+          <p className="mt-2 flex items-center gap-1 text-xs text-text-muted">
+            <BookOpen className="size-3" aria-hidden /> Primary source:{" "}
+            <span className="font-mono text-text">{derived.template.source[0]?.paperRef}</span>
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}

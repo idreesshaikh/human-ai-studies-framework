@@ -17,9 +17,10 @@ import { cn } from "@/lib/cn";
 
 const INVITABLE: Role[] = ["researcher", "viewer"];
 
-/* Invite a colleague. Copy-link is the primary affordance — email delivery
- * is an optional enhancement, so a self-hosted instance needs no mail
- * config. Expiry is stated in plain language. */
+/* Invite a colleague. When email delivery is configured (D40) the invite is
+ * sent to their address; either way a one-time copy-link is returned, so a
+ * self-hosted instance with no mail config still works. Expiry is stated in
+ * plain language. */
 export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () => void }) {
   const api = useApi();
   const [open, setOpen] = useState(false);
@@ -70,8 +71,9 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
       <DialogContent>
         <DialogTitle>Invite a colleague</DialogTitle>
         <DialogDescription>
-          This doesn't send an email — you'll get a one-time link right here
-          to copy and send yourself. It works once and expires in 7 days.
+          We'll email them an invite link if mail is set up here — and you
+          always get a one-time link to share yourself. It works once and
+          expires in 7 days.
         </DialogDescription>
 
         {!invite ? (
@@ -79,8 +81,7 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
             <div className="flex flex-col gap-1">
               <Label htmlFor="invite-email">Their email</Label>
               <p className="text-xs text-text-muted">
-                Just a label on the invitation so you remember who it's for —
-                nothing is sent to this address.
+                Where we send the invite link (when mail is configured).
               </p>
               <Input
                 id="invite-email"
@@ -118,9 +119,18 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
         ) : (
           <div className="mt-4 flex flex-col gap-3">
             <p className="text-sm text-text">
-              Ready for <span className="font-medium">{invite.email}</span> as{" "}
-              {ROLE_LABELS[invite.role]}. Copy this link and send it to them
-              yourself — email, chat, however you'd normally reach them:
+              {invite.emailed ? (
+                <>
+                  Sent to <span className="font-medium">{invite.email}</span> as{" "}
+                  {ROLE_LABELS[invite.role]}. You can also share this link directly:
+                </>
+              ) : (
+                <>
+                  Ready for <span className="font-medium">{invite.email}</span> as{" "}
+                  {ROLE_LABELS[invite.role]}. Copy this link and send it to them
+                  yourself — email, chat, however you'd normally reach them:
+                </>
+              )}
             </p>
             <div className="flex items-center gap-2 rounded-input border border-border bg-bg px-2 py-1.5">
               <Link2 className="size-4 shrink-0 text-text-muted" aria-hidden />

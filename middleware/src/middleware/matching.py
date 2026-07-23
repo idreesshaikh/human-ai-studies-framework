@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 
 from sqlalchemy import select
@@ -41,11 +42,25 @@ _STOPWORDS = frozenset(
 #: Ranking weights (autonomy charter: internals are free, constants live in
 #: one named place). A paper's final score combines how *often* FTS surfaced
 #: it (reciprocal-rank sum over its chunks), how many of the researcher's
-#: own terms its title/why carry, and whether it is a hand-curated seed -
-#: curation is the corpus's strongest relevance signal, so Tier A leads
-#: when text evidence ties.
+#: own terms its title/why carry, and its continuous quality *confidence*
+#: (from the harvest score) - so a high-merit harvested paper can outrank a
+#: hand-curated seed instead of the tier deciding it categorically.
 WEIGHT_MATCHED_TERM = 1.5
-WEIGHT_TIER_A = 2.0
+WEIGHT_CONFIDENCE = 2.0
+#: Confidence maps a harvest quality score to 0..1 through a logistic centred
+#: on the Tier B corpus median (10.6) with a spread near its stdev (2.0),
+#: which opens up the compressed 8.85-21.7 score band. A paper with no score
+#: reads as "unrated" (None), never a fabricated number.
+_CONF_MIDPOINT = 10.6
+_CONF_SCALE = 2.0
+
+
+def paper_confidence(score: float | None) -> float | None:
+    """Continuous 0..1 quality confidence for a paper, replacing the binary
+    Tier A/B hierarchy as the thing that ranks and labels groundings."""
+    if score is None:
+        return None
+    return round(1.0 / (1.0 + math.exp(-(score - _CONF_MIDPOINT) / _CONF_SCALE)), 3)
 #: The graph rung is the *floor* of the ladder - it must never outrank text
 #: evidence, so its votes are capped and scaled well under one FTS hit.
 WEIGHT_GRAPH_VOTE = 0.15
@@ -241,17 +256,19 @@ def match_papers(
             ).scalar_one_or_none()
         if row is None:
             continue  # never recommend a paper we don't hold (honesty)
+        conf = paper_confidence(row.score)
         candidate.update(
             title=row.title,
             year=row.year,
             venue=row.venue,
             tier="study" if candidate["ref"] in study_refs else row.tier,
+            confidence=conf,
         )
         matched = _matched_terms(query_terms, f"{row.title} {row.abstract}")
         candidate["score"] = (
             candidate.get("score", 0.0)
             + WEIGHT_MATCHED_TERM * len(matched)
-            + (WEIGHT_TIER_A if row.tier == "A" else 0.0)
+            + WEIGHT_CONFIDENCE * (conf if conf is not None else 0.0)
         )
         if "matchReason" not in candidate:
             candidate["matchReason"] = _reason_for(query_terms, candidate, row)
@@ -270,6 +287,7 @@ def match_papers(
             "year": c.get("year"),
             "venue": c.get("venue", ""),
             "tier": c.get("tier", "B"),
+            "confidence": c.get("confidence"),
             "matchReason": c.get("matchReason", ""),
         }
         for c in results
@@ -320,5 +338,6 @@ def get_paper_metadata(s: Session, paper_ref: str) -> dict | None:
         "year": row.year,
         "venue": row.venue or ("corpus (Tier A seed)" if row.tier == "A" else ""),
         "tier": row.tier,
+        "confidence": paper_confidence(row.score),
         "why": row.abstract,
     }

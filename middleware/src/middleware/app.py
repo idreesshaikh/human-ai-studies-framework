@@ -47,6 +47,7 @@ from middleware import (
     design_assistant,
     enrollment,
     evolution,
+    mailer,
     manifest,
     matching,
     mining,
@@ -197,6 +198,16 @@ class FromMatchIn(BaseModel):
     matchReason: str = ""
 
 
+class GateAttestIn(BaseModel):
+    """Attest that a lifecycle gate's requirement is met (FR-DASH-2): the
+    researcher confirms ethics approval / consent template / etc. is in hand,
+    which writes the gate artifact and lets the study advance a phase."""
+
+    note: str = ""
+    attestedBy: str = "Researcher"
+    confirmed: bool = False
+
+
 class ConversationTurnIn(BaseModel):
     """One researcher turn (FR-CONV-1). The researcher supplies text only;
     the *platform* reply — its prose, design moves, and grounding — is
@@ -206,6 +217,16 @@ class ConversationTurnIn(BaseModel):
 
     text: str
     author: str = "Researcher"
+
+
+class DemoTurnIn(BaseModel):
+    """One turn of the public, unauthenticated hero demo (FR-CONV-1.4). The
+    visitor's prior turns ride along as ``history`` so the demo is
+    conversational without persisting anything server-side — nothing an
+    anonymous visitor types is stored, and two visitors never collide."""
+
+    text: str
+    history: list[dict] = []
 
 
 class MoveDecisionIn(BaseModel):
@@ -335,6 +356,24 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         protocol_doc = load_protocol(settings.protocol_path)
     check = _ProtocolCheck(protocol_doc)
+
+    # Per-IP fixed-window limiter for the public hero demo (unauthenticated,
+    # calls the LLM — so it must not be an open token-burn). In-memory is fine:
+    # the middleware is a single Railway container. {ip: [window_start, count]}.
+    _demo_hits: dict[str, list[float]] = {}
+    _DEMO_WINDOW_S = 3600.0
+    _DEMO_MAX = 15
+
+    def _demo_rate_ok(ip: str) -> bool:
+        t = clock().timestamp()
+        win = _demo_hits.get(ip)
+        if win is None or t - win[0] >= _DEMO_WINDOW_S:
+            _demo_hits[ip] = [t, 1]
+            return True
+        if win[1] >= _DEMO_MAX:
+            return False
+        win[1] += 1
+        return True
 
     def _resolve_study_protocol(s: Session, study_id: str) -> dict | None:
         """Resolve a study's protocol: the approved YAML snapshot wins
@@ -867,6 +906,47 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     )
     def study_lifecycle(study_id: str, s: Session = Depends(db)) -> dict:
 
+        return _lifecycle_doc(s)
+
+    @app.post(
+        "/studies/{study_id}/lifecycle/gates/{artifact}/attest",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def attest_gate(
+        study_id: str, artifact: str, body: GateAttestIn, s: Session = Depends(db)
+    ) -> dict:
+        """Satisfy a lifecycle gate by attestation (FR-DASH-2): the researcher
+        confirms a requirement is met - ethics approval obtained, consent
+        template finalized - which writes the gate artifact so the study can
+        advance. Only a gate the protocol declares for the *current* phase can
+        be attested, so progression stays one gated step at a time and never
+        skips ahead. Attestation requires explicit confirmation (the 'agree'
+        step), and the note + who attested are kept as evidence."""
+        if not body.confirmed:
+            raise HTTPException(400, "attestation needs explicit confirmation")
+        proto = require_protocol()
+        current = current_phase(proto, set(_stored_files(s)))
+        current_gates = next(
+            (list(p.get("gates", [])) for p in proto["phases"] if p["name"] == current),
+            [],
+        )
+        if artifact not in current_gates:
+            raise HTTPException(
+                409,
+                f"{artifact!r} is not an open gate of the current phase {current!r}",
+            )
+        _write_gate_artifact(
+            s,
+            artifact,
+            {
+                "attestation": f"{artifact} satisfied by researcher attestation",
+                "attestedBy": body.attestedBy,
+                "note": body.note,
+                "at": now(),
+            },
+            study_id,
+        )
+        s.commit()
         return _lifecycle_doc(s)
 
     @app.get(
@@ -2301,9 +2381,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.post(
         "/projects/{slug}/invitations",
-        dependencies=[Depends(require_project("manage_members"))],
+        dependencies=[Depends(require_project("invite_member"))],
     )
-    def create_invitation(slug: str, body: dict, s: Session = Depends(db)) -> dict:
+    def create_invitation(
+        slug: str,
+        body: dict,
+        s: Session = Depends(db),
+        identity: auth.Identity = Depends(resolve_identity),
+    ) -> dict:
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
             raise HTTPException(404, "project not found")
@@ -2313,6 +2398,17 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(400, "email is required")
         if role not in authz.ROLES:
             raise HTTPException(400, f"role must be one of: {list(authz.ROLES)}")
+        # A member can invite peers (D40), but only an owner can mint an owner
+        # invite — otherwise invite_member would be a backdoor to ownership.
+        if role == authz.Role.OWNER.value:
+            caller = s.scalar(
+                select(Membership).where(
+                    Membership.project_id == proj.id,
+                    Membership.identity_sub == identity.sub,
+                )
+            )
+            if caller is None or not authz.has_role(caller.role, "manage_members"):
+                raise HTTPException(403, "only an owner can invite another owner")
         # Expiry: 7 days from now (roadmap says expiring; duration is mine).
         from datetime import timedelta as td
 
@@ -2332,12 +2428,27 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()
         # Build the accept URL (the frontend base path is implicit).
         url = f"/invitations/{token}"
+        # Best-effort email delivery (D40); the copy-link is always returned so
+        # the invite works whether or not a mail key is configured.
+        base = settings.public_base_url or (
+            settings.cors_origins[0] if settings.cors_origins else None
+        )
+        emailed = mailer.send_invitation(
+            api_key=settings.resend_api_key,
+            from_email=settings.invite_from_email,
+            to_email=email,
+            project_name=proj.name,
+            role=role,
+            token=token,
+            base_url=base,
+        )
         return {
             "id": inv_id,
             "token": token,
             "url": url,
             "email": email,
             "role": role,
+            "emailed": emailed,
             "expiresAt": expires.isoformat(timespec="milliseconds"),
         }
 
@@ -3251,6 +3362,69 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "explanation": template_registry.explain_plan(tpl),
         }
 
+    @app.post("/templates/merge")
+    def merge_templates_route(body: dict) -> dict:
+        """Compose several templates into one novel, grounded protocol at
+        runtime (FR-TPL): borrow a measure from one published design and an
+        analysis from another. Every contributing template and its cited
+        papers are returned as provenance."""
+        ids = body.get("templateIds") or []
+        params = body.get("parameters") or {}
+        if not isinstance(ids, list) or len(ids) < 2:
+            raise HTTPException(400, "templateIds must be a list of at least two ids")
+        try:
+            return template_registry.merge_templates(ids, params)
+        except template_registry.TemplateError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @app.get("/corpus/search")
+    def corpus_search(q: str = "", limit: int = 8, s: Session = Depends(db)) -> dict:
+        """Search the corpus for papers (FR-LIT-9), not study-scoped — powers
+        the "turn this paper into a template" picker. Returns the same
+        confidence-ranked shape as a study's recommendations."""
+        query = q.strip()
+        if not query:
+            return {"results": []}
+        results = matching.match_papers(
+            s, query, study_id=None, limit=max(1, min(limit, 25))
+        )
+        return {"results": results}
+
+    @app.post("/templates/from-paper")
+    def template_from_paper(body: dict, s: Session = Depends(db)) -> dict:
+        """Turn a corpus paper into an executable template by binding it to a
+        base archetype (FR-TPL-4): the paper becomes the design's primary
+        source, so any of the corpus's thousands of papers is a starting
+        point without hand-authoring a template each."""
+        ref = str(body.get("paperRef", "")).strip()
+        base = str(body.get("baseTemplateId", "")).strip()
+        if not ref or not base:
+            raise HTTPException(400, "paperRef and baseTemplateId are required")
+        meta = matching.get_paper_metadata(s, ref)
+        if meta is None:
+            raise HTTPException(404, f"paper {ref!r} is not in the corpus")
+        try:
+            template = template_registry.derive_template_from_paper(
+                ref, base, title=meta.get("title", ""), year=meta.get("year")
+            )
+        except template_registry.TemplateError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"template": template, "paper": meta}
+
+    @app.get("/analysis/prescriptions")
+    def analysis_prescriptions() -> dict:
+        """The deterministic, LLM-free prescription table (FR-TPL-6): every
+        design shape → the exact test, effect size, correction, and
+        sample-size guidance, each with its rationale. Surfaced so the Data
+        surface can show researchers what analysis their design calls for —
+        the statistical formulation they most fear getting wrong (NFR-8)."""
+        from analysis.prescribe import design_shapes
+
+        rows = [
+            design_assistant.recommend_prescription(shape) for shape in design_shapes()
+        ]
+        return {"prescriptions": [r for r in rows if r is not None]}
+
     # ------------------------- template submissions (FR-TPL-5)
 
     def _owner_membership(
@@ -3548,6 +3722,51 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "moves": [
                 {
                     "moveId": f"{platform.id}:{m['moveId']}",
+                    "kind": m["kind"],
+                    "target": m["target"],
+                    "proposal": m["proposal"],
+                    "patch": m["patch"],
+                    "grounding": m["grounding"],
+                    "status": "proposed",
+                }
+                for m in reply["moves"]
+            ],
+            "recommendations": reply["recommendations"],
+            "source": reply["source"],
+        }
+
+    @app.post("/demo/conversation/turns")
+    def demo_turn(body: DemoTurnIn, request: Request, s: Session = Depends(db)) -> dict:
+        """The public hero's real-LLM demo (FR-CONV-1.4): an unauthenticated,
+        stateless design turn. Nothing is persisted — the visitor's prior
+        turns arrive as ``history`` — so two visitors never collide and no
+        anonymous input is stored. Rate-limited per IP because it calls the
+        model; over the limit it degrades to the deterministic scripted
+        assistant (still a real answer, just no token spend)."""
+        ip = (
+            (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+            or (request.client.host if request.client else "unknown")
+        )
+        # History is capped defensively so a crafted client can't blow the
+        # prompt budget; only the two roles the chat call understands pass.
+        history = [
+            {"role": h.get("role"), "content": str(h.get("content", ""))}
+            for h in body.history[-8:]
+            if h.get("role") in ("user", "assistant") and h.get("content")
+        ]
+        client = (
+            assistant.make_client(assistant.MISTRAL_BEST_MODEL)
+            if _demo_rate_ok(ip)
+            else None  # over the limit → scripted fallback, no token spend
+        )
+        reply = design_assistant.respond(
+            s, body.text, seq=0, study_id=None, client=client, history=history
+        )
+        return {
+            "text": reply["text"],
+            "moves": [
+                {
+                    "moveId": m["moveId"],
                     "kind": m["kind"],
                     "target": m["target"],
                     "proposal": m["proposal"],

@@ -103,7 +103,7 @@ function move(
 /** The opening turn shown before the researcher types anything. */
 export function openingTurn(): Turn {
   return platformTurn(
-    "Tell me what you want to find out. I'll ask the questions a methodologist would, propose design moves grounded in the corpus, and compile the ones you accept into a protocol draft. Try: “I think junior developers over-trust AI-generated code.”",
+    "What do you want to find out? Try: “Junior developers over-trust AI-generated code.”",
   );
 }
 
