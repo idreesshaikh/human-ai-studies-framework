@@ -3,6 +3,7 @@ import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StreamingTurn } from "./StreamingTurn";
 import { DraftRail } from "./DraftRail";
+import { FinishReview } from "./FinishReview";
 import { compileAll } from "@/lib/compiler";
 import { openingTurn, respondTo } from "@/lib/designStub";
 import {
@@ -11,6 +12,7 @@ import {
   type CompileResult,
 } from "@/lib/conversationApi";
 import { evolutionStore } from "@/lib/evolutionStub";
+import { studyApi } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 import type { DesignMove, Turn } from "@/lib/types";
 
@@ -35,7 +37,7 @@ function readsAsFeedback(text: string): boolean {
 
 export function ConversationView({
   studyId = "study",
-  /** Hero and static previews stay on the deterministic stub only. */
+  /** Static previews stay on the deterministic stub only. */
   stubOnly = false,
 }: {
   studyId?: string;
@@ -50,6 +52,8 @@ export function ConversationView({
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(false);
+  const [showFinish, setShowFinish] = useState(false);
   const [showDraft, setShowDraft] = useState(false);
   const threadEnd = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
@@ -109,45 +113,59 @@ export function ConversationView({
   async function send() {
     const text = input.trim();
     if (!text || busy) return;
+
+    // "finish" / "wrap up" / "done" opens the protocol-review moment rather
+    // than sending a turn — the researcher is signalling they're ready to
+    // compile, not asking another question.
+    if (/^\s*(finish|wrap up|wrap-up|done|i'?m done|that'?s it)\b/i.test(text)) {
+      setInput("");
+      await refreshCompile();
+      setShowFinish(true);
+      return;
+    }
+
+    // Optimistic: show the researcher's message and clear the composer
+    // immediately — before any network/LLM round-trip — so the thread never
+    // sits with the box full while the model "thinks". The pending id is
+    // swapped for the server-assigned researcher turn once the reply lands
+    // (the real id is what feedback-marking keys on).
+    const pendingId = `pending-${Date.now()}-${turns.length}`;
+    const researcherTurn: Turn = {
+      turnId: pendingId,
+      role: "researcher",
+      author: "You",
+      text,
+      moves: [],
+      recommendations: [],
+    };
+    setTurns((prev) => [...prev, researcherTurn]);
+    setInput("");
     setBusy(true);
+    const scrollDown = () =>
+      queueMicrotask(() => threadEnd.current?.scrollIntoView({ block: "end" }));
+    scrollDown();
+
     try {
       if (live && !stubOnly) {
+        // sendTurn returns [researcher(server id), platform]; replace our
+        // optimistic turn with the server pair so ids reconcile without a
+        // duplicated message.
         const appended = await conversationApi.sendTurn(studyId, text);
-        setTurns((prev) => [...prev, ...appended.turns]);
+        setTurns((prev) => [
+          ...prev.filter((t) => t.turnId !== pendingId),
+          ...appended.turns,
+        ]);
       } else {
-        const researcherTurn: Turn = {
-          turnId: `r-${turns.length}`,
-          role: "researcher",
-          author: "You",
-          text,
-          moves: [],
-          recommendations: [],
-        };
-        const reply = respondTo(text);
-        setTurns((prev) => [...prev, researcherTurn, reply]);
+        setTurns((prev) => [...prev, respondTo(text)]);
       }
-      setInput("");
-      queueMicrotask(() =>
-        threadEnd.current?.scrollIntoView({ block: "end" }),
-      );
+      scrollDown();
     } catch {
-      // Offline fallback
-      const researcherTurn: Turn = {
-        turnId: `r-${turns.length}`,
-        role: "researcher",
-        author: "You",
-        text,
-        moves: [],
-        recommendations: [],
-      };
-      const reply = respondTo(text);
-      setTurns((prev) => [...prev, researcherTurn, reply]);
-      setInput("");
+      // Offline fallback: keep the message we already showed, answer from the
+      // built-in assistant, and flip to stub mode until the server returns.
+      setTurns((prev) => [...prev, respondTo(text)]);
       setLive(false);
       setNote("You're offline — replies are coming from the built-in assistant until the connection returns.");
-      queueMicrotask(() =>
-        threadEnd.current?.scrollIntoView({ block: "end" }),
-      );
+      scrollDown();
     } finally {
       setBusy(false);
     }
@@ -167,8 +185,27 @@ export function ConversationView({
     }
   }
 
-  function addPaper(ref: string) {
+  async function addPaper(ref: string) {
+    // Optimistic: mark it added immediately so the card settles.
     setAddedRefs((prev) => new Set(prev).add(ref));
+    // Offline previews stay local-only — there's no study to write to.
+    if (!live || stubOnly) return;
+    const rec = turns
+      .flatMap((t) => t.recommendations)
+      .find((r) => r.ref === ref);
+    try {
+      // Actually ingest it into the study's Library, keeping the match reason.
+      await studyApi.addPaperFromMatch(studyId, ref, rec?.matchReason ?? "");
+    } catch {
+      // Roll the flag back so the researcher can retry — silent success on a
+      // no-op was the old bug.
+      setAddedRefs((prev) => {
+        const next = new Set(prev);
+        next.delete(ref);
+        return next;
+      });
+      setNote("Couldn't add that paper to your library — check your connection and try again.");
+    }
   }
 
   async function applyDraft() {
@@ -176,6 +213,7 @@ export function ConversationView({
     setApplying(true);
     try {
       await conversationApi.approve(studyId, compileResult.compilationId);
+      setApplied(true);
       setNote("Draft applied to the protocol.");
       await refreshCompile();
     } catch {
@@ -300,8 +338,19 @@ export function ConversationView({
           compileValid={compileResult?.valid}
           onApply={live && !stubOnly ? applyDraft : undefined}
           applying={applying}
+          onFinish={live && !stubOnly ? () => { void refreshCompile(); setShowFinish(true); } : undefined}
         />
       </div>
+
+      <FinishReview
+        open={showFinish}
+        onOpenChange={setShowFinish}
+        moves={allMoves}
+        compile={compileResult}
+        applying={applying}
+        applied={applied}
+        onApply={applyDraft}
+      />
     </div>
   );
 }

@@ -1,8 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl, type SegmentOption } from "@/components/ui/segmented-control";
 import { studyApi, OfflineError, type AssistantConfig } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
+
+/* The model tier, shown as plain effort levels rather than raw model names.
+ * Medium is the default (a good answer without the top-tier token spend); Low
+ * is faster/cheaper, High is the most capable. */
+const TIERS: SegmentOption<string>[] = [
+  { value: "mistral-small-latest", label: "Low", hint: "Fastest, lightest answers" },
+  { value: "mistral-medium-latest", label: "Medium", hint: "Balanced — the default" },
+  { value: "mistral-large-latest", label: "High", hint: "Most capable, slower" },
+];
 
 /* The grounded assistant (FR-LIT-4). It answers only from the study's papers
  * and *aggregate* data — never row-level participant events (FR-ETH-4, enforced
@@ -71,19 +81,13 @@ export function Assistant({ studyId }: { studyId: string }) {
       <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
         <Sparkles className="size-4 text-accent" aria-hidden />
         <h3 className="text-sm font-medium text-text">Assistant</h3>
-        {config && config.models.length > 1 && (
-          <select
-            className="rounded-input border border-border bg-bg px-2 py-1 text-xs text-text"
-            value={model ?? ""}
-            onChange={(e) => setModel(e.target.value)}
-            aria-label="Assistant model"
-          >
-            {config.models.map((m) => (
-              <option key={m} value={m}>
-                {m.replace("mistral-", "").replace("-latest", "")}
-              </option>
-            ))}
-          </select>
+        {config && config.models.length > 1 && model && (
+          <SegmentedControl
+            aria-label="Assistant effort"
+            value={model}
+            onChange={setModel}
+            options={TIERS.filter((t) => config.models.includes(t.value))}
+          />
         )}
         <span className="ml-auto text-xs text-text-muted">aggregates only</span>
       </header>

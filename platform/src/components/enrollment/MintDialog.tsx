@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApi } from "@/lib/session";
-import type { EnrollmentTokenView } from "@/lib/api";
+import { ApiError, type EnrollmentTokenView } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
 /* The extension's publisher.name (extension/package.json) — the vscode://
@@ -31,14 +31,41 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
   const api = useApi();
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(1);
+  // The field holds raw text so it can be cleared and retyped; `count` is the
+  // validated whole number in [1, 100] the mint call actually uses.
+  const [countText, setCountText] = useState("1");
+  const onCountChange = (raw: string) => {
+    setCountText(raw);
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n) && n >= 1 && n <= 100) setCount(n);
+  };
+  const onCountBlur = () => {
+    const n = Math.min(100, Math.max(1, parseInt(countText, 10) || 1));
+    setCount(n);
+    setCountText(String(n));
+  };
   const [grain, setGrain] = useState<"participant" | "session">("participant");
   const [minted, setMinted] = useState<EnrollmentTokenView[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
+  const [minting, setMinting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    const rows = await api.mintEnrollmentTokens(studyId, count, grain);
-    setMinted(rows);
-    onMinted();
+    if (minting) return;
+    setMinting(true);
+    setError(null);
+    try {
+      const rows = await api.mintEnrollmentTokens(studyId, count, grain);
+      setMinted(rows);
+      onMinted();
+    } catch (e) {
+      // Surface the server's reason instead of a silent no-op — the common case
+      // is the 409 "clear the ethics gate first" (production keeps that gate;
+      // set MIDDLEWARE_DEV_MODE to mint on an unapproved study while testing).
+      setError(e instanceof ApiError ? e.message : "Could not mint links — check your connection and try again.");
+    } finally {
+      setMinting(false);
+    }
   };
   const copy = async (s: string, id: string) => {
     await navigator.clipboard.writeText(s);
@@ -61,8 +88,11 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
           <div className="mt-4 flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <Label htmlFor="count">How many</Label>
-              <Input id="count" type="number" min={1} max={100} value={count}
-                onChange={(e) => setCount(Math.max(1, Number(e.target.value)))} />
+              <Input id="count" type="number" min={1} max={100} inputMode="numeric"
+                value={countText}
+                onChange={(e) => onCountChange(e.target.value)}
+                onBlur={onCountBlur} />
+              <p className="text-xs text-text-muted">A whole number from 1 to 100.</p>
             </div>
             <div className="flex flex-col gap-1">
               <Label>Grain</Label>
@@ -76,7 +106,14 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
                 ))}
               </div>
             </div>
-            <Button onClick={submit} className="mt-1 self-start">Mint {count} link{count > 1 ? "s" : ""}</Button>
+            <Button onClick={submit} disabled={minting} className="mt-1 self-start">
+              {minting ? "Minting…" : `Mint ${count} link${count > 1 ? "s" : ""}`}
+            </Button>
+            {error && (
+              <p role="alert" className="rounded-input border border-border bg-bg p-3 text-sm text-unsourced">
+                {error}
+              </p>
+            )}
           </div>
         ) : (
           <div className="mt-4 flex flex-col gap-2">

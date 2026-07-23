@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { Link, NavLink, useLocation, useParams } from "react-router-dom";
-import { Menu, Moon, Sun, Monitor, LogOut, FlaskConical } from "lucide-react";
+import {
+  Menu,
+  Moon,
+  Sun,
+  LogOut,
+  FlaskConical,
+  LineChart,
+  Layers,
+  Users,
+  Settings,
+  ArrowLeft,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -18,7 +29,7 @@ import { useAuth } from "@/lib/auth.tsx";
 import { getTheme, nextTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 
-const THEME_ICON = { system: Monitor, light: Sun, dark: Moon };
+const THEME_ICON = { light: Sun, dark: Moon };
 
 /* The signed-in chrome: a project-scoped sidebar + a top bar (breadcrumb,
  * project switcher, theme, account). Collapses to a toggle on narrow
@@ -49,7 +60,12 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
     void setThemePreference(next);
   };
 
-  const navItem = (to: string, label: string, icon: React.ReactNode, end = true) => (
+  const navItem = (
+    to: string,
+    label: string,
+    icon: React.ReactNode,
+    { end = true, forceActive = false }: { end?: boolean; forceActive?: boolean } = {},
+  ) => (
     <NavLink
       to={to}
       end={end}
@@ -57,7 +73,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       className={({ isActive }) =>
         cn(
           "flex items-center gap-2 rounded-input border px-2.5 py-1.5 font-mono text-sm font-medium tracking-tight transition-colors duration-fast",
-          isActive
+          isActive || forceActive
             ? "border-border-strong bg-accent text-accent-contrast shadow-brutal-sm"
             : "border-transparent text-text hover:border-border-strong hover:bg-accent-soft hover:text-accent",
         )
@@ -138,11 +154,25 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
                 : "hidden lg:block",
             )}
           >
+            <NavLink
+              to="/home"
+              onClick={() => setNavOpen(false)}
+              className="mb-3 flex items-center gap-1.5 px-1 text-xs font-medium text-text-muted transition-colors duration-fast hover:text-accent"
+            >
+              <ArrowLeft className="size-3.5" aria-hidden />
+              All projects
+            </NavLink>
             <p className="mb-2 px-1 font-mono text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-text-muted">
-              Navigation
+              Project
             </p>
             <div className="flex flex-col gap-1">
-              {navItem(`/p/${navSlug}`, "Study workspaces", <FlaskConical className="size-4" aria-hidden />, false)}
+              {navItem(`/p/${navSlug}`, "Studies", <FlaskConical className="size-4" aria-hidden />, {
+                forceActive: pathname.includes("/studies/"),
+              })}
+              {navItem(`/p/${navSlug}/templates`, "Templates", <Layers className="size-4" aria-hidden />)}
+              {navItem(`/p/${navSlug}/platform`, "Platform findings", <LineChart className="size-4" aria-hidden />)}
+              {navItem(`/p/${navSlug}/members`, "Members", <Users className="size-4" aria-hidden />)}
+              {navItem(`/p/${navSlug}/settings`, "Settings", <Settings className="size-4" aria-hidden />)}
             </div>
           </nav>
         )}

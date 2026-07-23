@@ -254,6 +254,48 @@ def test_pre_ethics_amendment_is_an_ordinary_compile(client):
     assert hist["currentVersion"] == 1
 
 
+def test_lifecycle_resolves_before_ethics_approval(client):
+    """FR-DASH-2 regression: the lifecycle board must show a study's
+    compiled-and-approved draft even before ethics approval - attesting the
+    ``design`` phase's gate is how a study *reaches* the ``ethics`` phase,
+    not something that only becomes visible after it. (``dev_mode`` is a
+    separate, unrelated concern: it only relaxes the enrollment/minting
+    invariant, never the lifecycle board.)"""
+    _reach_approved_protocol(client)
+    doc = client.get(f"/studies/{STUDY}/lifecycle").json()
+    assert doc["currentPhase"] == "design"
+    design = next(p for p in doc["phases"] if p["name"] == "design")
+    assert design["status"] == "current"
+    assert design["gates"], "design phase should declare an attestable gate"
+
+
+def test_lifecycle_gate_artifacts_are_isolated_per_study(client):
+    """FR-ING-5 / FR-DASH-2 regression: a gate artifact uploaded for one
+    study must not advance a different study's lifecycle — files are
+    indexed per study, not shared across the whole deployment."""
+    study_a, study_b = "study-a", "study-b"
+    _reach_approved_protocol(client, study_a)
+    _approve_ethics(client, study_a)
+    _reach_approved_protocol(client, study_b)
+    _approve_ethics(client, study_b)
+
+    doc_a = client.get(f"/studies/{study_a}/lifecycle").json()
+    doc_b = client.get(f"/studies/{study_b}/lifecycle").json()
+    assert doc_a["currentPhase"] == "design"
+    assert doc_b["currentPhase"] == "design"
+
+    client.post(
+        "/ingest/files",
+        data={"studyId": study_a},
+        files={"file": ("protocol-validated.txt", b"x", "text/plain")},
+    )
+
+    doc_a = client.get(f"/studies/{study_a}/lifecycle").json()
+    doc_b = client.get(f"/studies/{study_b}/lifecycle").json()
+    assert doc_a["currentPhase"] == "ethics"
+    assert doc_b["currentPhase"] == "design"
+
+
 def test_consent_relevant_amendment_blocks_new_sessions(client):
     """F4.1: a post-ethics amendment adding a capture stream blocks new
     data-collection sessions until the re-approval artifact exists; sessions

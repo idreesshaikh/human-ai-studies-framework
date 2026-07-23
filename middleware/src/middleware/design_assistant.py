@@ -159,10 +159,8 @@ class Script:
 
 # The opening prompt shown before the researcher types (mirrors the client).
 OPENING = (
-    "Tell me what you want to find out. I'll ask the questions a "
-    "methodologist would, propose design moves grounded in the corpus, and "
-    "compile the ones you accept into a protocol draft. Try: “I think "
-    "junior developers over-trust AI-generated code.”"
+    "What do you want to find out? Try: “Junior developers over-trust "
+    "AI-generated code.”"
 )
 
 
@@ -412,6 +410,7 @@ def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
             {
                 "ref": meta["ref"],
                 "tier": meta["tier"],
+                "confidence": meta.get("confidence"),
                 "title": meta["title"],
                 "year": meta.get("year"),
                 "venue": meta.get("venue", ""),
@@ -445,7 +444,13 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
 
 
 def respond(
-    s: Session, text: str, *, seq: int, study_id: str | None = None, client=None
+    s: Session,
+    text: str,
+    *,
+    seq: int,
+    study_id: str | None = None,
+    client=None,
+    history: list[dict] | None = None,
 ) -> dict:
     """One platform turn responding to researcher ``text``.
 
@@ -467,7 +472,10 @@ def respond(
             s, text, study_id=study_id, limit=8, use_llm=False
         )
         templates = recommend_templates(text)
-        history = _load_history(s, study_id)
+        # An explicit history (the stateless demo passes the visitor's own
+        # prior turns) wins; otherwise load it from the study's stored turns.
+        if history is None:
+            history = _load_history(s, study_id)
         from middleware import design_llm  # deferred: breaks the import cycle
 
         script = design_llm.propose_turn(client, text, history, papers, templates)

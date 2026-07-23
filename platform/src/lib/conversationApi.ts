@@ -56,6 +56,7 @@ function mapGrounding(raw: unknown[]): Grounding[] {
     return {
       ref: String(row.ref ?? ""),
       tier: (row.tier as Grounding["tier"]) ?? "B",
+      confidence: typeof row.confidence === "number" ? row.confidence : undefined,
       title: String(row.title ?? row.ref ?? ""),
       year: typeof row.year === "number" ? row.year : undefined,
       venue: typeof row.venue === "string" ? row.venue : undefined,

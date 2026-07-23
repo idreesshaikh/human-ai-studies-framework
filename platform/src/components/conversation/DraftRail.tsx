@@ -12,13 +12,16 @@ export function DraftRail({
   compileValid,
   onApply,
   applying,
+  onFinish,
 }: {
   draft: ProtocolDraft;
   serverYaml?: string;
   compileValid?: boolean;
   onApply?: () => void;
   applying?: boolean;
+  onFinish?: () => void;
 }) {
+  const complete = MANDATORY_SLOTS.every((s) => draft[s].length > 0);
   const body = serverYaml?.trim()
     ? serverYaml
     : MANDATORY_SLOTS.map((s) => {
@@ -45,6 +48,17 @@ export function DraftRail({
       </div>
 
       <SlotMeter draft={draft} />
+
+      {onFinish && (
+        <Button
+          size="sm"
+          variant={complete ? "default" : "subtle"}
+          data-agent="draft-finish"
+          onClick={onFinish}
+        >
+          {complete ? "Finish & prepare protocol draft" : "Review protocol draft"}
+        </Button>
+      )}
 
       {onApply && (
         <Button

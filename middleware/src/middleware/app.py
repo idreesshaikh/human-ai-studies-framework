@@ -30,7 +30,7 @@ from pathlib import Path
 from urllib.parse import quote as _urlquote
 
 import yaml
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from protocol.lifecycle import PHASE_ORDER, current_phase
@@ -47,6 +47,7 @@ from middleware import (
     design_assistant,
     enrollment,
     evolution,
+    mailer,
     manifest,
     matching,
     mining,
@@ -195,6 +196,16 @@ class FromMatchIn(BaseModel):
 
     ref: str
     matchReason: str = ""
+
+
+class GateAttestIn(BaseModel):
+    """Attest that a lifecycle gate's requirement is met (FR-DASH-2): the
+    researcher confirms ethics approval / consent template / etc. is in hand,
+    which writes the gate artifact and lets the study advance a phase."""
+
+    note: str = ""
+    attestedBy: str = "Researcher"
+    confirmed: bool = False
 
 
 class ConversationTurnIn(BaseModel):
@@ -356,6 +367,38 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             return yaml.safe_load(evo.approved_yaml)
         if protocol_doc is not None and protocol_doc["study"]["id"] == study_id:
             return protocol_doc
+        if settings.dev_mode:
+            # Developer mode: a compiled draft that hasn't been ethics-frozen is
+            # still enough to exercise the flow (e.g. minting). Production never
+            # takes this branch, so the approved snapshot stays the source of
+            # record there.
+            from middleware.db import ProtocolDraftRow
+
+            draft = s.get(ProtocolDraftRow, study_id)
+            if draft is not None and draft.yaml:
+                return yaml.safe_load(draft.yaml)
+        return None
+
+    def _resolve_study_protocol_for_lifecycle(s: Session, study_id: str) -> dict | None:
+        """Resolve a study's protocol for the lifecycle board and its
+        siblings (status, findings scan): unlike ``_resolve_study_protocol``
+        - which gates the pre-ethics draft behind ``dev_mode`` for the
+        enrollment route's hard science invariant (no minting before ethics
+        approval) - the lifecycle must show a study's compiled-and-approved
+        draft even before ethics approval, since attesting the ``design``
+        phase's gate is how a study *reaches* the ``ethics`` phase, not
+        something that follows it.
+        """
+        proto = _resolve_study_protocol(s, study_id)
+        if proto is not None:
+            return proto
+        import yaml
+
+        from middleware.db import ProtocolDraftRow
+
+        draft = s.get(ProtocolDraftRow, study_id)
+        if draft is not None and draft.yaml:
+            return yaml.safe_load(draft.yaml)
         return None
 
     # Reify the loaded protocol's study into the studies table: the
@@ -582,8 +625,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     @app.post("/ingest/files")
     async def ingest_files(
         file: UploadFile,
-        sessionId: str | None = None,
-        participantId: str | None = None,
+        sessionId: str | None = Form(default=None),
+        participantId: str | None = Form(default=None),
+        studyId: str | None = Form(default=None),
         s: Session = Depends(db),
     ) -> dict:
         content = await file.read()
@@ -592,6 +636,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             select(StoredFile).where(
                 StoredFile.sha256 == digest,
                 StoredFile.filename == (file.filename or "unnamed"),
+                StoredFile.study_id == studyId,
             )
         )
         if existing:
@@ -607,6 +652,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             sha256=digest,
             session_id=sessionId,
             participant_id=participantId,
+            study_id=studyId,
             uploaded_at=now(),
         )
         s.add(record)
@@ -775,20 +821,27 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     # ------------------------------------- platform support
 
-    def _stored_files(s: Session) -> dict[str, StoredFile]:
-        """Uploaded artifacts by filename - the lifecycle's evidence set.
+    def _stored_files(s: Session, study_id: str) -> dict[str, StoredFile]:
+        """Uploaded artifacts by filename, scoped to one study - the
+        lifecycle's evidence set.
 
         Later uploads win on filename collision (re-upload supersedes).
         """
-        files = s.scalars(select(StoredFile).order_by(StoredFile.id))
+        files = s.scalars(
+            select(StoredFile)
+            .where(StoredFile.study_id == study_id)
+            .order_by(StoredFile.id)
+        )
         return {f.filename: f for f in files}
 
-    def _lifecycle_doc(s: Session) -> dict:
+    def _lifecycle_doc(s: Session, study_id: str) -> dict:
         """The computed lifecycle (FR-DASH-2): the current phase is derived
         from uploaded gate artifacts via the lifecycle engine, never hand-set.
         """
-        proto = require_protocol()
-        files = _stored_files(s)
+        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
+        if proto is None:
+            raise HTTPException(404, f"no protocol for study {study_id!r}")
+        files = _stored_files(s, study_id)
         declared = {p["name"]: list(p.get("gates", [])) for p in proto["phases"]}
         current = current_phase(proto, set(files))
         cur_i = PHASE_ORDER.index(current)
@@ -829,12 +882,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/protocol",
         dependencies=[Depends(require_project_for_study("view"))],
     )
-    def study_protocol(study_id: str) -> dict:
+    def study_protocol(study_id: str, s: Session = Depends(db)) -> dict:
         """Protocol summary for the overview card (FR-DASH-1) and the
         traceability chips (FR-DASH-6): RQ -> planned recipes comes verbatim
         from the protocol's analysis plan."""
 
-        proto = require_protocol()
+        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
+        if proto is None:
+            raise HTTPException(404, f"no protocol for study {study_id!r}")
         recipes_by_rq = {
             p["rq"]: list(p.get("recipes", [])) for p in proto.get("analysisPlan", [])
         }
@@ -867,7 +922,50 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     )
     def study_lifecycle(study_id: str, s: Session = Depends(db)) -> dict:
 
-        return _lifecycle_doc(s)
+        return _lifecycle_doc(s, study_id)
+
+    @app.post(
+        "/studies/{study_id}/lifecycle/gates/{artifact}/attest",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def attest_gate(
+        study_id: str, artifact: str, body: GateAttestIn, s: Session = Depends(db)
+    ) -> dict:
+        """Satisfy a lifecycle gate by attestation (FR-DASH-2): the researcher
+        confirms a requirement is met - ethics approval obtained, consent
+        template finalized - which writes the gate artifact so the study can
+        advance. Only a gate the protocol declares for the *current* phase can
+        be attested, so progression stays one gated step at a time and never
+        skips ahead. Attestation requires explicit confirmation (the 'agree'
+        step), and the note + who attested are kept as evidence."""
+        if not body.confirmed:
+            raise HTTPException(400, "attestation needs explicit confirmation")
+        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
+        if proto is None:
+            raise HTTPException(404, f"no protocol for study {study_id!r}")
+        current = current_phase(proto, set(_stored_files(s, study_id)))
+        current_gates = next(
+            (list(p.get("gates", [])) for p in proto["phases"] if p["name"] == current),
+            [],
+        )
+        if artifact not in current_gates:
+            raise HTTPException(
+                409,
+                f"{artifact!r} is not an open gate of the current phase {current!r}",
+            )
+        _write_gate_artifact(
+            s,
+            artifact,
+            {
+                "attestation": f"{artifact} satisfied by researcher attestation",
+                "attestedBy": body.attestedBy,
+                "note": body.note,
+                "at": now(),
+            },
+            study_id,
+        )
+        s.commit()
+        return _lifecycle_doc(s, study_id)
 
     @app.get(
         "/studies/{study_id}/status",
@@ -881,7 +979,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         spawned them disappears. Facts only - no card state lives here.
         """
 
-        proto = require_protocol()
+        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
+        if proto is None:
+            raise HTTPException(404, f"no protocol for study {study_id!r}")
 
         # ``seq`` is per (session, source); gap facts aggregate over the
         # session's producer streams (each owns a contiguous stream).
@@ -971,7 +1071,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return {
             "studyId": proto["study"]["id"],
             "generatedAt": now(),
-            "lifecycle": _lifecycle_doc(s),
+            "lifecycle": _lifecycle_doc(s, study_id),
             "conditions": conditions,
             "plannedParticipants": int(participants.get("planned", 0)),
             "plannedSessionsPerParticipant": len(conditions) if within else 1,
@@ -1710,12 +1810,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
 
         # Gate blocks: the current phase's unsatisfied gates.
-        if protocol_doc is not None:
-            files = _stored_files(s)
+        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
+        if proto is not None:
+            files = _stored_files(s, study_id)
             declared = {
-                p["name"]: list(p.get("gates", [])) for p in protocol_doc["phases"]
+                p["name"]: list(p.get("gates", [])) for p in proto["phases"]
             }
-            current = current_phase(protocol_doc, set(files))
+            current = current_phase(proto, set(files))
             for gate in declared.get(current, []):
                 if gate not in files:
                     emit(
@@ -2301,9 +2402,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.post(
         "/projects/{slug}/invitations",
-        dependencies=[Depends(require_project("manage_members"))],
+        dependencies=[Depends(require_project("invite_member"))],
     )
-    def create_invitation(slug: str, body: dict, s: Session = Depends(db)) -> dict:
+    def create_invitation(
+        slug: str,
+        body: dict,
+        s: Session = Depends(db),
+        identity: auth.Identity = Depends(resolve_identity),
+    ) -> dict:
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
             raise HTTPException(404, "project not found")
@@ -2313,6 +2419,17 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(400, "email is required")
         if role not in authz.ROLES:
             raise HTTPException(400, f"role must be one of: {list(authz.ROLES)}")
+        # A member can invite peers (D40), but only an owner can mint an owner
+        # invite — otherwise invite_member would be a backdoor to ownership.
+        if role == authz.Role.OWNER.value:
+            caller = s.scalar(
+                select(Membership).where(
+                    Membership.project_id == proj.id,
+                    Membership.identity_sub == identity.sub,
+                )
+            )
+            if caller is None or not authz.has_role(caller.role, "manage_members"):
+                raise HTTPException(403, "only an owner can invite another owner")
         # Expiry: 7 days from now (roadmap says expiring; duration is mine).
         from datetime import timedelta as td
 
@@ -2332,12 +2449,29 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()
         # Build the accept URL (the frontend base path is implicit).
         url = f"/invitations/{token}"
+        # Best-effort email delivery (D40); the copy-link is always returned so
+        # the invite works whether or not a mail key is configured.
+        base = settings.public_base_url or (
+            settings.cors_origins[0] if settings.cors_origins else None
+        )
+        emailed, email_reason = mailer.send_invitation(
+            api_key=settings.resend_api_key,
+            from_email=settings.invite_from_email,
+            to_email=email,
+            project_name=proj.name,
+            role=role,
+            token=token,
+            base_url=base,
+            inviter=identity.display_name,
+        )
         return {
             "id": inv_id,
             "token": token,
             "url": url,
             "email": email,
             "role": role,
+            "emailed": emailed,
+            "emailReason": email_reason,
             "expiresAt": expires.isoformat(timespec="milliseconds"),
         }
 
@@ -2440,7 +2574,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         from middleware.db import StudyEvolution
 
         evo = s.get(StudyEvolution, study_id)
-        if evo is None or not evo.ethics_approved_at:
+        # The ethics gate is a science invariant: no enrollment before approval.
+        # MIDDLEWARE_DEV_MODE relaxes it so the whole enrollment flow is testable
+        # on a fresh study; it stays enforced on any real (production) instance.
+        if not settings.dev_mode and (evo is None or not evo.ethics_approved_at):
             raise HTTPException(
                 409,
                 "Mint enrollment tokens only after the study clears its ethics "
@@ -3196,7 +3333,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         path.write_bytes(content)
         existing = s.scalar(
             select(StoredFile).where(
-                StoredFile.filename == filename, StoredFile.sha256 == digest
+                StoredFile.filename == filename,
+                StoredFile.sha256 == digest,
+                StoredFile.study_id == study_id,
             )
         )
         if existing is None:
@@ -3207,7 +3346,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     content_type="application/x-yaml",
                     size=len(content),
                     sha256=digest,
-                    session_id=study_id,
+                    study_id=study_id,
                     uploaded_at=now(),
                 )
             )
@@ -3250,6 +3389,69 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "templateId": template_id,
             "explanation": template_registry.explain_plan(tpl),
         }
+
+    @app.post("/templates/merge")
+    def merge_templates_route(body: dict) -> dict:
+        """Compose several templates into one novel, grounded protocol at
+        runtime (FR-TPL): borrow a measure from one published design and an
+        analysis from another. Every contributing template and its cited
+        papers are returned as provenance."""
+        ids = body.get("templateIds") or []
+        params = body.get("parameters") or {}
+        if not isinstance(ids, list) or len(ids) < 2:
+            raise HTTPException(400, "templateIds must be a list of at least two ids")
+        try:
+            return template_registry.merge_templates(ids, params)
+        except template_registry.TemplateError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @app.get("/corpus/search")
+    def corpus_search(q: str = "", limit: int = 8, s: Session = Depends(db)) -> dict:
+        """Search the corpus for papers (FR-LIT-9), not study-scoped — powers
+        the "turn this paper into a template" picker. Returns the same
+        confidence-ranked shape as a study's recommendations."""
+        query = q.strip()
+        if not query:
+            return {"results": []}
+        results = matching.match_papers(
+            s, query, study_id=None, limit=max(1, min(limit, 25))
+        )
+        return {"results": results}
+
+    @app.post("/templates/from-paper")
+    def template_from_paper(body: dict, s: Session = Depends(db)) -> dict:
+        """Turn a corpus paper into an executable template by binding it to a
+        base archetype (FR-TPL-4): the paper becomes the design's primary
+        source, so any of the corpus's thousands of papers is a starting
+        point without hand-authoring a template each."""
+        ref = str(body.get("paperRef", "")).strip()
+        base = str(body.get("baseTemplateId", "")).strip()
+        if not ref or not base:
+            raise HTTPException(400, "paperRef and baseTemplateId are required")
+        meta = matching.get_paper_metadata(s, ref)
+        if meta is None:
+            raise HTTPException(404, f"paper {ref!r} is not in the corpus")
+        try:
+            template = template_registry.derive_template_from_paper(
+                ref, base, title=meta.get("title", ""), year=meta.get("year")
+            )
+        except template_registry.TemplateError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"template": template, "paper": meta}
+
+    @app.get("/analysis/prescriptions")
+    def analysis_prescriptions() -> dict:
+        """The deterministic, LLM-free prescription table (FR-TPL-6): every
+        design shape → the exact test, effect size, correction, and
+        sample-size guidance, each with its rationale. Surfaced so the Data
+        surface can show researchers what analysis their design calls for —
+        the statistical formulation they most fear getting wrong (NFR-8)."""
+        from analysis.prescribe import design_shapes
+
+        rows = [
+            design_assistant.recommend_prescription(shape) for shape in design_shapes()
+        ]
+        return {"prescriptions": [r for r in rows if r is not None]}
 
     # ------------------------- template submissions (FR-TPL-5)
 

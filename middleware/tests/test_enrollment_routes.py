@@ -9,6 +9,19 @@ def test_mint_refuses_before_ethics_gate(client_no_ethics: TestClient):
     assert "ethics" in r.json()["detail"].lower()
 
 
+def test_dev_mode_bypasses_ethics_gate_for_minting(
+    client_dev_mode_no_ethics: TestClient,
+):
+    # MIDDLEWARE_DEV_MODE relaxes the ethics gate so the enrollment flow is
+    # testable on a study that hasn't cleared ethics — the same request that
+    # 409s in production succeeds here.
+    r = client_dev_mode_no_ethics.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 2, "grain": "participant"}
+    )
+    assert r.status_code == 200, r.text
+    assert len(r.json()) == 2
+
+
 def test_mint_batch_assigns_counterbalanced_conditions(client_ethics_ok: TestClient):
     r = client_ethics_ok.post(
         "/studies/pilot/enrollment/tokens", json={"count": 4, "grain": "participant"}

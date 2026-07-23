@@ -66,6 +66,8 @@ export interface Invitation {
   role: Role;
   token?: string;
   url?: string;
+  emailed?: boolean; // true when the invite email was actually sent (D40)
+  emailReason?: string; // why the email did/didn't send — surfaced when not emailed
   expiresAt: string;
   acceptedAt?: string | null;
 }
@@ -486,6 +488,8 @@ export class InMemoryBackend implements Api {
       role,
       token,
       url: `/invitations/${token}`,
+      emailed: false, // offline mock never sends mail
+      emailReason: "Running offline — share the copy link with them directly.",
       expiresAt: new Date(Date.now() + 7 * 864e5).toISOString(),
       acceptedAt: null,
     };
@@ -601,7 +605,7 @@ export class InMemoryBackend implements Api {
     return {
       configured: true,
       models: ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest"],
-      defaultModel: "mistral-small-latest",
+      defaultModel: "mistral-medium-latest",
     };
   }
 }

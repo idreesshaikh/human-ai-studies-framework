@@ -49,7 +49,7 @@ from sqlalchemy.orm import Session
 from middleware import paper_index
 from middleware.db import Event, MetricRow
 
-MISTRAL_MODEL = "mistral-small-latest"
+MISTRAL_MODEL = "mistral-medium-latest"
 #: The design conversation's own default (FR-CONV-1.4) — the best Mistral
 #: tier, distinct from the knowledge assistant's own per-question tier
 #: picker above, which keeps its existing default unchanged.

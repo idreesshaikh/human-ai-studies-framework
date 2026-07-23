@@ -47,6 +47,10 @@ retrofitted.
 | `add-paper` | `RecommendationCard` | add the paper to the study set |
 | `draft-rail` | `DraftRail` | the compiled protocol-draft view (landmark) |
 | `draft-apply` | `DraftRail` | apply the server-validated compiled draft to the protocol (decision point) |
+| `draft-finish` | `DraftRail` | open the finish-and-review moment that prepares the protocol draft (decision point) |
+| `tour-open` | `StudyHome` | open the first-study guided walkthrough (help) |
+| `tour-next` | `StudyTour` | advance the walkthrough to the next step |
+| `tour-done` | `StudyTour` | finish the walkthrough and start working |
 | `new-study` | `ProjectHome` | create a new study in the project (decision point) |
 | `project-switcher` | `ProjectSwitcher` | open the ⌘K project switcher (landmark) |
 | `project-nav` | `AppFrame` | the project sidebar (landmark) |

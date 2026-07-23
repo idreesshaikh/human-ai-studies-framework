@@ -35,7 +35,7 @@ export function Members() {
           <h1 className="font-serif text-3xl font-medium tracking-tight text-text">Members</h1>
           <p className="text-sm text-text-muted">Who can see and shape this project.</p>
         </div>
-        <RoleGate role={mine} capability="manage_members">
+        <RoleGate role={mine} capability="invite_member">
           <InviteDialog slug={slug} onInvited={reload} />
         </RoleGate>
       </div>
