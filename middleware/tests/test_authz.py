@@ -106,6 +106,29 @@ def test_create_project_makes_creator_owner(client):
     assert [(p["slug"], p["role"]) for p in mine] == [(slug, "owner")]
 
 
+def test_delete_study_is_owner_only_and_removes_it(client):
+    slug = make_project(client, "alice", "Lab")
+    add_member(client, slug, "alice", "rea", "researcher")
+    made = client.post(
+        f"/projects/{slug}/studies", json={"name": "Doomed"}, headers=bearer("rea")
+    )
+    assert made.status_code == 200, made.text
+    study_id = made.json()["id"]
+
+    # A researcher can start a study but not delete one (owner-only).
+    denied = client.delete(f"/studies/{study_id}", headers=bearer("rea"))
+    assert denied.status_code == 403
+
+    # The owner can, and it's gone from the project afterwards.
+    ok = client.delete(f"/studies/{study_id}", headers=bearer("alice"))
+    assert ok.status_code == 200 and ok.json()["deleted"] == study_id
+    home = client.get(f"/projects/{slug}", headers=bearer("alice")).json()
+    assert study_id not in [s["id"] for s in home["studies"]]
+    # Deleting a missing study 404s.
+    gone = client.delete(f"/studies/{study_id}", headers=bearer("alice"))
+    assert gone.status_code == 404
+
+
 def test_view_capability_across_roles(client):
     slug = make_project(client, "alice", "Lab")
     add_member(client, slug, "alice", "rea", "researcher")

@@ -2293,6 +2293,45 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()
         return {"id": study_id, "phase": "design"}
 
+    #: Every table that scopes rows by ``study_id`` — deleting a study removes
+    #: its row plus all of these, so nothing is orphaned. The corpus study is
+    #: never a target (it isn't a project study).
+    _STUDY_SCOPED = (
+        StoredFile,
+        Paper,
+        PaperEdge,
+        PaperLink,
+        RecipeRun,
+        EnrollmentToken,
+        MiningJob,
+        CuratedDataset,
+        ConversationTurn,
+        DesignMoveRow,
+        Compilation,
+        ApprovalEvent,
+        ProtocolDraftRow,
+        StudyEvolution,
+        Amendment,
+        SessionOpen,
+    )
+
+    @app.delete(
+        "/studies/{study_id}",
+        dependencies=[Depends(require_project_for_study("delete"))],
+    )
+    def delete_study(study_id: str, s: Session = Depends(db)) -> dict:
+        """Delete a study and everything scoped to it (FR-PLAT-1): its
+        conversation, design moves, drafts, papers, enrollment, mining, and
+        evolution records. Owner-only. Idempotent-ish: a missing study 404s."""
+        study = s.get(Study, study_id)
+        if study is None:
+            raise HTTPException(404, "study not found")
+        for model in _STUDY_SCOPED:
+            s.execute(model.__table__.delete().where(model.study_id == study_id))
+        s.delete(study)
+        s.flush()
+        return {"deleted": study_id}
+
     @app.patch(
         "/projects/{slug}", dependencies=[Depends(require_project("manage_members"))]
     )
@@ -3704,7 +3743,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             body.text,
             seq=researcher.seq + 1,
             study_id=study_id,
-            client=assistant.make_client(assistant.MISTRAL_BEST_MODEL),
+            # The medium tier, not `mistral-large-latest`: the design turn is a
+            # single JSON completion (no tool loop), so the large model's
+            # latency was the whole cost of a slow reply. Medium is markedly
+            # faster and strong enough for this structured task (FR-CONV-1.4).
+            client=assistant.make_client(assistant.MISTRAL_MODEL),
         )
         retrieved = set(reply["retrievedRefs"])
         # Belt-and-suspenders: grounding is built only from retrieved rows, so
