@@ -379,6 +379,28 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 return yaml.safe_load(draft.yaml)
         return None
 
+    def _resolve_study_protocol_for_lifecycle(s: Session, study_id: str) -> dict | None:
+        """Resolve a study's protocol for the lifecycle board and its
+        siblings (status, findings scan): unlike ``_resolve_study_protocol``
+        - which gates the pre-ethics draft behind ``dev_mode`` for the
+        enrollment route's hard science invariant (no minting before ethics
+        approval) - the lifecycle must show a study's compiled-and-approved
+        draft even before ethics approval, since attesting the ``design``
+        phase's gate is how a study *reaches* the ``ethics`` phase, not
+        something that follows it.
+        """
+        proto = _resolve_study_protocol(s, study_id)
+        if proto is not None:
+            return proto
+        import yaml
+
+        from middleware.db import ProtocolDraftRow
+
+        draft = s.get(ProtocolDraftRow, study_id)
+        if draft is not None and draft.yaml:
+            return yaml.safe_load(draft.yaml)
+        return None
+
     # Reify the loaded protocol's study into the studies table: the
     # project choke point resolves study_id -> studies.project_id -> membership,
     # so the protocol's study needs a row. Owned by the implicit project
@@ -816,7 +838,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         """The computed lifecycle (FR-DASH-2): the current phase is derived
         from uploaded gate artifacts via the lifecycle engine, never hand-set.
         """
-        proto = _resolve_study_protocol(s, study_id)
+        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
         if proto is None:
             raise HTTPException(404, f"no protocol for study {study_id!r}")
         files = _stored_files(s, study_id)
@@ -865,7 +887,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         traceability chips (FR-DASH-6): RQ -> planned recipes comes verbatim
         from the protocol's analysis plan."""
 
-        proto = _resolve_study_protocol(s, study_id)
+        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
         if proto is None:
             raise HTTPException(404, f"no protocol for study {study_id!r}")
         recipes_by_rq = {
@@ -918,7 +940,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         step), and the note + who attested are kept as evidence."""
         if not body.confirmed:
             raise HTTPException(400, "attestation needs explicit confirmation")
-        proto = _resolve_study_protocol(s, study_id)
+        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
         if proto is None:
             raise HTTPException(404, f"no protocol for study {study_id!r}")
         current = current_phase(proto, set(_stored_files(s, study_id)))
@@ -957,7 +979,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         spawned them disappears. Facts only - no card state lives here.
         """
 
-        proto = _resolve_study_protocol(s, study_id)
+        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
         if proto is None:
             raise HTTPException(404, f"no protocol for study {study_id!r}")
 
@@ -1788,7 +1810,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
 
         # Gate blocks: the current phase's unsatisfied gates.
-        proto = _resolve_study_protocol(s, study_id)
+        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
         if proto is not None:
             files = _stored_files(s, study_id)
             declared = {

@@ -254,6 +254,21 @@ def test_pre_ethics_amendment_is_an_ordinary_compile(client):
     assert hist["currentVersion"] == 1
 
 
+def test_lifecycle_resolves_before_ethics_approval(client):
+    """FR-DASH-2 regression: the lifecycle board must show a study's
+    compiled-and-approved draft even before ethics approval - attesting the
+    ``design`` phase's gate is how a study *reaches* the ``ethics`` phase,
+    not something that only becomes visible after it. (``dev_mode`` is a
+    separate, unrelated concern: it only relaxes the enrollment/minting
+    invariant, never the lifecycle board.)"""
+    _reach_approved_protocol(client)
+    doc = client.get(f"/studies/{STUDY}/lifecycle").json()
+    assert doc["currentPhase"] == "design"
+    design = next(p for p in doc["phases"] if p["name"] == "design")
+    assert design["status"] == "current"
+    assert design["gates"], "design phase should declare an attestable gate"
+
+
 def test_lifecycle_gate_artifacts_are_isolated_per_study(client):
     """FR-ING-5 / FR-DASH-2 regression: a gate artifact uploaded for one
     study must not advance a different study's lifecycle — files are
