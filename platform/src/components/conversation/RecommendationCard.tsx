@@ -1,7 +1,6 @@
-import { Plus } from "lucide-react";
+import { Plus, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TierBadge } from "./TierBadge";
 import { Confidence } from "./Confidence";
 import type { Recommendation } from "@/lib/types";
 
@@ -27,7 +26,11 @@ export function RecommendationCard({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Confidence value={rec.confidence} />
-            <TierBadge tier={rec.tier} />
+            {rec.inStudy && (
+              <span className="flex items-center gap-1 text-xs text-grounded">
+                <Check className="size-3" aria-hidden /> in library
+              </span>
+            )}
           </div>
           <span className="tabular text-xs text-text-muted">{rec.year}</span>
         </div>

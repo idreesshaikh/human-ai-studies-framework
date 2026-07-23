@@ -304,7 +304,6 @@ export const studyApi = {
       studyId: string;
       paperRef: string;
       title: string;
-      tier: string;
       addedVia: string;
     }>(`/studies/${enc(study)}/papers/from-match`, { ref, matchReason }),
   setPaperLinks: (study: string, ref: string, targets: string[]) =>

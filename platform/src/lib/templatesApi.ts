@@ -32,8 +32,8 @@ export interface CorpusHit {
   title: string;
   year: number | null;
   venue: string;
-  tier: string;
   confidence: number | null;
+  inStudy?: boolean;
   matchReason: string;
 }
 
@@ -45,7 +45,7 @@ export interface DerivedTemplate {
     designType: string;
     source: TemplateSource[];
   };
-  paper: { ref: string; title: string; confidence: number | null; tier: string };
+  paper: { ref: string; title: string; confidence: number | null };
 }
 
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {

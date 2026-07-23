@@ -118,11 +118,15 @@ def test_match_never_invents_a_paper(session):
 
 
 def test_grounding_lookup_resolves_corpus_seed(session):
-    """FR-CONV-2.2: grounding resolves against the corpus for any study."""
+    """FR-CONV-2.2: grounding resolves against the corpus for any study, and
+    carries confidence (not a provenance tier — the tier system is removed
+    from ranking and output)."""
     meta = matching.get_paper_metadata(
         session, "corpus:metr-early-2025-dev-productivity"
     )
-    assert meta is not None and meta["tier"] == "A"
+    assert meta is not None
+    assert "tier" not in meta
+    assert "confidence" in meta
 
 
 def test_corpus_search_path_returns_confidence_ranked_hits(session):

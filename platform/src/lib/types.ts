@@ -1,14 +1,12 @@
 /* The conversation domain model. These shapes match the server interfaces
  * so wiring the backend later is a transport swap, not a redesign. */
 
-export type Tier = "A" | "B" | "study";
-
 /** Citations attached to a design move. A move with no grounding is shown
- * as "unsourced". */
+ * as "unsourced". Quality is the continuous `confidence` (0..1) — there is no
+ * provenance tier. */
 export interface Grounding {
   ref: string; // corpus ref, e.g. "arxiv:2506.xxxxx", or template id
-  tier: Tier;
-  confidence?: number; // 0..1 continuous quality signal — the primary rank, not the tier
+  confidence?: number; // 0..1 continuous quality signal — the sole quality rank
   title: string;
   year?: number;
   venue?: string;
@@ -57,8 +55,8 @@ export interface Turn {
 /** A paper matched to the researcher's idea. */
 export interface Recommendation {
   ref: string;
-  tier: Tier;
   confidence?: number; // 0..1 continuous quality signal
+  inStudy?: boolean; // already in the researcher's library
   title: string;
   year: number;
   venue: string;

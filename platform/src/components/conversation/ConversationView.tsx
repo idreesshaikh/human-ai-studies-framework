@@ -3,9 +3,12 @@ import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StreamingTurn } from "./StreamingTurn";
 import { DraftRail } from "./DraftRail";
+import { RecommenderRail } from "./RecommenderRail";
 import { FinishReview } from "./FinishReview";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { compileAll } from "@/lib/compiler";
 import { openingTurn, respondTo } from "@/lib/designStub";
+import type { Recommendation } from "@/lib/types";
 import {
   conversationApi,
   loadConversation,
@@ -55,6 +58,8 @@ export function ConversationView({
   const [applied, setApplied] = useState(false);
   const [showFinish, setShowFinish] = useState(false);
   const [showDraft, setShowDraft] = useState(false);
+  // Right rail toggles between the surfaced literature and the protocol draft.
+  const [rail, setRail] = useState<"papers" | "draft">("papers");
   const threadEnd = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
 
@@ -95,6 +100,22 @@ export function ConversationView({
     [turns],
   );
   const clientDraft = useMemo(() => compileAll(allMoves), [allMoves]);
+
+  // The literature the conversation has surfaced, de-duplicated by ref, newest
+  // turns first — the recommender rail's source. Refreshes as turns arrive.
+  const recommendations = useMemo<Recommendation[]>(() => {
+    const seen = new Set<string>();
+    const out: Recommendation[] = [];
+    for (const t of [...turns].reverse()) {
+      for (const r of t.recommendations) {
+        if (!seen.has(r.ref)) {
+          seen.add(r.ref);
+          out.push(r);
+        }
+      }
+    }
+    return out;
+  }, [turns]);
 
   const refreshCompile = useCallback(async () => {
     if (!live || stubOnly) return;
@@ -245,9 +266,7 @@ export function ConversationView({
             <StreamingTurn
               key={t.turnId}
               turn={t}
-              addedRefs={addedRefs}
               onDecide={decide}
-              onAddPaper={addPaper}
               feedback={
                 t.role === "researcher"
                   ? {
@@ -331,15 +350,38 @@ export function ConversationView({
         </form>
       </section>
 
-      <div className={cn("lg:block", showDraft ? "block" : "hidden")}>
-        <DraftRail
-          draft={clientDraft}
-          serverYaml={compileResult?.yaml}
-          compileValid={compileResult?.valid}
-          onApply={live && !stubOnly ? applyDraft : undefined}
-          applying={applying}
-          onFinish={live && !stubOnly ? () => { void refreshCompile(); setShowFinish(true); } : undefined}
-        />
+      {/* Right rail: toggle between the surfaced literature and the protocol
+          draft. On mobile it's hidden until the composer's toggle opens it. */}
+      <div className={cn("flex min-h-0 flex-col lg:flex", showDraft ? "flex" : "hidden")}>
+        <div className="border-l border-b border-border-strong bg-surface p-2">
+          <SegmentedControl
+            value={rail}
+            onChange={setRail}
+            aria-label="Right panel: literature or protocol draft"
+            options={[
+              { value: "papers", label: "Literature" },
+              { value: "draft", label: "Protocol draft" },
+            ]}
+          />
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {rail === "papers" ? (
+            <RecommenderRail
+              recommendations={recommendations}
+              addedRefs={addedRefs}
+              onAdd={addPaper}
+            />
+          ) : (
+            <DraftRail
+              draft={clientDraft}
+              serverYaml={compileResult?.yaml}
+              compileValid={compileResult?.valid}
+              onApply={live && !stubOnly ? applyDraft : undefined}
+              applying={applying}
+              onFinish={live && !stubOnly ? () => { void refreshCompile(); setShowFinish(true); } : undefined}
+            />
+          )}
+        </div>
       </div>
 
       <FinishReview

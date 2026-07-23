@@ -13,7 +13,7 @@ The ladder, each rung optional and degrading to the one below (spec
    title/why match the query terms vouch for their harvested neighbours
    (the ``harvested-via`` edges the corpus importer landed).
 
-Every recommendation carries ``ref``, ``title``, ``tier`` (A/B/study) and a
+Every recommendation carries ``ref``, ``title``, ``confidence`` and a
 ``matchReason`` that is *kept* on ingest (elicitation evidence, FR-LIT-9.3).
 """
 
@@ -119,9 +119,21 @@ def search_by_connectivity(s: Session, query: str, *, limit: int = 10) -> list[d
     terms = _terms(query)
     if not terms:
         return []
+    # Seeds are the papers that vouched for harvested neighbours — i.e. the
+    # sources of harvested-via edges — not a provenance tier. This keeps the
+    # connectivity rung working with the tier system removed from ranking.
     seeds = s.execute(
-        select(Paper.paper_ref, Paper.title, Paper.abstract).where(
-            Paper.study_id == CORPUS_STUDY_ID, Paper.tier == "A"
+        select(Paper.paper_ref, Paper.title, Paper.abstract)
+        .where(Paper.study_id == CORPUS_STUDY_ID)
+        .where(
+            Paper.paper_ref.in_(
+                select(PaperEdge.src_ref)
+                .where(
+                    PaperEdge.study_id == CORPUS_STUDY_ID,
+                    PaperEdge.kind == VIA_EDGE_KIND,
+                )
+                .distinct()
+            )
         )
     ).all()
     matching_seeds = {
@@ -217,7 +229,7 @@ def match_papers(
 ) -> list[dict]:
     """Run the ladder and return enriched recommendations (FR-LIT-9).
 
-    Each: ``{ref, title, year, venue, tier, matchReason}``. ``tier`` is the
+    Each: ``{ref, title, year, venue, inStudy, confidence, matchReason}``. The
     paper's provenance (A/B) or 'study' when it is already in ``study_id``'s
     paper set - the card renders the badge always-visible."""
     query_terms = _terms(query)
@@ -261,7 +273,10 @@ def match_papers(
             title=row.title,
             year=row.year,
             venue=row.venue,
-            tier="study" if candidate["ref"] in study_refs else row.tier,
+            # No provenance tier: quality is the continuous `confidence`; the
+            # only remaining distinction is whether the paper is already in the
+            # researcher's study library.
+            inStudy=candidate["ref"] in study_refs,
             confidence=conf,
         )
         matched = _matched_terms(query_terms, f"{row.title} {row.abstract}")
@@ -286,7 +301,7 @@ def match_papers(
             "title": c.get("title", ""),
             "year": c.get("year"),
             "venue": c.get("venue", ""),
-            "tier": c.get("tier", "B"),
+            "inStudy": c.get("inStudy", False),
             "confidence": c.get("confidence"),
             "matchReason": c.get("matchReason", ""),
         }
@@ -336,8 +351,7 @@ def get_paper_metadata(s: Session, paper_ref: str) -> dict | None:
         "ref": row.paper_ref,
         "title": row.title,
         "year": row.year,
-        "venue": row.venue or ("corpus (Tier A seed)" if row.tier == "A" else ""),
-        "tier": row.tier,
+        "venue": row.venue or "corpus",
         "confidence": paper_confidence(row.score),
         "why": row.abstract,
     }
