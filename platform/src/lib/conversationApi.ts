@@ -1,7 +1,7 @@
-import type { DesignMove, Grounding, Recommendation, Turn } from "./types";
+import type { DesignMove, Grounding, ProtocolDraft, Recommendation, Turn } from "./types.ts";
 import { getAuthToken, notifyUnauthorized } from "./api.ts";
-import { OfflineError } from "./studyApi";
-import { openingTurn, respondTo } from "./designStub";
+import { OfflineError } from "./studyApi.ts";
+import { openingTurn, respondTo } from "./designStub.ts";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -65,27 +65,57 @@ function mapGrounding(raw: unknown[]): Grounding[] {
   });
 }
 
-function mapMove(raw: Record<string, unknown>): DesignMove {
-  const patch = raw.patch as Record<string, unknown> | undefined;
-  let draftPatch: DesignMove["patch"];
-  if (patch && typeof patch.section === "string" && patch.op) {
-    draftPatch = {
-      section: patch.section as DesignMove["patch"] extends infer P
-        ? P extends { section: infer S }
-          ? S
-          : never
-        : never,
-      op: patch.op as "append" | "set",
+function mapPatch(raw: unknown): DesignMove["patch"] {
+  if (!raw || typeof raw !== "object") return undefined;
+  const patch = raw as Record<string, unknown>;
+  // A choose-template move's patch: {templateId, parameters} — no
+  // section/op at all, so it must be checked before the generic shape.
+  if (typeof patch.templateId === "string" && patch.templateId) {
+    return {
+      templateId: patch.templateId,
+      parameters:
+        patch.parameters && typeof patch.parameters === "object"
+          ? (patch.parameters as Record<string, unknown>)
+          : undefined,
+    };
+  }
+  if (
+    patch.section === "instruments" &&
+    typeof patch.op === "string" &&
+    ["add-instrument", "set-instrument", "reconfigure"].includes(patch.op) &&
+    typeof patch.name === "string" &&
+    patch.name
+  ) {
+    return {
+      section: "instruments",
+      op: patch.op as "add-instrument" | "set-instrument" | "reconfigure",
+      name: patch.name,
+      config:
+        patch.config && typeof patch.config === "object"
+          ? (patch.config as Record<string, unknown>)
+          : undefined,
+      path: Array.isArray(patch.path) ? (patch.path as string[]) : undefined,
+      value: patch.value,
+    };
+  }
+  if (typeof patch.section === "string" && (patch.op === "append" || patch.op === "set")) {
+    return {
+      section: patch.section as keyof ProtocolDraft,
+      op: patch.op,
       key: typeof patch.key === "string" ? patch.key : undefined,
       value: String(patch.value ?? ""),
     };
   }
+  return undefined;
+}
+
+function mapMove(raw: Record<string, unknown>): DesignMove {
   return {
     moveId: String(raw.moveId ?? ""),
     kind: (raw.kind as DesignMove["kind"]) ?? "add-rq",
     target: String(raw.target ?? ""),
     proposal: String(raw.proposal ?? ""),
-    patch: draftPatch,
+    patch: mapPatch(raw.patch),
     grounding: mapGrounding((raw.grounding as unknown[]) ?? []),
     status: (raw.status as DesignMove["status"]) ?? "proposed",
   };

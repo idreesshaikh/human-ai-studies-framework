@@ -77,6 +77,18 @@ SYSTEM_PROMPT = (
     "a move has no citable candidate, propose it anyway with an empty refs "
     "list; honesty about what is grounded matters more than looking "
     "well-cited.\n\n"
+    "IMPORTANT: the protocol's `design` section (its overall shape - RCT, "
+    "crossover, pre/post, etc. - and prescribed statistics) can ONLY be set "
+    "by a choose-template move; no other move kind can ever fill it, no "
+    "matter how many research questions, measures, or parameters get "
+    "accepted. A conversation that never proposes one can never reach a "
+    "compilable protocol. Whenever the researcher asks about design, "
+    "statistics, or a specific study type (an RCT, a within-subjects/"
+    "crossover study, a pre/post study, etc.) - even loosely worded - "
+    "always include a choose-template move for whichever candidate "
+    "template fits best, alongside any other moves. Only omit it if truly "
+    "none of the candidate templates fit at all, and say so explicitly in "
+    "the reply text.\n\n"
     "Reply with a single JSON object, no prose outside it:\n"
     '{"text": "conversational reply, no inline citations - refs live only '
     'in moves[].refs", '

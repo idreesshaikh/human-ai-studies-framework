@@ -15,7 +15,7 @@
  * (ingest, assistant) raise `OfflineError`, which the UI shows as a calm
  * "needs the running middleware" notice. Nothing load-bearing is cloud-owned. */
 
-import { getAuthToken, notifyUnauthorized } from "./api.ts";
+import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
 import { isDemoStudy } from "./demo.ts";
 import type { Recommendation } from "./types";
 
@@ -175,7 +175,7 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
       /* non-JSON body */
     }
     if (res.status === 401) notifyUnauthorized();
-    throw new Error(detail);
+    throw new ApiError(res.status, detail);
   }
   if (res.status === 204) return undefined as T;
   try {
