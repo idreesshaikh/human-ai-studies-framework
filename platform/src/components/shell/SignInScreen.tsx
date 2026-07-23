@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { KeyRound, Moon, Sun } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { KiteMark } from "@/components/brand/KiteMark";
@@ -58,17 +59,24 @@ export function SignInScreen() {
         </span>
       </Link>
 
-      {showClerkWidget ? (
-        // Clerk's own sign-in dialogue, centered and unframed — it carries its
-        // own heading, fields, and footer, so a card around it would just be a
-        // box within a box. Themed to our tokens via CLERK_APPEARANCE (auth.tsx).
-        <div ref={mountRef} className="clerk-embed flex justify-center" />
-      ) : (
-        <div className="rounded-card border border-border-strong bg-surface p-8 shadow-brutal">
-          <h1 className="mb-4 font-serif text-2xl font-medium text-text">Sign in</h1>
-          <TokenForm awaitingClerk={config.mode === "clerk"} />
-        </div>
-      )}
+      {/* One clean card is the sign-in frame. Clerk's hosted widget mounts
+       * inside it rendered transparent (CLERK_APPEARANCE strips its own card
+       * chrome and hides its heading, auth.tsx), so there's a single frame,
+       * not a card-within-a-card, and our own "Sign in" heading shows once. */}
+      <Card>
+        <CardContent className="flex flex-col gap-4 p-8">
+          <h1 className="font-serif text-2xl font-medium text-text">Sign in</h1>
+          {showClerkWidget ? (
+            /* `relative`: Clerk's internal step-transition wrapper is
+             * absolutely positioned; without a positioned ancestor here it
+             * anchors to the outer screen wrapper (also `relative`) instead,
+             * floating the widget free of this card. */
+            <div ref={mountRef} className="clerk-embed relative" />
+          ) : (
+            <TokenForm awaitingClerk={config.mode === "clerk"} />
+          )}
+        </CardContent>
+      </Card>
 
       <Link
         to="/"
