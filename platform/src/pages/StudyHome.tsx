@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
   History,
@@ -45,7 +45,21 @@ export function StudyHome() {
   const { slug = "", id = "" } = useParams();
   const { amendmentState } = useEvolution();
   const { me } = useSession();
-  const [tab, setTab] = useState<Tab>("conversation");
+  // The active tab lives in the URL (not local state) so a refresh, a
+  // shared link, or the browser's back button lands on the same tab
+  // instead of always bouncing back to the conversation.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const tab: Tab = TABS.some((t) => t.id === tabParam) ? (tabParam as Tab) : "conversation";
+  const setTab = (next: Tab) =>
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        params.set("tab", next);
+        return params;
+      },
+      { replace: true },
+    );
   const [showHistory, setShowHistory] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
@@ -151,7 +165,9 @@ export function StudyHome() {
         )}
         {tab === "library" && <LibraryTab studyId={id} />}
         {tab === "data" && <DataTab studyId={id} />}
-        {tab === "lifecycle" && <LifecycleTab studyId={id} />}
+        {tab === "lifecycle" && (
+          <LifecycleTab studyId={id} onGoToConversation={() => setTab("conversation")} />
+        )}
         {tab === "enrollment" && <EnrollmentPanel studyId={id} role={role} />}
       </div>
 
