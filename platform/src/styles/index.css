@@ -228,6 +228,16 @@ body::before {
   background: transparent !important;
   padding-top: 0.75rem !important;
 }
+/* .cl-scrollBox wraps the step content with a viewport-fit max-height +
+ * overflow: auto, meant for Clerk's modal/popover use case. In this
+ * full-page card that budget doesn't match our layout, and the scrollbar
+ * Clerk hides by default leaves the excess reading as clipped content
+ * rather than a scrollable one. The appearance prop targets this too
+ * (auth.tsx); this is the hard-override backstop (see .cl-card above). */
+.clerk-embed .cl-scrollBox {
+  overflow: visible !important;
+  max-height: none !important;
+}
 .clerk-embed .cl-formButtonPrimary {
   background: var(--accent) !important;
   color: var(--accent-contrast) !important;
