@@ -13,7 +13,12 @@ import { Settings } from "@/pages/Settings";
 import { InviteAccept } from "@/pages/InviteAccept";
 
 function Shell() {
-  const { config, needed, hasCredential } = useAuth();
+  const { config, needed, hasCredential, resolving } = useAuth();
+  // While the credential check is still in flight (clerk-js loading), show
+  // neither the app nor the sign-in card — `hasCredential` reads false for
+  // that whole window even for an already-signed-in session, and rendering
+  // the sign-in screen on its say-so flashes it on every refresh.
+  if (resolving) return null;
   if (config.mode !== "none" && (needed || !hasCredential)) return <SignInScreen />;
   return (
     <AppFrame>

@@ -18,15 +18,22 @@ const THEME_ICON = { light: Sun, dark: Moon };
  * mode also accepts a pasted session token, so a broken CDN or a
  * self-hosted `token` deployment never dead-ends. */
 export function SignInScreen() {
-  const { config, clerkReady, mountSignIn } = useAuth();
+  const { config, clerkReady, mountSignIn, unmountSignIn } = useAuth();
   const mountRef = useRef<HTMLDivElement>(null);
   const showClerkWidget = config.mode === "clerk" && clerkReady;
   const [theme, setTheme] = useState<Theme>(() => getTheme());
   const ThemeIcon = THEME_ICON[theme];
 
   useEffect(() => {
-    if (showClerkWidget && mountRef.current) mountSignIn(mountRef.current);
-  }, [showClerkWidget, mountSignIn]);
+    if (!showClerkWidget || !mountRef.current) return;
+    const el = mountRef.current;
+    mountSignIn(el);
+    // Without this, StrictMode's dev-only double-invoke mounts a second
+    // widget instance into the same node without tearing down the first,
+    // and the two overlap (Clerk's step content is absolutely positioned)
+    // instead of stacking — read as clipped/ghosted content.
+    return () => unmountSignIn(el);
+  }, [showClerkWidget, mountSignIn, unmountSignIn]);
 
   return (
     <div

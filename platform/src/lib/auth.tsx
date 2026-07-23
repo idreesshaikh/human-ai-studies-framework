@@ -62,6 +62,7 @@ interface ClerkInstance {
     appearance?: Record<string, unknown>;
   }): Promise<void>;
   mountSignIn(el: HTMLDivElement, opts: Record<string, unknown>): void;
+  unmountSignIn(el: HTMLDivElement): void;
   addListener(cb: (payload: { session: unknown }) => void): void;
   signOut(): Promise<void>;
 }
@@ -177,10 +178,16 @@ interface AuthState {
   /** True once clerk-js (+ its UI renderer) has loaded and can mount. */
   clerkReady: boolean;
   user: ClerkUser | null;
+  /** True until the credential check has actually run once — false/loading
+   * for clerk mode while clerk-js is still loading. `Shell` should render
+   * neither the app nor the sign-in screen while this is true, or a signed-
+   * in reload flashes the sign-in card for the resolution window. */
+  resolving: boolean;
   /** Whether *some* credential exists — a signed-in Clerk user or a pasted
    * token — so `Shell` can gate before the first round-trip 401s. */
   hasCredential: boolean;
   mountSignIn: (el: HTMLDivElement) => void;
+  unmountSignIn: (el: HTMLDivElement) => void;
   signInWithToken: (token: string) => void;
   signOut: () => void;
 }
@@ -192,6 +199,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [needed, setNeeded] = useState(false);
   const [clerkReady, setClerkReady] = useState(false);
   const [user, setUser] = useState<ClerkUser | null>(null);
+  // True until we actually know whether a credential exists. In clerk mode,
+  // `hasCredential` reads false the instant `config.mode` flips to "clerk"
+  // but before clerk-js has loaded and checked the session cookie — without
+  // this gate, `Shell` reads that transient "no credential yet" as "sign
+  // in needed" and flashes the token-paste sign-in card on every refresh of
+  // an already-signed-in session, for as long as clerk-js takes to load.
+  const [resolving, setResolving] = useState(true);
   const clerkRef = useRef<ClerkInstance | null>(null);
   // Clerk's addListener fires immediately with the *current* state on
   // registration, not only on real changes — without this guard, a user who
@@ -245,6 +259,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // clerk-js unreachable (offline, blocked CDN…) — the token-paste
       // fallback surface stays usable; never a hard failure.
+    } finally {
+      setResolving(false);
     }
   }, []);
 
@@ -272,6 +288,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setConfig(cfg);
       if (cfg.mode === "clerk" && cfg.clerkPublishableKey) {
         await initClerk(cfg.clerkPublishableKey);
+      } else {
+        setResolving(false);
       }
     })();
     return () => {
@@ -289,6 +307,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInForceRedirectUrl: "/home",
       afterSignInUrl: "/home",
     });
+  }, []);
+
+  // Paired with mountSignIn as StrictMode's cleanup (SignInScreen's effect):
+  // without it, StrictMode's dev-only double-invoke (mount -> cleanup ->
+  // mount) mounts a second widget instance into the same node without ever
+  // tearing down the first, and since Clerk's internal step content is
+  // absolutely positioned, the two instances overlap instead of stacking —
+  // read as clipped/ghosted content, not a doubled layout.
+  const unmountSignIn = useCallback((el: HTMLDivElement) => {
+    clerkRef.current?.unmountSignIn(el);
   }, []);
 
   const signInWithToken = useCallback((token: string) => {
@@ -317,12 +345,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       needed,
       clerkReady,
       user,
+      resolving,
       hasCredential,
       mountSignIn,
+      unmountSignIn,
       signInWithToken,
       signOut,
     }),
-    [config, needed, clerkReady, user, hasCredential, mountSignIn, signInWithToken, signOut],
+    [
+      config,
+      needed,
+      clerkReady,
+      user,
+      resolving,
+      hasCredential,
+      mountSignIn,
+      unmountSignIn,
+      signInWithToken,
+      signOut,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
