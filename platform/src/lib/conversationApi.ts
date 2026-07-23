@@ -158,30 +158,6 @@ export const conversationApi = {
     return { turns: [researcher, platform] };
   },
 
-  /** The public hero's real-LLM demo turn (FR-CONV-1.4): stateless and
-   * unauthenticated, so the visitor's prior turns ride along as history and
-   * nothing is persisted. Rate-limited server-side. */
-  async demoTurn(
-    text: string,
-    history: { role: "user" | "assistant"; content: string }[],
-  ): Promise<Turn> {
-    const reply = await post<{
-      text: string;
-      moves: Record<string, unknown>[];
-      recommendations: Recommendation[];
-      source?: "llm" | "scripted";
-    }>(`/demo/conversation/turns`, { text, history });
-    return {
-      turnId: `demo-${history.length}`,
-      role: "platform",
-      author: "Platform",
-      text: reply.text,
-      moves: reply.moves.map(mapMove),
-      recommendations: reply.recommendations ?? [],
-      source: reply.source,
-    };
-  },
-
   decide(studyId: string, moveId: string, status: "accepted" | "rejected") {
     return post<{ moveId: string; status: string }>(
       `/studies/${encodeURIComponent(studyId)}/conversation/moves/${encodeURIComponent(moveId)}/decision`,

@@ -219,16 +219,6 @@ class ConversationTurnIn(BaseModel):
     author: str = "Researcher"
 
 
-class DemoTurnIn(BaseModel):
-    """One turn of the public, unauthenticated hero demo (FR-CONV-1.4). The
-    visitor's prior turns ride along as ``history`` so the demo is
-    conversational without persisting anything server-side — nothing an
-    anonymous visitor types is stored, and two visitors never collide."""
-
-    text: str
-    history: list[dict] = []
-
-
 class MoveDecisionIn(BaseModel):
     """Accept/reject one design move (FR-CONV-1.2)."""
 
@@ -357,24 +347,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         protocol_doc = load_protocol(settings.protocol_path)
     check = _ProtocolCheck(protocol_doc)
 
-    # Per-IP fixed-window limiter for the public hero demo (unauthenticated,
-    # calls the LLM — so it must not be an open token-burn). In-memory is fine:
-    # the middleware is a single Railway container. {ip: [window_start, count]}.
-    _demo_hits: dict[str, list[float]] = {}
-    _DEMO_WINDOW_S = 3600.0
-    _DEMO_MAX = 15
-
-    def _demo_rate_ok(ip: str) -> bool:
-        t = clock().timestamp()
-        win = _demo_hits.get(ip)
-        if win is None or t - win[0] >= _DEMO_WINDOW_S:
-            _demo_hits[ip] = [t, 1]
-            return True
-        if win[1] >= _DEMO_MAX:
-            return False
-        win[1] += 1
-        return True
-
     def _resolve_study_protocol(s: Session, study_id: str) -> dict | None:
         """Resolve a study's protocol: the approved YAML snapshot wins
         (post-ethics, FR-CONV-4); the boot protocol is the single-facilitator
@@ -395,6 +367,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             return yaml.safe_load(evo.approved_yaml)
         if protocol_doc is not None and protocol_doc["study"]["id"] == study_id:
             return protocol_doc
+        if settings.dev_mode:
+            # Developer mode: a compiled draft that hasn't been ethics-frozen is
+            # still enough to exercise the flow (e.g. minting). Production never
+            # takes this branch, so the approved snapshot stays the source of
+            # record there.
+            from middleware.db import ProtocolDraftRow
+
+            draft = s.get(ProtocolDraftRow, study_id)
+            if draft is not None and draft.yaml:
+                return yaml.safe_load(draft.yaml)
         return None
 
     # Reify the loaded protocol's study into the studies table: the
@@ -2450,7 +2432,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         base = settings.public_base_url or (
             settings.cors_origins[0] if settings.cors_origins else None
         )
-        emailed = mailer.send_invitation(
+        emailed, email_reason = mailer.send_invitation(
             api_key=settings.resend_api_key,
             from_email=settings.invite_from_email,
             to_email=email,
@@ -2458,6 +2440,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             role=role,
             token=token,
             base_url=base,
+            inviter=identity.display_name,
         )
         return {
             "id": inv_id,
@@ -2466,6 +2449,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "email": email,
             "role": role,
             "emailed": emailed,
+            "emailReason": email_reason,
             "expiresAt": expires.isoformat(timespec="milliseconds"),
         }
 
@@ -2568,7 +2552,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         from middleware.db import StudyEvolution
 
         evo = s.get(StudyEvolution, study_id)
-        if evo is None or not evo.ethics_approved_at:
+        # The ethics gate is a science invariant: no enrollment before approval.
+        # MIDDLEWARE_DEV_MODE relaxes it so the whole enrollment flow is testable
+        # on a fresh study; it stays enforced on any real (production) instance.
+        if not settings.dev_mode and (evo is None or not evo.ethics_approved_at):
             raise HTTPException(
                 409,
                 "Mint enrollment tokens only after the study clears its ethics "
@@ -3741,51 +3728,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "moves": [
                 {
                     "moveId": f"{platform.id}:{m['moveId']}",
-                    "kind": m["kind"],
-                    "target": m["target"],
-                    "proposal": m["proposal"],
-                    "patch": m["patch"],
-                    "grounding": m["grounding"],
-                    "status": "proposed",
-                }
-                for m in reply["moves"]
-            ],
-            "recommendations": reply["recommendations"],
-            "source": reply["source"],
-        }
-
-    @app.post("/demo/conversation/turns")
-    def demo_turn(body: DemoTurnIn, request: Request, s: Session = Depends(db)) -> dict:
-        """The public hero's real-LLM demo (FR-CONV-1.4): an unauthenticated,
-        stateless design turn. Nothing is persisted — the visitor's prior
-        turns arrive as ``history`` — so two visitors never collide and no
-        anonymous input is stored. Rate-limited per IP because it calls the
-        model; over the limit it degrades to the deterministic scripted
-        assistant (still a real answer, just no token spend)."""
-        ip = (
-            (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
-            or (request.client.host if request.client else "unknown")
-        )
-        # History is capped defensively so a crafted client can't blow the
-        # prompt budget; only the two roles the chat call understands pass.
-        history = [
-            {"role": h.get("role"), "content": str(h.get("content", ""))}
-            for h in body.history[-8:]
-            if h.get("role") in ("user", "assistant") and h.get("content")
-        ]
-        client = (
-            assistant.make_client(assistant.MISTRAL_BEST_MODEL)
-            if _demo_rate_ok(ip)
-            else None  # over the limit → scripted fallback, no token spend
-        )
-        reply = design_assistant.respond(
-            s, body.text, seq=0, study_id=None, client=client, history=history
-        )
-        return {
-            "text": reply["text"],
-            "moves": [
-                {
-                    "moveId": m["moveId"],
                     "kind": m["kind"],
                     "target": m["target"],
                     "proposal": m["proposal"],

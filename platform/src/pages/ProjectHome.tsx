@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shell/EmptyState";
-import { useApi } from "@/lib/session";
+import { useApi, useSession } from "@/lib/session";
 import { useAuth } from "@/lib/auth.tsx";
 import { useAsync } from "@/lib/useAsync";
 import { memberLabel } from "@/lib/memberLabel";
@@ -16,6 +16,7 @@ import { ApiError } from "@/lib/api.ts";
 /* Project home: its studies, and a preview of who's on the team. */
 export function ProjectHome() {
   const api = useApi();
+  const { refresh } = useSession();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { slug = "" } = useParams();
@@ -30,6 +31,10 @@ export function ProjectHome() {
     setCreateError("");
     try {
       const study = await api.createStudy(slug, studyName);
+      // Refresh `me` so the new study's membership/role resolves immediately —
+      // otherwise role-gated controls (e.g. Mint links) stay hidden until an
+      // unrelated refresh fires.
+      await refresh();
       navigate(`/p/${slug}/studies/${study.id}`);
     } catch (e) {
       setCreateError(e instanceof ApiError ? e.message : "Could not create the study.");

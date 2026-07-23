@@ -159,7 +159,7 @@ D34 + NFR-12.
 | FR-PLAT-1 | M | The platform SHALL model **projects**: a collaborative workspace owning studies, papers, datasets, and members; every study SHALL belong to exactly one project. | S7: real research is collaborative and multi-study; the container the whole flow hangs off. | ✅ |
 | FR-PLAT-2 | M | A signed-in identity (FR-OPS-5) SHALL resolve to project memberships with a **role** (`owner` \| `researcher` \| `viewer`); the owner manages membership; permissions SHALL be enforced server-side, never UI-only. | S7 invites colleagues with bounded access; S3: role boundaries are a data-protection control. | ✅ |
 | FR-PLAT-3 | S | Members SHALL be invitable by email link, landing with the assigned role after sign-in. | S7 onboarding without an admin. | ✅ |
-| FR-PLAT-4 | S | The platform SHALL present a public **hero page**: what it does, entry to the live seeded demo, and sign-up - readable by a lay researcher per NFR-11. | S7's first minute decides adoption. | 🔶 (built; server-seeded demo pending) |
+| FR-PLAT-4 | S | The platform SHALL present a public **hero page**: what it does, a self-contained animated showcase of the core loop, and sign-up - readable by a lay researcher per NFR-11. | S7's first minute decides adoption. | ✅ (built; the animated constellation + deterministic core-loop showcase replaced the embedded live-LLM demo, which was unreliable) |
 | FR-PLAT-5 | S | Self-hosted `none`/`token` deployments (FR-OPS-5) SHALL keep working project-free: a single implicit project, no sign-up, no regression for the one-facilitator laptop posture. | S1/NFR-7: the platform grows outward without breaking the study-day core. | ✅ |
 
 ## FR-TPL - Study templates (paper-derived designs)

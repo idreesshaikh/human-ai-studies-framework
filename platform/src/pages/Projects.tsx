@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shell/EmptyState";
-import { useApi } from "@/lib/session";
+import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
 import { ROLE_LABELS } from "@/lib/capabilities.ts";
 import { ApiError } from "@/lib/api.ts";
@@ -14,6 +14,7 @@ import { ApiError } from "@/lib/api.ts";
 /* The project list, and the one place a project is created. */
 export function Projects() {
   const api = useApi();
+  const { refresh } = useSession();
   const { data, loading, error, reload } = useAsync(() => api.listProjects(), [api]);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -26,7 +27,11 @@ export function Projects() {
     try {
       await api.createProject(name);
       setName("");
+      // Refresh both the project list and `me` so the creator's owner
+      // membership on the new project resolves right away (role-gated controls
+      // depend on it).
       reload();
+      await refresh();
     } catch (e) {
       setCreateError(e instanceof ApiError ? e.message : "Could not create the project.");
     } finally {

@@ -280,7 +280,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [initClerk]);
 
   const mountSignIn = useCallback((el: HTMLDivElement) => {
-    clerkRef.current?.mountSignIn(el, { appearance: CLERK_APPEARANCE });
+    // Land a freshly-signed-in user on the projects page, not the public hero.
+    // Without an explicit target Clerk applies its default afterSignInUrl of
+    // "/" (the Hero), so the reload in the session listener just re-lands there.
+    clerkRef.current?.mountSignIn(el, {
+      appearance: CLERK_APPEARANCE,
+      fallbackRedirectUrl: "/home",
+      signInForceRedirectUrl: "/home",
+      afterSignInUrl: "/home",
+    });
   }, []);
 
   const signInWithToken = useCallback((token: string) => {

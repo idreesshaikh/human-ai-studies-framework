@@ -122,6 +122,15 @@ class Settings:
             Path(p) if (p := os.environ.get("MIDDLEWARE_MINING_CASSETTE")) else None
         )
     )
+    # Developer mode (default OFF): relaxes gates that block end-to-end testing
+    # of a fresh study — notably the ethics gate on minting enrollment tokens.
+    # NEVER set on an instance carrying real participant data: the ethics gate
+    # is a science invariant ("no data collection before approval"). Production
+    # leaves this unset, so the gate stands.
+    dev_mode: bool = field(
+        default_factory=lambda: os.environ.get("MIDDLEWARE_DEV_MODE", "").lower()
+        in ("1", "true", "yes", "on")
+    )
 
     @property
     def files_dir(self) -> Path:

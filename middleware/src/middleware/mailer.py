@@ -12,7 +12,9 @@ from __future__ import annotations
 import html
 import json
 import logging
+import urllib.error
 import urllib.request
+from email.utils import formataddr, parseaddr
 
 log = logging.getLogger("middleware.mailer")
 
@@ -47,6 +49,26 @@ def _body_html(project_name: str, role: str, accept_url: str) -> str:
     )
 
 
+def _from_and_reply(from_email: str, inviter: str) -> tuple[str, str | None]:
+    """Make the invite read as coming from the person who sent it, without
+    spoofing. The envelope address stays the verified sender (``from_email`` —
+    Resend only delivers from a domain you own; a colleague's own address can't
+    go here), but its display name becomes "<inviter> via PHOENIX", and if the
+    inviter's identity is an email we set Reply-To so a reply reaches them
+    directly. This is the standard "on behalf of" pattern (Slack/Notion invites
+    work the same way)."""
+    name, addr = parseaddr(from_email)
+    inviter = inviter.strip()
+    if not inviter or not addr:
+        return from_email, None
+    brand = name or "PHOENIX"
+    # If the inviter identity is itself an email, don't repeat it in the display
+    # name; use it as Reply-To so replies reach the real person.
+    reply_to = inviter if "@" in inviter and " " not in inviter else None
+    display = brand if reply_to else f"{inviter} via {brand}"
+    return formataddr((display, addr)), reply_to
+
+
 def send_invitation(
     *,
     api_key: str | None,
@@ -56,20 +78,38 @@ def send_invitation(
     role: str,
     token: str,
     base_url: str | None,
+    inviter: str = "",
     post=None,
-) -> bool:
-    """Email an invitation. Returns True if a send was attempted and accepted,
-    False if delivery is unconfigured or failed. Never raises — the caller's
-    invitation record stands regardless. ``post`` is injectable for tests."""
+) -> tuple[bool, str]:
+    """Email an invitation. Returns ``(sent, reason)`` — ``sent`` True if Resend
+    accepted the send, else False with a human-readable ``reason`` naming the
+    cause (unconfigured key, or the Resend error). Never raises — the caller's
+    invitation record stands regardless. ``post`` is injectable for tests.
+
+    ``inviter`` (the sender's name or email) personalises the From display name
+    and, when it's an email, the Reply-To — so the invite reads as coming from
+    the colleague who sent it while still being delivered from the verified
+    domain (see :func:`_from_and_reply`).
+
+    The reason exists because the most common real failure is a good key with an
+    unverified sender domain (Resend's shared ``onboarding@resend.dev`` only
+    delivers to the account owner). Swallowing that silently left researchers
+    with no idea why the email never arrived."""
     if not invite_enabled(api_key):
-        return False
+        return False, (
+            "Email delivery isn't configured (no RESEND_API_KEY) — "
+            "share the copy link instead."
+        )
     accept_url = _accept_url(token, base_url)
+    from_header, reply_to = _from_and_reply(from_email, inviter)
     payload = {
-        "from": from_email,
+        "from": from_header,
         "to": [to_email],
         "subject": f"You're invited to {project_name} on PHOENIX",
         "html": _body_html(project_name, role, accept_url),
     }
+    if reply_to:
+        payload["reply_to"] = reply_to
     sender = post or _post_json
     try:
         sender(
@@ -80,10 +120,34 @@ def send_invitation(
                 "Content-Type": "application/json",
             },
         )
-        return True
+        return True, "Sent."
+    except urllib.error.HTTPError as exc:
+        # Resend returns a JSON error body — surface its message; a 403/422 here
+        # is almost always "sender domain not verified" or a bad key.
+        detail = _resend_error_detail(exc)
+        reason = f"The email provider rejected the send ({exc.code}): {detail}"
+        log.warning("invitation email to %s not sent: %s", to_email, reason)
+        return False, reason
     except Exception as exc:  # noqa: BLE001 - best-effort; log once, never block
-        log.warning("invitation email to %s not sent: %s", to_email, exc)
-        return False
+        reason = f"Couldn't reach the email provider: {exc}"
+        log.warning("invitation email to %s not sent: %s", to_email, reason)
+        return False, reason
+
+
+def _resend_error_detail(exc: urllib.error.HTTPError) -> str:
+    """Pull Resend's ``message`` out of an HTTP error body, falling back to the
+    raw text (then the reason phrase) when it isn't the expected JSON shape."""
+    try:
+        raw = exc.read().decode("utf-8")
+    except Exception:  # noqa: BLE001 - diagnostics only, never mask the original
+        return exc.reason or "unknown error"
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return str(parsed.get("message") or parsed.get("error") or raw)
+    except Exception:  # noqa: BLE001 - non-JSON body
+        pass
+    return raw or (exc.reason or "unknown error")
 
 
 def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:

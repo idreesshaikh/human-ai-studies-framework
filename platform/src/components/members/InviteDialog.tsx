@@ -132,6 +132,11 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
                 </>
               )}
             </p>
+            {!invite.emailed && invite.emailReason && (
+              <p className="rounded-input border border-border bg-bg p-2 text-xs text-text-muted">
+                {invite.emailReason}
+              </p>
+            )}
             <div className="flex items-center gap-2 rounded-input border border-border bg-bg px-2 py-1.5">
               <Link2 className="size-4 shrink-0 text-text-muted" aria-hidden />
               <span className="truncate font-mono text-xs text-text">

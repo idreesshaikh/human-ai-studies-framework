@@ -16,6 +16,7 @@
  * "needs the running middleware" notice. Nothing load-bearing is cloud-owned. */
 
 import { getAuthToken, notifyUnauthorized } from "./api.ts";
+import { isDemoStudy } from "./demo.ts";
 import type { Recommendation } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
@@ -226,15 +227,59 @@ async function liveOrSeed<T>(run: () => Promise<T>, seed: T): Promise<T> {
   }
 }
 
+/** Study-scoped reads: only the seeded demo study shows sample data when
+ * offline. Every real study falls back to an honest *empty* value (it starts
+ * from scratch), and — unlike the demo — does NOT raise the "seeded sample
+ * data" banner, because empty is the truth, not a stand-in. */
+async function liveOrSeedStudy<T>(
+  study: string,
+  run: () => Promise<T>,
+  demoSeed: T,
+  empty: T,
+): Promise<T> {
+  try {
+    return await run();
+  } catch (e) {
+    if (e instanceof OfflineError) {
+      if (isDemoStudy(study)) {
+        notifySeeded();
+        return demoSeed;
+      }
+      return empty;
+    }
+    throw e;
+  }
+}
+
+export const EMPTY_LIFECYCLE: LifecycleDoc = {
+  currentPhase: "design",
+  phases: [
+    { name: "design", status: "current", gates: [] },
+    { name: "ethics", status: "upcoming", gates: [] },
+    { name: "pilot", status: "upcoming", gates: [] },
+    { name: "recruitment", status: "upcoming", gates: [] },
+    { name: "data-collection", status: "upcoming", gates: [] },
+    { name: "analysis", status: "upcoming", gates: [] },
+    { name: "write-up", status: "upcoming", gates: [] },
+  ],
+};
+
 const enc = encodeURIComponent;
 
 export const studyApi = {
   papers: (study: string) =>
-    liveOrSeed(() => req<Paper[]>(`/studies/${enc(study)}/papers`), SEED_PAPERS),
+    liveOrSeedStudy(
+      study,
+      () => req<Paper[]>(`/studies/${enc(study)}/papers`),
+      SEED_PAPERS,
+      [],
+    ),
   papersGraph: (study: string) =>
-    liveOrSeed(
+    liveOrSeedStudy(
+      study,
       () => req<PaperGraph>(`/studies/${enc(study)}/papers/graph`),
       seedGraph(study),
+      { studyId: study, nodes: [], edges: [] },
     ),
   ingestPaper: (study: string, id: { arxivId?: string; doi?: string }) =>
     post<{ paperRef: string; title: string; edges: number }>(
@@ -309,17 +354,21 @@ export const studyApi = {
       ...(model ? { model } : {}),
     }),
   dataset: (study: string) =>
-    liveOrSeed(
+    liveOrSeedStudy(
+      study,
       () =>
         req<{ studyId: string; rows: DatasetRow[] }>(
           `/studies/${enc(study)}/dataset`,
         ),
       { studyId: study, rows: SEED_METRICS },
+      { studyId: study, rows: [] },
     ),
   lifecycle: (study: string) =>
-    liveOrSeed(
+    liveOrSeedStudy(
+      study,
       () => req<LifecycleDoc>(`/studies/${enc(study)}/lifecycle`),
       SEED_LIFECYCLE,
+      EMPTY_LIFECYCLE,
     ),
   /** Attest that a gate's requirement is met, advancing the study a phase
    * (FR-DASH-2). Returns the recomputed lifecycle. */
@@ -347,17 +396,21 @@ export const studyApi = {
       SEED_PRESCRIPTIONS,
     ),
   status: (study: string) =>
-    liveOrSeed(
+    liveOrSeedStudy(
+      study,
       () =>
         req<{ sessions: SessionStatus[]; conditions: string[] }>(
           `/studies/${enc(study)}/status`,
         ),
       { sessions: SEED_SESSIONS, conditions: SEED_CONDITIONS },
+      { sessions: [], conditions: [] },
     ),
-  sessionEvents: (_studyId: string, sessionId: string) =>
-    liveOrSeed(
+  sessionEvents: (studyId: string, sessionId: string) =>
+    liveOrSeedStudy(
+      studyId,
       () => req<import("./timeline").EventRow[]>(`/sessions/${enc(sessionId)}/events`),
       SEED_SESSION_EVENTS,
+      [],
     ),
 };
 

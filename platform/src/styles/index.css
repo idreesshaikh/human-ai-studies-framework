@@ -246,3 +246,75 @@ body::before {
 .clerk-embed .cl-formButtonPrimary:disabled {
   opacity: 0.5 !important;
 }
+
+/* ---- Hero: the living literature constellation + core-loop showcase ----
+ * All timing is a motion token; every colour is a token (set in the SVG/JSX
+ * via var()). Under prefers-reduced-motion the global rule in tokens.css jumps
+ * each of these to its end frame, so the hero simply arrives already settled. */
+
+/* The constellation breathes: a slow, low-amplitude drift so the field feels
+ * alive without ever pulling the eye off the headline. */
+@keyframes constellation-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-1.2%, 1%, 0) scale(1.03);
+  }
+}
+.constellation-drift {
+  transform-origin: center;
+  animation: constellation-drift 26s var(--ease-in-out) infinite alternate;
+}
+
+/* A few nodes glow "grounded" — as if freshly cited — on staggered cycles. */
+@keyframes constellation-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+.constellation-glow {
+  animation: constellation-glow 5.5s var(--ease-in-out) infinite;
+}
+.constellation-glow.glow-2 {
+  animation-delay: 1.8s;
+}
+.constellation-glow.glow-3 {
+  animation-delay: 3.4s;
+}
+
+/* The one watchable move: a proposed design-move card settling into place —
+ * the same fold-into-draft gesture the real conversation spends (--motion-settle,
+ * --ease-key). */
+@keyframes hero-fold {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.hero-fold-in {
+  animation: hero-fold var(--motion-settle) var(--ease-key) both;
+}
+
+/* Grounding chips light after the move lands. */
+@keyframes hero-glow-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.hero-glow-in {
+  animation: hero-glow-in var(--motion-entrance) var(--ease-out) both;
+}
