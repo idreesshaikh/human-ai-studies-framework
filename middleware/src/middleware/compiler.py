@@ -90,6 +90,18 @@ def empty_sections() -> dict[str, list]:
     return {s: [] for s in SECTIONS}
 
 
+def _as_section_items(value: object) -> list[str]:
+    """A patch value as the string items it contributes to a section.
+
+    Every list-valued protocol section holds strings, but an LLM-proposed
+    move sometimes packs a list into one value ("Two conditions: A vs. B"
+    arriving as ``["A", "B"]``) or a bare number — flatten and stringify so
+    an accepted move lands as valid section entries instead of failing the
+    whole draft with a type error nobody can un-accept."""
+    items = value if isinstance(value, list) else [value]
+    return [i if isinstance(i, str) else str(i) for i in items if i is not None]
+
+
 def compile_sections(moves: list[dict]) -> dict[str, list]:
     """Fold accepted moves' patches into the section model. Pure and
     deterministic — the same moves always yield the same sections. Mirrors
@@ -106,12 +118,13 @@ def compile_sections(moves: list[dict]) -> dict[str, list]:
         if section not in sections:
             continue
         op = patch.get("op", "append")
-        value = patch.get("value")
+        items = _as_section_items(patch.get("value"))
         if op == "append":
-            if value not in sections[section]:
-                sections[section].append(value)
+            for item in items:
+                if item not in sections[section]:
+                    sections[section].append(item)
         elif op == "set":
-            sections[section] = [value]
+            sections[section] = items
     return sections
 
 

@@ -175,7 +175,32 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
         and patch.get("op") in ("append", "set")
         and "value" in patch
     ):
-        return patch
+        value = _normalize_value(patch["value"])
+        if value is None:
+            return None
+        return {"section": patch["section"], "op": patch["op"], "value": value}
+    return None
+
+
+def _normalize_value(value: object) -> str | list[str] | None:
+    """Coerce a section-patch value to what the sections actually hold.
+
+    Every list-valued protocol section holds strings; the model sometimes
+    sends a number, or packs several entries into one list ("Two
+    conditions: A vs. B" as ``["A", "B"]`` — the compiler flattens a list
+    into one entry per item). Anything that can't become clean strings
+    (a dict, an empty list) drops the patch."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    if isinstance(value, list):
+        items = [
+            v if isinstance(v, str) else str(v)
+            for v in value
+            if isinstance(v, (str, int, float, bool))
+        ]
+        return items or None
     return None
 
 

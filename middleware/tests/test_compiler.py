@@ -82,6 +82,33 @@ def test_last_instantiable_template_wins_over_a_broken_later_one():
     assert any("m-bad" in w for w in result.warnings)
 
 
+def test_list_valued_patch_flattens_into_string_entries():
+    """A move that packs several entries into one list value ("Two
+    conditions: A vs. B" arriving as ["A", "B"]) lands as one string entry
+    per item — appending the raw list made the compiled draft fail schema
+    validation (conditions.N is not of type 'string') with no way out."""
+    conditions = {
+        "moveId": "m-c",
+        "kind": "set-parameter",
+        "target": "conditions",
+        "proposal": "Two conditions.",
+        "patch": {
+            "section": "conditions",
+            "op": "append",
+            "value": ["AI-assisted", "Traditional resources"],
+        },
+        "grounding": [],
+        "status": "accepted",
+    }
+    result = compiler.compile_moves(
+        [_template_move("m-t", "two-group-rct-v1", {}), conditions]
+    )
+    assert result.valid, result.errors
+    assert "AI-assisted" in result.draft["conditions"]
+    assert "Traditional resources" in result.draft["conditions"]
+    assert all(isinstance(c, str) for c in result.draft["conditions"])
+
+
 def test_broken_template_before_a_working_one_stays_silent():
     """Last-wins semantics unchanged: when the newest accepted template move
     instantiates, earlier ones — broken or not — are simply superseded."""
