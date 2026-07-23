@@ -105,6 +105,10 @@ const CLERK_APPEARANCE = {
     headerTitle: "hidden",
     headerSubtitle: "hidden",
     footer: "bg-transparent",
+    /* Clerk sizes this to a viewport-fit budget for its usual modal/popover
+     * use case; in this full-page card it just clips a sliver off the top
+     * and bottom of the step content with no visible scrollbar cue. */
+    scrollBox: "!overflow-visible !max-h-none",
     footerActionLink: "text-accent hover:text-accent",
     socialButtonsBlockButton:
       "border border-border-strong bg-surface text-text shadow-brutal rounded-input font-mono text-sm font-medium normal-case hover:bg-accent-soft",
