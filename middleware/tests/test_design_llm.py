@@ -137,6 +137,29 @@ def test_propose_turn_validates_choose_template_patch():
     assert script.moves[0].refs == ("metr-rct-v1",)
 
 
+def test_propose_turn_drops_choose_template_with_hallucinated_id():
+    """A choose-template move naming a template the registry doesn't have is
+    dropped entirely — accepted, it would poison every future compile, and
+    patch-less it would be the "accepted but only noted" trap."""
+    reply = {
+        "text": "Adopt a template.",
+        "moves": [
+            {
+                "kind": "choose-template",
+                "target": "design",
+                "proposal": "Use a made-up template.",
+                "patch": {"templateId": "hallucinated-rct-2026"},
+                "refs": [],
+            }
+        ],
+    }
+    client = _fake_client(reply)
+    script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
+    assert script is not None
+    assert script.text == "Adopt a template."
+    assert script.moves == ()
+
+
 def test_propose_turn_returns_none_on_malformed_json():
     client = _fake_client("not json at all")
     assert design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES) is None

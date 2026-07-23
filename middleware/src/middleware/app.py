@@ -3918,6 +3918,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "valid": result.valid,
             "errors": result.errors,
             "unresolved": result.unresolved,
+            "warnings": result.warnings,
             "diff": result.diff,
             "yaml": result.yaml,
             "templateId": result.template_id,
