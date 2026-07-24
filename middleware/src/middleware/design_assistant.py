@@ -586,8 +586,27 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         for row in rows
     ]
     result = compiler.compile_moves(moves)
-    empty = list(result.unresolved)
-    filled = [sec for sec in compiler.SECTIONS if sec not in empty]
+    # Coverage mirrors the researcher-visible slot meter (the client draft
+    # model, ``platform/src/lib/compiler.ts``): a template fills only the
+    # ``design`` slot, an add/set-instrument move fills ``instruments``,
+    # every other section needs its own accepted append/set move. NOT
+    # ``result.unresolved`` — that reports ``[]`` once a template
+    # instantiates, which would tell the model every slot is filled while
+    # the researcher still sees empty ones.
+    sections = compiler.compile_sections(moves)
+    has_instrument = any(
+        m["status"] == "accepted"
+        and (m["patch"] or {}).get("op") in ("add-instrument", "set-instrument")
+        for m in moves
+    )
+    filled = [
+        sec
+        for sec in compiler.SECTIONS
+        if sections[sec]
+        or (sec == "design" and result.template_id is not None)
+        or (sec == "instruments" and has_instrument)
+    ]
+    empty = [sec for sec in compiler.SECTIONS if sec not in filled]
     buckets: dict[str, list[dict]] = {"accepted": [], "rejected": [], "proposed": []}
     key_texts: list[str] = []
     template_ids: list[str] = []

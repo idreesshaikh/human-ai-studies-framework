@@ -82,9 +82,15 @@ SYSTEM_PROMPT = (
     "carries a design-state block, use its coverage line to pick targets: "
     "prioritize moves for the EMPTY sections over adding more to already "
     "filled ones. The typical order once design and measures are set: "
-    "participants (population, sample size), then statisticalPlan — but when "
-    "an accepted template already prescribes the statistics, never propose a "
-    "standalone statisticalPlan move.\n\n"
+    "participants (population, sample size), then statisticalPlan. Even with "
+    "an accepted template the statisticalPlan section still needs its own "
+    "entries — propose moves that record or refine the template's prescribed "
+    "statistics, never ones that contradict them.\n\n"
+    "A `caution` is advisory and never fills a section (it carries no "
+    "patch). The ethics section is filled only by an append/set move with "
+    'section "ethics" (consent, data handling, privacy/withdrawal posture) '
+    "— when the researcher wants ethics covered, pair any caution with such "
+    "a move.\n\n"
     "REPETITION: NEVER re-propose a move the design state lists as accepted, "
     "rejected, or awaiting decision — nor a near-duplicate or rewording of "
     "one. An accepted move is already in the draft; a rejected one was "
@@ -165,14 +171,20 @@ def _design_state_block(state: dict | None) -> str:
         if not entries:
             lines.append("- (none)")
         for e in entries:
-            lines.append(f"- {e['kind']} [{e['section']}]: {_clip(e['proposal'])}")
+            caution = e["kind"] == "caution"
+            advisory = " (advisory — fills no section)" if caution else ""
+            lines.append(
+                f"- {e['kind']} [{e['section']}]{advisory}: {_clip(e['proposal'])}"
+            )
     filled = ", ".join(state.get("filled") or []) or "(none)"
     empty = ", ".join(state.get("empty") or []) or "(none)"
     lines.append(f"Draft coverage — filled: {filled}. Empty: {empty}.")
     if state.get("templateId"):
         lines.append(
-            f"Template {state['templateId']} is accepted; its statisticalPlan "
-            "is prescribed — do not propose a standalone statisticalPlan move."
+            f"Template {state['templateId']} is accepted and prescribes the "
+            "statistics — statisticalPlan moves should record or refine that "
+            "prescription (test, alpha, correction, exclusions), never "
+            "contradict it."
         )
     return "\n".join(lines)
 

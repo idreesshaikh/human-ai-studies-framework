@@ -290,8 +290,35 @@ def test_propose_turn_notes_the_accepted_templates_prescribed_statistics():
         client, "what next?", [], PAPERS, TEMPLATES, design_state=state
     )
     user = captured[0]["messages"][-1]["content"]
-    assert "Template metr-rct-v1 is accepted" in user
-    assert "do not propose a standalone statisticalPlan move" in user
+    assert "Template metr-rct-v1 is accepted and prescribes" in user
+    assert "record or refine that prescription" in user
+    # A template never closes the statisticalPlan section outright — the
+    # regression that made the assistant refuse statisticalPlan moves.
+    assert "do not propose a standalone statisticalPlan move" not in user
+
+
+def test_cautions_render_as_advisory_and_the_prompt_says_they_fill_nothing():
+    """A caution carries no patch: it must not read as draft content in the
+    state block, and the standing prompt must say how ethics actually gets
+    filled (the bug: two accepted ethics cautions, ethics slot still dark)."""
+    captured: list = []
+    client = _capturing_client({"text": "Noted.", "moves": []}, captured)
+    state = {
+        **DESIGN_STATE,
+        "accepted": [
+            {
+                "kind": "caution",
+                "section": "ethics",
+                "proposal": "Snapshots may capture personal data.",
+            }
+        ],
+    }
+    design_llm.propose_turn(
+        client, "what next?", [], PAPERS, TEMPLATES, design_state=state
+    )
+    user = captured[0]["messages"][-1]["content"]
+    assert "caution [ethics] (advisory — fills no section):" in user
+    assert 'append/set move with section "ethics"' in design_llm.SYSTEM_PROMPT
 
 
 def test_propose_turn_without_design_state_omits_the_block():

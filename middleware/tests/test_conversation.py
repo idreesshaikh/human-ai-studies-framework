@@ -420,3 +420,74 @@ def test_scripted_repeat_swaps_to_coverage_followup(client):
     assert second["moves"] == []
     assert "still empty" in second["text"]
     assert "participants" in second["text"]
+
+
+def _conversation_request(captured: list) -> str:
+    """The design-conversation user message among captured LLM request
+    bodies (the same client also serves matching's query-expansion call)."""
+    return next(
+        body["messages"][-1]["content"]
+        for body in captured
+        if "Candidate menu this turn:" in body["messages"][-1]["content"]
+    )
+
+
+def test_template_leaves_statistical_plan_and_ethics_open(client, monkeypatch):
+    """An accepted template fills only the design slot (mirroring the
+    researcher-visible meter) — statisticalPlan and ethics stay listed as
+    empty, and the state invites recording the template's prescription
+    instead of forbidding statisticalPlan moves. An accepted ethics
+    append/set move then flips ethics to filled."""
+    template_move = {
+        "kind": "choose-template",
+        "target": "design",
+        "proposal": "Adopt the METR paired-RCT design.",
+        "patch": {"templateId": "metr-rct-v1", "parameters": {}},
+        "refs": [],
+    }
+    reply = {"text": "A design.", "moves": [template_move]}
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
+    turn = _ask(client, "let's run a paired RCT design like the METR study")
+    assert turn["moves"], "the choose-template move must survive"
+    _accept(client, turn["moves"][0]["moveId"])
+
+    captured: list = []
+    ethics_move = {
+        "kind": "set-parameter",
+        "target": "ethics",
+        "proposal": "Consent covers behavioral capture; aggregates only.",
+        "patch": {
+            "section": "ethics",
+            "op": "append",
+            "value": "Consent covers behavioral capture; aggregates only",
+        },
+        "refs": [],
+    }
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: _capturing_llm(
+            {"text": "An ethics posture.", "moves": [ethics_move]}, captured
+        ),
+    )
+    turn2 = _ask(client, "what about the ethics posture?")
+    user = _conversation_request(captured)
+    filled_part = user.split("Draft coverage — filled:")[-1].split("Empty:")[0]
+    empty_part = user.split("Empty:")[-1]
+    assert "design" in filled_part
+    assert "statisticalPlan" in empty_part
+    assert "ethics" in empty_part
+    assert "record or refine that prescription" in user
+    assert "do not propose a standalone statisticalPlan move" not in user
+
+    _accept(client, turn2["moves"][0]["moveId"])
+    captured.clear()
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: _capturing_llm({"text": "Noted.", "moves": []}, captured),
+    )
+    _ask(client, "what next?")
+    user = _conversation_request(captured)
+    filled_part = user.split("Draft coverage — filled:")[-1].split("Empty:")[0]
+    assert "ethics" in filled_part
