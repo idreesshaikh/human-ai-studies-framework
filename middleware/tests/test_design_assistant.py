@@ -43,7 +43,7 @@ def _mv(kind: str, proposal: str, patch: dict | None = None) -> ScriptedMove:
     )
 
 
-def _state(key_texts=(), template_ids=()) -> dict:
+def _state(key_texts=(), template_ids=(), advisory_texts=()) -> dict:
     return {
         "accepted": [],
         "rejected": [],
@@ -53,6 +53,7 @@ def _state(key_texts=(), template_ids=()) -> dict:
         "templateId": None,
         "templateIds": list(template_ids),
         "keyTexts": list(key_texts),
+        "advisoryTexts": list(advisory_texts),
     }
 
 
@@ -100,3 +101,36 @@ def test_filter_is_a_no_op_without_state():
     """The stateless demo path (no study, no stored moves) is untouched."""
     moves = (_mv("add-measure", "Measure review latency."),)
     assert _filter_repeated_moves(moves, None) is moves
+
+
+def test_caution_never_blocks_the_section_move_that_addresses_it():
+    """Regression: an accepted ethics caution's wording must not stop the
+    ethics posture from ever being proposed — the section move that
+    addresses a caution naturally restates it, and cautions fill nothing."""
+    caution = "Workspace snapshots may include personal or sensitive data."
+    move = _mv(
+        "set-parameter",
+        "Add an ethics posture: workspace snapshots may include personal "
+        "data, so consent must cover snapshot content.",
+        {
+            "section": "ethics",
+            "op": "append",
+            "value": "Consent covers snapshot content; personal data included",
+        },
+    )
+    state = _state(advisory_texts=[caution])
+    assert _filter_repeated_moves((move,), state) == (move,)
+
+
+def test_a_repeated_caution_is_still_dropped():
+    """Caution-vs-caution (and caution-vs-content) repetition stays
+    suppressed — only the advisory→content direction is exempt."""
+    caution = "Workspace snapshots may include personal or sensitive data."
+    echo = _mv(
+        "caution",
+        "Careful: workspace snapshots may include personal or sensitive data.",
+    )
+    assert _filter_repeated_moves((echo,), _state(advisory_texts=[caution])) == ()
+    content_echo = _mv("caution", "Measure review latency (time before accept).")
+    state = _state(key_texts=["Measure review latency (time before accept)."])
+    assert _filter_repeated_moves((content_echo,), state) == ()

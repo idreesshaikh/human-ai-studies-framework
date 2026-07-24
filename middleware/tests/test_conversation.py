@@ -491,3 +491,40 @@ def test_template_leaves_statistical_plan_and_ethics_open(client, monkeypatch):
     user = _conversation_request(captured)
     filled_part = user.split("Draft coverage — filled:")[-1].split("Empty:")[0]
     assert "ethics" in filled_part
+
+
+def test_accepted_ethics_caution_does_not_block_the_ethics_move(client, monkeypatch):
+    """Regression: after accepting an ethics caution, the pairing ethics
+    append/set move (which restates the caution's concern, as the prompt
+    asks) must still reach the researcher — not be dropped as a repeat."""
+    caution_move = {
+        "kind": "caution",
+        "target": "ethics",
+        "proposal": "Workspace snapshots may include personal or sensitive data.",
+        "patch": None,
+        "refs": [],
+    }
+    reply = {"text": "One caution.", "moves": [caution_move]}
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
+    turn = _ask(client, "we'll capture workspace snapshots")
+    _accept(client, turn["moves"][0]["moveId"])
+
+    ethics_move = {
+        "kind": "set-parameter",
+        "target": "ethics",
+        "proposal": (
+            "Add an ethics posture: workspace snapshots may include personal "
+            "data, so consent must cover snapshot content."
+        ),
+        "patch": {
+            "section": "ethics",
+            "op": "append",
+            "value": "Consent covers snapshot content; personal data included",
+        },
+        "refs": [],
+    }
+    reply2 = {"text": "The posture.", "moves": [ethics_move]}
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply2))
+    turn2 = _ask(client, "cover that in the ethics posture")
+    assert turn2["source"] == "llm"
+    assert [m["kind"] for m in turn2["moves"]] == ["set-parameter"]

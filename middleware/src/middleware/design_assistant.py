@@ -539,10 +539,20 @@ def _filter_repeated_moves(
     still on the table — re-pitching any of them is repetition). The guard
     runs regardless of source, so repetition is suppressed even when the
     LLM ignores its instructions. ``state is None`` (stateless demo, no
-    study) is a no-op."""
+    study) is a no-op.
+
+    A content move (one carrying a patch) is compared only against prior
+    *content* moves — never against patch-less cautions. A caution fills
+    no section, and the section move that addresses a caution's concern
+    naturally restates its wording; treating that as repetition would
+    permanently block the section (an accepted ethics caution must not
+    stop the ethics posture from ever being proposed). A new caution is
+    compared against both pools — echoing either an existing caution or
+    existing draft content is still repetition."""
     if state is None:
         return moves
-    prior = state.get("keyTexts") or []
+    content = state.get("keyTexts") or []
+    advisory = state.get("advisoryTexts") or []
     template_ids = set(state.get("templateIds") or [])
     kept = []
     for sm in moves:
@@ -552,6 +562,7 @@ def _filter_repeated_moves(
                 continue
         else:
             key = _move_key_text(sm.proposal, sm.patch)
+            prior = content if sm.patch else [*content, *advisory]
             if any(_is_near_duplicate(key, p) for p in prior):
                 continue
         kept.append(sm)
@@ -609,6 +620,7 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
     empty = [sec for sec in compiler.SECTIONS if sec not in filled]
     buckets: dict[str, list[dict]] = {"accepted": [], "rejected": [], "proposed": []}
     key_texts: list[str] = []
+    advisory_texts: list[str] = []
     template_ids: list[str] = []
     for m in moves:
         patch = m["patch"] or {}
@@ -619,7 +631,12 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
                 template_ids.append(tid)
         else:
             section = patch.get("section") or (m["target"] or "").split(".")[0]
-        key_texts.append(_move_key_text(m["proposal"], m["patch"]))
+        # Two dedup pools: content moves (carry a patch — they fill draft
+        # sections) vs advisory ones (patch-less cautions). Kept apart so a
+        # section move addressing a caution's concern is never mistaken for
+        # a repeat of it (see _filter_repeated_moves).
+        key = _move_key_text(m["proposal"], m["patch"])
+        (key_texts if m["patch"] else advisory_texts).append(key)
         bucket = buckets.get(m["status"])
         if bucket is not None and len(bucket) < _STATE_MOVE_CAP:
             bucket.append(
@@ -632,6 +649,7 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         "templateId": result.template_id,
         "templateIds": template_ids,
         "keyTexts": key_texts,
+        "advisoryTexts": advisory_texts,
     }
 
 
