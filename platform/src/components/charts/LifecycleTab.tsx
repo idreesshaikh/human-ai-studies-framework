@@ -119,7 +119,7 @@ export function LifecycleTab({
                   {p.status === "complete" ? (
                     <Check className="size-3.5" aria-hidden />
                   ) : (
-                    <Circle className="size-2 fill-current" aria-hidden />
+                    <Circle className="size-2.5 fill-current" aria-hidden />
                   )}
                 </span>
                 {!isLast && (
