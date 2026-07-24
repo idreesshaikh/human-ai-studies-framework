@@ -30,18 +30,29 @@ export function ProjectHome() {
   // Two-step confirm for study deletion: first click arms, second deletes.
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  // Studies mid-exit-animation — kept out of the render so the card fades out
+  // before the reload removes it for real.
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
 
-  const mine = (me?.memberships.find((m) => m.projectSlug === slug)?.role ??
-    "viewer") as Role;
+  // The caller's role. Prefer the freshly-loaded project payload (its members
+  // carry the real role) over the session's `me`, which can be stale for a
+  // project joined/created this session — a stale "viewer" would wrongly hide
+  // the owner-only delete control (the "delete doesn't work" symptom).
+  const mine: Role =
+    data?.members.find((m) => m.identitySub === me?.sub)?.role ??
+    me?.memberships.find((m) => m.projectSlug === slug)?.role ??
+    "viewer";
 
   const removeStudy = async (studyId: string) => {
     setDeleting(studyId);
     try {
       await api.deleteStudy(studyId);
       setConfirmDelete(null);
-      reload();
+      // Play the exit animation, then reload so the row is gone for real.
+      setRemoved((prev) => new Set(prev).add(studyId));
+      setTimeout(() => reload(), 200);
     } catch {
-      // Leave the row; the reload below (or a retry) reflects the real state.
+      // Leave the row; a retry reflects the real state.
     } finally {
       setDeleting(null);
     }
@@ -104,7 +115,11 @@ export function ProjectHome() {
             {data.studies.map((st) => (
               <Card
                 key={st.id}
-                className="group relative transition-colors duration-fast hover:border-accent"
+                className={cn(
+                  "group relative transition-all duration-standard hover:border-accent",
+                  removed.has(st.id) &&
+                    "pointer-events-none scale-95 opacity-0",
+                )}
               >
                 <Link to={`/p/${slug}/studies/${st.id}`} className="block">
                   <CardContent className="flex items-center justify-between gap-2 p-4">

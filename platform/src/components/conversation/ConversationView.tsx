@@ -58,8 +58,10 @@ export function ConversationView({
   const [applied, setApplied] = useState(false);
   const [showFinish, setShowFinish] = useState(false);
   const [showDraft, setShowDraft] = useState(false);
-  // Right rail toggles between the surfaced literature and the protocol draft.
-  const [rail, setRail] = useState<"papers" | "draft">("papers");
+  // Right rail toggles between the protocol draft (primary) and the surfaced
+  // literature (secondary). The draft is the study's document of record, so it
+  // leads; the recommender is one toggle away.
+  const [rail, setRail] = useState<"papers" | "draft">("draft");
   const threadEnd = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
 
@@ -258,7 +260,7 @@ export function ConversationView({
   return (
     <div
       data-agent="conversation"
-      className="grid h-full grid-cols-1 lg:grid-cols-[1fr_380px]"
+      className="grid h-full grid-cols-1 lg:grid-cols-[1fr_440px]"
     >
       <section className="flex h-full min-h-0 flex-col">
         <div className="min-h-0 flex-1 space-y-6 overflow-auto p-4 sm:p-6">
@@ -359,8 +361,8 @@ export function ConversationView({
             onChange={setRail}
             aria-label="Right panel: literature or protocol draft"
             options={[
-              { value: "papers", label: "Literature" },
               { value: "draft", label: "Protocol draft" },
+              { value: "papers", label: "Literature" },
             ]}
           />
         </div>
