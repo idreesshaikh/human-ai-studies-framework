@@ -139,3 +139,13 @@ def test_corpus_search_path_returns_confidence_ranked_hits(session):
     # Confidence rides on every hit (the continuous quality signal, FR-LIT-8).
     assert all("confidence" in r for r in results)
     assert matching.get_paper_metadata(session, "arxiv:9999.99999") is None
+
+
+def test_query_expansion_degrades_to_raw_query_without_a_key(monkeypatch):
+    """Semantic expansion (FR-LIT-9) is best-effort: with no LLM key it returns
+    the query unchanged, so keyword FTS stays the floor (NFR-4)."""
+    from middleware import assistant
+
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: None)
+    q = "will AI make developers lazy"
+    assert matching.expand_query(q) == q

@@ -216,6 +216,56 @@ def rerank_with_llm(query: str, candidates: list[dict]) -> list[dict] | None:
     return ranked or None
 
 
+# --------------------------------------------------- semantic query expansion
+
+#: In-process cache of query → expanded search text so a repeated or lightly
+#: edited conversation query doesn't re-hit the LLM. Cleared on restart.
+_EXPANSION_CACHE: dict[str, str] = {}
+_EXPANSION_MAX = 512
+
+
+def expand_query(query: str) -> str:
+    """Bridge vocabulary gaps for keyword FTS by asking the LLM for the
+    concepts and synonyms a paper on this topic might use — the *semantic
+    meaning* layer over the inverted index. The corpus is ~99% title-only, so
+    embeddings would be premature (they need abstracts, D4); this gives
+    semantic reach now. Cached and degrading: no key or any failure returns the
+    query unchanged, so FTS-only behaviour is always the floor (NFR-4)."""
+    q = query.strip()
+    if not q:
+        return q
+    if q in _EXPANSION_CACHE:
+        return _EXPANSION_CACHE[q]
+    from middleware import assistant
+
+    client = assistant.make_client()
+    if client is None:
+        return q
+    prompt = (
+        "A researcher described a study idea. List 6-10 concise search keywords "
+        "and close synonyms a paper on this topic might use — comma-separated, "
+        "no explanation.\n\nIdea: " + q
+    )
+    try:
+        res = client.post(
+            client.base_url,
+            {
+                "model": client.model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 120,
+            },
+            {"Authorization": f"Bearer {client.api_key}"},
+        )
+        msg = (res.get("choices") or [{}])[0].get("message", {})
+        extra = msg.get("content", "") or ""
+        expanded = (q + " " + extra.replace("\n", " ")).strip()[:_EXPANSION_MAX]
+    except Exception as exc:  # noqa: BLE001 - degrade to the raw query
+        log.warning("query expansion unavailable, using raw query: %s", exc)
+        expanded = q
+    _EXPANSION_CACHE[q] = expanded
+    return expanded
+
+
 # ------------------------------------------------------- the full ladder
 
 
@@ -232,9 +282,13 @@ def match_papers(
     Each: ``{ref, title, year, venue, inStudy, confidence, matchReason}``. The
     paper's provenance (A/B) or 'study' when it is already in ``study_id``'s
     paper set - the card renders the badge always-visible."""
+    # Semantic reach: expand the query with related concepts/synonyms so FTS
+    # surfaces papers phrased differently (degrades to the raw query with no
+    # key). Match *reasons* still key on the researcher's own words.
+    search_query = expand_query(query)
     query_terms = _terms(query)
-    fts = search_by_fts(s, query, limit=limit * 2)
-    graph = search_by_connectivity(s, query, limit=limit * 2)
+    fts = search_by_fts(s, search_query, limit=limit * 2)
+    graph = search_by_connectivity(s, search_query, limit=limit * 2)
     combined: list[dict] = []
     seen: set[str] = set()
     for candidate in [*fts, *graph]:
