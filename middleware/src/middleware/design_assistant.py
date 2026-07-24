@@ -419,6 +419,22 @@ def _pick_script(text: str) -> Script:
     return _FOLLOWUP
 
 
+def _template_source_refs(template_id: str | None) -> tuple[str, ...]:
+    """The paper refs a template cites as its design's sources (FR-TPL) — used
+    to ground a choose-template move. Empty on any lookup failure (degrade)."""
+    if not template_id:
+        return ()
+    try:
+        from middleware import template_registry
+
+        tpl = template_registry.load_template(template_id)
+        return tuple(
+            src["paperRef"] for src in tpl.get("source", []) if src.get("paperRef")
+        )
+    except Exception:  # noqa: BLE001 - a missing/invalid template just = no grounding
+        return ()
+
+
 def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
     """Build grounding from corpus rows only — cite-what-you-retrieved. A ref
     that doesn't resolve is silently dropped (the move degrades to unsourced),
@@ -510,6 +526,12 @@ def respond(
     moves = []
     for i, sm in enumerate(script.moves):
         grounding = _resolve_grounding(s, sm.refs)
+        # A choose-template move is grounded by the papers that established its
+        # design — attach them so a template choice is never "unsourced" (the
+        # template encodes those papers' design; they are its references).
+        if sm.kind == "choose-template" and not grounding and sm.patch:
+            tid = sm.patch.get("templateId")
+            grounding = _resolve_grounding(s, _template_source_refs(tid))
         retrieved.update(g["ref"] for g in grounding)
         moves.append(
             {
