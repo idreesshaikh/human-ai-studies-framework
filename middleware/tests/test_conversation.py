@@ -332,3 +332,91 @@ def test_no_llm_key_configured_is_unaffected_by_the_new_seam(client):
     confirms the common case is untouched by this change."""
     turn = _ask(client, "I think junior developers over-trust AI-generated code")
     assert turn["source"] == "scripted"
+
+
+# ------------------------------------------- repetition + coverage steering
+
+
+_LATENCY_MOVE = {
+    "kind": "add-measure",
+    "target": "measures[]",
+    "proposal": "Measure review latency.",
+    "patch": {"section": "measures", "op": "append", "value": "Review latency"},
+    "refs": ["corpus:trust-in-ai-code-generation"],
+}
+_CONDITIONS_MOVE = {
+    "kind": "set-parameter",
+    "target": "conditions",
+    "proposal": "Run a three-arm condition split.",
+    "patch": {"section": "conditions", "op": "set", "value": "three arms"},
+    "refs": [],
+}
+
+
+def _capturing_llm(reply_json: dict, captured: list):
+    """A ``_fake_llm`` that also records every request body sent."""
+
+    def post(url, body, headers):
+        captured.append(body)
+        return {"choices": [{"message": {"content": json.dumps(reply_json)}}]}
+
+    return assistant.MistralProvider("test-key", post=post)
+
+
+def test_accepted_move_is_not_reproposed(client, monkeypatch):
+    """Server-side guard: even an LLM that ignores its instructions and
+    re-emits an accepted move verbatim never repeats it to the researcher."""
+    reply = {"text": "A grounded measure.", "moves": [_LATENCY_MOVE]}
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
+    turn = _ask(client, "junior developers over-trust AI code")
+    assert len(turn["moves"]) == 1
+    _accept(client, turn["moves"][0]["moveId"])
+    again = _ask(client, "what should we measure?")
+    assert again["source"] == "llm"
+    assert again["moves"] == []
+
+
+def test_design_state_reaches_the_llm(client, monkeypatch):
+    """The second turn's request carries the structured design state: the
+    accepted and rejected moves by name, and the still-empty sections."""
+    reply = {
+        "text": "Two moves.",
+        "moves": [_LATENCY_MOVE, _CONDITIONS_MOVE],
+    }
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
+    turn = _ask(client, "junior developers over-trust AI code")
+    _accept(client, turn["moves"][0]["moveId"])
+    _accept(client, turn["moves"][1]["moveId"], status="rejected")
+
+    captured: list = []
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: _capturing_llm({"text": "Noted.", "moves": []}, captured),
+    )
+    _ask(client, "what next?")
+    # The client also serves matching's query-expansion call — pick the
+    # design-conversation request (the one carrying the candidate menu).
+    user = next(
+        body["messages"][-1]["content"]
+        for body in captured
+        if "Candidate menu this turn:" in body["messages"][-1]["content"]
+    )
+    assert "Design state so far:" in user
+    assert "Accepted (already in the draft — do not re-propose):" in user
+    assert "Measure review latency." in user
+    assert "Rejected (the researcher said no — do not re-pitch):" in user
+    assert "Run a three-arm condition split." in user
+    assert "participants" in user.split("Empty:")[-1]
+
+
+def test_scripted_repeat_swaps_to_coverage_followup(client):
+    """No LLM key: repeating a prompt doesn't re-run the same script — the
+    second reply proposes nothing and names the draft's actual gaps."""
+    first = _ask(client, "I think junior developers over-trust AI-generated code")
+    assert first["moves"], "the over-trust script must propose moves"
+    second = _ask(client, "I think junior developers over-trust AI-generated code")
+    assert second["source"] == "scripted"
+    assert second["moves"] == []
+    assert "still empty" in second["text"]
+    assert "participants" in second["text"]

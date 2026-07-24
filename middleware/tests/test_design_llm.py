@@ -226,3 +226,80 @@ def test_propose_turn_accepts_text_only_reply_with_no_moves():
     script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
     assert script is not None
     assert script.moves == ()
+
+
+# ------------------------------------------------ design state (repetition +
+# coverage steering): the structured block the prose history can't carry.
+
+
+def _capturing_client(content: dict, captured: list):
+    """Like ``_fake_client`` but records every request body sent."""
+
+    def post(url, body, headers):
+        captured.append(body)
+        return {"choices": [{"message": {"content": json.dumps(content)}}]}
+
+    return assistant.MistralProvider("test-key", post=post)
+
+
+DESIGN_STATE = {
+    "accepted": [
+        {
+            "kind": "add-measure",
+            "section": "measures",
+            "proposal": "Measure review latency.",
+        }
+    ],
+    "rejected": [
+        {
+            "kind": "set-parameter",
+            "section": "conditions",
+            "proposal": "Run a three-arm condition split.",
+        }
+    ],
+    "proposed": [],
+    "filled": ["researchQuestions", "measures"],
+    "empty": ["participants", "statisticalPlan"],
+    "templateId": None,
+    "templateIds": [],
+    "keyTexts": ["Measure review latency.", "Run a three-arm condition split."],
+}
+
+
+def test_propose_turn_threads_design_state_into_the_request():
+    captured: list = []
+    client = _capturing_client({"text": "Noted.", "moves": []}, captured)
+    script = design_llm.propose_turn(
+        client, "what next?", [], PAPERS, TEMPLATES, design_state=DESIGN_STATE
+    )
+    assert script is not None
+    user = captured[0]["messages"][-1]["content"]
+    assert "Design state so far:" in user
+    assert "Measure review latency." in user  # accepted — do not re-propose
+    assert "Run a three-arm condition split." in user  # rejected — do not re-pitch
+    assert "Empty: participants, statisticalPlan" in user
+    system = captured[0]["messages"][0]["content"]
+    assert "NEVER re-propose" in system  # the anti-repetition rule is standing
+
+
+def test_propose_turn_notes_the_accepted_templates_prescribed_statistics():
+    captured: list = []
+    client = _capturing_client({"text": "Noted.", "moves": []}, captured)
+    state = {**DESIGN_STATE, "templateId": "metr-rct-v1", "empty": []}
+    design_llm.propose_turn(
+        client, "what next?", [], PAPERS, TEMPLATES, design_state=state
+    )
+    user = captured[0]["messages"][-1]["content"]
+    assert "Template metr-rct-v1 is accepted" in user
+    assert "do not propose a standalone statisticalPlan move" in user
+
+
+def test_propose_turn_without_design_state_omits_the_block():
+    """Backward compatible: no state (stateless demo, first turn) — the
+    request looks exactly like before."""
+    captured: list = []
+    client = _capturing_client({"text": "Noted.", "moves": []}, captured)
+    design_llm.propose_turn(client, "what next?", [], PAPERS, TEMPLATES)
+    assert all(
+        "Design state so far" not in m["content"] for m in captured[0]["messages"]
+    )

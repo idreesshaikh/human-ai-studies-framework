@@ -18,20 +18,34 @@ labeled unsourced; the grep-the-output test (F2.1) asserts exactly this.
 
 from __future__ import annotations
 
+import difflib
 from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from middleware import matching
-from middleware.db import ConversationTurn
+from middleware import compiler, matching
+from middleware.db import ConversationTurn, DesignMoveRow
 from middleware.template_registry import list_templates
 
 #: How many prior turns to feed the LLM as history (token-budget cap;
 #: FR-CONV-1.4). A generous-enough window for a design conversation
 #: without unbounded growth per turn.
 _LLM_HISTORY_TURNS = 20
+
+#: How many moves per status bucket the design state carries into the LLM
+#: prompt (token budget — dedup still sees every move via ``keyTexts``).
+_STATE_MOVE_CAP = 30
+
+#: Near-duplicate thresholds (tunable): two moves are the same move when
+#: their content terms overlap this much (denominator: the smaller term
+#: set, so a short prior move can't swallow a longer distinct one) or
+#: their full texts are this similar. The term-overlap test only fires
+#: with enough terms to be meaningful; short texts rely on the ratio.
+_DUP_TOKEN_OVERLAP = 0.8
+_DUP_SEQ_RATIO = 0.85
+_DUP_MIN_TERMS = 3
 
 
 #: Design-intent signal shared with :func:`_pick_script`'s scripted-fallback
@@ -385,14 +399,30 @@ def _threshold_script() -> Script:
     )
 
 
-_FOLLOWUP = Script(
-    text=(
-        "Tell me more so I can ground a move. What's the population, and is "
-        "this live-instrumented or curated data? Right now these slots are "
-        "still empty: participants, conditions, ethics posture."
-    ),
-    moves=(),
-)
+def _followup_script(empty: list[str] | None = None) -> Script:
+    """The no-move follow-up: ask for more, naming the draft's actual empty
+    sections when known (``None`` = no design state, keep the generic
+    wording; ``[]`` = everything is covered, say so instead of inventing
+    gaps)."""
+    if empty is None:
+        slot_line = (
+            "Right now these slots are still empty: participants, "
+            "conditions, ethics posture."
+        )
+    elif empty:
+        slot_line = f"Right now these slots are still empty: {', '.join(empty)}."
+    else:
+        slot_line = (
+            "Every mandatory section is covered — review the draft, or tell "
+            "me what to refine."
+        )
+    return Script(
+        text=(
+            "Tell me more so I can ground a move. What's the population, and "
+            f"is this live-instrumented or curated data? {slot_line}"
+        ),
+        moves=(),
+    )
 
 
 def _pick_script(text: str) -> Script:
@@ -416,7 +446,7 @@ def _pick_script(text: str) -> Script:
         return _design_script()
     if any(w in q for w in ("benchmark", "humaneval", "pass@")):
         return _benchmark_script()
-    return _FOLLOWUP
+    return _followup_script()
 
 
 def _template_source_refs(template_id: str | None) -> tuple[str, ...]:
@@ -480,6 +510,112 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
     ]
 
 
+def _move_key_text(proposal: str, patch: dict | None) -> str:
+    """The semantic payload of a move for near-duplicate comparison: its
+    proposal sentence plus the patch value it would write (a re-worded
+    proposal carrying the same value is still the same move)."""
+    value = (patch or {}).get("value", "")
+    if isinstance(value, list):
+        value = " ".join(str(v) for v in value)
+    return f"{proposal} {value}".strip()
+
+
+def _is_near_duplicate(a: str, b: str) -> bool:
+    ta, tb = set(matching._terms(a)), set(matching._terms(b))
+    smaller = min(len(ta), len(tb))
+    if smaller >= _DUP_MIN_TERMS:
+        if len(ta & tb) / smaller >= _DUP_TOKEN_OVERLAP:
+            return True
+    return difflib.SequenceMatcher(None, a.lower(), b.lower()).ratio() >= (
+        _DUP_SEQ_RATIO
+    )
+
+
+def _filter_repeated_moves(
+    moves: tuple[ScriptedMove, ...], state: dict | None
+) -> tuple[ScriptedMove, ...]:
+    """Drop moves the conversation has already seen (FR-CONV: an accepted
+    move is in the draft, a rejected one was declined, an undecided one is
+    still on the table — re-pitching any of them is repetition). The guard
+    runs regardless of source, so repetition is suppressed even when the
+    LLM ignores its instructions. ``state is None`` (stateless demo, no
+    study) is a no-op."""
+    if state is None:
+        return moves
+    prior = state.get("keyTexts") or []
+    template_ids = set(state.get("templateIds") or [])
+    kept = []
+    for sm in moves:
+        if sm.kind == "choose-template":
+            tid = (sm.patch or {}).get("templateId")
+            if tid and tid in template_ids:
+                continue
+        else:
+            key = _move_key_text(sm.proposal, sm.patch)
+            if any(_is_near_duplicate(key, p) for p in prior):
+                continue
+        kept.append(sm)
+    return tuple(kept)
+
+
+def _load_design_state(s: Session, study_id: str | None) -> dict | None:
+    """The structured design state the prose history can't carry: every
+    prior move bucketed by decision status, the draft's filled/empty
+    sections (computed deterministically via :func:`compiler.compile_moves`
+    — no LLM), and the accepted template if any. ``None`` when there's no
+    study or no moves yet — the stateless demo path stays stateless."""
+    if study_id is None:
+        return None
+    rows = s.scalars(
+        select(DesignMoveRow)
+        .where(DesignMoveRow.study_id == study_id)
+        .order_by(DesignMoveRow.id)
+    ).all()
+    if not rows:
+        return None
+    moves = [
+        {
+            "moveId": row.id,
+            "kind": row.kind,
+            "target": row.target,
+            "proposal": row.proposal,
+            "patch": row.patch,
+            "grounding": row.grounding,
+            "status": row.status,
+        }
+        for row in rows
+    ]
+    result = compiler.compile_moves(moves)
+    empty = list(result.unresolved)
+    filled = [sec for sec in compiler.SECTIONS if sec not in empty]
+    buckets: dict[str, list[dict]] = {"accepted": [], "rejected": [], "proposed": []}
+    key_texts: list[str] = []
+    template_ids: list[str] = []
+    for m in moves:
+        patch = m["patch"] or {}
+        if m["kind"] == "choose-template":
+            section = "design"
+            tid = patch.get("templateId")
+            if tid:
+                template_ids.append(tid)
+        else:
+            section = patch.get("section") or (m["target"] or "").split(".")[0]
+        key_texts.append(_move_key_text(m["proposal"], m["patch"]))
+        bucket = buckets.get(m["status"])
+        if bucket is not None and len(bucket) < _STATE_MOVE_CAP:
+            bucket.append(
+                {"kind": m["kind"], "section": section, "proposal": m["proposal"]}
+            )
+    return {
+        **buckets,
+        "filled": filled,
+        "empty": empty,
+        "templateId": result.template_id,
+        "templateIds": template_ids,
+        "keyTexts": key_texts,
+    }
+
+
 def respond(
     s: Session,
     text: str,
@@ -504,6 +640,7 @@ def respond(
     script = None
     source = "scripted"
     llm_recommendations: list[dict] | None = None
+    state = _load_design_state(s, study_id)
     if client is not None:
         papers = matching.match_papers(
             s, text, study_id=study_id, limit=8, use_llm=False
@@ -515,12 +652,22 @@ def respond(
             history = _load_history(s, study_id)
         from middleware import design_llm  # deferred: breaks the import cycle
 
-        script = design_llm.propose_turn(client, text, history, papers, templates)
+        script = design_llm.propose_turn(
+            client, text, history, papers, templates, design_state=state
+        )
         if script is not None:
             source = "llm"
             llm_recommendations = papers
     if script is None:
         script = _pick_script(text)
+    kept = _filter_repeated_moves(script.moves, state)
+    if kept != script.moves:
+        if not kept and source == "scripted":
+            # The whole scripted reply was a repeat — steer at the actual
+            # gaps instead of re-running the same script verbatim.
+            script = _followup_script(state["empty"] if state else None)
+        else:
+            script = Script(script.text, kept, script.match_query)
     retrieved: set[str] = set()
 
     moves = []
