@@ -76,6 +76,10 @@ class CompileResult:
     valid: bool
     errors: list[str] = field(default_factory=list)
     unresolved: list[str] = field(default_factory=list)
+    #: Non-blocking honesty notes — e.g. a template move whose hallucinated
+    #: parameters were ignored, or a broken later template move that was
+    #: skipped in favour of an earlier working one. Never silent (F1.3).
+    warnings: list[str] = field(default_factory=list)
     template_id: str | None = None
     template_version: int | None = None
     #: Per-move grounding trace, in application order (F6.1 chain, F2.3).
@@ -84,6 +88,18 @@ class CompileResult:
 
 def empty_sections() -> dict[str, list]:
     return {s: [] for s in SECTIONS}
+
+
+def _as_section_items(value: object) -> list[str]:
+    """A patch value as the string items it contributes to a section.
+
+    Every list-valued protocol section holds strings, but an LLM-proposed
+    move sometimes packs a list into one value ("Two conditions: A vs. B"
+    arriving as ``["A", "B"]``) or a bare number — flatten and stringify so
+    an accepted move lands as valid section entries instead of failing the
+    whole draft with a type error nobody can un-accept."""
+    items = value if isinstance(value, list) else [value]
+    return [i if isinstance(i, str) else str(i) for i in items if i is not None]
 
 
 def compile_sections(moves: list[dict]) -> dict[str, list]:
@@ -102,12 +118,13 @@ def compile_sections(moves: list[dict]) -> dict[str, list]:
         if section not in sections:
             continue
         op = patch.get("op", "append")
-        value = patch.get("value")
+        items = _as_section_items(patch.get("value"))
         if op == "append":
-            if value not in sections[section]:
-                sections[section].append(value)
+            for item in items:
+                if item not in sections[section]:
+                    sections[section].append(item)
         elif op == "set":
-            sections[section] = [value]
+            sections[section] = items
     return sections
 
 
@@ -133,16 +150,50 @@ def _build_trace(moves: list[dict]) -> list[MoveTrace]:
     return trace
 
 
-def _find_template_move(moves: list[dict]) -> dict | None:
-    """The last accepted template-application move, if any (a later choice
-    supersedes an earlier one — deterministic: last wins)."""
-    chosen = None
-    for move in moves:
-        if move.get("status") == "accepted" and move.get("kind") == "choose-template":
-            patch = move.get("patch") or {}
-            if patch.get("templateId"):
-                chosen = patch
-    return chosen
+def _accepted_template_moves(moves: list[dict]) -> list[dict]:
+    """Accepted template-application moves, in order. The last one that
+    actually instantiates wins (a later choice supersedes an earlier one —
+    deterministic); one that can't instantiate is reported and skipped,
+    never allowed to crash the compile — an accepted move can't be
+    re-decided, so a single bad template choice must not wedge the study."""
+    return [
+        m
+        for m in moves
+        if m.get("status") == "accepted"
+        and m.get("kind") == "choose-template"
+        and (m.get("patch") or {}).get("templateId")
+    ]
+
+
+def _instantiate_leniently(patch: dict) -> tuple[dict, list[str]]:
+    """Instantiate a template patch, tolerating invented parameter names.
+
+    An LLM-proposed move may carry parameters the template never declared;
+    dropping them (with a note) keeps an otherwise-sound template choice
+    compilable instead of failing the whole draft. Everything else — unknown
+    template id, missing required parameter, out-of-bounds value, invalid
+    fill — still raises ``TemplateError`` for the caller to report.
+    """
+    from middleware import template_registry
+
+    template_id = patch["templateId"]
+    version = patch.get("templateVersion")
+    parameters = dict(patch.get("parameters") or {})
+    template = template_registry.load_template(template_id, version)
+    declared = set(template.get("parameters", {}))
+    notes = []
+    unknown = sorted(set(parameters) - declared)
+    if unknown:
+        for name in unknown:
+            parameters.pop(name)
+        notes.append(
+            f"{template_id}: ignored parameter(s) {', '.join(unknown)} "
+            "the template doesn't declare"
+        )
+    instantiated = template_registry.instantiate_template(
+        template_id, parameters, version=version
+    )
+    return instantiated, notes
 
 
 def _scaffold_from_sections(sections: dict[str, list]) -> dict:
@@ -300,23 +351,40 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
     result (F3.1).
     """
     sections = compile_sections(moves)
-    template_patch = _find_template_move(moves)
 
+    # Import here to avoid a hard import cycle at module load (the registry
+    # imports the analysis catalogue).
+    from middleware.template_registry import TemplateError
+
+    # Walk accepted template moves newest-first and instantiate the first
+    # that works. A move whose template can't instantiate (hallucinated id,
+    # missing required parameter) is recorded and skipped rather than raised:
+    # a 500 here would leave the conversation with no draft and no error.
     template_id = template_version = None
-    if template_patch:
-        # Instantiate the template into a valid base, then refine with any
-        # free-text moves. Import here to avoid a hard import cycle at module
-        # load (the registry imports the analysis catalogue).
-        from middleware import template_registry
+    instantiated = None
+    warnings: list[str] = []
+    failed: list[str] = []
+    for move in reversed(_accepted_template_moves(moves)):
+        patch = move["patch"]
+        try:
+            instantiated, notes = _instantiate_leniently(patch)
+        except TemplateError as err:
+            failed.append(
+                f"choose-template move {move.get('moveId', '?')} "
+                f"({patch['templateId']}) could not be applied: {err}"
+            )
+            continue
+        warnings.extend(notes)
+        break
 
-        instantiated = template_registry.instantiate_template(
-            template_patch["templateId"],
-            template_patch.get("parameters", {}),
-            version=template_patch.get("templateVersion"),
-        )
+    if instantiated:
         template_id = instantiated["templateId"]
         template_version = instantiated["templateVersion"]
         draft = _refine(instantiated["protocol"], sections)
+        # Later accepted template moves that failed were skipped in favour
+        # of this one — say so, but don't block a valid draft on them.
+        warnings.extend(failed)
+        failed = []
     else:
         draft = _scaffold_from_sections(sections)
 
@@ -339,9 +407,9 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
         )
     )
 
-    errors = validate_protocol(draft)
+    errors = failed + validate_protocol(draft)
     unresolved = (
-        [] if template_patch else [s for s in MANDATORY_SLOTS if not sections[s]]
+        [] if instantiated else [s for s in MANDATORY_SLOTS if not sections[s]]
     )
 
     return CompileResult(
@@ -351,6 +419,7 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
         valid=not errors,
         errors=errors,
         unresolved=unresolved,
+        warnings=warnings,
         template_id=template_id,
         template_version=template_version,
         trace=_build_trace(moves),

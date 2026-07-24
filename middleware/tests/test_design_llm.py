@@ -137,6 +137,71 @@ def test_propose_turn_validates_choose_template_patch():
     assert script.moves[0].refs == ("metr-rct-v1",)
 
 
+def test_propose_turn_normalizes_list_and_numeric_patch_values():
+    """Section values must end up as strings: a list survives (the compiler
+    flattens it into one entry per item), a number is stringified, and a
+    dict drops the patch rather than poisoning the draft's schema."""
+    reply = {
+        "text": "Reply.",
+        "moves": [
+            {
+                "kind": "set-parameter",
+                "target": "conditions",
+                "proposal": "Two conditions.",
+                "patch": {
+                    "section": "conditions",
+                    "op": "append",
+                    "value": ["AI-assisted", "Traditional resources"],
+                },
+                "refs": [],
+            },
+            {
+                "kind": "set-parameter",
+                "target": "participants",
+                "proposal": "Plan for 24 participants.",
+                "patch": {"section": "participants", "op": "set", "value": 24},
+                "refs": [],
+            },
+            {
+                "kind": "set-parameter",
+                "target": "ethics",
+                "proposal": "A dict value.",
+                "patch": {"section": "ethics", "op": "append", "value": {"a": 1}},
+                "refs": [],
+            },
+        ],
+    }
+    client = _fake_client(reply)
+    script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
+    assert script is not None
+    assert script.moves[0].patch["value"] == ["AI-assisted", "Traditional resources"]
+    assert script.moves[1].patch["value"] == "24"
+    assert script.moves[2].patch is None
+
+
+def test_propose_turn_drops_choose_template_with_hallucinated_id():
+    """A choose-template move naming a template the registry doesn't have is
+    dropped entirely — accepted, it would poison every future compile, and
+    patch-less it would be the "accepted but only noted" trap."""
+    reply = {
+        "text": "Adopt a template.",
+        "moves": [
+            {
+                "kind": "choose-template",
+                "target": "design",
+                "proposal": "Use a made-up template.",
+                "patch": {"templateId": "hallucinated-rct-2026"},
+                "refs": [],
+            }
+        ],
+    }
+    client = _fake_client(reply)
+    script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
+    assert script is not None
+    assert script.text == "Adopt a template."
+    assert script.moves == ()
+
+
 def test_propose_turn_returns_none_on_malformed_json():
     client = _fake_client("not json at all")
     assert design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES) is None

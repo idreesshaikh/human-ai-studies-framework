@@ -16,6 +16,7 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-PROT-7 | RQ-F3; S5 | replication-kit export | ✅ (`protocol export replication-kit`; byte-identical reproduction test) |
 | FR-PROT-8 | (deferred vision) | - | - |
 | FR-PROT-9 | RQ-A1–A3; FR-AGF | protocol schema (agent participants) + fixture `protocol/tests/fixtures/agent-participant-v3.yaml` + `derive` agent-branch | ✅ fixture validates; overlay-derive fails cleanly + `derive agent-hooks` produces harness config |
+| FR-PROT-10 | RQ-F1; S1,S3; FR-DASH-2 | `protocol/lifecycle.py` `gates_by_phase` implicit completion attestation; attested via lifecycle board | ✅ gateless phases need explicit advance; tests in `protocol/tests/test_lifecycle.py` + `middleware/tests/test_middleware_api.py` |
 | FR-INST-1 | RQ-P1; S1 | TERN `surveys/fatiguePrompt` | ✅ |
 | FR-INST-2 | RQ-P1; S1 | TERN `stuckDetector/stuckPrompt` | ✅ |
 | FR-INST-3 | RQ-P1; S1,S2 | TERN `session/endSurvey` | ✅ |

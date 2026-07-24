@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { TierBadge } from "./TierBadge";
 import { Confidence } from "./Confidence";
 import type { Grounding } from "@/lib/types";
 
-/* A citation chip: tier badge + the paper title. Hover (or click/focus for
- * keyboard and touch) reveals title, year, venue, and why it's cited. */
+/* A citation chip: the paper title (quality shown as a confidence meter in the
+ * hover card). Hover (or click/focus for keyboard and touch) reveals title,
+ * year, venue, confidence, and why it's cited. */
 export function GroundingChip({ g }: { g: Grounding }) {
   const [open, setOpen] = useState(false);
   return (
@@ -21,7 +21,6 @@ export function GroundingChip({ g }: { g: Grounding }) {
         onClick={() => setOpen((v) => !v)}
       >
         <Badge variant="grounded">
-          <TierBadge tier={g.tier} />
           <span className="max-w-40 truncate">{g.title}</span>
         </Badge>
       </button>

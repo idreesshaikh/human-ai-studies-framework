@@ -131,7 +131,7 @@ def _candidate_menu(papers: list[dict], templates: list[dict]) -> str:
 def _validate_patch(kind: str, patch: object) -> dict | None:
     """Structural check against the compiler's known op shapes
     (``compiler.py``'s ``compile_sections``/``_apply_instrument_moves``/
-    ``_find_template_move``). Anything that doesn't match is dropped - the
+    ``_accepted_template_moves``). Anything that doesn't match is dropped - the
     move still renders (informational, no draft change) rather than an
     unvalidated shape ever reaching the compiler."""
     if kind == "caution":
@@ -175,13 +175,53 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
         and patch.get("op") in ("append", "set")
         and "value" in patch
     ):
-        return patch
+        value = _normalize_value(patch["value"])
+        if value is None:
+            return None
+        return {"section": patch["section"], "op": patch["op"], "value": value}
     return None
+
+
+def _normalize_value(value: object) -> str | list[str] | None:
+    """Coerce a section-patch value to what the sections actually hold.
+
+    Every list-valued protocol section holds strings; the model sometimes
+    sends a number, or packs several entries into one list ("Two
+    conditions: A vs. B" as ``["A", "B"]`` — the compiler flattens a list
+    into one entry per item). Anything that can't become clean strings
+    (a dict, an empty list) drops the patch."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    if isinstance(value, list):
+        items = [
+            v if isinstance(v, str) else str(v)
+            for v in value
+            if isinstance(v, (str, int, float, bool))
+        ]
+        return items or None
+    return None
+
+
+def _known_template_ids() -> frozenset[str]:
+    """Every template id the registry can actually instantiate. A registry
+    read failure returns the empty set — the turn degrades (template moves
+    dropped) rather than raising into the conversation."""
+    from middleware import template_registry
+
+    try:
+        return frozenset(
+            t["templateId"] for t in template_registry.list_templates()
+        )
+    except Exception:  # noqa: BLE001 - degrade, never break a turn
+        return frozenset()
 
 
 def _parse_moves(
     raw_moves: object, candidate_refs: set[str]
 ) -> tuple[ScriptedMove, ...]:
+    known_templates = _known_template_ids()
     out = []
     for m in raw_moves if isinstance(raw_moves, list) else []:
         if not isinstance(m, dict):
@@ -193,6 +233,13 @@ def _parse_moves(
         if not proposal:
             continue
         patch = _validate_patch(kind, m.get("patch"))
+        if kind == "choose-template" and (
+            patch is None or patch["templateId"] not in known_templates
+        ):
+            # A hallucinated template id can never instantiate, and a
+            # patch-less choose-template is the "accepted but only noted"
+            # trap — drop the whole move rather than offer a dud.
+            continue
         raw_refs = m.get("refs")
         refs = (
             tuple(r for r in raw_refs if isinstance(r, str) and r in candidate_refs)

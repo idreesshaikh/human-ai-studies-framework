@@ -131,6 +131,7 @@ Every feature traces to a requirement ID. The full text lives in `requirements/s
 - **FR-PROT-7** (S) The framework SHALL export a replication kit: frozen protocol, schema+recipe versions, anonymized dataset, report. — _✅_
 - **FR-PROT-8** (W) Support for arbitrary study types beyond agent–human developer studies. — _-_
 - **FR-PROT-9** (S) The protocol schema SHALL support agent participants: studies whose sessions are harness-executed runs of an agent under test (participant = anonymized agent-configuration ID recording tool + model… — _✅_
+- **FR-PROT-10** (M) A non-final lifecycle phase that declares no gate artifacts SHALL be guarded by an implicit completion attestation (`<phase>-complete.txt`): the researcher advances past it explicitly, and the curr… — _✅_
 - **FR-INST-1** (M) The cognitive leg SHALL sample fatigue via Likert micro-probes timed into typing pauses, with jitter and a quiet tail. — _✅ TERN v0.1_
 - **FR-INST-2** (M) The cognitive leg SHALL detect stuck episodes (dwell / scroll-thrash) and prompt inline without stealing focus. — _✅_
 - **FR-INST-3** (M) Sessions SHALL be governed by a pausable, crash-recoverable clock ending in a TLX-style debrief. — _✅_

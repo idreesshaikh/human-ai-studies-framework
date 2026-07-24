@@ -1,6 +1,5 @@
 import { Sparkles } from "lucide-react";
 import { MoveCard } from "./MoveCard";
-import { RecommendationCard } from "./RecommendationCard";
 import { FeedbackAffordance } from "./FeedbackAffordance";
 import { cn } from "@/lib/cn";
 import type { Turn } from "@/lib/types";
@@ -13,21 +12,18 @@ export interface TurnFeedback {
   onMark: (note: string, kind: string) => void;
 }
 
-/* A single conversation turn: the prose, then any design moves and paper
- * recommendations it carries. There's no token streaming yet (the assistant
+/* A single conversation turn: the prose, then any design moves it carries.
+ * Paper recommendations live in the persistent recommender rail (one mental
+ * model), not inline here. There's no token streaming yet (the assistant
  * responds synchronously) — an entrance animation stands in, and it's gone
  * under reduce-motion with nothing lost. */
 export function StreamingTurn({
   turn,
-  addedRefs,
   onDecide,
-  onAddPaper,
   feedback,
 }: {
   turn: Turn;
-  addedRefs: Set<string>;
   onDecide: (moveId: string, status: "accepted" | "rejected") => void;
-  onAddPaper: (ref: string) => void;
   feedback?: TurnFeedback;
 }) {
   const isPlatform = turn.role === "platform";
@@ -71,19 +67,6 @@ export function StreamingTurn({
         <div className="flex w-full max-w-[46ch] flex-col gap-2">
           {turn.moves.map((m) => (
             <MoveCard key={m.moveId} move={m} onDecide={onDecide} />
-          ))}
-        </div>
-      )}
-
-      {turn.recommendations.length > 0 && (
-        <div className="grid w-full max-w-[46ch] gap-2 sm:grid-cols-2">
-          {turn.recommendations.map((r) => (
-            <RecommendationCard
-              key={r.ref}
-              rec={r}
-              added={addedRefs.has(r.ref)}
-              onAdd={onAddPaper}
-            />
           ))}
         </div>
       )}

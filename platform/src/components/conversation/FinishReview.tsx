@@ -88,8 +88,21 @@ export function FinishReview({
             Compiled protocol {valid ? "· validated" : "· not yet valid"}
           </p>
           <pre className="tabular max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-3 font-mono text-xs leading-relaxed text-text">
-            {compile?.yaml?.trim() || "The draft is still empty — accept a few design moves first."}
+            {compile?.yaml?.trim() ||
+              (accepted.length > 0
+                ? "The server couldn't compile this draft — check your connection, then reopen this review."
+                : "The draft is still empty — accept a few design moves first.")}
           </pre>
+          {compile && !valid && compile.errors.length > 0 && (
+            <p className="mt-1.5 text-xs text-unsourced">
+              {compile.errors.join(" · ")}
+            </p>
+          )}
+          {compile && (compile.warnings?.length ?? 0) > 0 && (
+            <p className="mt-1.5 text-xs text-text-muted">
+              {compile.warnings!.join(" · ")}
+            </p>
+          )}
           {compile && !valid && compile.unresolved.length > 0 && (
             <p className="mt-1.5 text-xs text-unsourced">
               Still unresolved: {compile.unresolved.join(", ")}. You can keep talking to fill these.

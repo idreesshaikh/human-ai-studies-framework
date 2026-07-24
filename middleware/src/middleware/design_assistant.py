@@ -431,7 +431,6 @@ def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
         grounding.append(
             {
                 "ref": meta["ref"],
-                "tier": meta["tier"],
                 "confidence": meta.get("confidence"),
                 "title": meta["title"],
                 "year": meta.get("year"),

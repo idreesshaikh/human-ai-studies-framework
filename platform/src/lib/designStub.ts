@@ -27,42 +27,37 @@ export function resetStub() {
 const G = {
   trust: {
     ref: "corpus:trust-in-ai-code-generation",
-    tier: "A",
     title: "Trust in AI Code Generation",
     year: 2024,
-    venue: "corpus (Tier A seed)",
+    venue: "corpus",
     why: "Documents over-reliance on AI-generated code — directly motivates a trust/verification measure.",
   },
   insecure: {
     ref: "corpus:insecure-code-with-ai-assistants",
-    tier: "A",
     title: "Do Users Write More Insecure Code with AI Assistants?",
     year: 2023,
-    venue: "corpus (Tier A seed)",
+    venue: "corpus",
     why: "Shows accepted AI code carries security defects users don't catch — grounds a code-correctness outcome.",
   },
   metr: {
     ref: "corpus:metr-early-2025-dev-productivity",
-    tier: "A",
     title: "Measuring the Impact of Early-2025 AI on Developer Productivity",
     year: 2025,
-    venue: "corpus (Tier A seed)",
+    venue: "corpus",
     why: "Found developers FELT faster with AI while measurably slower — the perception gap that makes self-report alone unsafe.",
   },
   realhuman: {
     ref: "corpus:realhumaneval",
-    tier: "A",
     title: "RealHumanEval",
     year: 2024,
-    venue: "corpus (Tier A seed)",
+    venue: "corpus",
     why: "Benchmark score is not human utility — grounds pairing any benchmark measure with a human-task outcome.",
   },
   guidelines: {
     ref: "corpus:guidelines-empirical-llm-se",
-    tier: "A",
     title: "Guidelines for Empirical Studies of LLMs in SE",
     year: 2024,
-    venue: "corpus (Tier A seed)",
+    venue: "corpus",
     why: "The methodological floor: within-subjects + counterbalancing for small-N developer studies.",
   },
 } satisfies Record<string, Grounding>;
@@ -149,7 +144,6 @@ export function respondTo(input: string): Turn {
       [
         {
           ref: G.trust.ref,
-          tier: "A",
           title: G.trust.title,
           year: G.trust.year!,
           venue: G.trust.venue!,
@@ -158,7 +152,6 @@ export function respondTo(input: string): Turn {
         },
         {
           ref: G.insecure.ref,
-          tier: "A",
           title: G.insecure.title,
           year: G.insecure.year!,
           venue: G.insecure.venue!,

@@ -55,7 +55,6 @@ function mapGrounding(raw: unknown[]): Grounding[] {
     const row = g as Record<string, unknown>;
     return {
       ref: String(row.ref ?? ""),
-      tier: (row.tier as Grounding["tier"]) ?? "B",
       confidence: typeof row.confidence === "number" ? row.confidence : undefined,
       title: String(row.title ?? row.ref ?? ""),
       year: typeof row.year === "number" ? row.year : undefined,
@@ -138,6 +137,9 @@ export interface CompileResult {
   valid: boolean;
   errors: string[];
   unresolved: string[];
+  /** Non-blocking compiler notes (e.g. a skipped broken template move);
+   * optional so replies from an older server still parse. */
+  warnings?: string[];
   diff: string;
   yaml: string;
   templateId: string | null;

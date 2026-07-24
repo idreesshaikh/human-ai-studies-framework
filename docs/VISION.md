@@ -18,7 +18,7 @@ construction.*
 
 A researcher arrives with an idea, not a protocol. They open a **design
 conversation** and describe what they want to know. The platform —
-holding the 1,000+-paper corpus, the study-template registry, and the
+holding the 15,000+-paper corpus, the ranked protocol repertoire, and the
 protocol schema — converses the idea into a study:
 
 - It asks the follow-up questions a methodologist would ask.
@@ -49,22 +49,23 @@ That self-application is the thesis made product.
 
 ## What feeds the conversation
 
-1. **The corpus** — quality-first and uncapped, 1,000 papers as the
-   floor, in two provenance tiers (FR-LIT-8):
-   100 hand-curated seeds (`docs/papers/README.md`) plus a harvested,
-   quality-gated, API-verifiable extension grown by citation snowballing
+1. **The corpus** — quality-first and uncapped (15,000+ papers), grown by
+   quality-gated, API-verifiable citation snowballing
    (`scripts/corpus_harvest.py`, refreshable as the literature moves;
    agentic discovery sources join later behind the same quality gate,
-   D36). Papers are *matched to the researcher's idea* as the
-   conversation unfolds (FR-LIT-9) and explorable as a **living
-   literature constellation** that doubles as the scoped
-   "talk to your papers" RAG surface (FR-LIT-10).
-2. **The template registry** — citable encodings of published designs
-   (METR RCT, Ziegler telemetry×survey, HAI-Eval synergy, Cursor-style
-   mining), each binding the **statistical plan** its design requires:
-   exact tests, effect sizes, per-cell-n rules. The single most
-   researcher-frustrating step — "which statistical formulation?" —
-   is answered by construction.
+   D36). **There is no provenance tier** (A/B): every paper carries a
+   single continuous **confidence** score from the quality gate, and papers
+   are *matched to the researcher's idea* as the conversation unfolds
+   (FR-LIT-9) — ranked by confidence, keyword relevance, and semantic
+   meaning — surfaced in a live recommender beside the conversation and
+   explorable as a **living literature constellation** (FR-LIT-10).
+2. **The protocol repertoire** — not paper-replicas: **generic, proven
+   study designs ranked common→rare**, each binding the **statistical plan**
+   its design requires (exact tests, effect sizes, per-cell-n rules) and
+   citing the many papers that used it as *references* (gated by confidence),
+   **composable by merging** into something novel-but-grounded. The single
+   most researcher-frustrating step — "which statistical formulation?" — is
+   answered by construction.
 3. **Two data paths, one schema.** Does the dataset exist?
    *No* → live path: the four instrument legs (cognitive, behavioral,
    static metrics, agent).
