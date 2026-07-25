@@ -7,6 +7,13 @@ description: |
   avoids carryover and fatigue confounds. Prescribes Mann-Whitney U with
   Cliff's delta.
 designType: rct-between-subjects
+
+designSignature:
+  - "between-subjects"
+  - "between subjects"
+  - "control group"
+  - "randomly assigned"
+  - "treatment group"
 dataPath: live
 source:
   - paperRef: corpus:guidelines-empirical-llm-se

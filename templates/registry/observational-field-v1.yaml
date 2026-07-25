@@ -9,6 +9,14 @@ description: |
   single-arm-benchmark-v1 (evaluated against an external standard), this
   template's posture is naturalistic description, not evaluation.
 designType: observational
+
+designSignature:
+  - "field study"
+  - "in the wild"
+  - "naturalistic"
+  - "observational study"
+  - "in situ"
+  - "telemetry from real"
 dataPath: live
 source:
   - paperRef: arxiv:2506.12347

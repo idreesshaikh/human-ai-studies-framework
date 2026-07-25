@@ -7,6 +7,13 @@ description: |
   n, as each participant serves as their own control. Prescribes Wilcoxon
   signed-rank with matched-pairs rank-biserial r.
 designType: rct-within-subjects
+
+designSignature:
+  - "crossover"
+  - "cross-over"
+  - "counterbalanced"
+  - "washout"
+  - "order effect"
 dataPath: live
 source:
   - paperRef: arxiv:2507.09089

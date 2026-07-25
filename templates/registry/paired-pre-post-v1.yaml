@@ -7,6 +7,14 @@ description: |
   training interventions or tool adoption studies. Prescribes Wilcoxon
   signed-rank with matched-pairs rank-biserial r.
 designType: quasi-experiment
+
+designSignature:
+  - "pre-post"
+  - "pre/post"
+  - "before and after"
+  - "pretest"
+  - "pre-test"
+  - "post-test"
 dataPath: live
 source:
   - paperRef: corpus:guidelines-empirical-llm-se

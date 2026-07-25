@@ -6,6 +6,13 @@ description: |
   sessions). Tests for consistent differences across time using Wilcoxon
   signed-rank on paired time-point comparisons with Holm correction.
 designType: quasi-experiment
+
+designSignature:
+  - "repeated measures"
+  - "longitudinal"
+  - "time points"
+  - "over several weeks"
+  - "multiple sessions"
 dataPath: live
 source:
   - paperRef: corpus:guidelines-empirical-llm-se

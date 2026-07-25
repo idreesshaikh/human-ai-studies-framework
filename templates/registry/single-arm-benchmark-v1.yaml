@@ -7,6 +7,13 @@ description: |
   a system against an absolute benchmark or exploring a new phenomenon.
   Explicitly framed as hypothesis-generating.
 designType: case-study
+
+designSignature:
+  - "benchmark"
+  - "pass@"
+  - "evaluation harness"
+  - "single-arm"
+  - "no control group"
 dataPath: live
 source:
   - paperRef: corpus:guidelines-empirical-llm-se

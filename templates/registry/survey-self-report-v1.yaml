@@ -10,6 +10,15 @@ description: |
   reported experience, not measured outcomes, maps here instead of being
   forced into a benchmark or outcome-comparison template.
 designType: survey
+
+designSignature:
+  - "survey"
+  - "questionnaire"
+  - "self-report"
+  - "self-reported"
+  - "likert"
+  - "nasa-tlx"
+  - "tlx"
 dataPath: live
 source:
   - paperRef: corpus:ai-assistants-in-practice

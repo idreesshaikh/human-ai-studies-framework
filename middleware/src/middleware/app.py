@@ -55,6 +55,7 @@ from middleware import (
     pdf,
     semantic_scholar,
     template_registry,
+    template_repertoire,
 )
 from middleware.db import (
     CORPUS_STUDY_ID,
@@ -3428,6 +3429,24 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return {
             "templateId": template_id,
             "explanation": template_registry.explain_plan(tpl),
+        }
+
+    @app.get("/templates/repertoire")
+    def template_repertoire_route(
+        limitRefs: int = 6, s: Session = Depends(db)  # noqa: N803 - query param
+    ) -> dict:
+        """The protocol repertoire (FR-TPL): design shapes ranked common →
+        rare by how many corpus papers use them, each carrying its ranked
+        references. Deterministic — no LLM in the ranking — so the same
+        corpus always yields the same order."""
+        entries = template_repertoire.rank_repertoire(
+            s, limit_refs=max(1, min(limitRefs, 20))
+        )
+        return {
+            "repertoire": entries,
+            "count": len(entries),
+            "minReferenceConfidence": template_repertoire.MIN_REFERENCE_CONFIDENCE,
+            "generatedAt": now(),
         }
 
     @app.post("/templates/merge")

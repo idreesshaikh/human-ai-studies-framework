@@ -46,6 +46,7 @@ retrofitted.
 | `recommendation-card` | `RecommendationCard` | a matched paper; `data-agent-ref` carries its corpus ref |
 | `add-paper` | `RecommendationCard` | add the paper to the study set |
 | `recommender-rail` | `RecommenderRail` | the persistent literature-recommender panel beside the conversation (landmark) |
+| `design-shape` | `Templates` | one design shape in the ranked protocol repertoire; `data-agent-ref` carries its template id |
 | `draft-rail` | `DraftRail` | the compiled protocol-draft view (landmark) |
 | `draft-apply` | `DraftRail` | apply the server-validated compiled draft to the protocol (decision point) |
 | `draft-finish` | `DraftRail` | open the finish-and-review moment that prepares the protocol draft (decision point) |

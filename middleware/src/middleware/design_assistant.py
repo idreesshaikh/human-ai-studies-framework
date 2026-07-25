@@ -18,6 +18,7 @@ labeled unsourced; the grep-the-output test (F2.1) asserts exactly this.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -27,6 +28,8 @@ from sqlalchemy.orm import Session
 from middleware import matching
 from middleware.db import ConversationTurn
 from middleware.template_registry import list_templates
+
+log = logging.getLogger(__name__)
 
 #: How many prior turns to feed the LLM as history (token-budget cap;
 #: FR-CONV-1.4). A generous-enough window for a design conversation
@@ -41,10 +44,21 @@ _LLM_HISTORY_TURNS = 20
 _DESIGN_INTENT_WORDS = ("design", "statistic", "test", "how many", "template")
 
 
-def recommend_templates(text: str) -> list[dict[str, Any]]:
+def recommend_templates(
+    text: str, *, support: dict[str, int] | None = None
+) -> list[dict[str, Any]]:
     """Recommend design archetype templates matching the researcher's input.
 
     Keyword-based matching over template metadata, ranked by match strength.
+    Each template's own curated ``designSignature`` (the phrases the
+    repertoire counts corpus usage by, FR-TPL) is part of its keyword
+    profile, so a design's vocabulary is declared in one place rather than
+    duplicated here.
+
+    ``support`` is the repertoire's corpus-usage count per template id; when
+    given it breaks ties, so an equally-matching *common* design is offered
+    before a rare one. Absent, matching is unchanged.
+
     A message with clear design intent but no template-specific jargon
     (score 0 on every template) still gets the full catalog as candidates -
     an empty list would silently block the LLM (constrained to cite only
@@ -82,11 +96,11 @@ def recommend_templates(text: str) -> list[dict[str, Any]]:
 
     for t in templates:
         tid = t.get("templateId", "")
-        profile = keywords.get(
-            tid,
-            keywords.get(tid.replace("-v1", ""), []),
-        )
-        score = sum(2 for kw in profile if kw in q)
+        profile = [
+            *keywords.get(tid, keywords.get(tid.replace("-v1", ""), [])),
+            *(str(p).lower() for p in t.get("designSignature", []) or []),
+        ]
+        score = sum(2 for kw in dict.fromkeys(profile) if kw in q)
         if t.get("designType") and t["designType"].lower().replace("-", " ") in q:
             score += 3
         if t.get("title") and any(w in q for w in t["title"].lower().split()):
@@ -94,7 +108,15 @@ def recommend_templates(text: str) -> list[dict[str, Any]]:
         if score > 0:
             scored.append((score, t))
 
-    scored.sort(key=lambda x: -x[0])
+    # Equal match strength → the design the corpus actually uses more often
+    # wins (common before rare); template id last so ordering is stable.
+    scored.sort(
+        key=lambda x: (
+            -x[0],
+            -(support or {}).get(x[1].get("templateId", ""), 0),
+            x[1].get("templateId", ""),
+        )
+    )
     if not scored and any(w in q for w in _DESIGN_INTENT_WORDS):
         scored = [(0, t) for t in templates]
     return [
@@ -112,6 +134,22 @@ def recommend_templates(text: str) -> list[dict[str, Any]]:
         }
         for score, t in scored[:4]
     ]
+
+
+def corpus_support(s: Session) -> dict[str, int]:
+    """Per-template corpus usage from the repertoire, for tie-breaking.
+
+    Memoized by the repertoire itself, and degrading: if the ranking is
+    unavailable for any reason the conversation just loses the common-first
+    tie-break, never the recommendation (NFR-4 posture).
+    """
+    try:
+        from middleware import template_repertoire
+
+        return {e["id"]: e["support"] for e in template_repertoire.rank_repertoire(s)}
+    except Exception as exc:  # noqa: BLE001 - a tie-break is never worth a 500
+        log.warning("repertoire support unavailable for tie-breaking: %s", exc)
+        return {}
 
 
 def recommend_prescription(design_shape: str) -> dict[str, Any] | None:
@@ -508,7 +546,7 @@ def respond(
         papers = matching.match_papers(
             s, text, study_id=study_id, limit=8, use_llm=False
         )
-        templates = recommend_templates(text)
+        templates = recommend_templates(text, support=corpus_support(s))
         # An explicit history (the stateless demo passes the visitor's own
         # prior turns) wins; otherwise load it from the study's stored turns.
         if history is None:
@@ -563,7 +601,7 @@ def respond(
             retrieved.update(r["ref"] for r in recommendations)
 
     # Design recommender (Phase 22): template matches, prescription, figures.
-    template_recommendations = recommend_templates(text)
+    template_recommendations = recommend_templates(text, support=corpus_support(s))
     design_shape = None
     for tr in template_recommendations:
         ds = tr.get("designShape")

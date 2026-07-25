@@ -189,6 +189,7 @@ def list_templates() -> list[dict]:
             "title": doc.get("title", ""),
             "description": doc.get("description", ""),
             "designType": doc.get("designType", ""),
+            "designSignature": doc.get("designSignature", []),
             "dataPath": doc.get("dataPath", ""),
             "source": doc.get("source", []),
             "parameters": doc.get("parameters", {}),
