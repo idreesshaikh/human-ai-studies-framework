@@ -149,6 +149,10 @@ class Paper(Base):
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     venue: Mapped[str] = mapped_column(String, default="")
     abstract: Mapped[str] = mapped_column(Text, default="")
+    # The Tier A curator's one-line "why this paper matters" note. Kept in
+    # its own column so the S2 abstract backfill (corpus-enrich) can land a
+    # real abstract without overwriting the curation — both feed retrieval.
+    curator_note: Mapped[str] = mapped_column(Text, default="")
     doi: Mapped[str] = mapped_column(String, default="")
     arxiv_id: Mapped[str] = mapped_column(String, default="")
     url: Mapped[str] = mapped_column(String, default="")
@@ -700,6 +704,7 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _engine = engine
     _create_schema(engine, db_url_str)
     _migrate_stored_file_study_id(engine)
+    _migrate_paper_curator_note(engine)
 
     if is_pg:
         _setup_pg_fts(engine)
@@ -798,6 +803,21 @@ def _migrate_stored_file_study_id(engine) -> None:
         if "study_id" not in cols:
             conn.execute(text("ALTER TABLE files ADD COLUMN study_id VARCHAR"))
             log.info("Added study_id column to files (per-study lifecycle scoping)")
+
+
+def _migrate_paper_curator_note(engine) -> None:
+    """Add ``papers.curator_note`` if missing (both dialects, idempotent).
+
+    Tier A seeds used to keep the curator's "why" in ``abstract``; the
+    abstract backfill needs that field for the real S2 abstract, so the note
+    moves to its own column. Existing rows keep whatever ``abstract`` holds
+    until the next ``corpus-import`` re-lands them.
+    """
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("papers")}
+        if "curator_note" not in cols:
+            conn.execute(text("ALTER TABLE papers ADD COLUMN curator_note TEXT"))
+            log.info("Added curator_note column to papers (abstract enrichment)")
 
 
 def _is_concurrent_create_race(exc: IntegrityError | ProgrammingError) -> bool:

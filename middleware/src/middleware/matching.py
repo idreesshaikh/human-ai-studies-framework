@@ -227,10 +227,10 @@ _EXPANSION_MAX = 512
 def expand_query(query: str) -> str:
     """Bridge vocabulary gaps for keyword FTS by asking the LLM for the
     concepts and synonyms a paper on this topic might use — the *semantic
-    meaning* layer over the inverted index. The corpus is ~99% title-only, so
-    embeddings would be premature (they need abstracts, D4); this gives
-    semantic reach now. Cached and degrading: no key or any failure returns the
-    query unchanged, so FTS-only behaviour is always the floor (NFR-4)."""
+    meaning* layer over the inverted index, now searching real abstracts
+    (``corpus-enrich``) rather than titles alone. Cached and degrading: no key
+    or any failure returns the query unchanged, so FTS-only behaviour is
+    always the floor (NFR-4)."""
     q = query.strip()
     if not q:
         return q
@@ -276,16 +276,20 @@ def match_papers(
     study_id: str | None = None,
     limit: int = 5,
     use_llm: bool = True,
+    expand: bool = True,
 ) -> list[dict]:
     """Run the ladder and return enriched recommendations (FR-LIT-9).
 
-    Each: ``{ref, title, year, venue, inStudy, confidence, matchReason}``. The
-    paper's provenance (A/B) or 'study' when it is already in ``study_id``'s
-    paper set - the card renders the badge always-visible."""
+    Each: ``{ref, title, year, venue, inStudy, confidence, matchReason}``,
+    with ``inStudy`` marking a paper already in ``study_id``'s paper set.
+
+    ``use_llm``/``expand`` turn off the two LLM rungs; the repertoire ranking
+    (FR-TPL) sets both off, because how a design ranks against the corpus must
+    be reproducible from the corpus alone."""
     # Semantic reach: expand the query with related concepts/synonyms so FTS
     # surfaces papers phrased differently (degrades to the raw query with no
     # key). Match *reasons* still key on the researcher's own words.
-    search_query = expand_query(query)
+    search_query = expand_query(query) if expand else query
     query_terms = _terms(query)
     fts = search_by_fts(s, search_query, limit=limit * 2)
     graph = search_by_connectivity(s, search_query, limit=limit * 2)

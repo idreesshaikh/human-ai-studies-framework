@@ -21,6 +21,13 @@ source:
 # Stol & Fitzgerald ABC: lab experiment with controlled tasks
 designType: lab-experiment
 
+designSignature:
+  - "telemetry"
+  - "usage logs"
+  - "instrumented"
+  - "acceptance rate"
+  - "self-reported productivity"
+
 # This template supports live instrumentation (telemetry + survey)
 dataPath: live
 

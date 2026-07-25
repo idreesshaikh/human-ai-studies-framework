@@ -77,6 +77,12 @@
         "simulation"
       ]
     },
+    "designSignature": {
+      "description": "Distinctive phrases a paper using this design shape would use about itself (e.g. 'crossover', 'counterbalanced'). The repertoire counts corpus papers carrying one of these as this shape's support, which is what ranks the repertoire common → rare (FR-TPL). Curated, never generated: an over-broad phrase inflates a design's support and makes the ranking meaningless.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 3 }
+    },
     "dataPath": {
       "description": "Which data collection path this template supports: 'live' (instrumented sessions), 'curated' (pre-existing datasets), or 'either'.",
       "type": "string",

@@ -21,6 +21,30 @@ export interface TemplateSummary {
   source: TemplateSource[];
 }
 
+/* One paper attached to a design shape: either a paper the template cites as
+ * its source, or a corpus paper that describes itself with the shape's design
+ * vocabulary. Ranked by confidence, never by provenance. */
+export interface DesignReference {
+  ref: string;
+  title: string;
+  year: number | null;
+  venue: string;
+  confidence: number | null;
+  role: string;
+  matchReason: string;
+}
+
+/* A design shape in the repertoire, with how widely the corpus uses it. */
+export interface RepertoireEntry extends TemplateSummary {
+  support: number;
+  signature: string[];
+  band: "common" | "established" | "rare";
+  admitted: boolean;
+  admissionNote: string;
+  references: DesignReference[];
+  unresolvedSources: string[];
+}
+
 export interface MergeResult {
   protocol: Record<string, unknown>;
   templateIds: string[];
@@ -81,6 +105,12 @@ export const templatesApi = {
     req<{ templates: TemplateSummary[]; count: number }>(`/templates`).then(
       (d) => d.templates,
     ),
+  repertoire: (limitRefs = 4) =>
+    req<{
+      repertoire: RepertoireEntry[];
+      count: number;
+      minReferenceConfidence: number;
+    }>(`/templates/repertoire?limitRefs=${limitRefs}`),
   plan: (id: string) =>
     req<{ templateId: string; explanation: string[] }>(
       `/templates/${encodeURIComponent(id)}/plan`,

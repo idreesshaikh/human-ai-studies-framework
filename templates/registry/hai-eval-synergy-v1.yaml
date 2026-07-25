@@ -20,6 +20,14 @@ source:
 # Stol & Fitzgerald ABC: lab experiment
 designType: lab-experiment
 
+designSignature:
+  - "human-ai"
+  - "human ai team"
+  - "synergy"
+  - "complementarity"
+  - "ai-only"
+  - "human-only"
+
 # This template supports live instrumentation
 dataPath: live
 

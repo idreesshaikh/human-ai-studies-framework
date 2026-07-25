@@ -6,6 +6,14 @@ description: |
   across two conditions or time points. Prescribes Fisher's exact test
   with odds ratio as effect size for 2x2 tables.
 designType: lab-experiment
+
+designSignature:
+  - "mcnemar"
+  - "two proportions"
+  - "acceptance rate"
+  - "pass rate"
+  - "2x2 table"
+  - "odds ratio"
 dataPath: live
 source:
   - paperRef: corpus:guidelines-empirical-llm-se

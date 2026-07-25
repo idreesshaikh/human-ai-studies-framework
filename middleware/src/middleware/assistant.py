@@ -223,6 +223,40 @@ def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:
         return json.loads(res.read())
 
 
+def _post_stream(url: str, body: dict, headers: dict[str, str]):
+    """POST JSON, yield content deltas from an SSE chat-completions stream.
+
+    The second network seam (tests inject a scripted ``stream``). Yields the
+    provider's ``choices[0].delta.content`` fragments in order and stops at
+    ``[DONE]``; a malformed frame is skipped rather than ending the stream,
+    because a dropped fragment costs a few characters of prose while raising
+    would cost the whole reply.
+    """
+    req = urllib.request.Request(
+        url,
+        data=json.dumps({**body, "stream": True}).encode(),
+        headers={"Content-Type": "application/json", "Accept": "text/event-stream",
+                 **headers},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=120) as res:
+        for raw in res:
+            line = raw.decode("utf-8", "replace").strip()
+            if not line.startswith("data:"):
+                continue
+            payload = line[len("data:") :].strip()
+            if payload == "[DONE]":
+                return
+            try:
+                frame = json.loads(payload)
+                delta = (frame.get("choices") or [{}])[0].get("delta", {})
+            except (json.JSONDecodeError, IndexError, AttributeError):
+                continue
+            piece = delta.get("content")
+            if piece:
+                yield piece
+
+
 class LLMClient(Protocol):
     """The shape every LLM-consuming feature in this module calls against
     (the knowledge assistant, the design conversation's ``design_llm.py``,
@@ -245,11 +279,19 @@ class _ChatCompletionsProvider:
 
     name = "chat-completions"
 
-    def __init__(self, base_url: str, api_key: str, model: str, post=_post_json):
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        post=_post_json,
+        stream=_post_stream,
+    ):
         self.base_url = base_url
         self.api_key = api_key
         self.model = model
         self.post = post
+        self.stream = stream
 
     @staticmethod
     def _tool_config() -> list[dict]:
@@ -316,9 +358,15 @@ class MistralProvider(_ChatCompletionsProvider):
 
     name = "mistral"
 
-    def __init__(self, api_key: str, model: str = MISTRAL_MODEL, post=_post_json):
+    def __init__(
+        self,
+        api_key: str,
+        model: str = MISTRAL_MODEL,
+        post=_post_json,
+        stream=_post_stream,
+    ):
         super().__init__(
-            "https://api.mistral.ai/v1/chat/completions", api_key, model, post
+            "https://api.mistral.ai/v1/chat/completions", api_key, model, post, stream
         )
 
 
@@ -331,12 +379,19 @@ class OpenAICompatibleProvider(_ChatCompletionsProvider):
 
     name = "openai-compatible"
 
-    def __init__(self, base_url: str, api_key: str, model: str, post=_post_json):
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        post=_post_json,
+        stream=_post_stream,
+    ):
         root = base_url.rstrip("/")
         endpoint = (
             root if root.endswith("/chat/completions") else f"{root}/chat/completions"
         )
-        super().__init__(endpoint, api_key, model, post)
+        super().__init__(endpoint, api_key, model, post, stream)
 
 
 def configured() -> bool:

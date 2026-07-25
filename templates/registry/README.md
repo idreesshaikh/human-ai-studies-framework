@@ -1,11 +1,30 @@
 # Registry templates (13 so far, meant to keep growing)
 
-A **template** encodes one *published* study design (its structure, its
-prescribed statistics, its required instruments) so a researcher can
-instantiate it into a valid protocol with zero hand edits. The registry
-is designed as an **expandable library**: the published literature holds
-hundreds of distinct designs, and each becomes a template as its recipes
-and instruments come online. Thirteen templates ship today, in four layers:
+A **template** encodes one proven, *generic* study design — a design
+**shape** (its structure, its prescribed statistics, its required
+instruments) — so a researcher can instantiate it into a valid protocol
+with zero hand edits.
+
+A template is **not a replica of one paper**. The papers that used a shape
+attach to it as ranked **references**: each template declares a curated
+`designSignature` (the phrases a paper using this design says about itself),
+and the repertoire counts how many corpus papers above the confidence gate
+carry them. That count is the shape's **support**, and it ranks the registry
+**common → rare** — the current corpus spans ~13 papers (2×2 factorial) to
+~1,700 (benchmark evaluation). A shape too rare to be well-attested is
+admitted only when its strongest reference clears the confidence gate, and
+is shown with that reason rather than hidden. See
+`middleware/src/middleware/template_repertoire.py`; the ranking is
+deterministic (no LLM), so any number here is countable by hand.
+
+Shapes compose: selecting two or more and merging produces one novel
+protocol still grounded in every paper it draws from — that, not
+replication, is the point of the registry.
+
+The registry is designed as an **expandable library**: the published
+literature holds hundreds of distinct designs, and each becomes a template
+as its recipes and instruments come online. Thirteen templates ship today,
+in four layers:
 
 **The original two seeds** (Phase 15 — proved the mechanism itself):
 - **metr-rct-v1** — the METR early-2025 developer-productivity RCT

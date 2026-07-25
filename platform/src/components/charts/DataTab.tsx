@@ -140,12 +140,15 @@ export function DataTab({ studyId }: { studyId: string }) {
         )}
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-text">Metrics by condition</h2>
-        <MetricStrip rows={metricRows} conditions={conditions} />
-      </section>
-
-      <PrescriptionPanel />
+      {/* Metrics and the prescription that reads them sit close together —
+          they're one analytical unit, tighter than the section gap. */}
+      <div className="flex flex-col gap-3">
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-medium text-text">Metrics by condition</h2>
+          <MetricStrip rows={metricRows} conditions={conditions} />
+        </section>
+        <PrescriptionPanel />
+      </div>
     </div>
   );
 }

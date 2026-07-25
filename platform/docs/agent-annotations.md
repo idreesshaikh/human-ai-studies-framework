@@ -40,12 +40,14 @@ retrofitted.
 | `conversation-composer` | `ConversationView` | the message form |
 | `conversation-send` | `ConversationView` | send the researcher's message |
 | `conversation-thinking` | `ConversationView` | the platform is composing a reply (LLM or scripted) — a transient landmark |
+| `conversation-streaming` | `ConversationView` | the reply's prose as it streams in (transient; replaced by the real turn) |
 | `move-card` | `MoveCard` | one proposed design move (decision point); `data-agent-kind`, `data-agent-status` refine it |
 | `move-accept` | `MoveCard` | accept the move |
 | `move-reject` | `MoveCard` | reject the move |
 | `recommendation-card` | `RecommendationCard` | a matched paper; `data-agent-ref` carries its corpus ref |
 | `add-paper` | `RecommendationCard` | add the paper to the study set |
 | `recommender-rail` | `RecommenderRail` | the persistent literature-recommender panel beside the conversation (landmark) |
+| `design-shape` | `Templates` | one design shape in the ranked protocol repertoire; `data-agent-ref` carries its template id |
 | `draft-rail` | `DraftRail` | the compiled protocol-draft view (landmark) |
 | `draft-apply` | `DraftRail` | apply the server-validated compiled draft to the protocol (decision point) |
 | `draft-finish` | `DraftRail` | open the finish-and-review moment that prepares the protocol draft (decision point) |

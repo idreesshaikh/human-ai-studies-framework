@@ -69,14 +69,24 @@ _SECTION_LIST = ", ".join(sorted(_PATCHABLE_SECTIONS))
 
 SYSTEM_PROMPT = (
     "You are the design-conversation partner for a human-AI developer study "
-    "platform. A researcher describes a study idea in plain language; "
-    "respond like a thoughtful methodologist and propose concrete design "
-    "moves they can individually accept or reject. "
-    "You may cite ONLY the papers and templates listed in the candidate "
-    "menu given to you this turn - never a citation you were not given. If "
-    "a move has no citable candidate, propose it anyway with an empty refs "
-    "list; honesty about what is grounded matters more than looking "
-    "well-cited.\n\n"
+    "platform. A researcher describes a study idea in plain language; help "
+    "them DERIVE a good, methodologically sound protocol — ask a clarifying "
+    "question when the idea is ambiguous, then propose concrete design moves "
+    "they accept or reject. Offer, don't lead.\n\n"
+    "Each move's `proposal` is ONE specific, actionable sentence a researcher "
+    "can accept as-is: name the concrete research question, measure, "
+    "parameter, or design — never a vague gesture ('consider your measures'). "
+    "Across the conversation aim for a complete protocol: cover the mandatory "
+    "sections, pair any self-report with an objective measure, and raise a "
+    "`caution` when a choice risks a known validity threat.\n\n"
+    "GROUNDING — prefer papers. You may cite ONLY the papers and templates in "
+    "the candidate menu given to you this turn (never one you were not given). "
+    "The menu is retrieved to be relevant, so MOST moves should carry at least "
+    "one `ref` from it — reach for the grounding. Leave `refs` empty ONLY for "
+    "a genuine researcher-judgment call the literature can't settle (a scoping "
+    "or tuning decision); that should be the exception, not the norm. Never "
+    "fabricate a citation, but do not leave a move unsourced when a fitting "
+    "candidate is right there.\n\n"
     "IMPORTANT: the protocol's `design` section (its overall shape - RCT, "
     "crossover, pre/post, etc. - and prescribed statistics) can ONLY be set "
     "by a choose-template move; no other move kind can ever fill it, no "
@@ -248,6 +258,120 @@ def _parse_moves(
         )
         out.append(ScriptedMove(kind, str(m.get("target", "")), proposal, patch, refs))
     return tuple(out)
+
+
+class _ReplyTextExtractor:
+    """Pull the value of the reply's leading ``"text"`` field out of a JSON
+    object *as it streams*.
+
+    The design turn is one structured JSON completion — prose plus moves —
+    and the prompt puts ``text`` first, so its characters arrive long before
+    the moves do. Feeding raw JSON to the UI would show the researcher
+    braces; this hands back only the prose fragments, decoded, and stops at
+    the closing quote. Purely additive: the full body is still parsed
+    normally at the end, so a stream this misreads costs a live preview, not
+    the reply.
+    """
+
+    def __init__(self) -> None:
+        self._buf = ""
+        self._in_text = False
+        self._done = False
+        self._escape = False
+
+    def feed(self, chunk: str) -> str:
+        """Return whatever prose this chunk contributed (often "")."""
+        if self._done:
+            return ""
+        out = []
+        for ch in chunk:
+            if not self._in_text:
+                self._buf += ch
+                marker = self._buf.find('"text"')
+                if marker == -1:
+                    # Keep only enough tail to still match a split marker.
+                    self._buf = self._buf[-8:]
+                    continue
+                rest = self._buf[marker + len('"text"') :]
+                opened = rest.find('"')
+                if opened == -1:
+                    continue
+                self._in_text = True
+                self._buf = ""
+                chunk_tail = rest[opened + 1 :]
+                if chunk_tail:
+                    out.append(self.feed(chunk_tail))
+                continue
+            if self._escape:
+                out.append({"n": "\n", "t": "\t", "r": "\r"}.get(ch, ch))
+                self._escape = False
+            elif ch == "\\":
+                self._escape = True
+            elif ch == '"':
+                self._done = True
+                break
+            else:
+                out.append(ch)
+        return "".join(out)
+
+
+def propose_turn_streaming(
+    client,
+    text: str,
+    history: list[dict],
+    papers: list[dict],
+    templates: list[dict],
+):
+    """:func:`propose_turn`, yielding the reply's prose as it arrives.
+
+    A generator: it yields prose fragments, and its ``return`` value (via
+    ``StopIteration.value``) is the same ``Script | None`` as the blocking
+    call — so a caller gets live text *and* the identical validated moves,
+    with the same never-raises, degrade-to-scripted contract. A provider
+    without a ``stream`` seam, or any streaming failure, falls back to the
+    blocking call rather than losing the turn.
+    """
+    stream = getattr(client, "stream", None)
+    if stream is None:
+        return propose_turn(client, text, history, papers, templates)
+
+    candidate_refs = {p["ref"] for p in papers if p.get("ref")}
+    candidate_refs |= {t["templateId"] for t in templates if t.get("templateId")}
+    menu = _candidate_menu(papers, templates)
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        *history,
+        {"role": "user", "content": f"{text}\n\nCandidate menu this turn:\n{menu}"},
+    ]
+    extractor = _ReplyTextExtractor()
+    body = ""
+    try:
+        for piece in stream(
+            client.base_url,
+            {
+                "model": client.model,
+                "messages": messages,
+                "response_format": {"type": "json_object"},
+                "max_tokens": 1536,
+            },
+            {"Authorization": f"Bearer {client.api_key}"},
+        ):
+            body += piece
+            prose = extractor.feed(piece)
+            if prose:
+                yield prose
+        parsed = json.loads(body)
+        if not isinstance(parsed, dict):
+            raise ValueError("LLM reply was not a JSON object")
+        reply_text = str(parsed.get("text", "")).strip()
+    except Exception as exc:  # noqa: BLE001 - any provider/parse failure degrades
+        log.warning("streaming conversation turn failed, falling back: %s", exc)
+        return propose_turn(client, text, history, papers, templates)
+    moves = _parse_moves(parsed.get("moves"), candidate_refs)
+    if not reply_text and not moves:
+        log.warning("LLM conversation turn produced no usable content, falling back")
+        return None
+    return Script(text=reply_text or "(no reply text)", moves=moves, match_query=None)
 
 
 def propose_turn(

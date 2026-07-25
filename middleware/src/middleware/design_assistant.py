@@ -18,6 +18,7 @@ labeled unsourced; the grep-the-output test (F2.1) asserts exactly this.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -27,6 +28,8 @@ from sqlalchemy.orm import Session
 from middleware import matching
 from middleware.db import ConversationTurn
 from middleware.template_registry import list_templates
+
+log = logging.getLogger(__name__)
 
 #: How many prior turns to feed the LLM as history (token-budget cap;
 #: FR-CONV-1.4). A generous-enough window for a design conversation
@@ -41,10 +44,21 @@ _LLM_HISTORY_TURNS = 20
 _DESIGN_INTENT_WORDS = ("design", "statistic", "test", "how many", "template")
 
 
-def recommend_templates(text: str) -> list[dict[str, Any]]:
+def recommend_templates(
+    text: str, *, support: dict[str, int] | None = None
+) -> list[dict[str, Any]]:
     """Recommend design archetype templates matching the researcher's input.
 
     Keyword-based matching over template metadata, ranked by match strength.
+    Each template's own curated ``designSignature`` (the phrases the
+    repertoire counts corpus usage by, FR-TPL) is part of its keyword
+    profile, so a design's vocabulary is declared in one place rather than
+    duplicated here.
+
+    ``support`` is the repertoire's corpus-usage count per template id; when
+    given it breaks ties, so an equally-matching *common* design is offered
+    before a rare one. Absent, matching is unchanged.
+
     A message with clear design intent but no template-specific jargon
     (score 0 on every template) still gets the full catalog as candidates -
     an empty list would silently block the LLM (constrained to cite only
@@ -82,11 +96,11 @@ def recommend_templates(text: str) -> list[dict[str, Any]]:
 
     for t in templates:
         tid = t.get("templateId", "")
-        profile = keywords.get(
-            tid,
-            keywords.get(tid.replace("-v1", ""), []),
-        )
-        score = sum(2 for kw in profile if kw in q)
+        profile = [
+            *keywords.get(tid, keywords.get(tid.replace("-v1", ""), [])),
+            *(str(p).lower() for p in t.get("designSignature", []) or []),
+        ]
+        score = sum(2 for kw in dict.fromkeys(profile) if kw in q)
         if t.get("designType") and t["designType"].lower().replace("-", " ") in q:
             score += 3
         if t.get("title") and any(w in q for w in t["title"].lower().split()):
@@ -94,7 +108,15 @@ def recommend_templates(text: str) -> list[dict[str, Any]]:
         if score > 0:
             scored.append((score, t))
 
-    scored.sort(key=lambda x: -x[0])
+    # Equal match strength → the design the corpus actually uses more often
+    # wins (common before rare); template id last so ordering is stable.
+    scored.sort(
+        key=lambda x: (
+            -x[0],
+            -(support or {}).get(x[1].get("templateId", ""), 0),
+            x[1].get("templateId", ""),
+        )
+    )
     if not scored and any(w in q for w in _DESIGN_INTENT_WORDS):
         scored = [(0, t) for t in templates]
     return [
@@ -112,6 +134,22 @@ def recommend_templates(text: str) -> list[dict[str, Any]]:
         }
         for score, t in scored[:4]
     ]
+
+
+def corpus_support(s: Session) -> dict[str, int]:
+    """Per-template corpus usage from the repertoire, for tie-breaking.
+
+    Memoized by the repertoire itself, and degrading: if the ranking is
+    unavailable for any reason the conversation just loses the common-first
+    tie-break, never the recommendation (NFR-4 posture).
+    """
+    try:
+        from middleware import template_repertoire
+
+        return {e["id"]: e["support"] for e in template_repertoire.rank_repertoire(s)}
+    except Exception as exc:  # noqa: BLE001 - a tie-break is never worth a 500
+        log.warning("repertoire support unavailable for tie-breaking: %s", exc)
+        return {}
 
 
 def recommend_prescription(design_shape: str) -> dict[str, Any] | None:
@@ -419,6 +457,22 @@ def _pick_script(text: str) -> Script:
     return _FOLLOWUP
 
 
+def _template_source_refs(template_id: str | None) -> tuple[str, ...]:
+    """The paper refs a template cites as its design's sources (FR-TPL) — used
+    to ground a choose-template move. Empty on any lookup failure (degrade)."""
+    if not template_id:
+        return ()
+    try:
+        from middleware import template_registry
+
+        tpl = template_registry.load_template(template_id)
+        return tuple(
+            src["paperRef"] for src in tpl.get("source", []) if src.get("paperRef")
+        )
+    except Exception:  # noqa: BLE001 - a missing/invalid template just = no grounding
+        return ()
+
+
 def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
     """Build grounding from corpus rows only — cite-what-you-retrieved. A ref
     that doesn't resolve is silently dropped (the move degrades to unsourced),
@@ -489,14 +543,7 @@ def respond(
     source = "scripted"
     llm_recommendations: list[dict] | None = None
     if client is not None:
-        papers = matching.match_papers(
-            s, text, study_id=study_id, limit=8, use_llm=False
-        )
-        templates = recommend_templates(text)
-        # An explicit history (the stateless demo passes the visitor's own
-        # prior turns) wins; otherwise load it from the study's stored turns.
-        if history is None:
-            history = _load_history(s, study_id)
+        papers, templates, history = _retrieve(s, text, study_id, history)
         from middleware import design_llm  # deferred: breaks the import cycle
 
         script = design_llm.propose_turn(client, text, history, papers, templates)
@@ -505,11 +552,102 @@ def respond(
             llm_recommendations = papers
     if script is None:
         script = _pick_script(text)
+    return _assemble(
+        s,
+        text,
+        script,
+        source=source,
+        llm_recommendations=llm_recommendations,
+        seq=seq,
+        study_id=study_id,
+        client=client,
+    )
+
+
+def _retrieve(
+    s: Session, text: str, study_id: str | None, history: list[dict] | None
+) -> tuple[list[dict], list[dict], list[dict]]:
+    """The deterministic retrieval every LLM turn is constrained to cite
+    (papers, templates, history) — run *before* the model is asked anything,
+    so the model can only select from what was actually retrieved."""
+    papers = matching.match_papers(s, text, study_id=study_id, limit=8, use_llm=False)
+    templates = recommend_templates(text, support=corpus_support(s))
+    # An explicit history (the stateless demo passes the visitor's own
+    # prior turns) wins; otherwise load it from the study's stored turns.
+    if history is None:
+        history = _load_history(s, study_id)
+    return papers, templates, history
+
+
+def respond_streaming(
+    s: Session,
+    text: str,
+    *,
+    seq: int,
+    study_id: str | None = None,
+    client=None,
+    history: list[dict] | None = None,
+):
+    """:func:`respond`, yielding the reply's prose as the model writes it.
+
+    A generator whose ``return`` value is the identical result dict, so the
+    streamed turn and the blocking turn are the same turn — the stream is a
+    live view of the prose, never a second, differently-worded answer. With
+    no client (or a provider without a stream seam) it yields nothing and
+    returns the scripted result, exactly as :func:`respond` would.
+    """
+    script = None
+    source = "scripted"
+    llm_recommendations: list[dict] | None = None
+    if client is not None:
+        papers, templates, history = _retrieve(s, text, study_id, history)
+        from middleware import design_llm  # deferred: breaks the import cycle
+
+        script = yield from design_llm.propose_turn_streaming(
+            client, text, history, papers, templates
+        )
+        if script is not None:
+            source = "llm"
+            llm_recommendations = papers
+    if script is None:
+        script = _pick_script(text)
+    return _assemble(
+        s,
+        text,
+        script,
+        source=source,
+        llm_recommendations=llm_recommendations,
+        seq=seq,
+        study_id=study_id,
+        client=client,
+    )
+
+
+def _assemble(
+    s: Session,
+    text: str,
+    script: Script,
+    *,
+    source: str,
+    llm_recommendations: list[dict] | None,
+    seq: int,
+    study_id: str | None,
+    client,
+) -> dict:
+    """Turn a script (LLM or scripted) into the platform turn's result dict:
+    grounding resolved against retrieved rows, recommendations, and the
+    design recommender's prescription/figures."""
     retrieved: set[str] = set()
 
     moves = []
     for i, sm in enumerate(script.moves):
         grounding = _resolve_grounding(s, sm.refs)
+        # A choose-template move is grounded by the papers that established its
+        # design — attach them so a template choice is never "unsourced" (the
+        # template encodes those papers' design; they are its references).
+        if sm.kind == "choose-template" and not grounding and sm.patch:
+            tid = sm.patch.get("templateId")
+            grounding = _resolve_grounding(s, _template_source_refs(tid))
         retrieved.update(g["ref"] for g in grounding)
         moves.append(
             {
@@ -541,7 +679,7 @@ def respond(
             retrieved.update(r["ref"] for r in recommendations)
 
     # Design recommender (Phase 22): template matches, prescription, figures.
-    template_recommendations = recommend_templates(text)
+    template_recommendations = recommend_templates(text, support=corpus_support(s))
     design_shape = None
     for tr in template_recommendations:
         ds = tr.get("designShape")

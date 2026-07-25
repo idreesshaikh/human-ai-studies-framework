@@ -6,6 +6,13 @@ description: |
   is randomly assigned to one condition. Prescribes Kruskal-Wallis H with
   Cliff's delta for pairwise follow-ups and Holm correction.
 designType: rct-between-subjects
+
+designSignature:
+  - "three arms"
+  - "multi-arm"
+  - "three conditions"
+  - "four conditions"
+  - "arms were randomly"
 dataPath: live
 source:
   - paperRef: corpus:guidelines-empirical-llm-se
