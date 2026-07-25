@@ -18,9 +18,12 @@ Refs are canonical and stable:
 
 Honesty invariants (FR-LIT-8): nothing synthesized - a Tier A paper's FTS
 body is its title + curator's "why" + local PDF text when present; a Tier B
-body is the title (+ venue) the harvest recorded. Idempotent: Paper rows
-upsert on (study_id, paper_ref); FTS entries are delete-then-insert; edges
-insert-or-ignore. Re-running after a corpus update is the whole story.
+body is the title (+ venue) the harvest recorded; both carry the real S2
+abstract once ``corpus-enrich`` (``corpus_enrich.py``) has backfilled it.
+Idempotent: Paper rows upsert on (study_id, paper_ref) - keeping the longer
+abstract, so a re-import never undoes enrichment; FTS entries are
+delete-then-insert; edges insert-or-ignore. Re-running after a corpus update
+is the whole story.
 """
 
 import json
@@ -28,7 +31,7 @@ import logging
 import re
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from middleware import paper_index, pdf
@@ -115,11 +118,14 @@ def parse_tier_b() -> list[dict]:
     return [e for e in data.get("tierB", []) if e.get("ref")]
 
 
-def _tier_a_body(paper: dict) -> str:
-    """The searchable text for a seed: title + curator's why + local PDF
-    text when a ``docs/papers/<stem>.pdf`` exists (PDFs are gitignored;
-    absent ones degrade to metadata-only, never fail)."""
+def tier_a_body(paper: dict, abstract: str = "") -> str:
+    """The searchable text for a seed: title + curator's why + the enriched
+    abstract when one has landed + local PDF text when a
+    ``docs/papers/<stem>.pdf`` exists (PDFs are gitignored; absent ones
+    degrade to metadata-only, never fail)."""
     parts = [paper["title"], paper["why"]]
+    if abstract:
+        parts.append(abstract)
     pdf_path = PAPERS_DIR / f"{paper['file']}.pdf"
     if pdf_path.exists():
         extracted = pdf.extract(pdf_path.read_bytes())
@@ -128,34 +134,61 @@ def _tier_a_body(paper: dict) -> str:
     return "\n\n".join(parts)
 
 
+#: An ``abstract`` at least this long is a real abstract rather than a
+#: curator's one-line "why" (those average ~67 chars). The backfill uses it
+#: to pick candidates; the importer uses it to keep enriched text in the
+#: searchable body.
+MIN_REAL_ABSTRACT_CHARS = 200
+
+
+def enriched_abstracts(s: Session) -> dict[str, str]:
+    """Corpus refs that already carry a real (backfilled) abstract."""
+    rows = s.execute(
+        select(Paper.paper_ref, Paper.abstract).where(
+            Paper.study_id == CORPUS_STUDY_ID,
+            func.length(func.coalesce(Paper.abstract, "")) >= MIN_REAL_ABSTRACT_CHARS,
+        )
+    ).all()
+    return {ref: abstract for ref, abstract in rows}
+
+
 def _upsert_corpus_paper(s: Session, values: dict) -> None:
+    """Upsert one corpus row, keeping the longer ``abstract``.
+
+    Re-importing must not undo an abstract backfill (``corpus-enrich``): a
+    seed's one-line curator "why" is what the importer knows, a real S2
+    abstract is what enrichment landed, and the longer of the two is always
+    the enriched one. Every other column is import-owned and overwritten.
+    """
     engine = get_engine()
     row = dict(study_id=CORPUS_STUDY_ID, added_at="", **values)
-    update_set = {k: v for k, v in values.items() if k != "paper_ref"}
     if engine and engine.dialect.name == "postgresql":
         from sqlalchemy.dialects.postgresql import insert as _pg_insert
-        stmt = (
-            _pg_insert(Paper)
-            .values([row])
-            .on_conflict_do_update(
-                index_elements=["study_id", "paper_ref"], set_=update_set
-            )
-        )
+        stmt = _pg_insert(Paper).values([row])
     else:
         from sqlalchemy.dialects.sqlite import insert as _sq_insert
-        stmt = (
-            _sq_insert(Paper)
-            .values([row])
-            .on_conflict_do_update(
-                index_elements=["study_id", "paper_ref"], set_=update_set
-            )
+        stmt = _sq_insert(Paper).values([row])
+    update_set = {k: v for k, v in values.items() if k != "paper_ref"}
+    if "abstract" in update_set:
+        update_set["abstract"] = case(
+            (
+                func.length(func.coalesce(Paper.abstract, ""))
+                > func.length(func.coalesce(stmt.excluded.abstract, "")),
+                Paper.abstract,
+            ),
+            else_=stmt.excluded.abstract,
         )
-    s.execute(stmt)
+    s.execute(
+        stmt.on_conflict_do_update(
+            index_elements=["study_id", "paper_ref"], set_=update_set
+        )
+    )
 
 
 def import_tier_a(s: Session) -> dict[str, int]:
     """Land the Tier A seeds; returns ref -> FTS chunk count."""
     indexed: dict[str, int] = {}
+    enriched = enriched_abstracts(s)
     for paper in parse_tier_a():
         _upsert_corpus_paper(
             s,
@@ -164,6 +197,7 @@ def import_tier_a(s: Session) -> dict[str, int]:
                 "title": paper["title"],
                 "year": paper["year"],
                 "abstract": paper["why"],
+                "curator_note": paper["why"],
                 "arxiv_id": paper["arxivId"],
                 "doi": paper["doi"],
                 "url": paper["url"],
@@ -173,7 +207,7 @@ def import_tier_a(s: Session) -> dict[str, int]:
                 "score": TIER_A_SEED_SCORE,
             },
         )
-        body = _tier_a_body(paper)
+        body = tier_a_body(paper, enriched.get(paper["ref"], ""))
         indexed[paper["ref"]] = paper_index.index_paper(
             s, paper["ref"], paper["title"], body
         )
@@ -183,6 +217,7 @@ def import_tier_a(s: Session) -> dict[str, int]:
 def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
     """Land the harvested Tier B rows + FTS entries + via-edges."""
     seed_by_arxiv = {p["arxivId"]: p["ref"] for p in parse_tier_a() if p["arxivId"]}
+    enriched = enriched_abstracts(s)
     indexed: dict[str, int] = {}
     entries = parse_tier_b()
     for i, entry in enumerate(entries):
@@ -207,7 +242,13 @@ def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
             },
         )
         body = "\n\n".join(
-            part for part in (entry.get("title", ""), entry.get("venue") or "") if part
+            part
+            for part in (
+                entry.get("title", ""),
+                entry.get("venue") or "",
+                enriched.get(ref, ""),
+            )
+            if part
         )
         indexed[ref] = paper_index.index_paper(s, ref, entry.get("title", ""), body)
         for via in entry.get("via", []):

@@ -40,6 +40,11 @@ _last_request = 0.0
 PAPER_FIELDS = "title,authors,year,venue,abstract,externalIds,citationCount"
 EDGE_FIELDS = "title,year,externalIds,citationCount"
 
+#: S2's ``POST /paper/batch`` accepts up to 500 ids per call, and one call
+#: costs one request against the 1 req/s budget - which is what makes a
+#: whole-corpus abstract backfill minutes of work rather than hours.
+BATCH_MAX_IDS = 500
+
 #: Cap harvested edges per kind (top-N by citationCount) so the graph stays
 #: legible and one popular paper doesn't pull thousands of stubs.
 EDGE_CAP = 50
@@ -84,6 +89,29 @@ def get_json(url: str, *, retries: int = 5) -> object:
         except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
             raise SemanticScholarError(f"GET {url} failed: {exc}") from exc
     raise SemanticScholarError(f"GET {url} rate-limited after {retries} tries")
+
+
+def post_json(url: str, payload: dict, *, retries: int = 5) -> object:
+    """POST, sharing :func:`get_json`'s pacing and 429 posture. The batch
+    endpoint's seam - monkeypatched in tests, never called on a cache hit."""
+    body = json.dumps(payload).encode()
+    headers = {**_headers(), "Content-Type": "application/json"}
+    for attempt in range(retries):
+        _pace()
+        req = urllib.request.Request(url, data=body, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as res:
+                return json.loads(res.read())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429 and attempt < retries - 1:
+                retry_after = (exc.headers or {}).get("Retry-After", "")
+                delay = float(retry_after) if retry_after.isdigit() else 2.0**attempt
+                time.sleep(min(delay, 30.0))
+                continue
+            raise SemanticScholarError(f"POST {url} -> HTTP {exc.code}") from exc
+        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+            raise SemanticScholarError(f"POST {url} failed: {exc}") from exc
+    raise SemanticScholarError(f"POST {url} rate-limited after {retries} tries")
 
 
 def s2_id_for_ref(paper_ref: str) -> str:
@@ -140,6 +168,38 @@ def fetch_paper(paper_ref: str, *, fetch=get_json) -> dict:
     if not isinstance(paper, dict):
         raise SemanticScholarError(f"unexpected paper shape for {paper_ref!r}")
     return normalize_paper(paper)
+
+
+def fetch_papers_batch(
+    paper_refs: list[str],
+    *,
+    fields: str = PAPER_FIELDS,
+    id_for_ref=s2_id_for_ref,
+    post=post_json,
+) -> dict[str, dict]:
+    """Metadata for many papers in one call (``POST /paper/batch``).
+
+    Returns ``{paperRef: normalized record}`` keyed by the *requested* ref, so
+    a caller joins results back to its own rows. ``id_for_ref`` maps a ref to
+    the id S2 should be asked for - the corpus passes one that prefers a
+    row's stored ``s2Id``, since a curated ``corpus:<stem>`` ref means nothing
+    to S2. Ids S2 cannot resolve are simply absent from the mapping:
+    staleness, reported by the caller, never fabricated. Requests are chunked
+    to :data:`BATCH_MAX_IDS`.
+    """
+    out: dict[str, dict] = {}
+    url = f"{GRAPH_API}/paper/batch?fields={fields}"
+    for start in range(0, len(paper_refs), BATCH_MAX_IDS):
+        chunk = [r for r in paper_refs[start : start + BATCH_MAX_IDS] if id_for_ref(r)]
+        if not chunk:
+            continue
+        results = post(url, {"ids": [id_for_ref(r) for r in chunk]})
+        if not isinstance(results, list):
+            raise SemanticScholarError(f"unexpected batch shape for {len(chunk)} ids")
+        for ref, record in zip(chunk, results, strict=False):
+            if isinstance(record, dict) and record.get("paperId"):
+                out[ref] = normalize_paper(record)
+    return out
 
 
 def _neighbours(items: list, inner_key: str) -> list[dict]:
