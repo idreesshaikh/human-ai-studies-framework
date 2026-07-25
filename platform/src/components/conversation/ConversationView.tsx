@@ -52,8 +52,6 @@ export function ConversationView({
   const [markedTurns, setMarkedTurns] = useState<Set<string>>(new Set());
   const [live, setLive] = useState(!stubOnly);
   const [busy, setBusy] = useState(false);
-  /* The reply's prose while it streams; null once the real turn lands. */
-  const [streamingText, setStreamingText] = useState<string | null>(null);
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
@@ -175,18 +173,7 @@ export function ConversationView({
         // sendTurn returns [researcher(server id), platform]; replace our
         // optimistic turn with the server pair so ids reconcile without a
         // duplicated message.
-        // Streamed: the reply's prose appears as the model writes it, so the
-        // thread is alive instead of blank for the whole round-trip. The
-        // streamed text is presentation only — the resolved turns are the
-        // same ones the blocking call returns, and replace it wholesale.
-        setStreamingText("");
-        const appended = await conversationApi.sendTurnStreaming(
-          studyId,
-          text,
-          "You",
-          (fragment) => setStreamingText((prev) => prev + fragment),
-        );
-        setStreamingText(null);
+        const appended = await conversationApi.sendTurn(studyId, text);
         setTurns((prev) => [
           ...prev.filter((t) => t.turnId !== pendingId),
           ...appended.turns,
@@ -203,7 +190,6 @@ export function ConversationView({
       setNote("You're offline — replies are coming from the built-in assistant until the connection returns.");
       scrollDown();
     } finally {
-      setStreamingText(null);
       setBusy(false);
     }
   }
@@ -296,27 +282,13 @@ export function ConversationView({
           ))}
           {busy && live && !stubOnly && (
             <div className="flex flex-col items-start gap-3" data-agent="conversation-thinking">
-              <div className="max-w-[46ch] animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 text-sm duration-entrance">
-                <span className="mb-1 block text-xs text-text-muted opacity-70">
-                  Platform
+              <div className="max-w-[46ch] animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 text-sm text-text-muted duration-entrance">
+                <span className="mb-1 block text-xs opacity-70">Platform</span>
+                <span className="inline-flex items-center gap-1 animate-pulse">
+                  <span className="size-1.5 rounded-full bg-text-muted" />
+                  <span className="size-1.5 rounded-full bg-text-muted" />
+                  <span className="size-1.5 rounded-full bg-text-muted" />
                 </span>
-                {streamingText ? (
-                  /* The reply as it is being written. Live for a screen
-                   * reader too, but polite — it must not interrupt. */
-                  <span
-                    className="whitespace-pre-wrap text-text"
-                    aria-live="polite"
-                    data-agent="conversation-streaming"
-                  >
-                    {streamingText}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 animate-pulse text-text-muted">
-                    <span className="size-1.5 rounded-full bg-text-muted" />
-                    <span className="size-1.5 rounded-full bg-text-muted" />
-                    <span className="size-1.5 rounded-full bg-text-muted" />
-                  </span>
-                )}
               </div>
             </div>
           )}

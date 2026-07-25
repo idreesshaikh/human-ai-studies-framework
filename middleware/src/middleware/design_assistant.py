@@ -543,7 +543,14 @@ def respond(
     source = "scripted"
     llm_recommendations: list[dict] | None = None
     if client is not None:
-        papers, templates, history = _retrieve(s, text, study_id, history)
+        papers = matching.match_papers(
+            s, text, study_id=study_id, limit=8, use_llm=False
+        )
+        templates = recommend_templates(text, support=corpus_support(s))
+        # An explicit history (the stateless demo passes the visitor's own
+        # prior turns) wins; otherwise load it from the study's stored turns.
+        if history is None:
+            history = _load_history(s, study_id)
         from middleware import design_llm  # deferred: breaks the import cycle
 
         script = design_llm.propose_turn(client, text, history, papers, templates)
@@ -552,91 +559,6 @@ def respond(
             llm_recommendations = papers
     if script is None:
         script = _pick_script(text)
-    return _assemble(
-        s,
-        text,
-        script,
-        source=source,
-        llm_recommendations=llm_recommendations,
-        seq=seq,
-        study_id=study_id,
-        client=client,
-    )
-
-
-def _retrieve(
-    s: Session, text: str, study_id: str | None, history: list[dict] | None
-) -> tuple[list[dict], list[dict], list[dict]]:
-    """The deterministic retrieval every LLM turn is constrained to cite
-    (papers, templates, history) — run *before* the model is asked anything,
-    so the model can only select from what was actually retrieved."""
-    papers = matching.match_papers(s, text, study_id=study_id, limit=8, use_llm=False)
-    templates = recommend_templates(text, support=corpus_support(s))
-    # An explicit history (the stateless demo passes the visitor's own
-    # prior turns) wins; otherwise load it from the study's stored turns.
-    if history is None:
-        history = _load_history(s, study_id)
-    return papers, templates, history
-
-
-def respond_streaming(
-    s: Session,
-    text: str,
-    *,
-    seq: int,
-    study_id: str | None = None,
-    client=None,
-    history: list[dict] | None = None,
-):
-    """:func:`respond`, yielding the reply's prose as the model writes it.
-
-    A generator whose ``return`` value is the identical result dict, so the
-    streamed turn and the blocking turn are the same turn — the stream is a
-    live view of the prose, never a second, differently-worded answer. With
-    no client (or a provider without a stream seam) it yields nothing and
-    returns the scripted result, exactly as :func:`respond` would.
-    """
-    script = None
-    source = "scripted"
-    llm_recommendations: list[dict] | None = None
-    if client is not None:
-        papers, templates, history = _retrieve(s, text, study_id, history)
-        from middleware import design_llm  # deferred: breaks the import cycle
-
-        script = yield from design_llm.propose_turn_streaming(
-            client, text, history, papers, templates
-        )
-        if script is not None:
-            source = "llm"
-            llm_recommendations = papers
-    if script is None:
-        script = _pick_script(text)
-    return _assemble(
-        s,
-        text,
-        script,
-        source=source,
-        llm_recommendations=llm_recommendations,
-        seq=seq,
-        study_id=study_id,
-        client=client,
-    )
-
-
-def _assemble(
-    s: Session,
-    text: str,
-    script: Script,
-    *,
-    source: str,
-    llm_recommendations: list[dict] | None,
-    seq: int,
-    study_id: str | None,
-    client,
-) -> dict:
-    """Turn a script (LLM or scripted) into the platform turn's result dict:
-    grounding resolved against retrieved rows, recommendations, and the
-    design recommender's prescription/figures."""
     retrieved: set[str] = set()
 
     moves = []

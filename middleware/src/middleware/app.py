@@ -20,7 +20,6 @@ accepted unchanged (FR-ING-1).
 import csv
 import io
 import json
-import logging
 import re
 import secrets
 from collections import defaultdict
@@ -32,7 +31,7 @@ from urllib.parse import quote as _urlquote
 
 import yaml
 from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from protocol.lifecycle import PHASE_ORDER, current_phase, gates_by_phase
 from pydantic import BaseModel, Field
@@ -335,15 +334,6 @@ class _ProtocolCheck:
         if v is not None and v not in KNOWN_EVENT_SCHEMA_VERSIONS:
             flags.append("unknown-schema-version")
         return flags
-
-
-log = logging.getLogger(__name__)
-
-
-def _sse(event: str, data: dict) -> str:
-    """One server-sent event frame. JSON payloads only, so a client parses
-    every frame the same way whatever its type."""
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 def create_app(settings: Settings | None = None, clock: Clock | None = None) -> FastAPI:
@@ -3755,20 +3745,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         by construction, then asserted). With no LLM key the deterministic
         design assistant answers (NFR-4); the LLM seam swaps in behind the
         same shape."""
-        researcher = _append_researcher_turn(s, study_id, body)
-        reply = design_assistant.respond(
-            s,
-            body.text,
-            seq=researcher.seq + 1,
-            study_id=study_id,
-            client=_design_turn_client(),
-        )
-        return _persist_platform_turn(s, study_id, researcher, reply)
-
-    def _append_researcher_turn(
-        s: Session, study_id: str, body: ConversationTurnIn
-    ) -> ConversationTurn:
-        """Land the researcher's own turn; its seq settles the reply's."""
         researcher = ConversationTurn(
             id=secrets.token_hex(8),
             study_id=study_id,
@@ -3781,23 +3757,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         )
         s.add(researcher)
         s.flush()  # researcher.seq is now settled; the reply is the next seq
-        return researcher
 
-    def _design_turn_client():
-        """The medium tier, not `mistral-large-latest`: the design turn is a
-        single JSON completion (no tool loop), so the large model's latency
-        was the whole cost of a slow reply. Medium is markedly faster and
-        strong enough for this structured task (FR-CONV-1.4)."""
-        return assistant.make_client(assistant.MISTRAL_MODEL)
-
-    def _persist_platform_turn(
-        s: Session, study_id: str, researcher: ConversationTurn, reply: dict
-    ) -> dict:
-        """Persist the platform reply + its moves and return the wire shape.
-
-        Shared by the blocking and the streaming turn endpoints, so a
-        streamed turn is stored identically to a blocking one — the stream
-        is a view of the reply, never a different reply."""
+        reply = design_assistant.respond(
+            s,
+            body.text,
+            seq=researcher.seq + 1,
+            study_id=study_id,
+            # The medium tier, not `mistral-large-latest`: the design turn is a
+            # single JSON completion (no tool loop), so the large model's
+            # latency was the whole cost of a slow reply. Medium is markedly
+            # faster and strong enough for this structured task (FR-CONV-1.4).
+            client=assistant.make_client(assistant.MISTRAL_MODEL),
+        )
         retrieved = set(reply["retrievedRefs"])
         # Belt-and-suspenders: grounding is built only from retrieved rows, so
         # this can only fire on a coding error — but the boundary is too
@@ -3854,61 +3825,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "recommendations": reply["recommendations"],
             "source": reply["source"],
         }
-
-    @app.post(
-        "/studies/{study_id}/conversation/turns/stream",
-        dependencies=[Depends(require_project_for_study("contribute"))],
-    )
-    def append_turn_streaming(
-        study_id: str, body: ConversationTurnIn, s: Session = Depends(db)
-    ) -> StreamingResponse:
-        """The same turn as ``POST .../turns``, streamed (NFR-12).
-
-        Server-sent events: ``token`` frames carry the reply's prose as the
-        model writes it, then one ``done`` frame carries the identical
-        payload the blocking endpoint returns (moves, grounding,
-        recommendations) once the turn is persisted. A client that cannot
-        stream loses nothing by calling the blocking endpoint instead; a
-        failure mid-stream ends with an ``error`` frame rather than a
-        half-written turn, because the turn is only persisted after the
-        model's reply is complete and validated.
-        """
-
-        def frames():
-            try:
-                researcher = _append_researcher_turn(s, study_id, body)
-                stream = design_assistant.respond_streaming(
-                    s,
-                    body.text,
-                    seq=researcher.seq + 1,
-                    study_id=study_id,
-                    client=_design_turn_client(),
-                )
-                reply = None
-                while True:
-                    try:
-                        prose = next(stream)
-                    except StopIteration as done:
-                        reply = done.value
-                        break
-                    yield _sse("token", {"text": prose})
-                payload = _persist_platform_turn(s, study_id, researcher, reply)
-                yield _sse("done", payload)
-            except Exception as exc:  # noqa: BLE001 - the stream owns its errors
-                log.exception("streaming conversation turn failed")
-                s.rollback()
-                yield _sse("error", {"detail": str(exc)})
-
-        return StreamingResponse(
-            frames(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-store",
-                # Nothing in this deployment buffers SSE, but a proxy in
-                # front of it might; this is the conventional opt-out.
-                "X-Accel-Buffering": "no",
-            },
-        )
 
     @app.get(
         "/studies/{study_id}/conversation",
