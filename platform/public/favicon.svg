@@ -1,6 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <circle cx="16" cy="16" r="16" fill="#17120d"/>
-  <path d="M19 4 L28 15 L13 28 L4 14 Z" fill="#ff7a45"/>
-  <path d="M19 4 L13 28 M28 15 L4 14" stroke="#f0dec4" stroke-width="0.75" stroke-linecap="round" opacity="0.55"/>
-  <path d="M12 27 L7.5 31.3 M14 27.5 L16.8 31.5" stroke="#ff7a45" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="PHOENIX">
+  <!-- PHOENIX: wings swept up, rising out of the flame it burns back from.
+       Drawn in the platform's own token palette (ink ground, paper bird, one
+       signal accent) with deliberately few, large shapes, because a favicon
+       is read at 16px where detail turns to mush.
+       No double hyphens in this comment: they are invalid inside XML. -->
+  <circle cx="16" cy="16" r="16" fill="#16202e"/>
+
+  <!-- The flame first, so the bird sits in front of it. -->
+  <g fill="#2a45c0">
+    <path d="M16 18.5c2.4 2.6 3.4 5.1 3 7.6-.6 2.4-1.6 3.9-3 4.5-1.4-.6-2.4-2.1-3-4.5-.4-2.5.6-5 3-7.6z"/>
+  </g>
+
+  <g fill="#e9edf3">
+    <!-- One wing, swept up and outward; mirrored so the bird is symmetric by
+         construction rather than by eye. -->
+    <path id="w" d="M15 15.3C11.6 11.2 7.9 7.9 3.9 5.4c.6 5.3 2.9 9.9 6.9 13.8l4.2-2.2z"/>
+    <use href="#w" transform="translate(32 0) scale(-1 1)"/>
+    <!-- Head, breast and the long tail it tapers into. -->
+    <path d="M16 6.4c1.6 0 2.8 1.2 2.8 2.7 0 1-.5 1.8-1.2 2.3l.7 6.9L16 24.6l-2.3-6.3.7-6.9c-.7-.5-1.2-1.3-1.2-2.3 0-1.5 1.2-2.7 2.8-2.7z"/>
+    <!-- Beak. -->
+    <path d="M18.5 8.2l2.8 1-2.8 1z"/>
+  </g>
 </svg>
