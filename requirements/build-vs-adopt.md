@@ -599,3 +599,22 @@ deliverability for a solo researcher) and the Resend Python SDK (unearned
 weight for one request). Invite creation is also lowered from `owner` to a
 new `invite_member` capability held by researchers+, so members invite
 peers (fr-plat.md §2 role matrix updated).
+
+### D41 - Live presence + push updates: SSE over an in-process hub - **BUILD, bounded** → FR-PLAT collaboration *(2026-07-26)*
+
+Collaboration on a study was asynchronous: two researchers saw each other's
+work only by reloading. Decision: **build a ~120-line in-process pub/sub hub
+(`middleware/presence.py`) fanning out over server-sent events**, reusing the
+SSE transport the streamed design turn already introduced (no new dependency,
+no new protocol). Scope is deliberately presence + *invalidation* pushes: an
+event says only what changed, and viewers re-read through the ordinary
+endpoints, so the API stays the single source of truth. Bounded per-subscriber
+queues mean a stalled browser drops events and is *told* (`dropped`) rather
+than growing server memory or being served a gapped stream. **Rejected:** a
+CRDT / operational-transform stack (Yjs, Automerge) and WebSockets — real
+simultaneous editing is a large subsystem whose payoff at a handful of
+researchers per study is small, and websockets add a second transport for
+capability SSE already covers; Redis pub/sub — correct the moment the service
+runs replicated, and unnecessary while one Railway container serves the whole
+app (NFR-7). `presence.publish` is the single seam to move behind Redis if
+that changes, which is why call sites never touch queues directly.
