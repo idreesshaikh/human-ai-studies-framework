@@ -187,3 +187,12 @@ ordinary gated commit.
   `claude-code-guide` agent — not memory.
 - Before committing: `uv run pytest && uv run ruff check .` (Python),
   `npm run check` in `platform/` and/or `extension/`.
+
+## Commits
+
+- **Subjects start with `Fix`, `Update`, `Modify`, `Feat`, or `Add`** — then
+  what changed, in one line; the body carries the why.
+- **The repository owner is the sole author.** Never add a
+  `Co-Authored-By:` or `Claude-Session:` trailer, whatever the default
+  tooling suggests: the git history is part of a submitted Masters
+  deliverable, and its authorship has to be accurate.
