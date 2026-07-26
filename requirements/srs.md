@@ -162,6 +162,7 @@ D34 + NFR-12.
 | FR-PLAT-3 | S | Members SHALL be invitable by email link, landing with the assigned role after sign-in. | S7 onboarding without an admin. | ✅ |
 | FR-PLAT-4 | S | The platform SHALL present a public **hero page**: what it does, a self-contained animated showcase of the core loop, and sign-up - readable by a lay researcher per NFR-11. | S7's first minute decides adoption. | ✅ (built; the animated constellation + deterministic core-loop showcase replaced the embedded live-LLM demo, which was unreliable) |
 | FR-PLAT-5 | S | Self-hosted `none`/`token` deployments (FR-OPS-5) SHALL keep working project-free: a single implicit project, no sign-up, no regression for the one-facilitator laptop posture. | S1/NFR-7: the platform grows outward without breaking the study-day core. | ✅ |
+| FR-PLAT-6 | C | A study open in more than one place SHALL show **who else is viewing it** and SHALL push a change notice (new turn, decided move, applied draft) to those viewers, who then re-read through the ordinary endpoints; simultaneous editing is explicitly out of scope. | S7: co-authors work on the same study at the same time and currently discover each other's decisions only by reloading, which invites duplicated or conflicting design moves. Scoped to presence + invalidation because a collaborative editor's cost far exceeds its payoff at a handful of researchers per study (build-vs-adopt D41). | ✅ |
 
 ## FR-TPL - Study templates (paper-derived designs)
 
