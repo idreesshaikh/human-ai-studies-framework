@@ -21,6 +21,7 @@ import csv
 import io
 import json
 import logging
+import queue
 import re
 import secrets
 import tempfile
@@ -62,6 +63,7 @@ from middleware import (
     mining,
     paper_index,
     pdf,
+    presence,
     semantic_scholar,
     template_registry,
     template_repertoire,
@@ -3897,6 +3899,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
             )
         s.commit()
+        # Tell anyone else watching this study that the thread moved on; they
+        # re-read the conversation rather than trusting the event's contents.
+        presence.hub.publish(
+            study_id, "study", {"changed": "conversation", "turnId": platform.id}
+        )
         return {
             "researcherTurnId": researcher.id,
             "platformTurnId": platform.id,
@@ -3973,6 +3980,55 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         )
 
     @app.get(
+        "/studies/{study_id}/presence/stream",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def presence_stream(
+        study_id: str,
+        identity: auth.Identity = Depends(resolve_identity),
+    ) -> StreamingResponse:
+        """Who else is in this study, and a push when it changes.
+
+        Server-sent events: a ``presence`` frame whenever the set of viewers
+        changes (including immediately on connect), and a ``study`` frame
+        when the study itself does — a new turn, a decided move, an applied
+        draft — carrying only *what* changed. The client then re-reads
+        through the ordinary endpoints, so this stream is never a second
+        source of truth. ``dropped`` tells a client that fell behind to do a
+        full re-read rather than trust a gapped stream.
+        """
+
+        def frames():
+            viewer = presence.hub.subscribe(
+                study_id, identity.sub, identity.display_name, now()
+            )
+            try:
+                yield _sse("hello", {"viewerId": viewer.viewer_id})
+                yield _sse("presence", {"viewers": presence.hub.viewers(study_id)})
+                while True:
+                    try:
+                        event, data = viewer.events.get(
+                            timeout=presence.KEEPALIVE_SECONDS
+                        )
+                    except queue.Empty:
+                        # A comment frame: keeps proxies from closing an idle
+                        # connection, and is ignored by every SSE client.
+                        yield ": keepalive\n\n"
+                        continue
+                    yield _sse(event, data)
+                    if viewer.dropped:
+                        missed, viewer.dropped = viewer.dropped, 0
+                        yield _sse("dropped", {"count": missed})
+            finally:
+                presence.hub.unsubscribe(study_id, viewer.viewer_id)
+
+        return StreamingResponse(
+            frames(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+        )
+
+    @app.get(
         "/studies/{study_id}/conversation",
         dependencies=[Depends(require_project_for_study("view"))],
     )
@@ -4031,6 +4087,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         mv.decided_by = body.decidedBy
         mv.decided_at = now()
         s.commit()
+        presence.hub.publish(
+            study_id,
+            "study",
+            {"changed": "move", "moveId": move_id, "status": mv.status},
+        )
         return {"moveId": move_id, "status": mv.status}
 
     @app.post(
@@ -4153,6 +4214,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         draft.compilation_id = comp.id
         draft.updated_at = now()
         s.commit()
+        presence.hub.publish(
+            study_id, "study", {"changed": "draft", "compilationId": comp.id}
+        )
         out: dict = {"applied": True, "compilationId": comp.id}
         if amendment_out is not None:
             out["amendment"] = amendment_out

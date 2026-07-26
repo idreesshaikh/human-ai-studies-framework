@@ -19,9 +19,11 @@ import { AmendmentBanner } from "@/components/conversation/AmendmentBanner";
 import { AmendmentHistory } from "@/components/conversation/AmendmentHistory";
 import { StudyTour, tourSeen, markTourSeen } from "@/components/shell/StudyTour";
 import { ExportStudy } from "@/components/shell/ExportStudy";
+import { PresenceChips } from "@/components/shell/PresenceChips";
 import { Button } from "@/components/ui/button";
 import { evolutionStore, useEvolution } from "@/lib/evolutionStub";
 import { useSession } from "@/lib/session";
+import { usePresence } from "@/lib/presence";
 import { cn } from "@/lib/cn";
 
 /* A study's workspace. The design conversation is the primary surface; the
@@ -76,6 +78,11 @@ export function StudyHome() {
 
   const role = me?.memberships.find((m,) => m.projectSlug === slug)?.role ?? null;
 
+  /* Live collaboration: who else is here, and a push when the study changes
+   * (consumed by the conversation below). Degrades to nothing when the
+   * stream is unavailable. */
+  const { viewers, change } = usePresence(id);
+
   // The seeded evolution state stands in for its study only when the ids line
   // up; a different study is pre-ethics and shows no amendment chrome.
   const evolved = amendmentState.studyId === id ? amendmentState : null;
@@ -123,7 +130,8 @@ export function StudyHome() {
           ))}
         </nav>
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-2">
+          <PresenceChips viewers={viewers} meSub={me?.sub} />
           <ExportStudy studyId={id} />
           {shownState.ethicsApprovedAt && (
             <Button
@@ -162,7 +170,7 @@ export function StudyHome() {
       <div className="flex min-h-0 flex-1">
         {tab === "conversation" && (
           <div className="min-h-0 flex-1">
-            <ConversationView studyId={id} />
+            <ConversationView studyId={id} remoteChange={change} />
           </div>
         )}
         {tab === "library" && <LibraryTab studyId={id} />}

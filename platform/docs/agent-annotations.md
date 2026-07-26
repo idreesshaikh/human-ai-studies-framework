@@ -72,6 +72,7 @@ retrofitted.
 | `platform-findings` | `PlatformFindings` | the feedback-findings list (landmark) |
 | `retrospective-proposal` | `PlatformFindings` | the inert drafted proposal (landmark) |
 | `study-tabs` | `StudyHome` | the study workspace section tabs (landmark) |
+| `presence-chips` | `PresenceChips` | who else is viewing this study right now (absent when you're alone) |
 | `study-export` | `ExportStudy` | open the share/export menu for this study |
 | `export-replication-kit` | `ExportStudy` | download the byte-reproducible replication kit (FR-PROT-7) |
 | `export-elicitation-record` | `ExportStudy` | download the elicitation record (FR-CONV-6) |

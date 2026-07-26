@@ -16,6 +16,7 @@ import {
 } from "@/lib/conversationApi";
 import { evolutionStore } from "@/lib/evolutionStub";
 import { studyApi } from "@/lib/studyApi";
+import type { StudyChange } from "@/lib/presence";
 import { cn } from "@/lib/cn";
 import type { DesignMove, Turn } from "@/lib/types";
 
@@ -42,9 +43,13 @@ export function ConversationView({
   studyId = "study",
   /** Static previews stay on the deterministic stub only. */
   stubOnly = false,
+  /** The last change another viewer made to this study (FR-PLAT
+   *  collaboration). Carries only what changed; the thread re-reads. */
+  remoteChange = null,
 }: {
   studyId?: string;
   stubOnly?: boolean;
+  remoteChange?: StudyChange | null;
 }) {
   const [turns, setTurns] = useState<Turn[]>(() => [openingTurn()]);
   const [input, setInput] = useState("");
@@ -80,6 +85,33 @@ export function ConversationView({
   useEffect(() => {
     growComposer();
   }, [input, growComposer]);
+
+  /* A colleague changed this study: re-read the thread instead of trusting
+   * the event, and skip a change this client just made itself (our own turn
+   * is already on screen). */
+  const knownTurnIds = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    knownTurnIds.current = new Set(turns.map((t) => t.turnId));
+  }, [turns]);
+
+  useEffect(() => {
+    if (!remoteChange || !live || stubOnly) return;
+    if (remoteChange.turnId && knownTurnIds.current.has(remoteChange.turnId)) return;
+    let cancelled = false;
+    loadConversation(studyId, stubOnly)
+      .then((t) => {
+        if (!cancelled) setTurns(t);
+      })
+      .catch(() => {
+        /* A failed catch-up leaves the thread as it was — never blanked. */
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Re-runs per pushed change. `turns` is deliberately not a dependency:
+    // the already-known ids are read from a ref, so a re-read can't retrigger
+    // itself.
+  }, [remoteChange, studyId, stubOnly, live]);
 
   useEffect(() => {
     let cancelled = false;
