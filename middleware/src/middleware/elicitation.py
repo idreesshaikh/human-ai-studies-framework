@@ -82,6 +82,28 @@ _DESIGN_REQUEST_PATTERNS = (
 )
 
 
+def names_a_design(text: str, signatures: list[list[str]]) -> bool:
+    """Whether the researcher's own words name a specific design shape.
+
+    The gate exists to stop the *platform* boxing a researcher into a design
+    chosen from almost nothing. It was never meant to overrule a researcher
+    who says "let's run a paired RCT" — refusing to record a design they
+    named themselves is obstinacy, not care. So a turn carrying a template's
+    own curated ``designSignature`` vocabulary opens the gate, however little
+    else is known.
+
+    Reuses the repertoire's signatures rather than a second word list, so a
+    design's vocabulary stays declared in exactly one place (FR-TPL).
+    """
+    q = (text or "").lower()
+    return any(
+        re.search(rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])", q)
+        for signature in signatures
+        for phrase in (signature or [])
+        if phrase
+    )
+
+
 def classify_turn(text: str) -> str:
     """``"followup-question"`` | ``"design-request"`` | ``"describe"``.
 

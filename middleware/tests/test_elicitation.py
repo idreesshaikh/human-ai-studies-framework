@@ -228,3 +228,29 @@ def test_the_profile_reaches_the_turn_directive(client):
     assert "EXPERIENCED" in expert
     # The gate language is identical in both: rigour doesn't vary by audience.
     assert ("enough to design" in student) == ("enough to design" in expert)
+
+
+def test_a_researcher_naming_a_design_is_not_second_guessed(client):
+    """The gate stops the *platform* boxing someone in — it was never meant
+    to overrule a researcher who names the design themselves."""
+    reply = _ask(client, "let's run a within-subjects crossover study")
+    assert reply["understanding"]["readyForDesign"] is False  # still learning
+    assert [m for m in reply["moves"] if m["kind"] == "choose-template"], (
+        "a design the researcher named must be recorded, not withheld"
+    )
+
+
+def test_asking_what_design_to_use_is_not_naming_one(client):
+    """'what design should I use?' must not read as an answer to itself —
+    'design' is a word in nearly every template's title."""
+    reply = _ask(client, "what design should I use?")
+    assert [m for m in reply["moves"] if m["kind"] == "choose-template"] == []
+
+
+def test_asking_why_about_a_named_design_still_answers(client):
+    """A follow-up question never opens the gate, or 'why the crossover?'
+    would re-propose the crossover instead of explaining it."""
+    _ask(client, "let's run a within-subjects crossover study")
+    reply = _ask(client, "why that crossover design?")
+    assert reply["turnIntent"] == "followup-question"
+    assert [m for m in reply["moves"] if m["kind"] != "caution"] == []

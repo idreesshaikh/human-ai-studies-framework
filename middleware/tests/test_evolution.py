@@ -64,7 +64,7 @@ STUDY = "demo-study"
 #: (FR-CONV-10) opens honestly rather than being bypassed in tests.
 _STUDY_SKETCH = (
     "I want to see whether developers finish maintenance tasks faster with "
-    "an AI assistant than without one, in 45-minute instrumented sessions, "
+    "an AI assistant than without one, in 45-minute lab sessions, "
     "measuring task completion time and correctness."
 )
 

@@ -78,7 +78,25 @@ SYSTEM_PROMPT = (
     "parameter, or design — never a vague gesture ('consider your measures'). "
     "Across the conversation aim for a complete protocol: cover the mandatory "
     "sections, pair any self-report with an objective measure, and raise a "
-    "`caution` when a choice risks a known validity threat.\n\n"
+    "`caution` when a choice risks a known validity threat. When the turn "
+    "carries a design-state block, use its coverage line to pick targets: "
+    "prioritize moves for the EMPTY sections over adding more to already "
+    "filled ones. The typical order once design and measures are set: "
+    "participants (population, sample size), then statisticalPlan. Even with "
+    "an accepted template the statisticalPlan section still needs its own "
+    "entries — propose moves that record or refine the template's prescribed "
+    "statistics, never ones that contradict them.\n\n"
+    "A `caution` is advisory and never fills a section (it carries no "
+    "patch). The ethics section is filled only by an append/set move with "
+    'section "ethics" (consent, data handling, privacy/withdrawal posture) '
+    "— when the researcher wants ethics covered, pair any caution with such "
+    "a move.\n\n"
+    "REPETITION: NEVER re-propose a move the design state lists as accepted, "
+    "rejected, or awaiting decision — nor a near-duplicate or rewording of "
+    "one. An accepted move is already in the draft; a rejected one was "
+    "declined for a reason (address the reason in your reply text if "
+    "relevant, but do not pitch the move again). Every move you propose "
+    "must be genuinely new.\n\n"
     "GROUNDING — prefer papers. You may cite ONLY the papers and templates in "
     "the candidate menu given to you this turn (never one you were not given). "
     "The menu is retrieved to be relevant, so MOST moves should carry at least "
@@ -138,6 +156,54 @@ SYSTEM_PROMPT = (
     '"reconfigure", "name": "...", "path": ["..."], "value": ...}\n'
     '- caution: patch is always null.'
 )
+
+
+#: Proposal truncation when rendering the design-state block (render-time
+#: only — dedup in ``design_assistant`` always compares full texts).
+_STATE_PROPOSAL_CHARS = 140
+
+
+def _clip(text: str) -> str:
+    if len(text) <= _STATE_PROPOSAL_CHARS:
+        return text
+    return text[: _STATE_PROPOSAL_CHARS - 1] + "…"
+
+
+def _design_state_block(state: dict | None) -> str:
+    """Render ``design_assistant._load_design_state`` for the user message:
+    every prior move by decision status plus the draft's coverage — the
+    structured facts the prose history can't carry, and what the prompt's
+    REPETITION and coverage rules key on. Empty string when there's no
+    state (no study / no moves yet)."""
+    if not state:
+        return ""
+    lines = ["Design state so far:"]
+    for title, bucket in (
+        ("Accepted (already in the draft — do not re-propose):", "accepted"),
+        ("Rejected (the researcher said no — do not re-pitch):", "rejected"),
+        ("Awaiting decision (do not duplicate):", "proposed"),
+    ):
+        entries = state.get(bucket) or []
+        lines.append(title)
+        if not entries:
+            lines.append("- (none)")
+        for e in entries:
+            caution = e["kind"] == "caution"
+            advisory = " (advisory — fills no section)" if caution else ""
+            lines.append(
+                f"- {e['kind']} [{e['section']}]{advisory}: {_clip(e['proposal'])}"
+            )
+    filled = ", ".join(state.get("filled") or []) or "(none)"
+    empty = ", ".join(state.get("empty") or []) or "(none)"
+    lines.append(f"Draft coverage — filled: {filled}. Empty: {empty}.")
+    if state.get("templateId"):
+        lines.append(
+            f"Template {state['templateId']} is accepted and prescribes the "
+            "statistics — statisticalPlan moves should record or refine that "
+            "prescription (test, alpha, correction, exclusions), never "
+            "contradict it."
+        )
+    return "\n".join(lines)
 
 
 def _candidate_menu(papers: list[dict], templates: list[dict]) -> str:
@@ -338,21 +404,32 @@ def _messages(
     papers: list[dict],
     templates: list[dict],
     directive: str,
+    design_state: dict | None = None,
 ) -> list[dict]:
     """The chat messages for one design turn.
 
-    ``directive`` is this turn's stance — who is being talked to, what the
-    conversation still doesn't understand, and whether a design may be
-    proposed yet — sent as its own system message *after* the history so it
-    cannot be mistaken for something the researcher said, and so it outranks
-    the general instructions for this turn.
+    Two kinds of turn context, deliberately in different places:
+
+    - ``directive`` is this turn's *stance* — who is being talked to, what
+      the conversation still doesn't understand, whether a design may be
+      proposed yet (FR-CONV-9/10). It is its own system message after the
+      history, so it cannot be mistaken for something the researcher said
+      and it outranks the general instructions for this turn.
+    - ``design_state`` is the *record* — every prior move by decision status
+      plus draft coverage. It rides in the user message with the candidate
+      menu, because it is material the model reasons over rather than an
+      instruction it obeys.
     """
     menu = _candidate_menu(papers, templates)
+    content = f"{text}\n\nCandidate menu this turn:\n{menu}"
+    state_block = _design_state_block(design_state)
+    if state_block:
+        content += f"\n\n{state_block}"
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
         *history,
         *([{"role": "system", "content": directive}] if directive else []),
-        {"role": "user", "content": f"{text}\n\nCandidate menu this turn:\n{menu}"},
+        {"role": "user", "content": content},
     ]
 
 
@@ -363,6 +440,8 @@ def propose_turn_streaming(
     papers: list[dict],
     templates: list[dict],
     directive: str = "",
+    *,
+    design_state: dict | None = None,
 ):
     """:func:`propose_turn`, yielding the reply's prose as it arrives.
 
@@ -375,11 +454,14 @@ def propose_turn_streaming(
     """
     stream = getattr(client, "stream", None)
     if stream is None:
-        return propose_turn(client, text, history, papers, templates, directive)
+        return propose_turn(
+            client, text, history, papers, templates, directive,
+            design_state=design_state,
+        )
 
     candidate_refs = {p["ref"] for p in papers if p.get("ref")}
     candidate_refs |= {t["templateId"] for t in templates if t.get("templateId")}
-    messages = _messages(text, history, papers, templates, directive)
+    messages = _messages(text, history, papers, templates, directive, design_state)
     extractor = _ReplyTextExtractor()
     body = ""
     try:
@@ -403,7 +485,10 @@ def propose_turn_streaming(
         reply_text = str(parsed.get("text", "")).strip()
     except Exception as exc:  # noqa: BLE001 - any provider/parse failure degrades
         log.warning("streaming conversation turn failed, falling back: %s", exc)
-        return propose_turn(client, text, history, papers, templates, directive)
+        return propose_turn(
+            client, text, history, papers, templates, directive,
+            design_state=design_state,
+        )
     moves = _parse_moves(parsed.get("moves"), candidate_refs)
     if not reply_text and not moves:
         log.warning("LLM conversation turn produced no usable content, falling back")
@@ -418,13 +503,19 @@ def propose_turn(
     papers: list[dict],
     templates: list[dict],
     directive: str = "",
+    *,
+    design_state: dict | None = None,
 ) -> Script | None:
     """Ask the configured LLM provider for this turn's prose + proposed
     moves, constrained to ``papers``/``templates`` already retrieved this
     exchange (both built by the caller *before* this call, via the
     existing deterministic ``matching.match_papers`` /
     ``design_assistant.recommend_templates``). ``history`` is prior turns
-    as ``{"role": "user"|"assistant", "content": str}`` dicts.
+    as ``{"role": "user"|"assistant", "content": str}`` dicts;
+    ``design_state`` (``design_assistant._load_design_state``) carries the
+    structured accepted/rejected/undecided moves + draft coverage the
+    prose history can't — rendered into the user message so the model
+    can avoid repetition and steer at the empty sections.
 
     Returns ``None`` on any failure - bad key, timeout, malformed JSON,
     or a reply with neither usable text nor any valid move. The caller
@@ -433,7 +524,7 @@ def propose_turn(
     """
     candidate_refs = {p["ref"] for p in papers if p.get("ref")}
     candidate_refs |= {t["templateId"] for t in templates if t.get("templateId")}
-    messages = _messages(text, history, papers, templates, directive)
+    messages = _messages(text, history, papers, templates, directive, design_state)
     try:
         res = client.post(
             client.base_url,
