@@ -106,7 +106,7 @@ export function StudyTour({
           </button>
         </div>
 
-        <h2 className="mt-4 font-serif text-xl font-medium text-text">{step.title}</h2>
+        <h2 className="type-subhead mt-4 text-text">{step.title}</h2>
         <p className="mt-2 text-sm leading-relaxed text-text-muted">{step.body}</p>
 
         <div className="mt-5 flex items-center justify-between">

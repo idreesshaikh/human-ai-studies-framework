@@ -37,7 +37,7 @@ export function PrescriptionPanel() {
   return (
     <section className="flex flex-col gap-3">
       <div>
-        <h2 className="flex items-center gap-2 text-sm font-medium text-text">
+        <h2 className="type-subhead flex items-center gap-2 text-text">
           <FlaskConical className="size-4 text-text-muted" aria-hidden />
           What analysis your design calls for
         </h2>
@@ -95,7 +95,7 @@ export function PrescriptionPanel() {
 function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (
     <>
-      <dt className="font-mono text-xs uppercase tracking-wide text-text-muted">{label}</dt>
+      <dt className="type-eyebrow text-text-muted">{label}</dt>
       <dd className={cn("mb-1 sm:mb-0", muted ? "text-text-muted" : "text-text")}>{value}</dd>
     </>
   );

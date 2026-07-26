@@ -79,7 +79,7 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
   return (
     <section className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4">
       <div>
-        <h2 className="flex items-center gap-2 text-sm font-medium text-text">
+        <h2 className="type-subhead flex items-center gap-2 text-text">
           <Sparkles className="size-4 text-accent" aria-hidden /> Start from a paper
         </h2>
         <p className="mt-1 text-xs text-text-muted">
@@ -165,7 +165,7 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
 
       {derived && (
         <div className="rounded-input border border-border-strong bg-surface-raised p-3">
-          <p className="text-sm font-medium text-text">{derived.template.title}</p>
+          <p className="font-medium text-text">{derived.template.title}</p>
           <div className="mt-1 flex items-center gap-2">
             <Badge variant="outline">{derived.template.designType}</Badge>
             <Confidence value={derived.paper.confidence ?? undefined} />

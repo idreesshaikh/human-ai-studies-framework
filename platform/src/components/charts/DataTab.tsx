@@ -63,7 +63,7 @@ export function DataTab({ studyId }: { studyId: string }) {
       )}
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-text">Sessions</h2>
+        <h2 className="type-subhead text-text">Sessions</h2>
         {sessions.length === 0 ? (
           <p className="rounded-card border border-border bg-surface p-6 text-sm text-text-muted">
             No sessions yet. Collected data appears here per session, with its
@@ -144,7 +144,7 @@ export function DataTab({ studyId }: { studyId: string }) {
           they're one analytical unit, tighter than the section gap. */}
       <div className="flex flex-col gap-3">
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-text">Metrics by condition</h2>
+          <h2 className="type-subhead text-text">Metrics by condition</h2>
           <MetricStrip rows={metricRows} conditions={conditions} />
         </section>
         <PrescriptionPanel />

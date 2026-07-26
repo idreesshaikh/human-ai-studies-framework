@@ -31,7 +31,7 @@ export const CardTitle = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("font-serif text-lg font-medium leading-tight", className)}
+    className={cn("type-subhead", className)}
     {...props}
   />
 );

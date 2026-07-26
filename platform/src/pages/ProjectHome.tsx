@@ -80,14 +80,14 @@ export function ProjectHome() {
   if (!data) return null;
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-work flex-col gap-8 p-8">
       <div>
-        <h1 className="font-serif text-3xl font-medium tracking-tight text-text">{data.name}</h1>
+        <h1 className="type-title text-text">{data.name}</h1>
         <p className="text-sm text-text-muted">/{data.slug}</p>
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="flex items-center gap-2 text-sm font-medium text-text">
+        <h2 className="type-subhead flex items-center gap-2 text-text">
           <FlaskConical className="size-4 text-text-muted" aria-hidden /> Studies
         </h2>
         <Card>
@@ -169,7 +169,7 @@ export function ProjectHome() {
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-medium text-text">
+          <h2 className="type-subhead flex items-center gap-2 text-text">
             <Users className="size-4 text-text-muted" aria-hidden /> Team
           </h2>
           <Link to={`/p/${slug}/members`} className="text-xs text-accent hover:underline">

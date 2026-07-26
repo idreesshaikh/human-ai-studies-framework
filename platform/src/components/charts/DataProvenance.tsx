@@ -89,7 +89,7 @@ export function DataProvenance({
   return (
     <section className="flex flex-col gap-3">
       <div>
-        <h2 className="text-sm font-medium text-text">Where does your data come from?</h2>
+        <h2 className="type-subhead text-text">Where does your data come from?</h2>
         <p className="mt-1 text-xs text-text-muted">
           A study needs data to analyse. Collect it live from instrumented
           sessions, or curate it from public GitHub activity — both land in the
@@ -99,7 +99,7 @@ export function DataProvenance({
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4">
-          <h3 className="flex items-center gap-2 text-sm font-medium text-text">
+          <h3 className="type-subhead flex items-center gap-2 text-text">
             <Radio className="size-4 text-accent" aria-hidden /> Collect it live
           </h3>
           <p className="flex-1 text-xs text-text-muted">
@@ -110,7 +110,7 @@ export function DataProvenance({
         </div>
 
         <div className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4">
-          <h3 className="flex items-center gap-2 text-sm font-medium text-text">
+          <h3 className="type-subhead flex items-center gap-2 text-text">
             <GitBranch className="size-4 text-accent" aria-hidden /> Curate from GitHub
           </h3>
           <p className="flex-1 text-xs text-text-muted">
@@ -124,7 +124,7 @@ export function DataProvenance({
         </div>
 
         <div className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4">
-          <h3 className="flex items-center gap-2 text-sm font-medium text-text">
+          <h3 className="type-subhead flex items-center gap-2 text-text">
             <FlaskConical className="size-4 text-accent" aria-hidden /> Rehearse first
           </h3>
           <p className="flex-1 text-xs text-text-muted">
@@ -157,7 +157,7 @@ export function DataProvenance({
             ) : (
               <Loader2 className="size-4 animate-spin text-accent" aria-hidden />
             )}
-            <span className="text-sm font-medium text-text">
+            <span className="font-medium text-text">
               Mining job {job.id.slice(0, 8)} · {job.state}
             </span>
           </div>
@@ -185,7 +185,7 @@ export function DataProvenance({
       {rehearsal && (
         <div className="rounded-card border-2 border-dashed border-unsourced bg-unsourced-soft/40 p-4">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2 text-sm font-medium text-text">
+            <span className="type-subhead flex items-center gap-2 text-text">
               <FlaskConical className="size-4 text-unsourced" aria-hidden />
               Synthetic pilot — not real data
             </span>

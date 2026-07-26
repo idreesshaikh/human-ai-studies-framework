@@ -75,7 +75,7 @@ export function EnrollmentPanel({
     >
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1">
-          <h2 className="text-sm font-medium text-text">
+          <h2 className="type-subhead text-text">
             Participants ·{" "}
             <span className="text-text-muted">
               {rows.length === 0 ? "none enrolled" : `${rows.length} enrolled`}

@@ -72,7 +72,7 @@ export function SignInScreen() {
        * not a card-within-a-card, and our own "Sign in" heading shows once. */}
       <Card>
         <CardContent className="flex flex-col gap-4 p-8">
-          <h1 className="font-serif text-2xl font-medium text-text">Sign in</h1>
+          <h1 className="type-title text-text">Sign in</h1>
           {showClerkWidget ? (
             /* `relative`: Clerk's internal step-transition wrapper is
              * absolutely positioned; without a positioned ancestor here it

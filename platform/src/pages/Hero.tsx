@@ -16,7 +16,7 @@ import { HeroShowcase } from "@/components/hero/HeroShowcase";
  * and showcase carry their own motion, both frozen under reduced motion. */
 export function Hero() {
   return (
-    <div className="relative mx-auto flex min-h-full max-w-5xl flex-col gap-12 px-6 py-16 sm:py-20">
+    <div className="relative mx-auto flex min-h-full max-w-wide flex-col gap-12 px-6 py-16 sm:py-20">
       {/* Ambient artwork, behind everything and non-interactive. */}
       <Constellation className="pointer-events-none absolute inset-0 -z-10 h-full w-full opacity-70" />
 
@@ -25,7 +25,7 @@ export function Hero() {
           <KiteMark size={40} />
         </div>
 
-        <h1 className="max-w-2xl animate-in fade-in slide-in-from-bottom-2 font-serif text-5xl font-medium leading-[1.05] tracking-tight text-text duration-entrance ease-out sm:text-6xl">
+        <h1 className="type-display max-w-2xl animate-in fade-in slide-in-from-bottom-2 text-text duration-entrance ease-out">
           Talk your <span className="italic text-accent">study</span> into
           existence
         </h1>

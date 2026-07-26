@@ -39,13 +39,13 @@ export function InviteAccept() {
   };
 
   return (
-    <div className="mx-auto flex min-h-full max-w-md flex-col justify-center p-6">
+    <div className="mx-auto flex min-h-full max-w-narrow flex-col justify-center p-8">
       <Card>
         <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
           {state === "joined" ? (
             <>
               <PartyPopper className="size-10 text-accent animate-in zoom-in duration-entrance" aria-hidden />
-              <h1 className="font-serif text-2xl font-medium tracking-tight text-text">You're in</h1>
+              <h1 className="type-title text-text">You're in</h1>
               <p className="text-sm text-text-muted">
                 Joined as {role ? ROLE_LABELS[role] : "a member"}. Taking you
                 to the project…
@@ -53,7 +53,7 @@ export function InviteAccept() {
             </>
           ) : (
             <>
-              <h1 className="font-serif text-2xl font-medium tracking-tight text-text">
+              <h1 className="type-title text-text">
                 You've been invited to a project
               </h1>
               <p className="text-sm text-text-muted">

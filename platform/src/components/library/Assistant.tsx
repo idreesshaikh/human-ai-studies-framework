@@ -80,7 +80,7 @@ export function Assistant({ studyId }: { studyId: string }) {
     <section className="flex h-full min-h-0 flex-col rounded-card border border-border bg-surface">
       <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
         <Sparkles className="size-4 text-accent" aria-hidden />
-        <h3 className="text-sm font-medium text-text">Assistant</h3>
+        <h3 className="type-subhead text-text">Assistant</h3>
         {config && config.models.length > 1 && model && (
           <SegmentedControl
             aria-label="Assistant effort"

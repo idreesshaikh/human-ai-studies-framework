@@ -39,7 +39,7 @@ export function DraftRail({
       className="flex h-full flex-col gap-4 border-l border-border-strong bg-surface p-4"
     >
       <div>
-        <h2 className="font-serif text-lg font-medium text-text">
+        <h2 className="type-subhead text-text">
           Protocol draft
         </h2>
         <p className="text-xs text-text-muted">
