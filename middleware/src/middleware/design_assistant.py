@@ -18,6 +18,7 @@ labeled unsourced; the grep-the-output test (F2.1) asserts exactly this.
 
 from __future__ import annotations
 
+import difflib
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -25,8 +26,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from middleware import matching
-from middleware.db import ConversationTurn
+from middleware import compiler, elicitation, matching
+from middleware.db import ConversationTurn, DesignMoveRow
 from middleware.template_registry import list_templates
 
 log = logging.getLogger(__name__)
@@ -36,12 +37,32 @@ log = logging.getLogger(__name__)
 #: without unbounded growth per turn.
 _LLM_HISTORY_TURNS = 20
 
+#: How many moves per status bucket the design state carries into the LLM
+#: prompt (token budget — dedup still sees every move via ``keyTexts``).
+_STATE_MOVE_CAP = 30
+
+#: Near-duplicate thresholds (tunable): two moves are the same move when
+#: their content terms overlap this much (denominator: the smaller term
+#: set, so a short prior move can't swallow a longer distinct one) or
+#: their full texts are this similar. The term-overlap test only fires
+#: with enough terms to be meaningful; short texts rely on the ratio.
+_DUP_TOKEN_OVERLAP = 0.8
+_DUP_SEQ_RATIO = 0.85
+_DUP_MIN_TERMS = 3
+
 
 #: Design-intent signal shared with :func:`_pick_script`'s scripted-fallback
 #: routing: a message carrying one of these words is asking about design at
 #: all, even when it names none of a specific template's jargon (e.g.
 #: "help me with design" matches no template's own keyword profile below).
 _DESIGN_INTENT_WORDS = ("design", "statistic", "test", "how many", "template")
+
+#: Template-match strength that counts as the researcher naming a design
+#: themselves (FR-CONV-10). A template's own keyword scores 2 and its design
+#: type 3, while a bare title word scores 1 — and "design" is a title word of
+#: nearly every template, so 1 would make "what design should I use?" look
+#: like an answer to itself.
+_NAMED_DESIGN_SCORE = 2
 
 
 def recommend_templates(
@@ -126,6 +147,10 @@ def recommend_templates(
             "description": t.get("description", ""),
             "designType": t.get("designType", ""),
             "designShape": t.get("statisticalPlan", {}).get("designShape", ""),
+            # The raw strength, not just its prose: 2+ means the researcher
+            # used this design's own vocabulary, while 1 is only a title word
+            # (the word "design" matches almost every template's title).
+            "matchScore": score,
             "matchReason": (
                 f"Matched {score} keyword(s): researcher intent"
                 if score > 0
@@ -423,18 +448,144 @@ def _threshold_script() -> Script:
     )
 
 
-_FOLLOWUP = Script(
-    text=(
-        "Tell me more so I can ground a move. What's the population, and is "
-        "this live-instrumented or curated data? Right now these slots are "
-        "still empty: participants, conditions, ethics posture."
-    ),
-    moves=(),
-)
+def _followup_script(empty: list[str] | None = None) -> Script:
+    """The no-move follow-up: ask for more, naming the draft's actual empty
+    sections when known (``None`` = no design state, keep the generic
+    wording; ``[]`` = everything is covered, say so instead of inventing
+    gaps)."""
+    if empty is None:
+        slot_line = (
+            "Right now these slots are still empty: participants, "
+            "conditions, ethics posture."
+        )
+    elif empty:
+        slot_line = f"Right now these slots are still empty: {', '.join(empty)}."
+    else:
+        slot_line = (
+            "Every mandatory section is covered — review the draft, or tell "
+            "me what to refine."
+        )
+    return Script(
+        text=(
+            "Tell me more so I can ground a move. What's the population, and "
+            f"is this live-instrumented or curated data? {slot_line}"
+        ),
+        moves=(),
+    )
 
 
-def _pick_script(text: str) -> Script:
-    """Deterministic input → script routing (mirrors the client stub)."""
+def _elicit_script(stance: dict) -> Script:
+    """The no-LLM elicitation turn: ask the next real question and say what
+    is still unknown, instead of the old fixed "tell me more".
+
+    Names the facet rather than the protocol slot, because a researcher who
+    hasn't said what they measure needs to be asked that, not told that
+    ``statisticalPlan`` is empty.
+    """
+    understanding = stance["understanding"]
+    missing = understanding["missingLabels"]
+    parts = [stance["nextQuestion"] or "Tell me more about the study."]
+    if missing:
+        parts.append(
+            "I'm still missing " + ", ".join(missing) + " — one thing at a time is "
+            "fine, and I'll hold off on suggesting a design until the shape of "
+            "the study actually follows from what you've told me."
+        )
+    return Script(text=" ".join(parts), moves=())
+
+
+def _explain_script() -> Script:
+    """The no-LLM answer to "why did you propose that?".
+
+    With no model configured the platform cannot discuss its reasoning in
+    prose — so it says exactly that, and points at the evidence it does hold,
+    rather than answering a question with unrelated new proposals.
+    """
+    return Script(
+        text=(
+            "Fair question. Without a language model configured I can't talk "
+            "through my reasoning freely — but nothing I proposed is "
+            "unexplained: every move carries the paper it came from, so open "
+            "its grounding to see the source and why it applies, and reject "
+            "anything the source doesn't convince you of. Configure a model "
+            "key and I can discuss the trade-offs properly."
+        ),
+        moves=(),
+    )
+
+
+def _named_design_script(text: str) -> Script | None:
+    """The scripted reply for a researcher who named a design themselves.
+
+    The keyword routing below only reaches a design when the message uses the
+    words "design"/"statistics"/"template" — so "let's run a crossover study"
+    named a design the no-LLM path could not act on. This proposes whichever
+    template the researcher's own vocabulary actually matched, so the
+    degraded path records their choice like the LLM path does. Grounding is
+    attached downstream from the template's own source papers.
+    """
+    matches = [
+        r for r in recommend_templates(text) if r["matchScore"] >= _NAMED_DESIGN_SCORE
+    ]
+    if not matches:
+        return None
+    best = matches[0]
+    return Script(
+        text=(
+            f"You named the design yourself — {best['title'].lower()}. "
+            "Adopting its template brings the statistics that go with it; "
+            "reject it if you meant something different."
+        ),
+        moves=(
+            ScriptedMove(
+                "choose-template",
+                "design",
+                f"Adopt the {best['title']} template ({best['templateId']}).",
+                {"templateId": best["templateId"], "parameters": {}},
+                (),
+            ),
+        ),
+    )
+
+
+def _pick_script(text: str, stance: dict | None = None) -> Script:
+    """Deterministic input → script routing (mirrors the client stub).
+
+    The stance leads: a question gets an answer, and an idea that isn't yet
+    understood gets a question — so the no-LLM path behaves like the LLM path
+    rather than jumping to a design from a single sentence (FR-CONV-10).
+    """
+    if stance is not None and stance["intent"] == "followup-question":
+        return _explain_script()
+    script = _topical_script(text)
+    # Only when the keyword routing has nothing at all to say: a message can
+    # carry a template's vocabulary while describing a *measure* ("measure
+    # productivity by self-report survey"), and the caution that script
+    # raises is worth far more than a template guess.
+    if stance is not None and stance.get("namedDesign") and not script.moves:
+        named = _named_design_script(text)
+        if named is not None:
+            return named
+    if stance is None or stance["mayProposeDesign"]:
+        return script
+    # Not enough is understood to name a design — but withholding the *shape*
+    # is not a reason to withhold everything. Whatever this script says that
+    # isn't a design shape (a caution, a measure the researcher named) still
+    # stands, with the next real question added to it. Only when nothing but
+    # the design is left does the turn become purely a question.
+    safe = tuple(m for m in script.moves if m.kind != "choose-template")
+    if not safe:
+        return _elicit_script(stance)
+    question = stance["nextQuestion"]
+    return Script(
+        text=" ".join(p for p in (script.text, question) if p),
+        moves=safe,
+        match_query=script.match_query,
+    )
+
+
+def _topical_script(text: str) -> Script:
+    """Deterministic keyword routing to the scripted reply for this input."""
     q = text.lower()
     # Instrument evolution: checked first so "add the agent-capture
     # instrument" routes here, not into an over-trust/design match.
@@ -454,7 +605,7 @@ def _pick_script(text: str) -> Script:
         return _design_script()
     if any(w in q for w in ("benchmark", "humaneval", "pass@")):
         return _benchmark_script()
-    return _FOLLOWUP
+    return _followup_script()
 
 
 def _template_source_refs(template_id: str | None) -> tuple[str, ...]:
@@ -496,10 +647,18 @@ def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
 
 
 def _load_history(s: Session, study_id: str | None) -> list[dict]:
-    """Prior platform-conversation turns as ``{"role", "content"}`` dicts,
-    oldest first, capped to ``_LLM_HISTORY_TURNS`` (a token-budget cap, not
-    a correctness requirement) - the shape an LLM chat-completions call
-    expects. Empty when there's no study or no history yet."""
+    """Prior turns as ``{"role", "content"}`` dicts, oldest first, capped to
+    ``_LLM_HISTORY_TURNS`` (a token-budget cap, not a correctness
+    requirement) - the shape an LLM chat-completions call expects.
+
+    A platform turn's content includes **the moves it proposed and what the
+    researcher did with them**, not just its prose. The proposals live in
+    ``design_moves``, so a text-only history left the model unable to see
+    what it had itself put on the table: asked "why did you propose that?",
+    it had nothing to explain and could only invent something new — the
+    failure that reads as "it forgot what we were talking about". Decisions
+    are included too, so an already-rejected idea is not re-offered.
+    """
     if study_id is None:
         return []
     rows = s.execute(
@@ -508,14 +667,331 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
         .order_by(ConversationTurn.seq.desc())
         .limit(_LLM_HISTORY_TURNS)
     ).scalars().all()
-    return [
+    turn_ids = [row.id for row in rows if row.role == "platform"]
+    moves_by_turn: dict[str, list[DesignMoveRow]] = {}
+    if turn_ids:
+        for mv in s.scalars(
+            select(DesignMoveRow)
+            .where(DesignMoveRow.turn_id.in_(turn_ids))
+            .order_by(DesignMoveRow.id)
+        ):
+            moves_by_turn.setdefault(mv.turn_id, []).append(mv)
+
+    history: list[dict] = []
+    for row in reversed(rows):
+        moves = moves_by_turn.get(row.id, [])
+        content = row.text or ""
+        if moves:
+            lines = [
+                f"- [{mv.kind}] {mv.proposal}"
+                + (
+                    f" (grounded in {', '.join(g['ref'] for g in mv.grounding)})"
+                    if mv.grounding
+                    else " (unsourced)"
+                )
+                + f" — researcher {mv.status} this"
+                for mv in moves
+            ]
+            content = (content + "\n\nMoves I proposed in that turn:\n" +
+                       "\n".join(lines)).strip()
+        if not content:
+            continue
+        history.append(
+            {
+                "role": "user" if row.role == "researcher" else "assistant",
+                "content": content,
+            }
+        )
+    return history
+
+
+def researcher_texts(s: Session, study_id: str | None) -> list[str]:
+    """Everything the *researcher* has said in this study, oldest first.
+
+    The understanding model reads only these: the platform mentioning
+    "conditions" in a question it asked cannot make the platform better
+    informed (FR-CONV-10).
+    """
+    if study_id is None:
+        return []
+    return list(
+        s.scalars(
+            select(ConversationTurn.text)
+            .where(
+                ConversationTurn.study_id == study_id,
+                ConversationTurn.role == "researcher",
+            )
+            .order_by(ConversationTurn.seq)
+        )
+    )
+
+
+def turn_stance(
+    s: Session,
+    text: str,
+    *,
+    study_id: str | None = None,
+    profile: str | None = None,
+) -> dict:
+    """What this turn is, how much is understood, and what may be proposed.
+
+    Computed deterministically (FR-CONV-9/10) so the conversation behaves the
+    same with or without an LLM, and so the two rules that matter are
+    *enforced* rather than merely requested of a model:
+
+    - a follow-up question gets an answer, not a fresh batch of proposals;
+    - a design shape is not named until the idea is understood, unless the
+      researcher explicitly asks for one anyway (their study, their call).
+    """
+    prior = researcher_texts(s, study_id)
+    understanding = elicitation.assess_understanding([*prior, text])
+    intent = elicitation.classify_turn(text)
+    # A researcher who names a design themselves has not been boxed into
+    # anything — recording their choice is the platform's job, so the gate
+    # opens. A follow-up question never counts, or "why the crossover?" would
+    # re-propose the crossover.
+    named_design = intent != "followup-question" and (
+        # The recommender already exists to map researcher phrasing onto a
+        # design ("a paired RCT", "pre/post"); a positive keyword match there
+        # *is* the researcher naming one. The corpus-facing signatures are
+        # checked too, since abstract vocabulary ("crossover",
+        # "counterbalanced") is also how researchers speak.
+        any(r["matchScore"] >= _NAMED_DESIGN_SCORE for r in recommend_templates(text))
+        or elicitation.names_a_design(
+            text, [tpl.get("designSignature", []) for tpl in list_templates()]
+        )
+    )
+    return {
+        "intent": intent,
+        "profile": profile if profile in elicitation.PROFILES else None,
+        "understanding": elicitation.understanding_summary(understanding),
+        "nextQuestion": elicitation.next_question(understanding),
+        "namedDesign": named_design,
+        # An explicit ask lowers the gate but never removes it; a follow-up
+        # question never opens it, because "why did you pick that?" is not
+        # "pick one".
+        "mayProposeDesign": named_design
+        or elicitation.ready_for_design(
+            understanding, requested=intent == "design-request"
+        ),
+        "mayProposeMoves": intent != "followup-question",
+    }
+
+
+def _directive(stance: dict) -> str:
+    """The stance as this turn's instruction to the model."""
+    understanding = stance["understanding"]
+    lines = [elicitation.profile_guidance(stance["profile"])]
+
+    if stance["intent"] == "followup-question":
+        lines.append(
+            "THIS TURN IS A QUESTION ABOUT WHAT YOU ALREADY SAID. Answer it "
+            "directly in `text`, naming the specific move you proposed and the "
+            "reasoning and papers behind it (they are in the history above). "
+            "Return an EMPTY `moves` array unless a `caution` is genuinely "
+            "part of the answer. Do not offer new proposals in place of an "
+            "answer, and do not change the subject."
+        )
+    if understanding["missing"]:
+        lines.append(
+            "STILL UNKNOWN about this study: "
+            + ", ".join(understanding["missingLabels"])
+            + ". Ask about the first of those — one question, in your own "
+            "words, informed by what they have already told you. A good "
+            "next question is: "
+            + (stance["nextQuestion"] or "(none)")
+        )
+    else:
+        lines.append(
+            "You now know who takes part, what they do, what is compared, "
+            "what is measured, and what is possible — enough to design."
+        )
+    if not stance["mayProposeDesign"]:
+        lines.append(
+            "DO NOT propose a choose-template move this turn: too little of "
+            "the study is understood for a design shape to be a considered "
+            "choice rather than a guess, and one would be discarded before "
+            "the researcher ever saw it. Keep drawing the idea out instead. "
+            f"({len(understanding['known'])} of {understanding['facetsNeeded']} "
+            "needed facets known.)"
+        )
+    elif stance.get("namedDesign"):
+        lines.append(
+            "The researcher named a design themselves. Record it rather than "
+            "second-guessing them: propose the matching template, and note "
+            "any assumption it carries that they may want to correct."
+        )
+    elif stance["intent"] == "design-request":
+        lines.append(
+            "The researcher has explicitly asked you to name a design. Do so "
+            "— and state plainly which of your assumptions it rests on, so a "
+            "wrong one is easy for them to correct."
+        )
+    return "\n\n".join(lines)
+
+
+def _permitted_moves(
+    moves: tuple[ScriptedMove, ...], stance: dict
+) -> tuple[ScriptedMove, ...]:
+    """Apply the stance to a script's moves — the enforcement half.
+
+    A prompt can be ignored; this cannot. A question turn keeps only
+    cautions, and a design shape cannot slip through before the study is
+    understood. Dropped moves are logged, never silently vanished.
+    """
+    kept = []
+    for move in moves:
+        if not stance["mayProposeMoves"] and move.kind != "caution":
+            log.info("dropped %s move: this turn is a question, not a brief", move.kind)
+            continue
+        if move.kind == "choose-template" and not stance["mayProposeDesign"]:
+            log.info("held back choose-template: the study isn't understood yet")
+            continue
+        kept.append(move)
+    return tuple(kept)
+
+
+def _move_key_text(proposal: str, patch: dict | None) -> str:
+    """The semantic payload of a move for near-duplicate comparison: its
+    proposal sentence plus the patch value it would write (a re-worded
+    proposal carrying the same value is still the same move)."""
+    value = (patch or {}).get("value", "")
+    if isinstance(value, list):
+        value = " ".join(str(v) for v in value)
+    return f"{proposal} {value}".strip()
+
+
+def _is_near_duplicate(a: str, b: str) -> bool:
+    ta, tb = set(matching._terms(a)), set(matching._terms(b))
+    smaller = min(len(ta), len(tb))
+    if smaller >= _DUP_MIN_TERMS:
+        if len(ta & tb) / smaller >= _DUP_TOKEN_OVERLAP:
+            return True
+    return difflib.SequenceMatcher(None, a.lower(), b.lower()).ratio() >= (
+        _DUP_SEQ_RATIO
+    )
+
+
+def _filter_repeated_moves(
+    moves: tuple[ScriptedMove, ...], state: dict | None
+) -> tuple[ScriptedMove, ...]:
+    """Drop moves the conversation has already seen (FR-CONV: an accepted
+    move is in the draft, a rejected one was declined, an undecided one is
+    still on the table — re-pitching any of them is repetition). The guard
+    runs regardless of source, so repetition is suppressed even when the
+    LLM ignores its instructions. ``state is None`` (stateless demo, no
+    study) is a no-op.
+
+    A content move (one carrying a patch) is compared only against prior
+    *content* moves — never against patch-less cautions. A caution fills
+    no section, and the section move that addresses a caution's concern
+    naturally restates its wording; treating that as repetition would
+    permanently block the section (an accepted ethics caution must not
+    stop the ethics posture from ever being proposed). A new caution is
+    compared against both pools — echoing either an existing caution or
+    existing draft content is still repetition."""
+    if state is None:
+        return moves
+    content = state.get("keyTexts") or []
+    advisory = state.get("advisoryTexts") or []
+    template_ids = set(state.get("templateIds") or [])
+    kept = []
+    for sm in moves:
+        if sm.kind == "choose-template":
+            tid = (sm.patch or {}).get("templateId")
+            if tid and tid in template_ids:
+                continue
+        else:
+            key = _move_key_text(sm.proposal, sm.patch)
+            prior = content if sm.patch else [*content, *advisory]
+            if any(_is_near_duplicate(key, p) for p in prior):
+                continue
+        kept.append(sm)
+    return tuple(kept)
+
+
+def _load_design_state(s: Session, study_id: str | None) -> dict | None:
+    """The structured design state the prose history can't carry: every
+    prior move bucketed by decision status, the draft's filled/empty
+    sections (computed deterministically via :func:`compiler.compile_moves`
+    — no LLM), and the accepted template if any. ``None`` when there's no
+    study or no moves yet — the stateless demo path stays stateless."""
+    if study_id is None:
+        return None
+    rows = s.scalars(
+        select(DesignMoveRow)
+        .where(DesignMoveRow.study_id == study_id)
+        .order_by(DesignMoveRow.id)
+    ).all()
+    if not rows:
+        return None
+    moves = [
         {
-            "role": "user" if row.role == "researcher" else "assistant",
-            "content": row.text,
+            "moveId": row.id,
+            "kind": row.kind,
+            "target": row.target,
+            "proposal": row.proposal,
+            "patch": row.patch,
+            "grounding": row.grounding,
+            "status": row.status,
         }
-        for row in reversed(rows)
-        if row.text
+        for row in rows
     ]
+    result = compiler.compile_moves(moves)
+    # Coverage mirrors the researcher-visible slot meter (the client draft
+    # model, ``platform/src/lib/compiler.ts``): a template fills only the
+    # ``design`` slot, an add/set-instrument move fills ``instruments``,
+    # every other section needs its own accepted append/set move. NOT
+    # ``result.unresolved`` — that reports ``[]`` once a template
+    # instantiates, which would tell the model every slot is filled while
+    # the researcher still sees empty ones.
+    sections = compiler.compile_sections(moves)
+    has_instrument = any(
+        m["status"] == "accepted"
+        and (m["patch"] or {}).get("op") in ("add-instrument", "set-instrument")
+        for m in moves
+    )
+    filled = [
+        sec
+        for sec in compiler.SECTIONS
+        if sections[sec]
+        or (sec == "design" and result.template_id is not None)
+        or (sec == "instruments" and has_instrument)
+    ]
+    empty = [sec for sec in compiler.SECTIONS if sec not in filled]
+    buckets: dict[str, list[dict]] = {"accepted": [], "rejected": [], "proposed": []}
+    key_texts: list[str] = []
+    advisory_texts: list[str] = []
+    template_ids: list[str] = []
+    for m in moves:
+        patch = m["patch"] or {}
+        if m["kind"] == "choose-template":
+            section = "design"
+            tid = patch.get("templateId")
+            if tid:
+                template_ids.append(tid)
+        else:
+            section = patch.get("section") or (m["target"] or "").split(".")[0]
+        # Two dedup pools: content moves (carry a patch — they fill draft
+        # sections) vs advisory ones (patch-less cautions). Kept apart so a
+        # section move addressing a caution's concern is never mistaken for
+        # a repeat of it (see _filter_repeated_moves).
+        key = _move_key_text(m["proposal"], m["patch"])
+        (key_texts if m["patch"] else advisory_texts).append(key)
+        bucket = buckets.get(m["status"])
+        if bucket is not None and len(bucket) < _STATE_MOVE_CAP:
+            bucket.append(
+                {"kind": m["kind"], "section": section, "proposal": m["proposal"]}
+            )
+    return {
+        **buckets,
+        "filled": filled,
+        "empty": empty,
+        "templateId": result.template_id,
+        "templateIds": template_ids,
+        "keyTexts": key_texts,
+        "advisoryTexts": advisory_texts,
+    }
 
 
 def respond(
@@ -526,6 +1002,7 @@ def respond(
     study_id: str | None = None,
     client=None,
     history: list[dict] | None = None,
+    profile: str | None = None,
 ) -> dict:
     """One platform turn responding to researcher ``text``.
 
@@ -539,19 +1016,24 @@ def respond(
     against what was actually retrieved; any failure — no key, timeout,
     malformed reply — falls back to the scripted assistant (NFR-4/5).
     """
+    stance = turn_stance(s, text, study_id=study_id, profile=profile)
     script = None
     source = "scripted"
     llm_recommendations: list[dict] | None = None
+    state = _load_design_state(s, study_id)
     if client is not None:
         papers, templates, history = _retrieve(s, text, study_id, history)
         from middleware import design_llm  # deferred: breaks the import cycle
 
-        script = design_llm.propose_turn(client, text, history, papers, templates)
+        script = design_llm.propose_turn(
+            client, text, history, papers, templates, _directive(stance),
+            design_state=state,
+        )
         if script is not None:
             source = "llm"
             llm_recommendations = papers
     if script is None:
-        script = _pick_script(text)
+        script = _pick_script(text, stance)
     return _assemble(
         s,
         text,
@@ -561,6 +1043,8 @@ def respond(
         seq=seq,
         study_id=study_id,
         client=client,
+        stance=stance,
+        state=state,
     )
 
 
@@ -587,6 +1071,7 @@ def respond_streaming(
     study_id: str | None = None,
     client=None,
     history: list[dict] | None = None,
+    profile: str | None = None,
 ):
     """:func:`respond`, yielding the reply's prose as the model writes it.
 
@@ -596,21 +1081,26 @@ def respond_streaming(
     no client (or a provider without a stream seam) it yields nothing and
     returns the scripted result, exactly as :func:`respond` would.
     """
+    stance = turn_stance(s, text, study_id=study_id, profile=profile)
     script = None
     source = "scripted"
     llm_recommendations: list[dict] | None = None
+    # The streamed turn sees exactly what the blocking turn sees — the same
+    # design state and the same stance — or the two paths would diverge.
+    state = _load_design_state(s, study_id)
     if client is not None:
         papers, templates, history = _retrieve(s, text, study_id, history)
         from middleware import design_llm  # deferred: breaks the import cycle
 
         script = yield from design_llm.propose_turn_streaming(
-            client, text, history, papers, templates
+            client, text, history, papers, templates, _directive(stance),
+            design_state=state,
         )
         if script is not None:
             source = "llm"
             llm_recommendations = papers
     if script is None:
-        script = _pick_script(text)
+        script = _pick_script(text, stance)
     return _assemble(
         s,
         text,
@@ -620,6 +1110,8 @@ def respond_streaming(
         seq=seq,
         study_id=study_id,
         client=client,
+        stance=stance,
+        state=state,
     )
 
 
@@ -633,14 +1125,36 @@ def _assemble(
     seq: int,
     study_id: str | None,
     client,
+    stance: dict,
+    state: dict | None = None,
 ) -> dict:
     """Turn a script (LLM or scripted) into the platform turn's result dict:
     grounding resolved against retrieved rows, recommendations, and the
-    design recommender's prescription/figures."""
+    design recommender's prescription/figures.
+
+    Two independent filters apply here, so both hold on the scripted path and
+    the LLM path alike:
+
+    1. **Repetition** — a move already accepted, rejected, or awaiting a
+       decision is dropped; if that empties a scripted reply entirely, the
+       turn steers at the draft's actual gaps rather than re-running the
+       same script verbatim.
+    2. **Stance** (FR-CONV-9/10) — a question turn keeps only cautions, and
+       a design shape is withheld until the study is understood.
+
+    Repetition runs first: the gap-steering fallback wants to see the whole
+    script, and the stance should have the last word on what may be proposed.
+    """
+    kept = _filter_repeated_moves(script.moves, state)
+    if kept != script.moves:
+        if not kept and source == "scripted":
+            script = _followup_script(state["empty"] if state else None)
+        else:
+            script = Script(script.text, kept, script.match_query)
     retrieved: set[str] = set()
 
     moves = []
-    for i, sm in enumerate(script.moves):
+    for i, sm in enumerate(_permitted_moves(script.moves, stance)):
         grounding = _resolve_grounding(s, sm.refs)
         # A choose-template move is grounded by the papers that established its
         # design — attach them so a template choice is never "unsourced" (the
@@ -705,6 +1219,11 @@ def _assemble(
         "templateRecommendations": template_recommendations,
         "prescription": prescription,
         "figureSuggestions": figure_suggestions,
+        # What the platform understands about the study so far, and what it is
+        # therefore willing to propose — surfaced rather than hidden, so the
+        # researcher can see why a design hasn't been named yet (FR-CONV-10).
+        "understanding": stance["understanding"],
+        "turnIntent": stance["intent"],
         "retrievedRefs": sorted(retrieved),
         "source": source,
     }

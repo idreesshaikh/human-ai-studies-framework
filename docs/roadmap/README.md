@@ -120,6 +120,12 @@ finishing the code is not finishing the phase.
 | ----- | ----- | --------- | ------ |
 | [24](24-import-extensibility-tail.md) | Import & extensibility tail | FR-AGENT-4, FR-CUR-4, FR-TPL-5 | 🔶 Slice A (generic-json transcript) + Slice B (ArchiveAdapter) + Slice C (TemplateSubmission endpoints) built; Slice C writes to live registry cannot be integration-tested without polluting committed files — unit tests validate schema + routing |
 
+### The instrument surface (25)
+
+| Phase | Title | Satisfies | Status |
+| ----- | ----- | --------- | ------ |
+| [25](25-instrument-surface.md) | The instrument surface (extension sidebar, four legs, publishable) | FR-INST-22, FR-DASH-13, FR-OPS-8 | 🔶 Specced 2026-07-26; Slice A (four-leg toggle catalog + `leg_summary`) built and pytest-green. Slices B–D (core leg state, sidebar views, packaging) not started |
+
 ## The load-bearing walls (fixed in every phase)
 
 These are the platform's physics. Every slice of every phase obeys them;

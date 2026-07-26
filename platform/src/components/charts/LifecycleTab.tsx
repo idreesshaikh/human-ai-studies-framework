@@ -74,7 +74,7 @@ export function LifecycleTab({
   if (noProtocol) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-3 p-6">
-        <h2 className="text-sm font-medium text-text">Lifecycle</h2>
+        <h2 className="type-subhead text-text">Lifecycle</h2>
         <p className="text-sm text-text-muted">
           This study doesn't have a compiled protocol yet, so there's nothing to gate
           against. Finish the design conversation — choose a design, compile it, and
@@ -94,7 +94,7 @@ export function LifecycleTab({
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 overflow-auto p-6">
       <div>
-        <h2 className="text-sm font-medium text-text">
+        <h2 className="type-subhead text-text">
           Lifecycle · <span className="text-text-muted">{doc.currentPhase}</span>
         </h2>
         <p className="mt-1 text-xs text-text-muted">

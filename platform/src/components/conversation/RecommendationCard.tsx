@@ -34,7 +34,7 @@ export function RecommendationCard({
           </div>
           <span className="tabular text-xs text-text-muted">{rec.year}</span>
         </div>
-        <p className="text-sm font-medium text-text">{rec.title}</p>
+        <p className="font-medium text-text">{rec.title}</p>
         <p className="text-xs text-text-muted">{rec.venue}</p>
         <p className="text-sm text-text">{rec.matchReason}</p>
         <Button

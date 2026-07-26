@@ -55,6 +55,7 @@ from middleware import (
     authz,
     compiler,
     design_assistant,
+    elicitation,
     enrollment,
     evolution,
     mailer,
@@ -2178,6 +2179,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         return {"templates": templates, "count": len(templates), "generatedAt": now()}
 
+    @app.get("/conversation/profiles")
+    def researcher_profiles() -> dict:
+        """The researcher profiles the design conversation adapts to
+        (FR-CONV-9). Unauthenticated: it is a static catalogue, and agents
+        need it to set a profile meaningfully. The *method* never varies with
+        the profile — register, pacing, and which trade-offs get surfaced
+        do."""
+        return {
+            "profiles": elicitation.profile_catalog(),
+            "default": elicitation.DEFAULT_PROFILE,
+        }
+
     # ------------------------- corpus endpoint for agents (FR-AGF-1)
 
     @app.get("/papers/index")
@@ -3114,7 +3127,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     #: beyond this allow-list so the UI owns per-key semantics; unknown keys
     #: are dropped rather than stored (defense against a stray client).
     KNOWN_PREF_KEYS = frozenset(
-        {"theme", "defaultAssistantModel", "savedViews"}
+        {"theme", "defaultAssistantModel", "savedViews", "researcherProfile"}
     )
 
     @app.put(
@@ -3810,7 +3823,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         dependencies=[Depends(require_project_for_study("contribute"))],
     )
     def append_turn(
-        study_id: str, body: ConversationTurnIn, s: Session = Depends(db)
+        study_id: str,
+        body: ConversationTurnIn,
+        s: Session = Depends(db),
+        identity: auth.Identity = Depends(resolve_identity),
     ) -> dict:
         """Append a researcher turn and generate the platform's grounded
         reply (FR-CONV-1). The reply's moves are built server-side from
@@ -3826,6 +3842,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             seq=researcher.seq + 1,
             study_id=study_id,
             client=_design_turn_client(),
+            profile=_researcher_profile(s, identity),
         )
         return _persist_platform_turn(s, study_id, researcher, reply)
 
@@ -3846,6 +3863,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.add(researcher)
         s.flush()  # researcher.seq is now settled; the reply is the next seq
         return researcher
+
+    def _researcher_profile(s: Session, identity: auth.Identity) -> str | None:
+        """This caller's declared researcher profile (FR-CONV-9), or None.
+
+        Read from the identity's saved preferences, so the conversation
+        adapts to a student, a new researcher, a methodologist, or an
+        industry practitioner without asking again every session. None means
+        nobody has said — the conversation uses its default posture rather
+        than guessing from behaviour."""
+        prefs = _profile_prefs(s, identity.sub)
+        value = prefs.get("researcherProfile")
+        return str(value) if value else None
 
     def _design_turn_client():
         """The medium tier, not `mistral-large-latest`: the design turn is a
@@ -3922,6 +3951,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             ],
             "recommendations": reply["recommendations"],
             "source": reply["source"],
+            # What the platform understands so far and how it read this turn
+            # (FR-CONV-10) — the researcher can see why no design was named.
+            "understanding": reply["understanding"],
+            "turnIntent": reply["turnIntent"],
         }
 
     @app.post(
@@ -3929,7 +3962,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         dependencies=[Depends(require_project_for_study("contribute"))],
     )
     def append_turn_streaming(
-        study_id: str, body: ConversationTurnIn, s: Session = Depends(db)
+        study_id: str,
+        body: ConversationTurnIn,
+        s: Session = Depends(db),
+        identity: auth.Identity = Depends(resolve_identity),
     ) -> StreamingResponse:
         """The same turn as ``POST .../turns``, streamed (NFR-12).
 
@@ -3952,6 +3988,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     seq=researcher.seq + 1,
                     study_id=study_id,
                     client=_design_turn_client(),
+                    profile=_researcher_profile(s, identity),
                 )
                 reply = None
                 while True:

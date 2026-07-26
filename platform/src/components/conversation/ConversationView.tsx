@@ -5,6 +5,7 @@ import { StreamingTurn } from "./StreamingTurn";
 import { DraftRail } from "./DraftRail";
 import { RecommenderRail } from "./RecommenderRail";
 import { FinishReview } from "./FinishReview";
+import { UnderstandingLine } from "./UnderstandingLine";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { compileAll } from "@/lib/compiler";
 import { openingTurn, respondTo } from "@/lib/designStub";
@@ -17,6 +18,7 @@ import {
 import { evolutionStore } from "@/lib/evolutionStub";
 import { studyApi } from "@/lib/studyApi";
 import type { StudyChange } from "@/lib/presence";
+import type { Understanding } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import type { DesignMove, Turn } from "@/lib/types";
 
@@ -59,6 +61,9 @@ export function ConversationView({
   const [busy, setBusy] = useState(false);
   /* The reply's prose while it streams; null once the real turn lands. */
   const [streamingText, setStreamingText] = useState<string | null>(null);
+  /* What the platform understands about the study so far (FR-CONV-10) — used
+   * to explain why it hasn't proposed a design yet. */
+  const [understanding, setUnderstanding] = useState<Understanding | undefined>();
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
@@ -219,6 +224,7 @@ export function ConversationView({
           (fragment) => setStreamingText((prev) => prev + fragment),
         );
         setStreamingText(null);
+        setUnderstanding(appended.understanding);
         setTurns((prev) => [
           ...prev.filter((t) => t.turnId !== pendingId),
           ...appended.turns,
@@ -354,6 +360,8 @@ export function ConversationView({
           )}
           <div ref={threadEnd} />
         </div>
+
+        <UnderstandingLine understanding={understanding} />
 
         {note && (
           <p className="border-t border-border bg-surface px-4 py-2 text-xs text-text-muted sm:px-6">

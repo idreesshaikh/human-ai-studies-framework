@@ -40,10 +40,10 @@ export function Projects() {
   };
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-reading flex-col gap-8 p-8">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-medium tracking-tight text-text">Projects</h1>
+          <h1 className="type-title text-text">Projects</h1>
           <p className="text-sm text-text-muted">The rooms your studies live in.</p>
         </div>
       </div>

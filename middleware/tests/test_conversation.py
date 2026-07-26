@@ -144,9 +144,20 @@ def test_self_report_draws_metr_caution(client):
 # ------------------------------------------------------------- F1.1 / F3.1 / F3.3
 
 
+#: A study described the way a researcher would. The platform withholds a
+#: design shape until it understands the study (FR-CONV-10), so a helper that
+#: drives to a draft has to hold the conversation a researcher would hold.
+_STUDY_SKETCH = (
+    "I want to see whether developers finish maintenance tasks faster with "
+    "an AI assistant than without one, in 45-minute lab sessions, "
+    "measuring task completion time and correctness."
+)
+
+
 def _drive_to_valid_draft(client) -> dict:
     """Accept the template-choice move the design script proposes → a
     complete, validating protocol draft, all in-conversation (F1.1)."""
+    _ask(client, _STUDY_SKETCH)
     reply = _ask(client, "what design and statistics should I use?")
     template_moves = [m for m in reply["moves"] if m["kind"] == "choose-template"]
     assert template_moves, "the design script must propose a template"
@@ -332,3 +343,199 @@ def test_no_llm_key_configured_is_unaffected_by_the_new_seam(client):
     confirms the common case is untouched by this change."""
     turn = _ask(client, "I think junior developers over-trust AI-generated code")
     assert turn["source"] == "scripted"
+
+
+# ------------------------------------------- repetition + coverage steering
+
+
+_LATENCY_MOVE = {
+    "kind": "add-measure",
+    "target": "measures[]",
+    "proposal": "Measure review latency.",
+    "patch": {"section": "measures", "op": "append", "value": "Review latency"},
+    "refs": ["corpus:trust-in-ai-code-generation"],
+}
+_CONDITIONS_MOVE = {
+    "kind": "set-parameter",
+    "target": "conditions",
+    "proposal": "Run a three-arm condition split.",
+    "patch": {"section": "conditions", "op": "set", "value": "three arms"},
+    "refs": [],
+}
+
+
+def _capturing_llm(reply_json: dict, captured: list):
+    """A ``_fake_llm`` that also records every request body sent."""
+
+    def post(url, body, headers):
+        captured.append(body)
+        return {"choices": [{"message": {"content": json.dumps(reply_json)}}]}
+
+    return assistant.MistralProvider("test-key", post=post)
+
+
+def test_accepted_move_is_not_reproposed(client, monkeypatch):
+    """Server-side guard: even an LLM that ignores its instructions and
+    re-emits an accepted move verbatim never repeats it to the researcher."""
+    reply = {"text": "A grounded measure.", "moves": [_LATENCY_MOVE]}
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
+    turn = _ask(client, "junior developers over-trust AI code")
+    assert len(turn["moves"]) == 1
+    _accept(client, turn["moves"][0]["moveId"])
+    again = _ask(client, "what should we measure?")
+    assert again["source"] == "llm"
+    assert again["moves"] == []
+
+
+def test_design_state_reaches_the_llm(client, monkeypatch):
+    """The second turn's request carries the structured design state: the
+    accepted and rejected moves by name, and the still-empty sections."""
+    reply = {
+        "text": "Two moves.",
+        "moves": [_LATENCY_MOVE, _CONDITIONS_MOVE],
+    }
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
+    turn = _ask(client, "junior developers over-trust AI code")
+    _accept(client, turn["moves"][0]["moveId"])
+    _accept(client, turn["moves"][1]["moveId"], status="rejected")
+
+    captured: list = []
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: _capturing_llm({"text": "Noted.", "moves": []}, captured),
+    )
+    _ask(client, "what next?")
+    # The client also serves matching's query-expansion call — pick the
+    # design-conversation request (the one carrying the candidate menu).
+    user = next(
+        body["messages"][-1]["content"]
+        for body in captured
+        if "Candidate menu this turn:" in body["messages"][-1]["content"]
+    )
+    assert "Design state so far:" in user
+    assert "Accepted (already in the draft — do not re-propose):" in user
+    assert "Measure review latency." in user
+    assert "Rejected (the researcher said no — do not re-pitch):" in user
+    assert "Run a three-arm condition split." in user
+    assert "participants" in user.split("Empty:")[-1]
+
+
+def test_scripted_repeat_swaps_to_coverage_followup(client):
+    """No LLM key: repeating a prompt doesn't re-run the same script — the
+    second reply proposes nothing and names the draft's actual gaps."""
+    first = _ask(client, "I think junior developers over-trust AI-generated code")
+    assert first["moves"], "the over-trust script must propose moves"
+    second = _ask(client, "I think junior developers over-trust AI-generated code")
+    assert second["source"] == "scripted"
+    assert second["moves"] == []
+    assert "still empty" in second["text"]
+    assert "participants" in second["text"]
+
+
+def _conversation_request(captured: list) -> str:
+    """The design-conversation user message among captured LLM request
+    bodies (the same client also serves matching's query-expansion call)."""
+    return next(
+        body["messages"][-1]["content"]
+        for body in captured
+        if "Candidate menu this turn:" in body["messages"][-1]["content"]
+    )
+
+
+def test_template_leaves_statistical_plan_and_ethics_open(client, monkeypatch):
+    """An accepted template fills only the design slot (mirroring the
+    researcher-visible meter) — statisticalPlan and ethics stay listed as
+    empty, and the state invites recording the template's prescription
+    instead of forbidding statisticalPlan moves. An accepted ethics
+    append/set move then flips ethics to filled."""
+    template_move = {
+        "kind": "choose-template",
+        "target": "design",
+        "proposal": "Adopt the METR paired-RCT design.",
+        "patch": {"templateId": "metr-rct-v1", "parameters": {}},
+        "refs": [],
+    }
+    reply = {"text": "A design.", "moves": [template_move]}
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
+    turn = _ask(client, "let's run a paired RCT design like the METR study")
+    assert turn["moves"], "the choose-template move must survive"
+    _accept(client, turn["moves"][0]["moveId"])
+
+    captured: list = []
+    ethics_move = {
+        "kind": "set-parameter",
+        "target": "ethics",
+        "proposal": "Consent covers behavioral capture; aggregates only.",
+        "patch": {
+            "section": "ethics",
+            "op": "append",
+            "value": "Consent covers behavioral capture; aggregates only",
+        },
+        "refs": [],
+    }
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: _capturing_llm(
+            {"text": "An ethics posture.", "moves": [ethics_move]}, captured
+        ),
+    )
+    turn2 = _ask(client, "what about the ethics posture?")
+    user = _conversation_request(captured)
+    filled_part = user.split("Draft coverage — filled:")[-1].split("Empty:")[0]
+    empty_part = user.split("Empty:")[-1]
+    assert "design" in filled_part
+    assert "statisticalPlan" in empty_part
+    assert "ethics" in empty_part
+    assert "record or refine that prescription" in user
+    assert "do not propose a standalone statisticalPlan move" not in user
+
+    _accept(client, turn2["moves"][0]["moveId"])
+    captured.clear()
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: _capturing_llm({"text": "Noted.", "moves": []}, captured),
+    )
+    _ask(client, "what next?")
+    user = _conversation_request(captured)
+    filled_part = user.split("Draft coverage — filled:")[-1].split("Empty:")[0]
+    assert "ethics" in filled_part
+
+
+def test_accepted_ethics_caution_does_not_block_the_ethics_move(client, monkeypatch):
+    """Regression: after accepting an ethics caution, the pairing ethics
+    append/set move (which restates the caution's concern, as the prompt
+    asks) must still reach the researcher — not be dropped as a repeat."""
+    caution_move = {
+        "kind": "caution",
+        "target": "ethics",
+        "proposal": "Workspace snapshots may include personal or sensitive data.",
+        "patch": None,
+        "refs": [],
+    }
+    reply = {"text": "One caution.", "moves": [caution_move]}
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
+    turn = _ask(client, "we'll capture workspace snapshots")
+    _accept(client, turn["moves"][0]["moveId"])
+
+    ethics_move = {
+        "kind": "set-parameter",
+        "target": "ethics",
+        "proposal": (
+            "Add an ethics posture: workspace snapshots may include personal "
+            "data, so consent must cover snapshot content."
+        ),
+        "patch": {
+            "section": "ethics",
+            "op": "append",
+            "value": "Consent covers snapshot content; personal data included",
+        },
+        "refs": [],
+    }
+    reply2 = {"text": "The posture.", "moves": [ethics_move]}
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply2))
+    turn2 = _ask(client, "cover that in the ethics posture")
+    assert turn2["source"] == "llm"
+    assert [m["kind"] for m in turn2["moves"]] == ["set-parameter"]

@@ -41,6 +41,7 @@ retrofitted.
 | `conversation-send` | `ConversationView` | send the researcher's message |
 | `conversation-thinking` | `ConversationView` | the platform is composing a reply (LLM or scripted) — a transient landmark |
 | `conversation-streaming` | `ConversationView` | the reply's prose as it streams in (transient; replaced by the real turn) |
+| `understanding-line` | `UnderstandingLine` | what the platform still doesn't know, and why no design is proposed yet |
 | `move-card` | `MoveCard` | one proposed design move (decision point); `data-agent-kind`, `data-agent-status` refine it |
 | `move-accept` | `MoveCard` | accept the move |
 | `move-reject` | `MoveCard` | reject the move |

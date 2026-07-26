@@ -88,9 +88,9 @@ export function Templates() {
   }
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-work flex-col gap-8 p-8">
       <div>
-        <h1 className="flex items-center gap-2 font-serif text-3xl font-medium tracking-tight text-text">
+        <h1 className="type-title flex items-center gap-2 text-text">
           <Layers className="size-6 text-accent" aria-hidden /> Protocol repertoire
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-text-muted">
@@ -129,7 +129,7 @@ export function Templates() {
 
       {held.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="flex items-center gap-1.5 text-sm font-medium text-text-muted">
+          <h2 className="type-subhead flex items-center gap-1.5 text-text-muted">
             <Info className="size-4" aria-hidden /> Held back
           </h2>
           <p className="text-xs text-text-muted">
@@ -141,7 +141,7 @@ export function Templates() {
               key={entry.id}
               className="rounded-card border border-dashed border-border-strong p-3"
             >
-              <p className="text-sm font-medium text-text">{entry.title}</p>
+              <p className="font-medium text-text">{entry.title}</p>
               <p className="mt-0.5 text-xs text-text-muted">
                 {entry.admissionNote}
               </p>
@@ -325,7 +325,7 @@ function MergedResult({
   return (
     <div className="rounded-card border border-border-strong bg-surface p-4">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-serif text-lg font-medium text-text">
+        <h2 className="type-subhead flex items-center gap-2 text-text">
           <FileText className="size-5 text-accent" aria-hidden /> Merged protocol
         </h2>
         <button

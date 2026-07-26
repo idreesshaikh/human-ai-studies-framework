@@ -10,6 +10,7 @@ import { useAsync } from "@/lib/useAsync";
 import { ApiError } from "@/lib/api.ts";
 import type { Role } from "@/lib/capabilities.ts";
 import type { Theme } from "@/lib/theme";
+import type { ResearcherProfile } from "@/lib/api";
 
 /* Project settings: rename, and an owner-only danger zone whose delete
  * requires typing the slug to confirm. Plus the signed-in identity's own
@@ -72,13 +73,13 @@ export function Settings() {
   };
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
-      <h1 className="font-serif text-3xl font-medium tracking-tight text-text">Settings</h1>
+    <div className="mx-auto flex max-w-reading flex-col gap-8 p-8">
+      <h1 className="type-title text-text">Settings</h1>
 
       <Card>
         <CardContent className="flex flex-col gap-4 p-4">
           <div>
-            <h2 className="font-medium text-text">Your profile</h2>
+            <h2 className="type-subhead text-text">Your profile</h2>
             <p className="text-sm text-text-muted">
               Preferences are saved to your account and follow you across devices.
             </p>
@@ -97,6 +98,37 @@ export function Settings() {
               <option value="light">Light</option>
               <option value="dark">Dark</option>
             </select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="researcher-profile">Your research experience</Label>
+            <select
+              id="researcher-profile"
+              className="rounded-input border border-border-strong bg-surface px-2 py-1.5 text-sm text-text"
+              value={prefs.researcherProfile ?? ""}
+              onChange={(e) =>
+                void updatePreferences({
+                  researcherProfile:
+                    (e.target.value || undefined) as ResearcherProfile | undefined,
+                })
+              }
+            >
+              <option value="">Not saying</option>
+              <option value="student">Student — learning research methods</option>
+              <option value="new-researcher">
+                New researcher — first empirical studies here
+              </option>
+              <option value="experienced">
+                Experienced researcher — I design studies regularly
+              </option>
+              <option value="industry">
+                Industry — studying engineers inside a company
+              </option>
+            </select>
+            <p className="text-xs text-text-muted">
+              The design conversation adapts how it talks to you: how much it
+              explains, how fast it moves, and which trade-offs it raises. What
+              counts as a sound design never changes.
+            </p>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="model">Default assistant model</Label>
@@ -153,7 +185,7 @@ export function Settings() {
           <Card className="border-unsourced">
             <CardContent className="flex flex-col gap-3 p-4">
               <div>
-                <h2 className="font-medium text-text">Danger zone</h2>
+                <h2 className="type-subhead text-text">Danger zone</h2>
                 <p className="text-sm text-text-muted">
                   Deleting a project removes its memberships and invitations.
                   Type <span className="font-mono">{slug}</span> to confirm.

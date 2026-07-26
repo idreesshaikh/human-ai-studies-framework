@@ -162,7 +162,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
               <ArrowLeft className="size-3.5" aria-hidden />
               All projects
             </NavLink>
-            <p className="mb-2 px-1 font-mono text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-text-muted">
+            <p className="type-eyebrow mb-2 px-1 text-text-muted">
               Project
             </p>
             <div className="flex flex-col gap-1">

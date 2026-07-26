@@ -22,7 +22,7 @@ export function RecommenderRail({
       className="flex h-full min-h-0 flex-col gap-3 border-l border-border-strong bg-surface p-4"
     >
       <div>
-        <h2 className="flex items-center gap-2 font-serif text-lg font-medium text-text">
+        <h2 className="type-subhead flex items-center gap-2 text-text">
           <BookOpen className="size-4 text-accent" aria-hidden /> Literature
         </h2>
         <p className="text-xs text-text-muted">

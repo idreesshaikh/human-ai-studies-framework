@@ -72,6 +72,13 @@
   --font-mono: var(--font-mono);
   --font-sans: var(--font-sans);
 
+  /* Layout measures as max-w-reading / max-w-work / max-w-wide / max-w-narrow.
+   * A page picks the measure that matches its job, never a bare max-w-3xl. */
+  --container-narrow: var(--measure-narrow);
+  --container-reading: var(--measure-reading);
+  --container-work: var(--measure-work);
+  --container-wide: var(--measure-wide);
+
   /* Motion tokens as duration-* / ease-* utilities, so components write
    * `duration-settle ease-out` instead of raw values. */
   --duration-fast: var(--motion-fast);
@@ -143,6 +150,84 @@ body::before {
 /* Tabular numerals for anything showing numbers. */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* ---- The type scale, as roles ----------------------------------------
+ * One class per role; a component says what the text IS and the scale
+ * decides how it looks. Deliberately in @layer components (declared before
+ * `utilities` above) so a utility still wins where a screen has a real
+ * reason to deviate — `type-body font-semibold` works, and colour is left
+ * entirely to text-* utilities so the two systems never fight for
+ * specificity.
+ *
+ * Roles, and what each one claims:
+ *   type-display  the hero, once
+ *   type-title    the page's name — exactly one per screen
+ *   type-section  a titled division within a page
+ *   type-subhead  a card or panel title
+ *   type-body-lg  sustained reading (the conversation, findings prose)
+ *   type-body     the app's default voice
+ *   type-label    a form or control label
+ *   type-caption  metadata: counts, timestamps, provenance
+ *   type-eyebrow  the machine's structural label — mono, and therefore a
+ *                 claim that the block beneath it was derived, not written */
+@layer components {
+  .type-display {
+    font-family: var(--font-display);
+    font-size: var(--text-display);
+    font-weight: 500;
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-display);
+  }
+  .type-title {
+    font-family: var(--font-display);
+    font-size: var(--text-title);
+    font-weight: 500;
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-title);
+  }
+  .type-section {
+    font-family: var(--font-display);
+    font-size: var(--text-section);
+    font-weight: 500;
+    line-height: var(--leading-snug);
+    letter-spacing: var(--tracking-section);
+  }
+  .type-subhead {
+    font-family: var(--font-display);
+    font-size: var(--text-subhead);
+    font-weight: 500;
+    line-height: var(--leading-snug);
+  }
+  .type-body-lg {
+    font-family: var(--font-text);
+    font-size: var(--text-body-lg);
+    line-height: var(--leading-relaxed);
+  }
+  .type-body {
+    font-family: var(--font-text);
+    font-size: var(--text-body);
+    line-height: var(--leading-normal);
+  }
+  .type-label {
+    font-family: var(--font-text);
+    font-size: var(--text-label);
+    font-weight: 500;
+    line-height: var(--leading-normal);
+  }
+  .type-caption {
+    font-family: var(--font-text);
+    font-size: var(--text-caption);
+    line-height: var(--leading-normal);
+  }
+  .type-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-eyebrow);
+    font-weight: 500;
+    line-height: var(--leading-normal);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+  }
 }
 
 /* The lifted card: an interactive object that rises a little on hover and

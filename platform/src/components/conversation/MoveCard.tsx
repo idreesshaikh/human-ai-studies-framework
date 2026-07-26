@@ -70,7 +70,7 @@ export function MoveCard({
     >
       <CardContent className="flex flex-col gap-2 p-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
+          <span className="type-eyebrow text-text-muted">
             {KIND_LABEL[move.kind]}
           </span>
           {move.status === "accepted" && (

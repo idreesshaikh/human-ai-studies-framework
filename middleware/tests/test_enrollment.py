@@ -102,3 +102,76 @@ def test_consent_statement_is_derived_and_names_the_policy():
     # active content policy stated verbatim (FR-AGENT-5)
     assert "metadata-only" in text
     assert "raw code" in text.lower()  # the never-captured promise
+
+
+# ---- FR-DASH-13 / FR-INST-22: the catalog spans all four legs -------------
+
+ALL_FOUR = {
+    **PROTOCOL,
+    "instruments": {
+        "tern": {
+            "stuck": {"enabled": True, "thresholdSeconds": 90},
+            "behavior": {"enabled": True, "captureAiLifecycle": True},
+            "ideHealth": {"enabled": True},
+        },
+        "metrics": {"enabled": True, "snapshot": {"enabled": True}},
+        "agentCapture": {"enabled": True, "contentPolicy": "redacted"},
+    },
+}
+
+
+def test_toggle_catalog_covers_four_legs_when_protocol_enables_them():
+    legs = {e["leg"] for e in enrollment.toggle_catalog(ALL_FOUR)}
+    assert legs == set(enrollment.LEG_ORDER)
+
+
+def test_every_catalog_entry_carries_a_leg_and_honest_grounding():
+    for entry in enrollment.toggle_catalog(ALL_FOUR):
+        assert entry["leg"] in enrollment.LEG_ORDER
+        assert entry["label"] and entry["description"]
+        grounding = entry["grounding"]
+        # Either a real ref into the SRS/corpus, or honestly marked unsourced
+        # (FR-CONV-2) — never a bare, unlabelled absence.
+        assert grounding.get("unsourced") is True or grounding.get("ref")
+
+
+def test_leg_summary_always_returns_all_four_in_order():
+    summary = enrollment.leg_summary(ALL_FOUR)
+    assert [s["leg"] for s in summary] == list(enrollment.LEG_ORDER)
+
+
+def test_a_leg_the_protocol_omits_is_unavailable_not_disabled():
+    # PROTOCOL configures `tern` only: metrics and agent are absent entirely.
+    by_leg = {s["leg"]: s for s in enrollment.leg_summary(PROTOCOL)}
+    assert by_leg[enrollment.LEG_METRICS]["state"] == "unavailable"
+    assert by_leg[enrollment.LEG_AGENT]["state"] == "unavailable"
+    # …and a configured leg is not swept up in that.
+    assert by_leg[enrollment.LEG_COGNITIVE]["state"] == "enabled"
+
+
+def test_a_leg_switched_off_reads_disabled():
+    off = {
+        **ALL_FOUR,
+        "instruments": {
+            **ALL_FOUR["instruments"],
+            "metrics": {"enabled": False, "snapshot": {"enabled": False}},
+        },
+    }
+    by_leg = {s["leg"]: s for s in enrollment.leg_summary(off)}
+    assert by_leg[enrollment.LEG_METRICS]["state"] == "disabled"
+
+
+def test_leg_summary_carries_that_legs_toggles_and_nothing_else():
+    by_leg = {s["leg"]: s for s in enrollment.leg_summary(ALL_FOUR)}
+    metrics = by_leg[enrollment.LEG_METRICS]
+    assert metrics["toggles"]
+    assert all(t["leg"] == enrollment.LEG_METRICS for t in metrics["toggles"])
+    assert all(t["instrument"] == "metrics" for t in metrics["toggles"])
+
+
+def test_snapshot_toggles_name_the_consent_consequence():
+    # The two content-touching exceptions (FR-ETH-2) must say so in the words
+    # the participant reads, not only in the protocol.
+    entries = enrollment.toggle_catalog(ALL_FOUR)
+    snapshot = next(e for e in entries if e["path"] == ["snapshot", "enabled"])
+    assert "consent" in snapshot["description"].lower()

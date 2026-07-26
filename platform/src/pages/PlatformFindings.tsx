@@ -24,9 +24,9 @@ export function PlatformFindings() {
   const { findings, proposal } = useEvolution();
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8 p-6">
+    <div className="mx-auto flex max-w-reading flex-col gap-8 p-8">
       <header className="flex flex-col gap-1">
-        <h1 className="font-serif text-3xl font-medium tracking-tight text-text">
+        <h1 className="type-title text-text">
           How the platform is evolving
         </h1>
         <p className="text-sm text-text-muted">
@@ -38,11 +38,11 @@ export function PlatformFindings() {
 
       {/* Stage 1 — the feedback, from conversations. */}
       <section className="flex flex-col gap-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-text">
+        <h2 className="type-subhead flex items-center gap-2 text-text">
           <MessageSquare className="size-4 text-accent" aria-hidden />
           Feedback, from your conversations
           <span className="text-text-muted">({findings.length})</span>
-        </div>
+        </h2>
         {findings.length === 0 ? (
           <p className="text-sm text-text-muted">
             Nothing flagged yet. In a conversation, flag a turn for the platform
@@ -83,7 +83,7 @@ export function PlatformFindings() {
       >
         <div className="flex items-center gap-2">
           <FileText className="size-4 text-text-muted" aria-hidden />
-          <span className="text-sm font-medium text-text">{proposal.title}</span>
+          <span className="font-medium text-text">{proposal.title}</span>
           <span className="rounded-chip border border-border-strong px-2 py-0.5 text-xs text-text-muted">
             inert draft
           </span>

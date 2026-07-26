@@ -1,15 +1,21 @@
 /* Design tokens — the single source of truth for colour, motion, radius,
  * type, and the lifted-card signature.
  *
- * THE STUDY DESK — a warm-peach identity for a tool researchers trust with
- * real studies. Earlier passes tried a full retro-tech "Skip Labs" treatment
- * (condensed display type, pill buttons, hard offset shadows); it read as a
- * dev-tool marketing site, not a research instrument, so only the palette
- * survived. Headings are a restrained literary serif (credible, editorial);
- * body copy and UI are a clean grotesk (legible at data-table sizes); mono is
- * reserved for the same machine artifacts as before (the compiled YAML
- * draft, data, code, structural labels). Cards are quiet rectangles with a
- * soft lift, not a costume.
+ * THE INSTRUMENT — a cool, evidence-first identity for a tool researchers
+ * trust with real studies. Two earlier passes are recorded here so they don't
+ * get re-proposed: a retro-tech "Skip Labs" treatment (condensed display type,
+ * pill buttons, hard offset shadows) read as a dev-tool marketing site; the
+ * warm-peach "study desk" that replaced it read as the default AI look. What
+ * survived both is the structure below — a cool slate ground with a single
+ * signal-blue accent (light: "Daylight instrument"; dark: "Observatory").
+ *
+ * Three type roles, and they mean something: a restrained literary serif
+ * carries headings (credible, editorial, never a full paragraph); a clean
+ * grotesk carries body copy and UI (legible at data-table sizes); mono is the
+ * machine's voice, and only the machine's — the compiled YAML draft, data,
+ * code, and structural labels. A mono eyebrow above a block is therefore a
+ * claim: this content was derived, not written. Cards are quiet rectangles
+ * with a soft lift, not a costume.
  *
  * This is the only place raw hex / ms / px values live. Components consume
  * them via Tailwind's @theme mapping (index.css) or var(--token); a lint
@@ -49,6 +55,48 @@
   --font-text: var(--font-sans); /* body prose reads in the clean grotesk */
   --font-serif: var(--font-display); /* alias — some components still write
     font-serif for headings; both resolve to the one display face */
+
+  /* Type scale — named by ROLE, not size, and consumed only as the .type-*
+   * utilities in index.css. The rule the app had been missing: a screen picks
+   * the role its content plays, and the scale decides the size. Before this
+   * existed, 294 of 318 type declarations across the app were text-xs/text-sm,
+   * so hierarchy had to be carried by weight and colour alone and every screen
+   * read equally flat.
+   *
+   * The steps are deliberately few and clearly separated (~1.26 through the
+   * heading range) — an instrument needs unambiguous levels, not a continuum.
+   * Body stays at 14px: this is a data-dense tool where tables and metric
+   * shapes have to fit, and the hierarchy is bought above body, not below. */
+  --text-eyebrow: 0.6875rem; /* 11px — the machine's structural label */
+  --text-caption: 0.75rem; /* 12px — metadata, counts, timestamps */
+  --text-label: 0.8125rem; /* 13px — form and control labels */
+  --text-body: 0.875rem; /* 14px — the app's default voice */
+  --text-body-lg: 1rem; /* 16px — sustained reading (conversation, findings) */
+  --text-subhead: 1.125rem; /* 18px — card and panel titles */
+  --text-section: 1.4375rem; /* 23px — a section within a page */
+  --text-title: 1.8125rem; /* 29px — the page's name; exactly one per screen */
+  --text-display: clamp(2.125rem, 5vw, 3.25rem); /* hero only */
+
+  /* Leading tightens as type grows — long measures need air, headlines don't. */
+  --leading-tight: 1.1; /* display + title */
+  --leading-snug: 1.3; /* section + subhead */
+  --leading-normal: 1.5; /* labels, captions, UI body */
+  --leading-relaxed: 1.65; /* sustained reading */
+
+  /* Tracking — the serif opens up slightly at small sizes and closes at large;
+   * the mono eyebrow is spaced wide enough to read as a label, not a word. */
+  --tracking-display: -0.02em;
+  --tracking-title: -0.015em;
+  --tracking-section: -0.01em;
+  --tracking-eyebrow: 0.16em;
+
+  /* Layout measures — the four content widths, chosen by what the page is FOR.
+   * Pages used to pick a max-w-* per file (2xl through 5xl with no rule), so
+   * the content column jumped width on every navigation. */
+  --measure-narrow: 26rem; /* a single focused task: invite, sign-in */
+  --measure-reading: 44rem; /* settings, members, prose, findings */
+  --measure-work: 60rem; /* working surfaces: project home, templates, study */
+  --measure-wide: 72rem; /* the hero, and only the hero */
 
   /* Light theme — "Daylight instrument": cool slate paper + deep ink-navy.
    * Deliberately NOT the warm-peach desk (that reads as the default AI look);

@@ -1,4 +1,11 @@
-import type { DesignMove, Grounding, ProtocolDraft, Recommendation, Turn } from "./types.ts";
+import type {
+  DesignMove,
+  Grounding,
+  ProtocolDraft,
+  Recommendation,
+  Turn,
+  Understanding,
+} from "./types.ts";
 import { getAuthToken, notifyUnauthorized } from "./api.ts";
 import { OfflineError } from "./studyApi.ts";
 import { openingTurn, respondTo } from "./designStub.ts";
@@ -158,7 +165,7 @@ export const conversationApi = {
     studyId: string,
     text: string,
     author = "You",
-  ): Promise<{ turns: Turn[] }> {
+  ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
     const reply = await post<{
       researcherTurnId: string;
       platformTurnId: string;
@@ -166,6 +173,7 @@ export const conversationApi = {
       moves: Record<string, unknown>[];
       recommendations: Recommendation[];
       source?: "llm" | "scripted";
+      understanding?: Understanding;
     }>(`/studies/${encodeURIComponent(studyId)}/conversation/turns`, {
       text,
       author,
@@ -187,7 +195,7 @@ export const conversationApi = {
       recommendations: reply.recommendations ?? [],
       source: reply.source,
     };
-    return { turns: [researcher, platform] };
+    return { turns: [researcher, platform], understanding: reply.understanding };
   },
 
   /** `sendTurn`, with the reply's prose surfaced as the model writes it.
@@ -202,7 +210,7 @@ export const conversationApi = {
     text: string,
     author = "You",
     onToken?: (fragment: string) => void,
-  ): Promise<{ turns: Turn[] }> {
+  ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
     let done: {
       researcherTurnId: string;
       platformTurnId: string;
@@ -210,6 +218,7 @@ export const conversationApi = {
       moves: Record<string, unknown>[];
       recommendations: Recommendation[];
       source?: "llm" | "scripted";
+      understanding?: Understanding;
     } | null = null;
     try {
       const res = await fetch(
@@ -270,7 +279,7 @@ export const conversationApi = {
       recommendations: done.recommendations ?? [],
       source: done.source,
     };
-    return { turns: [researcher, platform] };
+    return { turns: [researcher, platform], understanding: done.understanding };
   },
 
   decide(studyId: string, moveId: string, status: "accepted" | "rejected") {

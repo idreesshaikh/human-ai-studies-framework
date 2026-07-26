@@ -114,7 +114,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             the design conversation's recommendations land here too. */}
         <div className="rounded-card border border-border bg-surface">
           <div className="flex items-center justify-between border-b border-border px-4 py-2">
-            <h3 className="text-sm font-medium text-text">Library</h3>
+            <h3 className="type-subhead text-text">Library</h3>
             <span className="text-xs text-text-muted">
               {papers.length} {papers.length === 1 ? "paper" : "papers"}
             </span>
