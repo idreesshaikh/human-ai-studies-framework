@@ -1,0 +1,230 @@
+"""Listening before proposing, and answering what was asked (FR-CONV-9/10).
+
+The two conversational failures these pin down are the ones a researcher
+actually notices:
+
+1. Asking *"why did you give me this?"* and getting three new proposals back
+   instead of an answer — the platform not listening.
+2. Being handed a design shape off a single sentence, boxed into a study it
+   never asked about.
+
+Both are enforced in code (``design_assistant.turn_stance`` /
+``_permitted_moves``), not merely requested of a model, so they hold on the
+no-LLM path and cannot be prompted away.
+"""
+
+import pytest
+from fastapi.testclient import TestClient
+from middleware.app import create_app
+from middleware.settings import Settings
+
+from middleware import elicitation
+
+STUDY = "elicit-study"
+
+SKETCH = (
+    "I want to see whether developers finish maintenance tasks faster with an "
+    "AI assistant than without one, measuring task completion time."
+)
+
+
+@pytest.fixture()
+def client(tmp_path):
+    settings = Settings(
+        db_path=tmp_path / "elicit.sqlite3",
+        data_dir=tmp_path / "data",
+        port=8000,
+        spa_dist=tmp_path / "no-dist",
+        dev_mode=True,
+    )
+    tc = TestClient(create_app(settings))
+    tc.db_url = f"sqlite:///{settings.db_path}"
+    return tc
+
+
+def _ask(client, text, study=STUDY):
+    res = client.post(f"/studies/{study}/conversation/turns", json={"text": text})
+    assert res.status_code == 200, res.text
+    return res.json()
+
+
+# ------------------------------------------------------------ turn intent
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "why did you give me this?",
+        "Why?",
+        "why that template and not the other one",
+        "what do you mean by counterbalanced?",
+        "explain that",
+        "on what basis?",
+        "I asked why, you didn't answer",
+        "how do you know that?",
+    ],
+)
+def test_questions_about_prior_turns_are_recognised(text):
+    assert elicitation.classify_turn(text) == "followup-question"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "what design and statistics should I use?",
+        "which template do you recommend?",
+        "just give me the design",
+        "suggest a study design please",
+        "skip the questions",
+    ],
+)
+def test_explicit_design_requests_are_recognised(text):
+    assert elicitation.classify_turn(text) == "design-request"
+
+
+def test_a_description_is_not_a_question():
+    assert elicitation.classify_turn(SKETCH) == "describe"
+
+
+# -------------------------------------------------------- understanding
+
+
+def test_a_real_description_covers_several_facets():
+    understanding = elicitation.assess_understanding([SKETCH])
+    assert understanding["population"]  # developers
+    assert understanding["task"]  # maintenance tasks
+    assert understanding["comparison"]  # with / without
+    assert understanding["outcome"]  # completion time
+    assert elicitation.ready_for_design(understanding)
+
+
+def test_a_vague_opener_understands_nothing():
+    understanding = elicitation.assess_understanding(["help me design a study"])
+    assert not elicitation.ready_for_design(understanding)
+    assert elicitation.next_question(understanding)  # there is something to ask
+
+
+def test_only_the_researchers_own_words_count():
+    """The platform asking about conditions cannot make the platform better
+    informed — assess_understanding is only ever given researcher turns."""
+    understanding = elicitation.assess_understanding([])
+    assert not any(understanding.values())
+
+
+def test_an_explicit_request_lowers_the_bar_but_not_to_zero():
+    nothing = elicitation.assess_understanding(["hello"])
+    assert not elicitation.ready_for_design(nothing, requested=True)
+    two = elicitation.assess_understanding(["students writing code"])
+    assert sum(two.values()) == 2
+    assert elicitation.ready_for_design(two, requested=True)
+    assert not elicitation.ready_for_design(two)
+
+
+def test_next_question_asks_one_thing():
+    understanding = elicitation.assess_understanding(["developers"])
+    question = elicitation.next_question(understanding)
+    assert question.count("?") == 1
+
+
+# ------------------------------------------------- the conversation itself
+
+
+def test_a_vague_opener_gets_a_question_not_a_design(client):
+    reply = _ask(client, "I want to study AI and productivity")
+    assert [m for m in reply["moves"] if m["kind"] == "choose-template"] == []
+    assert "?" in reply["text"], "the platform should be asking something"
+    assert reply["understanding"]["readyForDesign"] is False
+    assert reply["understanding"]["missing"]
+
+
+def test_asking_for_a_design_from_nothing_does_not_produce_one(client):
+    """The complaint: being boxed in immediately. An explicit ask with no
+    study behind it still gets a conversation, not a template."""
+    reply = _ask(client, "what design and statistics should I use?")
+    assert reply["turnIntent"] == "design-request"
+    assert [m for m in reply["moves"] if m["kind"] == "choose-template"] == []
+
+
+def test_a_described_study_does_reach_a_design(client):
+    """The gate must open — an elicitation loop with no exit is worse than
+    proposing too early."""
+    _ask(client, SKETCH)
+    reply = _ask(client, "what design and statistics should I use?")
+    assert reply["understanding"]["readyForDesign"] is True
+    assert [m for m in reply["moves"] if m["kind"] == "choose-template"]
+
+
+def test_why_gets_an_answer_not_new_proposals(client):
+    """The reported defect: asked 'why?', the platform proposed new things."""
+    _ask(client, SKETCH)
+    proposed = _ask(client, "what design and statistics should I use?")
+    assert proposed["moves"], "precondition: something was proposed to ask about"
+
+    answer = _ask(client, "why did you give me this?")
+    assert answer["turnIntent"] == "followup-question"
+    assert [m for m in answer["moves"] if m["kind"] != "caution"] == []
+    assert answer["text"]
+
+
+def test_a_gated_turn_still_keeps_its_safe_moves(client):
+    """Withholding the design shape is not a reason to withhold a grounded
+    caution — the turn stays useful while it asks."""
+    reply = _ask(client, "I think junior developers over-trust AI-generated code")
+    assert reply["understanding"]["readyForDesign"] is False
+    assert reply["moves"], "safe moves should survive the design gate"
+    assert all(m["kind"] != "choose-template" for m in reply["moves"])
+
+
+def test_understanding_accumulates_across_turns(client):
+    """Facets are read from the whole conversation, not just this message."""
+    first = _ask(client, "my participants are professional developers")
+    assert first["understanding"]["readyForDesign"] is False
+    later = _ask(client, "they refactor a legacy module, and I'll time them")
+    known = later["understanding"]["known"]
+    assert "population" in known and "task" in known
+
+
+# ------------------------------------------------------------- profiles
+
+
+def test_every_profile_has_distinct_guidance():
+    guidances = {k: elicitation.profile_guidance(k) for k in elicitation.PROFILES}
+    assert len(set(guidances.values())) == len(elicitation.PROFILES)
+    assert "STUDENT" in guidances["student"]
+    assert "EXPERIENCED" in guidances["experienced"]
+    assert "COMPANY" in guidances["industry"]
+
+
+def test_an_unknown_profile_falls_back_to_the_default():
+    assert elicitation.profile_guidance("chief-scientist") == (
+        elicitation.profile_guidance(elicitation.DEFAULT_PROFILE)
+    )
+    assert elicitation.profile_guidance(None) == (
+        elicitation.profile_guidance(elicitation.DEFAULT_PROFILE)
+    )
+
+
+def test_the_profile_catalog_is_served(client):
+    body = client.get("/conversation/profiles").json()
+    ids = {p["id"] for p in body["profiles"]}
+    assert ids == {"student", "new-researcher", "experienced", "industry"}
+    assert body["default"] in ids
+    assert all(p["label"] and p["description"] for p in body["profiles"])
+
+
+def test_the_profile_reaches_the_turn_directive(client):
+    """A saved profile changes how the conversation talks (the directive the
+    model is given), without changing what counts as sound method."""
+    from middleware.db import make_session_factory
+    from middleware.design_assistant import _directive, turn_stance
+
+    factory = make_session_factory(client.db_url)
+    with factory() as s:
+        student = _directive(turn_stance(s, SKETCH, study_id=None, profile="student"))
+        expert = _directive(
+            turn_stance(s, SKETCH, study_id=None, profile="experienced")
+        )
+    assert "STUDENT" in student and "STUDENT" not in expert
+    assert "EXPERIENCED" in expert
+    # The gate language is identical in both: rigour doesn't vary by audience.
+    assert ("enough to design" in student) == ("enough to design" in expert)

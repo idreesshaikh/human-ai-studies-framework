@@ -29,6 +29,14 @@ from middleware.settings import Settings
 
 STUDY = "pilot"
 
+#: A study described the way a researcher would, so the elicitation gate
+#: (FR-CONV-10) opens honestly rather than being bypassed in tests.
+_STUDY_SKETCH = (
+    "I want to see whether developers finish maintenance tasks faster with "
+    "an AI assistant than without one, in 45-minute instrumented sessions, "
+    "measuring task completion time and correctness."
+)
+
 
 def _build_client(tmp_path, *, dev_mode: bool = False) -> TestClient:
     settings = Settings(
@@ -78,10 +86,15 @@ def _approve(client, comp_id, study=STUDY, rationale=""):
 def _reach_approved_protocol(client, study=STUDY):
     """Drive an empty study to an approved, validating protocol draft (the
     pre-condition every ethics-gated test starts from)."""
+    # The platform withholds a design shape until the study is understood
+    # (FR-CONV-10), so describe the study first — the conversation this helper
+    # drives is now the one a researcher would actually have.
+    _ask(client, _STUDY_SKETCH, study)
     reply = _ask(client, "what design and statistics should I use?", study)
-    for m in reply["moves"]:
-        if m["kind"] == "choose-template":
-            _accept(client, m["moveId"], study)
+    template_moves = [m for m in reply["moves"] if m["kind"] == "choose-template"]
+    assert template_moves, "no design was proposed after describing the study"
+    for m in template_moves:
+        _accept(client, m["moveId"], study)
     result = _compile(client, study)
     assert result["valid"], result["errors"]
     r = _approve(client, result["compilationId"], study)

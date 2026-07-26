@@ -144,9 +144,20 @@ def test_self_report_draws_metr_caution(client):
 # ------------------------------------------------------------- F1.1 / F3.1 / F3.3
 
 
+#: A study described the way a researcher would. The platform withholds a
+#: design shape until it understands the study (FR-CONV-10), so a helper that
+#: drives to a draft has to hold the conversation a researcher would hold.
+_STUDY_SKETCH = (
+    "I want to see whether developers finish maintenance tasks faster with "
+    "an AI assistant than without one, in 45-minute instrumented sessions, "
+    "measuring task completion time and correctness."
+)
+
+
 def _drive_to_valid_draft(client) -> dict:
     """Accept the template-choice move the design script proposes → a
     complete, validating protocol draft, all in-conversation (F1.1)."""
+    _ask(client, _STUDY_SKETCH)
     reply = _ask(client, "what design and statistics should I use?")
     template_moves = [m for m in reply["moves"] if m["kind"] == "choose-template"]
     assert template_moves, "the design script must propose a template"

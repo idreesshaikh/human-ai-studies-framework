@@ -31,10 +31,20 @@ export interface Me {
 /** The shape the server persists per identity (FR-OPS-7). The server only
  * stores keys it recognises (`theme`, `defaultAssistantModel`, `savedViews`);
  * the UI owns their semantics. */
+/** Who the design conversation is talking to (FR-CONV-9). Changes register,
+ *  pacing, and which trade-offs get surfaced — never what counts as sound
+ *  method. Unset means the platform uses its default posture. */
+export type ResearcherProfile =
+  | "student"
+  | "new-researcher"
+  | "experienced"
+  | "industry";
+
 export interface Preferences {
   theme?: "light" | "dark" | "system";
   defaultAssistantModel?: string;
   savedViews?: string[];
+  researcherProfile?: ResearcherProfile;
 }
 
 export interface ProjectSummary {

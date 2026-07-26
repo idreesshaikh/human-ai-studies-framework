@@ -92,13 +92,30 @@ SYSTEM_PROMPT = (
     "by a choose-template move; no other move kind can ever fill it, no "
     "matter how many research questions, measures, or parameters get "
     "accepted. A conversation that never proposes one can never reach a "
-    "compilable protocol. Whenever the researcher asks about design, "
-    "statistics, or a specific study type (an RCT, a within-subjects/"
-    "crossover study, a pre/post study, etc.) - even loosely worded - "
-    "always include a choose-template move for whichever candidate "
-    "template fits best, alongside any other moves. Only omit it if truly "
-    "none of the candidate templates fit at all, and say so explicitly in "
-    "the reply text.\n\n"
+    "compilable protocol — so once the study is understood well enough, "
+    "propose the template that fits, and say so explicitly in the reply text "
+    "if truly none of the candidates fit.\n\n"
+    "BUT NOT YET, AND NOT BLIND. A design shape is a *consequence* of who "
+    "takes part, what they do, what is compared, what is measured, and what "
+    "is practically possible. Naming a shape before you know those boxes the "
+    "researcher into a design chosen from almost nothing, which is worse than "
+    "asking. The turn instruction below tells you which of these the "
+    "conversation still doesn't know and whether you may propose a design "
+    "yet; follow it exactly. While you are still learning the study, ask ONE "
+    "genuine question at a time (never a list of five), reflect back what you "
+    "understood so they can correct you, and propose only moves that are "
+    "already safe — a research question in their own words, a measure they "
+    "named themselves, a caution.\n\n"
+    "ANSWER WHAT WAS ASKED. If the researcher asks about something you "
+    "already said — 'why did you propose that?', 'what do you mean?', 'on "
+    "what basis?' — then ANSWER IT, in the reply text, referring to the "
+    "specific move you proposed and the reasoning and papers behind it. Your "
+    "own earlier proposals are in the conversation history above, with what "
+    "the researcher decided about each. Replying to a question with a fresh "
+    "batch of proposals instead of an answer is the single worst thing you "
+    "can do here: it tells the researcher you were not listening. Do not "
+    "re-propose something they already rejected without acknowledging that "
+    "they rejected it and saying what changed.\n\n"
     "Reply with a single JSON object, no prose outside it:\n"
     '{"text": "conversational reply, no inline citations - refs live only '
     'in moves[].refs", '
@@ -315,12 +332,37 @@ class _ReplyTextExtractor:
         return "".join(out)
 
 
+def _messages(
+    text: str,
+    history: list[dict],
+    papers: list[dict],
+    templates: list[dict],
+    directive: str,
+) -> list[dict]:
+    """The chat messages for one design turn.
+
+    ``directive`` is this turn's stance — who is being talked to, what the
+    conversation still doesn't understand, and whether a design may be
+    proposed yet — sent as its own system message *after* the history so it
+    cannot be mistaken for something the researcher said, and so it outranks
+    the general instructions for this turn.
+    """
+    menu = _candidate_menu(papers, templates)
+    return [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        *history,
+        *([{"role": "system", "content": directive}] if directive else []),
+        {"role": "user", "content": f"{text}\n\nCandidate menu this turn:\n{menu}"},
+    ]
+
+
 def propose_turn_streaming(
     client,
     text: str,
     history: list[dict],
     papers: list[dict],
     templates: list[dict],
+    directive: str = "",
 ):
     """:func:`propose_turn`, yielding the reply's prose as it arrives.
 
@@ -333,16 +375,11 @@ def propose_turn_streaming(
     """
     stream = getattr(client, "stream", None)
     if stream is None:
-        return propose_turn(client, text, history, papers, templates)
+        return propose_turn(client, text, history, papers, templates, directive)
 
     candidate_refs = {p["ref"] for p in papers if p.get("ref")}
     candidate_refs |= {t["templateId"] for t in templates if t.get("templateId")}
-    menu = _candidate_menu(papers, templates)
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        *history,
-        {"role": "user", "content": f"{text}\n\nCandidate menu this turn:\n{menu}"},
-    ]
+    messages = _messages(text, history, papers, templates, directive)
     extractor = _ReplyTextExtractor()
     body = ""
     try:
@@ -366,7 +403,7 @@ def propose_turn_streaming(
         reply_text = str(parsed.get("text", "")).strip()
     except Exception as exc:  # noqa: BLE001 - any provider/parse failure degrades
         log.warning("streaming conversation turn failed, falling back: %s", exc)
-        return propose_turn(client, text, history, papers, templates)
+        return propose_turn(client, text, history, papers, templates, directive)
     moves = _parse_moves(parsed.get("moves"), candidate_refs)
     if not reply_text and not moves:
         log.warning("LLM conversation turn produced no usable content, falling back")
@@ -380,6 +417,7 @@ def propose_turn(
     history: list[dict],
     papers: list[dict],
     templates: list[dict],
+    directive: str = "",
 ) -> Script | None:
     """Ask the configured LLM provider for this turn's prose + proposed
     moves, constrained to ``papers``/``templates`` already retrieved this
@@ -395,12 +433,7 @@ def propose_turn(
     """
     candidate_refs = {p["ref"] for p in papers if p.get("ref")}
     candidate_refs |= {t["templateId"] for t in templates if t.get("templateId")}
-    menu = _candidate_menu(papers, templates)
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        *history,
-        {"role": "user", "content": f"{text}\n\nCandidate menu this turn:\n{menu}"},
-    ]
+    messages = _messages(text, history, papers, templates, directive)
     try:
         res = client.post(
             client.base_url,

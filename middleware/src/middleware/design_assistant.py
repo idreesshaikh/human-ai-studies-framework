@@ -25,8 +25,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from middleware import matching
-from middleware.db import ConversationTurn
+from middleware import elicitation, matching
+from middleware.db import ConversationTurn, DesignMoveRow
 from middleware.template_registry import list_templates
 
 log = logging.getLogger(__name__)
@@ -433,8 +433,76 @@ _FOLLOWUP = Script(
 )
 
 
-def _pick_script(text: str) -> Script:
-    """Deterministic input → script routing (mirrors the client stub)."""
+def _elicit_script(stance: dict) -> Script:
+    """The no-LLM elicitation turn: ask the next real question and say what
+    is still unknown, instead of the old fixed "tell me more".
+
+    Names the facet rather than the protocol slot, because a researcher who
+    hasn't said what they measure needs to be asked that, not told that
+    ``statisticalPlan`` is empty.
+    """
+    understanding = stance["understanding"]
+    missing = understanding["missingLabels"]
+    parts = [stance["nextQuestion"] or "Tell me more about the study."]
+    if missing:
+        parts.append(
+            "I'm still missing " + ", ".join(missing) + " — one thing at a time is "
+            "fine, and I'll hold off on suggesting a design until the shape of "
+            "the study actually follows from what you've told me."
+        )
+    return Script(text=" ".join(parts), moves=())
+
+
+def _explain_script() -> Script:
+    """The no-LLM answer to "why did you propose that?".
+
+    With no model configured the platform cannot discuss its reasoning in
+    prose — so it says exactly that, and points at the evidence it does hold,
+    rather than answering a question with unrelated new proposals.
+    """
+    return Script(
+        text=(
+            "Fair question. Without a language model configured I can't talk "
+            "through my reasoning freely — but nothing I proposed is "
+            "unexplained: every move carries the paper it came from, so open "
+            "its grounding to see the source and why it applies, and reject "
+            "anything the source doesn't convince you of. Configure a model "
+            "key and I can discuss the trade-offs properly."
+        ),
+        moves=(),
+    )
+
+
+def _pick_script(text: str, stance: dict | None = None) -> Script:
+    """Deterministic input → script routing (mirrors the client stub).
+
+    The stance leads: a question gets an answer, and an idea that isn't yet
+    understood gets a question — so the no-LLM path behaves like the LLM path
+    rather than jumping to a design from a single sentence (FR-CONV-10).
+    """
+    if stance is not None and stance["intent"] == "followup-question":
+        return _explain_script()
+    script = _topical_script(text)
+    if stance is None or stance["mayProposeDesign"]:
+        return script
+    # Not enough is understood to name a design — but withholding the *shape*
+    # is not a reason to withhold everything. Whatever this script says that
+    # isn't a design shape (a caution, a measure the researcher named) still
+    # stands, with the next real question added to it. Only when nothing but
+    # the design is left does the turn become purely a question.
+    safe = tuple(m for m in script.moves if m.kind != "choose-template")
+    if not safe:
+        return _elicit_script(stance)
+    question = stance["nextQuestion"]
+    return Script(
+        text=" ".join(p for p in (script.text, question) if p),
+        moves=safe,
+        match_query=script.match_query,
+    )
+
+
+def _topical_script(text: str) -> Script:
+    """Deterministic keyword routing to the scripted reply for this input."""
     q = text.lower()
     # Instrument evolution: checked first so "add the agent-capture
     # instrument" routes here, not into an over-trust/design match.
@@ -496,10 +564,18 @@ def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
 
 
 def _load_history(s: Session, study_id: str | None) -> list[dict]:
-    """Prior platform-conversation turns as ``{"role", "content"}`` dicts,
-    oldest first, capped to ``_LLM_HISTORY_TURNS`` (a token-budget cap, not
-    a correctness requirement) - the shape an LLM chat-completions call
-    expects. Empty when there's no study or no history yet."""
+    """Prior turns as ``{"role", "content"}`` dicts, oldest first, capped to
+    ``_LLM_HISTORY_TURNS`` (a token-budget cap, not a correctness
+    requirement) - the shape an LLM chat-completions call expects.
+
+    A platform turn's content includes **the moves it proposed and what the
+    researcher did with them**, not just its prose. The proposals live in
+    ``design_moves``, so a text-only history left the model unable to see
+    what it had itself put on the table: asked "why did you propose that?",
+    it had nothing to explain and could only invent something new — the
+    failure that reads as "it forgot what we were talking about". Decisions
+    are included too, so an already-rejected idea is not re-offered.
+    """
     if study_id is None:
         return []
     rows = s.execute(
@@ -508,14 +584,165 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
         .order_by(ConversationTurn.seq.desc())
         .limit(_LLM_HISTORY_TURNS)
     ).scalars().all()
-    return [
-        {
-            "role": "user" if row.role == "researcher" else "assistant",
-            "content": row.text,
-        }
-        for row in reversed(rows)
-        if row.text
-    ]
+    turn_ids = [row.id for row in rows if row.role == "platform"]
+    moves_by_turn: dict[str, list[DesignMoveRow]] = {}
+    if turn_ids:
+        for mv in s.scalars(
+            select(DesignMoveRow)
+            .where(DesignMoveRow.turn_id.in_(turn_ids))
+            .order_by(DesignMoveRow.id)
+        ):
+            moves_by_turn.setdefault(mv.turn_id, []).append(mv)
+
+    history: list[dict] = []
+    for row in reversed(rows):
+        moves = moves_by_turn.get(row.id, [])
+        content = row.text or ""
+        if moves:
+            lines = [
+                f"- [{mv.kind}] {mv.proposal}"
+                + (
+                    f" (grounded in {', '.join(g['ref'] for g in mv.grounding)})"
+                    if mv.grounding
+                    else " (unsourced)"
+                )
+                + f" — researcher {mv.status} this"
+                for mv in moves
+            ]
+            content = (content + "\n\nMoves I proposed in that turn:\n" +
+                       "\n".join(lines)).strip()
+        if not content:
+            continue
+        history.append(
+            {
+                "role": "user" if row.role == "researcher" else "assistant",
+                "content": content,
+            }
+        )
+    return history
+
+
+def researcher_texts(s: Session, study_id: str | None) -> list[str]:
+    """Everything the *researcher* has said in this study, oldest first.
+
+    The understanding model reads only these: the platform mentioning
+    "conditions" in a question it asked cannot make the platform better
+    informed (FR-CONV-10).
+    """
+    if study_id is None:
+        return []
+    return list(
+        s.scalars(
+            select(ConversationTurn.text)
+            .where(
+                ConversationTurn.study_id == study_id,
+                ConversationTurn.role == "researcher",
+            )
+            .order_by(ConversationTurn.seq)
+        )
+    )
+
+
+def turn_stance(
+    s: Session,
+    text: str,
+    *,
+    study_id: str | None = None,
+    profile: str | None = None,
+) -> dict:
+    """What this turn is, how much is understood, and what may be proposed.
+
+    Computed deterministically (FR-CONV-9/10) so the conversation behaves the
+    same with or without an LLM, and so the two rules that matter are
+    *enforced* rather than merely requested of a model:
+
+    - a follow-up question gets an answer, not a fresh batch of proposals;
+    - a design shape is not named until the idea is understood, unless the
+      researcher explicitly asks for one anyway (their study, their call).
+    """
+    prior = researcher_texts(s, study_id)
+    understanding = elicitation.assess_understanding([*prior, text])
+    intent = elicitation.classify_turn(text)
+    return {
+        "intent": intent,
+        "profile": profile if profile in elicitation.PROFILES else None,
+        "understanding": elicitation.understanding_summary(understanding),
+        "nextQuestion": elicitation.next_question(understanding),
+        # An explicit ask lowers the gate but never removes it; a follow-up
+        # question never opens it, because "why did you pick that?" is not
+        # "pick one".
+        "mayProposeDesign": elicitation.ready_for_design(
+            understanding, requested=intent == "design-request"
+        ),
+        "mayProposeMoves": intent != "followup-question",
+    }
+
+
+def _directive(stance: dict) -> str:
+    """The stance as this turn's instruction to the model."""
+    understanding = stance["understanding"]
+    lines = [elicitation.profile_guidance(stance["profile"])]
+
+    if stance["intent"] == "followup-question":
+        lines.append(
+            "THIS TURN IS A QUESTION ABOUT WHAT YOU ALREADY SAID. Answer it "
+            "directly in `text`, naming the specific move you proposed and the "
+            "reasoning and papers behind it (they are in the history above). "
+            "Return an EMPTY `moves` array unless a `caution` is genuinely "
+            "part of the answer. Do not offer new proposals in place of an "
+            "answer, and do not change the subject."
+        )
+    if understanding["missing"]:
+        lines.append(
+            "STILL UNKNOWN about this study: "
+            + ", ".join(understanding["missingLabels"])
+            + ". Ask about the first of those — one question, in your own "
+            "words, informed by what they have already told you. A good "
+            "next question is: "
+            + (stance["nextQuestion"] or "(none)")
+        )
+    else:
+        lines.append(
+            "You now know who takes part, what they do, what is compared, "
+            "what is measured, and what is possible — enough to design."
+        )
+    if not stance["mayProposeDesign"]:
+        lines.append(
+            "DO NOT propose a choose-template move this turn: too little of "
+            "the study is understood for a design shape to be a considered "
+            "choice rather than a guess, and one would be discarded before "
+            "the researcher ever saw it. Keep drawing the idea out instead. "
+            f"({len(understanding['known'])} of {understanding['facetsNeeded']} "
+            "needed facets known.)"
+        )
+    elif stance["intent"] == "design-request":
+        lines.append(
+            "The researcher has explicitly asked you to name a design. Do so "
+            "— and state plainly which of your assumptions it rests on, so a "
+            "wrong one is easy for them to correct."
+        )
+    return "\n\n".join(lines)
+
+
+def _permitted_moves(
+    moves: tuple[ScriptedMove, ...], stance: dict
+) -> tuple[ScriptedMove, ...]:
+    """Apply the stance to a script's moves — the enforcement half.
+
+    A prompt can be ignored; this cannot. A question turn keeps only
+    cautions, and a design shape cannot slip through before the study is
+    understood. Dropped moves are logged, never silently vanished.
+    """
+    kept = []
+    for move in moves:
+        if not stance["mayProposeMoves"] and move.kind != "caution":
+            log.info("dropped %s move: this turn is a question, not a brief", move.kind)
+            continue
+        if move.kind == "choose-template" and not stance["mayProposeDesign"]:
+            log.info("held back choose-template: the study isn't understood yet")
+            continue
+        kept.append(move)
+    return tuple(kept)
 
 
 def respond(
@@ -526,6 +753,7 @@ def respond(
     study_id: str | None = None,
     client=None,
     history: list[dict] | None = None,
+    profile: str | None = None,
 ) -> dict:
     """One platform turn responding to researcher ``text``.
 
@@ -539,6 +767,7 @@ def respond(
     against what was actually retrieved; any failure — no key, timeout,
     malformed reply — falls back to the scripted assistant (NFR-4/5).
     """
+    stance = turn_stance(s, text, study_id=study_id, profile=profile)
     script = None
     source = "scripted"
     llm_recommendations: list[dict] | None = None
@@ -546,12 +775,14 @@ def respond(
         papers, templates, history = _retrieve(s, text, study_id, history)
         from middleware import design_llm  # deferred: breaks the import cycle
 
-        script = design_llm.propose_turn(client, text, history, papers, templates)
+        script = design_llm.propose_turn(
+            client, text, history, papers, templates, _directive(stance)
+        )
         if script is not None:
             source = "llm"
             llm_recommendations = papers
     if script is None:
-        script = _pick_script(text)
+        script = _pick_script(text, stance)
     return _assemble(
         s,
         text,
@@ -561,6 +792,7 @@ def respond(
         seq=seq,
         study_id=study_id,
         client=client,
+        stance=stance,
     )
 
 
@@ -587,6 +819,7 @@ def respond_streaming(
     study_id: str | None = None,
     client=None,
     history: list[dict] | None = None,
+    profile: str | None = None,
 ):
     """:func:`respond`, yielding the reply's prose as the model writes it.
 
@@ -596,6 +829,7 @@ def respond_streaming(
     no client (or a provider without a stream seam) it yields nothing and
     returns the scripted result, exactly as :func:`respond` would.
     """
+    stance = turn_stance(s, text, study_id=study_id, profile=profile)
     script = None
     source = "scripted"
     llm_recommendations: list[dict] | None = None
@@ -604,13 +838,13 @@ def respond_streaming(
         from middleware import design_llm  # deferred: breaks the import cycle
 
         script = yield from design_llm.propose_turn_streaming(
-            client, text, history, papers, templates
+            client, text, history, papers, templates, _directive(stance)
         )
         if script is not None:
             source = "llm"
             llm_recommendations = papers
     if script is None:
-        script = _pick_script(text)
+        script = _pick_script(text, stance)
     return _assemble(
         s,
         text,
@@ -620,6 +854,7 @@ def respond_streaming(
         seq=seq,
         study_id=study_id,
         client=client,
+        stance=stance,
     )
 
 
@@ -633,14 +868,16 @@ def _assemble(
     seq: int,
     study_id: str | None,
     client,
+    stance: dict,
 ) -> dict:
     """Turn a script (LLM or scripted) into the platform turn's result dict:
     grounding resolved against retrieved rows, recommendations, and the
-    design recommender's prescription/figures."""
+    design recommender's prescription/figures. The stance is applied here, so
+    it holds for the scripted path and the LLM path alike."""
     retrieved: set[str] = set()
 
     moves = []
-    for i, sm in enumerate(script.moves):
+    for i, sm in enumerate(_permitted_moves(script.moves, stance)):
         grounding = _resolve_grounding(s, sm.refs)
         # A choose-template move is grounded by the papers that established its
         # design — attach them so a template choice is never "unsourced" (the
@@ -705,6 +942,11 @@ def _assemble(
         "templateRecommendations": template_recommendations,
         "prescription": prescription,
         "figureSuggestions": figure_suggestions,
+        # What the platform understands about the study so far, and what it is
+        # therefore willing to propose — surfaced rather than hidden, so the
+        # researcher can see why a design hasn't been named yet (FR-CONV-10).
+        "understanding": stance["understanding"],
+        "turnIntent": stance["intent"],
         "retrievedRefs": sorted(retrieved),
         "source": source,
     }

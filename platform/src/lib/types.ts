@@ -52,6 +52,19 @@ export interface Turn {
   source?: "llm" | "scripted";
 }
 
+/** What the platform understands about the study so far (FR-CONV-10), and
+ *  therefore whether it is willing to name a design shape yet. Surfaced
+ *  rather than hidden: a researcher should be able to see *why* no design has
+ *  been proposed, and what would change that. */
+export interface Understanding {
+  facets: Record<string, boolean>;
+  known: string[];
+  missing: string[];
+  missingLabels: string[];
+  readyForDesign: boolean;
+  facetsNeeded: number;
+}
+
 /** A paper matched to the researcher's idea. */
 export interface Recommendation {
   ref: string;
