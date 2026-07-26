@@ -190,6 +190,89 @@ export const conversationApi = {
     return { turns: [researcher, platform] };
   },
 
+  /** `sendTurn`, with the reply's prose surfaced as the model writes it.
+   *
+   * `onToken` is called with each prose fragment; the resolved value is the
+   * same `{turns}` the blocking call returns, so a caller can treat the
+   * stream as presentation only. Any streaming failure — no SSE support, a
+   * proxy that buffers, a mid-stream drop — falls back to `sendTurn`, so
+   * the turn is never lost to a display feature. */
+  async sendTurnStreaming(
+    studyId: string,
+    text: string,
+    author = "You",
+    onToken?: (fragment: string) => void,
+  ): Promise<{ turns: Turn[] }> {
+    let done: {
+      researcherTurnId: string;
+      platformTurnId: string;
+      text: string;
+      moves: Record<string, unknown>[];
+      recommendations: Recommendation[];
+      source?: "llm" | "scripted";
+    } | null = null;
+    try {
+      const res = await fetch(
+        `${API_BASE}/studies/${encodeURIComponent(studyId)}/conversation/turns/stream`,
+        {
+          method: "POST",
+          headers: {
+            ...(await authHeaders()),
+            "content-type": "application/json",
+            accept: "text/event-stream",
+          },
+          credentials: "include",
+          body: JSON.stringify({ text, author }),
+        },
+      );
+      if (res.status === 401) notifyUnauthorized();
+      if (!res.ok || !res.body) throw new Error("stream unavailable");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { value, done: finished } = await reader.read();
+        if (finished) break;
+        buffer += decoder.decode(value, { stream: true });
+        // SSE frames are separated by a blank line; keep the partial tail.
+        const frames = buffer.split("\n\n");
+        buffer = frames.pop() ?? "";
+        for (const frame of frames) {
+          const event = /^event: (.+)$/m.exec(frame)?.[1];
+          const raw = /^data: (.*)$/m.exec(frame)?.[1];
+          if (!event || raw == null) continue;
+          const payload = JSON.parse(raw);
+          if (event === "token") onToken?.(String(payload.text ?? ""));
+          else if (event === "done") done = payload;
+          else if (event === "error") throw new Error(String(payload.detail));
+        }
+      }
+      if (!done) throw new Error("stream ended without a turn");
+    } catch {
+      return this.sendTurn(studyId, text, author);
+    }
+
+    const researcher: Turn = {
+      turnId: done.researcherTurnId,
+      role: "researcher",
+      author,
+      text,
+      moves: [],
+      recommendations: [],
+    };
+    const platform: Turn = {
+      turnId: done.platformTurnId,
+      role: "platform",
+      author: "Platform",
+      text: done.text,
+      moves: done.moves.map(mapMove),
+      recommendations: done.recommendations ?? [],
+      source: done.source,
+    };
+    return { turns: [researcher, platform] };
+  },
+
   decide(studyId: string, moveId: string, status: "accepted" | "rejected") {
     return post<{ moveId: string; status: string }>(
       `/studies/${encodeURIComponent(studyId)}/conversation/moves/${encodeURIComponent(moveId)}/decision`,

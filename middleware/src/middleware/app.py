@@ -20,8 +20,10 @@ accepted unchanged (FR-ING-1).
 import csv
 import io
 import json
+import logging
 import re
 import secrets
+import tempfile
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -31,8 +33,15 @@ from urllib.parse import quote as _urlquote
 
 import yaml
 from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import (
+    FileResponse,
+    PlainTextResponse,
+    Response,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
+from protocol.errors import ProtocolError
+from protocol.export import build_kit
 from protocol.lifecycle import PHASE_ORDER, current_phase, gates_by_phase
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
@@ -334,6 +343,15 @@ class _ProtocolCheck:
         if v is not None and v not in KNOWN_EVENT_SCHEMA_VERSIONS:
             flags.append("unknown-schema-version")
         return flags
+
+
+log = logging.getLogger(__name__)
+
+
+def _sse(event: str, data: dict) -> str:
+    """One server-sent event frame. JSON payloads only, so a client parses
+    every frame the same way whatever its type."""
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 def create_app(settings: Settings | None = None, clock: Clock | None = None) -> FastAPI:
@@ -1360,6 +1378,51 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
             s.execute(stmt)
 
+    def _adopt_corpus_edges(s: Session, study_id: str, paper_ref: str) -> int:
+        """Copy the corpus's own edges touching ``paper_ref`` into this study.
+
+        The corpus scope already holds the harvest's discovery trails
+        (``harvested-via``) and any edges a previous ingest fetched. Bringing
+        the ones that touch this paper into the study's own scope means a
+        recommender-added paper is connected the moment it lands — including
+        the *shared* edges to papers the study already has — with no network
+        call and nothing invented: every edge copied already existed.
+        """
+        corpus_edges = list(
+            s.scalars(
+                select(PaperEdge).where(
+                    PaperEdge.study_id == CORPUS_STUDY_ID,
+                    (PaperEdge.src_ref == paper_ref) | (PaperEdge.dst_ref == paper_ref),
+                )
+            )
+        )
+        n = 0
+        _engine = get_engine()
+        for edge in corpus_edges:
+            vals = dict(
+                study_id=study_id,
+                src_ref=edge.src_ref,
+                dst_ref=edge.dst_ref,
+                kind=edge.kind,
+                dst_title=edge.dst_title,
+                dst_year=edge.dst_year,
+                dst_citation_count=edge.dst_citation_count,
+            )
+            if _engine.dialect.name == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert as _pg_insert
+                stmt = _pg_insert(PaperEdge).values([vals]).on_conflict_do_nothing()
+            else:
+                from sqlalchemy.dialects.sqlite import insert as _sq_insert
+                stmt = (
+                    _sq_insert(PaperEdge)
+                    .values([vals])
+                    .on_conflict_do_nothing(
+                        index_elements=["study_id", "src_ref", "dst_ref", "kind"]
+                    )
+                )
+            n += len(s.execute(stmt.returning(PaperEdge.id)).fetchall())
+        return n
+
     def harvest_edges(s: Session, study_id: str, paper_ref: str) -> int:
         """Fetch and store the paper's graph neighbourhood (FR-LIT-2). Best
         effort - S2 failure leaves any existing edges intact."""
@@ -1635,12 +1698,21 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
         s.execute(stmt)
         _seed_links(s, study_id, corpus_row.paper_ref)
+        # A paper added from the recommender used to land as an isolated node
+        # in the constellation — added, but visibly unconnected to anything
+        # the study already holds. Both edge sources are used, cheapest first:
+        # the corpus's own discovery edges (local, instant, offline) and then
+        # the paper's real S2 neighbourhood (FR-LIT-2), best-effort as
+        # everywhere else.
+        adopted = _adopt_corpus_edges(s, study_id, corpus_row.paper_ref)
+        harvested = harvest_edges(s, study_id, corpus_row.paper_ref)
         return {
             "studyId": study_id,
             "paperRef": corpus_row.paper_ref,
             "title": corpus_row.title,
             "tier": corpus_row.tier,
             "addedVia": "match",
+            "edges": adopted + harvested,
         }
 
     @app.get(
@@ -3745,6 +3817,20 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         by construction, then asserted). With no LLM key the deterministic
         design assistant answers (NFR-4); the LLM seam swaps in behind the
         same shape."""
+        researcher = _append_researcher_turn(s, study_id, body)
+        reply = design_assistant.respond(
+            s,
+            body.text,
+            seq=researcher.seq + 1,
+            study_id=study_id,
+            client=_design_turn_client(),
+        )
+        return _persist_platform_turn(s, study_id, researcher, reply)
+
+    def _append_researcher_turn(
+        s: Session, study_id: str, body: ConversationTurnIn
+    ) -> ConversationTurn:
+        """Land the researcher's own turn; its seq settles the reply's."""
         researcher = ConversationTurn(
             id=secrets.token_hex(8),
             study_id=study_id,
@@ -3757,18 +3843,23 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         )
         s.add(researcher)
         s.flush()  # researcher.seq is now settled; the reply is the next seq
+        return researcher
 
-        reply = design_assistant.respond(
-            s,
-            body.text,
-            seq=researcher.seq + 1,
-            study_id=study_id,
-            # The medium tier, not `mistral-large-latest`: the design turn is a
-            # single JSON completion (no tool loop), so the large model's
-            # latency was the whole cost of a slow reply. Medium is markedly
-            # faster and strong enough for this structured task (FR-CONV-1.4).
-            client=assistant.make_client(assistant.MISTRAL_MODEL),
-        )
+    def _design_turn_client():
+        """The medium tier, not `mistral-large-latest`: the design turn is a
+        single JSON completion (no tool loop), so the large model's latency
+        was the whole cost of a slow reply. Medium is markedly faster and
+        strong enough for this structured task (FR-CONV-1.4)."""
+        return assistant.make_client(assistant.MISTRAL_MODEL)
+
+    def _persist_platform_turn(
+        s: Session, study_id: str, researcher: ConversationTurn, reply: dict
+    ) -> dict:
+        """Persist the platform reply + its moves and return the wire shape.
+
+        Shared by the blocking and the streaming turn endpoints, so a
+        streamed turn is stored identically to a blocking one — the stream
+        is a view of the reply, never a different reply."""
         retrieved = set(reply["retrievedRefs"])
         # Belt-and-suspenders: grounding is built only from retrieved rows, so
         # this can only fire on a coding error — but the boundary is too
@@ -3825,6 +3916,61 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "recommendations": reply["recommendations"],
             "source": reply["source"],
         }
+
+    @app.post(
+        "/studies/{study_id}/conversation/turns/stream",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def append_turn_streaming(
+        study_id: str, body: ConversationTurnIn, s: Session = Depends(db)
+    ) -> StreamingResponse:
+        """The same turn as ``POST .../turns``, streamed (NFR-12).
+
+        Server-sent events: ``token`` frames carry the reply's prose as the
+        model writes it, then one ``done`` frame carries the identical
+        payload the blocking endpoint returns (moves, grounding,
+        recommendations) once the turn is persisted. A client that cannot
+        stream loses nothing by calling the blocking endpoint instead; a
+        failure mid-stream ends with an ``error`` frame rather than a
+        half-written turn, because the turn is only persisted after the
+        model's reply is complete and validated.
+        """
+
+        def frames():
+            try:
+                researcher = _append_researcher_turn(s, study_id, body)
+                stream = design_assistant.respond_streaming(
+                    s,
+                    body.text,
+                    seq=researcher.seq + 1,
+                    study_id=study_id,
+                    client=_design_turn_client(),
+                )
+                reply = None
+                while True:
+                    try:
+                        prose = next(stream)
+                    except StopIteration as done:
+                        reply = done.value
+                        break
+                    yield _sse("token", {"text": prose})
+                payload = _persist_platform_turn(s, study_id, researcher, reply)
+                yield _sse("done", payload)
+            except Exception as exc:  # noqa: BLE001 - the stream owns its errors
+                log.exception("streaming conversation turn failed")
+                s.rollback()
+                yield _sse("error", {"detail": str(exc)})
+
+        return StreamingResponse(
+            frames(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-store",
+                # Nothing in this deployment buffers SSE, but a proxy in
+                # front of it might; this is the conventional opt-out.
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     @app.get(
         "/studies/{study_id}/conversation",
@@ -4168,6 +4314,52 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "amendments": amendments,
             "currentDraft": draft.yaml if draft else "",
         }
+
+    @app.get(
+        "/studies/{study_id}/replication-kit",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def export_replication_kit(study_id: str, s: Session = Depends(db)):
+        """The study's replication kit as a download (FR-PROT-7).
+
+        The same byte-reproducible archive ``protocol export
+        replication-kit`` builds — protocol, joined dataset, regenerated
+        report, literature, and pinned versions — reachable from the
+        workspace instead of only from a terminal. Nothing new is
+        assembled here: a study with no resolvable protocol is a 409 saying
+        so, never a kit built around a guess.
+        """
+        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
+        if proto is None:
+            raise HTTPException(
+                409,
+                f"study {study_id!r} has no compiled protocol yet — "
+                "approve a draft in the design conversation first",
+            )
+        payload = dataset(study_id, "json", s)
+        repo_root = Path(__file__).resolve().parent.parent.parent.parent
+        with tempfile.TemporaryDirectory() as td:
+            staging = Path(td)
+            protocol_path = staging / "protocol.yaml"
+            protocol_path.write_text(
+                yaml.safe_dump(proto, sort_keys=False, default_flow_style=False)
+            )
+            out = staging / f"{study_id}-replication-kit.tar.gz"
+            try:
+                build_kit(protocol_path, payload, out, repo_root=repo_root)
+            except ProtocolError as exc:
+                raise HTTPException(422, str(exc)) from exc
+            archive = out.read_bytes()
+        return Response(
+            content=archive,
+            media_type="application/gzip",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="{study_id}-replication-kit.tar.gz"'
+                ),
+                "Cache-Control": "no-store",
+            },
+        )
 
     # -------------------------------------------------- evolution (A/B/C)
 

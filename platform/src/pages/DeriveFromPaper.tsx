@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Search, Loader2, Sparkles, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import {
   type DerivedTemplate,
 } from "@/lib/templatesApi";
 import { OfflineError } from "@/lib/studyApi";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 /* Turn any corpus paper into an executable template (FR-TPL-4). Search the
  * 15,000-paper corpus, pick a paper, pick a base archetype, and the platform
@@ -26,23 +27,41 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function search() {
-    if (!q.trim()) return;
+  /* Search as you type, one request per pause rather than per keystroke
+   * (the input itself stays instant — only its effect is debounced). A
+   * reply that arrives after a newer query is dropped, so results can't
+   * arrive out of order. */
+  const debouncedQ = useDebouncedValue(q);
+  const latestQuery = useRef("");
+
+  const search = useCallback(async (term: string) => {
+    const query = term.trim();
+    latestQuery.current = query;
+    if (!query) {
+      setHits(null);
+      return;
+    }
     setSearching(true);
     setError(null);
     setDerived(null);
     try {
-      setHits(await templatesApi.searchCorpus(q));
+      const results = await templatesApi.searchCorpus(query);
+      if (latestQuery.current === query) setHits(results);
     } catch (e) {
+      if (latestQuery.current !== query) return;
       setError(
         e instanceof OfflineError
           ? "Start the middleware to search the corpus."
           : "Couldn't search the corpus.",
       );
     } finally {
-      setSearching(false);
+      if (latestQuery.current === query) setSearching(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    void search(debouncedQ);
+  }, [debouncedQ, search]);
 
   async function derive() {
     if (!paper || !baseId) return;
@@ -75,13 +94,18 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && search()}
+            onKeyDown={(e) => e.key === "Enter" && void search(q)}
             placeholder="e.g. trust in AI-generated code"
             aria-label="Search the corpus"
             className="min-h-9 flex-1 bg-transparent text-sm text-text outline-none"
           />
         </div>
-        <Button size="sm" variant="subtle" onClick={search} disabled={searching || !q.trim()}>
+        <Button
+          size="sm"
+          variant="subtle"
+          onClick={() => void search(q)}
+          disabled={searching || !q.trim()}
+        >
           {searching ? <Loader2 className="size-4 animate-spin" aria-hidden /> : "Search"}
         </Button>
       </div>

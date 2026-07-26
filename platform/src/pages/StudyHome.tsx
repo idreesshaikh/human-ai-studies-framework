@@ -18,6 +18,7 @@ import { EnrollmentPanel } from "@/components/enrollment/EnrollmentPanel";
 import { AmendmentBanner } from "@/components/conversation/AmendmentBanner";
 import { AmendmentHistory } from "@/components/conversation/AmendmentHistory";
 import { StudyTour, tourSeen, markTourSeen } from "@/components/shell/StudyTour";
+import { ExportStudy } from "@/components/shell/ExportStudy";
 import { Button } from "@/components/ui/button";
 import { evolutionStore, useEvolution } from "@/lib/evolutionStub";
 import { useSession } from "@/lib/session";
@@ -123,6 +124,7 @@ export function StudyHome() {
         </nav>
 
         <div className="ml-auto flex items-center gap-1">
+          <ExportStudy studyId={id} />
           {shownState.ethicsApprovedAt && (
             <Button
               variant="ghost"
