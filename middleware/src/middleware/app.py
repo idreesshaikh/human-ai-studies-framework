@@ -1378,6 +1378,51 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
             s.execute(stmt)
 
+    def _adopt_corpus_edges(s: Session, study_id: str, paper_ref: str) -> int:
+        """Copy the corpus's own edges touching ``paper_ref`` into this study.
+
+        The corpus scope already holds the harvest's discovery trails
+        (``harvested-via``) and any edges a previous ingest fetched. Bringing
+        the ones that touch this paper into the study's own scope means a
+        recommender-added paper is connected the moment it lands — including
+        the *shared* edges to papers the study already has — with no network
+        call and nothing invented: every edge copied already existed.
+        """
+        corpus_edges = list(
+            s.scalars(
+                select(PaperEdge).where(
+                    PaperEdge.study_id == CORPUS_STUDY_ID,
+                    (PaperEdge.src_ref == paper_ref) | (PaperEdge.dst_ref == paper_ref),
+                )
+            )
+        )
+        n = 0
+        _engine = get_engine()
+        for edge in corpus_edges:
+            vals = dict(
+                study_id=study_id,
+                src_ref=edge.src_ref,
+                dst_ref=edge.dst_ref,
+                kind=edge.kind,
+                dst_title=edge.dst_title,
+                dst_year=edge.dst_year,
+                dst_citation_count=edge.dst_citation_count,
+            )
+            if _engine.dialect.name == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert as _pg_insert
+                stmt = _pg_insert(PaperEdge).values([vals]).on_conflict_do_nothing()
+            else:
+                from sqlalchemy.dialects.sqlite import insert as _sq_insert
+                stmt = (
+                    _sq_insert(PaperEdge)
+                    .values([vals])
+                    .on_conflict_do_nothing(
+                        index_elements=["study_id", "src_ref", "dst_ref", "kind"]
+                    )
+                )
+            n += len(s.execute(stmt.returning(PaperEdge.id)).fetchall())
+        return n
+
     def harvest_edges(s: Session, study_id: str, paper_ref: str) -> int:
         """Fetch and store the paper's graph neighbourhood (FR-LIT-2). Best
         effort - S2 failure leaves any existing edges intact."""
@@ -1653,12 +1698,21 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
         s.execute(stmt)
         _seed_links(s, study_id, corpus_row.paper_ref)
+        # A paper added from the recommender used to land as an isolated node
+        # in the constellation — added, but visibly unconnected to anything
+        # the study already holds. Both edge sources are used, cheapest first:
+        # the corpus's own discovery edges (local, instant, offline) and then
+        # the paper's real S2 neighbourhood (FR-LIT-2), best-effort as
+        # everywhere else.
+        adopted = _adopt_corpus_edges(s, study_id, corpus_row.paper_ref)
+        harvested = harvest_edges(s, study_id, corpus_row.paper_ref)
         return {
             "studyId": study_id,
             "paperRef": corpus_row.paper_ref,
             "title": corpus_row.title,
             "tier": corpus_row.tier,
             "addedVia": "match",
+            "edges": adopted + harvested,
         }
 
     @app.get(
