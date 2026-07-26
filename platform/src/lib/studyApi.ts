@@ -266,6 +266,39 @@ export const EMPTY_LIFECYCLE: LifecycleDoc = {
 
 const enc = encodeURIComponent;
 
+/** Fetch a file and hand it to the browser's download flow. The server's
+ *  own error detail is surfaced (a study with no protocol yet explains
+ *  itself), and the object URL is always revoked. */
+async function saveAs(path: string, filename: string): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(API_BASE + path, {
+      headers: await authHeaders(),
+      credentials: "include",
+    });
+  } catch {
+    throw new OfflineError();
+  }
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      detail = (await res.json()).detail ?? detail;
+    } catch {
+      /* non-JSON error body */
+    }
+    throw new Error(detail);
+  }
+  const url = URL.createObjectURL(await res.blob());
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export const studyApi = {
   papers: (study: string) =>
     liveOrSeedStudy(
@@ -335,6 +368,22 @@ export const studyApi = {
     } catch {
       throw new OfflineError();
     }
+  },
+  /** The byte-reproducible replication kit (FR-PROT-7), saved to disk.
+   *  Streamed straight to a blob — the archive is binary and can be large,
+   *  so it never goes through the JSON `req` path. */
+  downloadReplicationKit: async (study: string) => {
+    await saveAs(
+      `/studies/${enc(study)}/replication-kit`,
+      `${study}-replication-kit.tar.gz`,
+    );
+  },
+  /** The elicitation record (FR-CONV-6) as a JSON file. */
+  downloadElicitationRecord: async (study: string) => {
+    await saveAs(
+      `/studies/${enc(study)}/conversation/export`,
+      `${study}-elicitation-record.json`,
+    );
   },
   assistantConfig: (study: string) =>
     liveOrSeed(

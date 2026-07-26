@@ -23,6 +23,7 @@ import json
 import logging
 import re
 import secrets
+import tempfile
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -32,8 +33,15 @@ from urllib.parse import quote as _urlquote
 
 import yaml
 from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    PlainTextResponse,
+    Response,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
+from protocol.errors import ProtocolError
+from protocol.export import build_kit
 from protocol.lifecycle import PHASE_ORDER, current_phase, gates_by_phase
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
@@ -4252,6 +4260,52 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "amendments": amendments,
             "currentDraft": draft.yaml if draft else "",
         }
+
+    @app.get(
+        "/studies/{study_id}/replication-kit",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def export_replication_kit(study_id: str, s: Session = Depends(db)):
+        """The study's replication kit as a download (FR-PROT-7).
+
+        The same byte-reproducible archive ``protocol export
+        replication-kit`` builds — protocol, joined dataset, regenerated
+        report, literature, and pinned versions — reachable from the
+        workspace instead of only from a terminal. Nothing new is
+        assembled here: a study with no resolvable protocol is a 409 saying
+        so, never a kit built around a guess.
+        """
+        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
+        if proto is None:
+            raise HTTPException(
+                409,
+                f"study {study_id!r} has no compiled protocol yet — "
+                "approve a draft in the design conversation first",
+            )
+        payload = dataset(study_id, "json", s)
+        repo_root = Path(__file__).resolve().parent.parent.parent.parent
+        with tempfile.TemporaryDirectory() as td:
+            staging = Path(td)
+            protocol_path = staging / "protocol.yaml"
+            protocol_path.write_text(
+                yaml.safe_dump(proto, sort_keys=False, default_flow_style=False)
+            )
+            out = staging / f"{study_id}-replication-kit.tar.gz"
+            try:
+                build_kit(protocol_path, payload, out, repo_root=repo_root)
+            except ProtocolError as exc:
+                raise HTTPException(422, str(exc)) from exc
+            archive = out.read_bytes()
+        return Response(
+            content=archive,
+            media_type="application/gzip",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="{study_id}-replication-kit.tar.gz"'
+                ),
+                "Cache-Control": "no-store",
+            },
+        )
 
     # -------------------------------------------------- evolution (A/B/C)
 
