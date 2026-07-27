@@ -1550,7 +1550,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         }
 
     @app.delete(
-        "/studies/{study_id}/papers/{paper_ref:path}", dependencies=[Depends(view_auth)]
+        "/studies/{study_id}/papers/{paper_ref:path}",
+        dependencies=[Depends(require_project_for_study("contribute"))],
     )
     def delete_paper(study_id: str, paper_ref: str, s: Session = Depends(db)) -> dict:
 
@@ -1720,7 +1721,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.get(
         "/studies/{study_id}/papers/{paper_ref:path}/links",
-        dependencies=[Depends(view_auth)],
+        dependencies=[Depends(require_project_for_study("view"))],
     )
     def get_paper_links(
         study_id: str, paper_ref: str, s: Session = Depends(db)
@@ -1737,7 +1738,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.put(
         "/studies/{study_id}/papers/{paper_ref:path}/links",
-        dependencies=[Depends(view_auth)],
+        dependencies=[Depends(require_project_for_study("contribute"))],
     )
     def set_paper_links(
         study_id: str, paper_ref: str, body: PaperLinksIn, s: Session = Depends(db)

@@ -170,6 +170,12 @@ def build_authz(
         Reads ``Authorization`` and the ``slug`` path param. Usage in a
         route: ``Depends(require_project("view"))`` where ``slug`` is a
         path parameter named exactly ``slug``.
+
+        The returned closure is stamped with ``__authz_capability__`` so the
+        route audit can recognise the choke point *by identity* rather than by
+        sniffing parameter names — a route's own ``{study_id}`` path param
+        looks identical to this dependency's, which is how an unguarded route
+        once passed the audit.
         """
 
         def _dep(authorization: str = Header(default=""), slug: str = "") -> Membership:
@@ -181,6 +187,7 @@ def build_authz(
             finally:
                 s.close()
 
+        _dep.__authz_capability__ = capability
         return _dep
 
     def require_project_for_study(capability: str) -> Callable:
@@ -222,6 +229,7 @@ def build_authz(
             finally:
                 s.close()
 
+        _dep.__authz_capability__ = capability
         return _dep
 
     def current_membership(
