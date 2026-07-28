@@ -132,6 +132,21 @@ def test_recommendations_surface_the_two_demo_papers(client):
     assert "corpus:insecure-code-with-ai-assistants" in rec_refs
 
 
+def test_recommendations_survive_a_conversation_reload(client):
+    """A tab switch / remount re-reads the conversation via GET rather than
+    trusting client state — the literature rail must not go blank on that
+    re-read (it used to: recommendations were only ever returned inline on
+    the turn reply, never persisted)."""
+    reply = _ask(client, "I think junior developers over-trust AI-generated code")
+    sent_refs = {r["ref"] for r in reply["recommendations"]}
+    assert sent_refs
+
+    reloaded = client.get(f"/studies/{STUDY}/conversation").json()
+    platform_turn = next(t for t in reloaded["turns"] if t["role"] == "platform")
+    reloaded_refs = {r["ref"] for r in platform_turn["recommendations"]}
+    assert reloaded_refs == sent_refs
+
+
 def test_self_report_draws_metr_caution(client):
     """F2.2: measuring productivity by self-report alone gets the METR caution."""
     reply = _ask(client, "I'll measure productivity by self-report survey")

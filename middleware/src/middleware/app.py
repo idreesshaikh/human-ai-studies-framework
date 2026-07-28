@@ -3909,6 +3909,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             author="Platform",
             text=reply["text"],
             retrieved_refs=sorted(retrieved),
+            recommendations=reply["recommendations"],
             created_at=now(),
             source=reply["source"],
         )
@@ -4100,6 +4101,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "text": "" if t.redacted else t.text,
                     "redacted": bool(t.redacted),
                     "moves": moves_by_turn.get(t.id, []),
+                    "recommendations": t.recommendations or [],
                     "source": t.source,
                 }
                 for t in turns

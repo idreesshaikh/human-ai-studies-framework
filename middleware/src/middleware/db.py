@@ -402,6 +402,7 @@ class ConversationTurn(Base):
     author: Mapped[str] = mapped_column(String, default="")
     text: Mapped[str] = mapped_column(Text, default="")
     retrieved_refs: Mapped[list] = mapped_column(JSON, default=list)
+    recommendations: Mapped[list] = mapped_column(JSON, default=list)
     redacted: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[str] = mapped_column(String)
     #: "llm" | "scripted" - which path produced this platform turn
@@ -705,6 +706,7 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _create_schema(engine, db_url_str)
     _migrate_stored_file_study_id(engine)
     _migrate_paper_curator_note(engine)
+    _migrate_conversation_recommendations(engine)
 
     if is_pg:
         _setup_pg_fts(engine)
@@ -818,6 +820,29 @@ def _migrate_paper_curator_note(engine) -> None:
         if "curator_note" not in cols:
             conn.execute(text("ALTER TABLE papers ADD COLUMN curator_note TEXT"))
             log.info("Added curator_note column to papers (abstract enrichment)")
+
+
+def _migrate_conversation_recommendations(engine) -> None:
+    """Add ``conversation_turns.recommendations`` if missing (both dialects,
+    idempotent).
+
+    The literature rail used to be built only from the live turn reply and
+    was never persisted, so a re-read of the conversation (a tab switch, a
+    remount, another viewer's catch-up load) came back with an empty list
+    and the surfaced papers vanished. Existing rows backfill to ``[]`` — the
+    literature those older turns surfaced is gone, but every turn from here
+    on round-trips through a reload.
+    """
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("conversation_turns")}
+        if "recommendations" not in cols:
+            conn.execute(
+                text("ALTER TABLE conversation_turns ADD COLUMN recommendations JSON")
+            )
+            log.info(
+                "Added recommendations column to conversation_turns "
+                "(literature rail survives a reload)"
+            )
 
 
 def _is_concurrent_create_race(exc: IntegrityError | ProgrammingError) -> bool:
