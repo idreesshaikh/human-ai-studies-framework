@@ -99,14 +99,20 @@ export function MoveCard({
           </div>
 
           <p className="text-sm text-text">{move.proposal}</p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-1">
-            {move.grounding.length > 0 ? (
-              move.grounding.map((g) => <GroundingChip key={g.ref} g={g} />)
-            ) : (
-              <UnsourcedLabel />
-            )}
-          </div>
+        {/* Outside the faded wrapper above, deliberately: CSS opacity always
+         * applies to every descendant, including a popover positioned
+         * absolutely outside its parent's box — a citation's hover card would
+         * inherit the card's 40/60% fade and render see-through, which is
+         * worse than not fading it. Citations stay fully legible regardless
+         * of the card's decided state, same reasoning as the Undo button. */}
+        <div className="flex flex-wrap items-center gap-1">
+          {move.grounding.length > 0 ? (
+            move.grounding.map((g) => <GroundingChip key={g.ref} g={g} />)
+          ) : (
+            <UnsourcedLabel />
+          )}
         </div>
 
         {!decided && (

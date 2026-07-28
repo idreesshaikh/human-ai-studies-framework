@@ -20,7 +20,13 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from middleware.app import create_app
-from middleware.db import CORPUS_STUDY_ID, DesignMoveRow, Paper, make_session_factory
+from middleware.db import (
+    CORPUS_STUDY_ID,
+    ConversationTurn,
+    DesignMoveRow,
+    Paper,
+    make_session_factory,
+)
 from middleware.settings import Settings
 
 from middleware import assistant, paper_index
@@ -132,6 +138,21 @@ def test_recommendations_surface_the_two_demo_papers(client):
     assert "corpus:insecure-code-with-ai-assistants" in rec_refs
 
 
+def test_recommendations_survive_a_conversation_reload(client):
+    """A tab switch / remount re-reads the conversation via GET rather than
+    trusting client state — the literature rail must not go blank on that
+    re-read (it used to: recommendations were only ever returned inline on
+    the turn reply, never persisted)."""
+    reply = _ask(client, "I think junior developers over-trust AI-generated code")
+    sent_refs = {r["ref"] for r in reply["recommendations"]}
+    assert sent_refs
+
+    reloaded = client.get(f"/studies/{STUDY}/conversation").json()
+    platform_turn = next(t for t in reloaded["turns"] if t["role"] == "platform")
+    reloaded_refs = {r["ref"] for r in platform_turn["recommendations"]}
+    assert reloaded_refs == sent_refs
+
+
 def test_self_report_draws_metr_caution(client):
     """F2.2: measuring productivity by self-report alone gets the METR caution."""
     reply = _ask(client, "I'll measure productivity by self-report survey")
@@ -180,6 +201,47 @@ def test_compile_is_deterministic(client):
     first = _drive_to_valid_draft(client)
     second = _compile(client)
     assert first["yaml"] == second["yaml"]
+
+
+def test_delete_removes_a_study_with_moves_and_an_approval(client):
+    """A study with design moves and an approved compilation has rows that
+    reference each other (design_moves.turn_id -> conversation_turns.id,
+    approvals.compilation_id -> compilations.id) - deleting them in the
+    wrong order is invisible on SQLite (no FK enforcement by default) but
+    fails outright on Postgres, the production default, leaving the study
+    stuck and the delete button looking like a no-op. Turn FK enforcement on
+    for this test so a regression here fails loudly instead of only in
+    production."""
+    from sqlalchemy import event
+
+    from middleware import db as db_mod
+
+    def _enable_fk(dbapi_connection, connection_record, connection_proxy):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    event.listen(db_mod._engine, "checkout", _enable_fk)
+    try:
+        # The other tests in this file write straight to study_id-scoped
+        # tables without a reified ``Study`` row (the permissive implicit
+        # project doesn't require one to hold a conversation) - but delete
+        # looks the row up, so this one needs it to exist first.
+        created = client.post("/projects/implicit/studies", json={"name": STUDY})
+        assert created.status_code == 200, created.text
+        assert created.json()["id"] == STUDY
+
+        result = _drive_to_valid_draft(client)
+        approved = client.post(
+            f"/studies/{STUDY}/conversation/approve",
+            json={"compilationId": result["compilationId"], "approvedBy": "Owner"},
+        )
+        assert approved.status_code == 200, approved.text
+
+        deleted = client.delete(f"/studies/{STUDY}")
+        assert deleted.status_code == 200, deleted.text
+    finally:
+        event.remove(db_mod._engine, "checkout", _enable_fk)
 
 
 def test_no_draft_applies_without_approval(client):
@@ -252,6 +314,11 @@ def test_evasive_conversation_names_unresolved_slots(client):
     result = _compile(client)
     assert not result["valid"]
     assert result["unresolved"], "empty draft must name its unresolved slots"
+    # The scaffold's errors must name only real, currently-satisfiable gaps —
+    # 'kite' was the pre-rename instrument key (v1/v2 schema branch); nothing
+    # has written it since 'tern', so it must never appear as an error a
+    # researcher is asked to resolve.
+    assert not any("kite" in e for e in result["errors"])
 
 
 # --------------------------------------------------------------- F2.3 / F3.2
@@ -579,3 +646,140 @@ def test_accepted_ethics_caution_does_not_block_the_ethics_move(client, monkeypa
     turn2 = _ask(client, "cover that in the ethics posture")
     assert turn2["source"] == "llm"
     assert [m["kind"] for m in turn2["moves"]] == ["set-parameter"]
+
+
+# ------------------------------------------------------- move-order stability
+
+
+def _read_move_order(client: TestClient) -> list[str]:
+    conv = client.get(f"/studies/{STUDY}/conversation").json()
+    return [m["moveId"] for t in conv["turns"] for m in t["moves"]]
+
+
+def test_moves_keep_proposal_order_across_decisions(client, tmp_path):
+    """Accepting or undoing a card must not reorder the turn's cards. The
+    conversation read used to return moves in physical row order (no ORDER
+    BY) — stable on SQLite, but on Postgres the UPDATE a decision makes
+    relocates the row, shuffling the cards under the researcher."""
+    reply = _ask(client, "I think junior developers over-trust AI-generated code")
+    proposed = [m["moveId"] for m in reply["moves"]]
+    assert len(proposed) >= 2
+
+    middle = proposed[len(proposed) // 2]
+    _accept(client, middle, status="accepted")
+    assert _read_move_order(client) == proposed
+    _accept(client, middle, status="proposed")
+    assert _read_move_order(client) == proposed
+
+    # The persisted seq is the proposal order, 1..n within the turn.
+    factory = make_session_factory(f"sqlite:///{tmp_path / 'test.sqlite3'}")
+    with factory() as s:
+        seqs = [s.get(DesignMoveRow, mid).seq for mid in proposed]
+    assert seqs == list(range(1, len(proposed) + 1))
+
+
+def test_conversation_read_orders_moves_by_seq_not_row_order(client, tmp_path):
+    """Directly prove the ORDER BY: rows inserted out of seq order come back
+    in seq order (SQLite returns insertion order for an unordered scan, so
+    without the ORDER BY this read returns 103, 101, 102)."""
+    _ask(client, "I think junior developers over-trust AI-generated code")
+    conv = client.get(f"/studies/{STUDY}/conversation").json()
+    turn_id = next(t["turnId"] for t in conv["turns"] if t["role"] == "platform")
+
+    factory = make_session_factory(f"sqlite:///{tmp_path / 'test.sqlite3'}")
+    with factory() as s:
+        for seq in (103, 101, 102):
+            s.add(
+                DesignMoveRow(
+                    id=f"{turn_id}:t1-m{seq}",
+                    study_id=STUDY,
+                    turn_id=turn_id,
+                    seq=seq,
+                    kind="add-rq",
+                )
+            )
+        s.commit()
+
+    tail = _read_move_order(client)[-3:]
+    assert tail == [f"{turn_id}:t1-m{n}" for n in (101, 102, 103)]
+
+
+def test_conversation_read_round_trips_move_targets(client):
+    """The re-read every remote change triggers must return the same move
+    the turn reply carried — `target` used to be dropped, blanking the
+    finish review's target lines after any decision."""
+    reply = _ask(client, "I think junior developers over-trust AI-generated code")
+    sent = {m["moveId"]: m["target"] for m in reply["moves"]}
+    assert any(sent.values()), "at least one scripted move must carry a target"
+    conv = client.get(f"/studies/{STUDY}/conversation").json()
+    got = {m["moveId"]: m["target"] for t in conv["turns"] for m in t["moves"]}
+    assert got == sent
+
+
+def test_compile_applies_moves_in_conversation_order(client, tmp_path):
+    """The compiler must fold moves in conversation order. It used to order
+    by id — a random hex turn prefix — so which of two conflicting accepted
+    moves won depended on a coin flip at turn creation. The turn ids here
+    reverse-sort lexicographically to pin the regression."""
+    factory = make_session_factory(f"sqlite:///{tmp_path / 'test.sqlite3'}")
+    with factory() as s:
+        for turn_id, seq, value in (
+            ("zzzz-turn", 1, "first-question"),
+            ("aaaa-turn", 2, "second-question"),
+        ):
+            s.add(
+                ConversationTurn(
+                    id=turn_id,
+                    study_id=STUDY,
+                    seq=seq,
+                    role="platform",
+                    created_at="",
+                )
+            )
+            s.add(
+                DesignMoveRow(
+                    id=f"{turn_id}:t{seq}-m1",
+                    study_id=STUDY,
+                    turn_id=turn_id,
+                    seq=1,
+                    kind="add-rq",
+                    status="accepted",
+                    patch={"section": "researchQuestions", "op": "set", "value": value},
+                )
+            )
+        s.commit()
+
+    result = _compile(client)
+    assert "second-question" in result["yaml"]
+    assert "first-question" not in result["yaml"]
+
+
+def test_design_move_seq_migration_backfills_from_id(tmp_path):
+    """A pre-seq database gets the column added and backfilled from the
+    ``-m{i}`` id suffix, so existing moves keep their proposal order; the
+    migration is idempotent."""
+    from middleware.db import _migrate_design_move_seq
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'legacy.sqlite3'}")
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE design_moves ("
+                "id VARCHAR PRIMARY KEY, study_id VARCHAR, turn_id VARCHAR, "
+                "kind VARCHAR, target VARCHAR, proposal TEXT, patch JSON, "
+                "grounding JSON, status VARCHAR, decided_by VARCHAR, "
+                "decided_at VARCHAR)"
+            )
+        )
+        for move_id in ("abc123:t2-m3", "abc123:t2-m12", "not-a-move-id"):
+            conn.execute(
+                text("INSERT INTO design_moves (id) VALUES (:id)"), {"id": move_id}
+            )
+
+    _migrate_design_move_seq(engine)
+    _migrate_design_move_seq(engine)  # second run must be a no-op
+
+    with engine.connect() as conn:
+        rows = dict(conn.execute(text("SELECT id, seq FROM design_moves")).all())
+    assert rows == {"abc123:t2-m3": 3, "abc123:t2-m12": 12, "not-a-move-id": 0}

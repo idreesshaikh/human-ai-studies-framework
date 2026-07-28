@@ -33,7 +33,7 @@ import { cn } from "@/lib/cn";
 const BAND_COPY: Record<RepertoireEntry["band"], string> = {
   common: "Widely used across the corpus",
   established: "Well established in the corpus",
-  rare: "Rarely used — novel territory",
+  rare: "Rarely used, novel territory",
 };
 
 export function Templates() {
@@ -156,7 +156,7 @@ export function Templates() {
           <span className="text-sm text-text">
             {selected.size} shape{selected.size === 1 ? "" : "s"} selected
             {selected.size < 2 && (
-              <span className="text-text-muted"> — pick one more to merge</span>
+              <span className="text-text-muted"> (pick one more to merge)</span>
             )}
           </span>
           <div className="ml-auto flex items-center gap-2">

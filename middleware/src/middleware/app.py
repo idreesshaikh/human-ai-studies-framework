@@ -2386,7 +2386,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     #: Every table that scopes rows by ``study_id`` — deleting a study removes
     #: its row plus all of these, so nothing is orphaned. The corpus study is
-    #: never a target (it isn't a project study).
+    #: never a target (it isn't a project study). Order matters: a table with
+    #: a foreign key into another study-scoped table must be listed first, or
+    #: a database that actually enforces the constraint (Postgres, the
+    #: production default - SQLite doesn't unless a connection turns it on)
+    #: rejects the whole delete. DesignMoveRow.turn_id -> ConversationTurn.id
+    #: and ApprovalEvent.compilation_id -> Compilation.id are the two edges.
     _STUDY_SCOPED = (
         StoredFile,
         Paper,
@@ -2396,10 +2401,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         EnrollmentToken,
         MiningJob,
         CuratedDataset,
-        ConversationTurn,
         DesignMoveRow,
-        Compilation,
+        ConversationTurn,
         ApprovalEvent,
+        Compilation,
         ProtocolDraftRow,
         StudyEvolution,
         Amendment,
@@ -3920,16 +3925,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             author="Platform",
             text=reply["text"],
             retrieved_refs=sorted(retrieved),
+            recommendations=reply["recommendations"],
             created_at=now(),
             source=reply["source"],
         )
         s.add(platform)
-        for m in reply["moves"]:
+        for i, m in enumerate(reply["moves"]):
             s.add(
                 DesignMoveRow(
                     id=f"{platform.id}:{m['moveId']}",
                     study_id=study_id,
                     turn_id=platform.id,
+                    seq=i + 1,
                     kind=m["kind"],
                     target=m["target"],
                     proposal=m["proposal"],
@@ -4088,12 +4095,17 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         ).all()
         moves_by_turn: dict[str, list] = defaultdict(list)
         for mv in s.scalars(
-            select(DesignMoveRow).where(DesignMoveRow.study_id == study_id)
+            select(DesignMoveRow)
+            .where(DesignMoveRow.study_id == study_id)
+            # Proposal order, not physical row order — on Postgres an UPDATE
+            # (a decision) relocates the row, which reordered the cards.
+            .order_by(DesignMoveRow.seq)
         ):
             moves_by_turn[mv.turn_id].append(
                 {
                     "moveId": mv.id,
                     "kind": mv.kind,
+                    "target": mv.target,
                     "proposal": mv.proposal,
                     "patch": mv.patch,
                     "grounding": mv.grounding,
@@ -4111,6 +4123,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "text": "" if t.redacted else t.text,
                     "redacted": bool(t.redacted),
                     "moves": moves_by_turn.get(t.id, []),
+                    "recommendations": t.recommendations or [],
                     "source": t.source,
                 }
                 for t in turns
@@ -4182,8 +4195,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             }
             for mv in s.scalars(
                 select(DesignMoveRow)
+                .join(ConversationTurn, DesignMoveRow.turn_id == ConversationTurn.id)
                 .where(DesignMoveRow.study_id == study_id)
-                .order_by(DesignMoveRow.id)
+                # Conversation order: ordering by id would sort turns by
+                # their random hex prefix, applying moves out of sequence.
+                .order_by(ConversationTurn.seq, DesignMoveRow.seq)
             )
         ]
         base_yaml = body.baseYaml

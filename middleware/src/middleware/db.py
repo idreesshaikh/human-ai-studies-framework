@@ -26,6 +26,7 @@ Full-text search:
 
 import json
 import logging
+import re
 import time
 from hashlib import sha256
 from pathlib import Path
@@ -402,6 +403,7 @@ class ConversationTurn(Base):
     author: Mapped[str] = mapped_column(String, default="")
     text: Mapped[str] = mapped_column(Text, default="")
     retrieved_refs: Mapped[list] = mapped_column(JSON, default=list)
+    recommendations: Mapped[list] = mapped_column(JSON, default=list)
     redacted: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[str] = mapped_column(String)
     #: "llm" | "scripted" - which path produced this platform turn
@@ -420,6 +422,9 @@ class DesignMoveRow(Base):
     turn_id: Mapped[str] = mapped_column(
         String, ForeignKey("conversation_turns.id"), index=True
     )
+    #: 1-based position within the turn — the only orderable column: the id's
+    #: prefix is a random hex turn id, so ordering by id shuffles turns.
+    seq: Mapped[int] = mapped_column(Integer, default=0)
     kind: Mapped[str] = mapped_column(String)
     target: Mapped[str] = mapped_column(String, default="")
     proposal: Mapped[str] = mapped_column(Text, default="")
@@ -705,6 +710,8 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _create_schema(engine, db_url_str)
     _migrate_stored_file_study_id(engine)
     _migrate_paper_curator_note(engine)
+    _migrate_conversation_recommendations(engine)
+    _migrate_design_move_seq(engine)
 
     if is_pg:
         _setup_pg_fts(engine)
@@ -818,6 +825,53 @@ def _migrate_paper_curator_note(engine) -> None:
         if "curator_note" not in cols:
             conn.execute(text("ALTER TABLE papers ADD COLUMN curator_note TEXT"))
             log.info("Added curator_note column to papers (abstract enrichment)")
+
+
+def _migrate_conversation_recommendations(engine) -> None:
+    """Add ``conversation_turns.recommendations`` if missing (both dialects,
+    idempotent).
+
+    The literature rail used to be built only from the live turn reply and
+    was never persisted, so a re-read of the conversation (a tab switch, a
+    remount, another viewer's catch-up load) came back with an empty list
+    and the surfaced papers vanished. Existing rows backfill to ``[]`` — the
+    literature those older turns surfaced is gone, but every turn from here
+    on round-trips through a reload.
+    """
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("conversation_turns")}
+        if "recommendations" not in cols:
+            conn.execute(
+                text("ALTER TABLE conversation_turns ADD COLUMN recommendations JSON")
+            )
+            log.info(
+                "Added recommendations column to conversation_turns "
+                "(literature rail survives a reload)"
+            )
+
+
+def _migrate_design_move_seq(engine) -> None:
+    """Add ``design_moves.seq`` if missing (both dialects, idempotent).
+
+    Moves had no orderable column, so every read fell back to physical row
+    order (unstable on Postgres — an UPDATE from a decision moves the row)
+    or to ``id``, whose random-hex turn prefix shuffles cross-turn order.
+    The backfill parses the ``-m{i}`` suffix every move id carries (the
+    single creation site formats ids as ``{turn hex}:t{turnSeq}-m{i}``), so
+    existing moves keep their original proposal order within their turn.
+    """
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("design_moves")}
+        if "seq" in cols:
+            return
+        conn.execute(text("ALTER TABLE design_moves ADD COLUMN seq INTEGER DEFAULT 0"))
+        for (move_id,) in conn.execute(text("SELECT id FROM design_moves")).all():
+            m = re.search(r"-m(\d+)$", move_id)
+            conn.execute(
+                text("UPDATE design_moves SET seq = :seq WHERE id = :id"),
+                {"seq": int(m.group(1)) if m else 0, "id": move_id},
+            )
+        log.info("Added seq column to design_moves (stable in-turn move order)")
 
 
 def _is_concurrent_create_race(exc: IntegrityError | ProgrammingError) -> bool:

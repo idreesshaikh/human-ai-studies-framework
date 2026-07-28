@@ -162,6 +162,29 @@ export function respondTo(input: string): Turn {
     );
   }
 
+  // The ethics/consent slot — a mandatory section no other script here ever
+  // fills, so asking about it directly must still produce a fillable move
+  // rather than just repeating that the slot is empty.
+  if (
+    q.includes("ethic") ||
+    q.includes("consent") ||
+    q.includes("irb") ||
+    q.includes("withdrawal")
+  ) {
+    return platformTurn(
+      "Ethics posture is one of the mandatory sections, not paperwork bolted on afterwards. State informed consent, what is collected, and how a participant withdraws — the same discipline the corpus asks of every instrument added to a study.",
+      [
+        move(
+          "set-parameter",
+          "ethics",
+          "Ethics posture: informed consent covering what is collected, how it is stored, and the participant's right to withdraw at any time.",
+          { section: "ethics", op: "append", value: "Informed consent covers what is collected, how it is stored, and the right to withdraw at any time" },
+          [G.guidelines],
+        ),
+      ],
+    );
+  }
+
   // Self-report-only productivity draws the METR caution.
   if (
     (q.includes("productiv") || q.includes("faster") || q.includes("speed")) &&

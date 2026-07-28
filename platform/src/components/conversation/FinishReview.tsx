@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Check, FileText, Sparkles, ShieldCheck } from "lucide-react";
+import { Check, FileText, Sparkles, ShieldCheck, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -90,22 +90,32 @@ export function FinishReview({
           <pre className="tabular max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-3 font-mono text-xs leading-relaxed text-text">
             {compile?.yaml?.trim() ||
               (accepted.length > 0
-                ? "The server couldn't compile this draft — check your connection, then reopen this review."
-                : "The draft is still empty — accept a few design moves first.")}
+                ? "The server couldn't compile this draft. Check your connection, then reopen this review."
+                : "The draft is still empty. Accept a few design moves first.")}
           </pre>
           {compile && !valid && compile.errors.length > 0 && (
-            <p className="mt-1.5 text-xs text-unsourced">
-              {compile.errors.join(" · ")}
-            </p>
+            <ul className="mt-1.5 flex flex-col gap-1 rounded-input border border-unsourced/40 bg-unsourced-soft/40 p-2">
+              {compile.errors.map((e, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-xs text-unsourced">
+                  <AlertTriangle className="mt-0.5 size-3 shrink-0" aria-hidden />
+                  <span>{e}</span>
+                </li>
+              ))}
+            </ul>
           )}
           {compile && (compile.warnings?.length ?? 0) > 0 && (
-            <p className="mt-1.5 text-xs text-text-muted">
-              {compile.warnings!.join(" · ")}
-            </p>
+            <ul className="mt-1.5 flex flex-col gap-1">
+              {compile.warnings!.map((w, i) => (
+                <li key={i} className="text-xs text-text-muted">
+                  {w}
+                </li>
+              ))}
+            </ul>
           )}
           {compile && !valid && compile.unresolved.length > 0 && (
-            <p className="mt-1.5 text-xs text-unsourced">
-              Still unresolved: {compile.unresolved.join(", ")}. You can keep talking to fill these.
+            <p className="mt-1.5 rounded-input border border-border bg-surface p-2 text-xs text-text-muted">
+              <span className="font-medium text-text">Still unresolved:</span>{" "}
+              {compile.unresolved.join(", ")}. You can keep talking to fill these.
             </p>
           )}
         </div>

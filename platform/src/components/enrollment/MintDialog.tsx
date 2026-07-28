@@ -62,7 +62,7 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
       // Surface the server's reason instead of a silent no-op — the common case
       // is the 409 "clear the ethics gate first" (production keeps that gate;
       // set MIDDLEWARE_DEV_MODE to mint on an unapproved study while testing).
-      setError(e instanceof ApiError ? e.message : "Could not mint links — check your connection and try again.");
+      setError(e instanceof ApiError ? e.message : "Could not mint links. Check your connection and try again.");
     } finally {
       setMinting(false);
     }
