@@ -35,7 +35,7 @@ export function StreamingTurn({
     >
       <div
         className={cn(
-          "max-w-[46ch] rounded-card px-4 py-3 text-sm animate-in fade-in duration-entrance",
+          "max-w-bubble rounded-card px-4 py-3 text-sm animate-in fade-in duration-entrance",
           isPlatform
             ? "bg-surface border border-border text-text"
             : "bg-accent text-accent-contrast")}
@@ -64,7 +64,7 @@ export function StreamingTurn({
       )}
 
       {turn.moves.length > 0 && (
-        <div className="flex w-full max-w-[46ch] flex-col gap-2">
+        <div className="flex w-full max-w-bubble flex-col gap-2">
           {turn.moves.map((m) => (
             <MoveCard key={m.moveId} move={m} onDecide={onDecide} />
           ))}

@@ -88,12 +88,12 @@ export function Templates() {
   }
 
   return (
-    <div className="mx-auto flex max-w-work flex-col gap-8 p-8">
+    <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
       <div>
         <h1 className="type-title flex items-center gap-2 text-text">
           <Layers className="size-6 text-accent" aria-hidden /> Protocol repertoire
         </h1>
-        <p className="mt-1 max-w-2xl text-sm text-text-muted">
+        <p className="mt-1 max-w-reading text-sm text-text-muted">
           Proven design shapes, ranked by how widely the corpus uses them. The
           papers that used a shape are its references — pick two or more shapes
           and merge them into one novel protocol, grounded in every paper it

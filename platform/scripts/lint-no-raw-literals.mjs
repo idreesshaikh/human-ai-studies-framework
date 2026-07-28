@@ -10,7 +10,7 @@
  * Tailwind scale utilities (size-2.5, min-h-11, max-w-40) are unitless and
  * pass. Exit 1 on any hit. */
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 
 const ROOT = new URL("../src", import.meta.url).pathname;
 const SKIP_DIR = /\/styles$/;
@@ -19,6 +19,30 @@ const PATTERNS = [
   { name: "px literal", re: /\b\d+(?:\.\d+)?px\b/g },
   { name: "ms/s duration", re: /\b\d+(?:\.\d+)?m?s\b/g },
 ];
+
+/* The layout contract's four measures (`src/lib/layout.ts`) plus `bubble`
+ * (chat/thinking-bubble reading width, --measure-bubble) are the only named
+ * max-w-* a Surface root may use. Enforced only in files that have actually
+ * adopted the contract — the list grows as the rest of the app migrates
+ * (docs/roadmap "experience overhaul", phase A). Applying it repo-wide today
+ * would also flag incidental widths that were never part of the contract (a
+ * dialog's content width, a tooltip's max-w-sm, a paragraph's wrap width) —
+ * nine type roles and four measures are deliberately the full vocabulary;
+ * multiplying measures for every incidental width is the failure the
+ * contract exists to prevent. */
+const LAYOUT_CONTRACT_FILES = new Set([
+  "App.tsx",
+  "components/shell/SignInScreen.tsx",
+  "pages/InviteAccept.tsx",
+  "pages/Members.tsx",
+  "pages/PlatformFindings.tsx",
+  "pages/ProjectHome.tsx",
+  "pages/Projects.tsx",
+  "pages/Settings.tsx",
+  "pages/Templates.tsx",
+]);
+const ALLOWED_MEASURES = new Set(["narrow", "reading", "work", "wide", "bubble"]);
+const MAX_W_RE = /\bmax-w-([a-zA-Z0-9][a-zA-Z0-9-]*)\b/g;
 
 function walk(dir) {
   const out = [];
@@ -66,6 +90,8 @@ function stripComments(src) {
 let hits = 0;
 for (const file of walk(ROOT)) {
   const code = stripComments(readFileSync(file, "utf8"));
+  const relPath = relative(ROOT, file);
+  const checkLayoutContract = LAYOUT_CONTRACT_FILES.has(relPath);
   code.forEach((line, i) => {
     for (const { name, re } of PATTERNS) {
       re.lastIndex = 0;
@@ -75,6 +101,19 @@ for (const file of walk(ROOT)) {
           `${file}:${i + 1}  raw ${name} "${m[0]}" — use a token instead`,
         );
         hits++;
+      }
+    }
+    if (checkLayoutContract) {
+      MAX_W_RE.lastIndex = 0;
+      let m;
+      while ((m = MAX_W_RE.exec(line))) {
+        if (!ALLOWED_MEASURES.has(m[1])) {
+          console.error(
+            `${file}:${i + 1}  bare "max-w-${m[1]}" — this screen has adopted ` +
+              `the layout contract; use a measure token (narrow/reading/work/wide/bubble)`,
+          );
+          hits++;
+        }
       }
     }
   });

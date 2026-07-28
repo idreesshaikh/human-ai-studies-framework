@@ -5,6 +5,7 @@ import { MetricStrip } from "./MetricStrip";
 import { SwimlaneTimeline } from "./SwimlaneTimeline";
 import { PrescriptionPanel } from "./PrescriptionPanel";
 import { DataProvenance } from "./DataProvenance";
+import { Surface } from "@/components/shell/Surface";
 import {
   studyApi,
   onSeededData,
@@ -45,7 +46,7 @@ export function DataTab({ studyId }: { studyId: string }) {
   const metricRows = rows;
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 overflow-auto p-6">
+    <Surface measure="work" label="Data">
       {seeded && (
         <p
           className="flex items-center gap-2 rounded-input border border-border-strong bg-unsourced-soft px-3 py-2 text-xs text-text"
@@ -62,8 +63,8 @@ export function DataTab({ studyId }: { studyId: string }) {
         <DataProvenance studyId={studyId} conditions={conditions} />
       )}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="type-subhead text-text">Sessions</h2>
+      <section className="flex flex-col gap-stack">
+        <h2 className="type-section text-text">Sessions</h2>
         {sessions.length === 0 ? (
           <p className="rounded-card border border-border bg-surface p-6 text-sm text-text-muted">
             No sessions yet. Collected data appears here per session, with its
@@ -142,14 +143,14 @@ export function DataTab({ studyId }: { studyId: string }) {
 
       {/* Metrics and the prescription that reads them sit close together —
           they're one analytical unit, tighter than the section gap. */}
-      <div className="flex flex-col gap-3">
-        <section className="flex flex-col gap-3">
-          <h2 className="type-subhead text-text">Metrics by condition</h2>
+      <div className="flex flex-col gap-stack">
+        <section className="flex flex-col gap-stack">
+          <h2 className="type-section text-text">Metrics by condition</h2>
           <MetricStrip rows={metricRows} conditions={conditions} />
         </section>
         <PrescriptionPanel />
       </div>
-    </div>
+    </Surface>
   );
 }
 

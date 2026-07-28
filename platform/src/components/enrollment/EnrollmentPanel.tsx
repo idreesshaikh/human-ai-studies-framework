@@ -4,6 +4,7 @@ import { useApi } from "@/lib/session";
 import { hasRole, type Role } from "@/lib/capabilities";
 import type { EnrollmentTokenView, ToggleCatalogEntry } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Surface } from "@/components/shell/Surface";
 import { MintDialog } from "./MintDialog";
 import { TogglePopover } from "./TogglePopover";
 import { cn } from "@/lib/cn";
@@ -39,6 +40,7 @@ export function EnrollmentPanel({
     null,
   );
   const [copied, setCopied] = useState<string | null>(null);
+  const [revokeError, setRevokeError] = useState("");
   const canMint = hasRole(role, "mint_token");
   const canToggle = hasRole(role, "toggle_capture");
 
@@ -57,6 +59,27 @@ export function EnrollmentPanel({
     };
   }, [load]);
 
+  /* Revoking used to be `void api.revoke(...).then(load)` — a rejection
+   * became an unhandled promise and the row simply stayed, which reads as
+   * the button doing nothing. Optimistic, with a rollback and a stated
+   * reason. */
+  const revoke = async (tokenId: string) => {
+    const before = rows;
+    setRevokeError("");
+    setRows((list) =>
+      list.map((r) => (r.id === tokenId ? { ...r, status: "revoked" } : r)),
+    );
+    try {
+      await api.revokeEnrollmentToken(studyId, tokenId);
+      load();
+    } catch (e) {
+      setRows(before);
+      setRevokeError(
+        e instanceof Error ? e.message : "Could not revoke that link.",
+      );
+    }
+  };
+
   const copy = (text: string, id: string) => {
     void navigator.clipboard.writeText(text).then(() => {
       setCopied(id);
@@ -65,21 +88,13 @@ export function EnrollmentPanel({
   };
 
   return (
-    /* Composed like the Lifecycle tab: one centred column with a titled
-     * section and its explanatory line, rather than a full-bleed table. The
-     * column is wider than Lifecycle's because the enrollment table carries
-     * seven columns, and it scrolls inside itself so the page never does. */
-    <div
-      className="mx-auto flex w-full max-w-5xl flex-col gap-4 overflow-auto p-6"
-      data-agent="enrollment-panel"
-    >
+    /* Wider than Lifecycle's reading measure — the enrollment table carries
+     * seven columns, the contract's one justified escape hatch to `wide`. */
+    <Surface measure="wide" label="Participants" data-agent="enrollment-panel">
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1">
-          <h2 className="type-subhead text-text">
-            Participants ·{" "}
-            <span className="text-text-muted">
-              {rows.length === 0 ? "none enrolled" : `${rows.length} enrolled`}
-            </span>
+          <h2 className="type-section text-text">
+            {rows.length === 0 ? "None enrolled" : `${rows.length} enrolled`}
           </h2>
           <p className="mt-1 text-xs text-text-muted">
             One link per participant. They paste it once, their editor joins the
@@ -89,6 +104,11 @@ export function EnrollmentPanel({
         </div>
         {canMint && <MintDialog studyId={studyId} onMinted={load} />}
       </div>
+      {revokeError && (
+        <p role="alert" className="text-sm text-status-critical">
+          {revokeError}
+        </p>
+      )}
       {rows.length === 0 ? (
         <p className="rounded-input border border-dashed border-border px-3 py-6 text-center text-sm text-text-muted">
           No participants yet — mint a link to enroll the first one.
@@ -208,11 +228,7 @@ export function EnrollmentPanel({
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() =>
-                          void api
-                            .revokeEnrollmentToken(studyId, t.id)
-                            .then(load)
-                        }
+                        onClick={() => void revoke(t.id)}
                       >
                         Revoke
                       </Button>
@@ -236,6 +252,6 @@ export function EnrollmentPanel({
           onClose={() => setPopoverEntry(null)}
         />
       )}
-    </div>
+    </Surface>
   );
 }

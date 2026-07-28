@@ -3,6 +3,7 @@ import { Check, Circle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { studyApi, EMPTY_LIFECYCLE, type Gate, type LifecycleDoc } from "@/lib/studyApi";
+import { Surface } from "@/components/shell/Surface";
 import { cn } from "@/lib/cn";
 
 /* The lifecycle board (FR-DASH-2) — the study's phases and their gate
@@ -73,8 +74,8 @@ export function LifecycleTab({
 
   if (noProtocol) {
     return (
-      <div className="mx-auto flex max-w-2xl flex-col gap-3 p-6">
-        <h2 className="type-subhead text-text">Lifecycle</h2>
+      <Surface measure="reading" label="Lifecycle">
+        <h2 className="type-section text-text">Nothing to gate yet</h2>
         <p className="text-sm text-text-muted">
           This study doesn't have a compiled protocol yet, so there's nothing to gate
           against. Finish the design conversation — choose a design, compile it, and
@@ -85,18 +86,16 @@ export function LifecycleTab({
             Go to Conversation
           </Button>
         )}
-      </div>
+      </Surface>
     );
   }
 
   if (!doc) return <p className="p-6 text-sm text-text-muted">Loading…</p>;
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-4 overflow-auto p-6">
+    <Surface measure="reading" label="Lifecycle">
       <div>
-        <h2 className="type-subhead text-text">
-          Lifecycle · <span className="text-text-muted">{doc.currentPhase}</span>
-        </h2>
+        <h2 className="type-section text-text">{doc.currentPhase}</h2>
         <p className="mt-1 text-xs text-text-muted">
           You're in the <span className="font-medium text-text">{doc.currentPhase}</span> phase.
           Attest this phase's gate to advance — each is a checkpoint you confirm before the study moves on.
@@ -166,7 +165,7 @@ export function LifecycleTab({
           );
         })}
       </ol>
-    </div>
+    </Surface>
   );
 }
 

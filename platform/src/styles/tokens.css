@@ -97,6 +97,29 @@
   --measure-reading: 44rem; /* settings, members, prose, findings */
   --measure-work: 60rem; /* working surfaces: project home, templates, study */
   --measure-wide: 72rem; /* the hero, and only the hero */
+  --measure-bubble: 46ch; /* a chat/thinking bubble's reading width */
+
+  /* Spacing rhythm — the four gaps the layout contract runs on. Screens used
+   * to pick p-8/gap-8, panels p-6/gap-4 or p-4, with no shared rule, which is
+   * what made panel-to-panel navigation feel like different tools. */
+  --space-gutter: 2rem; /* a Surface's outer padding */
+  --space-section: 2rem; /* gap between titled sections on one screen */
+  --space-stack: 0.75rem; /* gap between items within one section */
+  --space-tight: 0.5rem; /* the tightest — chips, inline clusters */
+
+  /* The conversation/library split rail: grows with the window between a
+   * floor and a cap, rather than sitting at a fixed width that gets
+   * relatively slimmer on every wider screen. */
+  --rail-min: 22rem;
+  --rail-max: 30rem;
+  --rail-share: 32vw;
+
+  /* AppFrame's header height — the mobile drawer's top offset needs the real
+   * number, not a guess (header is py-2 around a 2.5rem icon button). */
+  --header-h: 3.5rem;
+
+  /* The library constellation's canvas height. */
+  --constellation-h: 22.5rem;
 
   /* Light theme — "Daylight instrument": cool slate paper + deep ink-navy.
    * Deliberately NOT the warm-peach desk (that reads as the default AI look);

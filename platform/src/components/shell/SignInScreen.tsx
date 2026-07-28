@@ -4,7 +4,7 @@ import { KeyRound, Moon, Sun } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { KiteMark } from "@/components/brand/KiteMark";
+import { PhoenixMark } from "@/components/brand/PhoenixMark";
 import { useAuth } from "@/lib/auth.tsx";
 import { getTheme, nextTheme, applyTheme, type Theme } from "@/lib/theme";
 
@@ -38,7 +38,7 @@ export function SignInScreen() {
   return (
     <div
       data-agent="sign-in"
-      className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center p-6"
+      className="relative mx-auto flex min-h-screen max-w-narrow flex-col justify-center p-6"
     >
       <div className="absolute right-4 top-4 flex items-center gap-1">
         <Button
@@ -60,7 +60,7 @@ export function SignInScreen() {
         className="mb-8 flex flex-col items-center gap-2 text-center"
         aria-label="Phoenix, back to home"
       >
-        <KiteMark size={40} />
+        <PhoenixMark size={40} />
         <span className="font-serif text-xl font-medium tracking-tight text-text">
           Phoenix
         </span>

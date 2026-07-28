@@ -9,9 +9,11 @@
  *   - an invitation is single-use
  *   - a role change sticks; the last owner can't be removed
  *   - deleting needs the slug typed to confirm
+ *   - resolveRole keeps "still loading" distinct from "viewer"
  */
 import { MATRIX, ROLE_RANK, hasRole } from "../src/lib/capabilities.ts";
 import { ApiError, InMemoryBackend } from "../src/lib/api.ts";
+import { resolveRole, roleOrNull } from "../src/lib/role.ts";
 
 let failures = 0;
 const ok = (name, cond, detail = "") => {
@@ -74,6 +76,56 @@ await api.deleteProject("sample-lab", "sample-lab");
 const after = await api.listProjects();
 ok("delete with correct confirmation removes the project",
   !after.some((p) => p.slug === "sample-lab"));
+
+// --------------------------------------------------------- role resolution
+//
+// The regression this guards: pages resolved my role with `… ?? "viewer"`,
+// so while the session was still loading every owner-only control rendered
+// as if I were a viewer — the delete button appeared late, or looked absent
+// entirely. "Loading" and "viewer" must never collapse into one answer.
+
+const MEMBERS = [{ identitySub: "me", role: "owner" }];
+const MEMBERSHIPS = [{ projectSlug: "lab", role: "researcher" }];
+
+ok("role is unknown while the session loads",
+  resolveRole({ meLoading: true, slug: "lab" }).status === "loading");
+
+ok("role is unknown before either source arrives",
+  resolveRole({ meLoading: false, slug: "lab" }).status === "loading");
+
+ok("the project payload is preferred over a stale session",
+  roleOrNull(resolveRole({
+    projectMembers: MEMBERS, meSub: "me",
+    memberships: MEMBERSHIPS, meLoading: false, slug: "lab",
+  })) === "owner");
+
+ok("the session's membership answers when the payload lacks me",
+  roleOrNull(resolveRole({
+    projectMembers: [], meSub: "me",
+    memberships: MEMBERSHIPS, meLoading: false, slug: "lab",
+  })) === "researcher");
+
+ok("a genuine non-member resolves to no role, not to loading",
+  (() => {
+    const s = resolveRole({
+      projectMembers: [], meSub: "me", memberships: [],
+      meLoading: false, slug: "lab",
+    });
+    return s.status === "known" && s.role === null;
+  })());
+
+ok("a membership for another project doesn't leak in",
+  (() => {
+    const s = resolveRole({
+      projectMembers: [], meSub: "me",
+      memberships: [{ projectSlug: "other", role: "owner" }],
+      meLoading: false, slug: "lab",
+    });
+    return s.status === "known" && s.role === null;
+  })());
+
+ok("loading never satisfies a capability",
+  !hasRole(roleOrNull(resolveRole({ meLoading: true, slug: "lab" })), "delete"));
 
 console.log(failures === 0 ? "\n✓ all checks pass" : `\n✗ ${failures} check(s) failed`);
 process.exit(failures === 0 ? 0 : 1);

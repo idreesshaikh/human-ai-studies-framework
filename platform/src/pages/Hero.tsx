@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { KiteMark } from "@/components/brand/KiteMark";
+import { PhoenixMark } from "@/components/brand/PhoenixMark";
 import { Constellation } from "@/components/brand/Constellation";
 import { HeroShowcase } from "@/components/hero/HeroShowcase";
 
@@ -22,7 +22,7 @@ export function Hero() {
 
       <header className="flex flex-col items-center gap-6 text-center">
         <div className="animate-in fade-in duration-entrance ease-out">
-          <KiteMark size={40} />
+          <PhoenixMark size={40} />
         </div>
 
         <h1 className="type-display max-w-2xl animate-in fade-in slide-in-from-bottom-2 text-text duration-entrance ease-out">

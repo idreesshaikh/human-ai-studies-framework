@@ -39,7 +39,7 @@ export function InviteAccept() {
   };
 
   return (
-    <div className="mx-auto flex min-h-full max-w-narrow flex-col justify-center p-8">
+    <div className="mx-auto flex min-h-full max-w-narrow flex-col justify-center p-gutter">
       <Card>
         <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
           {state === "joined" ? (

@@ -76,8 +76,13 @@ export function LibraryTab({ studyId }: { studyId: string }) {
   const selectedNode = graph?.nodes.find((n) => n.paperRef === selected) ?? null;
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-4 overflow-y-auto overflow-x-hidden p-4 lg:grid-cols-[1.6fr_1fr]">
-      <section className="flex min-h-0 min-w-0 flex-col gap-4">
+    <div className="split-rail h-full min-h-0 w-full flex-1">
+      <section
+        className="flex min-h-0 min-w-0 flex-col gap-stack overflow-y-auto overscroll-contain p-gutter"
+        tabIndex={0}
+        role="region"
+        aria-label="Library"
+      >
         {/* Ingest bar — the live-fetch moment. */}
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -119,7 +124,9 @@ export function LibraryTab({ studyId }: { studyId: string }) {
               {papers.length} {papers.length === 1 ? "paper" : "papers"}
             </span>
           </div>
-          <ul className="max-h-72 overflow-y-auto overflow-x-hidden">
+          {/* No inner max-h/scroll here — the panel has exactly one
+           * scroller (this section's own overflow-y-auto above). */}
+          <ul>
             {papers.map((p) => (
               <li
                 key={p.paperRef}
@@ -254,8 +261,11 @@ export function LibraryTab({ studyId }: { studyId: string }) {
         )}
       </section>
 
-      {/* The assistant rides alongside, full height. */}
-      <div className="min-h-0 min-w-0 lg:sticky lg:top-0 lg:h-[calc(100vh-9rem)]">
+      {/* The assistant rides alongside, full height — it owns its own
+       * scroller (Assistant.tsx), so this column doesn't need the old
+       * viewport-relative sticky hack (that math assumed the page, not the
+       * panel, was what scrolled). */}
+      <aside className="flex min-h-0 min-w-0 flex-col border-l border-border p-gutter">
         <div className="hidden h-full min-h-0 lg:flex lg:flex-col">
           <Assistant studyId={studyId} />
         </div>
@@ -267,7 +277,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             <Assistant studyId={studyId} />
           </div>
         </details>
-      </div>
+      </aside>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useNavigate, Link, useParams } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FlaskConical, Users, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,13 +13,13 @@ import { useAuth } from "@/lib/auth.tsx";
 import { useAsync } from "@/lib/useAsync";
 import { memberLabel } from "@/lib/memberLabel";
 import { ApiError } from "@/lib/api.ts";
-import type { Role } from "@/lib/capabilities.ts";
+import { resolveRole, roleOrNull } from "@/lib/role";
 import { cn } from "@/lib/cn";
 
 /* Project home: its studies, and a preview of who's on the team. */
 export function ProjectHome() {
   const api = useApi();
-  const { me, refresh } = useSession();
+  const { me, loading: meLoading, refresh } = useSession();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { slug = "" } = useParams();
@@ -30,29 +30,45 @@ export function ProjectHome() {
   // Two-step confirm for study deletion: first click arms, second deletes.
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
-  // Studies mid-exit-animation — kept out of the render so the card fades out
-  // before the reload removes it for real.
-  const [removed, setRemoved] = useState<Set<string>>(new Set());
+  const [deleteError, setDeleteError] = useState("");
+  // The list the page renders. Held locally so a delete can be applied
+  // optimistically and *rolled back* if the server refuses — the same shape
+  // MembersTable uses. The previous version swallowed every error, so a 403,
+  // a 404, or being offline all looked identical to nothing happening.
+  type Study = NonNullable<typeof data>["studies"][number];
+  const [studies, setStudies] = useState<Study[]>([]);
+  useEffect(() => {
+    if (data) setStudies(data.studies);
+  }, [data]);
 
-  // The caller's role. Prefer the freshly-loaded project payload (its members
-  // carry the real role) over the session's `me`, which can be stale for a
-  // project joined/created this session — a stale "viewer" would wrongly hide
-  // the owner-only delete control (the "delete doesn't work" symptom).
-  const mine: Role =
-    data?.members.find((m) => m.identitySub === me?.sub)?.role ??
-    me?.memberships.find((m) => m.projectSlug === slug)?.role ??
-    "viewer";
+  // My role here — and whether that is known yet. Treating "still loading" as
+  // "viewer" is what made the delete control appear a beat late, or seem to
+  // be missing altogether.
+  const roleState = resolveRole({
+    projectMembers: data?.members,
+    meSub: me?.sub,
+    memberships: me?.memberships,
+    meLoading,
+    slug,
+  });
+  const mine = roleOrNull(roleState);
+  const rolePending = roleState.status === "loading";
 
   const removeStudy = async (studyId: string) => {
+    const before = studies;
     setDeleting(studyId);
+    setDeleteError("");
+    // Optimistic: the row goes now, and comes back if the server disagrees.
+    setStudies((list) => list.filter((s) => s.id !== studyId));
+    setConfirmDelete(null);
     try {
       await api.deleteStudy(studyId);
-      setConfirmDelete(null);
-      // Play the exit animation, then reload so the row is gone for real.
-      setRemoved((prev) => new Set(prev).add(studyId));
-      setTimeout(() => reload(), 200);
-    } catch {
-      // Leave the row; a retry reflects the real state.
+      reload();
+    } catch (e) {
+      setStudies(before);
+      setDeleteError(
+        e instanceof ApiError ? e.message : "Could not delete that study.",
+      );
     } finally {
       setDeleting(null);
     }
@@ -80,7 +96,7 @@ export function ProjectHome() {
   if (!data) return null;
 
   return (
-    <div className="mx-auto flex max-w-work flex-col gap-8 p-8">
+    <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
       <div>
         <h1 className="type-title text-text">{data.name}</h1>
         <p className="text-sm text-text-muted">/{data.slug}</p>
@@ -108,59 +124,77 @@ export function ProjectHome() {
             {createError && <p className="text-sm text-unsourced">{createError}</p>}
           </CardContent>
         </Card>
-        {data.studies.length === 0 ? (
+        {deleteError && (
+          <p role="alert" className="text-sm text-status-critical">
+            {deleteError}
+          </p>
+        )}
+        {studies.length === 0 ? (
           <EmptyState line="Research goes better with a study. Start one above." />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {data.studies.map((st) => (
+            {studies.map((st) => (
               <Card
                 key={st.id}
-                className={cn(
-                  "group relative transition-all duration-standard hover:border-accent",
-                  removed.has(st.id) &&
-                    "pointer-events-none scale-95 opacity-0",
-                )}
+                className="group relative transition-colors duration-standard hover:border-accent"
               >
-                <Link to={`/p/${slug}/studies/${st.id}`} className="block">
-                  <CardContent className="flex items-center justify-between gap-2 p-4">
-                    <span className="min-w-0 flex-1 truncate font-medium text-text">
-                      {st.id}
-                    </span>
-                    <Badge variant="outline">{st.phase}</Badge>
-                  </CardContent>
-                </Link>
-                <RoleGate role={mine} capability="delete">
-                  {confirmDelete === st.id ? (
-                    <div className="flex items-center gap-1 border-t border-border px-3 py-1.5 text-xs">
-                      <span className="flex-1 text-text-muted">Delete this study?</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-status-critical"
-                        disabled={deleting === st.id}
-                        onClick={() => removeStudy(st.id)}
-                      >
-                        {deleting === st.id ? "Deleting…" : "Delete"}
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
+                {/* The delete control is a real cell in this row, not an
+                  * overlay. It used to be positioned absolutely on top of the
+                  * card, which put it over the phase badge and over long study
+                  * ids. The link stretches to fill the card instead
+                  * (after:inset-0), so the whole card still navigates while
+                  * the button keeps its own space. */}
+                <CardContent className="flex items-center gap-2 p-4">
+                  <Link
+                    to={`/p/${slug}/studies/${st.id}`}
+                    className="min-w-0 flex-1 truncate font-medium text-text after:absolute after:inset-0"
+                  >
+                    {st.id}
+                  </Link>
+                  <Badge variant="outline" className="relative shrink-0">
+                    {st.phase}
+                  </Badge>
+                  <RoleGate
+                    role={mine}
+                    capability="delete"
+                    pending={rolePending}
+                    /* Hold the space while the role loads, so the row doesn't
+                     * reflow when the answer arrives. */
+                    pendingFallback={<span aria-hidden className="min-h-11 min-w-11 shrink-0" />}
+                  >
                     <button
                       type="button"
                       onClick={() => setConfirmDelete(st.id)}
                       aria-label={`Delete study ${st.id}`}
                       className={cn(
-                        "absolute right-2 top-2 rounded-input p-1 text-text-muted",
-                        "opacity-0 transition-opacity duration-fast hover:bg-accent-soft hover:text-status-critical",
-                        "focus-visible:opacity-100 group-hover:opacity-100",
+                        "relative z-10 flex min-h-11 min-w-11 shrink-0 items-center justify-center",
+                        "rounded-input text-text-muted opacity-60",
+                        "transition-colors duration-fast hover:bg-accent-soft",
+                        "hover:text-status-critical hover:opacity-100",
+                        "focus-visible:opacity-100",
                       )}
                     >
                       <Trash2 className="size-4" aria-hidden />
                     </button>
-                  )}
-                </RoleGate>
+                  </RoleGate>
+                </CardContent>
+                {confirmDelete === st.id && (
+                  <div className="relative z-10 flex items-center gap-1 border-t border-border px-3 py-1.5 text-xs">
+                    <span className="flex-1 text-text-muted">Delete this study?</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-status-critical"
+                      disabled={deleting === st.id}
+                      onClick={() => removeStudy(st.id)}
+                    >
+                      {deleting === st.id ? "Deleting…" : "Delete"}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                )}
               </Card>
             ))}
           </div>

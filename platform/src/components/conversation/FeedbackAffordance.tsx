@@ -64,7 +64,7 @@ export function FeedbackAffordance({
   return (
     <div
       data-agent="feedback-composer"
-      className="flex w-full max-w-[46ch] flex-col gap-2 rounded-card border border-border bg-surface p-3"
+      className="flex w-full max-w-bubble flex-col gap-2 rounded-card border border-border bg-surface p-3"
     >
       <div className="flex flex-wrap gap-1">
         {KINDS.map((k) => (

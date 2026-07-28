@@ -1,5 +1,7 @@
-import { ArrowDown, MessageSquare, FileText } from "lucide-react";
+import { ArrowDown, MessageSquare, FileText, BookOpen } from "lucide-react";
 import { useEvolution } from "@/lib/evolutionStub";
+import { useApi } from "@/lib/session";
+import { useAsync } from "@/lib/useAsync";
 import { cn } from "@/lib/cn";
 
 /* The platform-findings surface. The loop
@@ -22,9 +24,11 @@ const KIND_LABEL: Record<string, string> = {
 
 export function PlatformFindings() {
   const { findings, proposal } = useEvolution();
+  const api = useApi();
+  const corpus = useAsync(() => api.corpusStatus(), [api]);
 
   return (
-    <div className="mx-auto flex max-w-reading flex-col gap-8 p-8">
+    <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
       <header className="flex flex-col gap-1">
         <h1 className="type-title text-text">
           How the platform is evolving
@@ -35,6 +39,19 @@ export function PlatformFindings() {
           the same loop your study runs on, turned back on the platform itself.
         </p>
       </header>
+
+      {/* Citation quality explains itself, rather than a thin match just
+       * looking unexplained: a title-only paper is honestly weaker evidence
+       * for semantic matching than one with a real abstract (FR-LIT-8). */}
+      {corpus.data && corpus.data.papers > 0 && (
+        <p className="flex items-center gap-2 text-xs text-text-muted">
+          <BookOpen className="size-3.5 shrink-0" aria-hidden />
+          {corpus.data.withAbstract} of {corpus.data.papers} corpus papers
+          carry a real abstract
+          {corpus.data.missing > 0 && ` — ${corpus.data.missing} are title-only`}
+          .
+        </p>
+      )}
 
       {/* Stage 1 — the feedback, from conversations. */}
       <section className="flex flex-col gap-3">

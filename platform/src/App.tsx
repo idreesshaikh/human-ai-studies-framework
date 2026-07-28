@@ -29,7 +29,7 @@ function Shell() {
 
 function NotFound() {
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-3 p-16 text-center">
+    <div className="mx-auto flex max-w-narrow flex-col items-center gap-3 p-16 text-center">
       <p className="font-display text-xl text-text">Nothing here</p>
       <Link to="/" className="text-accent hover:underline">
         Back to the start
