@@ -234,9 +234,9 @@ class ConversationTurnIn(BaseModel):
 
 
 class MoveDecisionIn(BaseModel):
-    """Accept/reject one design move (FR-CONV-1.2)."""
+    """Accept, reject, or reopen ("proposed") one design move (FR-CONV-1.2)."""
 
-    status: str  # accepted | rejected
+    status: str  # accepted | rejected | proposed
     decidedBy: str = "Researcher"
 
 
@@ -4132,16 +4132,25 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def decide_move(
         study_id: str, move_id: str, body: MoveDecisionIn, s: Session = Depends(db)
     ) -> dict:
-        """Accept or reject a design move (FR-CONV-1.2). The decision is part
-        of the elicitation record — the row is updated, never deleted."""
-        if body.status not in ("accepted", "rejected"):
-            raise HTTPException(400, "status must be 'accepted' or 'rejected'")
+        """Accept, reject, or reopen ("proposed") a design move (FR-CONV-1.2)
+        — undo is just deciding "proposed" again. The decision is part of
+        the elicitation record — the row is updated, never deleted."""
+        if body.status not in ("accepted", "rejected", "proposed"):
+            raise HTTPException(
+                400, "status must be 'accepted', 'rejected', or 'proposed'"
+            )
         mv = s.get(DesignMoveRow, move_id)
         if mv is None or mv.study_id != study_id:
             raise HTTPException(404, "design move not found")
         mv.status = body.status
-        mv.decided_by = body.decidedBy
-        mv.decided_at = now()
+        if body.status == "proposed":
+            # Reopened — it isn't decided by anyone right now, so a stale
+            # decider/timestamp from the reversed decision would be dishonest.
+            mv.decided_by = ""
+            mv.decided_at = ""
+        else:
+            mv.decided_by = body.decidedBy
+            mv.decided_at = now()
         s.commit()
         presence.hub.publish(
             study_id,

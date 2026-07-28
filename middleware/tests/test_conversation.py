@@ -215,6 +215,30 @@ def test_rejecting_a_move_keeps_it_out_of_the_draft(client):
     assert rq_moves[0]["patch"]["value"] not in result["yaml"]
 
 
+def test_undoing_a_decision_reopens_the_move(client):
+    """A decided move can be reopened back to 'proposed' — undo, not just
+    accept/reject. A reopened move drops back out of the compiled draft,
+    same as one that was never decided."""
+    reply = _ask(client, "I think junior developers over-trust AI-generated code")
+    rq_moves = [m for m in reply["moves"] if m["kind"] == "add-rq"]
+    assert rq_moves
+    move_id = rq_moves[0]["moveId"]
+
+    _accept(client, move_id, status="accepted")
+    compiled = _compile(client)
+    assert rq_moves[0]["patch"]["value"] in compiled["yaml"]
+
+    r = client.post(
+        f"/studies/{STUDY}/conversation/moves/{move_id}/decision",
+        json={"status": "proposed", "decidedBy": "Researcher"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json() == {"moveId": move_id, "status": "proposed"}
+
+    reopened = _compile(client)
+    assert rq_moves[0]["patch"]["value"] not in reopened["yaml"]
+
+
 def test_evasive_conversation_names_unresolved_slots(client):
     """F1.3: a vague opener that accepts no structural moves ends with named
     unresolved slots, not silent gaps."""
