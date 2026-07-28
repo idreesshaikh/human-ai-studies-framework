@@ -126,6 +126,103 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
+/** How many edges touch each node (in + out). Additive — the Obsidian-style
+ * constellation sizes a node by degree (`3.5 + 2.6*sqrt(deg)`: hubs obvious,
+ * leaves dust) rather than by raw citation count, which conflates "central
+ * to this study" with "generally well-cited". Computed straight from the
+ * same edges `layoutGraph` already takes; has no effect on the layout. */
+export function degreeMap(
+  nodes: GraphNodeIn[],
+  edges: GraphEdgeIn[],
+): Map<string, number> {
+  const degree = new Map(nodes.map((n) => [n.paperRef, 0]));
+  for (const e of edges) {
+    if (degree.has(e.src)) degree.set(e.src, degree.get(e.src)! + 1);
+    if (degree.has(e.dst)) degree.set(e.dst, degree.get(e.dst)! + 1);
+  }
+  return degree;
+}
+
+export interface RelaxOptions {
+  width?: number;
+  height?: number;
+  charge?: number;
+  spring?: number;
+}
+
+/** One frame of a *live* settle animation, separate from `layoutGraph`'s own
+ * fixed-iteration solve — which stays untouched by this addition, so its
+ * golden-snapshot output (`verify-library.mjs`) can never drift underneath
+ * it. Same physics shape as one pass of that loop (repulsion + spring +
+ * centre-pull), but driven by a decaying `alpha` rather than a fixed
+ * iteration count, since a `requestAnimationFrame` loop doesn't know in
+ * advance how many frames it will get: the caller seeds `nodes` from
+ * `layoutGraph`'s own output, then calls this once per frame with `alpha`
+ * multiplied by ~0.94 each time, stopping once the motion is imperceptible. */
+export function relaxStep(
+  nodes: PositionedNode[],
+  edges: GraphEdgeIn[],
+  alpha: number,
+  opts: RelaxOptions = {},
+): PositionedNode[] {
+  const width = opts.width ?? 640;
+  const height = opts.height ?? 440;
+  const charge = opts.charge ?? 2200;
+  const spring = opts.spring ?? 0.02;
+  const cx = width / 2;
+  const cy = height / 2;
+
+  if (nodes.length === 0) return [];
+
+  const index = new Map(nodes.map((n, i) => [n.paperRef, i]));
+  const links = edges
+    .map((e) => [index.get(e.src), index.get(e.dst)] as [number?, number?])
+    .filter((l): l is [number, number] => l[0] !== undefined && l[1] !== undefined);
+
+  const fx = new Array(nodes.length).fill(0);
+  const fy = new Array(nodes.length).fill(0);
+
+  for (let a = 0; a < nodes.length; a++) {
+    for (let b = a + 1; b < nodes.length; b++) {
+      let dx = nodes[a].x - nodes[b].x;
+      let dy = nodes[a].y - nodes[b].y;
+      let d2 = dx * dx + dy * dy || 0.01;
+      if (d2 < 0.02) {
+        dx = (a - b) * 0.1;
+        dy = 0.1;
+        d2 = dx * dx + dy * dy;
+      }
+      const f = charge / d2;
+      const d = Math.sqrt(d2);
+      fx[a] += (dx / d) * f;
+      fy[a] += (dy / d) * f;
+      fx[b] -= (dx / d) * f;
+      fy[b] -= (dy / d) * f;
+    }
+  }
+
+  for (const [a, b] of links) {
+    const dx = nodes[b].x - nodes[a].x;
+    const dy = nodes[b].y - nodes[a].y;
+    fx[a] += dx * spring;
+    fy[a] += dy * spring;
+    fx[b] -= dx * spring;
+    fy[b] -= dy * spring;
+  }
+
+  for (let i = 0; i < nodes.length; i++) {
+    const pull = nodes[i].ingested ? 0.012 : 0.006;
+    fx[i] += (cx - nodes[i].x) * pull;
+    fy[i] += (cy - nodes[i].y) * pull;
+  }
+
+  return nodes.map((n, i) => ({
+    ...n,
+    x: clamp(n.x + fx[i] * alpha * 0.02, 12, width - 12),
+    y: clamp(n.y + fy[i] * alpha * 0.02, 12, height - 12),
+  }));
+}
+
 /** The paper-ref → {arxivId|doi} an "add to study" click ingests with. */
 export function ingestIdForRef(
   ref: string,

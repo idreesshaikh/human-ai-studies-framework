@@ -64,7 +64,7 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-LIT-7 | S1; D8 | provider seam (`semantic_scholar.get_json` + `cached_fetch`); OpenAlex recorded as swap candidate | ⏳ seam ready, swap undecided |
 | FR-LIT-8 | FR-CONV-2, FR-TPL; D8, D36 | `scripts/corpus_harvest.py` + `docs/papers/corpus-index.json`/`CORPUS.md`; `corpus_importer.py` | 🔶 pipeline + verified run; importer lands Tier A + Tier B as `Paper(tier=…)` rows + FTS + seed edges; committed re-harvest pending |
 | FR-LIT-9 | FR-CONV-2; RQ-F4 | paper matcher (FTS→LLM ladder) + recommendation cards | ✅ real ladder (FTS BM25 + seed-connectivity + optional LLM rerank); `/papers/match` + `/papers/from-match` |
-| FR-LIT-10 | NFR-12; FR-LIT-4; FR-ETH-4 | living literature constellation + scoped RAG | ⬜ |
+| FR-LIT-10 | NFR-12; FR-LIT-4; FR-ETH-4 | living literature constellation + scoped RAG | 🔶 `platform/src/components/library/Constellation.tsx` rewritten Obsidian-graph-style — degree-sized nodes (`forceLayout.degreeMap`), hover/focus neighbourhood highlighting (`constellationView.ts`, precomputed adjacency, keyboard parity via focus/blur, `Escape` clears), zoom/focus/selection-revealed labels, idle drift + a bounded settle animation layered over the still-untouched deterministic `layoutGraph` seed (golden-snapshot-pinned in `verify-library.mjs`), full reduced-motion parity. Remaining: cite-pulses on conversation citations, arrival streaks, cluster/gap halos, lasso scope, and the scoped-RAG guidance-intent loop (`requirements/specs/fr-lit.md` §3 items 2-4) |
 | FR-ANA-1 | RQ-F3; S5,S6 | `analysis/core.py` | ✅ |
 | FR-ANA-2 | RQ-F2 | `analysis/` requires-check | ✅ |
 | FR-ANA-3 | RQ-P1–P4 | built-in recipes | ✅ (agent/outcome recipes run once agent-leg data lands) |
@@ -163,8 +163,10 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
   curated-dataset leg (FR-CUR-1/2/3), agent-friendliness (FR-AGF), and
   evolution (FR-CONV-4/5) are built; server-complete with the UI gated, with
   live-transport wiring and browser NFR-12 evidence the main remaining work.
-- **Open:** FR-TPL-3/4/5, FR-LIT-10, FR-META-3, FR-INST-18/19, FR-CUR-4, and
-  the FR-OPS hosting-provisioning tail.
+- **Open:** FR-TPL-3/4/5, FR-META-3, FR-INST-18/19, FR-CUR-4, and the FR-OPS
+  hosting-provisioning tail. FR-LIT-10 is now 🔶 (the constellation canvas
+  itself is built; the scoped-RAG/guidance-intent loop into the assistant is
+  not).
 
 Deviations are recorded per phase in `docs/roadmap/` and, where they touch a
 requirement, in the status cell above.
