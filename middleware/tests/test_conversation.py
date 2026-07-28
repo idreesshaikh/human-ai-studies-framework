@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from middleware.app import create_app
-from middleware.db import CORPUS_STUDY_ID, Paper, make_session_factory
+from middleware.db import CORPUS_STUDY_ID, DesignMoveRow, Paper, make_session_factory
 from middleware.settings import Settings
 
 from middleware import assistant, paper_index
@@ -215,7 +215,7 @@ def test_rejecting_a_move_keeps_it_out_of_the_draft(client):
     assert rq_moves[0]["patch"]["value"] not in result["yaml"]
 
 
-def test_undoing_a_decision_reopens_the_move(client):
+def test_undoing_a_decision_reopens_the_move(client, tmp_path):
     """A decided move can be reopened back to 'proposed' — undo, not just
     accept/reject. A reopened move drops back out of the compiled draft,
     same as one that was never decided."""
@@ -237,6 +237,12 @@ def test_undoing_a_decision_reopens_the_move(client):
 
     reopened = _compile(client)
     assert rq_moves[0]["patch"]["value"] not in reopened["yaml"]
+
+    factory = make_session_factory(f"sqlite:///{tmp_path / 'test.sqlite3'}")
+    with factory() as s:
+        mv = s.get(DesignMoveRow, move_id)
+        assert mv.decided_by == ""
+        assert mv.decided_at == ""
 
 
 def test_evasive_conversation_names_unresolved_slots(client):

@@ -251,21 +251,35 @@ export function ConversationView({
   }
 
   function decide(moveId: string, status: MoveStatus) {
-    const before = turns;
+    let previousStatus: MoveStatus | undefined;
     setTurns((prev) =>
       prev.map((t) => ({
         ...t,
-        moves: t.moves.map((m) =>
-          m.moveId === moveId ? { ...m, status } : m,
-        ),
+        moves: t.moves.map((m) => {
+          if (m.moveId !== moveId) return m;
+          previousStatus = m.status;
+          return { ...m, status };
+        }),
       })),
     );
     if (live && !stubOnly) {
       // A rejected decision used to be swallowed, so the card showed a
       // decision the draft never received — the researcher would compile and
-      // find the move missing with no explanation.
+      // find the move missing with no explanation. Rolling back only this
+      // one move (not the whole thread) matters once Undo exists: another
+      // request can be in flight when this one fails, and a whole-thread
+      // snapshot would wipe that unrelated activity too.
       conversationApi.decide(studyId, moveId, status).catch(() => {
-        setTurns(before);
+        setTurns((prev) =>
+          prev.map((t) => ({
+            ...t,
+            moves: t.moves.map((m) =>
+              m.moveId === moveId && previousStatus !== undefined
+                ? { ...m, status: previousStatus }
+                : m,
+            ),
+          })),
+        );
         setNote("That decision didn't reach the server — try it again.");
       });
     }

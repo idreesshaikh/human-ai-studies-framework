@@ -67,38 +67,46 @@ export function MoveCard({
         "transition-all",
         move.status === "proposed" && "duration-entrance ease-out",
         move.status === "accepted" &&
-          "duration-settle ease-in-out translate-x-2 opacity-60",
-        move.status === "rejected" && "duration-standard scale-95 opacity-40",
+          "duration-settle ease-in-out translate-x-2",
+        move.status === "rejected" && "duration-standard scale-95",
       )}
     >
       <CardContent className="flex flex-col gap-2 p-3">
-        <div className="flex items-center gap-2">
-          <span className="type-eyebrow text-text-muted">
-            {KIND_LABEL[move.kind]}
-          </span>
-          {move.status === "accepted" && (
-            <span
-              className={cn(
-                "text-xs",
-                compiled ? "text-grounded" : "text-text-muted",
-              )}
-            >
-              {compiled ? "in draft" : "noted"}
+        <div
+          className={cn(
+            "flex flex-col gap-2",
+            move.status === "accepted" && "opacity-60",
+            move.status === "rejected" && "opacity-40",
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <span className="type-eyebrow text-text-muted">
+              {KIND_LABEL[move.kind]}
             </span>
-          )}
-          {move.status === "rejected" && (
-            <span className="text-xs text-text-muted">dismissed</span>
-          )}
-        </div>
+            {move.status === "accepted" && (
+              <span
+                className={cn(
+                  "text-xs",
+                  compiled ? "text-grounded" : "text-text-muted",
+                )}
+              >
+                {compiled ? "in draft" : "noted"}
+              </span>
+            )}
+            {move.status === "rejected" && (
+              <span className="text-xs text-text-muted">dismissed</span>
+            )}
+          </div>
 
-        <p className="text-sm text-text">{move.proposal}</p>
+          <p className="text-sm text-text">{move.proposal}</p>
 
-        <div className="flex flex-wrap items-center gap-1">
-          {move.grounding.length > 0 ? (
-            move.grounding.map((g) => <GroundingChip key={g.ref} g={g} />)
-          ) : (
-            <UnsourcedLabel />
-          )}
+          <div className="flex flex-wrap items-center gap-1">
+            {move.grounding.length > 0 ? (
+              move.grounding.map((g) => <GroundingChip key={g.ref} g={g} />)
+            ) : (
+              <UnsourcedLabel />
+            )}
+          </div>
         </div>
 
         {!decided && (
