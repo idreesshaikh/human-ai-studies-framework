@@ -66,7 +66,7 @@ export function LifecycleTab({
       setDoc(next);
       setAttesting(null);
     } catch {
-      setError("Couldn't record that attestation — check your connection and try again.");
+      setError("Couldn't record that attestation. Check your connection and try again.");
     } finally {
       setBusy(false);
     }

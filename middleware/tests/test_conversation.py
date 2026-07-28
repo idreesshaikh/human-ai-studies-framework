@@ -308,6 +308,11 @@ def test_evasive_conversation_names_unresolved_slots(client):
     result = _compile(client)
     assert not result["valid"]
     assert result["unresolved"], "empty draft must name its unresolved slots"
+    # The scaffold's errors must name only real, currently-satisfiable gaps —
+    # 'kite' was the pre-rename instrument key (v1/v2 schema branch); nothing
+    # has written it since 'tern', so it must never appear as an error a
+    # researcher is asked to resolve.
+    assert not any("kite" in e for e in result["errors"])
 
 
 # --------------------------------------------------------------- F2.3 / F3.2

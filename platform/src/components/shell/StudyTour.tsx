@@ -25,27 +25,27 @@ const STEPS: Step[] = [
   {
     tab: "conversation",
     title: "Talk your study into existence",
-    body: "Start here. Describe a research idea in plain language — the assistant asks the questions a methodologist would and proposes design moves you accept or reject. Type “finish” when you're ready to compile them into a protocol.",
+    body: "Start here. Describe a research idea in plain language: the assistant asks the questions a methodologist would and proposes design moves you accept or reject. Type “finish” when you're ready to compile them into a protocol.",
   },
   {
     tab: "conversation",
-    title: "Every move is grounded — or honest that it isn't",
+    title: "Every move is grounded, or honest that it isn't",
     body: "Each proposed move cites real papers from the corpus, with a confidence score. Moves that are genuinely your judgment say so, rather than pretending to be cited.",
   },
   {
     tab: "library",
     title: "Your literature, as a living map",
-    body: "The papers behind your study — add any by arXiv id, DOI, or PDF. The assistant's recommendations land here too. Drag the constellation to explore the citation neighbourhood.",
+    body: "The papers behind your study: add any by arXiv id, DOI, or PDF. The assistant's recommendations land here too. Drag the constellation to explore the citation neighbourhood.",
   },
   {
     tab: "data",
     title: "Honest data, and the stats your design calls for",
-    body: "Your collected data as plain shapes — never a bare p-value. The prescription panel tells you the exact test, effect size, and correction your design needs, with the reasoning.",
+    body: "Your collected data as plain shapes, never a bare p-value. The prescription panel tells you the exact test, effect size, and correction your design needs, with the reasoning.",
   },
   {
     tab: "lifecycle",
     title: "Move the study forward, one checkpoint at a time",
-    body: "Design → ethics → pilot → data collection → analysis. Attest each gate (ethics approval, consent) to advance — the study can't skip a step it hasn't cleared.",
+    body: "Design → ethics → pilot → data collection → analysis. Attest each gate (ethics approval, consent) to advance: the study can't skip a step it hasn't cleared.",
   },
   {
     tab: "enrollment",

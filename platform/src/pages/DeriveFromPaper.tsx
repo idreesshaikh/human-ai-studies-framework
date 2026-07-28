@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Search, Loader2, Sparkles, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { Confidence } from "@/components/conversation/Confidence";
 import {
   templatesApi,
@@ -143,19 +144,19 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
           <span className="text-xs text-text-muted">Run</span>
           <span className="max-w-56 truncate text-xs font-medium text-text">{paper.title}</span>
           <span className="text-xs text-text-muted">through</span>
-          <select
+          <Select
             value={baseId}
             onChange={(e) => setBaseId(e.target.value)}
             aria-label="Base archetype"
-            className="min-h-9 rounded-input border border-border-strong bg-bg px-2 text-sm text-text outline-none focus-visible:border-accent"
+            className="w-auto"
           >
             <option value="">Choose an archetype…</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.designType} — {t.title}
+                {t.designType}: {t.title}
               </option>
             ))}
-          </select>
+          </Select>
           <Button size="sm" onClick={derive} disabled={!baseId || busy}>
             {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
             Derive template
