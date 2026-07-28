@@ -349,7 +349,7 @@ export function ConversationView({
             ))}
             {busy && live && !stubOnly && (
               <div className="flex flex-col items-start gap-3" data-agent="conversation-thinking">
-                <div className="max-w-bubble animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 text-sm duration-entrance">
+                <div className="max-w-[46ch] animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 text-sm duration-entrance">
                   <span className="mb-1 block text-xs text-text-muted opacity-70">
                     Platform
                   </span>
