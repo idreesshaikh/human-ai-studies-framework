@@ -20,7 +20,7 @@ import { studyApi } from "@/lib/studyApi";
 import type { StudyChange } from "@/lib/presence";
 import type { Understanding } from "@/lib/types";
 import { cn } from "@/lib/cn";
-import type { DesignMove, Turn } from "@/lib/types";
+import type { DesignMove, MoveStatus, Turn } from "@/lib/types";
 
 const FEEDBACK_CUES = [
   "it would be better",
@@ -250,7 +250,7 @@ export function ConversationView({
     }
   }
 
-  function decide(moveId: string, status: "accepted" | "rejected") {
+  function decide(moveId: string, status: MoveStatus) {
     const before = turns;
     setTurns((prev) =>
       prev.map((t) => ({

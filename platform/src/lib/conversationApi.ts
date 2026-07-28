@@ -1,6 +1,7 @@
 import type {
   DesignMove,
   Grounding,
+  MoveStatus,
   ProtocolDraft,
   Recommendation,
   Turn,
@@ -288,7 +289,7 @@ export const conversationApi = {
     return { turns: [researcher, platform], understanding: done.understanding };
   },
 
-  decide(studyId: string, moveId: string, status: "accepted" | "rejected") {
+  decide(studyId: string, moveId: string, status: MoveStatus) {
     return post<{ moveId: string; status: string }>(
       `/studies/${encodeURIComponent(studyId)}/conversation/moves/${encodeURIComponent(moveId)}/decision`,
       { status, decidedBy: "Researcher" },
