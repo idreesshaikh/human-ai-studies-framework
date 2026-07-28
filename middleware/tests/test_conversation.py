@@ -276,6 +276,16 @@ def test_export_renders_the_full_chain(client):
     assert export["approvals"][-1]["compilationId"] == comp["compilationId"]
 
 
+def test_reloading_the_conversation_recomputes_understanding(client):
+    """A reload used to blank the understanding line until the next turn was
+    sent — `understanding` was only ever set from a turn's own reply, never
+    recomputed from the stored history. `GET .../conversation` must carry the
+    same summary a fresh turn would, straight from what's already on record."""
+    reply = _ask(client, "I think junior developers over-trust AI-generated code")
+    conversation = client.get(f"/studies/{STUDY}/conversation").json()
+    assert conversation["understanding"] == reply["understanding"]
+
+
 # ---------------------------------------------------------- FR-CONV-1.4 (LLM)
 
 

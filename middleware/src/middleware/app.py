@@ -54,6 +54,7 @@ from middleware import (
     auth,
     authz,
     compiler,
+    corpus_enrich,
     design_assistant,
     elicitation,
     enrollment,
@@ -3565,6 +3566,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         )
         return {"results": results}
 
+    @app.get("/corpus/status")
+    def corpus_status(s: Session = Depends(db)) -> dict:
+        """How much of the corpus carries a real abstract, not just a title
+        (FR-LIT-8 quality). Not study-scoped — the corpus is shared — and
+        unauthenticated like `/corpus/search`, since it's an aggregate count,
+        never study or participant data. Explains why some matches are
+        title-only, so `PlatformFindings` surfaces it rather than hiding it."""
+        return corpus_enrich.enrichment_status_for_session(s)
+
     @app.post("/templates/from-paper")
     def template_from_paper(body: dict, s: Session = Depends(db)) -> dict:
         """Turn a corpus paper into an executable template by binding it to a
@@ -4105,6 +4115,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 }
                 for t in turns
             ],
+            # Recomputed the same way a fresh turn computes it
+            # (`design_assistant.turn_stance`) — otherwise a reload blanks
+            # the line the UI keeps this for, until the next turn is sent.
+            "understanding": elicitation.understanding_summary(
+                elicitation.assess_understanding(
+                    design_assistant.researcher_texts(s, study_id)
+                )
+            ),
         }
 
     @app.post(
