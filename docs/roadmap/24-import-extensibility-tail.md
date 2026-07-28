@@ -20,7 +20,10 @@ registry, FR-TPL-1's schema), Phase 14 (role matrix — `owner`/`researcher`/
 priority) as long-deferred extension points; bundled into one phase
 2026-07-21 while auditing the roadmap for requirements with no phase
 owner.
-**Status:** Specced (2026-07-21). Not built.
+**Status:** 🔶 Slice A (generic-json transcript) + Slice B (ArchiveAdapter) +
+Slice C (TemplateSubmission endpoints) built; Slice C's writes to the live
+registry can't be integration-tested without polluting committed files —
+unit tests validate schema + routing. See the deviations log below.
 
 ## The idea
 

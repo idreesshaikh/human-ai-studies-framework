@@ -78,7 +78,7 @@ sequenceDiagram
     participant IMP as Platform importer
 
     O->>H: uv run … --target 1000
-    loop 57 Tier-A seeds (paced, cached, resumable)
+    loop 100 Tier-A seeds (paced, cached, resumable)
         H->>S2: paper/arXiv:{seed}?fields=refs+cites(nested)
         S2-->>H: ≤200 candidate mentions
     end

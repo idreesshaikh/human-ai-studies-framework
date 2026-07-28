@@ -166,10 +166,11 @@ cd platform && npm run build    # → platform/dist
 # restart the middleware; it serves dist/ at http://127.0.0.1:8000/
 ```
 
-The React app is entered at `/` (the hero) and routes client-side: `/projects`,
-`/p/:slug` (a project), `/p/:slug/studies/:id` (the study workspace — the design
-conversation plus the Library, Data, and Lifecycle tabs), `/p/:slug/platform`
-(the feedback→findings surface), `/demo`.
+The React app is entered at `/` (the hero) and routes client-side: `/home`
+(the project list), `/p/:slug` (a project), `/p/:slug/studies/:id` (the study
+workspace — the design conversation plus the Library, Data, and Lifecycle
+tabs), `/p/:slug/templates`, `/p/:slug/platform` (the feedback→findings
+surface), `/p/:slug/members`, `/p/:slug/settings`.
 
 ### 3.3 VS Code extension (cognitive + behavioral legs)
 

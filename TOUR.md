@@ -72,7 +72,7 @@ The four you'll meet most often in the docs:
 | "Fetch algorithms directly from papers" | Two published studies already run as recipes (an AI-acceptance-rate metric, a work-fragmentation metric) |
 | "Beautiful, clean, smart platform" | `docker compose up` → http://127.0.0.1:8000 |
 
-## The seven components, one sentence each
+## The eight components, one sentence each
 
 | Where | What it is |
 | ----- | ---------- |
@@ -80,6 +80,7 @@ The four you'll meet most often in the docs:
 | `extension/` | The VS Code extension participants run - the feelings leg (micro-surveys) and the behavior leg (edits, focus, AI interactions) |
 | `metrics/` | Nine code-complexity measurements over the participant's code |
 | `agent-capture/` | The AI's side of the session: Claude Code hooks, transcript import, workspace snapshots, task pass/fail harness |
+| `curated/` | The curated-dataset leg: normalizer, GitHub mining adapter, authorship heuristics, threats record |
 | `middleware/` | The hub on port 8000 everything reports to; stores every event, detects loss, serves the joined dataset and the platform |
 | `platform/` | The web app (React): the design conversation, the study workspace (Library / Data / Lifecycle), projects, and the evolution surfaces |
 | `analysis/` | Recipes → report → paper draft → retrospective |

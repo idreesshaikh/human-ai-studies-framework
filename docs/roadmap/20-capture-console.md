@@ -21,7 +21,9 @@ toggles, new).
 console') builds the grounded per-metric toggle UI on the channel this phase
 opens" — formalized 2026-07-21 while auditing the roadmap for unspecced
 phases.
-**Status:** Specced (2026-07-21). Not built.
+**Status:** ✅ built — toggle-as-amendment endpoint + catalog + FR-CONV-7
+consent-relevance + `IdeHealthCollector` + `TogglePopover`, all pytest +
+`node:test` + build verified. See the deviations log below.
 
 ## The idea
 

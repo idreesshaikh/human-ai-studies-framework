@@ -15,12 +15,12 @@ Clerk splits customization in two, and the split decides what's reachable:
   Clerk Dashboard's theme controls.
 
 We are on the hosted portal, so the ceiling is **color / radius / logo / font
-match — not character match.** The Study Desk signature (the reading serif
+match — not character match.** The instrument's signature (the reading serif
 for headings, the soft lifted-card shadow) needs custom CSS and is therefore
-*not achievable* here. Getting the real Study-Desk look means embedding
-`<SignIn/>` in the platform app (`@clerk/clerk-react` + `<ClerkProvider>` + a
-`/sign-in` route) — a frontend feature, gated by golden rules 1 & 5 (a
-requirement trace and a build-vs-adopt row) before code.
+*not achievable* here. Getting the real look means embedding `<SignIn/>` in
+the platform app (`@clerk/clerk-react` + `<ClerkProvider>` + a `/sign-in`
+route) — a frontend feature, gated by golden rules 1 & 5 (a requirement
+trace and a build-vs-adopt row) before code.
 
 Source of truth for every value below: `platform/src/styles/tokens.css`. If a
 token changes there, re-derive here — these are a hand-copied snapshot, not a
@@ -33,20 +33,20 @@ for the logo). Exact labels drift between Clerk versions; it's the visual theme
 editor that maps to Clerk's `variables`. Fields not offered by the editor are
 code-only `variables` — skip them; they don't reach the hosted portal.
 
-## Values — light theme ("Daylight desk", the platform default)
+## Values — light theme ("Daylight instrument", the platform default)
 
 | Dashboard control (`variable`)          | Value                | Token              |
 | --------------------------------------- | -------------------- | ------------------ |
-| Primary color (`colorPrimary`)          | `#2c6e72`            | `--accent`         |
-| Background (`colorBackground`)          | `#f1ebdd`            | `--bg`             |
-| Foreground/text (`colorText`)           | `#26221b`            | `--text`           |
-| Secondary text (`colorTextSecondary`)   | `#63583f`            | `--text-muted`     |
-| Input background (`colorInputBackground`)| `#fbf7ee`           | `--surface`        |
-| Input text (`colorInputText`)           | `#26221b`            | `--text`           |
-| Neutral seed (`colorNeutral`)           | `#26221b`            | `--ink`            |
-| Danger (`colorDanger`)                  | `#b4241f`            | `--status-critical`|
-| Success (`colorSuccess`)                | `#2f7a52`            | `--grounded`       |
-| Warning (`colorWarning`)                | `#9e5514`            | `--unsourced`      |
+| Primary color (`colorPrimary`)          | `#2a45c0`            | `--accent`         |
+| Background (`colorBackground`)          | `#e9edf3`            | `--bg`             |
+| Foreground/text (`colorText`)           | `#16202e`            | `--text`           |
+| Secondary text (`colorTextSecondary`)   | `#55627a`            | `--text-muted`     |
+| Input background (`colorInputBackground`)| `#f7f9fc`           | `--surface`        |
+| Input text (`colorInputText`)           | `#16202e`            | `--text`           |
+| Neutral seed (`colorNeutral`)           | `#16202e`            | `--ink`            |
+| Danger (`colorDanger`)                  | `#c0281f`            | `--status-critical`|
+| Success (`colorSuccess`)                | `#1f7a4d`            | `--grounded`       |
+| Warning (`colorWarning`)                | `#8a5710`            | `--unsourced`      |
 | Border radius (`borderRadius`)          | `8px` (`0.5rem`)     | `--radius-input`   |
 | Font family (`fontFamily`)              | `IBM Plex Mono`      | see note ↓         |
 
@@ -57,19 +57,19 @@ display face). The reading serif (**Newsreader**) never reaches the hosted
 portal — Clerk's theme editor has no serif heading slot — so color + radius
 carry the match there.
 
-## Values — dark theme ("Lamplit desk")
+## Values — dark theme ("Observatory")
 
 The hosted portal is effectively one theme; pick a lane. Light is the better
 default (it's the platform's primary look). For a dark portal instead:
 
 | `variable`             | Value     | Token              |
 | ---------------------- | --------- | ------------------ |
-| `colorPrimary`         | `#63b7b0` | `--accent` (dark)  |
-| `colorBackground`      | `#191510` | `--bg` (dark)      |
-| `colorText`            | `#ece3d0` | `--text` (dark)    |
-| `colorInputBackground` | `#221d16` | `--surface` (dark) |
-| `colorSuccess`         | `#57c98b` | `--grounded` (dark)|
-| `colorWarning`         | `#e7b45a` | `--unsourced` (dark)|
+| `colorPrimary`         | `#6ea8ff` | `--accent` (dark)  |
+| `colorBackground`      | `#0e1420` | `--bg` (dark)      |
+| `colorText`            | `#e6ecf5` | `--text` (dark)    |
+| `colorInputBackground` | `#172033` | `--surface` (dark) |
+| `colorSuccess`         | `#4ec98a` | `--grounded` (dark)|
+| `colorWarning`         | `#e0a94f` | `--unsourced` (dark)|
 | `colorDanger`          | `#ff6b5e` | `--status-critical`|
 
 Making the portal *follow* the viewer's OS/app theme is embedded-only

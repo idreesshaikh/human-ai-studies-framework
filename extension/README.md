@@ -59,8 +59,9 @@ window opens with the extension loaded. In that window:
 4. When the timer elapses (or you run _End Study Session_), the debrief survey
    opens and the data file is finalized.
 
-To install for real participants: `npm run package` produces a `.vsix`, then
-`code --install-extension tern-0.2.0.vsix`.
+To install for real participants: `npm run package` produces a `.vsix`
+(named for whatever version `package.json` currently declares, e.g.
+`tern-0.1.0.vsix`), then `code --install-extension <that file>`.
 
 To try the stuck prompt quickly, set `tern.stuck.thresholdSeconds`
 to `15` and `tern.stuck.cooldownMinutes` to `1`, start a session,
@@ -120,7 +121,7 @@ Events land in `<workspace>/.study-data/<participant>_<timestamp>.jsonl`
 | `end_survey_response` / `end_survey_skipped` | Debrief submitted / dismissed    | responses (per-item 1–7), comments, msToComplete                                  |
 | `session_end`                                | Everything flushed               | reason                                                                            |
 
-### Behavioral telemetry events (schema v3)
+### Behavioral telemetry events (schema v4)
 
 The behavioral leg (MP-05) adds the event types below. All payloads are
 FR-ETH-2-safe: sizes, shapes, and timings only - never code content,
@@ -139,13 +140,17 @@ Python) and workspace-internal files.
 | `heartbeat`            | Active/idle transition only (never periodic)                                   | state (`active`/`idle`) - active = interaction within a rolling 120 s window (FR-INST-11)                                                                                  |
 | `attention`            | Caret/hover left a line-region band, or file switch                            | file, startLine, endLine, focusMs, cursorMs, hoverMs, edited, mode (`reading`/`editing`/`mixed`), exitReason - region-level time-on-code, present-gated (idle/blur paused) |
 | `environment_snapshot` | Once at session start                                                          | vscodeVersion, extensionVersions, os, agentTool, agentModelId, taskId (FR-INST-14 replication provenance)                                                                  |
+| `ide_health`            | Debounced 10 s after a diagnostics/build/test count changes                    | errorCount, warningCount, buildInvocations, testInvocations - IDE struggle proxy, no diagnostic text (FR-INST-18)                                                          |
+| `behavior_sensor_error` | A behavioral sensor throws, reported once per source                          | source, message - NFR-1: swallow, count, report once, never interrupt                                                                                                      |
+| `comprehension_probe_response` | A comprehension probe is answered or expires (schema v4, FR-INST-19)   | chunkRef, promptKind, answer, correct, msToAnswer, expired                                                                                                                  |
 
 Set `tern.output.httpEndpoint` (e.g.
 `http://localhost:8000/cognitive`) to also stream batched events to the
 middleware - same decoupled "lightweight sensor → local daemon" architecture
 as ActivityWatch. The JSONL file is always written regardless, so a dead
 server never loses data. Batches POST as
-`{"source":"tern","events":[...]}` every 5 s.
+`{"source":"cognitive-overlay","events":[...]}` every 5 s (the source
+string predates the TERN rename and was never updated to match).
 
 ---
 

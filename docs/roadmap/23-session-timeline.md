@@ -20,7 +20,7 @@ one-timeline invariant made visible" — discovered unphased 2026-07-21
 while auditing the roadmap; formalized as its own phase rather than folded
 into Phase 14 (where FR-DASH-4 is currently 🔶) since the swimlane itself
 was never scheduled as concrete slices anywhere.
-**Status:** Specced (2026-07-21). Not built.
+**Status:** ✅ built. See the deviations log below.
 
 ## The idea
 

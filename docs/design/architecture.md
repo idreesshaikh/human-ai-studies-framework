@@ -64,7 +64,7 @@ flowchart TB
         MANIFEST["Manifest generator (FR-AGF-1)<br/>from documents of record"]:::svc
     end
 
-    subgraph STORES["Storage (D11: SQLite, one file = backup)"]
+    subgraph STORES["Storage (D26: PostgreSQL on Railway, superseding D11's SQLite-only model)"]
         DB[("PostgreSQL (default)<br/>projects · studies · events ·<br/>conversations · papers · FTS<br/>SQLite fallback for script testing")]:::store
         FILES[("content-addressed file store<br/>gate artifacts · PDFs")]:::store
     end

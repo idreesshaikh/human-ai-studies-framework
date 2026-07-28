@@ -50,7 +50,7 @@ Participant data stays on the researcher's machine and never enters git.
 ## Quick start
 
 **Prerequisites:** Docker (for the one-command demo), or Python 3.12 with
-[uv](https://docs.astral.sh/uv/) and Node.js 20+ to run components directly.
+[uv](https://docs.astral.sh/uv/) and Node.js 22+ to run components directly.
 
 ```bash
 git clone https://github.com/idreesshaikh/human-ai-studies-framework.git
@@ -81,6 +81,8 @@ protocol/        Study-as-code: validate a protocol, drive its lifecycle,
 extension/       VS Code extension participants run (the two human angles)
 metrics/         Nine code-complexity measurements
 agent-capture/   The AI's side: hooks, transcripts, snapshots, task harness
+curated/         The curated-dataset leg: normalizer, GitHub mining adapter,
+                 authorship heuristics, threats record
 middleware/      The hub on port 8000: ingestion, storage, integrity
                  checks, the joined dataset, and it serves the platform
 platform/        The web app (React 19): the design conversation, the study

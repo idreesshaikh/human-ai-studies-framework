@@ -1,8 +1,9 @@
 # Proposal — retire the Tier A / Tier B split for a single quality-gated corpus
 
-**Status: proposal, not adopted.** Nothing in this document is built; it
-exists so the owner can review the shape of the change before any code,
-schema, or requirement moves. Elicited from a design conversation
+**Status: adopted 2026-07-28 (D43, `requirements/build-vs-adopt.md`), not yet
+built.** This is now the target corpus model — the Tier A/Tier B split it
+critiques is still what's implemented everywhere in the codebase today, and
+stays that way until this is built out. Elicited from a design conversation
 (2026-07-21): *"remove tier a and tier b — the only way to bring them into
 some hierarchy would be a quality gate."*
 

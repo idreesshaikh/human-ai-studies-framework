@@ -53,12 +53,19 @@ That self-application is the thesis made product.
    quality-gated, API-verifiable citation snowballing
    (`scripts/corpus_harvest.py`, refreshable as the literature moves;
    agentic discovery sources join later behind the same quality gate,
-   D36). **There is no provenance tier** (A/B): every paper carries a
-   single continuous **confidence** score from the quality gate, and papers
-   are *matched to the researcher's idea* as the conversation unfolds
-   (FR-LIT-9) — ranked by confidence, keyword relevance, and semantic
-   meaning — surfaced in a live recommender beside the conversation and
-   explorable as a **living literature constellation** (FR-LIT-10).
+   D36). Currently built as two provenance tiers: **Tier A** (hand-curated
+   seeds, each with a curator-written "why", `docs/papers/README.md`) and
+   **Tier B** (pipeline-harvested via citation snowballing from Tier A, each
+   carrying its own quality metrics — citations, venue, freshness, seed
+   connectivity). **Adopted as the target model** (D43,
+   `requirements/build-vs-adopt.md`), not yet built: a single continuous
+   quality-gated **confidence** score replacing the tier split
+   (`docs/design/corpus-quality-model-proposal.md`) — every provenance-tier
+   call site moves when this lands. Papers are *matched to the researcher's
+   idea* as the conversation unfolds (FR-LIT-9) — ranked by confidence,
+   keyword relevance, and semantic meaning — surfaced in a live recommender
+   beside the conversation and explorable as a **living literature
+   constellation** (FR-LIT-10).
 2. **The protocol repertoire** — not paper-replicas: **generic, proven
    study designs ranked common→rare**, each binding the **statistical plan**
    its design requires (exact tests, effect sizes, per-cell-n rules) and

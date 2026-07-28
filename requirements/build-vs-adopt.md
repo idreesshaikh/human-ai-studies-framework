@@ -644,3 +644,17 @@ would drift from the source it claims to be).
 ID is an account the repository owner registers and holds the PAT for; it
 cannot be chosen by a builder. Until it is set, `npm run package` produces a
 valid local `.vsix` and publishing is blocked at the last step.
+
+### D43 - Corpus provenance model: retire Tier A / Tier B for a single continuous score - **ADOPT (not yet built)** → FR-LIT-8 *(proposed 2026-07-21, adopted 2026-07-28)*
+
+A design conversation (2026-07-21) proposed retiring the Tier A/Tier B split
+for a single continuous quality-gated `score` + `isSeed` flag, written up in
+full in `docs/design/corpus-quality-model-proposal.md`. Adopted as the target
+model. **Not yet built:** the codebase still runs the two-tier model
+end-to-end (`docs/papers/README.md`/`CORPUS.md`, `corpus_harvest.py`,
+`middleware/src/middleware/{db,matching,corpus_importer,corpus_enrich,app,
+manifest}.py`, `platform/src/components/conversation/Confidence.tsx`,
+`requirements/srs.md` FR-LIT-8, `requirements/specs/fr-lit.md`,
+`requirements/glossary.md`) — this is queued implementation work, not yet
+started. When it lands, update every one of those call sites plus this row,
+and flip FR-LIT-8's own wording in `srs.md` to match the new model.

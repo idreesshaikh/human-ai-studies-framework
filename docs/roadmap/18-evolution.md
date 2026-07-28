@@ -16,7 +16,9 @@ Phase 13 / FR-META-1..3 (findings log, retrospective, in-platform agents —
 the machinery feedback flows into). **Satisfies:** FR-CONV-4, FR-CONV-5
 (+ the FR-META extensions they name). **Elicited:** owner, Phase 01 rev 9
 ("study ideas and instrumentation are evolved on the fly"; "the platform
-evolves from researcher feedback"). **Status:** Open.
+evolves from researcher feedback"). **Status:** 🔶 built — amendment engine +
+feedback loop green server-side; UI built + gated; live transport + browser
+NFR-12 evidence deferred (see the deviations log below for what shipped).
 
 ## The idea
 
