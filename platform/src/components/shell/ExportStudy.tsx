@@ -46,7 +46,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
     <div className="flex items-center gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" data-agent="study-export">
+          <Button variant="ghost" size="sm" aria-label="Share and export" data-agent="study-export">
             {busy ? (
               <Loader2 className="size-4 animate-spin" aria-hidden />
             ) : done ? (

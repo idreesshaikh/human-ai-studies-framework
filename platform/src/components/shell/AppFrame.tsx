@@ -22,7 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { KiteMark } from "@/components/brand/KiteMark";
+import { PhoenixMark } from "@/components/brand/PhoenixMark";
 import { ProjectSwitcher } from "./ProjectSwitcher";
 import { useSession } from "@/lib/session";
 import { useAuth } from "@/lib/auth.tsx";
@@ -40,6 +40,10 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const { slug: routeSlug } = useParams<{ slug?: string }>();
   const hasProjectNav = /^\/p\/[^/]+/.test(pathname);
+  // A study workspace clips here and lets its own tab own the one scroller
+  // (StudyHome + its Surfaces); every other route still scrolls in the
+  // shell. Never both, or a tall page grows two scrollbars.
+  const isWorkspace = /^\/p\/[^/]+\/studies\/[^/]+/.test(pathname);
   // Use the slug from the current route; fall back to the first membership
   // only on pages that have no slug param (shouldn't happen when hasProjectNav
   // is true, but keeps the type-system happy).
@@ -96,10 +100,8 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           <Menu className="size-5" aria-hidden />
         </button>
         <Link to="/home" className="flex items-center gap-2" aria-label="Phoenix, home">
-          <KiteMark size={22} />
-          <span className="font-serif text-lg font-medium tracking-tight text-text">
-            Phoenix
-          </span>
+          <PhoenixMark size={22} />
+          <span className="type-subhead text-text">Phoenix</span>
         </Link>
         <div className="ml-auto flex items-center gap-2">
           <ProjectSwitcher memberships={me?.memberships ?? []} />
@@ -150,7 +152,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             className={cn(
               "w-56 shrink-0 border-r border-border-strong bg-surface p-3",
               navOpen
-                ? "fixed inset-y-0 left-0 z-40 block pt-[calc(var(--header-h,3rem)+0.5rem)] lg:static lg:pt-0"
+                ? "fixed inset-y-0 left-0 z-40 block pt-[calc(var(--header-h)+0.5rem)] lg:static lg:pt-0"
                 : "hidden lg:block",
             )}
           >
@@ -176,7 +178,9 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             </div>
           </nav>
         )}
-        <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+        <main className={cn("min-h-0 flex-1", isWorkspace ? "overflow-hidden" : "overflow-auto")}>
+          {children}
+        </main>
       </div>
     </div>
   );

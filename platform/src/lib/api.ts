@@ -40,6 +40,21 @@ export type ResearcherProfile =
   | "experienced"
   | "industry";
 
+/** Offline fallback only — mirrors `elicitation.PROFILES` on the server,
+ * which is the source of truth (`researcherProfiles()` fetches the real
+ * catalogue live). Kept here, not re-typed ad hoc at each call site, so
+ * there's exactly one place this can drift from the server's copy. */
+export const FALLBACK_RESEARCHER_PROFILES: {
+  id: ResearcherProfile;
+  label: string;
+  description: string;
+}[] = [
+  { id: "student", label: "Student", description: "Learning research methods; this may be a first study." },
+  { id: "new-researcher", label: "New researcher", description: "Research training, first empirical studies in this area." },
+  { id: "experienced", label: "Experienced researcher", description: "Designs and runs empirical studies regularly." },
+  { id: "industry", label: "Industry practitioner", description: "Studying developers inside a company (e.g. a platform team)." },
+];
+
 export interface Preferences {
   theme?: "light" | "dark" | "system";
   defaultAssistantModel?: string;
@@ -155,6 +170,17 @@ export interface Api {
     models: string[];
     defaultModel: string;
   }>;
+  /** The researcher profiles the design conversation adapts to (FR-CONV-9),
+   * from the server's own `elicitation.PROFILES` — the source of truth, so
+   * this list can't drift from what `Settings` used to hardcode. */
+  researcherProfiles(): Promise<{
+    profiles: { id: string; label: string; description: string }[];
+    default: string;
+  }>;
+  /** How much of the shared corpus carries a real abstract rather than just
+   * a title (FR-LIT-8) — explains why some matches are title-only, so
+   * `PlatformFindings` can surface it instead of leaving it invisible. */
+  corpusStatus(): Promise<{ papers: number; withAbstract: number; missing: number }>;
 }
 
 /** Raised by both backends so callers can show the server's plain-language
@@ -307,6 +333,16 @@ class HttpBackend implements Api {
     this.call<{ configured: boolean; models: string[]; defaultModel: string }>(
       "GET",
       "/assistant/models",
+    );
+  researcherProfiles = () =>
+    this.call<{
+      profiles: { id: string; label: string; description: string }[];
+      default: string;
+    }>("GET", "/conversation/profiles");
+  corpusStatus = () =>
+    this.call<{ papers: number; withAbstract: number; missing: number }>(
+      "GET",
+      "/corpus/status",
     );
 }
 
@@ -630,6 +666,19 @@ export class InMemoryBackend implements Api {
       models: ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest"],
       defaultModel: "mistral-medium-latest",
     };
+  }
+
+  async researcherProfiles(): Promise<{
+    profiles: { id: string; label: string; description: string }[];
+    default: string;
+  }> {
+    return { profiles: FALLBACK_RESEARCHER_PROFILES, default: "new-researcher" };
+  }
+
+  async corpusStatus(): Promise<{ papers: number; withAbstract: number; missing: number }> {
+    // Offline demo: no corpus DB to count, so report an empty one honestly
+    // rather than inventing a number.
+    return { papers: 0, withAbstract: 0, missing: 0 };
   }
 }
 

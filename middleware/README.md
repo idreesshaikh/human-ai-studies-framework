@@ -57,7 +57,8 @@ uv run protocol derive overlay-settings protocol/examples/pilot-study.yaml \
 The relevant setting is
 `"tern.output.httpEndpoint": "http://127.0.0.1:8000/ingest/events"`.
 The extension needs **zero code changes**: its HttpSink already POSTs
-`{"source": "tern", "events": [...]}` batches.
+`{"source": "cognitive-overlay", "events": [...]}` batches (the source
+string predates the TERN rename and was never updated to match).
 
 ## Smoke test
 

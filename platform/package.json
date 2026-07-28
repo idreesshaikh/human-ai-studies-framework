@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint . && node scripts/lint-no-raw-literals.mjs && node scripts/check-agent-annotations.mjs",
-    "verify": "node --experimental-strip-types scripts/verify-slice1.mjs && node --experimental-strip-types scripts/verify-shell.mjs && node --experimental-strip-types scripts/verify-evolution.mjs && node --experimental-strip-types scripts/verify-library.mjs && node --experimental-strip-types scripts/verify-timeline.mjs",
+    "verify": "node --experimental-strip-types scripts/verify-slice1.mjs && node --experimental-strip-types scripts/verify-shell.mjs && node --experimental-strip-types scripts/verify-evolution.mjs && node --experimental-strip-types scripts/verify-library.mjs && node --experimental-strip-types scripts/verify-timeline.mjs && node --experimental-strip-types scripts/verify-layout.mjs && node --experimental-strip-types scripts/verify-constellation.mjs",
     "check": "tsc -b && npm run lint && npm run verify && npm run build"
   },
   "dependencies": {

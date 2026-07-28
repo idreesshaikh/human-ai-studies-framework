@@ -37,7 +37,12 @@ test to run (recommend as a ranked list by preference when more than one) and
 creates them for you… merge many designs and create something extraordinary
 without any hallucination… I need a couple dozen ready-made designs to make
 this work in a live demo."*
-**Status:** Specced (2026-07-19). Not built.
+**Status:** 🔶 built — Slice A (parameterised recipes + figure forms + meta
+wiring to runner) + Slice C (analysisPlan compiler for prescription+figure
+moves) + design_assistant wired for prescription/figure suggestions; Wave-1
+archetypes in registry; `prescribe.py` + `suggest_figures.py` complete.
+Remaining: Slice B platform UI (ranked shortlist cards), verify scripts,
+Slice D Wave-2 fill, NFR-12 evidence. See the deviations log below.
 
 ## The idea
 

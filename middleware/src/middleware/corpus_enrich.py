@@ -159,26 +159,37 @@ def enrich_abstracts(
     return summary
 
 
-def enrichment_status(db_url: str) -> dict:
-    """How much of the corpus carries a real abstract (the honest counter)."""
-    factory = make_session_factory(db_url)
-    with factory() as s:
-        total = s.scalar(
-            select(func.count())
-            .select_from(Paper)
-            .where(Paper.study_id == CORPUS_STUDY_ID)
+def enrichment_status_for_session(s: Session) -> dict:
+    """How much of the corpus carries a real abstract (the honest counter).
+
+    Takes a session rather than opening its own, so a request handler that
+    already has one (``app.py``'s ``GET /corpus/status``) can call this
+    directly instead of standing up a second engine per request.
+    """
+    total = s.scalar(
+        select(func.count())
+        .select_from(Paper)
+        .where(Paper.study_id == CORPUS_STUDY_ID)
+    )
+    with_abstract = s.scalar(
+        select(func.count())
+        .select_from(Paper)
+        .where(
+            Paper.study_id == CORPUS_STUDY_ID,
+            func.length(func.coalesce(Paper.abstract, ""))
+            >= MIN_REAL_ABSTRACT_CHARS,
         )
-        with_abstract = s.scalar(
-            select(func.count())
-            .select_from(Paper)
-            .where(
-                Paper.study_id == CORPUS_STUDY_ID,
-                func.length(func.coalesce(Paper.abstract, ""))
-                >= MIN_REAL_ABSTRACT_CHARS,
-            )
-        )
+    )
     return {
         "papers": total or 0,
         "withAbstract": with_abstract or 0,
         "missing": (total or 0) - (with_abstract or 0),
     }
+
+
+def enrichment_status(db_url: str) -> dict:
+    """CLI convenience: opens its own session (``__main__.py``'s
+    ``corpus-enrich`` command runs outside any request scope)."""
+    factory = make_session_factory(db_url)
+    with factory() as s:
+        return enrichment_status_for_session(s)

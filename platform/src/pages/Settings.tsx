@@ -8,9 +8,9 @@ import { RoleGate } from "@/components/shell/RoleGate";
 import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
 import { ApiError } from "@/lib/api.ts";
-import type { Role } from "@/lib/capabilities.ts";
+import { resolveRole, roleOrNull } from "@/lib/role";
 import type { Theme } from "@/lib/theme";
-import type { ResearcherProfile } from "@/lib/api";
+import { FALLBACK_RESEARCHER_PROFILES, type ResearcherProfile } from "@/lib/api";
 
 /* Project settings: rename, and an owner-only danger zone whose delete
  * requires typing the slug to confirm. Plus the signed-in identity's own
@@ -18,24 +18,34 @@ import type { ResearcherProfile } from "@/lib/api";
  * server-side so they follow the person across devices. */
 export function Settings() {
   const api = useApi();
-  const { me, refresh, updatePreferences } = useSession();
+  const { me, loading: meLoading, refresh, updatePreferences } = useSession();
   const navigate = useNavigate();
   const { slug = "" } = useParams();
   const { data } = useAsync(() => api.projectHome(slug), [api, slug]);
   const models = useAsync(() => api.assistantModels(), [api]);
+  // The server's own `elicitation.PROFILES` is the source of truth — this
+  // used to be four hardcoded options here that had already drifted from it
+  // (e.g. "Industry" vs the server's "Industry practitioner"). Falls back to
+  // the same catalogue offline rather than an empty select.
+  const researcherProfiles = useAsync(() => api.researcherProfiles(), [api]);
+  const profileOptions = researcherProfiles.data?.profiles ?? FALLBACK_RESEARCHER_PROFILES;
   const [name, setName] = useState("");
   const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
-  // The caller's role. Prefer the freshly-loaded project payload (its members
-  // carry the real role) over the session's `me`, which can be stale for a
-  // project created this session — a stale "viewer" would wrongly hide the
-  // owner-only danger zone (the "delete doesn't work" symptom).
-  const mine: Role =
-    data?.members.find((m) => m.identitySub === me?.sub)?.role ??
-    me?.memberships.find((m) => m.projectSlug === slug)?.role ??
-    "viewer";
+  // My role here, with "not known yet" kept distinct from "viewer" — see
+  // lib/role.ts. Defaulting to viewer while the session loaded is what made
+  // the owner-only danger zone flicker in and out.
+  const roleState = resolveRole({
+    projectMembers: data?.members,
+    meSub: me?.sub,
+    memberships: me?.memberships,
+    meLoading,
+    slug,
+  });
+  const mine = roleOrNull(roleState);
+  const rolePending = roleState.status === "loading";
 
   const prefs = me?.preferences ?? {};
   const modelOptions = models.data?.models ?? [];
@@ -56,11 +66,15 @@ export function Settings() {
     setErr("");
     try {
       await api.deleteProject(slug, confirm);
-      await refresh();
-      navigate("/home");
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Could not delete.");
+      return;
     }
+    // The project is gone. Refreshing the session is housekeeping after the
+    // fact — if it fails, that must not be reported as a failed delete, which
+    // is what happened while this sat inside the try above.
+    await refresh().catch(() => {});
+    navigate("/home");
   };
 
   const saveModel = async (value: string) => {
@@ -73,7 +87,7 @@ export function Settings() {
   };
 
   return (
-    <div className="mx-auto flex max-w-reading flex-col gap-8 p-8">
+    <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
       <h1 className="type-title text-text">Settings</h1>
 
       <Card>
@@ -113,16 +127,11 @@ export function Settings() {
               }
             >
               <option value="">Not saying</option>
-              <option value="student">Student — learning research methods</option>
-              <option value="new-researcher">
-                New researcher — first empirical studies here
-              </option>
-              <option value="experienced">
-                Experienced researcher — I design studies regularly
-              </option>
-              <option value="industry">
-                Industry — studying engineers inside a company
-              </option>
+              {profileOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label} — {p.description}
+                </option>
+              ))}
             </select>
             <p className="text-xs text-text-muted">
               The design conversation adapts how it talks to you: how much it
@@ -160,6 +169,7 @@ export function Settings() {
       <RoleGate
         role={mine}
         capability="manage_members"
+        pending={rolePending}
         fallback={<p className="text-sm text-text-muted">Only owners can change settings.</p>}
       >
         <Card>
@@ -181,7 +191,7 @@ export function Settings() {
           </CardContent>
         </Card>
 
-        <RoleGate role={mine} capability="delete">
+        <RoleGate role={mine} capability="delete" pending={rolePending}>
           <Card className="border-unsourced">
             <CardContent className="flex flex-col gap-3 p-4">
               <div>

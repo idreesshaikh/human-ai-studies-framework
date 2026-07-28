@@ -22,7 +22,9 @@ import { ExportStudy } from "@/components/shell/ExportStudy";
 import { PresenceChips } from "@/components/shell/PresenceChips";
 import { Button } from "@/components/ui/button";
 import { evolutionStore, useEvolution } from "@/lib/evolutionStub";
-import { useSession } from "@/lib/session";
+import { useApi, useSession } from "@/lib/session";
+import { useAsync } from "@/lib/useAsync";
+import { resolveRole, roleOrNull } from "@/lib/role";
 import { usePresence } from "@/lib/presence";
 import { cn } from "@/lib/cn";
 
@@ -47,7 +49,8 @@ const TABS: { id: Tab; label: string; icon: typeof Library }[] = [
 export function StudyHome() {
   const { slug = "", id = "" } = useParams();
   const { amendmentState } = useEvolution();
-  const { me } = useSession();
+  const api = useApi();
+  const { me, loading: meLoading } = useSession();
   // The active tab lives in the URL (not local state) so a refresh, a
   // shared link, or the browser's back button lands on the same tab
   // instead of always bouncing back to the conversation.
@@ -76,7 +79,19 @@ export function StudyHome() {
     setShowTour(false);
   };
 
-  const role = me?.memberships.find((m,) => m.projectSlug === slug)?.role ?? null;
+  // My role in this study's project. The project payload is the fresh source
+  // (the session's memberships can be a session old, which is what made the
+  // Revoke control on Participants come and go); "still loading" stays
+  // distinct from "viewer" — see lib/role.ts.
+  const { data: project } = useAsync(() => api.projectHome(slug), [api, slug]);
+  const roleState = resolveRole({
+    projectMembers: project?.members,
+    meSub: me?.sub,
+    memberships: me?.memberships,
+    meLoading,
+    slug,
+  });
+  const role = roleOrNull(roleState);
 
   /* Live collaboration: who else is here, and a push when the study changes
    * (consumed by the conversation below). Degrades to nothing when the
@@ -96,40 +111,16 @@ export function StudyHome() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border bg-surface px-4 py-2 text-sm">
+      {/* Row 1: where am I, and the actions that apply to the whole study —
+       * not to any one tab. Row 2 carries the study's own name, so this row
+       * never needs to repeat it. */}
+      <div className="flex items-center gap-3 border-b border-border bg-surface px-4 py-1.5 text-sm">
         <Link
           to={`/p/${slug}`}
           className="flex items-center gap-1 text-text-muted hover:text-text"
         >
           <ChevronLeft className="size-4" aria-hidden /> {slug}
         </Link>
-        <span className="text-text-muted">/</span>
-        <span className="font-medium text-text">{id}</span>
-
-        <nav
-          className="flex items-center gap-0.5 sm:gap-1 sm:ml-4"
-          aria-label="Study sections"
-          data-agent="study-tabs"
-        >
-          {TABS.map((t) => (
-            <button
-              type="button"
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              aria-label={t.label}
-              aria-current={tab === t.id ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-1.5 rounded-input px-2 sm:px-2.5 py-1 text-sm transition-colors duration-fast",
-                tab === t.id
-                  ? "bg-accent-soft text-accent"
-                  : "text-text-muted hover:bg-accent-soft hover:text-text")}
-            >
-              <t.icon className="size-4" aria-hidden />
-              <span className="hidden sm:inline">{t.label}</span>
-            </button>
-          ))}
-        </nav>
-
         <div className="ml-auto flex items-center gap-2">
           <PresenceChips viewers={viewers} meSub={me?.sub} />
           <ExportStudy studyId={id} />
@@ -156,6 +147,35 @@ export function StudyHome() {
         </div>
       </div>
 
+      {/* Row 2: the study's name, once — and the tabs beside it, since a tab
+       * switch stays within this one study. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border-strong bg-surface px-4 py-2">
+        <h1 className="type-title text-text">{id}</h1>
+        <nav
+          className="flex items-center gap-0.5 sm:gap-1"
+          aria-label="Study sections"
+          data-agent="study-tabs"
+        >
+          {TABS.map((t) => (
+            <button
+              type="button"
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              aria-label={t.label}
+              aria-current={tab === t.id ? "page" : undefined}
+              className={cn(
+                "flex items-center gap-1.5 rounded-input px-2 sm:px-2.5 py-1 text-sm transition-colors duration-fast",
+                tab === t.id
+                  ? "bg-accent-soft text-accent"
+                  : "text-text-muted hover:bg-accent-soft hover:text-text")}
+            >
+              <t.icon className="size-4" aria-hidden />
+              <span className="hidden sm:inline">{t.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
       <AmendmentBanner
         state={shownState}
         onRecordReapproval={() => evolutionStore.recordReapproval()}
@@ -167,7 +187,10 @@ export function StudyHome() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1">
+      {/* This row clips; it never scrolls itself. Each tab owns its one
+       * scroller (a Surface body, or — for Library — its own split-rail
+       * columns), so the workspace never ends up with two scrollbars. */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {tab === "conversation" && (
           <div className="min-h-0 flex-1">
             <ConversationView studyId={id} remoteChange={change} />

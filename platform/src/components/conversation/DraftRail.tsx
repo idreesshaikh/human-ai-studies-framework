@@ -36,7 +36,7 @@ export function DraftRail({
   return (
     <aside
       data-agent="draft-rail"
-      className="flex h-full flex-col gap-4 border-l border-border-strong bg-surface p-4"
+      className="flex h-full flex-col gap-stack bg-surface p-gutter"
     >
       <div>
         <h2 className="type-subhead text-text">

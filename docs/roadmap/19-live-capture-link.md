@@ -29,7 +29,10 @@ study conductor… connect the extension in VS Code to the dashboard, a
 session token provided, capturing only the metrics the researcher wants,
 out-of-the-box… make sure it fits the platform, not a side feature
 lurking."*
-**Status:** Specced (2026-07-19). Not built.
+**Status:** 🔶 built — mint/redeem/capture-config/server-stamped-ingest/
+streaming-status/pre-flight-visibility green (pytest + `node:test` + a live
+API walkthrough); the VS Code Extension Dev Host walkthrough and browser
+NFR-12 evidence are owner-run, pending. See the deviations log below.
 
 ## The idea
 
@@ -428,7 +431,9 @@ occur.
 
 - **2026-07-19 → 2026-07-20, tasks C1–C3 committed, then execution stopped
   short of Slice D and E1.** The implementation plan
-  (`docs/superpowers/plans/2026-07-19-live-capture-link.md`) never authored
+  (`docs/superpowers/plans/2026-07-19-live-capture-link.md` — no longer
+  present in the tree; this entry is the surviving record of what it said)
+  never authored
   a distinct "Part D" for Slice D ("Session-boundary refresh + the deep
   link") — its session-boundary re-pull half landed inside task B6 and its
   deep-link half inside task B7, but the dashboard's "Open in VS Code"

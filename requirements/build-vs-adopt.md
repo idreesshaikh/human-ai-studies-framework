@@ -618,3 +618,43 @@ capability SSE already covers; Redis pub/sub — correct the moment the service
 runs replicated, and unnecessary while one Railway container serves the whole
 app (NFR-7). `presence.publish` is the single seam to move behind Redis if
 that changes, which is why call sites never touch queues directly.
+
+### D42 - Extension packaging: `@vscode/vsce` as a dev-only tool - **ADOPT (dev dependency, pinned)** → FR-OPS-8 *(2026-07-26)*
+
+FR-OPS-8 requires the extension to ship as an installable `.vsix` so a
+participant joins a study by installing and redeeming a link, not by cloning
+and compiling. `@vscode/vsce` is Microsoft's official packaging/publishing
+CLI and the only supported way to produce a Marketplace-valid `.vsix`:
+it enforces the manifest rules (PNG icon, valid categories, license
+presence, activation events) that a hand-rolled zip would silently violate.
+
+**Dev-only, and that boundary matters.** It is a `devDependency` invoked by
+`npm run package`; nothing in `src/` imports it, and it contributes zero
+bytes to the shipped artifact or to the container image. The runtime
+dependency surface of the extension stays exactly what it was — none.
+
+**Rejected:** hand-rolling the zip (the `.vsix` format is undocumented as a
+contract and validation is the whole point of the tool); `ovsx`/Open VSX as
+the *primary* target (the brief is the VS Code Marketplace; Open VSX can be
+added later behind the same package step without changing this row);
+committing a prebuilt `.vsix` to the repo (a build artifact in git, and it
+would drift from the source it claims to be).
+
+**Not covered here:** the publisher identity itself. A Marketplace publisher
+ID is an account the repository owner registers and holds the PAT for; it
+cannot be chosen by a builder. Until it is set, `npm run package` produces a
+valid local `.vsix` and publishing is blocked at the last step.
+
+### D43 - Corpus provenance model: retire Tier A / Tier B for a single continuous score - **ADOPT (not yet built)** → FR-LIT-8 *(proposed 2026-07-21, adopted 2026-07-28)*
+
+A design conversation (2026-07-21) proposed retiring the Tier A/Tier B split
+for a single continuous quality-gated `score` + `isSeed` flag, written up in
+full in `docs/design/corpus-quality-model-proposal.md`. Adopted as the target
+model. **Not yet built:** the codebase still runs the two-tier model
+end-to-end (`docs/papers/README.md`/`CORPUS.md`, `corpus_harvest.py`,
+`middleware/src/middleware/{db,matching,corpus_importer,corpus_enrich,app,
+manifest}.py`, `platform/src/components/conversation/Confidence.tsx`,
+`requirements/srs.md` FR-LIT-8, `requirements/specs/fr-lit.md`,
+`requirements/glossary.md`) — this is queued implementation work, not yet
+started. When it lands, update every one of those call sites plus this row,
+and flip FR-LIT-8's own wording in `srs.md` to match the new model.

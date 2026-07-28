@@ -19,7 +19,7 @@ export function RecommenderRail({
   return (
     <aside
       data-agent="recommender-rail"
-      className="flex h-full min-h-0 flex-col gap-3 border-l border-border-strong bg-surface p-4"
+      className="flex h-full min-h-0 flex-col gap-stack bg-surface p-gutter"
     >
       <div>
         <h2 className="type-subhead flex items-center gap-2 text-text">

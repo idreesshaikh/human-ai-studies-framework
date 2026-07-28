@@ -78,6 +78,14 @@
   --container-reading: var(--measure-reading);
   --container-work: var(--measure-work);
   --container-wide: var(--measure-wide);
+  --container-bubble: var(--measure-bubble);
+
+  /* The spacing rhythm as p-gutter / gap-section / gap-stack / gap-tight —
+   * every spacing utility (p-*, gap-*, m-*) shares this named scale. */
+  --spacing-gutter: var(--space-gutter);
+  --spacing-section: var(--space-section);
+  --spacing-stack: var(--space-stack);
+  --spacing-tight: var(--space-tight);
 
   /* Motion tokens as duration-* / ease-* utilities, so components write
    * `duration-settle ease-out` instead of raw values. */
@@ -91,12 +99,22 @@
   --ease-key: var(--ease-key);
 }
 
-html {
-  /* Reserve the scrollbar's width on every page, scrollable or not — without
-   * this, centered (mx-auto) content shifts sideways by the scrollbar's
-   * width whenever navigation moves from a taller page (scrollbar showing)
-   * to a shorter one (scrollbar gone), e.g. Hero → the sign-in gate. */
-  scrollbar-gutter: stable;
+/* No visible scrollbar track anywhere in the app — wheel, trackpad, touch,
+ * and keyboard (PageDown/arrows on a focused scroller) all still scroll.
+ * Reserving a gutter for the bar (the previous approach) is unnecessary once
+ * the bar itself is zero-width: nothing shifts because nothing was ever
+ * drawn. Scoped to `html` (the shell's own scroll, on document routes) and
+ * every scroller inside `#root` (a Surface body, a split-rail column) —
+ * never wider, so a future scrollable widget outside the app shell keeps its
+ * native bar. */
+html,
+#root * {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar,
+#root *::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 html,
@@ -227,6 +245,22 @@ body::before {
     line-height: var(--leading-normal);
     text-transform: uppercase;
     letter-spacing: var(--tracking-eyebrow);
+  }
+
+  /* The workspace's one split geometry: a measured column plus a rail that
+   * grows with the window between a floor and a cap, instead of a fixed rail
+   * beside an unbounded column that gets relatively slimmer on every wider
+   * screen. Single column until the same breakpoint Tailwind's `lg:` uses,
+   * so call sites can still write `.split-rail lg:grid` conditionals if a
+   * screen needs to. */
+  .split-rail {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 64rem) {
+    .split-rail {
+      grid-template-columns: 1fr clamp(var(--rail-min), var(--rail-share), var(--rail-max));
+    }
   }
 }
 

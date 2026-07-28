@@ -20,7 +20,7 @@ cadence protocol config, new).
 **Elicited:** implied by Phase 19's own scope note — "Phase 21 ('the
 conductor overlay') enriches the in-editor participant experience" —
 formalized 2026-07-21 while auditing the roadmap for unspecced phases.
-**Status:** Specced (2026-07-21). Not built.
+**Status:** ✅ built. See the deviations log below.
 
 ## The idea
 

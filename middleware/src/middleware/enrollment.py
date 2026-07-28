@@ -40,6 +40,13 @@ def build_capture_config(
     ``overlay`` returns the flat ``tern.*`` settings the extension
     applies. Other producers (e.g. ``agent``) can be added behind the same
     envelope later; this phase serves ``overlay``.
+
+    ``legs`` rides alongside as the *display* half (FR-INST-22): the four legs
+    with their state and toggles, so the IDE's leg surface renders the one
+    catalog rather than re-deriving what a leg does from the flat settings —
+    which it could not do anyway, since ``settings`` carries only the ``tern.*``
+    subtree and two of the four legs live outside it. Purely descriptive: only
+    ``settings`` is ever applied, so this cannot widen what is captured.
     """
     if producer != "overlay":
         raise ValueError(f"unknown capture-config producer {producer!r}")
@@ -48,6 +55,7 @@ def build_capture_config(
         "captureConfigVersion": capture_config_version(protocol),
         "producer": producer,
         "settings": settings,
+        "legs": leg_summary(protocol),
     }
 
 

@@ -1,21 +1,21 @@
+# What stays out of the .vsix (FR-OPS-8). The package ships the compiled
+# `out/` tree, the manifest, the media, and the three listing documents —
+# nothing else. Sources and tests are on GitHub; shipping them only makes the
+# download bigger and the listing noisier.
 .vscode/**
-.idea/**
-*.iml
+.vscode-test/**
 src/**
 test/**
 out-tests/**
-docs/**
+out/**/*.map
+out/**/*.tsbuildinfo
 node_modules/**
-tsconfig.json
-tsconfig.test.json
-eslint.config.mjs
-.eslintcache
-.prettierrc.json
-.prettierignore
-.editorconfig
-.gitignore
-.study-data/**
-**/*.map
-*.md
-!README.md
-!CHANGELOG.md
+**/tsconfig*.json
+**/eslint.config.mjs
+**/.eslintrc*
+**/.prettierrc*
+**/*.ts
+!out/**/*.js
+docs/**
+PROJECT_GUIDE.md
+media/icon.svg

@@ -35,6 +35,7 @@ import { preflightSummary } from '../core/preflight';
 import { wireEditorSignals } from './signals';
 import { CompositeSink, HttpSink, JsonlSink } from './sinks';
 import { SessionStatusBar } from './statusBar';
+import { registerSidebar, SidebarSession } from './sidebar';
 import { StuckPromptController } from './stuckPrompt';
 
 const SNAPSHOT_KEY = 'tern.activeSession';
@@ -47,6 +48,9 @@ interface RunningStudy {
   session: StudySession;
   recorder: Recorder;
   sink: EventSink;
+  /** Set only when an HTTP endpoint is configured — the Data view's "not yet
+   *  sent" count has no meaning for a local-only session. */
+  httpSink?: HttpSink;
   detector: StuckDetector;
   stuckPrompt: StuckPromptController;
   behavior?: BehaviorCapture;
@@ -65,14 +69,40 @@ interface RunningStudy {
 }
 
 let statusBar: SessionStatusBar;
+let sidebar: { refresh: () => void; dispose: () => void };
 let study: RunningStudy | undefined;
 let extContext: vscode.ExtensionContext;
 let sinkErrorShown = false;
+
+/** What the sidebar is allowed to know about the running session. Reads the
+ *  module's live state each call rather than capturing it, so a finished
+ *  session can never be held open by the views. */
+function sidebarSession(): SidebarSession {
+  const s = study;
+  const conf = vscode.workspace.getConfiguration('tern');
+  if (!s) {
+    return { active: false, paused: false, remainingMs: 0 };
+  }
+  return {
+    active: true,
+    paused: s.session.paused,
+    remainingMs: s.session.remainingMs,
+    participantId: conf.get<string>('participantId'),
+    condition: conf.get<string>('condition'),
+    dataFile: s.dataFile,
+    written: s.recorder.nextSeq,
+    mirrored: s.httpSink ? s.httpSink.deliveredCount : s.recorder.nextSeq,
+  };
+}
 
 export function activate(context: vscode.ExtensionContext): void {
   extContext = context;
   statusBar = new SessionStatusBar();
   context.subscriptions.push(statusBar);
+  // The sidebar is the primary surface (FR-INST-22); the status bar stays as
+  // the compact session indicator beside it.
+  sidebar = registerSidebar(context, sidebarSession);
+  context.subscriptions.push({ dispose: () => sidebar.dispose() });
 
   context.subscriptions.push(
     vscode.commands.registerCommand('tern.startSession', () => startSession()),
@@ -493,6 +523,7 @@ function bootSession(boot: BootConfig): void {
   void vscode.commands.executeCommand('setContext', 'tern.sessionActive', true);
 
   statusBar.tick(session.remainingMs);
+  sidebar.refresh();
 }
 
 function onTick(remaining: number): void {
@@ -503,6 +534,7 @@ function onTick(remaining: number): void {
   } else {
     statusBar.tick(remaining);
   }
+  sidebar.refresh();
   if (++s.ticksSinceSnapshot >= SNAPSHOT_EVERY_TICKS) {
     s.ticksSinceSnapshot = 0;
     persistSnapshot();
@@ -612,6 +644,7 @@ function teardownStudy(resetStatusBar: boolean): void {
     false,
   );
   if (resetStatusBar) statusBar.idle();
+  sidebar.refresh();
 }
 
 // ---------------------------------------------------------------------------

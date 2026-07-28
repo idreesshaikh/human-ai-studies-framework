@@ -64,7 +64,7 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-LIT-7 | S1; D8 | provider seam (`semantic_scholar.get_json` + `cached_fetch`); OpenAlex recorded as swap candidate | ⏳ seam ready, swap undecided |
 | FR-LIT-8 | FR-CONV-2, FR-TPL; D8, D36 | `scripts/corpus_harvest.py` + `docs/papers/corpus-index.json`/`CORPUS.md`; `corpus_importer.py` | 🔶 pipeline + verified run; importer lands Tier A + Tier B as `Paper(tier=…)` rows + FTS + seed edges; committed re-harvest pending |
 | FR-LIT-9 | FR-CONV-2; RQ-F4 | paper matcher (FTS→LLM ladder) + recommendation cards | ✅ real ladder (FTS BM25 + seed-connectivity + optional LLM rerank); `/papers/match` + `/papers/from-match` |
-| FR-LIT-10 | NFR-12; FR-LIT-4; FR-ETH-4 | living literature constellation + scoped RAG | ⬜ |
+| FR-LIT-10 | NFR-12; FR-LIT-4; FR-ETH-4 | living literature constellation + scoped RAG | 🔶 `platform/src/components/library/Constellation.tsx` rewritten Obsidian-graph-style — degree-sized nodes (`forceLayout.degreeMap`), hover/focus neighbourhood highlighting (`constellationView.ts`, precomputed adjacency, keyboard parity via focus/blur, `Escape` clears), zoom/focus/selection-revealed labels, idle drift + a bounded settle animation layered over the still-untouched deterministic `layoutGraph` seed (golden-snapshot-pinned in `verify-library.mjs`), full reduced-motion parity. Remaining: cite-pulses on conversation citations, arrival streaks, cluster/gap halos, lasso scope, and the scoped-RAG guidance-intent loop (`requirements/specs/fr-lit.md` §3 items 2-4) |
 | FR-ANA-1 | RQ-F3; S5,S6 | `analysis/core.py` | ✅ |
 | FR-ANA-2 | RQ-F2 | `analysis/` requires-check | ✅ |
 | FR-ANA-3 | RQ-P1–P4 | built-in recipes | ✅ (agent/outcome recipes run once agent-leg data lands) |
@@ -83,7 +83,7 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-OPS-5 | NFR-1 (ingest open); D29 | `middleware/auth.py` (none/token/clerk) + `GET /auth/config` + `platform/src/lib/auth.tsx` + `SignInScreen` (hotloaded `@clerk/clerk-js`/`@clerk/ui`, token-paste fallback) | ✅ code complete (2026-07-20, rebuilt in `platform/` after the `dashboard/` retirement dropped it); live Clerk smoke pending |
 | FR-OPS-6 | D30; D34 | `platform/` `VITE_API_BASE` + `settings.cors_origins` → opt-in `CORSMiddleware` | ✅ |
 | FR-OPS-7 | D29; FR-OPS-5 | per-user preference store keyed by Clerk identity | ⏳ blocked on Clerk provisioning |
-| FR-OPS-8 | S6,S7; FR-INST-20 | `extension/` packaging + release CI | ⬜ Phase 25 — publisher id still `replace-with-your-vsce-publisher-id` |
+| FR-OPS-8 | S6,S7; FR-INST-20 | `extension/` packaging + release CI | 🔶 Phase 25 Slice D built — D42 (`@vscode/vsce`, dev-only), `media/icon.png` 128×128, categories, `.vscodeignore` (42 files / 81 KB, no sources or test build), `npm run package` gates before packaging; `vsce package` verified locally. Release workflow already publishes + attaches the `.vsix`. **Blocked on the owner:** a real Marketplace publisher id + `VSCE_PAT` — an account only the repository owner can register |
 | FR-PLAT-1 | S7 | project/membership/invitation model + boot migration (`db.py`); scoping choke point (`authz.require_project*`) | ✅ backend + tests; `platform/` projects UI — `createApi()` (`api.ts`) fixed 2026-07-20 to default same-origin (NFR-7) instead of always falling back to the in-memory fake whenever `VITE_API_BASE` was unset, which had silently made every deployment (including the seeded demo) run on fake, non-persistent project/member data regardless of the real backend |
 | FR-PLAT-2 | S7,S3; FR-OPS-5 | roles + server-side enforcement (`authz.CAPABILITIES` matrix as data) | ✅ matrix-complete tests; `RoleGate` reflects it client-side (UI only) |
 | FR-PLAT-3 | S7 | invitations (single-use, expiring); `InviteDialog` (copy-link) | ✅ backend + UI; email-provider delivery deferred |
@@ -133,11 +133,11 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-INST-20 | S6,S7; platform loop | `middleware/` enrollment + `extension/` connect | ✅ mint/redeem/server-stamp verified via pytest; platform enrollment table with copy-link + deep-link + live polling; extension pairing state machine (`src/core/pairing.ts`) with 13 transition tests; pre-flight at each session start; `vscode://…/pair` URI handler; all 104 extension tests pass |
 | FR-ING-7 | RQ-F1; S3 | `middleware/enrollment.py` + ingest auth | ✅ mint/list/revoke/redeem, server-stamp, never-block-never-drop, and the token/credential-never-persists grep test all pytest + live-verified |
 | FR-INST-21 | wall #6; FR-PROT-4 | `middleware/` capture-config + `extension/` core | ✅ derive/version/apply-at-boundary logic pytest + `node:test` verified, including a wall-6 `shouldApplyCaptureConfig` lifecycle test (apply→mid-session-refuse→next-boundary-applies); pre-flight summary shown before every session start (not just pair); re-pull at each session boundary via `refreshConfigAtSessionStart`; `captureConfigVersion` comparison enforced server- and client-side |
-| FR-INST-22 | FR-ETH-2; S6,S7 | `extension/` sidebar view container + leg surface | ⬜ Phase 25 — no `viewsContainers`/`views` in the manifest today; status bar is the only permanent UI |
+| FR-INST-22 | FR-ETH-2; S6,S7 | `extension/` sidebar view container + leg surface | 🔶 Phase 25 Slices B+C built — `src/core/legs.ts` (portable, 12 `node:test` cases incl. malformed-payload and never-a-silent-off) + `src/vscode/sidebar.ts` (Session / What is captured / Your data tree views, activity-bar container, badge, wall-#6 pending row, consent banner when snapshots are on). Remaining: Extension Dev Host walkthrough (owner-run, both themes) and event written/mirrored counts not yet plumbed from the recorder |
 | FR-DASH-10 | S1; FR-DASH-3 | `platform/` EnrollmentPanel | ✅ mint/list/revoke + streaming status + per-row capture-config visibility + copy-link + deep-link "Open in VS Code" companion + 15s live polling — all verified via build/lint; backend returns `connectionString` on list endpoint; NFR-12 browser evidence pending manual walkthrough |
 | FR-DASH-11 | FR-DASH-10; FR-CONV-4/5 | `platform/` EnrollmentPanel toggle console | ✅ Phase 20: backend toggle POST/GET/catalog + FR-CONV-7 consent relevance; extension `IdeHealthCollector`; platform `TogglePopover`; pytest + build verified |
 | FR-DASH-12 | FR-INST-19; wall #1/#6 | `protocol/` derive + `extension/` core | ✅ Phase 21 |
-| FR-DASH-13 | FR-DASH-11; wall #1/#6 | `middleware/` `_TOGGLE_CATALOG` + `platform/` console + `extension/` leg surface | 🔶 Phase 25 Slice A built — catalog spans all four legs (`leg` field + metrics/behavioral/agent entries) and `leg_summary()` returns all four with `enabled`/`disabled`/`unavailable`; 7 pytest cases incl. omitted-leg and grounding-honesty. Remaining: platform console grouping by leg, and the IDE renderer (FR-INST-22) |
+| FR-DASH-13 | FR-DASH-11; wall #1/#6 | `middleware/` `_TOGGLE_CATALOG` + `platform/` console + `extension/` leg surface | 🔶 Phase 25 Slice A built — catalog spans all four legs (`leg` field + metrics/behavioral/agent entries); `leg_summary()` returns all four with `enabled`/`disabled`/`unavailable` and rides on the capture config so the IDE renders one catalog; 7 pytest cases incl. omitted-leg and grounding-honesty. Remaining: the platform console grouping its toggles by leg |
 
 ## 2. RQ → data elements → recipes (analysis coverage)
 
@@ -163,8 +163,10 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
   curated-dataset leg (FR-CUR-1/2/3), agent-friendliness (FR-AGF), and
   evolution (FR-CONV-4/5) are built; server-complete with the UI gated, with
   live-transport wiring and browser NFR-12 evidence the main remaining work.
-- **Open:** FR-TPL-3/4/5, FR-LIT-10, FR-META-3, FR-INST-18/19, FR-CUR-4, and
-  the FR-OPS hosting-provisioning tail.
+- **Open:** FR-TPL-3/4/5, FR-META-3, FR-INST-18/19, FR-CUR-4, and the FR-OPS
+  hosting-provisioning tail. FR-LIT-10 is now 🔶 (the constellation canvas
+  itself is built; the scoped-RAG/guidance-intent loop into the assistant is
+  not).
 
 Deviations are recorded per phase in `docs/roadmap/` and, where they touch a
 requirement, in the status cell above.

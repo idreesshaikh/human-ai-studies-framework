@@ -124,7 +124,7 @@ finishing the code is not finishing the phase.
 
 | Phase | Title | Satisfies | Status |
 | ----- | ----- | --------- | ------ |
-| [25](25-instrument-surface.md) | The instrument surface (extension sidebar, four legs, publishable) | FR-INST-22, FR-DASH-13, FR-OPS-8 | 🔶 Specced 2026-07-26; Slice A (four-leg toggle catalog + `leg_summary`) built and pytest-green. Slices B–D (core leg state, sidebar views, packaging) not started |
+| [25](25-instrument-surface.md) | The instrument surface (extension sidebar, four legs, publishable) | FR-INST-22, FR-DASH-13, FR-OPS-8 | 🔶 Specced 2026-07-26; Slices A–D built and green (532 pytest, 146 `node:test`, platform gate) — four-leg toggle catalog + `leg_summary`, portable `core/legs.ts`, the three sidebar tree views on an activity-bar container, and a packageable `.vsix`. Remaining: Extension Dev Host walkthrough (owner-run), the platform console grouping toggles by leg, and a Marketplace publisher id (owner-registered) |
 
 ## The load-bearing walls (fixed in every phase)
 

@@ -57,8 +57,11 @@ src/
 │  ├─ pairing.ts         Pairing state-machine reducer (MP-19/20; not yet wired
 │  │                     into src/vscode/pairing.ts's imperative redeem flow —
 │  │                     see that file's own note)
-│  └─ comprehensionProbe.ts  Accepted-chunk → probe → answered/expired
-│                        state machine (MP-21, FR-INST-19)
+│  ├─ comprehensionProbe.ts  Accepted-chunk → probe → answered/expired
+│  │                     state machine (MP-21, FR-INST-19)
+│  └─ legs.ts            The four legs (static metrics, behavioral, cognitive,
+│                         agent-interaction), as the participant sees them —
+│                         enabled/disabled/unavailable per capture config (MP-25, FR-INST-22)
 └─ vscode/               ADAPTER - everything VS Code-specific
    ├─ signals.ts         Native events → EditorSignal (stuck detection feed)
    ├─ behavior.ts        Behavioral telemetry sensors + wrapper commands
@@ -71,6 +74,8 @@ src/
    │                     handler; the redeem/consent/apply-config flow
    ├─ ideHealth.ts        VS Code diagnostics API → core/ideHealth.ts adapter
    ├─ comprehensionPrompt.ts  Inline CodeLens rendering of a pending probe
+   ├─ sidebar.ts         Activity-bar view container: Session / What is
+   │                     captured / Your data tree views over core/legs.ts (MP-25)
    └─ extension.ts       Activation, commands, and wiring
 ```
 
@@ -117,7 +122,7 @@ StudySession (core clock) ──▶ onFatigueDue ──▶ fatiguePrompt.ts
 
 ### Prerequisites
 
-- **Node.js ≥ 20** (built and tested on Node 22)
+- **Node.js ≥ 22**
 - **VS Code ≥ 1.85**
 
 ### Setup
