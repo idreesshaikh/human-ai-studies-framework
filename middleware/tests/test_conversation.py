@@ -132,6 +132,21 @@ def test_recommendations_surface_the_two_demo_papers(client):
     assert "corpus:insecure-code-with-ai-assistants" in rec_refs
 
 
+def test_recommendations_survive_a_conversation_reload(client):
+    """A tab switch / remount re-reads the conversation via GET rather than
+    trusting client state — the literature rail must not go blank on that
+    re-read (it used to: recommendations were only ever returned inline on
+    the turn reply, never persisted)."""
+    reply = _ask(client, "I think junior developers over-trust AI-generated code")
+    sent_refs = {r["ref"] for r in reply["recommendations"]}
+    assert sent_refs
+
+    reloaded = client.get(f"/studies/{STUDY}/conversation").json()
+    platform_turn = next(t for t in reloaded["turns"] if t["role"] == "platform")
+    reloaded_refs = {r["ref"] for r in platform_turn["recommendations"]}
+    assert reloaded_refs == sent_refs
+
+
 def test_self_report_draws_metr_caution(client):
     """F2.2: measuring productivity by self-report alone gets the METR caution."""
     reply = _ask(client, "I'll measure productivity by self-report survey")
@@ -180,6 +195,47 @@ def test_compile_is_deterministic(client):
     first = _drive_to_valid_draft(client)
     second = _compile(client)
     assert first["yaml"] == second["yaml"]
+
+
+def test_delete_removes_a_study_with_moves_and_an_approval(client):
+    """A study with design moves and an approved compilation has rows that
+    reference each other (design_moves.turn_id -> conversation_turns.id,
+    approvals.compilation_id -> compilations.id) - deleting them in the
+    wrong order is invisible on SQLite (no FK enforcement by default) but
+    fails outright on Postgres, the production default, leaving the study
+    stuck and the delete button looking like a no-op. Turn FK enforcement on
+    for this test so a regression here fails loudly instead of only in
+    production."""
+    from sqlalchemy import event
+
+    from middleware import db as db_mod
+
+    def _enable_fk(dbapi_connection, connection_record, connection_proxy):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    event.listen(db_mod._engine, "checkout", _enable_fk)
+    try:
+        # The other tests in this file write straight to study_id-scoped
+        # tables without a reified ``Study`` row (the permissive implicit
+        # project doesn't require one to hold a conversation) - but delete
+        # looks the row up, so this one needs it to exist first.
+        created = client.post("/projects/implicit/studies", json={"name": STUDY})
+        assert created.status_code == 200, created.text
+        assert created.json()["id"] == STUDY
+
+        result = _drive_to_valid_draft(client)
+        approved = client.post(
+            f"/studies/{STUDY}/conversation/approve",
+            json={"compilationId": result["compilationId"], "approvedBy": "Owner"},
+        )
+        assert approved.status_code == 200, approved.text
+
+        deleted = client.delete(f"/studies/{STUDY}")
+        assert deleted.status_code == 200, deleted.text
+    finally:
+        event.remove(db_mod._engine, "checkout", _enable_fk)
 
 
 def test_no_draft_applies_without_approval(client):
