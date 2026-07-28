@@ -129,6 +129,52 @@ def test_delete_study_is_owner_only_and_removes_it(client):
     assert gone.status_code == 404
 
 
+def test_a_studys_library_is_not_open_to_viewers(client):
+    """A viewer reads a study; they do not edit its library.
+
+    These three routes were gated on bare authentication rather than the
+    project choke point, so any signed-in identity could delete another
+    project's papers. The route audit missed them because it matched on
+    parameter names, which a route's own {study_id} satisfies — both halves
+    are fixed together, or the next one slips through the same way.
+    """
+    slug = make_project(client, "alice", "Lab")
+    add_member(client, slug, "alice", "rea", "researcher")
+    add_member(client, slug, "alice", "vic", "viewer")
+    study_id = client.post(
+        f"/projects/{slug}/studies", json={"name": "Library"}, headers=bearer("alice")
+    ).json()["id"]
+    ref = "arxiv:2507.09089"
+
+    # Reading a paper's protocol links is a view; every member may.
+    for sub in ("alice", "rea", "vic"):
+        assert (
+            client.get(
+                f"/studies/{study_id}/papers/{ref}/links", headers=bearer(sub)
+            ).status_code
+            == 200
+        )
+    assert (
+        client.get(
+            f"/studies/{study_id}/papers/{ref}/links", headers=bearer("stranger")
+        ).status_code
+        == 403
+    )
+
+    # Editing them, or removing a paper, needs contribute.
+    for method, path in (
+        ("put", f"/studies/{study_id}/papers/{ref}/links"),
+        ("delete", f"/studies/{study_id}/papers/{ref}"),
+    ):
+        call = getattr(client, method)
+        kwargs = {"json": {"targets": ["RQ-1"]}} if method == "put" else {}
+        assert call(path, headers=bearer("vic"), **kwargs).status_code == 403
+        # A researcher passes the gate (the DELETE then 404s on a paper that
+        # was never ingested — the point is which side of the gate they land).
+        allowed = call(path, headers=bearer("rea"), **kwargs)
+        assert allowed.status_code in (200, 404), allowed.text
+
+
 def test_view_capability_across_roles(client):
     slug = make_project(client, "alice", "Lab")
     add_member(client, slug, "alice", "rea", "researcher")
@@ -261,6 +307,10 @@ def test_every_project_scoped_route_carries_the_choke_point(client):
         ("GET", "/projects"),  # my memberships — self-scoped
         ("POST", "/invitations/{token}/accept"),  # token is the credential
         ("GET", "/me"),
+        # The participant's editor holds a session credential, never a project
+        # identity, so this one is gated on that credential instead (it 401s
+        # without it) — see get_capture_config's docstring, FR-INST-21.
+        ("GET", "/studies/{study_id}/capture-config"),
     }
     offenders = []
     for route in app.routes:
@@ -271,26 +321,33 @@ def test_every_project_scoped_route_carries_the_choke_point(client):
         for method in methods - {"HEAD", "OPTIONS"}:
             if (method, path) in exempt:
                 continue
-            # The dependency names include 'slug' or 'study_id' params from
-            # the require_project* closures; assert at least one dependency
-            # references the authz module's closures by checking the route's
-            # dependant tree for our parameter names.
             dep = getattr(route, "dependant", None)
-            names = _dependency_param_names(dep) if dep else set()
-            if not ({"slug", "study_id"} & names):
+            if not _authz_capabilities(dep):
                 offenders.append((method, path))
     assert not offenders, f"routes missing the choke point: {offenders}"
 
 
-def _dependency_param_names(dependant) -> set:
-    names = set()
-    stack = [dependant]
+def _authz_capabilities(dependant) -> set:
+    """Every capability a route is actually gated on.
+
+    Looks for the ``__authz_capability__`` stamp ``authz.build_authz`` puts on
+    its closures. The earlier version of this audit collected *parameter
+    names* and passed a route if it mentioned ``slug`` or ``study_id`` — but
+    FastAPI's dependant tree includes the endpoint's own path params, so every
+    ``/studies/{study_id}/...`` route satisfied that test whether or not it
+    was guarded. ``DELETE /studies/{id}/papers/{ref}`` shipped unguarded
+    through exactly that blind spot.
+    """
+    capabilities = set()
+    stack = [dependant] if dependant else []
     while stack:
         d = stack.pop()
-        for p in getattr(d, "query_params", []) + getattr(d, "path_params", []):
-            names.add(p.name)
+        call = getattr(d, "call", None)
+        capability = getattr(call, "__authz_capability__", None)
+        if capability:
+            capabilities.add(capability)
         stack.extend(getattr(d, "dependencies", []))
-    return names
+    return capabilities
 
 
 # ------------------------------------------------------------ boot migration

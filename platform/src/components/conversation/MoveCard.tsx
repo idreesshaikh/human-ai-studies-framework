@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
-import { Check, X } from "lucide-react";
+import { Check, X, Undo2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GroundingChip } from "./GroundingChip";
 import { UnsourcedLabel } from "./UnsourcedLabel";
 import { cn } from "@/lib/cn";
-import type { DesignMove } from "@/lib/types";
+import type { DesignMove, MoveStatus } from "@/lib/types";
 
 const KIND_LABEL: Record<DesignMove["kind"], string> = {
   "add-rq": "Research question",
@@ -17,16 +17,19 @@ const KIND_LABEL: Record<DesignMove["kind"], string> = {
   caution: "Caution",
 };
 
-/* A proposed design move with accept/reject. Keyboard-first: a / r when the
- * card is focused. Accepted moves fold toward the draft rail; rejected ones
- * fade out. A caution has no patch, so accepting it just marks it noted —
- * it never changes the draft. */
+/* A proposed design move with accept/reject, and an Undo once decided —
+ * reopens the card to "proposed" rather than flipping straight to the
+ * opposite decision. Keyboard-first: a / r when the card is focused (undo
+ * is click-only; a long-since-decided card isn't the one holding focus).
+ * Accepted moves fold toward the draft rail; rejected ones fade out. A
+ * caution has no patch, so accepting it just marks it noted — it never
+ * changes the draft. */
 export function MoveCard({
   move,
   onDecide,
 }: {
   move: DesignMove;
-  onDecide: (moveId: string, status: "accepted" | "rejected") => void;
+  onDecide: (moveId: string, status: MoveStatus) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const isCaution = move.kind === "caution";
@@ -119,6 +122,21 @@ export function MoveCard({
             >
               <X aria-hidden />
               Reject <kbd className="hidden sm:inline opacity-60">r</kbd>
+            </Button>
+          </div>
+        )}
+
+        {decided && (
+          <div className="mt-1 flex gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              data-agent="move-undo"
+              className="min-h-9"
+              onClick={() => onDecide(move.moveId, "proposed")}
+            >
+              <Undo2 aria-hidden />
+              Undo
             </Button>
           </div>
         )}

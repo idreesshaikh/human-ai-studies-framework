@@ -1,6 +1,7 @@
 import type {
   DesignMove,
   Grounding,
+  MoveStatus,
   ProtocolDraft,
   Recommendation,
   Turn,
@@ -153,12 +154,18 @@ export interface CompileResult {
 }
 
 export const conversationApi = {
-  async get(studyId: string): Promise<Turn[]> {
-    const data = await req<{ turns: Record<string, unknown>[] }>(
-      `/studies/${encodeURIComponent(studyId)}/conversation`,
-    );
+  async get(
+    studyId: string,
+  ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
+    const data = await req<{
+      turns: Record<string, unknown>[];
+      understanding?: Understanding;
+    }>(`/studies/${encodeURIComponent(studyId)}/conversation`);
     const turns = data.turns.map(mapTurn);
-    return turns.length ? turns : [openingTurn()];
+    return {
+      turns: turns.length ? turns : [openingTurn()],
+      understanding: data.understanding,
+    };
   },
 
   async sendTurn(
@@ -282,7 +289,7 @@ export const conversationApi = {
     return { turns: [researcher, platform], understanding: done.understanding };
   },
 
-  decide(studyId: string, moveId: string, status: "accepted" | "rejected") {
+  decide(studyId: string, moveId: string, status: MoveStatus) {
     return post<{ moveId: string; status: string }>(
       `/studies/${encodeURIComponent(studyId)}/conversation/moves/${encodeURIComponent(moveId)}/decision`,
       { status, decidedBy: "Researcher" },
@@ -334,7 +341,10 @@ export const conversationApi = {
  * `OfflineError` here would report success either way and leave the caller
  * stuck retrying doomed live calls. Let it throw; the caller's own catch
  * already falls back to `[openingTurn()]` and flips `live` off. */
-export function loadConversation(studyId: string, stubOnly: boolean): Promise<Turn[]> {
-  if (stubOnly) return Promise.resolve([openingTurn()]);
+export function loadConversation(
+  studyId: string,
+  stubOnly: boolean,
+): Promise<{ turns: Turn[]; understanding?: Understanding }> {
+  if (stubOnly) return Promise.resolve({ turns: [openingTurn()] });
   return conversationApi.get(studyId);
 }

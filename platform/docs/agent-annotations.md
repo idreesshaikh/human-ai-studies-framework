@@ -45,6 +45,7 @@ retrofitted.
 | `move-card` | `MoveCard` | one proposed design move (decision point); `data-agent-kind`, `data-agent-status` refine it |
 | `move-accept` | `MoveCard` | accept the move |
 | `move-reject` | `MoveCard` | reject the move |
+| `move-undo` | `MoveCard` | reopen a decided move back to `proposed` |
 | `recommendation-card` | `RecommendationCard` | a matched paper; `data-agent-ref` carries its corpus ref |
 | `add-paper` | `RecommendationCard` | add the paper to the study set |
 | `recommender-rail` | `RecommenderRail` | the persistent literature-recommender panel beside the conversation (landmark) |

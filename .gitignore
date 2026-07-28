@@ -50,3 +50,7 @@ ds-bundle/
 .design-sync/learnings/
 .design-sync/node_modules
 platform/.ds-shipped.css
+
+# Subagent-driven-development scratch: per-plan ledgers, briefs, review
+# packages. The git history is the record once a plan finishes.
+.superpowers/

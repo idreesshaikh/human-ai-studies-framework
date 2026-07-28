@@ -54,6 +54,7 @@ from middleware import (
     auth,
     authz,
     compiler,
+    corpus_enrich,
     design_assistant,
     elicitation,
     enrollment,
@@ -233,9 +234,9 @@ class ConversationTurnIn(BaseModel):
 
 
 class MoveDecisionIn(BaseModel):
-    """Accept/reject one design move (FR-CONV-1.2)."""
+    """Accept, reject, or reopen ("proposed") one design move (FR-CONV-1.2)."""
 
-    status: str  # accepted | rejected
+    status: str  # accepted | rejected | proposed
     decidedBy: str = "Researcher"
 
 
@@ -1550,7 +1551,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         }
 
     @app.delete(
-        "/studies/{study_id}/papers/{paper_ref:path}", dependencies=[Depends(view_auth)]
+        "/studies/{study_id}/papers/{paper_ref:path}",
+        dependencies=[Depends(require_project_for_study("contribute"))],
     )
     def delete_paper(study_id: str, paper_ref: str, s: Session = Depends(db)) -> dict:
 
@@ -1720,7 +1722,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.get(
         "/studies/{study_id}/papers/{paper_ref:path}/links",
-        dependencies=[Depends(view_auth)],
+        dependencies=[Depends(require_project_for_study("view"))],
     )
     def get_paper_links(
         study_id: str, paper_ref: str, s: Session = Depends(db)
@@ -1737,7 +1739,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.put(
         "/studies/{study_id}/papers/{paper_ref:path}/links",
-        dependencies=[Depends(view_auth)],
+        dependencies=[Depends(require_project_for_study("contribute"))],
     )
     def set_paper_links(
         study_id: str, paper_ref: str, body: PaperLinksIn, s: Session = Depends(db)
@@ -3564,6 +3566,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         )
         return {"results": results}
 
+    @app.get("/corpus/status")
+    def corpus_status(s: Session = Depends(db)) -> dict:
+        """How much of the corpus carries a real abstract, not just a title
+        (FR-LIT-8 quality). Not study-scoped — the corpus is shared — and
+        unauthenticated like `/corpus/search`, since it's an aggregate count,
+        never study or participant data. Explains why some matches are
+        title-only, so `PlatformFindings` surfaces it rather than hiding it."""
+        return corpus_enrich.enrichment_status_for_session(s)
+
     @app.post("/templates/from-paper")
     def template_from_paper(body: dict, s: Session = Depends(db)) -> dict:
         """Turn a corpus paper into an executable template by binding it to a
@@ -4104,6 +4115,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 }
                 for t in turns
             ],
+            # Recomputed the same way a fresh turn computes it
+            # (`design_assistant.turn_stance`) — otherwise a reload blanks
+            # the line the UI keeps this for, until the next turn is sent.
+            "understanding": elicitation.understanding_summary(
+                elicitation.assess_understanding(
+                    design_assistant.researcher_texts(s, study_id)
+                )
+            ),
         }
 
     @app.post(
@@ -4113,16 +4132,25 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def decide_move(
         study_id: str, move_id: str, body: MoveDecisionIn, s: Session = Depends(db)
     ) -> dict:
-        """Accept or reject a design move (FR-CONV-1.2). The decision is part
-        of the elicitation record — the row is updated, never deleted."""
-        if body.status not in ("accepted", "rejected"):
-            raise HTTPException(400, "status must be 'accepted' or 'rejected'")
+        """Accept, reject, or reopen ("proposed") a design move (FR-CONV-1.2)
+        — undo is just deciding "proposed" again. The decision is part of
+        the elicitation record — the row is updated, never deleted."""
+        if body.status not in ("accepted", "rejected", "proposed"):
+            raise HTTPException(
+                400, "status must be 'accepted', 'rejected', or 'proposed'"
+            )
         mv = s.get(DesignMoveRow, move_id)
         if mv is None or mv.study_id != study_id:
             raise HTTPException(404, "design move not found")
         mv.status = body.status
-        mv.decided_by = body.decidedBy
-        mv.decided_at = now()
+        if body.status == "proposed":
+            # Reopened — it isn't decided by anyone right now, so a stale
+            # decider/timestamp from the reversed decision would be dishonest.
+            mv.decided_by = ""
+            mv.decided_at = ""
+        else:
+            mv.decided_by = body.decidedBy
+            mv.decided_at = now()
         s.commit()
         presence.hub.publish(
             study_id,

@@ -20,7 +20,7 @@ import { studyApi } from "@/lib/studyApi";
 import type { StudyChange } from "@/lib/presence";
 import type { Understanding } from "@/lib/types";
 import { cn } from "@/lib/cn";
-import type { DesignMove, Turn } from "@/lib/types";
+import type { DesignMove, MoveStatus, Turn } from "@/lib/types";
 
 const FEEDBACK_CUES = [
   "it would be better",
@@ -104,8 +104,11 @@ export function ConversationView({
     if (remoteChange.turnId && knownTurnIds.current.has(remoteChange.turnId)) return;
     let cancelled = false;
     loadConversation(studyId, stubOnly)
-      .then((t) => {
-        if (!cancelled) setTurns(t);
+      .then(({ turns: t, understanding: u }) => {
+        if (!cancelled) {
+          setTurns(t);
+          setUnderstanding(u);
+        }
       })
       .catch(() => {
         /* A failed catch-up leaves the thread as it was — never blanked. */
@@ -120,9 +123,10 @@ export function ConversationView({
 
   useEffect(() => {
     let cancelled = false;
-    loadConversation(studyId, stubOnly).then((t) => {
+    loadConversation(studyId, stubOnly).then(({ turns: t, understanding: u }) => {
       if (!cancelled) {
         setTurns(t);
+        setUnderstanding(u);
         setLive(!stubOnly);
       }
     }).catch(() => {
@@ -246,7 +250,8 @@ export function ConversationView({
     }
   }
 
-  function decide(moveId: string, status: "accepted" | "rejected") {
+  function decide(moveId: string, status: MoveStatus) {
+    const before = turns;
     setTurns((prev) =>
       prev.map((t) => ({
         ...t,
@@ -256,7 +261,13 @@ export function ConversationView({
       })),
     );
     if (live && !stubOnly) {
-      conversationApi.decide(studyId, moveId, status).catch(() => {});
+      // A rejected decision used to be swallowed, so the card showed a
+      // decision the draft never received — the researcher would compile and
+      // find the move missing with no explanation.
+      conversationApi.decide(studyId, moveId, status).catch(() => {
+        setTurns(before);
+        setNote("That decision didn't reach the server — try it again.");
+      });
     }
   }
 
@@ -312,53 +323,58 @@ export function ConversationView({
   return (
     <div
       data-agent="conversation"
-      className="grid h-full grid-cols-1 lg:grid-cols-[1fr_440px]"
+      className="split-rail h-full"
     >
       <section className="flex h-full min-h-0 flex-col">
-        <div className="min-h-0 flex-1 space-y-6 overflow-auto p-4 sm:p-6">
-          {turns.map((t, i) => (
-            <StreamingTurn
-              key={t.turnId}
-              turn={t}
-              onDecide={decide}
-              feedback={
-                t.role === "researcher"
-                  ? {
-                      suggested: readsAsFeedback(t.text),
-                      marked: markedTurns.has(t.turnId),
-                      onMark: (note, kind) => markFeedback(t, i, note, kind),
-                    }
-                  : undefined
-              }
-            />
-          ))}
-          {busy && live && !stubOnly && (
-            <div className="flex flex-col items-start gap-3" data-agent="conversation-thinking">
-              <div className="max-w-[46ch] animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 text-sm duration-entrance">
-                <span className="mb-1 block text-xs text-text-muted opacity-70">
-                  Platform
-                </span>
-                {streamingText ? (
-                  /* The reply as it is being written. Live for a screen
-                   * reader too, but polite — it must not interrupt. */
-                  <span
-                    className="whitespace-pre-wrap text-text"
-                    aria-live="polite"
-                    data-agent="conversation-streaming"
-                  >
-                    {streamingText}
+        <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+          {/* The rail only looked slim because this column was unbounded —
+           * centring the thread at the reading measure is what actually
+           * fixed it, not the rail's own width. */}
+          <div className="mx-auto flex w-full max-w-reading flex-col space-y-6">
+            {turns.map((t, i) => (
+              <StreamingTurn
+                key={t.turnId}
+                turn={t}
+                onDecide={decide}
+                feedback={
+                  t.role === "researcher"
+                    ? {
+                        suggested: readsAsFeedback(t.text),
+                        marked: markedTurns.has(t.turnId),
+                        onMark: (note, kind) => markFeedback(t, i, note, kind),
+                      }
+                    : undefined
+                }
+              />
+            ))}
+            {busy && live && !stubOnly && (
+              <div className="flex flex-col items-start gap-3" data-agent="conversation-thinking">
+                <div className="max-w-[46ch] animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 text-sm duration-entrance">
+                  <span className="mb-1 block text-xs text-text-muted opacity-70">
+                    Platform
                   </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 animate-pulse text-text-muted">
-                    <span className="size-1.5 rounded-full bg-text-muted" />
-                    <span className="size-1.5 rounded-full bg-text-muted" />
-                    <span className="size-1.5 rounded-full bg-text-muted" />
-                  </span>
-                )}
+                  {streamingText ? (
+                    /* The reply as it is being written. Live for a screen
+                     * reader too, but polite — it must not interrupt. */
+                    <span
+                      className="whitespace-pre-wrap text-text"
+                      aria-live="polite"
+                      data-agent="conversation-streaming"
+                    >
+                      {streamingText}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 animate-pulse text-text-muted">
+                      <span className="size-1.5 rounded-full bg-text-muted" />
+                      <span className="size-1.5 rounded-full bg-text-muted" />
+                      <span className="size-1.5 rounded-full bg-text-muted" />
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-          <div ref={threadEnd} />
+            )}
+            <div ref={threadEnd} />
+          </div>
         </div>
 
         <UnderstandingLine understanding={understanding} />
@@ -421,9 +437,16 @@ export function ConversationView({
       </section>
 
       {/* Right rail: toggle between the surfaced literature and the protocol
-          draft. On mobile it's hidden until the composer's toggle opens it. */}
-      <div className={cn("flex min-h-0 flex-col lg:flex", showDraft ? "flex" : "hidden")}>
-        <div className="border-l border-b border-border-strong bg-surface p-2">
+          draft. On mobile it's hidden until the composer's toggle opens it.
+          The one left hairline lives here, on the container — DraftRail and
+          RecommenderRail used to each draw their own, redundantly. */}
+      <div
+        className={cn(
+          "flex min-h-0 flex-col border-l border-border-strong lg:flex",
+          showDraft ? "flex" : "hidden",
+        )}
+      >
+        <div className="border-b border-border-strong bg-surface p-2">
           <SegmentedControl
             value={rail}
             onChange={setRail}

@@ -2,7 +2,7 @@ import { Sparkles } from "lucide-react";
 import { MoveCard } from "./MoveCard";
 import { FeedbackAffordance } from "./FeedbackAffordance";
 import { cn } from "@/lib/cn";
-import type { Turn } from "@/lib/types";
+import type { MoveStatus, Turn } from "@/lib/types";
 
 /** Feedback marking for a researcher turn. Optional — the
  * conversation renders it only for researcher turns that can be flagged. */
@@ -23,7 +23,7 @@ export function StreamingTurn({
   feedback,
 }: {
   turn: Turn;
-  onDecide: (moveId: string, status: "accepted" | "rejected") => void;
+  onDecide: (moveId: string, status: MoveStatus) => void;
   feedback?: TurnFeedback;
 }) {
   const isPlatform = turn.role === "platform";
