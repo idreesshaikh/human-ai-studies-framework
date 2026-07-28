@@ -342,7 +342,7 @@ export function Constellation({
                   opacity={nodeOpacity(n.paperRef, active)}
                   style={{ transition: "opacity var(--motion-standard)" }}
                   aria-label={
-                    (n.title || n.paperRef) + (n.ingested ? "" : " — suggested, click to add")
+                    (n.title || n.paperRef) + (n.ingested ? "" : " (suggested, click to add)")
                   }
                   onPointerDown={(ev) => beginNode(ev, n.paperRef)}
                   onPointerEnter={() => setFocusRef(n.paperRef)}
@@ -377,7 +377,7 @@ export function Constellation({
                   <title>
                     {n.title || n.paperRef}
                     {n.citationCount != null ? ` · ${n.citationCount} citations` : ""}
-                    {n.ingested ? "" : " · suggested — click to add to the study"}
+                    {n.ingested ? "" : " · suggested, click to add to the study"}
                   </title>
                 </g>
               );
@@ -397,7 +397,7 @@ export function Constellation({
       <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
         <span className="text-text-muted/80">Drag to pan · scroll to zoom · drag a node to move · hover or focus a paper to light its neighbourhood</span>
         <LegendDot filled label="ingested" />
-        <LegendDot filled={false} label="suggested — click to add" />
+        <LegendDot filled={false} label="suggested, click to add" />
         {Object.entries(EDGE).map(([kind, { color, label }]) => (
           <span key={kind} className="flex items-center gap-1">
             <span

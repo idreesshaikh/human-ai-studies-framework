@@ -206,7 +206,12 @@ def _scaffold_from_sections(sections: dict[str, list]) -> dict:
         for i, t in enumerate(sections["researchQuestions"])
     ]
     return {
-        "protocolVersion": 1,
+        # Current schema version — every real protocol (templates, examples)
+        # is on 4 since the kite->tern rename. A stale "1" here dragged in
+        # v1/v2's legacy instruments.kite requirement, which nothing has
+        # written in years, so an empty draft's "unresolved" list always
+        # named a property ("kite") that could never be satisfied.
+        "protocolVersion": 4,
         "study": {
             "id": "draft",
             "title": "Design-conversation draft",

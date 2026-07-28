@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Table2, ChartScatter } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import type { DatasetRow } from "@/lib/studyApi";
 
 /* Metric distribution split by condition (FR-DASH-5), small-n honest (NFR-8):
@@ -27,7 +28,7 @@ const METRICS: { key: string; label: string; definition: string }[] = [
     key: "nesting_penalty",
     label: "Nesting penalty",
     definition:
-      "How deeply code nests inside ifs and loops — deeper nesting is harder to hold in your head.",
+      "How deeply code nests inside ifs and loops: deeper nesting is harder to hold in your head.",
   },
 ];
 
@@ -115,17 +116,17 @@ export function MetricStrip({
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2 text-sm text-text-muted">
           Metric
-          <select
+          <Select
             value={metricKey}
             onChange={(e) => setMetricKey(e.target.value)}
-            className="rounded-input border border-border bg-bg px-2 py-1 text-sm text-text"
+            className="h-8 w-auto py-1"
           >
             {METRICS.map((m) => (
               <option key={m.key} value={m.key}>
                 {m.label}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <Button
           size="sm"

@@ -268,7 +268,7 @@ export function ConversationView({
       // built-in assistant, and flip to stub mode until the server returns.
       setTurns((prev) => [...prev, respondTo(text)]);
       setLive(false);
-      setNote("You're offline — replies are coming from the built-in assistant until the connection returns.");
+      setNote("You're offline. Replies are coming from the built-in assistant until the connection returns.");
       scrollDown();
     } finally {
       setStreamingText(null);
@@ -306,7 +306,7 @@ export function ConversationView({
             ),
           })),
         );
-        setNote("That decision didn't reach the server — try it again.");
+        setNote("That decision didn't reach the server. Try it again.");
       });
     }
   }
@@ -330,7 +330,7 @@ export function ConversationView({
         next.delete(ref);
         return next;
       });
-      setNote("Couldn't add that paper to your library — check your connection and try again.");
+      setNote("Couldn't add that paper to your library. Check your connection and try again.");
     }
   }
 
@@ -343,7 +343,7 @@ export function ConversationView({
       setNote("Draft applied to the protocol.");
       await refreshCompile();
     } catch {
-      setNote("Couldn't apply the draft — check your connection and try again.");
+      setNote("Couldn't apply the draft. Check your connection and try again.");
     } finally {
       setApplying(false);
     }

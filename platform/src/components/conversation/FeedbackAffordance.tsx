@@ -56,7 +56,7 @@ export function FeedbackAffordance({
           suggested && "text-accent")}
       >
         <MessageSquarePlus className="size-3" aria-hidden />
-        {suggested ? "Sounds like feedback — flag it?" : "Flag for the platform"}
+        {suggested ? "Flag this as feedback?" : "Flag for the platform"}
       </Button>
     );
   }

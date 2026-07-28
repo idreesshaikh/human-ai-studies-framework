@@ -109,7 +109,7 @@ export function TogglePopover({
           </p>
         </div>
       ) : (
-        <p className="text-xs text-accent">Applied — no re-approval needed.</p>
+        <p className="text-xs text-accent">Applied. No re-approval needed.</p>
       )}
     </div>
   );

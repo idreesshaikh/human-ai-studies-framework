@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { RoleGate } from "@/components/shell/RoleGate";
 import { useApi, useSession } from "@/lib/session";
@@ -100,9 +101,8 @@ export function Settings() {
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="theme">Theme</Label>
-            <select
+            <Select
               id="theme"
-              className="rounded-input border border-border-strong bg-surface px-2 py-1.5 text-sm text-text"
               value={prefs.theme ?? "system"}
               onChange={(e) =>
                 void updatePreferences({ theme: e.target.value as Theme })
@@ -111,13 +111,12 @@ export function Settings() {
               <option value="system">System</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
-            </select>
+            </Select>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="researcher-profile">Your research experience</Label>
-            <select
+            <Select
               id="researcher-profile"
-              className="rounded-input border border-border-strong bg-surface px-2 py-1.5 text-sm text-text"
               value={prefs.researcherProfile ?? ""}
               onChange={(e) =>
                 void updatePreferences({
@@ -129,10 +128,10 @@ export function Settings() {
               <option value="">Not saying</option>
               {profileOptions.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.label} — {p.description}
+                  {p.label}: {p.description}
                 </option>
               ))}
-            </select>
+            </Select>
             <p className="text-xs text-text-muted">
               The design conversation adapts how it talks to you: how much it
               explains, how fast it moves, and which trade-offs it raises. What
@@ -141,9 +140,8 @@ export function Settings() {
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="model">Default assistant model</Label>
-            <select
+            <Select
               id="model"
-              className="rounded-input border border-border-strong bg-surface px-2 py-1.5 text-sm text-text"
               value={prefs.defaultAssistantModel ?? models.data?.defaultModel ?? ""}
               onChange={(e) => void saveModel(e.target.value)}
               disabled={modelOptions.length === 0}
@@ -156,7 +154,7 @@ export function Settings() {
                   {m}
                 </option>
               ))}
-            </select>
+            </Select>
             {modelOptions.length === 0 && (
               <p className="text-xs text-text-muted">
                 No assistant models are configured on this deployment.

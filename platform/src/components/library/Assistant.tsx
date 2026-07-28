@@ -10,7 +10,7 @@ import { cn } from "@/lib/cn";
  * is faster/cheaper, High is the most capable. */
 const TIERS: SegmentOption<string>[] = [
   { value: "mistral-small-latest", label: "Low", hint: "Fastest, lightest answers" },
-  { value: "mistral-medium-latest", label: "Medium", hint: "Balanced — the default" },
+  { value: "mistral-medium-latest", label: "Medium", hint: "Balanced, the default" },
   { value: "mistral-large-latest", label: "High", hint: "Most capable, slower" },
 ];
 
@@ -150,7 +150,7 @@ export function Assistant({ studyId }: { studyId: string }) {
         <input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Ask about the papers, protocol, or aggregate data…"
+          placeholder="Ask a question…"
           aria-label="Ask the assistant"
           className="min-h-9 flex-1 rounded-input border border-border-strong bg-bg px-3 py-2 text-sm text-text outline-none focus-visible:border-accent"
         />
