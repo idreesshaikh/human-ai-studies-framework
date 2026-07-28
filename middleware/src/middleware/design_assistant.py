@@ -387,6 +387,44 @@ def _benchmark_script() -> Script:
     )
 
 
+def _ethics_script() -> Script:
+    """The ethics/consent slot (FR-PROT-1's ``ethics`` mandatory section).
+
+    Every other scripted script only ever *mentions* ethics in passing (the
+    instrument-add and self-report scripts note that a choice is
+    consent-relevant); none of them carries a move that actually fills the
+    section. Without this script a researcher asking about ethics directly
+    fell through to :func:`_followup_script`, which only ever repeats that
+    the slot is empty — the no-LLM path could name every other section but
+    never compile a valid protocol (F1.3)."""
+    return Script(
+        text=(
+            "Ethics posture is one of the mandatory sections, not paperwork "
+            "bolted on afterwards. State informed consent, what is "
+            "collected, and how a participant withdraws — the same "
+            "discipline the corpus asks of every instrument added to a "
+            "study."
+        ),
+        moves=(
+            ScriptedMove(
+                "set-parameter",
+                "ethics",
+                "Ethics posture: informed consent covering what is "
+                "collected, how it is stored, and the participant's right "
+                "to withdraw at any time.",
+                {
+                    "section": "ethics",
+                    "op": "append",
+                    "value": "Informed consent covers what is collected, "
+                    "how it is stored, and the right to withdraw at any "
+                    "time",
+                },
+                ("corpus:guidelines-empirical-llm-se",),
+            ),
+        ),
+    )
+
+
 def _add_instrument_script() -> Script:
     """Adding a capture stream mid-study — the Slice D amendment path. A new
     instrument is a new data stream (consent-relevant by rule, F4.1); the
@@ -595,6 +633,8 @@ def _topical_script(text: str) -> Script:
         "agent" in q and any(w in q for w in ("add", "capture", "leg", "stream"))
     ):
         return _add_instrument_script()
+    if any(w in q for w in ("ethic", "consent", "irb", "withdrawal")):
+        return _ethics_script()
     if any(w in q for w in ("trust", "over-trust", "junior")):
         return _over_trust_script()
     if any(w in q for w in ("productiv", "faster", "speed")) and any(
