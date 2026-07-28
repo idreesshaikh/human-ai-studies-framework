@@ -97,7 +97,12 @@ def test_propose_turn_drops_unknown_kind_but_keeps_the_text():
     assert script.moves == ()
 
 
-def test_propose_turn_nulls_a_malformed_patch_but_keeps_the_move():
+def test_propose_turn_drops_a_move_whose_patch_never_validates():
+    """Regression: a non-caution move whose patch fails validation used to
+    render anyway with `patch=None` - accepting it looked like it worked but
+    silently never touched the draft (the "accepted but only noted" trap
+    previously guarded only for choose-template). It must be dropped
+    entirely instead of offered as a dud."""
     reply = {
         "text": "Reply.",
         "moves": [
@@ -113,8 +118,49 @@ def test_propose_turn_nulls_a_malformed_patch_but_keeps_the_move():
     client = _fake_client(reply)
     script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
     assert script is not None
+    assert script.moves == ()
+
+
+def test_add_instrument_kind_naming_the_ethics_section_is_salvaged():
+    """Regression: an observed real-world failure. The model sometimes picks
+    `add-instrument` for an ethics/consent move (it reads as "adding a
+    policy") instead of `set-parameter`. `add-instrument`'s patch shape
+    requires `section: "instruments"`, so the ethics patch used to be
+    dropped outright - the move rendered as an accept/reject card but
+    accepting it never touched the draft (ethics stayed empty forever, no
+    matter how the researcher asked). The patch names a real section by
+    shape, so it must be salvaged and compiled, whatever kind carried it."""
+    reply = {
+        "text": "Here's an ethics posture.",
+        "moves": [
+            {
+                "kind": "add-instrument",
+                "target": "ethics",
+                "proposal": "Adopt an ethics posture requiring informed "
+                "consent, full data anonymization, and the right to "
+                "withdraw at any time without penalty.",
+                "patch": {
+                    "section": "ethics",
+                    "op": "append",
+                    "value": "Informed consent, full anonymization, "
+                    "withdrawal at any time without penalty",
+                },
+                "refs": [],
+            }
+        ],
+    }
+    client = _fake_client(reply)
+    script = design_llm.propose_turn(
+        client, "give me ethics posture", [], PAPERS, TEMPLATES
+    )
+    assert script is not None
     assert len(script.moves) == 1
-    assert script.moves[0].patch is None
+    assert script.moves[0].patch == {
+        "section": "ethics",
+        "op": "append",
+        "value": "Informed consent, full anonymization, withdrawal at any "
+        "time without penalty",
+    }
 
 
 def test_propose_turn_validates_choose_template_patch():
@@ -140,7 +186,8 @@ def test_propose_turn_validates_choose_template_patch():
 def test_propose_turn_normalizes_list_and_numeric_patch_values():
     """Section values must end up as strings: a list survives (the compiler
     flattens it into one entry per item), a number is stringified, and a
-    dict drops the patch rather than poisoning the draft's schema."""
+    dict value drops - and therefore drops the whole move, rather than
+    poisoning the draft's schema or offering a move that no-ops."""
     reply = {
         "text": "Reply.",
         "moves": [
@@ -174,9 +221,9 @@ def test_propose_turn_normalizes_list_and_numeric_patch_values():
     client = _fake_client(reply)
     script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
     assert script is not None
+    assert len(script.moves) == 2
     assert script.moves[0].patch["value"] == ["AI-assisted", "Traditional resources"]
     assert script.moves[1].patch["value"] == "24"
-    assert script.moves[2].patch is None
 
 
 def test_propose_turn_drops_choose_template_with_hallucinated_id():
@@ -318,7 +365,8 @@ def test_cautions_render_as_advisory_and_the_prompt_says_they_fill_nothing():
     )
     user = captured[0]["messages"][-1]["content"]
     assert "caution [ethics] (advisory — fills no section):" in user
-    assert 'append/set move with section "ethics"' in design_llm.SYSTEM_PROMPT
+    assert 'set-parameter` move' in design_llm.SYSTEM_PROMPT
+    assert 'patch.section` "ethics"' in design_llm.SYSTEM_PROMPT
 
 
 def test_propose_turn_without_design_state_omits_the_block():

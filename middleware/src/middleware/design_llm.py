@@ -87,10 +87,14 @@ SYSTEM_PROMPT = (
     "entries — propose moves that record or refine the template's prescribed "
     "statistics, never ones that contradict them.\n\n"
     "A `caution` is advisory and never fills a section (it carries no "
-    "patch). The ethics section is filled only by an append/set move with "
-    'section "ethics" (consent, data handling, privacy/withdrawal posture) '
-    "— when the researcher wants ethics covered, pair any caution with such "
-    "a move.\n\n"
+    "patch). The ethics section is filled only by a `set-parameter` move "
+    'with `patch.section` "ethics" (consent, data handling, privacy/'
+    "withdrawal posture) — when the researcher wants ethics covered, pair "
+    "any caution with such a move. NEVER use `add-instrument` for this: "
+    "that kind is reserved for an actual capture instrument (e.g. "
+    "agentCapture) and its patch always needs `section: \"instruments\"`, "
+    "so an ethics posture sent as `add-instrument` never reaches the "
+    "draft.\n\n"
     "REPETITION: NEVER re-propose a move the design state lists as accepted, "
     "rejected, or awaiting decision — nor a near-duplicate or rewording of "
     "one. An accepted move is already in the draft; a rejected one was "
@@ -239,20 +243,18 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
                 "parameters": patch.get("parameters") or {},
             }
         return None
-    if kind == "add-instrument":
+    if kind == "add-instrument" and patch.get("section") == "instruments":
         if (
-            patch.get("section") == "instruments"
-            and patch.get("op") in ("add-instrument", "set-instrument")
+            patch.get("op") in ("add-instrument", "set-instrument")
             and isinstance(patch.get("name"), str)
             and patch.get("name")
             and isinstance(patch.get("config"), dict)
         ):
             return patch
         return None
-    if kind == "reconfigure-instrument":
+    if kind == "reconfigure-instrument" and patch.get("section") == "instruments":
         if (
-            patch.get("section") == "instruments"
-            and patch.get("op") == "reconfigure"
+            patch.get("op") == "reconfigure"
             and isinstance(patch.get("name"), str)
             and patch.get("name")
             and isinstance(patch.get("path"), list)
@@ -262,7 +264,12 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
         ):
             return patch
         return None
-    # add-rq / add-measure / set-parameter: a generic section append/set.
+    # add-rq / add-measure / set-parameter — and an add-instrument or
+    # reconfigure-instrument patch that names a non-"instruments" section
+    # (the model picking the ethics-adjacent-sounding "add-instrument" kind
+    # for an actual ethics/consent patch is a real, observed mislabeling):
+    # a generic section append/set, salvaged by patch shape rather than
+    # dropped by kind, since the compiler only ever reads the patch.
     if (
         patch.get("section") in _PATCHABLE_SECTIONS
         and patch.get("op") in ("append", "set")
@@ -326,12 +333,14 @@ def _parse_moves(
         if not proposal:
             continue
         patch = _validate_patch(kind, m.get("patch"))
-        if kind == "choose-template" and (
-            patch is None or patch["templateId"] not in known_templates
-        ):
-            # A hallucinated template id can never instantiate, and a
-            # patch-less choose-template is the "accepted but only noted"
-            # trap — drop the whole move rather than offer a dud.
+        if kind != "caution" and patch is None:
+            # Every non-caution kind is supposed to carry a patch; one that
+            # didn't validate can never touch the draft even if accepted -
+            # the "accepted but only noted" trap. Drop the whole move rather
+            # than offer a dud that looks actionable but silently no-ops.
+            continue
+        if kind == "choose-template" and patch["templateId"] not in known_templates:
+            # A hallucinated template id can never instantiate.
             continue
         raw_refs = m.get("refs")
         refs = (
