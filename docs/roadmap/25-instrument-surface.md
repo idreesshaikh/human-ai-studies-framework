@@ -23,7 +23,8 @@ generated mint link goes into the VS Code extension for recording … extension
 properly appears in the side bar not as teeny tiny in the lower bar … near
 complete to be published in the app store. This is the study out of the box
 platform."
-**Status:** Specced (2026-07-26). Not built.
+**Status:** Specced (2026-07-26). Slices A–D built (2026-07-26); see the
+deviations log for what changed during the build and what remains owner-run.
 
 ## The idea
 
@@ -160,5 +161,28 @@ session end-to-end against a local middleware; `npm run check` green.
 
 ## Deviations log
 
-*(Record deviations here as they happen, and mirror them into
-`requirements/traceability.md`.)*
+- **Slice B needed a middleware change the spec did not anticipate.** The
+  capture config the IDE receives carries only the flat `tern.*` settings, so
+  two of the four legs are invisible to it — `legs.ts` could not have derived
+  their state from anything it had. `build_capture_config` now carries the
+  `leg_summary` alongside `settings` as a purely descriptive field. Only
+  `settings` is ever applied, so this cannot widen what is captured. Recorded
+  because it moved work across the middleware/extension boundary the spec drew.
+- **`readLegs` grew a third state beyond the spec's two claims.** `unavailable`
+  is distinct from `disabled` because "the protocol doesn't configure this leg"
+  and "we have not fetched a config yet" must never render as "switched off".
+  Malformed or absent payloads degrade to `unavailable` rather than being
+  trusted.
+- **Two packaging bugs found and fixed by running `vsce ls`, not by review.**
+  The first `.vscodeignore` shipped the `out-tests/` build, and its `media/*.svg`
+  rule excluded `media/tern.svg` — the activity-bar icon the manifest points at
+  — which would have shipped an installable extension with no sidebar icon.
+- **Session event counts deferred.** `DataView` is written to show
+  written-vs-mirrored counts so `seq` gaps stay visible (NFR-2), but the
+  recorder does not currently expose them; the rows are omitted rather than
+  faked. Plumbing them is the one piece of Slice C left.
+
+**Owner-run, still open:** the Extension Dev Host walkthrough (verification
+steps 3–5, both themes) and a Marketplace publisher id + `VSCE_PAT`. Neither
+can be done by a builder: the first needs a live editor, the second an account
+registration.

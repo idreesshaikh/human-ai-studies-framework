@@ -10,6 +10,14 @@ export interface CaptureConfig {
   producer: string;
   /** Flat `tern.*` settings from the middleware. */
   settings: Record<string, unknown>;
+  /**
+   * The four legs and their state, for display only (FR-INST-22). Served
+   * alongside `settings` by the middleware's `leg_summary`. Optional and
+   * untyped here because an older middleware won't send it — `readLegs`
+   * in `legs.ts` validates the shape and degrades rather than trusting it.
+   * Never applied: only `settings` configures capture.
+   */
+  legs?: unknown;
 }
 
 const PREFIX = 'tern.';

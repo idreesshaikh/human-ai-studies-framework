@@ -2,8 +2,8 @@
   "name": "tern",
   "displayName": "TERN — Telemetry for Engineering & Reasoning Norms",
   "description": "Zero-distraction in-IDE overlay for developer studies: fatigue Likert sampling, stuck detection with inline code prompts, and session telemetry.",
-  "version": "0.2.0",
-  "publisher": "replace-with-your-vsce-publisher-id",
+  "version": "0.1.0",
+  "publisher": "idreesrazak",
   "repository": {
     "type": "git",
     "url": "https://github.com/idreesshaikh/human-ai-studies-framework.git",
@@ -29,13 +29,40 @@
     "theme": "dark"
   },
   "categories": [
+    "Education",
     "Other"
   ],
   "main": "./out/vscode/extension.js",
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onView:tern.session"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tern",
+          "title": "TERN study",
+          "icon": "media/tern.svg"
+        }
+      ]
+    },
+    "views": {
+      "tern": [
+        {
+          "id": "tern.session",
+          "name": "Session"
+        },
+        {
+          "id": "tern.capture",
+          "name": "What is captured"
+        },
+        {
+          "id": "tern.data",
+          "name": "Your data"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "tern.startSession",
@@ -400,17 +427,19 @@
     "pretest": "tsc -p tsconfig.test.json",
     "test": "node --test \"out-tests/test/**/*.test.js\"",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
-    "vscode:prepublish": "npm run compile",
-    "package": "vsce package"
+    "package": "npm run check && vsce package",
+    "package:check": "vsce ls",
+    "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
-    "@vscode/vsce": "^3.9.2",
+    "@vscode/vsce": "3.9.2",
     "eslint": "^9.39.4",
     "prettier": "^3.9.4",
     "typescript": "^5.4.0",
     "typescript-eslint": "^8.63.0"
-  }
+  },
+  "icon": "media/icon.png"
 }

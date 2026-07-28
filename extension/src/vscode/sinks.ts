@@ -101,6 +101,10 @@ export class HttpSink implements EventSink {
   private timer: ReturnType<typeof setInterval>;
   private inFlight = false;
   private consecutiveFailures = 0;
+  /** Events confirmed delivered by a successful POST — the sidebar's Data
+   *  view reads this to say how much of what was written has actually left
+   *  the machine (NFR-2: loss must be detectable, not just written-to-disk). */
+  private delivered = 0;
   private static readonly MAX_BUFFER = 2000;
   private static readonly REQUEST_TIMEOUT_MS = 4_000;
 
@@ -148,6 +152,7 @@ export class HttpSink implements EventSink {
         });
         if (!res.ok) throw new Error(`middleware responded ${res.status}`);
         this.consecutiveFailures = 0;
+        this.delivered += batch.length;
       } finally {
         clearTimeout(timeout);
       }
@@ -166,6 +171,11 @@ export class HttpSink implements EventSink {
   dispose(): void {
     clearInterval(this.timer);
     void this.flush();
+  }
+
+  /** Events confirmed delivered so far, for the Data view's queue-depth row. */
+  get deliveredCount(): number {
+    return this.delivered;
   }
 }
 

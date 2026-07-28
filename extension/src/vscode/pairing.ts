@@ -11,6 +11,15 @@ import { ConsentGate } from '../core/consentGate';
 const SECRET_CRED = 'tern.sessionCredential';
 const STATE_SERVER = 'tern.serverUrl';
 const STATE_VERSION = 'tern.captureConfigVersion';
+/** The leg summary from the config currently *in force* — what the sidebar
+ *  (FR-INST-22) renders. Written only where the config is actually applied,
+ *  so the surface can never claim a leg is running before it is. */
+export const STATE_LEGS = 'tern.legs';
+/** Set when the server has a newer config than the one in force — i.e. a
+ *  researcher amended the study mid-session. Wall #6 says it lands at the
+ *  next session start, so the sidebar shows it as pending rather than
+ *  silently implying the change already took effect. */
+export const STATE_PENDING = 'tern.pendingConfigVersion';
 
 interface RedeemResult {
   studyId: string;
@@ -87,6 +96,18 @@ export async function refreshConfigAtSessionStart(
           STATE_VERSION,
           cfg.captureConfigVersion,
         );
+        await context.workspaceState.update(STATE_LEGS, cfg.legs);
+        await context.workspaceState.update(STATE_PENDING, undefined);
+      } else {
+        // Not applied. Either nothing changed, or a change arrived mid-session
+        // and wall #6 holds it until the next start — record which, so the
+        // sidebar can say so instead of showing stale state as current.
+        await context.workspaceState.update(
+          STATE_PENDING,
+          cfg.captureConfigVersion === applied
+            ? undefined
+            : cfg.captureConfigVersion,
+        );
       }
     }
   } catch {
@@ -148,6 +169,8 @@ export async function pairFromConnectionString(
     STATE_VERSION,
     result.captureConfig.captureConfigVersion,
   );
+  await context.workspaceState.update(STATE_LEGS, result.captureConfig.legs);
+  await context.workspaceState.update(STATE_PENDING, undefined);
   const conf = vscode.workspace.getConfiguration('tern');
   await conf.update(
     'studyId',
