@@ -95,13 +95,39 @@ export function ConversationView({
    * the event, and skip a change this client just made itself (our own turn
    * is already on screen). */
   const knownTurnIds = useRef<Set<string>>(new Set());
+  const knownMoveIds = useRef<Set<string>>(new Set());
   useEffect(() => {
     knownTurnIds.current = new Set(turns.map((t) => t.turnId));
+    knownMoveIds.current = new Set(
+      turns.flatMap((t) => t.moves.map((m) => m.moveId)),
+    );
   }, [turns]);
 
   useEffect(() => {
     if (!remoteChange || !live || stubOnly) return;
     if (remoteChange.turnId && knownTurnIds.current.has(remoteChange.turnId)) return;
+    // A decision on a card already on screen changes exactly one status —
+    // patch it in place instead of replacing the thread. The full re-read
+    // used to run even for this client's own decisions (a move event carries
+    // no turnId, so the guard above never fired) and would clobber any
+    // still-in-flight optimistic decision. The patch mirrors what a re-read
+    // would return, so the stream stays a nudge, not a source of truth.
+    if (
+      remoteChange.changed === "move" &&
+      remoteChange.moveId &&
+      remoteChange.status &&
+      knownMoveIds.current.has(remoteChange.moveId)
+    ) {
+      const { moveId } = remoteChange;
+      const status = remoteChange.status as MoveStatus;
+      setTurns((prev) =>
+        prev.map((t) => ({
+          ...t,
+          moves: t.moves.map((m) => (m.moveId === moveId ? { ...m, status } : m)),
+        })),
+      );
+      return;
+    }
     let cancelled = false;
     loadConversation(studyId, stubOnly)
       .then(({ turns: t, understanding: u }) => {

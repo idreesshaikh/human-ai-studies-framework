@@ -713,7 +713,9 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
         for mv in s.scalars(
             select(DesignMoveRow)
             .where(DesignMoveRow.turn_id.in_(turn_ids))
-            .order_by(DesignMoveRow.id)
+            # Bucketed per turn, so only in-turn order matters — seq is the
+            # proposal order (id would put e.g. m10 before m2).
+            .order_by(DesignMoveRow.seq)
         ):
             moves_by_turn.setdefault(mv.turn_id, []).append(mv)
 
@@ -960,8 +962,11 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         return None
     rows = s.scalars(
         select(DesignMoveRow)
+        .join(ConversationTurn, DesignMoveRow.turn_id == ConversationTurn.id)
         .where(DesignMoveRow.study_id == study_id)
-        .order_by(DesignMoveRow.id)
+        # Conversation order — ordering by id would sort turns by their
+        # random hex prefix, compiling moves out of sequence.
+        .order_by(ConversationTurn.seq, DesignMoveRow.seq)
     ).all()
     if not rows:
         return None
