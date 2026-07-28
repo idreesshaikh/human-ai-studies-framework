@@ -197,6 +197,47 @@ def test_compile_is_deterministic(client):
     assert first["yaml"] == second["yaml"]
 
 
+def test_delete_removes_a_study_with_moves_and_an_approval(client):
+    """A study with design moves and an approved compilation has rows that
+    reference each other (design_moves.turn_id -> conversation_turns.id,
+    approvals.compilation_id -> compilations.id) - deleting them in the
+    wrong order is invisible on SQLite (no FK enforcement by default) but
+    fails outright on Postgres, the production default, leaving the study
+    stuck and the delete button looking like a no-op. Turn FK enforcement on
+    for this test so a regression here fails loudly instead of only in
+    production."""
+    from sqlalchemy import event
+
+    from middleware import db as db_mod
+
+    def _enable_fk(dbapi_connection, connection_record, connection_proxy):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    event.listen(db_mod._engine, "checkout", _enable_fk)
+    try:
+        # The other tests in this file write straight to study_id-scoped
+        # tables without a reified ``Study`` row (the permissive implicit
+        # project doesn't require one to hold a conversation) - but delete
+        # looks the row up, so this one needs it to exist first.
+        created = client.post("/projects/implicit/studies", json={"name": STUDY})
+        assert created.status_code == 200, created.text
+        assert created.json()["id"] == STUDY
+
+        result = _drive_to_valid_draft(client)
+        approved = client.post(
+            f"/studies/{STUDY}/conversation/approve",
+            json={"compilationId": result["compilationId"], "approvedBy": "Owner"},
+        )
+        assert approved.status_code == 200, approved.text
+
+        deleted = client.delete(f"/studies/{STUDY}")
+        assert deleted.status_code == 200, deleted.text
+    finally:
+        event.remove(db_mod._engine, "checkout", _enable_fk)
+
+
 def test_no_draft_applies_without_approval(client):
     """F3.3: the current draft is empty until an approval is recorded; the
     approval carries the approver's role (audit)."""

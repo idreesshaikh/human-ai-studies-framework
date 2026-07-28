@@ -2384,7 +2384,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     #: Every table that scopes rows by ``study_id`` — deleting a study removes
     #: its row plus all of these, so nothing is orphaned. The corpus study is
-    #: never a target (it isn't a project study).
+    #: never a target (it isn't a project study). Order matters: a table with
+    #: a foreign key into another study-scoped table must be listed first, or
+    #: a database that actually enforces the constraint (Postgres, the
+    #: production default - SQLite doesn't unless a connection turns it on)
+    #: rejects the whole delete. DesignMoveRow.turn_id -> ConversationTurn.id
+    #: and ApprovalEvent.compilation_id -> Compilation.id are the two edges.
     _STUDY_SCOPED = (
         StoredFile,
         Paper,
@@ -2394,10 +2399,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         EnrollmentToken,
         MiningJob,
         CuratedDataset,
-        ConversationTurn,
         DesignMoveRow,
-        Compilation,
+        ConversationTurn,
         ApprovalEvent,
+        Compilation,
         ProtocolDraftRow,
         StudyEvolution,
         Amendment,
