@@ -393,7 +393,7 @@ export function ConversationView({
                   <span className="mb-1 block text-xs text-text-muted opacity-70">
                     Platform
                   </span>
-                  {streamingText ? (
+                  {streamingText && (
                     /* The reply as it is being written. Live for a screen
                      * reader too, but polite — it must not interrupt. */
                     <span
@@ -403,13 +403,22 @@ export function ConversationView({
                     >
                       {streamingText}
                     </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 animate-pulse text-text-muted">
-                      <span className="size-1.5 rounded-full bg-text-muted" />
-                      <span className="size-1.5 rounded-full bg-text-muted" />
-                      <span className="size-1.5 rounded-full bg-text-muted" />
-                    </span>
                   )}
+                  {/* The model streams `text` before `moves` in the same
+                   * completion, so the prose can finish well before the
+                   * move cards are ready — the dots stay up through that
+                   * gap instead of vanishing the moment text appears, which
+                   * read as the reply being done when it wasn't. */}
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 animate-pulse text-text-muted",
+                      streamingText && "mt-2",
+                    )}
+                  >
+                    <span className="size-1.5 rounded-full bg-text-muted" />
+                    <span className="size-1.5 rounded-full bg-text-muted" />
+                    <span className="size-1.5 rounded-full bg-text-muted" />
+                  </span>
                 </div>
               </div>
             )}
