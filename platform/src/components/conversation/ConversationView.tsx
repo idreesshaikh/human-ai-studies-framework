@@ -389,13 +389,13 @@ export function ConversationView({
             ))}
             {busy && live && !stubOnly && (
               <div className="flex flex-col items-start gap-3" data-agent="conversation-thinking">
-                <div className="max-w-bubble animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 text-sm duration-entrance">
-                  <span className="mb-1 block text-xs text-text-muted opacity-70">
-                    Platform
-                  </span>
-                  {streamingText && (
-                    /* The reply as it is being written. Live for a screen
-                     * reader too, but polite — it must not interrupt. */
+                {streamingText && (
+                  <div className="max-w-bubble animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 text-sm duration-entrance">
+                    <span className="mb-1 block text-xs text-text-muted opacity-70">
+                      Platform
+                    </span>
+                    {/* The reply as it is being written. Live for a screen
+                     * reader too, but polite — it must not interrupt. */}
                     <span
                       className="whitespace-pre-wrap text-text"
                       aria-live="polite"
@@ -403,18 +403,16 @@ export function ConversationView({
                     >
                       {streamingText}
                     </span>
-                  )}
-                  {/* The model streams `text` before `moves` in the same
-                   * completion, so the prose can finish well before the
-                   * move cards are ready — the dots stay up through that
-                   * gap instead of vanishing the moment text appears, which
-                   * read as the reply being done when it wasn't. */}
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1 animate-pulse text-text-muted",
-                      streamingText && "mt-2",
-                    )}
-                  >
+                  </div>
+                )}
+                {/* The model streams `text` before `moves` in the same
+                 * completion, so the prose can finish well before the move
+                 * cards are ready — this stays its own card, separate from
+                 * the reply bubble above, through that whole gap instead of
+                 * disappearing the moment text appears (which read as the
+                 * reply being done when it wasn't). */}
+                <div className="max-w-bubble animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 text-sm duration-entrance">
+                  <span className="inline-flex items-center gap-1 animate-pulse text-text-muted">
                     <span className="size-1.5 rounded-full bg-text-muted" />
                     <span className="size-1.5 rounded-full bg-text-muted" />
                     <span className="size-1.5 rounded-full bg-text-muted" />
