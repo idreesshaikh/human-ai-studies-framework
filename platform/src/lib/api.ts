@@ -265,7 +265,12 @@ class HttpBackend implements Api {
       throw new OfflineError();
     }
     if (!res.ok) {
-      let detail = res.statusText;
+      // `res.statusText` is blank over HTTP/2 (no reason phrase on the
+      // wire), so a non-JSON error body — an edge/proxy rate-limit page,
+      // not our own JSON errors — used to leave `detail` as "", which
+      // `{err && ...}` then renders as nothing: a real failure with no
+      // visible feedback at all.
+      let detail = res.statusText || `Request failed (${res.status})`;
       try {
         detail = (await res.json()).detail ?? detail;
       } catch {
