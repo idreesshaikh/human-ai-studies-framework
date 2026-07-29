@@ -91,7 +91,10 @@ export function ProjectHome() {
     }
   };
 
-  if (loading) return <p className="p-6 text-sm text-text-muted">Loading…</p>;
+  // Only the *first* load blanks the page; a post-delete `reload()` refetch
+  // shouldn't unmount the whole tree while `studies` already reflects the
+  // optimistic update — that remount was the delete-study flicker.
+  if (loading && !data) return <p className="p-6 text-sm text-text-muted">Loading…</p>;
   if (error) return <p className="p-6 text-sm text-unsourced">{error}</p>;
   if (!data) return null;
 
