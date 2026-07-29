@@ -184,6 +184,14 @@ export function Settings() {
                 Save
               </Button>
             </div>
+            {/* The slug is set once at creation and never follows a rename —
+             * intentional, so bookmarks and shared invite links never break.
+             * Called out here so that stays a design decision, not a bug
+             * report. */}
+            <p className="text-xs text-text-muted">
+              The URL (<span className="font-mono">/{data?.slug}</span>) stays the
+              same so existing links keep working — only the display name changes.
+            </p>
             {msg && <p className="text-sm text-grounded">{msg}</p>}
           </CardContent>
         </Card>
