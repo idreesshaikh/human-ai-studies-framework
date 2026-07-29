@@ -19,7 +19,8 @@ import { FALLBACK_RESEARCHER_PROFILES, type ResearcherProfile } from "@/lib/api"
  * server-side so they follow the person across devices. */
 export function Settings() {
   const api = useApi();
-  const { me, loading: meLoading, refresh, updatePreferences } = useSession();
+  const { me, loading: meLoading, refresh, updatePreferences, setThemePreference } =
+    useSession();
   const navigate = useNavigate();
   const { slug = "" } = useParams();
   const { data } = useAsync(() => api.projectHome(slug), [api, slug]);
@@ -104,9 +105,7 @@ export function Settings() {
             <Select
               id="theme"
               value={prefs.theme ?? "system"}
-              onChange={(e) =>
-                void updatePreferences({ theme: e.target.value as Theme })
-              }
+              onChange={(e) => void setThemePreference(e.target.value as Theme)}
             >
               <option value="system">System</option>
               <option value="light">Light</option>
