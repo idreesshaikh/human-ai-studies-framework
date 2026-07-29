@@ -2411,6 +2411,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         SessionOpen,
     )
 
+    def _delete_study_scoped_rows(s: Session, study_id: str) -> None:
+        for model in _STUDY_SCOPED:
+            s.execute(model.__table__.delete().where(model.study_id == study_id))
+
     @app.delete(
         "/studies/{study_id}",
         dependencies=[Depends(require_project_for_study("delete"))],
@@ -2422,8 +2426,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         study = s.get(Study, study_id)
         if study is None:
             raise HTTPException(404, "study not found")
-        for model in _STUDY_SCOPED:
-            s.execute(model.__table__.delete().where(model.study_id == study_id))
+        _delete_study_scoped_rows(s, study_id)
         s.delete(study)
         s.flush()
         return {"deleted": study_id}
@@ -2450,8 +2453,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         confirm = str(body.get("confirm", "")).strip()
         if confirm != "DELETE":
             raise HTTPException(400, "type DELETE to confirm deletion")
-        # Delete memberships + invitations cascade via FK (ondelete);
-        # studies, papers etc. are scoped via the choke point, not cascaded.
+        # studies.project_id has no ON DELETE CASCADE, so a project with any
+        # study always violated that FK here (a 500, not a clean refusal) —
+        # cascade each study the same way delete_study does before the
+        # studies themselves, then memberships/invitations, then the project.
+        study_ids = list(
+            s.scalars(select(Study.id).where(Study.project_id == proj.id))
+        )
+        for study_id in study_ids:
+            _delete_study_scoped_rows(s, study_id)
+        s.execute(Study.__table__.delete().where(Study.project_id == proj.id))
         s.execute(Membership.__table__.delete().where(Membership.project_id == proj.id))
         s.execute(Invitation.__table__.delete().where(Invitation.project_id == proj.id))
         s.delete(proj)
