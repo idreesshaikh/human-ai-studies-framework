@@ -512,8 +512,8 @@ export class InMemoryBackend implements Api {
   }
 
   async deleteProject(slug: string, confirm: string): Promise<void> {
-    const p = this.get(slug);
-    if (confirm !== p.slug) throw new ApiError(400, `type the project slug (${p.slug}) to confirm`);
+    this.get(slug);
+    if (confirm !== "DELETE") throw new ApiError(400, "type DELETE to confirm");
     this.projects.delete(slug);
   }
 

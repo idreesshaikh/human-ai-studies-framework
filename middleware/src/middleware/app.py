@@ -2448,10 +2448,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if proj is None:
             raise HTTPException(404, "project not found")
         confirm = str(body.get("confirm", "")).strip()
-        if confirm != proj.slug:
-            raise HTTPException(
-                400, f"type the project slug ({proj.slug!r}) to confirm deletion"
-            )
+        if confirm != "DELETE":
+            raise HTTPException(400, "type DELETE to confirm deletion")
         # Delete memberships + invitations cascade via FK (ondelete);
         # studies, papers etc. are scoped via the choke point, not cascaded.
         s.execute(Membership.__table__.delete().where(Membership.project_id == proj.id))

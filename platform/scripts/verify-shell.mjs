@@ -8,7 +8,7 @@
  *   - creating a project makes the creator an owner
  *   - an invitation is single-use
  *   - a role change sticks; the last owner can't be removed
- *   - deleting needs the slug typed to confirm
+ *   - deleting needs DELETE typed to confirm
  *   - resolveRole keeps "still loading" distinct from "viewer"
  */
 import { MATRIX, ROLE_RANK, hasRole } from "../src/lib/capabilities.ts";
@@ -69,10 +69,10 @@ ok("role change sticks",
 await throws("last owner can't be removed", 409, () =>
   api.removeMember(created.slug, "you"));
 
-// Delete needs the typed slug.
+// Delete needs DELETE typed.
 await throws("delete refuses a wrong confirmation", 400, () =>
   api.deleteProject("sample-lab", "nope"));
-await api.deleteProject("sample-lab", "sample-lab");
+await api.deleteProject("sample-lab", "DELETE");
 const after = await api.listProjects();
 ok("delete with correct confirmation removes the project",
   !after.some((p) => p.slug === "sample-lab"));

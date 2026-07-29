@@ -244,7 +244,7 @@ def test_delete_is_owner_only(client):
     add_member(client, slug, "alice", "rea", "researcher")
     assert (
         client.request(
-            "DELETE", f"/projects/{slug}", json={"confirm": slug}, headers=bearer("rea")
+            "DELETE", f"/projects/{slug}", json={"confirm": "DELETE"}, headers=bearer("rea")
         ).status_code
         == 403
     )
@@ -253,7 +253,7 @@ def test_delete_is_owner_only(client):
         client.request(
             "DELETE",
             f"/projects/{slug}",
-            json={"confirm": slug},
+            json={"confirm": "DELETE"},
             headers=bearer("alice"),
         ).status_code
         == 200
@@ -284,7 +284,7 @@ def test_cross_project_access_refused(client):
     assert client.get(f"/projects/{p2}", headers=bearer("alice")).status_code == 403
     assert (
         client.request(
-            "DELETE", f"/projects/{p2}", json={"confirm": p2}, headers=bearer("alice")
+            "DELETE", f"/projects/{p2}", json={"confirm": "DELETE"}, headers=bearer("alice")
         ).status_code
         == 403
     )
