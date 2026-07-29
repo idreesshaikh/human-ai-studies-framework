@@ -14,12 +14,13 @@ import type { Theme } from "@/lib/theme";
 import { FALLBACK_RESEARCHER_PROFILES, type ResearcherProfile } from "@/lib/api";
 
 /* Project settings: rename, and an owner-only danger zone whose delete
- * requires typing the slug to confirm. Plus the signed-in identity's own
+ * requires typing DELETE to confirm. Plus the signed-in identity's own
  * profile (FR-OPS-7) — theme + default assistant model, persisted
  * server-side so they follow the person across devices. */
 export function Settings() {
   const api = useApi();
-  const { me, loading: meLoading, refresh, updatePreferences } = useSession();
+  const { me, loading: meLoading, refresh, updatePreferences, setThemePreference } =
+    useSession();
   const navigate = useNavigate();
   const { slug = "" } = useParams();
   const { data } = useAsync(() => api.projectHome(slug), [api, slug]);
@@ -104,9 +105,7 @@ export function Settings() {
             <Select
               id="theme"
               value={prefs.theme ?? "system"}
-              onChange={(e) =>
-                void updatePreferences({ theme: e.target.value as Theme })
-              }
+              onChange={(e) => void setThemePreference(e.target.value as Theme)}
             >
               <option value="system">System</option>
               <option value="light">Light</option>
@@ -185,6 +184,14 @@ export function Settings() {
                 Save
               </Button>
             </div>
+            {/* The slug is set once at creation and never follows a rename —
+             * intentional, so bookmarks and shared invite links never break.
+             * Called out here so that stays a design decision, not a bug
+             * report. */}
+            <p className="text-xs text-text-muted">
+              The URL (<span className="font-mono">/{data?.slug}</span>) stays the
+              same so existing links keep working — only the display name changes.
+            </p>
             {msg && <p className="text-sm text-grounded">{msg}</p>}
           </CardContent>
         </Card>
@@ -196,21 +203,21 @@ export function Settings() {
                 <h2 className="type-subhead text-text">Danger zone</h2>
                 <p className="text-sm text-text-muted">
                   Deleting a project removes its memberships and invitations.
-                  Type <span className="font-mono">{slug}</span> to confirm.
+                  Type <span className="font-mono">DELETE</span> to confirm.
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <Input
-                  placeholder={slug}
+                  placeholder="DELETE"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  aria-label="Type the project slug to confirm deletion"
+                  aria-label="Type DELETE to confirm deletion"
                   className="min-h-11"
                 />
                 <Button
                   variant="outline"
                   onClick={remove}
-                  disabled={confirm !== slug}
+                  disabled={confirm !== "DELETE"}
                   className="border-unsourced text-unsourced min-h-11"
                 >
                   Delete project

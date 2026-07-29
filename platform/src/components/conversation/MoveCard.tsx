@@ -65,7 +65,8 @@ export function MoveCard({
       aria-label={`${KIND_LABEL[move.kind]} move: ${move.proposal}`}
       className={cn(
         "transition-all",
-        move.status === "proposed" && "duration-entrance ease-out",
+        move.status === "proposed" &&
+          "animate-in fade-in slide-in-from-bottom-2 duration-entrance ease-out",
         move.status === "accepted" &&
           "duration-settle ease-in-out translate-x-2",
         move.status === "rejected" && "duration-standard scale-95",

@@ -244,7 +244,10 @@ def test_delete_is_owner_only(client):
     add_member(client, slug, "alice", "rea", "researcher")
     assert (
         client.request(
-            "DELETE", f"/projects/{slug}", json={"confirm": slug}, headers=bearer("rea")
+            "DELETE",
+            f"/projects/{slug}",
+            json={"confirm": "DELETE"},
+            headers=bearer("rea"),
         ).status_code
         == 403
     )
@@ -253,7 +256,7 @@ def test_delete_is_owner_only(client):
         client.request(
             "DELETE",
             f"/projects/{slug}",
-            json={"confirm": slug},
+            json={"confirm": "DELETE"},
             headers=bearer("alice"),
         ).status_code
         == 200
@@ -273,6 +276,35 @@ def test_delete_requires_typed_confirmation(client):
     )
 
 
+def test_delete_project_removes_its_studies(client):
+    """studies.project_id carries a real FK with no ON DELETE CASCADE —
+    Postgres (the production database) 500s on a dangling reference if a
+    project's studies aren't cascaded first. SQLite doesn't enforce that FK
+    by default, so this only checks the studies are actually gone, not that
+    a lax-FK engine would have caught the omission."""
+    slug = make_project(client, "alice", "Lab")
+    made = client.post(
+        f"/projects/{slug}/studies", json={"name": "Doomed"}, headers=bearer("alice")
+    )
+    assert made.status_code == 200, made.text
+    study_id = made.json()["id"]
+
+    assert (
+        client.request(
+            "DELETE",
+            f"/projects/{slug}",
+            json={"confirm": "DELETE"},
+            headers=bearer("alice"),
+        ).status_code
+        == 200
+    )
+    # Deleting a missing study 404s (test_delete_study_is_owner_only_and_...
+    # confirms this) — reused here to prove the study didn't survive the
+    # project it belonged to.
+    gone = client.delete(f"/studies/{study_id}", headers=bearer("alice"))
+    assert gone.status_code == 404
+
+
 # ------------------------------------------------------------ cross-project
 
 
@@ -284,7 +316,10 @@ def test_cross_project_access_refused(client):
     assert client.get(f"/projects/{p2}", headers=bearer("alice")).status_code == 403
     assert (
         client.request(
-            "DELETE", f"/projects/{p2}", json={"confirm": p2}, headers=bearer("alice")
+            "DELETE",
+            f"/projects/{p2}",
+            json={"confirm": "DELETE"},
+            headers=bearer("alice"),
         ).status_code
         == 403
     )
