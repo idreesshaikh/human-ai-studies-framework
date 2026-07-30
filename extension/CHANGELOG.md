@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   is now `tern.*`; the marketplace extension id changes from `kite` to
   `tern`. The protocol schema's `instruments.kite` block is renamed to
   `instruments.tern`, gated behind `protocolVersion: 4` (older protocols
-  on v1-v3 keep validating against `kite` unchanged — consumers branch on
+  on v1-v3 keep validating against `kite` unchanged; consumers branch on
   version, never guess). No behavioral change.
 
 ## [0.2.0] - 2026-07-11

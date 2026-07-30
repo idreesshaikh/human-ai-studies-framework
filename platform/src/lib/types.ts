@@ -156,6 +156,24 @@ export const SLOT_LABELS: Record<keyof ProtocolDraft, string> = {
   ethics: "Ethics posture",
 };
 
+/** One-sentence explanations of each mandatory slot, shown in the in-app
+ * protocol guide (ProtocolGuide) for researchers unfamiliar with the terms. */
+export const SLOT_DESCRIPTIONS: Record<keyof ProtocolDraft, string> = {
+  researchQuestions: "The RQs this study is designed to answer.",
+  design:
+    "The published study design (e.g. within/between-subjects) chosen from the corpus or templates; the only slot a template move can fill.",
+  participants:
+    "Planned sample size, assignment (within/between-subjects), and counterbalancing.",
+  conditions:
+    "The experimental arms a session runs under (glossary: \"condition,\" not group or treatment).",
+  measures: "What gets measured to answer each research question.",
+  instruments:
+    "The data-collecting components configured for the study (e.g. TERN, agent capture) and their settings.",
+  statisticalPlan:
+    "How each research question will be analysed, decided in advance rather than after the data comes in.",
+  ethics: "The study's ethics posture and the safeguards in place for participants.",
+};
+
 export function emptyDraft(): ProtocolDraft {
   return {
     researchQuestions: [],

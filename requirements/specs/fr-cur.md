@@ -1,4 +1,4 @@
-# FR-CUR — Curated datasets & mining (detailed specification)
+# FR-CUR: Curated datasets & mining (detailed specification)
 
 **SRS family:** FR-CUR. **Phase:** 16 (FR-CUR-1..3); FR-CUR-4 deferred.
 
@@ -10,7 +10,7 @@ mines repositories, PRs, and conversation archives
 `agentic-much-adoption`, `devgpt-developer-chatgpt`). The platform's
 "dataset exists?" branch makes that path first-class. The architectural
 bet, inherited: **the join-key event schema is the convergence
-contract** — curated rows land in the same one-timeline shape as live
+contract**: curated rows land in the same one-timeline shape as live
 rows, so every recipe, report, figure, and paper-draft mechanism works
 unchanged on mined data.
 
@@ -20,7 +20,7 @@ unchanged on mined data.
    emitting events through one normalizer contract:
    - Join keys, reinterpreted for mined units and *documented as such*:
      `participantId` = the anonymized actor unit (developer, repo, or
-     agent — declared per dataset, salted-hash pseudonyms);
+     agent, declared per dataset, salted-hash pseudonyms);
      `condition` = the study's comparison arm (e.g. `pre-adoption` /
      `post-adoption`, `agent-pr` / `human-pr`); `sessionId` = the
      mined activity unit (PR, issue thread, commit-batch window);
@@ -32,14 +32,14 @@ unchanged on mined data.
      versioned event vocabulary (schema v5 candidate); consumers branch,
      never guess (NFR-4).
 2. Event vocabulary (initial): `mined_commit`, `mined_pull_request`,
-   `mined_review`, `mined_issue_event`, `mined_actor_snapshot` — all
+   `mined_review`, `mined_issue_event`, `mined_actor_snapshot`: all
    content-free by default (sizes, counts, timings, salted hashes;
    FR-ETH-2 discipline extends to *other people's* data: mined authors
    are pseudonymized by construction, and public-data ethics are still
-   ethics — the protocol's ethics section covers mined subjects too).
+   ethics: the protocol's ethics section covers mined subjects too).
 3. Static metrics over mined code reuse the existing metrics leg
    against checked-out snapshots (the shadow-git machinery, D14,
-   pointed at mined refs) — no second metrics pipeline.
+   pointed at mined refs). No second metrics pipeline.
 
 Fit criteria:
 - F1.1 A curated demo dataset runs the full analysis chain unchanged:
@@ -56,7 +56,7 @@ Fit criteria:
    via the REST/GraphQL APIs; agent-authored activity identified by the
    heuristics catalogued in `mining-coding-agent-activity` and
    `aidev-ai-coding-agents-github` (bot flags, co-author trailers,
-   agent-signature patterns) — each heuristic *named and versioned* in
+   agent-signature patterns). Each heuristic *named and versioned* in
    the dataset's validity-threats record.
 2. Operational posture (NFR-4): token-scoped, rate-limit-aware
    (secondary limits honored with backoff), resumable from a cursor
@@ -65,13 +65,13 @@ Fit criteria:
    the UI (FR-LIT-6's no-frozen-UI rule generalizes).
 3. Sampling is specified, not improvised: the protocol's curated-path
    section declares the sampling frame (query, date window, inclusion
-   rules, target n) *before* mining runs — the mined equivalent of
+   rules, target n) *before* mining runs: the mined equivalent of
    FR-ETH-1's "approved protocol is the executed protocol".
 
 Fit criteria: F2.1 a 100-repo mining job interrupted at 50 resumes
 without duplicates; F2.2 the adapter refuses to run without a
 protocol-declared sampling frame; F2.3 rate-limit exhaustion pauses
-with a visible, plain-language status — never a crash or silent stall.
+with a visible, plain-language status: never a crash or silent stall.
 
 ## 4. Validity-threats record (FR-CUR-3, S)
 
@@ -85,8 +85,8 @@ coverage: {requested, retrieved, dropped: {reason: count}}
 ```
 
 Rendered in the platform beside the dataset, injected verbatim into
-the report's and paper draft's threats-to-validity section (FR-ANA-4/6)
-— honesty about provenance travels with every claim (NFR-8 extended to
+the report's and paper draft's threats-to-validity section (FR-ANA-4/6):
+honesty about provenance travels with every claim (NFR-8 extended to
 data, per `mining-coding-agent-activity`'s pitfalls and
 `ai-agents-that-matter`'s reproducibility critique).
 
@@ -100,4 +100,4 @@ gate before `analysis` (lifecycle-enforced, like every artifact).
 Published replication packages (`devgpt-developer-chatgpt`-style
 archives, our own FR-PROT-7 kits) import behind the same normalizer
 contract. Design constraint recorded now: our replication kit is the
-reference input — the platform must be able to eat its own exports.
+reference input: the platform must be able to eat its own exports.

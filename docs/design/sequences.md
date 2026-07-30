@@ -1,4 +1,4 @@
-# Sequence diagrams — the five signature interactions
+# Sequence diagrams: the five signature interactions
 
 ## 1. Design-move lifecycle (FR-CONV-1/2/3)
 
@@ -66,7 +66,7 @@ sequenceDiagram
     Note over KNOW: papers now strengthen this study's grounding pool + RAG scope
 ```
 
-## 3. Corpus harvest (FR-LIT-8, D36 — batch, editorial)
+## 3. Corpus harvest (FR-LIT-8, D36: batch, editorial)
 
 ```mermaid
 sequenceDiagram
@@ -84,12 +84,12 @@ sequenceDiagram
     end
     H->>H: dedupe → quality gate (verifiable ID, age-scaled citation floors, fresh allowance)
     H->>H: rank = freshness×1.6 + log₁₀(cites+1)×2 + seed-connectivity×1.5 + venue
-    H->>IDX: Tier B rows (ref, s2PaperId, score, via[]) — nothing synthesized
+    H->>IDX: Tier B rows (ref, s2PaperId, score, via[]), nothing synthesized
     O->>IMP: import corpus-index.json
     IMP-->>IMP: Paper rows tier=B; FTS index extended; graph gains hollow→solid nodes
 ```
 
-## 4. Post-ethics amendment (FR-CONV-4 — evolve on the fly, never sneak)
+## 4. Post-ethics amendment (FR-CONV-4: evolve on the fly, never sneak)
 
 ```mermaid
 sequenceDiagram
@@ -112,7 +112,7 @@ sequenceDiagram
     R->>LC: upload artifact → gate clears → new sessions run v(n+1)
 ```
 
-## 5. Talk to your papers (FR-LIT-10 — scoped RAG with guidance)
+## 5. Talk to your papers (FR-LIT-10: scoped RAG with guidance)
 
 ```mermaid
 sequenceDiagram

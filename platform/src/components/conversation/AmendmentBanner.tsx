@@ -47,7 +47,7 @@ export function AmendmentBanner({
             <p className="mt-0.5">
               A consent-relevant amendment took this study to revision{" "}
               {state.currentVersion}. Already-collected data and any session in
-              progress are unaffected — only new data-collection sessions wait
+              progress are unaffected; only new data-collection sessions wait
               for the updated approval.
             </p>
           </>

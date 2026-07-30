@@ -1,9 +1,9 @@
-# CLAUDE.md — agent guide for this repository
+# CLAUDE.md: agent guide for this repository
 
 **Project:** PHOENIX (Protocol for Human-Oriented Evidence, Networked
-Iteration & eXperimentation) — Framework for Conducting Human-AI Studies,
+Iteration & eXperimentation): Framework for Conducting Human-AI Studies,
 a Masters project. A conversational research platform:
-researchers *talk* their study into existence — a design conversation
+researchers *talk* their study into existence: a design conversation
 grounded in a 1,000+-paper corpus proposes citable design moves that compile
 deterministically into the study-as-code protocol; paper-derived templates
 prescribe the statistical formulation; data comes from live instrumented
@@ -15,7 +15,7 @@ agent-readable metadata throughout.
 Read `docs/VISION.md` before any non-trivial work; detailed specs with fit
 criteria live in `requirements/specs/`, and the phase plan in `docs/roadmap/`.
 
-## Design philosophy — Railway first
+## Design philosophy: Railway first
 
 Deployment targets **Railway** for both the middleware service and PostgreSQL.
 Everything is designed around this:
@@ -28,7 +28,7 @@ Everything is designed around this:
 - **Railway handles TLS, domains, and PostgreSQL.** No Caddy, no VM SSH deploys,
    no Marketplace publishing. SonarQube runs separately on-demand
    (`docker compose --profile sonar up` or Azure VM) for the cognitive-complexity
-   metric — not on Railway. The `railway.toml` at the repo root is the sole
+   metric, not on Railway. The `railway.toml` at the repo root is the sole
    deployment config.
 - **CI/CD:** GitHub Actions build → push to GHCR → trigger Railway redeploy via
   the Railway GraphQL API. Release tags produce versioned images + GitHub
@@ -42,7 +42,7 @@ Everything is designed around this:
    `requirements/srs.md`. If asked to build something with no requirement,
    first add the requirement (with MoSCoW priority + rationale) and a row in
    `requirements/traceability.md`, then build.
-2. **IDs are stable anchors.** Don't renumber requirement or decision IDs —
+2. **IDs are stable anchors.** Don't renumber requirement or decision IDs:
    code, tests, the agent manifest, and the generated `AGENTS.md` key on the
    numbers. If a requirement is dropped, remove it cleanly and update its
    references rather than renumbering the rest.
@@ -58,14 +58,14 @@ Everything is designed around this:
    service, add a row to `requirements/build-vs-adopt.md`
    (adopt/adapt/build/reject + rationale). NFR-10.
 6. **MoSCoW is the cut line.** Must is defined against the current milestone;
-   don't gold-plate a Must into a Could while Musts are open — no shell polish
+   don't gold-plate a Must into a Could while Musts are open; no shell polish
    while the methodology engine has open Musts.
 
 ## Execution model
 
 Work proceeds by **phases**: self-contained specs stating dependencies, the
 requirement IDs satisfied, deliverables, acceptance criteria, and verification
-steps — follow them literally; deviations are noted in the traceability log.
+steps: follow them literally; deviations are noted in the traceability log.
 The plan is `docs/roadmap/`: a master README (the invariant "walls", an
 explicit autonomy charter stating where the builder is free, the stretch-idea
 ledger, the phase tracker) plus a spec per phase. Phases 01–13 are the built
@@ -77,13 +77,13 @@ agent-friendliness, evolution). Build order and rationale: `docs/VISION.md`
 
 ## The direction in one paragraph
 
-The corpus — 1,000 papers as the floor, uncapped and quality-first
-(FR-LIT-8) — (100+ hand-curated Tier A seeds in `docs/papers/README.md` +
+The corpus, 1,000 papers as the floor, uncapped and quality-first
+(FR-LIT-8), (100+ hand-curated Tier A seeds in `docs/papers/README.md` +
 harvested Tier B) is the product's knowledge, not background reading. The core
 interaction is the **design conversation** (FR-CONV): platform-proposed design
 moves, each grounded (cited into the corpus/templates) or labeled unsourced,
 individually accepted/rejected, compiled *deterministically* (no LLM in the
-compiler) into protocol draft diffs applied on human approval — the YAML
+compiler) into protocol draft diffs applied on human approval; the YAML
 protocol stays the sole document of record, and the conversation is stored as
 the study's elicitation record (the decision chain starts at the idea).
 Templates (FR-TPL) encode published designs and prescribe the exact
@@ -99,15 +99,15 @@ designer is the degradation path).
 | Path | What |
 | ---- | ---- |
 | `requirements/` | SRS (index of record), stakeholders S1–S7, RQs, glossary, traceability, build-vs-adopt decisions, **`specs/` detailed family specs with fit criteria** |
-| `docs/VISION.md` | The platform vision — the current direction (conversational research platform) |
+| `docs/VISION.md` | The platform vision: the current direction (conversational research platform) |
 | `docs/roadmap/` | The phase plan: master README (walls, autonomy charter, phase tracker) + a spec per phase (01–18) |
-| `docs/papers/` | The corpus: Tier A seeds (`README.md`, hand-curated) + Tier B (`CORPUS.md`/`corpus-index.json`, generated by `scripts/corpus_harvest.py` — never hand-edit) |
+| `docs/papers/` | The corpus: Tier A seeds (`README.md`, hand-curated) + Tier B (`CORPUS.md`/`corpus-index.json`, generated by `scripts/corpus_harvest.py`, never hand-edit) |
 | `docs/design/` | Design tree: C4 architecture, UML data model, sequences, state machines, flows, UI/motion spec |
 | `*/docs/` | Docs live with their component: `extension/docs/developer_behavior_capture.md` (+ `adaptation-notes.md`), `metrics/docs/` (metrics matrix, implementation plan) |
-| `extension/` | VS Code extension "TERN" — cognitive + behavioral legs (TypeScript) |
+| `extension/` | VS Code extension "TERN": cognitive + behavioral legs (TypeScript) |
 | `metrics/` | Static-metrics leg, 9 code complexity/readability metrics (Python, flat `src/` scripts) |
 | `protocol/` | Study-as-code schema, validator, lifecycle (Python pkg, CLI `protocol`); `examples/` holds the pilot + the curated-mining demo (`cursor-mining-2026`). The FR-PROT-9 agent-participant fixture lives with its tests: `tests/fixtures/agent-participant-v3.yaml` |
-| `middleware/` | FastAPI service on :8000 — ingestion + the platform backend; serves the `platform/` build at `/` (Python pkg) |
+| `middleware/` | FastAPI service on :8000, ingestion + the platform backend; serves the `platform/` build at `/` (Python pkg) |
 | `analysis/` | Recipes, runner, report, paper draft (Python pkg, CLI `analysis`) |
 | `agent-capture/` | Agent leg: hooks, transcript import, redaction, snapshots, task harness (Python pkg) |
 | `curated/` | Curated-dataset leg: normalizer, GitHub mining adapter, authorship heuristics, threats record (Python pkg) |
@@ -129,12 +129,12 @@ uv add --package middleware fastapi              # add a dep to one package
 New Python packages: src layout (`<pkg>/src/<pkg>/`), hatchling backend,
 added to `[tool.uv.workspace].members` in the root `pyproject.toml`.
 `metrics/` is the exception: flat scripts (`src/parsers/`, `src/analyzers/`,
-`src/main.py`) per `metrics/docs/implementation_plan.md` — don't "fix" it
+`src/main.py`) per `metrics/docs/implementation_plan.md`; don't "fix" it
 into a package.
 
 **Extension (TypeScript, Node ≥ 20):** work in `extension/`; `npm run check`
 (typecheck + lint + format + test) is the gate and must stay green. Deep
-rules in `extension/PROJECT_GUIDE.md` — the sacred one: **`src/core` never
+rules in `extension/PROJECT_GUIDE.md`, the sacred one: **`src/core` never
 imports `vscode`.**
 
 **Frontend (D34):** the **`platform/` app: React 19 + Vite + TypeScript +
@@ -143,7 +143,7 @@ external library look) is the sole frontend; `npm run check` is the gate.
 `docker compose up` serves its build at `/`. One design-token system across
 the app and all charts; charts follow the `dataviz` skill; the experience bar
 is specced in `requirements/specs/nfr-12-experience.md` (WCAG 2.2 AA,
-reduced-motion, streaming, both themes — these are requirements, not options).
+reduced-motion, streaming, both themes; these are requirements, not options).
 UI is designed with Claude in-repo (D35); every design iteration is an
 ordinary gated commit.
 
@@ -180,17 +180,17 @@ ordinary gated commit.
   line length 88).
 - Time-dependent logic gets an injected clock and mocked-timer tests (see
   `extension/test/` for the pattern).
-- External APIs (Semantic Scholar, the LLM provider — Mistral per D32,
+- External APIs (Semantic Scholar, the LLM provider (Mistral per D32),
   GitHub for FR-CUR mining) must degrade gracefully: cache, warn
   once, never block a session. For Claude Code hook/transcript formats
   (agent-capture leg), verify against current docs via the
-  `claude-code-guide` agent — not memory.
+  `claude-code-guide` agent, not memory.
 - Before committing: `uv run pytest && uv run ruff check .` (Python),
   `npm run check` in `platform/` and/or `extension/`.
 
 ## Commits
 
-- **Subjects start with `Fix`, `Update`, `Modify`, `Feat`, or `Add`** — then
+- **Subjects start with `Fix`, `Update`, `Modify`, `Feat`, or `Add`**, then
   what changed, in one line; the body carries the why.
 - **The repository owner is the sole author.** Never add a
   `Co-Authored-By:` or `Claude-Session:` trailer, whatever the default

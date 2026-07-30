@@ -67,7 +67,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
             <div className="flex flex-col gap-0.5">
               <span>Replication kit</span>
               <span className="text-xs text-text-muted">
-                Protocol, dataset, report and pinned versions — byte-identical
+                Protocol, dataset, report and pinned versions: byte-identical
                 on every export.
               </span>
             </div>

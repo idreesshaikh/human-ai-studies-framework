@@ -1,4 +1,4 @@
-# NFR-12 — Experience quality (detailed specification)
+# NFR-12: Experience quality (detailed specification)
 
 **SRS row:** NFR-12. **Binds:** every platform surface; realized
 first by phase 14's `platform/` app. **Decisions:** D34 (React + Tailwind +
@@ -6,9 +6,9 @@ shadcn/ui), D35 (Claude-driven design workflow).
 
 ## 1. The bar
 
-Owner direction: "beautiful, modern, fluid — one of its kind." Made
+Owner direction: "beautiful, modern, fluid, one of its kind." Made
 testable, that means the platform surface is held to a *product* bar, not an
-academic-tool bar. Beauty is not decoration here; it is credibility —
+academic-tool bar. Beauty is not decoration here; it is credibility:
 S7 judges whether the platform encodes real methodological knowledge
 partly by whether it looks like someone who knew what they were doing
 built it.
@@ -18,10 +18,10 @@ built it.
 1. **Tokens first.** One token set (color, type scale, space, radius,
    motion durations/easings) defined once, consumed by both the shadcn
    layer and all charts. The dataviz palette already validated for the
-   the design system is the chart-color source of truth — the two surfaces
+   the design system is the chart-color source of truth: the two surfaces
    must read as one system (charts embedded in chat turns included).
 2. **shadcn/ui as vendored source** (D34): components are copied in,
-   owned, and restyled through tokens — never treated as an external
+   owned, and restyled through tokens: never treated as an external
    look to inherit. Radix primitives underneath give focus management
    and ARIA for free; we never rebuild a dialog by hand.
 3. **Light + dark from birth**, system-following with manual override
@@ -40,7 +40,7 @@ built it.
 3. Perceived performance is a requirement: skeletons (not spinners) for
    structured content, optimistic UI for member/role edits, streaming
    for every LLM response (first token < 1 s or a progress affordance
-   appears — the FR-LIT-6 "never appear frozen" rule made general).
+   appears; the FR-LIT-6 "never appear frozen" rule made general).
 4. Interaction budget: route transitions < 200 ms to first paint on the
    demo dataset; input latency in the conversation composer never
    blocks on network.
@@ -51,7 +51,7 @@ built it.
    turns chunk into design-move cards with accept/reject affordances;
    long rationale collapses behind a disclosure
    (`im-not-reading-all-of-that`: engagement drops when agents dump
-   prose — the UI must make skimming safe).
+   prose; the UI must make skimming safe).
 2. Grounding chips are first-class visual citizens (the knowledge
    layer's citation chips restyled, one component both surfaces).
 3. The protocol diff view is readable by a non-programmer: YAML hunks
@@ -70,7 +70,7 @@ clean in CI on the core flows.
 
 ## 6. Fit criteria
 
-- F1: token audit — zero raw hex/px literals in components (lint rule);
+- F1: token audit: zero raw hex/px literals in components (lint rule);
   charts and UI share the palette source file.
 - F2: both themes + reduced-motion verified on every phase 14..18
   acceptance walkthrough (screenshot pairs archived).

@@ -18,7 +18,7 @@ export function UnderstandingLine({ understanding }: { understanding?: Understan
       className="px-4 pb-2 text-xs text-text-muted sm:px-6"
       data-agent="understanding-line"
     >
-      Still working out {missing.join(", ")} — I'll hold off on suggesting a
+      Still working out {missing.join(", ")}; I'll hold off on suggesting a
       design until the shape of the study follows from what you've told me.
     </p>
   );

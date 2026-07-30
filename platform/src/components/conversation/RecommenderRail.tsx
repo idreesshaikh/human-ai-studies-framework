@@ -32,7 +32,7 @@ export function RecommenderRail({
 
       {recommendations.length === 0 ? (
         <p className="rounded-input border border-dashed border-border px-3 py-6 text-center text-xs text-text-muted">
-          As you describe your study, relevant papers appear here — grounded in the corpus.
+          As you describe your study, relevant papers appear here, grounded in the corpus.
         </p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">

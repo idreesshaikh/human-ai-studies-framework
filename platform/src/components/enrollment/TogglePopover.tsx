@@ -80,7 +80,7 @@ export function TogglePopover({
           {"unsourced" in entry.grounding && entry.grounding.unsourced ? (
             <span className="rounded-sm bg-warning/10 px-1.5 py-0.5 text-xs text-warning"
               data-agent-status="unsourced">
-              Uncited — researcher's judgment
+              Uncited: researcher's judgment
             </span>
           ) : (
             <span className="rounded-sm bg-accent/10 px-1.5 py-0.5 font-mono text-xs text-accent"

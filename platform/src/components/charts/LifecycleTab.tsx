@@ -78,8 +78,8 @@ export function LifecycleTab({
         <h2 className="type-section text-text">Nothing to gate yet</h2>
         <p className="text-sm text-text-muted">
           This study doesn't have a compiled protocol yet, so there's nothing to gate
-          against. Finish the design conversation — choose a design, compile it, and
-          approve the draft — and the lifecycle board will pick up from there.
+          against. Finish the design conversation: choose a design, compile it, and
+          approve the draft, then the lifecycle board will pick up from there.
         </p>
         {onGoToConversation && (
           <Button size="sm" className="w-fit" onClick={onGoToConversation}>
@@ -98,7 +98,7 @@ export function LifecycleTab({
         <h2 className="type-section text-text">{doc.currentPhase}</h2>
         <p className="mt-1 text-xs text-text-muted">
           You're in the <span className="font-medium text-text">{doc.currentPhase}</span> phase.
-          Attest this phase's gate to advance — each is a checkpoint you confirm before the study moves on.
+          Attest this phase's gate to advance: each is a checkpoint you confirm before the study moves on.
         </p>
       </div>
       <ol className="flex flex-col">

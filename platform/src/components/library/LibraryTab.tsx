@@ -157,7 +157,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             ))}
             {papers.length === 0 && (
               <li className="px-4 py-3 text-sm text-text-muted">
-                No papers yet — add one above.
+                No papers yet: add one above.
               </li>
             )}
           </ul>
@@ -241,7 +241,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             ) : (
               <div className="mt-2">
                 <p className="text-sm text-text-muted">
-                  Suggested paper — not yet in the study.
+                  Suggested paper, not yet in the study.
                 </p>
                 <Button
                   size="sm"

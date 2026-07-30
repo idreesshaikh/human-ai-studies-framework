@@ -11,7 +11,7 @@ Prerequisites: **Python 3.12 + [uv](https://docs.astral.sh/uv/)**,
 SonarQube).
 
 ```bash
-# Python — one workspace venv at the repo root (uv manages it; never pip/venv by hand)
+# Python: one workspace venv at the repo root (uv manages it; never pip/venv by hand)
 uv sync --all-packages
 
 # Node components
@@ -38,7 +38,7 @@ Docker image.
 ## Architecture in one pass
 
 A study is declared in **one validated YAML protocol** ("study-as-code");
-the platform derives everything else from it — instrument configuration,
+the platform derives everything else from it: instrument configuration,
 lifecycle gates, task cards, analysis, and the paper draft.
 
 ```mermaid
@@ -64,7 +64,7 @@ and join `[tool.uv.workspace].members` in the root `pyproject.toml`.
 
 ## The rules that keep the science sound
 
-These invariants are why the data is publishable — breaking one breaks
+These invariants are why the data is publishable; breaking one breaks
 the study, not just the build:
 
 1. **Join keys everywhere.** Every data row of every leg carries the
@@ -79,17 +79,17 @@ the study, not just the build:
    truth; network mirroring is best-effort, and loss must be *detectable*
    (sequence-number gaps), even where it isn't preventable.
 4. **Privacy by construction.** No raw code content, keystrokes, or
-   clipboard text in any instrument — aggregates, shapes, and salted
+   clipboard text in any instrument: aggregates, shapes, and salted
    hashes only. The two scoped exceptions (agent-conversation content,
    workspace snapshots) are governed by the protocol's consent-matched
-   content policy. The knowledge assistant can only ever see aggregates —
+   content policy. The knowledge assistant can only ever see aggregates;
    enforced server-side and tested.
 5. **Participant data never enters git.** `.study-data/`, `*.sqlite3`,
    `results/`, and `shadow.git/` are gitignored; keep it that way.
 6. **Honest statistics.** Exact tests, effect sizes, per-group sample
    sizes; never a bare p-value.
 7. **The extension's core stays IDE-agnostic.** `extension/src/core` never
-   imports `vscode` — that's what makes the scientific logic portable and
+   imports `vscode`; that's what makes the scientific logic portable and
    testable.
 8. **External services are optional and replaceable.** Semantic Scholar,
    the LLM provider, SonarQube, and auth providers all sit behind
@@ -107,10 +107,10 @@ requirements record underneath:
 - Adding a dependency, tool, or external service? Record an
   adopt/adapt/build/reject decision with rationale in
   [`requirements/build-vs-adopt.md`](requirements/build-vs-adopt.md) first.
-- Requirement IDs are stable anchors — don't renumber them.
+- Requirement IDs are stable anchors: don't renumber them.
 - [`requirements/glossary.md`](requirements/glossary.md) owns terminology:
   it's `participant` (not user), `condition` (not group), `recipe` (not
-  script) — in identifiers, schema fields, and docs.
+  script), in identifiers, schema fields, and docs.
 - The phase plan, phase by phase: [`docs/roadmap/`](docs/roadmap/README.md).
 
 ## Style

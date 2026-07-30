@@ -1,6 +1,7 @@
 import { MANDATORY_SLOTS, SLOT_LABELS, type ProtocolDraft } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { SlotMeter } from "./SlotMeter";
+import { ProtocolGuide } from "./ProtocolGuide";
 
 /* The draft rail: the protocol compiled so far. Deliberately plain —
  * tabular, hairline borders, minimal motion. It's a projection of the draft
@@ -28,7 +29,7 @@ export function DraftRail({
         const items = draft[s];
         const head = `${s}:`;
         if (items.length === 0) {
-          return `${head}  # unresolved — ${SLOT_LABELS[s]}\n`;
+          return `${head}  # unresolved: ${SLOT_LABELS[s]}\n`;
         }
         return head + "\n" + items.map((v) => `  - ${v}`).join("\n") + "\n";
       }).join("");
@@ -38,13 +39,16 @@ export function DraftRail({
       data-agent="draft-rail"
       className="flex h-full flex-col gap-stack bg-surface p-gutter"
     >
-      <div>
-        <h2 className="type-subhead text-text">
-          Protocol draft
-        </h2>
-        <p className="text-xs text-text-muted">
-          Compiled from the moves you've accepted.
-        </p>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 className="type-subhead text-text">
+            Protocol draft
+          </h2>
+          <p className="text-xs text-text-muted">
+            Compiled from the moves you've accepted.
+          </p>
+        </div>
+        <ProtocolGuide />
       </div>
 
       <SlotMeter draft={draft} />

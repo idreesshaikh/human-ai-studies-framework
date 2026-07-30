@@ -1,21 +1,21 @@
-# `platform/` — the web app
+# `platform/`: the web app
 
 The sole frontend: a researcher describes a study idea and the platform
 proposes grounded design moves that compile into a protocol draft, then runs
 the study through to a paper. React 19 + Vite + TypeScript + Tailwind v4 +
 shadcn/ui (vendored, owned in-repo). The middleware serves the built app at
-`/` — one process is the whole stack (FR-PLAT, FR-CONV, NFR-12).
+`/`; one process is the whole stack (FR-PLAT, FR-CONV, NFR-12).
 
 ## What's here
 
-- **The design conversation** — type an idea; the platform replies with
+- **The design conversation**: type an idea; the platform replies with
   grounded design-move cards (accept/reject, keyboard `a`/`r`) and paper
   recommendations; accepted moves compile into a live protocol-draft rail
   with a completeness meter.
-- **The study workspace** (tabs): **Library** — live paper ingest
+- **The study workspace** (tabs): **Library**: live paper ingest
   (arXiv/DOI/PDF), the citation constellation, and the grounded assistant;
-  **Data** — honest per-condition metric shapes and session integrity;
-  **Lifecycle** — the phase/gate board.
+  **Data**: honest per-condition metric shapes and session integrity;
+  **Lifecycle**: the phase/gate board.
 - **Projects, roles, hero, members**, and the evolution surfaces (amendment
   banner + history, feedback → platform findings).
 
@@ -48,7 +48,7 @@ Keep `npm run check` green before committing.
   function; surfaces are keyboard-operable. Consent/ethics surfaces never
   animate.
 - **The compiler is deterministic.** `src/lib/compiler.ts` is a pure
-  `(draft, acceptedMoves) → draft'` — no LLM — so replaying the same moves
+  `(draft, acceptedMoves) → draft'` (no LLM), so replaying the same moves
   always yields the same draft (`npm run verify` checks this).
 - **Citations are honest.** Every design move shows its source papers or is
   labelled "unsourced"; the assistant only cites papers it actually holds.

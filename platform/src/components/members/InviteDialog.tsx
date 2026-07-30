@@ -71,7 +71,7 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
       <DialogContent>
         <DialogTitle>Invite a colleague</DialogTitle>
         <DialogDescription>
-          We'll email them an invite link if mail is set up here — and you
+          We'll email them an invite link if mail is set up here, and you
           always get a one-time link to share yourself. It works once and
           expires in 7 days.
         </DialogDescription>
@@ -128,7 +128,7 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
                 <>
                   Ready for <span className="font-medium">{invite.email}</span> as{" "}
                   {ROLE_LABELS[invite.role]}. Copy this link and send it to them
-                  yourself — email, chat, however you'd normally reach them:
+                  yourself, email, chat, however you'd normally reach them:
                 </>
               )}
             </p>

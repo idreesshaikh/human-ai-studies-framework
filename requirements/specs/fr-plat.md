@@ -1,4 +1,4 @@
-# FR-PLAT — Platform shell: projects, roles, hero (detailed specification)
+# FR-PLAT: Platform shell: projects, roles, hero (detailed specification)
 
 **SRS family:** FR-PLAT. **Phase:** 14.
 Surface built per D34 (React 19 + Vite + Tailwind + shadcn/ui, the new
@@ -15,12 +15,12 @@ study.projectId  -- every study, paper set, curated dataset, conversation
 ```
 
 - Project scoping is enforced in the middleware query layer (every
-  study-bound endpoint gains the project check), not per-route ad hoc —
+  study-bound endpoint gains the project check), not per-route ad hoc:
   one choke point, testable by construction (the FR-ETH-4 pattern).
 - PostgreSQL (D26): scoping is a column + index, not a database adventure;
   SQLite remains a script-level fallback.
 - Existing single-study data migrates into a default project on first
-  boot after upgrade (loud, logged, reversible — the phase 12 stale-DB
+  boot after upgrade (loud, logged, reversible: the phase 12 stale-DB
   posture: fail loudly, never migrate silently... here migration is
   additive and safe, so it runs, but announces itself).
 
@@ -31,12 +31,12 @@ Permission matrix (server-side, UI merely reflects it):
 | Capability | owner | researcher | viewer |
 | --- | --- | --- | --- |
 | View studies, reports, conversations | ✓ | ✓ | ✓ |
-| Contribute conversation turns / design moves | ✓ | ✓ | — |
-| Apply compiled drafts (pre-freeze) | ✓ | ✓ | — |
-| Freeze protocol; approve post-ethics amendments | ✓ | — | — |
-| Run mining jobs; upload gate artifacts | ✓ | ✓ | — |
-| Manage members, roles, invitations | ✓ | — | — |
-| Delete study / project | ✓ | — | — |
+| Contribute conversation turns / design moves | ✓ | ✓ | - |
+| Apply compiled drafts (pre-freeze) | ✓ | ✓ | - |
+| Freeze protocol; approve post-ethics amendments | ✓ | - | - |
+| Run mining jobs; upload gate artifacts | ✓ | ✓ | - |
+| Manage members, roles, invitations | ✓ | - | - |
+| Delete study / project | ✓ | - | - |
 
 Ingest stays unauthenticated (NFR-1: sensors are fire-and-forget) but
 session join keys bind rows to a project via the study; unknown rows
@@ -51,7 +51,7 @@ audit).
 Email-link invitations (role pre-assigned, expiring token, single-use);
 accepting routes through sign-in (FR-OPS-5) then binds `sub` →
 membership. Email delivery is a pluggable provider with a copy-link
-fallback (self-hosted instances need zero email config — the FR-OPS-5
+fallback (self-hosted instances need zero email config: the FR-OPS-5
 no-third-party-required posture). Fit: an invited `researcher` lands in
 the project with correct powers; an expired/used token fails with a
 human explanation.
@@ -62,7 +62,7 @@ The public front: what the platform is (the one-line vision), the
 conversation-first designer shown, one-click entry to the live seeded
 demo project (read-only `viewer` on a demo everyone shares), sign-up.
 Copy follows NFR-11 (zero requirement IDs, plain language); design
-follows NFR-12; content is the vision's "S7's first minute" — the
+follows NFR-12; content is the vision's "S7's first minute": the
 platform must *demonstrate* itself (the demo study, the beautiful
 report) rather than describe itself. Fit: an S7-profile tester reaches
 a rendered study report from the hero in ≤ 3 interactions without an
@@ -71,7 +71,7 @@ account; sign-up → first project → designer open in ≤ 2 minutes.
 ## 5. Self-hosted continuity (FR-PLAT-5, S)
 
 `none`/`token` auth modes run project-free: one implicit project, no
-hero/sign-up surfaces mounted, signed-in researchers land directly on the study —
+hero/sign-up surfaces mounted, signed-in researchers land directly on the study:
 byte-for-byte today's single-facilitator experience. The implicit
 project is a real row (so code has one path), invisible in UI. Fit:
 the existing smoke test passes unchanged against a `none`-mode boot of

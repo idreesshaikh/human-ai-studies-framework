@@ -95,7 +95,7 @@ export function Templates() {
         </h1>
         <p className="mt-1 max-w-reading text-sm text-text-muted">
           Proven design shapes, ranked by how widely the corpus uses them. The
-          papers that used a shape are its references — pick two or more shapes
+          papers that used a shape are its references; pick two or more shapes
           and merge them into one novel protocol, grounded in every paper it
           draws from.
         </p>
@@ -133,7 +133,7 @@ export function Templates() {
             <Info className="size-4" aria-hidden /> Held back
           </h2>
           <p className="text-xs text-text-muted">
-            Too rare to propose without a strong source. Shown, not hidden — the
+            Too rare to propose without a strong source. Shown, not hidden: the
             reason is stated so you can judge it yourself.
           </p>
           {held.map((entry) => (
@@ -281,7 +281,7 @@ function SupportBadge({ entry }: { entry: RepertoireEntry }) {
             ? "bg-surface-sunken text-text"
             : "bg-unsourced-soft text-text",
       )}
-      title={`${BAND_COPY[entry.band]} — ${entry.support} corpus paper${
+      title={`${BAND_COPY[entry.band]}: ${entry.support} corpus paper${
         entry.support === 1 ? "" : "s"
       } describe themselves with: ${entry.signature.join(", ")}`}
     >

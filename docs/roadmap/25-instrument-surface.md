@@ -1,12 +1,12 @@
-# Phase 25 — The Instrument Surface (the extension becomes the study)
+# Phase 25: The Instrument Surface (the extension becomes the study)
 
 > Self-contained: execute this file in a fresh session at the repo root.
 > Read first: `docs/VISION.md`, `docs/roadmap/README.md` (the walls +
-> autonomy charter — walls #1 and #6 in particular),
+> autonomy charter, walls #1 and #6 in particular),
 > `docs/roadmap/19-live-capture-link.md` (the pairing channel this phase
 > renders), `docs/roadmap/20-capture-console.md` (the toggle catalog this
 > phase extends and consumes), `extension/PROJECT_GUIDE.md` (the core/adapter
-> split — `src/core` never imports `vscode`),
+> split: `src/core` never imports `vscode`),
 > `requirements/specs/nfr-12-experience.md` (the experience bar applies to the
 > extension's surfaces too).
 
@@ -17,7 +17,7 @@
 **Satisfies:** FR-INST-22 (IDE sidebar leg surface, new), FR-DASH-13
 (toggle catalog spans all four legs, new), FR-OPS-8 (extension is a
 publishable artifact, new).
-**Elicited:** owner, 2026-07-26 — "the idea of the VS Code extension was to
+**Elicited:** owner, 2026-07-26: "the idea of the VS Code extension was to
 integrate all four legs … these are all enabled from the platform … the
 generated mint link goes into the VS Code extension for recording … extension
 properly appears in the side bar not as teeny tiny in the lower bar … near
@@ -30,8 +30,8 @@ deviations log for what changed during the build and what remains owner-run.
 
 The extension is the only part of PHOENIX a participant ever touches, and
 today it is a countdown in the corner of the status bar. Everything the
-platform knows about a study — which legs are running, what each one
-captures, what the participant consented to — is invisible at the exact
+platform knows about a study (which legs are running, what each one
+captures, what the participant consented to) is invisible at the exact
 moment it matters most, inside the editor, while the session runs.
 
 Phase 25 promotes the instrument to a first-class **sidebar surface**: an
@@ -43,7 +43,7 @@ Three things make this more than a UI move:
 
 1. **All four legs, visible together.** The static-metrics, behavioral,
    cognitive, and agent-interaction legs are shown as one list with a real
-   on/off state resolved from the capture config — including legs the
+   on/off state resolved from the capture config, including legs the
    protocol leaves off, which are rendered *off, not hidden*. A consent
    promise you can only verify for three of four legs is not a consent
    promise.
@@ -65,7 +65,7 @@ Three things make this more than a UI move:
 - **Not a second config-mutation path.** The sidebar is read-mostly: it
   renders the capture config and links back to the platform's console.
   Where it does offer a control, that control is a `reconfigure` amendment
-  through `compile_moves` exactly as Phase 20 built it — never a local write.
+  through `compile_moves` exactly as Phase 20 built it, never a local write.
 
 Non-negotiable bounds, inherited verbatim:
 
@@ -78,7 +78,7 @@ Non-negotiable bounds, inherited verbatim:
   *say so* when a change is pending rather than implying it took effect.
 - **Never interrupt the participant** (NFR-1/2). The sidebar is passive. It
   does not steal focus, does not auto-reveal mid-session, and its failure to
-  render never touches the recorder — local JSONL remains the source of
+  render never touches the recorder; local JSONL remains the source of
   truth.
 - **Privacy by construction.** The surface shows *shapes and states*, never
   captured content. It is a natural place to leak a file path or a snippet;
@@ -89,12 +89,12 @@ Non-negotiable bounds, inherited verbatim:
 
 ## Slices
 
-### Slice A — the catalog spans four legs (FR-DASH-13)
+### Slice A: the catalog spans four legs (FR-DASH-13)
 
 Extend `_TOGGLE_CATALOG` in `middleware/src/middleware/enrollment.py` to the
 static-metrics leg and complete the `agentCapture` entries, each with the
 grounded rationale FR-CONV-2 requires (a citation into the corpus/SRS, or
-`grounding: none` labeled honestly — never a fabricated one). Add a `leg`
+`grounding: none` labeled honestly, never a fabricated one). Add a `leg`
 field to every catalog entry so consumers can group by leg without
 string-matching instrument names.
 
@@ -104,12 +104,12 @@ protocol enabling all four; every entry carries `leg`, `label`,
 returns those two legs' entries and marks the rest absent; no entry invents
 a citation. pytest.
 
-### Slice B — leg state as core logic (FR-INST-22, portable half)
+### Slice B: leg state as core logic (FR-INST-22, portable half)
 
 A new `extension/src/core/legs.ts`: given a `CaptureConfig` and the session
 state, derive the four legs' display state (`enabled | disabled | unavailable`,
 plus what the leg captures in participant-facing words and its consent
-relevance). Pure functions, no `vscode` import, exhaustively tested —
+relevance). Pure functions, no `vscode` import, exhaustively tested,
 including the "protocol enables nothing" and "config not yet pulled" cases,
 which are the ones that will otherwise render as a confidently wrong "off".
 
@@ -117,14 +117,14 @@ which are the ones that will otherwise render as a confidently wrong "off".
 unavailable); a leg absent from the config is `unavailable`, never `disabled`;
 no `vscode` import (the existing core/adapter lint stays green).
 
-### Slice C — the sidebar (FR-INST-22, adapter half)
+### Slice C: the sidebar (FR-INST-22, adapter half)
 
 `contributes.viewsContainers.activitybar` with a TERN container and icon, and
 `contributes.views` with three: **Session** (state, remaining time, the
 start/pause/end actions currently buried in `tern.statusMenu`), **Capture**
 (the four legs from Slice B, each expandable to its catalog entries), and
 **Data** (output directory, ingest endpoint, queue depth / `seq` gaps so loss
-stays detectable per NFR-2). A `TreeDataProvider` per view — not a webview:
+stays detectable per NFR-2). A `TreeDataProvider` per view, not a webview:
 it inherits VS Code's theming, keyboard navigation, and accessibility for
 free, which is most of NFR-12's bar met by construction rather than by
 re-implementation. The status-bar item stays as a compact session indicator
@@ -133,10 +133,10 @@ and stops being the only way in.
 **Fit criteria.** The container appears in the activity bar with the four
 legs listed under Capture, disabled legs shown as off; every action reachable
 by keyboard; the views render correctly with no study paired (the empty state
-explains how to pair, per the writing guidance — an empty screen is an
+explains how to pair, per the writing guidance: an empty screen is an
 invitation to act); Extension Dev Host walkthrough, both themes.
 
-### Slice D — publishable (FR-OPS-8)
+### Slice D: publishable (FR-OPS-8)
 
 Real `publisher`, `icon`, `categories`, `repository`, explicit
 `activationEvents`, README/CHANGELOG/LICENSE fit for a Marketplace listing,
@@ -149,8 +149,8 @@ session end-to-end against a local middleware; `npm run check` green.
 
 ## Verification
 
-1. `uv run pytest && uv run ruff check .` — Slice A.
-2. `npm run check` in `extension/` — Slices B–D.
+1. `uv run pytest && uv run ruff check .`: Slice A.
+2. `npm run check` in `extension/`: Slices B-D.
 3. Extension Dev Host walkthrough: pair via a minted link, confirm all four
    legs render with the states the protocol implies, run a session, confirm
    the sidebar never steals focus and the status bar still ticks.
@@ -163,7 +163,7 @@ session end-to-end against a local middleware; `npm run check` green.
 
 - **Slice B needed a middleware change the spec did not anticipate.** The
   capture config the IDE receives carries only the flat `tern.*` settings, so
-  two of the four legs are invisible to it — `legs.ts` could not have derived
+  two of the four legs are invisible to it; `legs.ts` could not have derived
   their state from anything it had. `build_capture_config` now carries the
   `leg_summary` alongside `settings` as a purely descriptive field. Only
   `settings` is ever applied, so this cannot widen what is captured. Recorded
@@ -175,8 +175,8 @@ session end-to-end against a local middleware; `npm run check` green.
   trusted.
 - **Two packaging bugs found and fixed by running `vsce ls`, not by review.**
   The first `.vscodeignore` shipped the `out-tests/` build, and its `media/*.svg`
-  rule excluded `media/tern.svg` — the activity-bar icon the manifest points at
-  — which would have shipped an installable extension with no sidebar icon.
+  rule excluded `media/tern.svg` (the activity-bar icon the manifest points at),
+  which would have shipped an installable extension with no sidebar icon.
 - **Session event counts deferred.** `DataView` is written to show
   written-vs-mirrored counts so `seq` gaps stay visible (NFR-2), but the
   recorder does not currently expose them; the rows are omitted rather than

@@ -106,6 +106,14 @@ const CLERK_APPEARANCE = {
     headerTitle: "hidden",
     headerSubtitle: "hidden",
     footer: "bg-transparent",
+    // Establishes this as the containing block for its own decorative
+    // dev-mode-banner overlay (see the CSS backstop in index.css), and adds
+    // the margin-top the row above it doesn't otherwise reserve.
+    footerItem: "relative mt-2",
+    // Just drop the "last used" indicator outright — pulling it into flow
+    // (a prior attempt) still crowded the button row and truncated its
+    // label, and it's cosmetic, not load-bearing for the sign-in flow.
+    lastAuthenticationStrategyBadge: "hidden",
     /* Clerk sizes this to a viewport-fit budget for its usual modal/popover
      * use case; in this full-page card it just clips a sliver off the top
      * and bottom of the step content with no visible scrollbar cue. */

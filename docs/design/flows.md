@@ -1,6 +1,6 @@
 # User flows
 
-## 1. S7's journey — arrival to running study (FR-PLAT-4, FR-CONV, FR-TPL-3)
+## 1. S7's journey: arrival to running study (FR-PLAT-4, FR-CONV, FR-TPL-3)
 
 ```mermaid
 flowchart TD
@@ -30,7 +30,7 @@ flowchart TD
     D -.->|papers → study list<br/>RAG scope grows| D
 ```
 
-## 2. The literature-review loop (FR-LIT-9/10) — "it becomes easy"
+## 2. The literature-review loop (FR-LIT-9/10): "it becomes easy"
 
 ```mermaid
 flowchart LR
@@ -39,7 +39,7 @@ flowchart LR
     B["Matched papers arrive<br/>tier badge + match reason"]:::s
     C["Add to list<br/>(one click)"]:::s
     D["Constellation grows<br/>clusters form by theme"]:::s
-    E["Select & ask<br/>scoped RAG: methods, stats,<br/>validation guidance — all cited"]:::s
+    E["Select & ask<br/>scoped RAG: methods, stats,<br/>validation guidance, all cited"]:::s
     F["Gaps surface<br/>'no paper here measures X'<br/>→ becomes an RQ candidate"]:::s
     A --> B --> C --> D --> E --> F -->|feeds back| A
 ```
@@ -59,4 +59,4 @@ flowchart TD
 
 The platform is **fully usable with zero external services**: matching
 degrades to FTS relevance, the designer to the structured form, the
-graph to cached edges — nothing load-bearing is cloud-owned (NFR-4/5/7).
+graph to cached edges; nothing load-bearing is cloud-owned (NFR-4/5/7).

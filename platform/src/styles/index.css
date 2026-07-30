@@ -329,6 +329,11 @@ body::before {
  * rendered on top of it unreadable (worst in dark mode: light text over
  * Clerk's own light default). Scoped to .clerk-embed so it never touches
  * anything outside the mounted widget. */
+/* Extra breathing room at the top and left of the mounted widget. */
+.clerk-embed {
+  padding-top: 0.875rem;
+  padding-left: 0.25rem;
+}
 .clerk-embed .cl-rootBox,
 .clerk-embed .cl-cardBox,
 .clerk-embed .cl-card {
@@ -337,6 +342,11 @@ body::before {
   box-shadow: none !important;
   border: none !important;
   padding: 0 !important;
+  /* Clerk's own default card carries a negative margin to full-bleed past
+   * its usual outer wrapper's padding; left uncleared, it pulls the whole
+   * widget left past .clerk-embed's own padding-left, clipping against the
+   * card's edge regardless of how much padding is added above. */
+  margin: 0 !important;
 }
 .clerk-embed .cl-header,
 .clerk-embed .cl-headerTitle,
@@ -356,6 +366,35 @@ body::before {
 .clerk-embed .cl-scrollBox {
   overflow: visible !important;
   max-height: none !important;
+}
+/* The "last used" indicator badge (see lastAuthenticationStrategyBadge in
+ * CLERK_APPEARANCE, auth.tsx) is dropped outright — the backstop below is
+ * what actually hides it if the appearance prop's classes lose the cascade. */
+.clerk-embed .cl-lastAuthenticationStrategyBadge {
+  display: none !important;
+}
+/* The "Development mode" banner's own decorative background — a purely
+ * visual overlay div Clerk renders behind that text, tagged with this data
+ * attribute rather than a stable class name (its `cl-internal-*` hash
+ * changes across Clerk builds, so it can't be targeted by class the way the
+ * rest of this file does). At this widget's layout it bleeds up over the
+ * Continue button above the footer instead of staying behind the banner
+ * text. The "Development mode" notice text itself (a Clerk/ToS requirement
+ * on dev instances) is untouched — only this background decoration is
+ * neutralized, matching how every other piece of Clerk's default chrome in
+ * this file is stripped in favor of the app's own transparent surface. */
+.clerk-embed .cl-footerItem {
+  position: relative;
+  margin-top: 0.5rem;
+}
+.clerk-embed [data-clerk-dev-mode-overlay],
+.clerk-embed [data-clerk-dev-mode-overlay] * {
+  position: static !important;
+  inset: auto !important;
+  background: transparent !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
 }
 .clerk-embed .cl-formButtonPrimary {
   background: var(--accent) !important;

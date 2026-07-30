@@ -7,8 +7,45 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import type { DesignMove } from "@/lib/types";
+import { SLOT_LABELS, type DesignMove } from "@/lib/types";
 import type { CompileResult } from "@/lib/conversationApi";
+
+/* A YAML-scalar line whose entire value is an empty collection, e.g.
+ * "instruments: {}" or "  gates: []" — a still-unresolved slot rendered as
+ * flow-style by the YAML dumper (empty mappings/sequences have no block
+ * form). It carries no information the "Still unresolved" line below
+ * doesn't already say in plain words, so it's dropped rather than shown
+ * as bare braces. */
+const EMPTY_COLLECTION = /^\s*[\w.]+:\s*(\{\}|\[\])\s*$/;
+
+/* Turns the server's unified diff (`---`/`+++`/`@@`/`+`/`-` lines) into
+ * per-line pieces so each can be colored on its own — a flat <pre> string
+ * can't do that. File-header lines are dropped ("draft-before"/"draft-after"
+ * mean nothing to a researcher), as are empty-collection placeholder lines;
+ * hunk headers become a plain divider instead of raw `@@ -0,0 +1,3 @@` diff
+ * jargon. */
+function parseDiffLines(diff: string) {
+  return diff
+    .split("\n")
+    .filter((line) => line && !line.startsWith("---") && !line.startsWith("+++"))
+    .filter((line) => {
+      const marker = line[0];
+      if (marker !== "+" && marker !== "-") return true;
+      return !EMPTY_COLLECTION.test(line.slice(1));
+    })
+    .map((line) => {
+      if (line.startsWith("@@")) return { line: "", kind: "hunk" as const };
+      if (line.startsWith("+")) return { line, kind: "add" as const };
+      if (line.startsWith("-")) return { line, kind: "remove" as const };
+      return { line, kind: "context" as const };
+    });
+}
+
+const DIFF_LINE_CLASS: Record<string, string> = {
+  add: "text-grounded",
+  remove: "text-unsourced",
+  context: "text-text-muted",
+};
 
 /* The "finish the conversation → here's your protocol" moment. When the
  * researcher wraps up, this gathers everything the conversation produced —
@@ -39,6 +76,11 @@ export function FinishReview({
   const grounded = accepted.filter((m) => m.grounding.length > 0).length;
   const judgment = accepted.length - grounded;
   const valid = compile?.valid ?? false;
+  const diffLines = useMemo(
+    () => (compile?.diff ? parseDiffLines(compile.diff) : []),
+    [compile?.diff],
+  );
+  const hasDiff = diffLines.some((d) => d.kind === "add" || d.kind === "remove");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,7 +91,7 @@ export function FinishReview({
         </DialogTitle>
         <DialogDescription>
           This is what your conversation became. Review it, then apply it to the
-          protocol — the study's document of record.
+          protocol: the study's document of record.
         </DialogDescription>
 
         <div className="mt-2 grid grid-cols-3 gap-3">
@@ -93,6 +135,24 @@ export function FinishReview({
                 ? "The server couldn't compile this draft. Check your connection, then reopen this review."
                 : "The draft is still empty. Accept a few design moves first.")}
           </pre>
+          {hasDiff && (
+            <>
+              <p className="mb-1 mt-2 text-xs font-medium text-text-muted">
+                What this changes
+              </p>
+              <pre className="tabular max-h-56 overflow-auto whitespace-pre rounded-input border border-border-strong bg-bg p-3 font-mono text-xs leading-relaxed">
+                {diffLines.map((d, i) =>
+                  d.kind === "hunk" ? (
+                    <div key={i} className="my-1 border-t border-border" />
+                  ) : (
+                    <div key={i} className={DIFF_LINE_CLASS[d.kind]}>
+                      {d.line}
+                    </div>
+                  ),
+                )}
+              </pre>
+            </>
+          )}
           {compile && !valid && compile.errors.length > 0 && (
             <ul className="mt-1.5 flex flex-col gap-1 rounded-input border border-unsourced/40 bg-unsourced-soft/40 p-2">
               {compile.errors.map((e, i) => (
@@ -115,7 +175,10 @@ export function FinishReview({
           {compile && !valid && compile.unresolved.length > 0 && (
             <p className="mt-1.5 rounded-input border border-border bg-surface p-2 text-xs text-text-muted">
               <span className="font-medium text-text">Still unresolved:</span>{" "}
-              {compile.unresolved.join(", ")}. You can keep talking to fill these.
+              {compile.unresolved
+                .map((s) => SLOT_LABELS[s as keyof typeof SLOT_LABELS] ?? s)
+                .join(", ")}
+              . You can keep talking to fill these.
             </p>
           )}
         </div>

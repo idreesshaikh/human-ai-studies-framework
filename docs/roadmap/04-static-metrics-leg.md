@@ -1,4 +1,4 @@
-# Phase 04 — Static-metrics leg
+# Phase 04: Static-metrics leg
 
 > Read first: `metrics/docs/static_code_metrics.md`, `metrics/docs/implementation_plan.md`.
 > **Satisfies:** FR-INST-4, FR-INST-6. **Status:** ✅ built.
@@ -12,15 +12,15 @@ stamped with the join keys so it lands on the one timeline.
 
 ## What it builds
 
-`metrics/` (flat `src/` scripts — deliberately not a package):
-- `src/parsers/ts_parser.py` — tree-sitter parsing.
-- `src/analyzers/{radon_metrics,sonar_metrics,text_metrics}.py` — the nine
+`metrics/` (flat `src/` scripts, deliberately not a package):
+- `src/parsers/ts_parser.py`: tree-sitter parsing.
+- `src/analyzers/{radon_metrics,sonar_metrics,text_metrics}.py`: the nine
   metrics: nesting-depth penalty (exponential), cognitive complexity (SonarQube
   API, stub-degradable), parameter count (Miller's Law), Halstead effort
   (Radon), variable scope distance, indentation variance, line-width bounds,
   average identifier length, comment-to-code ratio.
-- `src/main.py` — the orchestrator, emitting JSONL for middleware ingest.
-- `corpus/` — deliberately-imperfect sample targets (ruff-excluded).
+- `src/main.py`: the orchestrator, emitting JSONL for middleware ingest.
+- `corpus/`: deliberately-imperfect sample targets (ruff-excluded).
 
 Run: `uv run python metrics/src/main.py <dir> --participant P1 --format jsonl`.
 

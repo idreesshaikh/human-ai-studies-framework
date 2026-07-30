@@ -84,7 +84,7 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
           <Sparkles className="size-4 text-accent" aria-hidden /> Start from a paper
         </h2>
         <p className="mt-1 text-xs text-text-muted">
-          Search the corpus, pick a paper, and run it through an archetype — the
+          Search the corpus, pick a paper, and run it through an archetype: the
           paper becomes your design's primary citation.
         </p>
       </div>

@@ -92,7 +92,7 @@ export function DataProvenance({
         <h2 className="type-subhead text-text">Where does your data come from?</h2>
         <p className="mt-1 text-xs text-text-muted">
           A study needs data to analyse. Collect it live from instrumented
-          sessions, or curate it from public GitHub activity — both land in the
+          sessions, or curate it from public GitHub activity; both land in the
           same join-key schema, so the analysis is identical.
         </p>
       </div>
@@ -187,7 +187,7 @@ export function DataProvenance({
           <div className="flex items-center justify-between gap-2">
             <span className="type-subhead flex items-center gap-2 text-text">
               <FlaskConical className="size-4 text-unsourced" aria-hidden />
-              Synthetic pilot — not real data
+              Synthetic pilot, not real data
             </span>
             <button
               onClick={() => setRehearsal(null)}
@@ -199,7 +199,7 @@ export function DataProvenance({
           </div>
           <p className="mt-1 text-xs text-text-muted">
             Generated to rehearse your analysis. These numbers are made up and
-            are never saved or counted as results — collect real data above when
+            are never saved or counted as results; collect real data above when
             you're ready.
           </p>
           <div className="mt-3">
