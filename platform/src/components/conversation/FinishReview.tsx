@@ -49,7 +49,7 @@ export function FinishReview({
         </DialogTitle>
         <DialogDescription>
           This is what your conversation became. Review it, then apply it to the
-          protocol — the study's document of record.
+          protocol: the study's document of record.
         </DialogDescription>
 
         <div className="mt-2 grid grid-cols-3 gap-3">

@@ -48,7 +48,7 @@ function seedAmendments(): Amendment[] {
       summary: "reconfigures instrument: cognitiveOverlay",
       changes: ["reconfigures instrument: cognitiveOverlay"],
       rationale:
-        "Raise the stuck-detector threshold to two minutes — participants " +
+        "Raise the stuck-detector threshold to two minutes: participants " +
         "were being nudged mid-thought.",
       grounding: [],
       consentRelevant: false,

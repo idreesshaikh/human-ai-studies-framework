@@ -1,4 +1,4 @@
-# FR-AGF — Agent-friendliness (detailed specification)
+# FR-AGF: Agent-friendliness (detailed specification)
 
 **SRS family:** FR-AGF. **Phase:** 17.
 
@@ -8,7 +8,7 @@ Two kinds of AI agents operate this platform: the in-platform agents
 (FR-META-3) and external agents (a researcher's Claude Code driving the
 API, browser agents driving the UI). Owner direction: "a lot of
 metadata that agents when run can understand." The existing seeds already
-exist — live `/requirements` + `/glossary` endpoints (FR-DASH-9) whose
+exist: live `/requirements` + `/glossary` endpoints (FR-DASH-9) whose
 content is parsed from the documents of record. FR-AGF generalizes that
 principle: **everything an agent needs is generated from the documents
 of record, never hand-maintained**, because context that drifts is
@@ -35,13 +35,13 @@ efficiency materially).
 
 - Assembled at startup from: FastAPI's own OpenAPI doc, the published
   JSON Schemas, the redocs parser (FR-DASH-9), the template registry.
-  **No hand-written manifest content** — fit criterion F1.1: every
+  **No hand-written manifest content**. Fit criterion F1.1: every
   manifest value is traceable to a generated source; a grep finds no
   literal capability strings outside the generator.
 - F1.2: an agent given only the manifest URL can (in a scripted demo)
   discover the API, validate a protocol draft against the fetched
   schema, and answer "what does `condition` mean here?" from the
-  vocabulary endpoints — zero repository access.
+  vocabulary endpoints, zero repository access.
 
 ## 3. Generated context files (FR-AGF-2, S)
 

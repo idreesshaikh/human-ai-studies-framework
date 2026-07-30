@@ -1,24 +1,24 @@
-# Phase 05 — Cognitive leg (fatigue, stuck, session)
+# Phase 05: Cognitive leg (fatigue, stuck, session)
 
 > Read first: `requirements/srs.md` §FR-INST, `extension/PROJECT_GUIDE.md`.
 > **Satisfies:** FR-INST-1/2/3/13/14. **Status:** ✅ built.
 
 ## The idea
 
-The in-IDE study companion for how a developer *feels* while working — sampled
+The in-IDE study companion for how a developer *feels* while working, sampled
 without ever interrupting them (NFR-1). Fatigue micro-probes timed into typing
 pauses, stuck-episode detection that prompts inline without stealing focus, and
 a pausable, crash-recoverable session clock ending in a TLX-style debrief.
-Prompts render as translucent in-editor surfaces layered over the code — the
+Prompts render as translucent in-editor surfaces layered over the code; the
 participant's eyes stay on their work.
 
 ## What it builds
 
 `extension/` (VS Code extension "TERN", TypeScript), respecting
-the core/adapter split (NFR-3 — `src/core` never imports `vscode`):
-- `src/core/` — `surveys.ts`, `stuckDetector.ts`, `session.ts`, `idle.ts`,
+the core/adapter split (NFR-3: `src/core` never imports `vscode`):
+- `src/core/`: `surveys.ts`, `stuckDetector.ts`, `session.ts`, `idle.ts`,
   `attention.ts` (IDE-agnostic logic, mocked-timer tested).
-- `src/vscode/` — `fatiguePrompt.ts`, `stuckPrompt.ts`, `endSurvey.ts`,
+- `src/vscode/`: `fatiguePrompt.ts`, `stuckPrompt.ts`, `endSurvey.ts`,
   `statusBar.ts` (the adapter surfaces).
 - Session start records an environment snapshot (VS Code + extension versions,
   OS, agent tool + model, task ID) for replication provenance (FR-INST-14).

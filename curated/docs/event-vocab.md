@@ -10,11 +10,11 @@ Join keys, reinterpreted for mined units (see `curated/src/curated/contract.py`)
 
 | Key | Live meaning | Mined meaning |
 | --- | --- | --- |
-| `participantId` | the enrolled participant | the anonymized **actor unit** (developer / repo / agent), salted-hash pseudonym — never a raw login |
+| `participantId` | the enrolled participant | the anonymized **actor unit** (developer / repo / agent), salted-hash pseudonym, never a raw login |
 | `condition` | the assigned arm | the study's comparison arm (e.g. `agent-pr` / `human-pr`) |
 | `sessionId` | one session | the mined **activity unit** (a PR, an issue thread, a commit-batch window) |
 | `ts` | event time | the **source's** event time, never import time |
-| `seq` | producer ordinal | the adapter's deterministic ordinal per `(sessionId, source)` — re-mining is idempotent under the existing unique constraint |
+| `seq` | producer ordinal | the adapter's deterministic ordinal per `(sessionId, source)`; re-mining is idempotent under the existing unique constraint |
 | `source` | the instrument | the adapter (`github`, …) |
 
 All payloads are **content-free by default**: sizes, counts, timings, flags,
@@ -36,5 +36,5 @@ FR-AGENT-5 mechanism, reused). Public-data ethics are still ethics.
 registry (`curated/src/curated/heuristics.py`); every firing heuristic
 (`id@version`) is recorded and lands in the dataset's validity-threats
 record. Static metrics over mined code reuse the existing metrics leg against
-checked-out snapshots (the shadow-git machinery) — there is no second metrics
+checked-out snapshots (the shadow-git machinery); there is no second metrics
 pipeline.

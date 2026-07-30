@@ -490,7 +490,7 @@ function seedPaper(
     year,
     venue: "",
     abstract:
-      "Seeded corpus paper — the citation neighbourhood and full metadata " +
+      "Seeded corpus paper: the citation neighbourhood and full metadata " +
       "load from the running middleware.",
     doi: "",
     arxivId: "",
@@ -661,7 +661,7 @@ const SEED_PRESCRIPTIONS: Prescription[] = [
     effectSize: "Matched-pairs rank-biserial correlation (r)",
     correction: "none",
     sampleSizeGuidance: "Report per-cell n; small-N is hypothesis-generating.",
-    rationale: "Within-subjects pairs each participant to themselves — the exact paired test needs no normality assumption.",
+    rationale: "Within-subjects pairs each participant to themselves: the exact paired test needs no normality assumption.",
   },
   {
     designShape: "two-group",

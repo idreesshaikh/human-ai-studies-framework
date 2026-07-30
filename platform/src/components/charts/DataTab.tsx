@@ -53,7 +53,7 @@ export function DataTab({ studyId }: { studyId: string }) {
           role="status"
         >
           <Info className="size-4 shrink-0 text-unsourced" aria-hidden />
-          Showing built-in sample data — not connected to a live study. Start the
+          Showing built-in sample data, not connected to a live study. Start the
           middleware to see this study's real sessions and metrics.
         </p>
       )}

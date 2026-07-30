@@ -248,7 +248,7 @@ export function MetricStrip({
                         stroke="var(--surface)"
                         strokeWidth={2}
                         onPointerMove={(e) =>
-                          setTip({ x: e.clientX + 12, y: e.clientY + 12, text: `${p.value} — ${p.detail}` })
+                          setTip({ x: e.clientX + 12, y: e.clientY + 12, text: `${p.value}: ${p.detail}` })
                         }
                         onPointerLeave={() => setTip(null)}
                       />

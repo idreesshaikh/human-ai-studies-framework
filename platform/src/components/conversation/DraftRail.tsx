@@ -29,7 +29,7 @@ export function DraftRail({
         const items = draft[s];
         const head = `${s}:`;
         if (items.length === 0) {
-          return `${head}  # unresolved — ${SLOT_LABELS[s]}\n`;
+          return `${head}  # unresolved: ${SLOT_LABELS[s]}\n`;
         }
         return head + "\n" + items.map((v) => `  - ${v}`).join("\n") + "\n";
       }).join("");

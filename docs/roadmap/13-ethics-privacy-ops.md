@@ -1,4 +1,4 @@
-# Phase 13 — Ethics, privacy & operations
+# Phase 13: Ethics, privacy & operations
 
 > Read first: `requirements/srs.md` §FR-ETH, §FR-OPS, `RUNBOOK.md`.
 > **Satisfies:** FR-ETH-2/3, FR-OPS-1..7, NFR-1/5. **Status:** 🔶 partial.
@@ -6,11 +6,11 @@
 ## The idea
 
 Privacy by construction and a $0 adoption path. Instruments capture no raw code,
-keystrokes, or clipboard text — aggregates, shapes, and salted hashes only, with
+keystrokes, or clipboard text: aggregates, shapes, and salted hashes only, with
 two consent-matched scoped exceptions (agent-conversation content, workspace
 snapshots). Participant data at rest stays on facilitator-controlled machines.
 And the platform is *seeable and adoptable*: one container image, tagged
-releases, a public seeded demo, Marketplace distribution — all runnable at $0 on
+releases, a public seeded demo, Marketplace distribution, all runnable at $0 on
 student-pack benefits.
 
 ## What it builds
@@ -34,6 +34,6 @@ student-pack benefits.
 
 ## Verification
 
-- `uv run pytest` — the privacy boundaries (grep-the-output on instrument and
+- `uv run pytest`: the privacy boundaries (grep-the-output on instrument and
   assistant output); `docker build -f middleware/Dockerfile .` succeeds;
   `scripts/smoke.sh` green from a clean bring-up.

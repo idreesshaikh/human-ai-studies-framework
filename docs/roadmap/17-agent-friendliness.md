@@ -1,10 +1,10 @@
-# Phase 17 — Agent-Friendliness
+# Phase 17: Agent-Friendliness
 
 > **Note (2026-07-18):** Phase 17 is built. The FR-PROT-9 fit fixture was
 > originally the `context-ablation-2026.yaml` demonstrator draft; that draft
 > (and the comprehension-debt draft) were pilot trial studies, since removed
 > as clutter (see the traceability phase-completion log). The fixture now
-> lives at `protocol/tests/fixtures/agent-participant-v3.yaml` — a neutral,
+> lives at `protocol/tests/fixtures/agent-participant-v3.yaml`, a neutral,
 > purpose-built v3 protocol. Mentions of `context-ablation-2026.yaml` below
 > are the historical build account; the current fixture is the tests' file.
 
@@ -15,15 +15,15 @@
 > makes valid), `docs/design/architecture.md` (manifest placement), and
 > `docs/roadmap/README.md` (walls + charter). For Claude Code hook and
 > transcript formats, verify against current docs via the
-> `claude-code-guide` agent — never memory.
+> `claude-code-guide` agent, never memory.
 
-**Depends on:** Phase 14 (the shell — the manifest describes a platform
+**Depends on:** Phase 14 (the shell: the manifest describes a platform
 with projects and auth; the UI carries the attribute convention), Phase 15
 (templates + corpus endpoints the manifest indexes), Phase 12 (agent leg +
-task harness — FR-PROT-9's instruments). **Satisfies:** FR-AGF-1..3,
+task harness, FR-PROT-9's instruments). **Satisfies:** FR-AGF-1..3,
 FR-PROT-9. **Elicited:** owner, Phase 01 rev 8 ("a lot of metadata that
 agents when run can understand") + rev 11 (agent participants).
-**Status:** Built (2026-07-18) — all four slices implemented and tested;
+**Status:** Built (2026-07-18): all four slices implemented and tested;
 the manifest + AGENTS.md + schema vNext + `data-agent` annotations are
 green, with CI drift gates and the scripted agent-discovery proof
 (in-process and against a live boot).
@@ -35,11 +35,11 @@ researcher's Claude Code driving the API; browser agents driving the UI)
 and agents that are **studied by** it (FR-PROT-9: the participant *is*
 an agent configuration under the task harness). This phase serves both
 with one principle: **everything an agent needs is generated from the
-documents of record, never hand-maintained** — context that drifts is
+documents of record, never hand-maintained**: context that drifts is
 worse than no context (`evaluating-agents-md`; `agents-md-efficiency`).
 After this phase, an agent given nothing but a deployment URL can
 discover the API, validate a protocol draft against the real schema, and
-speak the platform's vocabulary — and the platform can run a study whose
+speak the platform's vocabulary, and the platform can run a study whose
 participants are agents.
 
 Non-negotiable bounds:
@@ -58,40 +58,40 @@ Non-negotiable bounds:
 
 ## Slices
 
-### Slice A — The platform manifest (FR-AGF-1)
+### Slice A: The platform manifest (FR-AGF-1)
 
-1. `GET /.well-known/platform-manifest` — unauthenticated, assembled at
+1. `GET /.well-known/platform-manifest`: unauthenticated, assembled at
    startup in `middleware/src/middleware/manifest.py` from:
    FastAPI's own `openapi()` (the API surface), the published JSON
-   Schemas (event, protocol, template — with versions), the
+   Schemas (event, protocol, template, with versions), the
    requirements/glossary parser (FR-DASH-9, already live), the template
    registry index, the corpus index count, and the deployment's auth
    mode. Shape per `fr-agf.md` §2; extend fields freely (see freedoms)
    but every value generated.
 2. **The scripted proof** (F1.2): a committed script
    (`scripts/agent_manifest_demo.py` or a documented Claude Code
-   session recipe — builder's choice) that, given only the manifest URL:
+   session recipe, builder's choice) that, given only the manifest URL:
    discovers the API via the linked OpenAPI doc, fetches the protocol
    schema and validates a draft against it, and answers "what does
-   `condition` mean here?" from the vocabulary endpoints — zero
+   `condition` mean here?" from the vocabulary endpoints, zero
    repository access. This script is the fit criterion made executable
    and doubles as living documentation.
 
-### Slice B — Generated context files (FR-AGF-2)
+### Slice B: Generated context files (FR-AGF-2)
 
 1. `scripts/generate_agents_md.py` → `AGENTS.md` at the repo root (and
    shipped in deployments), generated from: the glossary, the SRS index
    (IDs + one-liners), a manifest snapshot, and the **System invariants**
-   section of CLAUDE.md (parsed by heading — CLAUDE.md itself stays
+   section of CLAUDE.md (parsed by heading, CLAUDE.md itself stays
    hand-written: it is the generator's *input* for invariants; judgment
    stays human, facts get generated).
 2. **CI drift check**: regenerate + `git diff --exit-code AGENTS.md`
    in the existing CI workflow. Editing the glossary without
-   regenerating turns CI red (F2.1/F2.2) — same posture as lockfiles.
+   regenerating turns CI red (F2.1/F2.2), same posture as lockfiles.
 3. Generation is deterministic (stable ordering, no timestamps in
    content) so the diff check is meaningful.
 
-### Slice C — Agent participants (FR-PROT-9)
+### Slice C: Agent participants (FR-PROT-9)
 
 The protocol schema learns that a participant can be an agent:
 
@@ -99,46 +99,46 @@ The protocol schema learns that a participant can be an agent:
    **anonymized agent-configuration IDs** recording tool + model;
    `tern` becomes optional for agent participants; the agent
    leg + task harness (Phase 12) are the primary instruments. Validators
-   branch on version — the v1 validator's behavior is untouched.
+   branch on version: the v1 validator's behavior is untouched.
 2. **The fit fixture is the spec**: `context-ablation-2026.yaml`
    (deliberately failing v1 validation today) must validate **unmodified
    except the version bump** (the SRS row's criterion). If it can't,
    the schema design is wrong, not the fixture.
 3. Downstream sanity, not full support: `protocol derive` produces
    harness-oriented config for agent participants; the analysis plan
-   validates (recipes may still be pending — loud FR-ANA-2 failure is
+   validates (recipes may still be pending: loud FR-ANA-2 failure is
    the correct state, as with the comprehension-debt draft).
-4. Glossary terms already exist (rev 11: Agent participant, etc.) —
+4. Glossary terms already exist (rev 11: Agent participant, etc.);
    code and schema field names follow them.
 
-### Slice D — Semantic UI annotations (FR-AGF-3, the convention)
+### Slice D: Semantic UI annotations (FR-AGF-3, the convention)
 
 1. Stable `data-agent` attributes on navigational landmarks and
    decision-bearing components (`data-agent="move-card"`,
-   `"draft-rail"`, `"project-switcher"`, `"compile-button"` …) — the
+   `"draft-rail"`, `"project-switcher"`, `"compile-button"` …): the
    `data-tour` discipline generalized. Retrofit the Phase 14/15 components
    (small, mechanical); new components adopt it from birth.
 2. One conventions file (`platform/docs/agent-annotations.md`): naming
    rules, stability promise (renaming an attribute is a breaking change
-   logged like one), and the current inventory — generated or checked
+   logged like one), and the current inventory: generated or checked
    by lint if cheap, hand-listed if not (builder's call; drift here is
    low-stakes until a browser-agent consumer exists, which is why
    FR-AGF-3 is a C).
 
 ## Degrees of freedom
 
-- **Manifest field extensions** — the §2 shape is the floor; add
+- **Manifest field extensions**: the §2 shape is the floor; add
   generated fields agents plausibly want (rate limits, deployment
   flavor, demo pointers). Never a hand-written value.
-- **Demo harness** — Python script vs. documented Claude Code recipe
+- **Demo harness**: Python script vs. documented Claude Code recipe
   vs. both, for the F1.2 proof.
-- **Where generation hooks** — pre-commit, CI-only, or a `make` target;
+- **Where generation hooks**: pre-commit, CI-only, or a `make` target;
   the binding requirement is only that CI catches drift.
-- **Schema-vNext mechanics** — whether agent participants are a
+- **Schema-vNext mechanics**: whether agent participants are a
   participant-entry variant or a parallel section is yours; the fixture
   validating unmodified (± version) is the non-negotiable test of the
   choice.
-- **Attribute inventory** — which components carry `data-agent` beyond
+- **Attribute inventory**: which components carry `data-agent` beyond
   landmarks and decision points; err toward fewer, stabler names.
 
 ## Acceptance (maps to fit criteria)
@@ -155,7 +155,7 @@ The protocol schema learns that a participant can be an agent:
 
 ## Verification steps
 
-1. `uv run pytest && uv run ruff check .` — manifest generator,
+1. `uv run pytest && uv run ruff check .`: manifest generator,
    AGENTS.md generator (golden-file test), schema-vNext validator
    branch, fixture validation.
 2. The F1.2 agent demo, run against a real local boot, output captured.
@@ -168,7 +168,7 @@ The protocol schema learns that a participant can be an agent:
 
 Record departures here and in `requirements/traceability.md` §3.
 
-**2026-07-18 — built.** What landed:
+**2026-07-18: built.** What landed:
 
 - **Slice A (manifest, FR-AGF-1):** `manifest.py` already existed but had
   real bugs. Fixed: it now reports the deployment's *resolved* auth mode
@@ -179,7 +179,7 @@ Record departures here and in `requirements/traceability.md` §3.
   timestamp) for AGENTS.md. Fixing it surfaced **two latent bugs from the
   parallel build**: (1) the `/schemas/*`, `/templates`, `/papers/index`
   endpoints resolved their paths with one too few `.parent` calls, so they
-  served hardcoded fallbacks / empty — an agent following the manifest got
+  served hardcoded fallbacks / empty; an agent following the manifest got
   a stub schema; (2) the manifest route itself 422'd on every request
   because `Request` was imported *inside* the route factory under
   `from __future__ import annotations`, so FastAPI couldn't resolve the
@@ -196,7 +196,7 @@ Record departures here and in `requirements/traceability.md` §3.
   (required at v1/v2; at v3 the study needs ≥1 of overlay / agentCapture /
   taskHarness), plus an optional `participants.agents` list (tool+model).
   `context-ablation-2026.yaml` validates under v3 with **only** the version
-  bump — the fit criterion — while v1/v2 behavior is untouched (regression
+  bump (the fit criterion), while v1/v2 behavior is untouched (regression
   suite). `derive` gained an agent branch: `overlay-settings` fails cleanly
   on an agent study and `agent-hooks` produces the harness config.
 - **Slice D (annotations, FR-AGF-3):** 13 stable `data-agent` names on the
@@ -207,4 +207,4 @@ Record departures here and in `requirements/traceability.md` §3.
 
 Deviation: the agent-participant analysis recipe `cost-effectiveness-frontier`
 named in the fixture is still unbuilt, so `analysis validate` fails loudly on
-it — the correct state (FR-ANA-2), matching the comprehension-debt draft.
+it: the correct state (FR-ANA-2), matching the comprehension-debt draft.

@@ -82,14 +82,14 @@ view needs. Metadata-only calls (paper IDs/titles), so NFR-5-compatible.
 Rate limits are fine at our scale; cache responses in the middleware DB so
 the graph renders offline after first fetch.
 
-### D9 - Zotero (local/web API) - **ADOPT (stretch)** — **WITHDRAWN** (2026-07-16) → FR-LIT-5
+### D9 - Zotero (local/web API) - **ADOPT (stretch)**; **WITHDRAWN** (2026-07-16) → FR-LIT-5
 
 Built in (local read-only API v3 over stdlib `urllib`, no
 `pyzotero`); withdrawn with FR-LIT-5 (owner decision): DOI/arXiv/PDF
 ingest covers the need. It proved the paper-ingest extension point.
 Full narrative in git history.
 
-### D10 - Claude API (Anthropic) - **ADOPT, bounded** — **SUPERSEDED by D32** (2026-07-16) → FR-LIT-4, FR-META-2
+### D10 - Claude API (Anthropic) - **ADOPT, bounded**; **SUPERSEDED by D32** (2026-07-16) → FR-LIT-4, FR-META-2
 
 Powered the knowledge assistant + retrospective (built via the
 `anthropic` SDK, D22): FR-ETH-4 enforced server-side by a hand-rolled
@@ -166,7 +166,7 @@ project's data-viz conventions (thin marks, hairline grid, table-view
 twins, validated palette). LayerChart rejected: a dependency tree for two
 bespoke charts.
 
-### D18 - SPA routing library - **BUILD (hand-rolled)** — **RETIRED** (superseded by `react-router-dom`, adopted alongside D34) → FR-DASH app skeleton
+### D18 - SPA routing library - **BUILD (hand-rolled)**; **RETIRED** (superseded by `react-router-dom`, adopted alongside D34) → FR-DASH app skeleton
 
 Original decision (Svelte era, historical context only): the platform has
 one fixed route shape (`/study/:id/{view|sessions/:sid}`); svelte-routing /
@@ -175,13 +175,13 @@ router; SvelteKit rejected (again, per D15) as a framework swap. Deep
 links work because the middleware re-serves the SPA shell for `/study/*`
 (NFR-7, unchanged). **Current state:** the React rebuild (D34) brought
 `react-router-dom` (`platform/package.json`) rather than a hand-rolled
-router — the route surface grew past the original one-fixed-shape premise
+router; the route surface grew past the original one-fixed-shape premise
 (projects, hero, settings, the enrollment/study workspace tabs), and
 React's ecosystem router was the pragmatic fit once the frontend itself
 was no longer hand-rolled-by-necessity. NFR-10 satisfied: adopted, not
 built, with the reasoning recorded here rather than silently.
 
-### D19 - Vitest - **ADOPT** — **NOT ACTUALLY ADOPTED**; superseded in practice by bespoke `verify-*.mjs` scripts → platform component tests ( §4)
+### D19 - Vitest - **ADOPT**; **NOT ACTUALLY ADOPTED**; superseded in practice by bespoke `verify-*.mjs` scripts → platform component tests ( §4)
 
 Original decision (Svelte era): the platform's two logic-heavy pieces
 (timeline lane assembly, task-card derivation) are pure TypeScript
@@ -195,7 +195,7 @@ setup - no churn where nothing is gained.
 file exists anywhere under `platform/`). What shipped instead is a bespoke
 `scripts/verify-*.mjs` convention (`verify-slice1.mjs`, `verify-shell.mjs`,
 `verify-evolution.mjs`, `verify-library.mjs`, `verify-timeline.mjs`), each
-a standalone assertion script run by `npm run check`'s `verify` step —
+a standalone assertion script run by `npm run check`'s `verify` step,
 functionally the same job D19 scoped, achieved without adopting a
 dependency. Leave as-is (NFR-10 is satisfied either way) rather than
 retrofitting Vitest to match a decision the practice quietly outgrew;
@@ -231,7 +231,7 @@ service (NFR-5), extraction is local. FTS over the extracted text uses
 SQLite's built-in **FTS5** - no vector DB at this scale (a build decision
 recorded inline in the ingest code, not a new dependency).
 
-### D22 - `anthropic` Python SDK - **ADOPT** (realizes D10) — **SUPERSEDED by D32** (2026-07-16) → FR-LIT-4
+### D22 - `anthropic` Python SDK - **ADOPT** (realizes D10); **SUPERSEDED by D32** (2026-07-16) → FR-LIT-4
 
 Realized D10; removed with it. D32's provider is called over plain REST
 (stdlib `urllib`), so no successor SDK was adopted.
@@ -269,7 +269,7 @@ NFR-7's no-IT-department posture).
 ### D25 - Render free tier (demo host) - **SUPERSEDED** → FR-OPS-1(a)
 
 Adopted initially (see original text below) but superseded by D26 (Railway).
-Render is no longer a deployment target — Railway handles the demo deployment
+Render is no longer a deployment target. Railway handles the demo deployment
 with managed PostgreSQL and no cold-start spin-down.
 
 _Original decision preserved for record:_
@@ -292,7 +292,7 @@ _Original decision preserved for record:_
 Railway is the primary deployment target for the middleware + PostgreSQL.
 The `railway.toml` at repo root drives the build from `middleware/Dockerfile`.
 Railway provides managed PostgreSQL (DATABASE_URL auto-injected), TLS
-termination, and custom domains — no Caddy needed. The container image is
+termination, and custom domains; no Caddy needed. The container image is
 pushed to GHCR by CI, and a Railway GraphQL API call triggers redeploy.
 
 SonarQube (FR-INST-4 cognitive complexity) is a separate concern: it runs
@@ -325,7 +325,7 @@ Each was considered for the FR-OPS deployment slice and rejected:
   reverse.
 - **Fly.io** - no free tier for new organizations; not in the pack.
 - **Railway** - trial credit only; no sustained free tier. _(Note: later
-  adopted as the primary deployment target in D26 — the free-tier landscape
+  adopted as the primary deployment target in D26, as the free-tier landscape
   changed and Railway's student credits covered the demo.)_
 - **Supabase** - hosted Postgres/auth/storage would move study data to a
   third-party cloud (NFR-5 - same reasoning as D1's wandb reject) and
@@ -377,7 +377,7 @@ renders in `App.tsx` in place of project UI until a credential exists);
 the API client's live token getter is `setTokenProvider` in `api.ts`. No
 new decision needed - same adopted dependency, same pattern, new host.
 
-### D30 - Vercel v0 - **ADOPT as design tool only** — **RETIRED** (rev 4, 2026-07-17) → platform UI iteration
+### D30 - Vercel v0 - **ADOPT as design tool only**; **RETIRED** (rev 4, 2026-07-17) → platform UI iteration
 
 Four revs (design-tool-only → direct Svelte iteration in v0 → main-branch
 deploys disabled → retired at owner direction) ended with Vercel/v0
@@ -421,7 +421,7 @@ small, decision-gated change.
 ### D33 - `svelte-dnd-action` - **ADOPT → RETIRED** → FR-DASH-7
 
 Adopted during the Svelte era (D30 rev 2). Retired when the platform was
-migrated to React (D34) — the `platform/` app is a React SPA, not Svelte.
+migrated to React (D34). The `platform/` app is a React SPA, not Svelte.
 
 Drag-and-drop for the task board's manual cards, introduced by the v0
 design iteration (D30 rev 2) and kept at merge review: it is the standard
@@ -544,18 +544,18 @@ them." needs them, so this row pins the set:
 
 - **`react-router-dom`** (v7): the shell's routes (hero, projects, project
   home, study, members, settings, invite-accept) are real URLs, so links,
-  deep-links, and the browser back button work. Client-side only — the
+  deep-links, and the browser back button work. Client-side only: the
   middleware serves the SPA and owns the API (no server runtime added).
 - **`cmdk`** (v1): the ⌘K project switcher. Fuzzy match + full keyboard
   nav are exactly the accessibility behaviour we must not hand-roll; it's
   the shadcn-canonical command primitive and vendors as owned source.
 - **`@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`**: the
   invite dialog, delete confirmation, account menu, and member-role menu.
-  Same reason Radix was adopted in D37 — accessible focus trapping, ARIA,
+  Same reason Radix was adopted in D37: accessible focus trapping, ARIA,
   and keyboard behaviour are requirements, not options.
 
 **Still deferred** (decide when first needed): a data-fetching library
-(`@tanstack/react-query`) — the shell talks to the API through a small
+(`@tanstack/react-query`): the shell talks to the API through a small
 typed client with a plain `fetch`, and an in-memory backend stands in
 offline, so a cache/query layer isn't earning its weight yet. **Rejected:**
 a router that needs a server runtime (contra D34/NFR-7); a component
@@ -611,10 +611,10 @@ event says only what changed, and viewers re-read through the ordinary
 endpoints, so the API stays the single source of truth. Bounded per-subscriber
 queues mean a stalled browser drops events and is *told* (`dropped`) rather
 than growing server memory or being served a gapped stream. **Rejected:** a
-CRDT / operational-transform stack (Yjs, Automerge) and WebSockets — real
+CRDT / operational-transform stack (Yjs, Automerge) and WebSockets: real
 simultaneous editing is a large subsystem whose payoff at a handful of
 researchers per study is small, and websockets add a second transport for
-capability SSE already covers; Redis pub/sub — correct the moment the service
+capability SSE already covers; Redis pub/sub: correct the moment the service
 runs replicated, and unnecessary while one Railway container serves the whole
 app (NFR-7). `presence.publish` is the single seam to move behind Redis if
 that changes, which is why call sites never touch queues directly.
@@ -631,7 +631,7 @@ presence, activation events) that a hand-rolled zip would silently violate.
 **Dev-only, and that boundary matters.** It is a `devDependency` invoked by
 `npm run package`; nothing in `src/` imports it, and it contributes zero
 bytes to the shipped artifact or to the container image. The runtime
-dependency surface of the extension stays exactly what it was — none.
+dependency surface of the extension stays exactly what it was: none.
 
 **Rejected:** hand-rolling the zip (the `.vsix` format is undocumented as a
 contract and validation is the whole point of the tool); `ovsx`/Open VSX as
@@ -655,6 +655,6 @@ end-to-end (`docs/papers/README.md`/`CORPUS.md`, `corpus_harvest.py`,
 `middleware/src/middleware/{db,matching,corpus_importer,corpus_enrich,app,
 manifest}.py`, `platform/src/components/conversation/Confidence.tsx`,
 `requirements/srs.md` FR-LIT-8, `requirements/specs/fr-lit.md`,
-`requirements/glossary.md`) — this is queued implementation work, not yet
+`requirements/glossary.md`). This is queued implementation work, not yet
 started. When it lands, update every one of those call sites plus this row,
 and flip FR-LIT-8's own wording in `srs.md` to match the new model.

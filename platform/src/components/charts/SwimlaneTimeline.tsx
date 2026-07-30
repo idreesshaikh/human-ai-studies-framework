@@ -130,7 +130,7 @@ export function SwimlaneTimeline({
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h3 className="type-subhead text-text">
-          Timeline — {sessionId}
+          Timeline: {sessionId}
           <span className="ml-2 text-xs text-text-muted">
             {events.length} events · {lanes.length} lanes
             {allFlagKinds.length > 0 && ` · ${allFlagKinds.join(", ")}`}

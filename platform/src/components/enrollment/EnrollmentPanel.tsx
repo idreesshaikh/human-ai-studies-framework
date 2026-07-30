@@ -111,7 +111,7 @@ export function EnrollmentPanel({
       )}
       {rows.length === 0 ? (
         <p className="rounded-input border border-dashed border-border px-3 py-6 text-center text-sm text-text-muted">
-          No participants yet — mint a link to enroll the first one.
+          No participants yet: mint a link to enroll the first one.
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -171,7 +171,7 @@ export function EnrollmentPanel({
                     ) : t.status === "paired" || t.status === "streaming" ? (
                       <span className="text-xs text-text-muted">Paired</span>
                     ) : (
-                      <span className="text-xs text-text-muted">—</span>
+                      <span className="text-xs text-text-muted">-</span>
                     )}
                   </td>
                   <td className="py-1.5">
@@ -220,7 +220,7 @@ export function EnrollmentPanel({
                         })}
                       </div>
                     ) : (
-                      <span className="text-text-muted">—</span>
+                      <span className="text-text-muted">-</span>
                     )}
                   </td>
                   <td className="py-1.5 text-right">

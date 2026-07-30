@@ -1,4 +1,4 @@
-# Deployment guide — step by step, zero to running
+# Deployment guide: step by step, zero to running
 
 A literal, checkbox-able walkthrough for taking a clean checkout of PHOENIX
 to a live, public Railway deployment. This expands
@@ -15,36 +15,36 @@ Nothing here touches a VM, Caddy, or manual SSH.
 
 ---
 
-## Phase 0 — accounts (5 min)
+## Phase 0: accounts (5 min)
 
 - [ ] GitHub account with this repo forked or pushed under your own account
-- [ ] [railway.app](https://railway.app) account (sign in with GitHub — this
+- [ ] [railway.app](https://railway.app) account (sign in with GitHub; this
       also grants Railway read access to deploy from the repo)
-- [ ] *(optional, recommended)* [clerk.com](https://clerk.com) account —
+- [ ] *(optional, recommended)* [clerk.com](https://clerk.com) account:
       only needed if you want hosted sign-in (`MIDDLEWARE_AUTH=clerk`);
       skip this phase entirely and use `MIDDLEWARE_AUTH=token` if you just
       want the fastest path to a running instance
 
 ---
 
-## Phase 1 — prove it locally first (10 min)
+## Phase 1: prove it locally first (10 min)
 
 Don't deploy something you haven't run. From a clean checkout:
 
 - [ ] `uv sync --all-packages`
-- [ ] `docker compose up` — boots PostgreSQL + the middleware, serves the
+- [ ] `docker compose up`: boots PostgreSQL + the middleware, serves the
       platform build at `http://localhost:8000`
-- [ ] Open `http://localhost:8000` — you should see the seeded demo study
+- [ ] Open `http://localhost:8000`: you should see the seeded demo study
 - [ ] `Ctrl-C`, `docker compose down` when satisfied
 
-If this doesn't work locally, it won't work on Railway either — the
+If this doesn't work locally, it won't work on Railway either; the
 container is the same artifact in both places.
 
 ---
 
-## Phase 2 — (optional) stand up Clerk auth
+## Phase 2: (optional) stand up Clerk auth
 
-Skip this whole phase if you're using `MIDDLEWARE_AUTH=token` instead —
+Skip this whole phase if you're using `MIDDLEWARE_AUTH=token` instead:
 jump to Phase 3.
 
 - [ ] Clerk dashboard → **Create application** → name it, enable your
@@ -52,35 +52,35 @@ jump to Phase 3.
 - [ ] Clerk dashboard → **API Keys** → copy the **Publishable key**
       (`pk_live_...` or `pk_test_...`) → this becomes
       `MIDDLEWARE_CLERK_PUBLISHABLE_KEY`
-- [ ] Note your Clerk **Frontend API URL**, shown on the same page — it
+- [ ] Note your Clerk **Frontend API URL**, shown on the same page; it
       looks like `https://<your-app>.clerk.accounts.dev` (dev) or your
       custom domain (prod). From it:
       - `MIDDLEWARE_CLERK_ISSUER` = that URL exactly
       - `MIDDLEWARE_CLERK_JWKS_URL` = that URL + `/.well-known/jwks.json`
-- [ ] Keep these three values handy for Phase 4 — the middleware verifies
+- [ ] Keep these three values handy for Phase 4: the middleware verifies
       Clerk session JWTs against the JWKS URL; nothing else needs
       configuring on the Clerk side for a first deployment
 
 ---
 
-## Phase 3 — create the Railway project
+## Phase 3: create the Railway project
 
 - [ ] [railway.app](https://railway.app) → **New Project** → **Deploy from
       GitHub repo** → pick this repo
 - [ ] Railway auto-detects `railway.toml` at the repo root (build =
       `middleware/Dockerfile`, context = repo root, start command =
-      `sh middleware/scripts/start_with_seed.sh`, healthcheck = `/health`)
-      — do not override these; if Railway asks, confirm the Dockerfile
+      `sh middleware/scripts/start_with_seed.sh`, healthcheck = `/health`):
+      do not override these; if Railway asks, confirm the Dockerfile
       path is `middleware/Dockerfile`
 - [ ] In the same project, **+ New** → **Database** → **Add PostgreSQL**.
       **A Postgres plugin does NOT automatically inject `DATABASE_URL`
-      into another service** — you still wire it in Phase 4 below as an
+      into another service**: you still wire it in Phase 4 below as an
       explicit variable reference; skip that step and the middleware
-      silently falls back to local SQLite (ephemeral — wiped on every
+      silently falls back to local SQLite (ephemeral, wiped on every
       redeploy) with no error, just a `sqlite:///...` line in the boot log
       instead of `postgresql://...`
 - [ ] Service → **Settings** → **Volumes** → **New Volume** → mount path
-      `/data`. **Do not skip this** — without it, every uploaded consent
+      `/data`. **Do not skip this**: without it, every uploaded consent
       PDF or paper PDF is silently lost on the next redeploy or restart
       (only the file's hash/path lives in Postgres; the bytes need the
       volume). Postgres needs no equivalent step, its plugin manages its
@@ -88,33 +88,33 @@ jump to Phase 3.
 
 ---
 
-## Phase 4 — environment variables
+## Phase 4: environment variables
 
 Service → **Variables**. Set:
 
 | Variable | Required? | Value |
 | -------- | ---------- | ----- |
-| `DATABASE_URL` | yes | **Add Reference**, not a plain value — click the "+" next to the value field, or type `${{` and pick your Postgres service's `DATABASE_URL`. A plain-value paste of the connection string also works but won't track credential rotation the way a reference does |
+| `DATABASE_URL` | yes | **Add Reference**, not a plain value: click the "+" next to the value field, or type `${{` and pick your Postgres service's `DATABASE_URL`. A plain-value paste of the connection string also works but won't track credential rotation the way a reference does |
 | `MIDDLEWARE_AUTH` | yes | `clerk` (if you did Phase 2) or `token` |
 | `MIDDLEWARE_TOKEN` | if `auth=token` | a long random string (`openssl rand -hex 32`) |
 | `MIDDLEWARE_CLERK_JWKS_URL` | if `auth=clerk` | from Phase 2 |
 | `MIDDLEWARE_CLERK_ISSUER` | if `auth=clerk` | from Phase 2 |
 | `MIDDLEWARE_CLERK_PUBLISHABLE_KEY` | if `auth=clerk` | from Phase 2 |
-| `MIDDLEWARE_SEED_ON_START` | recommended for a first deploy | `1` — reseeds the demo study on every boot so there's always something to look at |
+| `MIDDLEWARE_SEED_ON_START` | recommended for a first deploy | `1`: reseeds the demo study on every boot so there's always something to look at |
 | `MISTRAL_API_KEY` | optional | enables the LLM-backed design conversation/knowledge assistant; everything still works without it (degraded, deterministic path) |
 | `MIDDLEWARE_S2_API_KEY` | optional | Semantic Scholar enrichment for the literature corpus |
 | `MIDDLEWARE_GITHUB_TOKEN` | optional | needed only for the curated-mining (GitHub) leg's live source |
 
 - [ ] All required variables set → **Deploy** (Railway triggers the first
       build automatically once variables are saved)
-- [ ] Check the deploy log for `PROJECT MIGRATION on postgresql://...` —
+- [ ] Check the deploy log for `PROJECT MIGRATION on postgresql://...`:
       if it instead says `sqlite:///.study-data/middleware.sqlite3`,
       `DATABASE_URL` didn't reach the container; go back and fix the
       reference above, then redeploy
 
 ---
 
-## Phase 5 — wire CI to auto-redeploy on every green `main`
+## Phase 5: wire CI to auto-redeploy on every green `main`
 
 This step makes `git push` to `main` end in a live redeploy, with no
 manual Railway click after today.
@@ -134,15 +134,15 @@ manual Railway click after today.
       `Deploy demo` workflow (`.github/workflows/deploy.yml`) runs after
       CI goes green, builds the image, pushes to
       `ghcr.io/<owner>/<repo>/middleware`, and triggers the Railway
-      redeploy (check the Actions tab — a skipped/failed step here means a
+      redeploy (check the Actions tab: a skipped/failed step here means a
       secret is missing or misnamed, not a code problem)
 
 ---
 
-## Phase 6 — verify the live deployment
+## Phase 6: verify the live deployment
 
 - [ ] Open the Railway-assigned URL (service → **Settings** → **Networking**
-      → **Generate Domain** if you haven't already) — the platform should
+      → **Generate Domain** if you haven't already); the platform should
       load, same as your local `docker compose up` check in Phase 1
 - [ ] `curl https://<your-domain>/health` → `200`
 - [ ] If `MIDDLEWARE_SEED_ON_START=1`, confirm the seeded demo study is
@@ -151,11 +151,11 @@ manual Railway click after today.
 
 ---
 
-## Phase 7 — (optional) custom domain
+## Phase 7: (optional) custom domain
 
 - [ ] Railway → service → **Settings** → **Domains** → **Custom Domain** →
       enter your domain → add the shown CNAME/A record at your DNS
-      provider. Railway provisions and renews TLS automatically — no
+      provider. Railway provisions and renews TLS automatically: no
       Caddy, no manual certificates.
 
 ---
@@ -164,23 +164,23 @@ manual Railway click after today.
 
 | Symptom | Likely cause |
 | ------- | ------------ |
-| Build fails on Railway but `docker compose up` worked locally | Check the build is using `middleware/Dockerfile` with repo-root context (see `railway.toml`) — a wrong build context is the most common mismatch |
+| Build fails on Railway but `docker compose up` worked locally | Check the build is using `middleware/Dockerfile` with repo-root context (see `railway.toml`): a wrong build context is the most common mismatch |
 | Uploaded PDFs vanish after a redeploy | The `/data` volume from Phase 3 wasn't attached, or was attached to the wrong path |
-| `MIDDLEWARE_AUTH=clerk` requests get 401/503 at startup | `MIDDLEWARE_CLERK_JWKS_URL` missing or wrong — the service fails loudly by design (never "quietly open") rather than silently accepting requests |
+| `MIDDLEWARE_AUTH=clerk` requests get 401/503 at startup | `MIDDLEWARE_CLERK_JWKS_URL` missing or wrong: the service fails loudly by design (never "quietly open") rather than silently accepting requests |
 | `Deploy demo` Action shows "skipping Railway deploy" | `RAILWAY_API_TOKEN` or `RAILWAY_SERVICE_ID` GitHub secret is unset or misnamed |
 | Demo has no data after a fresh deploy | `MIDDLEWARE_SEED_ON_START` not set to `1` |
-| Boot log shows `PROJECT MIGRATION on sqlite:///...` instead of `postgresql://...` | `DATABASE_URL` isn't reaching the container — a Postgres plugin does not auto-inject into another service; add it as an explicit variable Reference (Phase 4), then redeploy. Data written under SQLite in the meantime lives on the container's ephemeral disk and is gone on the next redeploy |
+| Boot log shows `PROJECT MIGRATION on sqlite:///...` instead of `postgresql://...` | `DATABASE_URL` isn't reaching the container: a Postgres plugin does not auto-inject into another service; add it as an explicit variable Reference (Phase 4), then redeploy. Data written under SQLite in the meantime lives on the container's ephemeral disk and is gone on the next redeploy |
 | Schema creation fails with `failed to resolve host 'postgres.railway.internal'`, repeating across restarts | You referenced `DATABASE_URL` (the private one) instead of `DATABASE_PUBLIC_URL`, or private networking isn't set up between the two services. Fastest fix: point the middleware's `DATABASE_URL` variable at `${{Postgres.DATABASE_PUBLIC_URL}}` instead (Postgres service → Connect tab → Public Network, for the raw value) |
-| Deploy logs show `Application startup complete` / `Uvicorn running on http://0.0.0.0:8000` and `200 OK` on `/health`, but Railway's healthcheck still times out as "service unavailable" | The app is healthy but bound to the wrong port for Railway's router — Railway assigns a `PORT` env var per-service and routes/healthchecks against it, not always the Dockerfile's `EXPOSE`d port. The middleware now reads `PORT` automatically (falls back to `MIDDLEWARE_PORT`, then 8000) — if you still see this, confirm no `MIDDLEWARE_PORT` variable is pinning it to something Railway isn't routing to |
+| Deploy logs show `Application startup complete` / `Uvicorn running on http://0.0.0.0:8000` and `200 OK` on `/health`, but Railway's healthcheck still times out as "service unavailable" | The app is healthy but bound to the wrong port for Railway's router: Railway assigns a `PORT` env var per-service and routes/healthchecks against it, not always the Dockerfile's `EXPOSE`d port. The middleware now reads `PORT` automatically (falls back to `MIDDLEWARE_PORT`, then 8000); if you still see this, confirm no `MIDDLEWARE_PORT` variable is pinning it to something Railway isn't routing to |
 
 ---
 
 ## What this does *not* cover
 
-- SonarQube (cognitive-complexity metric) — runs separately, on-demand,
+- SonarQube (cognitive-complexity metric): runs separately, on-demand,
   never on Railway: `docker compose --profile sonar up` locally, or the
   Azure VM workflow (`.github/workflows/sonar-vm.yml`). Not part of the
   live deployment.
-- The VS Code extension — distributed as a `.vsix` via GitHub Releases on
+- The VS Code extension: distributed as a `.vsix` via GitHub Releases on
   version tags, not deployed anywhere (see `RUNBOOK.md` §9.2 for cutting a
   release).

@@ -1,7 +1,7 @@
-# PHOENIX — Framework for Conducting Human-AI Studies
+# PHOENIX: Framework for Conducting Human-AI Studies
 
 *PHOENIX: **P**rotocol for **H**uman-**O**riented **E**vidence, **N**etworked
-**I**teration & e**X**perimentation — reborn each phase, the mythical bird
+**I**teration & e**X**perimentation, reborn each phase, the mythical bird
 matching the platform's own evolution-from-feedback story.*
 
 [![CI](https://github.com/idreesshaikh/human-ai-studies-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/idreesshaikh/human-ai-studies-framework/actions/workflows/ci.yml)

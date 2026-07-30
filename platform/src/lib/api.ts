@@ -408,7 +408,7 @@ export class InMemoryBackend implements Api {
     this.projects.set("demo", {
       id: "p-demo",
       slug: "demo",
-      name: "Demo — AI code trust study",
+      name: "Demo: AI code trust study",
       createdAt: "2026-07-01T09:00:00.000Z",
       studies: [{ id: "demo-study", phase: "reporting" }],
       members: [{ identitySub: "you", role: "viewer" }],
@@ -537,7 +537,7 @@ export class InMemoryBackend implements Api {
     const m = p.members.find((x) => x.identitySub === sub);
     if (!m) throw new ApiError(404, "member not found");
     if (m.role === "owner" && p.members.filter((x) => x.role === "owner").length <= 1) {
-      throw new ApiError(409, "can't remove the last owner — transfer ownership first");
+      throw new ApiError(409, "can't remove the last owner: transfer ownership first");
     }
     p.members = p.members.filter((x) => x.identitySub !== sub);
   }
@@ -553,7 +553,7 @@ export class InMemoryBackend implements Api {
       token,
       url: `/invitations/${token}`,
       emailed: false, // offline mock never sends mail
-      emailReason: "Running offline — share the copy link with them directly.",
+      emailReason: "Running offline: share the copy link with them directly.",
       expiresAt: new Date(Date.now() + 7 * 864e5).toISOString(),
       acceptedAt: null,
     };
@@ -579,7 +579,7 @@ export class InMemoryBackend implements Api {
         return { projectSlug: p.slug, role: inv.role };
       }
     }
-    throw new ApiError(404, "invitation not found — it may have expired or already been used");
+    throw new ApiError(404, "invitation not found: it may have expired or already been used");
   }
 
   async mintEnrollmentTokens(studyId: string, count: number, grain: "participant" | "session"): Promise<EnrollmentTokenView[]> {

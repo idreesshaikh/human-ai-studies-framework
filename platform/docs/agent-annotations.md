@@ -1,4 +1,4 @@
-# Agent annotations (`data-agent`) — the convention
+# Agent annotations (`data-agent`): the convention
 
 This platform's UI carries stable `data-agent` attributes on its
 navigational landmarks and decision-bearing components, so a **browser
@@ -39,7 +39,7 @@ retrofitted.
 | `conversation` | `ConversationView` | the design-conversation surface (landmark) |
 | `conversation-composer` | `ConversationView` | the message form |
 | `conversation-send` | `ConversationView` | send the researcher's message |
-| `conversation-thinking` | `ConversationView` | the platform is composing a reply (LLM or scripted) — a transient landmark |
+| `conversation-thinking` | `ConversationView` | the platform is composing a reply (LLM or scripted), a transient landmark |
 | `conversation-streaming` | `ConversationView` | the reply's prose as it streams in (transient; replaced by the real turn) |
 | `understanding-line` | `UnderstandingLine` | what the platform still doesn't know, and why no design is proposed yet |
 | `move-card` | `MoveCard` | one proposed design move (decision point); `data-agent-kind`, `data-agent-status` refine it |
@@ -89,26 +89,26 @@ retrofitted.
 
 ## Changelog
 
-- **2026-07-18** — initial inventory. No prior names to
+- **2026-07-18**: initial inventory. No prior names to
   supersede.
-- **2026-07-18** — evolution surfaces added: amendment banner/history +
+- **2026-07-18**: evolution surfaces added: amendment banner/history +
   version chip (FR-CONV-4), feedback marking + platform-findings lineage
   (FR-CONV-5).
-- **2026-07-18** — knowledge-layer migration:
+- **2026-07-18**: knowledge-layer migration:
   study workspace tabs, citation constellation, metric-strip chart
   (FR-LIT-2/4, FR-DASH-5).
-- **2026-07-19** — live capture link: enrollment panel + mint-links dialog
+- **2026-07-19**: live capture link: enrollment panel + mint-links dialog
   (FR-DASH-10, Phase 19).
-- **2026-07-21** — live conversation compile added: `draft-apply` (apply the
+- **2026-07-21**: live conversation compile added: `draft-apply` (apply the
   server-validated draft to the protocol).
-- **2026-07-21** — resolved a stash-pop conflict that had dropped the
+- **2026-07-21**: resolved a stash-pop conflict that had dropped the
   amendment banner/history wiring from `StudyHome`; restored
   `amendment-history-toggle`.
-- **2026-07-21** — capture-console phase: `toggle-popover` for FR-DASH-11
+- **2026-07-21**: capture-console phase: `toggle-popover` for FR-DASH-11
   per-metric toggles on the enrollment surface.
-- **2026-07-21** — session-timeline phase: `swimlane-timeline` for FR-DASH-4
+- **2026-07-21**: session-timeline phase: `swimlane-timeline` for FR-DASH-4
   per-session chart.
-- **2026-07-21** — LLM-driven conversation (FR-CONV-1.4): `conversation-thinking`
+- **2026-07-21**: LLM-driven conversation (FR-CONV-1.4): `conversation-thinking`
   (transient landmark while a turn is composing) + `data-agent-status="llm-guided"`
   on `StreamingTurn`'s author line (secondary attribute, not a new landmark).
 - **2026-07-30**: `protocol-guide-open` opens a reference dialog explaining

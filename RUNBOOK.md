@@ -116,9 +116,9 @@ All configuration is environment variables (defaults in
 
 | Env var | Default | Meaning |
 | ------- | ------- | ------- |
-| `MIDDLEWARE_PORT` | `8000`, or Railway's `PORT` if set | the port every sensor assumes locally; change only if you also change every leg's endpoint. On Railway, the app binds to the platform-assigned `PORT` automatically (`MIDDLEWARE_PORT` still overrides both if set) — otherwise Railway's external healthcheck probe fails ("service unavailable") even though the app is healthy on 8000 internally, since it's probing a different port than the app is listening on |
-| `DATABASE_URL` | *(unset)* | PostgreSQL connection string; on Railway this must be a variable **Reference** to the Postgres plugin — it is not auto-injected into another service; takes priority over `MIDDLEWARE_DB` when set |
-| `MIDDLEWARE_DB` | `.study-data/middleware.sqlite3` | SQLite file path — used for local dev when `DATABASE_URL` is unset (gitignored) |
+| `MIDDLEWARE_PORT` | `8000`, or Railway's `PORT` if set | the port every sensor assumes locally; change only if you also change every leg's endpoint. On Railway, the app binds to the platform-assigned `PORT` automatically (`MIDDLEWARE_PORT` still overrides both if set); otherwise Railway's external healthcheck probe fails ("service unavailable") even though the app is healthy on 8000 internally, since it's probing a different port than the app is listening on |
+| `DATABASE_URL` | *(unset)* | PostgreSQL connection string; on Railway this must be a variable **Reference** to the Postgres plugin; it is not auto-injected into another service; takes priority over `MIDDLEWARE_DB` when set |
+| `MIDDLEWARE_DB` | `.study-data/middleware.sqlite3` | SQLite file path: used for local dev when `DATABASE_URL` is unset (gitignored) |
 | `MIDDLEWARE_DATA_DIR` | `.study-data` | artifact/file store root |
 | `MIDDLEWARE_PROTOCOL` | *(unset)* | study protocol YAML; unset = accept-all ingest |
 | `MIDDLEWARE_WEB` | `platform/dist` | built SPA to serve at `/`; missing dir = API-only |
@@ -168,7 +168,7 @@ cd platform && npm run build    # → platform/dist
 
 The React app is entered at `/` (the hero) and routes client-side: `/home`
 (the project list), `/p/:slug` (a project), `/p/:slug/studies/:id` (the study
-workspace — the design conversation plus the Library, Data, and Lifecycle
+workspace: the design conversation plus the Library, Data, and Lifecycle
 tabs), `/p/:slug/templates`, `/p/:slug/platform` (the feedback→findings
 surface), `/p/:slug/members`, `/p/:slug/settings`.
 
@@ -348,7 +348,7 @@ golden paper drafts).
 | Paper compiles with overfull-hbox warnings | Cosmetic (wide result tables). No TeX engine at all? `brew install tectonic` - or skip compilation; `draft.md` carries the same content. |
 | Cognitive-complexity column empty | SonarQube not running: `docker compose --profile sonar up`, pass `--sonar-url`. The other 8 metrics degrade gracefully (never block). |
 | Rows flagged `unknown-participant` / `unknown-condition` | Ingest is protocol-aware and the row's join keys aren't in the plan. Rows are stored + flagged, never dropped; fix the session config or amend the protocol. |
-| Middleware refuses to start: "database … predates the current schema" | SQLite only: the file (often the compose `study-data` volume) was created by an older middleware version. Nothing is migrated automatically — if the data is disposable demo seed, reset it (`docker compose down -v`, or delete the file locally); if it's real data, point `MIDDLEWARE_DB` at a fresh file and migrate deliberately. On Railway/PostgreSQL this check is skipped — a fresh managed DB is provisioned automatically. |
+| Middleware refuses to start: "database … predates the current schema" | SQLite only: the file (often the compose `study-data` volume) was created by an older middleware version. Nothing is migrated automatically: if the data is disposable demo seed, reset it (`docker compose down -v`, or delete the file locally); if it's real data, point `MIDDLEWARE_DB` at a fresh file and migrate deliberately. On Railway/PostgreSQL this check is skipped; a fresh managed DB is provisioned automatically. |
 | Stale demo data before a real study | `docker compose down -v`, or delete `.study-data/` locally (DR-05 - it's gitignored). |
 
 ---
@@ -372,14 +372,14 @@ golden paper drafts).
 
 Railway is the sole deployment target. The `railway.toml` at repo root
 drives the build from `middleware/Dockerfile`; Railway provides managed
-PostgreSQL, TLS, and custom domains — `DATABASE_URL` must be wired to the
+PostgreSQL, TLS, and custom domains; `DATABASE_URL` must be wired to the
 Postgres plugin as an explicit variable **Reference** on the middleware
 service (§9.1 step 4); it is not injected automatically.
 
 | Surface | Host | Database | Updated by |
 | ------- | ---- | -------- | ---------- |
 | **Seeded demo** (public) | Railway | PostgreSQL (managed, persistent) | every green `main` build |
-| Extension | GitHub Releases (`.vsix`) | — | final tags; RC tags attach a `.vsix` pre-release |
+| Extension | GitHub Releases (`.vsix`) | n/a | final tags; RC tags attach a `.vsix` pre-release |
 
 ### 9.1 One-time provisioning (the half only you can do)
 
@@ -394,20 +394,20 @@ service (§9.1 step 4); it is not injected automatically.
 
    | Variable | Value |
    | -------- | ----- |
-   | `DATABASE_URL` | **a Reference**, not a plain value — Variables tab → + New Variable → Add Reference → the Postgres service → `DATABASE_URL`. A Postgres plugin does **not** automatically inject its variables into another service; skipping this step means `DATABASE_URL` is simply absent and the middleware silently falls back to local SQLite (ephemeral, wiped on every redeploy) — check the boot log says `postgresql://...`, not `sqlite:///...` |
+   | `DATABASE_URL` | **a Reference**, not a plain value: Variables tab → + New Variable → Add Reference → the Postgres service → `DATABASE_URL`. A Postgres plugin does **not** automatically inject its variables into another service; skipping this step means `DATABASE_URL` is simply absent and the middleware silently falls back to local SQLite (ephemeral, wiped on every redeploy); check the boot log says `postgresql://...`, not `sqlite:///...` |
    | `MIDDLEWARE_AUTH` | `clerk` (recommended) or `token` |
    | `MIDDLEWARE_TOKEN` | (when `auth=token`) a strong random token |
-   | `MIDDLEWARE_SEED_ON_START` | `1` (demo mode — reseeds on boot) |
-   | `MISTRAL_API_KEY` | optional — enables the knowledge assistant |
-   | `MIDDLEWARE_S2_API_KEY` | optional — Semantic Scholar enrichment |
-   | `MIDDLEWARE_GITHUB_TOKEN` | optional — curated mining live source |
+   | `MIDDLEWARE_SEED_ON_START` | `1` (demo mode, reseeds on boot) |
+   | `MISTRAL_API_KEY` | optional: enables the knowledge assistant |
+   | `MIDDLEWARE_S2_API_KEY` | optional: Semantic Scholar enrichment |
+   | `MIDDLEWARE_GITHUB_TOKEN` | optional: curated mining live source |
 
-5. Attach a **Volume** to the service — Settings → Volumes → New Volume —
+5. Attach a **Volume** to the service: Settings → Volumes → New Volume,
    mounted at `/data`. This is where uploaded artifacts (consent PDFs,
    paper PDFs) actually live; only their hash/path is in Postgres. Skip
    this and every redeploy or crash-restart silently drops uploaded files
    (Railway's filesystem is ephemeral otherwise). Postgres needs no
-   equivalent step — the plugin manages its own storage.
+   equivalent step; the plugin manages its own storage.
 
 6. Add the following secrets to the GitHub repo (Settings → Secrets →
    Actions) so CI can trigger Railway deploys:
@@ -416,7 +416,7 @@ service (§9.1 step 4); it is not injected automatically.
    | ------ | ---------------- |
    | `RAILWAY_API_TOKEN` | Railway dashboard → Account Settings → Tokens |
    | `RAILWAY_SERVICE_ID` | Railway service settings URL (`/service/<id>`) |
-   | `RAILWAY_ENVIRONMENT_ID` | Railway environment settings (optional — omit to use the default environment) |
+   | `RAILWAY_ENVIRONMENT_ID` | Railway environment settings (optional, omit to use the default environment) |
 
    Once set, every green CI run on `main` triggers a Railway redeploy via
    the `Deploy demo` workflow.
@@ -455,6 +455,6 @@ RCs install via their GitHub pre-release attachment:
 
 SonarQube powers the cognitive-complexity metric (FR-INST-4). Run it locally:
 `docker compose --profile sonar up`. For batch analysis, an on-demand Azure
-B2s VM stays deallocated except during analysis windows — toggle via the
+B2s VM stays deallocated except during analysis windows; toggle via the
 `sonar-vm.yml` workflow-dispatch or `az vm start|deallocate`. The metrics
 leg stub-degrades to NaN when SonarQube is absent (never blocks a session).

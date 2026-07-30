@@ -31,7 +31,7 @@ export function SlotMeter({ draft }: { draft: ProtocolDraft }) {
       </div>
       {complete ? (
         <p className="text-xs text-grounded">
-          Every mandatory section has a move — ready to compile & validate.
+          Every mandatory section has a move: ready to compile & validate.
         </p>
       ) : (
         <p className="text-xs text-text-muted">

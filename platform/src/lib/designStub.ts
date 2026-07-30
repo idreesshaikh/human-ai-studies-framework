@@ -30,28 +30,28 @@ const G = {
     title: "Trust in AI Code Generation",
     year: 2024,
     venue: "corpus",
-    why: "Documents over-reliance on AI-generated code — directly motivates a trust/verification measure.",
+    why: "Documents over-reliance on AI-generated code: directly motivates a trust/verification measure.",
   },
   insecure: {
     ref: "corpus:insecure-code-with-ai-assistants",
     title: "Do Users Write More Insecure Code with AI Assistants?",
     year: 2023,
     venue: "corpus",
-    why: "Shows accepted AI code carries security defects users don't catch — grounds a code-correctness outcome.",
+    why: "Shows accepted AI code carries security defects users don't catch: grounds a code-correctness outcome.",
   },
   metr: {
     ref: "corpus:metr-early-2025-dev-productivity",
     title: "Measuring the Impact of Early-2025 AI on Developer Productivity",
     year: 2025,
     venue: "corpus",
-    why: "Found developers FELT faster with AI while measurably slower — the perception gap that makes self-report alone unsafe.",
+    why: "Found developers FELT faster with AI while measurably slower: the perception gap that makes self-report alone unsafe.",
   },
   realhuman: {
     ref: "corpus:realhumaneval",
     title: "RealHumanEval",
     year: 2024,
     venue: "corpus",
-    why: "Benchmark score is not human utility — grounds pairing any benchmark measure with a human-task outcome.",
+    why: "Benchmark score is not human utility: grounds pairing any benchmark measure with a human-task outcome.",
   },
   guidelines: {
     ref: "corpus:guidelines-empirical-llm-se",
@@ -110,7 +110,7 @@ export function respondTo(input: string): Turn {
   // The over-trust script.
   if (q.includes("trust") || q.includes("over-trust") || q.includes("junior")) {
     return platformTurn(
-      "Good starting point. “Over-trust” is a claim about how developers review AI code before accepting it — measurable, not just felt. Here are moves that turn it into a study, each grounded. Two papers in the corpus match closely.",
+      "Good starting point. “Over-trust” is a claim about how developers review AI code before accepting it: measurable, not just felt. Here are moves that turn it into a study, each grounded. Two papers in the corpus match closely.",
       [
         move(
           "add-rq",
@@ -122,14 +122,14 @@ export function respondTo(input: string): Turn {
         move(
           "add-measure",
           "measures[]",
-          "Measure: review latency — time an AI suggestion is visible before accept/reject.",
+          "Measure: review latency, the time an AI suggestion is visible before accept/reject.",
           { section: "measures", op: "append", value: "Review latency (suggestion-visible-to-decision time)" },
           [G.trust],
         ),
         move(
           "add-measure",
           "measures[]",
-          "Measure: code-correctness outcome — acceptance tests on the delivered code.",
+          "Measure: code-correctness outcome, acceptance tests on the delivered code.",
           { section: "measures", op: "append", value: "Code-correctness outcome (acceptance-test pass rate)" },
           [G.insecure],
         ),
@@ -148,7 +148,7 @@ export function respondTo(input: string): Turn {
           year: G.trust.year!,
           venue: G.trust.venue!,
           matchReason:
-            "Directly studies over-reliance on AI-generated code — your exact construct.",
+            "Directly studies over-reliance on AI-generated code: your exact construct.",
         },
         {
           ref: G.insecure.ref,
@@ -156,7 +156,7 @@ export function respondTo(input: string): Turn {
           year: G.insecure.year!,
           venue: G.insecure.venue!,
           matchReason:
-            "Shows accepted AI code carries defects users miss — grounds the correctness outcome.",
+            "Shows accepted AI code carries defects users miss: grounds the correctness outcome.",
         },
       ],
     );
@@ -172,7 +172,7 @@ export function respondTo(input: string): Turn {
     q.includes("withdrawal")
   ) {
     return platformTurn(
-      "Ethics posture is one of the mandatory sections, not paperwork bolted on afterwards. State informed consent, what is collected, and how a participant withdraws — the same discipline the corpus asks of every instrument added to a study.",
+      "Ethics posture is one of the mandatory sections, not paperwork bolted on afterwards. State informed consent, what is collected, and how a participant withdraws: the same discipline the corpus asks of every instrument added to a study.",
       [
         move(
           "set-parameter",

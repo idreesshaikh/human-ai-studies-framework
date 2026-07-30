@@ -48,7 +48,7 @@ export function PlatformFindings() {
           <BookOpen className="size-3.5 shrink-0" aria-hidden />
           {corpus.data.withAbstract} of {corpus.data.papers} corpus papers
           carry a real abstract
-          {corpus.data.missing > 0 && ` — ${corpus.data.missing} are title-only`}
+          {corpus.data.missing > 0 && `; ${corpus.data.missing} are title-only`}
           .
         </p>
       )}
@@ -106,7 +106,7 @@ export function PlatformFindings() {
           </span>
         </div>
         <p className="text-sm text-text-muted">
-          A person approves this — nothing self-applies. It cites the findings
+          A person approves this; nothing self-applies. It cites the findings
           it drew on:{" "}
           {proposal.citedFindingIds.map((id) => `#${id}`).join(", ") || "none"}.
         </p>

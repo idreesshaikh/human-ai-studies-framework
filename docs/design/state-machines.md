@@ -41,7 +41,7 @@ stateDiagram-v2
     compiled --> [*] : hunk traceable to this move forever
 
     note right of compiled
-        terminal & immutable —
+        terminal & immutable:
         the elicitation record (FR-CONV-6)
         never unmakes a decision
     end note
@@ -80,7 +80,7 @@ stateDiagram-v2
 
     note right of tier_B
         provenance kept forever:
-        score, via-seeds, s2PaperId —
+        score, via-seeds, s2PaperId:
         every entry independently checkable
     end note
 ```

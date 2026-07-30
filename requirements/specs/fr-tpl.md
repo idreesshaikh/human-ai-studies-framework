@@ -1,4 +1,4 @@
-# FR-TPL — Study templates & statistical plans (detailed specification)
+# FR-TPL: Study templates & statistical plans (detailed specification)
 
 **SRS family:** FR-TPL. **Phase:** 15.
 Relationship to FR-CONV: templates are the *knowledge* the design
@@ -8,8 +8,8 @@ instantiates them (FR-TPL-3 rev 2).
 ## 1. Context
 
 Every empirical human-AI study re-derives its design from papers by hand:
-which conditions, which measures, which instruments, and — the part
-researchers most fear getting wrong — **which statistical formulation**.
+which conditions, which measures, which instruments, and (the part
+researchers most fear getting wrong) **which statistical formulation**.
 A study template encodes one published, citable design as a parameterized,
 machine-checkable object that instantiates into a valid protocol
 (FR-PROT-1). The protocol layer is untouched: templates are **protocol
@@ -35,7 +35,7 @@ measures:                        # each maps to instruments + data elements
   - id: task-time        {leg: behavioral, elements: [session clock, task_outcome]}
   - id: perceived-speed  {leg: cognitive, elements: [debrief], caution: perception-gap}
 instruments: {...}               # derived FR-PROT-4 configs per condition
-statisticalPlan:                 # §4 — the differentiator
+statisticalPlan:                 # §4: the differentiator
   unit: participant
   perRQ:
     - rq: primary
@@ -50,29 +50,29 @@ protocolSkeleton: {...}          # the YAML the compiler fills
 
 ## 3. Requirements detail
 
-### FR-TPL-1 (M) — The template registry
+### FR-TPL-1 (M): The template registry
 
 Elaboration:
 1. Registry = versioned template documents validated against a published
    template JSON Schema (sibling of the protocol schema; same
-   `protocolVersion` discipline — `templateVersion`, consumers branch,
+   `protocolVersion` discipline: `templateVersion`, consumers branch,
    never guess).
 2. **Seed templates (the phase 15 deliverable), each fully encoding its
    source design:**
-   - `metr-rct-v1` — within-subjects RCT on real tasks, speed +
+   - `metr-rct-v1`: within-subjects RCT on real tasks, speed +
      perception measures (`metr-early-2025-dev-productivity`); live path.
-   - `ziegler-telemetry-survey-v1` — telemetry × self-report join,
+   - `ziegler-telemetry-survey-v1`: telemetry × self-report join,
      acceptance-rate and persistence measures
      (`copilot-productivity-ziegler`); live path; its recipe already
-     exists (`ziegler-acceptance-rate`, FR-ANA-5) — template and recipe
+     exists (`ziegler-acceptance-rate`, FR-ANA-5); template and recipe
      cite the same paper, closing the design→analysis loop.
-   - `hai-eval-synergy-v1` — within-subject human-AI synergy comparison
+   - `hai-eval-synergy-v1`: within-subject human-AI synergy comparison
      (`hai-eval-human-ai-synergy`); live path.
-   - `cursor-mining-v1` — repository-mining velocity-vs-complexity
+   - `cursor-mining-v1`: repository-mining velocity-vs-complexity
      design (`speed-at-cost-of-quality-cursor`); curated path (FR-CUR),
      exercising the dataset-exists branch.
 3. Design-type taxonomy (the `designType` axis) follows Stol &
-   Fitzgerald's ABC study-strategy vocabulary (field/lab/sample —
+   Fitzgerald's ABC study-strategy vocabulary (field/lab/sample,
    corpus index §Not downloaded) so templates are classified in the
    field's own terms.
 4. Instantiation = template + parameter values → protocol draft, via the
@@ -87,27 +87,27 @@ Fit criteria:
   parameters reproduces a protocol equivalent to that hand-written
   study's structure (the retro-fit proof: an already-run study can be
   described through a published-design template). The template is
-  platform library content; the study is a separate protocol instance —
+  platform library content; the study is a separate protocol instance:
   a study never *is* a template.
 - F1.3 Template versioning: instantiating `templateId@v1` after a `v2`
   exists still works and records which version produced the protocol.
 
-### FR-TPL-2 (M) — Statistical plans: correct statistics by construction
+### FR-TPL-2 (M): Statistical plans: correct statistics by construction
 
 Elaboration:
 1. Each template's `statisticalPlan` binds, per RQ slot: outcome type
    (continuous/ordinal/count/proportion), pairing structure
    (within/between/mixed), the exact test (from the NFR-8-compliant
-   `analysis/stats.py` catalogue — Wilcoxon, Mann-Whitney+Cliff's δ,
+   `analysis/stats.py` catalogue: Wilcoxon, Mann-Whitney+Cliff's δ,
    Fisher, Spearman; extended as templates demand), the effect size, the
    aggregation unit (per-participant first, against pseudo-replication),
    multiple-comparison posture, and small-n framing.
 2. The plan compiles into the protocol's `analysisPlan` naming concrete
-   recipes; missing recipes fail loudly at plan validation (FR-ANA-2) —
+   recipes; missing recipes fail loudly at plan validation (FR-ANA-2):
    a template cannot promise an analysis the platform can't run.
 3. A **plan explainer** renders each choice in plain language with its
    why ("paired ordinal outcome, n<15 → exact Wilcoxon; report matched
-   rank-biserial; never a bare p" — NFR-11 tone), citing
+   rank-biserial; never a bare p", NFR-11 tone), citing
    `guidelines-empirical-llm-se` and the source paper's own analysis.
 4. Deviations are allowed but recorded: a researcher overriding the
    prescribed test gets a grounded caution and the override lands in the
@@ -120,9 +120,9 @@ Fit criteria:
 - F2.2 An override compiles with the deviation flag and surfaces in the
   report's methods text.
 - F2.3 A template referencing a nonexistent recipe fails registry
-  validation (not instantiation time — earlier).
+  validation (not instantiation time, earlier).
 
-### FR-TPL-3 (S) — The designer as review surface
+### FR-TPL-3 (S): The designer as review surface
 
 *Rev 2:* the guided form of rev 1 is re-scoped: **the design
 conversation (FR-CONV-1) is the primary designer**; the structured form
@@ -138,7 +138,7 @@ Fit criteria:
 - F3.2 With no LLM key configured, the form path instantiates
   `ziegler-telemetry-survey-v1` end-to-end.
 
-### FR-TPL-4 (S) — Templates live in the knowledge layer
+### FR-TPL-4 (S): Templates live in the knowledge layer
 
 Templates surface as first-class nodes in the literature graph linked to
 their source papers; the assistant answers "how would I replicate
@@ -147,7 +147,7 @@ their source papers; the assistant answers "how would I replicate
 graph renders template nodes linked to cited papers; the assistant
 exchange for a seeded paper returns its template with citation chips.
 
-### FR-TPL-5 (C) — Community templates
+### FR-TPL-5 (C): Community templates
 
 Third-party templates enter through the same schema validation +
 mandatory citation + review gate. Deferred; the contract exists

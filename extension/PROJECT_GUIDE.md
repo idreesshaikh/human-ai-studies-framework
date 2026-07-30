@@ -55,12 +55,12 @@ src/
 │  ├─ consentGate.ts     Consent-acknowledgment state machine (MP-19)
 │  ├─ ideHealth.ts       Debounced IDE diagnostics/health counter (MP-20, FR-INST-18)
 │  ├─ pairing.ts         Pairing state-machine reducer (MP-19/20; not yet wired
-│  │                     into src/vscode/pairing.ts's imperative redeem flow —
+│  │                     into src/vscode/pairing.ts's imperative redeem flow;
 │  │                     see that file's own note)
 │  ├─ comprehensionProbe.ts  Accepted-chunk → probe → answered/expired
 │  │                     state machine (MP-21, FR-INST-19)
 │  └─ legs.ts            The four legs (static metrics, behavioral, cognitive,
-│                         agent-interaction), as the participant sees them —
+│                         agent-interaction), as the participant sees them,
 │                         enabled/disabled/unavailable per capture config (MP-25, FR-INST-22)
 └─ vscode/               ADAPTER - everything VS Code-specific
    ├─ signals.ts         Native events → EditorSignal (stuck detection feed)

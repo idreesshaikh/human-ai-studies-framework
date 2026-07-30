@@ -42,7 +42,7 @@ export function PrescriptionPanel() {
           What analysis your design calls for
         </h2>
         <p className="mt-1 text-xs text-text-muted">
-          The exact test, effect size, and correction for each design shape — with the reasoning.
+          The exact test, effect size, and correction for each design shape, with the reasoning.
           Honest by construction: effect sizes and per-cell n, never a bare p-value.
         </p>
       </div>

@@ -92,7 +92,7 @@ export function MembersTable({
                   <Badge variant="outline">{ROLE_LABELS[m.role]}</Badge>
                 </TD>
                 <TD className="tabular text-text-muted">
-                  {m.joinedAt ? m.joinedAt.slice(0, 10) : "—"}
+                  {m.joinedAt ? m.joinedAt.slice(0, 10) : "-"}
                 </TD>
                 <TD>
                   <RoleGate role={myRole} capability="manage_members">
@@ -170,7 +170,7 @@ export function MembersTable({
             </div>
             <div className="mt-2 flex items-center gap-3 text-xs text-text-muted">
               <Badge variant="outline">{ROLE_LABELS[m.role]}</Badge>
-              <span className="tabular">{m.joinedAt ? m.joinedAt.slice(0, 10) : "—"}</span>
+              <span className="tabular">{m.joinedAt ? m.joinedAt.slice(0, 10) : "-"}</span>
             </div>
           </div>
         ))}
