@@ -110,14 +110,10 @@ const CLERK_APPEARANCE = {
     // dev-mode-banner overlay (see the CSS backstop in index.css), and adds
     // the margin-top the row above it doesn't otherwise reserve.
     footerItem: "relative mt-2",
-    /* Clerk pins this to the corner of the most-recently-used social button
-     * via absolute positioning, assuming header space above it that this
-     * screen hides (`header: "hidden"`, above) — with nothing to anchor
-     * against it pokes above the card and reads as clipped. Pulling it into
-     * normal flow as its own right-aligned line above the button removes
-     * the overlap outright instead of guessing at a corrected offset. */
-    lastAuthenticationStrategyBadge:
-      "static block mb-1 text-right font-mono text-xs text-text-muted",
+    // Just drop the "last used" indicator outright — pulling it into flow
+    // (a prior attempt) still crowded the button row and truncated its
+    // label, and it's cosmetic, not load-bearing for the sign-in flow.
+    lastAuthenticationStrategyBadge: "hidden",
     /* Clerk sizes this to a viewport-fit budget for its usual modal/popover
      * use case; in this full-page card it just clips a sliver off the top
      * and bottom of the step content with no visible scrollbar cue. */

@@ -329,11 +329,7 @@ body::before {
  * rendered on top of it unreadable (worst in dark mode: light text over
  * Clerk's own light default). Scoped to .clerk-embed so it never touches
  * anything outside the mounted widget. */
-/* Extra breathing room at the top and left of the mounted widget: Clerk
- * positions some of its own decoration (e.g. the "last used" indicator on
- * the most recently used social button) relative to this box's edges, and
- * with zero margin here it reads as clipped against the card/heading above
- * it rather than sitting inside the card with room to spare. */
+/* Extra breathing room at the top and left of the mounted widget. */
 .clerk-embed {
   padding-top: 0.875rem;
   padding-left: 0.25rem;
@@ -346,6 +342,11 @@ body::before {
   box-shadow: none !important;
   border: none !important;
   padding: 0 !important;
+  /* Clerk's own default card carries a negative margin to full-bleed past
+   * its usual outer wrapper's padding; left uncleared, it pulls the whole
+   * widget left past .clerk-embed's own padding-left, clipping against the
+   * card's edge regardless of how much padding is added above. */
+  margin: 0 !important;
 }
 .clerk-embed .cl-header,
 .clerk-embed .cl-headerTitle,
@@ -367,14 +368,10 @@ body::before {
   max-height: none !important;
 }
 /* The "last used" indicator badge (see lastAuthenticationStrategyBadge in
- * CLERK_APPEARANCE, auth.tsx) is absolutely positioned by Clerk to hang off
- * the corner of its button; the backstop below is what actually neutralizes
- * that if the appearance prop's classes lose the cascade. */
+ * CLERK_APPEARANCE, auth.tsx) is dropped outright — the backstop below is
+ * what actually hides it if the appearance prop's classes lose the cascade. */
 .clerk-embed .cl-lastAuthenticationStrategyBadge {
-  position: static !important;
-  display: block !important;
-  text-align: right !important;
-  margin-bottom: 0.25rem !important;
+  display: none !important;
 }
 /* The "Development mode" banner's own decorative background — a purely
  * visual overlay div Clerk renders behind that text, tagged with this data
