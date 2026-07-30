@@ -53,6 +53,7 @@ retrofitted.
 | `draft-rail` | `DraftRail` | the compiled protocol-draft view (landmark) |
 | `draft-apply` | `DraftRail` | apply the server-validated compiled draft to the protocol (decision point) |
 | `draft-finish` | `DraftRail` | open the finish-and-review moment that prepares the protocol draft (decision point) |
+| `protocol-guide-open` | `ProtocolGuide` | open the reference explaining the 8 mandatory protocol-draft sections (help) |
 | `tour-open` | `StudyHome` | open the first-study guided walkthrough (help) |
 | `tour-next` | `StudyTour` | advance the walkthrough to the next step |
 | `tour-done` | `StudyTour` | finish the walkthrough and start working |
@@ -110,3 +111,5 @@ retrofitted.
 - **2026-07-21** — LLM-driven conversation (FR-CONV-1.4): `conversation-thinking`
   (transient landmark while a turn is composing) + `data-agent-status="llm-guided"`
   on `StreamingTurn`'s author line (secondary attribute, not a new landmark).
+- **2026-07-30**: `protocol-guide-open` opens a reference dialog explaining
+  the 8 mandatory `ProtocolDraft` sections.
