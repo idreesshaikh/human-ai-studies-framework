@@ -515,6 +515,7 @@ export function ConversationView({
             <DraftRail
               draft={clientDraft}
               serverYaml={compileResult?.yaml}
+              protocol={compileResult?.protocol}
               compileValid={compileResult?.valid}
               onApply={live && !stubOnly ? applyDraft : undefined}
               applying={applying}

@@ -3950,6 +3950,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "warnings": result.warnings,
             "diff": result.diff,
             "yaml": result.yaml,
+            "protocol": result.draft,
             "templateId": result.template_id,
         }
 
