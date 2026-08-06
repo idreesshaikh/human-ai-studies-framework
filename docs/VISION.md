@@ -76,7 +76,7 @@ That self-application is the thesis made product.
 3. **Two data paths, one schema.** Does the dataset exist?
    *No* → live path: the four instrument legs (cognitive, behavioral,
    static metrics, agent).
-   *Yes* → curated path: mining adapters (GitHub first) normalize
+   *Yes* → curated path: mining adapters (archive import) normalize
    external data into the same join-key timeline, with a mandatory
    validity-threats record.
    Every recipe, report, figure, and paper draft works on both.

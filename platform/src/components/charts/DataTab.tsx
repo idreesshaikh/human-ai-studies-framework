@@ -58,10 +58,8 @@ export function DataTab({ studyId }: { studyId: string }) {
         </p>
       )}
       {/* Before any data exists, the provenance decision comes first: collect
-          it live or curate it from GitHub. */}
-      {sessions.length === 0 && (
-        <DataProvenance studyId={studyId} conditions={conditions} />
-      )}
+          it live or rehearse with synthetic data. */}
+      {sessions.length === 0 && <DataProvenance conditions={conditions} />}
 
       <section className="flex flex-col gap-stack">
         <h2 className="type-section text-text">Sessions</h2>

@@ -1,4 +1,5 @@
-"""Agent-authorship heuristics as a versioned registry (FR-CUR-2).
+"""Agent-authorship heuristics as a versioned registry, feeding the
+validity-threats record's ``heuristics`` field (FR-CUR-3).
 
 Identifying which mined activity was authored by an AI agent is *inference*,
 not fact - so it is never inline cleverness buried in the adapter. Each

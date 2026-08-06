@@ -62,7 +62,6 @@ from middleware import (
     mailer,
     manifest,
     matching,
-    mining,
     paper_index,
     pdf,
     presence,
@@ -78,7 +77,6 @@ from middleware.db import (
     ApprovalEvent,
     Compilation,
     ConversationTurn,
-    CuratedDataset,
     DesignMoveRow,
     EnrollmentToken,
     Event,
@@ -86,7 +84,6 @@ from middleware.db import (
     Invitation,
     Membership,
     MetricRow,
-    MiningJob,
     Paper,
     PaperEdge,
     PaperLink,
@@ -2399,8 +2396,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         PaperLink,
         RecipeRun,
         EnrollmentToken,
-        MiningJob,
-        CuratedDataset,
         DesignMoveRow,
         ConversationTurn,
         ApprovalEvent,
@@ -3179,289 +3174,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             row.updated_at = now()
         s.flush()
         return {"sub": sub, "preferences": dict(row.prefs)}
-
-    # ------------------------------------------- curated mining
-    #
-    # A curated study answers "the dataset already exists" by declaring a
-    # sampling frame in the protocol's ``curated:`` section, running a mining
-    # job, and landing rows in the same one-timeline shape a live study
-    # produces - so every recipe/report/paper mechanism works unchanged.
-
-    #: The gate artifact whose presence opens the ``analysis`` phase for a
-    #: curated study. Completing the validity-threats record writes a file
-    #: with this name, so the existing lifecycle gate mechanism enforces
-    #: "no record → no analysis" (FR-CUR-3 F3.2) with no lifecycle changes.
-    CURATED_GATE_ARTIFACT = "validity-threats.yaml"
-
-    def _build_fetcher():
-        """The offline cassette when one is configured (demo/CI, Slice
-        D); otherwise a live GitHub fetcher (token-scoped, NFR-4). The live
-        path is only reachable with a token and is not exercised offline."""
-        if settings.mining_cassette:
-            from curated.cassette import Cassette
-
-            return Cassette.load(settings.mining_cassette)
-        from middleware.github_fetch import LiveGitHubFetcher
-
-        return LiveGitHubFetcher(settings.github_token)
-
-    def _mining_frame():
-        """The sampling frame from the loaded protocol's ``curated:`` section,
-        or an HTTPException(422) refusing to mine without one (F2.2)."""
-        from curated.frame import FrameError, frame_from_protocol
-
-        proto = require_protocol()
-        try:
-            return frame_from_protocol(proto)
-        except FrameError as exc:
-            raise HTTPException(422, str(exc)) from exc
-
-    def _job_doc(job: MiningJob) -> dict:
-        return {
-            "id": job.id,
-            "studyId": job.study_id,
-            "source": job.source,
-            "state": job.state,
-            "cursor": job.cursor,
-            "coverage": job.coverage,
-            "firedHeuristics": job.fired_heuristics,
-            "statusMessage": job.status_message,
-            "createdAt": job.created_at,
-            "updatedAt": job.updated_at,
-        }
-
-    def _run_and_persist(job_id: str, resume: bool) -> None:
-        """Run (or resume) a job to a gate, ingesting events and persisting
-        each checkpoint. Synchronous against the configured fetcher - instant
-        on a cassette; a live mine would wrap this in a background task."""
-        from curated.registry import get_adapter
-
-        frame = _mining_frame()
-        sess = session_factory()
-        try:
-            job = sess.get(MiningJob, job_id)
-            adapter = get_adapter(job.source, _build_fetcher(), job.salt)
-            state = mining.JobState(
-                state=job.state,
-                cursor=job.cursor if resume else None,
-                fired_heuristics=list(job.fired_heuristics or []),
-            )
-
-            def ingest(rows: list[dict]) -> None:
-                if not rows:
-                    return
-                received = now()
-                values = [
-                    dict(
-                        session_id=r["sessionId"],
-                        source=r["source"],
-                        seq=r["seq"],
-                        participant_id=r["participantId"],
-                        condition=r["condition"],
-                        v=r["v"],
-                        ts=r["ts"],
-                        mono=r["mono"],
-                        type=r["type"],
-                        payload=r["payload"],
-                        flags=[],
-                        received_at=received,
-                    )
-                    for r in rows
-                ]
-                _mine_engine = get_engine()
-                if _mine_engine.dialect.name == "postgresql":
-                    from sqlalchemy.dialects.postgresql import insert as _pg_insert
-                    stmt = _pg_insert(Event).values(values).on_conflict_do_nothing()
-                else:
-                    from sqlalchemy.dialects.sqlite import insert as _sq_insert
-                    stmt = (
-                        _sq_insert(Event)
-                        .values(values)
-                        .on_conflict_do_nothing(
-                            index_elements=["session_id", "source", "seq"]
-                        )
-                    )
-                sess.execute(stmt)
-                sess.commit()
-
-            def on_update(st: mining.JobState) -> None:
-                job.state = st.state
-                job.cursor = st.cursor
-                job.coverage = {
-                    "requested": st.requested,
-                    "retrieved": st.retrieved,
-                    "dropped": dict(st.dropped or {}),
-                }
-                job.fired_heuristics = list(st.fired_heuristics or [])
-                job.status_message = st.status_message
-                job.updated_at = now()
-                sess.commit()
-
-            # No real waiting offline: the cassette's rate-limit pauses are
-            # recorded as state transitions but sleep is a no-op.
-            mining.run_job(
-                adapter, frame, state, ingest, on_update, sleep=lambda _s: None
-            )
-        finally:
-            sess.close()
-
-    @app.post(
-        "/studies/{study_id}/mining-jobs",
-        dependencies=[Depends(require_project_for_study("run_recipe"))],
-    )
-    def start_mining_job(study_id: str, s: Session = Depends(db)) -> dict:
-        """Start a mining job (FR-CUR-2). Refuses without a protocol-declared
-        sampling frame (F2.2). Runs against the configured source and returns
-        the job at its gate; the validity-threats record is completed next."""
-        _mining_frame()  # refuse early if no frame (422)
-        import secrets as _secrets
-
-        from curated.pseudonymize import new_salt
-
-        job = MiningJob(
-            id=_secrets.token_hex(8),
-            study_id=study_id,
-            source="github",
-            state=mining.DECLARED,
-            salt=new_salt(),
-            coverage={},
-            fired_heuristics=[],
-            created_at=now(),
-            updated_at=now(),
-        )
-        s.add(job)
-        s.flush()
-        job_id = job.id
-        s.commit()
-        _run_and_persist(job_id, resume=False)
-        # The runner committed via its own session; expire ours so the
-        # re-read reflects the persisted state rather than the cached row.
-        s.expire_all()
-        refreshed = s.get(MiningJob, job_id)
-        return _job_doc(refreshed)
-
-    @app.get(
-        "/studies/{study_id}/mining-jobs/{job_id}",
-        dependencies=[Depends(require_project_for_study("view"))],
-    )
-    def get_mining_job(study_id: str, job_id: str, s: Session = Depends(db)) -> dict:
-        job = s.get(MiningJob, job_id)
-        if job is None or job.study_id != study_id:
-            raise HTTPException(404, "mining job not found")
-        return _job_doc(job)
-
-    @app.post(
-        "/studies/{study_id}/mining-jobs/{job_id}/resume",
-        dependencies=[Depends(require_project_for_study("run_recipe"))],
-    )
-    def resume_mining_job(study_id: str, job_id: str, s: Session = Depends(db)) -> dict:
-        """Resume an interrupted job from its persisted cursor (F2.1). Never
-        auto-restarts - resume is an explicit act."""
-        job = s.get(MiningJob, job_id)
-        if job is None or job.study_id != study_id:
-            raise HTTPException(404, "mining job not found")
-        if job.state in (mining.COMPLETE, mining.GATED):
-            return _job_doc(job)
-        _run_and_persist(job_id, resume=True)
-        s.expire_all()
-        return _job_doc(s.get(MiningJob, job_id))
-
-    @app.post(
-        "/studies/{study_id}/mining-jobs/{job_id}/stop",
-        dependencies=[Depends(require_project_for_study("run_recipe"))],
-    )
-    def stop_mining_job(study_id: str, job_id: str, s: Session = Depends(db)) -> dict:
-        job = s.get(MiningJob, job_id)
-        if job is None or job.study_id != study_id:
-            raise HTTPException(404, "mining job not found")
-        if job.state not in (mining.COMPLETE, mining.GATED):
-            job.state = mining.INTERRUPTED
-            job.status_message = "stopped by request; resume to continue."
-            job.updated_at = now()
-            s.commit()
-        return _job_doc(job)
-
-    @app.get(
-        "/studies/{study_id}/curated-datasets/{job_id}",
-        dependencies=[Depends(require_project_for_study("view"))],
-    )
-    def get_curated_dataset(
-        study_id: str, job_id: str, s: Session = Depends(db)
-    ) -> dict:
-        """The dataset + its validity-threats record. When the record is not
-        yet finalized, the *generated* draft (coverage + heuristics + starter
-        biases) is returned so the researcher can complete the biases."""
-        job = s.get(MiningJob, job_id)
-        if job is None or job.study_id != study_id:
-            raise HTTPException(404, "mining job not found")
-        ds = s.scalar(select(CuratedDataset).where(CuratedDataset.job_id == job_id))
-        record = ds.threats_record if ds else None
-        if record is None:
-            frame = _mining_frame()
-            state = mining.JobState(
-                requested=(job.coverage or {}).get("requested", 0),
-                retrieved=(job.coverage or {}).get("retrieved", 0),
-                dropped=(job.coverage or {}).get("dropped", {}),
-                fired_heuristics=list(job.fired_heuristics or []),
-            )
-            record = mining.default_threats_doc(frame, state)
-        counts = dict(
-            s.execute(
-                select(Event.type, func.count())
-                .where(Event.source == "github")
-                .group_by(Event.type)
-            ).all()
-        )
-        return {
-            "jobId": job_id,
-            "studyId": study_id,
-            "state": job.state,
-            "threatsRecord": record,
-            "eventCounts": counts,
-            "finalized": bool(ds and ds.threats_record),
-        }
-
-    @app.put(
-        "/studies/{study_id}/curated-datasets/{job_id}/threats",
-        dependencies=[Depends(require_project_for_study("run_recipe"))],
-    )
-    def finalize_threats_record(
-        study_id: str, job_id: str, body: dict, s: Session = Depends(db)
-    ) -> dict:
-        """Write the validity-threats record. A valid record opens the
-        analysis gate (F3.2) by writing the gate artifact; an invalid one is
-        refused with the specific problems named (never silently accepted)."""
-        from curated.threats import validate_record_doc
-
-        job = s.get(MiningJob, job_id)
-        if job is None or job.study_id != study_id:
-            raise HTTPException(404, "mining job not found")
-        record = body.get("threatsRecord", body)
-        problems = validate_record_doc(record)
-        if problems:
-            raise HTTPException(
-                422, "the validity-threats record is incomplete: " + "; ".join(problems)
-            )
-        ds = s.scalar(select(CuratedDataset).where(CuratedDataset.job_id == job_id))
-        if ds is None:
-            import secrets as _secrets
-
-            ds = CuratedDataset(
-                id=_secrets.token_hex(8),
-                study_id=study_id,
-                job_id=job_id,
-                created_at=now(),
-            )
-            s.add(ds)
-        ds.threats_record = record
-        # Open the analysis gate by writing the gate artifact as a stored
-        # file (the lifecycle engine keys on filenames - FR-CUR-3 F3.2).
-        _write_gate_artifact(s, CURATED_GATE_ARTIFACT, record, study_id)
-        job.state = mining.COMPLETE
-        job.status_message = "complete — validity-threats record accepted."
-        job.updated_at = now()
-        s.commit()
-        return {"finalized": True, "state": job.state, "gate": CURATED_GATE_ARTIFACT}
 
     def _write_gate_artifact(
         s: Session, filename: str, record: dict, study_id: str

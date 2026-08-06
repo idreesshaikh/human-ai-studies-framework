@@ -205,15 +205,15 @@ lifecycle governs change; FR-ETH-4 binds the design assistant.
 
 ## FR-CUR - Curated datasets (the second data path)
 
-Studies over existing data (repository mining, archives) become first-class
+Studies over existing data (archives, replication packages) become first-class
 alongside live instrumented sessions - one analysis pipeline for both.
-Detailed spec: `specs/fr-cur.md` (normalizer contract, GitHub adapter,
+Detailed spec: `specs/fr-cur.md` (normalizer contract, archive adapter,
 validity-threats record schema).
 
 | ID       | P | Requirement | Rationale | Status |
 | -------- | - | ----------- | --------- | ------ |
 | FR-CUR-1 | M | The platform SHALL support studies whose data is a **curated dataset**: rows imported from external sources, normalized into the one-timeline event schema with the join keys (FR-INST-6) and a schema version, so recipes (FR-ANA-1) consume curated and live datasets identically. | The mined-study family (Cursor arXiv:2511.04427, AIDev arXiv:2602.09185) is half the empirical literature; the join-key contract is what makes one platform serve both. | ✅ |
-| FR-CUR-2 | S | A GitHub **mining adapter** SHALL import repositories, pull requests, commits, and issues via the GitHub API into curated-dataset rows - rate-limited, cached, resumable, degrading gracefully (NFR-4 external-service posture). | The literature's dominant source (AIDev, Agentic Much? arXiv:2601.18341); adapter proves FR-CUR-1 is source-agnostic. | ✅ |
+| FR-CUR-2 | S | ~~A GitHub **mining adapter** SHALL import repositories, pull requests, commits, and issues via the GitHub API into curated-dataset rows - rate-limited, cached, resumable, degrading gracefully (NFR-4 external-service posture).~~ | The literature's dominant source (AIDev, Agentic Much? arXiv:2601.18341); adapter proves FR-CUR-1 is source-agnostic. | ❌ Removed 2026-08-06 — GitHub adapter retired, no UI/HTTP consumer remained (owner direction: drop GitHub mining entirely) |
 | FR-CUR-3 | S | Every curated dataset SHALL carry a **validity-threats record** - sampling frame, inclusion criteria, known biases, heuristics used - surfaced in reports (FR-ANA-4) and paper drafts (FR-ANA-6). | Robbes et al.'s mining pitfalls (arXiv:2601.18345) made structural; NFR-8 honesty extends to data provenance, not just tests. | ✅ |
 | FR-CUR-4 | C | Published replication packages and research archives (e.g. DevGPT, arXiv:2309.03914) MAY be importable behind the same normalizer contract. | Closes the loop: replication kits we *emit* (FR-PROT-7) and archives we *consume* speak one schema. | ✅ Phase 24 Slice B — ArchiveAdapter |
 

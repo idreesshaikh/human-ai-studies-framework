@@ -1,6 +1,7 @@
 # FR-CUR: Curated datasets & mining (detailed specification)
 
-**SRS family:** FR-CUR. **Phase:** 16 (FR-CUR-1..3); FR-CUR-4 deferred.
+**SRS family:** FR-CUR. **Phase:** 16 (FR-CUR-1/3); FR-CUR-4 shipped Phase 24
+Slice B.
 
 ## 1. Context
 
@@ -50,28 +51,20 @@ Fit criteria:
   identity, commit message text, or code content unless the protocol's
   content policy explicitly scopes it (FR-AGENT-5 mechanism reused).
 
-## 3. The GitHub adapter (FR-CUR-2, S)
+## 3. The GitHub adapter (FR-CUR-2) — removed 2026-08-06
 
-1. Sources: repositories, PRs (+ reviews, timelines), commits, issues
-   via the REST/GraphQL APIs; agent-authored activity identified by the
-   heuristics catalogued in `mining-coding-agent-activity` and
-   `aidev-ai-coding-agents-github` (bot flags, co-author trailers,
-   agent-signature patterns). Each heuristic *named and versioned* in
-   the dataset's validity-threats record.
-2. Operational posture (NFR-4): token-scoped, rate-limit-aware
-   (secondary limits honored with backoff), resumable from a cursor
-   (mining jobs are long; interruption must not restart), responses
-   cached; degrades to cache when offline. Job progress is visible in
-   the UI (FR-LIT-6's no-frozen-UI rule generalizes).
-3. Sampling is specified, not improvised: the protocol's curated-path
-   section declares the sampling frame (query, date window, inclusion
-   rules, target n) *before* mining runs: the mined equivalent of
-   FR-ETH-1's "approved protocol is the executed protocol".
-
-Fit criteria: F2.1 a 100-repo mining job interrupted at 50 resumes
-without duplicates; F2.2 the adapter refuses to run without a
-protocol-declared sampling frame; F2.3 rate-limit exhaustion pauses
-with a visible, plain-language status: never a crash or silent stall.
+FR-CUR-2 (a GitHub PR/commit/issue mining adapter) was built, then retired
+at the owner's direction along with its UI entry point (the Data tab's
+"Curate from GitHub" card), its job runner (`middleware/mining.py`), its
+HTTP routes (`/mining-jobs*`, `/curated-datasets*`), and its fetcher
+(`middleware/github_fetch.py`). No other requirement depended on it: the
+normalizer contract (FR-CUR-1) and the validity-threats record (FR-CUR-3)
+are adapter-agnostic and are exercised today by the archive adapter
+(FR-CUR-4, `curated/src/curated/archive_adapter.py`). `curated/heuristics.py`
+(the agent-authorship catalogue this section used) is kept as shared
+FR-CUR-3 infrastructure, since `curated/threats.py` still imports it.
+See `requirements/traceability.md`'s FR-CUR-2 row and
+`requirements/build-vs-adopt.md`'s D39 for the removal record.
 
 ## 4. Validity-threats record (FR-CUR-3, S)
 
@@ -95,7 +88,7 @@ threats section populated from this record with its heuristic
 citations; F3.2 a dataset without the record fails validation at the
 gate before `analysis` (lifecycle-enforced, like every artifact).
 
-## 5. Archive import (FR-CUR-4, C, deferred)
+## 5. Archive import (FR-CUR-4, C)
 
 Published replication packages (`devgpt-developer-chatgpt`-style
 archives, our own FR-PROT-7 kits) import behind the same normalizer

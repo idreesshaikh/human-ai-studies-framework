@@ -1,16 +1,8 @@
 import { useState } from "react";
-import {
-  Radio,
-  GitBranch,
-  Loader2,
-  CheckCircle2,
-  AlertTriangle,
-  FlaskConical,
-  X,
-} from "lucide-react";
+import { Radio, FlaskConical, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MetricStrip } from "./MetricStrip";
-import { studyApi, OfflineError, type MiningJob, type DatasetRow } from "@/lib/studyApi";
+import { type DatasetRow } from "@/lib/studyApi";
 
 /* Deterministic synthetic rows for a rehearsal — NOT real data and never
  * persisted or sent to the server. A seeded LCG (no Math.random, matching the
@@ -51,40 +43,10 @@ function syntheticRows(conditions: string[]): DatasetRow[] {
 }
 
 /* The data-provenance decision (FR-CUR): before a study has data, where does
- * it come from? Two honest paths this platform actually supports —
- *  • collect it live (instrument real participant sessions), or
- *  • curate it from GitHub (mine PRs/commits into the same join-key schema).
- * The curate path runs a real mining job inline; if the study's protocol has
- * no sampling frame yet, the server says so plainly rather than pretending. */
-export function DataProvenance({
-  studyId,
-  conditions,
-}: {
-  studyId: string;
-  conditions: string[];
-}) {
-  const [job, setJob] = useState<MiningJob | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+ * it come from? Collect it live (instrument real participant sessions), or
+ * rehearse with a synthetic pilot to see the shape of the analysis first. */
+export function DataProvenance({ conditions }: { conditions: string[] }) {
   const [rehearsal, setRehearsal] = useState<DatasetRow[] | null>(null);
-
-  async function startMining() {
-    setBusy(true);
-    setError(null);
-    try {
-      setJob(await studyApi.startMiningJob(studyId));
-    } catch (e) {
-      setError(
-        e instanceof OfflineError
-          ? "Start the middleware to run a mining job."
-          : e instanceof Error
-            ? e.message
-            : "Couldn't start the mining job.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <section className="flex flex-col gap-3">
@@ -92,12 +54,11 @@ export function DataProvenance({
         <h2 className="type-subhead text-text">Where does your data come from?</h2>
         <p className="mt-1 text-xs text-text-muted">
           A study needs data to analyse. Collect it live from instrumented
-          sessions, or curate it from public GitHub activity; both land in the
-          same join-key schema, so the analysis is identical.
+          sessions, or rehearse with synthetic data first.
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4">
           <h3 className="type-subhead flex items-center gap-2 text-text">
             <Radio className="size-4 text-accent" aria-hidden /> Collect it live
@@ -107,20 +68,6 @@ export function DataProvenance({
             one into their editor and their real coding sessions stream in.
           </p>
           <span className="text-xs text-text-muted">→ Participants tab</span>
-        </div>
-
-        <div className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4">
-          <h3 className="type-subhead flex items-center gap-2 text-text">
-            <GitBranch className="size-4 text-accent" aria-hidden /> Curate from GitHub
-          </h3>
-          <p className="flex-1 text-xs text-text-muted">
-            Mine PRs, commits, and reviews matching your protocol's sampling
-            frame, pseudonymised into the same event schema.
-          </p>
-          <Button size="sm" variant="subtle" onClick={startMining} disabled={busy} className="self-start">
-            {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <GitBranch className="size-4" aria-hidden />}
-            {busy ? "Mining…" : "Start a mining job"}
-          </Button>
         </div>
 
         <div className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4">
@@ -141,46 +88,6 @@ export function DataProvenance({
           </Button>
         </div>
       </div>
-
-      {error && (
-        <p className="flex items-start gap-2 rounded-input border border-border-strong bg-unsourced-soft px-3 py-2 text-xs text-text">
-          <AlertTriangle className="size-4 shrink-0 text-unsourced" aria-hidden />
-          {error}
-        </p>
-      )}
-
-      {job && (
-        <div className="rounded-card border border-border bg-surface p-4">
-          <div className="flex items-center gap-2">
-            {job.state === "gated" || job.state === "complete" ? (
-              <CheckCircle2 className="size-4 text-grounded" aria-hidden />
-            ) : (
-              <Loader2 className="size-4 animate-spin text-accent" aria-hidden />
-            )}
-            <span className="font-medium text-text">
-              Mining job {job.id.slice(0, 8)} · {job.state}
-            </span>
-          </div>
-          {job.statusMessage && (
-            <p className="mt-1 text-xs text-text-muted">{job.statusMessage}</p>
-          )}
-          {Object.keys(job.coverage).length > 0 && (
-            <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-              {Object.entries(job.coverage).map(([k, v]) => (
-                <div key={k} className="flex items-center gap-1">
-                  <dt className="text-text-muted">{k}</dt>
-                  <dd className="tabular font-medium text-text">{v}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          {job.firedHeuristics.length > 0 && (
-            <p className="mt-2 text-xs text-text-muted">
-              Validity flags: {job.firedHeuristics.join(", ")}
-            </p>
-          )}
-        </div>
-      )}
 
       {rehearsal && (
         <div className="rounded-card border-2 border-dashed border-unsourced bg-unsourced-soft/40 p-4">

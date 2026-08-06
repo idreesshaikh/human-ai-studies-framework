@@ -357,37 +357,6 @@ class Study(Base):
     data_path: Mapped[str] = mapped_column(String, default="")
 
 
-class MiningJob(Base):
-    """A curated-dataset mining job (FR-CUR-2)."""
-
-    __tablename__ = "mining_jobs"
-
-    id: Mapped[str] = mapped_column(String, primary_key=True)
-    study_id: Mapped[str] = mapped_column(String, index=True)
-    source: Mapped[str] = mapped_column(String, default="github")
-    state: Mapped[str] = mapped_column(String, default="declared", index=True)
-    cursor: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    coverage: Mapped[dict] = mapped_column(JSON, default=dict)
-    fired_heuristics: Mapped[list] = mapped_column(JSON, default=list)
-    salt: Mapped[str] = mapped_column(String, default="")
-    status_message: Mapped[str] = mapped_column(String, default="")
-    created_at: Mapped[str] = mapped_column(String, default="")
-    updated_at: Mapped[str] = mapped_column(String, default="")
-
-
-class CuratedDataset(Base):
-    """A curated dataset + its validity-threats record (FR-CUR-3)."""
-
-    __tablename__ = "curated_datasets"
-
-    id: Mapped[str] = mapped_column(String, primary_key=True)
-    study_id: Mapped[str] = mapped_column(String, index=True)
-    job_id: Mapped[str] = mapped_column(String, index=True)
-    threats_record: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    event_counts: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[str] = mapped_column(String, default="")
-
-
 class ConversationTurn(Base):
     """One turn of a study's design conversation (FR-CONV-1)."""
 

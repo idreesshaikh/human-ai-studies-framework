@@ -120,10 +120,13 @@ Python only, `curated/`.
 1. A new `ArchiveAdapter` in `curated/src/curated/archive_adapter.py`
    implementing the existing `MiningAdapter` Protocol
    (`curated/src/curated/contract.py`), registered in `registry.py`'s
-   `ADAPTERS` dict alongside `GitHubAdapter.source: GitHubAdapter`; no
-   change to the job runner or any downstream consumer, which already
-   dispatches on `source` name (confirmed: `registry.get_adapter(source,
-   ...)` is the only call site that needs to know a new source exists).
+   `ADAPTERS` dict. *Correction (2026-08-06):* this adapter has never had
+   HTTP wiring — `middleware/app.py`'s `/mining-jobs*` routes (removed
+   along with FR-CUR-2, see `16-curated-dataset-leg.md`) hardcoded
+   `source="github"` and never dispatched generically despite
+   `registry.get_adapter(source, ...)` itself being source-agnostic. A
+   future HTTP-reachable import path would need its own route wiring; only
+   direct Python/test use of `curated.registry` is reachable today.
 2. Reuse `pseudonymize.py` and the validity-threats record (`threats.py`)
    verbatim: an archive's authors are exactly the "mined strangers" wall
    #7 already governs for GitHub mining; do not build a second

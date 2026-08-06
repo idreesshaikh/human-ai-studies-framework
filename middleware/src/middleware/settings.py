@@ -97,9 +97,6 @@ class Settings:
             if o.strip()
         )
     )
-    github_token: str | None = field(
-        default_factory=lambda: os.environ.get("MIDDLEWARE_GITHUB_TOKEN") or None
-    )
     # --- email delivery (member invitations, FR-PLAT-3) -----------------
     # Optional: when a Resend API key is set, invitations are emailed. Absent,
     # the platform degrades to the copy-link flow (no third-party required —
@@ -116,11 +113,6 @@ class Settings:
     # Falls back to the first CORS origin, then a relative link.
     public_base_url: str | None = field(
         default_factory=lambda: os.environ.get("MIDDLEWARE_PUBLIC_URL") or None
-    )
-    mining_cassette: Path | None = field(
-        default_factory=lambda: (
-            Path(p) if (p := os.environ.get("MIDDLEWARE_MINING_CASSETTE")) else None
-        )
     )
     # Developer mode (default OFF): relaxes gates that block end-to-end testing
     # of a fresh study — notably the ethics gate on minting enrollment tokens.

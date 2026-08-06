@@ -561,7 +561,13 @@ offline, so a cache/query layer isn't earning its weight yet. **Rejected:**
 a router that needs a server runtime (contra D34/NFR-7); a component
 library imported wholesale (the look must stay ours, D17/D34).
 
-### D39 - GitHub mining client: stdlib urllib + a fixture cassette - **BUILD (thin) + no new dependency** → FR-CUR-2 *(2026-07-18)*
+### D39 - GitHub mining client: stdlib urllib + a fixture cassette - **BUILD (thin) + no new dependency**; **RETIRED** (2026-08-06) → FR-CUR-2 *(2026-07-18)*
+
+FR-CUR-2 (the GitHub mining adapter this client served) was removed at the
+owner's direction along with its UI entry point, job runner, HTTP routes,
+and fixture cassette. `middleware/github_fetch.py`, `curated/cassette.py`,
+and `cassettes/cursor-mining-demo.json` are deleted. Kept for the historical
+record below.
 
 The curated-mining leg needs to read GitHub (PRs, commits, reviews). The
 freedom note in allows a GitHub client *library* behind its own
