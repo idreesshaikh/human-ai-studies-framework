@@ -121,19 +121,6 @@ export interface Prescription {
   rationale: string;
 }
 
-export interface MiningJob {
-  id: string;
-  studyId: string;
-  source: string;
-  state: string;
-  cursor: string | null;
-  coverage: Record<string, number>;
-  firedHeuristics: string[];
-  statusMessage: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface SessionStatus {
   sessionId: string;
   participantId: string;
@@ -425,14 +412,6 @@ export const studyApi = {
       `/studies/${enc(study)}/lifecycle/gates/${enc(artifact)}/attest`,
       { note, attestedBy: "Researcher", confirmed: true },
     ),
-  /** Start a curated GitHub-mining job (FR-CUR-2). Rejects (422) if the
-   * study's protocol declares no `curated:` sampling frame. */
-  startMiningJob: (study: string) =>
-    post<MiningJob>(`/studies/${enc(study)}/mining-jobs`, {}),
-  miningJob: (study: string, jobId: string) =>
-    req<MiningJob>(`/studies/${enc(study)}/mining-jobs/${enc(jobId)}`),
-  resumeMiningJob: (study: string, jobId: string) =>
-    post<MiningJob>(`/studies/${enc(study)}/mining-jobs/${enc(jobId)}/resume`, {}),
   /** The deterministic prescription table (FR-TPL-6): design shape → exact
    * test, effect size, correction, sample-size guidance. Not study-scoped. */
   prescriptions: () =>

@@ -400,7 +400,6 @@ service (§9.1 step 4); it is not injected automatically.
    | `MIDDLEWARE_SEED_ON_START` | `1` (demo mode, reseeds on boot) |
    | `MISTRAL_API_KEY` | optional: enables the knowledge assistant |
    | `MIDDLEWARE_S2_API_KEY` | optional: Semantic Scholar enrichment |
-   | `MIDDLEWARE_GITHUB_TOKEN` | optional: curated mining live source |
 
 5. Attach a **Volume** to the service: Settings → Volumes → New Volume,
    mounted at `/data`. This is where uploaded artifacts (consent PDFs,

@@ -1,7 +1,7 @@
-import type { Amendment, AmendmentState, PlatformFinding, RetrospectiveProposal } from "./types";
+import type { Amendment, AmendmentState } from "./types";
 import { getAuthToken, notifyUnauthorized } from "./api.ts";
 import { OfflineError } from "./studyApi";
-import { deriveProposal, evolutionStore } from "./evolutionStub";
+import { evolutionStore } from "./evolutionStub";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -91,26 +91,6 @@ export const evolutionApi = {
       { artifact },
     );
   },
-
-  async platformFindings(): Promise<PlatformFinding[]> {
-    const raw = await req<{ findings: Record<string, unknown>[] }>("/platform/findings");
-    return (raw.findings ?? []).map((f) => ({
-      id: Number(f.id),
-      at: String(f.at ?? ""),
-      note: String(f.note ?? f.message ?? ""),
-      status: (f.status as PlatformFinding["status"]) ?? "open",
-      locus: {
-        studyId: String((f.locus as Record<string, unknown>)?.studyId ?? ""),
-        turnId: String((f.locus as Record<string, unknown>)?.turnId ?? ""),
-        seq: Number((f.locus as Record<string, unknown>)?.seq ?? 0),
-        kind: String((f.locus as Record<string, unknown>)?.kind ?? "unclassified"),
-      },
-    }));
-  },
-
-  async retrospectiveProposal(): Promise<RetrospectiveProposal> {
-    return req<RetrospectiveProposal>("/platform/retrospective/proposal");
-  },
 };
 
 /** Live amendments when middleware is up; otherwise the offline demo store. */
@@ -125,5 +105,3 @@ export async function fetchAmendmentState(studyId: string): Promise<AmendmentSta
     throw e;
   }
 }
-
-export { deriveProposal };

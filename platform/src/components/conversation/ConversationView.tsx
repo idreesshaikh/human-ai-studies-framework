@@ -15,31 +15,11 @@ import {
   loadConversation,
   type CompileResult,
 } from "@/lib/conversationApi";
-import { evolutionStore } from "@/lib/evolutionStub";
 import { studyApi } from "@/lib/studyApi";
 import type { StudyChange } from "@/lib/presence";
 import type { Understanding } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import type { DesignMove, MoveStatus, Turn } from "@/lib/types";
-
-const FEEDBACK_CUES = [
-  "it would be better",
-  "i wish",
-  "the platform should",
-  "confusing",
-  "hard to",
-  "frustrating",
-  "too many clicks",
-  "couldn't find",
-  "why doesn't",
-  "annoying",
-  "unclear",
-];
-
-function readsAsFeedback(text: string): boolean {
-  const low = text.toLowerCase();
-  return FEEDBACK_CUES.some((c) => low.includes(c));
-}
 
 export function ConversationView({
   studyId = "study",
@@ -56,7 +36,6 @@ export function ConversationView({
   const [turns, setTurns] = useState<Turn[]>(() => [openingTurn()]);
   const [input, setInput] = useState("");
   const [addedRefs, setAddedRefs] = useState<Set<string>>(new Set());
-  const [markedTurns, setMarkedTurns] = useState<Set<string>>(new Set());
   const [live, setLive] = useState(!stubOnly);
   const [busy, setBusy] = useState(false);
   /* The reply's prose while it streams; null once the real turn lands. */
@@ -349,17 +328,6 @@ export function ConversationView({
     }
   }
 
-  function markFeedback(turn: Turn, seq: number, note: string, kind: string) {
-    evolutionStore.markFeedback({
-      studyId,
-      turnId: turn.turnId,
-      seq,
-      note,
-      kind,
-    });
-    setMarkedTurns((prev) => new Set(prev).add(turn.turnId));
-  }
-
   return (
     <div
       data-agent="conversation"
@@ -371,21 +339,8 @@ export function ConversationView({
            * centring the thread at the reading measure is what actually
            * fixed it, not the rail's own width. */}
           <div className="mx-auto flex w-full max-w-reading flex-col space-y-6">
-            {turns.map((t, i) => (
-              <StreamingTurn
-                key={t.turnId}
-                turn={t}
-                onDecide={decide}
-                feedback={
-                  t.role === "researcher"
-                    ? {
-                        suggested: readsAsFeedback(t.text),
-                        marked: markedTurns.has(t.turnId),
-                        onMark: (note, kind) => markFeedback(t, i, note, kind),
-                      }
-                    : undefined
-                }
-              />
+            {turns.map((t) => (
+              <StreamingTurn key={t.turnId} turn={t} onDecide={decide} />
             ))}
             {busy && live && !stubOnly && (
               <div className="flex flex-col items-start gap-3" data-agent="conversation-thinking">
@@ -515,6 +470,7 @@ export function ConversationView({
             <DraftRail
               draft={clientDraft}
               serverYaml={compileResult?.yaml}
+              protocol={compileResult?.protocol}
               compileValid={compileResult?.valid}
               onApply={live && !stubOnly ? applyDraft : undefined}
               applying={applying}

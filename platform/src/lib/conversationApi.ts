@@ -150,6 +150,10 @@ export interface CompileResult {
   warnings?: string[];
   diff: string;
   yaml: string;
+  /** The compiled protocol as structured data (same dict the server dumps
+   * to `yaml`) — lets the UI render prose instead of parsing YAML text.
+   * Optional so replies from an older server still parse. */
+  protocol?: Record<string, unknown>;
   templateId: string | null;
 }
 
@@ -307,18 +311,6 @@ export const conversationApi = {
     return post<{ applied: boolean }>(
       `/studies/${encodeURIComponent(studyId)}/conversation/approve`,
       { compilationId, rationale, approvedBy: "Researcher" },
-    );
-  },
-
-  markFeedback(
-    studyId: string,
-    turnId: string,
-    note: string,
-    kind: string,
-  ) {
-    return post<{ findingId: number }>(
-      `/studies/${encodeURIComponent(studyId)}/conversation/turns/${encodeURIComponent(turnId)}/feedback`,
-      { note, kind },
     );
   },
 

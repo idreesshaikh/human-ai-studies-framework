@@ -86,7 +86,14 @@ Non-negotiable bounds, inherited verbatim:
    checked-out snapshots via the shadow-git machinery (D14) pointed at
    mined refs: explicitly *no second metrics pipeline*.
 
-### Slice B: The GitHub adapter + job runner (FR-CUR-2)
+### Slice B: The GitHub adapter + job runner (FR-CUR-2) — retired 2026-08-06
+
+Built as described below, then removed at the owner's direction along with
+its Data-tab UI entry point: `middleware/mining.py` (job runner),
+`middleware/github_fetch.py`, the `/mining-jobs*`/`/curated-datasets*`
+routes, `curated/github_adapter.py`, and the fixture cassette are all
+deleted. `curated/heuristics.py` survives as shared FR-CUR-3
+infrastructure. See `requirements/traceability.md`'s FR-CUR-2 row.
 
 1. **Sources**: repos, PRs (+ reviews, timelines), commits, issues via
    REST/GraphQL. **Agent-authorship heuristics are a versioned

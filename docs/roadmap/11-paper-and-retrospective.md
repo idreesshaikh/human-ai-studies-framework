@@ -19,12 +19,12 @@ self-applies.
   claim carrying its traceability tag (`%% trace:`). Deterministic (FR-ANA-6).
 - `middleware` findings log (FR-META-1): auto-scan for seq gaps, gate blocks,
   and recipe requires-failures, each linked to the requirement it evidences;
-  `POST /findings` for facilitator notes. Extended with a `feedback` kind so
-  conversation feedback lands here (FR-CONV-5.1).
+  `POST /findings` for facilitator notes. (Phase 18 briefly extended this with
+  a `feedback` kind for in-conversation platform feedback, FR-CONV-5.1; that
+  extension was removed 2026-08-06 — see `requirements/srs.md` §FR-CONV-5.)
 - `analysis/retrospective.py`: `analysis retrospective`: an LLM-drafted,
   human-approved changelist proposal (FR-ETH-4 boundary grep-tested, offline
-  template fallback, inert until applied). Extended to draft from feedback
-  findings + anonymous cross-project shapes (FR-CONV-5.2).
+  template fallback, inert until applied).
 
 ## Remaining
 

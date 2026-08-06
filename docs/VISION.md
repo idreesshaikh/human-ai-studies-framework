@@ -41,12 +41,6 @@ protocol schema) converses the idea into a study:
   the study's **elicitation record**: the study's full decision trail
   now starts at the idea, not the spec.
 
-And the platform listens the other way too: researcher feedback given in
-conversation becomes structured findings that feed the platform's own
-retrospective and in-platform agents: **the platform evolves from its
-users' conversations** exactly as a study evolves from its researcher's.
-That self-application is the thesis made product.
-
 ## What feeds the conversation
 
 1. **The corpus**: quality-first and uncapped (15,000+ papers), grown by
@@ -76,7 +70,7 @@ That self-application is the thesis made product.
 3. **Two data paths, one schema.** Does the dataset exist?
    *No* → live path: the four instrument legs (cognitive, behavioral,
    static metrics, agent).
-   *Yes* → curated path: mining adapters (GitHub first) normalize
+   *Yes* → curated path: mining adapters (archive import) normalize
    external data into the same join-key timeline, with a mandatory
    validity-threats record.
    Every recipe, report, figure, and paper draft works on both.
@@ -129,7 +123,7 @@ Each capability rests on a mechanism already in the codebase:
 | Curated path | Join-key event schema + per-source streams | ✅ |
 | Live path | Four instrument legs, middleware, task harness | ✅ |
 | Identity | FR-OPS-5 pluggable auth + Clerk (provisioned) | 🔶 |
-| Feedback evolution | Findings log + retrospective + in-platform agents | ✅/⏳ |
+| Operational findings | Findings log + retrospective (FR-META-1/2); in-platform agents (FR-META-3) | ✅/⏳ |
 | Agent metadata | `/requirements` + `/glossary` live endpoints | ✅ |
 
 ## Build order

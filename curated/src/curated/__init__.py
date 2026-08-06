@@ -7,11 +7,10 @@ Public surface:
 - :mod:`curated.contract` - the normalized-event shape + adapter protocol.
 - :mod:`curated.frame` - parse the protocol ``curated:`` section.
 - :mod:`curated.registry` - source -> adapter lookup.
-- :mod:`curated.github_adapter` - the GitHub adapter.
+- :mod:`curated.archive_adapter` - the archive/replication-package adapter.
 - :mod:`curated.heuristics` - versioned agent-authorship registry.
 - :mod:`curated.threats` - the validity-threats record.
 - :mod:`curated.pseudonymize` - salted-hash actor pseudonyms.
-- :mod:`curated.cassette` - offline record/replay of API responses.
 """
 
 from curated.contract import (

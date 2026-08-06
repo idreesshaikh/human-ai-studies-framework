@@ -49,8 +49,8 @@ use. One term per concept; synonyms listed only to ban them.
 | **Study template** | A parameterized, citable encoding of a published study design (design type, conditions, instruments, measures, statistical plan) that instantiates into a valid protocol (FR-TPL-1). *(not: blueprint, preset)* |
 | **Statistical plan** | The template-bound prescription of exact tests, effect sizes, corrections, and per-cell-n rules a design requires (FR-TPL-2, NFR-8). *(not: stats config)* |
 | **Study designer** | The guided flow from research question to instantiated protocol: template selection, dataset-exists branch (curated vs. live), parameter form (FR-TPL-3). *(not: wizard)* |
-| **Curated dataset** | A study dataset built from external sources (GitHub API, archives, replication packages) rather than live instrumented sessions, normalized into the one-timeline event schema with join keys and a provenance record (FR-CUR-1). *(not: mined dataset, secondary data)* |
-| **Mining adapter** | A per-source importer producing curated-dataset rows behind the common normalizer contract (primary: GitHub API, FR-CUR-2). |
+| **Curated dataset** | A study dataset built from external sources (archives, replication packages) rather than live instrumented sessions, normalized into the one-timeline event schema with join keys and a provenance record (FR-CUR-1). *(not: mined dataset, secondary data)* |
+| **Mining adapter** | A per-source importer producing curated-dataset rows behind the common normalizer contract (e.g. the archive adapter, FR-CUR-4). |
 | **Validity-threats record** | The mandatory provenance companion of a curated dataset: sampling frame, inclusion criteria, known biases, heuristics used (FR-CUR-3). |
 | **Platform manifest** | The machine-readable self-description of a deployment - capabilities, API surface, schemas, glossary, requirements - for AI agents operating the platform (FR-AGF-1). |
 | **Design conversation** | The persistent per-study thread in which a study is elicited, designed, and evolved - the platform's primary design surface (FR-CONV-1). *(not: chat, wizard)* |

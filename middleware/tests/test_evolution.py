@@ -1,18 +1,13 @@
-"""Evolution: amendments + feedback.
+"""Evolution: phase-aware amendments.
 
-Two loops, one phase. *The study evolves* through phase-aware amendments —
-version-visible always, consent-gated when it matters, running sessions never
-touched. *The platform evolves* from feedback marked in the conversation:
-findings → aggregate shapes → an inert retrospective proposal.
+*The study evolves* through phase-aware amendments — version-visible always,
+consent-gated when it matters, running sessions never touched.
 
 Fit criteria exercised:
 - FR-CONV-4: F4.1 (consent-relevant amendment blocks new sessions until the
   re-approval artifact exists; collected data stays readable), F4.2 (threshold
   tweak applies next-session only; an in-flight session keeps its version),
   F4.3 (mixed-version sessions render distinguishably).
-- FR-CONV-5: F5.1 (marked turn → findings row with locus → card), F5.2 (the
-  drafted proposal cites its findings rows), F5.3 (grep-the-output on the
-  aggregate tables — no conversation text, protocol content, or project id).
 - FR-CONV-6 (regression): the export includes amendment decisions; redaction
   never unmakes them.
 
@@ -486,128 +481,6 @@ def test_amendment_summary_doc_is_the_ethics_delta(client):
     assert "consent-relevant" in body.lower()
 
 
-# ==================================================== F5.1 feedback pipeline
-
-
-def test_marked_turn_becomes_a_finding_with_locus(client):
-    """F5.1: a feedback-marked turn produces a findings row linked to the
-    conversation locus; the platform findings card renders it."""
-    reply = _ask(client, "I think junior developers over-trust AI-generated code")
-    # Mark the researcher's turn (seq of the platform reply minus 1).
-    conv = client.get(f"/studies/{STUDY}/conversation").json()
-    researcher_turn = [t for t in conv["turns"] if t["role"] == "researcher"][0]
-    r = client.post(
-        f"/studies/{STUDY}/conversation/turns/{researcher_turn['turnId']}/feedback",
-        json={"note": "I wish the move cards were easier to scan", "kind": "ux-defect"},
-    )
-    assert r.status_code == 200, r.text
-
-    cards = client.get("/platform/findings").json()
-    assert len(cards) == 1
-    card = cards[0]
-    assert card["locus"]["turnId"] == researcher_turn["turnId"]
-    assert card["locus"]["studyId"] == STUDY
-    assert card["locus"]["kind"] == "ux-defect"
-    assert "easier to scan" in card["note"]
-    assert reply["moves"]
-
-
-def test_feedback_finding_shows_in_findings_log(client):
-    """F5.1: the marked feedback also lands in the operational findings log
-    (FR-META-1) as a 'feedback' kind — one pipeline, self-applied."""
-    conv_reply = _ask(client, "the platform is confusing when I compile")
-    conv = client.get(f"/studies/{STUDY}/conversation").json()
-    turn = [t for t in conv["turns"] if t["role"] == "researcher"][0]
-    client.post(
-        f"/studies/{STUDY}/conversation/turns/{turn['turnId']}/feedback",
-        json={"note": "compile step unclear", "kind": "ux-defect"},
-    )
-    findings = client.get("/findings").json()
-    feedback = [f for f in findings if f["kind"] == "feedback"]
-    assert feedback
-    assert feedback[0]["requirementId"] == "FR-CONV-5"
-    assert conv_reply is not None
-
-
-def test_feedback_detection_offers_but_never_files(client):
-    """FR-CONV-5.1: detection may *offer* the marking; it is never auto-filed.
-    A turn that reads as feedback is a suggestion, not a finding."""
-    _ask(client, "this is confusing and I couldn't find the compile button")
-    sugg = client.get(f"/studies/{STUDY}/conversation/feedback-suggestions").json()
-    assert sugg["suggestions"], "a feedback-shaped turn should be offered"
-    # Nothing was filed without an explicit mark.
-    assert client.get("/platform/findings").json() == []
-
-
-# ==================================================== F5.2 retrospective
-
-
-def test_retrospective_proposal_cites_its_findings(client):
-    """F5.2: the drafted platform proposal is inert and cites the findings rows
-    it used (extends the FR-META-2 mechanism)."""
-    for text, kind in [
-        ("I wish the cards were clearer", "ux-defect"),
-        ("the compile step is confusing", "ux-defect"),
-    ]:
-        _ask(client, text)
-        conv = client.get(f"/studies/{STUDY}/conversation").json()
-        turn = [t for t in conv["turns"] if t["role"] == "researcher"][-1]
-        client.post(
-            f"/studies/{STUDY}/conversation/turns/{turn['turnId']}/feedback",
-            json={"note": text, "kind": kind},
-        )
-    proposal = client.get("/platform/retrospective").json()
-    assert proposal["status"] == "draft"  # inert — nothing self-applies
-    assert proposal["citedFindingIds"], "the proposal must cite its findings"
-    assert proposal["generatedFrom"]["feedbackFindings"] == 2
-    assert proposal["items"]
-
-
-# ==================================================== F5.3 aggregates only
-
-
-def test_aggregation_output_leaks_no_content(client):
-    """F5.3 grep-the-output: cross-project aggregation tables contain no
-    conversation text, protocol content, or project-identifying strings —
-    only vocabulary tokens (template ids, slot names, stall categories, move
-    kinds). Mirrors the FR-ETH-4 grep guarantee."""
-    # A study with template + a rejected move + a distinctive RQ phrase.
-    reply = _ask(client, "I think junior developers over-trust AI-generated code")
-    for m in reply["moves"]:
-        if m["kind"] == "add-rq":
-            _accept(client, m["moveId"], status="rejected")
-    design = _ask(client, "what design should I use?")
-    for m in design["moves"]:
-        if m["kind"] == "choose-template":
-            _accept(client, m["moveId"])
-    _compile(client)
-
-    client.post("/platform/aggregate")
-    rows = client.get("/platform/aggregate").json()
-    assert rows, "aggregation should produce shape rows"
-
-    import json
-
-    blob = json.dumps(rows)
-    # No conversation text.
-    assert "junior developers" not in blob
-    assert "over-trust" not in blob
-    # No project / study identifier.
-    assert STUDY not in blob
-    assert "demo-study" not in blob
-    # Only the fixed metric vocabulary and known token shapes.
-    allowed_metrics = {
-        "template-chosen",
-        "slot-unresolved",
-        "conversation-stall",
-        "move-rejected",
-    }
-    assert {r["metric"] for r in rows} <= allowed_metrics
-    # The rejected move kind is a vocabulary token, present and safe.
-    kinds = {r["key"] for r in rows if r["metric"] == "move-rejected"}
-    assert "add-rq" in kinds
-
-
 # ==================================================== FR-CONV-6 regression
 
 
@@ -648,8 +521,8 @@ def test_export_includes_amendments_and_redaction_keeps_them(client):
 def test_slice_d_self_application_end_to_end(client):
     """The phase proof (Slice D): a real study taken through a post-ethics
     amendment (add a stream → caution → owner approves → new sessions blocked →
-    re-approval → resume under v2), feedback marked in the same session, and an
-    elicitation export carrying design + amendment + feedback."""
+    re-approval → resume under v2) and an elicitation export carrying design +
+    amendment."""
     # 1. Design → approve → ethics approval.
     _reach_approved_protocol(client)
     _approve_ethics(client)
@@ -671,19 +544,7 @@ def test_slice_d_self_application_end_to_end(client):
     resumed = _start(client, "S-post")
     assert resumed.json()["protocolVersion"] == 2
 
-    # 4. Mark two turns as feedback → two findings → a proposal citing them.
-    conv = client.get(f"/studies/{STUDY}/conversation").json()
-    researcher_turns = [t for t in conv["turns"] if t["role"] == "researcher"][:2]
-    for t in researcher_turns:
-        client.post(
-            f"/studies/{STUDY}/conversation/turns/{t['turnId']}/feedback",
-            json={"note": "note", "kind": "ux-defect"},
-        )
-    assert len(client.get("/platform/findings").json()) == 2
-    proposal = client.get("/platform/retrospective").json()
-    assert proposal["citedFindingIds"]
-
-    # 5. The elicitation record carries design, amendment, and feedback.
+    # 4. The elicitation record carries design and amendment history.
     export = client.get(f"/studies/{STUDY}/conversation/export").json()
     assert export["turns"] and export["compilations"] and export["approvals"]
     assert export["amendments"]

@@ -6,7 +6,6 @@ import {
   Sun,
   LogOut,
   FlaskConical,
-  LineChart,
   Layers,
   Users,
   Settings,
@@ -172,7 +171,6 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
                 forceActive: pathname.includes("/studies/"),
               })}
               {navItem(`/p/${navSlug}/templates`, "Templates", <Layers className="size-4" aria-hidden />)}
-              {navItem(`/p/${navSlug}/platform`, "Platform findings", <LineChart className="size-4" aria-hidden />)}
               {navItem(`/p/${navSlug}/members`, "Members", <Users className="size-4" aria-hidden />)}
               {navItem(`/p/${navSlug}/settings`, "Settings", <Settings className="size-4" aria-hidden />)}
             </div>

@@ -73,8 +73,8 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-ANA-6 | S1,S4 | paper-draft generator | ✅ (`analysis paper`; golden-file + tectonic-compile tests) |
 | FR-ANA-7 | S7 | `suggest_figures.py` deterministic figure suggestion | ✅ Phase 22: 6 result shapes covered, ranked shortlists with rationale |
 | FR-ANA-8 | NFR-4 | parameterised recipes (two-group-nonparametric, paired-nonparametric, two-proportion, correlation) | ✅ Phase 22: each reads params from `dataset.meta` (value columns, figure form, test/effect-size); runner injects per-recipe params from analysisPlan |
-| FR-META-1 | RQ-F2 | operational findings log (middleware) | ✅ auto-scan (seq-gap/gate-block) + recipe requires-fails + `POST /findings`; extended with a `feedback` kind (FR-CONV-5.1) |
-| FR-META-2 | RQ-F2; D32 | retrospective (LLM-assisted, human-approved) | ✅ inert proposal; extended to draft from feedback findings + anonymous shapes (FR-CONV-5.2) |
+| FR-META-1 | RQ-F2 | operational findings log (middleware) | ✅ auto-scan (seq-gap/gate-block) + recipe requires-fails + `POST /findings` |
+| FR-META-2 | RQ-F2; D32 | retrospective (LLM-assisted, human-approved) | ✅ inert proposal |
 | FR-META-3 | FR-META-1/2; FR-ETH-4 | in-platform scheduled agents over the FTS5 index | ⏳ specced (`docs/roadmap/18-evolution.md` extends the machinery); not built |
 | FR-OPS-1 | S6,S7; NFR-5 | `railway.toml` + `middleware/Dockerfile` + `middleware/scripts/start_with_seed.sh` + `docker-compose.yml` + `.github/workflows/deploy.yml` | 🔶 manifests + pipeline built; hosting provisioning pending (RUNBOOK §9) |
 | FR-OPS-2 | change management; RQ-F3; NFR-9 | `.github/workflows/release.yml` + `deploy.yml` (GHCR, D24) | 🔶 built; first tagged release pending |
@@ -101,14 +101,14 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
 | FR-CONV-2 | RQ-F4; FR-ETH-4 | grounding contract (cite-what-you-retrieved) | ✅ grounding built only from retrieved rows, asserted server-side; unsourced compiles with `grounding: none` |
 | FR-CONV-3 | RQ-F1, RQ-F4; NFR-6 | deterministic move→YAML compiler + diff approval | ✅ pure `(base, moves) → draft`, byte-identical replay; validate every compile; apply only through a recorded, role-checked approval |
 | FR-CONV-4 | S3; FR-PROT-2/3; NFR-1 | phase-aware amendment engine (`evolution.py`) | 🔶 consent-relevance rule + amendment routing + session-start gate + version chips + ethics-board summary; UI built + gated; live transport deferred |
-| FR-CONV-5 | RQ-F2; FR-META-1/2/3 | in-conversation feedback → findings pipeline | 🔶 marked turn → `feedback` finding with locus; inert retrospective cites findings + anonymous shapes (grep-the-output enforced); UI built + gated |
+| FR-CONV-5 | RQ-F2; FR-META-1/2/3 | in-conversation feedback → findings pipeline | - built (marked turn → `feedback` finding with locus; inert retrospective cited findings + anonymous shapes; grep-the-output enforced; UI built + gated), then removed 2026-08-06: the "Platform findings" tab wasn't earning its keep, so the flag affordance + findings pipeline were withdrawn along with it |
 | FR-CONV-6 | S4; RQ-F4; C3 | elicitation record store + chain export | ✅ append-only turns/moves/compilations/approvals + `/conversation/export`; the chain renders both directions; redaction leaves the graph intact |
 | FR-CONV-9 | S7 | experience-adaptive conversation (student / new / experienced / industry) | ✅ `elicitation.PROFILES` + `researcherProfile` pref; `/conversation/profiles`; `test_elicitation.py` |
 | FR-CONV-10 | S7; S4 | elicitation before proposal + answer-the-question fidelity | ✅ `elicitation.assess_understanding` / `classify_turn`, `design_assistant.turn_stance` + `_permitted_moves`, moves carried in LLM history; `test_elicitation.py` |
 | FR-CONV-7 | FR-CONV-4.2 | `middleware/` evolution.py `consent_relevance` | ✅ implemented + parametrized test (nested `enabled` change and first-appearance-of-subtree cases in `test_consent_relevance_rule`) |
 | FR-CONV-8 | FR-CONV-1/2; NFR-4/5 | `middleware/design_llm.py` + `assistant.py`'s provider seam (`MistralProvider`/`OpenAICompatibleProvider`) + `design_assistant.respond()` | ✅ retrieval-first candidate menu, JSON-schema-validated moves, refs filtered against the menu (wall #3 enforced twice with `_resolve_grounding`), scripted fallback on any failure; `test_design_llm.py` + `test_conversation.py`'s LLM/fallback/no-key cases |
 | FR-CUR-1 | RQ-F3; FR-INST-6 | curated-dataset normalizer (`curated/`: contract, schema vocab, pseudonymize, frame) | ✅ normalizer + salted-hash actors + schema events; static metrics over mined code reuse the metrics leg |
-| FR-CUR-2 | S7; NFR-4 | GitHub adapter + versioned heuristics + job runner (`middleware/mining.py`); D39 | ✅ adapter + heuristics + runner + `/mining-jobs`; tested offline via cassette; live async dispatch deferred |
+| FR-CUR-2 | S7; NFR-4 | ~~GitHub adapter + job runner (`middleware/mining.py`) + `/mining-jobs`~~; D39 | ❌ Removed 2026-08-06 — GitHub adapter, `middleware/mining.py`, `github_fetch.py`, and the `/mining-jobs*`/`/curated-datasets*` routes deleted; `curated.heuristics` retained as shared FR-CUR-3 infrastructure |
 | FR-CUR-3 | NFR-8 | validity-threats record (`curated/threats.py`) + analysis gate + paper injection | ✅ record gates analysis; injected verbatim into the paper draft |
 | FR-CUR-4 | RQ-F3; FR-PROT-7 | archive/replication-package import | ✅ Phase 24 Slice B: ArchiveAdapter (MiningAdapter), registered in ADAPTERS, 6 tests with cassette fixture |
 | FR-AGF-1 | FR-DASH-9; FR-META-3 | `manifest.py` + `GET /.well-known/platform-manifest` + `scripts/agent_manifest_demo.py` | ✅ manifest from documents of record; scripted demo bootstraps an agent from the URL alone |
@@ -160,7 +160,7 @@ and its verification steps are green. Status: ✅ done · 🔶 partial · ⬜ op
   the knowledge layer, and the ethics/privacy controls are built and green.
 - **Platform layer (phases 14–18):** projects/roles/hero (FR-PLAT), the
   conversational designer (FR-CONV-1/2/3/6) and templates (FR-TPL-1/2), the
-  curated-dataset leg (FR-CUR-1/2/3), agent-friendliness (FR-AGF), and
+  curated-dataset leg (FR-CUR-1/3), agent-friendliness (FR-AGF), and
   evolution (FR-CONV-4/5) are built; server-complete with the UI gated, with
   live-transport wiring and browser NFR-12 evidence the main remaining work.
 - **Open:** FR-TPL-3/4/5, FR-META-3, FR-INST-18/19, FR-CUR-4, and the FR-OPS

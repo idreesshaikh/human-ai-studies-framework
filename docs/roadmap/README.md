@@ -30,11 +30,9 @@ instrumented sessions (the four capture legs) or from curated mining of
 existing sources (GitHub first) through one join-key schema, so every
 recipe and figure works identically on both. Mid-study, the conversation
 stays open: changes flow through phase-aware amendments, visible and
-consent-gated, never sneaky. And the platform listens back: researcher
-feedback becomes findings that drive the platform's own evolution. The
-whole thread is stored as the study's elicitation record: the idea, the
-evidence, the decisions, and the study they became, navigable in both
-directions.
+consent-gated, never sneaky. The whole thread is stored as the study's
+elicitation record: the idea, the evidence, the decisions, and the study
+they became, navigable in both directions.
 
 Fully usable with **zero external services**: no LLM key → the
 structured designer and FTS matching; offline → cached corpus and local
@@ -85,9 +83,9 @@ flowchart LR
 | ----- | ----- | --------- | ------ |
 | [14](14-platform-shell.md) | Platform shell + hero | FR-PLAT-1..5, FR-OPS-5/7, NFR-12 foundation | 🔶 built: backend + shell UI green; server-seeded demo + browser NFR-12 evidence pending |
 | [15](15-templates-and-conversational-designer.md) | Templates + conversational designer | FR-TPL-1..4, FR-CONV-1/2/3/6, FR-LIT-9, FR-LIT-8 importer | 🔶 conversation/compiler/approval/elicitation record + corpus importer + match ladder + template registry green; remaining: FR-TPL-3 form path + 2 of 4 seed templates pending recipes |
-| [16](16-curated-dataset-leg.md) | Curated-dataset leg | FR-CUR-1..3 | 🔶 built: full mine→dataset→threats→report chain green offline; live async dispatch deferred |
+| [16](16-curated-dataset-leg.md) | Curated-dataset leg | FR-CUR-1/3 | ✅ normalizer + validity-threats-record chain green; FR-CUR-2 (GitHub adapter) built then retired 2026-08-06, see phase doc |
 | [17](17-agent-friendliness.md) | Agent-friendliness | FR-AGF-1..3, FR-PROT-9 | ✅ built: manifest, generated AGENTS.md + CI drift gate, agent-participant protocol, `data-agent` annotations |
-| [18](18-evolution.md) | Evolution: amendments + feedback | FR-CONV-4/5 (+ FR-META extensions) | 🔶 built: amendment engine + feedback loop green server-side; UI built + gated; live transport + browser NFR-12 evidence deferred |
+| [18](18-evolution.md) | Evolution: amendments | FR-CONV-4 | 🔶 built: amendment engine green server-side; UI built + gated; live transport + browser NFR-12 evidence deferred. (Also built FR-CONV-5, the platform's own feedback loop; removed 2026-08-06 as unused — see the phase doc.) |
 
 Status key: ✅ done · 🔶 partial · ⬜ open. A phase is **done only when
 its verification steps ran green, its row here is flipped, and its

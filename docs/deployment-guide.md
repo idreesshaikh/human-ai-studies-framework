@@ -103,7 +103,6 @@ Service → **Variables**. Set:
 | `MIDDLEWARE_SEED_ON_START` | recommended for a first deploy | `1`: reseeds the demo study on every boot so there's always something to look at |
 | `MISTRAL_API_KEY` | optional | enables the LLM-backed design conversation/knowledge assistant; everything still works without it (degraded, deterministic path) |
 | `MIDDLEWARE_S2_API_KEY` | optional | Semantic Scholar enrichment for the literature corpus |
-| `MIDDLEWARE_GITHUB_TOKEN` | optional | needed only for the curated-mining (GitHub) leg's live source |
 
 - [ ] All required variables set → **Deploy** (Railway triggers the first
       build automatically once variables are saved)
