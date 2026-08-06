@@ -45,7 +45,7 @@ from protocol.errors import ProtocolError
 from protocol.export import build_kit
 from protocol.lifecycle import PHASE_ORDER, current_phase, gates_by_phase
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy import text as sqltext
 from sqlalchemy.orm import Session
 
@@ -72,7 +72,6 @@ from middleware import (
 from middleware.db import (
     CORPUS_STUDY_ID,
     IMPLICIT_PROJECT_ID,
-    AggregateShape,
     Amendment,
     ApprovalEvent,
     Compilation,
@@ -268,15 +267,6 @@ class SessionStartIn(BaseModel):
     resumes untouched (NFR-1)."""
 
     sessionId: str
-
-
-class FeedbackIn(BaseModel):
-    """Mark a conversation turn as platform feedback (FR-CONV-5.1). ``note`` is
-    the researcher's optional words; ``kind`` buckets the feedback (a UX
-    defect, a template gap, ...) — detection may *offer* it, marking confirms."""
-
-    note: str = ""
-    kind: str = "unclassified"
 
 
 class TemplateInstantiateIn(BaseModel):
@@ -3298,7 +3288,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         (FR-LIT-8 quality). Not study-scoped — the corpus is shared — and
         unauthenticated like `/corpus/search`, since it's an aggregate count,
         never study or participant data. Explains why some matches are
-        title-only, so `PlatformFindings` surfaces it rather than hiding it."""
+        title-only rather than leaving it invisible."""
         return corpus_enrich.enrichment_status_for_session(s)
 
     @app.post("/templates/from-paper")
@@ -4079,54 +4069,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "requiresReapproval": relevant,
         }
 
-    def _run_aggregation(s: Session) -> dict:
-        """Recompute cross-project usage shapes (FR-CONV-5.3). A full-snapshot
-        recompute (clear + rewrite) so the table is a deterministic function of
-        the conversation corpus, independent of cadence (a degree of freedom).
-        Every value written is a vocabulary token — never text or an id."""
-        templates_chosen: list[str] = []
-        studies_with_template: set[str] = set()
-        for mv in s.scalars(
-            select(DesignMoveRow).where(
-                DesignMoveRow.kind == "choose-template",
-                DesignMoveRow.status == "accepted",
-            )
-        ):
-            tid = (mv.patch or {}).get("templateId")
-            if tid:
-                templates_chosen.append(tid)
-                studies_with_template.add(mv.study_id)
-        rejected_move_kinds = [
-            mv.kind
-            for mv in s.scalars(
-                select(DesignMoveRow).where(DesignMoveRow.status == "rejected")
-            )
-        ]
-        unresolved_slots: list[str] = []
-        stalls: list[str] = []
-        for c in s.scalars(select(Compilation)):
-            unresolved_slots.extend(c.unresolved or [])
-            stalls.append(
-                evolution.stall_category(
-                    valid=bool(c.valid),
-                    errors=c.errors or [],
-                    unresolved=c.unresolved or [],
-                    has_template=c.study_id in studies_with_template,
-                )
-            )
-        shapes = evolution.accumulate_shapes(
-            templates_chosen=templates_chosen,
-            unresolved_slots=unresolved_slots,
-            stalls=stalls,
-            rejected_move_kinds=rejected_move_kinds,
-        )
-        ts = now()
-        s.execute(delete(AggregateShape))
-        for metric, key, count in shapes:
-            s.add(AggregateShape(metric=metric, key=key, count=count, computed_at=ts))
-        s.commit()
-        return {"computed": len(shapes), "computedAt": ts}
-
     @app.get(
         "/studies/{study_id}/conversation/export",
         dependencies=[Depends(require_project_for_study("view"))],
@@ -4175,7 +4117,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "turns": conv["turns"],
             "compilations": compilations,
             "approvals": approvals,
-            # The elicitation record now carries design, amendment, and feedback
+            # The elicitation record now carries design and amendment history
             # (FR-CONV-6 extended by amendment hunks); redaction never unmakes
             # a decision, so amendments survive a redacted turn intact.
             "amendments": amendments,
@@ -4381,144 +4323,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             approved_at=amend.created_at,
         )
         return PlainTextResponse(doc, media_type="text/markdown")
-
-    @app.post(
-        "/studies/{study_id}/conversation/turns/{turn_id}/feedback",
-        dependencies=[Depends(require_project_for_study("contribute"))],
-    )
-    def mark_feedback(
-        study_id: str, turn_id: str, body: FeedbackIn, s: Session = Depends(db)
-    ) -> dict:
-        """Mark a conversation turn as platform feedback (FR-CONV-5.1). The
-        turn becomes a Finding (the FR-META-1 pipeline) with a
-        ``conversationLocus`` pointing back at the exact turn — the platform's
-        SRS grows from its users' conversations. The finding is platform-scoped
-        data; its message carries no turn text, so rendering the locus still
-        requires project membership (the boundary holds even for meta-data)."""
-        turn = s.get(ConversationTurn, turn_id)
-        if turn is None or turn.study_id != study_id:
-            raise HTTPException(404, "conversation turn not found")
-        finding = Finding(
-            at=now(),
-            source="conversation",
-            kind="feedback",
-            requirement_id="FR-CONV-5",
-            # No turn text here: the locus points into project-scoped content,
-            # which only a member may resolve (B.3). The note is the marker's.
-            message=body.note or f"Feedback marked on turn {turn.seq}",
-            context={
-                "conversationLocus": {
-                    "studyId": study_id,
-                    "turnId": turn_id,
-                    "seq": turn.seq,
-                    "kind": body.kind,
-                }
-            },
-            status="open",
-        )
-        s.add(finding)
-        s.flush()
-        return {"findingId": finding.id, "kind": body.kind}
-
-    @app.get(
-        "/studies/{study_id}/conversation/feedback-suggestions",
-        dependencies=[Depends(require_project_for_study("view"))],
-    )
-    def feedback_suggestions(study_id: str, s: Session = Depends(db)) -> dict:
-        """*Offer* the feedback marking when a researcher turn reads as feedback
-        (FR-CONV-5.1 — detection is a freedom, marking is the requirement).
-        Heuristic and always-confirmed: never auto-filed. Returns candidate
-        turn ids, so the UI can nudge, not decide."""
-        cues = (
-            "it would be better",
-            "i wish",
-            "the platform should",
-            "confusing",
-            "hard to",
-            "frustrating",
-            "too many clicks",
-            "couldn't find",
-            "why doesn't",
-            "annoying",
-            "unclear",
-        )
-        already = {
-            f.context.get("conversationLocus", {}).get("turnId")
-            for f in s.scalars(select(Finding).where(Finding.kind == "feedback"))
-        }
-        suggestions = []
-        for t in s.scalars(
-            select(ConversationTurn)
-            .where(
-                ConversationTurn.study_id == study_id,
-                ConversationTurn.role == "researcher",
-            )
-            .order_by(ConversationTurn.seq)
-        ):
-            if t.id in already or t.redacted:
-                continue
-            low = (t.text or "").lower()
-            if any(cue in low for cue in cues):
-                suggestions.append({"turnId": t.id, "seq": t.seq})
-        return {"studyId": study_id, "suggestions": suggestions}
-
-    @app.get("/platform/findings", dependencies=[Depends(view_auth)])
-    def platform_findings(s: Session = Depends(db)) -> list[dict]:
-        """The platform's feedback findings (FR-CONV-5.1, F5.1) — the loci only.
-        The turn text lives behind the project-scoped conversation endpoint, so
-        this platform-scoped surface leaks no project content."""
-        rows = s.scalars(
-            select(Finding).where(Finding.kind == "feedback").order_by(Finding.id)
-        )
-        return [
-            {
-                "id": f.id,
-                "at": f.at,
-                "note": f.message,
-                "status": f.status,
-                "locus": f.context.get("conversationLocus", {}),
-            }
-            for f in rows
-        ]
-
-    @app.post("/platform/aggregate", dependencies=[Depends(view_auth)])
-    def compute_aggregate(s: Session = Depends(db)) -> dict:
-        """Recompute the cross-project usage shapes (FR-CONV-5.3). Reads every
-        project's conversation *shape* — template ids, unresolved-slot names,
-        stall categories, rejected-move kinds — and writes only anonymous
-        counts. No conversation text, protocol content, or project identifier
-        is read into a shape row; the grep-the-output test (F5.3) asserts it."""
-        return _run_aggregation(s)
-
-    @app.get("/platform/aggregate", dependencies=[Depends(view_auth)])
-    def get_aggregate(s: Session = Depends(db)) -> list[dict]:
-        rows = s.scalars(
-            select(AggregateShape).order_by(AggregateShape.metric, AggregateShape.key)
-        )
-        return [
-            {
-                "metric": r.metric,
-                "key": r.key,
-                "count": r.count,
-                "computedAt": r.computed_at,
-            }
-            for r in rows
-        ]
-
-    @app.get("/platform/retrospective", dependencies=[Depends(view_auth)])
-    def platform_retrospective(s: Session = Depends(db)) -> dict:
-        """Draft the platform's own retrospective proposal (FR-CONV-5.2,
-        extends FR-META-2): an **inert** draft that cites the findings rows and
-        aggregate shapes it used. A human approves it; nothing self-applies."""
-        findings = [
-            {"id": f.id, "kind": f.kind, "context": f.context}
-            for f in s.scalars(select(Finding).where(Finding.kind == "feedback"))
-        ]
-        shapes = [
-            {"metric": r.metric, "key": r.key, "count": r.count}
-            for r in s.scalars(select(AggregateShape))
-        ]
-        return evolution.draft_proposal(findings=findings, shapes=shapes)
 
     # ---------------------------------------------------------------- health
 

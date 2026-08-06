@@ -1,16 +1,7 @@
 import { Sparkles } from "lucide-react";
 import { MoveCard } from "./MoveCard";
-import { FeedbackAffordance } from "./FeedbackAffordance";
 import { cn } from "@/lib/cn";
 import type { MoveStatus, Turn } from "@/lib/types";
-
-/** Feedback marking for a researcher turn. Optional — the
- * conversation renders it only for researcher turns that can be flagged. */
-export interface TurnFeedback {
-  suggested: boolean;
-  marked: boolean;
-  onMark: (note: string, kind: string) => void;
-}
 
 /* A single conversation turn: the prose, then any design moves it carries.
  * Paper recommendations live in the persistent recommender rail (one mental
@@ -20,11 +11,9 @@ export interface TurnFeedback {
 export function StreamingTurn({
   turn,
   onDecide,
-  feedback,
 }: {
   turn: Turn;
   onDecide: (moveId: string, status: MoveStatus) => void;
-  feedback?: TurnFeedback;
 }) {
   const isPlatform = turn.role === "platform";
   return (
@@ -54,14 +43,6 @@ export function StreamingTurn({
         </span>
         {turn.text}
       </div>
-
-      {!isPlatform && feedback && (
-        <FeedbackAffordance
-          suggested={feedback.suggested}
-          marked={feedback.marked}
-          onMark={feedback.onMark}
-        />
-      )}
 
       {turn.moves.length > 0 && (
         <div className="flex w-full max-w-bubble flex-col gap-2">

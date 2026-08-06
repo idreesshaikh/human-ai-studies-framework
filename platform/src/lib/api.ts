@@ -177,10 +177,6 @@ export interface Api {
     profiles: { id: string; label: string; description: string }[];
     default: string;
   }>;
-  /** How much of the shared corpus carries a real abstract rather than just
-   * a title (FR-LIT-8) — explains why some matches are title-only, so
-   * `PlatformFindings` can surface it instead of leaving it invisible. */
-  corpusStatus(): Promise<{ papers: number; withAbstract: number; missing: number }>;
 }
 
 /** Raised by both backends so callers can show the server's plain-language
@@ -344,11 +340,6 @@ class HttpBackend implements Api {
       profiles: { id: string; label: string; description: string }[];
       default: string;
     }>("GET", "/conversation/profiles");
-  corpusStatus = () =>
-    this.call<{ papers: number; withAbstract: number; missing: number }>(
-      "GET",
-      "/corpus/status",
-    );
 }
 
 // ---------------------------------------------------------- in-memory backend
@@ -680,11 +671,6 @@ export class InMemoryBackend implements Api {
     return { profiles: FALLBACK_RESEARCHER_PROFILES, default: "new-researcher" };
   }
 
-  async corpusStatus(): Promise<{ papers: number; withAbstract: number; missing: number }> {
-    // Offline demo: no corpus DB to count, so report an empty one honestly
-    // rather than inventing a number.
-    return { papers: 0, withAbstract: 0, missing: 0 };
-  }
 }
 
 /** Every call tries the real backend first and falls back to the in-memory

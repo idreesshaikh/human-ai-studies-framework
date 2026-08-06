@@ -35,7 +35,6 @@ const LAYOUT_CONTRACT_FILES = new Set([
   "components/shell/SignInScreen.tsx",
   "pages/InviteAccept.tsx",
   "pages/Members.tsx",
-  "pages/PlatformFindings.tsx",
   "pages/ProjectHome.tsx",
   "pages/Projects.tsx",
   "pages/Settings.tsx",

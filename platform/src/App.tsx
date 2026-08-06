@@ -6,7 +6,6 @@ import { Hero } from "@/pages/Hero";
 import { Projects } from "@/pages/Projects";
 import { ProjectHome } from "@/pages/ProjectHome";
 import { StudyHome } from "@/pages/StudyHome";
-import { PlatformFindings } from "@/pages/PlatformFindings";
 import { Templates } from "@/pages/Templates";
 import { Members } from "@/pages/Members";
 import { Settings } from "@/pages/Settings";
@@ -52,7 +51,6 @@ export default function App() {
         <Route path="/home" element={<Projects />} />
         <Route path="/p/:slug" element={<ProjectHome />} />
         <Route path="/p/:slug/studies/:id" element={<StudyHome />} />
-        <Route path="/p/:slug/platform" element={<PlatformFindings />} />
         <Route path="/p/:slug/templates" element={<Templates />} />
         <Route path="/p/:slug/members" element={<Members />} />
         <Route path="/p/:slug/settings" element={<Settings />} />

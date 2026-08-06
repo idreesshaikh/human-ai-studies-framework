@@ -68,12 +68,6 @@ retrofitted.
 | `amendment-history` | `AmendmentHistory` | the amendment record list (landmark) |
 | `amendment-history-toggle` | `StudyHome` | show/hide the amendment history |
 | `version-chip` | `AmendmentHistory` | one protocol-revision chip |
-| `feedback-mark` | `FeedbackAffordance` | flag a conversation turn as platform feedback (decision point) |
-| `feedback-composer` | `FeedbackAffordance` | the feedback note + kind form |
-| `feedback-send` | `FeedbackAffordance` | file the feedback as a finding |
-| `feedback-marked` | `FeedbackAffordance` | a turn already marked as feedback |
-| `platform-findings` | `PlatformFindings` | the feedback-findings list (landmark) |
-| `retrospective-proposal` | `PlatformFindings` | the inert drafted proposal (landmark) |
 | `study-tabs` | `StudyHome` | the study workspace section tabs (landmark) |
 | `presence-chips` | `PresenceChips` | who else is viewing this study right now (absent when you're alone) |
 | `study-export` | `ExportStudy` | open the share/export menu for this study |
@@ -113,3 +107,8 @@ retrofitted.
   on `StreamingTurn`'s author line (secondary attribute, not a new landmark).
 - **2026-07-30**: `protocol-guide-open` opens a reference dialog explaining
   the 8 mandatory `ProtocolDraft` sections.
+- **2026-08-06**: removed the platform-findings surface (FR-CONV-5): the
+  "Platform findings" nav item/page and the conversation "flag for the
+  platform" affordance are gone, taking `feedback-mark`, `feedback-composer`,
+  `feedback-send`, `feedback-marked`, `platform-findings`, and
+  `retrospective-proposal` with them.

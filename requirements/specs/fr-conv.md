@@ -183,7 +183,18 @@ Fit criteria:
 - F4.3 Two sessions run under different protocol versions render
   distinguishably in the dataset and platform.
 
-### FR-CONV-5 (S): The platform evolves from feedback
+### FR-CONV-5 (S): The platform evolves from feedback — REMOVED 2026-08-06
+
+Built in full (elaboration and fit criteria below, kept for the historical
+record per the traceability discipline), then withdrawn: the "Platform
+findings" tab wasn't earning its keep, so the whole capture-to-proposal
+pipeline was removed with it — the conversation's "flag for the platform"
+affordance, the offline demo store's findings slice, and the
+`/platform/findings`, `/platform/aggregate`, and `/platform/retrospective`
+endpoints. FR-META-1 (operational findings log) and FR-META-2 (retrospective)
+are untouched; only this requirement's extension of them is gone. See
+`requirements/srs.md` and `requirements/traceability.md` for the current
+status row.
 
 Researcher feedback SHALL be capturable *in the conversation* and SHALL
 flow into the platform's own improvement loop.

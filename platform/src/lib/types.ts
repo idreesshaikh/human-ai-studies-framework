@@ -222,32 +222,3 @@ export interface AmendmentState {
   amendments: Amendment[];
 }
 
-/** Platform feedback marked in a conversation, filed as a finding. The locus
- * points back at the exact turn; resolving it needs project membership (the
- * boundary holds even for meta-data). */
-export interface PlatformFinding {
-  id: number; // the server's integer finding id (FR-META-1 pipeline)
-  at: string;
-  note: string;
-  status: "open" | "resolved";
-  locus: {
-    studyId: string;
-    turnId: string;
-    seq: number;
-    kind: string; // ux-defect | template-gap | unclassified | …
-  };
-}
-
-/** The inert retrospective proposal drafted from feedback + shapes. It cites
- * the findings rows it used; a human approves it — nothing self-applies. */
-export interface RetrospectiveProposal {
-  status: "draft";
-  title: string;
-  generatedFrom: { feedbackFindings: number; shapeRows: number };
-  citedFindingIds: number[];
-  items: {
-    title: string;
-    kind: "ux-defect" | "template-improvement" | "new-template";
-    evidence: Record<string, unknown>;
-  }[];
-}

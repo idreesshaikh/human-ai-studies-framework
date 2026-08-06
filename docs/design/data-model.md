@@ -163,7 +163,6 @@ classDiagram
         +kind
         +context
         +requirementId
-        +conversationLocus?
     }
 
     Project "1" --> "*" Membership
@@ -187,7 +186,6 @@ classDiagram
     CuratedDataset "1" --> "*" MiningJob
     CuratedDataset ..> Event : normalizes into
     Study "1" --> "*" Event : via sessions
-    Turn ..> Finding : feedback (FR-CONV-5)
 ```
 
 ## Modeling decisions (the why)
@@ -213,7 +211,4 @@ classDiagram
    timeline through the join keys + the `source` column. The analysis
    pipeline cannot tell a curated study from a live one downstream of the
    normalizer, which is exactly the point (FR-CUR-1).
-6. **`Finding.conversationLocus`** closes the feedback loop
-   (FR-CONV-5): platform evolution proposals cite the exact turns that
-   motivated them.
 ```

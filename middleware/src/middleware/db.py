@@ -13,7 +13,6 @@ Idempotency contracts are preserved on both backends:
 - ``papers`` UNIQUE on ``(study_id, paper_ref)``            → ``upsert_do_update``
 - ``paper_edges`` UNIQUE on ``(study_id, src, dst, kind)``  → ``upsert_do_nothing``
 - ``paper_links`` UNIQUE on ``(study_id, paper_ref, target)`` → ``upsert_do_nothing``
-- ``aggregate_shapes`` UNIQUE on ``(metric, key)``          → ``upsert_do_nothing``
 
 All callers use the ``upsert_do_nothing`` / ``upsert_do_update`` helpers
 exported from this module; they pick the right dialect automatically.
@@ -534,19 +533,6 @@ class TemplateSubmission(Base):
     review_comment: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[str] = mapped_column(String)
     reviewed_at: Mapped[str] = mapped_column(String, default="")
-
-
-class AggregateShape(Base):
-    """One anonymous cross-project usage shape (FR-CONV-5.3)."""
-
-    __tablename__ = "aggregate_shapes"
-    __table_args__ = (UniqueConstraint("metric", "key", name="uq_aggregate_shape"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    metric: Mapped[str] = mapped_column(String, index=True)
-    key: Mapped[str] = mapped_column(String)
-    count: Mapped[int] = mapped_column(Integer, default=0)
-    computed_at: Mapped[str] = mapped_column(String, default="")
 
 
 # ---------------------------------------------------------------------------

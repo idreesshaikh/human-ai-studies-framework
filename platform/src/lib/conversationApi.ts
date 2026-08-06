@@ -314,18 +314,6 @@ export const conversationApi = {
     );
   },
 
-  markFeedback(
-    studyId: string,
-    turnId: string,
-    note: string,
-    kind: string,
-  ) {
-    return post<{ findingId: number }>(
-      `/studies/${encodeURIComponent(studyId)}/conversation/turns/${encodeURIComponent(turnId)}/feedback`,
-      { note, kind },
-    );
-  },
-
   /** Offline-only path: deterministic stub reply (hero / no middleware). */
   stubSend(text: string, turnsLength: number): Turn[] {
     const researcherTurn: Turn = {
