@@ -8,7 +8,12 @@ import { Button } from "@/components/ui/button";
  * full keyboard + reduced-motion control, and nothing new to pull in. Shown
  * once (localStorage), and re-openable from the "?" in the workspace. */
 
-export type TourTab = "conversation" | "library" | "data" | "enrollment";
+export type TourTab =
+  | "conversation"
+  | "library"
+  | "data"
+  | "planning"
+  | "enrollment";
 
 interface Step {
   tab: TourTab;
@@ -36,6 +41,11 @@ const STEPS: Step[] = [
     tab: "data",
     title: "Honest data, and the stats your design calls for",
     body: "Your collected data as plain shapes, never a bare p-value. The prescription panel tells you the exact test, effect size, and correction your design needs, with the reasoning.",
+  },
+  {
+    tab: "planning",
+    title: "Recruit enough — before anyone runs",
+    body: "The power curve for the study's planned comparison: how power moves with sample size, and the total n each plausible effect size needs to reach your target. Planning math, with its assumptions stated.",
   },
   {
     tab: "enrollment",

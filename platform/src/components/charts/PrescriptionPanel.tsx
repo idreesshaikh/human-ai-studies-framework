@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, FlaskConical } from "lucide-react";
+import { ChevronDown, ChevronRight, FlaskConical, Loader2 } from "lucide-react";
 import { studyApi, type Prescription } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
@@ -48,7 +48,9 @@ export function PrescriptionPanel() {
       </div>
 
       {rows === null ? (
-        <p className="type-body text-text-muted">Loading…</p>
+        <p className="flex items-center gap-2 type-body text-text-muted">
+          <Loader2 className="size-4 animate-spin" aria-hidden /> Loading…
+        </p>
       ) : (
         <div className="overflow-hidden rounded-card border border-border bg-surface">
           <ul>

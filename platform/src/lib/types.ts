@@ -286,3 +286,38 @@ export interface AmendmentState {
   amendments: Amendment[];
 }
 
+// ---------------------------------------------------------------- power (P2-2)
+
+/** One point on a power/sensitivity curve: power at a per-group n. */
+export interface PowerPoint {
+  nPerGroup: number;
+  totalN: number;
+  power: number;
+}
+
+/** One effect size's curve across the explored per-group n range. */
+export interface PowerCurve {
+  effectSize: number;
+  points: PowerPoint[];
+}
+
+/** The first n at which a curve reaches the target power — or an honest
+ * "not reached within the explored range". */
+export interface PowerRequirement {
+  effectSize: number;
+  nPerGroup: number | null;
+  totalN: number | null;
+  powerAtTargetN: number | null;
+  reachesTarget: boolean;
+}
+
+/** GET /studies/{id}/power: the planning payload, assumptions included. */
+export interface PowerDoc {
+  model: string;
+  alpha: number;
+  powerTarget: number;
+  maxTotalN: number;
+  curves: PowerCurve[];
+  requiredN: PowerRequirement[];
+}
+

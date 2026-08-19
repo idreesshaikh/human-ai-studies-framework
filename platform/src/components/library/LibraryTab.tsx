@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Upload, X, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Constellation } from "./Constellation";
 import { Assistant } from "./Assistant";
 import {
@@ -85,13 +86,13 @@ export function LibraryTab({ studyId }: { studyId: string }) {
       >
         {/* Ingest bar — the live-fetch moment. */}
         <div className="flex flex-wrap items-center gap-2">
-          <input
+          <Input
             value={idInput}
             onChange={(e) => setIdInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && ingest()}
             placeholder="arXiv id or DOI, e.g. 2302.06590"
             aria-label="arXiv id or DOI"
-            className="min-h-9 flex-1 rounded-input border border-border-strong bg-bg px-3 py-2 type-body text-text outline-none focus-visible:border-accent"
+            className="flex-1"
           />
           <Button size="sm" variant="subtle" onClick={ingest} disabled={busy}>
             <Plus aria-hidden /> Add
@@ -207,11 +208,11 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                 )}
                 <label className="mt-3 block type-body text-text">
                   Protocol links
-                  <input
+                  <Input
                     value={linkDraft}
                     onChange={(e) => setLinkDraft(e.target.value)}
                     placeholder="RQ-1, metric:parameter_count, recipe:…"
-                    className="mt-1 w-full rounded-input border border-border-strong bg-bg px-2 py-1.5 type-body text-text outline-none focus-visible:border-accent"
+                    className="mt-1"
                   />
                 </label>
                 <div className="mt-2 flex items-center gap-2">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { SegmentedControl, type SegmentOption } from "@/components/ui/segmented-control";
 import { studyApi, OfflineError, type AssistantConfig } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
@@ -153,12 +154,12 @@ export function Assistant({ studyId }: { studyId: string }) {
           ask();
         }}
       >
-        <input
+        <Input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="Ask a question…"
           aria-label="Ask the assistant"
-          className="min-h-9 flex-1 rounded-input border border-border-strong bg-bg px-3 py-2 type-body text-text outline-none focus-visible:border-accent"
+          className="flex-1"
         />
         <Button type="submit" size="icon" disabled={asking} aria-label="Ask">
           <Send aria-hidden />

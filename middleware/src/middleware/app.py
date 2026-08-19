@@ -132,6 +132,7 @@ def canonical_source(source: str) -> str:
     """The producer stream under its current name."""
     return DEFAULT_SOURCE if source in LEGACY_SOURCES else source
 
+
 Clock = Callable[[], datetime]
 
 
@@ -1014,17 +1015,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         session_blocks = {
             b.session_id: b
             for b in s.scalars(
-                select(SessionBlock).where(
-                    SessionBlock.session_id.in_(set(by_session))
-                )
+                select(SessionBlock).where(SessionBlock.session_id.in_(set(by_session)))
             )
         }
         blocks_total: dict[str, int] = {}
         if protocol:
             for row in s.scalars(
-                select(EnrollmentToken).where(
-                    EnrollmentToken.study_id == study_id
-                )
+                select(EnrollmentToken).where(EnrollmentToken.study_id == study_id)
             ):
                 with suppress(ProtocolError):
                     blocks_total[row.participant_id] = len(
@@ -1243,6 +1240,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         _engine = get_engine()
         if _engine.dialect.name == "postgresql":
             from sqlalchemy.dialects.postgresql import insert as _pg_insert
+
             stmt = (
                 _pg_insert(Paper)
                 .values([_paper_vals])
@@ -1252,6 +1250,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
         else:
             from sqlalchemy.dialects.sqlite import insert as _sq_insert
+
             stmt = (
                 _sq_insert(Paper)
                 .values([_paper_vals])
@@ -1277,6 +1276,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         ):
             if _engine.dialect.name == "postgresql":
                 from sqlalchemy.dialects.postgresql import insert as _pg_insert
+
                 stmt = (
                     _pg_insert(PaperLink)
                     .values(study_id=study_id, paper_ref=paper_ref, target=target)
@@ -1284,6 +1284,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
             else:
                 from sqlalchemy.dialects.sqlite import insert as _sq_insert
+
                 stmt = (
                     _sq_insert(PaperLink)
                     .values(study_id=study_id, paper_ref=paper_ref, target=target)
@@ -1325,9 +1326,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             }
             if _engine.dialect.name == "postgresql":
                 from sqlalchemy.dialects.postgresql import insert as _pg_insert
+
                 stmt = _pg_insert(PaperEdge).values([vals]).on_conflict_do_nothing()
             else:
                 from sqlalchemy.dialects.sqlite import insert as _sq_insert
+
                 stmt = (
                     _sq_insert(PaperEdge)
                     .values([vals])
@@ -1370,6 +1373,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 }
                 if _engine.dialect.name == "postgresql":
                     from sqlalchemy.dialects.postgresql import insert as _pg_insert
+
                     stmt = (
                         _pg_insert(PaperEdge)
                         .values([_edge_vals])
@@ -1377,6 +1381,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     )
                 else:
                     from sqlalchemy.dialects.sqlite import insert as _sq_insert
+
                     stmt = (
                         _sq_insert(PaperEdge)
                         .values([_edge_vals])
@@ -1596,6 +1601,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         _engine = get_engine()
         if _engine.dialect.name == "postgresql":
             from sqlalchemy.dialects.postgresql import insert as _pg_insert
+
             stmt = (
                 _pg_insert(Paper)
                 .values([_match_vals])
@@ -1605,6 +1611,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
         else:
             from sqlalchemy.dialects.sqlite import insert as _sq_insert
+
             stmt = (
                 _sq_insert(Paper)
                 .values([_match_vals])
@@ -2345,9 +2352,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         # study always violated that FK here (a 500, not a clean refusal) —
         # cascade each study the same way delete_study does before the
         # studies themselves, then memberships/invitations, then the project.
-        study_ids = list(
-            s.scalars(select(Study.id).where(Study.project_id == proj.id))
-        )
+        study_ids = list(s.scalars(select(Study.id).where(Study.project_id == proj.id)))
         for study_id in study_ids:
             _delete_study_scoped_rows(s, study_id)
         s.execute(Study.__table__.delete().where(Study.project_id == proj.id))
@@ -2603,7 +2608,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     ) -> list[dict]:
         from datetime import timedelta as td
 
-
         # Minting used to require a recorded ethics approval. That gate lived
         # on a lifecycle board no researcher worked through, so in practice it
         # only stopped people setting a study up. Approval is the university's
@@ -2683,7 +2687,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         ``derive_overlay_settings`` output the extension applies, so a
         researcher catches a forgotten toggle before "begin"."""
         from protocol.errors import ProtocolError
-
 
         rows = s.scalars(
             select(EnrollmentToken)
@@ -2766,9 +2769,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/enrollment/toggles/catalog",
         dependencies=[Depends(require_project_for_study("view"))],
     )
-    def toggles_catalog(
-        study_id: str, s: Session = Depends(db)
-    ) -> list[dict]:
+    def toggles_catalog(study_id: str, s: Session = Depends(db)) -> list[dict]:
         """List togglable capture metrics for a study's protocol shape
         (FR-DASH-11). Each entry carries the current protocol-derived value,
         a label, and grounding (cited or unsourced)."""
@@ -2787,9 +2788,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/enrollment/toggles",
         dependencies=[Depends(require_project_for_study("toggle_capture"))],
     )
-    def apply_toggle(
-        study_id: str, body: ToggleIn, s: Session = Depends(db)
-    ) -> dict:
+    def apply_toggle(study_id: str, body: ToggleIn, s: Session = Depends(db)) -> dict:
         """Apply one metric toggle as a protocol amendment (FR-DASH-11).
 
         Builds a deterministic ``reconfigure`` move, compiles it against the
@@ -2978,9 +2977,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def _task_by_id(protocol: dict, task_id: str) -> dict | None:
         from protocol.assignment import tasks_of
 
-        return next(
-            (t for t in tasks_of(protocol) if t.get("id") == task_id), None
-        )
+        return next((t for t in tasks_of(protocol) if t.get("id") == task_id), None)
 
     def _block_for_session(
         s: Session, protocol: dict, row, session_id: str | None
@@ -3004,21 +3001,22 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if not blocks:
             return None, None
 
-        recorded = (
-            s.get(SessionBlock, session_id) if session_id else None
-        )
+        recorded = s.get(SessionBlock, session_id) if session_id else None
         if recorded is None:
             # How many blocks this participant has already been handed. A
             # participant who runs more sessions than their schedule has
             # blocks stays on the last one rather than falling off the end.
-            done = s.scalar(
-                select(func.count())
-                .select_from(SessionBlock)
-                .where(
-                    SessionBlock.study_id == row.study_id,
-                    SessionBlock.participant_id == row.participant_id,
+            done = (
+                s.scalar(
+                    select(func.count())
+                    .select_from(SessionBlock)
+                    .where(
+                        SessionBlock.study_id == row.study_id,
+                        SessionBlock.participant_id == row.participant_id,
+                    )
                 )
-            ) or 0
+                or 0
+            )
             block = blocks[min(done, len(blocks) - 1)]
             if session_id:
                 s.add(
@@ -3079,6 +3077,46 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             task=task,
             block=block,
         )
+
+    @app.get(
+        "/studies/{study_id}/power",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def study_power_curve(
+        study_id: str,
+        alpha: float = 0.05,
+        maxN: int = 120,
+        powerTarget: float = 0.8,
+        effectSizes: str = "0.2,0.5,0.8",
+        s: Session = Depends(db),
+    ) -> dict:
+        """The power/sensitivity curve for the study's planned comparison
+        (P2-2): exact two-sample t-test power (non-central t, equal per-group
+        n, two-sided) across per-group n, plus the first n reaching the
+        target power, per effect size. Planning math only — the model and
+        its assumptions travel in the payload, and a target not reached
+        within the explored range is reported as such, never as a number.
+        The study must exist (authz resolves it), but no compiled protocol
+        is required: recruitment planning happens while the design is still
+        in conversation.
+        """
+        from analysis.power import two_sample_power_curve
+
+        try:
+            sizes = [float(x.strip()) for x in effectSizes.split(",")]
+        except ValueError as exc:
+            raise HTTPException(
+                422, "effectSizes must be a comma-separated list of numbers"
+            ) from exc
+        try:
+            return two_sample_power_curve(
+                sizes,
+                alpha=alpha,
+                power_target=powerTarget,
+                max_total_n=maxN,
+            )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     def _profile_prefs(s: Session, sub: str) -> dict:
         """The persisted prefs for ``sub`` (FR-OPS-7). Empty dict when no
@@ -3189,7 +3227,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.get("/templates/repertoire")
     def template_repertoire_route(
-        limitRefs: int = 6, s: Session = Depends(db)  # camelCase = the query param
+        limitRefs: int = 6,
+        s: Session = Depends(db),  # camelCase = the query param
     ) -> dict:
         """The protocol repertoire (FR-TPL): design shapes ranked common →
         rare by how many corpus papers use them, each carrying its ranked
@@ -3279,9 +3318,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     # ------------------------- template submissions (FR-TPL-5)
 
-    def _owner_membership(
-        identity: auth.Identity, s: Session
-    ) -> Membership | None:
+    def _owner_membership(identity: auth.Identity, s: Session) -> Membership | None:
         """Check if the caller is an owner on the implicit project."""
         from middleware.authz import has_role
 
@@ -3450,22 +3487,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     raise ValueError("template YAML must be a mapping")
                 problems = template_registry.validate_template(loaded)
                 if problems:
-                    raise ValueError(
-                        f"validation failed: {'; '.join(problems)}"
-                    )
+                    raise ValueError(f"validation failed: {'; '.join(problems)}")
                 repo = Path(__file__).resolve().parent.parent.parent.parent
                 reg_dir = repo / "templates" / "registry"
                 reg_dir.mkdir(parents=True, exist_ok=True)
                 slug = row.name.lower().replace(" ", "-").replace("/", "-")
                 dest = reg_dir / f"submission-{row.id}-{slug}.yaml"
                 if dest.exists():
-                    raise ValueError(
-                        f"file {dest.name} already exists in registry"
-                    )
+                    raise ValueError(f"file {dest.name} already exists in registry")
                 dest.write_text(
-                    yaml.safe_dump(
-                        loaded, sort_keys=False, default_flow_style=False
-                    )
+                    yaml.safe_dump(loaded, sort_keys=False, default_flow_style=False)
                 )
             except Exception as exc:
                 s.rollback()
@@ -4184,8 +4215,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         payload = dataset(study_id, "json", s)
         ds = Dataset(rows=payload["rows"], study_id=study_id)
         notebook_json = json.dumps(build_notebook(proto, ds, study_id), indent=1)
-        dictionary_md = (
-            f"# {study_id}: data dictionary\n\n" + data_dictionary_markdown(ds)
+        dictionary_md = f"# {study_id}: data dictionary\n\n" + data_dictionary_markdown(
+            ds
         )
 
         buf = io.BytesIO()

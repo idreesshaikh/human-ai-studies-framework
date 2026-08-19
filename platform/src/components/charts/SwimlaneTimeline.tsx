@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Table2, ChartScatter } from "lucide-react";
+import { Table2, ChartScatter, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { studyApi } from "@/lib/studyApi";
 import {
@@ -102,8 +102,8 @@ export function SwimlaneTimeline({
 
   if (loading) {
     return (
-      <div className="rounded-card border border-border bg-surface p-4 type-body text-text-muted">
-        Loading events for {sessionId}…
+      <div className="flex items-center gap-2 rounded-card border border-border bg-surface p-4 type-body text-text-muted">
+        <Loader2 className="size-4 animate-spin" aria-hidden /> Loading events for {sessionId}…
       </div>
     );
   }

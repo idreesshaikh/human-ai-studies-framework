@@ -1,6 +1,10 @@
 import { useState } from "react";
+import { X } from "lucide-react";
 import { useApi } from "@/lib/session";
 import { hasRole, type Role } from "@/lib/capabilities";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { cn } from "@/lib/cn";
 
 interface CatalogEntry {
@@ -62,10 +66,10 @@ export function TogglePopover({
     <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-card border border-border bg-surface p-3 shadow-lifted"
       data-agent="toggle-popover">
       <div className="mb-2 flex items-center justify-between">
-        <span className="font-display type-body text-text">{entry.label}</span>
+        <span className="type-body text-text">{entry.label}</span>
         <button onClick={onClose}
-          className="rounded-sm px-1 text-text-muted hover:text-text"
-          aria-label="Close">✕</button>
+          className="text-text-muted hover:text-text"
+          aria-label="Close"><X className="size-4" aria-hidden /></button>
       </div>
       <p className="mb-2 type-caption text-text-muted">{entry.description}</p>
       <div className="mb-3 flex items-center gap-2">
@@ -78,36 +82,33 @@ export function TogglePopover({
       {entry.grounding && (
         <div className="mb-3">
           {"unsourced" in entry.grounding && entry.grounding.unsourced ? (
-            <span className="rounded-sm bg-warning/10 px-1.5 py-0.5 type-caption text-warning"
-              data-agent-status="unsourced">
+            <Badge variant="unsourced" data-agent-status="unsourced">
               Uncited: researcher's judgment
-            </span>
+            </Badge>
           ) : (
-            <span className="rounded-sm bg-accent/10 px-1.5 py-0.5 type-quantity text-accent"
-              title={`Source: ${entry.grounding.source}`}>
+            <Badge variant="grounded" title={`Source: ${entry.grounding.source}`}>
               {entry.grounding.ref}
-            </span>
+            </Badge>
           )}
         </div>
       )}
       {result === null ? (
-        <button onClick={handleToggle} disabled={applying || !canToggle}
-          className={cn("w-full rounded-input border px-3 py-1.5 type-caption font-medium transition-colors",
-            canToggle
-              ? "border-accent text-accent hover:bg-accent hover:text-accent-contrast"
-              : "border-border text-text-muted cursor-not-allowed")}>
-          {applying ? "Applying..." : `Turn ${currentEnabled ? "off" : "on"}`}
-        </button>
+        <Button
+          className="w-full"
+          size="sm"
+          onClick={handleToggle}
+          disabled={applying || !canToggle}
+        >
+          {applying ? "Applying…" : `Turn ${currentEnabled ? "off" : "on"}`}
+        </Button>
       ) : result.error ? (
-        <p className="type-caption text-danger">{result.error}</p>
+        <Notice kind="problem">{result.error}</Notice>
       ) : result.requiresReapproval ? (
-        <div className="rounded-sm border border-warning bg-warning/5 p-2">
-          <p className="type-caption font-medium text-warning">Amendment pending</p>
-          <p className="mt-0.5 type-caption text-text-muted">
-            This change affects what is captured. New sessions are paused until
-            you re-upload ethics approval.
-          </p>
-        </div>
+        <Notice kind="note">
+          <span className="font-medium">Amendment pending.</span> This change
+          affects what is captured. New sessions are paused until you
+          re-upload ethics approval.
+        </Notice>
       ) : (
         <p className="type-caption text-accent">Applied. No re-approval needed.</p>
       )}

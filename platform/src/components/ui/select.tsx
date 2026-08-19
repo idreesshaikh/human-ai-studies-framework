@@ -18,7 +18,10 @@ export const Select = React.forwardRef<
       ref={ref}
       className={cn(
         "h-10 w-full appearance-none rounded-input border border-border bg-surface-raised px-3 py-2 pr-8 type-body text-text shadow-mark transition-colors duration-fast",
-        "focus-visible:border-accent",
+        /* No focus-visible border-color change: the global focus ring
+         * (index.css) is the whole focus treatment, same as Input. Adding
+         * one here too drew a second blue ring just inside the first. */
+        "hover:border-control-edge",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
