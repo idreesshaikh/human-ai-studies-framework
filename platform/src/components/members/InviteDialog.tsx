@@ -11,10 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useApi } from "@/lib/session";
 import { ROLE_LABELS, type Role } from "@/lib/capabilities.ts";
 import { ApiError, type Invitation } from "@/lib/api.ts";
-import { cn } from "@/lib/cn";
 
 const INVITABLE: Role[] = ["researcher", "viewer"];
 
@@ -94,23 +94,12 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
             </div>
             <div className="flex flex-col gap-1">
               <Label>Role</Label>
-              <div className="flex gap-2">
-                {INVITABLE.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRole(r)}
-                    className={cn(
-                      "rounded-input border px-3 py-1 type-body transition-colors duration-fast",
-                      role === r
-                        ? "border-border-strong bg-zone-9 text-text"
-                        : "border-border text-text hover:bg-zone-9",
-                    )}
-                  >
-                    {ROLE_LABELS[r]}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                aria-label="Role"
+                value={role}
+                onChange={setRole}
+                options={INVITABLE.map((r) => ({ value: r, label: ROLE_LABELS[r] }))}
+              />
             </div>
             {error && <Notice kind="problem">{error}</Notice>}
             <Button onClick={submit} disabled={!email.trim()} className="mt-1 self-start">

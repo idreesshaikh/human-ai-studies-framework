@@ -505,7 +505,7 @@ export function ConversationView({
           <div className="flex items-end gap-2">
           <textarea
             ref={composer}
-            className="type-body min-h-11 max-h-40 flex-1 resize-none overflow-y-auto rounded-input border border-control-edge bg-surface px-3 py-2 text-text transition-colors duration-fast focus-visible:border-accent"
+            className="type-body min-h-11 max-h-40 flex-1 resize-none overflow-y-auto rounded-input border border-control-edge bg-surface px-3 py-2 text-text transition-colors duration-fast hover:border-text-muted"
             placeholder="What do you want to find out?"
             value={input}
             rows={1}

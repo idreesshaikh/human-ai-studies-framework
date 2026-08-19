@@ -5,11 +5,11 @@ import {
   Moon,
   Sun,
   LogOut,
+  FolderOpen,
   FlaskConical,
   Layers,
   Users,
   Settings,
-  ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -139,62 +139,49 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Outside a project there is no sidebar; the two destinations that
-       * exist there — the project list and the repertoire — get a bare
-       * strip, so the repertoire is reachable from anywhere a project
-       * isn't. */}
-      {!hasProjectNav && (
-        <nav
-          className="flex items-center gap-1 border-b border-border bg-surface px-4 py-1.5"
-          aria-label="Main"
-        >
-          {navItem("/home", "Projects", <FlaskConical className="size-4" aria-hidden />)}
-          {navItem("/repertoire", "Templates", <Layers className="size-4" aria-hidden />)}
-        </nav>
-      )}
-
+      {/* One sidebar, always — a researcher switches between projects,
+       * templates, members and settings from the same rail everywhere,
+       * rather than a top strip outside a project and a side rail inside
+       * one. The "Project" group only appears once a project is in scope,
+       * since Studies, Members and Settings need a slug to resolve. */}
       <div className="flex min-h-0 flex-1">
-        {hasProjectNav && navOpen && (
+        {navOpen && (
           <div
             className="fixed inset-0 z-30 bg-ink/45 lg:hidden"
             onClick={() => setNavOpen(false)}
             aria-hidden
           />
         )}
-        {hasProjectNav && (
-          <nav
-            data-agent="project-nav"
-            className={cn(
-              "w-56 shrink-0 border-r border-border-strong bg-surface p-3",
-              navOpen
-                ? "fixed inset-y-0 left-0 z-40 block pt-[calc(var(--header-h)+0.5rem)] lg:static lg:pt-0"
-                : "hidden lg:block",
-            )}
-          >
-            <NavLink
-              to="/home"
-              onClick={() => setNavOpen(false)}
-              className="mb-3 flex items-center gap-1.5 px-1 type-caption font-medium text-text-muted transition-colors duration-fast hover:text-accent"
-            >
-              <ArrowLeft className="size-3.5" aria-hidden />
-              All projects
-            </NavLink>
-            <p className="type-legend mb-2 px-1 text-text-muted">
-              Project
-            </p>
-            <div className="flex flex-col gap-1">
-              {navItem(`/p/${navSlug}`, "Studies", <FlaskConical className="size-4" aria-hidden />, {
-                forceActive: pathname.includes("/studies/"),
-              })}
-              {/* The repertoire is global, so it leaves the project sidebar for the
-               * one place every page shares — the header nav strip (it also
-               * keeps working on the old project-scoped URL via redirect). */}
-              {navItem("/repertoire", "Templates", <Layers className="size-4" aria-hidden />)}
-              {navItem(`/p/${navSlug}/members`, "Members", <Users className="size-4" aria-hidden />)}
-              {navItem(`/p/${navSlug}/settings`, "Settings", <Settings className="size-4" aria-hidden />)}
-            </div>
-          </nav>
-        )}
+        <nav
+          data-agent="project-nav"
+          aria-label="Main"
+          className={cn(
+            "w-56 shrink-0 border-r border-border-strong bg-surface p-3",
+            navOpen
+              ? "fixed inset-y-0 left-0 z-40 block pt-[calc(var(--header-h)+0.5rem)] lg:static lg:pt-0"
+              : "hidden lg:block",
+          )}
+        >
+          <div className="flex flex-col gap-1">
+            {navItem("/home", "Projects", <FolderOpen className="size-4" aria-hidden />)}
+            {navItem("/repertoire", "Templates", <Layers className="size-4" aria-hidden />)}
+          </div>
+
+          {hasProjectNav && (
+            <>
+              <p className="type-legend mb-2 mt-4 border-t border-border px-1 pt-4 text-text-muted">
+                Project
+              </p>
+              <div className="flex flex-col gap-1">
+                {navItem(`/p/${navSlug}`, "Studies", <FlaskConical className="size-4" aria-hidden />, {
+                  forceActive: pathname.includes("/studies/"),
+                })}
+                {navItem(`/p/${navSlug}/members`, "Members", <Users className="size-4" aria-hidden />)}
+                {navItem(`/p/${navSlug}/settings`, "Settings", <Settings className="size-4" aria-hidden />)}
+              </div>
+            </>
+          )}
+        </nav>
         <main className={cn("min-h-0 flex-1", isWorkspace ? "overflow-hidden" : "overflow-auto")}>
           {children}
         </main>
