@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useApi } from "@/lib/session";
 import { ApiError, type EnrollmentTokenView } from "@/lib/api";
 /* A participant who already has the extension installed can skip the paste
@@ -18,7 +19,6 @@ import { ApiError, type EnrollmentTokenView } from "@/lib/api";
  * copy of the authority string, and that second copy is how the identity
  * drifted out of sync with the extension manifest. */
 import { vscodeDeepLink } from "@/lib/extension";
-import { cn } from "@/lib/cn";
 
 /* Mint pairing tokens for a study. Copy-link (here: copy connection string) is
  * the primary affordance — the participant pastes it into their IDE once. */
@@ -91,15 +91,15 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
             </div>
             <div className="flex flex-col gap-1">
               <Label>Grain</Label>
-              <div className="flex gap-2">
-                {(["participant", "session"] as const).map((g) => (
-                  <button key={g} type="button" onClick={() => setGrain(g)}
-                    className={cn("rounded-input border px-3 py-1 type-body transition-colors duration-fast",
-                      grain === g ? "border-border-strong bg-zone-9 text-text" : "border-border text-text hover:bg-zone-9")}>
-                    {g === "participant" ? "Participant (reusable)" : "Session (single-use)"}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                aria-label="Grain"
+                value={grain}
+                onChange={setGrain}
+                options={[
+                  { value: "participant", label: "Participant (reusable)" },
+                  { value: "session", label: "Session (single-use)" },
+                ]}
+              />
             </div>
             <Button onClick={submit} disabled={minting} className="mt-1 self-start">
               {minting ? "Minting…" : `Mint ${count} link${count > 1 ? "s" : ""}`}

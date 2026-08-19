@@ -79,6 +79,8 @@ retrofitted.
 | `export-elicitation-record` | `ExportStudy` | download the elicitation record (FR-CONV-6) |
 | `export-ethics-package` | `ExportStudy` | download the ethics package: design, tasks, capture, and exact consent text (FR-AGENT-5) |
 | `export-notebook` | `ExportStudy` | download the starter notebook + data dictionary, zipped (FR-ANA-6) |
+| `power-curve` | `PowerPanel` | the power/sensitivity chart on the Planning surface (P2-2) |
+| `power-required` | `PowerPanel` | the required-n table: effect size × per-group/total n × target reached |
 | `constellation` | `Constellation` | the citation-graph canvas (landmark) |
 | `metric-strip` | `MetricStrip` | the per-condition metric distribution chart (landmark) |
 | `live-sessions` | `LiveSessions` | the live-session monitor: who is running right now, what task, and whether data is arriving (landmark, FR-DASH-3) |
@@ -150,3 +152,9 @@ retrofitted.
   the study export menu.
 - **2026-08-19**: `export-notebook` — the starter-notebook download in the
   study export menu.
+- **2026-08-19**: `power-curve` — the power/sensitivity chart on the new
+  Planning surface. A browser agent lands here to read the curve the
+  researcher is planning recruitment against.
+- **2026-08-19**: `power-required` — the required-n table beside the
+  power curve: effect size × per-group/total n × whether the target is
+  reached within the explored range.

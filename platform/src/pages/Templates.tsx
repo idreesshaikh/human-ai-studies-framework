@@ -6,6 +6,7 @@ import {
   Loader2,
   X,
   ChevronDown,
+  Check,
   Info,
   Plus,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Notice } from "@/components/ui/notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { Confidence } from "@/components/conversation/Confidence";
 import { DeriveFromPaper } from "./DeriveFromPaper";
@@ -124,8 +126,13 @@ export function Templates() {
         /* A grid, not a stack. These are alternatives to choose between, and
            a column forces a reader to hold each one in memory to compare it
            with the next; side by side, the titles, design types and support
-           badges line up as columns you can read across. */
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+           badges line up as columns you can read across.
+           `items-start` keeps each plate at its own height: with the default
+           stretch, opening one card's references grew the whole grid row and
+           dragged its row-mates up to match, leaving them framing several
+           hundred pixels of empty plate. A shelf of closed cards still reads
+           evenly, since the clamped description already holds them level. */
+        <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {admitted.map((entry) => (
             <ShapeCard
               key={entry.id}
@@ -216,7 +223,7 @@ function ShapeCard({
       data-agent="design-shape"
       data-agent-ref={entry.id}
       className={cn(
-        "flex h-full flex-col transition-colors duration-fast",
+        "flex flex-col transition-colors duration-fast",
         selected
           ? "border-accent ring-1 ring-accent"
           : "hover:border-control-edge",
@@ -230,14 +237,36 @@ function ShapeCard({
         * across it. */}
       <CardContent className="flex flex-1 flex-col gap-3 p-4">
         {/* A real label, so the title is part of the checkbox's hit area and
-          * its accessible name, instead of a button wrapping a paragraph. */}
+          * its accessible name, instead of a button wrapping a paragraph.
+          * The box itself is drawn, not the OS default: every other control
+          * on the plate (Button, Input, Select) is restyled to the same
+          * instrument, and a bare native checkbox was the one control left
+          * to render however the browser felt like — an unbordered square in
+          * one engine, a solid block in another. The real input still sits
+          * over the drawn box, sized to match, so focus, click and keyboard
+          * toggling stay native; only its own appearance is hidden. */}
         <label className="flex cursor-pointer items-start gap-2.5">
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={onToggle}
-            className="mt-1 size-4 shrink-0 accent-accent"
-          />
+          <span className="relative mt-0.5 flex size-4 shrink-0">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggle}
+              className="absolute inset-0 size-full cursor-pointer opacity-0"
+            />
+            <span
+              aria-hidden
+              className={cn(
+                "pointer-events-none flex size-4 items-center justify-center rounded-control-inner border transition-colors duration-fast",
+                selected
+                  ? "border-accent bg-accent"
+                  : "border-control-edge bg-surface",
+              )}
+            >
+              {selected && (
+                <Check className="size-3 text-accent-contrast" strokeWidth={3} />
+              )}
+            </span>
+          </span>
           <span className="type-subhead min-w-0 flex-1 text-balance text-text">
             {entry.title}
           </span>
@@ -456,18 +485,18 @@ function MergedResult({
             <label className="sr-only" htmlFor="merge-project">
               Project
             </label>
-            <select
+            <Select
               id="merge-project"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              className="rounded-input border border-control-edge bg-surface px-2.5 py-1.5 type-body text-text"
+              className="w-auto min-w-40"
             >
               {projects.map((p) => (
                 <option key={p.slug} value={p.slug}>
                   {p.name}
                 </option>
               ))}
-            </select>
+            </Select>
             <Input
               className="min-w-0 flex-1 basis-48"
               placeholder="Name the study…"

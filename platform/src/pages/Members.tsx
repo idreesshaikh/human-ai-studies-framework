@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { Clock } from "lucide-react";
+import { Clock, Loader2 } from "lucide-react";
 import { MembersTable } from "@/components/members/MembersTable";
 import { InviteDialog } from "@/components/members/InviteDialog";
 import { RoleGate } from "@/components/shell/RoleGate";
@@ -20,7 +20,15 @@ export function Members() {
     [api, slug],
   );
 
-  if (loading) return <p className="p-6 type-body text-text-muted">Loading…</p>;
+  if (loading) {
+    return (
+      <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
+        <p className="flex items-center gap-2 type-body text-text-muted">
+          <Loader2 className="size-4 animate-spin" aria-hidden /> Loading members…
+        </p>
+      </div>
+    );
+  }
   if (error) return <div className="p-gutter"><Notice kind="problem">{error}</Notice></div>;
   if (!data) return null;
 
