@@ -1,6 +1,7 @@
 """Ingestion middleware and platform server: FastAPI service on port 8000.
 
-Satisfies FR-ING-1..6 and hosts the platform backend; see requirements/srs.md.
+Idempotent ingest, corpus retrieval, and the design conversation; also
+serves the PHOENIX web app.
 """
 
 __version__ = "0.1.0"

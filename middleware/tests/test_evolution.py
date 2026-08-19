@@ -116,11 +116,10 @@ def _compile(client, study=STUDY):
 
 
 def _approve(client, comp_id, study=STUDY, rationale=""):
-    r = client.post(
+    return client.post(
         f"/studies/{study}/conversation/approve",
         json={"compilationId": comp_id, "approvedBy": "Owner", "rationale": rationale},
     )
-    return r
 
 
 def _reach_approved_protocol(client, study=STUDY):
@@ -130,7 +129,11 @@ def _reach_approved_protocol(client, study=STUDY):
     # (FR-CONV-10), so describe the study first — the conversation this helper
     # drives is now the one a researcher would actually have.
     _ask(client, _STUDY_SKETCH, study)
-    reply = _ask(client, "what design and statistics should I use?", study)
+    reply = _ask(client, (
+        "what design and statistics should I use? I was thinking "
+        "within-subjects, with each developer doing both conditions "
+        "counterbalanced"
+    ), study)
     template_moves = [m for m in reply["moves"] if m["kind"] == "choose-template"]
     assert template_moves, "no design was proposed after describing the study"
     for m in template_moves:
@@ -262,46 +265,30 @@ def test_pre_ethics_amendment_is_an_ordinary_compile(client):
     assert hist["currentVersion"] == 1
 
 
-def test_lifecycle_resolves_before_ethics_approval(client):
-    """FR-DASH-2 regression: the lifecycle board must show a study's
-    compiled-and-approved draft even before ethics approval - attesting the
-    ``design`` phase's gate is how a study *reaches* the ``ethics`` phase,
-    not something that only becomes visible after it. (``dev_mode`` is a
-    separate, unrelated concern: it only relaxes the enrollment/minting
-    invariant, never the lifecycle board.)"""
-    _reach_approved_protocol(client)
-    doc = client.get(f"/studies/{STUDY}/lifecycle").json()
-    assert doc["currentPhase"] == "design"
-    design = next(p for p in doc["phases"] if p["name"] == "design")
-    assert design["status"] == "current"
-    assert design["gates"], "design phase should declare an attestable gate"
+def test_uploaded_artifacts_are_isolated_per_study(client):
+    """FR-ING-5 regression: a file uploaded for one study must not leak into
+    another - uploads are indexed per study, not shared across the whole
+    deployment.
 
-
-def test_lifecycle_gate_artifacts_are_isolated_per_study(client):
-    """FR-ING-5 / FR-DASH-2 regression: a gate artifact uploaded for one
-    study must not advance a different study's lifecycle — files are
-    indexed per study, not shared across the whole deployment."""
+    This used to be observed through the lifecycle board (an artifact for
+    study A must not advance study B's phase). The board is gone; the
+    isolation it depended on is not, so it is asserted directly against the
+    file listing instead of being dropped along with the surface.
+    """
     study_a, study_b = "study-a", "study-b"
     _reach_approved_protocol(client, study_a)
-    _approve_ethics(client, study_a)
     _reach_approved_protocol(client, study_b)
-    _approve_ethics(client, study_b)
-
-    doc_a = client.get(f"/studies/{study_a}/lifecycle").json()
-    doc_b = client.get(f"/studies/{study_b}/lifecycle").json()
-    assert doc_a["currentPhase"] == "design"
-    assert doc_b["currentPhase"] == "design"
 
     client.post(
         "/ingest/files",
         data={"studyId": study_a},
-        files={"file": ("protocol-validated.txt", b"x", "text/plain")},
+        files={"file": ("consent-template.txt", b"x", "text/plain")},
     )
 
-    doc_a = client.get(f"/studies/{study_a}/lifecycle").json()
-    doc_b = client.get(f"/studies/{study_b}/lifecycle").json()
-    assert doc_a["currentPhase"] == "ethics"
-    assert doc_b["currentPhase"] == "design"
+    files = client.get("/files").json()
+    owners = {f["filename"]: f["studyId"] for f in files}
+    assert owners["consent-template.txt"] == study_a
+    assert study_b not in owners.values()
 
 
 def test_consent_relevant_amendment_blocks_new_sessions(client):
@@ -359,7 +346,7 @@ def test_amendment_is_owner_only(client, tmp_path):
     _reach_approved_protocol(client)
     _approve_ethics(client)
     reply = _ask(client, "add the agent-capture instrument")
-    add = [m for m in reply["moves"] if m["kind"] == "add-instrument"][0]
+    add = next(m for m in reply["moves"] if m["kind"] == "add-instrument")
     _accept(client, add["moveId"])
     result = _compile(client)
 
@@ -441,7 +428,7 @@ def test_mixed_version_sessions_render_distinguishably(client):
     _start(client, "S1")
 
     reply = _ask(client, "raise the stuck-detector threshold")
-    tweak = [m for m in reply["moves"] if m["kind"] == "reconfigure-instrument"][0]
+    tweak = next(m for m in reply["moves"] if m["kind"] == "reconfigure-instrument")
     _accept(client, tweak["moveId"])
     _approve(client, _compile(client)["compilationId"])
     _start(client, "S2")
@@ -466,7 +453,7 @@ def test_amendment_summary_doc_is_the_ethics_delta(client):
     _reach_approved_protocol(client)
     _approve_ethics(client)
     reply = _ask(client, "add the agent-capture instrument")
-    add = [m for m in reply["moves"] if m["kind"] == "add-instrument"][0]
+    add = next(m for m in reply["moves"] if m["kind"] == "add-instrument")
     _accept(client, add["moveId"])
     amendment = _approve(
         client, _compile(client)["compilationId"], rationale="pilot justified it"
@@ -490,7 +477,7 @@ def test_export_includes_amendments_and_redaction_keeps_them(client):
     _reach_approved_protocol(client)
     _approve_ethics(client)
     reply = _ask(client, "add the agent-capture instrument")
-    add = [m for m in reply["moves"] if m["kind"] == "add-instrument"][0]
+    add = next(m for m in reply["moves"] if m["kind"] == "add-instrument")
     _accept(client, add["moveId"])
     _approve(client, _compile(client)["compilationId"], rationale="justified")
 
@@ -531,7 +518,7 @@ def test_slice_d_self_application_end_to_end(client):
     # 2. Amendment: add an instrument → caution fires → owner approves.
     reply = _ask(client, "add the agent-capture instrument")
     assert "consent-relevant" in reply["text"].lower()  # the caution, spoken
-    add = [m for m in reply["moves"] if m["kind"] == "add-instrument"][0]
+    add = next(m for m in reply["moves"] if m["kind"] == "add-instrument")
     _accept(client, add["moveId"])
     amendment = _approve(
         client, _compile(client)["compilationId"], rationale="pilot value"
@@ -556,8 +543,12 @@ def test_base_compiler_determinism_survives_amendments(client):
     byte-identical draft — amendments must not perturb the base compiler (F3.1
     stays green)."""
     _ask(client, _STUDY_SKETCH)
-    reply = _ask(client, "what design and statistics should I use?")
-    tmpl = [m for m in reply["moves"] if m["kind"] == "choose-template"][0]
+    reply = _ask(client, (
+        "what design and statistics should I use? I was thinking "
+        "within-subjects, with each developer doing both conditions "
+        "counterbalanced"
+    ))
+    tmpl = next(m for m in reply["moves"] if m["kind"] == "choose-template")
     _accept(client, tmpl["moveId"])
     first = _compile(client)
     second = _compile(client)

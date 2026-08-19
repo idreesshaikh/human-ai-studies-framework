@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/auth.tsx";
 import { ROLE_LABELS, type Role } from "@/lib/capabilities.ts";
 import { ApiError, type Member } from "@/lib/api.ts";
 import { memberLabel } from "@/lib/memberLabel";
+import { Notice } from "@/components/ui/notice";
 
 const ROLES: Role[] = ["owner", "researcher", "viewer"];
 
@@ -68,7 +69,7 @@ export function MembersTable({
 
   return (
     <div className="flex flex-col gap-2">
-      {error && <p className="text-sm text-unsourced">{error}</p>}
+      {error && <Notice kind="problem">{error}</Notice>}
       <div className="hidden sm:block">
         <Table>
           <THead>
@@ -100,7 +101,7 @@ export function MembersTable({
                       <DropdownMenuTrigger asChild>
                         <button
                           data-agent="member-actions"
-                          className="rounded-input p-1 text-text-muted hover:bg-accent-soft"
+                          className="rounded-input p-1 text-text-muted hover:bg-zone-9"
                           aria-label={`Actions for ${memberLabel(m, user)}`}
                         >
                           <MoreHorizontal className="size-4" aria-hidden />
@@ -136,14 +137,14 @@ export function MembersTable({
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 min-w-0">
                 <Avatar name={memberLabel(m, user)} />
-                <span className="truncate text-sm">{memberLabel(m, user)}</span>
+                <span className="truncate type-body">{memberLabel(m, user)}</span>
               </span>
               <RoleGate role={myRole} capability="manage_members">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       data-agent="member-actions"
-                      className="rounded-input p-2 text-text-muted hover:bg-accent-soft min-h-11 min-w-11"
+                      className="rounded-input p-2 text-text-muted hover:bg-zone-9 min-h-11 min-w-11"
                       aria-label={`Actions for ${memberLabel(m, user)}`}
                     >
                       <MoreHorizontal className="size-4" aria-hidden />
@@ -168,7 +169,7 @@ export function MembersTable({
                 </DropdownMenu>
               </RoleGate>
             </div>
-            <div className="mt-2 flex items-center gap-3 text-xs text-text-muted">
+            <div className="mt-2 flex items-center gap-3 type-caption text-text-muted">
               <Badge variant="outline">{ROLE_LABELS[m.role]}</Badge>
               <span className="tabular">{m.joinedAt ? m.joinedAt.slice(0, 10) : "-"}</span>
             </div>

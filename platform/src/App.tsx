@@ -1,4 +1,4 @@
-import { Outlet, Route, Routes, Link } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, Link } from "react-router-dom";
 import { AppFrame } from "@/components/shell/AppFrame";
 import { SignInScreen } from "@/components/shell/SignInScreen";
 import { useAuth } from "@/lib/auth.tsx";
@@ -29,7 +29,7 @@ function Shell() {
 function NotFound() {
   return (
     <div className="mx-auto flex max-w-narrow flex-col items-center gap-3 p-16 text-center">
-      <p className="font-display text-xl text-text">Nothing here</p>
+      <p className="type-subhead text-text">Nothing here</p>
       <Link to="/" className="text-accent hover:underline">
         Back to the start
       </Link>
@@ -49,9 +49,18 @@ export default function App() {
             location.reload()), which bypasses the SPA shell entirely and
             shows the raw API response instead of this page. */}
         <Route path="/home" element={<Projects />} />
+        {/* The repertoire is project-agnostic (FR-TPL): one global browse,
+            not one per project. Not "/templates" — that's the backend's
+            GET /templates API path (app.py), and the same-path collision
+            would show raw JSON on a hard navigation. The old project-scoped
+            URL keeps working. */}
+        <Route path="/repertoire" element={<Templates />} />
         <Route path="/p/:slug" element={<ProjectHome />} />
         <Route path="/p/:slug/studies/:id" element={<StudyHome />} />
-        <Route path="/p/:slug/templates" element={<Templates />} />
+        <Route
+          path="/p/:slug/templates"
+          element={<Navigate to="/repertoire" replace />}
+        />
         <Route path="/p/:slug/members" element={<Members />} />
         <Route path="/p/:slug/settings" element={<Settings />} />
       </Route>

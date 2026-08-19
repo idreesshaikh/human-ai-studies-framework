@@ -100,7 +100,7 @@ def test_task_outcome_recipe_on_constructed_verdicts():
     ):
         rows.append(
             {
-                "source": "cognitive-overlay",
+                "source": "tern",
                 "ts": "2026-07-11T11:05:00.000Z",
                 "sessionId": session,
                 "participantId": participant,

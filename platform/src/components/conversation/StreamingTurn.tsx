@@ -1,36 +1,46 @@
-import { Sparkles } from "lucide-react";
+import { CloudOff, Sparkles } from "lucide-react";
 import { MoveCard } from "./MoveCard";
 import { cn } from "@/lib/cn";
 import type { MoveStatus, Turn } from "@/lib/types";
 
 /* A single conversation turn: the prose, then any design moves it carries.
  * Paper recommendations live in the persistent recommender rail (one mental
- * model), not inline here. There's no token streaming yet (the assistant
- * responds synchronously) — an entrance animation stands in, and it's gone
- * under reduce-motion with nothing lost. */
+ * model), not inline here. The reply's prose streams in above this (see
+ * ConversationView); a turn's own entrance is one settle, gone under
+ * reduce-motion with nothing lost. */
 export function StreamingTurn({
   turn,
   onDecide,
+  focusMoveId = null,
 }: {
   turn: Turn;
   onDecide: (moveId: string, status: MoveStatus) => void;
+  /** The one move the thread is handing the caret to, if any — set only when
+   *  a reply lands in answer to something the researcher just sent. */
+  focusMoveId?: string | null;
 }) {
   const isPlatform = turn.role === "platform";
+  const isUnavailable = turn.source === "unavailable";
   return (
     <div
       className={cn(
-        "flex flex-col gap-3",
+        "flex min-w-0 flex-col gap-3",
         isPlatform ? "items-start" : "items-end")}
     >
       <div
         className={cn(
-          "max-w-bubble rounded-card px-4 py-3 text-sm animate-in fade-in duration-entrance",
+          "max-w-bubble rounded-card px-4 py-3 type-body animate-in fade-in duration-entrance",
           isPlatform
             ? "bg-surface border border-border text-text"
-            : "bg-accent text-accent-contrast")}
+            : "border border-border bg-zone-9 text-text",
+          /* A holding turn is not the conversation — the model could not be
+           * reached, so it proposes nothing and cites nothing. It reads as a
+           * notice rather than a reply, because mistaking one for the other
+           * is the whole failure the keyword assistant used to cause. */
+          isUnavailable && "border-dashed bg-transparent text-text-muted")}
       >
-        <span className="mb-1 flex items-center gap-1 text-xs opacity-70">
-          {turn.author}
+        <span className="mb-1 flex items-center gap-1 type-caption opacity-70">
+          {isUnavailable ? "Not answered" : turn.author}
           {isPlatform && turn.source === "llm" && (
             <span
               className="inline-flex items-center gap-0.5"
@@ -40,14 +50,30 @@ export function StreamingTurn({
               <Sparkles className="size-3" aria-hidden />
             </span>
           )}
+          {isUnavailable && (
+            <CloudOff
+              className="size-3"
+              data-agent-status="model-unavailable"
+              aria-hidden
+            />
+          )}
         </span>
         {turn.text}
       </div>
 
       {turn.moves.length > 0 && (
-        <div className="flex w-full max-w-bubble flex-col gap-2">
+        <div className="flex w-full min-w-0 max-w-bubble flex-col gap-2">
           {turn.moves.map((m) => (
-            <MoveCard key={m.moveId} move={m} onDecide={onDecide} />
+            <MoveCard
+              key={m.moveId}
+              move={m}
+              onDecide={onDecide}
+              /* At most one card takes focus, and only for a reply the
+               * researcher asked for. Every card claiming it meant the last
+               * one won, so a page load scrolled past the proposals it was
+               * meant to show and armed a / r on an unread card. */
+              autoFocus={m.moveId === focusMoveId}
+            />
           ))}
         </div>
       )}

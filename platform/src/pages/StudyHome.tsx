@@ -7,13 +7,11 @@ import {
   MessagesSquare,
   Library,
   BarChart3,
-  GitBranch,
   UserPlus,
 } from "lucide-react";
 import { ConversationView } from "@/components/conversation/ConversationView";
 import { LibraryTab } from "@/components/library/LibraryTab";
 import { DataTab } from "@/components/charts/DataTab";
-import { LifecycleTab } from "@/components/charts/LifecycleTab";
 import { EnrollmentPanel } from "@/components/enrollment/EnrollmentPanel";
 import { AmendmentBanner } from "@/components/conversation/AmendmentBanner";
 import { AmendmentHistory } from "@/components/conversation/AmendmentHistory";
@@ -28,21 +26,26 @@ import { resolveRole, roleOrNull } from "@/lib/role";
 import { usePresence } from "@/lib/presence";
 import { cn } from "@/lib/cn";
 
-/* A study's workspace. The design conversation is the primary surface; the
- * Library (live paper ingest, citation constellation, grounded assistant),
- * Data (honest metric shapes), and Lifecycle — ride alongside as tabs. Above
- * them all, once the
- * study has ethics approval, its evolution is visible: the amendment banner
- * (paused-until-re-approval when consent-relevant) and the quiet history
- *. */
+/* A study's workspace, and the whole arc the platform supports: design the
+ * study in conversation, then set it up. The design conversation is the
+ * primary surface; the Library (live paper ingest, citation constellation,
+ * grounded assistant), Data (honest metric shapes) and Participants ride
+ * alongside it as tabs.
+ *
+ * There is deliberately no lifecycle board. Tracking a study across seven
+ * phases was ceremony no researcher worked through, and its ethics gate
+ * blocked the one thing this workspace exists to do - it made a designed,
+ * compiled study impossible to actually set up. Approval is the
+ * university's to grant; what the platform owes a participant is an
+ * unmissable account of what will be captured, which the consent statement
+ * at pairing gives them. */
 
-type Tab = "conversation" | "library" | "data" | "lifecycle" | "enrollment";
+type Tab = "conversation" | "library" | "data" | "enrollment";
 
 const TABS: { id: Tab; label: string; icon: typeof Library }[] = [
   { id: "conversation", label: "Conversation", icon: MessagesSquare },
   { id: "library", label: "Library", icon: Library },
   { id: "data", label: "Data", icon: BarChart3 },
-  { id: "lifecycle", label: "Lifecycle", icon: GitBranch },
   { id: "enrollment", label: "Participants", icon: UserPlus },
 ];
 
@@ -114,7 +117,7 @@ export function StudyHome() {
       {/* Row 1: where am I, and the actions that apply to the whole study —
        * not to any one tab. Row 2 carries the study's own name, so this row
        * never needs to repeat it. */}
-      <div className="flex items-center gap-3 border-b border-border bg-surface px-4 py-1.5 text-sm">
+      <div className="type-label flex items-center gap-3 border-b border-border bg-surface px-4 py-2">
         <Link
           to={`/p/${slug}`}
           className="flex items-center gap-1 text-text-muted hover:text-text"
@@ -149,7 +152,7 @@ export function StudyHome() {
 
       {/* Row 2: the study's name, once — and the tabs beside it, since a tab
        * switch stays within this one study. */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border-strong bg-surface px-4 py-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-surface px-4 py-2.5">
         <h1 className="type-title text-text">{id}</h1>
         <nav
           className="flex items-center gap-0.5 sm:gap-1"
@@ -163,14 +166,26 @@ export function StudyHome() {
               onClick={() => setTab(t.id)}
               aria-label={t.label}
               aria-current={tab === t.id ? "page" : undefined}
+              /* The active section carries the axis mark — a rule on the
+               * edge the strip is ruled against, plus a cleared ground. It is
+               * the same "you are here" form the project sidebar uses, and it
+               * is deliberately not a fill: a fill in this app means "an
+               * action you can take", and a tab you are already on is a
+               * position, not an action. */
               className={cn(
-                "flex items-center gap-1.5 rounded-input px-2 sm:px-2.5 py-1 text-sm transition-colors duration-fast",
+                "type-control relative flex items-center gap-1.5 rounded-control border px-2 sm:px-2.5 py-1.5 transition-all duration-standard",
                 tab === t.id
-                  ? "bg-accent-soft text-accent"
-                  : "text-text-muted hover:bg-accent-soft hover:text-text")}
+                  ? "control-axis axis-under"
+                  : "border-transparent text-text-muted hover:bg-zone-9 hover:text-text")}
             >
               <t.icon className="size-4" aria-hidden />
-              <span className="hidden sm:inline">{t.label}</span>
+              {/* Narrow screens can't carry five labels, but five bare glyphs
+                * tell a stranger nothing and a phone has no hover to fall back
+                * on. The section you are in says its name; the rest are marks
+                * you can reach — which is also what the struck mark means. */}
+              <span className={cn(tab === t.id ? "inline" : "hidden sm:inline")}>
+                {t.label}
+              </span>
             </button>
           ))}
         </nav>
@@ -192,15 +207,16 @@ export function StudyHome() {
        * columns), so the workspace never ends up with two scrollbars. */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {tab === "conversation" && (
-          <div className="min-h-0 flex-1">
+          /* min-w-0: without it this flex item takes its width from its widest
+           * unshrinkable descendant, so one long citation title pushed the
+           * whole workspace column off the side of a phone. A definite width
+           * here is also what lets the citation wrap instead of clamp. */
+          <div className="min-h-0 min-w-0 flex-1">
             <ConversationView studyId={id} remoteChange={change} />
           </div>
         )}
         {tab === "library" && <LibraryTab studyId={id} />}
         {tab === "data" && <DataTab studyId={id} />}
-        {tab === "lifecycle" && (
-          <LifecycleTab studyId={id} onGoToConversation={() => setTab("conversation")} />
-        )}
         {tab === "enrollment" && <EnrollmentPanel studyId={id} role={role} />}
       </div>
 

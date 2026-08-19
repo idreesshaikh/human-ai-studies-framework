@@ -18,13 +18,14 @@
   "additionalProperties": false,
   "properties": {
     "protocolVersion": {
-      "description": "Schema version of this protocol document. Consumers branch on it, never guess (FR-PROT-2, NFR-4). v1 = live-capture human study; v2 = adds the optional curated: mining section (FR-CUR); v3 = agent participants (FR-PROT-9): kite optional, agent leg + task harness are the instruments; v4 = the kite->tern rename (2026-07-21): instruments.tern replaces instruments.kite, agent-participant studies use anyOf(tern, agentCapture, taskHarness).",
+      "description": "Schema version of this protocol document. Consumers branch on it, never guess (FR-PROT-2, NFR-4). v1 = live-capture human study; v2 = adds the optional curated: mining section (FR-CUR); v3 = agent participants (FR-PROT-9): kite optional, agent leg + task harness are the instruments; v4 = the kite->tern rename (2026-07-21): instruments.tern replaces instruments.kite, agent-participant studies use anyOf(tern, agentCapture, taskHarness). v5 = declared tasks (`tasks[]`): what participants actually do, as addressable units rather than one prose sentence, so a session can be assigned one and the data can be attributed to it.",
       "type": "integer",
       "enum": [
         1,
         2,
         3,
-        4
+        4,
+        5
       ]
     },
     "study": {
@@ -160,6 +161,54 @@
         }
       }
     },
+    "tasks": {
+      "description": "What participants actually do, as addressable units. Optional: a protocol without them still describes its work in `session.taskDescription`, which stays the human summary. Declaring tasks is what makes a session assignable to one and the resulting data attributable to it.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Stable identifier, stamped onto every event a session for this task produces. Never reused for different work.",
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "description": "What the participant is asked to do.",
+            "type": "string"
+          },
+          "minutes": {
+            "description": "Expected working time for this task. The session's own durationMinutes remains the hard cap.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "materials": {
+            "description": "Where the work lives - a repository URL, a path, or an archive. Recorded so a replication starts from the same code, not a description of it.",
+            "type": "string"
+          },
+          "conditions": {
+            "description": "The conditions this task may run under. Omitted means all of them, which is the usual case: a task that only makes sense in one condition confounds task with condition, so naming a subset is a deliberate choice.",
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
     "instruments": {
       "description": "Data-collecting components configured by the protocol, keyed by instrument name.",
       "type": "object",
@@ -258,7 +307,7 @@
               }
             },
             "ideHealth": {
-              "description": "Content-free IDE health/diagnostics stream (FR-INST-18). Optional — when absent the stream is disabled.",
+              "description": "Content-free IDE health/diagnostics stream (FR-INST-18). Optional \u2014 when absent the stream is disabled.",
               "type": "object",
               "required": [
                 "enabled",
@@ -276,7 +325,7 @@
               }
             },
             "comprehensionProbe": {
-              "description": "Comprehension probe cadence (FR-DASH-12, FR-INST-19). Optional — when absent probes are disabled.",
+              "description": "Comprehension probe cadence (FR-DASH-12, FR-INST-19). Optional \u2014 when absent probes are disabled.",
               "type": "object",
               "required": [
                 "enabled",
@@ -291,10 +340,13 @@
                 "cadence": {
                   "description": "How often to probe accepted chunks.",
                   "type": "string",
-                  "enum": ["every-chunk", "sampled"]
+                  "enum": [
+                    "every-chunk",
+                    "sampled"
+                  ]
                 },
                 "sampleRate": {
-                  "description": "Fraction of chunks to probe (0–1, only meaningful when cadence is sampled).",
+                  "description": "Fraction of chunks to probe (0\u20131, only meaningful when cadence is sampled).",
                   "type": "number",
                   "minimum": 0,
                   "maximum": 1
@@ -306,7 +358,10 @@
                   "uniqueItems": true,
                   "items": {
                     "type": "string",
-                    "enum": ["predict-output", "locate-change"]
+                    "enum": [
+                      "predict-output",
+                      "locate-change"
+                    ]
                   }
                 }
               }
@@ -547,14 +602,17 @@
       }
     },
     {
-      "$comment": "kite -> tern rename (2026-07-21): v4 requires tern in place of kite, retaining the agent-participant anyOf.",
+      "$comment": "kite -> tern rename (2026-07-21): v4 requires tern in place of kite, retaining the agent-participant anyOf. v5 inherits this unchanged; it adds tasks, not instruments.",
       "if": {
         "required": [
           "protocolVersion"
         ],
         "properties": {
           "protocolVersion": {
-            "const": 4
+            "enum": [
+              4,
+              5
+            ]
           }
         }
       },

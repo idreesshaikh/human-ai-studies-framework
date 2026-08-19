@@ -3,19 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "PHOENIX — conversational study designer (FR-PLAT, FR-CONV, NFR-12; D34/D37)",
+  "description": "PHOENIX \u2014 conversational study designer (FR-PLAT, FR-CONV, NFR-12; D34/D37)",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint . && node scripts/lint-no-raw-literals.mjs && node scripts/check-agent-annotations.mjs",
-    "verify": "node --experimental-strip-types scripts/verify-slice1.mjs && node --experimental-strip-types scripts/verify-shell.mjs && node --experimental-strip-types scripts/verify-evolution.mjs && node --experimental-strip-types scripts/verify-library.mjs && node --experimental-strip-types scripts/verify-timeline.mjs && node --experimental-strip-types scripts/verify-layout.mjs && node --experimental-strip-types scripts/verify-constellation.mjs",
+    "verify": "node --experimental-strip-types scripts/verify-slice1.mjs && node --experimental-strip-types scripts/verify-shell.mjs && node --experimental-strip-types scripts/verify-evolution.mjs && node --experimental-strip-types scripts/verify-library.mjs && node --experimental-strip-types scripts/verify-timeline.mjs && node --experimental-strip-types scripts/verify-layout.mjs && node --experimental-strip-types scripts/verify-constellation.mjs && node --experimental-strip-types scripts/verify-comparator.mjs",
     "check": "tsc -b && npm run lint && npm run verify && npm run build"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "^5.3.0",
-    "@fontsource-variable/newsreader": "^5.3.0",
-    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@fontsource-variable/spline-sans-mono": "^5.3.0",
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-dropdown-menu": "^2.1.4",
     "@radix-ui/react-slot": "^1.1.1",

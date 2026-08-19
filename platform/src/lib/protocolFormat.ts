@@ -72,7 +72,7 @@ function formatResearchQuestions(rqs: unknown[]): ProtocolSection {
       const r = asRecord(rq);
       const id = asString(r.id);
       const text = asString(r.text);
-      return id && text ? `${id} — ${text}` : id || text;
+      return id && text ? `${id}: ${text}` : id || text;
     })
     .filter(Boolean);
   return { heading: "Research questions", lines };
@@ -80,7 +80,9 @@ function formatResearchQuestions(rqs: unknown[]): ProtocolSection {
 
 function formatParticipants(p: Record<string, unknown>): ProtocolSection {
   const bits: string[] = [];
-  if (typeof p.planned === "number") bits.push(`${p.planned} participants`);
+  if (typeof p.planned === "number") {
+    bits.push(`${p.planned} participant${p.planned === 1 ? "" : "s"}`);
+  }
   if (typeof p.design === "string") bits.push(p.design.replace(/-/g, " "));
   if (typeof p.counterbalanced === "boolean") {
     bits.push(p.counterbalanced ? "counterbalanced" : "not counterbalanced");
@@ -113,11 +115,30 @@ function formatSession(session: Record<string, unknown>): ProtocolSection {
   return { heading: "Session", lines };
 }
 
+/* The declared tasks (protocol v5) — what each session actually runs, as
+ * opposed to `session.taskDescription`, which is the study's prose summary.
+ * Reads as a numbered list because the count matters: a within-subjects
+ * study wants at least one task per condition. */
+function formatTasks(tasks: unknown[]): ProtocolSection {
+  const lines = tasks.map((entry) => {
+    const task = asRecord(entry);
+    const title = asString(task.title) || asString(task.id);
+    const detail: string[] = [];
+    if (typeof task.minutes === "number") detail.push(`${task.minutes} min`);
+    const conditions = asArray(task.conditions).map(asString).filter(Boolean);
+    if (conditions.length) detail.push(conditions.join(" / "));
+    const materials = asString(task.materials);
+    if (materials) detail.push(materials);
+    return detail.length ? `${title}: ${detail.join(" · ")}` : title;
+  });
+  return { heading: "Tasks", lines: lines.filter(Boolean) };
+}
+
 function formatInstruments(instruments: Record<string, unknown>): ProtocolSection {
   const lines = Object.entries(instruments).map(([name, config]) => {
     const label = INSTRUMENT_DISPLAY_NAMES[name] ?? humanizeKey(name);
     const detail = describeValue(config);
-    return detail ? `${label} — ${detail}` : label;
+    return detail ? `${label}: ${detail}` : label;
   });
   return { heading: "Instruments", lines };
 }
@@ -165,6 +186,7 @@ const SECTION_ORDER = [
   "participants",
   "conditions",
   "session",
+  "tasks",
   "instruments",
   "analysisPlan",
   "literature",
@@ -177,6 +199,7 @@ const FORMATTERS: Record<(typeof SECTION_ORDER)[number], (value: unknown) => Pro
   participants: (v) => formatParticipants(asRecord(v)),
   conditions: (v) => formatConditions(asArray(v)),
   session: (v) => formatSession(asRecord(v)),
+  tasks: (v) => formatTasks(asArray(v)),
   instruments: (v) => formatInstruments(asRecord(v)),
   analysisPlan: (v) => formatAnalysisPlan(asArray(v)),
   literature: (v) => formatLiterature(asArray(v)),

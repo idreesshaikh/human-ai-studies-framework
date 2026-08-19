@@ -11,40 +11,79 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Self-hosted fonts (no external requests, NFR-5-friendly): Newsreader is the
- * restrained serif for headings only; Inter is the clean grotesk for body
- * copy and UI; IBM Plex Mono is the machine face for the compiled draft,
- * data, and labels. */
-@import "@fontsource-variable/newsreader";
-@import "@fontsource-variable/inter";
-@import "@fontsource/ibm-plex-mono/400.css";
-@import "@fontsource/ibm-plex-mono/500.css";
-@import "@fontsource/ibm-plex-mono/600.css";
+/* Self-hosted faces (no external requests, NFR-5-friendly). Archivo is the
+ * atlas's labelling voice: a grotesk that stays precise at 11px and still has
+ * presence at display size, so one family covers every role set in letters.
+ * Spline Sans Mono carries quantities only. */
+@import "@fontsource-variable/archivo/wdth.css";
+@import "@fontsource-variable/spline-sans-mono";
 
 @import "./tokens.css";
 
 /* Map tokens onto Tailwind's theme so utilities (bg-surface, text-muted,
- * rounded-card, border-ink, shadow-brutal, duration-standard…) resolve back
- * to the token source. */
+ * shadow-plate, duration-standard, zone-3…) resolve back to the token
+ * source. */
 @theme inline {
   --color-bg: var(--bg);
+  --color-ground: var(--ground);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
+  --color-well: var(--well);
   --color-ink: var(--ink);
+  /* The ink's counterpart: paper, used as a FOREGROUND on ink-filled
+   * controls. Named for what it is on the page rather than reusing the
+   * background token as a text colour. */
+  --color-paper: var(--paper);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-control-edge: var(--control-edge);
+  --color-grid: var(--grid);
   --color-text: var(--text);
   --color-text-muted: var(--text-muted);
   --color-accent: var(--accent);
   --color-accent-contrast: var(--accent-contrast);
-  --color-accent-soft: var(--accent-soft);
-  --color-grounded: var(--grounded);
-  --color-unsourced: var(--unsourced);
-  --color-unsourced-soft: var(--unsourced-soft);
+  --color-accent-wash: var(--accent-wash);
   --color-thread: var(--thread);
 
+  /* Legacy aliases — call sites still consume these names. Both resolve into
+   * the one accent, because this world has exactly one. */
+  --color-accent-fill: var(--accent);
+  --color-accent-soft: var(--accent-wash);
+
+  /* The tonal ramp as utilities (bg-zone-9, text-zone-7): every neutral in
+   * the app names the step it stands on. */
+  --color-zone-0: var(--zone-0);
+  --color-zone-1: var(--zone-1);
+  --color-zone-2: var(--zone-2);
+  --color-zone-3: var(--zone-3);
+  --color-zone-4: var(--zone-4);
+  --color-zone-5: var(--zone-5);
+  --color-zone-6: var(--zone-6);
+  --color-zone-7: var(--zone-7);
+  --color-zone-8: var(--zone-8);
+  --color-zone-9: var(--zone-9);
+  --color-zone-10: var(--zone-10);
+
+  /* Provenance, as form and tone rather than hue. A grounded claim is drawn
+   * at full density; an unsourced one is an open ring. Both always carry
+   * their form as well as their colour — see the mark utilities below — so
+   * the distinction never rests on colour alone. */
+  --color-mark: var(--mark);
+  --color-grounded: var(--mark);
+  --color-unsourced: var(--unsourced);
+  /* A "soft" companion tone has to be usable as a BACKGROUND, which means it
+   * belongs at the cleared end of the ramp. Pointed at zone-8 it was a
+   * mid-tone slab: text on it sat near the contrast floor and it read as a
+   * grey bar dropped on the page. The well is the recessed step this world
+   * actually has. */
+  --color-unsourced-soft: var(--well);
+  --color-held-back: var(--unsourced);
+  --color-superseded: var(--superseded);
+  --color-conflict: var(--conflict);
+  --color-critical: var(--critical);
+
   /* Chart palette (dataviz skill) — utilities text-series-1, stroke-series-3,
-   * bg-viz-grid, etc. resolve back to the token source, both themes. */
+   * bg-viz-grid, etc. resolve back to the token source, both renditions. */
   --color-series-1: var(--series-1);
   --color-series-2: var(--series-2);
   --color-series-3: var(--series-3);
@@ -57,15 +96,20 @@
   --color-viz-axis: var(--viz-axis);
   --color-status-critical: var(--status-critical);
 
+  --radius-plate: var(--radius-plate);
   --radius-card: var(--radius-card);
-  --radius-chip: var(--radius-chip);
+  --radius-control: var(--radius-control);
+  --radius-control-inner: var(--radius-control-inner);
   --radius-input: var(--radius-input);
+  --radius-chip: var(--radius-chip);
+  --radius-dot: var(--radius-dot);
 
-  /* The lifted-card signature as first-class utilities: shadow-brutal[-sm|-lg].
-   * (Name retained for continuity; the look is now a soft warm shadow.) */
-  --shadow-brutal-sm: var(--shadow-brutal-sm);
-  --shadow-brutal: var(--shadow-brutal);
-  --shadow-brutal-lg: var(--shadow-brutal-lg);
+  /* The plate signature as first-class utilities. A mark sits on the plate,
+   * a plate lies on the desk, a lifted plate is being moved. */
+  --shadow-mark: var(--shadow-mark);
+  --shadow-plate: var(--shadow-plate);
+  --shadow-sheet: var(--shadow-sheet);
+  --shadow-lifted: var(--shadow-lifted);
 
   --font-display: var(--font-display);
   --font-serif: var(--font-serif);
@@ -80,41 +124,109 @@
   --container-wide: var(--measure-wide);
   --container-bubble: var(--measure-bubble);
 
-  /* The spacing rhythm as p-gutter / gap-section / gap-stack / gap-tight —
-   * every spacing utility (p-*, gap-*, m-*) shares this named scale. */
+  /* The spacing rhythm as p-gutter / gap-section / gap-stack / gap-tight. */
   --spacing-gutter: var(--space-gutter);
   --spacing-section: var(--space-section);
   --spacing-stack: var(--space-stack);
   --spacing-tight: var(--space-tight);
 
-  /* Motion tokens as duration-* / ease-* utilities, so components write
-   * `duration-settle ease-out` instead of raw values. */
+  /* Motion tokens as duration-* / ease-* utilities. */
+  --duration-instant: var(--motion-instant);
   --duration-fast: var(--motion-fast);
   --duration-standard: var(--motion-standard);
   --duration-entrance: var(--motion-entrance);
   --duration-settle: var(--motion-settle);
-  --duration-press: var(--motion-press);
+  /* Legacy alias — `duration-press` call sites predate `instant`. */
+  --duration-press: var(--motion-instant);
   --ease-out: var(--ease-out);
   --ease-in-out: var(--ease-in-out);
-  --ease-key: var(--ease-key);
+  --ease-settle: var(--ease-settle);
+  /* Legacy alias — `ease-sheet` call sites predate `ease-settle`. */
+  --ease-sheet: var(--ease-settle);
 }
 
-/* No visible scrollbar track anywhere in the app — wheel, trackpad, touch,
- * and keyboard (PageDown/arrows on a focused scroller) all still scroll.
- * Reserving a gutter for the bar (the previous approach) is unnecessary once
- * the bar itself is zero-width: nothing shifts because nothing was ever
- * drawn. Scoped to `html` (the shell's own scroll, on document routes) and
- * every scroller inside `#root` (a Surface body, a split-rail column) —
- * never wider, so a future scrollable widget outside the app shell keeps its
- * native bar. */
+/* ---- Browser surfaces -------------------------------------------------
+ * The parts nobody draws still carry the design. The scrollbar, the caret, the
+ * selection, the placeholder, the focus ring, the link underline's offset, the
+ * numerals in measured values and the <details> disclosure marker all ship with
+ * defaults that belong to no design system; each one here is drawn from the
+ * ramp. (The disclosure marker was the one this comment used to claim and miss:
+ * `View raw YAML` in the draft rail shipped the platform's own triangle.) */
 html,
 #root * {
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-muted) 38%, transparent)
+    transparent;
 }
 html::-webkit-scrollbar,
 #root *::-webkit-scrollbar {
-  width: 0;
-  height: 0;
+  width: 10px;
+  height: 10px;
+}
+html::-webkit-scrollbar-track,
+#root *::-webkit-scrollbar-track {
+  background: transparent;
+}
+html::-webkit-scrollbar-thumb,
+#root *::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  background-color: color-mix(in srgb, var(--text-muted) 34%, transparent);
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+html::-webkit-scrollbar-thumb:hover,
+#root *::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--text-muted) 62%, transparent);
+}
+
+::selection {
+  background: var(--selection);
+  color: var(--ink);
+}
+
+/* Left to the UA, a placeholder renders as the field's own ink at 50% alpha,
+ * which lands under the 4.5:1 this product is held to. Muted ink is a real
+ * step on the ramp, so it reads as a prompt rather than as disabled text, and
+ * it passes in both renditions (measured by scripts/check-contrast.mjs). */
+::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+/* The disclosure marker on a <details>. The one browser surface this file
+ * claimed to have themed and had not: left to the UA it ships the platform's
+ * own triangle, at the platform's own size, in the platform's own colour. A
+ * drawn caret in the record's own ink replaces it, and it turns rather than
+ * swapping glyph. */
+summary {
+  cursor: pointer;
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::before {
+  content: "";
+  display: inline-block;
+  width: 0.34em;
+  height: 0.34em;
+  margin-right: 0.5em;
+  vertical-align: 0.09em;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--motion-standard) var(--ease-out);
+}
+details[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+/* An underline that collides with its own descenders reads as a strikethrough
+ * at 14px. Every link in the app gets the offset and the hairline weight. */
+a {
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
 }
 
 html,
@@ -129,26 +241,47 @@ body {
   color: var(--text);
   font-family: var(--font-text);
   font-size: 1rem;
-  line-height: 1.6; /* an easy reading rhythm for long sessions */
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  caret-color: var(--caret);
 }
 
-/* A single, very quiet paper wash behind the app: a faint warm vignette so
- * the desk surface isn't a flat fill. No scanlines, no grid overlay — nothing
- * that competes with the words on the page. */
+/* The desk: the coordinate grid the whole record is ruled on. It is the one
+ * place this world's blue lives at page scale rather than as an accent, a
+ * graticule under everything rather than a decoration on top of anything.
+ *
+ * It has to be FELT, not read. A ruling you can count is graph paper, and on
+ * a page with little content it becomes the loudest thing on screen and turns
+ * a working surface into a notebook. So: a wide pitch, a single hairline at
+ * low alpha, and a mask that fades it away from the top of the viewport where
+ * the first thing the eye lands on is always content.
+ *
+ * Fixed, so plates scroll across a field that holds still. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    radial-gradient(
-      120% 80% at 50% -10%,
-      color-mix(in srgb, var(--surface) 55%, transparent) 0%,
-      transparent 60%
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--grid) 62%, transparent) var(--rule-hair),
+      transparent var(--rule-hair)
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--grid) 62%, transparent) var(--rule-hair),
+      transparent var(--rule-hair)
     );
+  background-size: var(--grid-pitch) var(--grid-pitch);
+  -webkit-mask-image: radial-gradient(
+    120% 90% at 50% 100%,
+    black 0%,
+    transparent 78%
+  );
+  mask-image: radial-gradient(120% 90% at 50% 100%, black 0%, transparent 78%);
 }
 
 #root {
@@ -156,65 +289,82 @@ body::before {
   z-index: 1;
 }
 
-/* Headings breathe: serif, with a touch of optical size and tighter leading
- * than body copy. Applied by the type utilities in components; this just tunes
- * the serif when it renders large. */
-.font-serif,
-.font-display {
-  font-optical-sizing: auto;
-  letter-spacing: -0.005em;
+/* A text label drawn inside an SVG. It cannot inherit a type role (the role
+ * sets a family the SVG's own text element needs stated on it), so the one
+ * size it uses is named here and comes from the same scale as everything
+ * else, rather than being written as a bare value at the call site. */
+.text-legend-svg {
+  font-family: var(--font-sans);
+  font-size: var(--text-legend);
+  font-weight: 600;
 }
 
-/* Tabular numerals for anything showing numbers. */
-.tabular {
+/* Tabular numerals for anything showing numbers, and for every quantity by
+ * construction — a measurement that shifts width between states is not
+ * comparable down a column. */
+.tabular,
+.type-quantity {
   font-variant-numeric: tabular-nums;
+}
+
+/* Kept as a no-op hook: `.identifier` used to opt a ref or DOI out of the
+ * `frac` feature. That feature is gone from `.type-quantity` entirely (see
+ * above), so identifiers now need nothing special, and the class stays only
+ * so existing call sites keep working. */
+.type-quantity.identifier {
+  font-feature-settings: normal;
 }
 
 /* ---- The type scale, as roles ----------------------------------------
  * One class per role; a component says what the text IS and the scale
- * decides how it looks. Deliberately in @layer components (declared before
- * `utilities` above) so a utility still wins where a screen has a real
- * reason to deviate — `type-body font-semibold` works, and colour is left
- * entirely to text-* utilities so the two systems never fight for
- * specificity.
+ * decides how it looks. In @layer components (declared before `utilities`
+ * above) so a utility still wins where a screen has a real reason to
+ * deviate, and colour is left entirely to text-* utilities so the two
+ * systems never fight for specificity.
  *
  * Roles, and what each one claims:
- *   type-display  the hero, once
- *   type-title    the page's name — exactly one per screen
- *   type-section  a titled division within a page
- *   type-subhead  a card or panel title
- *   type-body-lg  sustained reading (the conversation, findings prose)
- *   type-body     the app's default voice
- *   type-label    a form or control label
- *   type-caption  metadata: counts, timestamps, provenance
- *   type-eyebrow  the machine's structural label — mono, and therefore a
- *                 claim that the block beneath it was derived, not written */
+ *   type-display   the headline, once — the only role above 28px
+ *   type-title     the page's name — exactly one per screen
+ *   type-section   a titled division within a page
+ *   type-subhead   a plate's own title
+ *   type-body-lg   sustained reading (the log, findings prose)
+ *   type-body      the app's default voice
+ *   type-label     a form or control label
+ *   type-control   a button or tab — sentence case, never mono, never caps
+ *   type-caption   metadata: counts, timestamps, provenance
+ *   type-quantity  a measured value — mono, tabular, fixed width
+ *   type-legend    a key on the plate: a column head, a legend row
+ *
+ * type-legend is a LABEL ON A FIELD. It is never set above a heading as an
+ * eyebrow; the heading carries its own weight. */
 @layer components {
   .type-display {
     font-family: var(--font-display);
     font-size: var(--text-display);
-    font-weight: 500;
+    font-weight: 680;
     line-height: var(--leading-tight);
     letter-spacing: var(--tracking-display);
+    text-wrap: balance;
   }
   .type-title {
     font-family: var(--font-display);
     font-size: var(--text-title);
-    font-weight: 500;
-    line-height: var(--leading-tight);
+    font-weight: 640;
+    line-height: var(--leading-title);
     letter-spacing: var(--tracking-title);
+    text-wrap: balance;
   }
   .type-section {
     font-family: var(--font-display);
     font-size: var(--text-section);
-    font-weight: 500;
+    font-weight: 600;
     line-height: var(--leading-snug);
     letter-spacing: var(--tracking-section);
   }
   .type-subhead {
-    font-family: var(--font-display);
+    font-family: var(--font-sans);
     font-size: var(--text-subhead);
-    font-weight: 500;
+    font-weight: 600;
     line-height: var(--leading-snug);
   }
   .type-body-lg {
@@ -233,26 +383,58 @@ body::before {
     font-weight: 500;
     line-height: var(--leading-normal);
   }
+  /* Controls read in the product's own voice. The tracked caps this role used
+   * to carry made every button shout its label ("SHARE", "NEXT", "NEW
+   * PROJECT") in a tool whose job is to be quiet enough to think in. */
+  .type-control {
+    font-family: var(--font-sans);
+    font-size: var(--text-label);
+    font-weight: 550;
+    line-height: var(--leading-normal);
+    letter-spacing: var(--tracking-control);
+  }
   .type-caption {
     font-family: var(--font-text);
     font-size: var(--text-caption);
     line-height: var(--leading-normal);
   }
-  .type-eyebrow {
+  /* Tabular figures, and deliberately NO `frac`. The fraction feature makes
+   * "1/3" pretty and makes everything else wrong: it stacked the slot
+   * meter's "0/8" into a numerator over a denominator, and did the same to
+   * a DOI's "10.1145/3491101", a date, and a version number. This product
+   * writes ratios and identifiers far more often than it writes fractions. */
+  .type-quantity {
     font-family: var(--font-mono);
-    font-size: var(--text-eyebrow);
+    font-size: var(--text-quantity);
     font-weight: 500;
     line-height: var(--leading-normal);
+    font-feature-settings: normal;
+    font-variant-numeric: tabular-nums;
+  }
+  /* A counted quantity the eye should read first: a tally, a total, a
+   * per-cell n called out on its own. Same face and same tabular figures as
+   * every other measurement in the app, so a large count and a small one are
+   * still the same kind of thing. */
+  .type-quantity-lg {
+    font-family: var(--font-mono);
+    font-size: var(--text-quantity-lg);
+    font-weight: 500;
+    line-height: var(--leading-tight);
+    font-feature-settings: normal;
+    font-variant-numeric: tabular-nums;
+  }
+  .type-legend {
+    font-family: var(--font-sans);
+    font-size: var(--text-legend);
+    font-weight: 600;
+    line-height: var(--leading-normal);
     text-transform: uppercase;
-    letter-spacing: var(--tracking-eyebrow);
+    letter-spacing: var(--tracking-legend);
   }
 
   /* The workspace's one split geometry: a measured column plus a rail that
-   * grows with the window between a floor and a cap, instead of a fixed rail
-   * beside an unbounded column that gets relatively slimmer on every wider
-   * screen. Single column until the same breakpoint Tailwind's `lg:` uses,
-   * so call sites can still write `.split-rail lg:grid` conditionals if a
-   * screen needs to. */
+   * grows with the window between a floor and a cap. Single column until the
+   * same breakpoint Tailwind's `lg:` uses. Unchanged contract. */
   .split-rail {
     display: grid;
     grid-template-columns: 1fr;
@@ -264,61 +446,558 @@ body::before {
   }
 }
 
-/* The lifted card: an interactive object that rises a little on hover and
- * settles back on press. Applied together with `shadow-brutal`. Pointer and
- * keyboard both trigger :active; reduced-motion (rule in tokens.css) keeps the
- * states, just without travel. */
-.keycap {
-  transition:
-    transform var(--motion-standard) var(--ease-key),
-    box-shadow var(--motion-standard) var(--ease-key),
-    filter var(--motion-fast) var(--ease-out);
+/* ---- ONE EMPHASIS -----------------------------------------------------
+ * The whole colour discipline of this app is two rules:
+ *
+ *   A FILL is an action you can take. It is always the accent, and there is
+ *   at most one primary fill on a screen.
+ *   AN AXIS MARK is where you are. It is a rule on the spine plus a cleared
+ *   ground; it is never a fill.
+ *
+ * Written unlayered and in one place because a control's foreground and its
+ * background are a single decision, and splitting them across two utilities
+ * is how a control ends up ink-on-ink and invisible. */
+
+/* The next action in its region. Two of these inside ONE region means one of
+ * them is wrong; across the two panels of the workspace (send / review) two is
+ * correct, and tokens.css documents why.
+ *
+ * Every one of these classes carries its own `:disabled` rule. They are
+ * UNLAYERED, so they outrank Tailwind's `disabled:` utilities no matter what a
+ * call site writes: without these rules a disabled primary button kept the full
+ * accent fill at opacity 1, which made the one thing on a screen that could NOT
+ * be pressed look like the one thing the researcher was meant to press. And a
+ * refused control must not land on `--zone-9` either, because that value
+ * already means "you are here" (the axis mark's cleared ground) and "hover" —
+ * one surface value cannot carry three jobs. Refused controls therefore sit in
+ * the well, framed, with muted ink: recessed rather than tinted. */
+.control-primary {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
 }
-.keycap:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-brutal-lg);
+.control-primary:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--accent) 88%, var(--ink));
+  border-color: color-mix(in srgb, var(--accent) 88%, var(--ink));
 }
-.keycap:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-brutal-sm);
-  transition-duration: var(--motion-press);
+.control-primary:disabled,
+.control-ink:disabled,
+.control-primary[aria-disabled="true"],
+.control-ink[aria-disabled="true"] {
+  background-color: var(--well);
+  border-color: var(--border);
+  color: var(--text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
-/* A soft typing indicator for the composer prompt: a gently pulsing dot, not
- * a hard blinking block. Reduced-motion stops the pulse (rule in tokens.css). */
-@keyframes cursor-pulse {
+/* "You are here": a nav item, a tab, a selected segment. A cleared ground with
+ * the accent ruled down the edge the strip is ruled against, and the label at
+ * full ink. It reads as position rather than as an action precisely because
+ * nothing is filled.
+ *
+ * Named `.control-axis`, not `.control-struck`: in this world a STRUCK line
+ * means superseded (see the four marks), so a class called "struck" collided
+ * head-on with the vocabulary it sits inside. The two legacy aliases this world
+ * inherited (`.control-struck`, `.control-filtration`) are gone rather than
+ * kept: dead paint in a stylesheet is an invitation to use the old world's
+ * words again. */
+.control-axis {
+  position: relative;
+  /* NO fill. This class's own contract says an axis mark is "a rule on the
+   * spine, never a fill", and it was painting `--zone-9` anyway — the same
+   * value the `subtle` button variant and the Accept chip use for an ACTION.
+   * One surface value carried both "where you are" and "something you can
+   * press", and only a 3px rule told them apart. Position is now the rule plus
+   * full-ink weight against muted siblings; nothing else in the strip is
+   * inked, so "you are here" reads before the rule is even noticed. */
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--text);
+  font-weight: 600;
+}
+.control-axis::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 62%;
+  width: var(--rule-heavy);
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: var(--accent);
+}
+/* On a horizontal strip the axis runs under the label rather than beside it:
+ * the mark always sits on the edge the strip is ruled against. */
+.axis-under::before {
+  left: 18%;
+  right: 18%;
+  top: auto;
+  bottom: 0;
+  width: auto;
+  height: var(--rule-heavy);
+  transform: none;
+}
+
+/* An ink-filled control: reserved for a confirming or destructive commit
+ * where the accent would misread as "the helpful next step". */
+.control-ink {
+  background-color: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.control-ink:hover:not(:disabled) {
+  background-color: var(--zone-1);
+  border-color: var(--zone-1);
+}
+
+/* ---- The mark system --------------------------------------------------
+ * Four marks and no fifth. Everything provenance needs to say is said by a
+ * mark's SIZE and FORM, so every state survives a greyscale print and a
+ * colour-blind reader, and the legend can be read once and remembered.
+ *
+ * Five magnitudes. Like a star atlas, a brighter object is a bigger dot, not
+ * a different colour — the comparison is pre-attentive and needs no key. The
+ * steps are tuned so the FAINTEST one still reads at 14px line height: a mark
+ * that disappears at the size it ships at is not a fainter mark, it is a
+ * missing one. */
+.mag {
+  display: inline-block;
+  flex: none;
+  border-radius: 999px;
+  background: var(--mark);
+  transition:
+    width var(--motion-entrance) var(--ease-out),
+    height var(--motion-entrance) var(--ease-out);
+}
+/* Five steps across 5px to 14px, so ADJACENT magnitudes differ by ~2 to 3px on
+ * a mark whose smallest is 5px: a step you can see without the two being side
+ * by side. The first ramp ran 4/6/8/10/12, which made the extremes readable and
+ * the neighbours indistinguishable, and a scale whose middle cannot be read is
+ * a three-step scale wearing five labels.
+ *
+ * The floor is 5px rather than smaller because these ship inside a 14px line
+ * and a mark that vanishes at the size it actually renders at is not a fainter
+ * mark, it is a missing one. */
+.mag-1 {
+  width: 5px;
+  height: 5px;
+}
+.mag-2 {
+  width: 7px;
+  height: 7px;
+}
+.mag-3 {
+  width: 9.5px;
+  height: 9.5px;
+}
+.mag-4 {
+  width: 12px;
+  height: 12px;
+}
+.mag-5 {
+  width: 14px;
+  height: 14px;
+}
+
+/* Unsourced: seen and logged, not identified. An open ring — the atlas's own
+ * notation for an object with no catalogue entry. Never a colour on its own,
+ * and never the same shape as a grounded mark at any size. */
+.mark-unsourced {
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: 1.5px dashed var(--unsourced);
+  background: transparent;
+}
+
+/* Conflict: two marks claiming one coordinate — a double star. Nothing else
+ * in the system doubles, so a doubled mark always means exactly one thing. */
+.mark-conflict {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 14px;
+  height: 8px;
+}
+.mark-conflict::before,
+.mark-conflict::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--conflict);
+}
+.mark-conflict::before {
+  left: 0;
+}
+.mark-conflict::after {
+  right: 0;
+}
+
+/* Superseded: struck once and left legible. Nothing in this product is ever
+ * erased; an amendment strikes the line it replaces and both stay readable. */
+.superseded {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--superseded);
+  color: var(--superseded);
+}
+
+/* Held back — the old world's name for an undecided field. Kept as the dashed
+ * treatment of the open ring, applied to a whole region rather than a dot. */
+.held-back {
+  outline: var(--rule-hair) dashed var(--unsourced);
+  outline-offset: -2px;
+}
+
+/* ---- The plate --------------------------------------------------------
+ * A printed plate lying on the desk. Rounded, hairline-framed, and lifted
+ * just off the ground. */
+.plate,
+.sheet {
+  background: var(--surface);
+  border: var(--rule-hair) solid var(--border);
+  border-radius: var(--radius-plate);
+  box-shadow: var(--shadow-plate);
+}
+.sheet-askew {
+  /* Legacy class kept for API compat; plates sit square. */
+  transform: none;
+}
+
+/* On the light table the plate is lit FROM BENEATH, so its top edge catches
+ * the light and its shadow deepens under it. That is the difference between a
+ * plate on a light box and a card on a dark page, and without it the dark
+ * rendition was just the generic dark-mode prior: a fill a few percent above
+ * the ground. Light-rendition plates get none of this, because a sheet on a
+ * desk in daylight has no edge glow. */
+:root[data-theme="dark"] .plate,
+:root[data-theme="dark"] .sheet {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--zone-4) 42%, transparent),
+    var(--shadow-plate);
+}
+
+/* A plate being moved: it lifts toward the lamp and settles back on press.
+ * Pointer and keyboard both trigger :active. */
+.plate-lift,
+.sheet-lift {
+  transition:
+    transform var(--motion-standard) var(--ease-settle),
+    box-shadow var(--motion-standard) var(--ease-settle),
+    border-color var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
+}
+.plate-lift:hover,
+.sheet-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lifted);
+}
+.plate-lift:active,
+.sheet-lift:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-mark);
+  transition-duration: var(--motion-instant);
+}
+
+/* ---- Motion -----------------------------------------------------------
+ * The world's native motion, authored once rather than scattered as hover
+ * effects. Five moves, each with a job:
+ *
+ *   land      a plate arriving on the draft — the one watchable move
+ *   develop   a mark coming up after the plate it belongs to has landed
+ *   travel    the axis mark moving to a new position instead of cutting
+ *   blink     the comparator alternating two plates so the change moves
+ *   drift     the tracked field, the only ambient motion in the app
+ *
+ * Every one of them is a token duration, and the reduced-motion rule in
+ * tokens.css jumps each to its end frame. */
+
+/* A plate landing: it arrives with mass, overshoots once, and squares up onto
+ * the draft it has just become part of. */
+@keyframes plate-land {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.plate-land,
+.sheet-land {
+  animation: plate-land var(--motion-settle) var(--ease-settle) both;
+}
+
+/* A mark developing after its plate has landed — the way an object comes up
+ * out of a long exposure. Staggered by a delay set at the call site. */
+@keyframes mark-develop {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.mark-develop {
+  animation: mark-develop var(--motion-entrance) var(--ease-out) both;
+}
+
+/* A log entry arriving: it rises a little and clears, from an already-visible
+ * default so nothing is ever hidden by animation timing. */
+@keyframes entry-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.entry-rise {
+  animation: entry-rise var(--motion-entrance) var(--ease-out) both;
+}
+
+/* The comparator. Two plates alternate on a beat and the only thing that
+ * appears to move is what actually changed — the blink comparator, which is
+ * how a moving object was found on a photographic plate, and exactly what a
+ * protocol diff is asking a reader to do. */
+@keyframes comparator-blink {
+  0%,
+  46% {
+    opacity: 1;
+  }
+  54%,
+  100% {
+    opacity: 0;
+  }
+}
+.comparator-a {
+  animation: comparator-blink var(--motion-blink) steps(1, end) infinite;
+}
+.comparator-b {
+  animation: comparator-blink var(--motion-blink) steps(1, end) infinite reverse;
+}
+
+/* A compiled value changing: the characters that changed flip in place,
+ * sequentially, so the draft visibly updates rather than silently
+ * re-rendering. The per-character delay is set inline from --motion-cascade. */
+@keyframes cascade-flip {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.35em);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0.06em);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.cascade-char {
+  display: inline-block;
+  animation: cascade-flip var(--motion-standard) var(--ease-out) both;
+}
+
+/* The tracked field: the graticule drifting under the record the way a
+ * telescope's field drifts against its mount. The only ambient motion in the
+ * app, and low enough in amplitude that it is felt rather than watched. */
+@keyframes field-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(calc(var(--grid-pitch) * -1), calc(var(--grid-pitch) * -1), 0);
+  }
+}
+.field-drift {
+  animation: field-drift var(--motion-drift) linear infinite;
+}
+
+/* A faint object pulsing as it is picked out of the field — used only for the
+ * live/streaming affordance, never as decoration. */
+@keyframes mark-pulse {
   0%,
   100% {
-    opacity: 0.35;
+    opacity: 0.32;
+    transform: scale(0.86);
   }
   50% {
     opacity: 1;
+    transform: scale(1);
   }
+}
+.mark-pulse {
+  animation: mark-pulse 1.5s var(--ease-in-out) infinite;
 }
 .cursor-block {
   display: inline-block;
   width: 0.4em;
   height: 0.4em;
   margin-left: 0.15em;
-  border-radius: 9999px;
   vertical-align: middle;
+  border-radius: 999px;
   background: currentColor;
-  animation: cursor-pulse 1.4s ease-in-out infinite;
+  animation: mark-pulse 1.5s var(--ease-in-out) infinite;
 }
 
-/* Legacy hook: the console panels used to layer extra scanlines. The study
- * desk has none, so this is now a no-op kept only so existing class names
- * don't dangle. */
+/* A value that has just been written to the draft, held in the accent's wash
+ * for a beat and then released — so a change that happened off-screen is
+ * still findable when the reader scrolls back to it. */
+@keyframes just-written {
+  from {
+    background-color: var(--accent-wash);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.just-written {
+  animation: just-written var(--motion-settle) var(--ease-out) both;
+  animation-duration: 1.6s;
+}
+
+/* A refusal: one shake, never two. Used on a validation failure. */
+@keyframes refuse {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+.refuse {
+  animation: refuse var(--motion-standard) var(--ease-in-out) 1;
+}
+
+/* Legacy hooks kept so existing class names don't dangle; this world has
+ * neither scanlines nor a hatch. */
 .crt-scanlines {
   position: relative;
 }
 
-/* Focus ring — a clear, high-contrast ring in the object's own colour ink,
- * drawn just outside it so it always reads against the surface beneath. */
-:where(button, a, [tabindex], input, textarea, select):focus-visible {
-  outline: 2.5px solid var(--focus-ring);
+/* ---- The steer dial ---------------------------------------------------
+ * A range input ships with a platform track and thumb that belong to no
+ * design system, and it is the one control in this app the researcher drags
+ * rather than clicks, so it is drawn here in full rather than left to the UA.
+ *
+ * The track is a gradient because the quantity is a continuum: the field
+ * fills from quiet to accent as the assistant takes on more of the work, so
+ * the colour itself carries which way is "more". The thumb is a plate riding
+ * that field, ringed in the accent so it stays findable at either end. */
+.steer-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 9rem;
+  height: 1.25rem;
+  background: transparent;
+  cursor: ew-resize;
+}
+.steer-range::-webkit-slider-runnable-track {
+  height: 0.625rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--well) 0%,
+    color-mix(in srgb, var(--accent) 35%, var(--well)) 38%,
+    color-mix(in srgb, var(--accent) 72%, var(--well)) 70%,
+    var(--accent) 100%
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--control-edge) 45%, transparent);
+}
+.steer-range::-moz-range-track {
+  height: 0.625rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--well) 0%,
+    color-mix(in srgb, var(--accent) 35%, var(--well)) 38%,
+    color-mix(in srgb, var(--accent) 72%, var(--well)) 70%,
+    var(--accent) 100%
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--control-edge) 45%, transparent);
+}
+.steer-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -2px;
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-mark);
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+.steer-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-mark);
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+.steer-range:hover::-webkit-slider-thumb,
+.steer-range:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.16);
+}
+.steer-range:hover::-moz-range-thumb,
+.steer-range:focus-visible::-moz-range-thumb {
+  transform: scale(1.16);
+}
+/* The input's own box is transparent, so the default focus ring would draw
+ * around nothing; it goes on the thumb instead, where the eye already is. */
+.steer-range:focus-visible {
+  outline: none;
+}
+.steer-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--focus-ring);
+}
+.steer-range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--focus-ring);
+}
+
+/* ---- Focus ------------------------------------------------------------
+ * A clear, high-contrast ring in the accent, drawn just outside the object so
+ * it always reads against whatever it sits on.
+ *
+ * This rule is UNLAYERED, which means it outranks Tailwind's utilities no
+ * matter their specificity: `outline-none` at a call site cannot switch it off.
+ * That is deliberate (a focus ring is not a styling preference), so the opt-out
+ * is explicit and named: `.focus-ring-owned` says "something else draws this
+ * element's focus", used where a 2px offset ring would be clipped by an
+ * ancestor's overflow and the visible focus is drawn on the row instead.
+ *
+ * It sets no border-radius. An earlier version did, to shape the ring, and
+ * because `outline` simply follows the element's own radius that quietly
+ * ROUNDED every focused element: the command palette's full-width input grew
+ * 8px corners the moment it took focus. Each element keeps its own radius and
+ * the ring follows it. */
+:where(button, a, [tabindex], input, textarea, select, [role="slider"]):not(
+    .focus-ring-owned
+  ):focus-visible {
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-  border-radius: var(--radius-input);
 }
 
 /* Clerk's hosted sign-in widget (auth.tsx CLERK_APPEARANCE) mounts as plain
@@ -399,80 +1078,57 @@ body::before {
 .clerk-embed .cl-formButtonPrimary {
   background: var(--accent) !important;
   color: var(--accent-contrast) !important;
+  border-radius: var(--radius-control) !important;
   opacity: 1 !important;
 }
 .clerk-embed .cl-formButtonPrimary:disabled {
   opacity: 0.5 !important;
 }
 
-/* ---- Hero: the living literature constellation + core-loop showcase ----
- * All timing is a motion token; every colour is a token (set in the SVG/JSX
- * via var()). Under prefers-reduced-motion the global rule in tokens.css jumps
- * each of these to its end frame, so the hero simply arrives already settled. */
-
-/* The constellation breathes: a slow, low-amplitude drift so the field feels
- * alive without ever pulling the eye off the headline. */
+/* ---- The constellation ------------------------------------------------
+ * The literature graph, drawn as what it already is: a field of objects at
+ * measured positions. All timing is a motion token; every colour is a token
+ * set in the SVG/JSX via var(). Under prefers-reduced-motion the global rule
+ * in tokens.css jumps each of these to its end frame. */
+.constellation-drift {
+  transform-origin: center;
+  animation: constellation-drift var(--motion-drift) var(--ease-in-out) infinite
+    alternate;
+}
 @keyframes constellation-drift {
   from {
     transform: translate3d(0, 0, 0) scale(1);
   }
   to {
-    transform: translate3d(-1.2%, 1%, 0) scale(1.03);
+    transform: translate3d(-0.8%, 0.7%, 0) scale(1.02);
   }
 }
-.constellation-drift {
-  transform-origin: center;
-  animation: constellation-drift 26s var(--ease-in-out) infinite alternate;
-}
 
-/* A few nodes glow "grounded" — as if freshly cited — on staggered cycles. */
+/* A few objects brighten as if freshly cited, on staggered cycles. */
 @keyframes constellation-glow {
   0%,
   100% {
-    opacity: 0.35;
+    opacity: 0.4;
   }
   50% {
-    opacity: 0.95;
+    opacity: 1;
   }
 }
 .constellation-glow {
-  animation: constellation-glow 5.5s var(--ease-in-out) infinite;
+  animation: constellation-glow 6s var(--ease-in-out) infinite;
 }
 .constellation-glow.glow-2 {
-  animation-delay: 1.8s;
+  animation-delay: 2s;
 }
 .constellation-glow.glow-3 {
-  animation-delay: 3.4s;
+  animation-delay: 3.8s;
 }
 
-/* The one watchable move: a proposed design-move card settling into place —
- * the same fold-into-draft gesture the real conversation spends (--motion-settle,
- * --ease-key). */
-@keyframes hero-fold {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
+/* The hero replays the one watchable move: a proposal landing on the draft,
+ * with the same mass and settle the real conversation spends. */
 .hero-fold-in {
-  animation: hero-fold var(--motion-settle) var(--ease-key) both;
-}
-
-/* Grounding chips light after the move lands. */
-@keyframes hero-glow-in {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  animation: plate-land var(--motion-settle) var(--ease-settle) both;
 }
 .hero-glow-in {
-  animation: hero-glow-in var(--motion-entrance) var(--ease-out) both;
+  animation: entry-rise var(--motion-entrance) var(--ease-out) both;
 }

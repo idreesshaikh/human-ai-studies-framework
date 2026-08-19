@@ -17,6 +17,7 @@ F6.1 (the full chain exports both directions).
 import json
 from pathlib import Path
 
+import model_double
 import pytest
 from fastapi.testclient import TestClient
 from middleware.app import create_app
@@ -60,6 +61,17 @@ _SEEDS = [
 ]
 
 STUDY = "demo-study"
+
+
+@pytest.fixture(autouse=True)
+def _model(monkeypatch):
+    """Every conversation test runs through the model path, because that is
+    the only path: the design conversation requires a model and says so when
+    it has none (``design_assistant.ModelUnavailable``). The double keeps the
+    suite hermetic; everything it drives is the real implementation."""
+    monkeypatch.setattr(
+        assistant, "make_client", lambda *a, **k: model_double.plausible()
+    )
 
 
 @pytest.fixture()
@@ -179,7 +191,11 @@ def _drive_to_valid_draft(client) -> dict:
     """Accept the template-choice move the design script proposes → a
     complete, validating protocol draft, all in-conversation (F1.1)."""
     _ask(client, _STUDY_SKETCH)
-    reply = _ask(client, "what design and statistics should I use?")
+    reply = _ask(client, (
+        "what design and statistics should I use? I was thinking "
+        "within-subjects, with each developer doing both conditions "
+        "counterbalanced"
+    ))
     template_moves = [m for m in reply["moves"] if m["kind"] == "choose-template"]
     assert template_moves, "the design script must propose a template"
     for m in template_moves:
@@ -242,6 +258,39 @@ def test_delete_removes_a_study_with_moves_and_an_approval(client):
         assert deleted.status_code == 200, deleted.text
     finally:
         event.remove(db_mod._engine, "checkout", _enable_fk)
+
+
+def test_study_created_with_seeded_protocol_draft(client):
+    """Templates-first (P1-2): creating a study with a ``protocol`` body
+    lands that protocol as the draft, so the design conversation continues
+    from a merged template instead of a blank page (compiles take the
+    current draft as their base)."""
+    protocol = {
+        "study": {"title": "Seeded", "design": "within-subjects"},
+        "researchQuestions": [{"id": "RQ-1", "text": "A question?"}],
+    }
+    r = client.post(
+        "/projects/implicit/studies", json={"name": "Seeded", "protocol": protocol}
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["id"] == "seeded"
+
+    export = client.get("/studies/seeded/conversation/export").json()
+    assert "Seeded" in export["currentDraft"]
+    assert "RQ-1" in export["currentDraft"]
+
+
+def test_study_rejects_non_protocol_seed(client):
+    """A seed that is not a compiled protocol (no study/researchQuestions)
+    is a 422 naming the shape — and leaves no half-created study row."""
+    r = client.post(
+        "/projects/implicit/studies",
+        json={"name": "Broken", "protocol": {"foo": "bar"}},
+    )
+    assert r.status_code == 422, r.text
+    retry = client.post("/projects/implicit/studies", json={"name": "Broken"})
+    assert retry.status_code == 200, retry.text
+    assert retry.json()["id"] == "broken"
 
 
 def test_no_draft_applies_without_approval(client):
@@ -324,12 +373,29 @@ def test_evasive_conversation_names_unresolved_slots(client):
 # --------------------------------------------------------------- F2.3 / F3.2
 
 
-def test_unsourced_move_compiles_with_grounding_recorded(client):
-    """F2.3: the over-trust script's experience-level move is unsourced; it
-    still compiles, and the elicitation record marks it grounding 'none'."""
+def test_unsourced_move_compiles_with_grounding_recorded(client, monkeypatch):
+    """F2.3: a move the literature can't settle - a scoping decision that is
+    the researcher's own - still compiles, and the record marks it
+    ungrounded rather than borrowing a citation to look sourced."""
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: model_double.always(
+            {
+                "text": "Your call, not the literature's.",
+                "moves": [
+                    model_double.move(
+                        "set-parameter",
+                        "conditions",
+                        "Experience level: junior vs. senior",
+                    )
+                ],
+            }
+        ),
+    )
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
     unsourced = [m for m in reply["moves"] if not m["grounding"]]
-    assert unsourced, "the experience-level scoping move should be unsourced"
+    assert unsourced, "a researcher-judgment move should be unsourced"
     export = client.get(f"/studies/{STUDY}/conversation/export").json()
     all_moves = [m for t in export["turns"] for m in t["moves"]]
     assert any(m["grounding"] == [] for m in all_moves)
@@ -387,13 +453,8 @@ def test_reloading_the_conversation_recomputes_understanding(client):
 
 
 def _fake_llm(reply_json: dict):
-    """A provider whose ``post`` returns ``reply_json`` verbatim, wired in
-    place of ``assistant.make_client`` — no network, no real key."""
-
-    def post(url, body, headers):
-        return {"choices": [{"message": {"content": json.dumps(reply_json)}}]}
-
-    return assistant.MistralProvider("test-key", post=post)
+    """A model that gives one fixed reply (``model_double.always``)."""
+    return model_double.always(reply_json)
 
 
 def test_llm_configured_and_healthy_produces_an_llm_sourced_turn(client, monkeypatch):
@@ -423,33 +484,93 @@ def test_llm_configured_and_healthy_produces_an_llm_sourced_turn(client, monkeyp
     assert grounded_refs == {"corpus:trust-in-ai-code-generation"}
 
 
-def test_llm_failure_falls_back_to_the_unchanged_scripted_path(client, monkeypatch):
-    """NFR-4/5: a configured-but-failing provider degrades exactly to
-    today's scripted behavior — never a partial/hybrid turn."""
+def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(
+    client, monkeypatch
+):
+    """A failing provider ends the turn honestly, without ending the session.
 
-    def raising_client(*a, **k):
-        class _Raises:
-            model = "test"
-            api_key = "k"
-            base_url = "https://example.invalid/chat/completions"
+    Two failure modes are both wrong. The removed keyword assistant answered
+    *something* — a pattern match dressed as a design conversation, which a
+    researcher had no way to tell apart from the real thing. A bare 503 went
+    the other way: it took the message they had just typed and replaced the
+    thread with an error banner.
 
-            def post(self, *a, **k):
-                raise TimeoutError("simulated provider outage")
+    The holding turn is neither. It proposes nothing, cites nothing, and says
+    what happened, so it cannot be mistaken for the conversation and cannot
+    dead-end it either.
+    """
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())
+    r = client.post(
+        f"/studies/{STUDY}/conversation/turns",
+        json={"text": "I think junior developers over-trust AI-generated code"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["source"] == "unavailable"
+    assert body["moves"] == []
+    assert body["recommendations"] == []
+    assert body["text"]
 
-        return _Raises()
 
-    monkeypatch.setattr(assistant, "make_client", raising_client)
-    turn = _ask(client, "I think junior developers over-trust AI-generated code")
-    assert turn["source"] == "scripted"
-    refs = {g["ref"] for m in turn["moves"] for g in m["grounding"]}
-    assert "corpus:trust-in-ai-code-generation" in refs
+def test_a_holding_turn_is_never_written_into_the_record(client, monkeypatch):
+    """An outage is not part of the study's design record — and a stored
+    "I couldn't reach the model" would be replayed to that model as history
+    on the next turn."""
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())
+    client.post(f"/studies/{STUDY}/conversation/turns", json={"text": "a thought"})
+
+    turns = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
+    assert [t["role"] for t in turns] == ["researcher"]
+    assert turns[0]["text"] == "a thought"
 
 
-def test_no_llm_key_configured_is_unaffected_by_the_new_seam(client):
-    """The default test environment has no MISTRAL_API_KEY / LLM_BASE_URL —
-    confirms the common case is untouched by this change."""
-    turn = _ask(client, "I think junior developers over-trust AI-generated code")
-    assert turn["source"] == "scripted"
+def test_the_researchers_own_turn_survives_a_model_outage(client, monkeypatch):
+    """They should never have to retype what they said because the model
+    was down."""
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())
+    client.post(
+        f"/studies/{STUDY}/conversation/turns", json={"text": "a thought I typed once"}
+    )
+    turns = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
+    assert any(t["text"] == "a thought I typed once" for t in turns)
+
+
+def test_no_model_configured_names_the_setting_that_fixes_it(client, monkeypatch):
+    """No key at all is a different cause from an outage, so it gets a
+    different sentence: the one that says what to do about it."""
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: None)
+    r = client.post(
+        f"/studies/{STUDY}/conversation/turns", json={"text": "anything at all"}
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["source"] == "unavailable"
+    assert "MISTRAL_API_KEY" in body["text"]
+
+
+def test_a_flaky_provider_is_retried_before_giving_up(client, monkeypatch):
+    """A blip - a 429, a truncated body - is the common failure and is
+    usually gone by the next call, so one retry saves the turn."""
+    calls = {"n": 0}
+    good = model_double.always(
+        {"text": "Second time lucky.", "moves": []}
+    )
+
+    def flaky(url, body, headers):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise TimeoutError("one blip")
+        return good.post(url, body, headers)
+
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: assistant.MistralProvider("test-key", post=flaky),
+    )
+    turn = _ask(client, "does a blip lose my turn?")
+    assert turn["source"] == "llm"
+    assert turn["text"] == "Second time lucky."
+    assert calls["n"] > 1, "the first attempt must have been retried"
 
 
 # ------------------------------------------- repetition + coverage steering
@@ -472,7 +593,7 @@ _CONDITIONS_MOVE = {
 
 
 def _capturing_llm(reply_json: dict, captured: list):
-    """A ``_fake_llm`` that also records every request body sent."""
+    """A fixed-reply model that also records every request body sent."""
 
     def post(url, body, headers):
         captured.append(body)
@@ -521,23 +642,38 @@ def test_design_state_reaches_the_llm(client, monkeypatch):
         if "Candidate menu this turn:" in body["messages"][-1]["content"]
     )
     assert "Design state so far:" in user
-    assert "Accepted (already in the draft — do not re-propose):" in user
+    assert "Accepted (already in the draft, do not re-propose):" in user
     assert "Measure review latency." in user
-    assert "Rejected (the researcher said no — do not re-pitch):" in user
+    assert "Rejected (the researcher said no, do not re-pitch):" in user
     assert "Run a three-arm condition split." in user
     assert "participants" in user.split("Empty:")[-1]
 
 
-def test_scripted_repeat_swaps_to_coverage_followup(client):
-    """No LLM key: repeating a prompt doesn't re-run the same script — the
-    second reply proposes nothing and names the draft's actual gaps."""
-    first = _ask(client, "I think junior developers over-trust AI-generated code")
-    assert first["moves"], "the over-trust script must propose moves"
-    second = _ask(client, "I think junior developers over-trust AI-generated code")
-    assert second["source"] == "scripted"
-    assert second["moves"] == []
-    assert "still empty" in second["text"]
-    assert "participants" in second["text"]
+def test_a_re_proposed_move_never_reaches_the_researcher_twice(client, monkeypatch):
+    """Enforcement, not instruction: the prompt asks the model not to repeat
+    itself, and this guarantees it regardless of whether the model complies.
+    A model that proposes the identical move every turn gets filtered to
+    nothing after the first."""
+    reply = {
+        "text": "Here's a measure.",
+        "moves": [
+            model_double.move(
+                "add-measure",
+                "measures",
+                "Review latency before accept/reject",
+                refs=("corpus:trust-in-ai-code-generation",),
+            )
+        ],
+    }
+    monkeypatch.setattr(
+        assistant, "make_client", lambda *a, **k: model_double.always(reply)
+    )
+    first = _ask(client, "how should I measure review depth?")
+    assert len(first["moves"]) == 1
+    _accept(client, first["moves"][0]["moveId"])
+
+    second = _ask(client, "how should I measure review depth?")
+    assert second["moves"] == [], "an accepted move must never be re-pitched"
 
 
 def _conversation_request(captured: list) -> str:

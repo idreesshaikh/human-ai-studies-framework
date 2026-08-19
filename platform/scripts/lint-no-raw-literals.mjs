@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-/* Guards the token system: no raw hex / ms / px values in components.
+/* Guards the token system: no raw hex / ms / px values, and no raw type
+ * sizes, in components.
  * Tokens live in src/styles/*.css; every other file consumes them through
  * Tailwind utilities or var().
  *
@@ -7,6 +8,7 @@
  *   - hex colours   (#fff, #4338ca, #4338caff)
  *   - px literals    (12px), including Tailwind arbitrary values [12px]
  *   - ms/s durations (200ms, 0.4s)
+ *   - raw type sizes  (text-xs, text-sm, text-[0.65rem]) — size is a role
  * Tailwind scale utilities (size-2.5, min-h-11, max-w-40) are unitless and
  * pass. Exit 1 on any hit. */
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -15,9 +17,20 @@ import { join, relative } from "node:path";
 const ROOT = new URL("../src", import.meta.url).pathname;
 const SKIP_DIR = /\/styles$/;
 const PATTERNS = [
-  { name: "hex colour", re: /#[0-9a-fA-F]{3,8}\b/g },
-  { name: "px literal", re: /\b\d+(?:\.\d+)?px\b/g },
-  { name: "ms/s duration", re: /\b\d+(?:\.\d+)?m?s\b/g },
+  { name: "raw hex colour", re: /#[0-9a-fA-F]{3,8}\b/g },
+  { name: "raw px literal", re: /\b\d+(?:\.\d+)?px\b/g },
+  { name: "raw ms/s duration", re: /\b\d+(?:\.\d+)?m?s\b/g },
+  /* Type size is a ROLE, not a utility. Tailwind's own text-* scale and any
+   * arbitrary text-[…] size both bypass the nine roles in index.css, which is
+   * where family, leading, weight and numeral behaviour are decided together
+   * — `font-mono text-xs` in particular looked right and silently shipped
+   * proportional figures, so a column of measurements did not line up. Colour
+   * utilities (text-text-muted, text-accent) are untouched: only a SIZE is
+   * flagged. */
+  {
+    name: "raw type size (use a type-* role: index.css)",
+    re: /\btext-(?:xs|sm|base|lg|xl|[2-9]xl|\[[^\]]+\])\b/g,
+  },
 ];
 
 /* The layout contract's four measures (`src/lib/layout.ts`) plus `bubble`
@@ -97,7 +110,7 @@ for (const file of walk(ROOT)) {
       const m = re.exec(line);
       if (m) {
         console.error(
-          `${file}:${i + 1}  raw ${name} "${m[0]}" — use a token instead`,
+          `${file}:${i + 1}  ${name} "${m[0]}" — use a token instead`,
         );
         hits++;
       }
@@ -122,4 +135,4 @@ if (hits > 0) {
   console.error(`\n✗ ${hits} raw literal(s) found (NFR-12 F1). Tokens only.`);
   process.exit(1);
 }
-console.log("✓ no raw hex/ms/px literals in components (NFR-12 F1)");
+console.log("✓ no raw hex/ms/px literals or type sizes in components (NFR-12 F1)");

@@ -30,7 +30,7 @@ def synthetic_rows() -> list[dict]:
     def ev(session, participant, condition, seq, minute, type_, payload):
         rows.append(
             {
-                "source": "cognitive-overlay",
+                "source": "tern",
                 "ts": f"2026-07-11T{10 + int(minute) // 60:02d}:"
                 f"{int(minute) % 60:02d}:00.000Z",
                 "sessionId": session,

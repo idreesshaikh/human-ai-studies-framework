@@ -307,6 +307,18 @@ DESIGN_STATE = {
     "proposed": [],
     "filled": ["researchQuestions", "measures"],
     "empty": ["participants", "statisticalPlan"],
+    # What the protocol itself still lacks - a different list from the eight
+    # conversation sections above, and the only one that decides whether the
+    # draft compiles.
+    "outstandingSlots": [
+        {
+            "key": "participants.planned",
+            "label": "how many participants",
+            "question": "How many participants can you realistically recruit?",
+            "valueType": "integer",
+            "choices": [],
+        }
+    ],
     "templateId": None,
     "templateIds": [],
     "keyTexts": ["Measure review latency.", "Run a three-arm condition split."],
@@ -324,7 +336,7 @@ def test_propose_turn_threads_design_state_into_the_request():
     assert "Design state so far:" in user
     assert "Measure review latency." in user  # accepted — do not re-propose
     assert "Run a three-arm condition split." in user  # rejected — do not re-pitch
-    assert "Empty: participants, statisticalPlan" in user
+    assert "The protocol still needs: how many participants" in user
     system = captured[0]["messages"][0]["content"]
     assert "NEVER re-propose" in system  # the anti-repetition rule is standing
 
@@ -332,7 +344,12 @@ def test_propose_turn_threads_design_state_into_the_request():
 def test_propose_turn_notes_the_accepted_templates_prescribed_statistics():
     captured: list = []
     client = _capturing_client({"text": "Noted.", "moves": []}, captured)
-    state = {**DESIGN_STATE, "templateId": "metr-rct-v1", "empty": []}
+    state = {
+        **DESIGN_STATE,
+        "templateId": "metr-rct-v1",
+        "empty": [],
+        "outstandingSlots": [],
+    }
     design_llm.propose_turn(
         client, "what next?", [], PAPERS, TEMPLATES, design_state=state
     )
@@ -364,7 +381,7 @@ def test_cautions_render_as_advisory_and_the_prompt_says_they_fill_nothing():
         client, "what next?", [], PAPERS, TEMPLATES, design_state=state
     )
     user = captured[0]["messages"][-1]["content"]
-    assert "caution [ethics] (advisory — fills no section):" in user
+    assert "caution [ethics] (advisory, fills no section):" in user
     assert 'set-parameter` move' in design_llm.SYSTEM_PROMPT
     assert 'patch.section` "ethics"' in design_llm.SYSTEM_PROMPT
 

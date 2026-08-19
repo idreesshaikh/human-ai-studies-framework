@@ -168,18 +168,37 @@ def design_shapes() -> list[str]:
     return list(SHAPES)
 
 
-def shape_to_recipe_id(design_shape: str) -> str | None:
-    """Map a design shape to the parameterised recipe that implements it.
+#: Design shapes whose prescribed test has a built-in recipe here. Every shape
+#: gets a *prescription* — the exact test, effect size and correction it calls
+#: for — but PHOENIX emits the analysis plan rather than running the analysis,
+#: so only the shapes below can also be executed in-platform.
+#:
+#: The three absentees (Kruskal-Wallis for multi-group, ART ANOVA for
+#: multi-factorial, Friedman for repeated-measures) are prescribed and named
+#: exactly as the others are; they simply run in the researcher's own notebook.
+#: This map used to list recipe ids for them anyway — ids no registry has —
+#: which would have handed any future caller a dead reference for three of the
+#: eight shapes.
+_SHAPE_RECIPES = {
+    "two-group": "two-group-nonparametric",
+    "paired": "paired-nonparametric",
+    "proportion": "two-proportion",
+    "correlation": "correlation",
+}
 
-    Returns None for 'single-arm' (descriptive only) or unknown shapes.
+
+def shape_to_recipe_id(design_shape: str) -> str | None:
+    """The built-in recipe that runs this shape's prescribed test, if any.
+
+    ``None`` means one of three things, and the caller should treat them
+    alike: the shape is descriptive only (``single-arm``), the shape is
+    unknown, or the prescribed test is not automated in-platform. In every
+    case the prescription itself still names the test to run — use
+    :func:`prescribe` for what to do, and this only for what can be run here.
     """
-    mapping = {
-        "two-group": "two-group-nonparametric",
-        "paired": "paired-nonparametric",
-        "multi-group": "kruskal-wallis",
-        "multi-factorial": "art-anova",
-        "repeated-measures": "friedman",
-        "proportion": "two-proportion",
-        "correlation": "correlation",
-    }
-    return mapping.get(design_shape)
+    return _SHAPE_RECIPES.get(design_shape)
+
+
+def runnable_shapes() -> list[str]:
+    """Design shapes whose prescribed test PHOENIX can run itself."""
+    return [s for s in SHAPES if s in _SHAPE_RECIPES]

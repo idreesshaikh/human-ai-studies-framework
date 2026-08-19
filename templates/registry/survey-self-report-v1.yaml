@@ -2,8 +2,8 @@ templateVersion: 1
 templateId: survey-self-report-v1
 title: Self-report-only survey of AI-assistance experience
 description: |
-  A within-subjects design with no objective performance measure at all —
-  every research question is answered from the end-of-session self-report
+  A within-subjects design with no objective performance measure at all.
+  Every research question is answered from the end-of-session self-report
   (TLX-style subscales: mental demand, effort, frustration). Fills the
   "survey/self-report only" design shape (Phase 22 Wave-1 spread item never
   actually built): a researcher whose idea is purely about developer-
@@ -50,7 +50,7 @@ parameters:
     default: [Researcher]
   ethicsRef:
     type: string
-    default: "ethics application (in preparation; gate blocks data-collection)"
+    default: "pending: not yet obtained"
   outputEndpoint:
     type: string
     default: "http://127.0.0.1:8000/ingest/events"

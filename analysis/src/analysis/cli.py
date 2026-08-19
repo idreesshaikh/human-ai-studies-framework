@@ -80,6 +80,21 @@ def main(argv: list[str] | None = None) -> int:
         "--out", default="results", type=Path, help="output root (default results/)"
     )
 
+    p_notebook = sub.add_parser(
+        "notebook",
+        help="generate the starter notebook + data dictionary "
+        "(the curated handoff; recipes imported, never run)",
+    )
+    add_data_args(p_notebook)
+    p_notebook.add_argument(
+        "--out", default="results", type=Path, help="output root (default results/)"
+    )
+    p_notebook.add_argument(
+        "--dictionary-only",
+        action="store_true",
+        help="write only the standalone data-dictionary.md",
+    )
+
     p_retro = sub.add_parser(
         "retrospective",
         help="draft a self-improvement changelist proposal "
@@ -154,6 +169,11 @@ def main(argv: list[str] | None = None) -> int:
         for c in checks:
             print(("FAIL " if not c.ok else "ok   ") + c.describe())
         return 1 if failures else 0
+
+    if args.command == "notebook":
+        from analysis.notebook_cli import cmd_notebook
+
+        return cmd_notebook(protocol, dataset, study_id, args)
 
     if args.command == "paper":
         from analysis.paper_cli import cmd_paper

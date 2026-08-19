@@ -67,10 +67,10 @@ def _behavioral_events():
 def test_scripted_session_end_to_end(middleware, transcript_path, tmp_path):
     client = middleware
 
-    # 1. Editor leg lands live (source cognitive-overlay).
+    # 1. Editor leg lands live (source tern).
     client.post(
         "/ingest/events",
-        json={"source": "cognitive-overlay", "events": _behavioral_events()},
+        json={"source": "tern", "events": _behavioral_events()},
     )
 
     # 2. Agent leg: live hooks land, then the post-session importer re-posts
@@ -144,7 +144,7 @@ def test_scripted_session_end_to_end(middleware, transcript_path, tmp_path):
     gaps = client.get("/sessions/S1/gaps").json()
     by_source = {s["source"]: s for s in gaps["sources"]}
     assert by_source[SOURCE_AGENT]["complete"] is True
-    assert by_source["cognitive-overlay"]["complete"] is True
+    assert by_source["tern"]["complete"] is True
 
 
 def test_recipes_consume_the_agent_contract(middleware, transcript_path, tmp_path):
@@ -157,7 +157,7 @@ def test_recipes_consume_the_agent_contract(middleware, transcript_path, tmp_pat
     client = middleware
     client.post(
         "/ingest/events",
-        json={"source": "cognitive-overlay", "events": _behavioral_events()},
+        json={"source": "tern", "events": _behavioral_events()},
     )
     agent_events = normalize_transcript(transcript_path, KEYS, "metadata-only")
     client.post("/ingest/events", json={"source": SOURCE_AGENT, "events": agent_events})

@@ -292,6 +292,24 @@ def _fill(node: Any, values: dict) -> Any:
     return node
 
 
+def _plain_fields(errors: list[str]) -> str:
+    """A schema error list, as the field names a researcher would recognise.
+
+    ``validate_protocol`` returns ``"<dotted path>: <jsonschema message>"``.
+    The path is legible; the message ("is not valid under any of the given
+    schemas", "should be non-empty") is validator internals. This keeps only
+    the path, deduplicated and in the order the errors arrived, and falls
+    back to "the protocol" for the rare error with no path at all.
+    """
+    fields: list[str] = []
+    for error in errors:
+        head, _, _ = error.partition(": ")
+        field = head if head and head != "(document root)" else "the protocol"
+        if field not in fields:
+            fields.append(field)
+    return ", ".join(fields)
+
+
 def instantiate_template(
     template_id: str, parameters: dict, *, version: int | None = None
 ) -> dict:
@@ -313,8 +331,22 @@ def instantiate_template(
     protocol = _fill(template["protocolSkeleton"], values)
     errors = validate_protocol(protocol)
     if errors:
+        # This only fires when an LLM-supplied parameter value passes its own
+        # type/bounds check yet still leaves the filled protocol schema-
+        # invalid (every registered template's own defaults are checked clean
+        # by validate_registry(), so a bad DEFAULT can't reach here). The raw
+        # jsonschema text ("instruments: {} is not valid under any of the
+        # given schemas") is operator language, not researcher language, and
+        # compile_moves() appends this message to CompileResult.errors
+        # UNFILTERED — it never reaches compiler.py's own
+        # _explained_by_slot() translation, because that runs on the final
+        # compiled draft, not on this per-template instantiation check. So
+        # the plain-language translation has to happen here, at the source,
+        # rather than being left to a filter downstream that this path
+        # bypasses entirely.
         raise TemplateError(
-            f"{template_id} instantiation is not a valid protocol: " + "; ".join(errors)
+            f"{template_id} could not fill: {_plain_fields(errors)}. "
+            "Try a different template, or answer with a value in range."
         )
     return {
         "protocol": protocol,
@@ -419,7 +451,7 @@ def merge_templates(template_ids: list[str], parameters: dict) -> dict:
 
 def derive_template_from_paper(
     paper_ref: str, base_template_id: str, *, title: str = "", year: int | None = None
-) -> dict:  # noqa: ARG001 - year kept for a symmetric caller signature / future use
+) -> dict:  # `year` is unused: kept for a symmetric caller signature / future use
     """Bind a corpus paper to a base archetype, producing a template
     specialised to that paper (FR-TPL-4) — this is how the corpus's thousands
     of papers become executable starting points without hand-authoring one

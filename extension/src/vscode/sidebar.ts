@@ -6,7 +6,8 @@ import {
   Leg,
   LegState,
 } from '../core/legs';
-import { STATE_LEGS, STATE_PENDING } from './pairing';
+import { SessionBlock } from '../core/captureConfig';
+import { STATE_BLOCK, STATE_LEGS, STATE_PENDING } from './pairing';
 
 /**
  * The study, in the sidebar (FR-INST-22).
@@ -110,8 +111,16 @@ abstract class BaseProvider implements vscode.TreeDataProvider<Row> {
 /** View 1 — Session. The start/pause/end actions that were previously only
  *  reachable through the status-bar quick-pick. */
 export class SessionView extends BaseProvider {
-  constructor(private readonly probe: SessionProbe) {
+  constructor(
+    private readonly probe: SessionProbe,
+    private readonly context: vscode.ExtensionContext,
+  ) {
     super();
+  }
+
+  /** The task this session was assigned, if the study declares tasks. */
+  private block(): SessionBlock | undefined {
+    return this.context.workspaceState.get<SessionBlock>(STATE_BLOCK);
   }
 
   protected roots(): Row[] {
@@ -140,6 +149,25 @@ export class SessionView extends BaseProvider {
           'account',
         ),
       );
+    }
+    /* What this session is actually for. A participant who is told only
+     * their condition has to guess at the work; the researcher chose the
+     * task and counterbalanced its order, so it belongs on screen. */
+    const block = this.block();
+    if (block) {
+      rows.push(
+        new Row(
+          block.title,
+          `Task ${block.index + 1} of ${block.of}`,
+          'checklist',
+        ),
+      );
+      if (block.description) {
+        rows.push(new Row(block.description, undefined, 'note'));
+      }
+      if (block.materials) {
+        rows.push(new Row('Materials', block.materials, 'repo'));
+      }
     }
     return rows;
   }
@@ -283,7 +311,7 @@ export function registerSidebar(
   context: vscode.ExtensionContext,
   probe: SessionProbe,
 ): { refresh: () => void; dispose: () => void } {
-  const session = new SessionView(probe);
+  const session = new SessionView(probe, context);
   const capture = new CaptureView(context);
   const data = new DataView(probe);
 

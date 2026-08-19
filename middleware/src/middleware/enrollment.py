@@ -8,6 +8,7 @@ session. Keeping the token/config/consent logic pure makes it table-testable
 import json
 from hashlib import sha256
 
+from agent_capture.redact import POLICY_DESCRIPTIONS as _POLICY_DESCRIPTIONS
 from protocol.derive import derive_overlay_settings
 
 
@@ -33,7 +34,12 @@ def capture_config_version(protocol: dict) -> str:
 
 
 def build_capture_config(
-    protocol: dict, participant_id: str, condition: str, producer: str = "overlay"
+    protocol: dict,
+    participant_id: str,
+    condition: str,
+    producer: str = "overlay",
+    task: dict | None = None,
+    block: dict | None = None,
 ) -> dict:
     """The versioned, protocol-derived capture config for one producer.
 
@@ -50,13 +56,21 @@ def build_capture_config(
     """
     if producer != "overlay":
         raise ValueError(f"unknown capture-config producer {producer!r}")
-    settings = derive_overlay_settings(protocol, participant_id, condition)
-    return {
+    settings = derive_overlay_settings(protocol, participant_id, condition, task)
+    config = {
         "captureConfigVersion": capture_config_version(protocol),
         "producer": producer,
         "settings": settings,
         "legs": leg_summary(protocol),
     }
+    if block is not None:
+        # The display half of the assignment: what this session is, and where
+        # it sits in the participant's sequence. Purely descriptive - only
+        # ``settings`` configures capture - so the editor can say "task 2 of
+        # 3: fix the failing test" rather than leaving the participant to
+        # work out what they are meant to be doing.
+        config["block"] = block
+    return config
 
 
 def enabled_instruments(settings: dict) -> list[dict]:
@@ -75,19 +89,11 @@ def enabled_instruments(settings: dict) -> list[dict]:
     return sorted(out, key=lambda e: e["name"])
 
 
-#: Plain-language description of each agent content policy (FR-AGENT-5),
-#: stated verbatim in the consent statement.
-_POLICY_DESCRIPTIONS = {
-    "metadata-only": (
-        "only sizes, counts, and timings of the conversation — never its text"
-    ),
-    "redacted": (
-        "the conversation text with string literals and long identifiers masked"
-    ),
-    "full": "the full conversation text",
-}
-
-
+#: Sourced from agent_capture.redact - the module that actually enforces the
+#: policy - rather than kept as a second, independently-worded copy here. Two
+#: copies is how this class of text drifts: enforcement changes, the
+#: description doesn't, and a participant reads a promise the code no longer
+#: keeps.
 def content_policy(protocol: dict) -> str:
     """The study's agent content policy (default metadata-only, the safest)."""
     agent = protocol.get("instruments", {}).get("agentCapture", {})
@@ -430,7 +436,10 @@ def consent_statement(protocol: dict, condition: str) -> str:
     """
     title = protocol.get("study", {}).get("title", "this study")
     policy = content_policy(protocol)
-    policy_desc = _POLICY_DESCRIPTIONS.get(policy, policy)
+    # POLICY_DESCRIPTIONS is full sentences (agent_capture.redact), already
+    # terminated - appending another "." produced a visible ".." in every
+    # consent statement and every ethics package that quotes it.
+    policy_desc = _POLICY_DESCRIPTIONS.get(policy, policy).rstrip(".")
     instruments = ", ".join(sorted(protocol.get("instruments", {}).keys())) or "none"
     return (
         f'You are joining "{title}" in the {condition} condition. '

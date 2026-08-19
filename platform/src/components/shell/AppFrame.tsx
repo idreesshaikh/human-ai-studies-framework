@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Link, NavLink, useLocation, useParams } from "react-router-dom";
 import {
   Menu,
@@ -25,7 +25,7 @@ import { PhoenixMark } from "@/components/brand/PhoenixMark";
 import { ProjectSwitcher } from "./ProjectSwitcher";
 import { useSession } from "@/lib/session";
 import { useAuth } from "@/lib/auth.tsx";
-import { getTheme, nextTheme, type Theme } from "@/lib/theme";
+import { getTheme, nextTheme, subscribeTheme } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 
 const THEME_ICON = { light: Sun, dark: Moon };
@@ -47,7 +47,10 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   // only on pages that have no slug param (shouldn't happen when hasProjectNav
   // is true, but keeps the type-system happy).
   const navSlug = routeSlug ?? me?.memberships?.[0]?.projectSlug ?? "";
-  const [theme, setTheme] = useState<Theme>(() => getTheme());
+  // Read the applied theme live: the profile's saved theme lands after this
+  // shell mounts, and a mount-time copy would leave the toggle a step behind
+  // (its first click then re-applied what was already on screen).
+  const theme = useSyncExternalStore(subscribeTheme, getTheme, getTheme);
   const [navOpen, setNavOpen] = useState(false);
   const Icon = THEME_ICON[theme];
 
@@ -57,10 +60,9 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   const accountImg = clerkUser?.imageUrl;
 
   const cycleTheme = () => {
-    const next = nextTheme(theme);
-    setTheme(next);
-    // Persist to the identity's profile (FR-OPS-7); local apply is internal.
-    void setThemePreference(next);
+    // Persist to the identity's profile (FR-OPS-7); the local apply inside
+    // setThemePreference is what this button's own label re-reads.
+    void setThemePreference(nextTheme(theme));
   };
 
   const navItem = (
@@ -75,10 +77,10 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       onClick={() => setNavOpen(false)}
       className={({ isActive }) =>
         cn(
-          "flex items-center gap-2 rounded-input border px-2.5 py-1.5 font-mono text-sm font-medium tracking-tight transition-colors duration-fast",
+          "type-control flex items-center gap-2 rounded-control border px-2.5 py-1.5 transition-all duration-standard",
           isActive || forceActive
-            ? "border-border-strong bg-accent text-accent-contrast shadow-brutal-sm"
-            : "border-transparent text-text hover:border-border-strong hover:bg-accent-soft hover:text-accent",
+            ? "control-axis"
+            : "border-transparent text-text-muted hover:bg-zone-9 hover:text-text",
         )
       }
     >
@@ -89,10 +91,10 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b border-border-strong bg-surface px-4 py-2">
+      <header className="flex items-center gap-3 border-b border-border bg-surface px-4 py-2">
         <button
           type="button"
-          className="rounded-input border border-transparent p-1 text-text hover:border-border-strong hover:bg-accent-soft lg:hidden"
+          className="rounded-input border border-transparent p-1 text-text hover:border-border hover:bg-zone-9 lg:hidden"
           onClick={() => setNavOpen((v) => !v)}
           aria-label="Toggle navigation"
         >
@@ -100,7 +102,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         </button>
         <Link to="/home" className="flex items-center gap-2" aria-label="Phoenix, home">
           <PhoenixMark size={22} />
-          <span className="type-subhead text-text">Phoenix</span>
+          <span className="type-subhead tracking-tight text-text">Phoenix</span>
         </Link>
         <div className="ml-auto flex items-center gap-2">
           <ProjectSwitcher memberships={me?.memberships ?? []} />
@@ -117,11 +119,11 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
               <DropdownMenuLabel>
                 <span className="block truncate">{accountName}</span>
                 {clerkUser?.email && (
-                  <span className="block truncate text-xs font-normal text-text-muted">
+                  <span className="block truncate type-caption font-normal text-text-muted">
                     {clerkUser.email}
                   </span>
                 )}
-                <span className="mt-0.5 block text-xs font-normal text-text-muted">
+                <span className="mt-0.5 block type-caption font-normal text-text-muted">
                   {me?.mode ?? config.mode ?? "local"}
                 </span>
               </DropdownMenuLabel>
@@ -137,10 +139,24 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
+      {/* Outside a project there is no sidebar; the two destinations that
+       * exist there — the project list and the repertoire — get a bare
+       * strip, so the repertoire is reachable from anywhere a project
+       * isn't. */}
+      {!hasProjectNav && (
+        <nav
+          className="flex items-center gap-1 border-b border-border bg-surface px-4 py-1.5"
+          aria-label="Main"
+        >
+          {navItem("/home", "Projects", <FlaskConical className="size-4" aria-hidden />)}
+          {navItem("/repertoire", "Templates", <Layers className="size-4" aria-hidden />)}
+        </nav>
+      )}
+
       <div className="flex min-h-0 flex-1">
         {hasProjectNav && navOpen && (
           <div
-            className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+            className="fixed inset-0 z-30 bg-ink/45 lg:hidden"
             onClick={() => setNavOpen(false)}
             aria-hidden
           />
@@ -158,19 +174,22 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             <NavLink
               to="/home"
               onClick={() => setNavOpen(false)}
-              className="mb-3 flex items-center gap-1.5 px-1 text-xs font-medium text-text-muted transition-colors duration-fast hover:text-accent"
+              className="mb-3 flex items-center gap-1.5 px-1 type-caption font-medium text-text-muted transition-colors duration-fast hover:text-accent"
             >
               <ArrowLeft className="size-3.5" aria-hidden />
               All projects
             </NavLink>
-            <p className="type-eyebrow mb-2 px-1 text-text-muted">
+            <p className="type-legend mb-2 px-1 text-text-muted">
               Project
             </p>
             <div className="flex flex-col gap-1">
               {navItem(`/p/${navSlug}`, "Studies", <FlaskConical className="size-4" aria-hidden />, {
                 forceActive: pathname.includes("/studies/"),
               })}
-              {navItem(`/p/${navSlug}/templates`, "Templates", <Layers className="size-4" aria-hidden />)}
+              {/* The repertoire is global, so it leaves the project sidebar for the
+               * one place every page shares — the header nav strip (it also
+               * keeps working on the old project-scoped URL via redirect). */}
+              {navItem("/repertoire", "Templates", <Layers className="size-4" aria-hidden />)}
               {navItem(`/p/${navSlug}/members`, "Members", <Users className="size-4" aria-hidden />)}
               {navItem(`/p/${navSlug}/settings`, "Settings", <Settings className="size-4" aria-hidden />)}
             </div>

@@ -64,14 +64,6 @@ def test_scan_is_idempotent(client):
     assert len(gaps) == 1
 
 
-def test_scan_writes_gate_block_findings(client):
-    # A fresh study sits at the design phase with its gates unsatisfied.
-    written = client.post("/studies/pilot-2026/findings/scan").json()
-    blocks = [f for f in client.get("/findings").json() if f["kind"] == "gate-block"]
-    assert blocks and written["written"] >= len(blocks)
-    assert all(f["requirementId"] == "FR-PROT-3" for f in blocks)
-
-
 def test_requires_fail_finding_round_trips(client):
     """What the analysis runner posts on a failed requires-check (FR-ANA-2):
     a requires-fail finding, which the retrospective later cites."""

@@ -259,7 +259,7 @@ export function Constellation({
 
   if (graph.nodes.length === 0) {
     return (
-      <p className="p-6 text-sm text-text-muted">
+      <p className="p-6 type-body text-text-muted">
         No papers yet. Add an arXiv id, DOI, or PDF, and the neighbourhood grows
         from the citation service.
       </p>
@@ -366,7 +366,8 @@ export function Constellation({
                       // The counter-scale above keeps this text a constant
                       // rendered size regardless of zoom — without it, a
                       // label would grow right along with the graph.
-                      className="fill-text-muted text-[0.625rem]"
+                      /* An SVG label inside the graph, at the scale's own legend step. */
+                      className="fill-text-muted text-legend-svg"
                       stroke="var(--bg)"
                       strokeWidth={3}
                       style={{ paintOrder: "stroke" }}
@@ -387,14 +388,14 @@ export function Constellation({
         <button
           type="button"
           onClick={fit}
-          className="absolute right-2 top-2 flex items-center gap-1 rounded-input border border-border-strong bg-surface px-2 py-1 text-xs font-medium text-text shadow-brutal-sm transition-colors duration-fast hover:bg-accent-soft hover:text-accent"
+          className="absolute right-2 top-2 flex items-center gap-1 rounded-input border border-border-strong bg-surface px-2 py-1 type-caption font-medium text-text shadow-mark transition-colors duration-fast hover:bg-zone-9 hover:text-text"
           aria-label="Reset the view"
         >
           <Maximize2 className="size-3.5" aria-hidden /> Fit
         </button>
       </div>
 
-      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
+      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 type-caption text-text-muted">
         <span className="text-text-muted/80">Drag to pan · scroll to zoom · drag a node to move · hover or focus a paper to light its neighbourhood</span>
         <LegendDot filled label="ingested" />
         <LegendDot filled={false} label="suggested, click to add" />

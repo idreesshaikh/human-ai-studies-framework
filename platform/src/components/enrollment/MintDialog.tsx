@@ -8,22 +8,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApi } from "@/lib/session";
 import { ApiError, type EnrollmentTokenView } from "@/lib/api";
-import { cn } from "@/lib/cn";
-
-/* The extension's publisher.name (extension/package.json) — the vscode://
- * authority the deep link resolves to (FR-INST-20 Slice D). */
-const EXTENSION_URI_AUTHORITY = "hpi-research.cognitive-overlay";
-
 /* A participant who already has the extension installed can skip the paste
- * entirely (Slice D item 2). `#` inside the connection string must survive
- * as literal query data, not a URL fragment delimiter — hence the encode. */
-function vscodeDeepLink(connectionString: string): string {
-  return `vscode://${EXTENSION_URI_AUTHORITY}/pair?c=${encodeURIComponent(connectionString)}`;
-}
+ * entirely. The link is built in one place: this file used to carry its own
+ * copy of the authority string, and that second copy is how the identity
+ * drifted out of sync with the extension manifest. */
+import { vscodeDeepLink } from "@/lib/extension";
+import { cn } from "@/lib/cn";
 
 /* Mint pairing tokens for a study. Copy-link (here: copy connection string) is
  * the primary affordance — the participant pastes it into their IDE once. */
@@ -92,15 +87,15 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
                 value={countText}
                 onChange={(e) => onCountChange(e.target.value)}
                 onBlur={onCountBlur} />
-              <p className="text-xs text-text-muted">A whole number from 1 to 100.</p>
+              <p className="type-caption text-text-muted">A whole number from 1 to 100.</p>
             </div>
             <div className="flex flex-col gap-1">
               <Label>Grain</Label>
               <div className="flex gap-2">
                 {(["participant", "session"] as const).map((g) => (
                   <button key={g} type="button" onClick={() => setGrain(g)}
-                    className={cn("rounded-input border px-3 py-1 text-sm transition-colors duration-fast",
-                      grain === g ? "border-accent bg-accent-soft text-accent" : "border-border text-text hover:bg-accent-soft")}>
+                    className={cn("rounded-input border px-3 py-1 type-body transition-colors duration-fast",
+                      grain === g ? "border-border-strong bg-zone-9 text-text" : "border-border text-text hover:bg-zone-9")}>
                     {g === "participant" ? "Participant (reusable)" : "Session (single-use)"}
                   </button>
                 ))}
@@ -110,17 +105,15 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
               {minting ? "Minting…" : `Mint ${count} link${count > 1 ? "s" : ""}`}
             </Button>
             {error && (
-              <p role="alert" className="rounded-input border border-border bg-bg p-3 text-sm text-unsourced">
-                {error}
-              </p>
+              <Notice kind="problem">{error}</Notice>
             )}
           </div>
         ) : (
           <div className="mt-4 flex flex-col gap-2">
             {minted.map((t) => (
               <div key={t.id} className="flex items-center gap-2 rounded-input border border-border bg-bg px-2 py-1.5">
-                <span className="w-16 shrink-0 font-mono text-xs text-text">{t.participantId}</span>
-                <span className="truncate font-mono text-xs text-text-muted">{t.connectionString}</span>
+                <span className="w-16 shrink-0 type-quantity text-text">{t.participantId}</span>
+                <span className="truncate type-quantity text-text-muted">{t.connectionString}</span>
                 <Button asChild size="sm" variant="ghost" className="ml-auto shrink-0">
                   <a href={vscodeDeepLink(t.connectionString ?? "")} data-agent="open-in-vscode">
                     <ExternalLink aria-hidden />

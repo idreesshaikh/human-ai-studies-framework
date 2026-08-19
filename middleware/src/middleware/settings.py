@@ -12,6 +12,24 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
+def _sqlite_path(raw: str) -> Path:
+    """``MIDDLEWARE_DB`` as a filesystem path.
+
+    It is documented as a path, but ``sqlite:///data.sqlite3`` is the obvious
+    thing to try and used to be accepted silently: the URL was pasted into
+    another one (``sqlite:///sqlite:///data.sqlite3``), which is a valid
+    *relative filename*, so the server started happily against an empty
+    database that nobody had imported anything into. Nothing failed; the data
+    was just somewhere else. Both spellings resolve to the same file now.
+    """
+    if raw.startswith("sqlite:"):
+        rest = raw[len("sqlite:") :]
+        # sqlite:////abs -> /abs ; sqlite:///rel -> rel
+        stripped = rest.lstrip("/")
+        return Path("/" + stripped if rest.startswith("////") else stripped)
+    return Path(raw)
+
+
 @dataclass(frozen=True)
 class Settings:
     """Runtime configuration; every field has a ``MIDDLEWARE_*`` env var."""
@@ -29,7 +47,9 @@ class Settings:
         default_factory=lambda: (
             None
             if os.environ.get("DATABASE_URL")
-            else Path(os.environ.get("MIDDLEWARE_DB", ".study-data/middleware.sqlite3"))
+            else _sqlite_path(
+                os.environ.get("MIDDLEWARE_DB", ".study-data/middleware.sqlite3")
+            )
         )
     )
 
@@ -67,11 +87,6 @@ class Settings:
     )
     spa_dist: Path = field(
         default_factory=lambda: Path(os.environ.get("MIDDLEWARE_WEB", "platform/dist"))
-    )
-    requirements_dir: Path = field(
-        default_factory=lambda: Path(
-            os.environ.get("MIDDLEWARE_REQUIREMENTS_DIR", "requirements")
-        )
     )
     token: str | None = field(
         default_factory=lambda: os.environ.get("MIDDLEWARE_TOKEN") or None
@@ -113,15 +128,6 @@ class Settings:
     # Falls back to the first CORS origin, then a relative link.
     public_base_url: str | None = field(
         default_factory=lambda: os.environ.get("MIDDLEWARE_PUBLIC_URL") or None
-    )
-    # Developer mode (default OFF): relaxes gates that block end-to-end testing
-    # of a fresh study — notably the ethics gate on minting enrollment tokens.
-    # NEVER set on an instance carrying real participant data: the ethics gate
-    # is a science invariant ("no data collection before approval"). Production
-    # leaves this unset, so the gate stands.
-    dev_mode: bool = field(
-        default_factory=lambda: os.environ.get("MIDDLEWARE_DEV_MODE", "").lower()
-        in ("1", "true", "yes", "on")
     )
 
     @property

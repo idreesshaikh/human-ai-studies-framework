@@ -1,15 +1,17 @@
-"""Agent-friendliness: manifest, AGENTS.md generation, agent discovery
-.
+"""Agent-friendliness: the platform manifest.
 
-Everything an agent needs is generated from documents of record — no
-hand-written manifest content, and generated context that goes stale
-loudly (the CI drift gate).
+Everything an agent needs to discover the platform is generated from
+documents of record - no hand-written manifest content.
+
+This file used to cover a generated ``AGENTS.md`` and a discovery demo as
+well. Both read their content from ``requirements/`` and ``CLAUDE.md``,
+documents that described a far wider platform than the one being built and
+were removed rather than rewritten; a generator with no sources generates
+nothing, so the feature went with them.
 """
 
 import datetime as dt
 import importlib.util
-import subprocess
-import sys
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -63,7 +65,6 @@ def test_manifest_links_resolve(tmp_path):
         m["api"]["openapi"],
         m["schemas"]["protocol"]["url"],
         m["schemas"]["event"]["url"],
-        m["vocabulary"]["glossary"],
         m["templates"]["index"],
         m["corpus"]["index"],
     ):
@@ -75,7 +76,7 @@ def test_schema_endpoint_serves_the_real_schema(tmp_path):
     # hardcoded fallback stub (the parent-count path bug).
     c = _client(tmp_path)
     schema = c.get("/schemas/protocol").json()
-    assert schema["properties"]["protocolVersion"]["enum"] == [1, 2, 3, 4]
+    assert schema["properties"]["protocolVersion"]["enum"] == [1, 2, 3, 4, 5]
 
 
 def test_capabilities_are_feature_derived_not_hand_written(tmp_path):
@@ -109,58 +110,3 @@ def _load_generator():
     return mod
 
 
-def test_agents_md_is_deterministic():
-    gen = _load_generator()
-    assert gen.build_agents_md() == gen.build_agents_md()
-    # No timestamp leaks into the content (would break the drift check).
-    assert "generatedAt" not in gen.build_agents_md()
-
-
-def test_agents_md_committed_and_current():
-    # FR-AGF-2 F2.2: the committed AGENTS.md matches freshly generated content
-    # (this test IS the drift gate, runnable in CI).
-    gen = _load_generator()
-    committed = (REPO / "AGENTS.md").read_text()
-    assert committed == gen.build_agents_md(), (
-        "AGENTS.md is stale — regenerate with "
-        "`uv run python scripts/generate_agents_md.py`"
-    )
-
-
-def test_agents_md_carries_generated_sources():
-    gen = _load_generator()
-    content = gen.build_agents_md()
-    # Glossary terms, requirement IDs, invariants, and platform facts present.
-    assert "## Vocabulary" in content
-    assert "participant" in content.lower()
-    assert "FR-PROT-1" in content  # SRS index
-    assert "System invariants" in content
-    assert "Protocol schema versions" in content
-
-
-def test_agents_md_check_flag_detects_drift(tmp_path, monkeypatch):
-    # The --check flag exits non-zero when the file differs from generated.
-    gen = _load_generator()
-    fake = tmp_path / "AGENTS.md"
-    fake.write_text("stale content")
-    monkeypatch.setattr(gen, "OUTPUT", fake)
-    monkeypatch.setattr(sys, "argv", ["generate_agents_md.py", "--check"])
-    assert gen.main() == 1
-
-
-# ------------------------------------------------ agent discovery demo (F1.2)
-
-
-def test_agent_discovery_demo_runs_green():
-    # The scripted proof runs against a fresh in-process app and succeeds.
-    # Run from the repo root: the demo reads requirements/ (the glossary)
-    # relative to cwd, so a middleware/-cwd subprocess can't find it.
-    demo = REPO / "scripts" / "agent_manifest_demo.py"
-    result = subprocess.run(
-        [sys.executable, str(demo), "--in-process"],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "bootstrapped from the manifest alone" in result.stdout

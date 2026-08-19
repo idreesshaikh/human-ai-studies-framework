@@ -3,7 +3,7 @@ templateId: single-arm-benchmark-v1
 title: Single-arm benchmark evaluation
 description: |
   A single-condition study with no comparison group. All measures are
-  descriptive only — no inferential tests computed. Use when evaluating
+  descriptive only, with no inferential tests computed. Use when evaluating
   a system against an absolute benchmark or exploring a new phenomenon.
   Explicitly framed as hypothesis-generating.
 designType: case-study
@@ -45,7 +45,7 @@ parameters:
     default: [Researcher]
   ethicsRef:
     type: string
-    default: "ethics application (in preparation; gate blocks data-collection)"
+    default: "pending: not yet obtained"
   outputEndpoint:
     type: string
     default: "http://127.0.0.1:8000/ingest/events"
@@ -66,7 +66,7 @@ threats:
   - threat: no-comparison-group
     mitigation: Results explicitly framed as descriptive and hypothesis-generating
   - threat: generalisability
-    mitigation: Single-arm limits external validity — caveat stated in report
+    mitigation: Single-arm limits external validity, caveat stated in report
 protocolSkeleton:
   protocolVersion: 4
   study:

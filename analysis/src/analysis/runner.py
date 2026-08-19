@@ -158,7 +158,7 @@ def run_plan(
             recipe_params = plan_params.get(rec.id, {})
             dataset.meta = {**dataset.meta, **recipe_params}
             result = rec.run(dataset)
-        except Exception as exc:  # a broken recipe must not kill the run
+        except Exception as exc:  # noqa: BLE001 - recorded in outcome.errors below
             outcome.errors[rec.id] = f"{type(exc).__name__}: {exc}"
             print(f"  ERROR {rec.id}: {outcome.errors[rec.id]}", file=sys.stderr)
             continue

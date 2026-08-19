@@ -1,4 +1,9 @@
-import { MANDATORY_SLOTS, SLOT_LABELS, type ProtocolDraft } from "@/lib/types";
+import {
+  MANDATORY_SLOTS,
+  SLOT_LABELS,
+  type ProtocolDraft,
+  type Understanding,
+} from "@/lib/types";
 import { summarizeProtocol, type ProtocolSection } from "@/lib/protocolFormat";
 import { Button } from "@/components/ui/button";
 import { SlotMeter } from "./SlotMeter";
@@ -13,19 +18,37 @@ export function DraftRail({
   serverYaml,
   protocol,
   compileValid,
+  unresolved,
   onApply,
   applying,
   onFinish,
+  understanding,
 }: {
   draft: ProtocolDraft;
   serverYaml?: string;
   protocol?: Record<string, unknown>;
   compileValid?: boolean;
+  /** Outstanding protocol slots from the server compile, in plain words. */
+  unresolved?: string[];
   onApply?: () => void;
   applying?: boolean;
   onFinish?: () => void;
+  /** What the conversation still needs to know before a design shape can
+   * honestly follow from it (FR-CONV-10). It lives here, beside the draft it
+   * is about, rather than as a strip inside the thread: printed under every
+   * exchange it read as the assistant apologising in the middle of the
+   * conversation, and it says the same thing on every turn until the answer
+   * changes, which is exactly what chat is bad at carrying. */
+  understanding?: Understanding;
 }) {
-  const complete = MANDATORY_SLOTS.every((s) => draft[s].length > 0);
+  /* Readiness is the server's answer, not a count of lit dots — the eight
+   * conversation sections and the protocol's requirements are different
+   * lists. Before the first compile comes back, fall back to the sections so
+   * the button still reads sensibly. */
+  const complete =
+    unresolved !== undefined
+      ? unresolved.length === 0
+      : MANDATORY_SLOTS.every((s) => draft[s].length > 0);
   const sections: ProtocolSection[] | null = protocol
     ? summarizeProtocol(protocol)
     : null;
@@ -47,35 +70,63 @@ export function DraftRail({
         <ProtocolGuide />
       </div>
 
-      <SlotMeter draft={draft} />
+      <SlotMeter draft={draft} unresolved={unresolved} />
 
-      {onFinish && (
-        <Button
-          size="sm"
-          variant={complete ? "default" : "subtle"}
-          data-agent="draft-finish"
-          onClick={onFinish}
-        >
-          {complete ? "Finish & prepare protocol draft" : "Review protocol draft"}
-        </Button>
+      {understanding && !understanding.readyForDesign
+        && understanding.missingLabels.length > 0 && (
+        <p className="type-caption text-text-muted" data-agent="understanding-line">
+          No design shape yet: still working out{" "}
+          {understanding.missingLabels.join(", ")}.
+        </p>
       )}
 
-      {onApply && (
-        <Button
-          size="sm"
-          variant="subtle"
-          disabled={!compileValid || applying}
-          data-agent="draft-apply"
-          onClick={onApply}
-        >
-          {applying ? "Applying…" : "Apply validated draft"}
-        </Button>
+      {/* One row, and one hierarchy. Two stacked full-width blocks of the
+        * same weight is not a choice, it is a wall: the researcher had to
+        * read both labels to work out which one was available to them, and
+        * the disabled one looked exactly like the enabled one.
+        *
+        * Reviewing is always the live step, so it is the accent fill.
+        * Applying is the commit that follows a review, so it stays an
+        * outline until the compile says it is valid, and it never competes
+        * with the action that leads to it. */}
+      {(onFinish || onApply) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {onFinish && (
+            <Button
+              size="sm"
+              data-agent="draft-finish"
+              onClick={onFinish}
+            >
+              {complete ? "Finish and review" : "Review draft"}
+            </Button>
+          )}
+          {onApply && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!compileValid || applying}
+              data-agent="draft-apply"
+              onClick={onApply}
+              title={
+                compileValid
+                  ? undefined
+                  : "The draft has to compile and validate before it can be applied."
+              }
+            >
+              {applying ? "Applying…" : "Apply to protocol"}
+            </Button>
+          )}
+        </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-input border border-border-strong bg-bg p-3">
+      {/* The scroller, not a box. The rail already frames this column; an
+        * inner border here put a second frame inside the first one and made
+        * the draft look like a widget parked in a panel rather than the
+        * document of record. */}
+      <div className="min-h-0 flex-1 overflow-auto">
         {sections ? (
           sections.length > 0 ? (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5">
               {sections.map((section) => (
                 <SectionBlock key={section.heading} section={section} />
               ))}
@@ -90,24 +141,35 @@ export function DraftRail({
             {serverYaml}
           </pre>
         ) : (
-          <div className="flex flex-col gap-3">
+          /* The plate's own frame: every slot the protocol needs, as an
+           * address that either carries something or is still blank. An
+           * unfilled slot is marked with the open ring — the same notation
+           * "nothing identified here yet" wears everywhere else — instead of
+           * repeating the sentence "Not yet resolved." eight times down the
+           * rail, which was eight lines of text saying what eight marks say
+           * at a glance. */
+          <ul className="divide-y divide-border">
             {MANDATORY_SLOTS.map((s) => (
-              <div key={s}>
-                <h3 className="type-label text-text">{SLOT_LABELS[s]}</h3>
+              <li key={s} className="flex items-baseline gap-2.5 py-2">
+                <span className="type-label min-w-0 flex-1 text-text">
+                  {SLOT_LABELS[s]}
+                </span>
                 {draft[s].length > 0 ? (
-                  <ul className="mt-0.5 flex flex-col gap-0.5">
+                  <ul className="type-body flex min-w-0 flex-[2] flex-col gap-0.5 text-text">
                     {draft[s].map((v, i) => (
-                      <li key={i} className="type-body text-text">
-                        {v}
-                      </li>
+                      <li key={i}>{v}</li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="type-caption text-text-muted">Not yet resolved.</p>
+                  <span
+                    className="mark-unsourced shrink-0 self-center"
+                    role="img"
+                    aria-label="not yet resolved"
+                  />
                 )}
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
 
@@ -127,10 +189,16 @@ export function DraftRail({
 
 function SectionBlock({ section }: { section: ProtocolSection }) {
   return (
-    <div>
-      <h3 className="type-label text-text">{section.heading}</h3>
+    /* A record, not a run of paragraphs. Every section of the compiled draft
+     * is a heading and the values under it, so it is set as one: the heading
+     * in the plate's own label voice, the values hanging off a rule, and a
+     * ruled division between sections. Stacked as bare paragraphs at the same
+     * size, the headings and the values ran together and the rail read as
+     * prose rather than as a document with parts. */
+    <div className="border-t border-border pt-2.5 first:border-0 first:pt-0">
+      <h3 className="type-legend text-text-muted">{section.heading}</h3>
       {section.lines.length > 1 ? (
-        <ul className="mt-0.5 flex flex-col gap-0.5">
+        <ul className="mt-1 flex flex-col gap-1">
           {section.lines.map((line, i) => (
             <li key={i} className="type-body text-text">
               {line}
@@ -138,7 +206,7 @@ function SectionBlock({ section }: { section: ProtocolSection }) {
           ))}
         </ul>
       ) : (
-        <p className="type-body mt-0.5 text-text">{section.lines[0]}</p>
+        <p className="type-body mt-1 text-text">{section.lines[0]}</p>
       )}
     </div>
   );

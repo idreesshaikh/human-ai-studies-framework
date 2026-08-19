@@ -1,10 +1,9 @@
 import { useNavigate, Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { FlaskConical, Users, Plus, Trash2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Plus, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { RoleGate } from "@/components/shell/RoleGate";
@@ -24,6 +23,9 @@ export function ProjectHome() {
   const navigate = useNavigate();
   const { slug = "" } = useParams();
   const { data, loading, error, reload } = useAsync(() => api.projectHome(slug), [api, slug]);
+  /* The naming field is revealed by "New study" rather than parked open, so
+   * the page reads as a roster you return to instead of a form. */
+  const [composing, setComposing] = useState(false);
   const [studyName, setStudyName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
@@ -94,69 +96,90 @@ export function ProjectHome() {
   // Only the *first* load blanks the page; a post-delete `reload()` refetch
   // shouldn't unmount the whole tree while `studies` already reflects the
   // optimistic update — that remount was the delete-study flicker.
-  if (loading && !data) return <p className="p-6 text-sm text-text-muted">Loading…</p>;
-  if (error) return <p className="p-6 text-sm text-unsourced">{error}</p>;
+  if (loading && !data) return <p className="p-6 type-body text-text-muted">Loading…</p>;
+  if (error) return <div className="p-gutter"><Notice kind="problem">{error}</Notice></div>;
   if (!data) return null;
 
   return (
     <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
       <div>
         <h1 className="type-title text-text">{data.name}</h1>
-        <p className="text-sm text-text-muted">/{data.slug}</p>
+        <p className="type-body text-text-muted">/{data.slug}</p>
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="type-subhead flex items-center gap-2 text-text">
-          <FlaskConical className="size-4 text-text-muted" aria-hidden /> Studies
-        </h2>
-        <Card>
-          <CardContent className="flex flex-col gap-2 p-4">
+        {/* No icon beside the heading: a section title carries its own
+          * weight, and a glyph next to every one of them is chrome the
+          * reader has to skip past on the way to the content. */}
+        <div className="flex items-end justify-between gap-3">
+          <h2 className="type-section text-text">Studies</h2>
+          {!composing && (
+            <Button size="sm" onClick={() => setComposing(true)} data-agent="new-study-open">
+              <Plus className="size-4" aria-hidden />
+              New study
+            </Button>
+          )}
+        </div>
+
+        {/* The naming field is revealed by the action, not parked on the page.
+          * A form sitting open above the roster made the page look like it
+          * was for creating studies, when what a returning researcher comes
+          * here to do is open one. */}
+        {composing && (
+          <div className="flex flex-col gap-2">
             <div className="flex gap-2">
               <Input
+                autoFocus
                 placeholder="Name a new study…"
                 value={studyName}
                 onChange={(e) => setStudyName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && newStudy()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") newStudy();
+                  if (e.key === "Escape") {
+                    setComposing(false);
+                    setStudyName("");
+                  }
+                }}
                 aria-label="New study name"
               />
-              <Button onClick={newStudy} disabled={!studyName.trim() || creating} data-agent="new-study">
-                <Plus className="size-4" aria-hidden />
+              <Button
+                onClick={newStudy}
+                disabled={!studyName.trim() || creating}
+                data-agent="new-study"
+              >
                 {creating ? "Creating…" : "Create"}
               </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setComposing(false);
+                  setStudyName("");
+                }}
+              >
+                Cancel
+              </Button>
             </div>
-            {createError && <p className="text-sm text-unsourced">{createError}</p>}
-          </CardContent>
-        </Card>
-        {deleteError && (
-          <p role="alert" className="text-sm text-status-critical">
-            {deleteError}
-          </p>
+            {createError && <Notice kind="problem">{createError}</Notice>}
+          </div>
         )}
+
+        {deleteError && <Notice kind="problem">{deleteError}</Notice>}
+
         {studies.length === 0 ? (
           <EmptyState line="Research goes better with a study. Start one above." />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          /* A roster, not a shelf. These are not alternatives to compare;
+           * they are places to return to. */
+          <ul className="divide-y divide-border overflow-hidden rounded-plate border border-border bg-surface">
             {studies.map((st) => (
-              <Card
-                key={st.id}
-                className="group relative transition-colors duration-standard hover:border-accent"
-              >
-                {/* The delete control is a real cell in this row, not an
-                  * overlay. It used to be positioned absolutely on top of the
-                  * card, which put it over the phase badge and over long study
-                  * ids. The link stretches to fill the card instead
-                  * (after:inset-0), so the whole card still navigates while
-                  * the button keeps its own space. */}
-                <CardContent className="flex items-center gap-2 p-4">
+              <li key={st.id} className="relative">
+                <div className="group flex items-center gap-3 px-4 py-3 transition-colors duration-fast hover:bg-zone-9">
                   <Link
                     to={`/p/${slug}/studies/${st.id}`}
-                    className="min-w-0 flex-1 truncate font-medium text-text after:absolute after:inset-0"
+                    className="type-body min-w-0 flex-1 truncate font-semibold text-text after:absolute after:inset-0"
                   >
                     {st.id}
                   </Link>
-                  <Badge variant="outline" className="relative shrink-0">
-                    {st.phase}
-                  </Badge>
                   <RoleGate
                     role={mine}
                     capability="delete"
@@ -171,23 +194,25 @@ export function ProjectHome() {
                       aria-label={`Delete study ${st.id}`}
                       className={cn(
                         "relative z-10 flex min-h-11 min-w-11 shrink-0 items-center justify-center",
-                        "rounded-input text-text-muted opacity-60",
-                        "transition-colors duration-fast hover:bg-accent-soft",
-                        "hover:text-status-critical hover:opacity-100",
+                        "rounded-control text-text-muted opacity-0",
+                        "transition-all duration-fast hover:bg-well",
+                        "hover:text-critical group-hover:opacity-100",
                         "focus-visible:opacity-100",
                       )}
                     >
                       <Trash2 className="size-4" aria-hidden />
                     </button>
                   </RoleGate>
-                </CardContent>
+                </div>
                 {confirmDelete === st.id && (
-                  <div className="relative z-10 flex items-center gap-1 border-t border-border px-3 py-1.5 text-xs">
-                    <span className="flex-1 text-text-muted">Delete this study?</span>
+                  <div className="relative z-10 flex items-center gap-1 border-t border-border bg-well px-4 py-2">
+                    <span className="type-caption flex-1 text-text-muted">
+                      Delete this study? This cannot be undone.
+                    </span>
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-status-critical"
+                      className="text-critical"
                       disabled={deleting === st.id}
                       onClick={() => removeStudy(st.id)}
                     >
@@ -198,18 +223,22 @@ export function ProjectHome() {
                     </Button>
                   </div>
                 )}
-              </Card>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </section>
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="type-subhead flex items-center gap-2 text-text">
-            <Users className="size-4 text-text-muted" aria-hidden /> Team
-          </h2>
-          <Link to={`/p/${slug}/members`} className="text-xs text-accent hover:underline">
+          <h2 className="type-section text-text">Team</h2>
+          {/* Not accent-coloured. The one accent on a screen belongs to the
+            * action that screen is for; a secondary link tinted the same
+            * blue makes the researcher check two things to find one. */}
+          <Link
+            to={`/p/${slug}/members`}
+            className="type-caption text-text-muted underline decoration-border underline-offset-4 transition-colors duration-fast hover:text-text hover:decoration-control-edge"
+          >
             Manage members
           </Link>
         </div>
@@ -217,7 +246,7 @@ export function ProjectHome() {
           {data.members.map((m) => (
             <span
               key={m.identitySub}
-              className="flex items-center gap-2 rounded-chip border border-border px-2 py-1 text-xs text-text"
+              className="type-caption flex items-center gap-2 rounded-chip border border-border bg-surface px-2 py-1 text-text"
             >
               <Avatar name={memberLabel(m, user)} className="size-5" />
               {memberLabel(m, user)}

@@ -39,11 +39,11 @@ export function ProjectSwitcher({ memberships }: { memberships: Membership[] }) 
         type="button"
         data-agent="project-switcher"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-input border border-border px-2 py-1 text-xs text-text-muted transition-colors duration-fast hover:bg-accent-soft"
+        className="flex items-center gap-2 rounded-input border border-border px-2 py-1 type-caption text-text-muted transition-colors duration-fast hover:bg-zone-9"
       >
         <FolderOpen className="size-3.5" aria-hidden />
         Switch project
-        <kbd className="hidden sm:inline rounded border border-border px-1 text-[0.65rem]">⌘K</kbd>
+        <kbd className="type-legend hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">⌘K</kbd>
       </button>
       <CommandDialog open={open} onOpenChange={setOpen} label="Switch project">
         <CommandInput placeholder="Find a project…" />
@@ -58,11 +58,11 @@ export function ProjectSwitcher({ memberships }: { memberships: Membership[] }) 
               >
                 <FolderOpen className="size-4 text-text-muted" aria-hidden />
                 {m.projectName}
-                <span className="ml-auto text-xs text-text-muted">{m.role}</span>
+                <span className="ml-auto type-caption text-text-muted">{m.role}</span>
               </CommandItem>
             ))}
             <CommandItem value="__new project" onSelect={() => go("/home")}>
-              <Plus className="size-4 text-accent" aria-hidden />
+              <Plus className="size-4 text-text-muted" aria-hidden />
               New project…
             </CommandItem>
           </CommandGroup>

@@ -65,8 +65,16 @@ export class StudySession implements Disposable {
     readonly cfg: SessionConfig,
     private readonly hooks: SessionHooks,
     restore?: SessionRestoreState,
+    /**
+     * The id for a *fresh* session, when the caller has already minted one.
+     * The adapter needs the id before the session exists: it sends it with
+     * the capture-config re-pull so the server can assign this session's
+     * task block against it. A restored session ignores this and keeps its
+     * own id — that session was already assigned.
+     */
+    plannedId?: string,
   ) {
-    this.id = restore?.sessionId ?? newSessionId();
+    this.id = restore?.sessionId ?? plannedId ?? newSessionId();
     this.startedAt = restore?.startedAtEpochMs ?? Date.now();
     this.pausedMsTotal = restore?.pausedMsAccumulated ?? 0;
     this.nextFatigueAtElapsed = this.elapsedMs + this.jitteredInterval();

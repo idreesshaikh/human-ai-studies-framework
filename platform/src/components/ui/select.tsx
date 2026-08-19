@@ -6,8 +6,7 @@ import { cn } from "@/lib/cn";
  * the OS's own dropdown arrow and default sans font read as an unstyled
  * escape from the instrument aesthetic everywhere else (Input, Button).
  * `appearance-none` strips the native chrome; a single lucide chevron
- * replaces it, positioned over the same `--radius-input`/mono-text field
- * `Input` already uses. The underlying element stays a real <select> —
+ * replaces it, positioned over the same input field anatomy. The underlying element stays a real <select> —
  * still opens the OS's native picker and is fully keyboard/screen-reader
  * operable, just dressed to match. */
 export const Select = React.forwardRef<
@@ -18,7 +17,7 @@ export const Select = React.forwardRef<
     <select
       ref={ref}
       className={cn(
-        "h-9 w-full appearance-none rounded-input border border-border-strong bg-bg px-3 py-1 pr-8 font-mono text-sm text-text",
+        "h-10 w-full appearance-none rounded-input border border-border bg-surface-raised px-3 py-2 pr-8 type-body text-text shadow-mark transition-colors duration-fast",
         "focus-visible:border-accent",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,

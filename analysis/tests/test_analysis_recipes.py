@@ -11,7 +11,7 @@ from analysis.dataset import Dataset
 
 def _ev(session, participant, condition, seq, minute, type_, payload):
     return {
-        "source": "cognitive-overlay",
+        "source": "tern",
         "ts": f"2026-07-12T{10 + int(minute) // 60:02d}:{int(minute) % 60:02d}:00.000Z",
         "sessionId": session,
         "participantId": participant,

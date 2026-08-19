@@ -8,6 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApi } from "@/lib/session";
@@ -80,7 +81,7 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
           <div className="mt-4 flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <Label htmlFor="invite-email">Their email</Label>
-              <p className="text-xs text-text-muted">
+              <p className="type-caption text-text-muted">
                 Where we send the invite link (when mail is configured).
               </p>
               <Input
@@ -100,10 +101,10 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
                     type="button"
                     onClick={() => setRole(r)}
                     className={cn(
-                      "rounded-input border px-3 py-1 text-sm transition-colors duration-fast",
+                      "rounded-input border px-3 py-1 type-body transition-colors duration-fast",
                       role === r
-                        ? "border-accent bg-accent-soft text-accent"
-                        : "border-border text-text hover:bg-accent-soft",
+                        ? "border-border-strong bg-zone-9 text-text"
+                        : "border-border text-text hover:bg-zone-9",
                     )}
                   >
                     {ROLE_LABELS[r]}
@@ -111,14 +112,14 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
                 ))}
               </div>
             </div>
-            {error && <p className="text-sm text-unsourced">{error}</p>}
+            {error && <Notice kind="problem">{error}</Notice>}
             <Button onClick={submit} disabled={!email.trim()} className="mt-1 self-start">
               Create invitation
             </Button>
           </div>
         ) : (
           <div className="mt-4 flex flex-col gap-3">
-            <p className="text-sm text-text">
+            <p className="type-body text-text">
               {invite.emailed ? (
                 <>
                   Sent to <span className="font-medium">{invite.email}</span> as{" "}
@@ -133,13 +134,13 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
               )}
             </p>
             {!invite.emailed && invite.emailReason && (
-              <p className="rounded-input border border-border bg-bg p-2 text-xs text-text-muted">
+              <p className="rounded-input border border-border bg-bg p-2 type-caption text-text-muted">
                 {invite.emailReason}
               </p>
             )}
             <div className="flex items-center gap-2 rounded-input border border-border bg-bg px-2 py-1.5">
               <Link2 className="size-4 shrink-0 text-text-muted" aria-hidden />
-              <span className="truncate font-mono text-xs text-text">
+              <span className="truncate type-quantity text-text">
                 {window.location.origin + (invite.url ?? "")}
               </span>
               <Button size="sm" variant="subtle" onClick={copy} className="ml-auto shrink-0">

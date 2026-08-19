@@ -102,7 +102,7 @@ export function SwimlaneTimeline({
 
   if (loading) {
     return (
-      <div className="rounded-card border border-border bg-surface p-4 text-sm text-text-muted">
+      <div className="rounded-card border border-border bg-surface p-4 type-body text-text-muted">
         Loading events for {sessionId}…
       </div>
     );
@@ -111,7 +111,7 @@ export function SwimlaneTimeline({
   if (error) {
     return (
       <div className="rounded-card border border-border bg-surface p-4">
-        <p className="text-sm text-unsourced">Failed to load timeline: {error}</p>
+        <p role="alert" className="type-body text-critical">Failed to load timeline: {error}</p>
       </div>
     );
   }
@@ -119,7 +119,7 @@ export function SwimlaneTimeline({
   if (lanes.length === 0) {
     return (
       <div className="rounded-card border border-border bg-surface p-4">
-        <p className="text-sm text-text-muted">
+        <p className="type-body text-text-muted">
           No events for session {sessionId}.
         </p>
       </div>
@@ -131,21 +131,21 @@ export function SwimlaneTimeline({
       <div className="flex items-center justify-between">
         <h3 className="type-subhead text-text">
           Timeline: {sessionId}
-          <span className="ml-2 text-xs text-text-muted">
+          <span className="ml-2 type-caption text-text-muted">
             {events.length} events · {lanes.length} lanes
             {allFlagKinds.length > 0 && ` · ${allFlagKinds.join(", ")}`}
           </span>
         </h3>
         <div className="flex items-center gap-2">
           {onClose && (
-            <Button size="sm" variant="ghost" className="text-xs" onClick={onClose}>
+            <Button size="sm" variant="ghost" className="type-caption" onClick={onClose}>
               Close
             </Button>
           )}
           <Button
             size="sm"
             variant="ghost"
-            className="text-xs"
+            className="type-caption"
             onClick={() => setAsTable((v) => !v)}
           >
             {asTable ? <ChartScatter aria-hidden /> : <Table2 aria-hidden />}
@@ -229,7 +229,7 @@ function ChartTimeline({
               x={t.x}
               y={totalH - M.bottom + 16}
               textAnchor="middle"
-              className="tabular fill-text-muted text-xs"
+              className="tabular fill-text-muted type-caption"
             >
               {t.label}
             </text>
@@ -249,7 +249,7 @@ function ChartTimeline({
                 y={y + LANE_H / 2}
                 textAnchor="end"
                 dominantBaseline="middle"
-                className="fill-text text-xs font-medium"
+                className="fill-text type-caption font-medium"
               >
                 {lane.label}
               </text>
@@ -309,7 +309,7 @@ function ChartTimeline({
 
       {tip && (
         <div
-          className="pointer-events-none fixed z-50 max-w-sm rounded-input border border-border-strong bg-surface-raised px-2 py-1 text-xs text-text shadow-brutal"
+          className="pointer-events-none fixed z-50 max-w-sm rounded-input border border-border-strong bg-surface-raised px-2 py-1 type-caption text-text shadow-sheet"
           style={{ left: tip.x, top: tip.y }}
         >
           {tip.text}
@@ -354,7 +354,7 @@ function TableTimeline({
 
   return (
     <div className="overflow-x-auto rounded-card border border-border bg-surface">
-      <table className="w-full text-sm">
+      <table className="w-full type-body">
         <thead>
           <tr className="border-b border-border text-left text-text-muted">
             <th className="px-3 py-2 font-medium">Lane</th>
@@ -377,7 +377,7 @@ function TableTimeline({
               <td className="px-3 py-1.5 text-text-muted">{row.ts}</td>
               <td className="px-3 py-1.5 text-text-muted">{row.seq}</td>
               {allFlagKinds.length > 0 && (
-                <td className="px-3 py-1.5 text-unsourced">
+                <td className="px-3 py-1.5 text-critical">
                   {row.flags.length > 0 ? row.flags.join(", ") : ""}
                 </td>
               )}

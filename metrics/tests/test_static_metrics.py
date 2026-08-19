@@ -8,16 +8,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import main as orchestrator  # noqa: E402
-from analyzers.radon_metrics import (  # noqa: E402
+import main as orchestrator
+from analyzers.radon_metrics import (
     get_comment_ratio,
     get_halstead_effort,
 )
-from analyzers.text_metrics import (  # noqa: E402
+from analyzers.text_metrics import (
     get_indentation_variance,
     get_line_width_bounds,
 )
-from parsers.ts_parser import collect_function_metrics  # noqa: E402
+from parsers.ts_parser import collect_function_metrics
 
 SAMPLE = textwrap.dedent(
     '''

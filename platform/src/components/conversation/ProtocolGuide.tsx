@@ -33,10 +33,10 @@ export function ProtocolGuide() {
         <dl className="mt-3 flex max-h-96 flex-col gap-3 overflow-auto">
           {MANDATORY_SLOTS.map((slot) => (
             <div key={slot}>
-              <dt className="text-sm font-medium text-text">
+              <dt className="type-body font-medium text-text">
                 {SLOT_LABELS[slot]}
               </dt>
-              <dd className="text-xs text-text-muted">
+              <dd className="type-caption text-text-muted">
                 {SLOT_DESCRIPTIONS[slot]}
               </dd>
             </div>

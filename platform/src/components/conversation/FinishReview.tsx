@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Check, FileText, Sparkles, ShieldCheck, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -7,8 +7,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { SLOT_LABELS, type DesignMove } from "@/lib/types";
+import { SLOT_LABELS, targetLabel, type DesignMove } from "@/lib/types";
 import type { CompileResult } from "@/lib/conversationApi";
+import { BlinkComparator } from "./BlinkComparator";
+import { hasEarlierVersion } from "@/lib/comparator";
 
 /* A YAML-scalar line whose entire value is an empty collection, e.g.
  * "instruments: {}" or "  gates: []" — a still-unresolved slot rendered as
@@ -40,12 +42,6 @@ function parseDiffLines(diff: string) {
       return { line, kind: "context" as const };
     });
 }
-
-const DIFF_LINE_CLASS: Record<string, string> = {
-  add: "text-grounded",
-  remove: "text-unsourced",
-  context: "text-text-muted",
-};
 
 /* The "finish the conversation → here's your protocol" moment. When the
  * researcher wraps up, this gathers everything the conversation produced —
@@ -81,12 +77,17 @@ export function FinishReview({
     [compile?.diff],
   );
   const hasDiff = diffLines.some((d) => d.kind === "add" || d.kind === "remove");
+  /* Something existed before this compile, so the two plates genuinely differ.
+   * Shared with the comparator itself (lib/comparator.ts) so the dialog's
+   * decision to show it and the component's own first-version branch can never
+   * disagree; `verify-comparator.mjs` exercises both. */
+  const earlier = hasEarlierVersion(diffLines);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogTitle className="flex items-center gap-2">
-          <FileText className="size-5 text-accent" aria-hidden />
+          
           Prepare your protocol draft
         </DialogTitle>
         <DialogDescription>
@@ -94,29 +95,41 @@ export function FinishReview({
           protocol: the study's document of record.
         </DialogDescription>
 
-        <div className="mt-2 grid grid-cols-3 gap-3">
-          <Tally icon={<Check className="size-4" aria-hidden />} n={accepted.length} label="moves accepted" />
-          <Tally icon={<Sparkles className="size-4" aria-hidden />} n={grounded} label="grounded in papers" />
-          <Tally icon={<ShieldCheck className="size-4" aria-hidden />} n={judgment} label="your judgment" />
-        </div>
+        {/* One line, not three cells. Three big numbers over three small
+          * labels is the hero-metric template, and it was the loudest thing in
+          * a dialog whose actual subject is the protocol below it. The counts
+          * still align and still compare, in the measurement voice, at the
+          * weight a summary deserves. */}
+        <p className="mt-3 type-body text-text-muted">
+          <span className="type-quantity text-text">{accepted.length}</span>{" "}
+          {accepted.length === 1 ? "move" : "moves"} accepted:{" "}
+          <span className="type-quantity text-text">{grounded}</span> grounded in
+          papers, <span className="type-quantity text-text">{judgment}</span> on
+          your judgment.
+        </p>
 
         {accepted.length > 0 && (
           <ul className="mt-3 max-h-48 overflow-auto rounded-input border border-border bg-surface">
             {accepted.map((m) => (
               <li
                 key={m.moveId}
-                className="flex items-start gap-2 border-b border-border px-3 py-2 text-sm last:border-0"
+                className="flex items-start gap-2 border-b border-border px-3 py-2 type-body last:border-0"
               >
-                <span className="mt-0.5 shrink-0 font-mono text-xs text-text-muted">
-                  {m.target.replace(/\[\]$/, "")}
+                <span className="mt-0.5 shrink-0 type-caption text-text-muted">
+                  {/* The plain-words label, never the raw dotted path (see
+                    * targetLabel: an earlier prompt version had the model
+                    * literally echoing "protocol.design" as a real target,
+                    * and even a well-formed path like "researchQuestions[]"
+                    * is still code, not a name a researcher reads). */}
+                  {targetLabel(m.target)}
                 </span>
                 <span className="min-w-0 flex-1 text-text">{m.proposal}</span>
                 {m.grounding.length > 0 ? (
-                  <span className="shrink-0 text-xs text-grounded" title="grounded in the corpus">
+                  <span className="shrink-0 type-caption text-grounded" title="grounded in the corpus">
                     cited
                   </span>
                 ) : (
-                  <span className="shrink-0 text-xs text-unsourced" title="your own judgment">
+                  <span className="shrink-0 type-caption text-unsourced" title="your own judgment">
                     your call
                   </span>
                 )}
@@ -126,37 +139,27 @@ export function FinishReview({
         )}
 
         <div className="mt-3">
-          <p className="mb-1 text-xs font-medium text-text-muted">
+          <p className="mb-1 type-caption font-medium text-text-muted">
             Compiled protocol {valid ? "· validated" : "· not yet valid"}
           </p>
-          <pre className="tabular max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-3 font-mono text-xs leading-relaxed text-text">
+          <pre className="tabular max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-3 type-quantity text-text">
             {compile?.yaml?.trim() ||
               (accepted.length > 0
                 ? "The server couldn't compile this draft. Check your connection, then reopen this review."
                 : "The draft is still empty. Accept a few design moves first.")}
           </pre>
-          {hasDiff && (
-            <>
-              <p className="mb-1 mt-2 text-xs font-medium text-text-muted">
-                What this changes
-              </p>
-              <pre className="tabular max-h-56 overflow-auto whitespace-pre rounded-input border border-border-strong bg-bg p-3 font-mono text-xs leading-relaxed">
-                {diffLines.map((d, i) =>
-                  d.kind === "hunk" ? (
-                    <div key={i} className="my-1 border-t border-border" />
-                  ) : (
-                    <div key={i} className={DIFF_LINE_CLASS[d.kind]}>
-                      {d.line}
-                    </div>
-                  ),
-                )}
-              </pre>
-            </>
+          {/* On a first compile the comparator's at-rest record is the same
+            * document as the block above, line for line, so showing both
+            * stacked two ~200-line monospace slabs in one dialog and marked
+            * nothing as changed. The comparator earns its place only once
+            * there is an earlier version to alternate against. */}
+          {hasDiff && earlier && (
+            <BlinkComparator lines={diffLines} className="mt-3" />
           )}
           {compile && !valid && compile.errors.length > 0 && (
-            <ul className="mt-1.5 flex flex-col gap-1 rounded-input border border-unsourced/40 bg-unsourced-soft/40 p-2">
+            <ul className="mt-1.5 flex flex-col gap-1 rounded-control border border-critical/40 bg-well p-2">
               {compile.errors.map((e, i) => (
-                <li key={i} className="flex items-start gap-1.5 text-xs text-unsourced">
+                <li key={i} className="flex items-start gap-1.5 type-caption text-critical">
                   <AlertTriangle className="mt-0.5 size-3 shrink-0" aria-hidden />
                   <span>{e}</span>
                 </li>
@@ -166,14 +169,14 @@ export function FinishReview({
           {compile && (compile.warnings?.length ?? 0) > 0 && (
             <ul className="mt-1.5 flex flex-col gap-1">
               {compile.warnings!.map((w, i) => (
-                <li key={i} className="text-xs text-text-muted">
+                <li key={i} className="type-caption text-text-muted">
                   {w}
                 </li>
               ))}
             </ul>
           )}
           {compile && !valid && compile.unresolved.length > 0 && (
-            <p className="mt-1.5 rounded-input border border-border bg-surface p-2 text-xs text-text-muted">
+            <p className="mt-1.5 rounded-input border border-border bg-surface p-2 type-caption text-text-muted">
               <span className="font-medium text-text">Still unresolved:</span>{" "}
               {compile.unresolved
                 .map((s) => SLOT_LABELS[s as keyof typeof SLOT_LABELS] ?? s)
@@ -183,7 +186,11 @@ export function FinishReview({
           )}
         </div>
 
-        <div className="mt-3 flex items-center justify-end gap-2">
+        {/* Pinned to the foot of the dialog's scroller. Measured at 1440x900
+          * this dialog is taller than the viewport, and the action row sat
+          * ~370px below the fold: the one thing the review exists to let the
+          * researcher do was invisible when it opened. */}
+        <div className="sticky bottom-0 -mx-5 mt-3 flex items-center justify-end gap-2 border-t border-border bg-surface-raised px-5 py-3">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={applying}>
             Keep editing
           </Button>
@@ -193,15 +200,5 @@ export function FinishReview({
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function Tally({ icon, n, label }: { icon: React.ReactNode; n: number; label: string }) {
-  return (
-    <div className="flex flex-col items-center gap-0.5 rounded-input border border-border bg-surface p-3 text-center">
-      <span className="text-accent">{icon}</span>
-      <span className="tabular text-xl font-medium text-text">{n}</span>
-      <span className="text-xs text-text-muted">{label}</span>
-    </div>
   );
 }

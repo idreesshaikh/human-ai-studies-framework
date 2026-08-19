@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Search, Loader2, Sparkles, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Confidence } from "@/components/conversation/Confidence";
@@ -81,9 +82,9 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
     <section className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4">
       <div>
         <h2 className="type-subhead flex items-center gap-2 text-text">
-          <Sparkles className="size-4 text-accent" aria-hidden /> Start from a paper
+          Start from a paper
         </h2>
-        <p className="mt-1 text-xs text-text-muted">
+        <p className="mt-1 type-caption text-text-muted">
           Search the corpus, pick a paper, and run it through an archetype: the
           paper becomes your design's primary citation.
         </p>
@@ -98,7 +99,7 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
             onKeyDown={(e) => e.key === "Enter" && void search(q)}
             placeholder="e.g. trust in AI-generated code"
             aria-label="Search the corpus"
-            className="min-h-9 flex-1 bg-transparent text-sm text-text outline-none"
+            className="min-h-9 flex-1 bg-transparent type-body text-text outline-none"
           />
         </div>
         <Button
@@ -111,10 +112,10 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
         </Button>
       </div>
 
-      {error && <p className="text-xs text-unsourced">{error}</p>}
+      {error && <Notice kind="problem">{error}</Notice>}
 
       {hits && hits.length === 0 && (
-        <p className="text-xs text-text-muted">No corpus papers match that. Try other terms.</p>
+        <p className="type-caption text-text-muted">No corpus papers match that. Try other terms.</p>
       )}
 
       {hits && hits.length > 0 && (
@@ -124,15 +125,15 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
               <button
                 onClick={() => { setPaper(h); setDerived(null); }}
                 className={
-                  "flex w-full items-center gap-2 rounded-input border px-2 py-1.5 text-left text-sm transition-colors duration-fast " +
+                  "flex w-full items-center gap-2 rounded-input border px-2 py-1.5 text-left type-body transition-colors duration-fast " +
                   (paper?.ref === h.ref
-                    ? "border-accent bg-accent-soft"
-                    : "border-transparent hover:bg-accent-soft")
+                    ? "border-accent bg-zone-9"
+                    : "border-transparent hover:bg-zone-9")
                 }
               >
                 <Confidence value={h.confidence ?? undefined} />
                 <span className="min-w-0 flex-1 truncate text-text">{h.title}</span>
-                {h.year && <span className="tabular text-xs text-text-muted">{h.year}</span>}
+                {h.year && <span className="tabular type-caption text-text-muted">{h.year}</span>}
               </button>
             </li>
           ))}
@@ -141,9 +142,9 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
 
       {paper && (
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <span className="text-xs text-text-muted">Run</span>
-          <span className="max-w-56 truncate text-xs font-medium text-text">{paper.title}</span>
-          <span className="text-xs text-text-muted">through</span>
+          <span className="type-caption text-text-muted">Run</span>
+          <span className="max-w-56 truncate type-caption font-medium text-text">{paper.title}</span>
+          <span className="type-caption text-text-muted">through</span>
           <Select
             value={baseId}
             onChange={(e) => setBaseId(e.target.value)}
@@ -171,8 +172,8 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
             <Badge variant="outline">{derived.template.designType}</Badge>
             <Confidence value={derived.paper.confidence ?? undefined} />
           </div>
-          <p className="mt-2 text-xs text-text-muted">{derived.template.description}</p>
-          <p className="mt-2 flex items-center gap-1 text-xs text-text-muted">
+          <p className="mt-2 type-caption text-text-muted">{derived.template.description}</p>
+          <p className="mt-2 flex items-center gap-1 type-caption text-text-muted">
             <BookOpen className="size-3" aria-hidden /> Primary source:{" "}
             <span className="font-mono text-text">{derived.template.source[0]?.paperRef}</span>
           </p>

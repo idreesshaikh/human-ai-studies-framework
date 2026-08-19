@@ -149,7 +149,7 @@ def enriched_abstracts(s: Session) -> dict[str, str]:
             func.length(func.coalesce(Paper.abstract, "")) >= MIN_REAL_ABSTRACT_CHARS,
         )
     ).all()
-    return {ref: abstract for ref, abstract in rows}
+    return dict(rows)
 
 
 def _upsert_corpus_paper(s: Session, values: dict) -> None:
@@ -260,15 +260,15 @@ def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
                 from sqlalchemy.dialects.postgresql import insert as _pg_insert
                 edge_stmt = (
                     _pg_insert(PaperEdge)
-                    .values([dict(
-                        study_id=CORPUS_STUDY_ID,
-                        src_ref=src,
-                        dst_ref=ref,
-                        kind=VIA_EDGE_KIND,
-                        dst_title=entry.get("title", ""),
-                        dst_year=entry.get("year"),
-                        dst_citation_count=entry.get("citationCount"),
-                    )])
+                    .values([{
+                        "study_id": CORPUS_STUDY_ID,
+                        "src_ref": src,
+                        "dst_ref": ref,
+                        "kind": VIA_EDGE_KIND,
+                        "dst_title": entry.get("title", ""),
+                        "dst_year": entry.get("year"),
+                        "dst_citation_count": entry.get("citationCount"),
+                    }])
                     .on_conflict_do_nothing()
                 )
             else:

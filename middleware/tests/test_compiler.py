@@ -50,8 +50,9 @@ def test_hallucinated_template_id_reports_instead_of_raising():
     assert result.yaml.strip(), "the draft must never come back empty"
     assert not result.valid
     assert any("m-t" in e and "hallucinated-rct-2026" in e for e in result.errors)
-    # No template applied → the unresolved slots are named, not hidden.
-    assert "design" in result.unresolved
+    # No template applied → the unresolved slots are named, not hidden, and
+    # named the way a researcher would name them rather than by schema path.
+    assert "the design" in result.unresolved
 
 
 def test_unknown_parameters_are_ignored_with_a_warning():

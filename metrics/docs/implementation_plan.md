@@ -80,7 +80,7 @@ suite in `tests/` replaced manual-only verification.
 - `collect_function_metrics(source_bytes: bytes) -> dict` runs all four and
   returns per-function rows (scope distance aggregated to max + mean; the
   per-variable dict stays available via the original function).
-- **[revised - correctness fix, logged in `requirements/traceability.md`]**
+- **[revised - correctness fix]**
   The original plan said "keep the four existing metric functions
   untouched", but verification hand-counts caught a real bug: pairing the
   flat `captures()` lists with `zip()` misassigns names/values on files

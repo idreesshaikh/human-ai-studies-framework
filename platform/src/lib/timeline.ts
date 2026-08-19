@@ -26,9 +26,9 @@ export interface EventRow {
 
 /** One lane of the swimlane: a label, a source, and its events sorted by ts. */
 export interface Lane {
-  /** Human-readable label for this lane (e.g. "Cognitive overlay"). */
+  /** Human-readable label for this lane (e.g. "TERN editor"). */
   label: string;
-  /** The source identifier (e.g. "cognitive-overlay"). */
+  /** The source identifier (e.g. "tern"). */
   source: string;
   /** Events belonging to this lane, sorted by ts, then seq. */
   events: EventRow[];
@@ -52,7 +52,11 @@ export function parseTs(ts: string): number {
 
 /** Human-readable lane labels keyed by source. */
 const LANE_LABELS: Record<string, string> = {
-  "cognitive-overlay": "Cognitive overlay",
+  tern: "TERN editor",
+  // Rows written before the stream was renamed. New events are normalised at
+  // ingest, but a database that predates the rename still holds the old value
+  // and an unlabelled lane would read as an unknown producer.
+  "cognitive-overlay": "TERN editor",
   "agent-capture": "Agent interaction",
   "agent-derived": "Agent-derived",
   "workspace-snapshot": "Workspace snapshots",
@@ -67,6 +71,7 @@ function laneLabel(source: string): string {
 
 /** Lane ordering: known sources first, then alphabetically. */
 const LANE_ORDER: Record<string, number> = {
+  tern: 0,
   "cognitive-overlay": 0,
   "agent-capture": 1,
   "agent-derived": 2,

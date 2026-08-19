@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { EditBurst } from '../core/behavior';
 import { Recorder } from '../core/recorder';
-import { StudySession } from '../core/session';
+import { newSessionId, StudySession } from '../core/session';
 import { DEFAULT_STUCK_CONFIG, StuckDetector } from '../core/stuckDetector';
 import { FATIGUE_ITEM } from '../core/surveys';
 import {
@@ -225,12 +225,20 @@ async function startSession(): Promise<void> {
     .replace(/[:.]/g, '-')}`;
   const dataFile = path.join(dataDirectory(), `${sessionTag}.jsonl`);
 
+  // The session id is minted here rather than inside StudySession so it can
+  // be sent with the config re-pull below: the server assigns this session's
+  // task block against it, which makes the assignment idempotent — a re-pull
+  // for a session already under way returns the same block instead of
+  // advancing the participant past one.
+  const plannedSessionId = newSessionId();
+
   // A session boundary is the only point capture config may change (wall
   // #6) — re-pull it now, before the clock arms, and get this IDE's paired
   // credential (if any) for the HttpSink.
   const credential = await refreshConfigAtSessionStart(
     extContext,
     Boolean(study),
+    plannedSessionId,
   );
 
   // Show the pre-flight summary (FR-INST-21): what will and will not be
@@ -281,6 +289,7 @@ async function startSession(): Promise<void> {
     durationMs: durationMin * 60_000,
     fatigueIntervalMs: cfg('fatigue.intervalMinutes', 15) * 60_000,
     credential,
+    plannedSessionId,
   });
 
   study!.recorder.record('session_start', {
@@ -319,6 +328,10 @@ interface BootConfig {
   fatigueIntervalMs: number;
   /** The session credential to send with ingest, if this IDE is paired. */
   credential?: string;
+  /** The id a fresh session must use — minted before the capture-config
+   *  re-pull so the server can assign this session's task block against it.
+   *  Absent on a crash recovery, which keeps the id it is restoring. */
+  plannedSessionId?: string;
   restore?: {
     sessionId: string;
     startedAtEpochMs: number;
@@ -437,6 +450,9 @@ function bootSession(boot: BootConfig): void {
       onTick: (remaining) => onTick(remaining),
     },
     boot.restore,
+    // A resumed session keeps its own id; a fresh one uses the id the block
+    // was assigned against, so the two never disagree.
+    boot.plannedSessionId,
   );
 
   const recorder = new Recorder(

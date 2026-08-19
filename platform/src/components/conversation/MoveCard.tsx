@@ -11,9 +11,11 @@ const KIND_LABEL: Record<DesignMove["kind"], string> = {
   "add-rq": "Research question",
   "choose-template": "Design",
   "set-parameter": "Parameter",
+  "set-field": "Field",
+  "declare-task": "Task",
   "add-instrument": "Instrument",
+  "reconfigure-instrument": "Instrument setting",
   "add-measure": "Measure",
-  "set-threshold": "Threshold",
   caution: "Caution",
 };
 
@@ -27,9 +29,13 @@ const KIND_LABEL: Record<DesignMove["kind"], string> = {
 export function MoveCard({
   move,
   onDecide,
+  autoFocus = false,
 }: {
   move: DesignMove;
   onDecide: (moveId: string, status: MoveStatus) => void;
+  /** True only for the first undecided move of a reply the researcher just
+   *  asked for (see ConversationView) — never on a page they merely opened. */
+  autoFocus?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const isCaution = move.kind === "caution";
@@ -39,6 +45,10 @@ export function MoveCard({
   // compiler folds a patch-less move into the draft.
   const compiled = Boolean(move.patch);
   const decided = move.status !== "proposed";
+  /* Whether ANY citation stands behind this move. How strongly each one does
+   * is carried by that citation's own magnitude mark on its chip, so the card
+   * needs the boolean and not the maximum. */
+  const grounded = move.grounding.length > 0;
 
   const onKey = useCallback(
     (e: React.KeyboardEvent) => {
@@ -49,14 +59,20 @@ export function MoveCard({
     [decided, move.moveId, onDecide],
   );
 
-  // Focus the card on appearance so a / r work right away.
+  /* The caret goes to this card only when it answers something the researcher
+   * just sent. `a` and `r` decide a design move from one unmodified keystroke,
+   * so a card that takes focus on a page they merely opened arms a decision on
+   * a proposal they have not read — the human decides, and they cannot decide
+   * what they have not been shown. The thread's own scroll-to-end brings a new
+   * reply into view either way. */
   useEffect(() => {
-    if (!decided) ref.current?.focus();
-  }, [decided]);
+    if (autoFocus && !decided) ref.current?.focus();
+  }, [autoFocus, decided]);
 
   return (
     <Card
       ref={ref}
+      askew
       data-agent="move-card"
       data-agent-kind={move.kind}
       data-agent-status={move.status}
@@ -64,30 +80,41 @@ export function MoveCard({
       onKeyDown={onKey}
       aria-label={`${KIND_LABEL[move.kind]} move: ${move.proposal}`}
       className={cn(
-        "transition-all",
-        move.status === "proposed" &&
-          "animate-in fade-in slide-in-from-bottom-2 duration-entrance ease-out",
-        move.status === "accepted" &&
-          "duration-settle ease-in-out translate-x-2",
-        move.status === "rejected" && "duration-standard scale-95",
+        "relative transition-all",
+        /* A proposed move is a sheet being laid on the record: it arrives with
+         * mass and settles with one overshoot. Accepted, it squares up to the
+         * draft it just became part of; rejected, it stays on the page struck
+         * rather than vanishing, because nothing here is ever erased. */
+        move.status === "proposed" && "sheet-land",
+        move.status === "accepted" && "duration-settle ease-sheet",
+        move.status === "rejected" && "duration-standard",
+        /* No citation, no magnitude: an undecided unsourced move wears the
+         * open ring's dashed outline until the researcher rules on it. */
+        !grounded && !decided && "held-back",
       )}
     >
+      {/* No card-level magnitude mark. Its strength IS the strength of the
+        * citation behind it, and the grounding chip below already carries that
+        * citation's own mark: the card was printing the same magnitude twice,
+        * once floating in the top-right corner where it read as a
+        * notification dot rather than as evidence. The mark belongs beside the
+        * source it measures. */}
       <CardContent className="flex flex-col gap-2 p-3">
-        <div
-          className={cn(
-            "flex flex-col gap-2",
-            move.status === "accepted" && "opacity-60",
-            move.status === "rejected" && "opacity-40",
-          )}
-        >
+          <div
+            className={cn(
+              "flex flex-col gap-2",
+              move.status === "accepted" && "opacity-70",
+              move.status === "rejected" && "opacity-60",
+            )}
+          >
           <div className="flex items-center gap-2">
-            <span className="type-eyebrow text-text-muted">
+            <span className="type-legend text-text-muted">
               {KIND_LABEL[move.kind]}
             </span>
             {move.status === "accepted" && (
               <span
                 className={cn(
-                  "text-xs",
+                  "type-legend",
                   compiled ? "text-grounded" : "text-text-muted",
                 )}
               >
@@ -95,11 +122,18 @@ export function MoveCard({
               </span>
             )}
             {move.status === "rejected" && (
-              <span className="text-xs text-text-muted">dismissed</span>
+              <span className="type-legend superseded">dismissed</span>
             )}
           </div>
 
-          <p className="text-sm text-text">{move.proposal}</p>
+          <p
+            className={cn(
+              "type-body pr-3 text-text",
+              move.status === "rejected" && "superseded",
+            )}
+          >
+            {move.proposal}
+          </p>
         </div>
 
         {/* Outside the faded wrapper above, deliberately: CSS opacity always
@@ -108,7 +142,7 @@ export function MoveCard({
          * inherit the card's 40/60% fade and render see-through, which is
          * worse than not fading it. Citations stay fully legible regardless
          * of the card's decided state, same reasoning as the Undo button. */}
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex min-w-0 flex-wrap items-start gap-1">
           {move.grounding.length > 0 ? (
             move.grounding.map((g) => <GroundingChip key={g.ref} g={g} />)
           ) : (

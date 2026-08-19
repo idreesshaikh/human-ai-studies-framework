@@ -1,0 +1,96 @@
+name: Bug report
+description: Something behaves incorrectly.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        **Before you start:** if this involves participant data leaking, an
+        auth bypass, or the knowledge assistant seeing row-level data, stop
+        and report it privately instead — see
+        [SECURITY.md](../blob/main/SECURITY.md).
+
+
+        **Never paste real participant data into this form**, even redacted.
+        Reproduce with synthetic data.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - middleware (API + platform backend)
+        - platform (React frontend)
+        - extension (TERN, VS Code)
+        - protocol (schema, validator, lifecycle)
+        - analysis (recipes, runner, paper draft)
+        - agent-capture (agent leg)
+        - curated (curated-dataset leg)
+        - metrics (static-metrics leg)
+        - docs / requirements
+        - build, CI, or deployment
+        - not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you observed, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        The smallest sequence that shows it. A failing test is the ideal
+        report. Include the exact command you ran and its output.
+      placeholder: |
+        1. uv run protocol validate protocol/examples/...
+        2. ...
+        Output:
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Output of `git rev-parse --short HEAD`, or a release tag.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >-
+        OS, Python version, Node version, and whether you are on PostgreSQL
+        (the default) or the SQLite fallback. For extension reports, your
+        VS Code version.
+    validations:
+      required: true
+
+  - type: input
+    id: requirement
+    attributes:
+      label: Requirement affected (optional)
+      description: >-
+        If you know which requirement this breaks, name its ID — it makes
+        triage much faster.
+      placeholder: FR-ING-1, NFR-2, ...
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: This contains no real participant data.
+          required: true
+        - label: >-
+            This is not a security or privacy vulnerability (those go through
+            SECURITY.md).
+          required: true

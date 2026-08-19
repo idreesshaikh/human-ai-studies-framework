@@ -33,44 +33,47 @@ for the logo). Exact labels drift between Clerk versions; it's the visual theme
 editor that maps to Clerk's `variables`. Fields not offered by the editor are
 code-only `variables`: skip them; they don't reach the hosted portal.
 
-## Values: light theme ("Daylight instrument", the platform default)
+## Values: light theme (the platform default)
 
 | Dashboard control (`variable`)          | Value                | Token              |
 | --------------------------------------- | -------------------- | ------------------ |
-| Primary color (`colorPrimary`)          | `#2a45c0`            | `--accent`         |
-| Background (`colorBackground`)          | `#e9edf3`            | `--bg`             |
-| Foreground/text (`colorText`)           | `#16202e`            | `--text`           |
-| Secondary text (`colorTextSecondary`)   | `#55627a`            | `--text-muted`     |
-| Input background (`colorInputBackground`)| `#f7f9fc`           | `--surface`        |
-| Input text (`colorInputText`)           | `#16202e`            | `--text`           |
-| Neutral seed (`colorNeutral`)           | `#16202e`            | `--ink`            |
-| Danger (`colorDanger`)                  | `#c0281f`            | `--status-critical`|
-| Success (`colorSuccess`)                | `#1f7a4d`            | `--grounded`       |
-| Warning (`colorWarning`)                | `#8a5710`            | `--unsourced`      |
+| Primary color (`colorPrimary`)          | `#1059d8`            | `--accent`         |
+| Background (`colorBackground`)          | `#eff3f9`            | `--bg`             |
+| Foreground/text (`colorText`)           | `#0e1b2d`            | `--text`           |
+| Secondary text (`colorTextSecondary`)   | `#52637c`            | `--text-muted`     |
+| Input background (`colorInputBackground`)| `#ffffff`           | `--surface`        |
+| Input text (`colorInputText`)           | `#0e1b2d`            | `--text`           |
+| Neutral seed (`colorNeutral`)           | `#0e1b2d`            | `--ink`            |
+| Danger (`colorDanger`)                  | `#b0231b`            | `--status-critical`|
 | Border radius (`borderRadius`)          | `8px` (`0.5rem`)     | `--radius-input`   |
-| Font family (`fontFamily`)              | `IBM Plex Mono`      | see note ↓         |
+| Font family (`fontFamily`)              | `Archivo`            | see note ↓         |
 
-**Font note.** The machine face is **IBM Plex Mono**, self-hosted via
-`@fontsource/ibm-plex-mono`; it's a stock Google Font, so Clerk's picker
-should offer it directly (no substitution needed, unlike the old licensed
-display face). The reading serif (**Newsreader**) never reaches the hosted
-portal (Clerk's theme editor has no serif heading slot), so color + radius
-carry the match there.
+**No `colorSuccess` / `colorWarning` row.** The design system dropped
+dedicated success/warning hues: grounding strength is shown by a magnitude
+mark (size), not colour, so there is no green or amber token left to hand to
+Clerk (see `--unsourced`, `--status-critical`,
+[`platform/README.md`](../../platform/README.md#conventions) for the mark
+convention that replaced them). Leave those two Dashboard fields at their
+Clerk defaults rather than force a mapping that doesn't exist here.
 
-## Values: dark theme ("Observatory")
+**Font note.** The UI face is **Archivo** (`Archivo Variable`, via
+`@fontsource-variable/archivo`), a stock Google Font, so Clerk's picker
+should offer it directly. The platform's numeral/mono face, **Spline Sans
+Mono**, is reserved for data and quantities, not chrome or labels, so it is
+not the right choice for a sign-in form's `fontFamily`.
+
+## Values: dark theme
 
 The hosted portal is effectively one theme; pick a lane. Light is the better
 default (it's the platform's primary look). For a dark portal instead:
 
 | `variable`             | Value     | Token              |
 | ---------------------- | --------- | ------------------ |
-| `colorPrimary`         | `#6ea8ff` | `--accent` (dark)  |
-| `colorBackground`      | `#0e1420` | `--bg` (dark)      |
-| `colorText`            | `#e6ecf5` | `--text` (dark)    |
-| `colorInputBackground` | `#172033` | `--surface` (dark) |
-| `colorSuccess`         | `#4ec98a` | `--grounded` (dark)|
-| `colorWarning`         | `#e0a94f` | `--unsourced` (dark)|
-| `colorDanger`          | `#ff6b5e` | `--status-critical`|
+| `colorPrimary`         | `#5ea3ff` | `--accent` (dark)  |
+| `colorBackground`      | `#05090f` | `--bg` (dark)      |
+| `colorText`            | `#e9eff8` | `--text` (dark)    |
+| `colorInputBackground` | `#1a2b48` | `--surface` (dark) |
+| `colorDanger`          | `#ff8b7f` | `--status-critical`|
 
 Making the portal *follow* the viewer's OS/app theme is embedded-only
 (Option 1).

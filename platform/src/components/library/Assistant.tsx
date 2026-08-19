@@ -1,17 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, Sparkles } from "lucide-react";
+import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl, type SegmentOption } from "@/components/ui/segmented-control";
 import { studyApi, OfflineError, type AssistantConfig } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
-/* The model tier, shown as plain effort levels rather than raw model names.
- * Medium is the default (a good answer without the top-tier token spend); Low
- * is faster/cheaper, High is the most capable. */
+/* The model tier, named for the trade the researcher is actually making rather
+ * than as raw model names.
+ *
+ * It used to read Low / Medium / High, which collided head-on with the steer
+ * dial in the conversation: two adjacent controls, both apparently setting
+ * "how much assistance", in two different vocabularies, and neither saying
+ * which. They govern completely different things. Steer is how much the
+ * assistant DRIVES the design conversation; this is how much compute answers a
+ * question in the library, which is a speed-against-depth trade and nothing
+ * more. Naming it for speed and depth makes the two impossible to confuse. */
 const TIERS: SegmentOption<string>[] = [
-  { value: "mistral-small-latest", label: "Low", hint: "Fastest, lightest answers" },
-  { value: "mistral-medium-latest", label: "Medium", hint: "Balanced, the default" },
-  { value: "mistral-large-latest", label: "High", hint: "Most capable, slower" },
+  { value: "mistral-small-latest", label: "Fast", hint: "Quickest answers, lightest model" },
+  { value: "mistral-medium-latest", label: "Balanced", hint: "The default" },
+  { value: "mistral-large-latest", label: "Deep", hint: "Most capable, slower" },
 ];
 
 /* The grounded assistant (FR-LIT-4). It answers only from the study's papers
@@ -79,22 +86,21 @@ export function Assistant({ studyId }: { studyId: string }) {
   return (
     <section className="flex h-full min-h-0 flex-col rounded-card border border-border bg-surface">
       <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
-        <Sparkles className="size-4 text-accent" aria-hidden />
         <h3 className="type-subhead text-text">Assistant</h3>
         {config && config.models.length > 1 && model && (
           <SegmentedControl
-            aria-label="Assistant effort"
+            aria-label="Answer speed and depth"
             value={model}
             onChange={setModel}
             options={TIERS.filter((t) => config.models.includes(t.value))}
           />
         )}
-        <span className="ml-auto text-xs text-text-muted">aggregates only</span>
+        <span className="ml-auto type-caption text-text-muted">aggregates only</span>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
         {chat.length === 0 && !note && (
-          <p className="text-sm text-text-muted">
+          <p className="type-body text-text-muted">
             Ask about the papers, the protocol, or the aggregate data. Answers
             are grounded in what I can retrieve, and always cited.
           </p>
@@ -109,10 +115,10 @@ export function Assistant({ studyId }: { studyId: string }) {
           >
             <div
               className={cn(
-                "max-w-[46ch] whitespace-pre-wrap rounded-card px-3 py-2 text-sm",
+                "max-w-[46ch] whitespace-pre-wrap rounded-card px-3 py-2 type-body",
                 m.role === "user"
-                  ? "bg-accent text-accent-contrast"
-                  : "border border-border bg-bg text-text",
+                  ? "border border-border bg-zone-9 text-text"
+                  : "border border-border bg-surface text-text",
               )}
             >
               {m.content}
@@ -122,7 +128,7 @@ export function Assistant({ studyId }: { studyId: string }) {
                 {m.citations.map((c) => (
                   <span
                     key={c}
-                    className="rounded-chip bg-accent-soft px-2 py-0.5 font-mono text-xs text-accent"
+                    className="rounded-chip border border-accent px-2 py-0.5 type-legend text-accent"
                   >
                     {c}
                   </span>
@@ -131,9 +137,9 @@ export function Assistant({ studyId }: { studyId: string }) {
             )}
           </div>
         ))}
-        {asking && <p className="text-sm text-text-muted">thinking…</p>}
+        {asking && <p className="type-body text-text-muted">thinking…</p>}
         {note && (
-          <p className="rounded-input border border-border bg-bg p-3 text-sm text-text-muted">
+          <p className="rounded-input border border-border bg-bg p-3 type-body text-text-muted">
             {note}
           </p>
         )}
@@ -152,7 +158,7 @@ export function Assistant({ studyId }: { studyId: string }) {
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="Ask a question…"
           aria-label="Ask the assistant"
-          className="min-h-9 flex-1 rounded-input border border-border-strong bg-bg px-3 py-2 text-sm text-text outline-none focus-visible:border-accent"
+          className="min-h-9 flex-1 rounded-input border border-border-strong bg-bg px-3 py-2 type-body text-text outline-none focus-visible:border-accent"
         />
         <Button type="submit" size="icon" disabled={asking} aria-label="Ask">
           <Send aria-hidden />

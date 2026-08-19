@@ -91,26 +91,31 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             onKeyDown={(e) => e.key === "Enter" && ingest()}
             placeholder="arXiv id or DOI, e.g. 2302.06590"
             aria-label="arXiv id or DOI"
-            className="min-h-9 flex-1 rounded-input border border-border-strong bg-bg px-3 py-2 text-sm text-text outline-none focus-visible:border-accent"
+            className="min-h-9 flex-1 rounded-input border border-border-strong bg-bg px-3 py-2 type-body text-text outline-none focus-visible:border-accent"
           />
           <Button size="sm" variant="subtle" onClick={ingest} disabled={busy}>
             <Plus aria-hidden /> Add
           </Button>
-          <label className="flex cursor-pointer items-center gap-1 rounded-input border border-dashed border-border-strong px-3 py-2 text-sm text-text-muted hover:border-accent">
+          {/* A solid edge, not a dashed one. Dashed is this world's mark for
+            * "logged, nothing identified yet" (an unsourced claim, an unfilled
+            * slot, an empty region); on a working control it said the button
+            * itself was provisional. It matches the Add button beside it now,
+            * because they are two ways to do one thing. */}
+          <label className="flex cursor-pointer items-center gap-1.5 rounded-control border border-control-edge bg-surface px-3 py-2 type-control text-text transition-colors duration-fast hover:bg-zone-9">
             <Upload className="size-4" aria-hidden /> PDF
             <input type="file" accept="application/pdf" hidden onChange={uploadPdf} />
           </label>
         </div>
 
         {busy && (
-          <p className="flex items-center gap-2 text-xs text-text-muted" role="status">
+          <p className="flex items-center gap-2 type-caption text-text-muted" role="status">
             <Loader2 className="size-3 animate-spin" aria-hidden />
             Fetching metadata and the citation neighbourhood (the citation
             service allows one request per second)…
           </p>
         )}
         {note && (
-          <p className="rounded-input border border-border bg-surface p-3 text-sm text-text-muted">
+          <p className="rounded-input border border-border bg-surface p-3 type-body text-text-muted">
             {note}
           </p>
         )}
@@ -120,7 +125,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
         <div className="rounded-card border border-border bg-surface">
           <div className="flex items-center justify-between border-b border-border px-4 py-2">
             <h3 className="type-subhead text-text">Library</h3>
-            <span className="text-xs text-text-muted">
+            <span className="type-caption text-text-muted">
               {papers.length} {papers.length === 1 ? "paper" : "papers"}
             </span>
           </div>
@@ -131,8 +136,8 @@ export function LibraryTab({ studyId }: { studyId: string }) {
               <li
                 key={p.paperRef}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 text-sm",
-                  p.paperRef === selected && "bg-accent-soft",
+                  "flex items-center gap-2 px-4 py-2 type-body",
+                  p.paperRef === selected && "bg-zone-9",
                 )}
               >
                 <button
@@ -143,7 +148,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                   {p.title || p.paperRef}
                 </button>
                 {p.year && (
-                  <span className="tabular text-xs text-text-muted">{p.year}</span>
+                  <span className="tabular type-caption text-text-muted">{p.year}</span>
                 )}
                 <button
                   className="text-text-muted hover:text-status-critical"
@@ -156,7 +161,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
               </li>
             ))}
             {papers.length === 0 && (
-              <li className="px-4 py-3 text-sm text-text-muted">
+              <li className="px-4 py-3 type-body text-text-muted">
                 No papers yet: add one above.
               </li>
             )}
@@ -165,7 +170,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
 
         {/* The constellation. */}
         <div className="rounded-card border border-border bg-surface p-4">
-          <h3 className="mb-2 text-sm font-medium text-text">
+          <h3 className="mb-2 type-body font-medium text-text">
             Citation constellation
           </h3>
           {graph && (
@@ -186,7 +191,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             <h4 className="pr-6 font-medium text-text">
               {selectedNode.title || selected}
             </h4>
-            <p className="mt-0.5 text-xs text-text-muted">
+            <p className="mt-0.5 type-caption text-text-muted">
               {selected}
               {selectedNode.year ? ` · ${selectedNode.year}` : ""}
               {selectedNode.citationCount != null
@@ -196,17 +201,17 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             {selectedPaper ? (
               <>
                 {selectedPaper.abstract && (
-                  <p className="mt-2 text-sm leading-relaxed text-text-muted">
+                  <p className="mt-2 type-body leading-relaxed text-text-muted">
                     {selectedPaper.abstract}
                   </p>
                 )}
-                <label className="mt-3 block text-sm text-text">
+                <label className="mt-3 block type-body text-text">
                   Protocol links
                   <input
                     value={linkDraft}
                     onChange={(e) => setLinkDraft(e.target.value)}
                     placeholder="RQ-1, metric:parameter_count, recipe:…"
-                    className="mt-1 w-full rounded-input border border-border-strong bg-bg px-2 py-1.5 text-sm text-text outline-none focus-visible:border-accent"
+                    className="mt-1 w-full rounded-input border border-border-strong bg-bg px-2 py-1.5 type-body text-text outline-none focus-visible:border-accent"
                   />
                 </label>
                 <div className="mt-2 flex items-center gap-2">
@@ -231,7 +236,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                       href={selectedPaper.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-1 text-sm text-accent hover:underline"
+                      className="flex items-center gap-1 type-body text-accent hover:underline"
                     >
                       <ExternalLink className="size-3" aria-hidden /> open
                     </a>
@@ -240,7 +245,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
               </>
             ) : (
               <div className="mt-2">
-                <p className="text-sm text-text-muted">
+                <p className="type-body text-text-muted">
                   Suggested paper, not yet in the study.
                 </p>
                 <Button
@@ -270,7 +275,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
           <Assistant studyId={studyId} />
         </div>
         <details className="lg:hidden">
-          <summary className="cursor-pointer rounded-input border border-border bg-surface px-4 py-2 text-sm font-medium text-text">
+          <summary className="cursor-pointer rounded-input border border-border bg-surface px-4 py-2 type-body font-medium text-text">
             Assistant
           </summary>
           <div className="mt-2">

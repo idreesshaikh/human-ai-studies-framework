@@ -126,7 +126,7 @@ def main() -> int:
 
     events = _read_jsonl(args.events)
     session_id = events[0]["sessionId"]
-    wire = {"source": "cognitive-overlay", "events": events}
+    wire = {"source": "tern", "events": events}
     first = _call("POST", f"{args.server}/ingest/events", wire)
     replay = _call("POST", f"{args.server}/ingest/events", wire)
     print(
@@ -137,7 +137,7 @@ def main() -> int:
 
     if args.events2.exists():
         behavior = _read_jsonl(args.events2)
-        wire2 = {"source": "cognitive-overlay", "events": behavior}
+        wire2 = {"source": "tern", "events": behavior}
         b = _call("POST", f"{args.server}/ingest/events", wire2)
         types = len({e["type"] for e in behavior})
         print(
@@ -147,7 +147,7 @@ def main() -> int:
 
     if args.events3.exists():
         unassisted = _read_jsonl(args.events3)
-        wire3 = {"source": "cognitive-overlay", "events": unassisted}
+        wire3 = {"source": "tern", "events": unassisted}
         u = _call("POST", f"{args.server}/ingest/events", wire3)
         print(
             f"unassisted session {unassisted[0]['sessionId']}: "

@@ -68,7 +68,6 @@ def client(tmp_path, monkeypatch):
         data_dir=tmp_path / "data",
         port=8000,
         spa_dist=tmp_path / "no-dist",
-        dev_mode=True,
     )
     return TestClient(create_app(settings))
 
@@ -163,9 +162,10 @@ def test_a_broken_stream_falls_back_to_the_blocking_call(client, monkeypatch):
     assert events[-1][1]["text"] == _REPLY["text"]  # from the blocking retry
 
 
-def test_no_llm_key_still_answers_over_the_stream(client, monkeypatch):
-    """With no provider the scripted assistant answers; the stream carries
-    no tokens but still delivers the turn."""
+def test_no_model_closes_the_stream_with_a_holding_turn(client, monkeypatch):
+    """With no provider the stream still closes normally, carrying a holding
+    turn that proposes nothing — not an ``error`` frame (which leaves the
+    thread looking broken) and not an invented reply."""
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: None)
     with client.stream(
         "POST",
@@ -175,8 +175,14 @@ def test_no_llm_key_still_answers_over_the_stream(client, monkeypatch):
         events = _events("".join(res.iter_text()))
 
     assert [k for k, _ in events] == ["done"]
-    assert events[0][1]["source"] == "scripted"
-    assert events[0][1]["text"]
+    done = events[0][1]
+    assert done["source"] == "unavailable"
+    assert done["moves"] == []
+    assert "MISTRAL_API_KEY" in done["text"]
+
+    # The researcher's own turn survives, so they needn't retype it.
+    turns = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
+    assert any(t["text"] == "over-trust in AI code" for t in turns)
 
 
 def test_streaming_and_blocking_produce_the_same_turn(client, tmp_path):

@@ -78,12 +78,11 @@ def consent_relevance(before: dict, after: dict) -> tuple[bool, list[str]]:
         b = b if isinstance(b, dict) else {}
         a = a if isinstance(a, dict) else {}
         for key in sorted(CONSENT_SUBKEYS):
-            if key in b or key in a:
-                if b.get(key) != a.get(key):
-                    reasons.append(
-                        f"changes the content policy of instruments.{name} "
-                        f"({key}: {b.get(key)!r} → {a.get(key)!r})"
-                    )
+            if (key in b or key in a) and b.get(key) != a.get(key):
+                reasons.append(
+                    f"changes the content policy of instruments.{name} "
+                    f"({key}: {b.get(key)!r} → {a.get(key)!r})"
+                )
 
     # FR-CONV-7: recursive ``enabled`` change check — turning capture on/off
     # at any nesting depth is consent-relevant.
@@ -107,9 +106,10 @@ def consent_relevance(before: dict, after: dict) -> tuple[bool, list[str]]:
     # The ethics / consent subtree, whatever shape a template gives it, is a
     # consent surface in full — any change to it is relevant.
     for section in ("ethics", "consent"):
-        if before.get(section) != after.get(section):
-            if before.get(section) is not None or after.get(section) is not None:
-                reasons.append(f"changes the {section} scope of the study")
+        if before.get(section) != after.get(section) and (
+            before.get(section) is not None or after.get(section) is not None
+        ):
+            reasons.append(f"changes the {section} scope of the study")
 
     # A curated data source is a new data stream about (mined) strangers, who
     # get the same protection as consented participants (FR-ETH-2, wall 7).
@@ -225,8 +225,8 @@ def amendment_summary_doc(
     )
     out.append("")
     out.append(f"- **Study:** {study_id}")
-    out.append(f"- **Approved by:** {approved_by or '—'}")
-    out.append(f"- **Date:** {approved_at or '—'}")
+    out.append(f"- **Approved by:** {approved_by or 'not recorded'}")
+    out.append(f"- **Date:** {approved_at or 'not recorded'}")
     out.append("")
     out.append("## What changed")
     out.append("")
@@ -262,7 +262,7 @@ def amendment_summary_doc(
     if grounding:
         out.extend(f"- {g}" for g in grounding)
     else:
-        out.append("- _unsourced — the amendment carries no citations_")
+        out.append("- _unsourced: the amendment carries no citations_")
     out.append("")
     return "\n".join(out)
 

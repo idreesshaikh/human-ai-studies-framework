@@ -50,7 +50,7 @@ parameters:
     description: The research team
   ethicsRef:
     type: string
-    default: "ethics application (in preparation; gate blocks data-collection)"
+    default: "pending: not yet obtained"
     description: Ethics reference
   taskDescription:
     type: string
@@ -91,7 +91,7 @@ measures:
     leg: cognitive
     elements: [debrief survey]
     description: Self-reported speed / productivity perception
-    caution: perception-gap — METR found developers felt faster while being slower
+    caution: perception-gap. METR found developers felt faster while being slower
     cite: arxiv:2507.09089
   - id: code-correctness
     leg: static

@@ -37,6 +37,13 @@ repos:
         types: [python]
         require_serial: true
 
+      - id: workspace-config
+        name: workspace package lists agree (testpaths / coverage source)
+        entry: uv run python scripts/check_workspace_config.py
+        language: system
+        files: ^pyproject\.toml$
+        pass_filenames: false
+
       - id: pytest
         name: pytest (all packages)
         entry: uv run pytest -q

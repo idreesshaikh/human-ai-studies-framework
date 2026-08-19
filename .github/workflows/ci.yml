@@ -22,14 +22,24 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
-      - name: AGENTS.md is not stale (FR-AGF-2 drift gate)
-        run: uv run python scripts/generate_agents_md.py --check
 
-      - name: Agent discovery demo runs (FR-AGF-1 F1.2)
-        run: uv run python scripts/agent_manifest_demo.py --in-process
+      # No workspace member may be missing from testpaths or the coverage
+      # source list - that is how `curated`'s 11 tests went unrun.
+      - name: Workspace package lists agree
+        run: uv run python scripts/check_workspace_config.py
 
-      - name: Tests
-        run: uv run pytest --cov=metrics/src --cov-report=term-missing --cov-fail-under=95
+      # `--cov` with no value takes its source list from
+      # [tool.coverage.run] in the root pyproject.toml: every package's
+      # shipped src/, not one package's. The floor sits just under the
+      # measured total so it is a ratchet - raise it as coverage climbs,
+      # never lower it to make a red build green.
+      - name: Tests + coverage (whole workspace, floor 79%)
+        run: uv run pytest --cov --cov-report=term-missing --cov-fail-under=79
+
+      # The static-metrics leg keeps the stricter bar it already met; the
+      # workspace floor must never be a licence to let it slip.
+      - name: Metrics leg keeps its stricter floor (95%)
+        run: uv run coverage report --include='metrics/src/*' --fail-under=95
 
   extension:
     name: Extension - typecheck + lint + format + test
@@ -48,6 +58,9 @@ jobs:
 
       - name: Install
         run: npm ci
+
+      - name: Audit (no known high-severity advisories)
+        run: npm audit --audit-level=high
 
       - name: Check (tsc + eslint + prettier + tests)
         run: npm run check
@@ -69,6 +82,9 @@ jobs:
 
       - name: Install
         run: npm ci
+
+      - name: Audit (no known high-severity advisories)
+        run: npm audit --audit-level=high
 
       - name: Check (tsc + lint + verify + build)
         run: npm run check

@@ -94,8 +94,8 @@ const CLERK_APPEARANCE = {
     colorNeutral: "var(--text-muted)",
     colorShimmer: "var(--border)",
     borderRadius: "var(--radius-input)",
-    fontFamily: "var(--font-mono)",
-    fontFamilyButtons: "var(--font-mono)",
+    fontFamily: "var(--font-sans)",
+    fontFamilyButtons: "var(--font-sans)",
     fontSize: "0.875rem",
   },
   elements: {
@@ -120,19 +120,19 @@ const CLERK_APPEARANCE = {
     scrollBox: "!overflow-visible !max-h-none",
     footerActionLink: "text-accent hover:text-accent",
     socialButtonsBlockButton:
-      "border border-border-strong bg-surface text-text shadow-brutal rounded-input font-mono text-sm font-medium normal-case hover:bg-accent-soft",
-    socialButtonsBlockButtonText: "font-mono text-sm font-medium normal-case",
+      "border border-border-strong bg-surface text-text shadow-mark rounded-input type-control normal-case hover:bg-zone-9",
+    socialButtonsBlockButtonText: "type-label normal-case",
     dividerLine: "bg-border",
-    dividerText: "font-mono text-xs uppercase tracking-wide text-text-muted",
+    dividerText: "type-legend text-text-muted",
     formFieldLabel:
-      "font-mono text-xs font-medium uppercase tracking-wide text-text-muted",
+      "type-legend text-text-muted",
     formFieldInput:
-      "rounded-input border border-border-strong bg-bg font-mono text-sm text-text focus:border-accent",
+      "rounded-input border border-border-strong bg-surface-raised type-body text-text focus:border-accent",
     formButtonPrimary:
-      "rounded-input border border-border-strong bg-accent text-accent-contrast shadow-brutal font-mono text-sm font-medium normal-case hover:bg-accent",
-    identityPreviewText: "font-mono text-sm text-text",
+      "rounded-input border control-primary shadow-mark type-control normal-case",
+    identityPreviewText: "type-body text-text",
     identityPreviewEditButton: "text-accent",
-    otpCodeFieldInput: "border-border-strong bg-bg font-mono text-text",
+    otpCodeFieldInput: "border-border-strong bg-surface-raised type-quantity text-text",
     formResendCodeLink: "text-accent",
   },
 } as const;

@@ -84,7 +84,7 @@ def test_health_reports_protocol(client):
 
 
 def test_ingest_is_idempotent_on_session_and_seq(client):
-    batch = {"source": "cognitive-overlay", "events": [event(i) for i in range(5)]}
+    batch = {"source": "tern", "events": [event(i) for i in range(5)]}
     first = client.post("/ingest/events", json=batch).json()
     assert first == {"received": 5, "inserted": 5, "duplicates": 0, "flagged": 0}
 
@@ -94,6 +94,32 @@ def test_ingest_is_idempotent_on_session_and_seq(client):
 
     events = client.get("/sessions/S1/events").json()
     assert len(events) == 5
+
+
+def test_legacy_source_name_folds_into_one_stream(client):
+    """An un-upgraded editor still reports "cognitive-overlay". Uniqueness is
+    keyed on ``(session_id, source, seq)``, so leaving the old name alone
+    would restart the seq stream mid-session and read as a gap - the rename
+    must not fracture a session that spans it."""
+    client.post(
+        "/ingest/events",
+        json={"source": "cognitive-overlay", "events": [event(i) for i in range(3)]},
+    )
+    client.post(
+        "/ingest/events",
+        json={"source": "tern", "events": [event(i) for i in range(3, 6)]},
+    )
+
+    report = client.get("/sessions/S1/gaps").json()
+    assert [s["source"] for s in report["sources"]] == ["tern"]
+    assert report["complete"] is True
+
+    # And a replay under the old name is still recognised as a duplicate.
+    replay = client.post(
+        "/ingest/events",
+        json={"source": "cognitive-overlay", "events": [event(0)]},
+    ).json()
+    assert replay["duplicates"] == 1
 
 
 def test_bare_event_array_is_accepted(client):
@@ -172,9 +198,9 @@ def test_dataset_joins_legs_on_one_timeline(client):
     client.post("/ingest/metrics", json=[metric_row(ts="2026-07-11T10:00:05+00:00")])
     rows = client.get("/studies/pilot-2026/dataset").json()["rows"]
     assert [r["source"] for r in rows] == [
-        "cognitive-overlay",
+        "tern",
         "metrics",
-        "cognitive-overlay",
+        "tern",
     ]
     assert all(
         r["participantId"] == "P01" and r["condition"] == "ai-assisted" for r in rows
@@ -219,15 +245,6 @@ def test_file_upload_is_content_addressed(client, tmp_path):
     assert again["sha256"] == first.json()["sha256"]
 
 
-def test_tasks_crud(client):
-    task_id = client.post("/tasks", json={"title": "print consent forms"}).json()["id"]
-    assert client.get("/tasks?status=open").json()[0]["title"] == (
-        "print consent forms"
-    )
-    client.patch(f"/tasks/{task_id}", json={"status": "done"})
-    assert client.get("/tasks?status=open").json() == []
-
-
 # ---------------------------------------------------------------------------
 # Platform support endpoints
 
@@ -254,67 +271,6 @@ def test_protocol_summary_merges_analysis_plan(client):
     assert [p["name"] for p in doc["phases"]][:2] == ["design", "ethics"]
 
 
-def test_lifecycle_phase_is_computed_from_uploaded_artifacts(client):
-    doc = client.get("/studies/pilot-2026/lifecycle").json()
-    assert doc["currentPhase"] == "design"
-
-    upload(client, "protocol-validated.txt")
-    upload(client, "task-definitions.md")
-    doc = client.get("/studies/pilot-2026/lifecycle").json()
-    assert doc["currentPhase"] == "ethics"
-    ethics = next(p for p in doc["phases"] if p["name"] == "ethics")
-    assert ethics["status"] == "current"
-    assert all(not g["satisfied"] for g in ethics["gates"])
-
-    # The acceptance-criteria walk: uploading the ethics artifacts advances
-    # the computed phase - nothing is hand-set (FR-DASH-2).
-    upload(client, "ethics-approval.pdf")
-    upload(client, "consent-form.pdf")
-    doc = client.get("/studies/pilot-2026/lifecycle").json()
-    assert doc["currentPhase"] == "pilot"
-    ethics = next(p for p in doc["phases"] if p["name"] == "ethics")
-    assert ethics["status"] == "complete"
-    assert all(g["satisfied"] and g["satisfiedBy"] for g in ethics["gates"])
-
-
-def test_gateless_phase_needs_explicit_attested_advance(tmp_path):
-    """FR-PROT-10: a phase declaring no gates carries an implicit completion
-    attestation — one satisfied gate must not silently tick every gateless
-    phase after it. The curated demo protocol (gateless ethics) is the shape
-    that used to jump straight past ethics/pilot/recruitment."""
-    settings = Settings(
-        db_path=tmp_path / "test.sqlite3",
-        data_dir=tmp_path / "data",
-        protocol_path=REPO_ROOT / "protocol" / "examples" / "cursor-mining-2026.yaml",
-        port=8000,
-        spa_dist=tmp_path / "no-dist",
-    )
-    c = TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
-    study = "cursor-mining-2026"
-
-    upload(c, "protocol-validated.txt", study=study)
-    doc = c.get(f"/studies/{study}/lifecycle").json()
-    assert doc["currentPhase"] == "ethics"
-    ethics = next(p for p in doc["phases"] if p["name"] == "ethics")
-    assert [g["artifact"] for g in ethics["gates"]] == ["ethics-complete.txt"]
-    assert not ethics["gates"][0]["satisfied"]
-
-    # A later phase's implicit gate can't be attested out of order.
-    skip = c.post(
-        f"/studies/{study}/lifecycle/gates/pilot-complete.txt/attest",
-        json={"confirmed": True},
-    )
-    assert skip.status_code == 409
-
-    # Attesting the current phase's completion advances exactly one phase.
-    ok = c.post(
-        f"/studies/{study}/lifecycle/gates/ethics-complete.txt/attest",
-        json={"confirmed": True, "note": "no human participants — mined data"},
-    )
-    assert ok.status_code == 200
-    assert ok.json()["currentPhase"] == "pilot"
-
-
 def test_status_document_reports_sessions_gaps_and_rq_coverage(client):
     client.post("/ingest/events", json=[event(i) for i in [0, 1, 4]])
     client.post("/ingest/metrics", json=[metric_row()])
@@ -336,7 +292,6 @@ def test_status_document_reports_sessions_gaps_and_rq_coverage(client):
         "task-outcome-by-condition",
     ]
     assert all(rq["recipeRuns"] == [] for rq in rqs.values())
-    assert doc["lifecycle"]["currentPhase"] == "design"
 
 
 def test_status_flags_surface_per_session(client):
@@ -376,6 +331,49 @@ def test_live_reports_recent_sessions_with_rate_buckets(client):
     assert live["gapCount"] == 0
 
 
+def test_live_survives_a_session_whose_received_at_is_in_the_future(client, tmp_path):
+    """Regression: a synthetic dry run schedules sessions across a realistic
+    span rather than bunching them at one instant (simulation.py), so some
+    events' received_at legitimately lands after "now" at query time. The
+    rate-bucket index used to clamp only its upper bound
+    (``min(int(age // bucketSeconds), buckets - 1)``); a negative age
+    floor-divides to a negative offset in Python, which the min() alone
+    never catches, and indexing `rate[buckets]` on a `buckets`-length list
+    crashed the whole endpoint with a 500 - not a degraded response, a hard
+    failure, the first time a study ever had one of these."""
+    from datetime import timedelta
+
+    from middleware.db import Event, make_session_factory
+
+    factory = make_session_factory(f"sqlite:///{tmp_path / 'test.sqlite3'}")
+    future = (FROZEN_NOW + timedelta(minutes=5)).isoformat(timespec="milliseconds")
+    with factory() as s:
+        s.add(
+            Event(
+                session_id="S-future",
+                source="tern",
+                seq=0,
+                participant_id="P01",
+                condition="ai-assisted",
+                v=4,
+                ts=future,
+                mono=0.0,
+                type="session_start",
+                payload={},
+                flags=[],
+                received_at=future,
+            )
+        )
+        s.commit()
+
+    res = client.get("/studies/pilot-2026/live")
+    assert res.status_code == 200, res.text
+    (live,) = [x for x in res.json()["sessions"] if x["sessionId"] == "S-future"]
+    # A future timestamp is nonsensical for "age", so it reads as the most
+    # recent possible bucket rather than being dropped or crashing the route.
+    assert live["rate"][-1] >= 1
+
+
 def test_bearer_token_gates_views_but_not_ingest(tmp_path):
     settings = Settings(
         db_path=tmp_path / "t.sqlite3",
@@ -398,12 +396,12 @@ def test_bearer_token_gates_views_but_not_ingest(tmp_path):
 
 def test_cors_is_off_by_default_and_opt_in_per_origin(tmp_path):
     """FR-OPS-6: same-origin only unless an origin is explicitly allowed."""
-    base = dict(
-        db_path=tmp_path / "t.sqlite3",
-        data_dir=tmp_path,
-        protocol_path=PILOT,
-        spa_dist=tmp_path / "no-dist",
-    )
+    base = {
+        "db_path": tmp_path / "t.sqlite3",
+        "data_dir": tmp_path,
+        "protocol_path": PILOT,
+        "spa_dist": tmp_path / "no-dist",
+    }
     closed = TestClient(create_app(Settings(**base), clock=lambda: FROZEN_NOW))
     res = closed.get("/health", headers={"Origin": "https://preview.example"})
     assert "access-control-allow-origin" not in res.headers
@@ -475,5 +473,5 @@ def test_stale_database_schema_fails_loudly_at_startup(tmp_path):
     con.close()
 
     settings = Settings(db_path=db, data_dir=tmp_path, protocol_path=None)
-    with pytest.raises(RuntimeError, match="source.*docker compose down -v|predates"):
+    with pytest.raises(RuntimeError, match=r"source.*docker compose down -v|predates"):
         create_app(settings, clock=lambda: FROZEN_NOW)

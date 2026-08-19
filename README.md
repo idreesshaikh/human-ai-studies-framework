@@ -1,146 +1,132 @@
-# PHOENIX: Framework for Conducting Human-AI Studies
+# PHOENIX: a conversational designer for Human–AI studies
 
-*PHOENIX: **P**rotocol for **H**uman-**O**riented **E**vidence, **N**etworked
-**I**teration & e**X**perimentation, reborn each phase, the mythical bird
-matching the platform's own evolution-from-feedback story.*
+Design a Human–AI study by talking it through, then set it up in one click.
 
-[![CI](https://github.com/idreesshaikh/human-ai-studies-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/idreesshaikh/human-ai-studies-framework/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB.svg?logo=python&logoColor=white)](pyproject.toml)
-[![TypeScript](https://img.shields.io/badge/TypeScript-React%2019-3178C6.svg?logo=typescript&logoColor=white)](platform/package.json)
+You describe what you want to find out in plain English. PHOENIX asks the
+questions a research methodologist would, suggests design choices backed by a
+15,000-paper corpus, and compiles your answers into a study protocol that
+validates. That protocol configures **TERN**, a VS Code extension, on each
+participant's machine — so the study you designed is the study that runs.
 
-An open-source platform that carries a human-AI developer study from research
-question to publishable paper on a single timeline, with one command.
+It handles design, setup, and curation, then stops: you get the data, a data
+dictionary, and an analysis plan, ready for your own notebook.
 
-You describe a study in one YAML file: the research questions, the conditions
-(for example, coding with AI versus without), the participants, the
-instruments, and the analyses. The platform does the rest. It configures the
-instruments, guards the study lifecycle so that no data is collected before
-ethics approval is uploaded, records every session from four angles, runs the
-analyses, and generates a compilable LaTeX paper draft populated with your real
-numbers.
+## How it works
 
-## Contents
+1. **Talk it through.** Describe your idea; accept or reject suggestions one at
+   a time. Every suggestion cites a real paper, or says it doesn't.
+2. **Compile.** Your accepted choices become a protocol, deterministically —
+   the same answers always produce the same protocol, no AI involved. If
+   something is missing, it tells you what.
+3. **Run.** The protocol configures TERN on each participant's machine and
+   rotates task order so every participant meets every condition. A click
+   produces participant links (`vscode://…/pair` deep links) that install the
+   study on the editor — consent statement, capture config, everything.
+4. **Collect.** TERN tracks how participants felt (short surveys), what they
+   did (edits, tab switches), and what the AI did — never raw code, keystrokes,
+   or clipboard content. Every event is stored idempotently and flagged, never
+   dropped.
+5. **Analyse elsewhere.** You get a dataset shaped for your design, a data
+   dictionary, and a starter notebook with the exact test to run — curated by
+   PHOENIX, analysed in whatever notebook you already use.
 
-- [The four angles, one timeline](#the-four-angles-one-timeline)
-- [Quick start](#quick-start)
-- [Repository layout](#repository-layout)
-- [Highlights](#highlights)
-- [Documentation](#documentation)
-- [For researchers](#for-researchers)
-- [Contributing](#contributing)
-- [License](#license)
-
-## The four angles, one timeline
-
-Every data point carries the same participant, condition, and session keys plus
-a timestamp, so all four streams join cleanly in analysis.
-
-| Angle | What gets captured | How |
-| ----- | ------------------ | --- |
-| **How it felt** | fatigue micro-surveys timed into typing pauses, stuck-moment detection, end-of-session debrief | VS Code extension, unobtrusive in-editor surfaces |
-| **What they did** | tab switches, edits with provenance (typed, pasted, or AI-generated), scroll coverage, time spent reviewing AI suggestions before acceptance | VS Code extension |
-| **What the code looked like** | nine complexity measurements over time-series snapshots of the workspace, plus task pass/fail ground truth | static analysis and a shadow git repository |
-| **What the AI did** | conversation turns, tool calls, human-AI reliance loops | Claude Code hooks and transcript import |
-
-Privacy is built in rather than bolted on. Instruments record aggregates,
-shapes, and timings, never raw code, keystrokes, or clipboard content.
-Participant data stays on the researcher's machine and never enters git.
+Before collecting anything you can run a **synthetic dry run**: simulated
+participants through the real capture path, so the analysis plan is proven
+against data before a single real session happens.
 
 ## Quick start
 
-**Prerequisites:** Docker (for the one-command demo), or Python 3.12 with
-[uv](https://docs.astral.sh/uv/) and Node.js 22+ to run components directly.
+Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22, and a
+[Mistral API key](https://console.mistral.ai/) (needed only for the design
+conversation; everything else works without one).
 
 ```bash
 git clone https://github.com/idreesshaikh/human-ai-studies-framework.git
 cd human-ai-studies-framework
-docker compose up
-# open http://127.0.0.1:8000 for the platform, pre-loaded with a demo study
+
+uv sync --all-packages
+(cd platform && npm ci && npm run build)
+
+echo "MISTRAL_API_KEY=sk-..." >> .env
+
+uv run python -m middleware corpus-import   # load the 15,000-paper index
+uv run python -m middleware serve           # web app on :8000
 ```
 
-The demo explains itself. Two things are deliberately broken so you can watch
-the platform catch them: a planted data loss (flagged, never silent) and a
-lifecycle parked at its ethics gate.
+Open <http://localhost:8000> and describe your idea. Or use Docker, which
+brings its own Postgres: `docker compose up`.
 
-To work without Docker, or to see every command, read the
-[operator's guide](RUNBOOK.md).
+### Running a session
+
+Create a participant link on the **Participants** tab. TERN ships as a `.vsix`
+on the [releases page](https://github.com/idreesshaikh/human-ai-studies-framework/releases/latest) —
+install it via **Extensions: Install from VSIX…** and open the link. The editor
+joins the study already configured as designed.
+
+### The CLI, end to end
+
+The same paths the web app drives are one command each (all take
+`MIDDLEWARE_TOKEN` for auth and `--server` to point elsewhere):
 
 ```bash
-# The full arc, protocol in to paper out:
-uv sync --all-packages
-uv run analysis run   protocol/examples/pilot-study.yaml --out results
-uv run analysis paper protocol/examples/pilot-study.yaml --out results
+uv run python -m middleware simulate pilot-2026 --count 10 --seed 42
+# simulated 10 participants (mixed): 20 sessions, 713 events, …
+# plan validation: 4 recipe(s) ran, 0 check(s) failed; report under results/
+
+uv run python -m analysis.cli run protocol/examples/pilot-study.yaml --server http://127.0.0.1:8000
+uv run python -m analysis.cli notebook protocol/examples/pilot-study.yaml --server http://127.0.0.1:8000
+uv run python -m analysis.cli paper protocol/examples/pilot-study.yaml
 ```
+
+- `simulate` — synthetic dry run over plain HTTP, then validates the study's
+  analysis plan against the synthetic data. Exit 0 only when every planned
+  recipe ran. The server route (`POST /studies/{study_id}/simulate`) and the
+  Data tab's **Run a dry run** button do the same thing in-process.
+- `notebook` — the curated handoff: `results/<study>/notebook.ipynb` (a loaded,
+  documented dataframe with every planned recipe imported — never run) plus a
+  standalone `data-dictionary.md`.
+- `paper` — a first-draft Methods + Results paper section, from the same plan.
+- `run` / `validate` / `list` — execute recipes, check plan satisfaction, and
+  catalogue what exists (see `uv run python -m analysis.cli --help`).
+
+## The four angles, in one place
+
+| Leg | Instrument | What it captures |
+| --- | --- | --- |
+| How participants feel | TERN probes | Fatigue Likert, end-of-session TLX survey |
+| What participants do | TERN telemetry | Focus switches, edit bursts, pastes (sizes only), stuck episodes |
+| What the AI does | agent-capture | Tool calls, transcripts, suggestion lifecycle (shown/accepted/dismissed) |
+| What the code looks like | metrics | Complexity profile of the code produced |
+
+Every leg is configured per study from the protocol and disclosed in the
+participant's consent statement; a capture config the researcher has not
+approved never runs.
 
 ## Repository layout
 
-```
-protocol/        Study-as-code: validate a protocol, drive its lifecycle,
-                 derive every instrument's configuration from it
-extension/       VS Code extension participants run (the two human angles)
-metrics/         Nine code-complexity measurements
-agent-capture/   The AI's side: hooks, transcripts, snapshots, task harness
-curated/         The curated-dataset leg: normalizer, GitHub mining adapter,
-                 authorship heuristics, threats record
-middleware/      The hub on port 8000: ingestion, storage, integrity
-                 checks, the joined dataset, and it serves the platform
-platform/        The web app (React 19): the design conversation, the study
-                 workspace (Library = live paper ingest, citation
-                 constellation, and grounded assistant; Data; Lifecycle),
-                 projects, and the evolution surfaces
-analysis/        Pluggable analysis recipes, per-question report,
-                 LaTeX paper draft, and post-study retrospective
-```
+| Folder | What's in it |
+| --- | --- |
+| `platform/` | The web app: design conversation and study workspace |
+| `middleware/` | The server: API, search, design assistant; serves the web app |
+| `protocol/` | Study schema, validator, counterbalanced assignment |
+| `extension/` | TERN, the VS Code extension participants run |
+| `templates/` | 13 ready-made study designs, each citing the papers behind it |
+| `analysis/` | The recipe catalogue: which exact test to run for which design |
+| `agent-capture/` | The AI's side: transcripts, snapshots, task harness |
+| `metrics/` | Code-complexity measurements |
+| `curated/` | Dataset curation and authorship checks |
 
-## Highlights
+## Worked example
 
-- **The study evolves in the open.** Mid-study changes are spoken in the
-  conversation, compiled deterministically, and, once ethics approval is in
-  place, routed through version-visible, consent-gated amendments. Nothing is
-  silent.
-- **Honest statistics, enforced.** Every result reports an exact test, an
-  effect size, and per-group sample sizes. The statistics layer makes a bare
-  p-value impossible to emit.
-- **Papers become recipes.** Two published studies' analysis methods run as
-  built-in recipes on your data, with citations included.
-- **Byte-reproducible replication.** A finished study exports a replication
-  kit that regenerates the report byte for byte from a fresh checkout, proven
-  in tests.
-- **It studies itself.** The platform logs its own defects during a study and
-  drafts an improvement proposal afterwards, which a human approves.
-- **Everything external is optional.** Semantic Scholar, an LLM key (Mistral
-  by default, or any OpenAI-compatible endpoint), SonarQube, and login
-  providers each degrade gracefully, so the platform runs fully offline on
-  one laptop.
+Follow one study from idea to notebook with the real generated artifacts in
+[`docs/examples/`](docs/examples/): the protocol, an ethics package, a dry-run
+report, and the starter notebook.
 
-## Documentation
+## Status
 
-| You want to | Read |
-| ----------- | ---- |
-| Get the whole picture in plain language, then click through it | [`TOUR.md`](TOUR.md) |
-| Run any component, end to end, with troubleshooting | [`RUNBOOK.md`](RUNBOOK.md) |
-| Deploy it (free-tier demo, persistent instance, releases) | [`RUNBOOK.md`](RUNBOOK.md) |
-| Contribute (setup, gates, architecture, invariants) | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| See the formal requirements and decision record | [`requirements/`](requirements/README.md) |
-| Follow the phase plan, phase by phase | [`docs/roadmap/`](docs/roadmap/README.md) |
-
-## For researchers
-
-This platform is itself the product of a requirements-engineering research
-project. The central claim is that a study protocol is a machine-readable
-requirements specification ("study-as-code"). The platform's complete
-requirements record, in which every feature traces to a numbered requirement
-and every dependency decision is argued, lives in
-[`requirements/`](requirements/). If you use the platform in your research,
-that directory is also the most precise description of what it guarantees.
-
-## Contributing
-
-Contributions are welcome. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md) for
-local setup, the test and lint gates, the architecture, and the invariants that
-keep the science honest. Please open an issue to discuss substantial changes
-before sending a pull request.
+A master's research project, under active development. See
+[`PRODUCT.md`](PRODUCT.md) for the product record: users, positioning,
+constraints, and what's confirmed versus still open.
 
 ## License
 

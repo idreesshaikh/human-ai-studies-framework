@@ -255,7 +255,7 @@ def quality_gate(p: dict, this_year: int) -> bool:
         return False
     if year <= this_year - 3 and cites < 10:
         return False  # had years to be cited, wasn't
-    if year == this_year - 2 and cites < 3:
+    if year == this_year - 2 and cites < 3:  # noqa: SIM103 - guard ladder
         return False
     return True  # fresh papers (last ~2y) pass on seed-connectivity alone
 

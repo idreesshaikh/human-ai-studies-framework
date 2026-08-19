@@ -149,8 +149,9 @@ Set `tern.output.httpEndpoint` (e.g.
 middleware - same decoupled "lightweight sensor → local daemon" architecture
 as ActivityWatch. The JSONL file is always written regardless, so a dead
 server never loses data. Batches POST as
-`{"source":"cognitive-overlay","events":[...]}` every 5 s (the source
-string predates the TERN rename and was never updated to match).
+`{"source":"tern","events":[...]}` every 5 s (the source
+string is normalised on ingest, so an older editor's events still join the
+same stream.)
 
 ---
 

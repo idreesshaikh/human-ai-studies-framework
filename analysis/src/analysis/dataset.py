@@ -54,11 +54,14 @@ class Dataset:
     @cached_property
     def events(self) -> pd.DataFrame:
         """StudyEvent rows: join keys + ``ts`` (UTC datetime) + ``type`` +
-        ``seq`` + raw ``payload`` dict."""
+        ``seq`` + ``flags`` (integrity marks stamped at ingest; the export
+        always carries the key, empty list when clean) + raw ``payload``."""
         rows = [r for r in self.rows if r.get("source") != "metrics"]
         if not rows:
-            return pd.DataFrame(columns=[*JOIN_KEYS, "ts", "type", "seq", "payload"])
-        df = pd.DataFrame(rows)[[*JOIN_KEYS, "ts", "type", "seq", "payload"]]
+            return pd.DataFrame(
+                columns=[*JOIN_KEYS, "ts", "type", "seq", "flags", "payload"]
+            )
+        df = pd.DataFrame(rows)[[*JOIN_KEYS, "ts", "type", "seq", "flags", "payload"]]
         df["ts"] = pd.to_datetime(df["ts"], utc=True, format="mixed")
         return df.sort_values(["sessionId", "seq"]).reset_index(drop=True)
 

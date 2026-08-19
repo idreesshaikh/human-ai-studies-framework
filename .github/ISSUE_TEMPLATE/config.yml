@@ -1,0 +1,12 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability or participant-data leak
+    url: https://github.com/idreesshaikh/human-ai-studies-framework/security/advisories/new
+    about: >-
+      Never report these publicly. Use private vulnerability reporting — see
+      SECURITY.md for what is in scope.
+  - name: How PHOENIX is meant to work
+    url: https://github.com/idreesshaikh/human-ai-studies-framework#readme
+    about: >-
+      What the platform does, where it deliberately stops, and the design
+      decisions behind it.

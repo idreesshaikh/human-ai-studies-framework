@@ -61,3 +61,37 @@ def test_versioning_records_which_version_produced_the_draft():
     result = tr.instantiate_template("metr-rct-v1", {})
     assert result["templateId"] == "metr-rct-v1"
     assert result["templateVersion"] >= 1
+
+
+def test_a_filled_protocol_that_still_fails_validation_reports_plain_field_names(
+    monkeypatch,
+):
+    """Rare path: an LLM-supplied parameter passes its own type/bounds check
+    yet the filled protocol still fails schema validation (every registry
+    template's own DEFAULTS are covered by test_registry_is_valid, so this can
+    only happen with a supplied value). ``compile_moves`` appends this
+    TemplateError's message to ``CompileResult.errors`` UNFILTERED — unlike
+    every other schema error, it never reaches ``_explained_by_slot()``'s
+    translation, because that runs on the final compiled draft, not on this
+    per-template check. So the message has to be plain at the source: no
+    jsonschema operator language ("is not valid under any of the given
+    schemas", "should be non-empty"), just the field names."""
+    raw_errors = [
+        "analysisPlan: [] should be non-empty",
+        "instruments: {} is not valid under any of the given schemas",
+        "study.ethicsRef: '' should be non-empty",
+    ]
+    monkeypatch.setattr(
+        "protocol.loader.validate_protocol", lambda protocol: raw_errors
+    )
+    with pytest.raises(tr.TemplateError) as excinfo:
+        tr.instantiate_template("metr-rct-v1", {})
+    message = str(excinfo.value)
+    for jargon in (
+        "should be non-empty",
+        "is not valid under any of the given schemas",
+        "given schemas",
+    ):
+        assert jargon not in message, message
+    for field in ("analysisPlan", "instruments", "study.ethicsRef"):
+        assert field in message, message

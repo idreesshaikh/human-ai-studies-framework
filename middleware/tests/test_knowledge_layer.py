@@ -197,7 +197,7 @@ def _seed_events_and_metrics(client):
     client.post(
         "/ingest/events",
         json={
-            "source": "cognitive-overlay",
+            "source": "tern",
             "events": [
                 {
                     "v": 3,

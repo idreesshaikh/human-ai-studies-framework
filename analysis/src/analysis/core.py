@@ -87,7 +87,7 @@ REGISTRY: dict[str, Recipe] = {}
 
 
 def recipe(
-    id: str,  # noqa: A002 - mirrors the contract field name
+    id: str,  # shadows the builtin deliberately: mirrors the contract field name
     answers: Sequence[str],
     requires_events: Iterable[str] = (),
     requires_metrics: Iterable[str] = (),

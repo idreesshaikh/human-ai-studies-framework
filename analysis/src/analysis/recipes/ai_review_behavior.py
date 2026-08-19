@@ -66,7 +66,7 @@ def _viewport_spans(dataset: Dataset) -> pd.DataFrame:
     spans = []
     for sid, g in vr.groupby("sessionId"):
         rows = g.to_dict("records")
-        for cur, nxt in zip(rows, rows[1:] + [None], strict=False):
+        for cur, nxt in zip(rows, [*rows[1:], None], strict=False):
             end = (
                 nxt["ts"]
                 if nxt is not None
@@ -143,9 +143,13 @@ def run(dataset: Dataset) -> RecipeResult:
         "not computable - schema gap reported, accepted-size quartiles "
         "given instead."
     )
-    sizes = pd.to_numeric(
-        terminal.loc[terminal["accepted"], "charCount"], errors="coerce"
-    ).dropna()
+    sizes = (
+        pd.to_numeric(
+            terminal.loc[terminal["accepted"], "charCount"], errors="coerce"
+        ).dropna()
+        if "charCount" in terminal.columns
+        else pd.Series(dtype="float64")
+    )
     if len(sizes) >= 4:
         quartiles = pd.qcut(sizes, 4, duplicates="drop")
         tables["accepted_size_quartiles"] = (

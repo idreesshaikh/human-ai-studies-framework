@@ -27,16 +27,16 @@ export function RecommendationCard({
           <div className="flex items-center gap-2">
             <Confidence value={rec.confidence} />
             {rec.inStudy && (
-              <span className="flex items-center gap-1 text-xs text-grounded">
+              <span className="flex items-center gap-1 type-caption text-grounded">
                 <Check className="size-3" aria-hidden /> in library
               </span>
             )}
           </div>
-          <span className="tabular text-xs text-text-muted">{rec.year}</span>
+          <span className="tabular type-caption text-text-muted">{rec.year}</span>
         </div>
         <p className="font-medium text-text">{rec.title}</p>
-        <p className="text-xs text-text-muted">{rec.venue}</p>
-        <p className="text-sm text-text">{rec.matchReason}</p>
+        <p className="type-caption text-text-muted">{rec.venue}</p>
+        <p className="type-body text-text">{rec.matchReason}</p>
         <Button
           size="sm"
           variant={added ? "ghost" : "outline"}

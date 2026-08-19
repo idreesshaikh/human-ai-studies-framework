@@ -150,9 +150,8 @@ def _normalize_copilot_chat(
     string. Produces the same event contract as Claude Code transcripts.
     """
     logical: list[tuple[str, str, dict]] = []
-    turn_index = 0
     prev_ts: str | None = None
-    for line in lines:
+    for turn_index, line in enumerate(lines):
         ts = line.get("timestamp", "")
         role = line.get("role", "")
         content = line.get("content", "") or ""
@@ -168,7 +167,6 @@ def _normalize_copilot_chat(
         if content:
             payload["codeBlocks"] = _code_blocks(content)
         logical.append((ts, EVENT_TURN, payload))
-        turn_index += 1
 
         if tool_name:
             logical.append(

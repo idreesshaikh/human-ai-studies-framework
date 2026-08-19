@@ -14,6 +14,7 @@ import json
 import logging
 import urllib.error
 import urllib.request
+from contextlib import suppress
 from email.utils import formataddr, parseaddr
 
 log = logging.getLogger("middleware.mailer")
@@ -97,8 +98,8 @@ def send_invitation(
     with no idea why the email never arrived."""
     if not invite_enabled(api_key):
         return False, (
-            "Email delivery isn't configured (no RESEND_API_KEY) — "
-            "share the copy link instead."
+            "Email delivery isn't configured (no RESEND_API_KEY). "
+            "Share the copy link instead."
         )
     accept_url = _accept_url(token, base_url)
     from_header, reply_to = _from_and_reply(from_email, inviter)
@@ -141,12 +142,10 @@ def _resend_error_detail(exc: urllib.error.HTTPError) -> str:
         raw = exc.read().decode("utf-8")
     except Exception:  # noqa: BLE001 - diagnostics only, never mask the original
         return exc.reason or "unknown error"
-    try:
+    with suppress(Exception):
         parsed = json.loads(raw)
         if isinstance(parsed, dict):
             return str(parsed.get("message") or parsed.get("error") or raw)
-    except Exception:  # noqa: BLE001 - non-JSON body
-        pass
     return raw or (exc.reason or "unknown error")
 
 
@@ -155,6 +154,6 @@ def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:
     assistant._post_json) so tests can inject a fake sender."""
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310 - fixed host
+    with urllib.request.urlopen(req, timeout=15) as resp:
         raw = resp.read().decode("utf-8")
     return json.loads(raw) if raw else {}

@@ -14,13 +14,24 @@ export interface Grounding {
 }
 
 /** One platform-proposed change to the protocol draft. */
+// Mirrors design_llm._ALLOWED_KINDS exactly — the server drops any kind
+// outside that set before a move ever reaches the wire, so this union is
+// complete by construction as long as the two stay in sync. It used to
+// carry "set-threshold", a kind the server has never sent, and was missing
+// three it does: "set-field" and "declare-task" (the direct protocol-slot
+// fills the conversation gained this session) and "reconfigure-instrument"
+// (instrument tuning, e.g. the stuck-detector threshold). A card for any of
+// the missing three rendered with no kind label at all — KIND_LABEL[kind]
+// is undefined for a key TypeScript never knew to require.
 export type MoveKind =
   | "add-rq"
   | "choose-template"
   | "set-parameter"
+  | "set-field"
+  | "declare-task"
   | "add-instrument"
+  | "reconfigure-instrument"
   | "add-measure"
-  | "set-threshold"
   | "caution"; // a challenge to a choice — no draft change, just advice
 
 export type MoveStatus = "proposed" | "accepted" | "rejected";
@@ -46,10 +57,17 @@ export interface Turn {
   text: string;
   moves: DesignMove[];
   recommendations: Recommendation[];
-  /** Which path produced a platform turn (FR-CONV-1.4) — "llm" when a
-   * provider is configured and healthy, "scripted" on the degraded
-   * no-key/fallback path. Absent for researcher turns. */
-  source?: "llm" | "scripted";
+  /** Which path produced a platform turn.
+   *
+   * - `"llm"` — the design conversation. The only kind that proposes moves.
+   * - `"unavailable"` — a holding turn: the model couldn't be reached, so
+   *   this says so and proposes nothing. Never persisted, so it is gone on
+   *   reload; the researcher's own turn stays.
+   * - `"scripted"` — turns stored before the keyword fallback was removed.
+   *   Kept readable, never produced.
+   *
+   * Absent for researcher turns. */
+  source?: "llm" | "scripted" | "unavailable";
 }
 
 /** What the platform understands about the study so far (FR-CONV-10), and
@@ -107,7 +125,17 @@ export interface InstrumentPatch {
   value?: unknown;
 }
 
-export type DraftPatch = SectionPatch | TemplatePatch | InstrumentPatch;
+/** A ``set-field`` move's patch (server: compiler.FILLABLE_SLOTS) — fills one
+ * scalar protocol field directly (a sample size, a session length, the study
+ * title...), restricted server-side to the protocol's declared fillable
+ * slots. `path` is the dotted field, split: `["participants", "planned"]`. */
+export interface FieldPatch {
+  op: "set-field";
+  path: string[];
+  value: unknown;
+}
+
+export type DraftPatch = SectionPatch | TemplatePatch | InstrumentPatch | FieldPatch;
 
 export function isSectionPatch(p: DraftPatch): p is SectionPatch {
   return "op" in p && (p.op === "append" || p.op === "set");
@@ -119,6 +147,10 @@ export function isTemplatePatch(p: DraftPatch): p is TemplatePatch {
 
 export function isInstrumentPatch(p: DraftPatch): p is InstrumentPatch {
   return "op" in p && (p.op === "add-instrument" || p.op === "set-instrument" || p.op === "reconfigure");
+}
+
+export function isFieldPatch(p: DraftPatch): p is FieldPatch {
+  return "op" in p && p.op === "set-field";
 }
 
 export interface ProtocolDraft {
@@ -144,6 +176,38 @@ export const MANDATORY_SLOTS: (keyof ProtocolDraft)[] = [
   "statisticalPlan",
   "ethics",
 ];
+
+/** camelCase -> "Camel case": the plain-words fallback for any identifier
+ * this map doesn't recognise by name. Never used for a known slot — those
+ * always take their SLOT_LABELS wording — only for a path segment (like
+ * "durationMinutes") that has no entry of its own. */
+function sentenceCase(segment: string): string {
+  const spaced = segment.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
+}
+
+/** Renders a move's `target` (a dotted protocol path such as
+ * "researchQuestions[]" or "session.durationMinutes") in the words a
+ * researcher reads, never as raw code.
+ *
+ * `target` is model-authored (design_llm's own JSON contract, not a
+ * validated enum), and an earlier prompt version showed a literal
+ * "protocol.path" example the model echoed as a real "protocol." prefix —
+ * this strips that defensively so an older persisted move still reads
+ * cleanly. Each dotted segment is looked up against SLOT_LABELS where it
+ * matches one of the eight mandatory sections; anything else falls back to
+ * sentence case rather than showing camelCase or a raw path. */
+export function targetLabel(target: string): string {
+  const cleaned = target
+    .replace(/^protocol\./, "")
+    .replace(/\[\]$/, "")
+    .trim();
+  if (!cleaned) return "the protocol";
+  return cleaned
+    .split(".")
+    .map((part) => SLOT_LABELS[part as keyof ProtocolDraft] ?? sentenceCase(part))
+    .join(" \u2022 ");
+}
 
 export const SLOT_LABELS: Record<keyof ProtocolDraft, string> = {
   researchQuestions: "Research questions",

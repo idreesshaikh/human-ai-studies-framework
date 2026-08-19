@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
  * numerals, no motion. */
 export const Table = ({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) => (
   <div className="w-full overflow-x-auto">
-    <table className={cn("w-full text-sm", className)} {...props} />
+    <table className={cn("w-full type-body", className)} {...props} />
   </div>
 );
 
@@ -24,7 +24,7 @@ export const TR = ({ className, ...props }: React.HTMLAttributes<HTMLTableRowEle
 export const TH = ({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
   <th
     className={cn(
-      "px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-text-muted",
+      "px-3 py-2 text-left type-caption font-medium uppercase tracking-wide text-text-muted",
       className,
     )}
     {...props}

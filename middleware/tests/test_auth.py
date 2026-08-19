@@ -21,13 +21,12 @@ from middleware.settings import Settings
 
 
 def make_settings(tmp_path, **kw) -> Settings:
-    defaults = dict(
-        db_path=tmp_path / "db.sqlite3",
-        data_dir=tmp_path / "data",
-        protocol_path=None,
-        spa_dist=tmp_path / "nodist",
-        requirements_dir=tmp_path / "noreqs",
-    )
+    defaults = {
+        "db_path": tmp_path / "db.sqlite3",
+        "data_dir": tmp_path / "data",
+        "protocol_path": None,
+        "spa_dist": tmp_path / "nodist",
+    }
     defaults.update(kw)
     return Settings(**defaults)
 
@@ -176,14 +175,14 @@ def test_views_gated_but_ingest_open_in_token_mode(tmp_path):
     client = TestClient(app)
 
     assert client.get("/auth/config").json() == {"mode": "token"}
-    assert client.get("/tasks").status_code == 401
+    assert client.get("/files").status_code == 401
     assert (
-        client.get("/tasks", headers={"Authorization": "Bearer sekrit"}).status_code
+        client.get("/files", headers={"Authorization": "Bearer sekrit"}).status_code
         == 200
     )
     # ingest is never authenticated (sensors are fire-and-forget)
     batch = {
-        "source": "cognitive-overlay",
+        "source": "tern",
         "events": [
             {
                 "sessionId": "S-auth-1",

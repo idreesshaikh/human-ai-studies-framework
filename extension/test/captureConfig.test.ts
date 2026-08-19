@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   overlayFlags,
   configChanged,
+  readBlock,
   shouldApplyCaptureConfig,
   CaptureConfig,
 } from '../src/core/captureConfig';
@@ -68,4 +69,54 @@ test('wall #6: full lifecycle — a mid-session amendment lands only at the next
   // Session 1 ends. Session 2's boundary re-pulls and finds v2 — applies now.
   boundary(false, 'v2');
   assert.equal(applied, 'v2', 'the amendment lands at the next session start');
+});
+
+// ------------------------------------------------------ the assigned block
+
+const BLOCK = {
+  index: 1,
+  of: 2,
+  taskId: 'fix-the-failing-test',
+  condition: 'unassisted',
+  title: 'Fix the failing test',
+  description: 'The suite is red on main.',
+  materials: 'https://example.invalid/repo',
+};
+
+test('readBlock returns the assigned task', () => {
+  const b = readBlock({ ...CFG, block: BLOCK });
+  assert.equal(b?.taskId, 'fix-the-failing-test');
+  assert.equal(b?.condition, 'unassisted');
+  assert.equal(b?.index, 1);
+  assert.equal(b?.of, 2);
+});
+
+test('readBlock is undefined when the server sent none', () => {
+  assert.equal(readBlock(CFG), undefined);
+});
+
+test('a block missing its task or condition is refused, not half-read', () => {
+  // Rendering "task 2 of 2" with no task is worse than rendering nothing:
+  // the participant is told they have an assignment and not what it is.
+  assert.equal(
+    readBlock({ ...CFG, block: { ...BLOCK, taskId: '' } }),
+    undefined,
+  );
+  assert.equal(
+    readBlock({ ...CFG, block: { ...BLOCK, condition: '' } }),
+    undefined,
+  );
+});
+
+test('a malformed block never throws at session start', () => {
+  // The block is display state. A study must not fail to start because a
+  // field the editor only shows came back the wrong shape.
+  for (const bad of [null, 'a string', 42, [], { taskId: 7 }]) {
+    assert.equal(readBlock({ ...CFG, block: bad }), undefined);
+  }
+});
+
+test('a block falls back to its task id when it carries no title', () => {
+  const b = readBlock({ ...CFG, block: { ...BLOCK, title: '' } });
+  assert.equal(b?.title, 'fix-the-failing-test');
 });
