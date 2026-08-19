@@ -13,11 +13,11 @@ import matplotlib
 
 matplotlib.use("Agg")
 
-import pandas as pd  # noqa: E402
+import pandas as pd
 
-from analysis import figures, stats  # noqa: E402
-from analysis.core import RecipeResult, recipe  # noqa: E402
-from analysis.dataset import Dataset  # noqa: E402
+from analysis import figures, stats
+from analysis.core import RecipeResult, recipe
+from analysis.dataset import Dataset
 
 FIGURE_FORMS = {
     "scatter": figures.scatter_fit,

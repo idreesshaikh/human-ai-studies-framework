@@ -13,6 +13,7 @@ members = ["metrics", "protocol", "middleware", "analysis", "agent-capture", "cu
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "nbformat>=5.10.0",
     "pre-commit>=4.6.0",
     "pytest>=8.3",
     "pytest-cov>=7.1.0",
@@ -22,21 +23,80 @@ dev = [
 [tool.ruff]
 line-length = 88
 target-version = "py312"
-# metrics/corpus/ holds deliberately imperfect sample files used as parsing
-# targets by the metric extractors - they are analysis corpus, not our code.
 extend-exclude = ["metrics/corpus"]
 
 [tool.ruff.lint]
-# Correctness + import hygiene now; style expands as the codebase grows.
-select = ["E", "F", "I", "B", "UP"]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "I",      # import sorting
+    "B",      # bugbear
+    "UP",     # pyupgrade
+    "BLE",    # blind except - see above
+    "S",      # bandit security
+    "SIM",    # simplify
+    "C4",     # comprehensions
+    "PIE",    # misc lints
+    "RET",    # return consistency
+    "ASYNC",  # async correctness
+    "LOG",    # logging correctness
+    "RUF",    # ruff-specific, incl. RUF100 stale-noqa detection
+]
+
+ignore = [
+    "RUF001",
+    "RUF002",
+]
 
 [tool.ruff.lint.per-file-ignores]
 # FastAPI dependency injection is a function call in a default by design.
 "middleware/**" = ["B008"]
 
+# Tests: `assert` is how they assert, fixture credentials are synthetic, and
+# several shell out to the repo's own CLIs.
+"*/tests/*" = ["S101", "S105", "S106", "S603"]
+
+# Outbound HTTP to fixed https roots or operator-set endpoints.
+"middleware/src/middleware/semantic_scholar.py" = ["S310"]
+"middleware/src/middleware/assistant.py" = ["S310"]
+"middleware/src/middleware/mailer.py" = ["S310"]
+"middleware/scripts/replay_session.py" = ["S310"]
+"analysis/src/analysis/runner.py" = ["S310"]
+"analysis/src/analysis/retrospective.py" = ["S310"]
+"analysis/src/analysis/paper_cli.py" = ["S310"]
+"analysis/src/analysis/dataset.py" = ["S310"]
+"agent-capture/src/agent_capture/ingest.py" = ["S310"]
+"agent-capture/src/agent_capture/cli.py" = ["S310"]
+"scripts/*.py" = ["S310", "S603"]
+
+# Shell out with fixed argument lists (git, latexmk, the repo's own CLIs).
+"protocol/src/protocol/export.py" = ["S310", "S603"]
+"agent-capture/src/agent_capture/harness.py" = ["S603"]
+"agent-capture/src/agent_capture/gitutil.py" = ["S603", "S607"]
+"metrics/src/analyzers/sonar_metrics.py" = ["S603"]
+
+"middleware/src/middleware/__main__.py" = ["S603", "S104"]
+"middleware/src/middleware/paper_index.py" = ["S608"]
+
 [tool.pytest.ini_options]
-testpaths = ["metrics", "protocol", "middleware", "analysis", "agent-capture"]
+testpaths = [
+    "metrics",
+    "protocol",
+    "middleware",
+    "analysis",
+    "agent-capture",
+    "curated",
+]
+
+[tool.coverage.run]
+source = [
+    "metrics/src",
+    "protocol/src",
+    "middleware/src",
+    "analysis/src",
+    "agent-capture/src",
+    "curated/src",
+]
 
 [tool.coverage.report]
-# Ad-hoc demo entry points are exercised manually, not by the test suite.
 exclude_also = ['if __name__ == "__main__":']

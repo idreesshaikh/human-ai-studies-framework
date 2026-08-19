@@ -1,25 +1,40 @@
 from fastapi.testclient import TestClient
 
 
-def test_mint_refuses_before_ethics_gate(client_no_ethics: TestClient):
-    r = client_no_ethics.post(
+def test_mint_needs_a_protocol_not_an_approval(client_no_protocol: TestClient):
+    """The only thing enrollment requires is something to enroll *into*."""
+    r = client_no_protocol.post(
         "/studies/pilot/enrollment/tokens", json={"count": 2, "grain": "participant"}
     )
-    assert r.status_code == 409
-    assert "ethics" in r.json()["detail"].lower()
+    assert r.status_code == 404
+    assert "protocol" in r.json()["detail"].lower()
 
 
-def test_dev_mode_bypasses_ethics_gate_for_minting(
-    client_dev_mode_no_ethics: TestClient,
-):
-    # MIDDLEWARE_DEV_MODE relaxes the ethics gate so the enrollment flow is
-    # testable on a study that hasn't cleared ethics — the same request that
-    # 409s in production succeeds here.
-    r = client_dev_mode_no_ethics.post(
+def test_a_designed_study_can_be_set_up_immediately(client_designed: TestClient):
+    """Design then setup, with nothing in between.
+
+    This is the regression that matters most in the whole suite. Minting used
+    to 409 until an ethics approval was recorded on a lifecycle board, so a
+    researcher who had just designed a study - the platform's entire purpose -
+    could not enroll anyone or pair a single editor. Approval is the
+    university's to grant; what the platform owes a participant is the consent
+    statement at pairing, which is unconditional.
+    """
+    r = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 2, "grain": "participant"}
     )
     assert r.status_code == 200, r.text
-    assert len(r.json()) == 2
+    tokens = r.json()
+    assert len(tokens) == 2
+
+    # ...and the editor pairs, all the way to a capture config, still with no
+    # approval recorded anywhere.
+    raw = tokens[0]["connectionString"].rsplit("#", 1)[1]
+    paired = client_designed.post("/pair/redeem", json={"token": raw})
+    assert paired.status_code == 200, paired.text
+    body = paired.json()
+    assert body["captureConfig"]["settings"]
+    assert body["consentStatement"].strip()
 
 
 def test_mint_batch_assigns_counterbalanced_conditions(client_ethics_ok: TestClient):
@@ -168,9 +183,9 @@ def test_list_status_flips_to_streaming_once_events_arrive(
 # ========================================================== toggle tests
 
 
-def test_toggle_catalog_refuses_before_ethics(client_no_ethics):
-    r = client_no_ethics.get("/studies/pilot/enrollment/toggles/catalog")
-    assert r.status_code == 404  # study not built yet
+def test_toggle_catalog_needs_a_protocol(client_no_protocol):
+    r = client_no_protocol.get("/studies/pilot/enrollment/toggles/catalog")
+    assert r.status_code == 404  # nothing designed, so nothing to toggle
 
 
 def test_toggle_catalog_returns_filtered_entries(client_ethics_ok):
@@ -194,11 +209,26 @@ def test_toggle_catalog_current_value_matches_protocol(client_ethics_ok):
     assert stuck[0]["currentValue"] is True  # METR defaults stuck.enabled: true
 
 
-def test_toggle_refuses_before_ethics(client_no_ethics):
+def test_toggle_needs_a_protocol(client_no_protocol):
     body = {"instrument": "tern", "path": ["stuck", "enabled"],
             "value": False, "rationale": "test"}
-    r = client_no_ethics.post("/studies/pilot/enrollment/toggles", json=body)
+    r = client_no_protocol.post("/studies/pilot/enrollment/toggles", json=body)
     assert r.status_code == 404
+
+
+def test_toggle_works_on_a_designed_study(client_designed):
+    """Toggling used to demand an ethics-approved snapshot to diff against.
+    With no board recording one, the capture toggles on the setup surface were
+    unreachable; the compiled draft is the base now."""
+    catalog = client_designed.get("/studies/pilot/enrollment/toggles/catalog")
+    assert catalog.status_code == 200, catalog.text
+    assert catalog.json(), "a designed study has instruments to toggle"
+
+    body = {"instrument": "tern", "path": ["stuck", "enabled"],
+            "value": False, "rationale": "quieter pilot"}
+    r = client_designed.post("/studies/pilot/enrollment/toggles", json=body)
+    assert r.status_code == 200, r.text
+    assert r.json()["applied"] is True
 
 
 def test_toggle_nested_enabled_is_consent_relevant(client_ethics_ok):

@@ -3,7 +3,7 @@ import type { Amendment, AmendmentState } from "./types";
 
 /* The evolution surface runs on a deterministic offline store.
  *
- * Mirrors the server exactly the way the conversation runs on `designStub.ts`:
+ * Mirrors the server's own consent-relevance rule:
  * the middleware endpoints (/ethics-approval, /conversation/approve amendment
  * routing, /reapproval) are built and tested; this is the no-backend path so
  * the amendment banner and the history list are explorable and gate-testable
@@ -39,8 +39,8 @@ function seedAmendments(): Amendment[] {
       id: "am-2",
       fromVersion: 2,
       toVersion: 3,
-      summary: "reconfigures instrument: cognitiveOverlay",
-      changes: ["reconfigures instrument: cognitiveOverlay"],
+      summary: "reconfigures instrument: tern",
+      changes: ["reconfigures instrument: tern"],
       rationale:
         "Raise the stuck-detector threshold to two minutes: participants " +
         "were being nudged mid-thought.",

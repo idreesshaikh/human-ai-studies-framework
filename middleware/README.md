@@ -57,8 +57,9 @@ uv run protocol derive overlay-settings protocol/examples/pilot-study.yaml \
 The relevant setting is
 `"tern.output.httpEndpoint": "http://127.0.0.1:8000/ingest/events"`.
 The extension needs **zero code changes**: its HttpSink already POSTs
-`{"source": "cognitive-overlay", "events": [...]}` batches (the source
-string predates the TERN rename and was never updated to match).
+`{"source": "tern", "events": [...]}` batches. An older editor still sending
+the pre-rename `cognitive-overlay` source is normalised on ingest, so a
+session spanning the rename stays one stream rather than splitting in two.
 
 ## Smoke test
 
@@ -84,7 +85,6 @@ report (FR-ING-3) and the one-timeline dataset summary (FR-ING-4).
 | `GET /sessions/{id}/gaps` | seq-gap integrity report |
 | `GET /studies/{id}/dataset` | one-timeline export, `?format=json\|csv` |
 | `GET /studies/{id}/protocol` | protocol summary for the platform overview + trace chips (MP-06) |
-| `GET /studies/{id}/lifecycle` | computed phase + per-gate satisfaction from uploaded artifacts (FR-DASH-2) |
 | `GET /studies/{id}/status` | factual status doc the task board derives its cards from (FR-DASH-7) |
 | `GET /studies/{id}/live` | sessions with ingests in the last 5 min + rate buckets (FR-DASH-3) |
 | `GET /files` | uploaded artifact index |

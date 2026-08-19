@@ -50,7 +50,7 @@ parameters:
     default: [Researcher]
   ethicsRef:
     type: string
-    default: "ethics application (in preparation; gate blocks data-collection)"
+    default: "pending: not yet obtained"
   outputEndpoint:
     type: string
     default: "http://127.0.0.1:8000/ingest/events"

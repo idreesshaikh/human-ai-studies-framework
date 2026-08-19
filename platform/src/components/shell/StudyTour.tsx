@@ -12,7 +12,7 @@ export type TourTab =
   | "conversation"
   | "library"
   | "data"
-  | "lifecycle"
+  | "planning"
   | "enrollment";
 
 interface Step {
@@ -43,14 +43,14 @@ const STEPS: Step[] = [
     body: "Your collected data as plain shapes, never a bare p-value. The prescription panel tells you the exact test, effect size, and correction your design needs, with the reasoning.",
   },
   {
-    tab: "lifecycle",
-    title: "Move the study forward, one checkpoint at a time",
-    body: "Design → ethics → pilot → data collection → analysis. Attest each gate (ethics approval, consent) to advance: the study can't skip a step it hasn't cleared.",
+    tab: "planning",
+    title: "Recruit enough — before anyone runs",
+    body: "The power curve for the study's planned comparison: how power moves with sample size, and the total n each plausible effect size needs to reach your target. Planning math, with its assumptions stated.",
   },
   {
     tab: "enrollment",
     title: "Bring participants in",
-    body: "Mint a link for each participant. They paste it once into VS Code (the “TERN: Connect to Study” command) and their editor joins the study.",
+    body: "Mint a link for each participant. Open it in VS Code, or have them paste it once with “TERN: Connect to Study”. Either way their editor joins the study already configured the way you designed it.",
   },
 ];
 
@@ -73,7 +73,7 @@ export function StudyTour({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-label="Getting started"
@@ -83,7 +83,7 @@ export function StudyTour({
         if (e.key === "ArrowLeft" && i > 0) go(i - 1);
       }}
     >
-      <div className="w-full max-w-md rounded-card border border-border-strong bg-surface-raised p-5 shadow-brutal-lg">
+      <div className="w-full max-w-md rounded-card border border-border-strong bg-surface-raised p-5 shadow-lifted">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
             {STEPS.map((_, n) => (
@@ -107,10 +107,10 @@ export function StudyTour({
         </div>
 
         <h2 className="type-subhead mt-4 text-text">{step.title}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-text-muted">{step.body}</p>
+        <p className="mt-2 type-body leading-relaxed text-text-muted">{step.body}</p>
 
         <div className="mt-5 flex items-center justify-between">
-          <span className="text-xs text-text-muted">
+          <span className="type-caption text-text-muted">
             Step {i + 1} of {STEPS.length}
           </span>
           <div className="flex items-center gap-2">

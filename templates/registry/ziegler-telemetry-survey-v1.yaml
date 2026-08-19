@@ -83,7 +83,7 @@ parameters:
     description: The research team
   ethicsRef:
     type: string
-    default: "ethics application (in preparation; gate blocks data-collection)"
+    default: "pending: not yet obtained"
     description: Ethics reference
   taskDescription:
     type: string

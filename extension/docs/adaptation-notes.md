@@ -3,7 +3,7 @@
 What was taken from each studied reference plugin, what was rejected, and the
 blind spots of the mechanisms we chose. This is the NFR-10 evidence for
 decisions D2 (Tako), D3 (ActivityWatch), D4 (WakaTime); the adopt/adapt
-rationale lives in `requirements/build-vs-adopt.md`.
+rationale for those decisions is recorded below, alongside each one.
 
 Method note: Tako's GitHub repo (`si-codelounge/tako`) is a docs-only mirror
 of a private GitLab repo - it contains no source. Its mechanisms were studied

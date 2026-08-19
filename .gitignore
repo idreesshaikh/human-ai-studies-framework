@@ -26,9 +26,17 @@ shadow.git/
 
 # OS / editor noise
 .DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
 
 # AI assistant state (local only)
 .claude/
+.agents/
+.impeccable/
+.playwright-mcp/
 
 # Coverage artifacts (pytest-cov, CI metrics gate)
 .coverage
@@ -54,3 +62,9 @@ platform/.ds-shipped.css
 # Subagent-driven-development scratch: per-plan ledgers, briefs, review
 # packages. The git history is the record once a plan finishes.
 .superpowers/
+
+# Worked-example per-recipe outputs (docs/examples): figures, tables, and
+# per-recipe summaries regenerate with `python -m middleware simulate`;
+# only the curated text artifacts (protocol, ethics package, report,
+# notebook, data dictionary) are tracked.
+docs/examples/pilot-2026/*/

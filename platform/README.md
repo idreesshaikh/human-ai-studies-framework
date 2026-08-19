@@ -11,17 +11,21 @@ shadcn/ui (vendored, owned in-repo). The middleware serves the built app at
 - **The design conversation**: type an idea; the platform replies with
   grounded design-move cards (accept/reject, keyboard `a`/`r`) and paper
   recommendations; accepted moves compile into a live protocol-draft rail
-  with a completeness meter.
+  with a completeness meter. **Steer** (head of the thread) sets how much the
+  assistant drives: register and initiative both move with it, enforced
+  server-side, never the rigor of the method itself.
 - **The study workspace** (tabs): **Library**: live paper ingest
   (arXiv/DOI/PDF), the citation constellation, and the grounded assistant;
   **Data**: honest per-condition metric shapes and session integrity;
-  **Lifecycle**: the phase/gate board.
+  **Participants**: mint pairing links, watch who is streaming, and toggle
+  what each instrument captures.
 - **Projects, roles, hero, members**, and the evolution surfaces (amendment
-  banner + history, feedback → platform findings).
+  banner + history).
 
-Everything is explorable with **no backend and no LLM key**: the conversation
-runs on a deterministic scripted assistant (`src/lib/designStub.ts`), and the
-study surfaces fall back to a curated offline seed. Live actions wire to the
+The study surfaces are explorable with **no backend**: they fall back to a
+curated offline seed. The design conversation is the exception — it needs a
+language model and says so when it has none, rather than answering from a
+script that reads like the real thing. Live actions wire to the
 middleware where it's running; the backend swaps in behind the same shapes.
 
 ## Commands
@@ -54,6 +58,16 @@ Keep `npm run check` green before committing.
   labelled "unsourced"; the assistant only cites papers it actually holds.
 - **Stable `data-agent` names** on landmarks and decision points, documented
   in `docs/agent-annotations.md` and kept in sync by a lint (FR-AGF-3).
+- **Type size is a role, not a utility.** The nine roles in `styles/index.css`
+  (`type-title`, `type-body`, `type-quantity`, …) are the only way a
+  component sets a font size; `lint-no-raw-literals.mjs` forbids a bare
+  Tailwind `text-*` utility for the same reason it forbids a raw hex.
+- **Provenance is a mark, never a colour.** A claim's grounding strength is a
+  magnitude (size), unsourced is an open ring, superseded is struck through,
+  a conflict is doubled — so every state survives a greyscale print and a
+  colour-blind reader. One accent fill marks the single next action per
+  region; a nav item, tab, or selected row is a *position* (an axis rule),
+  never a fill.
 
 ## Layout
 
@@ -62,10 +76,14 @@ src/
   pages/                    Hero, Projects, ProjectHome, StudyHome, Members, …
   components/conversation/  the design conversation + evolution surfaces
   components/library/        LibraryTab, Constellation, Assistant
-  components/charts/         DataTab, LifecycleTab, MetricStrip
+  components/charts/         DataTab, MetricStrip, SwimlaneTimeline
+  components/enrollment/     EnrollmentPanel, MintDialog, LiveSessions
+  components/members/        MembersTable, InviteDialog
   components/shell/          AppFrame, ProjectSwitcher, RoleGate
+  components/brand/          PhoenixMark, Constellation (the literature field)
+  components/hero/           HeroShowcase (the self-running demo on `/`)
   components/ui/             vendored shadcn primitives
-  lib/                       api/studyApi clients, compiler, stubs, forceLayout
-  styles/tokens.css          the only home for raw design values
+  lib/                       api/studyApi clients, compiler, extension, forceLayout
+  styles/tokens.css          the only home for raw design values; the world
 scripts/                    lint + verify harnesses
 ```

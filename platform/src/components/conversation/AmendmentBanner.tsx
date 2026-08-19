@@ -28,7 +28,7 @@ export function AmendmentBanner({
       data-agent-paused={paused}
       role="status"
       className={cn(
-        "flex items-start gap-3 border-b px-4 py-3 text-sm",
+        "flex items-start gap-3 border-b px-4 py-3 type-body",
         paused
           ? "border-unsourced bg-unsourced-soft text-text"
           : "border-border bg-surface text-text-muted")}

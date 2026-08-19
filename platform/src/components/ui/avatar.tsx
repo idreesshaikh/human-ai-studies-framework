@@ -26,7 +26,7 @@ export function Avatar({
     <span
       className={cn(
         "inline-flex size-7 shrink-0 items-center justify-center rounded-chip",
-        "bg-accent-soft text-xs font-medium text-accent",
+        "bg-zone-9 type-legend text-text",
         className,
       )}
       aria-hidden

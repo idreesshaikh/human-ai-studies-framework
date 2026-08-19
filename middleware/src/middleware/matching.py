@@ -35,8 +35,11 @@ log = logging.getLogger(__name__)
 
 #: Words too generic to count as evidence of a match.
 _STOPWORDS = frozenset(
-    "that this with from what were they have been does their study using "
-    "about would could paper papers research the and for are".split()
+    [
+        "that", "this", "with", "from", "what", "were", "they", "have",
+        "been", "does", "their", "study", "using", "about", "would",
+        "could", "paper", "papers", "research", "the", "and", "for", "are",
+    ]
 )
 
 #: Ranking weights (autonomy charter: internals are free, constants live in

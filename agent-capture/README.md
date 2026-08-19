@@ -5,8 +5,11 @@ same timeline and join keys as every other leg. Primary source is **Claude
 Code in the VS Code integrated terminal** (decision D13) - the only
 mainstream agent tool with lossless, machine-readable capture.
 
-Satisfies FR-AGENT-1/2/3/5 and FR-INST-15/16/17. Read the agent-leg rows of
-`requirements/traceability.md` before changing anything here.
+This is the fourth capture leg, and the only one whose data is a
+*conversation* rather than a signal — so the content policy
+(`instruments.agentCapture.contentPolicy`: metadata-only, redacted, or full)
+is stated verbatim in the participant's consent statement, and baked into the
+hook command from the protocol rather than configured on the side.
 
 ## How capture works
 

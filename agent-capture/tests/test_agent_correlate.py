@@ -40,7 +40,7 @@ RELIANCE_TIMELINE = [
         0,
         "clipboard_paste",
         {"charCount": 200, "targetFile": "x"},
-        source="cognitive-overlay",
+        source="tern",
         seq=10,
     ),
     _turn(5, "user", seq=1),

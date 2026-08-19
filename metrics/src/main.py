@@ -28,13 +28,13 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from analyzers.radon_metrics import get_comment_ratio, get_halstead_effort  # noqa: E402
-from analyzers.sonar_metrics import get_cognitive_complexity  # noqa: E402
-from analyzers.text_metrics import (  # noqa: E402
+from analyzers.radon_metrics import get_comment_ratio, get_halstead_effort
+from analyzers.sonar_metrics import get_cognitive_complexity
+from analyzers.text_metrics import (
     get_indentation_variance,
     get_line_width_bounds,
 )
-from parsers.ts_parser import collect_function_metrics  # noqa: E402
+from parsers.ts_parser import collect_function_metrics
 
 #: Bump on any change to row shape or column meaning (NFR-4).
 SCHEMA_VERSION = 1

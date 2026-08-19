@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -96,7 +97,7 @@ export function Settings() {
         <CardContent className="flex flex-col gap-4 p-4">
           <div>
             <h2 className="type-subhead text-text">Your profile</h2>
-            <p className="text-sm text-text-muted">
+            <p className="type-body text-text-muted">
               Preferences are saved to your account and follow you across devices.
             </p>
           </div>
@@ -131,7 +132,7 @@ export function Settings() {
                 </option>
               ))}
             </Select>
-            <p className="text-xs text-text-muted">
+            <p className="type-caption text-text-muted">
               The design conversation adapts how it talks to you: how much it
               explains, how fast it moves, and which trade-offs it raises. What
               counts as a sound design never changes.
@@ -155,7 +156,7 @@ export function Settings() {
               ))}
             </Select>
             {modelOptions.length === 0 && (
-              <p className="text-xs text-text-muted">
+              <p className="type-caption text-text-muted">
                 No assistant models are configured on this deployment.
               </p>
             )}
@@ -167,7 +168,7 @@ export function Settings() {
         role={mine}
         capability="manage_members"
         pending={rolePending}
-        fallback={<p className="text-sm text-text-muted">Only owners can change settings.</p>}
+        fallback={<p className="type-body text-text-muted">Only owners can change settings.</p>}
       >
         <Card>
           <CardContent className="flex flex-col gap-3 p-4">
@@ -188,22 +189,32 @@ export function Settings() {
              * intentional, so bookmarks and shared invite links never break.
              * Called out here so that stays a design decision, not a bug
              * report. */}
-            <p className="text-xs text-text-muted">
-              The URL (<span className="font-mono">/{data?.slug}</span>) stays the
-              same so existing links keep working — only the display name changes.
+            <p className="type-caption text-text-muted">
+              The URL (<span className="type-quantity identifier">/{data?.slug}</span>) stays the
+              same so existing links keep working. Only the display name changes.
             </p>
-            {msg && <p className="text-sm text-grounded">{msg}</p>}
+            {msg && <p className="type-caption text-text-muted">{msg}</p>}
           </CardContent>
         </Card>
 
         <RoleGate role={mine} capability="delete" pending={rolePending}>
-          <Card className="border-unsourced">
+          {/* Framed in critical, not in `--unsourced`. Unsourced is this
+            * world's mark for "logged, your call, not wrong"; wearing it on a
+            * destructive control said the opposite of what deleting a project
+            * means, and spent a provenance signal on something that carries no
+            * provenance. */}
+          <Card className="border-critical/40">
             <CardContent className="flex flex-col gap-3 p-4">
               <div>
-                <h2 className="type-subhead text-text">Danger zone</h2>
-                <p className="text-sm text-text-muted">
-                  Deleting a project removes its memberships and invitations.
-                  Type <span className="font-mono">DELETE</span> to confirm.
+                {/* Named for what it does. "Danger zone" is borrowed copy that
+                  * describes the box rather than the action inside it. */}
+                <h2 className="type-subhead text-text">Delete this project</h2>
+                <p className="type-body text-text-muted">
+                  This removes the project, its memberships and its
+                  invitations. Studies inside it go too, and none of it can be
+                  brought back. Type{" "}
+                  <span className="type-quantity identifier">DELETE</span> to
+                  confirm.
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -215,10 +226,10 @@ export function Settings() {
                   className="min-h-11"
                 />
                 <Button
-                  variant="outline"
+                  variant="danger"
                   onClick={remove}
                   disabled={confirm !== "DELETE"}
-                  className="border-unsourced text-unsourced min-h-11"
+                  className="min-h-11"
                 >
                   Delete project
                 </Button>
@@ -228,7 +239,7 @@ export function Settings() {
         </RoleGate>
       </RoleGate>
 
-      {err && <p className="text-sm text-unsourced">{err}</p>}
+      {err && <Notice kind="problem">{err}</Notice>}
     </div>
   );
 }

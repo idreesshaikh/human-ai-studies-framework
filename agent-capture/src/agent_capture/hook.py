@@ -26,6 +26,7 @@ configuration (FR-PROT-4).
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
@@ -63,11 +64,11 @@ def run(stdin_json: str, argv: list[str], environ: dict) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     stdin_json = sys.stdin.read() if not sys.stdin.isatty() else ""
-    try:
+    # Never surface an error to the agent: a hook must not block the
+    # participant (NFR-1). The importer is the durable path.
+    with contextlib.suppress(Exception):
         run(stdin_json, argv or sys.argv[1:], dict(os.environ))
-    except Exception:  # noqa: BLE001 - never surface an error to the agent
-        pass
-    return 0  # always succeed: a hook must not block the participant
+    return 0
 
 
 if __name__ == "__main__":

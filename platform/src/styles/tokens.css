@@ -1,203 +1,365 @@
-/* Design tokens — the single source of truth for colour, motion, radius,
- * type, and the lifted-card signature.
+/* Design tokens — the single source of truth for colour, tone, type, rule,
+ * radius, motion, and the mark system.
  *
- * THE INSTRUMENT — a cool, evidence-first identity for a tool researchers
- * trust with real studies. Two earlier passes are recorded here so they don't
- * get re-proposed: a retro-tech "Skip Labs" treatment (condensed display type,
- * pill buttons, hard offset shadows) read as a dev-tool marketing site; the
- * warm-peach "study desk" that replaced it read as the default AI look. What
- * survived both is the structure below — a cool slate ground with a single
- * signal-blue accent (light: "Daylight instrument"; dark: "Observatory").
+ * THE PLATE AND THE LOG — the working field is an observatory night-log kept
+ * beside a star atlas. The protocol draft is the plate: a ruled coordinate
+ * field where every slot has an address and nothing appears off-grid. The
+ * conversation is the log: dated entries, each one either confirmed against
+ * the catalogue or written down as an unidentified object, never quietly
+ * either. Light is the atlas printed on chart paper, read at a desk in
+ * daylight; dark is the same plate on a light table at night. A rendition of
+ * one world, never an inversion of it.
  *
- * Three type roles, and they mean something: a restrained literary serif
- * carries headings (credible, editorial, never a full paragraph); a clean
- * grotesk carries body copy and UI (legible at data-table sizes); mono is the
- * machine's voice, and only the machine's — the compiled YAML draft, data,
- * code, and structural labels. A mono eyebrow above a block is therefore a
- * claim: this content was derived, not written. Cards are quiet rectangles
- * with a soft lift, not a costume.
+ * FOUR MARKS, AND NO FIFTH. Provenance is carried by a mark's form and size,
+ * never by hue, so every state survives a greyscale print and a colour-blind
+ * reader:
+ *   size      — how strongly a claim is grounded (five magnitudes)
+ *   open ring — unsourced: seen and logged, not identified
+ *   struck    — superseded: replaced, left legible, never erased
+ *   doubled   — conflict: two marks claiming one coordinate
+ *
+ * ONE EMPHASIS, AND NO SECOND. The failure this world replaces was two
+ * competing fills: a near-black "committed" fill and a magenta "next action"
+ * fill, both meaning primary, so neither meant anything. Here there is exactly
+ * one fill colour in the whole app, and three jobs that never trade places:
+ *   filled accent  an action you can take.
+ *   axis mark      where you are. A rule on the spine, never a fill.
+ *   ink            the record itself. Content, never emphasis.
+ *
+ * A nav item, a tab, and a selected row are all *positions*, so all three are
+ * axis marks. Only a button is ever filled, and only the accent ever fills it.
+ *
+ * The budget is ONE FILL PER REGION, not one per viewport. The workspace is
+ * genuinely two panels doing two jobs, divided by a hard rule and each with
+ * its own heading: the conversation's action is to send, the draft's action is
+ * to review. Pretending a split surface has a single action would leave one of
+ * the two panels with no affordance at all. Within a region the rule is
+ * absolute: a second fill there means one of the two is wrong.
+ *
+ * Four worlds are recorded here so they are never re-proposed. A retro-tech
+ * "Skip Labs" pass read as a dev-tool marketing site. A warm-peach "study
+ * desk" read as the default AI look. A cool-slate "instrument" with one signal
+ * blue read as every research tool ever shipped. A darkroom "exposure record"
+ * in bone paper and dichroic magenta encoded provenance as six hatch densities
+ * nobody could read, and spent its one colour on the brand mark, the primary
+ * button, the active tab, and every link at once — the confusion this world
+ * exists to end.
  *
  * This is the only place raw hex / ms / px values live. Components consume
  * them via Tailwind's @theme mapping (index.css) or var(--token); a lint
- * script (scripts/lint-no-raw-literals.mjs) keeps it that way.
- *
- * Every text/background pairing below meets WCAG AA contrast (>= 4.5:1) in
- * both light and dark; UI/border pairings meet >= 3:1. */
+ * script (scripts/lint-no-raw-literals.mjs) keeps it that way, and
+ * scripts/check-contrast.mjs measures every pairing below rather than
+ * trusting the word "muted". */
 
 :root {
-  /* Motion — gentle and unfussy. Things settle into place rather than snap. */
-  --motion-fast: 120ms; /* hover, focus rings, chip highlights */
-  --motion-standard: 200ms; /* card state changes, panel reveals */
-  --motion-entrance: 280ms; /* new elements arriving */
-  --motion-settle: 440ms; /* design-move fold-into-draft — the one watchable move */
-  --motion-press: 110ms; /* button settle on press — soft, not mechanical */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* ---- Motion --------------------------------------------------------
+   * A plate has mass and a tracked field never stops moving. Six durations:
+   * a control answering, a state changing, a mark arriving, a plate landing,
+   * the comparator's beat, and the drift of a field under guiding. */
+  --motion-instant: 90ms; /* press, commit — faster than thought */
+  --motion-fast: 140ms; /* hover, focus, tint */
+  --motion-standard: 220ms; /* control state, panel reveal, axis travel */
+  --motion-entrance: 320ms; /* a mark arriving on the plate */
+  --motion-settle: 460ms; /* the plate landing on the draft */
+  --motion-blink: 900ms; /* the comparator's alternation */
+  --motion-drift: 72s; /* the tracked field's full cycle */
+  --motion-cascade: 22ms; /* per-character step in a compiled change */
+
+  /* Every ease here decelerates; none of them overshoot. A plate landing
+   * reads as having mass because of how far it travels and how long it takes
+   * to stop, not because it bounces past its resting place and comes back:
+   * an overshoot on a working surface is a wobble, and a research instrument
+   * that wobbles is one nobody trusts to hold still. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* exponential, from visible */
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --ease-key: cubic-bezier(0.3, 0.9, 0.4, 1); /* the gentle lift + settle */
+  --ease-settle: cubic-bezier(0.19, 1, 0.22, 1); /* heavier, still no overshoot */
 
-  /* Radii — modest and consistent. Chips are a small rounded tag shape, not
-   * a pill; cards/inputs match it so nothing reads as a differently-designed
-   * layer. */
-  --radius-card: 10px;
-  --radius-chip: 6px;
-  --radius-input: 8px;
+  /* ---- Corners -------------------------------------------------------
+   * Plates in an atlas are bound with rounded corners and its legend keys are
+   * struck as circles. Rounded is a commitment here, not a softening: a plate
+   * reads at 12px, a control at 8px, a key is fully round. */
+  --radius-plate: 0.75rem; /* 12px — a plate, a card, a dialog */
+  --radius-card: var(--radius-plate); /* legacy alias — call sites consume it */
+  --radius-control: 0.5rem; /* 8px — buttons, tabs, segmented controls */
+  /* A control nested inside a control's own frame: a segment inside a
+   * segmented group, inset by the group's padding. Concentric radii have to
+   * step down by the inset or the inner corner looks squarer than the outer
+   * one it sits inside. */
+  --radius-control-inner: 0.375rem;
+  --radius-input: 0.5rem;
+  --radius-chip: 999px; /* a legend key, a grounding chip, a role pill */
+  --radius-dot: 999px;
 
-  /* Type — three clear roles. A restrained serif carries headings only
-   * (credible, editorial, never a full paragraph); a clean grotesk carries
-   * body copy and UI so data-dense screens stay legible; mono is the
-   * machine's voice (draft, data, code, labels). */
-  --font-display: "Newsreader Variable", "Newsreader", Georgia,
-    "Iowan Old Style", "Times New Roman", serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", "SFMono-Regular", Menlo,
-    "Cascadia Code", Consolas, monospace;
-  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", "Helvetica Neue", sans-serif;
-  --font-text: var(--font-sans); /* body prose reads in the clean grotesk */
-  --font-serif: var(--font-display); /* alias — some components still write
-    font-serif for headings; both resolve to the one display face */
+  /* ---- Rule weights --------------------------------------------------
+   * The plate is ruled, not boxed. Three weights: the coordinate grid is
+   * hairline, a frame is a rule, and the axis mark that says "you are here"
+   * is heavy. */
+  --rule-hair: 1px;
+  --rule: 1.5px;
+  --rule-heavy: 3px; /* the axis mark, and only the axis mark */
 
-  /* Type scale — named by ROLE, not size, and consumed only as the .type-*
-   * utilities in index.css. The rule the app had been missing: a screen picks
-   * the role its content plays, and the scale decides the size. Before this
-   * existed, 294 of 318 type declarations across the app were text-xs/text-sm,
-   * so hierarchy had to be carried by weight and colour alone and every screen
-   * read equally flat.
-   *
-   * The steps are deliberately few and clearly separated (~1.26 through the
-   * heading range) — an instrument needs unambiguous levels, not a continuum.
-   * Body stays at 14px: this is a data-dense tool where tables and metric
-   * shapes have to fit, and the hierarchy is bought above body, not below. */
-  --text-eyebrow: 0.6875rem; /* 11px — the machine's structural label */
+  /* ---- Type ----------------------------------------------------------
+   * Two faces, three jobs. Archivo carries everything set in letters — an
+   * atlas is labelled in a grotesk, at small sizes, precisely. Spline Sans
+   * Mono carries quantities and only quantities, because a magnitude, an
+   * effect size, and a per-cell n must align down a column. Mono is never a
+   * costume for "technical": no prose, no button labels. */
+  --font-display: "Archivo Variable", "Archivo", "Helvetica Neue", Helvetica,
+    Arial, sans-serif;
+  --font-sans: var(--font-display);
+  --font-mono: "Spline Sans Mono Variable", "Spline Sans Mono", ui-monospace,
+    "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-text: var(--font-sans);
+  --font-serif: var(--font-sans); /* legacy alias — this world has no serif */
+
+  /* Width axis. The compressed-caps display voice belonged to the discarded
+   * world and shouted on every screen; an atlas label is set at normal width
+   * and earns its hierarchy from size and weight. One value, everywhere. */
+  --width-display: 100;
+  --width-title: 100;
+  --width-section: 100;
+  --width-normal: 100;
+
+  /* Type scale — named by ROLE. A screen picks the role its content plays and
+   * the scale decides the size. Body stays at 14px: this is a data-dense tool
+   * where tables and metric shapes must fit, and hierarchy is bought above
+   * body, not below it. */
+  --text-legend: 0.6875rem; /* 11px — a key on the plate, a column head */
   --text-caption: 0.75rem; /* 12px — metadata, counts, timestamps */
+  --text-quantity: 0.8125rem; /* 13px — measured values, tabular */
+  --text-quantity-lg: 1.375rem; /* 22px — a headline count: a tally, a total */
   --text-label: 0.8125rem; /* 13px — form and control labels */
   --text-body: 0.875rem; /* 14px — the app's default voice */
-  --text-body-lg: 1rem; /* 16px — sustained reading (conversation, findings) */
-  --text-subhead: 1.125rem; /* 18px — card and panel titles */
-  --text-section: 1.4375rem; /* 23px — a section within a page */
-  --text-title: 1.8125rem; /* 29px — the page's name; exactly one per screen */
-  --text-display: clamp(2.125rem, 5vw, 3.25rem); /* hero only */
+  --text-body-lg: 1rem; /* 16px — sustained reading (log entries, findings) */
+  --text-subhead: 1rem; /* 16px — a plate's own title */
+  --text-section: 1.25rem; /* 20px — a division within a page */
+  --text-title: 1.75rem; /* 28px — the page's name; exactly one per screen */
+  --text-display: clamp(2.75rem, 5.5vw, 4rem); /* the headline, once */
 
-  /* Leading tightens as type grows — long measures need air, headlines don't. */
-  --leading-tight: 1.1; /* display + title */
-  --leading-snug: 1.3; /* section + subhead */
-  --leading-normal: 1.5; /* labels, captions, UI body */
-  --leading-relaxed: 1.65; /* sustained reading */
+  /* Leading tightens as type grows. */
+  --leading-tight: 1;
+  --leading-title: 1.12;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
 
-  /* Tracking — the serif opens up slightly at small sizes and closes at large;
-   * the mono eyebrow is spaced wide enough to read as a label, not a word. */
-  --tracking-display: -0.02em;
-  --tracking-title: -0.015em;
-  --tracking-section: -0.01em;
-  --tracking-eyebrow: 0.16em;
+  /* Tracking — an atlas key is tracked open so it reads as a label rather
+   * than a word; running type sits near zero and display closes up slightly.
+   * Floor is -0.03em; nothing tighter. */
+  --tracking-display: -0.022em;
+  --tracking-title: -0.014em;
+  --tracking-section: -0.008em;
+  --tracking-legend: 0.1em;
+  --tracking-control: 0; /* controls are sentence case — see .type-control */
 
-  /* Layout measures — the four content widths, chosen by what the page is FOR.
-   * Pages used to pick a max-w-* per file (2xl through 5xl with no rule), so
-   * the content column jumped width on every navigation. */
-  --measure-narrow: 26rem; /* a single focused task: invite, sign-in */
-  --measure-reading: 44rem; /* settings, members, prose, findings */
-  --measure-work: 60rem; /* working surfaces: project home, templates, study */
-  --measure-wide: 72rem; /* the hero, and only the hero */
-  --measure-bubble: 46ch; /* a chat/thinking bubble's reading width */
+  /* ---- Layout — unchanged contract ------------------------------------
+   * The four content widths, chosen by what the page is FOR
+   * (src/lib/layout.ts, verify-layout.mjs), plus the chat measure. */
+  --measure-narrow: 26rem;
+  --measure-reading: 44rem;
+  --measure-work: 60rem;
+  --measure-wide: 72rem;
+  --measure-bubble: 46ch;
 
-  /* Spacing rhythm — the four gaps the layout contract runs on. Screens used
-   * to pick p-8/gap-8, panels p-6/gap-4 or p-4, with no shared rule, which is
-   * what made panel-to-panel navigation feel like different tools. */
-  --space-gutter: 2rem; /* a Surface's outer padding */
-  --space-section: 2rem; /* gap between titled sections on one screen */
-  --space-stack: 0.75rem; /* gap between items within one section */
-  --space-tight: 0.5rem; /* the tightest — chips, inline clusters */
+  /* The spacing rhythm — a Surface's gutter, the gap between titled sections,
+   * within a section, and the tightest cluster. Unchanged contract. */
+  --space-gutter: 2rem;
+  --space-section: 2rem;
+  --space-stack: 0.75rem;
+  --space-tight: 0.5rem;
 
-  /* The conversation/library split rail: grows with the window between a
-   * floor and a cap, rather than sitting at a fixed width that gets
-   * relatively slimmer on every wider screen. */
+  /* The split rail — unchanged geometry. Here it is the meridian the plate
+   * is ruled against. */
   --rail-min: 22rem;
   --rail-max: 30rem;
   --rail-share: 32vw;
 
-  /* AppFrame's header height — the mobile drawer's top offset needs the real
-   * number, not a guess (header is py-2 around a 2.5rem icon button). */
   --header-h: 3.5rem;
-
-  /* The library constellation's canvas height. */
   --constellation-h: 22.5rem;
 
-  /* Light theme — "Daylight instrument": cool slate paper + deep ink-navy.
-   * Deliberately NOT the warm-peach desk (that reads as the default AI look);
-   * this is an evidence instrument, so the base is cool and the one accent is
-   * a confident signal-blue. */
-  --ink: #16202e; /* the one deep ink-navy: primary text, frames, wordmark */
-  --bg: #e9edf3; /* cool slate paper — the instrument surface */
-  --surface: #f7f9fc; /* a clean sheet laid on the paper */
-  --surface-raised: #ffffff; /* menus, tooltips, the topmost plane */
-  --border: #ccd6e3; /* cool hairline rule — incidental dividers */
-  --border-strong: #16202e; /* ink-navy keyline — framed-object stroke */
-  --text: #16202e; /* 13.6:1 on --bg */
-  --text-muted: #55627a; /* 5.6:1 on --bg */
-  --accent: #2a45c0; /* signal blue — brand ink, mostly text/strokes (6.2:1 on --bg) */
-  --accent-contrast: #ffffff; /* white on the rare solid signal fill */
-  --accent-soft: #dbe3fb; /* pale signal wash — active nav, quiet fills */
-  --grounded: #1f7a4d; /* clear green — cited into the corpus (4.9:1) */
-  --unsourced: #8a5710; /* amber — "your call", honest not shameful (4.8:1 on surface) */
-  --unsourced-soft: #f4e6c8;
-  --focus-ring: #16202e; /* ink-navy ring, always high-contrast, drawn offset */
-  --thread: #2a45c0; /* the kite-string / tether line — brand mark only, never text */
+  /* The coordinate grid's pitch. Wide enough that the ruling reads as a
+   * coordinate field rather than as graph paper: at 1.5rem the lines were
+   * close enough to count, which made the ground the busiest thing on a
+   * quiet page. */
+  --grid-pitch: 4rem;
 
-  /* Soft lifted-card shadow — cool, low, gently blurred. Reads as a sheet
-   * resting slightly above the surface. (Legacy utility name kept as
-   * shadow-brutal* to avoid churn across ~30 call sites.) */
-  --shadow-brutal-sm: 0 1px 2px rgba(16, 32, 46, 0.1);
-  --shadow-brutal: 0 3px 10px -2px rgba(16, 32, 46, 0.13),
-    0 1px 3px rgba(16, 32, 46, 0.08);
-  --shadow-brutal-lg: 0 12px 28px -6px rgba(16, 32, 46, 0.16),
-    0 2px 6px rgba(16, 32, 46, 0.07);
+  /* ---- THE ATLAS (light) ----------------------------------------------
+   * Chart paper on a desk in daylight. The ground is cool and unprinted; a
+   * plate is the white it was printed on. */
 
-  /* Chart palette — the dataviz skill's validated categorical order (8 slots),
-   * light column. Assign hues in fixed order, never cycled; a colored mark
-   * carries identity, never the text. Grid/axis recede. (Validated: worst
-   * adjacent CVD ΔE 9.1, normal-vision ΔE 19.6.) */
-  --series-1: #2a78d6; /* blue */
-  --series-2: #008300; /* green */
-  --series-3: #e87ba4; /* magenta */
-  --series-4: #eda100; /* yellow */
-  --series-5: #1baf7a; /* aqua */
-  --series-6: #eb6834; /* orange */
-  --series-7: #4a3aa7; /* violet */
-  --series-8: #e34948; /* red */
-  --viz-grid: #d4dce7; /* recessive gridlines on cool paper */
-  --viz-axis: #97a6bc; /* baseline / axis rule */
-  --status-critical: #c0281f;
+  --ground: #eff3f9; /* unprinted chart paper — the desk */
+  --bg: var(--ground);
+  --surface: #ffffff; /* a plate: what the record is printed on */
+  --surface-raised: #ffffff; /* the topmost plate — separated by shadow */
+  /* A recessed region: a code block, a slider track, a groove, a refused
+   * control. It has to be DISTINCT from `--zone-9`, which is the cleared
+   * ground of the axis mark and of hover. Both were #e9eef6, so a disabled
+   * button, a selected tab and a hovered row all painted the same value and
+   * one surface colour carried three different meanings. The well now sits
+   * genuinely below the ground rather than level with the hover tint. */
+  --well: #dde5f0;
+
+  /* The tonal ramp. Every neutral in the app names a step on it, so a
+   * surface, a rule, a hover tint and a mark can never drift out of one
+   * another. Step 0 is the densest ink, step 10 is the plate. The whole ramp
+   * is blue-black rather than grey: a neutral mixed from the world's own hue
+   * is what keeps a hover tint from reading as dirt on the paper. */
+  --zone-0: #0e1b2d;
+  --zone-1: #1b2a40;
+  --zone-2: #2b3c55;
+  --zone-3: #3d5069;
+  --zone-4: #52637c;
+  --zone-5: #6b7c93;
+  --zone-6: #8697ac;
+  --zone-7: #a6b4c6;
+  --zone-8: #c6d1de;
+  --zone-9: #e9eef6; /* the cleared step: a hover tint, a groove */
+  --zone-10: #ffffff;
+
+  --ink: var(--zone-0); /* blue-black ink: text, frames, the wordmark */
+  --paper: #ffffff; /* the ink control's foreground */
+  --text: var(--ink);
+  --text-muted: #52637c;
+
+  --border: #dce4ef; /* hairline — incidental division */
+  --border-strong: #aabbcf; /* the framing rule of a titled plate */
+  --grid: #e4ebf4; /* the coordinate grid ruled under the plate */
+  /* The boundary of an INTERACTIVE control, which is the pairing WCAG 2.2
+   * SC 1.4.11 actually binds at 3:1 — a plate's frame is decoration and a
+   * grid line is a graticule, but the edge that tells you where a button
+   * ends is information. Kept as its own token so a later pass cannot
+   * lighten the frames and silently take the controls with them. */
+  --control-edge: #6f7f96;
+
+  /* The signal. ONE colour, and it means one thing: this is where the work is
+   * now. A filled control is an action you can take; the axis mark is where
+   * you are. Nothing else in the app is allowed to be this colour. */
+  --accent: #1059d8;
+  --accent-contrast: #ffffff; /* the label on a filled accent control */
+  --accent-wash: #e7f0fe; /* the cleared field under an accent mark */
+
+  /* The marks. Drawn, not typed — a shade off the body ink so a magnitude
+   * reads as something struck onto the plate. */
+  --mark: #2b4666;
+  --unsourced: #5b6c85; /* the open ring's stroke, and its label */
+  --superseded: #5e6d85; /* struck through, and still readable */
+  --conflict: var(--ink); /* a doubled mark reads at full density */
+  --critical: #b0231b; /* error ink — never a second accent */
+
+  --focus-ring: #1059d8;
+  --caret: #1059d8;
+  --selection: #d8e6fd;
+  --thread: #52637c; /* the tether line in the brand mark */
+
+  /* Shadow — a plate lying on paper. Offset and soft blur, never a
+   * zero-offset halo. Three depths: a mark on the plate, a plate laid down,
+   * a plate lifted to be moved. */
+  --shadow-mark: 0 1px 2px rgba(14, 27, 45, 0.06);
+  --shadow-plate: 0 1px 2px rgba(14, 27, 45, 0.05),
+    0 4px 12px -4px rgba(14, 27, 45, 0.09);
+  --shadow-lifted: 0 8px 20px -6px rgba(14, 27, 45, 0.14),
+    0 20px 44px -18px rgba(14, 27, 45, 0.16);
+  /* Legacy alias — call sites consume it. */
+  --shadow-sheet: var(--shadow-plate);
+
+  /* Chart palette — the dataviz skill's validated categorical order (8 slots,
+   * light column), kept verbatim: the set is CVD-validated as a set (worst
+   * adjacent CVD dE 9.1, normal-vision dE 19.6) and re-picking hues to match
+   * this world's blue discipline would silently break that guarantee. Charts
+   * are the one place the palette opens up — and every series that must
+   * survive a greyscale print carries a mark as well as a hue. */
+  --series-1: #2a78d6;
+  --series-2: #008300;
+  --series-3: #e87ba4;
+  --series-4: #eda100;
+  --series-5: #1baf7a;
+  --series-6: #eb6834;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+  --viz-grid: #e4ebf4;
+  --viz-axis: #8fa2ba;
+  --status-critical: var(--critical);
 }
 
 :root[data-theme="dark"] {
-  /* Dark theme — "Observatory": deep navy-slate, not muddy brown. The three
-   * planes step in clear luminance so cards and panels separate on the dark
-   * (the flat, one-plane feel was the main dark-mode complaint); the signal
-   * accent brightens to a luminous blue to hold its own. */
-  --ink: #e6ecf5;
-  --bg: #0e1420; /* deepest plane */
-  --surface: #172033; /* +1 step — a card on the dark */
-  --surface-raised: #202d45; /* +2 step — menus, the topmost plane */
-  --border: #2b3a54; /* cool keyline */
-  --border-strong: #e6ecf5; /* pale — frames read light on dark */
-  --text: #e6ecf5; /* 15.3:1 on --bg */
-  --text-muted: #9fb0c8; /* 8.6:1 on --bg */
-  --accent: #6ea8ff; /* signal blue, brightened for dark (7.6:1 on --bg) */
-  --accent-contrast: #0e1420;
-  --accent-soft: #1c2c48;
-  --grounded: #4ec98a; /* green, lifted for dark */
-  --unsourced: #e0a94f; /* amber, lifted for dark */
-  --unsourced-soft: #2a2412;
-  --focus-ring: #e6ecf5; /* pale ring on dark */
-  --thread: #6ea8ff; /* the kite-string / tether line, lifted for dark */
+  /* ---- THE LIGHT TABLE (dark) -----------------------------------------
+   * The same plate, read on a light table at night. The ground is the ink
+   * blue of an unlit room; plates step UP out of it toward the lamp. Not an
+   * inversion: the blue that was the grid in daylight is the whole field
+   * here, which is why this rendition is the one that looks like the sky. */
 
-  --shadow-brutal-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-brutal: 0 3px 12px -2px rgba(0, 0, 0, 0.55),
-    0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-brutal-lg: 0 14px 32px -6px rgba(0, 0, 0, 0.65),
-    0 2px 6px rgba(0, 0, 0, 0.45);
+  /* The bench is UNLIT and the plate is LIT. The first dark pass put the plate
+   * 1.11:1 above the ground, which is the generic dark-mode prior (a card a few
+   * percent lighter than the page) rather than this world's own metaphor: on a
+   * light box the plate is the luminous thing and the bench around it is dark.
+   * The plate now sits 1.41:1 above the ground and the topmost plate 1.69:1,
+   * and `.plate` carries a lit top edge in this rendition (index.css) so the
+   * light reads as coming from beneath the sheet rather than from a lighter
+   * fill. Every pairing was re-measured: text 12.3:1, secondary 6.3:1 and
+   * accent 5.5:1 on the plate. */
+  --ground: #05090f;
+  --bg: var(--ground);
+  --surface: #1a2b48;
+  --surface-raised: #243858;
+  --well: #0c1526;
 
-  /* Chart palette — the dataviz skill's dark column: the same eight hues
-   * stepped for the dark surface (not an auto-flip), validated as a set. */
+  /* The same ramp, read on the light table: step 0 flips to the lit end so
+   * `zone-9` stays "one step off the surface" in both renditions — on paper
+   * that step is a tint, on the table it is a glow. */
+  --zone-0: #e9eff8;
+  --zone-1: #d3dcea;
+  --zone-2: #b6c3d6;
+  --zone-3: #97a8c0;
+  --zone-4: #7c8fab;
+  --zone-5: #647694;
+  --zone-6: #4e5f7c;
+  --zone-7: #3d4d69;
+  --zone-8: #2b3d5c;
+  /* One step TOWARD the lamp from the plate, not away from it: on the light
+   * table a hover tint and the axis mark's cleared ground are places the light
+   * comes through more, so they sit above `--surface` rather than below. */
+  --zone-9: #22355a;
+  --zone-10: #05090f;
+
+  --ink: var(--zone-0);
+  --paper: #05090f; /* the ink control's foreground flips with the ink */
+  --text: var(--ink);
+  --text-muted: #9cafc7;
+
+  --border: #2c405f;
+  --border-strong: #47608a;
+  --grid: #101c33;
+  /* Clears 3:1 on all THREE dark surfaces, including the raised plate a
+   * dialog sits on: SC 1.4.11 binds the edge that tells you where a control
+   * ends, and a value tuned only against the plate failed inside dialogs. */
+  --control-edge: #7288b0;
+
+  --accent: #5ea3ff;
+  --accent-contrast: #04080e;
+  --accent-wash: #1b3260;
+
+  --mark: #bacbdf;
+  --unsourced: #91a4bd;
+  --superseded: #8497b1;
+  --conflict: var(--ink);
+  --critical: #ff8b7f;
+
+  --focus-ring: #5ea3ff;
+  --caret: #5ea3ff;
+  --selection: #22406e;
+  --thread: #9cafc7;
+
+  /* On the light table the depth cue is the lamp under the plate, so the
+   * shadow deepens rather than softening away. */
+  --shadow-mark: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-plate: 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 6px 18px -6px rgba(0, 0, 0, 0.55);
+  --shadow-lifted: 0 12px 26px -6px rgba(0, 0, 0, 0.62),
+    0 26px 56px -20px rgba(0, 0, 0, 0.5);
+  --shadow-sheet: var(--shadow-plate);
+
+  /* Chart palette — the dataviz skill's dark column, stepped for the dark
+   * surface (not an auto-flip), validated as a set. */
   --series-1: #3987e5;
   --series-2: #008300;
   --series-3: #d55181;
@@ -206,19 +368,21 @@
   --series-6: #d95926;
   --series-7: #9085e9;
   --series-8: #e66767;
-  --viz-grid: #223049;
-  --viz-axis: #3a4a68;
-  --status-critical: #ff6b5e;
+  --viz-grid: #1e3050;
+  --viz-axis: #4d6285;
+  --status-critical: var(--critical);
 }
 
-/* Dark is an explicit choice only (see theme.ts): the app always starts in
- * light, so there is deliberately no `prefers-color-scheme: dark` block that
- * would flip a fresh visitor to dark on an OS-dark machine. The dark palette
- * lives solely under [data-theme="dark"] above, applied by the toggle and a
- * pre-paint script in index.html. */
+/* Dark is an explicit choice only (see theme.ts): the app always opens on the
+ * atlas in daylight, so there is deliberately no `prefers-color-scheme: dark`
+ * block that would move a fresh visitor to the light table uninvited. The dark
+ * rendition lives solely under [data-theme="dark"], applied by the toggle and
+ * the pre-paint script in index.html. */
 
-/* Respect the OS "reduce motion" setting — every surface stays fully usable
- * with animation off; the lift and settle simply happen instantly. */
+/* Respect the OS "reduce motion" setting. Every surface stays fully usable
+ * with animation off: plates arrive already landed, the tracked field holds
+ * still, and the comparator stops alternating on its own — its manual blink
+ * still works, because that one is a tool, not an effect. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

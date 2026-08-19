@@ -20,7 +20,6 @@ COPY middleware/ middleware/
 COPY protocol/ protocol/
 COPY curated/ curated/
 COPY analysis/ analysis/
-COPY requirements/ requirements/
 # The template registry (FR-TPL): read from templates/registry at runtime by
 # template_registry.py. Without it the deployed platform shows zero templates.
 COPY templates/ templates/

@@ -102,7 +102,7 @@ def run(dataset: Dataset) -> RecipeResult:
 
     # Small-multiples: one panel per available metric, every point drawn.
     colors = condition_colors(dataset.conditions)
-    ncols = 3
+    ncols = min(3, len(available))
     nrows = -(-len(available) // ncols)
     import numpy as np
 
@@ -111,7 +111,9 @@ def run(dataset: Dataset) -> RecipeResult:
     )
     fig.patch.set_facecolor(figures.SURFACE)
     rng = np.random.default_rng(0)
-    axes_flat = list(axes.flat) if len(available) > 1 else [axes]
+    axes_flat = list(axes.flat) if nrows * ncols > 1 else [axes]
+    for ax in axes_flat[len(available) :]:
+        ax.set_visible(False)
     for ax, metric in zip(axes_flat, available, strict=False):
         ax.set_facecolor(figures.SURFACE)
         for side in ("top", "right"):

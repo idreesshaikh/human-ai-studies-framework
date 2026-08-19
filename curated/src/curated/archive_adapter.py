@@ -2,9 +2,9 @@
 
 Reads published replication packages and research archives (e.g. DevGPT-style
 JSON/CSV exports) and emits NormalizedEvent rows in the same join-keyed schema
-as the GitHub adapter. Reuses pseudonymize.py for anonymization and threats.py
-for the validity-threats record verbatim — "mined strangers get the same
-protection as consented participants" (wall #7).
+as a live instrument leg. Reuses pseudonymize.py for anonymization and
+threats.py for the validity-threats record verbatim: "mined strangers get the
+same protection as consented participants" (wall #7).
 
 The adapter takes a local file path (the archive) rather than a fetcher,
 because replication packages are pre-downloaded artifacts, not live API

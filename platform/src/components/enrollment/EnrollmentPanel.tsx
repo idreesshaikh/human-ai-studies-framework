@@ -5,22 +5,22 @@ import { hasRole, type Role } from "@/lib/capabilities";
 import type { EnrollmentTokenView, ToggleCatalogEntry } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/shell/Surface";
+import { LiveSessions } from "./LiveSessions";
 import { MintDialog } from "./MintDialog";
 import { TogglePopover } from "./TogglePopover";
+import {
+  EXTENSION_NAME,
+  EXTENSION_RELEASES_URL,
+  vscodeDeepLink,
+} from "@/lib/extension";
 import { cn } from "@/lib/cn";
 
 const STATUS_STYLE: Record<string, string> = {
   unredeemed: "text-text-muted",
   paired: "text-accent",
   streaming: "text-accent",
-  revoked: "text-unsourced line-through",
+  revoked: "superseded",
 };
-
-const EXTENSION_URI_AUTHORITY = "hpi-research.cognitive-overlay";
-
-function vscodeDeepLink(connectionString: string): string {
-  return `vscode://${EXTENSION_URI_AUTHORITY}/pair?c=${encodeURIComponent(connectionString)}`;
-}
 
 /* The study's enrollment surface (FR-DASH-10): mint pairing links, see who has
  * paired / is streaming with live polling, revoke, and toggle per-metric
@@ -88,7 +88,7 @@ export function EnrollmentPanel({
   };
 
   return (
-    /* Wider than Lifecycle's reading measure — the enrollment table carries
+    /* Wider than the standard reading measure — the enrollment table carries
      * seven columns, the contract's one justified escape hatch to `wide`. */
     <Surface measure="wide" label="Participants" data-agent="enrollment-panel">
       <div className="flex flex-wrap items-start gap-3">
@@ -96,26 +96,51 @@ export function EnrollmentPanel({
           <h2 className="type-section text-text">
             {rows.length === 0 ? "None enrolled" : `${rows.length} enrolled`}
           </h2>
-          <p className="mt-1 text-xs text-text-muted">
+          <p className="mt-1 type-caption text-text-muted">
             One link per participant. They paste it once, their editor joins the
             study, and what each instrument will capture is listed before
             anything is recorded.
+          </p>
+          {/* The deep link can only reach an editor that already has the
+            * extension: {EXTENSION_NAME} ships as a GitHub release artifact,
+            * not on the Marketplace, so VS Code cannot fetch it on demand the
+            * way a Marketplace link would. Say so once, here, rather than
+            * letting a participant click a link that does nothing. */}
+          <p className="mt-1 type-caption text-text-muted">
+            Participants need the {EXTENSION_NAME} extension first. It is not
+            on the Marketplace.{" "}
+            <a
+              href={EXTENSION_RELEASES_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2 hover:text-text"
+              data-agent="extension-install-link"
+            >
+              Download the .vsix
+            </a>{" "}
+            and install it with{" "}
+            <span className="font-mono">Extensions: Install from VSIX…</span>
           </p>
         </div>
         {canMint && <MintDialog studyId={studyId} onMinted={load} />}
       </div>
       {revokeError && (
-        <p role="alert" className="text-sm text-status-critical">
+        <p role="alert" className="type-body text-status-critical">
           {revokeError}
         </p>
       )}
+
+      {/* What is happening right now, above the roster of who *could* be
+        * running. A facilitator mid-study is asking "is data arriving?", and
+        * the answer belongs before the enrollment table, not after it. */}
+      <LiveSessions studyId={studyId} />
       {rows.length === 0 ? (
-        <p className="rounded-input border border-dashed border-border px-3 py-6 text-center text-sm text-text-muted">
+        <p className="rounded-input border border-dashed border-border px-3 py-6 text-center type-body text-text-muted">
           No participants yet: mint a link to enroll the first one.
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-3xl text-sm">
+          <table className="w-full min-w-3xl type-body">
             <thead>
               <tr className="text-left text-text-muted">
                 <th className="py-1 font-medium">Participant</th>
@@ -142,7 +167,7 @@ export function EnrollmentPanel({
                         <Button
                           size="sm"
                           variant="subtle"
-                          className="shrink-0 text-xs"
+                          className="shrink-0 type-caption"
                           onClick={() => copy(t.connectionString ?? "", t.id)}
                           title="Copy connection string"
                         >
@@ -162,16 +187,16 @@ export function EnrollmentPanel({
                           <a
                             href={vscodeDeepLink(t.connectionString)}
                             data-agent="open-in-vscode"
-                            title="Open in VS Code (requires extension)"
+                            title={`Open in VS Code (requires the ${EXTENSION_NAME} extension)`}
                           >
                             <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                           </a>
                         </Button>
                       </div>
                     ) : t.status === "paired" || t.status === "streaming" ? (
-                      <span className="text-xs text-text-muted">Paired</span>
+                      <span className="type-caption text-text-muted">Paired</span>
                     ) : (
-                      <span className="text-xs text-text-muted">-</span>
+                      <span className="type-caption text-text-muted">-</span>
                     )}
                   </td>
                   <td className="py-1.5">
@@ -183,7 +208,7 @@ export function EnrollmentPanel({
                         {t.captureConfig.enabledInstruments.map((i) => {
                           const cat = catalog.find(
                             (c) =>
-                              c.instrument === "cognitiveOverlay" &&
+                              c.instrument === "tern" &&
                               c.path[0] === i.name &&
                               c.path[c.path.length - 1] === "enabled",
                           );
@@ -204,7 +229,7 @@ export function EnrollmentPanel({
                                   setPopoverEntry(cat);
                               }}
                               className={cn(
-                                "rounded-input border px-1.5 py-0.5 font-mono text-xs",
+                                "rounded-input border px-1.5 py-0.5 type-quantity",
                                 canToggle
                                   ? "cursor-pointer hover:ring-1 hover:ring-accent"
                                   : "",

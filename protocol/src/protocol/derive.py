@@ -40,7 +40,7 @@ def _flatten(prefix: str, value: object, out: dict) -> None:
 
 
 def derive_overlay_settings(
-    protocol: dict, participant_id: str, condition: str
+    protocol: dict, participant_id: str, condition: str, task: dict | None = None
 ) -> dict:
     """Return the flat ``tern.*`` settings for one session.
 
@@ -51,6 +51,13 @@ def derive_overlay_settings(
     conditions, or if this is an agent-participant study (protocolVersion 3,
     FR-PROT-9) with no tern — an agent study has no human in an
     IDE, so ``derive agent-hooks`` is the harness-oriented target instead.
+
+    ``task`` is the block this session runs (``protocol.assignment``). It
+    becomes a third join key alongside participant and condition, so every
+    event can be attributed to the work that produced it rather than only to
+    who did it and under what treatment — without it, a within-subjects
+    participant's two sessions are distinguishable by condition but their
+    *tasks* are not recoverable from the data at all.
     """
     if _PREFIX not in protocol.get("instruments", {}):
         raise ProtocolError(
@@ -69,14 +76,33 @@ def derive_overlay_settings(
         f"{_PREFIX}.participantId": participant_id,
         f"{_PREFIX}.condition": condition,
     }
+    # Nested under session.* to match the setting the extension actually
+    # reads (extension/src/vscode/behavior.ts: getConfiguration('tern.session')
+    # .get('taskId', '')) and the one VS Code setting the extension declares
+    # for it (package.json contributes.configuration "tern.session.taskId").
+    # A flat "tern.taskId" here used to look identical at a glance but landed
+    # on a different, undeclared VS Code key that nothing ever read - the
+    # server picked a task and the setting was sent, but the extension's own
+    # environment metadata never saw it. Title, description and materials
+    # have no declared setting and no reader; they reach the editor through
+    # `block` in the capture-config response instead (display only, the same
+    # pattern `legs` already uses - only `settings` ever configures capture).
+    if task and task.get("id"):
+        settings[f"{_PREFIX}.session.taskId"] = task["id"]
     _flatten(_PREFIX, protocol["instruments"][_PREFIX], settings)
 
     # The session plan is authoritative for duration if the instrument
-    # config omitted it.
+    # config omitted it; a task that declares its own working time narrows it
+    # further, because a 20-minute task inside a 45-minute session should not
+    # arm a 45-minute clock.
     settings.setdefault(
         f"{_PREFIX}.session.durationMinutes",
         protocol["session"]["durationMinutes"],
     )
+    if task and task.get("minutes"):
+        settings[f"{_PREFIX}.session.durationMinutes"] = min(
+            settings[f"{_PREFIX}.session.durationMinutes"], task["minutes"]
+        )
     return settings
 
 

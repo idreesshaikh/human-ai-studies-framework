@@ -87,7 +87,7 @@ def names_a_design(text: str, signatures: list[list[str]]) -> bool:
 
     The gate exists to stop the *platform* boxing a researcher into a design
     chosen from almost nothing. It was never meant to overrule a researcher
-    who says "let's run a paired RCT" — refusing to record a design they
+    who says "let's run a paired RCT", refusing to record a design they
     named themselves is obstinacy, not care. So a turn carrying a template's
     own curated ``designSignature`` vocabulary opens the gate, however little
     else is known.
@@ -136,7 +136,7 @@ FACETS: dict[str, dict] = {
             "programmer", "programmers", "intern", "interns", "employee",
             "employees", "people who", "n=", "recruit",
         ),
-        "question": "Who takes part — and roughly how many can you realistically get?",
+        "question": "Who takes part, and roughly how many can you realistically get?",
     },
     "task": {
         "label": "what they do",
@@ -146,7 +146,7 @@ FACETS: dict[str, dict] = {
             "assignment", "problem", "codebase", "repository", "repo",
             "pull request", "issue", "ticket", "work on", "build", "fix",
         ),
-        "question": "What will they actually be doing — which task, on whose code?",
+        "question": "Which task will they actually be doing, and on whose code?",
     },
     "comparison": {
         "label": "what is compared",
@@ -158,7 +158,7 @@ FACETS: dict[str, dict] = {
             "intervention", "between", "within", "instead of", "against",
         ),
         "question": (
-            "What are you comparing — two ways of working, before and after, "
+            "What are you comparing: two ways of working, before and after, "
             "or is this a single-condition description?"
         ),
     },
@@ -172,7 +172,7 @@ FACETS: dict[str, dict] = {
             "complexity", "readability", "acceptance", "rate", "how long",
             "how many", "how well", "score",
         ),
-        "question": "What would count as a result — what do you want to measure?",
+        "question": "What would count as a result, and what do you want to measure?",
     },
     "constraints": {
         "label": "what is possible",
@@ -186,7 +186,7 @@ FACETS: dict[str, dict] = {
             "available",
         ),
         "question": (
-            "What's practically possible for you — live instrumented sessions, "
+            "What is practically possible for you: live instrumented sessions, "
             "or existing data you already have access to?"
         ),
     },
@@ -248,7 +248,7 @@ def ready_for_design(
 
 def next_question(understanding: dict[str, bool]) -> str:
     """The single most useful thing to ask next, or "" when nothing is
-    missing. One question at a time — a wall of them is an interrogation."""
+    missing. One question at a time, a wall of them is an interrogation."""
     missing = missing_facets(understanding)
     return FACETS[missing[0]]["question"] if missing else ""
 
@@ -280,14 +280,14 @@ PROFILES: dict[str, dict] = {
         "guidance": (
             "You are talking to a STUDENT who is still learning research "
             "methods. Define every methodological term the first time you use "
-            "it, in one short clause ('within-subjects — each person does both "
+            "it, in one short clause ('within-subjects, each person does both "
             "conditions, so they are their own comparison'). Prefer one small, "
             "genuinely feasible study over an ambitious one; say plainly when "
             "something is beyond a course project's reach. Explain *why* a "
             "choice follows from what they told you, so they learn the "
             "reasoning and not just the answer. Never assume they know what a "
             "counterbalance, an effect size, or a confound is. Encouraging, "
-            "never condescending — they are doing real research."
+            "never condescending, they are doing real research."
         ),
     },
     "new-researcher": {
@@ -297,7 +297,7 @@ PROFILES: dict[str, dict] = {
             "You are talking to a RESEARCHER EARLY IN THEIR CAREER: they know "
             "what a hypothesis and a control condition are, but this design "
             "space (human-AI studies of developers) is new to them. Skip "
-            "textbook definitions; do name the field-specific traps — the "
+            "textbook definitions; do name the field-specific traps, the "
             "perception gap between felt and measured productivity, "
             "task-selection bias, why small-N within-subjects usually beats "
             "underpowered between-subjects here. Point at the papers that "
@@ -311,7 +311,7 @@ PROFILES: dict[str, dict] = {
         "guidance": (
             "You are talking to an EXPERIENCED METHODOLOGIST. Be brief and "
             "peer-level: no definitions, no methodology tutorials, no "
-            "reassurance. Lead with what is contested or non-obvious — the "
+            "reassurance. Lead with what is contested or non-obvious, the "
             "threat that is hard to mitigate here, where this corpus's "
             "conventions disagree, the specific power/effect-size problem at "
             "their n. Assume they will push back, and give them the reasoning "
@@ -329,9 +329,9 @@ PROFILES: dict[str, dict] = {
             "competes with delivery pressure, telemetry may already exist "
             "while consent for it may not, and results have to survive being "
             "shown to management. Prefer designs that work under those "
-            "constraints — within-subjects, pre/post around a rollout, "
+            "constraints, within-subjects, pre/post around a rollout, "
             "quasi-experiments with named confounds, existing-telemetry "
-            "analyses — and be explicit about what each one can and cannot "
+            "analyses, and be explicit about what each one can and cannot "
             "claim. Treat employee consent and data handling as first-class, "
             "not paperwork. Speak in engineering-outcome terms (cycle time, "
             "review load, defect escape) as well as research ones."
@@ -344,9 +344,114 @@ PROFILES: dict[str, dict] = {
 DEFAULT_PROFILE = "new-researcher"
 
 
+# --------------------------------------------------------------- steer level
+
+#: How much the assistant DRIVES the conversation, as distinct from which
+#: register it speaks in. The two are separate levers and the UI's one dial
+#: moves both: a researcher who wants a quieter colleague is not asking to be
+#: spoken to as a novice, and one who wants terms defined is not asking to be
+#: led by the nose.
+#:
+#: The METHOD never changes with this level. The same designs, the same
+#: statistics, the same honesty about what is grounded and what is not. What
+#: changes is how much arrives unprompted — which is why the ``initiative``
+#: block below is paired with a hard filter in ``design_assistant`` rather
+#: than being left to the model's goodwill.
+#:
+#: ``profile`` is the register this level implies when the caller has not
+#: declared one of their own; a declared profile always wins, because who you
+#: are is an account fact and how much help you want right now is not.
+STEER_LEVELS: dict[str, dict] = {
+    "leads": {
+        "label": "Leads",
+        "profile": "student",
+        "guidance": (
+            "DRIVE THIS CONVERSATION. Ask exactly ONE question per turn, "
+            "the single most useful thing you do not yet know, and then "
+            "name the move you would make next yourself, with the reasoning "
+            "that got you there. Do not present a menu of options and ask "
+            "them to choose; choose, show your work, and make it easy to "
+            "overrule you. Assume they would rather be shown a good default "
+            "than be asked to arbitrate a decision they do not yet have the "
+            "vocabulary for."
+        ),
+    },
+    "guides": {
+        "label": "Guides",
+        "profile": "new-researcher",
+        "guidance": (
+            "PROPOSE FREELY, BUT FOLLOW THEIR ORDER. Put forward the moves "
+            "the study needs and say why each one follows from what they "
+            "told you, but take up the thread they raised rather than "
+            "steering back to your own agenda. If they are working on "
+            "measures, work on measures."
+        ),
+    },
+    "assists": {
+        "label": "Assists",
+        "profile": "experienced",
+        "guidance": (
+            "PROPOSE ONLY WHERE THE PROTOCOL IS STRUCTURALLY INCOMPLETE. "
+            "Answer what they actually asked, and add a proposal only when a "
+            "required part of the protocol is missing or a stated plan will "
+            "not support the claim they want to make. No proposals offered "
+            "for completeness, no restating what they already decided."
+        ),
+    },
+    "checks": {
+        "label": "Checks",
+        "profile": "experienced",
+        "guidance": (
+            "STAY OUT OF THE WAY. Answer exactly what was asked, at "
+            "peer level, and nothing else. The ONLY thing you raise "
+            "unprompted is a methodological risk: a threat to validity that "
+            "would survive into the results, a statistical plan that cannot "
+            "answer the stated question, or a claim you cannot ground in the "
+            "corpus. Say those plainly and briefly. Everything else waits to "
+            "be asked for."
+        ),
+    },
+}
+
+#: What the conversation assumes when the dial has never been moved: proposing
+#: and explaining, without steering.
+DEFAULT_STEER = "guides"
+
+
+def steer_guidance(steer: str | None) -> str:
+    """The prompt block for an steer level (falls back to the default for an
+    unknown or absent one, never an empty instruction)."""
+    key = steer if steer in STEER_LEVELS else DEFAULT_STEER
+    return STEER_LEVELS[key]["guidance"]
+
+
+def steer_profile(steer: str | None) -> str | None:
+    """The register an steer level implies, or None when the level is
+    unknown. A profile the caller declared themselves outranks this."""
+    spec = STEER_LEVELS.get(steer or "")
+    return spec["profile"] if spec else None
+
+
+def proposals_permitted(steer: str | None) -> bool:
+    """Whether this level may carry design proposals at all.
+
+    The enforcement half of the dial. At ``checks`` the assistant answers and
+    warns but does not propose, and that is applied to the moves themselves in
+    :mod:`design_assistant` — a prompt can be ignored, this cannot.
+    """
+    return (steer if steer in STEER_LEVELS else DEFAULT_STEER) != "checks"
+
+
+def steer_catalog() -> list[dict]:
+    """The pickable steer levels, for the UI and for agents (FR-AGF)."""
+    return [
+        {"id": key, "label": spec["label"]} for key, spec in STEER_LEVELS.items()
+    ]
+
+
 def profile_guidance(profile: str | None) -> str:
     """The prompt block for a researcher profile (falls back to the default
-    for an unknown or absent one — never an empty instruction)."""
+    for an unknown or absent one, never an empty instruction)."""
     key = profile if profile in PROFILES else DEFAULT_PROFILE
     return PROFILES[key]["guidance"]
 

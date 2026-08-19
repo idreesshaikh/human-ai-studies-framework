@@ -1,42 +1,58 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import { PanelRight, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { StreamingTurn } from "./StreamingTurn";
 import { DraftRail } from "./DraftRail";
 import { RecommenderRail } from "./RecommenderRail";
 import { FinishReview } from "./FinishReview";
-import { UnderstandingLine } from "./UnderstandingLine";
+import { HatchLegend } from "./HatchLegend";
+import { SteerDial } from "./SteerDial";
+import { ConversationStart } from "./ConversationStart";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { compileAll } from "@/lib/compiler";
-import { openingTurn, respondTo } from "@/lib/designStub";
+import { openingTurn } from "@/lib/conversationOpening";
 import type { Recommendation } from "@/lib/types";
 import {
   conversationApi,
   loadConversation,
   type CompileResult,
 } from "@/lib/conversationApi";
+import { ApiError } from "@/lib/api";
 import { studyApi } from "@/lib/studyApi";
 import type { StudyChange } from "@/lib/presence";
 import type { Understanding } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import type { DesignMove, MoveStatus, Turn } from "@/lib/types";
+import {
+  DEFAULT_STEER,
+  readSteer,
+  writeSteer,
+  type SteerLevel,
+} from "@/lib/steer";
+
+/** The first still-undecided move across these turns — the one a reply hands
+ *  the caret to, so `a` / `r` act on the top proposal rather than the last. */
+function firstProposed(turns: Turn[]): string | null {
+  for (const t of turns) {
+    for (const m of t.moves) if (m.status === "proposed") return m.moveId;
+  }
+  return null;
+}
 
 export function ConversationView({
   studyId = "study",
-  /** Static previews stay on the deterministic stub only. */
-  stubOnly = false,
   /** The last change another viewer made to this study (FR-PLAT
    *  collaboration). Carries only what changed; the thread re-reads. */
   remoteChange = null,
 }: {
   studyId?: string;
-  stubOnly?: boolean;
   remoteChange?: StudyChange | null;
 }) {
   const [turns, setTurns] = useState<Turn[]>(() => [openingTurn()]);
   const [input, setInput] = useState("");
   const [addedRefs, setAddedRefs] = useState<Set<string>>(new Set());
-  const [live, setLive] = useState(!stubOnly);
+  const [live, setLive] = useState(true);
   const [busy, setBusy] = useState(false);
   /* The reply's prose while it streams; null once the real turn lands. */
   const [streamingText, setStreamingText] = useState<string | null>(null);
@@ -53,8 +69,48 @@ export function ConversationView({
   // literature (secondary). The draft is the study's document of record, so it
   // leads; the recommender is one toggle away.
   const [rail, setRail] = useState<"papers" | "draft">("draft");
+  /* The one move the caret goes to, set only when a reply lands in answer
+   * to something this researcher just sent. Never on a page they merely
+   * opened, and never for a colleague's change arriving over the stream:
+   * `a` and `r` decide a move from one unmodified keystroke. */
+  const [focusMoveId, setFocusMoveId] = useState<string | null>(null);
+  /* How much the assistant drives this conversation (see lib/steer.ts).
+   * Per-study and read lazily, so a reload lands back on the setting this
+   * study was left at rather than on the default. */
+  const [steer, setSteer] = useState<SteerLevel>(DEFAULT_STEER);
+
+  /* Which of the four marks this thread actually shows. The key is a promise
+   * that the reader will meet each mark it teaches, so it is derived from the
+   * moves on screen rather than printed in full regardless. */
+  const marksInPlay = useMemo(() => {
+    let grounded = false;
+    let unsourced = false;
+    let superseded = false;
+    for (const t of turns) {
+      for (const m of t.moves) {
+        if (m.grounding.length > 0) grounded = true;
+        else unsourced = true;
+        if (m.status === "rejected") superseded = true;
+      }
+    }
+    // A conflict mark is not produced by the conversation yet; it is reserved
+    // for two moves claiming one slot. Never claimed here until it is.
+    return { grounded, unsourced, conflict: false, superseded };
+  }, [turns]);
   const threadEnd = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setSteer(readSteer(studyId));
+  }, [studyId]);
+
+  const changeSteer = useCallback(
+    (next: SteerLevel) => {
+      setSteer(next);
+      writeSteer(studyId, next);
+    },
+    [studyId],
+  );
 
   // The composer grows with what's typed instead of clipping or scrolling
   // inside a fixed single row — capped so a very long message still scrolls
@@ -83,7 +139,7 @@ export function ConversationView({
   }, [turns]);
 
   useEffect(() => {
-    if (!remoteChange || !live || stubOnly) return;
+    if (!remoteChange || !live) return;
     if (remoteChange.turnId && knownTurnIds.current.has(remoteChange.turnId)) return;
     // A decision on a card already on screen changes exactly one status —
     // patch it in place instead of replacing the thread. The full re-read
@@ -108,7 +164,7 @@ export function ConversationView({
       return;
     }
     let cancelled = false;
-    loadConversation(studyId, stubOnly)
+    loadConversation(studyId)
       .then(({ turns: t, understanding: u }) => {
         if (!cancelled) {
           setTurns(t);
@@ -124,15 +180,15 @@ export function ConversationView({
     // Re-runs per pushed change. `turns` is deliberately not a dependency:
     // the already-known ids are read from a ref, so a re-read can't retrigger
     // itself.
-  }, [remoteChange, studyId, stubOnly, live]);
+  }, [remoteChange, studyId, live]);
 
   useEffect(() => {
     let cancelled = false;
-    loadConversation(studyId, stubOnly).then(({ turns: t, understanding: u }) => {
+    loadConversation(studyId).then(({ turns: t, understanding: u }) => {
       if (!cancelled) {
         setTurns(t);
         setUnderstanding(u);
-        setLive(!stubOnly);
+        setLive(true);
       }
     }).catch(() => {
       if (!cancelled) {
@@ -143,12 +199,19 @@ export function ConversationView({
     return () => {
       cancelled = true;
     };
-  }, [studyId, stubOnly]);
+  }, [studyId]);
 
   const allMoves: DesignMove[] = useMemo(
     () => turns.flatMap((t) => t.moves),
     [turns],
   );
+
+  /* Nothing of the study's own is on the sheet yet: the only turn is the
+   * platform's opening line and no move has been proposed. The blank record
+   * teaches the first move here; the hatch key at the foot waits until there
+   * are marks for it to explain. */
+  const threadEmpty =
+    !turns.some((t) => t.role === "researcher") && allMoves.length === 0;
   const clientDraft = useMemo(() => compileAll(allMoves), [allMoves]);
 
   // The literature the conversation has surfaced, de-duplicated by ref, newest
@@ -168,18 +231,31 @@ export function ConversationView({
   }, [turns]);
 
   const refreshCompile = useCallback(async () => {
-    if (!live || stubOnly) return;
+    if (!live) return;
     try {
       const result = await conversationApi.compile(studyId);
       setCompileResult(result);
     } catch {
       setCompileResult(null);
     }
-  }, [live, stubOnly, studyId]);
+  }, [live, studyId]);
 
   useEffect(() => {
-    if (live && !stubOnly) void refreshCompile();
-  }, [allMoves, live, stubOnly, refreshCompile]);
+    if (live) void refreshCompile();
+  }, [allMoves, live, refreshCompile]);
+
+  /* An opening taken from the blank record: it lands in the composer for the
+   * researcher to edit, and the caret goes with it. Never sent for them —
+   * the human sends. */
+  function takeOpening(text: string) {
+    setInput(text);
+    queueMicrotask(() => {
+      const el = composer.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(text.length, text.length);
+    });
+  }
 
   async function send() {
     const text = input.trim();
@@ -217,7 +293,7 @@ export function ConversationView({
     scrollDown();
 
     try {
-      if (live && !stubOnly) {
+      if (live) {
         // sendTurn returns [researcher(server id), platform]; replace our
         // optimistic turn with the server pair so ids reconcile without a
         // duplicated message.
@@ -231,6 +307,7 @@ export function ConversationView({
           text,
           "You",
           (fragment) => setStreamingText((prev) => prev + fragment),
+          steer,
         );
         setStreamingText(null);
         setUnderstanding(appended.understanding);
@@ -238,16 +315,21 @@ export function ConversationView({
           ...prev.filter((t) => t.turnId !== pendingId),
           ...appended.turns,
         ]);
-      } else {
-        setTurns((prev) => [...prev, respondTo(text)]);
+        setFocusMoveId(firstProposed(appended.turns));
       }
       scrollDown();
-    } catch {
-      // Offline fallback: keep the message we already showed, answer from the
-      // built-in assistant, and flip to stub mode until the server returns.
-      setTurns((prev) => [...prev, respondTo(text)]);
+    } catch (e) {
+      /* No invented reply. The platform used to answer from a keyword script
+       * whenever the server was unreachable, which read as a design
+       * conversation and was not one — a researcher had no way to tell the
+       * difference until they acted on it. What they typed stays on screen,
+       * and the reason it went unanswered is stated. */
       setLive(false);
-      setNote("You're offline. Replies are coming from the built-in assistant until the connection returns.");
+      setNote(
+        e instanceof ApiError && e.status === 503
+          ? e.message
+          : "That didn't reach the server, so it hasn't been answered yet. Your message is still here. Try again when you're back online.",
+      );
       scrollDown();
     } finally {
       setStreamingText(null);
@@ -267,7 +349,7 @@ export function ConversationView({
         }),
       })),
     );
-    if (live && !stubOnly) {
+    if (live) {
       // A rejected decision used to be swallowed, so the card showed a
       // decision the draft never received — the researcher would compile and
       // find the move missing with no explanation. Rolling back only this
@@ -294,7 +376,7 @@ export function ConversationView({
     // Optimistic: mark it added immediately so the card settles.
     setAddedRefs((prev) => new Set(prev).add(ref));
     // Offline previews stay local-only — there's no study to write to.
-    if (!live || stubOnly) return;
+    if (!live) return;
     const rec = turns
       .flatMap((t) => t.recommendations)
       .find((r) => r.ref === ref);
@@ -333,20 +415,35 @@ export function ConversationView({
       data-agent="conversation"
       className="split-rail h-full"
     >
-      <section className="flex h-full min-h-0 flex-col">
+      <section className="flex h-full min-h-0 min-w-0 flex-col">
+        {/* The dial belongs to the conversation, so it sits at the head of
+          * it: near the chat, in view the whole time, and out of the way of
+          * the box the researcher actually came to type in. */}
+        <div className="border-b border-border px-4 py-2 sm:px-6">
+          <div className="mx-auto w-full max-w-reading">
+            <SteerDial value={steer} onChange={changeSteer} />
+          </div>
+        </div>
+
         <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
           {/* The rail only looked slim because this column was unbounded —
            * centring the thread at the reading measure is what actually
            * fixed it, not the rail's own width. */}
           <div className="mx-auto flex w-full max-w-reading flex-col space-y-6">
             {turns.map((t) => (
-              <StreamingTurn key={t.turnId} turn={t} onDecide={decide} />
+              <StreamingTurn
+                key={t.turnId}
+                turn={t}
+                onDecide={decide}
+                focusMoveId={focusMoveId}
+              />
             ))}
-            {busy && live && !stubOnly && (
+            {threadEmpty && <ConversationStart onUse={takeOpening} />}
+            {busy && live && (
               <div className="flex flex-col items-start gap-3" data-agent="conversation-thinking">
                 {streamingText && (
-                  <div className="max-w-bubble animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 text-sm duration-entrance">
-                    <span className="mb-1 block text-xs text-text-muted opacity-70">
+                  <div className="max-w-bubble animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 type-body duration-entrance">
+                    <span className="mb-1 block type-caption text-text-muted opacity-70">
                       Platform
                     </span>
                     {/* The reply as it is being written. Live for a screen
@@ -366,7 +463,7 @@ export function ConversationView({
                  * the reply bubble above, through that whole gap instead of
                  * disappearing the moment text appears (which read as the
                  * reply being done when it wasn't). */}
-                <div className="max-w-bubble animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 text-sm duration-entrance">
+                <div className="max-w-bubble animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 type-body duration-entrance">
                   <span className="inline-flex items-center gap-1 animate-pulse text-text-muted">
                     <span className="size-1.5 rounded-full bg-text-muted" />
                     <span className="size-1.5 rounded-full bg-text-muted" />
@@ -379,31 +476,36 @@ export function ConversationView({
           </div>
         </div>
 
-        <UnderstandingLine understanding={understanding} />
+        {/* The key explains only the marks this thread actually carries. */}
+        {!threadEmpty && (
+          <HatchLegend
+            grounded={marksInPlay.grounded}
+            unsourced={marksInPlay.unsourced}
+            conflict={marksInPlay.conflict}
+            superseded={marksInPlay.superseded}
+          />
+        )}
 
         {note && (
-          <p className="border-t border-border bg-surface px-4 py-2 text-xs text-text-muted sm:px-6">
-            {note}
-          </p>
+          <div className="border-t border-border bg-surface px-4 py-2 sm:px-6">
+            <Notice kind="offline" className="mx-auto max-w-reading">
+              {note}
+            </Notice>
+          </div>
         )}
 
         <form
           data-agent="conversation-composer"
-          className="flex items-end gap-2 border-t border-border-strong bg-surface p-3 sm:p-4"
+          className="flex flex-col gap-2 border-t border-border bg-surface p-3 sm:p-4"
           onSubmit={(e) => {
             e.preventDefault();
             send();
           }}
         >
-          <span
-            aria-hidden
-            className="select-none self-stretch pt-2.5 font-mono text-base font-medium text-accent hidden sm:inline"
-          >
-            &gt;
-          </span>
+          <div className="flex items-end gap-2">
           <textarea
             ref={composer}
-            className="min-h-11 max-h-40 flex-1 resize-none overflow-y-auto rounded-input border border-border-strong bg-bg px-3 py-2 font-mono text-sm text-text focus-visible:border-accent"
+            className="type-body min-h-11 max-h-40 flex-1 resize-none overflow-y-auto rounded-input border border-control-edge bg-surface px-3 py-2 text-text transition-colors duration-fast hover:border-text-muted"
             placeholder="What do you want to find out?"
             value={input}
             rows={1}
@@ -433,8 +535,17 @@ export function ConversationView({
             aria-label={showDraft ? "Hide draft" : "Show draft"}
             onClick={() => setShowDraft((v) => !v)}
           >
-            {showDraft ? "×" : "≡"}
-          </Button>
+            {/* Drawn icons, not Unicode glyphs. `≡` and `×` in a button are
+              * the craft floor's "unicode standing in for an icon system", and
+              * they rendered at the button's text size next to a 16px lucide
+              * send icon beside them. */}
+            {showDraft ? (
+              <X className="size-4" aria-hidden />
+            ) : (
+              <PanelRight className="size-4" aria-hidden />
+            )}
+            </Button>
+          </div>
         </form>
       </section>
 
@@ -468,13 +579,15 @@ export function ConversationView({
             />
           ) : (
             <DraftRail
+              understanding={understanding}
               draft={clientDraft}
               serverYaml={compileResult?.yaml}
               protocol={compileResult?.protocol}
               compileValid={compileResult?.valid}
-              onApply={live && !stubOnly ? applyDraft : undefined}
+              unresolved={compileResult?.unresolved}
+              onApply={live ? applyDraft : undefined}
               applying={applying}
-              onFinish={live && !stubOnly ? () => { void refreshCompile(); setShowFinish(true); } : undefined}
+              onFinish={live ? () => { void refreshCompile(); setShowFinish(true); } : undefined}
             />
           )}
         </div>

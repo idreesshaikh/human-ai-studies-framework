@@ -68,11 +68,13 @@ export interface ProjectSummary {
   name: string;
   role: Role;
   createdAt: string;
+  /** How many studies the project holds. Carried on the list response so
+   * the project list can say what a project *is* without a request per row. */
+  studyCount: number;
 }
 
 export interface StudyRef {
   id: string;
-  phase: string;
 }
 
 export interface Member {
@@ -145,7 +147,11 @@ export interface Api {
   listProjects(): Promise<ProjectSummary[]>;
   createProject(name: string): Promise<ProjectSummary>;
   projectHome(slug: string): Promise<ProjectHome>;
-  createStudy(slug: string, name: string): Promise<{ id: string; phase: string }>;
+  createStudy(
+    slug: string,
+    name: string,
+    protocol?: Record<string, unknown>,
+  ): Promise<{ id: string }>;
   deleteStudy(studyId: string): Promise<void>;
   renameProject(slug: string, name: string): Promise<void>;
   deleteProject(slug: string, confirm: string): Promise<void>;
@@ -183,9 +189,18 @@ export interface Api {
  * message. */
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** Whether `message` is a sentence somebody wrote for a person — the API's
+   * own `detail` ("slug 'lab' is taken"), or one of this module's offline
+   * messages. False means it was reconstructed from the HTTP status because
+   * the response carried no `detail`: a proxy's error page, an edge
+   * rate-limiter, a dev server's SPA 404. "Not Found" is a status, not an
+   * error message, and a surface that prints it is showing the researcher
+   * plumbing. Callers show `message` only when this is true. */
+  fromServer: boolean;
+  constructor(status: number, message: string, fromServer = true) {
     super(message);
     this.status = status;
+    this.fromServer = fromServer;
   }
 }
 
@@ -267,13 +282,18 @@ class HttpBackend implements Api {
       // `{err && ...}` then renders as nothing: a real failure with no
       // visible feedback at all.
       let detail = res.statusText || `Request failed (${res.status})`;
+      let fromServer = false;
       try {
-        detail = (await res.json()).detail ?? detail;
+        const body = await res.json();
+        if (typeof body?.detail === "string" && body.detail.trim()) {
+          detail = body.detail;
+          fromServer = true;
+        }
       } catch {
         /* non-JSON error body */
       }
       if (res.status === 401) unauthorizedListeners.forEach((l) => l());
-      throw new ApiError(res.status, detail);
+      throw new ApiError(res.status, detail, fromServer);
     }
     if (res.status === 204) return undefined as T;
     try {
@@ -293,8 +313,11 @@ class HttpBackend implements Api {
   createProject = (name: string) =>
     this.call<ProjectSummary>("POST", "/projects", { name });
   projectHome = (slug: string) => this.call<ProjectHome>("GET", `/projects/${slug}`);
-  createStudy = (slug: string, name: string) =>
-    this.call<{ id: string; phase: string }>("POST", `/projects/${slug}/studies`, { name });
+  createStudy = (slug: string, name: string, protocol?: Record<string, unknown>) =>
+    this.call<{ id: string }>("POST", `/projects/${slug}/studies`, {
+      name,
+      ...(protocol ? { protocol } : {}),
+    });
   deleteStudy = (studyId: string) =>
     this.call<void>("DELETE", `/studies/${studyId}`);
   renameProject = (slug: string, name: string) =>
@@ -383,10 +406,10 @@ export class InMemoryBackend implements Api {
       name: "Sample Lab",
       createdAt: "2026-07-10T09:00:00.000Z",
       studies: [
-        { id: "over-trust-2026", phase: "design" },
+        { id: "over-trust-2026" },
         // A demo study mid-evolution: its amendment banner + history
         // are seeded in evolutionStub.ts.
-        { id: "sample-study-2026", phase: "data-collection" },
+        { id: "sample-study-2026" },
       ],
       members: [
         { identitySub: "you", role: "owner", joinedAt: "2026-07-10T09:00:00.000Z" },
@@ -401,14 +424,18 @@ export class InMemoryBackend implements Api {
       slug: "demo",
       name: "Demo: AI code trust study",
       createdAt: "2026-07-01T09:00:00.000Z",
-      studies: [{ id: "demo-study", phase: "reporting" }],
+      studies: [{ id: "demo-study" }],
       members: [{ identitySub: "you", role: "viewer" }],
       invitations: [],
     });
 
-    // Seed protocol shapes so toggleCatalog/applyToggle work offline.
+    // Seed protocol shapes so toggleCatalog/applyToggle work offline. Keyed
+    // "tern" to match the real protocol schema's instrument name — this used
+    // to say "cognitiveOverlay" (the pre-rename name), which the live
+    // enrollment panel's toggle-chip lookup (filtered on "tern") could never
+    // match: the offline demo's toggle popover silently never opened.
     const demoInstruments: Record<string, unknown> = {
-      cognitiveOverlay: {
+      tern: {
         stuck: { enabled: true, thresholdSeconds: 90, cooldownMinutes: 5, languages: ["python"] },
         fatigue: { intervalMinutes: 15, waitForPauseSeconds: 4, jitterPercent: 20, quietTailMinutes: 5 },
         session: { durationMinutes: 45 },
@@ -444,7 +471,15 @@ export class InMemoryBackend implements Api {
     const out: ProjectSummary[] = [];
     for (const p of this.projects.values()) {
       const role = this.roleOn(p.slug);
-      if (role) out.push({ id: p.id, slug: p.slug, name: p.name, role, createdAt: p.createdAt });
+      if (!role) continue;
+      out.push({
+        id: p.id,
+        slug: p.slug,
+        name: p.name,
+        role,
+        createdAt: p.createdAt,
+        studyCount: p.studies.length,
+      });
     }
     return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
@@ -464,7 +499,14 @@ export class InMemoryBackend implements Api {
       invitations: [],
     };
     this.projects.set(slug, p);
-    return { id: p.id, slug, name: p.name, role: "owner", createdAt: now };
+    return {
+      id: p.id,
+      slug,
+      name: p.name,
+      role: "owner",
+      createdAt: now,
+      studyCount: 0,
+    };
   }
 
   async projectHome(slug: string): Promise<ProjectHome> {
@@ -479,7 +521,11 @@ export class InMemoryBackend implements Api {
     };
   }
 
-  async createStudy(slug: string, name: string): Promise<{ id: string; phase: string }> {
+  async createStudy(
+    slug: string,
+    name: string,
+    protocol?: Record<string, unknown>,
+  ): Promise<{ id: string }> {
     const p = this.get(slug);
     const base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "study";
     let id = base;
@@ -488,8 +534,13 @@ export class InMemoryBackend implements Api {
       suffix += 1;
       id = `${base}-${suffix}`;
     }
-    p.studies.push({ id, phase: "design" });
-    return { id, phase: "design" };
+    p.studies.push({ id });
+    // Mirrors the real backend: an optional seed protocol (e.g. "start from
+    // this template") lands as the study's draft immediately, offline the
+    // same as live — a demo session starting a study from a template must
+    // see the same design the live path would give it, not a blank one.
+    if (protocol) this.protocols.set(id, protocol);
+    return { id };
   }
 
   async deleteStudy(studyId: string): Promise<void> {
@@ -625,8 +676,8 @@ export class InMemoryBackend implements Api {
       }
       entries.push({ instrument, path, label, description: desc, grounding, currentValue: value });
     };
-    addEntry("cognitiveOverlay", ["stuck", "enabled"], "Stuck detection", "Detects dwell/scroll-thrash", { ref: "FR-INST-2", source: "srs" });
-    addEntry("cognitiveOverlay", ["ideHealth", "enabled"], "IDE health stream", "Captures diagnostic counts", { ref: "FR-INST-18", source: "srs" });
+    addEntry("tern", ["stuck", "enabled"], "Stuck detection", "Detects dwell/scroll-thrash", { ref: "FR-INST-2", source: "srs" });
+    addEntry("tern", ["ideHealth", "enabled"], "IDE health stream", "Captures diagnostic counts", { ref: "FR-INST-18", source: "srs" });
     return entries;
   }
 

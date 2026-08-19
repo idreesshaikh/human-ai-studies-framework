@@ -3,6 +3,7 @@ import { decodeConnectionString } from '../core/connectionString';
 import {
   CaptureConfig,
   overlayFlags,
+  readBlock,
   shouldApplyCaptureConfig,
 } from '../core/captureConfig';
 import { preflightSummary } from '../core/preflight';
@@ -20,6 +21,9 @@ export const STATE_LEGS = 'tern.legs';
  *  next session start, so the sidebar shows it as pending rather than
  *  silently implying the change already took effect. */
 export const STATE_PENDING = 'tern.pendingConfigVersion';
+/** The task block this session was assigned — what the sidebar shows the
+ *  participant so they know what they have been asked to do. */
+export const STATE_BLOCK = 'tern.sessionBlock';
 
 interface RedeemResult {
   studyId: string;
@@ -70,6 +74,7 @@ export async function getStoredCredential(
 export async function refreshConfigAtSessionStart(
   context: vscode.ExtensionContext,
   sessionActive: boolean,
+  sessionId?: string,
 ): Promise<string | undefined> {
   const cred = await context.secrets.get(SECRET_CRED);
   const server = context.workspaceState.get<string>(STATE_SERVER);
@@ -78,11 +83,21 @@ export async function refreshConfigAtSessionStart(
     .get<string>('studyId');
   if (!cred || !server || !studyId) return cred ?? undefined;
   try {
-    const res = await fetch(`${server}/studies/${studyId}/capture-config`, {
+    // The session id lets the server assign (and remember) this session's
+    // task block. Sending it is what makes the assignment idempotent: a
+    // re-pull for a session already under way returns the same block rather
+    // than advancing the participant to the next one.
+    const url = new URL(`${server}/studies/${studyId}/capture-config`);
+    if (sessionId) url.searchParams.set('sessionId', sessionId);
+    const res = await fetch(url, {
       headers: { authorization: `Bearer ${cred}` },
     });
     if (res.ok) {
       const cfg = (await res.json()) as CaptureConfig;
+      // The assigned block is display state, not capture config: it is
+      // stored whatever wall #6 decides about the settings, because what the
+      // participant is asked to do this session is true either way.
+      await context.workspaceState.update(STATE_BLOCK, readBlock(cfg));
       const applied = context.workspaceState.get<string>(STATE_VERSION);
       if (
         shouldApplyCaptureConfig(

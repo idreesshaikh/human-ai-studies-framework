@@ -15,7 +15,7 @@ Two hard boundaries:
 - **Human gate:** the proposal is *inert* - a Markdown file. The framework
   never edits its own requirements unattended; "self-evolving" means
   *self-proposing*. Accepted items are applied by the researcher as ordinary,
-  change-managed edits to ``requirements/srs.md`` + ``traceability.md``.
+  changes a human makes deliberately.
 
 Offline-degradable: without ``MISTRAL_API_KEY`` it emits
 the collected evidence bundle plus a proposal template for the researcher to
@@ -207,13 +207,12 @@ def evidence_bundle(evidence: dict) -> str:
         "# Retrospective proposal (TEMPLATE - complete by hand)\n\n"
         "The knowledge assistant was unavailable (no `MISTRAL_API_KEY`); "
         "this bundle collects the evidence so you can draft the proposal "
-        "manually. It is **inert** until you apply accepted items as ordinary, "
-        "change-managed edits to `requirements/srs.md` + "
-        "`requirements/traceability.md` (new IDs, supersessions, log entry).\n\n"
+        "manually. It is **inert**: nothing here changes the platform until "
+        "you act on it yourself.\n\n"
         "---\n\n"
         + build_prompt(evidence)
-        + "\n---\n\n## SRS amendments\n\n_Per requirement ID: keep / amend / "
-        "add, citing the findings above._\n\n"
+        + "\n---\n\n## Platform changes\n\n_What should change, citing the "
+        "findings above._\n\n"
         "## Protocol-schema changes\n\n_..._\n\n"
         "## Instrument config changes\n\n_..._\n\n"
         "## Explicitly rejected ideas\n\n_...with why._\n"
@@ -226,10 +225,8 @@ def build_proposal(evidence: dict, client) -> tuple[str, bool]:
         body = draft_with_llm(evidence, client)
         header = (
             "# Retrospective changelist proposal (FR-META-2)\n\n"
-            "> **Inert until reviewed.** Draft only - apply accepted items as "
-            "ordinary change-managed edits to `requirements/srs.md` + "
-            "`requirements/traceability.md`. The framework never edits its own "
-            "requirements unattended.\n\n"
+            "> **Inert until reviewed.** A draft, nothing more: the platform "
+            "never changes itself unattended.\n\n"
         )
         return header + body + "\n", True
     return evidence_bundle(evidence), False
@@ -276,6 +273,6 @@ def cmd_retrospective(protocol: dict, study_id: str, args) -> int:
     )
     print(
         "  HUMAN GATE: the proposal is inert. Review it, then apply accepted "
-        "items as change-managed SRS/traceability edits."
+        "items as deliberate changes of their own."
     )
     return 0

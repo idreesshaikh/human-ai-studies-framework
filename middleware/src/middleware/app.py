@@ -12,13 +12,14 @@ Design rules inherited from the extension (NFR-2, "never lose data"):
 - **Loss is visible** - ``GET /sessions/{id}/gaps`` reports seq gaps
   (FR-ING-3); the extension's ``seq`` exists precisely for this.
 
-The extension's HttpSink POSTs ``{"source": "cognitive-overlay",
+The extension's HttpSink POSTs ``{"source": "tern",
 "events": [...]}`` (see extension/src/vscode/sinks.ts) - that payload is
 accepted unchanged (FR-ING-1).
 """
 
 import csv
 import io
+import itertools
 import json
 import logging
 import queue
@@ -27,6 +28,7 @@ import secrets
 import tempfile
 from collections import defaultdict
 from collections.abc import Callable
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
@@ -41,9 +43,9 @@ from fastapi.responses import (
     StreamingResponse,
 )
 from fastapi.staticfiles import StaticFiles
+from protocol.assignment import assign, tasks_of
 from protocol.errors import ProtocolError
 from protocol.export import build_kit
-from protocol.lifecycle import PHASE_ORDER, current_phase, gates_by_phase
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy import text as sqltext
@@ -58,6 +60,7 @@ from middleware import (
     design_assistant,
     elicitation,
     enrollment,
+    ethics_package,
     evolution,
     mailer,
     manifest,
@@ -90,17 +93,16 @@ from middleware.db import (
     ProtocolDraftRow,
     RecipeRun,
     S2Cache,
+    SessionBlock,
     SessionOpen,
     StoredFile,
     Study,
     StudyEvolution,
-    TaskCard,
     TemplateSubmission,
     UserProfile,
     get_engine,
     make_session_factory,
 )
-from middleware.redocs import parse_glossary, parse_srs
 from middleware.settings import Settings
 
 #: Event schema versions this service is written against; other versions are
@@ -113,7 +115,23 @@ KNOWN_EVENT_SCHEMA_VERSIONS = {2, 3, 4, 5}
 #: The default producer stream when an event/batch names none - the
 #: extension's HttpSink envelope value. Agent-capture producers set their
 #: own ``source`` so their ``seq`` stream never collides (see db.py).
-DEFAULT_SOURCE = "cognitive-overlay"
+DEFAULT_SOURCE = "tern"
+
+#: Producer names that mean :data:`DEFAULT_SOURCE` under an older name.
+#: The extension was once called the "cognitive overlay", which undersold it -
+#: it carries four capture legs, not one - and the old label was still going
+#: out on every event envelope. Renaming the stream would otherwise split one
+#: session across two ``source`` values: ``(session_id, source, seq)`` is the
+#: uniqueness key (db.py), so a mid-study upgrade would restart the seq stream
+#: and read as a gap. Normalising on the way in keeps one canonical stream and
+#: lets an un-upgraded editor keep reporting.
+LEGACY_SOURCES = {"cognitive-overlay"}
+
+
+def canonical_source(source: str) -> str:
+    """The producer stream under its current name."""
+    return DEFAULT_SOURCE if source in LEGACY_SOURCES else source
+
 
 Clock = Callable[[], datetime]
 
@@ -152,11 +170,6 @@ class FindingIn(BaseModel):
     status: str = "open"
 
 
-class TaskIn(BaseModel):
-    title: str
-    note: str = ""
-
-
 class RecipeRunIn(BaseModel):
     """One recipe run recorded by the analysis runner."""
 
@@ -164,10 +177,6 @@ class RecipeRunIn(BaseModel):
     status: str = "ok"
     answers: list[str] = Field(default_factory=list)
     note: str = ""
-
-
-class TaskPatch(BaseModel):
-    status: str  # open | done
 
 
 class PaperIngestIn(BaseModel):
@@ -208,16 +217,6 @@ class FromMatchIn(BaseModel):
     matchReason: str = ""
 
 
-class GateAttestIn(BaseModel):
-    """Attest that a lifecycle gate's requirement is met (FR-DASH-2): the
-    researcher confirms ethics approval / consent template / etc. is in hand,
-    which writes the gate artifact and lets the study advance a phase."""
-
-    note: str = ""
-    attestedBy: str = "Researcher"
-    confirmed: bool = False
-
-
 class ConversationTurnIn(BaseModel):
     """One researcher turn (FR-CONV-1). The researcher supplies text only;
     the *platform* reply — its prose, design moves, and grounding — is
@@ -227,6 +226,12 @@ class ConversationTurnIn(BaseModel):
 
     text: str
     author: str = "Researcher"
+    #: How much the researcher wants the assistant to drive THIS conversation
+    #: (FR-CONV-9). One of ``elicitation.STEER_LEVELS``; absent means they
+    #: have not moved the dial, and the account's declared profile decides
+    #: the register on its own — which is the behaviour every client had
+    #: before the dial existed.
+    steer: str | None = None
 
 
 class MoveDecisionIn(BaseModel):
@@ -305,6 +310,14 @@ class RedeemIn(BaseModel):
     token: str
 
 
+class SimulateIn(BaseModel):
+    """Synthetic dry-run settings (POST /studies/{study_id}/simulate)."""
+
+    count: int = 5
+    profile: str = "mixed"  # 'mixed' | 'fast' | 'struggling' | 'novice' | 'expert'
+    seed: int | None = None
+
+
 class _ProtocolCheck:
     """Validates join keys against the loaded study protocol (FR-ING-6).
 
@@ -358,57 +371,37 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     check = _ProtocolCheck(protocol_doc)
 
     def _resolve_study_protocol(s: Session, study_id: str) -> dict | None:
-        """Resolve a study's protocol: the approved YAML snapshot wins
-        (post-ethics, FR-CONV-4); the boot protocol is the single-facilitator
-        fallback for a study never taken through the design conversation.
+        """Resolve a study's protocol, most-specific source first: an approved
+        snapshot, then the compiled draft, then the boot protocol (the
+        single-facilitator fallback for a study never taken through the design
+        conversation).
+
+        The compiled draft used to be visible only under a developer-mode
+        flag, and a near-duplicate resolver existed alongside this one for the
+        surfaces that needed it anyway. Both were consequences of the ethics
+        gate: while setup was blocked until approval, showing an unapproved
+        draft to the enrollment route would have let a study collect data
+        early. Setup is no longer gated, so a compiled draft is simply the
+        study's protocol, one resolver serves every caller, and the flag that
+        existed to switch the gate off went with it.
 
         Named with a leading underscore (unlike the brief's ``study_protocol``)
         because ``create_app`` already binds that name to the
-        ``GET /studies/{study_id}/protocol`` route handler (~line 774) — reusing
-        it would have the later ``def`` silently shadow this helper for every
-        caller below it, including this task's own routes. Discovered via the
-        TDD RED step (a same-named-argument ``TypeError`` at the mint route)."""
+        ``GET /studies/{study_id}/protocol`` route handler — reusing it would
+        have the later ``def`` silently shadow this helper for every caller
+        below it."""
         import yaml
 
-        from middleware.db import StudyEvolution
+        from middleware.db import ProtocolDraftRow, StudyEvolution
 
         evo = s.get(StudyEvolution, study_id)
         if evo is not None and evo.approved_yaml:
             return yaml.safe_load(evo.approved_yaml)
-        if protocol_doc is not None and protocol_doc["study"]["id"] == study_id:
-            return protocol_doc
-        if settings.dev_mode:
-            # Developer mode: a compiled draft that hasn't been ethics-frozen is
-            # still enough to exercise the flow (e.g. minting). Production never
-            # takes this branch, so the approved snapshot stays the source of
-            # record there.
-            from middleware.db import ProtocolDraftRow
-
-            draft = s.get(ProtocolDraftRow, study_id)
-            if draft is not None and draft.yaml:
-                return yaml.safe_load(draft.yaml)
-        return None
-
-    def _resolve_study_protocol_for_lifecycle(s: Session, study_id: str) -> dict | None:
-        """Resolve a study's protocol for the lifecycle board and its
-        siblings (status, findings scan): unlike ``_resolve_study_protocol``
-        - which gates the pre-ethics draft behind ``dev_mode`` for the
-        enrollment route's hard science invariant (no minting before ethics
-        approval) - the lifecycle must show a study's compiled-and-approved
-        draft even before ethics approval, since attesting the ``design``
-        phase's gate is how a study *reaches* the ``ethics`` phase, not
-        something that follows it.
-        """
-        proto = _resolve_study_protocol(s, study_id)
-        if proto is not None:
-            return proto
-        import yaml
-
-        from middleware.db import ProtocolDraftRow
-
         draft = s.get(ProtocolDraftRow, study_id)
         if draft is not None and draft.yaml:
             return yaml.safe_load(draft.yaml)
+        if protocol_doc is not None and protocol_doc["study"]["id"] == study_id:
+            return protocol_doc
         return None
 
     # Reify the loaded protocol's study into the studies table: the
@@ -523,47 +516,59 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         bearer_present = authorization.startswith("Bearer ")
         flagged = 0
         rows = []
+        # Which task each session was assigned. The block is the authority on
+        # a session's condition: a within-subjects participant meets several,
+        # and their token only remembers the latest, so stamping from the
+        # token alone would mislabel every event of an earlier session that
+        # arrives late.
+        blocks = {
+            b.session_id: b
+            for b in s.scalars(
+                select(SessionBlock).where(
+                    SessionBlock.session_id.in_({e.sessionId for e in events})
+                )
+            )
+        }
         for e in events:
             pid, cond = e.participantId, e.condition
+            block = blocks.get(e.sessionId)
             extra_flags: list[str] = []
             if cred_row is not None:
+                expected = block.condition if block else cred_row.condition
                 if (e.participantId and e.participantId != cred_row.participant_id) or (
-                    e.condition and e.condition != cred_row.condition
+                    e.condition and e.condition != expected
                 ):
                     extra_flags.append("credential-mismatch")
-                pid, cond = cred_row.participant_id, cred_row.condition  # server-stamp
+                pid, cond = cred_row.participant_id, expected  # server-stamp
             elif bearer_present:
                 extra_flags.append("unauthenticated")  # bearer sent, none valid
             flags = check.flags_for(pid, cond, e.v) + extra_flags
             flagged += bool(flags)
             rows.append(
-                dict(
-                    session_id=e.sessionId,
-                    source=e.source or batch_source or DEFAULT_SOURCE,
-                    seq=e.seq,
-                    participant_id=pid,
-                    condition=cond,
-                    v=e.v,
-                    ts=e.ts,
-                    mono=e.mono,
-                    type=e.type,
-                    payload=e.payload,
-                    flags=flags,
-                    received_at=received,
-                )
+                {
+                    "session_id": e.sessionId,
+                    "source": canonical_source(
+                        e.source or batch_source or DEFAULT_SOURCE
+                    ),
+                    "seq": e.seq,
+                    "participant_id": pid,
+                    "condition": cond,
+                    # Server-stamped from the session's block, never taken
+                    # from the client: what the participant was asked to do
+                    # is the study's fact, not the editor's claim.
+                    "task_id": block.task_id if block else "",
+                    "v": e.v,
+                    "ts": e.ts,
+                    "mono": e.mono,
+                    "type": e.type,
+                    "payload": e.payload,
+                    "flags": flags,
+                    "received_at": received,
+                }
             )
-        inserted = 0
-        if rows:
-            engine = get_engine()
-            if engine.dialect.name == "postgresql":
-                from sqlalchemy.dialects.postgresql import insert as _pg_insert
-                stmt = _pg_insert(Event).values(rows).on_conflict_do_nothing()
-            else:
-                from sqlalchemy.dialects.sqlite import insert as _sq_insert
-                stmt = _sq_insert(Event).values(rows).on_conflict_do_nothing(
-                    index_elements=["session_id", "source", "seq"]
-                )
-            inserted = len(s.execute(stmt.returning(Event.id)).fetchall())
+        from middleware.ingest_core import store_events
+
+        inserted = store_events(s, rows, received)
         if flagged:
             log_finding(
                 s,
@@ -582,40 +587,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.post("/ingest/metrics")
     def ingest_metrics(rows: list[dict], s: Session = Depends(db)) -> dict:
+        from middleware.ingest_core import store_metric_rows
+
         received = now()
-        inserted = flagged = 0
+        flagged = 0
+        flags_by_row: list[list[str]] = []
         for row in rows:
-            table = "function_metrics" if "function" in row else "file_metrics"
             flags = check.flags_for(
                 str(row.get("participantId", "")), str(row.get("condition", "")), None
             )
             flagged += bool(flags)
-            _row_vals = dict(
-                table=table,
-                session_id=str(row.get("sessionId", "")),
-                participant_id=str(row.get("participantId", "")),
-                condition=str(row.get("condition", "")),
-                timestamp=str(row.get("timestamp", "")),
-                schema_version=int(row.get("schemaVersion", -1)),
-                row=row,
-                row_hash=MetricRow.hash_row(table, row),
-                flags=flags,
-                received_at=received,
-            )
-            _engine = get_engine()
-            if _engine.dialect.name == "postgresql":
-                from sqlalchemy.dialects.postgresql import insert as _pg_insert
-                stmt = (
-                    _pg_insert(MetricRow)
-                    .values([_row_vals])
-                    .on_conflict_do_nothing()
-                )
-            else:
-                from sqlalchemy.dialects.sqlite import insert as _sq_insert
-                stmt = _sq_insert(MetricRow).values([_row_vals]).on_conflict_do_nothing(
-                    index_elements=["row_hash"]
-                )
-            inserted += len(s.execute(stmt.returning(MetricRow.id)).fetchall())
+            flags_by_row.append(flags)
+        inserted = store_metric_rows(s, rows, received, flags_by_row)
         if flagged:
             log_finding(
                 s,
@@ -831,66 +814,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     # ------------------------------------- platform support
 
-    def _stored_files(s: Session, study_id: str) -> dict[str, StoredFile]:
-        """Uploaded artifacts by filename, scoped to one study - the
-        lifecycle's evidence set.
-
-        Later uploads win on filename collision (re-upload supersedes).
-        """
-        files = s.scalars(
-            select(StoredFile)
-            .where(StoredFile.study_id == study_id)
-            .order_by(StoredFile.id)
-        )
-        return {f.filename: f for f in files}
-
-    def _lifecycle_doc(s: Session, study_id: str) -> dict:
-        """The computed lifecycle (FR-DASH-2): the current phase is derived
-        from uploaded gate artifacts via the lifecycle engine, never hand-set.
-        """
-        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
-        if proto is None:
-            raise HTTPException(404, f"no protocol for study {study_id!r}")
-        files = _stored_files(s, study_id)
-        # The engine's gate view, not the raw declarations: a gateless phase
-        # carries its implicit completion attestation (FR-PROT-10), so the
-        # board shows the manual advance instead of silently ticking past.
-        guarded = gates_by_phase(proto)
-        current = current_phase(proto, set(files))
-        cur_i = PHASE_ORDER.index(current)
-        phases = []
-        for i, name in enumerate(PHASE_ORDER):
-            gates = [
-                {
-                    "artifact": g,
-                    "satisfied": g in files,
-                    "satisfiedBy": (
-                        {
-                            "fileId": files[g].id,
-                            "uploadedAt": files[g].uploaded_at,
-                            "size": files[g].size,
-                        }
-                        if g in files
-                        else None
-                    ),
-                }
-                for g in guarded.get(name, [])
-            ]
-            phases.append(
-                {
-                    "name": name,
-                    "status": (
-                        "complete"
-                        if i < cur_i
-                        else "current"
-                        if i == cur_i
-                        else "upcoming"
-                    ),
-                    "gates": gates,
-                }
-            )
-        return {"currentPhase": current, "phases": phases}
-
     @app.get(
         "/studies/{study_id}/protocol",
         dependencies=[Depends(require_project_for_study("view"))],
@@ -900,7 +823,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         traceability chips (FR-DASH-6): RQ -> planned recipes comes verbatim
         from the protocol's analysis plan."""
 
-        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
+        proto = _resolve_study_protocol(s, study_id)
         if proto is None:
             raise HTTPException(404, f"no protocol for study {study_id!r}")
         recipes_by_rq = {
@@ -930,57 +853,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         }
 
     @app.get(
-        "/studies/{study_id}/lifecycle",
-        dependencies=[Depends(require_project_for_study("view"))],
-    )
-    def study_lifecycle(study_id: str, s: Session = Depends(db)) -> dict:
-
-        return _lifecycle_doc(s, study_id)
-
-    @app.post(
-        "/studies/{study_id}/lifecycle/gates/{artifact}/attest",
-        dependencies=[Depends(require_project_for_study("contribute"))],
-    )
-    def attest_gate(
-        study_id: str, artifact: str, body: GateAttestIn, s: Session = Depends(db)
-    ) -> dict:
-        """Satisfy a lifecycle gate by attestation (FR-DASH-2): the researcher
-        confirms a requirement is met - ethics approval obtained, consent
-        template finalized - which writes the gate artifact so the study can
-        advance. Only a gate the protocol declares for the *current* phase can
-        be attested, so progression stays one gated step at a time and never
-        skips ahead. Attestation requires explicit confirmation (the 'agree'
-        step), and the note + who attested are kept as evidence."""
-        if not body.confirmed:
-            raise HTTPException(400, "attestation needs explicit confirmation")
-        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
-        if proto is None:
-            raise HTTPException(404, f"no protocol for study {study_id!r}")
-        current = current_phase(proto, set(_stored_files(s, study_id)))
-        # The engine's gate view includes the implicit completion attestation
-        # of a gateless phase (FR-PROT-10) — the manual advance is attested
-        # through the same one-gated-step-at-a-time door as declared gates.
-        current_gates = gates_by_phase(proto).get(current, [])
-        if artifact not in current_gates:
-            raise HTTPException(
-                409,
-                f"{artifact!r} is not an open gate of the current phase {current!r}",
-            )
-        _write_gate_artifact(
-            s,
-            artifact,
-            {
-                "attestation": f"{artifact} satisfied by researcher attestation",
-                "attestedBy": body.attestedBy,
-                "note": body.note,
-                "at": now(),
-            },
-            study_id,
-        )
-        s.commit()
-        return _lifecycle_doc(s, study_id)
-
-    @app.get(
         "/studies/{study_id}/status",
         dependencies=[Depends(require_project_for_study("view"))],
     )
@@ -992,7 +864,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         spawned them disappears. Facts only - no card state lives here.
         """
 
-        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
+        proto = _resolve_study_protocol(s, study_id)
         if proto is None:
             raise HTTPException(404, f"no protocol for study {study_id!r}")
 
@@ -1084,7 +956,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return {
             "studyId": proto["study"]["id"],
             "generatedAt": now(),
-            "lifecycle": _lifecycle_doc(s, study_id),
             "conditions": conditions,
             "plannedParticipants": int(participants.get("planned", 0)),
             "plannedSessionsPerParticipant": len(conditions) if within else 1,
@@ -1132,12 +1003,51 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         for e in recent:
             by_session[e.session_id].append(e)
 
+        # Task titles and block positions for the sessions in this window,
+        # resolved once rather than per session. A task the protocol no longer
+        # declares still shows its id - the events happened, and hiding them
+        # would be worse than an unfamiliar label.
+        protocol = _resolve_study_protocol(s, study_id)
+        task_titles = {
+            t.get("id"): t.get("title", "")
+            for t in (tasks_of(protocol) if protocol else [])
+        }
+        session_blocks = {
+            b.session_id: b
+            for b in s.scalars(
+                select(SessionBlock).where(SessionBlock.session_id.in_(set(by_session)))
+            )
+        }
+        blocks_total: dict[str, int] = {}
+        if protocol:
+            for row in s.scalars(
+                select(EnrollmentToken).where(EnrollmentToken.study_id == study_id)
+            ):
+                with suppress(ProtocolError):
+                    blocks_total[row.participant_id] = len(
+                        assign(protocol, row.participant_index or 0)
+                    )
+
         out = []
         for sid, events in sorted(by_session.items()):
+            block = session_blocks.get(sid)
             rate = [0] * buckets
             for e in events:
                 age = (now_dt - datetime.fromisoformat(e.received_at)).total_seconds()
-                idx = buckets - 1 - min(int(age // bucketSeconds), buckets - 1)
+                # Clamped on both ends, not just the upper one. An event
+                # older than the window was already excluded by the query
+                # above, but `age` can still be *negative* - received_at in
+                # the future relative to `now_dt` - for a synthetic dry run,
+                # whose sessions are scheduled across a realistic recruitment
+                # span rather than bunched at one instant (simulation.py).
+                # Un-clamped, a negative age floor-divides to a negative
+                # bucket offset and indexes past the end of `rate`, which
+                # crashed this route outright the moment a study had ever
+                # run a dry run - the offending IndexError never depended on
+                # anything about the study, so it was invisible until real
+                # data (simulated or otherwise) actually triggered it.
+                offset = min(max(int(age // bucketSeconds), 0), buckets - 1)
+                idx = buckets - 1 - offset
                 rate[idx] += 1
             last = events[-1]
             per_source: dict[str, list[int]] = defaultdict(list)
@@ -1151,6 +1061,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "sessionId": sid,
                     "participantId": last.participant_id,
                     "condition": last.condition,
+                    # Which work this session is doing, and where it sits in
+                    # the participant's sequence. Watching a study without
+                    # this tells you someone is typing but not what at.
+                    "taskId": last.task_id,
+                    "taskTitle": (task_titles.get(last.task_id) or ""),
+                    "blockIndex": (block.block_index if block else None),
+                    "blocksTotal": blocks_total.get(last.participant_id),
                     "eventsInWindow": len(events),
                     "lastEventType": last.type,
                     "lastReceivedAt": last.received_at,
@@ -1220,6 +1137,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "size": f.size,
                 "sha256": f.sha256,
                 "sessionId": f.session_id,
+                # Uploads are scoped per study (FR-ING-5) and the listing was
+                # silent about it, so nothing could observe - or regress on -
+                # the isolation the column already provides.
+                "studyId": f.study_id,
                 "participantId": f.participant_id,
                 "uploadedAt": f.uploaded_at,
             }
@@ -1291,24 +1212,24 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     def upsert_paper(s: Session, study_id: str, record: dict, *, source: str) -> None:
         """Insert-or-update one paper record and (re)index its text."""
-        _paper_vals = dict(
-            study_id=study_id,
-            paper_ref=record["paperRef"],
-            title=record.get("title", ""),
-            authors=record.get("authors", []),
-            year=record.get("year"),
-            venue=record.get("venue", ""),
-            abstract=record.get("abstract", ""),
-            doi=record.get("doi", ""),
-            arxiv_id=record.get("arxivId", ""),
-            url=record.get("url", ""),
-            item_type=record.get("itemType", "paper"),
-            source=source,
-            s2_id=record.get("s2Id", ""),
-            citation_count=record.get("citationCount"),
-            full_text=record.get("fullText", ""),
-            added_at=now(),
-        )
+        _paper_vals = {
+            "study_id": study_id,
+            "paper_ref": record["paperRef"],
+            "title": record.get("title", ""),
+            "authors": record.get("authors", []),
+            "year": record.get("year"),
+            "venue": record.get("venue", ""),
+            "abstract": record.get("abstract", ""),
+            "doi": record.get("doi", ""),
+            "arxiv_id": record.get("arxivId", ""),
+            "url": record.get("url", ""),
+            "item_type": record.get("itemType", "paper"),
+            "source": source,
+            "s2_id": record.get("s2Id", ""),
+            "citation_count": record.get("citationCount"),
+            "full_text": record.get("fullText", ""),
+            "added_at": now(),
+        }
         _update_vals = {
             "title": record.get("title", ""),
             "abstract": record.get("abstract", ""),
@@ -1319,6 +1240,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         _engine = get_engine()
         if _engine.dialect.name == "postgresql":
             from sqlalchemy.dialects.postgresql import insert as _pg_insert
+
             stmt = (
                 _pg_insert(Paper)
                 .values([_paper_vals])
@@ -1328,6 +1250,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
         else:
             from sqlalchemy.dialects.sqlite import insert as _sq_insert
+
             stmt = (
                 _sq_insert(Paper)
                 .values([_paper_vals])
@@ -1353,6 +1276,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         ):
             if _engine.dialect.name == "postgresql":
                 from sqlalchemy.dialects.postgresql import insert as _pg_insert
+
                 stmt = (
                     _pg_insert(PaperLink)
                     .values(study_id=study_id, paper_ref=paper_ref, target=target)
@@ -1360,6 +1284,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
             else:
                 from sqlalchemy.dialects.sqlite import insert as _sq_insert
+
                 stmt = (
                     _sq_insert(PaperLink)
                     .values(study_id=study_id, paper_ref=paper_ref, target=target)
@@ -1390,20 +1315,22 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         n = 0
         _engine = get_engine()
         for edge in corpus_edges:
-            vals = dict(
-                study_id=study_id,
-                src_ref=edge.src_ref,
-                dst_ref=edge.dst_ref,
-                kind=edge.kind,
-                dst_title=edge.dst_title,
-                dst_year=edge.dst_year,
-                dst_citation_count=edge.dst_citation_count,
-            )
+            vals = {
+                "study_id": study_id,
+                "src_ref": edge.src_ref,
+                "dst_ref": edge.dst_ref,
+                "kind": edge.kind,
+                "dst_title": edge.dst_title,
+                "dst_year": edge.dst_year,
+                "dst_citation_count": edge.dst_citation_count,
+            }
             if _engine.dialect.name == "postgresql":
                 from sqlalchemy.dialects.postgresql import insert as _pg_insert
+
                 stmt = _pg_insert(PaperEdge).values([vals]).on_conflict_do_nothing()
             else:
                 from sqlalchemy.dialects.sqlite import insert as _sq_insert
+
                 stmt = (
                     _sq_insert(PaperEdge)
                     .values([vals])
@@ -1435,17 +1362,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 dst = nb["paperRef"]
                 if dst == paper_ref:
                     continue
-                _edge_vals = dict(
-                    study_id=study_id,
-                    src_ref=paper_ref,
-                    dst_ref=dst,
-                    kind=kind,
-                    dst_title=nb.get("title", ""),
-                    dst_year=nb.get("year"),
-                    dst_citation_count=nb.get("citationCount"),
-                )
+                _edge_vals = {
+                    "study_id": study_id,
+                    "src_ref": paper_ref,
+                    "dst_ref": dst,
+                    "kind": kind,
+                    "dst_title": nb.get("title", ""),
+                    "dst_year": nb.get("year"),
+                    "dst_citation_count": nb.get("citationCount"),
+                }
                 if _engine.dialect.name == "postgresql":
                     from sqlalchemy.dialects.postgresql import insert as _pg_insert
+
                     stmt = (
                         _pg_insert(PaperEdge)
                         .values([_edge_vals])
@@ -1453,6 +1381,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     )
                 else:
                     from sqlalchemy.dialects.sqlite import insert as _sq_insert
+
                     stmt = (
                         _sq_insert(PaperEdge)
                         .values([_edge_vals])
@@ -1648,30 +1577,31 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         ).scalar_one_or_none()
         if corpus_row is None:
             raise HTTPException(404, f"paper {body.ref!r} is not in the corpus")
-        _match_vals = dict(
-            study_id=study_id,
-            paper_ref=corpus_row.paper_ref,
-            title=corpus_row.title,
-            authors=corpus_row.authors,
-            year=corpus_row.year,
-            venue=corpus_row.venue,
-            abstract=corpus_row.abstract,
-            doi=corpus_row.doi,
-            arxiv_id=corpus_row.arxiv_id,
-            url=corpus_row.url,
-            item_type=corpus_row.item_type,
-            source="match",
-            s2_id=corpus_row.s2_id,
-            citation_count=corpus_row.citation_count,
-            tier=corpus_row.tier,
-            added_via="match",
-            match_reason=body.matchReason,
-            added_at=now(),
-        )
+        _match_vals = {
+            "study_id": study_id,
+            "paper_ref": corpus_row.paper_ref,
+            "title": corpus_row.title,
+            "authors": corpus_row.authors,
+            "year": corpus_row.year,
+            "venue": corpus_row.venue,
+            "abstract": corpus_row.abstract,
+            "doi": corpus_row.doi,
+            "arxiv_id": corpus_row.arxiv_id,
+            "url": corpus_row.url,
+            "item_type": corpus_row.item_type,
+            "source": "match",
+            "s2_id": corpus_row.s2_id,
+            "citation_count": corpus_row.citation_count,
+            "tier": corpus_row.tier,
+            "added_via": "match",
+            "match_reason": body.matchReason,
+            "added_at": now(),
+        }
         _match_update = {"added_via": "match", "match_reason": body.matchReason}
         _engine = get_engine()
         if _engine.dialect.name == "postgresql":
             from sqlalchemy.dialects.postgresql import insert as _pg_insert
+
             stmt = (
                 _pg_insert(Paper)
                 .values([_match_vals])
@@ -1681,6 +1611,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
         else:
             from sqlalchemy.dialects.sqlite import insert as _sq_insert
+
             stmt = (
                 _sq_insert(Paper)
                 .values([_match_vals])
@@ -1798,7 +1729,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             return assistant.answer_question(
                 body.question, body.history, tools=tools, client=client
             )
-        except Exception as exc:  # noqa: BLE001 - never 500 the panel
+        except Exception as exc:
             raise HTTPException(502, f"assistant error: {exc}") from exc
 
     # ------------------------------------- operational findings (FR-META-1)
@@ -1877,85 +1808,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     {"session": sid, "source": src},
                 )
 
-        # Gate blocks: the current phase's unsatisfied gates (including a
-        # gateless phase's implicit completion attestation, FR-PROT-10).
-        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
-        if proto is not None:
-            files = _stored_files(s, study_id)
-            current = current_phase(proto, set(files))
-            for gate in gates_by_phase(proto).get(current, []):
-                if gate not in files:
-                    emit(
-                        "gate-block",
-                        "FR-PROT-3",
-                        f"phase {current!r} blocked: gate artifact {gate!r} missing",
-                        {"phase": current, "gate": gate},
-                    )
         return {"written": written}
-
-    @app.post("/tasks", dependencies=[Depends(view_auth)])
-    def add_task(task: TaskIn, s: Session = Depends(db)) -> dict:
-        card = TaskCard(title=task.title, note=task.note, created_at=now())
-        s.add(card)
-        s.flush()
-        return {"id": card.id}
-
-    @app.get("/tasks", dependencies=[Depends(view_auth)])
-    def list_tasks(status: str | None = None, s: Session = Depends(db)) -> list[dict]:
-        q = select(TaskCard).order_by(TaskCard.id)
-        if status:
-            q = q.where(TaskCard.status == status)
-        return [
-            {
-                "id": t.id,
-                "title": t.title,
-                "status": t.status,
-                "note": t.note,
-                "createdAt": t.created_at,
-            }
-            for t in s.scalars(q)
-        ]
-
-    @app.patch("/tasks/{task_id}", dependencies=[Depends(view_auth)])
-    def patch_task(task_id: int, patch: TaskPatch, s: Session = Depends(db)) -> dict:
-        card = s.get(TaskCard, task_id)
-        if card is None:
-            raise HTTPException(404, f"no task {task_id}")
-        card.status = patch.status
-        return {"id": card.id, "status": card.status}
-
-    # ------------------------- requirements of record (FR-DASH-9 tooltips)
-
-    @app.get("/requirements", dependencies=[Depends(view_auth)])
-    def list_requirements() -> list[dict]:
-        """The SRS, parsed live from ``srs.md`` - platform tooltip text
-        comes from the document of record and cannot drift."""
-        return parse_srs(settings.requirements_dir / "srs.md")
-
-    @app.get("/glossary", dependencies=[Depends(view_auth)])
-    def list_glossary() -> list[dict]:
-        """The project glossary, parsed live from ``glossary.md``."""
-        return parse_glossary(settings.requirements_dir / "glossary.md")
-
-    # ------------------------- vocabulary endpoints for agents (FR-AGF-1)
-    # Unauthenticated endpoints for agent consumption - same data as above
-    # but without auth requirements so agents can discover the platform.
-
-    @app.get("/vocabulary/glossary")
-    def agent_glossary() -> list[dict]:
-        """The project glossary for agent consumption (FR-AGF-1).
-
-        Unauthenticated. Same data as /glossary but without auth.
-        """
-        return parse_glossary(settings.requirements_dir / "glossary.md")
-
-    @app.get("/vocabulary/requirements")
-    def agent_requirements() -> list[dict]:
-        """The SRS for agent consumption (FR-AGF-1).
-
-        Unauthenticated. Same data as /requirements but without auth.
-        """
-        return parse_srs(settings.requirements_dir / "srs.md")
 
     # ------------------------- schema endpoints for agents (FR-AGF-1)
     # Unauthenticated endpoints serving JSON schemas for agent discovery.
@@ -2049,10 +1902,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "source": {
                     "description": (
                         "Producer stream; falls back to DEFAULT_SOURCE "
-                        "('cognitive-overlay') if not provided."
+                        "('tern') if not provided."
                     ),
                     "type": "string",
-                    "default": "cognitive-overlay",
+                    "default": "tern",
                 },
             },
         }
@@ -2162,7 +2015,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                             "source": template_data.get("source", []),
                         }
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001,S112 - skip unparseable template files
                     # Skip files that can't be parsed
                     continue
 
@@ -2231,9 +2084,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if existing is not None:
             raise HTTPException(409, f"slug {slug!r} is taken")
         pid = secrets.token_hex(8)
+        created = now()
         s.add(
             Project(
-                id=pid, name=name, slug=slug, created_by=identity.sub, created_at=now()
+                id=pid,
+                name=name,
+                slug=slug,
+                created_by=identity.sub,
+                created_at=created,
             )
         )
         # Flush the project before adding its membership row: Project and
@@ -2255,20 +2113,45 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
         )
         s.flush()
-        return {"id": pid, "slug": slug, "name": name}
+        # The same shape a row of ``GET /projects`` has: the client models one
+        # project one way, and a freshly created project is simply an empty
+        # one. Returning a partial row here is what made the list and the
+        # create response two different types wearing one name.
+        return {
+            "id": pid,
+            "slug": slug,
+            "name": name,
+            "role": "owner",
+            "createdAt": created,
+            "studyCount": 0,
+        }
 
     @app.get("/projects", dependencies=[Depends(resolve_identity)])
     def list_projects(
         identity: auth.Identity = Depends(resolve_identity), s: Session = Depends(db)
     ) -> list[dict]:
-        """My project memberships (FR-PLAT-2). Returns projects where the
-        caller has any membership, with their role on each."""
+        """My project memberships (FR-PLAT-2), each carrying the shape of what
+        is inside it (FR-PLAT-1): how many studies it holds.
+
+        The count rides along on this one response on purpose. The project
+        list's job is to answer "which project, and is it moving?", and the
+        only other way to answer it is a fan-out to ``/projects/{slug}`` per
+        row - an N+1 the list would pay on every visit."""
         rows = s.execute(
             select(Project, Membership.role)
             .join(Membership, Membership.project_id == Project.id)
             .where(Membership.identity_sub == identity.sub)
             .order_by(Project.created_at.desc())
         ).all()
+        # One grouped query for every project's study count, not one per row.
+        counts: dict[str, int] = {}
+        if rows:
+            for project_id, count in s.execute(
+                select(Study.project_id, func.count())
+                .where(Study.project_id.in_([proj.id for proj, _ in rows]))
+                .group_by(Study.project_id)
+            ):
+                counts[project_id] = count
         return [
             {
                 "id": p.id,
@@ -2276,6 +2159,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "name": p.name,
                 "role": role,
                 "createdAt": p.created_at,
+                "studyCount": counts.get(p.id, 0),
             }
             for p, role in rows
         ]
@@ -2287,7 +2171,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if proj is None:
             raise HTTPException(404, "project not found")
         studies = [
-            {"id": st.id, "phase": st.phase}
+            {"id": st.id}
             for st in s.scalars(select(Study).where(Study.project_id == proj.id))
         ]
         member_rows = list(
@@ -2346,7 +2230,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         design conversation needs a study row to attach its moves/drafts to
         before it can run — this is that row, empty and pre-design, ready
         for the researcher to talk it into existence. Any project member
-        with at least the researcher role may start one."""
+        with at least the researcher role may start one.
+
+        An optional ``protocol`` (a compiled protocol dict, e.g. a template
+        merge) seeds the study's protocol draft: the researcher starts from
+        a grounded design instead of a blank page, and the conversation
+        continues from it (compiles take the current draft as their base)."""
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
             raise HTTPException(404, "project not found")
@@ -2359,17 +2248,38 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         while s.scalar(select(Study).where(Study.id == study_id)) is not None:
             suffix += 1
             study_id = f"{base}-{suffix}"
+        seed = body.get("protocol")
+        if seed is not None and (
+            not isinstance(seed, dict)
+            or not isinstance(seed.get("study"), dict)
+            or not isinstance(seed.get("researchQuestions"), list)
+        ):
+            raise HTTPException(
+                422,
+                "protocol must be a compiled protocol: an object with "
+                "study and researchQuestions",
+            )
         s.add(
             Study(
                 id=study_id,
                 project_id=proj.id,
                 protocol_version="",
-                phase="design",
                 data_path="",
             )
         )
+        if seed is not None:
+            s.add(
+                ProtocolDraftRow(
+                    study_id=study_id,
+                    yaml=yaml.safe_dump(
+                        seed, sort_keys=False, default_flow_style=False
+                    ),
+                    compilation_id="",
+                    updated_at=now(),
+                )
+            )
         s.flush()
-        return {"id": study_id, "phase": "design"}
+        return {"id": study_id}
 
     #: Every table that scopes rows by ``study_id`` — deleting a study removes
     #: its row plus all of these, so nothing is orphaned. The corpus study is
@@ -2442,9 +2352,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         # study always violated that FK here (a 500, not a clean refusal) —
         # cascade each study the same way delete_study does before the
         # studies themselves, then memberships/invitations, then the project.
-        study_ids = list(
-            s.scalars(select(Study.id).where(Study.project_id == proj.id))
-        )
+        study_ids = list(s.scalars(select(Study.id).where(Study.project_id == proj.id)))
         for study_id in study_ids:
             _delete_study_scoped_rows(s, study_id)
         s.execute(Study.__table__.delete().where(Study.project_id == proj.id))
@@ -2523,7 +2431,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
             if owner_count <= 1:
                 raise HTTPException(
-                    409, "can't remove the last owner — transfer ownership first"
+                    409, "can't remove the last owner. Transfer ownership first"
                 )
         s.delete(m)
         s.flush()
@@ -2643,7 +2551,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if inv is None:
             raise HTTPException(
                 404,
-                "invitation not found — it may have expired, been revoked, "
+                "invitation not found. It may have expired, been revoked, "
                 "or already accepted",
             )
         # Check expiry.
@@ -2653,7 +2561,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 if clock() > exp:
                     raise HTTPException(
                         410,
-                        "this invitation has expired — ask the project owner "
+                        "this invitation has expired. Ask the project owner "
                         "to send a new one",
                     )
             except (ValueError, TypeError):
@@ -2700,18 +2608,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     ) -> list[dict]:
         from datetime import timedelta as td
 
-        from middleware.db import StudyEvolution
-
-        evo = s.get(StudyEvolution, study_id)
-        # The ethics gate is a science invariant: no enrollment before approval.
-        # MIDDLEWARE_DEV_MODE relaxes it so the whole enrollment flow is testable
-        # on a fresh study; it stays enforced on any real (production) instance.
-        if not settings.dev_mode and (evo is None or not evo.ethics_approved_at):
-            raise HTTPException(
-                409,
-                "Mint enrollment tokens only after the study clears its ethics "
-                "gate — you cannot collect data before approval.",
-            )
+        # Minting used to require a recorded ethics approval. That gate lived
+        # on a lifecycle board no researcher worked through, so in practice it
+        # only stopped people setting a study up. Approval is the university's
+        # to grant and the researcher's to hold; the platform's job is to make
+        # what is captured impossible to miss, which the participant consent
+        # statement at pairing does (see ``/pair/redeem``).
         protocol = _resolve_study_protocol(s, study_id)
         if protocol is None:
             raise HTTPException(404, f"no protocol for study {study_id!r}")
@@ -2728,12 +2630,21 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         for i in range(body.count):
             n = start + i + 1
             pid = f"P{n:02d}"
-            condition = conditions[(n - 1) % len(conditions)]
+            index = n - 1
+            # The participant's first block decides the condition their token
+            # starts on. It used to be a bare round-robin over conditions,
+            # which is a between-subjects assignment applied regardless of
+            # what the protocol declared — a within-subjects participant got
+            # one condition and never met the other, so nobody was ever their
+            # own comparison. The schedule now comes from the design.
+            blocks = assign(protocol, index)
+            condition = blocks[0].condition if blocks else conditions[0]
             token = secrets.token_urlsafe(32)
             row = EnrollmentToken(
                 id=secrets.token_hex(8),
                 study_id=study_id,
                 participant_id=pid,
+                participant_index=index,
                 condition=condition,
                 grain=body.grain,
                 token=token,
@@ -2776,7 +2687,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         ``derive_overlay_settings`` output the extension applies, so a
         researcher catches a forgotten toggle before "begin"."""
         from protocol.errors import ProtocolError
-
 
         rows = s.scalars(
             select(EnrollmentToken)
@@ -2859,9 +2769,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/enrollment/toggles/catalog",
         dependencies=[Depends(require_project_for_study("view"))],
     )
-    def toggles_catalog(
-        study_id: str, s: Session = Depends(db)
-    ) -> list[dict]:
+    def toggles_catalog(study_id: str, s: Session = Depends(db)) -> list[dict]:
         """List togglable capture metrics for a study's protocol shape
         (FR-DASH-11). Each entry carries the current protocol-derived value,
         a label, and grounding (cited or unsourced)."""
@@ -2880,9 +2788,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/enrollment/toggles",
         dependencies=[Depends(require_project_for_study("toggle_capture"))],
     )
-    def apply_toggle(
-        study_id: str, body: ToggleIn, s: Session = Depends(db)
-    ) -> dict:
+    def apply_toggle(study_id: str, body: ToggleIn, s: Session = Depends(db)) -> dict:
         """Apply one metric toggle as a protocol amendment (FR-DASH-11).
 
         Builds a deterministic ``reconfigure`` move, compiles it against the
@@ -2896,15 +2802,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         evo = s.get(StudyEvolution, study_id)
         if evo is None:
+            evo = StudyEvolution(study_id=study_id, current_version=1)
+            s.add(evo)
+        # Toggling used to demand an ethics-approved snapshot to diff against.
+        # Without the lifecycle board nothing records one, so the study's
+        # current protocol - approved snapshot or compiled draft - is the base.
+        before = yaml.safe_load(evo.approved_yaml) if evo.approved_yaml else None
+        if before is None:
+            before = _resolve_study_protocol(s, study_id)
+        if not before:
             raise HTTPException(404, "study not found")
-        if not evo.ethics_approved_at:
-            raise HTTPException(
-                409,
-                "Cannot toggle metrics before ethics approval — "
-                "the protocol is still in design phase.",
-            )
-
-        before = yaml.safe_load(evo.approved_yaml) or {}
         if not before.get("instruments"):
             raise HTTPException(400, "protocol has no instruments block")
 
@@ -2975,15 +2882,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "toVersion": to_v,
                 "consentReasons": reasons,
             }
-        else:
-            # Non-relevant: commit directly (F4.2).
-            evo.approved_yaml = new_yaml
-            evo.updated_at = now()
-            s.commit()
-            return {
-                "applied": True,
-                "requiresReapproval": False,
-            }
+        # Non-relevant: commit directly (F4.2).
+        evo.approved_yaml = new_yaml
+        evo.updated_at = now()
+        s.commit()
+        return {
+            "applied": True,
+            "requiresReapproval": False,
+        }
 
     @app.post("/pair/redeem")
     def pair_redeem(body: RedeemIn, request: Request, s: Session = Depends(db)) -> dict:
@@ -2991,7 +2897,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         (FR-INST-20/21). Public — no project dependency, since the token
         itself is the credential the extension holds; a study's members
         never need to be a project member to pair from the field."""
-        from middleware.db import StudyEvolution
 
         row = s.scalar(
             select(EnrollmentToken).where(EnrollmentToken.token == body.token)
@@ -3003,7 +2908,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         try:
             if datetime.fromisoformat(row.expires_at) < clock():
                 raise HTTPException(
-                    410, "this connection link has expired — ask for a new one"
+                    410, "this connection link has expired. Ask for a new one"
                 )
         except (ValueError, TypeError):
             pass
@@ -3011,17 +2916,17 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(
                 410, "this single-use connection link has already been used"
             )
-        evo = s.get(StudyEvolution, row.study_id)
-        if evo is None or not evo.ethics_approved_at:
-            raise HTTPException(409, "this study has not cleared its ethics gate")
+        # No ethics gate here either: this endpoint is what a participant's
+        # editor calls, and refusing it was the single hardest block in the
+        # product - a designed, compiled study simply could not be set up. The
+        # consent statement returned below is the participant-facing protection
+        # that actually matters, and it is unconditional.
         protocol = _resolve_study_protocol(s, row.study_id)
         if protocol is None:
             raise HTTPException(404, "no protocol for this study")
         if not row.credential:
             row.credential = secrets.token_urlsafe(32)
-        if row.grain == "session":
-            row.redeemed_at = now()
-        elif not row.redeemed_at:
+        if row.grain == "session" or not row.redeemed_at:
             row.redeemed_at = now()
         s.commit()
         base = str(request.base_url).rstrip("/")
@@ -3060,7 +2965,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             except (ValueError, TypeError):
                 pass
             return row
-        except Exception:
+        except Exception:  # noqa: BLE001 - never 500 an ingest batch (NFR-1)
             # A DB/infra error here (SQLite lock, I/O error, any
             # SQLAlchemy error) must never surface as a 500 that drops
             # the whole ingest batch - degrade to the already-correct
@@ -3069,9 +2974,87 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             # stores it anyway.
             return None
 
+    def _task_by_id(protocol: dict, task_id: str) -> dict | None:
+        from protocol.assignment import tasks_of
+
+        return next((t for t in tasks_of(protocol) if t.get("id") == task_id), None)
+
+    def _block_for_session(
+        s: Session, protocol: dict, row, session_id: str | None
+    ) -> tuple[dict | None, dict | None]:
+        """Which task and condition this session runs, as ``(task, block)``.
+
+        The participant's whole schedule is a pure function of the protocol
+        and their index (``protocol.assignment.assign``). What has to be
+        *recorded* is which session took which block: the schedule says what
+        the third session should be, not which session was the third.
+
+        Idempotent on ``session_id`` — the extension re-pulls this config at
+        every session start, and a re-pull for a session already under way
+        must return the same block rather than advancing past it. Without a
+        session id (an older extension) the participant's current position is
+        reported without being consumed.
+        """
+        from protocol.assignment import assign
+
+        blocks = assign(protocol, row.participant_index or 0)
+        if not blocks:
+            return None, None
+
+        recorded = s.get(SessionBlock, session_id) if session_id else None
+        if recorded is None:
+            # How many blocks this participant has already been handed. A
+            # participant who runs more sessions than their schedule has
+            # blocks stays on the last one rather than falling off the end.
+            done = (
+                s.scalar(
+                    select(func.count())
+                    .select_from(SessionBlock)
+                    .where(
+                        SessionBlock.study_id == row.study_id,
+                        SessionBlock.participant_id == row.participant_id,
+                    )
+                )
+                or 0
+            )
+            block = blocks[min(done, len(blocks) - 1)]
+            if session_id:
+                s.add(
+                    SessionBlock(
+                        session_id=session_id,
+                        study_id=row.study_id,
+                        participant_id=row.participant_id,
+                        block_index=block.index,
+                        task_id=block.task_id,
+                        condition=block.condition,
+                        assigned_at=now(),
+                    )
+                )
+                # The token tracks the current condition so ingest can stamp
+                # events that arrive without a resolvable session block.
+                row.condition = block.condition
+                s.commit()
+        else:
+            block = next(
+                (b for b in blocks if b.index == recorded.block_index),
+                blocks[0],
+            )
+
+        task = _task_by_id(protocol, block.task_id)
+        return task, {
+            "index": block.index,
+            "of": len(blocks),
+            "taskId": block.task_id,
+            "condition": block.condition,
+            "title": (task or {}).get("title", ""),
+            "description": (task or {}).get("description", ""),
+            "materials": (task or {}).get("materials", ""),
+        }
+
     @app.get("/studies/{study_id}/capture-config")
     def get_capture_config(
         study_id: str,
+        sessionId: str | None = None,
         authorization: str = Header(default=""),
         s: Session = Depends(db),
     ) -> dict:
@@ -3086,9 +3069,54 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         protocol = _resolve_study_protocol(s, study_id)
         if protocol is None:
             raise HTTPException(404, "no protocol for this study")
+        task, block = _block_for_session(s, protocol, row, sessionId)
         return enrollment.build_capture_config(
-            protocol, row.participant_id, row.condition
+            protocol,
+            row.participant_id,
+            (block or {}).get("condition") or row.condition,
+            task=task,
+            block=block,
         )
+
+    @app.get(
+        "/studies/{study_id}/power",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def study_power_curve(
+        study_id: str,
+        alpha: float = 0.05,
+        maxN: int = 120,
+        powerTarget: float = 0.8,
+        effectSizes: str = "0.2,0.5,0.8",
+        s: Session = Depends(db),
+    ) -> dict:
+        """The power/sensitivity curve for the study's planned comparison
+        (P2-2): exact two-sample t-test power (non-central t, equal per-group
+        n, two-sided) across per-group n, plus the first n reaching the
+        target power, per effect size. Planning math only — the model and
+        its assumptions travel in the payload, and a target not reached
+        within the explored range is reported as such, never as a number.
+        The study must exist (authz resolves it), but no compiled protocol
+        is required: recruitment planning happens while the design is still
+        in conversation.
+        """
+        from analysis.power import two_sample_power_curve
+
+        try:
+            sizes = [float(x.strip()) for x in effectSizes.split(",")]
+        except ValueError as exc:
+            raise HTTPException(
+                422, "effectSizes must be a comma-separated list of numbers"
+            ) from exc
+        try:
+            return two_sample_power_curve(
+                sizes,
+                alpha=alpha,
+                power_target=powerTarget,
+                max_total_n=maxN,
+            )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     def _profile_prefs(s: Session, sub: str) -> dict:
         """The persisted prefs for ``sub`` (FR-OPS-7). Empty dict when no
@@ -3165,45 +3193,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()
         return {"sub": sub, "preferences": dict(row.prefs)}
 
-    def _write_gate_artifact(
-        s: Session, filename: str, record: dict, study_id: str
-    ) -> None:
-        """Persist the threats record as a stored-file gate artifact so the
-        existing lifecycle gate opens (no lifecycle-engine change)."""
-        import yaml as _yaml
-
-        content = _yaml.safe_dump(record, sort_keys=False).encode("utf-8")
-        digest = sha256(content).hexdigest()
-        settings.files_dir.mkdir(parents=True, exist_ok=True)
-        path = settings.files_dir / f"{digest}.yaml"
-        path.write_bytes(content)
-        existing = s.scalar(
-            select(StoredFile).where(
-                StoredFile.filename == filename,
-                StoredFile.sha256 == digest,
-                StoredFile.study_id == study_id,
-            )
-        )
-        if existing is None:
-            s.add(
-                StoredFile(
-                    filename=filename,
-                    stored_path=str(path),
-                    content_type="application/x-yaml",
-                    size=len(content),
-                    sha256=digest,
-                    study_id=study_id,
-                    uploaded_at=now(),
-                )
-            )
-
-    # ------------------------------- templates
-    #
-    # The registry serves published designs; instantiation is a pure function
-    # of (template, parameters) that produces a protocol passing validation
-    # with zero hand edits (F1.1). ``/templates`` (FR-AGF index) already
-    # exists above; these add the FR-TPL instantiation + plan-explainer.
-
     @app.post("/templates/{template_id}/instantiate")
     def instantiate_template(template_id: str, body: TemplateInstantiateIn) -> dict:
         """Template + parameters → a validated protocol draft (FR-TPL-1.4).
@@ -3238,7 +3227,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.get("/templates/repertoire")
     def template_repertoire_route(
-        limitRefs: int = 6, s: Session = Depends(db)  # noqa: N803 - query param
+        limitRefs: int = 6,
+        s: Session = Depends(db),  # camelCase = the query param
     ) -> dict:
         """The protocol repertoire (FR-TPL): design shapes ranked common →
         rare by how many corpus papers use them, each carrying its ranked
@@ -3328,9 +3318,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     # ------------------------- template submissions (FR-TPL-5)
 
-    def _owner_membership(
-        identity: auth.Identity, s: Session
-    ) -> Membership | None:
+    def _owner_membership(identity: auth.Identity, s: Session) -> Membership | None:
         """Check if the caller is an owner on the implicit project."""
         from middleware.authz import has_role
 
@@ -3499,22 +3487,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     raise ValueError("template YAML must be a mapping")
                 problems = template_registry.validate_template(loaded)
                 if problems:
-                    raise ValueError(
-                        f"validation failed: {'; '.join(problems)}"
-                    )
+                    raise ValueError(f"validation failed: {'; '.join(problems)}")
                 repo = Path(__file__).resolve().parent.parent.parent.parent
                 reg_dir = repo / "templates" / "registry"
                 reg_dir.mkdir(parents=True, exist_ok=True)
                 slug = row.name.lower().replace(" ", "-").replace("/", "-")
                 dest = reg_dir / f"submission-{row.id}-{slug}.yaml"
                 if dest.exists():
-                    raise ValueError(
-                        f"file {dest.name} already exists in registry"
-                    )
+                    raise ValueError(f"file {dest.name} already exists in registry")
                 dest.write_text(
-                    yaml.safe_dump(
-                        loaded, sort_keys=False, default_flow_style=False
-                    )
+                    yaml.safe_dump(loaded, sort_keys=False, default_flow_style=False)
                 )
             except Exception as exc:
                 s.rollback()
@@ -3559,18 +3541,35 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         reply (FR-CONV-1). The reply's moves are built server-side from
         corpus rows the assistant's own tools returned this exchange, so no
         move can cite an unretrieved source (FR-CONV-2.2 / F2.1 — enforced
-        by construction, then asserted). With no LLM key the deterministic
-        design assistant answers (NFR-4); the LLM seam swaps in behind the
-        same shape."""
+        by construction, then asserted).
+
+        When the model can't be reached this still answers 200, with a
+        holding turn that proposes nothing (``design_assistant.holding_turn``).
+        A bare 503 took the researcher's just-typed message and replaced the
+        thread with an error banner; the holding turn keeps them where they
+        were and says what happened. It is not persisted - an outage is not
+        part of the study's design record."""
         researcher = _append_researcher_turn(s, study_id, body)
-        reply = design_assistant.respond(
-            s,
-            body.text,
-            seq=researcher.seq + 1,
-            study_id=study_id,
-            client=_design_turn_client(),
-            profile=_researcher_profile(s, identity),
-        )
+        try:
+            reply = design_assistant.respond(
+                s,
+                body.text,
+                seq=researcher.seq + 1,
+                study_id=study_id,
+                client=_design_turn_client(),
+                profile=_researcher_profile(s, identity),
+                steer=body.steer,
+            )
+        except design_assistant.ModelUnavailable as exc:
+            # The researcher's own turn is committed either way, so their
+            # words survive the outage and the retry costs no retyping.
+            s.commit()
+            log.info("design turn unanswered: %s", exc)
+            return {
+                "researcherTurnId": researcher.id,
+                "platformTurnId": "",
+                **design_assistant.holding_turn(str(exc)),
+            }
         return _persist_platform_turn(s, study_id, researcher, reply)
 
     def _append_researcher_turn(
@@ -3624,7 +3623,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         # important to leave unasserted (mirrors the FR-ETH-4 grep test).
         for m in reply["moves"]:
             cited = {g["ref"] for g in m["grounding"]}
-            assert cited <= retrieved, (
+            assert cited <= retrieved, (  # noqa: S101 - FR-ETH-4 boundary
                 f"move {m['moveId']} cites outside retrieved set: "
                 f"{sorted(cited - retrieved)}"
             )
@@ -3718,6 +3717,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     study_id=study_id,
                     client=_design_turn_client(),
                     profile=_researcher_profile(s, identity),
+                    steer=body.steer,
                 )
                 reply = None
                 while True:
@@ -3729,7 +3729,23 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     yield _sse("token", {"text": prose})
                 payload = _persist_platform_turn(s, study_id, researcher, reply)
                 yield _sse("done", payload)
-            except Exception as exc:  # noqa: BLE001 - the stream owns its errors
+            except design_assistant.ModelUnavailable as exc:
+                # Not a bug and not worth a stack trace: the model is absent
+                # or didn't answer. Keep the researcher's own turn so they
+                # never have to retype it, and close the stream with a normal
+                # `done` frame carrying the holding turn - an `error` frame
+                # would leave the thread looking broken rather than waiting.
+                s.commit()
+                log.info("conversation turn unanswered: %s", exc)
+                yield _sse(
+                    "done",
+                    {
+                        "researcherTurnId": researcher.id,
+                        "platformTurnId": "",
+                        **design_assistant.holding_turn(str(exc)),
+                    },
+                )
+            except Exception as exc:
                 log.exception("streaming conversation turn failed")
                 s.rollback()
                 yield _sse("error", {"detail": str(exc)})
@@ -3971,8 +3987,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if not comp.valid:
             raise HTTPException(
                 409,
-                "this draft did not pass validation and cannot be applied — "
-                f"resolve: {comp.errors or comp.unresolved}",
+                "this draft did not pass validation and cannot be applied. "
+                f"Resolve: {comp.errors or comp.unresolved}",
             )
 
         evo = s.get(StudyEvolution, study_id)
@@ -4138,12 +4154,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         assembled here: a study with no resolvable protocol is a 409 saying
         so, never a kit built around a guess.
         """
-        proto = _resolve_study_protocol_for_lifecycle(s, study_id)
+        proto = _resolve_study_protocol(s, study_id)
         if proto is None:
             raise HTTPException(
                 409,
-                f"study {study_id!r} has no compiled protocol yet — "
-                "approve a draft in the design conversation first",
+                f"study {study_id!r} has no compiled protocol yet. "
+                "Approve a draft in the design conversation first",
             )
         payload = dataset(study_id, "json", s)
         repo_root = Path(__file__).resolve().parent.parent.parent.parent
@@ -4170,6 +4186,141 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             },
         )
 
+    @app.get(
+        "/studies/{study_id}/notebook",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def download_notebook(study_id: str, s: Session = Depends(db)):
+        """The starter notebook (.ipynb) + its data dictionary as a zip.
+
+        The curated handoff (P0-2): a loaded, documented dataframe, one
+        section per research question, every planned recipe imported —
+        never run. The platform's scope ends here; the researcher's own
+        analysis begins at the notebook's last cell. A study with no
+        compiled protocol is a 409, same as the other exports - there is
+        nothing to document yet.
+        """
+        import zipfile
+
+        from analysis.dataset import Dataset
+        from analysis.notebook import build_notebook, data_dictionary_markdown
+
+        proto = _resolve_study_protocol(s, study_id)
+        if proto is None:
+            raise HTTPException(
+                409,
+                f"study {study_id!r} has no compiled protocol yet. "
+                "Approve a draft in the design conversation first",
+            )
+        payload = dataset(study_id, "json", s)
+        ds = Dataset(rows=payload["rows"], study_id=study_id)
+        notebook_json = json.dumps(build_notebook(proto, ds, study_id), indent=1)
+        dictionary_md = f"# {study_id}: data dictionary\n\n" + data_dictionary_markdown(
+            ds
+        )
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("notebook.ipynb", notebook_json)
+            zf.writestr("data-dictionary.md", dictionary_md)
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="{study_id}-notebook.zip"'
+                ),
+                "Cache-Control": "no-store",
+            },
+        )
+
+    @app.get(
+        "/studies/{study_id}/ethics-package",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def download_ethics_package(study_id: str, s: Session = Depends(db)):
+        """The study's ethics package as a Markdown download.
+
+        Composes what an ethics committee reads every time - the design, what
+        participants do, what is captured, the exact consent text, and the
+        withdrawal policy - from the protocol alone (FR-AGENT-5, FR-ETH-4).
+        Pure and deterministic: no model, and nothing here that is not
+        already a protocol field. A study with no compiled protocol is a 409,
+        same as the replication kit - there is nothing to describe yet.
+        """
+        proto = _resolve_study_protocol(s, study_id)
+        if proto is None:
+            raise HTTPException(
+                409,
+                f"study {study_id!r} has no compiled protocol yet. "
+                "Approve a draft in the design conversation first",
+            )
+        body = ethics_package.build_ethics_package(proto)
+        return Response(
+            content=body.encode("utf-8"),
+            media_type="text/markdown; charset=utf-8",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="{study_id}-ethics-package.md"'
+                ),
+                "Cache-Control": "no-store",
+            },
+        )
+
+    # -------------------------------------------------- dry-run simulation
+
+    @app.post(
+        "/studies/{study_id}/simulate",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def simulate_study(
+        study_id: str,
+        body: SimulateIn,
+        request: Request,
+        s: Session = Depends(db),
+    ) -> dict:
+        """Synthetic dry run: N synthetic participants through the real
+        ingest path.
+
+        Mints tokens, records the session blocks, then stores generated
+        events and metrics with the same idempotent helpers the extension's
+        ingest uses - so a dry run exercises the production loop end to end
+        without any real participant. Profiles perturb fatigue, stuck
+        episodes, paste volume, suggestion acceptance, pass rate and agent
+        interaction; ``mixed`` cycles the four archetypes. Deterministic for
+        a given seed (S311 note applies to the generator, which is never
+        used for secrets).
+        """
+        from middleware.simulation import PROFILES, simulate_into
+
+        proto = _resolve_study_protocol(s, study_id)
+        if proto is None:
+            raise HTTPException(
+                409,
+                f"study {study_id!r} has no compiled protocol yet. "
+                "Approve a draft in the design conversation first",
+            )
+        if body.count < 1 or body.count > 100:
+            raise HTTPException(400, "count must be between 1 and 100")
+        if body.profile not in PROFILES and body.profile != "mixed":
+            raise HTTPException(
+                400, f"profile must be one of mixed|{'|'.join(PROFILES)}"
+            )
+        base = str(request.base_url).rstrip("/")
+        outcome = simulate_into(
+            s,
+            proto,
+            study_id,
+            body.count,
+            profile=body.profile,
+            seed=body.seed,
+            base_url=base,
+            now=now,
+            start=clock(),
+        )
+        outcome["studyId"] = study_id
+        return outcome
+
     # -------------------------------------------------- evolution (A/B/C)
 
     @app.post(
@@ -4188,7 +4339,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(
                 409,
                 "approve a compiled protocol draft before recording ethics "
-                "approval — there is nothing to freeze yet.",
+                "approval. There is nothing to freeze yet.",
             )
         evo = s.get(StudyEvolution, study_id)
         if evo is None:
@@ -4229,8 +4380,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(
                 409,
                 "New sessions are paused: a consent-relevant amendment is "
-                "awaiting ethics re-approval. Upload the re-approval to resume "
-                "— already-collected data and any open sessions are unaffected.",
+                "awaiting ethics re-approval. Upload the re-approval to resume; "
+                "already-collected data and any open sessions are unaffected.",
             )
         version = evo.current_version if evo is not None else 1
         s.add(
@@ -4332,7 +4483,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             with session_factory() as s:
                 s.execute(sqltext("SELECT 1"))
             db_ok = True
-        except Exception:
+        except Exception:  # noqa: BLE001 - /health reports degraded, never raises
             db_ok = False
         payload = {
             "status": "ok" if db_ok else "degraded",
@@ -4400,6 +4551,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         def spa_invite_route(rest: str) -> FileResponse:
             return _shell()
 
+        @app.get("/repertoire", include_in_schema=False)
+        def spa_repertoire_route() -> FileResponse:
+            return _shell()
+
         app.mount("/", StaticFiles(directory=dist), name="platform")
 
     return app
@@ -4422,17 +4577,12 @@ def _ensure_study_row(s: Session, study_id: str, protocol_doc: dict) -> None:
         if not row.project_id:
             row.project_id = IMPLICIT_PROJECT_ID
         return
-    phase = ""
-    pv = ""
-    if protocol_doc:
-        phase = current_phase(protocol_doc, set()) or ""
-        pv = str(protocol_doc.get("protocolVersion", ""))
+    pv = str(protocol_doc.get("protocolVersion", "")) if protocol_doc else ""
     s.add(
         Study(
             id=study_id,
             project_id=IMPLICIT_PROJECT_ID,
             protocol_version=pv,
-            phase=phase,
         )
     )
 
@@ -4441,7 +4591,7 @@ def _gap_summary(seqs: list[int]) -> dict:
     """Seq-gap integrity summary for one session's sorted ``seq`` list
     (FR-ING-3): loss is never silent, it is a report."""
     missing = []
-    for prev, nxt in zip(seqs, seqs[1:], strict=False):
+    for prev, nxt in itertools.pairwise(seqs):
         if nxt > prev + 1:
             missing.append(
                 {"afterSeq": prev, "beforeSeq": nxt, "missing": nxt - prev - 1}
@@ -4521,6 +4671,11 @@ def _event_json(e: Event) -> dict:
         "source": e.source,
         "participantId": e.participant_id,
         "condition": e.condition,
+        # The third join key. Without it the export can say who did the work
+        # and under which treatment, but not what the work was - so a
+        # within-subjects participant's two sessions are indistinguishable
+        # by task in the data they produced.
+        "taskId": e.task_id,
         "seq": e.seq,
         "type": e.type,
         "payload": e.payload,

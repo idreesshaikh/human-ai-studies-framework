@@ -147,7 +147,7 @@ export class HttpSink implements EventSink {
         const res = await fetch(this.endpoint, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ source: 'cognitive-overlay', events: batch }),
+          body: JSON.stringify({ source: 'tern', events: batch }),
           signal: ctrl.signal,
         });
         if (!res.ok) throw new Error(`middleware responded ${res.status}`);

@@ -1,0 +1,82 @@
+name: Feature request
+description: Propose a capability the platform should have.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        **How this project works:** PHOENIX does study *design* and study
+        *setup* — the path from a research idea to a running, instrumented
+        session. It deliberately stops before analysis, which belongs in your
+        own notebook. A proposal that sits on that path is much likelier to
+        land than one that widens the scope.
+
+
+        This isn't bureaucracy for its own sake — the requirement set is a
+        submitted deliverable, and the traceability matrix is what keeps it
+        honest. New ideas are genuinely welcome; they just get written down
+        first.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >-
+        What can a researcher not do today? Describe the research task, not a
+        proposed UI. Concrete beats general.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+      description: The capability, and how you would know it worked.
+    validations:
+      required: true
+
+  - type: input
+    id: requirement
+    attributes:
+      label: Where on the path
+      description: >-
+        Which hop does this improve — designing the study, grounding it in the
+        literature, compiling the protocol, setting up the editor, or getting
+        the data back? If it is none of those, say what it earns instead.
+      placeholder: "Setup: the participant cannot tell which task they are on."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Proposed MoSCoW priority
+      description: >-
+        Must is defined against the current milestone. A Could that displaces
+        an open Must will be declined on principle, not on merit.
+      options:
+        - Must
+        - Should
+        - Could
+        - Won't (recording it as explicitly out of scope)
+    validations:
+      required: true
+
+  - type: textarea
+    id: grounding
+    attributes:
+      label: Literature grounding (optional but valued)
+      description: >-
+        If a paper motivates this, cite it. The corpus is the product's
+        knowledge; a grounded proposal is far stronger than an unsourced one,
+        and may map onto a template.
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: New dependencies
+      description: >-
+        Any new library, tool, or service: name it, say what it replaces, and
+        say how the platform should behave when it is unavailable. Everything
+        external here degrades gracefully, and a new dependency must too.
+      placeholder: None, or the library and why nothing already present will do.

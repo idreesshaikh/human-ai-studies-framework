@@ -1,4 +1,3 @@
-import { BookOpen } from "lucide-react";
 import { RecommendationCard } from "./RecommendationCard";
 import type { Recommendation } from "@/lib/types";
 
@@ -23,15 +22,15 @@ export function RecommenderRail({
     >
       <div>
         <h2 className="type-subhead flex items-center gap-2 text-text">
-          <BookOpen className="size-4 text-accent" aria-hidden /> Literature
+          Literature
         </h2>
-        <p className="text-xs text-text-muted">
+        <p className="type-caption text-text-muted">
           Papers the conversation surfaces, ranked by confidence. Add any to your library.
         </p>
       </div>
 
       {recommendations.length === 0 ? (
-        <p className="rounded-input border border-dashed border-border px-3 py-6 text-center text-xs text-text-muted">
+        <p className="rounded-input border border-dashed border-border px-3 py-6 text-center type-caption text-text-muted">
           As you describe your study, relevant papers appear here, grounded in the corpus.
         </p>
       ) : (

@@ -20,7 +20,7 @@ def event(
     h, m = divmod(int(minute), 60)
     sec = round((minute % 1) * 60, 3)
     return {
-        "source": "cognitive-overlay",
+        "source": "tern",
         "ts": f"2026-07-11T{10 + h:02d}:{m:02d}:{sec:06.3f}Z",
         "sessionId": session,
         "participantId": participant,

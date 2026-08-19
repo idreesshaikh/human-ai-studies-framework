@@ -31,7 +31,6 @@ def clerk_client(tmp_path, rsa_key):
         data_dir=tmp_path / "data",
         protocol_path=None,
         spa_dist=tmp_path / "no-dist",
-        requirements_dir=tmp_path / "no-reqs",
         auth="clerk",
         clerk_jwks_url="https://example.test/jwks.json",
         clerk_publishable_key="pk_test_abc",

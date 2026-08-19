@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Table2, ChartScatter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { EmptyState } from "@/components/shell/EmptyState";
 import type { DatasetRow } from "@/lib/studyApi";
 
 /* Metric distribution split by condition (FR-DASH-5), small-n honest (NFR-8):
@@ -114,7 +115,7 @@ export function MetricStrip({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-2 text-sm text-text-muted">
+        <label className="flex items-center gap-2 type-body text-text-muted">
           Metric
           <Select
             value={metricKey}
@@ -131,27 +132,33 @@ export function MetricStrip({
         <Button
           size="sm"
           variant="ghost"
-          className="ml-auto text-xs"
+          className="ml-auto type-caption"
           onClick={() => setAsTable((v) => !v)}
         >
           {asTable ? <ChartScatter aria-hidden /> : <Table2 aria-hidden />}
           {asTable ? "Chart" : "Table"}
         </Button>
       </div>
-      <p className="text-xs text-text-muted">{metric.definition}</p>
+      <p className="type-caption text-text-muted">{metric.definition}</p>
 
       {/* A stable min-height keeps the section from jumping when the selected
           metric has no rows (short notice) vs. a full chart/table — the
           layout-shift the researcher saw when switching metric/condition. */}
       <div className="min-h-[19rem]">
       {points.length === 0 ? (
-        <p className="rounded-card border border-border bg-surface p-6 text-sm text-text-muted">
-          No metric rows carry <code className="font-mono">{metric.key}</code> yet.
-          Metric rows appear after the metrics tool analyses a session's code.
-        </p>
+        <EmptyState
+          line={
+            <>
+              No metric rows carry{" "}
+              <span className="type-quantity identifier">{metric.key}</span> yet.
+              Metric rows appear after the metrics tool analyses a session's
+              code.
+            </>
+          }
+        />
       ) : asTable ? (
         <div className="overflow-x-auto rounded-card border border-border bg-surface">
-          <table className="w-full text-sm">
+          <table className="w-full type-body">
             <thead>
               <tr className="border-b border-border text-left text-text-muted">
                 {["Condition", "n", "min", "q1", "median", "q3", "max"].map((h) => (
@@ -204,7 +211,7 @@ export function MetricStrip({
                     x={-8}
                     dy="0.32em"
                     textAnchor="end"
-                    className="tabular fill-text-muted text-xs"
+                    className="tabular fill-text-muted type-caption"
                   >
                     {t.toFixed(0)}
                   </text>
@@ -257,7 +264,7 @@ export function MetricStrip({
                       x={cx}
                       y={plotH + 18}
                       textAnchor="middle"
-                      className="fill-text text-xs font-semibold"
+                      className="fill-text type-caption font-semibold"
                     >
                       {c.condition}
                     </text>
@@ -265,7 +272,7 @@ export function MetricStrip({
                       x={cx}
                       y={plotH + 34}
                       textAnchor="middle"
-                      className="tabular fill-text-muted text-xs"
+                      className="tabular fill-text-muted type-caption"
                     >
                       n = {c.stats?.n ?? 0}
                     </text>
@@ -274,7 +281,7 @@ export function MetricStrip({
               })}
             </g>
           </svg>
-          <p className="px-2 text-xs text-text-muted">
+          <p className="px-2 type-caption text-text-muted">
             Every observation plotted · median line
             {points.length >= 5 ? " + interquartile box" : ""} · exact values in
             the table view.
@@ -285,7 +292,7 @@ export function MetricStrip({
 
       {tip && (
         <div
-          className="pointer-events-none fixed z-50 rounded-input border border-border-strong bg-surface-raised px-2 py-1 text-xs text-text shadow-brutal"
+          className="pointer-events-none fixed z-50 rounded-input border border-border-strong bg-surface-raised px-2 py-1 type-caption text-text shadow-sheet"
           style={{ left: tip.x, top: tip.y }}
         >
           {tip.text}

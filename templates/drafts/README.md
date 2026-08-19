@@ -10,7 +10,7 @@ dependencies exist:
   `code-quality-by-condition`, `meyer-fragmentation`) now exist in the
   analysis catalogue, but at the wrong measurement unit: those recipes read
   live-session events (`task_outcome`, `editor_focus`) or per-participant
-  workspace-snapshot metrics, none of which a curated GitHub mining run
+  workspace-snapshot metrics, none of which a curated archive import
   produces. `validate_registry()`'s recipe-existence check would pass on a
   name match alone; promoting on that basis would be F2.3 in letter only,
   not in spirit. Needs real **repository-trend recipes** (velocity-trend,

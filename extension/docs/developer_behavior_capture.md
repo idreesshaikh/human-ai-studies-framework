@@ -1,3 +1,10 @@
+> **Superseded.** This is the original scoping note that picked Tako,
+> ActivityWatch, and WakaTime as reference plugins. What TERN actually built
+> from them, including where this note's plan diverged (Python-only scope
+> dropped, no raw keystroke/character-volume capture per the privacy
+> invariant), is recorded in [`adaptation-notes.md`](adaptation-notes.md).
+> Kept here for history, not as current instruction.
+
 SUMMARY - TO BUILD A CUSTOM PLUGIN IN IDE TO CAPTURE DEVELOPER BEHAVIOR (Non-Intrusive) - VS-Code for now - Will be extended later
 
 One part of capturing metrics for our framework is capturing the developer behavior. Developer behavior in this sense means how the developer interacts with the codebase (switching tabs, actively writing code, opening and closing files and tabs, time spent on a specific line of code, etc). And from these data, we can analyze and gain insights.

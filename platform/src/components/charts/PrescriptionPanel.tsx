@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, FlaskConical } from "lucide-react";
+import { ChevronDown, ChevronRight, FlaskConical, Loader2 } from "lucide-react";
 import { studyApi, type Prescription } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
@@ -41,14 +41,16 @@ export function PrescriptionPanel() {
           <FlaskConical className="size-4 text-text-muted" aria-hidden />
           What analysis your design calls for
         </h2>
-        <p className="mt-1 text-xs text-text-muted">
+        <p className="mt-1 type-caption text-text-muted">
           The exact test, effect size, and correction for each design shape, with the reasoning.
           Honest by construction: effect sizes and per-cell n, never a bare p-value.
         </p>
       </div>
 
       {rows === null ? (
-        <p className="text-sm text-text-muted">Loading…</p>
+        <p className="flex items-center gap-2 type-body text-text-muted">
+          <Loader2 className="size-4 animate-spin" aria-hidden /> Loading…
+        </p>
       ) : (
         <div className="overflow-hidden rounded-card border border-border bg-surface">
           <ul>
@@ -67,14 +69,14 @@ export function PrescriptionPanel() {
                       <ChevronRight className="size-4 shrink-0 text-text-muted" aria-hidden />
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-text">
+                      <span className="block type-body font-medium text-text">
                         {SHAPE_LABEL[p.designShape] ?? p.designShape}
                       </span>
-                      <span className="block truncate text-xs text-text-muted">{p.test}</span>
+                      <span className="block truncate type-caption text-text-muted">{p.test}</span>
                     </span>
                   </button>
                   {isOpen && (
-                    <dl className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-border bg-bg px-4 py-3 text-sm sm:grid-cols-[10rem_1fr]">
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-border bg-bg px-4 py-3 type-body sm:grid-cols-[10rem_1fr]">
                       <Row label="Test" value={p.test} />
                       <Row label="Effect size" value={p.effectSize} />
                       <Row label="Correction" value={p.correction} />
@@ -95,7 +97,7 @@ export function PrescriptionPanel() {
 function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (
     <>
-      <dt className="type-eyebrow text-text-muted">{label}</dt>
+      <dt className="type-legend text-text-muted">{label}</dt>
       <dd className={cn("mb-1 sm:mb-0", muted ? "text-text-muted" : "text-text")}>{value}</dd>
     </>
   );

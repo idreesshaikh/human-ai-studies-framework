@@ -42,7 +42,6 @@ def client(tmp_path, monkeypatch):
         data_dir=tmp_path / "data",
         port=8000,
         spa_dist=tmp_path / "no-dist",
-        dev_mode=True,
     )
     tc = TestClient(create_app(settings))
     factory = make_session_factory(f"sqlite:///{settings.db_path}")

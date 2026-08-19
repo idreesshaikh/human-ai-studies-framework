@@ -135,7 +135,7 @@ def build_paper(
         markdown="\n".join(md) + "\n",
         latex="\n".join(tex) + "\n",
         bib=_bib(lit),
-        figures={name: fig for name, fig in figures.items()},
+        figures=dict(figures.items()),
         findings=findings,
     )
 
@@ -158,7 +158,7 @@ def _run_recipes(
         ran.add(check.recipe_id)
         try:
             result = REGISTRY[check.recipe_id].run(dataset)
-        except Exception:  # noqa: BLE001 - a broken recipe never kills the draft
+        except Exception:  # noqa: BLE001,S112 - a broken recipe never kills the draft
             continue
         results[check.recipe_id] = result
         for name, fig in result.figures.items():

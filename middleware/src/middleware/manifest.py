@@ -3,7 +3,6 @@
 Assembles the platform manifest at startup from documents of record:
 - FastAPI's own OpenAPI doc (API surface)
 - Published JSON Schemas (event, protocol, template)
-- Redocs parser output (glossary, SRS)
 - Template registry index
 - Corpus index counts
 - Deployment auth mode
@@ -20,7 +19,6 @@ The manifest shape follows fr-agf.md §2:
   "capabilities": [...],
   "api": {"openapi": url, "auth": {"mode", "how"}},
   "schemas": {"event": {...}, "protocol": {...}, "template": {...}},
-  "vocabulary": {"glossary": url, "requirements": url},
   "templates": {"index": url, "count"},
   "corpus": {"index": url, "count"}
 }
@@ -31,6 +29,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from contextlib import suppress
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -87,13 +86,6 @@ class SchemasSection:
     template: SchemaInfo | None = None
 
 
-@dataclass
-class VocabularySection:
-    """Vocabulary endpoints."""
-
-    glossary: str  # URL to glossary endpoint
-    requirements: str  # URL to requirements endpoint
-
 
 @dataclass
 class TemplatesSection:
@@ -124,7 +116,6 @@ class PlatformManifest:
     capabilities: list[str]
     api: APIInfo
     schemas: SchemasSection
-    vocabulary: VocabularySection
     templates: TemplatesSection
     corpus: CorpusSection
 
@@ -141,7 +132,6 @@ class PlatformManifest:
             "capabilities": self.capabilities,
             "api": asdict(self.api),
             "schemas": asdict(self.schemas),
-            "vocabulary": asdict(self.vocabulary),
             "templates": asdict(self.templates),
             "corpus": asdict(self.corpus),
             "generator": self.generator,
@@ -185,15 +175,13 @@ def _discover_protocol_schema_versions(repo: Path) -> list[int]:
         repo / "protocol" / "src" / "protocol" / "schema" / "study-protocol.schema.json"
     )
     if schema_path.exists():
-        try:
+        with suppress(Exception):
             schema = json.loads(schema_path.read_text())
             pv = schema.get("properties", {}).get("protocolVersion", {})
             if isinstance(pv.get("enum"), list):
                 return sorted(int(v) for v in pv["enum"])
             if pv.get("const") is not None:
                 return [int(pv["const"])]
-        except Exception:
-            pass
     return [1]
 
 
@@ -202,7 +190,7 @@ def _discover_template_schema_versions(repo: Path) -> list[int] | None:
     # Look at actual template files to see what versions are in use
     registry = repo / "templates" / "registry"
     if registry.exists():
-        try:
+        with suppress(Exception):
             import yaml
 
             versions = set()
@@ -213,20 +201,16 @@ def _discover_template_schema_versions(repo: Path) -> list[int] | None:
                         versions.add(template_data["templateVersion"])
             if versions:
                 return sorted(versions)
-        except Exception:
-            pass
 
     # Fallback to schema file
     schema_path = repo / "templates" / "schemas" / "template.schema.json"
     if schema_path.exists():
-        try:
+        with suppress(Exception):
             import json
 
             json.loads(schema_path.read_text())
             # Template schema uses minimum, so return v1 as current
             return [1]
-        except Exception:
-            pass
     return None
 
 
@@ -260,7 +244,7 @@ def _count_corpus(repo: Path) -> tuple[int, int, int]:
         tier_b = data.get("tierB", [])
         tier_b_count = len(tier_b)
         return (tier_a_count + tier_b_count, tier_a_count, tier_b_count)
-    except Exception:
+    except Exception:  # noqa: BLE001 - corpus counts are best-effort; 0 is honest
         return (0, 0, 0)
 
 
@@ -306,9 +290,6 @@ def generate_manifest(
     # Schemas
     schemas = _generate_schemas_section(repo)
 
-    # Vocabulary
-    vocabulary = _generate_vocabulary_section(app, repo)
-
     # Templates
     templates = _generate_templates_section(repo)
 
@@ -320,7 +301,6 @@ def generate_manifest(
         capabilities=capabilities,
         api=api_info,
         schemas=schemas,
-        vocabulary=vocabulary,
         templates=templates,
         corpus=corpus,
     )
@@ -332,7 +312,7 @@ def _generate_platform_info(repo: Path, deployment: str) -> PlatformInfo:
     version = "0.1.0"
     pyproject = repo / "pyproject.toml"
     if pyproject.exists():
-        try:
+        with suppress(Exception):
             import tomllib
 
             with open(pyproject, "rb") as f:
@@ -342,20 +322,16 @@ def _generate_platform_info(repo: Path, deployment: str) -> PlatformInfo:
                     .get("poetry", {})
                     .get("version", data.get("project", {}).get("version", "0.1.0"))
                 )
-        except Exception:
-            pass
 
     # Try middleware package
     middleware_pyproject = repo / "middleware" / "pyproject.toml"
     if middleware_pyproject.exists():
-        try:
+        with suppress(Exception):
             import tomllib
 
             with open(middleware_pyproject, "rb") as f:
                 data = tomllib.load(f)
                 version = data.get("project", {}).get("version", version)
-        except Exception:
-            pass
 
     # Determine deployment mode from environment
     env_deployment = os.environ.get("DEPLOYMENT_MODE", deployment)
@@ -437,13 +413,6 @@ def _generate_schemas_section(repo: Path) -> SchemasSection:
         event=SchemaInfo(versions=event_versions, url=event_url),
         protocol=SchemaInfo(versions=protocol_versions, url=protocol_url),
         template=template_info,
-    )
-
-
-def _generate_vocabulary_section(app: FastAPI | None, repo: Path) -> VocabularySection:
-    """Generate vocabulary section from redocs parser."""
-    return VocabularySection(
-        glossary="/vocabulary/glossary", requirements="/vocabulary/requirements"
     )
 
 

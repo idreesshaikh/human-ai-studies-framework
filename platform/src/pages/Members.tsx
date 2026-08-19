@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { Clock } from "lucide-react";
+import { Clock, Loader2 } from "lucide-react";
 import { MembersTable } from "@/components/members/MembersTable";
 import { InviteDialog } from "@/components/members/InviteDialog";
 import { RoleGate } from "@/components/shell/RoleGate";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
 import { ROLE_LABELS, type Role } from "@/lib/capabilities.ts";
+import { Notice } from "@/components/ui/notice";
 
 /* Members + pending invitations. Owners see the invite action and the
  * per-member role menu; everyone else sees a read-only roster. */
@@ -19,8 +20,16 @@ export function Members() {
     [api, slug],
   );
 
-  if (loading) return <p className="p-6 text-sm text-text-muted">Loading…</p>;
-  if (error) return <p className="p-6 text-sm text-unsourced">{error}</p>;
+  if (loading) {
+    return (
+      <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
+        <p className="flex items-center gap-2 type-body text-text-muted">
+          <Loader2 className="size-4 animate-spin" aria-hidden /> Loading members…
+        </p>
+      </div>
+    );
+  }
+  if (error) return <div className="p-gutter"><Notice kind="problem">{error}</Notice></div>;
   if (!data) return null;
 
   // The caller's role comes from their own memberships (the server enforces
@@ -33,7 +42,7 @@ export function Members() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="type-title text-text">Members</h1>
-          <p className="text-sm text-text-muted">Who can see and shape this project.</p>
+          <p className="type-body text-text-muted">Who can see and shape this project.</p>
         </div>
         <RoleGate role={mine} capability="invite_member">
           <InviteDialog slug={slug} onInvited={reload} />
@@ -51,11 +60,11 @@ export function Members() {
             {data.invitations.map((inv) => (
               <div
                 key={inv.id}
-                className="flex items-center gap-2 rounded-input border border-border px-3 py-2 text-sm"
+                className="flex items-center gap-2 rounded-input border border-border px-3 py-2 type-body"
               >
                 <span className="text-text">{inv.email}</span>
                 <Badge variant="outline">{ROLE_LABELS[inv.role]}</Badge>
-                <span className="ml-auto text-xs text-text-muted">
+                <span className="ml-auto type-caption text-text-muted">
                   expires {inv.expiresAt.slice(0, 10)}
                 </span>
               </div>

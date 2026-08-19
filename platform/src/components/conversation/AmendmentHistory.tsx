@@ -13,7 +13,7 @@ export function VersionChip({ version }: { version: number }) {
   return (
     <span
       data-agent="version-chip"
-      className="inline-flex items-center rounded-chip border border-border-strong px-2 py-0.5 font-mono text-xs text-text-muted"
+      className="inline-flex items-center rounded-chip border border-border-strong px-2 py-0.5 type-legend text-text-muted"
     >
       v{version}
     </span>
@@ -23,7 +23,7 @@ export function VersionChip({ version }: { version: number }) {
 export function AmendmentHistory({ amendments }: { amendments: Amendment[] }) {
   if (amendments.length === 0) {
     return (
-      <p className="px-1 text-sm text-text-muted">
+      <p className="px-1 type-body text-text-muted">
         No amendments yet. After ethics approval, every change is recorded here
         with its consent impact.
       </p>
@@ -36,7 +36,7 @@ export function AmendmentHistory({ amendments }: { amendments: Amendment[] }) {
         .map((a) => (
           <li
             key={a.id}
-            className="rounded-card border border-border bg-surface p-4 text-sm"
+            className="rounded-card border border-border bg-surface p-4 type-body"
           >
             <div className="flex flex-wrap items-center gap-2">
               <VersionChip version={a.fromVersion} />
@@ -47,7 +47,7 @@ export function AmendmentHistory({ amendments }: { amendments: Amendment[] }) {
               {a.consentRelevant ? (
                 <span
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-chip px-2 py-0.5 text-xs",
+                    "inline-flex items-center gap-1 rounded-chip px-2 py-0.5 type-caption",
                     a.reapprovalArtifact
                       ? "text-grounded"
                       : "bg-unsourced-soft text-unsourced")}
@@ -58,7 +58,7 @@ export function AmendmentHistory({ amendments }: { amendments: Amendment[] }) {
                     : "consent-relevant · awaiting re-approval"}
                 </span>
               ) : (
-                <span className="rounded-chip px-2 py-0.5 text-xs text-text-muted">
+                <span className="rounded-chip px-2 py-0.5 type-caption text-text-muted">
                   config change
                 </span>
               )}
@@ -77,14 +77,14 @@ export function AmendmentHistory({ amendments }: { amendments: Amendment[] }) {
             )}
 
             {a.consentRelevant && a.consentReasons.length > 0 && (
-              <ul className="mt-2 border-l border-unsourced pl-3 text-xs text-text-muted">
+              <ul className="mt-2 border-l border-unsourced pl-3 type-caption text-text-muted">
                 {a.consentReasons.map((r, i) => (
                   <li key={i}>{r}</li>
                 ))}
               </ul>
             )}
 
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 type-caption text-text-muted">
               <span>approved by {a.approvedBy}</span>
               <span>{a.at.slice(0, 10)}</span>
               {a.reapprovalArtifact && (

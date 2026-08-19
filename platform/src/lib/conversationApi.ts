@@ -1,3 +1,4 @@
+import { steerStop, type SteerLevel } from "./steer";
 import type {
   DesignMove,
   Grounding,
@@ -9,7 +10,7 @@ import type {
 } from "./types.ts";
 import { getAuthToken, notifyUnauthorized } from "./api.ts";
 import { OfflineError } from "./studyApi.ts";
-import { openingTurn, respondTo } from "./designStub.ts";
+import { openingTurn } from "./conversationOpening.ts";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -136,7 +137,10 @@ function mapTurn(raw: Record<string, unknown>): Turn {
     text: String(raw.text ?? ""),
     moves: ((raw.moves as Record<string, unknown>[]) ?? []).map(mapMove),
     recommendations: ((raw.recommendations as Recommendation[]) ?? []),
-    source: raw.source === "llm" ? "llm" : raw.source === "scripted" ? "scripted" : undefined,
+    source:
+      raw.source === "llm" || raw.source === "scripted" || raw.source === "unavailable"
+        ? raw.source
+        : undefined,
   };
 }
 
@@ -176,6 +180,11 @@ export const conversationApi = {
     studyId: string,
     text: string,
     author = "You",
+    /* How much the researcher wants the assistant to drive this
+     * conversation (see lib/steer.ts). Optional so an older client, and the
+     * agent-facing API, both still post a valid turn without it; the server
+     * falls back to the account's declared profile. */
+    steer?: SteerLevel,
   ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
     const reply = await post<{
       researcherTurnId: string;
@@ -183,11 +192,12 @@ export const conversationApi = {
       text: string;
       moves: Record<string, unknown>[];
       recommendations: Recommendation[];
-      source?: "llm" | "scripted";
+      source?: "llm" | "scripted" | "unavailable";
       understanding?: Understanding;
     }>(`/studies/${encodeURIComponent(studyId)}/conversation/turns`, {
       text,
       author,
+      ...(steer == null ? {} : { steer: steerStop(steer).id }),
     });
     const researcher: Turn = {
       turnId: reply.researcherTurnId,
@@ -221,6 +231,7 @@ export const conversationApi = {
     text: string,
     author = "You",
     onToken?: (fragment: string) => void,
+    steer?: SteerLevel,
   ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
     let done: {
       researcherTurnId: string;
@@ -228,7 +239,7 @@ export const conversationApi = {
       text: string;
       moves: Record<string, unknown>[];
       recommendations: Recommendation[];
-      source?: "llm" | "scripted";
+      source?: "llm" | "scripted" | "unavailable";
       understanding?: Understanding;
     } | null = null;
     try {
@@ -242,7 +253,11 @@ export const conversationApi = {
             accept: "text/event-stream",
           },
           credentials: "include",
-          body: JSON.stringify({ text, author }),
+          body: JSON.stringify({
+            text,
+            author,
+            ...(steer == null ? {} : { steer: steerStop(steer).id }),
+          }),
         },
       );
       if (res.status === 401) notifyUnauthorized();
@@ -270,7 +285,7 @@ export const conversationApi = {
       }
       if (!done) throw new Error("stream ended without a turn");
     } catch {
-      return this.sendTurn(studyId, text, author);
+      return this.sendTurn(studyId, text, author, steer);
     }
 
     const researcher: Turn = {
@@ -314,29 +329,15 @@ export const conversationApi = {
     );
   },
 
-  /** Offline-only path: deterministic stub reply (hero / no middleware). */
-  stubSend(text: string, turnsLength: number): Turn[] {
-    const researcherTurn: Turn = {
-      turnId: `r-${turnsLength}`,
-      role: "researcher",
-      author: "You",
-      text,
-      moves: [],
-      recommendations: [],
-    };
-    return [researcherTurn, respondTo(text)];
-  },
 };
 
 /** Callers (`ConversationView`) need to tell a genuine live load apart from
  * an offline fallback so `live` state stays accurate — swallowing
  * `OfflineError` here would report success either way and leave the caller
  * stuck retrying doomed live calls. Let it throw; the caller's own catch
- * already falls back to `[openingTurn()]` and flips `live` off. */
+ * keeps the thread as it is and says why. */
 export function loadConversation(
   studyId: string,
-  stubOnly: boolean,
 ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
-  if (stubOnly) return Promise.resolve({ turns: [openingTurn()] });
   return conversationApi.get(studyId);
 }

@@ -35,7 +35,7 @@ export function PresenceChips({
         />
       ))}
       {overflow > 0 && (
-        <span className="tabular text-xs text-text-muted">+{overflow}</span>
+        <span className="tabular type-caption text-text-muted">+{overflow}</span>
       )}
     </div>
   );

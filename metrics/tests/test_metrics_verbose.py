@@ -18,18 +18,18 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from analyzers import sonar_metrics  # noqa: E402
-from analyzers.radon_metrics import (  # noqa: E402
+from analyzers import sonar_metrics
+from analyzers.radon_metrics import (
     get_comment_ratio,
     get_halstead_effort,
 )
-from analyzers.sonar_metrics import get_cognitive_complexity  # noqa: E402
-from analyzers.text_metrics import (  # noqa: E402
+from analyzers.sonar_metrics import get_cognitive_complexity
+from analyzers.text_metrics import (
     get_indentation_variance,
     get_line_width_bounds,
 )
-from main import discover_python_files  # noqa: E402
-from parsers.ts_parser import (  # noqa: E402
+from main import discover_python_files
+from parsers.ts_parser import (
     collect_function_metrics,
     get_average_identifier_length,
     get_nesting_penalty,

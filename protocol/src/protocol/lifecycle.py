@@ -16,6 +16,8 @@ manual advance simply *is* an artifact. The final phase needs none — there
 is nothing after it to advance to.
 """
 
+import itertools
+
 from protocol.errors import ProtocolError
 
 PHASE_ORDER: tuple[str, ...] = (
@@ -63,7 +65,7 @@ def current_phase(protocol: dict, artifacts: set[str]) -> str:
     """
     gates = gates_by_phase(protocol)
     reached = PHASE_ORDER[0]
-    for prev, phase in zip(PHASE_ORDER, PHASE_ORDER[1:], strict=False):
+    for prev, phase in itertools.pairwise(PHASE_ORDER):
         if any(gate not in artifacts for gate in gates[prev]):
             break
         reached = phase

@@ -106,6 +106,42 @@ def test_create_project_makes_creator_owner(client):
     assert [(p["slug"], p["role"]) for p in mine] == [(slug, "owner")]
 
 
+def test_project_list_carries_the_shape_of_each_project(client):
+    """A row says how many studies it holds (FR-PLAT-1), so the project list
+    never has to fan out to ``/projects/{slug}`` once per row.
+
+    It used to carry a lifecycle phase mix too. That went with the lifecycle
+    board: with no phases to advance through, every study reported the same
+    one and the breakdown said nothing."""
+    slug = make_project(client, "alice", "Counted lab")
+
+    empty = client.get("/projects", headers=bearer("alice")).json()[0]
+    assert empty["studyCount"] == 0
+    assert "phaseCounts" not in empty
+
+    for name in ("One", "Two"):
+        made = client.post(
+            f"/projects/{slug}/studies", json={"name": name}, headers=bearer("alice")
+        )
+        assert made.status_code == 200, made.text
+
+    row = client.get("/projects", headers=bearer("alice")).json()[0]
+    assert row["studyCount"] == 2
+
+
+def test_created_project_has_the_same_shape_as_a_listed_one(client):
+    """Create and list return one type, not two wearing the same name: the
+    client models a project once, and a new project is an empty one."""
+    res = client.post("/projects", json={"name": "Fresh"}, headers=bearer("alice"))
+    assert res.status_code == 200, res.text
+    created = res.json()
+    listed = client.get("/projects", headers=bearer("alice")).json()[0]
+
+    assert created.keys() == listed.keys()
+    assert created["role"] == "owner"
+    assert created["studyCount"] == 0
+
+
 def test_delete_study_is_owner_only_and_removes_it(client):
     slug = make_project(client, "alice", "Lab")
     add_member(client, slug, "alice", "rea", "researcher")
@@ -351,7 +387,7 @@ def test_every_project_scoped_route_carries_the_choke_point(client):
     for route in app.routes:
         path = getattr(route, "path", "")
         methods = getattr(route, "methods", set()) or set()
-        if not (path.startswith("/projects") or path.startswith("/studies/")):
+        if not (path.startswith(("/projects", "/studies/"))):
             continue
         for method in methods - {"HEAD", "OPTIONS"}:
             if (method, path) in exempt:

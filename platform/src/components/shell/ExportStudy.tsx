@@ -9,20 +9,27 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { studyApi, OfflineError } from "@/lib/studyApi";
 
-/* Getting the study *out* (FR-PROT-7, FR-CONV-6). Two things a researcher
- * actually needs to hand to someone else:
+/* Getting the study *out* (FR-PROT-7, FR-CONV-6, FR-AGENT-5, FR-ANA-6). Four
+ * things a researcher actually needs to hand to someone else, or to
+ * themselves at the platform's own boundary:
  *
  * - the replication kit — protocol, joined dataset, regenerated report and
  *   pinned versions, byte-reproducible, the thing a reviewer reruns;
- * - the elicitation record — the decision chain from idea to specification.
- *
- * Both already existed; until now only a terminal could reach them. */
+ * - the elicitation record — the decision chain from idea to specification;
+ * - the ethics package — design, tasks, what is captured, and the exact
+ *   consent text, for the submission every study needs before it can run;
+ * - the starter notebook — a loaded, documented dataframe with every
+ *   planned recipe imported and never run: where the platform's own scope
+ *   ends and the researcher's analysis begins. */
 export function ExportStudy({ studyId }: { studyId: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function run(kind: "kit" | "record", download: () => Promise<void>) {
+  async function run(
+    kind: "kit" | "record" | "ethics" | "notebook",
+    download: () => Promise<void>,
+  ) {
     setBusy(kind);
     setError(null);
     try {
@@ -66,7 +73,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
           >
             <div className="flex flex-col gap-0.5">
               <span>Replication kit</span>
-              <span className="text-xs text-text-muted">
+              <span className="type-caption text-text-muted">
                 Protocol, dataset, report and pinned versions: byte-identical
                 on every export.
               </span>
@@ -80,16 +87,44 @@ export function ExportStudy({ studyId }: { studyId: string }) {
           >
             <div className="flex flex-col gap-0.5">
               <span>Elicitation record</span>
-              <span className="text-xs text-text-muted">
+              <span className="type-caption text-text-muted">
                 The decision chain: turns, moves and their grounding,
                 compilations, approvals.
+              </span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            data-agent="export-ethics-package"
+            onSelect={() =>
+              void run("ethics", () => studyApi.downloadEthicsPackage(studyId))
+            }
+          >
+            <div className="flex flex-col gap-0.5">
+              <span>Ethics package</span>
+              <span className="type-caption text-text-muted">
+                Design, tasks, what is captured, and the exact consent text,
+                for your submission.
+              </span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            data-agent="export-notebook"
+            onSelect={() =>
+              void run("notebook", () => studyApi.downloadNotebook(studyId))
+            }
+          >
+            <div className="flex flex-col gap-0.5">
+              <span>Starter notebook</span>
+              <span className="type-caption text-text-muted">
+                Loaded, documented dataset and every planned recipe imported,
+                nothing run yet. Your analysis starts at the last cell.
               </span>
             </div>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       {error && (
-        <span className="max-w-64 truncate text-xs text-unsourced" role="status">
+        <span className="max-w-64 truncate type-caption text-critical" role="alert">
           {error}
         </span>
       )}

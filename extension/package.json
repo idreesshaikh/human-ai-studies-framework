@@ -35,7 +35,8 @@
   "main": "./out/vscode/extension.js",
   "activationEvents": [
     "onStartupFinished",
-    "onView:tern.session"
+    "onView:tern.session",
+    "onUri"
   ],
   "contributes": {
     "viewsContainers": {

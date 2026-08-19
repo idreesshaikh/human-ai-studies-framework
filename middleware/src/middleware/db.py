@@ -77,10 +77,14 @@ class Event(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     session_id: Mapped[str] = mapped_column(String, index=True)
-    source: Mapped[str] = mapped_column(String, index=True, default="cognitive-overlay")
+    source: Mapped[str] = mapped_column(String, index=True, default="tern")
     seq: Mapped[int] = mapped_column(Integer)
     participant_id: Mapped[str] = mapped_column(String, index=True)
     condition: Mapped[str] = mapped_column(String)
+    #: Which declared task this session was working on, server-stamped from
+    #: the session's assigned block. Empty for events from before tasks
+    #: existed, and for a session with no block recorded.
+    task_id: Mapped[str] = mapped_column(String, default="", index=True)
     v: Mapped[int] = mapped_column(Integer)
     ts: Mapped[str] = mapped_column(String, index=True)
     mono: Mapped[float] = mapped_column()
@@ -248,18 +252,6 @@ class RecipeRun(Base):
     at: Mapped[str] = mapped_column(String)
 
 
-class TaskCard(Base):
-    """Manual task-board card."""
-
-    __tablename__ = "tasks"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    title: Mapped[str] = mapped_column(String)
-    status: Mapped[str] = mapped_column(String, default="open")
-    note: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[str] = mapped_column(String)
-
-
 class Project(Base):
     """One research project — the scoping root (FR-PLAT-1)."""
 
@@ -330,6 +322,13 @@ class EnrollmentToken(Base):
         String, ForeignKey("studies.id"), index=True
     )
     participant_id: Mapped[str] = mapped_column(String)
+    #: Position in the cohort, 0-based. Drives counterbalanced assignment
+    #: (``protocol.assignment.assign``), so a participant's whole schedule is
+    #: reproducible from the protocol and this number alone.
+    participant_index: Mapped[int] = mapped_column(Integer, default=0)
+    #: The condition of the participant's *current* block. Kept for the ingest
+    #: server-stamp on events that arrive without a session block recorded;
+    #: a session that has one takes its condition from there instead.
     condition: Mapped[str] = mapped_column(String)
     grain: Mapped[str] = mapped_column(String)
     token: Mapped[str] = mapped_column(String, unique=True, index=True)
@@ -340,6 +339,32 @@ class EnrollmentToken(Base):
     redeemed_at: Mapped[str | None] = mapped_column(String, nullable=True)
     created_by: Mapped[str] = mapped_column(String, default="")
     created_at: Mapped[str] = mapped_column(String)
+
+
+class SessionBlock(Base):
+    """Which task and condition one session ran under.
+
+    A participant's schedule is a pure function of the protocol and their
+    index, but *which* block a given session took has to be recorded: the
+    assignment says what the third session should be, not which session was
+    the third. Writing it down at session start makes the answer stable if
+    the protocol is later amended, and makes every event attributable to a
+    task by its session id alone.
+
+    One row per session, so re-pulling the capture config for a session
+    already under way returns the same block rather than advancing past it.
+    """
+
+    __tablename__ = "session_blocks"
+
+    session_id: Mapped[str] = mapped_column(String, primary_key=True)
+    study_id: Mapped[str] = mapped_column(String, index=True)
+    participant_id: Mapped[str] = mapped_column(String, index=True)
+    #: Position in the participant's own sequence, 0-based.
+    block_index: Mapped[int] = mapped_column(Integer, default=0)
+    task_id: Mapped[str] = mapped_column(String, default="")
+    condition: Mapped[str] = mapped_column(String, default="")
+    assigned_at: Mapped[str] = mapped_column(String, default="")
 
 
 class Study(Base):
@@ -374,7 +399,9 @@ class ConversationTurn(Base):
     recommendations: Mapped[list] = mapped_column(JSON, default=list)
     redacted: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[str] = mapped_column(String)
-    #: "llm" | "scripted" - which path produced this platform turn
+    #: Which path produced this platform turn. Always "llm" now that the
+    #: keyword-scripted assistant is gone; kept on the row because existing
+    #: conversations still carry "scripted" turns from before it was removed.
     #: (FR-CONV-1.4), so the elicitation record (FR-CONV-6) honestly
     #: records how each claim was produced. Empty for researcher turns.
     source: Mapped[str] = mapped_column(String, default="")
@@ -639,9 +666,10 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     global _engine, FTS5_AVAILABLE, PG_FTS_AVAILABLE
 
     # Accept a Path (or a bare path string) as a SQLite file location.
-    if isinstance(db_url, Path):
-        db_url = f"sqlite:///{db_url}"
-    elif isinstance(db_url, str) and not db_url.startswith(("sqlite://", "postgresql")):
+    if isinstance(db_url, Path) or (
+        isinstance(db_url, str)
+        and not db_url.startswith(("sqlite://", "postgresql"))
+    ):
         db_url = f"sqlite:///{db_url}"
 
     db_url_str = str(db_url)
@@ -667,6 +695,8 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _migrate_paper_curator_note(engine)
     _migrate_conversation_recommendations(engine)
     _migrate_design_move_seq(engine)
+    _migrate_enrollment_participant_index(engine)
+    _migrate_event_task_id(engine)
 
     if is_pg:
         _setup_pg_fts(engine)
@@ -767,6 +797,58 @@ def _migrate_stored_file_study_id(engine) -> None:
             log.info("Added study_id column to files (per-study lifecycle scoping)")
 
 
+def _migrate_enrollment_participant_index(engine) -> None:
+    """Add ``enrollment_tokens.participant_index`` if missing (idempotent).
+
+    Tokens minted before counterbalanced assignment existed carry no index.
+    They default to 0, which assigns every one of them the first
+    participant's schedule - so this backfills from the mint order that the
+    participant id already encodes ("P01" -> 0), keeping existing studies
+    assigned the way they were enrolled.
+    """
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("enrollment_tokens")}
+        if "participant_index" in cols:
+            return
+        conn.execute(
+            text(
+                "ALTER TABLE enrollment_tokens "
+                "ADD COLUMN participant_index INTEGER DEFAULT 0"
+            )
+        )
+        # "P07" -> 6. A participant id in any other shape keeps 0; there is no
+        # honest index to infer from it.
+        for row in conn.execute(
+            text("SELECT id, participant_id FROM enrollment_tokens")
+        ).fetchall():
+            digits = "".join(ch for ch in (row[1] or "") if ch.isdigit())
+            if digits:
+                conn.execute(
+                    text(
+                        "UPDATE enrollment_tokens SET participant_index = :i "
+                        "WHERE id = :id"
+                    ),
+                    {"i": max(int(digits) - 1, 0), "id": row[0]},
+                )
+        log.info("Added participant_index to enrollment_tokens (counterbalancing)")
+
+
+def _migrate_event_task_id(engine) -> None:
+    """Add ``events.task_id`` if missing (both dialects, idempotent).
+
+    Events collected before tasks were addressable keep an empty task id.
+    That is the honest value: which task they belonged to was never recorded
+    and cannot be reconstructed, so it is left blank rather than guessed.
+    """
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("events")}
+        if "task_id" not in cols:
+            conn.execute(
+                text("ALTER TABLE events ADD COLUMN task_id VARCHAR DEFAULT ''")
+            )
+            log.info("Added task_id column to events (per-task attribution)")
+
+
 def _migrate_paper_curator_note(engine) -> None:
     """Add ``papers.curator_note`` if missing (both dialects, idempotent).
 
@@ -854,7 +936,7 @@ def _safe_host(db_url: str) -> str:
         from urllib.parse import urlparse
         parsed = urlparse(db_url)
         return parsed.hostname or db_url[:40]
-    except Exception:
+    except Exception:  # noqa: BLE001 - host is diagnostics only; fall back to a prefix
         return db_url[:40]
 
 
@@ -953,10 +1035,7 @@ def _migrate_projects(engine, db_url: str) -> None:
     with engine.begin() as conn:
         created_project = _ensure_implicit_project(conn)
         _ensure_implicit_membership(conn)
-        if _is_postgres(engine):
-            adopted = 0
-        else:
-            adopted = _adopt_orphan_studies(conn)
+        adopted = 0 if _is_postgres(engine) else _adopt_orphan_studies(conn)
     if created_project or adopted:
         log.warning(
             "PROJECT MIGRATION on %s: %s; adopted %d study row(s) into "

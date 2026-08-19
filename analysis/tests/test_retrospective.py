@@ -12,8 +12,8 @@ FINDINGS = [
         "id": 1,
         "kind": "seq-gap",
         "requirementId": "FR-ING-3",
-        "message": "S1 (cognitive-overlay): 1 seq gap, 1 event missing",
-        "context": {"session": "S1", "source": "cognitive-overlay"},
+        "message": "S1 (tern): 1 seq gap, 1 event missing",
+        "context": {"session": "S1", "source": "tern"},
         "status": "open",
     },
     {
@@ -79,7 +79,7 @@ def test_offline_bundle_lists_the_findings_as_a_template(tmp_path):
     assert used_llm is False
     # The evidence is fully assembled and cited for manual drafting.
     assert "FR-ING-3" in proposal and "FR-ANA-2" in proposal
-    assert "## SRS amendments" in proposal
+    assert "## Platform changes" in proposal
     assert "Explicitly rejected ideas" in proposal
 
 

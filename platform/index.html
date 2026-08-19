@@ -4,10 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="Phoenix turns a research idea into a grounded, statistically prescribed protocol: design moves cited into a 15,000-paper corpus, compiled deterministically into a versioned draft."
+    />
+    <!-- The browser's own chrome is part of the record too: each rendition
+         hands the OS the ground it is actually painting. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#eff3f9" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a1120" />
+    <meta name="color-scheme" content="light dark" />
     <title>Phoenix</title>
     <script>
-      // Apply the theme before first paint so there's no flash. Always light
-      // unless the researcher has explicitly chosen dark (see theme.ts).
+      // Apply the theme before first paint so there's no flash. Always the
+      // atlas in daylight unless the researcher has explicitly chosen the
+      // light table (see theme.ts).
       document.documentElement.setAttribute(
         "data-theme",
         localStorage.getItem("platform-theme") === "dark" ? "dark" : "light",
@@ -15,6 +25,33 @@
     </script>
   </head>
   <body>
+    <!-- DIRECTION CONTRACT — seed 25cb9e81
+      THESIS: An observatory night-log kept beside a star atlas. The protocol
+      is the plate — a ruled coordinate field where every slot has an address;
+      the conversation is the log — dated entries, each one confirmed against
+      the catalogue or written down as unidentified. Refuses the research-tool
+      card grid, and refuses the two competing emphasis fills that made the
+      old world unreadable.
+      OWN-WORLD: Cool chart paper on a blue graticule; white plates, rounded,
+      hairline-ruled. Four marks and no fifth — magnitude is grounding
+      strength, an open ring is unsourced, a struck line is superseded, a
+      doubled mark is a conflict. One emphasis and no second: a fill is an
+      action, an axis mark is where you are, ink is the record. Archivo in
+      sentence case, Spline Sans Mono for measurement only, one accent blue.
+      STORY: The researcher reads the study the way an observer reads a plate
+      — what is claimed, how strongly it is grounded, what conflicts, what is
+      next — and rules on it one entry at a time.
+      FIRST VIEWPORT: Study workspace. The draft plate holds the rail; log
+      entries stack against it, each carrying its magnitude mark; the key
+      anchors the foot; the assist dial and the composer sit on the axis, and
+      one accent fill marks the single next action.
+      FORM: Observatory night-log and star atlas — candidate 6 of 7, assigned
+      by seed 25cb9e81, raised by four donations (total palette commitment,
+      a counted accent budget, per-character change cascade, one ruling axis).
+      FINISH: unreviewed and undocumented is unfinished; this build ends with
+      the finish review, the verdict, DESIGN.md, and every shipping raster
+      carrying its provenance.
+    -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -27,7 +27,6 @@ def client(tmp_path):
         data_dir=tmp_path / "data",
         port=8000,
         spa_dist=tmp_path / "no-dist",
-        dev_mode=True,
     )
     return TestClient(create_app(settings))
 

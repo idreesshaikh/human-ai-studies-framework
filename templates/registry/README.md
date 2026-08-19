@@ -32,10 +32,9 @@ in four layers:
 - **ziegler-telemetry-survey-v1**: the Ziegler acceptance-rate
   telemetry-plus-survey design (arxiv:2205.06537).
 
-**Wave 1 of the design-archetype library** (Phase 22,
-`docs/roadmap/22-design-recommender.md`, FR-TPL-7, the ~8-archetype
-spread the design recommender's demo needs so a researcher's idea usually
-maps to a real archetype rather than a bespoke design):
+**Wave 1 of the design-archetype library** (Phase 22, FR-TPL-7, the
+~8-archetype spread the design recommender's demo needs so a researcher's
+idea usually maps to a real archetype rather than a bespoke design):
 - **two-group-rct-v1**: two-group between-subjects RCT.
 - **within-subjects-crossover-v1**: within-subjects crossover
   (arxiv:2507.09089).
@@ -53,8 +52,7 @@ now exist in the analysis catalogue):
   synergy comparison (arxiv:2507.09089).
 
 **Wave 2, first fill** (2026-07-21, the two design shapes that were on
-the *original* Wave-1 spread list but never actually got built; see
-`docs/roadmap/22-design-recommender.md` §Slice D):
+the *original* Wave-1 spread list but never actually got built):
 - **survey-self-report-v1**: self-report-only design, no objective
   performance measure at all (`corpus:ai-assistants-in-practice`).
 - **observational-field-v1**: single-condition, no-manipulation field
@@ -78,8 +76,7 @@ Wave 1's archetypes are grounded in `corpus:guidelines-empirical-llm-se`
 design-specific citation where one applies. **Wave 2** (up to ~24
 archetypes total, per Phase 22's spec) is independent template-authoring
 work that enriches the demo, in progress (13/~24). Beyond Wave 2,
-FR-TPL-5 (community template contribution,
-`docs/roadmap/24-import-extensibility-tail.md`) is the intended path for
+FR-TPL-5 (community template contribution) is the intended path for
 growing the registry past what the owner hand-authors alone.
 
 A template enters this directory only once `validate_registry()` passes

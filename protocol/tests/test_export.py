@@ -70,7 +70,8 @@ def _dataset() -> dict:
                     "condition": condition,
                     "seq": j,
                     "type": "fatigue_response",
-                    "source": "cognitive-overlay",
+                    "source": "tern",
+                    "flags": [],
                     "payload": {"score": score + j, "latencyMs": 3000},
                 }
             )

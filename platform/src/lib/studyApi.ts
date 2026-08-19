@@ -1,6 +1,6 @@
 /* The study-data client. Talks to the ingestion middleware for the study
  * operational + knowledge endpoints — papers, the citation graph, the grounded
- * assistant, session status, the dataset, and the lifecycle.
+ * assistant, session status, and the dataset.
  *
  * Same-origin by default: in production the middleware serves this SPA (NFR-7),
  * so `''` resolves to :8000. Set VITE_API_BASE for a separate origin (needs
@@ -17,7 +17,13 @@
 
 import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
 import { isDemoStudy } from "./demo.ts";
-import type { Recommendation } from "./types";
+import type {
+  PowerCurve,
+  PowerDoc,
+  PowerPoint,
+  PowerRequirement,
+  Recommendation,
+} from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -95,21 +101,30 @@ export interface DatasetRow {
   payload: Record<string, unknown>;
 }
 
-export interface Gate {
-  artifact: string;
-  satisfied: boolean;
-  satisfiedBy: { fileId: number; uploadedAt: string; size: number } | null;
+/** One session the middleware has heard from inside the live window. */
+export interface LiveSession {
+  sessionId: string;
+  participantId: string;
+  condition: string;
+  taskId: string;
+  taskTitle: string;
+  blockIndex: number | null;
+  blocksTotal: number | null;
+  eventsInWindow: number;
+  lastEventType: string;
+  lastReceivedAt: string;
+  lastSeq: number;
+  /** Events received per bucket, oldest first — the sparkline. */
+  rate: number[];
+  gapCount: number;
+  missingEvents: number;
 }
 
-export interface LifecyclePhase {
-  name: string;
-  status: "complete" | "current" | "upcoming";
-  gates: Gate[];
-}
-
-export interface LifecycleDoc {
-  currentPhase: string;
-  phases: LifecyclePhase[];
+export interface LiveDoc {
+  now: string;
+  windowSeconds: number;
+  bucketSeconds: number;
+  sessions: LiveSession[];
 }
 
 export interface Prescription {
@@ -238,18 +253,6 @@ async function liveOrSeedStudy<T>(
   }
 }
 
-export const EMPTY_LIFECYCLE: LifecycleDoc = {
-  currentPhase: "design",
-  phases: [
-    { name: "design", status: "current", gates: [] },
-    { name: "ethics", status: "upcoming", gates: [] },
-    { name: "pilot", status: "upcoming", gates: [] },
-    { name: "recruitment", status: "upcoming", gates: [] },
-    { name: "data-collection", status: "upcoming", gates: [] },
-    { name: "analysis", status: "upcoming", gates: [] },
-    { name: "write-up", status: "upcoming", gates: [] },
-  ],
-};
 
 const enc = encodeURIComponent;
 
@@ -365,6 +368,24 @@ export const studyApi = {
       `${study}-replication-kit.tar.gz`,
     );
   },
+  /** The ethics package (FR-AGENT-5, FR-ETH-4): design, tasks, what is
+   *  captured, and the exact consent text, generated from the protocol
+   *  alone. A 409 (no compiled protocol yet) surfaces as the same
+   *  `ApiError` every other study read does — the caller's existing catch
+   *  handles it, so nothing bespoke is needed here. */
+  downloadEthicsPackage: async (study: string) => {
+    await saveAs(
+      `/studies/${enc(study)}/ethics-package`,
+      `${study}-ethics-package.md`,
+    );
+  },
+  /** The starter notebook + data dictionary, zipped: the curated handoff.
+   *  A loaded, documented dataframe with every planned recipe imported —
+   *  never run — so a researcher's own analysis starts from a known point
+   *  rather than a bare dataset export. */
+  downloadNotebook: async (study: string) => {
+    await saveAs(`/studies/${enc(study)}/notebook`, `${study}-notebook.zip`);
+  },
   /** The elicitation record (FR-CONV-6) as a JSON file. */
   downloadElicitationRecord: async (study: string) => {
     await saveAs(
@@ -398,20 +419,22 @@ export const studyApi = {
       { studyId: study, rows: SEED_METRICS },
       { studyId: study, rows: [] },
     ),
-  lifecycle: (study: string) =>
-    liveOrSeedStudy(
-      study,
-      () => req<LifecycleDoc>(`/studies/${enc(study)}/lifecycle`),
-      SEED_LIFECYCLE,
-      EMPTY_LIFECYCLE,
-    ),
-  /** Attest that a gate's requirement is met, advancing the study a phase
-   * (FR-DASH-2). Returns the recomputed lifecycle. */
-  attestGate: (study: string, artifact: string, note = "") =>
-    post<LifecycleDoc>(
-      `/studies/${enc(study)}/lifecycle/gates/${enc(artifact)}/attest`,
-      { note, attestedBy: "Researcher", confirmed: true },
-    ),
+  /** Sessions the middleware has heard from recently (FR-DASH-3).
+   *
+   * Deliberately *not* seeded when the server is unreachable: an empty live
+   * monitor is the honest answer to "is anyone running right now?", whereas
+   * invented sessions would be the one place a fake reads as a real
+   * participant at work. */
+  live: (study: string, windowSeconds = 300) =>
+    req<LiveDoc>(
+      `/studies/${enc(study)}/live?windowSeconds=${windowSeconds}`,
+    ).catch(() => ({
+      now: new Date().toISOString(),
+      windowSeconds,
+      bucketSeconds: 10,
+      sessions: [],
+    })),
+
   /** The deterministic prescription table (FR-TPL-6): design shape → exact
    * test, effect size, correction, sample-size guidance. Not study-scoped. */
   prescriptions: () =>
@@ -422,6 +445,55 @@ export const studyApi = {
         ),
       SEED_PRESCRIPTIONS,
     ),
+  /** The power/sensitivity curve (P2-2): exact two-sample t-test power
+   * (non-central t, equal per-group n, two-sided) across per-group n, plus
+   * the first n reaching the target power, per effect size. Planning math
+   * over the study's planned comparison — the payload carries its own model
+   * and assumptions, so the panel renders them without hardcoding. Offline:
+   * the demo study gets a normal-approximation stand-in of the same formula
+   * (the seeded-data banner says so); real studies get an honest empty doc. */
+  power: (
+    study: string,
+    opts: {
+      alpha?: number;
+      maxN?: number;
+      powerTarget?: number;
+      effectSizes?: number[];
+    } = {},
+  ) =>
+    liveOrSeedStudy(
+      study,
+      () => {
+        const q = new URLSearchParams();
+        q.set("alpha", String(opts.alpha ?? 0.05));
+        q.set("maxN", String(opts.maxN ?? 120));
+        q.set("powerTarget", String(opts.powerTarget ?? 0.8));
+        q.set("effectSizes", (opts.effectSizes ?? [0.2, 0.5, 0.8]).join(","));
+        return req<PowerDoc>(`/studies/${enc(study)}/power?${q.toString()}`);
+      },
+      seedPowerDoc(opts),
+      emptyPowerDoc(),
+    ),
+  /** Synthetic dry run (FR-DRY-1): N simulated participants through the
+   * real ingest path — tokens minted, session blocks recorded, events and
+   * metrics stored exactly as a live capture would. The report states what
+   * landed. A live action: never seeded, offline raises `OfflineError`. */
+  simulate: (study: string, count = 10, profile = "mixed", seed?: number) =>
+    post<{
+      participants: number;
+      profile: string;
+      seed: number | null;
+      run: string;
+      sessions: number;
+      events: number;
+      metricRows: number;
+      tokensMinted: number;
+      studyId: string;
+    }>(`/studies/${enc(study)}/simulate`, {
+      count,
+      profile,
+      ...(seed !== undefined ? { seed } : {}),
+    }),
   status: (study: string) =>
     liveOrSeedStudy(
       study,
@@ -444,7 +516,7 @@ export const studyApi = {
 // ---------------------------------------------------------------- offline seed
 //
 // A curated, corpus-consistent seed (the same landmark papers the design
-// conversation cites) so the constellation, library, charts, and lifecycle are
+// conversation cites) so the constellation, library, and charts are
 // beautiful with no server — the platform's offline-explorable posture.
 
 const SEED_PAPERS: Paper[] = [
@@ -552,13 +624,13 @@ function seedMetricRows(): DatasetRow[] {
 const SEED_SESSION_EVENTS: import("./timeline").EventRow[] = [
   {
     v: 4, ts: "2026-07-16T14:30:00.000Z", mono: 0,
-    sessionId: "S-ai-assisted", source: "cognitive-overlay",
+    sessionId: "S-ai-assisted", source: "tern",
     participantId: "P1", condition: "ai-assisted",
     seq: 0, type: "session_start", payload: {}, flags: [],
   },
   {
     v: 4, ts: "2026-07-16T14:30:05.000Z", mono: 5_000,
-    sessionId: "S-ai-assisted", source: "cognitive-overlay",
+    sessionId: "S-ai-assisted", source: "tern",
     participantId: "P1", condition: "ai-assisted",
     seq: 1, type: "edit_burst", payload: { charsAdded: 120, linesTouched: 5, origin: "human" }, flags: [],
   },
@@ -570,7 +642,7 @@ const SEED_SESSION_EVENTS: import("./timeline").EventRow[] = [
   },
   {
     v: 4, ts: "2026-07-16T14:31:10.000Z", mono: 70_000,
-    sessionId: "S-ai-assisted", source: "cognitive-overlay",
+    sessionId: "S-ai-assisted", source: "tern",
     participantId: "P1", condition: "ai-assisted",
     seq: 2, type: "edit_burst", payload: { charsAdded: 320, linesTouched: 12, origin: "ai" }, flags: [],
   },
@@ -582,13 +654,13 @@ const SEED_SESSION_EVENTS: import("./timeline").EventRow[] = [
   },
   {
     v: 4, ts: "2026-07-16T14:33:00.000Z", mono: 180_000,
-    sessionId: "S-ai-assisted", source: "cognitive-overlay",
+    sessionId: "S-ai-assisted", source: "tern",
     participantId: "P1", condition: "ai-assisted",
     seq: 3, type: "fatigue_prompt_shown", payload: { trigger: "scheduled" }, flags: ["unauthenticated"],
   },
   {
     v: 4, ts: "2026-07-16T14:33:05.000Z", mono: 185_000,
-    sessionId: "S-ai-assisted", source: "cognitive-overlay",
+    sessionId: "S-ai-assisted", source: "tern",
     participantId: "P1", condition: "ai-assisted",
     seq: 4, type: "fatigue_response", payload: { value: 4, points: 7 }, flags: [],
   },
@@ -617,18 +689,6 @@ const SEED_SESSIONS: SessionStatus[] = [
   { sessionId: "S-unaided", participantId: "P1", condition: "unaided", events: 198, metricRows: 10, flaggedEvents: 1, flagKinds: ["unknown-condition"], gapCount: 1, missingEvents: 2, complete: false, lastReceivedAt: "2026-07-16T15:40:00.000Z" },
 ];
 
-const SEED_LIFECYCLE: LifecycleDoc = {
-  currentPhase: "data-collection",
-  phases: [
-    { name: "design", status: "complete", gates: [{ artifact: "protocol-validated.txt", satisfied: true, satisfiedBy: { fileId: 1, uploadedAt: "2026-07-12", size: 512 } }] },
-    { name: "ethics", status: "complete", gates: [{ artifact: "ethics-approval.pdf", satisfied: true, satisfiedBy: { fileId: 2, uploadedAt: "2026-07-12", size: 88000 } }] },
-    { name: "pilot", status: "complete", gates: [] },
-    { name: "recruitment", status: "complete", gates: [] },
-    { name: "data-collection", status: "current", gates: [] },
-    { name: "analysis", status: "upcoming", gates: [{ artifact: "threats-record.json", satisfied: false, satisfiedBy: null }] },
-    { name: "write-up", status: "upcoming", gates: [] },
-  ],
-};
 
 // Offline fallback for the prescription table (the live values come from the
 // analysis engine at /analysis/prescriptions). Kept short — the two shapes a
@@ -651,3 +711,82 @@ const SEED_PRESCRIPTIONS: Prescription[] = [
     rationale: "Two independent groups with no distribution assumption; Cliff's delta reports the effect honestly at small N.",
   },
 ];
+
+// Offline stand-in for the power curve (P2-2). The live payload is exact
+// non-central-t math from the middleware; the stand-in uses the normal
+// approximation of the same two-sample t-test power formula, computed
+// deterministically at module load. It exists so the demo study still
+// renders with nothing on :8000 — the existing seeded-data banner says so.
+function normCdf(x: number): number {
+  return 0.5 * (1 + erf(x / Math.SQRT2));
+}
+
+// Abramowitz & Stegun 7.1.26 — good to ~1.5e-7, plenty for a stand-in.
+function erf(x: number): number {
+  const t = 1 / (1 + 0.3275911 * Math.abs(x));
+  const y =
+    1 -
+    (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) *
+      t *
+      Math.exp(-x * x);
+  return x >= 0 ? y : -y;
+}
+
+const Z_ALPHA: Record<number, number> = { 0.01: 2.5758293035, 0.05: 1.9599639845, 0.1: 1.644853627 };
+
+function seedPowerDoc(opts: {
+  alpha?: number;
+  maxN?: number;
+  powerTarget?: number;
+  effectSizes?: number[];
+}): PowerDoc {
+  const alpha = opts.alpha ?? 0.05;
+  const powerTarget = opts.powerTarget ?? 0.8;
+  const maxTotalN = opts.maxN ?? 120;
+  const sizes = opts.effectSizes ?? [0.2, 0.5, 0.8];
+  const zCrit = Z_ALPHA[alpha] ?? 1.9599639845;
+  const maxPerGroup = Math.floor(maxTotalN / 2);
+  const curves: PowerCurve[] = [];
+  const requiredN: PowerRequirement[] = [];
+  for (const d of sizes) {
+    const points: PowerPoint[] = [];
+    for (let n = 2; n <= maxPerGroup; n += 1) {
+      const power = Math.min(
+        1,
+        Math.max(
+          0,
+          1 - normCdf(zCrit - d * Math.sqrt(n / 2)) + normCdf(-zCrit - d * Math.sqrt(n / 2)),
+        ),
+      );
+      points.push({ nPerGroup: n, totalN: 2 * n, power: Math.round(power * 1e6) / 1e6 });
+    }
+    const reached = points.find((p) => p.power >= powerTarget);
+    requiredN.push({
+      effectSize: d,
+      nPerGroup: reached?.nPerGroup ?? null,
+      totalN: reached?.totalN ?? null,
+      powerAtTargetN: reached?.power ?? null,
+      reachesTarget: reached !== undefined,
+    });
+    curves.push({ effectSize: d, points });
+  }
+  return {
+    model: "two-sample t-test, independent means, equal per-group n, two-sided",
+    alpha,
+    powerTarget,
+    maxTotalN,
+    curves,
+    requiredN,
+  };
+}
+
+function emptyPowerDoc(): PowerDoc {
+  return {
+    model: "two-sample t-test, independent means, equal per-group n, two-sided",
+    alpha: 0.05,
+    powerTarget: 0.8,
+    maxTotalN: 120,
+    curves: [],
+    requiredN: [],
+  };
+}

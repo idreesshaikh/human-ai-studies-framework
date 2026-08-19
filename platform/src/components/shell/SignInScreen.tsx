@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
 import { KeyRound, Moon, Sun } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoenixMark } from "@/components/brand/PhoenixMark";
 import { useAuth } from "@/lib/auth.tsx";
-import { getTheme, nextTheme, applyTheme, type Theme } from "@/lib/theme";
+import { getTheme, nextTheme, applyTheme, subscribeTheme } from "@/lib/theme";
 
 const THEME_ICON = { light: Sun, dark: Moon };
 
@@ -21,7 +21,7 @@ export function SignInScreen() {
   const { config, clerkReady, mountSignIn, unmountSignIn } = useAuth();
   const mountRef = useRef<HTMLDivElement>(null);
   const showClerkWidget = config.mode === "clerk" && clerkReady;
-  const [theme, setTheme] = useState<Theme>(() => getTheme());
+  const theme = useSyncExternalStore(subscribeTheme, getTheme, getTheme);
   const ThemeIcon = THEME_ICON[theme];
 
   useEffect(() => {
@@ -44,11 +44,7 @@ export function SignInScreen() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => {
-            const next = nextTheme(theme);
-            setTheme(next);
-            applyTheme(next);
-          }}
+          onClick={() => applyTheme(nextTheme(theme))}
           aria-label={`Theme: ${theme}`}
         >
           <ThemeIcon aria-hidden />
@@ -61,7 +57,7 @@ export function SignInScreen() {
         aria-label="Phoenix, back to home"
       >
         <PhoenixMark size={40} />
-        <span className="font-serif text-xl font-medium tracking-tight text-text">
+        <span className="type-section text-text">
           Phoenix
         </span>
       </Link>
@@ -87,7 +83,7 @@ export function SignInScreen() {
 
       <Link
         to="/"
-        className="mt-8 text-center text-sm text-text-muted hover:text-text"
+        className="mt-8 text-center type-body text-text-muted hover:text-text"
       >
         Back to home
       </Link>
@@ -118,7 +114,7 @@ function TokenForm({ awaitingClerk }: { awaitingClerk: boolean }) {
         <KeyRound aria-hidden /> Sign in
       </Button>
       {awaitingClerk && (
-        <p className="text-xs text-text-muted">
+        <p className="type-caption text-text-muted">
           The sign-in widget couldn't load. Check your connection, or ask an
           admin for a session token.
         </p>

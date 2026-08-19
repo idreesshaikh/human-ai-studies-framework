@@ -1,5 +1,6 @@
 import {
   emptyDraft,
+  isFieldPatch,
   isInstrumentPatch,
   isSectionPatch,
   isTemplatePatch,
@@ -37,6 +38,19 @@ export function compile(
       // `reconfigure` tweaks an already-added instrument's config — it
       // never fills the slot on its own (matches the server: an add/set
       // move is what makes the instrument exist at all).
+      continue;
+    }
+    if (isFieldPatch(move.patch)) {
+      // Only participants.* maps onto one of the eight sections here — the
+      // other fillable slots (session.*, study.*) are administrative detail
+      // this client-side preview does not track. This used to match none of
+      // the type guards at all, so an accepted set-field move silently did
+      // not move the dot it should have: the server's own compile (the
+      // authoritative unresolved list) already reflected it, but the
+      // optimistic preview a researcher watches while deciding did not.
+      if (move.patch.path[0] === "participants") {
+        draft.participants = ["set"];
+      }
       continue;
     }
     if (!isSectionPatch(move.patch)) continue;

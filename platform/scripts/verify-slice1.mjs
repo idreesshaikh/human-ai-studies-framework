@@ -1,15 +1,14 @@
-/* Exercises the real modules (no browser needed): the deterministic design
- * assistant + the compiler. Run:
+/* Exercises the client-side protocol compiler (no browser needed). Run:
  *   node --experimental-strip-types scripts/verify-slice1.mjs
  *
- * Checks that:
- *   - the over-trust demo runs end to end (input → moves → draft)
- *   - rejecting a move keeps it out of the compiled draft
- *   - compilation is deterministic (replay → identical draft)
- *   - self-report-only productivity draws the grounded METR caution
- *   - no move cites a paper the assistant didn't hold in that exchange
+ * This used to drive the client's design stub — a keyword-scripted stand-in
+ * for the conversation that answered whenever the server was unreachable.
+ * The stub is gone (the conversation requires a model and says so when it
+ * has none), so the moves below are written out here instead. They are the
+ * same shapes the server sends, which is what these checks are about: every
+ * move kind the conversation can propose has to land in the draft preview,
+ * or an accepted move reads as "noted" and silently changes nothing.
  */
-import { respondTo, resetStub } from "../src/lib/designStub.ts";
 import { compileAll, compile } from "../src/lib/compiler.ts";
 import { emptyDraft } from "../src/lib/types.ts";
 
@@ -19,59 +18,53 @@ const ok = (name, cond, detail = "") => {
   if (!cond) failures++;
 };
 
-// The over-trust script yields moves that compile into a draft.
-const trustTurn = respondTo("junior developers over-trust AI-generated code");
-const accepted = trustTurn.moves.map((m) => ({ ...m, status: "accepted" }));
-const draft = compileAll(accepted);
-ok("demo produces design moves", trustTurn.moves.length >= 3,
-  `${trustTurn.moves.length} moves`);
-ok("accepted moves compile into draft sections",
-  draft.researchQuestions.length > 0 && draft.measures.length >= 2,
-  `RQs=${draft.researchQuestions.length} measures=${draft.measures.length}`);
-ok("the two matching papers are recommended",
-  trustTurn.recommendations.some((r) => r.ref.includes("trust")) &&
-  trustTurn.recommendations.some((r) => r.ref.includes("insecure")),
-  trustTurn.recommendations.map((r) => r.ref).join(", "));
+const move = (moveId, kind, section, value, status = "accepted") => ({
+  moveId,
+  kind,
+  target: `${section}[]`,
+  proposal: value,
+  patch: { section, op: "append", value },
+  grounding: [],
+  status,
+});
 
-// Reject one measure → it's absent from the recompiled draft.
-const target = trustTurn.moves.find((m) => m.kind === "add-measure");
-const mixed = trustTurn.moves.map((m) =>
-  m.moveId === target.moveId
-    ? { ...m, status: "rejected" }
-    : { ...m, status: "accepted" },
+// Accepted moves land in the draft's sections.
+const accepted = [
+  move("m1", "add-rq", "researchQuestions", "Do juniors review AI code less?"),
+  move("m2", "add-measure", "measures", "Review latency"),
+  move("m3", "add-measure", "measures", "Acceptance-test pass rate"),
+];
+const draft = compileAll(accepted);
+ok("accepted moves compile into draft sections",
+  draft.researchQuestions.length === 1 && draft.measures.length === 2,
+  `RQs=${draft.researchQuestions.length} measures=${draft.measures.length}`);
+
+// Rejecting one keeps it out, and re-folding removes its effect cleanly.
+const mixed = accepted.map((m) =>
+  m.moveId === "m2" ? { ...m, status: "rejected" } : m,
 );
-const draftAfterReject = compileAll(mixed);
-const rejectedValue = target.patch.value;
 ok("rejected move absent from draft",
-  !draftAfterReject.measures.includes(rejectedValue),
-  `rejected: "${rejectedValue}"`);
+  !compileAll(mixed).measures.includes("Review latency"));
 
 // Determinism — same accepted moves, same base → identical draft.
-resetStub();
-const a = compileAll(respondTo("junior over-trust").moves.map((m) => ({ ...m, status: "accepted" })));
-resetStub();
-const b = compileAll(respondTo("junior over-trust").moves.map((m) => ({ ...m, status: "accepted" })));
 ok("compilation is deterministic (replay identical)",
-  JSON.stringify(a) === JSON.stringify(b));
+  JSON.stringify(compileAll(accepted)) === JSON.stringify(compileAll(accepted)));
 
-// Self-report-only productivity → grounded METR caution.
-const prodTurn = respondTo("measure productivity by self-report survey only");
-const caution = prodTurn.moves.find((m) => m.kind === "caution");
-ok("self-report productivity draws a caution", !!caution);
-ok("the caution cites the METR paper",
-  !!caution && caution.grounding.some((g) => g.ref.includes("metr")),
-  caution?.grounding.map((g) => g.ref).join(", "));
-ok("the caution makes no draft change",
-  !!caution && caution.patch === undefined);
-
-// Every cited paper carries a title + reason (nothing invented).
-const allGrounding = [
-  ...trustTurn.moves,
-  ...prodTurn.moves,
-].flatMap((m) => m.grounding);
-ok("every cited paper has a title and a reason",
-  allGrounding.every((g) => g.ref && g.title && g.why),
-  `${allGrounding.length} citations checked`);
+// A caution carries no patch, so it must change nothing.
+const cautionDraft = compileAll([
+  ...accepted,
+  {
+    moveId: "m4",
+    kind: "caution",
+    target: "measures",
+    proposal: "Self-reported speed diverges from measured speed.",
+    patch: undefined,
+    grounding: [],
+    status: "accepted",
+  },
+]);
+ok("an accepted caution makes no draft change",
+  JSON.stringify(cautionDraft) === JSON.stringify(draft));
 
 // A real choose-template move's patch is {templateId, parameters} - not
 // the generic {section, op, value} shape every other move kind uses.
@@ -110,11 +103,6 @@ const instrumentDraft = compile(emptyDraft(), [instrumentMove]);
 ok("accepting an add-instrument move fills the draft's instruments slot",
   instrumentDraft.instruments.includes("post-task-survey"),
   instrumentDraft.instruments.join(", "));
-
-// Vague input names the empty sections rather than going silent.
-const vague = respondTo("i dunno, something about ai");
-ok("vague input names the unresolved sections",
-  /unresolved|empty|participants|conditions|ethics/i.test(vague.text));
 
 console.log(failures === 0
   ? "\n✓ all checks pass"
