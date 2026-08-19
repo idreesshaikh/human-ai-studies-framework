@@ -314,27 +314,6 @@ export function Projects() {
           </Link>
         </Button>
       </section>
-
-      {/* Templates-first: the repertoire needs no project, so it sits below
-       * the roster — the second way in for a researcher who already knows
-       * the shape they want. */}
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-surface-raised p-4">
-        <div className="min-w-0 basis-64 grow">
-          <h2 className="type-subhead text-text">
-            Start from a proven design
-          </h2>
-          <p className="type-caption mt-0.5 max-w-reading text-text-muted">
-            The protocol repertoire: design shapes ranked by how widely the
-            published corpus uses them. Pick two or more and merge them into
-            one grounded protocol.
-          </p>
-        </div>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/repertoire">
-            Browse the repertoire <ChevronRight aria-hidden />
-          </Link>
-        </Button>
-      </section>
     </div>
   );
 }

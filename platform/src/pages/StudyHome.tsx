@@ -7,11 +7,13 @@ import {
   MessagesSquare,
   Library,
   BarChart3,
+  Target,
   UserPlus,
 } from "lucide-react";
 import { ConversationView } from "@/components/conversation/ConversationView";
 import { LibraryTab } from "@/components/library/LibraryTab";
 import { DataTab } from "@/components/charts/DataTab";
+import { PowerPanel } from "@/components/charts/PowerPanel";
 import { EnrollmentPanel } from "@/components/enrollment/EnrollmentPanel";
 import { AmendmentBanner } from "@/components/conversation/AmendmentBanner";
 import { AmendmentHistory } from "@/components/conversation/AmendmentHistory";
@@ -40,12 +42,13 @@ import { cn } from "@/lib/cn";
  * unmissable account of what will be captured, which the consent statement
  * at pairing gives them. */
 
-type Tab = "conversation" | "library" | "data" | "enrollment";
+type Tab = "conversation" | "library" | "data" | "planning" | "enrollment";
 
 const TABS: { id: Tab; label: string; icon: typeof Library }[] = [
   { id: "conversation", label: "Conversation", icon: MessagesSquare },
   { id: "library", label: "Library", icon: Library },
   { id: "data", label: "Data", icon: BarChart3 },
+  { id: "planning", label: "Planning", icon: Target },
   { id: "enrollment", label: "Participants", icon: UserPlus },
 ];
 
@@ -217,6 +220,7 @@ export function StudyHome() {
         )}
         {tab === "library" && <LibraryTab studyId={id} />}
         {tab === "data" && <DataTab studyId={id} />}
+        {tab === "planning" && <PowerPanel studyId={id} />}
         {tab === "enrollment" && <EnrollmentPanel studyId={id} role={role} />}
       </div>
 

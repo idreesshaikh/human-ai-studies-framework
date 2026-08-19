@@ -17,7 +17,13 @@
 
 import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
 import { isDemoStudy } from "./demo.ts";
-import type { Recommendation } from "./types";
+import type {
+  PowerCurve,
+  PowerDoc,
+  PowerPoint,
+  PowerRequirement,
+  Recommendation,
+} from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -439,6 +445,35 @@ export const studyApi = {
         ),
       SEED_PRESCRIPTIONS,
     ),
+  /** The power/sensitivity curve (P2-2): exact two-sample t-test power
+   * (non-central t, equal per-group n, two-sided) across per-group n, plus
+   * the first n reaching the target power, per effect size. Planning math
+   * over the study's planned comparison — the payload carries its own model
+   * and assumptions, so the panel renders them without hardcoding. Offline:
+   * the demo study gets a normal-approximation stand-in of the same formula
+   * (the seeded-data banner says so); real studies get an honest empty doc. */
+  power: (
+    study: string,
+    opts: {
+      alpha?: number;
+      maxN?: number;
+      powerTarget?: number;
+      effectSizes?: number[];
+    } = {},
+  ) =>
+    liveOrSeedStudy(
+      study,
+      () => {
+        const q = new URLSearchParams();
+        q.set("alpha", String(opts.alpha ?? 0.05));
+        q.set("maxN", String(opts.maxN ?? 120));
+        q.set("powerTarget", String(opts.powerTarget ?? 0.8));
+        q.set("effectSizes", (opts.effectSizes ?? [0.2, 0.5, 0.8]).join(","));
+        return req<PowerDoc>(`/studies/${enc(study)}/power?${q.toString()}`);
+      },
+      seedPowerDoc(opts),
+      emptyPowerDoc(),
+    ),
   /** Synthetic dry run (FR-DRY-1): N simulated participants through the
    * real ingest path — tokens minted, session blocks recorded, events and
    * metrics stored exactly as a live capture would. The report states what
@@ -676,3 +711,82 @@ const SEED_PRESCRIPTIONS: Prescription[] = [
     rationale: "Two independent groups with no distribution assumption; Cliff's delta reports the effect honestly at small N.",
   },
 ];
+
+// Offline stand-in for the power curve (P2-2). The live payload is exact
+// non-central-t math from the middleware; the stand-in uses the normal
+// approximation of the same two-sample t-test power formula, computed
+// deterministically at module load. It exists so the demo study still
+// renders with nothing on :8000 — the existing seeded-data banner says so.
+function normCdf(x: number): number {
+  return 0.5 * (1 + erf(x / Math.SQRT2));
+}
+
+// Abramowitz & Stegun 7.1.26 — good to ~1.5e-7, plenty for a stand-in.
+function erf(x: number): number {
+  const t = 1 / (1 + 0.3275911 * Math.abs(x));
+  const y =
+    1 -
+    (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) *
+      t *
+      Math.exp(-x * x);
+  return x >= 0 ? y : -y;
+}
+
+const Z_ALPHA: Record<number, number> = { 0.01: 2.5758293035, 0.05: 1.9599639845, 0.1: 1.644853627 };
+
+function seedPowerDoc(opts: {
+  alpha?: number;
+  maxN?: number;
+  powerTarget?: number;
+  effectSizes?: number[];
+}): PowerDoc {
+  const alpha = opts.alpha ?? 0.05;
+  const powerTarget = opts.powerTarget ?? 0.8;
+  const maxTotalN = opts.maxN ?? 120;
+  const sizes = opts.effectSizes ?? [0.2, 0.5, 0.8];
+  const zCrit = Z_ALPHA[alpha] ?? 1.9599639845;
+  const maxPerGroup = Math.floor(maxTotalN / 2);
+  const curves: PowerCurve[] = [];
+  const requiredN: PowerRequirement[] = [];
+  for (const d of sizes) {
+    const points: PowerPoint[] = [];
+    for (let n = 2; n <= maxPerGroup; n += 1) {
+      const power = Math.min(
+        1,
+        Math.max(
+          0,
+          1 - normCdf(zCrit - d * Math.sqrt(n / 2)) + normCdf(-zCrit - d * Math.sqrt(n / 2)),
+        ),
+      );
+      points.push({ nPerGroup: n, totalN: 2 * n, power: Math.round(power * 1e6) / 1e6 });
+    }
+    const reached = points.find((p) => p.power >= powerTarget);
+    requiredN.push({
+      effectSize: d,
+      nPerGroup: reached?.nPerGroup ?? null,
+      totalN: reached?.totalN ?? null,
+      powerAtTargetN: reached?.power ?? null,
+      reachesTarget: reached !== undefined,
+    });
+    curves.push({ effectSize: d, points });
+  }
+  return {
+    model: "two-sample t-test, independent means, equal per-group n, two-sided",
+    alpha,
+    powerTarget,
+    maxTotalN,
+    curves,
+    requiredN,
+  };
+}
+
+function emptyPowerDoc(): PowerDoc {
+  return {
+    model: "two-sample t-test, independent means, equal per-group n, two-sided",
+    alpha: 0.05,
+    powerTarget: 0.8,
+    maxTotalN: 120,
+    curves: [],
+    requiredN: [],
+  };
+}

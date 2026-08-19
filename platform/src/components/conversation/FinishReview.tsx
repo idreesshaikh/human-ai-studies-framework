@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -86,10 +86,7 @@ export function FinishReview({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
-        <DialogTitle className="flex items-center gap-2">
-          
-          Prepare your protocol draft
-        </DialogTitle>
+        <DialogTitle>Prepare your protocol draft</DialogTitle>
         <DialogDescription>
           This is what your conversation became. Review it, then apply it to the
           protocol: the study's document of record.
@@ -195,7 +192,15 @@ export function FinishReview({
             Keep editing
           </Button>
           <Button onClick={onApply} disabled={!valid || applying || applied}>
-            {applied ? "Applied ✓" : applying ? "Applying…" : "Apply to protocol"}
+            {applied ? (
+              <>
+                <Check aria-hidden /> Applied
+              </>
+            ) : applying ? (
+              "Applying…"
+            ) : (
+              "Apply to protocol"
+            )}
           </Button>
         </div>
       </DialogContent>

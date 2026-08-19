@@ -1,6 +1,6 @@
 import { useNavigate, Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
@@ -96,7 +96,15 @@ export function ProjectHome() {
   // Only the *first* load blanks the page; a post-delete `reload()` refetch
   // shouldn't unmount the whole tree while `studies` already reflects the
   // optimistic update — that remount was the delete-study flicker.
-  if (loading && !data) return <p className="p-6 type-body text-text-muted">Loading…</p>;
+  if (loading && !data) {
+    return (
+      <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
+        <p className="flex items-center gap-2 type-body text-text-muted">
+          <Loader2 className="size-4 animate-spin" aria-hidden /> Loading the project…
+        </p>
+      </div>
+    );
+  }
   if (error) return <div className="p-gutter"><Notice kind="problem">{error}</Notice></div>;
   if (!data) return null;
 
@@ -170,7 +178,7 @@ export function ProjectHome() {
         ) : (
           /* A roster, not a shelf. These are not alternatives to compare;
            * they are places to return to. */
-          <ul className="divide-y divide-border overflow-hidden rounded-plate border border-border bg-surface">
+          <ul className="divide-y divide-border overflow-hidden rounded-plate border border-border bg-surface shadow-sheet">
             {studies.map((st) => (
               <li key={st.id} className="relative">
                 <div className="group flex items-center gap-3 px-4 py-3 transition-colors duration-fast hover:bg-zone-9">
