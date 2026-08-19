@@ -438,9 +438,9 @@
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "3.9.2",
     "eslint": "^9.39.4",
-    "prettier": "^3.9.4",
+    "prettier": "^3.9.6",
     "typescript": "^5.4.0",
-    "typescript-eslint": "^8.63.0"
+    "typescript-eslint": "^8.67.0"
   },
   "icon": "media/icon.png"
 }
