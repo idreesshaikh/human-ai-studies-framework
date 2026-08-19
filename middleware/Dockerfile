@@ -20,11 +20,11 @@ COPY middleware/ middleware/
 COPY protocol/ protocol/
 COPY curated/ curated/
 COPY analysis/ analysis/
+COPY agent-capture/ agent-capture/
 # The template registry (FR-TPL): read from templates/registry at runtime by
 # template_registry.py. Without it the deployed platform shows zero templates.
 COPY templates/ templates/
 COPY metrics/pyproject.toml metrics/pyproject.toml
-COPY agent-capture/pyproject.toml agent-capture/pyproject.toml
 
 RUN uv sync --frozen --no-dev --package middleware
 
