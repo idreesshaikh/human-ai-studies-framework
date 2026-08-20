@@ -4,7 +4,6 @@ import { ChevronRight, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
@@ -44,25 +43,24 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
         to={`/p/${project.slug}`}
         className="group flex items-center gap-4 p-4 transition-colors duration-fast hover:bg-surface-raised"
       >
-        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-3">
-          <span className="min-w-0 grow basis-48">
-            <span className="block truncate type-subhead text-text transition-colors duration-fast group-hover:text-accent">
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="truncate type-subhead text-text transition-colors duration-fast group-hover:text-accent">
               {project.name}
             </span>
-            <span className="block truncate type-caption text-text-muted">
+            <span className="truncate type-caption text-text-muted">
               /{project.slug}
             </span>
-          </span>
-
-          <span className="flex min-w-0 grow-[1.5] basis-72 flex-col gap-1.5">
-            <span className="tabular type-caption text-text-muted sm:truncate" title={summary}>
-              {summary}
-            </span>
+          </div>
+          <span className="tabular type-caption text-text-muted">
+            {summary}
           </span>
         </span>
 
         <span className="flex shrink-0 items-center gap-3">
-          <Badge variant="outline">{ROLE_LABELS[project.role]}</Badge>
+          <span className="type-caption text-text-muted">
+            {ROLE_LABELS[project.role]}
+          </span>
           <ChevronRight
             className="hidden size-4 text-text-muted transition-all duration-fast group-hover:translate-x-0.5 group-hover:text-accent sm:block"
             aria-hidden
@@ -303,11 +301,11 @@ export function Projects() {
           line="No projects yet. A project is the room a study lives in. It owns the studies, the papers behind them, and the people you work with."
           action={
             <div className="flex flex-wrap items-center justify-center gap-2">
-              {!composing && (
-                {/* Same role, same name: an agent looking for "new-project" must
+              {/* Same role, same name: an agent looking for "new-project" must
                 * still find it when the page is empty, which is exactly when
                 * the header's copy is not rendered. The convention doc
                 * licenses sharing a value across two elements doing one job. */}
+              {!composing && (
                 <Button onClick={openComposer} data-agent="new-project">
                   <Plus aria-hidden /> Create your first project
                 </Button>
