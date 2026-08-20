@@ -66,6 +66,32 @@ To try the stuck prompt quickly, set `tern.stuck.thresholdSeconds`
 to `15` and `tern.stuck.cooldownMinutes` to `1`, start a session,
 place the cursor in a file and wiggle it occasionally without typing.
 
+### Connecting to a study (participant enrollment)
+
+The Quick start above configures the extension by hand, which is ideal for
+local testing. Real participants instead **connect to a study on the
+middleware**, so their identity, condition, and capture settings all come
+from the study protocol — no manual configuration, no side-channel.
+
+1. The researcher mints a **connection string** for the participant (from the
+   platform / middleware). It looks like `https://your-study-server#<token>`.
+2. In VS Code, run **_TERN: Connect to Study_** from the command palette and
+   paste the connection string. (A `vscode://…/pair?c=<connection-string>`
+   deep link runs the same flow.)
+3. The extension shows the study's **consent statement**; capture begins only
+   after the participant explicitly accepts.
+4. On accept, the extension fills in the participant ID, condition, study ID,
+   and the middleware endpoint automatically, and stores a session credential
+   securely (VS Code SecretStorage). A one-line summary confirms exactly what
+   the study will capture.
+5. Run **_TERN: Start Study Session_** when ready — the session uses the
+   configuration that arrived from the study.
+
+The middleware refuses to pair a study that has not cleared its ethics gate:
+no data is collected before approval. Capture settings are re-checked at the
+start of each session, so a researcher can update the protocol between
+sessions and paired participants pick up the change on their next start.
+
 ### Development
 
 ```bash
@@ -141,11 +167,11 @@ Python) and workspace-internal files.
 | `environment_snapshot` | Once at session start                                                          | vscodeVersion, extensionVersions, os, agentTool, agentModelId, taskId (FR-INST-14 replication provenance)                                                                  |
 
 Set `tern.output.httpEndpoint` (e.g.
-`http://localhost:8000/cognitive`) to also stream batched events to the
+`http://127.0.0.1:8000/ingest/events`) to also stream batched events to the
 middleware - same decoupled "lightweight sensor → local daemon" architecture
 as ActivityWatch. The JSONL file is always written regardless, so a dead
 server never loses data. Batches POST as
-`{"source":"tern","events":[...]}` every 5 s.
+`{"source":"cognitive-overlay","events":[...]}` every 5 s.
 
 ---
 

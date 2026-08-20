@@ -173,6 +173,10 @@ All settings live under the `tern.*` namespace (VS Code Settings →
 search "TERN"). Defined in `package.json` under
 `contributes.configuration`.
 
+This is the flat reference. For a task-oriented walkthrough — which settings
+matter when you set up a study, and why the defaults are what they are — see
+[`docs/configuring-a-study.md`](docs/configuring-a-study.md).
+
 | Setting                           | Default       | Meaning                                                                                         |
 | --------------------------------- | ------------- | ----------------------------------------------------------------------------------------------- |
 | `participantId`                   | `""`          | Pre-filled participant ID when starting a session                                               |
