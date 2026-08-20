@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PanelRight, PanelRightClose, Send, X } from "lucide-react";
+import { PanelRight, PanelRightClose, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { StreamingTurn } from "./StreamingTurn";
@@ -19,7 +19,6 @@ import {
 } from "@/lib/conversationApi";
 import { ApiError } from "@/lib/api";
 import { studyApi } from "@/lib/studyApi";
-import { useSession } from "@/lib/session";
 import type { StudyChange } from "@/lib/presence";
 import type { Understanding } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -70,7 +69,6 @@ export function ConversationView({
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
   const [showFinish, setShowFinish] = useState(false);
-  const [showDraft, setShowDraft] = useState(false);
   const draftFolded = usePanel("draft");
   const [rail, setRail] = useState<"papers" | "draft">("draft");
   /* The one move the caret goes to, set only when a reply lands in answer
@@ -83,35 +81,12 @@ export function ConversationView({
    * study was left at rather than on the default. */
   const [steer, setSteer] = useState<SteerLevel>(DEFAULT_STEER);
 
-  /* Which of the four marks this thread actually shows. The key is a promise
-   * that the reader will meet each mark it teaches, so it is derived from the
-   * moves on screen rather than printed in full regardless. */
-  const marksInPlay = useMemo(() => {
-    let grounded = false;
-    let unsourced = false;
-    let superseded = false;
-    for (const t of turns) {
-      for (const m of t.moves) {
-        if (m.grounding.length > 0) grounded = true;
-        else unsourced = true;
-        if (m.status === "rejected") superseded = true;
-      }
-    }
-    // A conflict mark is not produced by the conversation yet; it is reserved
-    // for two moves claiming one slot. Never claimed here until it is.
-    return { grounded, unsourced, conflict: false, superseded };
-  }, [turns]);
   const threadEnd = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
 
-  /* Where the dial starts when this study has never had it moved: driven,
-   * unless this researcher has declared themselves experienced. Their own
-   * saved setting for this study always wins over both. */
-  const { me } = useSession();
-  const profileDefault = defaultSteerFor(me?.preferences?.researcherProfile);
   useEffect(() => {
-    setSteer(readSteer(studyId, profileDefault));
-  }, [studyId, profileDefault]);
+    setSteer(readSteer(studyId, DEFAULT_STEER));
+  }, [studyId]);
 
   /* The opening line, sent once.
    *
@@ -569,14 +544,12 @@ export function ConversationView({
       </section>
 
       {/* Right rail: toggle between literature and protocol draft.
-          Desktop: minimizable via fold button, persisted per device.
-          Mobile: toggled via composer button (showDraft). */}
+          Desktop: minimizable via fold button, persisted per device. */}
       <div
         className={cn(
           "flex min-h-0 flex-col border-l border-border-strong transition-all duration-fast",
           draftFolded ? "w-[2.125rem]" : "w-[30rem]",
           "hidden lg:flex",
-          showDraft ? "flex lg:flex" : "hidden",
         )}
       >
         {!draftFolded && (

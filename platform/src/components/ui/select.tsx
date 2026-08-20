@@ -3,11 +3,10 @@ import { ChevronDown, Check } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuCheckboxItem,
+  DropdownMenuCheckItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/cn";
-import { Button } from "@/components/ui/button";
 
 export interface SelectOption {
   value: string;
@@ -50,10 +49,10 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-full min-w-56">
           {options.map((option) => (
-            <DropdownMenuCheckboxItem
+            <DropdownMenuCheckItem
               key={option.value}
               checked={value === option.value}
-              onCheckedChange={() => onValueChange?.(option.value)}
+              onSelect={() => onValueChange?.(option.value)}
               className="cursor-pointer"
             >
               <Check className="mr-2 size-4" aria-hidden />
@@ -63,7 +62,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
                   <span className="type-caption text-text-muted">{option.hint}</span>
                 )}
               </div>
-            </DropdownMenuCheckboxItem>
+            </DropdownMenuCheckItem>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>

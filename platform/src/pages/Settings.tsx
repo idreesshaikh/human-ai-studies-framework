@@ -12,7 +12,6 @@ import { useAsync } from "@/lib/useAsync";
 import { ApiError } from "@/lib/api.ts";
 import { resolveRole, roleOrNull } from "@/lib/role";
 import type { Theme } from "@/lib/theme";
-import { FALLBACK_RESEARCHER_PROFILES, type ResearcherProfile } from "@/lib/api";
 
 /* Project settings: rename, and an owner-only danger zone whose delete
  * requires typing DELETE to confirm. Plus the signed-in identity's own
@@ -30,8 +29,6 @@ export function Settings() {
   // used to be four hardcoded options here that had already drifted from it
   // (e.g. "Industry" vs the server's "Industry practitioner"). Falls back to
   // the same catalogue offline rather than an empty select.
-  const researcherProfiles = useAsync(() => api.researcherProfiles(), [api]);
-  const profileOptions = researcherProfiles.data?.profiles ?? FALLBACK_RESEARCHER_PROFILES;
   const [name, setName] = useState("");
   const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState("");

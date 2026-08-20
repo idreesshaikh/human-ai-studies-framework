@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhoenixMark } from "@/components/brand/PhoenixMark";
-import { Constellation } from "@/components/brand/Constellation";
+import { ObservatoryField } from "@/components/brand/ObservatoryField";
 import { HeroShowcase } from "@/components/hero/HeroShowcase";
 
 /* The public front. It doesn't run a live model any more (the old embedded
@@ -18,7 +18,7 @@ export function Hero() {
   return (
     <div className="relative mx-auto flex min-h-full max-w-wide flex-col gap-14 px-6 py-16 sm:py-24">
       {/* Ambient artwork, behind everything and non-interactive. */}
-      <Constellation className="pointer-events-none absolute inset-0 -z-10 h-full w-full opacity-70" />
+      <ObservatoryField className="pointer-events-none absolute inset-0 -z-10 h-full w-full" />
 
       <header className="flex flex-col items-center gap-7 text-center">
         <div className="flex animate-in items-center gap-2.5 fade-in duration-entrance ease-out">

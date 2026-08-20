@@ -639,6 +639,31 @@ body::before {
   right: 0;
 }
 
+/* Grade: four pips in a row, filled to show confidence level 1-4. Replaces the
+ * continuous magnitude mark with a discrete system for clearer visual comparison
+ * across citations. Each pip is a small circle, filled if part of the confidence
+ * grade or hollow if above it. */
+.grade {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+}
+.grade-pip {
+  display: inline-block;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--mark);
+}
+.grade-pip-off {
+  background: transparent;
+  border: 1px solid var(--text-muted);
+}
+.grade-unrated {
+  opacity: 0.5;
+}
+
 /* Superseded: struck once and left legible. Nothing in this product is ever
  * erased; an amendment strikes the line it replaces and both stay readable. */
 .superseded {

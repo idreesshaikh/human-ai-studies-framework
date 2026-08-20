@@ -1,7 +1,8 @@
 import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Badge } from "@/components/ui/badge";
-import { Confidence, MagnitudeMark } from "./Confidence";
+import { Confidence } from "./Confidence";
+import { GradeMark, magnitude } from "./GradeMark";
 import type { Grounding } from "@/lib/types";
 
 /* A citation chip: the paper title (quality shown as a confidence meter in the
@@ -97,13 +98,11 @@ export function GroundingChip({ g }: { g: Grounding }) {
           className="type-caption max-w-full gap-1.5 normal-case tracking-normal"
         >
           {g.confidence != null && (
-            /* A fixed 12px box, shrink-0: this is a flex item beside a
-               wrapping title, and without a floor the title squeezed the
-               swatch toward zero — which in this system reads as "no
-               evidence", the opposite of what a strong citation means. The
-               box is fixed; the mark inside it is what varies. */
-            <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center self-start">
-              <MagnitudeMark value={g.confidence} />
+            /* Four pips, filled based on confidence level (1-4 scale). This replaces
+               the continuous magnitude mark with a discrete five-level system for
+               clearer visual comparison across citations. */
+            <span className="mt-0.5 shrink-0 self-start">
+              <GradeMark level={magnitude(g.confidence)} />
             </span>
           )}
           {/* Two lines of title, not one clamped line: a citation cut to
