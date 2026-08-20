@@ -173,6 +173,9 @@ as ActivityWatch. The JSONL file is always written regardless, so a dead
 server never loses data. Batches POST as
 `{"source":"cognitive-overlay","events":[...]}` every 5 s.
 
+If a capture leg looks empty, events aren't reaching the middleware, or a
+prompt never fires, see [`docs/troubleshooting.md`](docs/troubleshooting.md).
+
 ---
 
 ## How stuck detection works
