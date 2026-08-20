@@ -1,0 +1,155 @@
+- generic [ref=f4e3]:
+  - banner [ref=f4e4]:
+    - link "Phoenix, home" [ref=f4e5] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=f4e19]: Phoenix
+    - generic [ref=f4e20]:
+      - button "Switch project ⌘K" [ref=f4e21]:
+        - text: Switch project
+        - generic [ref=f4e24]: ⌘K
+      - 'button "Theme: light" [ref=f4e25]'
+      - button "Account" [ref=f4e32]:
+        - generic [ref=f4e33]: "Y"
+  - generic [ref=f4e34]:
+    - navigation "Main" [ref=f4e35]:
+      - generic [ref=f4e36]:
+        - link "Projects" [ref=f4e37] [cursor=pointer]:
+          - /url: /home
+        - link "Templates" [ref=f4e40] [cursor=pointer]:
+          - /url: /repertoire
+      - paragraph [ref=f4e45]: Project
+      - generic [ref=f4e46]:
+        - link "Studies" [ref=f4e47] [cursor=pointer]:
+          - /url: /p/demo
+        - link "Members" [ref=f4e50] [cursor=pointer]:
+          - /url: /p/demo/members
+        - link "Settings" [ref=f4e56] [cursor=pointer]:
+          - /url: /p/demo/settings
+    - main [ref=f4e60]:
+      - generic [ref=f4e61]:
+        - generic [ref=f4e62]:
+          - link "demo" [ref=f4e63] [cursor=pointer]:
+            - /url: /p/demo
+          - generic [ref=f4e66]:
+            - button "Share and export" [ref=f4e68]:
+              - generic [ref=f4e72]: Share
+            - button "How this workspace works" [ref=f4e73]
+        - generic [ref=f4e77]:
+          - heading "ai-and-developer-productivity" [level=1] [ref=f4e78]
+          - navigation "Study sections" [ref=f4e79]:
+            - button "Conversation" [ref=f4e80]
+            - button "Library" [ref=f4e85]
+            - button "Data" [ref=f4e89]
+            - button "Planning" [ref=f4e93]
+            - button "Participants" [ref=f4e99]
+        - generic [ref=f4e106]:
+          - generic [ref=f4e107]:
+            - generic [ref=f4e110]:
+              - generic [ref=f4e111]: Steer
+              - slider "Steer" [ref=f4e112]: "3"
+              - paragraph [ref=f4e113]: Leads. Asks one question at a time and names the next move itself.
+            - generic [ref=f4e115]:
+              - generic [ref=f4e117]:
+                - generic [ref=f4e118]: Platform
+                - text: "What do you want to find out? Try: “Junior developers over-trust AI-generated code.”"
+              - region "How the design conversation works" [ref=f4e119]:
+                - generic [ref=f4e120]:
+                  - heading "How this record gets written" [level=2] [ref=f4e121]
+                  - list [ref=f4e122]:
+                    - listitem [ref=f4e123]:
+                      - generic [ref=f4e124]: "1"
+                      - paragraph [ref=f4e125]: Describe the idea in plain language, in the box below. The platform asks the follow-up questions a methodologist would ask.
+                    - listitem [ref=f4e126]:
+                      - generic [ref=f4e127]: "2"
+                      - paragraph [ref=f4e128]: Rule on what it proposes. Each design move arrives cited into the paper corpus, or plainly labelled unsourced. Accept or reject them one at a time.
+                      - generic [ref=f4e129]:
+                        - generic [ref=f4e130]: bigger mark, stronger evidence
+                        - generic [ref=f4e139]: "unsourced: your call"
+                    - listitem [ref=f4e142]:
+                      - generic [ref=f4e143]: "3"
+                      - paragraph [ref=f4e144]: Compile the protocol. Everything you accept is folded into the protocol draft by the compiler, not by the model. Say “finish” when you want to review the diff and apply it.
+                - generic [ref=f4e145]:
+                  - heading "Or start from one of these" [level=2] [ref=f4e146]
+                  - list [ref=f4e147]:
+                    - listitem [ref=f4e148]:
+                      - button "Does an AI assistant change how much code developers rewrite before they ship?" [ref=f4e149]
+                    - listitem [ref=f4e151]:
+                      - button "Compare how long debugging takes with and without an AI pair." [ref=f4e152]
+                    - listitem [ref=f4e154]:
+                      - button "Do developers review AI-written code as carefully as code they wrote themselves?" [ref=f4e155]
+                  - paragraph [ref=f4e157]: Picking one fills the box. Nothing is sent until you send it.
+            - generic [ref=f4e159]:
+              - textbox "Message the design assistant" [ref=f4e160]:
+                - /placeholder: What do you want to find out?
+              - button "Send" [ref=f4e161]
+          - generic [ref=f4e165]:
+            - 'radiogroup "Right panel: literature or protocol draft" [ref=f4e167]':
+              - radio "Protocol draft" [checked] [ref=f4e168]
+              - radio "Literature" [ref=f4e169]
+            - complementary [ref=f4e171]:
+              - generic [ref=f4e172]:
+                - generic [ref=f4e173]:
+                  - heading "Protocol draft" [level=2] [ref=f4e174]
+                  - paragraph [ref=f4e175]: Compiled from the moves you've accepted.
+                - button "What are these sections?" [ref=f4e176]
+              - generic [ref=f4e180]:
+                - generic [ref=f4e181]:
+                  - generic [ref=f4e182]: Steps covered
+                  - generic [ref=f4e183]: 0 / 8
+                - generic [ref=f4e185]:
+                  - paragraph [ref=f4e186]: Filling the protocol
+                  - list [ref=f4e187]:
+                    - listitem [ref=f4e188]:
+                      - generic [ref=f4e190]: Research questions
+                      - generic [ref=f4e191]: now
+                    - listitem [ref=f4e192]:
+                      - generic [ref=f4e194]: Design
+                    - listitem [ref=f4e195]:
+                      - generic [ref=f4e197]: Participants
+                    - listitem [ref=f4e198]:
+                      - generic [ref=f4e200]: Conditions
+                    - listitem [ref=f4e201]:
+                      - generic [ref=f4e203]: Measures
+                    - listitem [ref=f4e204]:
+                      - generic [ref=f4e206]: Instruments
+                    - listitem [ref=f4e207]:
+                      - generic [ref=f4e209]: Statistical plan
+                    - listitem [ref=f4e210]:
+                      - generic [ref=f4e212]: Ethics posture
+                - paragraph [ref=f4e213]: "Not covered yet: Research questions, Design, Participants, Conditions, Measures, Instruments, Statistical plan, Ethics posture."
+              - generic [ref=f4e214]:
+                - button "Review draft" [ref=f4e215]
+                - button "Apply to protocol" [disabled]
+              - list [ref=f4e217]:
+                - listitem [ref=f4e218]:
+                  - generic [ref=f4e219]: Research questions
+                  - img "not yet resolved" [ref=f4e220]
+                - listitem [ref=f4e221]:
+                  - generic [ref=f4e222]: Design
+                  - img "not yet resolved" [ref=f4e223]
+                - listitem [ref=f4e224]:
+                  - generic [ref=f4e225]: Participants
+                  - img "not yet resolved" [ref=f4e226]
+                - listitem [ref=f4e227]:
+                  - generic [ref=f4e228]: Conditions
+                  - img "not yet resolved" [ref=f4e229]
+                - listitem [ref=f4e230]:
+                  - generic [ref=f4e231]: Measures
+                  - img "not yet resolved" [ref=f4e232]
+                - listitem [ref=f4e233]:
+                  - generic [ref=f4e234]: Instruments
+                  - img "not yet resolved" [ref=f4e235]
+                - listitem [ref=f4e236]:
+                  - generic [ref=f4e237]: Statistical plan
+                  - img "not yet resolved" [ref=f4e238]
+                - listitem [ref=f4e239]:
+                  - generic [ref=f4e240]: Ethics posture
+                  - img "not yet resolved" [ref=f4e241]
+        - dialog "Getting started" [ref=f4e242]:
+          - generic [ref=f4e243]:
+            - button "Skip the tour" [ref=f4e252]
+            - heading "Talk your study into existence" [level=2] [ref=f4e256]
+            - paragraph [ref=f4e257]: "Start here. Describe a research idea in plain language and the assistant asks the questions a methodologist would. Its answers arrive as “moves”: one proposed decision each — a sample size, a condition to compare, a measure to take — which you accept or reject one at a time. Type “finish” when you're ready to compile the ones you kept into a protocol."
+            - generic [ref=f4e258]:
+              - generic [ref=f4e259]: Step 1 of 6
+              - button "Next" [ref=f4e261]

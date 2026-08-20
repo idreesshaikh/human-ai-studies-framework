@@ -92,17 +92,12 @@ export function CreateStudyFrom({
             Project
           </label>
           <Select
-            id="seed-project"
             value={slug}
-            onChange={(e) => setSlug(e.target.value)}
+            onValueChange={setSlug}
+            options={projects.map((p) => ({ value: p.slug, label: p.name }))}
+            placeholder="Choose project…"
             className="w-auto min-w-40"
-          >
-            {projects.map((p) => (
-              <option key={p.slug} value={p.slug}>
-                {p.name}
-              </option>
-            ))}
-          </Select>
+          />
           <Input
             className="min-w-0 flex-1 basis-48"
             placeholder="Name the study…"

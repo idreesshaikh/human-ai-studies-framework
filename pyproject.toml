@@ -19,6 +19,11 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff>=0.8",
 ]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocs-git-revision-date-localized-plugin>=1.2",
+]
 
 [tool.ruff]
 line-length = 88

@@ -177,17 +177,14 @@ export function DeriveFromPaper({
           <span className="type-caption text-text-muted">through</span>
           <Select
             value={baseId}
-            onChange={(e) => setBaseId(e.target.value)}
-            aria-label="Base archetype"
+            onValueChange={setBaseId}
+            options={templates.map((t) => ({
+              value: t.id,
+              label: `${t.designType}: ${t.title}`,
+            }))}
+            placeholder="Choose an archetype…"
             className="w-auto"
-          >
-            <option value="">Choose an archetype…</option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.designType}: {t.title}
-              </option>
-            ))}
-          </Select>
+          />
           <Button size="sm" onClick={derive} disabled={!baseId || busy}>
             {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
             Derive template

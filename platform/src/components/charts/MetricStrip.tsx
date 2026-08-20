@@ -119,15 +119,10 @@ export function MetricStrip({
           Metric
           <Select
             value={metricKey}
-            onChange={(e) => setMetricKey(e.target.value)}
-            className="h-8 w-auto py-1"
-          >
-            {METRICS.map((m) => (
-              <option key={m.key} value={m.key}>
-                {m.label}
-              </option>
-            ))}
-          </Select>
+            onValueChange={setMetricKey}
+            options={METRICS.map((m) => ({ value: m.key, label: m.label }))}
+            className="h-8 w-auto"
+          />
         </label>
         <Button
           size="sm"

@@ -102,59 +102,35 @@ export function Settings() {
             </p>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="theme">Theme</Label>
+            <Label>Theme</Label>
             <Select
-              id="theme"
-              value={prefs.theme ?? "system"}
-              onChange={(e) => void setThemePreference(e.target.value as Theme)}
-            >
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </Select>
+              value={prefs.theme ?? "light"}
+              onValueChange={(v) => void setThemePreference(v as Theme)}
+              options={[
+                { value: "light", label: "Light" },
+                { value: "dark", label: "Dark" },
+              ]}
+            />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="researcher-profile">Your research experience</Label>
+            <Label>Default assistant model</Label>
             <Select
-              id="researcher-profile"
-              value={prefs.researcherProfile ?? ""}
-              onChange={(e) =>
-                void updatePreferences({
-                  researcherProfile:
-                    (e.target.value || undefined) as ResearcherProfile | undefined,
-                })
-              }
-            >
-              <option value="">Not saying</option>
-              {profileOptions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}: {p.description}
-                </option>
-              ))}
-            </Select>
-            <p className="type-caption text-text-muted">
-              The design conversation adapts how it talks to you: how much it
-              explains, how fast it moves, and which trade-offs it raises. What
-              counts as a sound design never changes.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="model">Default assistant model</Label>
-            <Select
-              id="model"
               value={prefs.defaultAssistantModel ?? models.data?.defaultModel ?? ""}
-              onChange={(e) => void saveModel(e.target.value)}
+              onValueChange={(v) => void saveModel(v)}
+              options={[
+                ...(modelOptions.length > 0
+                  ? []
+                  : [
+                      {
+                        value: "",
+                        label: "Use deployment default",
+                      },
+                    ]),
+                ...modelOptions.map((m) => ({ value: m, label: m })),
+              ]}
               disabled={modelOptions.length === 0}
-            >
-              {!prefs.defaultAssistantModel && (
-                <option value="">Use deployment default</option>
-              )}
-              {modelOptions.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </Select>
+              placeholder="Select model…"
+            />
             {modelOptions.length === 0 && (
               <p className="type-caption text-text-muted">
                 No assistant models are configured on this deployment.

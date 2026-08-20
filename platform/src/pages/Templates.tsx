@@ -109,7 +109,7 @@ export function Templates() {
           Proven design shapes, ranked by how widely the corpus uses them. The
           papers that used a shape are its references; pick two or more shapes
           and merge them into one novel protocol, grounded in every paper it
-          draws from. No project needed to browse — a merge can become a study
+          draws from. No project needed to browse, a merge can become a study
           in any of your projects.
         </p>
       </div>
@@ -467,7 +467,7 @@ function MergedResult({
        * from there in the conversation. */}
       <CreateStudyFrom
         protocol={result.protocol}
-        label="Turn this into a study — the merged protocol seeds its draft"
+        label="Turn this into a study. the merged protocol seeds its draft"
       />
     </div>
   );

@@ -456,15 +456,6 @@ export function ConversationView({
       className="split-rail h-full"
     >
       <section className="flex h-full min-h-0 min-w-0 flex-col">
-        {/* The dial belongs to the conversation, so it sits at the head of
-          * it: near the chat, in view the whole time, and out of the way of
-          * the box the researcher actually came to type in. */}
-        <div className="border-b border-border px-4 py-2 sm:px-6">
-          <div className="mx-auto w-full max-w-reading">
-            <SteerDial value={steer} onChange={changeSteer} />
-          </div>
-        </div>
-
         <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
           {/* The rail only looked slim because this column was unbounded —
            * centring the thread at the reading measure is what actually
@@ -516,16 +507,6 @@ export function ConversationView({
           </div>
         </div>
 
-        {/* The key explains only the marks this thread actually carries. */}
-        {!threadEmpty && (
-          <HatchLegend
-            grounded={marksInPlay.grounded}
-            unsourced={marksInPlay.unsourced}
-            conflict={marksInPlay.conflict}
-            superseded={marksInPlay.superseded}
-          />
-        )}
-
         {note && (
           <div className="border-t border-border bg-surface px-4 py-2 sm:px-6">
             <Notice kind="offline" className="mx-auto max-w-reading">
@@ -536,28 +517,34 @@ export function ConversationView({
 
         <form
           data-agent="conversation-composer"
-          className="flex flex-col gap-2 border-t border-border bg-surface p-3 sm:p-4"
+          className="border-t border-border bg-surface px-2 py-1.5"
           onSubmit={(e) => {
             e.preventDefault();
             send();
           }}
         >
-          <div className="flex items-end gap-2">
-          <textarea
-            ref={composer}
-            className="type-body min-h-11 max-h-40 flex-1 resize-none overflow-y-auto rounded-input border border-control-edge bg-surface px-3 py-2 text-text transition-colors duration-fast hover:border-text-muted"
-            placeholder="What do you want to find out?"
-            value={input}
-            rows={1}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            aria-label="Message the design assistant"
-          />
+          {/* ONE composer frame: textarea + steer dial + send button all together,
+            * unified border, single focus treatment via index.css global. The
+            * steer is now part of the composer ergonomics, not a separate rail. */}
+          <div className="mb-1.5 flex items-center gap-1">
+            <SteerDial value={steer} onChange={changeSteer} />
+          </div>
+          <div className="flex items-center gap-1 rounded-card border border-control-edge bg-surface px-2 py-1.5 focus-within:border-accent">
+            <textarea
+              ref={composer}
+              className="type-body min-h-9 max-h-32 flex-1 resize-none overflow-y-auto border-0 bg-transparent text-text placeholder:text-text-muted"
+              placeholder="What do you want to find out?"
+              value={input}
+              rows={1}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              aria-label="Message the design assistant"
+            />
           <Button
             type="submit"
             size="icon"

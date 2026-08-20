@@ -84,47 +84,29 @@ export function PowerPanel({ studyId }: { studyId: string }) {
           <label className="flex flex-col gap-1">
             <span className="type-caption text-text-muted">alpha (two-sided)</span>
             <Select
-              value={alpha}
-              onChange={(e) => setAlpha(Number(e.target.value))}
+              value={String(alpha)}
+              onValueChange={(v) => setAlpha(Number(v))}
+              options={ALPHAS.map((a) => ({ value: String(a), label: String(a) }))}
               className="w-28"
-              aria-label="Significance level"
-            >
-              {ALPHAS.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </Select>
+            />
           </label>
           <label className="flex flex-col gap-1">
             <span className="type-caption text-text-muted">target power</span>
             <Select
-              value={powerTarget}
-              onChange={(e) => setPowerTarget(Number(e.target.value))}
+              value={String(powerTarget)}
+              onValueChange={(v) => setPowerTarget(Number(v))}
+              options={TARGETS.map((t) => ({ value: String(t), label: `${t * 100}%` }))}
               className="w-28"
-              aria-label="Target power"
-            >
-              {TARGETS.map((t) => (
-                <option key={t} value={t}>
-                  {t * 100}%
-                </option>
-              ))}
-            </Select>
+            />
           </label>
           <label className="flex flex-col gap-1">
             <span className="type-caption text-text-muted">explored range (total n)</span>
             <Select
-              value={maxN}
-              onChange={(e) => setMaxN(Number(e.target.value))}
+              value={String(maxN)}
+              onValueChange={(v) => setMaxN(Number(v))}
+              options={MAX_NS.map((n) => ({ value: String(n), label: `up to ${n}` }))}
               className="w-32"
-              aria-label="Explored total sample size"
-            >
-              {MAX_NS.map((n) => (
-                <option key={n} value={n}>
-                  up to {n}
-                </option>
-              ))}
-            </Select>
+            />
           </label>
           <div className="flex flex-col gap-1">
             <span className="type-caption text-text-muted">effect sizes (Cohen's d)</span>

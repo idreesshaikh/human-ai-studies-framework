@@ -1,0 +1,91 @@
+site_name: PHOENIX · Human–AI Study Framework
+site_description: Design, instrument, and analyse human–AI software-development studies. Documentation for the PHOENIX platform and the TERN VS Code extension.
+site_url: https://idreesshaikh.github.io/human-ai-studies-framework/
+repo_url: https://github.com/idreesshaikh/human-ai-studies-framework
+repo_name: idreesshaikh/human-ai-studies-framework
+edit_uri: blob/main/documentation/docs/
+
+theme:
+  name: material
+  custom_dir: overrides
+  icon:
+    logo: material/phoenix-framework
+    repo: fontawesome/brands/github
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.top
+    - navigation.sections
+    - navigation.expand
+    - navigation.footer
+    - toc.follow
+    - content.code.annotate
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+    - header.autohide
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - def_list
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/idreesshaikh/human-ai-studies-framework
+  generator: false
+
+copyright: Copyright &copy; 2026 — Released under the MIT License
+
+nav:
+  - Home: index.md
+  - Platform:
+    - platform/index.md
+    - platform/quickstart.md
+    - platform/design-conversation.md
+    - platform/protocol-draft.md
+    - platform/participants.md
+    - platform/data.md
+    - platform/library.md
+  - TERN Extension:
+    - extension/index.md
+    - extension/install.md
+    - extension/using.md
+    - extension/captured-data.md
+    - extension/privacy.md

@@ -1,0 +1,16 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: Phoenix
+    - heading "Talk your study into existence" [level=1] [ref=e20]
+    - paragraph [ref=e21]: Describe a research idea, in plain language. Phoenix proposes design moves grounded in the published literature, each one cited or plainly marked unsourced, and compiles the ones you keep into a protocol.
+    - generic [ref=e22]:
+      - link "Start a project" [ref=e23] [cursor=pointer]:
+        - /url: /home
+      - link "Browse proven designs" [ref=e26] [cursor=pointer]:
+        - /url: /repertoire
+  - region "How the design conversation works" [ref=e29]:
+    - 'img "A design session: from the question “Do developers over-trust AI-written code?”, Phoenix proposes a between-subjects design move, grounded in the METR 2025 and Ziegler 2022 studies. Accepted, it lands in the protocol draft as the design section." [ref=e30]':
+      - generic [ref=e31]:
+        - generic [ref=e33]: Design session
+        - generic [ref=e34]: every move cited
+      - generic [ref=e35]: ">"

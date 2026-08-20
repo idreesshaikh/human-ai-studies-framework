@@ -1,0 +1,155 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link "Phoenix, home" [ref=e5] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e19]: Phoenix
+    - generic [ref=e20]:
+      - button "Switch project ⌘K" [ref=e21]:
+        - text: Switch project
+        - generic [ref=e24]: ⌘K
+      - 'button "Theme: light" [ref=e25]'
+      - button "Account" [ref=e32]:
+        - generic [ref=e33]: "Y"
+  - generic [ref=e34]:
+    - navigation "Main" [ref=e35]:
+      - generic [ref=e36]:
+        - link "Projects" [ref=e37] [cursor=pointer]:
+          - /url: /home
+        - link "Templates" [ref=e40] [cursor=pointer]:
+          - /url: /repertoire
+      - paragraph [ref=e45]: Project
+      - generic [ref=e46]:
+        - link "Studies" [ref=e47] [cursor=pointer]:
+          - /url: /p/demo
+        - link "Members" [ref=e50] [cursor=pointer]:
+          - /url: /p/demo/members
+        - link "Settings" [ref=e56] [cursor=pointer]:
+          - /url: /p/demo/settings
+    - main [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - link "demo" [ref=e63] [cursor=pointer]:
+            - /url: /p/demo
+          - generic [ref=e66]:
+            - button "Share and export" [ref=e68]:
+              - generic [ref=e72]: Share
+            - button "How this workspace works" [ref=e73]
+        - generic [ref=e77]:
+          - heading "ai-and-developer-productivity" [level=1] [ref=e78]
+          - navigation "Study sections" [ref=e79]:
+            - button "Conversation" [ref=e80]
+            - button "Library" [ref=e85]
+            - button "Data" [ref=e89]
+            - button "Planning" [ref=e93]
+            - button "Participants" [ref=e99]
+        - generic [ref=e106]:
+          - generic [ref=e107]:
+            - generic [ref=e110]:
+              - generic [ref=e111]: Steer
+              - slider "Steer" [ref=e112]: "3"
+              - paragraph [ref=e113]: Leads. Asks one question at a time and names the next move itself.
+            - generic [ref=e115]:
+              - generic [ref=e117]:
+                - generic [ref=e118]: Platform
+                - text: "What do you want to find out? Try: “Junior developers over-trust AI-generated code.”"
+              - region "How the design conversation works" [ref=e119]:
+                - generic [ref=e120]:
+                  - heading "How this record gets written" [level=2] [ref=e121]
+                  - list [ref=e122]:
+                    - listitem [ref=e123]:
+                      - generic [ref=e124]: "1"
+                      - paragraph [ref=e125]: Describe the idea in plain language, in the box below. The platform asks the follow-up questions a methodologist would ask.
+                    - listitem [ref=e126]:
+                      - generic [ref=e127]: "2"
+                      - paragraph [ref=e128]: Rule on what it proposes. Each design move arrives cited into the paper corpus, or plainly labelled unsourced. Accept or reject them one at a time.
+                      - generic [ref=e129]:
+                        - generic [ref=e130]: bigger mark, stronger evidence
+                        - generic [ref=e139]: "unsourced: your call"
+                    - listitem [ref=e142]:
+                      - generic [ref=e143]: "3"
+                      - paragraph [ref=e144]: Compile the protocol. Everything you accept is folded into the protocol draft by the compiler, not by the model. Say “finish” when you want to review the diff and apply it.
+                - generic [ref=e145]:
+                  - heading "Or start from one of these" [level=2] [ref=e146]
+                  - list [ref=e147]:
+                    - listitem [ref=e148]:
+                      - button "Does an AI assistant change how much code developers rewrite before they ship?" [ref=e149]
+                    - listitem [ref=e151]:
+                      - button "Compare how long debugging takes with and without an AI pair." [ref=e152]
+                    - listitem [ref=e154]:
+                      - button "Do developers review AI-written code as carefully as code they wrote themselves?" [ref=e155]
+                  - paragraph [ref=e157]: Picking one fills the box. Nothing is sent until you send it.
+            - generic [ref=e159]:
+              - textbox "Message the design assistant" [ref=e160]:
+                - /placeholder: What do you want to find out?
+              - button "Send" [ref=e161]
+          - generic [ref=e165]:
+            - 'radiogroup "Right panel: literature or protocol draft" [ref=e167]':
+              - radio "Protocol draft" [checked] [ref=e168]
+              - radio "Literature" [ref=e169]
+            - complementary [ref=e171]:
+              - generic [ref=e172]:
+                - generic [ref=e173]:
+                  - heading "Protocol draft" [level=2] [ref=e174]
+                  - paragraph [ref=e175]: Compiled from the moves you've accepted.
+                - button "What are these sections?" [ref=e176]
+              - generic [ref=e180]:
+                - generic [ref=e181]:
+                  - generic [ref=e182]: Steps covered
+                  - generic [ref=e183]: 0 / 8
+                - generic [ref=e185]:
+                  - paragraph [ref=e186]: Filling the protocol
+                  - list [ref=e187]:
+                    - listitem [ref=e188]:
+                      - generic [ref=e190]: Research questions
+                      - generic [ref=e191]: now
+                    - listitem [ref=e192]:
+                      - generic [ref=e194]: Design
+                    - listitem [ref=e195]:
+                      - generic [ref=e197]: Participants
+                    - listitem [ref=e198]:
+                      - generic [ref=e200]: Conditions
+                    - listitem [ref=e201]:
+                      - generic [ref=e203]: Measures
+                    - listitem [ref=e204]:
+                      - generic [ref=e206]: Instruments
+                    - listitem [ref=e207]:
+                      - generic [ref=e209]: Statistical plan
+                    - listitem [ref=e210]:
+                      - generic [ref=e212]: Ethics posture
+                - paragraph [ref=e213]: "Not covered yet: Research questions, Design, Participants, Conditions, Measures, Instruments, Statistical plan, Ethics posture."
+              - generic [ref=e214]:
+                - button "Review draft" [ref=e215]
+                - button "Apply to protocol" [disabled]
+              - list [ref=e217]:
+                - listitem [ref=e218]:
+                  - generic [ref=e219]: Research questions
+                  - img "not yet resolved" [ref=e220]
+                - listitem [ref=e221]:
+                  - generic [ref=e222]: Design
+                  - img "not yet resolved" [ref=e223]
+                - listitem [ref=e224]:
+                  - generic [ref=e225]: Participants
+                  - img "not yet resolved" [ref=e226]
+                - listitem [ref=e227]:
+                  - generic [ref=e228]: Conditions
+                  - img "not yet resolved" [ref=e229]
+                - listitem [ref=e230]:
+                  - generic [ref=e231]: Measures
+                  - img "not yet resolved" [ref=e232]
+                - listitem [ref=e233]:
+                  - generic [ref=e234]: Instruments
+                  - img "not yet resolved" [ref=e235]
+                - listitem [ref=e236]:
+                  - generic [ref=e237]: Statistical plan
+                  - img "not yet resolved" [ref=e238]
+                - listitem [ref=e239]:
+                  - generic [ref=e240]: Ethics posture
+                  - img "not yet resolved" [ref=e241]
+        - dialog "Getting started" [ref=e242]:
+          - generic [ref=e243]:
+            - button "Skip the tour" [ref=e252]
+            - heading "Talk your study into existence" [level=2] [ref=e256]
+            - paragraph [ref=e257]: "Start here. Describe a research idea in plain language and the assistant asks the questions a methodologist would. Its answers arrive as “moves”: one proposed decision each — a sample size, a condition to compare, a measure to take — which you accept or reject one at a time. Type “finish” when you're ready to compile the ones you kept into a protocol."
+            - generic [ref=e258]:
+              - generic [ref=e259]: Step 1 of 6
+              - button "Next" [ref=e261]
