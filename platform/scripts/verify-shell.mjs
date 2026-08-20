@@ -53,11 +53,13 @@ ok("create project makes creator an owner", created.role === "owner", created.sl
 const mine = await api.listProjects();
 ok("new project appears in my list", mine.some((p) => p.slug === created.slug));
 
-// Invitation is single-use.
-const inv = await api.createInvitation("sample-lab", "newbie@lab.test", "researcher");
+// Invitations are reusable (Phase 7b: email-less share links).
+const inv = await api.createInvitation("sample-lab", "viewer");
 const accepted = await api.acceptInvitation(inv.token);
-ok("accepting an invitation returns its role", accepted.role === "researcher");
-await throws("re-accepting the same token fails", 404, () => api.acceptInvitation(inv.token));
+// Existing member keeps their role; invitations don't downgrade.
+ok("accepting a link as existing member keeps role", accepted.role === "owner");
+const reaccepted = await api.acceptInvitation(inv.token);
+ok("re-accepting the same link is allowed (reusable)", reaccepted.role === "owner");
 
 // Role change sticks.
 await api.changeRole("sample-lab", "sam@lab.test", "researcher");

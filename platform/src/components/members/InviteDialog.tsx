@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useApi } from "@/lib/session";
@@ -18,35 +17,36 @@ import { ApiError, type Invitation } from "@/lib/api.ts";
 
 const INVITABLE: Role[] = ["researcher", "viewer"];
 
-/* Invite a colleague. When email delivery is configured (D40) the invite is
- * sent to their address; either way a one-time copy-link is returned, so a
- * self-hosted instance with no mail config still works. Expiry is stated in
- * plain language. */
+/* Invite a colleague with a reusable share link. Pick a role and get a link
+ * that anyone can use to join with that role. Links are revocable. */
 export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () => void }) {
   const api = useApi();
   const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("researcher");
   const [invite, setInvite] = useState<Invitation | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const reset = () => {
-    setEmail("");
     setRole("researcher");
     setInvite(null);
     setCopied(false);
     setError("");
+    setBusy(false);
   };
 
   const submit = async () => {
     setError("");
+    setBusy(true);
     try {
-      const inv = await api.createInvitation(slug, email, role);
+      const inv = await api.createInvitation(slug, role);
       setInvite(inv);
       onInvited();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Could not create the invitation.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -70,30 +70,16 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogTitle>Invite a colleague</DialogTitle>
+        <DialogTitle>Share this project</DialogTitle>
         <DialogDescription>
-          We'll email them an invite link if mail is set up here, and you
-          always get a one-time link to share yourself. It works once and
-          expires in 7 days.
+          Create a link and share it with teammates. The link works for anyone
+          who clicks it and can be revoked anytime.
         </DialogDescription>
 
         {!invite ? (
           <div className="mt-4 flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <Label htmlFor="invite-email">Their email</Label>
-              <p className="type-caption text-text-muted">
-                Where we send the invite link (when mail is configured).
-              </p>
-              <Input
-                id="invite-email"
-                type="email"
-                placeholder="colleague@lab.example"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>Role</Label>
+              <Label>Invite as</Label>
               <SegmentedControl
                 aria-label="Role"
                 value={role}
@@ -102,31 +88,15 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
               />
             </div>
             {error && <Notice kind="problem">{error}</Notice>}
-            <Button onClick={submit} disabled={!email.trim()} className="mt-1 self-start">
-              Create invitation
+            <Button onClick={submit} disabled={busy} className="mt-1 self-start">
+              {busy ? "Creating…" : "Create link"}
             </Button>
           </div>
         ) : (
           <div className="mt-4 flex flex-col gap-3">
             <p className="type-body text-text">
-              {invite.emailed ? (
-                <>
-                  Sent to <span className="font-medium">{invite.email}</span> as{" "}
-                  {ROLE_LABELS[invite.role]}. You can also share this link directly:
-                </>
-              ) : (
-                <>
-                  Ready for <span className="font-medium">{invite.email}</span> as{" "}
-                  {ROLE_LABELS[invite.role]}. Copy this link and send it to them
-                  yourself, email, chat, however you'd normally reach them:
-                </>
-              )}
+              Share this link to invite people as <span className="font-medium">{ROLE_LABELS[invite.role]}</span>:
             </p>
-            {!invite.emailed && invite.emailReason && (
-              <p className="rounded-input border border-border bg-bg p-2 type-caption text-text-muted">
-                {invite.emailReason}
-              </p>
-            )}
             <div className="flex items-center gap-2 rounded-input border border-border bg-bg px-2 py-1.5">
               <Link2 className="size-4 shrink-0 text-text-muted" aria-hidden />
               <span className="truncate type-quantity text-text">

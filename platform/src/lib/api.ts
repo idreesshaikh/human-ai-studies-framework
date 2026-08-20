@@ -89,14 +89,11 @@ export interface Member {
 
 export interface Invitation {
   id: string;
-  email: string;
   role: Role;
   token?: string;
   url?: string;
-  emailed?: boolean; // true when the invite email was actually sent (D40)
-  emailReason?: string; // why the email did/didn't send — surfaced when not emailed
+  createdAt?: string;
   expiresAt: string;
-  acceptedAt?: string | null;
 }
 
 export interface ProjectHome {
@@ -158,7 +155,7 @@ export interface Api {
   members(slug: string): Promise<Member[]>;
   changeRole(slug: string, sub: string, role: Role): Promise<void>;
   removeMember(slug: string, sub: string): Promise<void>;
-  createInvitation(slug: string, email: string, role: Role): Promise<Invitation>;
+  createInvitation(slug: string, role: Role): Promise<Invitation>;
   revokeInvitation(slug: string, id: string): Promise<void>;
   acceptInvitation(token: string): Promise<{ projectSlug: string; role: Role }>;
   mintEnrollmentTokens(studyId: string, count: number, grain: "participant" | "session"): Promise<EnrollmentTokenView[]>;
@@ -329,8 +326,8 @@ class HttpBackend implements Api {
     this.call<void>("PATCH", `/projects/${slug}/members/${sub}`, { role });
   removeMember = (slug: string, sub: string) =>
     this.call<void>("DELETE", `/projects/${slug}/members/${sub}`);
-  createInvitation = (slug: string, email: string, role: Role) =>
-    this.call<Invitation>("POST", `/projects/${slug}/invitations`, { email, role });
+  createInvitation = (slug: string, role: Role) =>
+    this.call<Invitation>("POST", `/projects/${slug}/invitations`, { role });
   revokeInvitation = (slug: string, id: string) =>
     this.call<void>("DELETE", `/projects/${slug}/invitations/${id}`);
   acceptInvitation = (token: string) =>
@@ -517,7 +514,7 @@ export class InMemoryBackend implements Api {
       name: p.name,
       studies: p.studies,
       members: p.members,
-      invitations: p.invitations.filter((i) => !i.acceptedAt),
+      invitations: p.invitations,
     };
   }
 
@@ -584,20 +581,17 @@ export class InMemoryBackend implements Api {
     p.members = p.members.filter((x) => x.identitySub !== sub);
   }
 
-  async createInvitation(slug: string, email: string, role: Role): Promise<Invitation> {
+  async createInvitation(slug: string, role: Role): Promise<Invitation> {
     const p = this.get(slug);
-    if (!email.trim()) throw new ApiError(400, "email is required");
     const token = this.id("tok");
+    const now = new Date().toISOString();
     const inv: Invitation = {
       id: this.id("inv"),
-      email: email.trim(),
       role,
       token,
       url: `/invitations/${token}`,
-      emailed: false, // offline mock never sends mail
-      emailReason: "Running offline: share the copy link with them directly.",
+      createdAt: now,
       expiresAt: new Date(Date.now() + 7 * 864e5).toISOString(),
-      acceptedAt: null,
     };
     p.invitations.push(inv);
     return inv;
@@ -606,22 +600,23 @@ export class InMemoryBackend implements Api {
   async revokeInvitation(slug: string, id: string): Promise<void> {
     const p = this.get(slug);
     const before = p.invitations.length;
-    p.invitations = p.invitations.filter((i) => i.id !== id || i.acceptedAt);
+    p.invitations = p.invitations.filter((i) => i.id !== id);
     if (p.invitations.length === before) throw new ApiError(404, "invitation not found");
   }
 
   async acceptInvitation(token: string): Promise<{ projectSlug: string; role: Role }> {
     for (const p of this.projects.values()) {
-      const inv = p.invitations.find((i) => i.token === token && !i.acceptedAt);
+      const inv = p.invitations.find((i) => i.token === token);
       if (inv) {
-        inv.acceptedAt = new Date().toISOString();
         const existing = p.members.find((m) => m.identitySub === this.sub);
-        if (existing) existing.role = inv.role;
-        else p.members.push({ identitySub: this.sub, role: inv.role, invitedBy: inv.id });
-        return { projectSlug: p.slug, role: inv.role };
+        if (!existing) {
+          p.members.push({ identitySub: this.sub, role: inv.role, invitedBy: inv.id });
+          return { projectSlug: p.slug, role: inv.role };
+        }
+        return { projectSlug: p.slug, role: existing.role };
       }
     }
-    throw new ApiError(404, "invitation not found: it may have expired or already been used");
+    throw new ApiError(404, "invitation not found: it may have expired or been revoked");
   }
 
   async mintEnrollmentTokens(studyId: string, count: number, grain: "participant" | "session"): Promise<EnrollmentTokenView[]> {

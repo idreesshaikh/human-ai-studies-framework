@@ -10,7 +10,8 @@ import { ROLE_LABELS, type Role } from "@/lib/capabilities.ts";
 
 /* The landing route for an invitation link. Accepting joins the project and
  * drops the newcomer straight into it — the one celebratory moment in the
- * shell. Expired/used tokens fail with a human explanation. */
+ * shell. Expired/revoked links fail with a human explanation; a live link
+ * works for every person who clicks it. */
 export function InviteAccept() {
   const api = useApi();
   const { refresh } = useSession();

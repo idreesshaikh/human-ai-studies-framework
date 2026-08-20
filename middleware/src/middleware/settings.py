@@ -90,14 +90,6 @@ class Settings:
             if o.strip()
         )
     )
-    resend_api_key: str | None = field(
-        default_factory=lambda: os.environ.get("RESEND_API_KEY") or None
-    )
-    invite_from_email: str = field(
-        default_factory=lambda: os.environ.get(
-            "MIDDLEWARE_INVITE_FROM", "PHOENIX <onboarding@resend.dev>"
-        )
-    )
     public_base_url: str | None = field(
         default_factory=lambda: os.environ.get("MIDDLEWARE_PUBLIC_URL") or None
     )

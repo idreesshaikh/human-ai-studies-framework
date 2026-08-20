@@ -1,9 +1,10 @@
 import { useParams } from "react-router-dom";
-import { Clock, Loader2 } from "lucide-react";
+import { Clock, Loader2, Trash2 } from "lucide-react";
 import { MembersTable } from "@/components/members/MembersTable";
 import { InviteDialog } from "@/components/members/InviteDialog";
 import { RoleGate } from "@/components/shell/RoleGate";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
 import { ROLE_LABELS, type Role } from "@/lib/capabilities.ts";
@@ -54,7 +55,7 @@ export function Members() {
       {data.invitations.length > 0 && (
         <section className="flex flex-col gap-2">
           <h2 className="type-subhead flex items-center gap-2 text-text">
-            <Clock className="size-4 text-text-muted" aria-hidden /> Pending invitations
+            <Clock className="size-4 text-text-muted" aria-hidden /> Share links
           </h2>
           <div className="flex flex-col gap-2">
             {data.invitations.map((inv) => (
@@ -62,11 +63,23 @@ export function Members() {
                 key={inv.id}
                 className="flex items-center gap-2 rounded-input border border-border px-3 py-2 type-body"
               >
-                <span className="text-text">{inv.email}</span>
                 <Badge variant="outline">{ROLE_LABELS[inv.role]}</Badge>
-                <span className="ml-auto type-caption text-text-muted">
-                  expires {inv.expiresAt.slice(0, 10)}
+                <span className="type-caption text-text-muted">
+                  created {inv.createdAt?.slice(0, 10)} · expires {inv.expiresAt.slice(0, 10)}
                 </span>
+                <RoleGate role={mine} capability="manage_members">
+                  <Button
+                    size="sm"
+                    variant="subtle"
+                    aria-label={`Revoke invite link for ${ROLE_LABELS[inv.role]}`}
+                    onClick={() => {
+                      void api.revokeInvitation(slug, inv.id).then(reload);
+                    }}
+                  >
+                    <Trash2 aria-hidden className="size-3.5" />
+                    Revoke
+                  </Button>
+                </RoleGate>
               </div>
             ))}
           </div>

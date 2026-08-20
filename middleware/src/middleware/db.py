@@ -245,7 +245,7 @@ class Membership(Base):
 
 
 class Invitation(Base):
-    """A pending email-link invitation (FR-PLAT-3)."""
+    """A reusable share link into a project (FR-PLAT-3)."""
 
     __tablename__ = "invitations"
 
@@ -256,6 +256,7 @@ class Invitation(Base):
     email: Mapped[str] = mapped_column(String, default="")
     role: Mapped[str] = mapped_column(String)
     token: Mapped[str] = mapped_column(String, unique=True, index=True)
+    created_at: Mapped[str] = mapped_column(String, default="")
     expires_at: Mapped[str] = mapped_column(String)
     accepted_at: Mapped[str | None] = mapped_column(String, nullable=True)
 
@@ -577,6 +578,7 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _migrate_design_move_seq(engine)
     _migrate_enrollment_participant_index(engine)
     _migrate_event_task_id(engine)
+    _migrate_invitation_created_at(engine)
 
     if is_pg:
         _setup_pg_fts(engine)
@@ -690,6 +692,15 @@ def _migrate_event_task_id(engine) -> None:
                 text("ALTER TABLE events ADD COLUMN task_id VARCHAR DEFAULT ''")
             )
             log.info("Added task_id column to events (per-task attribution)")
+
+
+def _migrate_invitation_created_at(engine) -> None:
+    """Add ``invitations.created_at`` if missing (both dialects, idempotent)."""
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("invitations")}
+        if "created_at" not in cols:
+            conn.execute(text("ALTER TABLE invitations ADD COLUMN created_at VARCHAR"))
+            log.info("Added created_at column to invitations (share-link creation)")
 
 
 def _migrate_paper_curator_note(engine) -> None:

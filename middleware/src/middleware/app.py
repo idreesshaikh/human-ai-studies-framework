@@ -45,7 +45,6 @@ from middleware import (
     enrollment,
     ethics_package,
     evolution,
-    mailer,
     manifest,
     matching,
     paper_index,
@@ -2114,15 +2113,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         invitations = [
             {
                 "id": inv.id,
-                "email": inv.email,
                 "role": inv.role,
+                "createdAt": inv.created_at,
                 "expiresAt": inv.expires_at,
-                "acceptedAt": inv.accepted_at,
             }
             for inv in s.scalars(
-                select(Invitation).where(
-                    Invitation.project_id == proj.id, Invitation.accepted_at.is_(None)
-                )
+                select(Invitation).where(Invitation.project_id == proj.id)
             )
         ]
         return {
@@ -2347,10 +2343,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
             raise HTTPException(404, "project not found")
-        email = str(body.get("email", "")).strip()
         role = str(body.get("role", "")).strip()
-        if not email:
-            raise HTTPException(400, "email is required")
         if role not in authz.ROLES:
             raise HTTPException(400, f"role must be one of: {list(authz.ROLES)}")
         # A member can invite peers (D40), but only an owner can mint an owner invite —
@@ -2366,42 +2359,28 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 raise HTTPException(403, "only an owner can invite another owner")
         from datetime import timedelta as td
 
-        expires = clock() + td(days=7)
+        now = clock()
+        expires = now + td(days=7)
         token = secrets.token_urlsafe(32)
         inv_id = secrets.token_hex(8)
         s.add(
             Invitation(
                 id=inv_id,
                 project_id=proj.id,
-                email=email,
                 role=role,
                 token=token,
+                created_at=now.isoformat(timespec="milliseconds"),
                 expires_at=expires.isoformat(timespec="milliseconds"),
             )
         )
         s.flush()
         url = f"/invitations/{token}"
-        base = settings.public_base_url or (
-            settings.cors_origins[0] if settings.cors_origins else None
-        )
-        emailed, email_reason = mailer.send_invitation(
-            api_key=settings.resend_api_key,
-            from_email=settings.invite_from_email,
-            to_email=email,
-            project_name=proj.name,
-            role=role,
-            token=token,
-            base_url=base,
-            inviter=identity.display_name,
-        )
         return {
             "id": inv_id,
             "token": token,
             "url": url,
-            "email": email,
             "role": role,
-            "emailed": emailed,
-            "emailReason": email_reason,
+            "createdAt": now.isoformat(timespec="milliseconds"),
             "expiresAt": expires.isoformat(timespec="milliseconds"),
         }
 
@@ -2417,11 +2396,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             select(Invitation).where(
                 Invitation.project_id == proj.id,
                 Invitation.id == inv_id,
-                Invitation.accepted_at.is_(None),
             )
         )
         if inv is None:
-            raise HTTPException(404, "invitation not found or already accepted")
+            raise HTTPException(404, "invitation not found")
         s.delete(inv)
         s.flush()
         return {"revoked": inv_id}
@@ -2432,18 +2410,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         identity: auth.Identity = Depends(resolve_identity),
         s: Session = Depends(db),
     ) -> dict:
-        """Accept an invitation (FR-PLAT-3)."""
+        """Accept an invitation (FR-PLAT-3). A share link stays valid for
+        everyone who clicks it until it expires or is revoked."""
         sub = identity.sub
-        inv = s.scalar(
-            select(Invitation).where(
-                Invitation.token == token, Invitation.accepted_at.is_(None)
-            )
-        )
+        inv = s.scalar(select(Invitation).where(Invitation.token == token))
         if inv is None:
             raise HTTPException(
                 404,
-                "invitation not found. It may have expired, been revoked, "
-                "or already accepted",
+                "invitation not found. It may have expired or been revoked",
             )
         if inv.expires_at:
             try:
@@ -2472,13 +2446,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     joined_at=now(),
                 )
             )
-        else:
-            existing.role = inv.role
         proj = s.scalar(select(Project).where(Project.id == inv.project_id))
         s.flush()
         return {
             "projectSlug": proj.slug if proj else "",
-            "role": inv.role,
+            "role": existing.role if existing else inv.role,
         }
 
 

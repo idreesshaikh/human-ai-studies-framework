@@ -55,12 +55,11 @@ def make_project(client: TestClient, owner: str, name: str) -> str:
 
 def add_member(client, slug, owner, sub, role) -> None:
     """
-    Invite ``sub`` at ``role`` and accept as that identity (the real flow; the invited
-    identity's email doubles as its sub).
+    Invite ``sub`` at ``role`` and accept as that identity (the real flow).
     """
     inv = client.post(
         f"/projects/{slug}/invitations",
-        json={"email": sub, "role": role},
+        json={"role": role},
         headers=bearer(owner),
     )
     assert inv.status_code == 200, inv.text
@@ -216,18 +215,17 @@ def test_researcher_can_invite_but_not_mint_owner(client):
 
     ok = client.post(
         f"/projects/{slug}/invitations",
-        json={"email": "peer@lab.example", "role": "researcher"},
+        json={"role": "researcher"},
         headers=bearer("rea"),
     )
     assert ok.status_code == 200
     assert ok.json()["url"].startswith("/invitations/")
-    # No mail key configured in tests → degrades to copy-link, never sends.
-    assert ok.json()["emailed"] is False
+    assert ok.json()["role"] == "researcher"
 
     # A researcher cannot escalate by inviting an owner.
     escalate = client.post(
         f"/projects/{slug}/invitations",
-        json={"email": "boss@lab.example", "role": "owner"},
+        json={"role": "owner"},
         headers=bearer("rea"),
     )
     assert escalate.status_code == 403
@@ -235,7 +233,7 @@ def test_researcher_can_invite_but_not_mint_owner(client):
     # A viewer cannot invite at all.
     denied = client.post(
         f"/projects/{slug}/invitations",
-        json={"email": "x@lab.example", "role": "viewer"},
+        json={"role": "viewer"},
         headers=bearer("vic"),
     )
     assert denied.status_code == 403
@@ -397,25 +395,32 @@ def test_boot_migration_adopts_orphan_studies(tmp_path, monkeypatch):
     assert pid == "implicit"
 
 
-def test_invitation_is_single_use(client):
+def test_invitation_link_is_reusable_until_revoked(client):
     slug = make_project(client, "alice", "Lab")
     inv = client.post(
         f"/projects/{slug}/invitations",
-        json={"email": "rea", "role": "researcher"},
+        json={"role": "researcher"},
         headers=bearer("alice"),
     ).json()
     token = inv["token"]
     first = client.post(f"/invitations/{token}/accept", headers=bearer("rea"))
     assert first.status_code == 200
-    again = client.post(f"/invitations/{token}/accept", headers=bearer("rea"))
-    assert again.status_code == 404
+    # A second person can use the same link — sharing, not single-use.
+    second = client.post(f"/invitations/{token}/accept", headers=bearer("bob"))
+    assert second.status_code == 200
+    home = client.get(f"/projects/{slug}", headers=bearer("alice")).json()
+    assert {m["identitySub"] for m in home["members"]} == {"alice", "rea", "bob"}
+    # Revoking the link stops new people from joining.
+    client.delete(f"/projects/{slug}/invitations/{inv['id']}", headers=bearer("alice"))
+    gone = client.post(f"/invitations/{token}/accept", headers=bearer("carol"))
+    assert gone.status_code == 404
 
 
 def test_expired_invitation_is_refused(client, tmp_path):
     slug = make_project(client, "alice", "Lab")
     inv = client.post(
         f"/projects/{slug}/invitations",
-        json={"email": "rea", "role": "researcher"},
+        json={"role": "researcher"},
         headers=bearer("alice"),
     ).json()
     factory = make_session_factory(tmp_path / "authz.sqlite3")
