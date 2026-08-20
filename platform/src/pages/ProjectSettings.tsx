@@ -4,31 +4,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { RoleGate } from "@/components/shell/RoleGate";
 import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
 import { ApiError } from "@/lib/api.ts";
 import { resolveRole, roleOrNull } from "@/lib/role";
-import type { Theme } from "@/lib/theme";
 
 /* Project settings: rename, and an owner-only danger zone whose delete
- * requires typing DELETE to confirm. Plus the signed-in identity's own
- * profile (FR-OPS-7) — theme + default assistant model, persisted
- * server-side so they follow the person across devices. */
-export function Settings() {
+ * requires typing DELETE to confirm. */
+export function ProjectSettings() {
   const api = useApi();
-  const { me, loading: meLoading, refresh, updatePreferences, setThemePreference } =
-    useSession();
+  const { me, loading: meLoading, refresh } = useSession();
   const navigate = useNavigate();
   const { slug = "" } = useParams();
   const { data } = useAsync(() => api.projectHome(slug), [api, slug]);
-  const models = useAsync(() => api.assistantModels(), [api]);
-  // The server's own `elicitation.PROFILES` is the source of truth — this
-  // used to be four hardcoded options here that had already drifted from it
-  // (e.g. "Industry" vs the server's "Industry practitioner"). Falls back to
-  // the same catalogue offline rather than an empty select.
+
   const [name, setName] = useState("");
   const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState("");
@@ -46,9 +37,6 @@ export function Settings() {
   });
   const mine = roleOrNull(roleState);
   const rolePending = roleState.status === "loading";
-
-  const prefs = me?.preferences ?? {};
-  const modelOptions = models.data?.models ?? [];
 
   const rename = async () => {
     setErr("");
@@ -77,65 +65,9 @@ export function Settings() {
     navigate("/home");
   };
 
-  const saveModel = async (value: string) => {
-    setErr("");
-    try {
-      await updatePreferences({ defaultAssistantModel: value || undefined });
-    } catch (e) {
-      setErr(e instanceof ApiError ? e.message : "Could not save preference.");
-    }
-  };
-
   return (
     <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
-      <h1 className="type-title text-text">Settings</h1>
-
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-4">
-          <div>
-            <h2 className="type-subhead text-text">Your profile</h2>
-            <p className="type-body text-text-muted">
-              Preferences are saved to your account and follow you across devices.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>Theme</Label>
-            <Select
-              value={prefs.theme ?? "light"}
-              onValueChange={(v) => void setThemePreference(v as Theme)}
-              options={[
-                { value: "light", label: "Light" },
-                { value: "dark", label: "Dark" },
-              ]}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>Default assistant model</Label>
-            <Select
-              value={prefs.defaultAssistantModel ?? models.data?.defaultModel ?? ""}
-              onValueChange={(v) => void saveModel(v)}
-              options={[
-                ...(modelOptions.length > 0
-                  ? []
-                  : [
-                      {
-                        value: "",
-                        label: "Use deployment default",
-                      },
-                    ]),
-                ...modelOptions.map((m) => ({ value: m, label: m })),
-              ]}
-              disabled={modelOptions.length === 0}
-              placeholder="Select model…"
-            />
-            {modelOptions.length === 0 && (
-              <p className="type-caption text-text-muted">
-                No assistant models are configured on this deployment.
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <h1 className="type-title text-text">Project settings</h1>
 
       <RoleGate
         role={mine}

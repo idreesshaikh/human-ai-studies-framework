@@ -8,7 +8,8 @@ import { ProjectHome } from "@/pages/ProjectHome";
 import { StudyHome } from "@/pages/StudyHome";
 import { Templates } from "@/pages/Templates";
 import { Members } from "@/pages/Members";
-import { Settings } from "@/pages/Settings";
+import { AccountSettings } from "@/pages/AccountSettings";
+import { ProjectSettings } from "@/pages/ProjectSettings";
 import { InviteAccept } from "@/pages/InviteAccept";
 
 function Shell() {
@@ -49,6 +50,7 @@ export default function App() {
             location.reload()), which bypasses the SPA shell entirely and
             shows the raw API response instead of this page. */}
         <Route path="/home" element={<Projects />} />
+        <Route path="/settings" element={<AccountSettings />} />
         {/* The repertoire is project-agnostic (FR-TPL): one global browse,
             not one per project. Not "/templates" — that's the backend's
             GET /templates API path (app.py), and the same-path collision
@@ -62,7 +64,7 @@ export default function App() {
           element={<Navigate to="/repertoire" replace />}
         />
         <Route path="/p/:slug/members" element={<Members />} />
-        <Route path="/p/:slug/settings" element={<Settings />} />
+        <Route path="/p/:slug/settings" element={<ProjectSettings />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
