@@ -59,13 +59,38 @@ window opens with the extension loaded. In that window:
 4. When the timer elapses (or you run _End Study Session_), the debrief survey
    opens and the data file is finalized.
 
-To install for real participants: `npm run package` produces a `.vsix`
-(named for whatever version `package.json` currently declares, e.g.
-`tern-0.1.0.vsix`), then `code --install-extension <that file>`.
+To install for real participants: `npm run package` produces a `.vsix`, then
+`code --install-extension tern-0.2.0.vsix`.
 
 To try the stuck prompt quickly, set `tern.stuck.thresholdSeconds`
 to `15` and `tern.stuck.cooldownMinutes` to `1`, start a session,
 place the cursor in a file and wiggle it occasionally without typing.
+
+### Connecting to a study (participant enrollment)
+
+The Quick start above configures the extension by hand, which is ideal for
+local testing. Real participants instead **connect to a study on the
+middleware**, so their identity, condition, and capture settings all come
+from the study protocol — no manual configuration, no side-channel.
+
+1. The researcher mints a **connection string** for the participant (from the
+   platform / middleware). It looks like `https://your-study-server#<token>`.
+2. In VS Code, run **_TERN: Connect to Study_** from the command palette and
+   paste the connection string. (A `vscode://…/pair?c=<connection-string>`
+   deep link runs the same flow.)
+3. The extension shows the study's **consent statement**; capture begins only
+   after the participant explicitly accepts.
+4. On accept, the extension fills in the participant ID, condition, study ID,
+   and the middleware endpoint automatically, and stores a session credential
+   securely (VS Code SecretStorage). A one-line summary confirms exactly what
+   the study will capture.
+5. Run **_TERN: Start Study Session_** when ready — the session uses the
+   configuration that arrived from the study.
+
+The middleware refuses to pair a study that has not cleared its ethics gate:
+no data is collected before approval. Capture settings are re-checked at the
+start of each session, so a researcher can update the protocol between
+sessions and paired participants pick up the change on their next start.
 
 ### Development
 
@@ -121,7 +146,7 @@ Events land in `<workspace>/.study-data/<participant>_<timestamp>.jsonl`
 | `end_survey_response` / `end_survey_skipped` | Debrief submitted / dismissed    | responses (per-item 1–7), comments, msToComplete                                  |
 | `session_end`                                | Everything flushed               | reason                                                                            |
 
-### Behavioral telemetry events (schema v4)
+### Behavioral telemetry events (schema v3)
 
 The behavioral leg (MP-05) adds the event types below. All payloads are
 FR-ETH-2-safe: sizes, shapes, and timings only - never code content,
@@ -129,29 +154,27 @@ keystrokes, clipboard text, or off-workspace paths. Capture is filtered to
 protocol-declared languages (`tern.behavior.languages`, pilot:
 Python) and workspace-internal files.
 
-| Event type                     | When                                                                           | Key payload fields                                                                                                                                                         |
-| ------------------------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `editor_focus`                 | Active editor changed (debounced 250 ms: first + last) or window focus changed | file (workspace-relative or `external`), languageId, groupCount - or state (`focused`/`blurred`)                                                                           |
-| `visible_range`                | Scroll/resize settled (500 ms per editor)                                      | file, topLine, bottomLine, totalLines - feeds scroll coverage (FR-INST-9)                                                                                                  |
-| `edit_burst`                   | 2 s without edits, or file switch                                              | file, charsAdded, charsDeleted, linesTouched, durationMs, origin (`human`/`ai`/`paste`/`undo-redo`, FR-INST-10)                                                            |
-| `clipboard_paste`              | Paste landed in a captured file                                                | charCount, lineCount, msSinceInternalCopy (present only when the copy happened in-workspace this session), targetFile - content is never read from the clipboard           |
-| `ai_suggestion`                | Inline suggestion decision                                                     | suggestionId, action (`shown`/`accepted`/`rejected`/`dismissed`), visibleMs (review latency, FR-INST-8), charCount, lineCount                                              |
-| `file_save`                    | Captured file saved                                                            | file, charCount, lineCount                                                                                                                                                 |
-| `heartbeat`                    | Active/idle transition only (never periodic)                                   | state (`active`/`idle`) - active = interaction within a rolling 120 s window (FR-INST-11)                                                                                  |
-| `attention`                    | Caret/hover left a line-region band, or file switch                            | file, startLine, endLine, focusMs, cursorMs, hoverMs, edited, mode (`reading`/`editing`/`mixed`), exitReason - region-level time-on-code, present-gated (idle/blur paused) |
-| `environment_snapshot`         | Once at session start                                                          | vscodeVersion, extensionVersions, os, agentTool, agentModelId, taskId (FR-INST-14 replication provenance)                                                                  |
-| `ide_health`                   | Debounced 10 s after a diagnostics/build/test count changes                    | errorCount, warningCount, buildInvocations, testInvocations - IDE struggle proxy, no diagnostic text (FR-INST-18)                                                          |
-| `behavior_sensor_error`        | A behavioral sensor throws, reported once per source                           | source, message - NFR-1: swallow, count, report once, never interrupt                                                                                                      |
-| `comprehension_probe_response` | A comprehension probe is answered or expires (schema v4, FR-INST-19)           | chunkRef, promptKind, answer, correct, msToAnswer, expired                                                                                                                 |
+| Event type             | When                                                                           | Key payload fields                                                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `editor_focus`         | Active editor changed (debounced 250 ms: first + last) or window focus changed | file (workspace-relative or `external`), languageId, groupCount - or state (`focused`/`blurred`)                                                                           |
+| `visible_range`        | Scroll/resize settled (500 ms per editor)                                      | file, topLine, bottomLine, totalLines - feeds scroll coverage (FR-INST-9)                                                                                                  |
+| `edit_burst`           | 2 s without edits, or file switch                                              | file, charsAdded, charsDeleted, linesTouched, durationMs, origin (`human`/`ai`/`paste`/`undo-redo`, FR-INST-10)                                                            |
+| `clipboard_paste`      | Paste landed in a captured file                                                | charCount, lineCount, msSinceInternalCopy (present only when the copy happened in-workspace this session), targetFile - content is never read from the clipboard           |
+| `ai_suggestion`        | Inline suggestion decision                                                     | suggestionId, action (`shown`/`accepted`/`rejected`/`dismissed`), visibleMs (review latency, FR-INST-8), charCount, lineCount                                              |
+| `file_save`            | Captured file saved                                                            | file, charCount, lineCount                                                                                                                                                 |
+| `heartbeat`            | Active/idle transition only (never periodic)                                   | state (`active`/`idle`) - active = interaction within a rolling 120 s window (FR-INST-11)                                                                                  |
+| `attention`            | Caret/hover left a line-region band, or file switch                            | file, startLine, endLine, focusMs, cursorMs, hoverMs, edited, mode (`reading`/`editing`/`mixed`), exitReason - region-level time-on-code, present-gated (idle/blur paused) |
+| `environment_snapshot` | Once at session start                                                          | vscodeVersion, extensionVersions, os, agentTool, agentModelId, taskId (FR-INST-14 replication provenance)                                                                  |
 
 Set `tern.output.httpEndpoint` (e.g.
-`http://localhost:8000/cognitive`) to also stream batched events to the
+`http://127.0.0.1:8000/ingest/events`) to also stream batched events to the
 middleware - same decoupled "lightweight sensor → local daemon" architecture
 as ActivityWatch. The JSONL file is always written regardless, so a dead
 server never loses data. Batches POST as
-`{"source":"tern","events":[...]}` every 5 s (the source
-string is normalised on ingest, so an older editor's events still join the
-same stream.)
+`{"source":"cognitive-overlay","events":[...]}` every 5 s.
+
+If a capture leg looks empty, events aren't reaching the middleware, or a
+prompt never fires, see [`docs/troubleshooting.md`](docs/troubleshooting.md).
 
 ---
 
