@@ -32,6 +32,7 @@ export type MoveKind =
   | "add-instrument"
   | "reconfigure-instrument"
   | "add-measure"
+  | "merge-templates"
   | "caution"; // a challenge to a choice — no draft change, just advice
 
 export type MoveStatus = "proposed" | "accepted" | "rejected";
@@ -42,10 +43,15 @@ export interface DesignMove {
   target: string; // protocol slot this move fills, e.g. "researchQuestions[]"
   proposal: string; // human-readable one-liner
   /** The change this move makes to the draft — a plain patch the compiler
-   * applies. Caution moves carry none. */
+   * applies. Caution and merge-templates moves carry none. */
   patch?: DraftPatch;
   grounding: Grounding[];
   status: MoveStatus;
+  /** For merge-templates moves: the template IDs being merged and why */
+  mergeData?: {
+    templateIds: string[];
+    reason: string; // why these shapes should be combined
+  };
 }
 
 /** A conversation turn. Platform turns may carry design moves and paper

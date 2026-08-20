@@ -37,7 +37,7 @@ def _mv(kind: str, proposal: str, patch: dict | None = None) -> ProposedMove:
     )
 
 
-def _state(key_texts=(), template_ids=(), advisory_texts=()) -> dict:
+def _state(key_texts=(), template_ids=(), advisory_texts=(), merge_keys=()) -> dict:
     return {
         "accepted": [],
         "rejected": [],
@@ -46,6 +46,7 @@ def _state(key_texts=(), template_ids=(), advisory_texts=()) -> dict:
         "empty": [],
         "templateId": None,
         "templateIds": list(template_ids),
+        "mergeKeys": list(merge_keys),
         "keyTexts": list(key_texts),
         "advisoryTexts": list(advisory_texts),
     }
@@ -91,6 +92,26 @@ def test_choose_template_duplicate_is_keyed_on_template_id():
         {"templateId": "two-group-rct-v1", "parameters": {}},
     )
     assert _filter_repeated_moves((repeat, fresh), state) == (fresh,)
+
+
+def test_merge_duplicate_is_keyed_on_the_id_set():
+    """
+    The same pair of shapes is the same merge however it's re-worded; a genuinely
+    different combination is not repetition.
+    """
+    state = _state(merge_keys=["metr-rct-v1+survey-self-report-v1"])
+    repeat = _mv(
+        "merge-templates",
+        "Pair the telemetry shape with the survey for perception data.",
+        {"templateIds": ["survey-self-report-v1", "metr-rct-v1"], "reason": "x"},
+    )
+    fresh = _mv(
+        "merge-templates",
+        "Combine the telemetry shape with the multi-arm RCT instead.",
+        {"templateIds": ["metr-rct-v1", "multi-arm-rct-v1"], "reason": "y"},
+    )
+    kept = _filter_repeated_moves((repeat, fresh), state)
+    assert kept == (fresh,)
 
 
 def test_filter_is_a_no_op_without_state():

@@ -433,10 +433,11 @@ def _directive(stance: dict, state: dict | None = None) -> str:
         )
     if not stance["mayProposeDesign"]:
         lines.append(
-            "DO NOT propose a choose-template move this turn: too little of "
-            "the study is understood for a design shape to be a considered "
-            "choice rather than a guess, and one would be discarded before "
-            "the researcher ever saw it. Keep drawing the idea out instead. "
+            "DO NOT propose a choose-template or merge-templates move this "
+            "turn: too little of the study is understood for a design shape "
+            "to be a considered choice rather than a guess, and one would be "
+            "discarded before the researcher ever saw it. Keep drawing the "
+            "idea out instead. "
             f"({len(understanding['known'])} of {understanding['facetsNeeded']} "
             "needed facets known.)"
         )
@@ -453,6 +454,11 @@ def _directive(stance: dict, state: dict | None = None) -> str:
             "wrong one is easy for them to correct."
         )
     if stance["mayProposeDesign"]:
+        lines.append(
+            "If no single candidate template fits the study but two or three "
+            "together would, propose a `merge-templates` move instead of "
+            "forcing the closest single shape."
+        )
         lines.append(_slot_directive(state))
     return "\n\n".join(lines)
 
@@ -472,8 +478,12 @@ def _permitted_moves(
                 else "this turn is a question, not a brief",
             )
             continue
-        if move.kind == "choose-template" and not stance["mayProposeDesign"]:
-            log.info("held back choose-template: the study isn't understood yet")
+        if move.kind in ("choose-template", "merge-templates") and not stance[
+            "mayProposeDesign"
+        ]:
+            log.info(
+                "held back %s: the study isn't understood yet", move.kind
+            )
             continue
         kept.append(move)
     return tuple(kept)
@@ -514,11 +524,16 @@ def _filter_repeated_moves(
     content = state.get("keyTexts") or []
     advisory = state.get("advisoryTexts") or []
     template_ids = set(state.get("templateIds") or [])
+    merge_keys = set(state.get("mergeKeys") or [])
     kept = []
     for sm in moves:
         if sm.kind == "choose-template":
             tid = (sm.patch or {}).get("templateId")
             if tid and tid in template_ids:
+                continue
+        elif sm.kind == "merge-templates":
+            ids = tuple(sorted((sm.patch or {}).get("templateIds") or []))
+            if ids and "+".join(ids) in merge_keys:
                 continue
         else:
             key = _move_key_text(sm.proposal, sm.patch)
@@ -564,11 +579,17 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         and (m["patch"] or {}).get("op") in ("add-instrument", "set-instrument")
         for m in moves
     )
+    has_merged = any(
+        m["kind"] == "merge-templates" and m["status"] == "accepted" for m in moves
+    )
     filled = [
         sec
         for sec in compiler.SECTIONS
         if sections[sec]
-        or (sec == "design" and result.template_id is not None)
+        or (
+            sec == "design"
+            and (result.template_id is not None or has_merged)
+        )
         or (sec == "instruments" and has_instrument)
     ]
     empty = [sec for sec in compiler.SECTIONS if sec not in filled]
@@ -576,6 +597,7 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
     key_texts: list[str] = []
     advisory_texts: list[str] = []
     template_ids: list[str] = []
+    merge_keys: list[str] = []
     for m in moves:
         patch = m["patch"] or {}
         if m["kind"] == "choose-template":
@@ -583,6 +605,11 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
             tid = patch.get("templateId")
             if tid:
                 template_ids.append(tid)
+        elif m["kind"] == "merge-templates":
+            section = "design"
+            ids = tuple(sorted(patch.get("templateIds") or []))
+            if ids:
+                merge_keys.append("+".join(ids))
         else:
             # Stripped here so a stale move from before that prompt fix, or any future
             # drift, can't feed the bogus section name "protocol" back into the state
@@ -624,6 +651,7 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         "taskAdvice": compiler.task_recommendation(result.draft),
         "templateId": result.template_id,
         "templateIds": template_ids,
+        "mergeKeys": merge_keys,
         "keyTexts": key_texts,
         "advisoryTexts": advisory_texts,
     }
@@ -769,18 +797,27 @@ def _assemble(
         if sm.kind == "choose-template" and not grounding and sm.patch:
             tid = sm.patch.get("templateId")
             grounding = _resolve_grounding(s, _template_source_refs(tid))
+        elif sm.kind == "merge-templates" and not grounding and sm.patch:
+            refs: list[str] = []
+            for tid in sm.patch.get("templateIds") or []:
+                refs.extend(_template_source_refs(tid))
+            grounding = _resolve_grounding(s, tuple(dict.fromkeys(refs)))
         retrieved.update(g["ref"] for g in grounding)
-        moves.append(
-            {
-                "moveId": f"t{seq}-m{i + 1}",
-                "kind": sm.kind,
-                "target": sm.target,
-                "proposal": sm.proposal,
-                "patch": sm.patch,
-                "grounding": grounding,
-                "status": "proposed",
+        move: dict[str, Any] = {
+            "moveId": f"t{seq}-m{i + 1}",
+            "kind": sm.kind,
+            "target": sm.target,
+            "proposal": sm.proposal,
+            "patch": sm.patch,
+            "grounding": grounding,
+            "status": "proposed",
+        }
+        if sm.kind == "merge-templates" and sm.patch:
+            move["mergeData"] = {
+                "templateIds": list(sm.patch.get("templateIds") or []),
+                "reason": str(sm.patch.get("reason") or ""),
             }
-        )
+        moves.append(move)
 
     # Reuse the retrieval already made for the candidate menu — never a second
     # match_papers call for the same turn.

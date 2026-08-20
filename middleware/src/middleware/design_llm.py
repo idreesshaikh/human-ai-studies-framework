@@ -19,6 +19,7 @@ _ALLOWED_KINDS = frozenset(
         "set-field",
         "declare-task",
         "choose-template",
+        "merge-templates",
         "add-instrument",
         "reconfigure-instrument",
         "caution",
@@ -106,7 +107,12 @@ SYSTEM_PROMPT = (
     "FINISHING THE PROTOCOL. A template is the fastest route to a complete "
     "design - it brings a vetted shape and the statistics that go with it - "
     "so once the study is understood well enough, propose the one that fits, "
-    "and say so in the reply text if none of the candidates do. But a "
+    "and say so in the reply text if none of the candidates do. When no "
+    "single template fits but two or three of the candidates together would "
+    "cover the study (a behavioural/telemetry shape plus a self-report "
+    "survey shape is the classic pair), propose a `merge-templates` move "
+    "instead, with the reason the pairing works and the refs grounding each "
+    "shape. But a "
     "template is not the only route: the turn instruction below lists the "
     "protocol slots still outstanding, and a `set-field` move fills a named "
     "one directly. Prefer a template when one fits; use `set-field` to fill "
@@ -140,8 +146,8 @@ SYSTEM_PROMPT = (
     '"moves": [{"kind": "...", "target": "researchQuestions[]", "proposal": '
     '"one sentence", "patch": {...} or null, "refs": ["..."]}]}\n\n'
     "Valid kinds: add-rq, add-measure, set-parameter, set-field, "
-    "declare-task, choose-template, add-instrument, reconfigure-instrument, "
-    "caution. "
+    "declare-task, choose-template, merge-templates, add-instrument, "
+    "reconfigure-instrument, caution. "
     "`refs` entries must come from the candidate menu only (a paper's ref or "
     "a template's id).\n\n"
     "`patch` shapes (anything else is dropped and the move never reaches "
@@ -162,6 +168,10 @@ SYSTEM_PROMPT = (
     "of the study's arms and should be left out unless the researcher means "
     "it, since a task tied to one condition confounds the two.\n"
     '- choose-template: {"templateId": "...", "parameters": {...}}\n'
+    '- merge-templates: {"templateIds": ["...", "..."], "reason": "..."} - '
+    "two or more candidate template ids plus why this pairing works (what "
+    "each shape contributes, e.g. objective behaviour data plus self-report "
+    "perception). `refs` should carry each merged template's id.\n"
     '- add-instrument: {"section": "instruments", "op": "add-instrument" or '
     '"set-instrument", "name": "...", "config": {...}}\n'
     '- reconfigure-instrument: {"section": "instruments", "op": '
@@ -258,6 +268,21 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
             return {
                 "templateId": template_id,
                 "parameters": patch.get("parameters") or {},
+            }
+        return None
+    if kind == "merge-templates":
+        template_ids = patch.get("templateIds")
+        reason = patch.get("reason")
+        if (
+            isinstance(template_ids, list)
+            and len(template_ids) >= 2
+            and all(isinstance(t, str) and t for t in template_ids)
+            and isinstance(reason, str)
+            and reason.strip()
+        ):
+            return {
+                "templateIds": list(dict.fromkeys(template_ids)),
+                "reason": reason.strip(),
             }
         return None
     if kind == "declare-task":
@@ -364,6 +389,12 @@ def _parse_moves(
             continue
         if kind == "choose-template" and patch["templateId"] not in known_templates:
             # A hallucinated template id can never instantiate.
+            continue
+        if kind == "merge-templates" and not all(
+            t in known_templates for t in patch["templateIds"]
+        ):
+            # A hallucinated template id can never instantiate, and a merge
+            # names at least two of them.
             continue
         raw_refs = m.get("refs")
         refs = (

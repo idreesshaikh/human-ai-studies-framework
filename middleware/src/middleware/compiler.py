@@ -327,13 +327,16 @@ def _build_trace(moves: list[dict]) -> list[MoveTrace]:
 
 
 def _accepted_template_moves(moves: list[dict]) -> list[dict]:
-    """Accepted template-application moves, in order."""
+    """Accepted design-shape moves (single template or a merge), in order."""
     return [
         m
         for m in moves
         if m.get("status") == "accepted"
-        and m.get("kind") == "choose-template"
-        and (m.get("patch") or {}).get("templateId")
+        and m.get("kind") in ("choose-template", "merge-templates")
+        and (
+            (m.get("patch") or {}).get("templateId")
+            or (m.get("patch") or {}).get("templateIds")
+        )
     ]
 
 
@@ -601,11 +604,12 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
     """Compile accepted moves into a validated protocol draft."""
     sections = compile_sections(moves)
 
+    # A move whose template(s) can't instantiate (hallucinated id, missing required
+    # parameter, an invalid merge) is recorded and skipped rather than raised: a 500
+    # here would leave the conversation with no draft and no error.
+    from middleware import template_registry
     from middleware.template_registry import TemplateError
 
-    # A move whose template can't instantiate (hallucinated id, missing required
-    # parameter) is recorded and skipped rather than raised: a 500 here would leave the
-    # conversation with no draft and no error.
     template_id = template_version = None
     instantiated = None
     warnings: list[str] = []
@@ -613,21 +617,32 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
     for move in reversed(_accepted_template_moves(moves)):
         patch = move["patch"]
         try:
-            instantiated, notes = _instantiate_leniently(patch)
+            if move["kind"] == "merge-templates":
+                instantiated = template_registry.merge_templates(
+                    list(patch.get("templateIds") or []), {}
+                )
+                notes: list[str] = []
+            else:
+                instantiated, notes = _instantiate_leniently(patch)
         except TemplateError as err:
+            label = (
+                patch.get("templateId")
+                or "+".join(patch.get("templateIds") or [])
+                or "?"
+            )
             failed.append(
-                f"choose-template move {move.get('moveId', '?')} "
-                f"({patch['templateId']}) could not be applied: {err}"
+                f"{move['kind']} move {move.get('moveId', '?')} "
+                f"({label}) could not be applied: {err}"
             )
             continue
         warnings.extend(notes)
         break
 
     if instantiated:
-        template_id = instantiated["templateId"]
-        template_version = instantiated["templateVersion"]
+        template_id = instantiated.get("templateId")
+        template_version = instantiated.get("templateVersion")
         draft = _refine(instantiated["protocol"], sections)
-        # Later accepted template moves that failed were skipped in favour of this one —
+        # Later accepted design moves that failed were skipped in favour of this one —
         # say so, but don't block a valid draft on them.
         warnings.extend(failed)
         failed = []

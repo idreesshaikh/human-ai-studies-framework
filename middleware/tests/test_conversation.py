@@ -885,3 +885,56 @@ def test_design_move_seq_migration_backfills_from_id(tmp_path):
     with engine.connect() as conn:
         rows = dict(conn.execute(text("SELECT id, seq FROM design_moves")).all())
     assert rows == {"abc123:t2-m3": 3, "abc123:t2-m12": 12, "not-a-move-id": 0}
+
+
+def test_merge_templates_move_flows_end_to_end(client, tmp_path, monkeypatch):
+    """
+    Phase 5: a merge-templates move survives the whole wire — persisted with its patch,
+    reloaded with mergeData reconstructed, compiled into a merged protocol on accept.
+    """
+    import model_double as md
+
+    merge_ids = ("metr-rct-v1", "survey-self-report-v1")
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: md.always(
+            {
+                "text": "Combine behaviour telemetry with the survey shape.",
+                "moves": [
+                    md.merge(
+                        merge_ids,
+                        "Objective behaviour data plus self-report perception.",
+                        refs=("corpus:metr-early-2025-dev-productivity",),
+                    )
+                ],
+            }
+        ),
+    )
+
+    reply = _ask(client, "design a study with telemetry and a self-report survey")
+    merges = [m for m in reply["moves"] if m["kind"] == "merge-templates"]
+    assert merges, "the merge proposal must reach the wire"
+    assert merges[0]["mergeData"] == {
+        "templateIds": list(merge_ids),
+        "reason": "Objective behaviour data plus self-report perception.",
+    }
+
+    # Reload: mergeData is reconstructed from the stored patch, not just echoed inline.
+    reloaded = client.get(f"/studies/{STUDY}/conversation").json()
+    platform_turn = next(t for t in reloaded["turns"] if t["role"] == "platform")
+    stored_merges = [
+        m for m in platform_turn["moves"] if m["kind"] == "merge-templates"
+    ]
+    assert stored_merges
+    assert stored_merges[0]["mergeData"]["templateIds"] == list(merge_ids)
+    assert stored_merges[0]["patch"]["templateIds"] == list(merge_ids)
+
+    # Accepting compiles the merged protocol into the draft.
+    _accept(client, stored_merges[0]["moveId"])
+    compiled = _compile(client)
+    assert compiled["valid"], compiled["errors"]
+    assert compiled["templateId"] is None
+    assert compiled["protocol"]["study"]["title"].startswith("Merged design")
+    refs = {lit["paperRef"] for lit in compiled["protocol"]["literature"]}
+    assert "arxiv:2507.09089" in refs  # the METR paper the merge drew from

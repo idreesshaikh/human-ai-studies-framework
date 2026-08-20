@@ -10,6 +10,7 @@ PAPERS = [
 ]
 TEMPLATES = [
     {"templateId": "metr-rct-v1", "title": "METR RCT", "designShape": "paired"},
+    {"templateId": "survey-self-report-v1", "title": "Survey", "designShape": "paired"},
 ]
 
 
@@ -239,6 +240,82 @@ def test_propose_turn_drops_choose_template_with_hallucinated_id():
     script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
     assert script is not None
     assert script.text == "Adopt a template."
+    assert script.moves == ()
+
+
+def test_propose_turn_validates_merge_templates_patch():
+    reply = {
+        "text": "Merge those two shapes.",
+        "moves": [
+            {
+                "kind": "merge-templates",
+                "target": "design",
+                "proposal": "Combine the METR RCT with the survey shape.",
+                "patch": {
+                    "templateIds": ["metr-rct-v1", "survey-self-report-v1"],
+                    "reason": "Objective behaviour data plus self-report.",
+                },
+                "refs": ["metr-rct-v1", "survey-self-report-v1"],
+            }
+        ],
+    }
+    client = _fake_client(reply)
+    script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
+    assert script is not None
+    assert len(script.moves) == 1
+    assert script.moves[0].kind == "merge-templates"
+    assert script.moves[0].patch == {
+        "templateIds": ["metr-rct-v1", "survey-self-report-v1"],
+        "reason": "Objective behaviour data plus self-report.",
+    }
+    assert script.moves[0].refs == ("metr-rct-v1", "survey-self-report-v1")
+
+
+def test_propose_turn_drops_merge_with_a_hallucinated_template_id():
+    """
+    A merge naming even one template the registry doesn't have is dropped — a merged
+    protocol built on a hallucinated id could never instantiate.
+    """
+    reply = {
+        "text": "Merge those two shapes.",
+        "moves": [
+            {
+                "kind": "merge-templates",
+                "target": "design",
+                "proposal": "Combine a real shape with a made-up one.",
+                "patch": {
+                    "templateIds": ["metr-rct-v1", "hallucinated-rct-2026"],
+                    "reason": "Both are needed.",
+                },
+                "refs": ["metr-rct-v1"],
+            }
+        ],
+    }
+    client = _fake_client(reply)
+    script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
+    assert script is not None
+    assert script.moves == ()
+
+
+def test_propose_turn_drops_merge_with_fewer_than_two_templates():
+    reply = {
+        "text": "Merge those shapes.",
+        "moves": [
+            {
+                "kind": "merge-templates",
+                "target": "design",
+                "proposal": "Merge a single shape.",
+                "patch": {
+                    "templateIds": ["metr-rct-v1"],
+                    "reason": "One is enough.",
+                },
+                "refs": ["metr-rct-v1"],
+            }
+        ],
+    }
+    client = _fake_client(reply)
+    script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
+    assert script is not None
     assert script.moves == ()
 
 

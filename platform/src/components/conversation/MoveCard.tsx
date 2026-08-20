@@ -16,6 +16,7 @@ const KIND_LABEL: Record<DesignMove["kind"], string> = {
   "add-instrument": "Instrument",
   "reconfigure-instrument": "Instrument setting",
   "add-measure": "Measure",
+  "merge-templates": "Design merge",
   caution: "Caution",
 };
 
@@ -115,10 +116,10 @@ export function MoveCard({
               <span
                 className={cn(
                   "type-legend",
-                  compiled ? "text-grounded" : "text-text-muted",
+                  move.kind === "merge-templates" || compiled ? "text-grounded" : "text-text-muted",
                 )}
               >
-                {compiled ? "in draft" : "noted"}
+                {move.kind === "merge-templates" || compiled ? "merged" : "noted"}
               </span>
             )}
             {move.status === "rejected" && (
@@ -126,14 +127,21 @@ export function MoveCard({
             )}
           </div>
 
-          <p
-            className={cn(
-              "type-body pr-3 text-text",
-              move.status === "rejected" && "superseded",
-            )}
-          >
-            {move.proposal}
-          </p>
+          {move.kind === "merge-templates" && move.mergeData ? (
+            <div className="flex flex-col gap-2">
+              <p className="type-body text-text">{move.proposal}</p>
+              <p className="type-caption text-text-muted italic">{move.mergeData.reason}</p>
+            </div>
+          ) : (
+            <p
+              className={cn(
+                "type-body pr-3 text-text",
+                move.status === "rejected" && "superseded",
+              )}
+            >
+              {move.proposal}
+            </p>
+          )}
         </div>
 
         {/* Outside the faded wrapper above, deliberately: CSS opacity always

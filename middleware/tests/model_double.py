@@ -139,6 +139,18 @@ def template(template_id: str, *, refs: tuple[str, ...] = ()) -> dict:
     }
 
 
+def merge(
+    template_ids: tuple[str, ...], reason: str, *, refs: tuple[str, ...] = ()
+) -> dict:
+    return {
+        "kind": "merge-templates",
+        "target": "design",
+        "proposal": f"Merge {', '.join(template_ids)}.",
+        "patch": {"templateIds": list(template_ids), "reason": reason},
+        "refs": list(refs),
+    }
+
+
 def caution(text: str, *, refs: tuple[str, ...] = ()) -> dict:
     return {
         "kind": "caution",

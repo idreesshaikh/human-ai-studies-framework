@@ -31,6 +31,18 @@ def _template_move(move_id: str, template_id: str, parameters: dict) -> dict:
     }
 
 
+def _merge_move(move_id: str, template_ids: list[str], reason: str) -> dict:
+    return {
+        "moveId": move_id,
+        "kind": "merge-templates",
+        "target": "design",
+        "proposal": f"Merge {', '.join(template_ids)}.",
+        "patch": {"templateIds": template_ids, "reason": reason},
+        "grounding": [],
+        "status": "accepted",
+    }
+
+
 def test_hallucinated_template_id_reports_instead_of_raising():
     """
     The original bug: an accepted choose-template move naming a template the registry
@@ -116,3 +128,68 @@ def test_broken_template_before_a_working_one_stays_silent():
     assert result.valid
     assert result.warnings == []
     assert result.errors == []
+
+
+def test_accepted_merge_templates_compiles_into_the_draft():
+    """
+    Phase 5: an accepted merge-templates move composes its shapes into one grounded
+    protocol — the RQs and literature of every merged template survive, renumbered.
+    """
+    result = compiler.compile_moves(
+        [
+            _merge_move(
+                "m-merge",
+                ["metr-rct-v1", "survey-self-report-v1"],
+                "Objective behaviour data plus self-report perception.",
+            )
+        ]
+    )
+    assert result.valid, result.errors
+    assert result.template_id is None  # a merge has no single template
+    assert result.draft["study"]["title"].startswith("Merged design")
+    # Both templates' research questions survive the merge, renumbered.
+    assert len(result.draft["researchQuestions"]) >= 3
+    # The merged protocol names every paper it drew from.
+    refs = {lit["paperRef"] for lit in result.draft["literature"]}
+    assert "arxiv:2507.09089" in refs
+    assert result.errors == []
+
+
+def test_merge_with_a_hallucinated_template_reports_instead_of_raising():
+    """
+    A merge naming an unknown template must not crash the compile — same lenient
+    contract as a hallucinated choose-template.
+    """
+    result = compiler.compile_moves(
+        [
+            _merge_move(
+                "m-merge",
+                ["metr-rct-v1", "hallucinated-rct-2026"],
+                "Both shapes are needed.",
+            )
+        ]
+    )
+    assert result.yaml.strip(), "the draft must never come back empty"
+    assert not result.valid
+    assert any("m-merge" in e and "hallucinated-rct-2026" in e for e in result.errors)
+    assert "the design" in result.unresolved
+
+
+def test_merge_supersedes_an_earlier_single_template():
+    """
+    Last-wins across design-shape moves: a newer merge replaces an older accepted
+    single template, the way one template choice already replaces another.
+    """
+    result = compiler.compile_moves(
+        [
+            _template_move("m-single", "two-group-rct-v1", {}),
+            _merge_move(
+                "m-merge",
+                ["metr-rct-v1", "survey-self-report-v1"],
+                "Both shapes are needed.",
+            ),
+        ]
+    )
+    assert result.valid, result.errors
+    assert result.draft["study"]["title"].startswith("Merged design")
+    assert result.template_id is None

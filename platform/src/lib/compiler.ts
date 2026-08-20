@@ -21,7 +21,14 @@ export function compile(
 ): ProtocolDraft {
   const draft = structuredClone(base);
   for (const move of moves) {
-    if (move.status !== "accepted" || !move.patch) continue; // cautions have no patch
+    if (move.status !== "accepted") continue;
+    if (move.kind === "merge-templates") {
+      // A merged protocol is a real design — the slot reads as filled with
+      // the shapes being combined (the server's merge is authoritative).
+      draft.design = move.mergeData?.templateIds ?? [];
+      continue;
+    }
+    if (!move.patch) continue; // cautions have no patch
     if (isTemplatePatch(move.patch)) {
       // The only move kind that can ever fill the mandatory `design` slot.
       draft.design = [move.patch.templateId];

@@ -3432,6 +3432,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "patch": m["patch"],
                     "grounding": m["grounding"],
                     "status": "proposed",
+                    **(
+                        {"mergeData": m["mergeData"]}
+                        if m["kind"] == "merge-templates"
+                        and m.get("mergeData")
+                        else {}
+                    ),
                 }
                 for m in reply["moves"]
             ],
@@ -3557,17 +3563,21 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             .where(DesignMoveRow.study_id == study_id)
             .order_by(DesignMoveRow.seq)
         ):
-            moves_by_turn[mv.turn_id].append(
-                {
-                    "moveId": mv.id,
-                    "kind": mv.kind,
-                    "target": mv.target,
-                    "proposal": mv.proposal,
-                    "patch": mv.patch,
-                    "grounding": mv.grounding,
-                    "status": mv.status,
+            wire = {
+                "moveId": mv.id,
+                "kind": mv.kind,
+                "target": mv.target,
+                "proposal": mv.proposal,
+                "patch": mv.patch,
+                "grounding": mv.grounding,
+                "status": mv.status,
+            }
+            if mv.kind == "merge-templates" and isinstance(mv.patch, dict):
+                wire["mergeData"] = {
+                    "templateIds": list(mv.patch.get("templateIds") or []),
+                    "reason": str(mv.patch.get("reason") or ""),
                 }
-            )
+            moves_by_turn[mv.turn_id].append(wire)
         return {
             "studyId": study_id,
             "turns": [

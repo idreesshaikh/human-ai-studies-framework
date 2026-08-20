@@ -118,6 +118,7 @@ function mapPatch(raw: unknown): DesignMove["patch"] {
 }
 
 function mapMove(raw: Record<string, unknown>): DesignMove {
+  const rawMerge = raw.mergeData as Record<string, unknown> | undefined;
   return {
     moveId: String(raw.moveId ?? ""),
     kind: (raw.kind as DesignMove["kind"]) ?? "add-rq",
@@ -126,6 +127,15 @@ function mapMove(raw: Record<string, unknown>): DesignMove {
     patch: mapPatch(raw.patch),
     grounding: mapGrounding((raw.grounding as unknown[]) ?? []),
     status: (raw.status as DesignMove["status"]) ?? "proposed",
+    mergeData:
+      rawMerge &&
+      Array.isArray(rawMerge.templateIds) &&
+      typeof rawMerge.reason === "string"
+        ? {
+            templateIds: rawMerge.templateIds.map(String),
+            reason: rawMerge.reason,
+          }
+        : undefined,
   };
 }
 
