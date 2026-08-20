@@ -1,6 +1,7 @@
-"""The invitation mailer surfaces *why* a send didn't happen instead of
-swallowing it silently (the old bug: a good key with an unverified sender
-domain failed invisibly). ``send_invitation`` returns ``(sent, reason)``."""
+"""
+The invitation mailer surfaces *why* a send didn't happen instead of swallowing it
+silently (the old bug: a good key with an unverified sender domain failed invisibly).
+"""
 
 import io
 import urllib.error
@@ -60,9 +61,8 @@ def test_inviter_name_shows_in_from_without_spoofing():
         api_key="re_test", post=ok, inviter="Ada Lovelace", **_KW
     )
     assert sent is True
-    # Display name carries the inviter; the address stays the verified sender.
     assert seen["from"] == "Ada Lovelace via PHOENIX <invites@example.test>"
-    assert "reply_to" not in seen  # a name, not an email → no Reply-To
+    assert "reply_to" not in seen
 
 
 def test_inviter_email_sets_reply_to():
@@ -75,7 +75,5 @@ def test_inviter_email_sets_reply_to():
     mailer.send_invitation(
         api_key="re_test", post=ok, inviter="ada@lab.example", **_KW
     )
-    # An email identity becomes Reply-To; the From address is still the verified
-    # sender, so nothing is spoofed.
     assert seen["reply_to"] == "ada@lab.example"
     assert seen["from"] == "PHOENIX <invites@example.test>"

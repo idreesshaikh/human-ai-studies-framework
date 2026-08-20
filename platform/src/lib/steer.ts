@@ -69,10 +69,30 @@ export const STEER_STOPS: readonly SteerStop[] = [
   },
 ] as const;
 
-/** Where a researcher who has never touched the dial starts: proposing and
- * explaining, but not steering. The same default the middleware applies when
- * no profile is declared. */
-export const DEFAULT_STEER: SteerLevel = 2;
+/** Where a researcher who has never touched the dial starts: driving.
+ *
+ * This was `guides` (2), which follows the researcher's own order rather than
+ * steering. That suits someone who knows what they want next and strands
+ * someone meeting the tool for the first time — two reviewers described the
+ * result identically, as a conversation with no visible order and no sense of
+ * how much was left. `leads` asks one question per turn and names the move it
+ * would make, which is the systematic walk they asked for. Matches
+ * `elicitation.DEFAULT_STEER` on the server. */
+export const DEFAULT_STEER: SteerLevel = 3;
+
+/** The starting stop for a given researcher profile.
+ *
+ * Being led is help for someone learning the vocabulary and friction for
+ * someone who has run studies before: an experienced methodologist wants a
+ * colleague who proposes and gets out of the way, not one who marches them
+ * through a questionnaire. So a declared `experienced` profile starts at
+ * `guides` instead. Everyone else — including anyone who has never opened
+ * Settings — starts driven, because that is the case the default is for.
+ *
+ * Only the STARTING point. The dial is per-study and always wins once moved. */
+export function defaultSteerFor(profile?: string | null): SteerLevel {
+  return profile === "experienced" ? 2 : DEFAULT_STEER;
+}
 
 export function steerStop(level: SteerLevel): SteerStop {
   return STEER_STOPS[level] ?? STEER_STOPS[DEFAULT_STEER];
@@ -84,7 +104,10 @@ function key(studyId: string): string {
   return `phoenix.steer.${studyId}`;
 }
 
-export function readSteer(studyId: string): SteerLevel {
+export function readSteer(
+  studyId: string,
+  fallback: SteerLevel = DEFAULT_STEER,
+): SteerLevel {
   try {
     /* Read the string first and test it for absence explicitly. `Number(null)`
      * is 0, and 0 is a valid level — so coercing first silently turned "this
@@ -92,13 +115,13 @@ export function readSteer(studyId: string): SteerLevel {
      * the quietest setting", which is the one stop that stops proposals
      * arriving at all. */
     const raw = localStorage.getItem(key(studyId));
-    if (raw == null) return DEFAULT_STEER;
+    if (raw == null) return fallback;
     const level = Number(raw);
-    return isSteerLevel(level) ? level : DEFAULT_STEER;
+    return isSteerLevel(level) ? level : fallback;
   } catch {
     // A browser with storage denied still gets a working dial for the
     // session; only the memory of it across reloads is lost.
-    return DEFAULT_STEER;
+    return fallback;
   }
 }
 

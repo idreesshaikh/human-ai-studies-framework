@@ -59,7 +59,7 @@ export function PrescriptionPanel() {
               return (
                 <li key={p.designShape} className={cn(i > 0 && "border-t border-border")}>
                   <button
-                    className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-surface-raised/50"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-zone-9"
                     onClick={() => setOpen(isOpen ? null : p.designShape)}
                     aria-expanded={isOpen}
                   >

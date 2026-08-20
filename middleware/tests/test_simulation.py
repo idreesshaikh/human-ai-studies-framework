@@ -1,11 +1,10 @@
-"""Synthetic dry-run simulation: generators, the route, and the CLI.
-
-The acceptance bar: a seeded run is reproducible; every profile produces a
-plausible, complete session schedule (per-session blocks, timestamps, join
-keys); a simulated study lands rows through the real ingest path (idempotent
-helpers, server-stamped join keys); and the analysis plan runs on the
-synthetic data, so a dry run proves the protocol produces data its own
-recipes can consume.
+"""
+Synthetic dry-run simulation: generators, the route, and the CLI. The acceptance bar: a
+seeded run is reproducible; every profile produces a plausible, complete session
+schedule (per-session blocks, timestamps, join keys); a simulated study lands rows
+through the real ingest path (idempotent helpers, server-stamped join keys); and the
+analysis plan runs on the synthetic data, so a dry run proves the protocol produces data
+its own recipes can consume.
 """
 
 from __future__ import annotations
@@ -24,22 +23,8 @@ from middleware.simulation import (
     simulate,
 )
 
-# ---------------------------------------------------------------- helpers
-# Local copies, not imported from conftest: none of these test directories
-# are packages (no __init__.py), so pytest's rootdir import mode gives every
-# package's conftest.py the same bare module name - "conftest" resolves to
-# whichever one a different test file happened to import first. Every other
-# file in this suite already avoids that by keeping its own tiny copy of
-# these helpers (test_evolution.py, test_conversation.py); this file is
-# adapted from test_evolution.py's, with the study id this file's fixtures
-# (conftest.STUDY) actually use.
-
-#: Matches conftest.STUDY - the fixtures this file drives (client_designed,
-#: client_no_protocol, client_ethics_ok) are all built against it.
 _STUDY = "pilot"
 
-#: A study described the way a researcher would, so the elicitation gate
-#: (FR-CONV-10) opens honestly rather than being bypassed in tests.
 _STUDY_SKETCH = (
     "I want to see whether developers finish maintenance tasks faster with "
     "an AI assistant than without one, in 45-minute lab sessions, "
@@ -90,13 +75,10 @@ def _frozen_client(tmp_path) -> TestClient:
 
 
 def _design_and_approve(client: TestClient) -> dict:
-    """Drive the real design conversation to an approved protocol, then
-    return the full protocol document. Every proposed move is accepted —
-    template choices and the prescribed statistics alike — because the
-    compiled ``analysisPlan`` only fills from accepted ``prescribe-statistics``
-    moves (compiler._apply_analysis_moves). The full document (not the
-    summary ``GET /protocol`` shape) comes from the conversation export's
-    ``currentDraft``."""
+    """
+    Drive the real design conversation to an approved protocol, then return the full
+    protocol document.
+    """
     import yaml
 
     _ask(client, _STUDY_SKETCH)
@@ -124,9 +106,10 @@ def test_simulate_needs_a_protocol(client_no_protocol: TestClient):
 
 
 def _normalize(row: dict) -> tuple:
-    """A hashable projection with the per-run nonce stripped from every
-    session id — top-level and the one nested inside metric payloads — so
-    rows from two runs compare."""
+    """
+    A hashable projection with the per-run nonce stripped from every session id —
+    top-level and the one nested inside metric payloads — so rows from two runs compare.
+    """
     session = row["sessionId"].rsplit("-", 1)[0]
     payload = row["payload"]
     if isinstance(payload, dict):
@@ -148,8 +131,10 @@ def _normalize(row: dict) -> tuple:
 
 
 def test_seeded_run_is_reproducible(tmp_path):
-    """Same seed, same frozen clock, same synthetic rows: only the per-run
-    session nonce and the token credentials differ, never the data."""
+    """
+    Same seed, same frozen clock, same synthetic rows: only the per-run session nonce
+    and the token credentials differ, never the data.
+    """
     client = _frozen_client(tmp_path)
     _design_and_approve(client)
 
@@ -166,8 +151,6 @@ def test_seeded_run_is_reproducible(tmp_path):
 
     first = run_and_rows()
     second = run_and_rows()
-    # The second run produced exactly one more copy of every row the first
-    # produced — nothing added, nothing changed.
     assert second == first + first
 
 
@@ -228,7 +211,7 @@ def test_all_profiles_generate_full_sessions():
                 assert session["events"], profile
                 kinds = {e["type"] for e in session["events"]}
                 assert "task_outcome" in kinds
-                assert "end_survey" not in kinds  # not planned -> not fabricated
+                assert "end_survey" not in kinds
                 for e in session["events"]:
                     assert e["participant_id"] == p["participantId"]
                     assert e["condition"] == session["condition"]
@@ -293,8 +276,10 @@ def test_struggling_profile_is_visibly_different_from_fast():
 
 
 def test_cli_command_runs_over_http(client_designed: TestClient, tmp_path, monkeypatch):
-    """The CLI is the E2E proof: HTTP protocol fetch, POST simulate, dataset
-    fetch, then the analysis plan against the synthetic rows."""
+    """
+    The CLI is the E2E proof: HTTP protocol fetch, POST simulate, dataset fetch, then
+    the analysis plan against the synthetic rows.
+    """
     from middleware import __main__ as cli
 
     _design_and_approve(client_designed)

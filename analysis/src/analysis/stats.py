@@ -1,24 +1,4 @@
-"""Honest statistics for tiny samples (NFR-8).
-
-Every comparison in every recipe goes through this module, so the output
-format is honest *by construction*: exact nonparametric tests, an effect
-size next to every p-value, per-cell n always stated, and an explicit
-hypothesis-generating framing whenever any cell is small. Recipes never
-format their own p-values.
-
-Test choice policy (justified once, reused everywhere):
-
-- Paired (within-subjects, both conditions present for a participant):
-  **Wilcoxon signed-rank**, exact distribution, with the matched-pairs
-  rank-biserial correlation as effect size.
-- Independent (unpaired cells): **Mann-Whitney U**, exact distribution,
-  with **Cliff's delta** as effect size (Mann-Whitney's effect-size twin;
-  robust for ordinal/skewed pilot data).
-- 2x2 outcome counts: **Fisher's exact test** with the odds ratio.
-
-Likert and duration data are ordinal/skewed and the pilot's n is a handful,
-so parametric t-tests are off the table from the start.
-"""
+"""Honest statistics for tiny samples (NFR-8)."""
 
 from __future__ import annotations
 
@@ -27,7 +7,6 @@ from dataclasses import dataclass
 import pandas as pd
 from scipy import stats as sps
 
-#: Below this per-cell n the phrasing is always hypothesis-generating.
 SMALL_N = 12
 
 
@@ -40,7 +19,6 @@ class TestResult:
     p: float
     effect_name: str
     effect: float
-    #: Cell label -> n, e.g. {"ai-assisted": 4, "unassisted": 4}.
     n: dict[str, int]
     note: str = ""
 
@@ -75,7 +53,7 @@ class TestResult:
 
 
 def cliffs_delta(a: list[float], b: list[float]) -> float:
-    """Cliff's delta: P(a > b) - P(a < b) over all pairs. Range [-1, 1]."""
+    """Cliff's delta: P(a > b) - P(a < b) over all pairs."""
     if not a or not b:
         return float("nan")
     gt = sum(1 for x in a for y in b if x > y)
@@ -99,11 +77,7 @@ def mann_whitney(a: list[float], b: list[float], labels: tuple[str, str]) -> Tes
 def wilcoxon_paired(
     a: list[float], b: list[float], labels: tuple[str, str]
 ) -> TestResult:
-    """Exact Wilcoxon signed-rank on paired values (within-subjects).
-
-    Effect size: matched-pairs rank-biserial correlation,
-    r = (W+ - W-) / (n(n+1)/2) over non-zero differences.
-    """
+    """Exact Wilcoxon signed-rank on paired values (within-subjects)."""
     diffs = [x - y for x, y in zip(a, b, strict=True)]
     nonzero = [d for d in diffs if d != 0]
     note = ""
@@ -122,7 +96,6 @@ def wilcoxon_paired(
     try:
         res = sps.wilcoxon(nonzero, alternative="two-sided", method="exact")
     except ValueError:
-        # Ties in |differences| make the exact distribution unavailable.
         res = sps.wilcoxon(nonzero, alternative="two-sided", method="auto")
     ranks = sps.rankdata([abs(d) for d in nonzero])
     w_plus = sum(r for r, d in zip(ranks, nonzero, strict=True) if d > 0)
@@ -184,14 +157,7 @@ def compare_by_condition(
     conditions: tuple[str, str],
     participant: str = "participantId",
 ) -> TestResult:
-    """The standard two-condition comparison, choosing the right test.
-
-    Aggregates ``value`` to one number per (participant, condition) - the
-    mean - then uses Wilcoxon on the participants who have BOTH conditions
-    when at least two such pairs exist, else Mann-Whitney on the two cells.
-    The per-participant aggregation avoids pseudo-replication (many events
-    from one person are not independent observations).
-    """
+    """The standard two-condition comparison, choosing the right test."""
     per = df.groupby([participant, "condition"])[value].mean().reset_index()
     wide = per.pivot(index=participant, columns="condition", values=value)
     for c in conditions:

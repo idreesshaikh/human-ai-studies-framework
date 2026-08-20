@@ -52,14 +52,19 @@ retrofitted.
 | `add-paper` | `RecommendationCard` | add the paper to the study set |
 | `recommender-rail` | `RecommenderRail` | the persistent literature-recommender panel beside the conversation (landmark) |
 | `design-shape` | `Templates` | one design shape in the ranked protocol repertoire; `data-agent-ref` carries its template id |
+| `use-reference-paper` | `Templates` | use a matched reference paper in the study (decision point) |
 | `draft-rail` | `DraftRail` | the compiled protocol-draft view (landmark) |
 | `draft-apply` | `DraftRail` | apply the server-validated compiled draft to the protocol (decision point) |
 | `draft-finish` | `DraftRail` | open the finish-and-review moment that prepares the protocol draft (decision point) |
+| `protocol-path` | `SlotMeter` | the phased checklist of protocol steps covered so far (landmark) |
+| `path-up-next` | `SlotMeter` | what would move the researcher next, named under the path |
+| `applied-next-step` | `FinishReview` | the callout shown after the draft is applied: what to do next (bring participants in) |
 | `protocol-guide-open` | `ProtocolGuide` | open the reference explaining the 8 mandatory protocol-draft sections (help) |
 | `tour-open` | `StudyHome` | open the first-study guided walkthrough (help) |
 | `tour-next` | `StudyTour` | advance the walkthrough to the next step |
 | `tour-done` | `StudyTour` | finish the walkthrough and start working |
 | `new-study` | `ProjectHome` | create a new study in the project (decision point) |
+| `seed-study` | `CreateStudyFrom` | create the study from the chosen template seed (decision point) |
 | `project-list` | `Projects` | the list of projects you belong to, each row carrying its study count (landmark) |
 | `new-project` | `Projects` | open the inline composer that creates a project (decision point) |
 | `project-switcher` | `ProjectSwitcher` | open the ⌘K project switcher (landmark) |
@@ -158,3 +163,8 @@ retrofitted.
 - **2026-08-19**: `power-required` — the required-n table beside the
   power curve: effect size × per-group/total n × whether the target is
   reached within the explored range.
+- **2026-08-20**: restore sync after a docs regression: `open-design-shape`
+  removed (the Templates detail panel is gone), `hatch-legend` re-documented
+  (`HatchLegend`'s key to the record's marks). Added the newer names that
+  had drifted out: `use-reference-paper`, `protocol-path`, `path-up-next`,
+  `applied-next-step`, `seed-study`.

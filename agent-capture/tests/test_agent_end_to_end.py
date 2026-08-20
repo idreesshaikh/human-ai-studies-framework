@@ -1,14 +1,4 @@
-"""acceptance walk, end to end against the live middleware.
-
-A scripted session - the participant pastes an error, asks Claude Code to
-fix a bug, the fix is applied, tests go green - must produce: live hook
-events during the session, a reconciled (no-duplicate) set after transcript
-import, >= 1 reliance_loop, an edit_burst annotated with agentTurnRef,
-workspace_snapshot commits, and a task_outcome with firstGreenMs - and,
-under metadata-only, zero conversation text. Finally the two RQ-P5 recipes
-run over the joined dataset, closing the producer->consumer contract with
-.
-"""
+"""acceptance walk, end to end against the live middleware."""
 
 from datetime import UTC, datetime, timedelta
 
@@ -34,9 +24,10 @@ def _iso(offset_s):
 
 
 def _behavioral_events():
-    """The editor leg's side of the scripted session (extension schema v3):
-    the participant pastes the error, then an AI-origin burst lands the fix.
-    Timed to bracket the transcript's turns so the reliance loop closes."""
+    """
+    The editor leg's side of the scripted session (extension schema v3): the participant
+    pastes the error, then an AI-origin burst lands the fix.
+    """
     common = {"v": 3, "participantId": "P01", "condition": "ai-assisted"}
     return [
         {
@@ -67,14 +58,11 @@ def _behavioral_events():
 def test_scripted_session_end_to_end(middleware, transcript_path, tmp_path):
     client = middleware
 
-    # 1. Editor leg lands live (source tern).
     client.post(
         "/ingest/events",
         json={"source": "tern", "events": _behavioral_events()},
     )
 
-    # 2. Agent leg: live hooks land, then the post-session importer re-posts
-    #    the same normalized set - reconciled, not duplicated (FR-ING-2).
     agent_events = normalize_transcript(transcript_path, KEYS, "metadata-only")
     wire = {"source": SOURCE_AGENT, "events": agent_events}
     live = client.post("/ingest/events", json=wire).json()
@@ -82,7 +70,6 @@ def test_scripted_session_end_to_end(middleware, transcript_path, tmp_path):
     reimport = client.post("/ingest/events", json=wire).json()
     assert reimport["inserted"] == 0 and reimport["duplicates"] == len(agent_events)
 
-    # 3. Workspace snapshot (real shadow git) + participant has no commits yet.
     ws = tmp_path / "task"
     ws.mkdir()
     (ws / "detect.py").write_text("def detect(a):\n    return a\n")
@@ -96,7 +83,6 @@ def test_scripted_session_end_to_end(middleware, transcript_path, tmp_path):
         },
     )
 
-    # 4. Task harness: suite goes green -> task_outcome with firstGreenMs.
     tests = tmp_path / "task-tests"
     tests.mkdir()
     (tests / "test_detect.py").write_text("def test_ok():\n    assert True\n")
@@ -106,8 +92,8 @@ def test_scripted_session_end_to_end(middleware, transcript_path, tmp_path):
     assert outcome["payload"]["firstGreenMs"] >= 0
     client.post("/ingest/events", json={"source": SOURCE_HARNESS, "events": [outcome]})
 
-    # 5. Correlate over the joined dataset -> derived reliance loop + burst
-    #    annotation, posted back (never overwriting raw data).
+    # Correlate over the joined dataset -> derived reliance loop + burst annotation,
+    # posted back (never overwriting raw data).
     rows = client.get("/studies/pilot-2026/dataset").json()["rows"]
     derived = correlate_session(rows, KEYS, window_s=120)
     evo = derive_evolution(rows, KEYS)
@@ -120,7 +106,6 @@ def test_scripted_session_end_to_end(middleware, transcript_path, tmp_path):
     assert len(loops) >= 1
     assert annotations and annotations[0]["payload"]["agentTurnRef"]["seq"] is not None
 
-    # 6. Acceptance invariants on the stored data.
     all_rows = client.get("/studies/pilot-2026/dataset").json()["rows"]
     types = {r["type"] for r in all_rows}
     assert {
@@ -132,15 +117,12 @@ def test_scripted_session_end_to_end(middleware, transcript_path, tmp_path):
         "reliance_loop",
     } <= types
 
-    # metadata-only: zero conversation text anywhere in the store.
     import json as _json
 
     blob = _json.dumps(all_rows)
     for leaked in ("ValueError", "negative amount", "inverted", "content"):
         assert leaked not in blob
 
-    # Each producer stream is independently gap-complete (source-namespaced
-    # seq, NFR-1/2).
     gaps = client.get("/sessions/S1/gaps").json()
     by_source = {s["source"]: s for s in gaps["sources"]}
     assert by_source[SOURCE_AGENT]["complete"] is True
@@ -148,8 +130,10 @@ def test_scripted_session_end_to_end(middleware, transcript_path, tmp_path):
 
 
 def test_recipes_consume_the_agent_contract(middleware, transcript_path, tmp_path):
-    """The RQ-P5 recipes run over the emitted events without error and read
-    the agent leg - proving the producer matches the consumer."""
+    """
+    The RQ-P5 recipes run over the emitted events without error and read the agent leg -
+    proving the producer matches the consumer.
+    """
     import analysis.recipes  # noqa: F401 - registers recipes via @recipe
     from analysis.core import REGISTRY
     from analysis.dataset import Dataset
@@ -161,7 +145,6 @@ def test_recipes_consume_the_agent_contract(middleware, transcript_path, tmp_pat
     )
     agent_events = normalize_transcript(transcript_path, KEYS, "metadata-only")
     client.post("/ingest/events", json={"source": SOURCE_AGENT, "events": agent_events})
-    # A real passing suite gives the recipe a definite verdict to work with.
     tests = tmp_path / "t"
     tests.mkdir()
     (tests / "test_ok.py").write_text("def test_ok():\n    assert True\n")
@@ -180,7 +163,6 @@ def test_recipes_consume_the_agent_contract(middleware, transcript_path, tmp_pat
     dyn = REGISTRY["agent-interaction-dynamics"].run(dataset)
     assert "RQ-P5" in dyn.summary or "Agent" in dyn.summary
     assert not dyn.tables["per_session"].empty
-    # Reliance loops surfaced to the recipe.
     assert "reliance_loops" in dyn.tables
 
     out = REGISTRY["task-outcome-by-condition"].run(dataset)

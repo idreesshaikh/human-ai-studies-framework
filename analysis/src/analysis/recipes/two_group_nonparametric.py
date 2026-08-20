@@ -1,13 +1,6 @@
-"""two-group-nonparametric — parameterised recipe for two-group
-independent-comparison designs.
-
-Can be parameterised via the recipe's ``params`` dict:
-- ``direction``: "two-sided" (default), "greater", or "less"
-- ``test``: "mann-whitney" (default)
-- ``effect_size``: "cliffs-delta" (default)
-- ``figure``: "strip" (default) or "box"
-
-FR-ANA-8: single code path for all two-group comparisons.
+"""
+two-group-nonparametric — parameterised recipe for two-group independent-comparison
+designs.
 """
 
 from __future__ import annotations

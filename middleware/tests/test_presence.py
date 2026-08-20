@@ -1,10 +1,4 @@
-"""Live presence + study-change pushes (D6/FR-PLAT collaboration).
-
-Two things must hold for this to be worth having: a second viewer actually
-appears to the first, and a change one researcher makes reaches the other
-without a reload. The rest is honesty under load — a viewer that falls
-behind is *told*, never quietly served a gapped stream.
-"""
+"""Live presence + study-change pushes (D6/FR-PLAT collaboration)."""
 
 import queue
 import threading
@@ -38,9 +32,6 @@ def _clean_hub():
     presence.hub._viewers.clear()
 
 
-# ------------------------------------------------------------ the hub
-
-
 def test_a_joiner_is_announced_to_everyone_already_there():
     hub = Hub()
     first = hub.subscribe(STUDY, "user-1", "Ada", "t0")
@@ -51,8 +42,9 @@ def test_a_joiner_is_announced_to_everyone_already_there():
 
 
 def test_two_tabs_are_one_person():
-    """A colleague in two windows is one presence — two chips would read as
-    two colleagues."""
+    """
+    A colleague in two windows is one presence — two chips would read as two colleagues.
+    """
     hub = Hub()
     hub.subscribe(STUDY, "user-1", "Ada", "2026-01-01T10:00:00Z")
     hub.subscribe(STUDY, "user-1", "Ada", "2026-01-01T10:05:00Z")
@@ -60,7 +52,6 @@ def test_two_tabs_are_one_person():
 
     viewers = hub.viewers(STUDY)
     assert [v["displayName"] for v in viewers] == ["Ada", "Grace"]
-    # The earliest join wins, so "since" doesn't jump when a tab is opened.
     assert viewers[0]["since"] == "2026-01-01T10:00:00Z"
 
 
@@ -69,7 +60,7 @@ def test_leaving_removes_the_presence():
     viewer = hub.subscribe(STUDY, "user-1", "Ada", "t0")
     hub.unsubscribe(STUDY, viewer.viewer_id)
     assert hub.viewers(STUDY) == []
-    assert STUDY not in hub._viewers  # no leak per study
+    assert STUDY not in hub._viewers
 
 
 def test_publish_reaches_every_viewer_of_that_study_only():
@@ -80,8 +71,6 @@ def test_publish_reaches_every_viewer_of_that_study_only():
     delivered = hub.publish(STUDY, "study", {"changed": "conversation"})
     assert delivered == 1
     assert here.events.get_nowait() == ("study", {"changed": "conversation"})
-    # A joiner's own queue starts empty (the stream sends its first frame),
-    # and nothing from another study ever reaches it.
     assert elsewhere.events.empty()
 
 
@@ -91,7 +80,7 @@ def test_a_stalled_viewer_drops_events_instead_of_growing_memory():
     for _ in range(QUEUE_MAX + 10):
         hub.publish(STUDY, "study", {"changed": "conversation"})
     assert viewer.events.qsize() <= QUEUE_MAX
-    assert viewer.dropped > 0  # and it is recorded, not silent
+    assert viewer.dropped > 0
 
 
 def test_publishing_never_blocks_the_writer():
@@ -111,16 +100,6 @@ def test_publishing_never_blocks_the_writer():
     thread.start()
     thread.join(timeout=2)
     assert finished.is_set()
-
-
-# --------------------------------------------------- the routes publish
-#
-# The SSE stream itself is not driven through TestClient: its ASGI portal is
-# single-threaded, so an open long-lived response blocks the very second
-# request these tests would need. What is asserted here is the contract that
-# matters — every study change publishes, and the frames it publishes are
-# what a viewer would receive (the hub tests above cover delivery). The
-# stream is verified end-to-end against a real server; see the D6 commit.
 
 
 @pytest.fixture()
@@ -143,7 +122,6 @@ def test_a_new_turn_publishes_a_conversation_change(client, published):
     assert res.status_code == 200
     changes = [d for sid, ev, d in published if sid == STUDY and ev == "study"]
     assert changes and changes[0]["changed"] == "conversation"
-    # It carries a pointer, not the content: viewers re-read the endpoint.
     assert changes[0]["turnId"] == res.json()["platformTurnId"]
 
 

@@ -1,22 +1,4 @@
-"""Semantic Scholar Graph API client (FR-LIT-1/2; decision D8).
-
-The open citation graph the literature view is built on: paper lookup by
-DOI / arXiv id, plus the three edge kinds the ResearchRabbit-style view
-needs - ``references``, ``citations``, and ``recommendations``. Metadata
-only (ids, titles, counts), so NFR-5-compatible - no participant data ever
-touches this call, and it is the *sole* external call besides the assistant.
-
-Local-first discipline like the rest of the stack: every response is cached
-in the middleware DB by the caller (``S2Cache``), so the graph renders
-offline after the first fetch (NFR-7). No API key is required at our volume;
-``MIDDLEWARE_S2_API_KEY`` is honoured if set. Failures degrade gracefully -
-a :class:`SemanticScholarError` is surfaced as a warning, never blocks a
-session, and never discards an already-cached graph.
-
-Papers are keyed by the same canonical ``paperRef`` scheme the protocol's
-``literature:`` list uses (``doi:``/``arxiv:``, else
-``s2:<paperId>``), so neighbours join protocol links by construction.
-"""
+"""Semantic Scholar Graph API client (FR-LIT-1/2; decision D8)."""
 
 from __future__ import annotations
 
@@ -31,22 +13,15 @@ import urllib.request
 GRAPH_API = "https://api.semanticscholar.org/graph/v1"
 REC_API = "https://api.semanticscholar.org/recommendations/v1"
 
-#: S2's documented free-tier limit: 1 request/second cumulative across all
-#: endpoints. We pace ourselves instead of provoking 429s.
 _MIN_INTERVAL = 1.0
 _pace_lock = threading.Lock()
 _last_request = 0.0
 
 PAPER_FIELDS = "title,authors,year,venue,abstract,externalIds,citationCount"
-EDGE_FIELDS = "title,year,externalIds,citationCount"
+EDGE_FIELDS = "title,authors,year,externalIds,citationCount"
 
-#: S2's ``POST /paper/batch`` accepts up to 500 ids per call, and one call
-#: costs one request against the 1 req/s budget - which is what makes a
-#: whole-corpus abstract backfill minutes of work rather than hours.
 BATCH_MAX_IDS = 500
 
-#: Cap harvested edges per kind (top-N by citationCount) so the graph stays
-#: legible and one popular paper doesn't pull thousands of stubs.
 EDGE_CAP = 50
 
 
@@ -70,9 +45,10 @@ def _pace() -> None:
 
 
 def get_json(url: str, *, retries: int = 5) -> object:
-    """GET, self-paced to the documented 1 req/s budget, honouring
-    ``Retry-After`` with exponential fallback on a 429. Monkeypatched in
-    tests with recorded fixtures - the one network seam."""
+    """
+    GET, self-paced to the documented 1 req/s budget, honouring ``Retry-After`` with
+    exponential fallback on a 429.
+    """
     for attempt in range(retries):
         _pace()
         req = urllib.request.Request(url, headers=_headers())
@@ -92,8 +68,7 @@ def get_json(url: str, *, retries: int = 5) -> object:
 
 
 def post_json(url: str, payload: dict, *, retries: int = 5) -> object:
-    """POST, sharing :func:`get_json`'s pacing and 429 posture. The batch
-    endpoint's seam - monkeypatched in tests, never called on a cache hit."""
+    """POST, sharing :func:`get_json`'s pacing and 429 posture."""
     body = json.dumps(payload).encode()
     headers = {**_headers(), "Content-Type": "application/json"}
     for attempt in range(retries):
@@ -126,8 +101,10 @@ def s2_id_for_ref(paper_ref: str) -> str:
 
 
 def ref_for_paper(paper: dict) -> str:
-    """Canonical ``paperRef`` for an S2 paper object (matches the protocol
-    scheme so links join): DOI first, else arXiv, else the S2 hash."""
+    """
+    Canonical ``paperRef`` for an S2 paper object (matches the protocol scheme so links
+    join): DOI first, else arXiv, else the S2 hash.
+    """
     ext = paper.get("externalIds") or {}
     if ext.get("DOI"):
         return f"doi:{str(ext['DOI']).lower()}"
@@ -160,9 +137,7 @@ def normalize_paper(paper: dict) -> dict:
 
 
 def fetch_paper(paper_ref: str, *, fetch=get_json) -> dict:
-    """Metadata for one paper by ref (FR-LIT-1 id path). ``fetch`` is the GET
-    seam - the app passes a DB-caching wrapper (NFR-7); tests monkeypatch
-    :func:`get_json`."""
+    """Metadata for one paper by ref (FR-LIT-1 id path)."""
     sid = urllib.parse.quote(s2_id_for_ref(paper_ref), safe=":")
     paper = fetch(f"{GRAPH_API}/paper/{sid}?fields={PAPER_FIELDS}")
     if not isinstance(paper, dict):
@@ -177,16 +152,7 @@ def fetch_papers_batch(
     id_for_ref=s2_id_for_ref,
     post=post_json,
 ) -> dict[str, dict]:
-    """Metadata for many papers in one call (``POST /paper/batch``).
-
-    Returns ``{paperRef: normalized record}`` keyed by the *requested* ref, so
-    a caller joins results back to its own rows. ``id_for_ref`` maps a ref to
-    the id S2 should be asked for - the corpus passes one that prefers a
-    row's stored ``s2Id``, since a curated ``corpus:<stem>`` ref means nothing
-    to S2. Ids S2 cannot resolve are simply absent from the mapping:
-    staleness, reported by the caller, never fabricated. Requests are chunked
-    to :data:`BATCH_MAX_IDS`.
-    """
+    """Metadata for many papers in one call (``POST /paper/batch``)."""
     out: dict[str, dict] = {}
     url = f"{GRAPH_API}/paper/batch?fields={fields}"
     for start in range(0, len(paper_refs), BATCH_MAX_IDS):
@@ -214,9 +180,10 @@ def _neighbours(items: list, inner_key: str) -> list[dict]:
 
 
 def fetch_edges(paper_ref: str, *, fetch=get_json) -> dict[str, list[dict]]:
-    """The three edge kinds for one ingested paper (FR-LIT-2), each a list of
-    normalized neighbour records. Any single kind failing degrades to [] for
-    that kind rather than losing the others."""
+    """
+    The three edge kinds for one ingested paper (FR-LIT-2), each a list of normalized
+    neighbour records.
+    """
     sid = urllib.parse.quote(s2_id_for_ref(paper_ref), safe=":")
     out: dict[str, list[dict]] = {
         "references": [],

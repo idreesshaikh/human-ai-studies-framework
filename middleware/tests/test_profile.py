@@ -1,11 +1,4 @@
-"""Per-user profile preferences (FR-OPS-7) over the Clerk auth seam.
-
-Uses a generated RS256 key to mint a Clerk-style session JWT and stubs the
-JWKS fetch, so the /me + /me/preferences round-trip is exercised exactly as
-a hosted Clerk deployment would reach it. Membership resolution in clerk mode
-is also checked: the JWT ``sub`` becomes the join key for project membership,
-and two distinct Clerk identities keep separate profiles.
-"""
+"""Per-user profile preferences (FR-OPS-7) over the Clerk auth seam."""
 
 import datetime as dt
 
@@ -142,8 +135,10 @@ def test_profiles_are_scoped_per_clerk_sub(tmp_path, rsa_key):
 
 
 def test_clerk_sub_resolves_project_membership(tmp_path, rsa_key):
-    """The JWT sub is the join key: a project created by the Clerk identity
-    shows up in its /me memberships and is viewable under the same token."""
+    """
+    The JWT sub is the join key: a project created by the Clerk identity shows up in its
+    /me memberships and is viewable under the same token.
+    """
     client = clerk_client(tmp_path, rsa_key)
     created = client.post(
         "/projects", headers=auth(rsa_key), json={"name": "Clerk Lab"}

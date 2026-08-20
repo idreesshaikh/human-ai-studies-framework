@@ -1,16 +1,4 @@
-"""The schema-creation resilience guards in db._create_schema.
-
-On Railway a redeploy can briefly overlap the old and new container against
-the same Postgres database; both processes' create_all() can race on the
-catalog's own unique indexes (pg_type_typname_nsp_index). That specific,
-narrow race should be logged and survived, not crash-loop the service -
-but any other integrity/programming error must still fail loudly.
-
-Separately, a managed database can be briefly unreachable right after
-provisioning (DNS not yet propagated) - a bounded retry gives that a chance
-to heal instead of crashing on the very first hiccup, while a persistent
-misconfiguration still exits fatally once attempts are exhausted.
-"""
+"""The schema-creation resilience guards in db._create_schema."""
 
 import middleware.db as db_mod
 from middleware.db import (
@@ -94,7 +82,7 @@ def test_create_schema_retries_transient_connection_failures_then_succeeds(
         real_create_all(bound_engine)
 
     monkeypatch.setattr(Base.metadata, "create_all", flaky_create_all)
-    _create_schema(engine, "postgresql://x/y")  # must not raise
+    _create_schema(engine, "postgresql://x/y")
     assert calls["n"] == 3
     assert _all_tables_present(engine)
 

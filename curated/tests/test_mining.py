@@ -1,7 +1,4 @@
-"""The curated-dataset leg: normalizer, adapter, heuristics, frame, threats.
-
-All offline. These exercise the pure logic.
-"""
+"""The curated-dataset leg: normalizer, adapter, heuristics, frame, threats."""
 
 from pathlib import Path
 
@@ -28,21 +25,13 @@ def run_all(adapter, frame, cursor=None):
     return events, checkpoints
 
 
-# --------------------------------------------------------------- pseudonyms
-
-
 def test_pseudonym_is_deterministic_and_salted():
     salt = new_salt()
     a1 = pseudonym(salt, "Alice")
-    a2 = pseudonym(salt, "alice")  # case/space-normalized
+    a2 = pseudonym(salt, "alice")
     assert a1 == a2 and a1.startswith("actor-")
-    # A different salt yields a different pseudonym for the same actor.
     assert pseudonym(new_salt(), "alice") != a1
-    # No raw identity survives.
     assert "alice" not in a1
-
-
-# ------------------------------------------------------------- heuristics
 
 
 def test_heuristics_classify_agents_and_record_versions():
@@ -53,9 +42,6 @@ def test_heuristics_classify_agents_and_record_versions():
     recs = heuristic_records({"coauthor-trailer@1"})
     assert recs and recs[0]["cite"] == "mining-coding-agent-activity"
     assert recs[0]["knownFailureModes"]
-
-
-# ----------------------------------------------------------------- frame
 
 
 def test_frame_refuses_without_curated_section():
@@ -80,11 +66,6 @@ def test_frame_parses_curated_section():
     frame = frame_from_protocol(proto)
     assert frame.query.startswith("repo:example/app")
     assert frame.target_n == 6 and frame.exclusions == ["draft"]
-
-
-# ---------------------------------------------------------------------------
-# Archive adapter (FR-CUR-4)
-# ---------------------------------------------------------------------------
 
 
 def test_archive_adapter_produces_join_keyed_events():
@@ -195,7 +176,6 @@ def test_archive_adapter_resume_from_cursor():
     )
     full_events, _ = run_all(adapter, frame)
 
-    # Resume from cursor skipping the first 2 events
     adapter2 = ArchiveAdapter(path=path, salt="test-salt")
     cursor = Cursor({"skip": 2, "seen": 2})
     events, _ = run_all(adapter2, frame, cursor=cursor)

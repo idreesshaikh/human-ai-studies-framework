@@ -1,5 +1,7 @@
-"""Tests for the metrics analyzers and the orchestrator (flat-script layout:
-metrics/src is put on sys.path, per metrics/docs/implementation_plan.md)."""
+"""
+Tests for the metrics analyzers and the orchestrator (flat-script layout: metrics/src is
+put on sys.path, per metrics/docs/implementation_plan.md).
+"""
 
 import json
 import sys
@@ -38,7 +40,6 @@ def test_indentation_variance_of_flat_source_is_zero():
 
 
 def test_indentation_variance_known_value():
-    # widths 0 and 4 -> population stdev 2.0; blank lines ignored
     assert get_indentation_variance("if x:\n    y = 1\n\n") == 2.0
 
 
@@ -70,14 +71,12 @@ def test_collect_function_metrics():
     rows = collect_function_metrics(SAMPLE.encode())
     row = rows["outer"]
     assert row["parameter_count"] == 3
-    assert row["nesting_penalty"] == 3  # for at depth 0 (1) + if at depth 1 (2)
+    assert row["nesting_penalty"] == 3
     assert row["avg_identifier_length"] > 0
     assert row["max_scope_distance"] >= row["mean_scope_distance"] >= 0
 
 
 def test_parameter_counts_pair_correctly_across_nested_definitions():
-    # Regression: pairing the flat captures() lists with zip() misaligned
-    # names and parameter blocks on files with methods + nested functions.
     src = textwrap.dedent(
         """
         class A:
@@ -97,7 +96,7 @@ def test_parameter_counts_pair_correctly_across_nested_definitions():
         """
     )
     rows = collect_function_metrics(src.encode())
-    assert rows["method"]["parameter_count"] == 3  # first occurrence (A.method)
+    assert rows["method"]["parameter_count"] == 3
     assert rows["callback"]["parameter_count"] == 1
     assert rows["solo"]["parameter_count"] == 0
 
@@ -148,7 +147,7 @@ def test_orchestrator_jsonl_mirrors_rows_with_nan_as_null(tmp_path):
     assert len(lines) == 1
     record = json.loads(lines[0])
     assert record["participantId"] == "P00"
-    assert record["cognitive_complexity"] is None  # sonar stub degraded
+    assert record["cognitive_complexity"] is None
     assert record["schemaVersion"] == orchestrator.SCHEMA_VERSION
 
 

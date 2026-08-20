@@ -1,25 +1,4 @@
-"""Sample-size planning: the power/sensitivity curve (P2-2).
-
-A planning tool, not a result: given the study's planned primary comparison
-(a two-sample t-test over the two conditions, the pilot protocol's shape),
-how does power move with per-group n, and what n does a target power need
-per plausible effect size?
-
-The exact non-central t distribution does the work — no normal
-approximation, no simulation, deterministic for any fixed inputs. Honesty
-notes that travel with the numbers:
-
-- The model is the two-sample t-test with equal per-group n. The
-  statistics module runs nonparametric tests on actual data, but *planning*
-  power for a nonparametric test needs an assumed distribution; the t-test
-  power is the standard planning instrument and the ethics package should
-  say so.
-- Every curve carries its alpha and target explicitly — never a bare
-  "you need N=64".
-- ``requiredN`` entries say whether the target is *reached within the
-  explored range*; a "no" means the target needs more participants than
-  the range examined, which is information, not a failure.
-"""
+"""Sample-size planning: the power/sensitivity curve (P2-2)."""
 
 from __future__ import annotations
 
@@ -27,8 +6,6 @@ from collections.abc import Iterable
 
 from scipy import stats as sps
 
-#: The conventional planning targets the platform's power panel shows by
-#: default (small / medium / large, Cohen's d).
 DEFAULT_EFFECT_SIZES = (0.2, 0.5, 0.8)
 DEFAULT_ALPHA = 0.05
 DEFAULT_POWER_TARGET = 0.8
@@ -45,8 +22,10 @@ def _validate(alpha: float, power_target: float, max_total_n: int) -> None:
 
 
 def _power_at(n_per_group: int, d: float, alpha: float) -> float:
-    """Exact power of a two-sample t-test (equal groups, two-sided) via the
-    non-central t distribution."""
+    """
+    Exact power of a two-sample t-test (equal groups, two-sided) via the non-central t
+    distribution.
+    """
     df = 2 * n_per_group - 2
     noncentrality = d * (n_per_group / 2) ** 0.5
     t_crit = sps.t.ppf(1.0 - alpha / 2.0, df)
@@ -62,14 +41,7 @@ def two_sample_power_curve(
     power_target: float = DEFAULT_POWER_TARGET,
     max_total_n: int = DEFAULT_MAX_TOTAL_N,
 ) -> dict:
-    """The power/sensitivity curve as JSON-friendly planning data.
-
-    Returns a dict with the model statement, the explored parameters, one
-    ``curves`` entry per effect size (power at every per-group n from 2 up
-    to ``max_total_n // 2``), and one ``requiredN`` entry per effect size
-    (the first n at which power reaches the target, or ``None`` if the
-    range is too small). Deterministic: same inputs, same numbers.
-    """
+    """The power/sensitivity curve as JSON-friendly planning data."""
     sizes = [float(d) for d in effect_sizes]
     if not sizes:
         raise ValueError("at least one effect size is required")

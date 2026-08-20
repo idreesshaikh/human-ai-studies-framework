@@ -1,33 +1,4 @@
-"""Live presence and study updates (FR-PLAT collaboration).
-
-Collaboration on a study is otherwise asynchronous: two researchers in the
-same study see each other's work only by reloading. This is the smallest
-thing that makes a shared study feel live —
-
-- **who is looking at this study right now**, and
-- **a push when the study changes** (a new conversation turn, a decided
-  move, a fresh draft), so the other viewer's screen catches up on its own.
-
-Deliberately not a collaborative editor. No CRDT, no operational transform,
-no simultaneous typing: at the scale this platform targets (a handful of
-researchers per study) that machinery would cost far more than it returns,
-and the honest primitives — presence plus an invalidation push — deliver the
-felt difference. Viewers act on the push by re-reading through the ordinary
-endpoints, so the API stays the single source of truth and no state is
-reconstructed from the event stream.
-
-Transport is the same server-sent-events channel the streamed design turn
-introduced, and the registry is in-process: one Railway container serves the
-whole app, so a shared in-memory hub is the right size. If the service ever
-runs replicated, this module is the one seam to move behind Redis pub/sub —
-which is exactly why publishing goes through :func:`publish` rather than
-touching queues at call sites.
-
-Every subscriber gets a *bounded* queue: a viewer whose browser stalls drops
-events rather than growing the server's memory, and is told it fell behind
-(``dropped``) so it can do a full re-read instead of trusting a gapped
-stream. Losing an event must never look like nothing happened.
-"""
+"""Live presence and study updates (FR-PLAT collaboration)."""
 
 from __future__ import annotations
 
@@ -39,12 +10,9 @@ from dataclasses import dataclass, field
 
 log = logging.getLogger(__name__)
 
-#: Events a stalled client may buffer before it is treated as behind. Small
-#: on purpose: these are invalidation pings, not a log to replay.
+# Small on purpose: these are invalidation pings, not a log to replay.
 QUEUE_MAX = 64
 
-#: How long a subscriber waits for an event before the stream emits a
-#: keepalive comment. Under the 30-60s idle timeout proxies typically apply.
 KEEPALIVE_SECONDS = 15.0
 
 
@@ -61,17 +29,12 @@ class Viewer:
 
 
 class Hub:
-    """The in-process registry of who is watching what.
-
-    Thread-safe by a single lock: FastAPI serves these sync endpoints from a
-    thread pool, so subscribe/unsubscribe/publish genuinely race.
-    """
+    """The in-process registry of who is watching what."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._viewers: dict[str, dict[str, Viewer]] = {}
 
-    # ------------------------------------------------------- subscriptions
 
     def subscribe(self, study_id: str, sub: str, display_name: str, at: str) -> Viewer:
         viewer = Viewer(
@@ -82,8 +45,6 @@ class Hub:
         )
         with self._lock:
             self._viewers.setdefault(study_id, {})[viewer.viewer_id] = viewer
-        # Everyone *else* is told the room changed; the new viewer's own first
-        # frame is sent by the stream itself, so its queue holds only news.
         self.publish(
             study_id,
             "presence",
@@ -100,9 +61,11 @@ class Hub:
         self.publish(study_id, "presence", {"viewers": self.viewers(study_id)})
 
     def viewers(self, study_id: str) -> list[dict]:
-        """Who is watching, one entry per person (not per tab): the same
-        researcher in two windows is one presence, with its earliest join
-        time — two chips for one colleague would read as two colleagues."""
+        """
+        Who is watching, one entry per person (not per tab): the same researcher in two
+        windows is one presence, with its earliest join time — two chips for one
+        colleague would read as two colleagues.
+        """
         with self._lock:
             open_viewers = list(self._viewers.get(study_id, {}).values())
         by_person: dict[str, dict] = {}
@@ -116,19 +79,11 @@ class Hub:
                 }
         return sorted(by_person.values(), key=lambda v: (v["since"], v["sub"]))
 
-    # ----------------------------------------------------------- publishing
 
     def publish(
         self, study_id: str, event: str, data: dict, *, exclude: str | None = None
     ) -> int:
-        """Fan an event out to this study's viewers; returns how many got it.
-
-        Never raises and never blocks: a full queue marks that subscriber as
-        behind instead of stalling the writer that triggered the event (a
-        conversation turn must not wait on someone's browser). ``exclude``
-        skips one viewer id — used so a joiner doesn't receive its own
-        arrival twice.
-        """
+        """Fan an event out to this study's viewers; returns how many got it."""
         with self._lock:
             targets = [
                 v
@@ -151,5 +106,4 @@ class Hub:
         return delivered
 
 
-#: The process-wide hub. One container, one registry (see the module note).
 hub = Hub()

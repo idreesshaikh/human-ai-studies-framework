@@ -1,25 +1,4 @@
-"""The frontend's move-kind vocabulary must equal the server's.
-
-``design_llm._ALLOWED_KINDS`` is the server's whitelist: a move kind outside
-it is dropped before ever reaching the wire (design_llm.py's own docstring:
-"an unrecognized kind is dropped, never passed through blind"). The
-frontend's ``MoveKind`` union in ``platform/src/lib/types.ts`` is supposed to
-mirror it exactly, and ``KIND_LABEL: Record<DesignMove["kind"], string>`` in
-MoveCard.tsx is typed to require an entry for every member.
-
-They drifted. The union carried ``"set-threshold"`` - a kind the server has
-never sent - and was missing three kinds the server does send:
-``set-field`` and ``declare-task`` (the direct protocol-slot fills added this
-session) and ``reconfigure-instrument`` (instrument tuning). Because the
-union itself was wrong, TypeScript's exhaustiveness check on ``KIND_LABEL``
-could not catch it - it verified completeness against the wrong set. A
-design move of any of the three missing kinds rendered with no kind label at
-all, silently, for as long as the two files disagreed.
-
-This is a cheap, load-bearing thing to keep true — not something the current
-Python + TypeScript workspace has any type-level way to enforce, so it is
-kept true by name here.
-"""
+"""The frontend's move-kind vocabulary must equal the server's."""
 
 from __future__ import annotations
 
@@ -49,10 +28,11 @@ def _frontend_move_kind_union() -> set[str]:
 
 
 def _kind_label_keys() -> set[str]:
-    """Parse KIND_LABEL's own keys out of MoveCard.tsx — belt and braces
-    alongside the TypeScript compiler's own exhaustiveness check, since a
-    test failure here explains *why* in a way a red `npm run check` does
-    not."""
+    """
+    Parse KIND_LABEL's own keys out of MoveCard.tsx — belt and braces alongside the
+    TypeScript compiler's own exhaustiveness check, since a test failure here explains
+    *why* in a way a red `npm run check` does not.
+    """
     text = MOVE_CARD_TSX.read_text()
     start = text.index("const KIND_LABEL")
     end = text.index("};", start)

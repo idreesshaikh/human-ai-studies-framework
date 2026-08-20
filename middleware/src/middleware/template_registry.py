@@ -1,26 +1,4 @@
-"""The template registry.
-
-Templates are versioned YAML documents in ``templates/registry/``, each
-encoding one published, citable study design - its parameters, measures,
-statistical plan, and a ``protocolSkeleton`` that instantiates into a
-protocol passing ``protocol validate`` with zero hand edits (F1.1).
-Validation is two-layered:
-
-- **Registry validation** (:func:`validate_registry`): the template JSON
-  Schema, mandatory citations, and - earlier than instantiation, per F2.3 -
-  every recipe the skeleton's ``analysisPlan`` names must exist in the
-  analysis catalogue. A template cannot promise an analysis the platform
-  can't run.
-- **Instantiation validation**: parameter typing/bounds, then the filled
-  protocol through :func:`protocol.loader.validate_protocol` (the same
-  checks the CLI applies to a file).
-
-Instantiation is a pure function of (template, parameters) - the FR-CONV-3
-compiler treats a template instantiation as a batch of design moves, so the
-same determinism guarantee (byte-identical replay) holds here. Which
-template@version produced a draft is recorded in the draft's generated
-header comment and the compilation row, never guessed (F1.3).
-"""
+"""The template registry."""
 
 from __future__ import annotations
 
@@ -40,16 +18,15 @@ REPO = Path(__file__).resolve().parent.parent.parent.parent
 REGISTRY_DIR = REPO / "templates" / "registry"
 SCHEMA_FILE = REPO / "templates" / "schemas" / "template.schema.json"
 
-#: Exact-placeholder form: the whole scalar is one parameter reference, so
-#: the *typed* value (int, list, ...) replaces the string wholesale.
 _EXACT_PLACEHOLDER = re.compile(r"^\{\{\s*(\w+)\s*\}\}$")
-#: Embedded form: interpolated into the surrounding text.
 _EMBEDDED_PLACEHOLDER = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 
 
 class TemplateError(Exception):
-    """A template problem with a human-readable message (mirrors
-    ``protocol.errors.ProtocolError``'s posture)."""
+    """
+    A template problem with a human-readable message (mirrors
+    ``protocol.errors.ProtocolError``'s posture).
+    """
 
 
 def _load_schema() -> dict:
@@ -57,8 +34,9 @@ def _load_schema() -> dict:
 
 
 def _read_all() -> list[tuple[Path, dict]]:
-    """Every registry document, unvalidated, sorted by filename for
-    deterministic listings."""
+    """
+    Every registry document, unvalidated, sorted by filename for deterministic listings.
+    """
     docs = []
     for path in sorted(REGISTRY_DIR.glob("*.yaml")):
         try:
@@ -71,11 +49,7 @@ def _read_all() -> list[tuple[Path, dict]]:
 
 
 def load_template(template_id: str, version: int | None = None) -> dict:
-    """Load one template by id; highest ``templateVersion`` unless pinned.
-
-    Loading an old version after a newer one exists keeps working (F1.3) -
-    versions are separate documents, never overwritten.
-    """
+    """Load one template by id; highest ``templateVersion`` unless pinned."""
     candidates = [
         doc
         for _, doc in _read_all()
@@ -114,10 +88,9 @@ def validate_template(doc: dict) -> list[str]:
                     f"template cannot promise an analysis the platform "
                     f"can't run)"
                 )
-    # Every {{ placeholder }} in the skeleton must be a declared parameter,
-    # else the template passes validation but cannot instantiate (F1.1: a
-    # template *instantiates* into a valid protocol — validation must
-    # guarantee that, not just schema-shape).
+    # Every {{ placeholder }} in the skeleton must be a declared parameter, else the
+    # template passes validation but cannot instantiate (F1.1: a template *instantiates*
+    # into a valid protocol — validation must guarantee that, not just schema-shape).
     declared = set(doc.get("parameters", {}))
     used = _skeleton_placeholders(doc.get("protocolSkeleton", {}))
     for name in sorted(used - declared):
@@ -143,9 +116,7 @@ def _skeleton_placeholders(node: Any) -> set[str]:
 
 
 def _recipe_catalogue() -> frozenset[str]:
-    """Recipe ids the platform can actually run (FR-ANA-2). The analysis
-    package is a workspace sibling; if it cannot import, the check fails
-    loudly rather than passing silently."""
+    """Recipe ids the platform can actually run (FR-ANA-2)."""
     try:
         import analysis.recipes  # noqa: F401 - registers recipes on import
         from analysis.core import REGISTRY
@@ -171,8 +142,10 @@ def validate_registry() -> list[str]:
 
 
 def list_templates() -> list[dict]:
-    """Latest version of every template, with the metadata both surfaces
-    (conversation cards and the FR-TPL-3 form) render."""
+    """
+    Latest version of every template, with the metadata both surfaces (conversation
+    cards and the FR-TPL-3 form) render.
+    """
     latest: dict[str, dict] = {}
     for _, doc in _read_all():
         tid = doc.get("templateId", "")
@@ -201,9 +174,6 @@ def list_templates() -> list[dict]:
             ((tid, d) for tid, d in latest.items()), key=lambda x: x[0]
         )
     ]
-
-
-# ------------------------------------------------------------ parameters
 
 
 def _coerce(name: str, definition: dict, value: Any) -> Any:
@@ -244,9 +214,7 @@ def _coerce(name: str, definition: dict, value: Any) -> Any:
 
 
 def resolve_parameters(template: dict, supplied: dict) -> dict:
-    """Defaults + supplied values, typed and bounds-checked. Unknown names
-    and missing no-default parameters fail loudly (F1.3 posture: named
-    gaps, never silent ones)."""
+    """Defaults + supplied values, typed and bounds-checked."""
     definitions = template.get("parameters", {})
     unknown = sorted(set(supplied) - set(definitions))
     if unknown:
@@ -268,8 +236,7 @@ def resolve_parameters(template: dict, supplied: dict) -> dict:
 
 
 def _fill(node: Any, values: dict) -> Any:
-    """Recursively fill placeholders; exact placeholders keep the value's
-    type. Any placeholder left unfilled is an error, not a silent gap."""
+    """Recursively fill placeholders; exact placeholders keep the value's type."""
     if isinstance(node, str):
         exact = _EXACT_PLACEHOLDER.match(node)
         if exact:
@@ -293,14 +260,7 @@ def _fill(node: Any, values: dict) -> Any:
 
 
 def _plain_fields(errors: list[str]) -> str:
-    """A schema error list, as the field names a researcher would recognise.
-
-    ``validate_protocol`` returns ``"<dotted path>: <jsonschema message>"``.
-    The path is legible; the message ("is not valid under any of the given
-    schemas", "should be non-empty") is validator internals. This keeps only
-    the path, deduplicated and in the order the errors arrived, and falls
-    back to "the protocol" for the rare error with no path at all.
-    """
+    """A schema error list, as the field names a researcher would recognise."""
     fields: list[str] = []
     for error in errors:
         head, _, _ = error.partition(": ")
@@ -313,17 +273,15 @@ def _plain_fields(errors: list[str]) -> str:
 def instantiate_template(
     template_id: str, parameters: dict, *, version: int | None = None
 ) -> dict:
-    """Template + parameters → validated protocol dict (FR-TPL-1.4).
+    """Template + parameters → validated protocol dict (FR-TPL-1.4)."""
+    return instantiate_doc(load_template(template_id, version), parameters)
 
-    Returns ``{protocol, templateId, templateVersion, parameters}``; raises
-    :class:`TemplateError` when the template is invalid, a parameter is
-    missing/out-of-bounds, or the filled protocol fails validation - a
-    template instantiation can never silently produce an invalid draft
-    (same posture as FR-CONV-3.2).
-    """
+
+def instantiate_doc(template: dict, parameters: dict) -> dict:
+    """The same fill, for a template *document* rather than a registry id."""
     from protocol.loader import validate_protocol
 
-    template = load_template(template_id, version)
+    template_id = template.get("templateId", "template")
     problems = validate_template(template)
     if problems:
         raise TemplateError("; ".join(problems))
@@ -332,18 +290,9 @@ def instantiate_template(
     errors = validate_protocol(protocol)
     if errors:
         # This only fires when an LLM-supplied parameter value passes its own
-        # type/bounds check yet still leaves the filled protocol schema-
-        # invalid (every registered template's own defaults are checked clean
-        # by validate_registry(), so a bad DEFAULT can't reach here). The raw
-        # jsonschema text ("instruments: {} is not valid under any of the
-        # given schemas") is operator language, not researcher language, and
-        # compile_moves() appends this message to CompileResult.errors
-        # UNFILTERED — it never reaches compiler.py's own
-        # _explained_by_slot() translation, because that runs on the final
-        # compiled draft, not on this per-template instantiation check. So
-        # the plain-language translation has to happen here, at the source,
-        # rather than being left to a filter downstream that this path
-        # bypasses entirely.
+        # type/bounds check yet still leaves the filled protocol schema- invalid (every
+        # registered template's own defaults are checked clean by validate_registry(),
+        # so a bad DEFAULT can't reach here).
         raise TemplateError(
             f"{template_id} could not fill: {_plain_fields(errors)}. "
             "Try a different template, or answer with a value in range."
@@ -356,30 +305,12 @@ def instantiate_template(
     }
 
 
-# --------------------------------------------------- runtime merging (FR-TPL)
-
-
 def _merge_protocols(protocols: list[dict], template_ids: list[str]) -> dict:
-    """Merge instantiated protocols into one novel-but-grounded protocol.
-
-    Each input was individually valid (instantiated from a template), so this
-    only has to reconcile them: the *primary* (first) protocol supplies the
-    study frame — study, participants, session, conditions, phases — and the
-    others contribute their research questions, measures/instruments, analysis
-    recipes, and cited literature. Research-question ids are renumbered
-    sequentially so two templates that both start at ``RQ-1`` don't collide,
-    and every analysis-plan entry is remapped to the new id. Deterministic:
-    same inputs, same output (no LLM, FR-CONV-3)."""
+    """Merge instantiated protocols into one novel-but-grounded protocol."""
     merged = copy.deepcopy(protocols[0])
     merged_rqs: list[dict] = []
     merged_plan: list[dict] = []
-    # instruments is a dict keyed by leg ("tern", "metrics"): the primary's
-    # configuration wins; other templates only add legs the primary lacks
-    # (merging two configs for the same leg would fabricate a setup neither
-    # paper used).
     instruments: dict = dict(merged.get("instruments", {}) or {})
-    # literature is [{paperRef, justifies:[rq-id]}]; union by paperRef, and the
-    # justifies ids get the same renumbering the RQs do.
     lit_by_ref: dict[str, set] = {}
 
     n = 0
@@ -415,17 +346,11 @@ def _merge_protocols(protocols: list[dict], template_ids: list[str]) -> dict:
 
 
 def merge_templates(template_ids: list[str], parameters: dict) -> dict:
-    """Compose several templates into one protocol at runtime (FR-TPL) — the
-    "borrow a measure from here, an analysis from there" move that lets a
-    researcher build something novel that's still grounded in every source
-    paper it draws from.
-
-    Each template is instantiated with its own subset of ``parameters`` (so a
-    shared name like ``studyId`` fills all of them), then the protocols are
-    merged and revalidated. Provenance is preserved: ``sources`` lists every
-    contributing template and the papers it cites. Raises
-    :class:`TemplateError` if fewer than two templates are given or the merged
-    protocol doesn't validate."""
+    """
+    Compose several templates into one protocol at runtime (FR-TPL) — the "borrow a
+    measure from here, an analysis from there" move that lets a researcher build
+    something novel that's still grounded in every source paper it draws from.
+    """
     from protocol.loader import validate_protocol
 
     if len(template_ids) < 2:
@@ -451,12 +376,13 @@ def merge_templates(template_ids: list[str], parameters: dict) -> dict:
 
 def derive_template_from_paper(
     paper_ref: str, base_template_id: str, *, title: str = "", year: int | None = None
-) -> dict:  # `year` is unused: kept for a symmetric caller signature / future use
-    """Bind a corpus paper to a base archetype, producing a template
-    specialised to that paper (FR-TPL-4) — this is how the corpus's thousands
-    of papers become executable starting points without hand-authoring one
-    template each: any paper is "run" through the nearest archetype, cited as
-    the design's primary source. Deterministic given the archetype."""
+) -> dict:
+    """
+    Bind a corpus paper to a base archetype, producing a template specialised to that
+    paper (FR-TPL-4) — this is how the corpus's thousands of papers become executable
+    starting points without hand-authoring one template each: any paper is "run" through
+    the nearest archetype, cited as the design's primary source.
+    """
     base = load_template(base_template_id)
     derived = copy.deepcopy(base)
     slug = re.sub(r"[^a-z0-9]+", "-", paper_ref.lower())
@@ -469,7 +395,6 @@ def derive_template_from_paper(
         f"{label}. Cite this paper as the design's source; adjust parameters to "
         f"your replication or extension."
     )
-    # The paper leads the provenance; the archetype's own sources follow.
     derived["source"] = [
         {"paperRef": paper_ref, "role": "primary-design"},
         *base.get("source", []),
@@ -477,12 +402,11 @@ def derive_template_from_paper(
     return derived
 
 
-# ------------------------------------------------------- plan explainer
-
-
 def explain_plan(template: dict) -> list[str]:
-    """The FR-TPL-2.3 plan explainer: each statistical choice in plain
-    language with its why - never a bare test name (NFR-11 tone)."""
+    """
+    The FR-TPL-2.3 plan explainer: each statistical choice in plain language with its
+    why - never a bare test name (NFR-11 tone).
+    """
     plan = template.get("statisticalPlan", {})
     lines = [
         f"Analysis is per-{plan.get('unit', 'participant')} first - "

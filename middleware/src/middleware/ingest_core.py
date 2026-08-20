@@ -1,13 +1,4 @@
-"""Shared storage helpers for the ingest routes and the dry-run simulator.
-
-Both ``POST /ingest/events`` and ``POST /ingest/metrics`` and the
-simulation route insert the same rows in the same idempotent way: dialect
-native ``ON CONFLICT DO NOTHING`` keyed on the uniqueness the DB enforces
-(``(session_id, source, seq)`` for events, ``row_hash`` for metric rows).
-Keeping one implementation in ``ingest_core`` means the simulator exercises
-exactly the code path a real capture would, and the two surfaces cannot
-drift apart (FR-ING-2).
-"""
+"""Shared storage helpers for the ingest routes and the dry-run simulator."""
 
 from __future__ import annotations
 
@@ -35,11 +26,7 @@ def store_events(s, rows: list[dict], received: str) -> int:
 def store_metric_rows(
     s, rows: list[dict], received: str, flags: list[list[str]] | None = None
 ) -> int:
-    """Insert metric rows idempotently (by ``row_hash``); returns inserted.
-
-    ``flags`` is a parallel list of integrity flags per row (empty when the
-    caller has nothing to report, e.g. the simulator).
-    """
+    """Insert metric rows idempotently (by ``row_hash``); returns inserted."""
     inserted = 0
     engine = get_engine()
     for i, row in enumerate(rows):

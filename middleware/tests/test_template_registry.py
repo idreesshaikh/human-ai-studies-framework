@@ -1,10 +1,4 @@
-"""Template registry tests.
-
-F1.1 (every registry template validates and instantiates into a protocol
-that passes validation, zero hand edits), F2.3 (a template naming a
-nonexistent recipe fails registry validation — earlier than instantiation),
-and typed-parameter handling.
-"""
+"""Template registry tests."""
 
 import pytest
 from protocol.loader import validate_protocol
@@ -13,15 +7,19 @@ from middleware import template_registry as tr
 
 
 def test_registry_is_valid():
-    """F2.3 (and the registry invariant): the shipped registry has no
-    problems — schema, mandatory citations, every recipe exists, every
-    skeleton placeholder is a declared parameter."""
+    """
+    F2.3 (and the registry invariant): the shipped registry has no problems — schema,
+    mandatory citations, every recipe exists, every skeleton placeholder is a declared
+    parameter.
+    """
     assert tr.validate_registry() == []
 
 
 def test_every_template_instantiates_to_a_valid_protocol():
-    """F1.1: each registry template instantiates (with defaults) into a
-    protocol that passes protocol validation with zero hand edits."""
+    """
+    F1.1: each registry template instantiates (with defaults) into a protocol that
+    passes protocol validation with zero hand edits.
+    """
     templates = tr.list_templates()
     assert templates, "the registry must ship seed templates"
     for meta in templates:
@@ -30,8 +28,10 @@ def test_every_template_instantiates_to_a_valid_protocol():
 
 
 def test_nonexistent_recipe_fails_validation():
-    """F2.3: a template promising a recipe the platform can't run is caught
-    at registry validation, before anyone instantiates it."""
+    """
+    F2.3: a template promising a recipe the platform can't run is caught at registry
+    validation, before anyone instantiates it.
+    """
     doc = tr.load_template("metr-rct-v1")
     doc = {
         **doc,
@@ -45,8 +45,10 @@ def test_nonexistent_recipe_fails_validation():
 
 
 def test_parameter_bounds_are_enforced():
-    """A supplied parameter below its declared minimum is refused with a
-    named error, not silently clamped."""
+    """
+    A supplied parameter below its declared minimum is refused with a named error, not
+    silently clamped.
+    """
     with pytest.raises(tr.TemplateError):
         tr.instantiate_template("metr-rct-v1", {"participantPlan": 0})
 
@@ -66,16 +68,11 @@ def test_versioning_records_which_version_produced_the_draft():
 def test_a_filled_protocol_that_still_fails_validation_reports_plain_field_names(
     monkeypatch,
 ):
-    """Rare path: an LLM-supplied parameter passes its own type/bounds check
-    yet the filled protocol still fails schema validation (every registry
-    template's own DEFAULTS are covered by test_registry_is_valid, so this can
-    only happen with a supplied value). ``compile_moves`` appends this
-    TemplateError's message to ``CompileResult.errors`` UNFILTERED — unlike
-    every other schema error, it never reaches ``_explained_by_slot()``'s
-    translation, because that runs on the final compiled draft, not on this
-    per-template check. So the message has to be plain at the source: no
-    jsonschema operator language ("is not valid under any of the given
-    schemas", "should be non-empty"), just the field names."""
+    """
+    Rare path: an LLM-supplied parameter passes its own type/bounds check yet the filled
+    protocol still fails schema validation (every registry template's own DEFAULTS are
+    covered by test_registry_is_valid, so this can only happen with a supplied value).
+    """
     raw_errors = [
         "analysisPlan: [] should be non-empty",
         "instruments: {} is not valid under any of the given schemas",

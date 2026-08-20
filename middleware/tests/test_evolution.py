@@ -1,20 +1,4 @@
-"""Evolution: phase-aware amendments.
-
-*The study evolves* through phase-aware amendments — version-visible always,
-consent-gated when it matters, running sessions never touched.
-
-Fit criteria exercised:
-- FR-CONV-4: F4.1 (consent-relevant amendment blocks new sessions until the
-  re-approval artifact exists; collected data stays readable), F4.2 (threshold
-  tweak applies next-session only; an in-flight session keeps its version),
-  F4.3 (mixed-version sessions render distinguishably).
-- FR-CONV-6 (regression): the export includes amendment decisions; redaction
-  never unmakes them.
-
-The consent-relevance *rule* (F4 core: change → relevant?) is a pure function,
-table-tested directly against ``evolution.consent_relevance`` without the HTTP
-stack, so its every branch is pinned.
-"""
+"""Evolution: phase-aware amendments."""
 
 from pathlib import Path
 
@@ -55,8 +39,6 @@ _SEEDS = [
 
 STUDY = "demo-study"
 
-#: A study described the way a researcher would, so the elicitation gate
-#: (FR-CONV-10) opens honestly rather than being bypassed in tests.
 _STUDY_SKETCH = (
     "I want to see whether developers finish maintenance tasks faster with "
     "an AI assistant than without one, in 45-minute lab sessions, "
@@ -92,9 +74,6 @@ def client(tmp_path) -> TestClient:
     return tc
 
 
-# ---------------------------------------------------------------- helpers
-
-
 def _ask(client, text, study=STUDY):
     r = client.post(f"/studies/{study}/conversation/turns", json={"text": text})
     assert r.status_code == 200, r.text
@@ -123,11 +102,10 @@ def _approve(client, comp_id, study=STUDY, rationale=""):
 
 
 def _reach_approved_protocol(client, study=STUDY):
-    """Drive an empty study to an approved, validating protocol draft (the
-    pre-condition every amendment test starts from)."""
-    # The platform withholds a design shape until the study is understood
-    # (FR-CONV-10), so describe the study first — the conversation this helper
-    # drives is now the one a researcher would actually have.
+    """
+    Drive an empty study to an approved, validating protocol draft (the pre-condition
+    every amendment test starts from).
+    """
     _ask(client, _STUDY_SKETCH, study)
     reply = _ask(client, (
         "what design and statistics should I use? I was thinking "
@@ -157,10 +135,6 @@ def _start(client, session_id, study=STUDY):
     )
 
 
-# =================================================================== F4 rule
-# The consent-relevance rule as pure data (change → relevant?). This is the
-# rule S3 relies on; every branch is pinned here, LLM-free and deterministic.
-
 _BASE = {
     "instruments": {"tern": {"stuck": {"thresholdSeconds": 90}}},
     "conditions": ["a", "b"],
@@ -177,7 +151,6 @@ def _mut(**changes):
 @pytest.mark.parametrize(
     "after,expected",
     [
-        # A new instrument is a new data stream — relevant.
         (
             _mut(
                 instruments={
@@ -187,7 +160,6 @@ def _mut(**changes):
             ),
             True,
         ),
-        # A threshold tweak inside an existing instrument — NOT relevant.
         (
             _mut(
                 instruments={
@@ -196,7 +168,6 @@ def _mut(**changes):
             ),
             False,
         ),
-        # A content-policy change on an existing instrument — relevant.
         (
             _mut(
                 instruments={
@@ -208,18 +179,11 @@ def _mut(**changes):
             ),
             True,
         ),
-        # An ethics-scope change — relevant.
         (_mut(ethics={"contentPolicy": "full-content"}), True),
-        # Adding a research question (no stream/policy/ethics change) — not.
         (_mut(researchQuestions=[{"id": "RQ-1", "text": "new"}]), False),
-        # Adding a curated data source — relevant (mined strangers, FR-ETH-2).
         (_mut(curated={"source": "github"}), True),
-        # Adding agent participants — a new data source, relevant.
         (_mut(participants={"agents": [{"id": "A1"}]}), True),
-        # No change at all — not relevant.
         (_mut(), False),
-        # FR-CONV-7: a nested ``enabled`` field change on an existing
-        # instrument is consent-relevant (turning capture on/off).
         (
             _mut(
                 instruments={
@@ -230,8 +194,6 @@ def _mut(**changes):
             ),
             True,
         ),
-        # FR-CONV-7: first appearance of a metric subtree (a new top-level
-        # key inside an existing instrument) is consent-relevant.
         (
             _mut(
                 instruments={
@@ -252,12 +214,11 @@ def test_consent_relevance_rule(after, expected):
     assert (reasons != []) is expected
 
 
-# ==================================================== F4.1 amendment + gate
-
-
 def test_pre_ethics_amendment_is_an_ordinary_compile(client):
-    """FR-CONV-4.1: before ethics approval, changes compile and apply with no
-    amendment ceremony — no amendment row, no version bump beyond 1."""
+    """
+    FR-CONV-4.1: before ethics approval, changes compile and apply with no amendment
+    ceremony — no amendment row, no version bump beyond 1.
+    """
     _reach_approved_protocol(client)
     hist = client.get(f"/studies/{STUDY}/amendments").json()
     assert hist["amendments"] == []
@@ -266,14 +227,9 @@ def test_pre_ethics_amendment_is_an_ordinary_compile(client):
 
 
 def test_uploaded_artifacts_are_isolated_per_study(client):
-    """FR-ING-5 regression: a file uploaded for one study must not leak into
-    another - uploads are indexed per study, not shared across the whole
-    deployment.
-
-    This used to be observed through the lifecycle board (an artifact for
-    study A must not advance study B's phase). The board is gone; the
-    isolation it depended on is not, so it is asserted directly against the
-    file listing instead of being dropped along with the surface.
+    """
+    FR-ING-5 regression: a file uploaded for one study must not leak into another -
+    uploads are indexed per study, not shared across the whole deployment.
     """
     study_a, study_b = "study-a", "study-b"
     _reach_approved_protocol(client, study_a)
@@ -292,18 +248,18 @@ def test_uploaded_artifacts_are_isolated_per_study(client):
 
 
 def test_consent_relevant_amendment_blocks_new_sessions(client):
-    """F4.1: a post-ethics amendment adding a capture stream blocks new
-    data-collection sessions until the re-approval artifact exists; sessions
-    already open and already-collected data are untouched."""
+    """
+    F4.1: a post-ethics amendment adding a capture stream blocks new data-collection
+    sessions until the re-approval artifact exists; sessions already open and
+    already-collected data are untouched.
+    """
     _reach_approved_protocol(client)
     _approve_ethics(client)
 
-    # A session opened under v1 while the study is clean.
     r = _start(client, "S-open")
     assert r.status_code == 200
     assert r.json()["protocolVersion"] == 1
 
-    # Add a capture stream conversationally → consent-relevant amendment.
     reply = _ask(client, "add the agent-capture instrument")
     add = [m for m in reply["moves"] if m["kind"] == "add-instrument"]
     assert add, "the instrument script must propose an add-instrument move"
@@ -319,18 +275,15 @@ def test_consent_relevant_amendment_blocks_new_sessions(client):
     assert amendment["requiresReapproval"] is True
     assert amendment["toVersion"] == 2
 
-    # New sessions are refused with a plain-language reason (the gate).
     blocked = _start(client, "S-new")
     assert blocked.status_code == 409
     assert "paused" in blocked.json()["detail"].lower()
 
-    # The already-open session resumes untouched, still on v1 (NFR-1).
     resumed = _start(client, "S-open")
     assert resumed.status_code == 200
     assert resumed.json()["resumed"] is True
     assert resumed.json()["protocolVersion"] == 1
 
-    # Upload the re-approval artifact → new sessions resume, under v2.
     re = client.post(f"/studies/{STUDY}/reapproval", json={"artifact": "ethics-v2.pdf"})
     assert re.status_code == 200
     unblocked = _start(client, "S-new")
@@ -339,8 +292,7 @@ def test_consent_relevant_amendment_blocks_new_sessions(client):
 
 
 def test_amendment_is_owner_only(client, tmp_path):
-    """FR-CONV-4.2 / FR-PLAT-2: post-ethics, only an owner may approve an
-    amendment. A researcher's approval is refused with a plain-language 403."""
+    """FR-CONV-4.2 / FR-PLAT-2: post-ethics, only an owner may approve an amendment."""
     from middleware.db import Membership, make_session_factory
 
     _reach_approved_protocol(client)
@@ -350,18 +302,12 @@ def test_amendment_is_owner_only(client, tmp_path):
     _accept(client, add["moveId"])
     result = _compile(client)
 
-    # Downgrade the local identity to researcher on the implicit project. A
-    # researcher clears the ``apply_draft`` choke point (pre-ethics that is all
-    # it takes), so the owner gate in the endpoint is the only thing standing
-    # between them and applying an amendment — exactly what we assert.
     factory = make_session_factory(client.db_path)
     with factory() as s:
         m = s.get(Membership, ("implicit", "local"))
         m.role = "researcher"
         s.commit()
 
-    # A fresh app instance sharing the DB signs in as the (now researcher)
-    # local identity and is refused with a plain-language 403.
     settings = Settings(
         db_path=client.db_path,
         data_dir=tmp_path / "data2",
@@ -377,13 +323,12 @@ def test_amendment_is_owner_only(client, tmp_path):
     assert "owner" in blocked.json()["detail"].lower()
 
 
-# ==================================================== F4.2 threshold tweak
-
-
 def test_threshold_tweak_is_not_consent_relevant_and_applies_next_session(client):
-    """F4.2: a threshold tweak amendment applies to the next session's config
-    and is not consent-relevant — it never blocks, and never mutates a session
-    already in flight (which keeps the version it opened under)."""
+    """
+    F4.2: a threshold tweak amendment applies to the next session's config and is not
+    consent-relevant — it never blocks, and never mutates a session already in flight
+    (which keeps the version it opened under).
+    """
     _reach_approved_protocol(client)
     _approve_ethics(client)
 
@@ -401,28 +346,24 @@ def test_threshold_tweak_is_not_consent_relevant_and_applies_next_session(client
     assert amendment["consentRelevant"] is False
     assert amendment["requiresReapproval"] is False
 
-    # No block: a new session opens immediately, under v2.
     nxt = _start(client, "S-after")
     assert nxt.status_code == 200
     assert nxt.json()["protocolVersion"] == 2
 
-    # The in-flight session is untouched: still v1 (NFR-1).
     resumed = _start(client, "S-inflight")
     assert resumed.json()["protocolVersion"] == 1
 
-    # The tweak reached the derived config: the new approved draft carries 120.
     doc = yaml.safe_load(
         client.get(f"/studies/{STUDY}/conversation/export").json()["currentDraft"]
     )
     assert doc["instruments"]["tern"]["stuck"]["thresholdSeconds"] == 120
 
 
-# ==================================================== F4.3 version visibility
-
-
 def test_mixed_version_sessions_render_distinguishably(client):
-    """F4.3: two sessions opened under different protocol revisions carry
-    distinct versions — the dataset/timeline chips derive from these."""
+    """
+    F4.3: two sessions opened under different protocol revisions carry distinct versions
+    — the dataset/timeline chips derive from these.
+    """
     _reach_approved_protocol(client)
     _approve_ethics(client)
     _start(client, "S1")
@@ -444,12 +385,11 @@ def test_mixed_version_sessions_render_distinguishably(client):
     assert versions["S2"] == 2
 
 
-# ==================================================== amendment summary doc
-
-
 def test_amendment_summary_doc_is_the_ethics_delta(client):
-    """FR-CONV-4.3: the amendment summary is a deterministic human-readable
-    delta — what changed, why, consent impact — the document S1 sends S3."""
+    """
+    FR-CONV-4.3: the amendment summary is a deterministic human-readable delta — what
+    changed, why, consent impact — the document S1 sends S3.
+    """
     _reach_approved_protocol(client)
     _approve_ethics(client)
     reply = _ask(client, "add the agent-capture instrument")
@@ -468,12 +408,11 @@ def test_amendment_summary_doc_is_the_ethics_delta(client):
     assert "consent-relevant" in body.lower()
 
 
-# ==================================================== FR-CONV-6 regression
-
-
 def test_export_includes_amendments_and_redaction_keeps_them(client):
-    """FR-CONV-6 regression: the exported elicitation record includes amendment
-    decisions, and redacting a turn never unmakes them."""
+    """
+    FR-CONV-6 regression: the exported elicitation record includes amendment decisions,
+    and redacting a turn never unmakes them.
+    """
     _reach_approved_protocol(client)
     _approve_ethics(client)
     reply = _ask(client, "add the agent-capture instrument")
@@ -487,7 +426,6 @@ def test_export_includes_amendments_and_redaction_keeps_them(client):
     assert amend["toVersion"] == 2
     assert amend["consentRelevant"] is True
 
-    # Redact the turn that carried the instrument move; the amendment survives.
     from middleware.db import ConversationTurn, make_session_factory
 
     factory = make_session_factory(client.db_path)
@@ -499,25 +437,21 @@ def test_export_includes_amendments_and_redaction_keeps_them(client):
         s.commit()
 
     after = client.get(f"/studies/{STUDY}/conversation/export").json()
-    assert after["amendments"] == export["amendments"]  # unchanged
-
-
-# ==================================================== Slice D walkthrough
+    assert after["amendments"] == export["amendments"]
 
 
 def test_slice_d_self_application_end_to_end(client):
-    """The phase proof (Slice D): a real study taken through a post-ethics
-    amendment (add a stream → caution → owner approves → new sessions blocked →
-    re-approval → resume under v2) and an elicitation export carrying design +
-    amendment."""
-    # 1. Design → approve → ethics approval.
+    """
+    The phase proof (Slice D): a real study taken through a post-ethics amendment (add a
+    stream → caution → owner approves → new sessions blocked → re-approval → resume
+    under v2) and an elicitation export carrying design + amendment.
+    """
     _reach_approved_protocol(client)
     _approve_ethics(client)
     _start(client, "S-pre")
 
-    # 2. Amendment: add an instrument → caution fires → owner approves.
     reply = _ask(client, "add the agent-capture instrument")
-    assert "consent-relevant" in reply["text"].lower()  # the caution, spoken
+    assert "consent-relevant" in reply["text"].lower()
     add = next(m for m in reply["moves"] if m["kind"] == "add-instrument")
     _accept(client, add["moveId"])
     amendment = _approve(
@@ -525,13 +459,11 @@ def test_slice_d_self_application_end_to_end(client):
     ).json()["amendment"]
     assert amendment["requiresReapproval"]
 
-    # 3. New sessions blocked → re-approve → resume under v2.
     assert _start(client, "S-blocked").status_code == 409
     client.post(f"/studies/{STUDY}/reapproval", json={"artifact": "ethics-v2.pdf"})
     resumed = _start(client, "S-post")
     assert resumed.json()["protocolVersion"] == 2
 
-    # 4. The elicitation record carries design and amendment history.
     export = client.get(f"/studies/{STUDY}/conversation/export").json()
     assert export["turns"] and export["compilations"] and export["approvals"]
     assert export["amendments"]
@@ -539,9 +471,11 @@ def test_slice_d_self_application_end_to_end(client):
 
 
 def test_base_compiler_determinism_survives_amendments(client):
-    """Verification step 3: replaying the *original* conversation still yields a
-    byte-identical draft — amendments must not perturb the base compiler (F3.1
-    stays green)."""
+    """
+    Verification step 3: replaying the *original* conversation still yields a
+    byte-identical draft — amendments must not perturb the base compiler (F3.1 stays
+    green).
+    """
     _ask(client, _STUDY_SKETCH)
     reply = _ask(client, (
         "what design and statistics should I use? I was thinking "
@@ -553,7 +487,6 @@ def test_base_compiler_determinism_survives_amendments(client):
     first = _compile(client)
     second = _compile(client)
     assert first["yaml"] == second["yaml"]
-    # And the pure compiler, given the same accepted moves, is byte-stable.
     moves = [
         {
             "moveId": tmpl["moveId"],

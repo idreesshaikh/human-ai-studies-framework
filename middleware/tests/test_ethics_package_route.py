@@ -1,6 +1,8 @@
-"""``GET /studies/{id}/ethics-package`` over HTTP: the same generator the unit
-tests exercise, reachable as a download from the workspace rather than only
-from a Python import."""
+"""
+``GET /studies/{id}/ethics-package`` over HTTP: the same generator the unit tests
+exercise, reachable as a download from the workspace rather than only from a Python
+import.
+"""
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,8 +13,10 @@ STUDY = "ethics-study"
 
 
 def _protocol_yaml() -> str:
-    """A real, valid protocol instantiated from the registry, so this test
-    can never pass against a shape the platform would reject."""
+    """
+    A real, valid protocol instantiated from the registry, so this test can never pass
+    against a shape the platform would reject.
+    """
     import yaml
 
     from middleware import template_registry

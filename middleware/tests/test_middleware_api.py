@@ -1,8 +1,4 @@
-"""API tests: idempotency, gap detection, one-timeline join, flagging.
-
-The app is built against the real pilot protocol (protocol/examples/) so
-condition/participant validation is exercised end to end.
-"""
+"""API tests: idempotency, gap detection, one-timeline join, flagging."""
 
 from datetime import UTC, datetime
 from pathlib import Path
@@ -97,10 +93,7 @@ def test_ingest_is_idempotent_on_session_and_seq(client):
 
 
 def test_legacy_source_name_folds_into_one_stream(client):
-    """An un-upgraded editor still reports "cognitive-overlay". Uniqueness is
-    keyed on ``(session_id, source, seq)``, so leaving the old name alone
-    would restart the seq stream mid-session and read as a gap - the rename
-    must not fracture a session that spans it."""
+    """An un-upgraded editor still reports "cognitive-overlay"."""
     client.post(
         "/ingest/events",
         json={"source": "cognitive-overlay", "events": [event(i) for i in range(3)]},
@@ -114,7 +107,6 @@ def test_legacy_source_name_folds_into_one_stream(client):
     assert [s["source"] for s in report["sources"]] == ["tern"]
     assert report["complete"] is True
 
-    # And a replay under the old name is still recognised as a duplicate.
     replay = client.post(
         "/ingest/events",
         json={"source": "cognitive-overlay", "events": [event(0)]},
@@ -154,7 +146,7 @@ def test_gaps_404_for_unknown_session(client):
 
 def test_unknown_condition_is_stored_and_flagged_not_dropped(client):
     res = client.post("/ingest/events", json=[event(0, condition="with-ai")]).json()
-    assert res["inserted"] == 1  # never dropped
+    assert res["inserted"] == 1
     assert res["flagged"] == 1
     stored = client.get("/sessions/S1/events").json()[0]
     assert "unknown-condition" in stored["flags"]
@@ -163,7 +155,6 @@ def test_unknown_condition_is_stored_and_flagged_not_dropped(client):
 
 
 def test_unknown_participant_is_flagged(client):
-    # pilot protocol plans 6 participants; P99 is outside the plan
     res = client.post("/ingest/events", json=[event(0, participant="P99")]).json()
     assert res["inserted"] == 1
     stored = client.get("/sessions/S1/events").json()[0]
@@ -245,10 +236,6 @@ def test_file_upload_is_content_addressed(client, tmp_path):
     assert again["sha256"] == first.json()["sha256"]
 
 
-# ---------------------------------------------------------------------------
-# Platform support endpoints
-
-
 def upload(
     client, filename: str, content: bytes = b"x", study: str = "pilot-2026"
 ) -> dict:
@@ -277,7 +264,7 @@ def test_status_document_reports_sessions_gaps_and_rq_coverage(client):
     doc = client.get("/studies/pilot-2026/status").json()
 
     assert doc["plannedParticipants"] == 6
-    assert doc["plannedSessionsPerParticipant"] == 2  # within-subjects, 2 conditions
+    assert doc["plannedSessionsPerParticipant"] == 2
     (session,) = doc["sessions"]
     assert session["sessionId"] == "S1"
     assert session["events"] == 3
@@ -311,8 +298,6 @@ def test_recipe_runs_flow_into_status_rq_coverage(client):
     assert runs[0]["recipeId"] == "fatigue-by-condition"
     assert runs[0]["status"] == "ok"
 
-    # The status document projects the run into RQ coverage (FR-DASH-7:
-    # the platform's un-run-recipe card for this recipe clears itself).
     doc = client.get("/studies/pilot-2026/status").json()
     rqs = {rq["id"]: rq for rq in doc["researchQuestions"]}
     assert rqs["RQ-P1"]["recipeRuns"] == ["fatigue-by-condition"]
@@ -327,20 +312,16 @@ def test_live_reports_recent_sessions_with_rate_buckets(client):
     assert live["eventsInWindow"] == 3
     assert live["lastEventType"] == "fatigue_response"
     assert sum(live["rate"]) == 3
-    assert len(live["rate"]) == 30  # 300 s window / 10 s buckets
+    assert len(live["rate"]) == 30
     assert live["gapCount"] == 0
 
 
 def test_live_survives_a_session_whose_received_at_is_in_the_future(client, tmp_path):
-    """Regression: a synthetic dry run schedules sessions across a realistic
-    span rather than bunching them at one instant (simulation.py), so some
-    events' received_at legitimately lands after "now" at query time. The
-    rate-bucket index used to clamp only its upper bound
-    (``min(int(age // bucketSeconds), buckets - 1)``); a negative age
-    floor-divides to a negative offset in Python, which the min() alone
-    never catches, and indexing `rate[buckets]` on a `buckets`-length list
-    crashed the whole endpoint with a 500 - not a degraded response, a hard
-    failure, the first time a study ever had one of these."""
+    """
+    Regression: a synthetic dry run schedules sessions across a realistic span rather
+    than bunching them at one instant (simulation.py), so some events' received_at
+    legitimately lands after "now" at query time.
+    """
     from datetime import timedelta
 
     from middleware.db import Event, make_session_factory
@@ -369,8 +350,6 @@ def test_live_survives_a_session_whose_received_at_is_in_the_future(client, tmp_
     res = client.get("/studies/pilot-2026/live")
     assert res.status_code == 200, res.text
     (live,) = [x for x in res.json()["sessions"] if x["sessionId"] == "S-future"]
-    # A future timestamp is nonsensical for "age", so it reads as the most
-    # recent possible bucket rather than being dropped or crashing the route.
     assert live["rate"][-1] >= 1
 
 
@@ -386,7 +365,6 @@ def test_bearer_token_gates_views_but_not_ingest(tmp_path):
     # Sensors keep working unauthenticated (NFR-1: never block a session).
     assert client.post("/ingest/events", json=[event(0)]).status_code == 200
     assert client.get("/health").status_code == 200
-    # Platform-facing reads require the token.
     assert client.get("/studies/pilot-2026/sessions").status_code == 401
     ok = client.get(
         "/studies/pilot-2026/sessions", headers={"Authorization": "Bearer s3cret"}
@@ -432,17 +410,12 @@ def test_spa_is_served_when_built(tmp_path):
     client = TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
     res = client.get("/")
     assert "mission control" in res.text
-    # The shell must revalidate on every load: a cached index.html pins
-    # browsers to a stale bundle across deploys (assets are hashed, safe).
     assert res.headers["cache-control"] == "no-cache"
-    # Deep links into the platform's client-side routes re-serve the shell
-    # (NFR-7): the project workspace and the invitation-accept page.
     deep = client.get("/p/my-lab/studies/pilot-2026")
     assert "mission control" in deep.text
     assert deep.headers["cache-control"] == "no-cache"
     assert "mission control" in client.get("/invitations/abc123").text
     assert client.get("/assets/app.js").status_code == 200
-    # The API keeps priority over the static mount.
     assert client.get("/health").json()["status"] == "ok"
 
 
@@ -459,15 +432,16 @@ def test_no_protocol_means_accept_all(tmp_path):
 
 
 def test_stale_database_schema_fails_loudly_at_startup(tmp_path):
-    """A database created by an older middleware (e.g. a compose volume from
-    before events.source existed) must be rejected AT STARTUP with a
-    remediation message - not pass /health and then 500 on the first ingest
-    (NFR-1/NFR-2: sensor-facing failures are never quiet)."""
+    """
+    A database created by an older middleware (e.g. a compose volume from before
+    events.source existed) must be rejected AT STARTUP with a remediation message - not
+    pass /health and then 500 on the first ingest (NFR-1/NFR-2: sensor-facing failures
+    are never quiet).
+    """
     import sqlite3
 
     db = tmp_path / "stale.sqlite3"
     con = sqlite3.connect(db)
-    # A pre- events table: no `source` column.
     con.execute("CREATE TABLE events (id INTEGER PRIMARY KEY, session_id TEXT)")
     con.commit()
     con.close()

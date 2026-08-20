@@ -1,14 +1,6 @@
-"""agent-interaction-dynamics (RQ-P5): how the conversation with the agent
-unfolds over a session (needs the agent leg).
-
-Test/measure choices: turn cadence is summarized as inter-turn gaps
-(skewed durations -> medians + exact Mann-Whitney/Wilcoxon machinery when
-two conditions exist); tool-call mix is a plain frequency table (no test -
-composition, not hypothesis); reliance loops are counted and their spans
-summed per session; conversation-vs-coding time share divides summed
-turn-to-turn engagement against the session span (the denominator caveat
-is stated); co-variation with the cognitive leg uses Spearman rank
-correlations per session pair (fatigue mean, stuck count vs. turns/hour).
+"""
+agent-interaction-dynamics (RQ-P5): how the conversation with the agent unfolds over a
+session (needs the agent leg).
 """
 
 from __future__ import annotations
@@ -51,7 +43,6 @@ def run(dataset: Dataset) -> RecipeResult:
         turns["responseChars"] = float("nan")
     turns["responseChars"] = pd.to_numeric(turns["responseChars"], errors="coerce")
 
-    # Cadence: inter-turn gaps.
     turns["gapS"] = turns.groupby("sessionId")["ts"].diff().dt.total_seconds()
 
     per_session = (
@@ -67,7 +58,6 @@ def run(dataset: Dataset) -> RecipeResult:
         per_session["durationMinutes"] / 60
     ).clip(lower=1e-9)
 
-    # Engagement share: agent-adjacent time / session span.
     engaged = (
         turns.assign(engaged=turns["gapS"].clip(upper=ENGAGED_GAP_S))
         .groupby("sessionId")["engaged"]
@@ -91,7 +81,6 @@ def run(dataset: Dataset) -> RecipeResult:
     if cadence_test:
         tables["cadence_test"] = pd.DataFrame([cadence_test.row()])
 
-    # Tool-call mix.
     tools = dataset.of_type("tool_call")
     if not tools.empty and "tool" in tools.columns:
         mix = (
@@ -108,7 +97,6 @@ def run(dataset: Dataset) -> RecipeResult:
             f"{top['tool']!r} ({top['calls']} calls)."
         )
 
-    # Reliance loops.
     loops = dataset.of_type("reliance_loop", "reliance_loop_end")
     if not loops.empty:
         loop_stats = loops.groupby(["sessionId", "condition"], as_index=False).agg(
@@ -122,7 +110,6 @@ def run(dataset: Dataset) -> RecipeResult:
     else:
         sentences.append("Reliance loops: none detected in this dataset.")
 
-    # Co-variation with the cognitive leg.
     fatigue = dataset.of_type("fatigue_response")
     if not fatigue.empty and len(per_session) >= 3:
         f_mean = fatigue.groupby("sessionId")["score"].mean().rename("fatigueMean")
@@ -139,7 +126,6 @@ def run(dataset: Dataset) -> RecipeResult:
             "turns and fatigue responses."
         )
 
-    # Figures: response sizes, cadence.
     figs = {}
     if turns["responseChars"].notna().any():
         figs["response_sizes"] = figures.strip_by_condition(

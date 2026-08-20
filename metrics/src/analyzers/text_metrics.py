@@ -1,9 +1,4 @@
-"""Plain-text metrics (file-level): visual layout signals that need no parser.
-
-Part of the 9-metric cognitive-load matrix (metrics/docs/static_code_metrics.md,
-"Visual & Semantic Friction"): erratic indentation and over-long lines both
-increase visual scanning cost.
-"""
+"""Plain-text metrics (file-level): visual layout signals that need no parser."""
 
 from statistics import pstdev
 
@@ -17,8 +12,10 @@ def _leading_whitespace(line: str) -> int:
 
 
 def get_indentation_variance(source: str) -> float:
-    """Population standard deviation of leading-whitespace width over all
-    non-blank lines, rounded to 2 decimals. 0.0 for < 2 non-blank lines."""
+    """
+    Population standard deviation of leading-whitespace width over all non-blank lines,
+    rounded to 2 decimals.
+    """
     widths = [_leading_whitespace(line) for line in source.splitlines() if line.strip()]
     if len(widths) < 2:
         return 0.0
@@ -26,8 +23,10 @@ def get_indentation_variance(source: str) -> float:
 
 
 def get_line_width_bounds(source: str) -> dict:
-    """Max and mean character width per line (tabs expanded); blank lines are
-    excluded from the mean. Returns zeros for an empty file."""
+    """
+    Max and mean character width per line (tabs expanded); blank lines are excluded from
+    the mean.
+    """
     lines = [line.expandtabs(TAB_WIDTH) for line in source.splitlines()]
     non_blank = [len(line) for line in lines if line.strip()]
     if not non_blank:

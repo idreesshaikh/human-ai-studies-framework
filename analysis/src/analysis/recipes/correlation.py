@@ -1,10 +1,6 @@
-"""correlation — parameterised recipe for assessing monotonic association
-between two variables.
-
-Can be parameterised via the recipe's ``params`` dict:
-- ``figure``: "scatter" (default) or omit
-
-FR-ANA-8: single code path for all correlation analyses.
+"""
+correlation — parameterised recipe for assessing monotonic association between two
+variables.
 """
 
 from __future__ import annotations

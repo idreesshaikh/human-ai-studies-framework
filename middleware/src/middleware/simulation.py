@@ -1,22 +1,4 @@
-"""Synthetic dry-run simulation (the "try a study on paper" path).
-
-Serves two surfaces with one generator core:
-
-- ``simulate_into`` - in-process, used by ``POST /studies/{id}/simulate``:
-  mints enrollment tokens, records the session blocks, and stores events
-  and metrics through the same idempotent helpers the real ingest routes
-  use, so a dry run exercises the exact production path (FR-ING-2).
-- The ``simulate`` CLI command - the same generation, driven over plain
-  HTTP with the extension's own transport shape (``agent_capture.ingest``),
-  which is what an E2E of the whole loop looks like.
-
-Profiles are stochastic schedules, not language models: ``fast``,
-``struggling``, ``novice`` and ``expert`` perturb fatigue, stuck-episodes,
-paste volume, suggestion acceptance, task pass rate and agent interaction,
-then draw per-event payloads from plausible distributions. No randomness is
-used in an unlucky way - every generation is seedable, and a seeded run is
-byte-for-byte reproducible.
-"""
+"""Synthetic dry-run simulation (the "try a study on paper" path)."""
 
 from __future__ import annotations
 
@@ -30,8 +12,6 @@ from middleware.db import EnrollmentToken, SessionBlock
 
 PROFILES = ("fast", "struggling", "novice", "expert")
 
-#: Per-profile shape parameters. Everything is an odds/likelihood knob;
-#: payloads themselves are drawn per event below.
 PROFILE_PARAMS: dict[str, dict[str, Any]] = {
     "fast": {
         "fatigue": (1, 2),
@@ -81,8 +61,10 @@ PROFILE_PARAMS: dict[str, dict[str, Any]] = {
 
 
 def profile_for(index: int, profile: str) -> str:
-    """Resolve the profile label for a participant index; ``mixed`` cycles
-    the four archetypes so a dry run sees every personality."""
+    """
+    Resolve the profile label for a participant index; ``mixed`` cycles the four
+    archetypes so a dry run sees every personality.
+    """
     if profile == "mixed":
         return PROFILES[index % len(PROFILES)]
     return profile
@@ -120,8 +102,7 @@ def _clamp(value: int, lo: int, hi: int) -> int:
 def _payload(
     rng: random.Random, event_type: str, params: dict[str, Any], task_id: str, file: str
 ) -> dict:
-    """One plausible payload for one event type. Payload keys follow the
-    recipes' contracts (see ``analysis/recipes``)."""
+    """One plausible payload for one event type."""
     if event_type == "fatigue_response":
         lo, hi = params["fatigue"]
         return {"score": rng.randint(lo, hi)}
@@ -154,7 +135,6 @@ def _payload(
             action = "accepted"
         payload = {"action": action}
         if action == "accepted":
-            # Schema v3 records size + review latency on the terminal event.
             payload["charCount"] = rng.randint(40, 2_000)
             payload["visibleMs"] = rng.randint(800, 120_000)
         return payload
@@ -175,9 +155,7 @@ def _session_events(
     start: datetime,
     source: str,
 ) -> list[dict]:
-    """One session's event schedule, strictly ordered by timestamp. The
-    session opens with editor focus, closes with the end survey; everything
-    between is drawn from the profile."""
+    """One session's event schedule, strictly ordered by timestamp."""
     session_events: list[dict] = []
     seq = 0
     t = start
@@ -292,17 +270,11 @@ def simulate(
     seed: int | None = None,
     start: datetime | None = None,
 ) -> list[dict]:
-    """Generate ``count`` synthetic participants' sessions as plain dicts.
-
-    Returns one participant record per index: ``{participantId, condition,
-    blocks, sessions, metricRows}`` where each session has its own
-    ``sessionId`` (``P{n:02d}-S{m}``), ``blockIndex`` and the event rows the
-    real ingest stores. Deterministic for a given seed.
-    """
+    """Generate ``count`` synthetic participants' sessions as plain dicts."""
     if profile not in PROFILES and profile != "mixed":
         raise ValueError(f"unknown profile {profile!r}; pick from {PROFILES}")
-    # S311: determinism beats cryptographic strength here — a seeded dry run
-    # must be reproducible; this generator is never used for secrets.
+    # S311: determinism beats cryptographic strength here — a seeded dry run must be
+    # reproducible; this generator is never used for secrets.
     rng = random.Random(seed)  # noqa: S311
     from protocol.assignment import assign
 
@@ -381,13 +353,9 @@ def simulate_into(
     now: Callable[[], str] | None = None,
     start: datetime | None = None,
 ) -> dict:
-    """In-process dry run: mint tokens + record blocks + store events, all
-    through the production code paths (the ``db`` dependency commits).
-
-    ``start`` seeds the simulation timeline (pass the app's injected clock
-    so a frozen clock freezes the whole run); session ids get a per-run
-    nonce so repeated dry runs never collide with each other or with live
-    sessions, while the event content stays a pure function of the seed.
+    """
+    In-process dry run: mint tokens + record blocks + store events, all through the
+    production code paths (the ``db`` dependency commits).
     """
     from middleware.ingest_core import store_events, store_metric_rows
 

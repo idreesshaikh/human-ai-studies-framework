@@ -70,13 +70,17 @@ export function DraftRail({
         <ProtocolGuide />
       </div>
 
-      <SlotMeter draft={draft} unresolved={unresolved} />
+      <SlotMeter draft={draft} unresolved={unresolved} understanding={understanding} />
 
-      {understanding && !understanding.readyForDesign
-        && understanding.missingLabels.length > 0 && (
+      {/* The "still working out X, Y, Z" line used to live here. The path
+        * above now names those same facets as steps, marks which one is
+        * current, and prints the question being asked — so the sentence had
+        * become the same information a third time. What it said that the
+        * steps do not is *why* it matters, which is kept. */}
+      {understanding && !understanding.readyForDesign && (
         <p className="type-caption text-text-muted" data-agent="understanding-line">
-          No design shape yet: still working out{" "}
-          {understanding.missingLabels.join(", ")}.
+          No design shape yet: a design that follows from too little is a
+          guess you would have to unpick later.
         </p>
       )}
 

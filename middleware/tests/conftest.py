@@ -1,36 +1,4 @@
-"""Shared fixtures for enrollment-route tests.
-
-Three ``TestClient`` fixtures, all driven through the real flow — never a
-fabricated shortcut:
-
-- ``client_no_protocol``: a bare app. Nothing has been designed, so there is
-  no protocol to enroll against and mint must 404.
-- ``client_designed``: the ``pilot`` study taken through a real design
-  conversation (chooses the METR within-subjects template, whose default
-  ``conditions`` are exactly ``[ai-assisted, unassisted]`` —
-  ``templates/registry/metr-rct-v1.yaml``) and approved. **Nothing else.**
-  This is the state a researcher is actually in when they want to set the
-  study up, and every enrollment route has to work from here.
-- ``client_ethics_ok``: ``client_designed`` plus a recorded ethics approval,
-  which no longer gates anything but does snapshot the approved protocol, so
-  the amendment path still has a base to diff against.
-
-Enrollment used to be gated on that recorded approval - mint, metric toggles
-and ``/pair/redeem`` all refused without it, and a ``dev_mode`` flag existed
-purely to switch the gate off so the flow could be tested at all. The gate
-blocked the one thing this product exists to do, so it is gone; the fixture
-that bypassed it went with it.
-
-Mirrors ``test_evolution.py``'s ``client`` fixture (lines 64-89) and its
-``_reach_approved_protocol`` / ``_approve_ethics`` helpers (lines 123-140)
-verbatim, with the study id fixed to ``"pilot"``. Note: this ``"pilot"`` is a
-study conversationally built at test time — it is *not*
-``protocol/examples/pilot-study.yaml`` (whose real ``study.id`` is
-``pilot-2026``; confirmed via ``grep studies/pilot-2026`` in
-``test_middleware_api.py``). No ``protocol_path`` is loaded here (matching
-test_evolution.py's own fixture, which also loads none), so there is no
-collision between the two "pilot" names.
-"""
+"""Shared fixtures for enrollment-route tests."""
 
 import model_double
 import pytest
@@ -43,16 +11,7 @@ STUDY = "pilot"
 
 @pytest.fixture(autouse=True)
 def _model(monkeypatch):
-    """Give every middleware test a language model.
-
-    The design conversation requires one - it raises ``ModelUnavailable``
-    rather than answering from a keyword script - so any test that drives a
-    conversation needs a model to drive it. This patches the single network
-    seam (``assistant._post_json``) rather than ``make_client``, so client
-    resolution, provider selection and the whole request/response path stay
-    real; only the socket is replaced. A test that wants a different model,
-    an outage, or no model at all just patches over this.
-    """
+    """Give every middleware test a language model."""
     from middleware import assistant
 
     double = model_double.plausible()
@@ -66,13 +25,7 @@ def _model(monkeypatch):
 
 
 def _provider_init(default_post):
-    """A ``MistralProvider.__init__`` whose default transport is the double.
-
-    The real default is bound at class-definition time (``post=_post_json``),
-    so patching the module attribute alone would not reach a provider built
-    inside the app under test. The signature is otherwise unchanged: a test
-    passing its own ``post=`` still wins.
-    """
+    """A ``MistralProvider.__init__`` whose default transport is the double."""
 
     def __init__(self, api_key, model=None, post=None, stream=None):
         from middleware import assistant
@@ -88,8 +41,6 @@ def _provider_init(default_post):
 
     return __init__
 
-#: A study described the way a researcher would, so the elicitation gate
-#: (FR-CONV-10) opens honestly rather than being bypassed in tests.
 _STUDY_SKETCH = (
     "I want to see whether developers finish maintenance tasks faster with "
     "an AI assistant than without one, in 45-minute lab sessions, "
@@ -107,10 +58,6 @@ def _build_client(tmp_path) -> TestClient:
     tc = TestClient(create_app(settings))
     tc.db_path = settings.db_path
     return tc
-
-
-# ---------------------------------------------------------------- helpers
-# Copied from test_evolution.py, study defaulted to this file's STUDY.
 
 
 def _ask(client, text, study=STUDY):
@@ -141,12 +88,10 @@ def _approve(client, comp_id, study=STUDY, rationale=""):
 
 
 def _reach_approved_protocol(client, study=STUDY):
-    """Drive an empty study to an approved, validating protocol draft - the
-    state a researcher reaches by designing, and the only pre-condition
-    enrollment now has."""
-    # The platform withholds a design shape until the study is understood
-    # (FR-CONV-10), so describe the study first — the conversation this helper
-    # drives is now the one a researcher would actually have.
+    """
+    Drive an empty study to an approved, validating protocol draft - the state a
+    researcher reaches by designing, and the only pre-condition enrollment now has.
+    """
     _ask(client, _STUDY_SKETCH, study)
     reply = _ask(client, (
         "what design and statistics should I use? I was thinking "
@@ -168,9 +113,6 @@ def _approve_ethics(client, study=STUDY):
     r = client.post(f"/studies/{study}/ethics-approval")
     assert r.status_code == 200, r.text
     return r.json()
-
-
-# ---------------------------------------------------------------- fixtures
 
 
 @pytest.fixture()

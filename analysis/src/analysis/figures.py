@@ -1,21 +1,12 @@
-"""Figure helpers following the project's data-viz conventions.
-
-One place defines the palette and chart chrome so every recipe's figures
-read as one system: the validated reference palette (same hexes as the
-platform's CSS custom properties), thin marks, hairline grid, labeled
-axes, honest scales (value axes include zero unless a recipe argues
-otherwise), every observation drawn at pilot n, and per-cell n printed on
-the axis - never a summary bar hiding the points.
-"""
+"""Figure helpers following the project's data-viz conventions."""
 
 from __future__ import annotations
 
 import matplotlib
 
-matplotlib.use("Agg")  # headless; recipes never open windows
-# Deterministic SVG element ids (default is a per-process uuid4 salt, which
-# breaks the replication kit's byte-stable regeneration - NFR-6). Wall-clock
-# metadata is handled by SOURCE_DATE_EPOCH at the caller.
+matplotlib.use("Agg")
+# Deterministic SVG element ids (default is a per-process uuid4 salt, which breaks the
+# replication kit's byte-stable regeneration - NFR-6).
 matplotlib.rcParams["svg.hashsalt"] = "masters-project-analysis"
 
 import matplotlib.pyplot as plt  # noqa: E402
@@ -25,11 +16,6 @@ from matplotlib.figure import Figure  # noqa: E402
 
 from analysis.dataset import Dataset  # noqa: E402
 
-# The SVG backend stamps the wall clock into <dc:date>, which makes
-# byte-stable figure regeneration impossible (same data, different bytes at
-# 10:05:51 vs 10:05:52). Pin the figure pipeline to one fixed Date so any
-# figure, from any recipe, is reproducible byte for byte - the SVG writer
-# honors a caller-supplied "Date" and we are the only callers.
 _FIXED_SVG_DATE = {"Date": "2026-01-01T00:00:00"}
 _orig_savefig = Figure.savefig
 
@@ -41,16 +27,15 @@ def _savefig_deterministic(self, fname, **kwargs):
 
 Figure.savefig = _savefig_deterministic
 
-#: Categorical slots, fixed order (dataviz reference palette, light mode).
 PALETTE = [
-    "#2a78d6",  # 1 blue
-    "#1baf7a",  # 2 aqua
-    "#eda100",  # 3 yellow
-    "#008300",  # 4 green
-    "#4a3aa7",  # 5 violet
-    "#e34948",  # 6 red
-    "#e87ba4",  # 7 magenta
-    "#eb6834",  # 8 orange
+    "#2a78d6",
+    "#1baf7a",
+    "#eda100",
+    "#008300",
+    "#4a3aa7",
+    "#e34948",
+    "#e87ba4",
+    "#eb6834",
 ]
 INK = "#0b0b0b"
 SECONDARY = "#52514e"
@@ -61,8 +46,10 @@ SURFACE = "#fcfcfb"
 
 
 def condition_colors(conditions: list[str]) -> dict[str, str]:
-    """Fixed slot per condition, in dataset order - color follows the
-    entity, never its rank."""
+    """
+    Fixed slot per condition, in dataset order - color follows the entity, never its
+    rank.
+    """
     return {c: PALETTE[i % len(PALETTE)] for i, c in enumerate(conditions)}
 
 
@@ -97,13 +84,14 @@ def strip_by_condition(
     unit_label: str = "observation",
     xlabel: str = "condition",
 ) -> Figure:
-    """The house small-n distribution plot: every observation as a jittered
-    point, a median tick per cell, per-cell n on the axis, zero included on
-    the value axis (honest scale). ``xlabel`` names the cell variable when
-    something other than condition plays that role (e.g. outcome)."""
+    """
+    The house small-n distribution plot: every observation as a jittered point, a median
+    tick per cell, per-cell n on the axis, zero included on the value axis (honest
+    scale).
+    """
     colors = condition_colors(conditions)
     fig, ax = new_axes(title, xlabel, ylabel)
-    rng = np.random.default_rng(0)  # deterministic jitter (NFR-6)
+    rng = np.random.default_rng(0)
     for i, cond in enumerate(conditions):
         values = pd.to_numeric(
             df.loc[df["condition"] == cond, value], errors="coerce"
@@ -135,7 +123,7 @@ def strip_by_condition(
         ]
     )
     lo, hi = ax.get_ylim()
-    ax.set_ylim(min(0, lo), hi)  # value axes include zero
+    ax.set_ylim(min(0, lo), hi)
     fig.tight_layout()
     return fig
 
@@ -145,15 +133,10 @@ def session_timeline(
     session_id: str,
     figsize: tuple[float, float] = (8.6, 4.2),
 ) -> Figure:
-    """One session's events on a shared timeline: a lane per event type
-    (ordered by first appearance, the platform swimlane's lane order), marks
-    at event times, x in minutes from the session's first event.
-
-    The one-glance curation figure — what a session actually recorded,
-    before any statistic. Flagged rows (integrity marks the middleware
-    stamped at ingest) are drawn as open diamonds, so an integrity flag is a
-    shape on the figure, not a footnote. Deterministic: no RNG, the same
-    dataset always yields the same figure.
+    """
+    One session's events on a shared timeline: a lane per event type (ordered by first
+    appearance, the platform swimlane's lane order), marks at event times, x in minutes
+    from the session's first event.
     """
     events = dataset.events
     session = events[events["sessionId"] == session_id]
@@ -222,9 +205,10 @@ def box_by_condition(
     ylabel: str,
     xlabel: str = "condition",
 ) -> Figure:
-    """Box-and-whisker per condition, every observation overlaid as jittered
-    points (the strip + box hybrid). Per-cell n on the axis. Alternative to
-    ``strip_by_condition`` when the group shapes differ meaningfully."""
+    """
+    Box-and-whisker per condition, every observation overlaid as jittered points (the
+    strip + box hybrid).
+    """
     colors = condition_colors(conditions)
     fig, ax = new_axes(title, xlabel, ylabel)
     rng = np.random.default_rng(1)
@@ -286,10 +270,7 @@ def grouped_bar_proportion(
     ylabel: str = "proportion",
     xlabel: str = "condition",
 ) -> Figure:
-    """Grouped bar chart for binary outcome proportions per condition. Each
-    bar shows the proportion of passed/true outcomes with per-cell n. Thin
-    error bars (Clopper-Pearson exact binomial CI, computed at
-    ``analysis.stats.exact_binomial_ci``)."""
+    """Grouped bar chart for binary outcome proportions per condition."""
     colors = condition_colors(conditions)
     fig, ax = new_axes(title, xlabel, ylabel, figsize=(4.2, 4.2))
     props = {}
@@ -324,10 +305,10 @@ def scatter_fit(
     xlabel: str = "",
     ylabel: str = "",
 ) -> Figure:
-    """Scatter plot with linear least-squares fit line (OLS), each
-    observation drawn, fit shaded at 95% CI. ``x_col`` and ``y_col`` are
-    numeric columns in ``df``. ``label`` names the entity type
-    (e.g. "participants")."""
+    """
+    Scatter plot with linear least-squares fit line (OLS), each observation drawn, fit
+    shaded at 95% CI. ``x_col`` and ``y_col`` are numeric columns in ``df``.
+    """
     fig, ax = new_axes(title, xlabel or x_col, ylabel or y_col)
     x = pd.to_numeric(df[x_col], errors="coerce").dropna().values
     y = pd.to_numeric(df[y_col], errors="coerce").dropna().values
@@ -375,8 +356,10 @@ def scatter_fit(
 def paired_dots(
     wide: pd.DataFrame, conditions: tuple[str, str], title: str, ylabel: str
 ) -> Figure:
-    """Within-subjects paired plot: one line per participant across the two
-    condition columns of ``wide`` (index = participantId)."""
+    """
+    Within-subjects paired plot: one line per participant across the two condition
+    columns of ``wide`` (index = participantId).
+    """
     colors = condition_colors(list(conditions))
     fig, ax = new_axes(title, "condition", ylabel, figsize=(4.6, 4.2))
     for pid, row in wide.iterrows():

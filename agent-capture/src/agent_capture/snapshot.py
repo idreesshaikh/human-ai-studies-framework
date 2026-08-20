@@ -1,24 +1,5 @@
-"""Workspace snapshotter (FR-INST-15, D14) + participant commit observer
-(FR-INST-17).
-
-A *shadow* git repository (``--git-dir=<study-data>/shadow.git
---work-tree=<task workspace>``) commits the whole task workspace on a save
-webhook and every N minutes. This gives the metrics leg a free time series
- and lets code evolution be reconstructed, not
-just its final state - with no custom snapshot format to invent, and
-without touching the participant's own git (separate git-dir, same
-worktree).
-
-The participant's *own* commits in the task repo are content-free
-telemetry, not touched but *observed*: each new hash in the task repo's
-``git log`` becomes a ``git_commit`` event carrying hash + files-changed +
-insertions/deletions + timing - never the message text (FR-ETH-2,
-FR-INST-17).
-
-Two independent producers write here, each with its own ``seq`` stream but
-the shared session join key: this module emits under ``workspace-snapshot``.
-Time-dependent triggering uses an injected clock so the timer is testable
-(CLAUDE.md).
+"""
+Workspace snapshotter (FR-INST-15, D14) + participant commit observer (FR-INST-17).
 """
 
 from __future__ import annotations
@@ -57,14 +38,11 @@ class ShadowRepo:
         if not (self.git_dir / "HEAD").exists():
             self.git_dir.parent.mkdir(parents=True, exist_ok=True)
             git("init", "--bare", str(self.git_dir))
-        # Identity is local to the shadow repo so the participant's global
-        # git config is untouched.
         git(*self._args(), "config", "user.email", "snapshotter@study.local")
         git(*self._args(), "config", "user.name", "study-snapshotter")
 
     def commit(self, message: str) -> str | None:
-        """Stage everything and commit. Returns the new hash, or ``None`` when
-        the workspace is unchanged (git makes no commit)."""
+        """Stage everything and commit."""
         git(*self._args(), "add", "-A")
         head_before = git(*self._args(), "rev-parse", "HEAD")
         git(*self._args(), "commit", "--allow-empty-message", "-m", message)
@@ -78,17 +56,7 @@ class ShadowRepo:
 
 
 class Snapshotter:
-    """Snapshot commits + participant-commit observation for one session.
-
-    ``seq`` is *derived from git ordinals*, never an in-process counter, so
-    the snapshotter can run as a long-lived timer **or** be re-invoked
-    single-shot on every save (the runbook's choice) and either way the same
-    logical commit always lands at the same ``(session, source, seq)`` -
-    repeated ticks reconcile idempotently rather than duplicating (FR-ING-2).
-    Two producer streams: shadow snapshots (``workspace-snapshot``) and the
-    participant's own observed commits (``participant-git``), each with its
-    own contiguous ordinal.
-    """
+    """Snapshot commits + participant-commit observation for one session."""
 
     def __init__(
         self,
@@ -112,14 +80,13 @@ class Snapshotter:
         return out.splitlines() if out else []
 
     def snapshot(self, trigger: str = "timer") -> list[dict]:
-        """Commit a snapshot (if the workspace changed), then emit the full
-        deterministic event set for this session's shadow + participant
-        history. ``trigger`` is ``save`` or ``timer``. Re-emitting the whole
-        history each tick is safe (idempotent) and self-healing."""
+        """
+        Commit a snapshot (if the workspace changed), then emit the full deterministic
+        event set for this session's shadow + participant history.
+        """
         ts = self._ts()
         self.shadow.commit(f"snapshot:{trigger}:{ts}")
         events: list[dict] = []
-        # Shadow snapshots: seq = commit ordinal in the shadow repo.
         shadow_hashes = self._hashes_oldest_first(self.shadow.git_dir)
         for seq, h in enumerate(shadow_hashes):
             stat = self.shadow.commit_numstat(h)
@@ -133,14 +100,11 @@ class Snapshotter:
                     ts=ts,
                     payload={
                         "commitHash": h,
-                        # Only the freshest commit's trigger is meaningful this
-                        # tick; earlier ones were captured on prior triggers.
                         "trigger": trigger if last else "timer",
                         **stat,
                     },
                 )
             )
-        # Participant commits: seq = commit ordinal in the task repo.
         for seq, h in enumerate(self._hashes_oldest_first(self.workspace)):
             stat = show_numstat(h, cwd=self.workspace)
             events.append(
@@ -150,7 +114,7 @@ class Snapshotter:
                     seq=seq,
                     type=EVENT_GIT_COMMIT,
                     ts=ts,
-                    payload={"hash": h, **stat},  # no message text (FR-ETH-2)
+                    payload={"hash": h, **stat},
                 )
             )
         return events

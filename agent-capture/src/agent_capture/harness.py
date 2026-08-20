@@ -1,15 +1,4 @@
-"""Task-outcome harness (FR-INST-16) - correctness ground truth.
-
-Each pilot task ships a ``task-tests/`` directory of acceptance tests. The
-harness runs them at session end (and optionally on save) and emits a
-``task_outcome`` event with pass/fail counts and, once the suite first turns
-green, time-to-first-green. Without this the code leg measures *style*, not
-*success* (RQ-P2), and every other leg's outcome-conditioned split has no
-ground truth to condition on.
-
-Outcomes are their own producer stream (``task-harness``) with a private
-``seq``, on the shared session timeline.
-"""
+"""Task-outcome harness (FR-INST-16) - correctness ground truth."""
 
 from __future__ import annotations
 
@@ -36,12 +25,7 @@ _COUNT = {
 
 
 def run_pytest(tests_dir: str | Path) -> dict:
-    """Run the acceptance suite and return ``{passed, failed, total}``.
-
-    Shells out to a fresh ``pytest`` so the participant's task code and its
-    tests are isolated from the framework's own interpreter state. Parses
-    the terminal summary; a missing/empty suite reports zeros.
-    """
+    """Run the acceptance suite and return ``{passed, failed, total}``."""
     tests_dir = Path(tests_dir)
     if not tests_dir.exists():
         return {"passed": 0, "failed": 0, "total": 0, "ran": False}
@@ -78,8 +62,10 @@ def _parse_summary(output: str) -> dict:
 
 
 class Harness:
-    """Runs the acceptance suite per trigger for one session and tracks the
-    first all-green moment for time-to-first-green."""
+    """
+    Runs the acceptance suite per trigger for one session and tracks the first all-green
+    moment for time-to-first-green.
+    """
 
     def __init__(
         self,

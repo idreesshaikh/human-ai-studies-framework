@@ -1,11 +1,4 @@
-"""Member-invitation email delivery (FR-PLAT-3, D40).
-
-Sends via Resend's REST API over stdlib ``urllib`` — no SDK, matching the
-no-dependency posture of the LLM and GitHub clients. Everything here is
-**best-effort and key-gated**: with no ``RESEND_API_KEY`` the platform
-degrades to the copy-link flow, and a send failure never propagates (the
-invitation record and its link are the source of truth; email is a courtesy).
-"""
+"""Member-invitation email delivery (FR-PLAT-3, D40)."""
 
 from __future__ import annotations
 
@@ -23,7 +16,7 @@ RESEND_ENDPOINT = "https://api.resend.com/emails"
 
 
 def invite_enabled(api_key: str | None) -> bool:
-    """Whether email delivery is configured. Absent → copy-link fallback."""
+    """Whether email delivery is configured."""
     return bool(api_key)
 
 
@@ -35,10 +28,7 @@ def _accept_url(token: str, base_url: str | None) -> str:
 
 
 def _body_html(project_name: str, role: str, accept_url: str) -> str:
-    # Deliberately plain — one line of context, one clear action. Every
-    # interpolated value is HTML-escaped: the project name is user-controlled,
-    # so an unescaped name would inject markup into the invite email. quote=True
-    # keeps a stray quote in the URL from breaking out of the href attribute.
+    # Deliberately plain — one line of context, one clear action.
     p = html.escape(project_name)
     r = html.escape(role)
     u = html.escape(accept_url, quote=True)
@@ -51,20 +41,14 @@ def _body_html(project_name: str, role: str, accept_url: str) -> str:
 
 
 def _from_and_reply(from_email: str, inviter: str) -> tuple[str, str | None]:
-    """Make the invite read as coming from the person who sent it, without
-    spoofing. The envelope address stays the verified sender (``from_email`` —
-    Resend only delivers from a domain you own; a colleague's own address can't
-    go here), but its display name becomes "<inviter> via PHOENIX", and if the
-    inviter's identity is an email we set Reply-To so a reply reaches them
-    directly. This is the standard "on behalf of" pattern (Slack/Notion invites
-    work the same way)."""
+    """Make the invite read as coming from the person who sent it, without spoofing."""
     name, addr = parseaddr(from_email)
     inviter = inviter.strip()
     if not inviter or not addr:
         return from_email, None
     brand = name or "PHOENIX"
-    # If the inviter identity is itself an email, don't repeat it in the display
-    # name; use it as Reply-To so replies reach the real person.
+    # If the inviter identity is itself an email, don't repeat it in the display name;
+    # use it as Reply-To so replies reach the real person.
     reply_to = inviter if "@" in inviter and " " not in inviter else None
     display = brand if reply_to else f"{inviter} via {brand}"
     return formataddr((display, addr)), reply_to
@@ -82,20 +66,7 @@ def send_invitation(
     inviter: str = "",
     post=None,
 ) -> tuple[bool, str]:
-    """Email an invitation. Returns ``(sent, reason)`` — ``sent`` True if Resend
-    accepted the send, else False with a human-readable ``reason`` naming the
-    cause (unconfigured key, or the Resend error). Never raises — the caller's
-    invitation record stands regardless. ``post`` is injectable for tests.
-
-    ``inviter`` (the sender's name or email) personalises the From display name
-    and, when it's an email, the Reply-To — so the invite reads as coming from
-    the colleague who sent it while still being delivered from the verified
-    domain (see :func:`_from_and_reply`).
-
-    The reason exists because the most common real failure is a good key with an
-    unverified sender domain (Resend's shared ``onboarding@resend.dev`` only
-    delivers to the account owner). Swallowing that silently left researchers
-    with no idea why the email never arrived."""
+    """Email an invitation."""
     if not invite_enabled(api_key):
         return False, (
             "Email delivery isn't configured (no RESEND_API_KEY). "
@@ -123,8 +94,6 @@ def send_invitation(
         )
         return True, "Sent."
     except urllib.error.HTTPError as exc:
-        # Resend returns a JSON error body — surface its message; a 403/422 here
-        # is almost always "sender domain not verified" or a bad key.
         detail = _resend_error_detail(exc)
         reason = f"The email provider rejected the send ({exc.code}): {detail}"
         log.warning("invitation email to %s not sent: %s", to_email, reason)
@@ -136,8 +105,10 @@ def send_invitation(
 
 
 def _resend_error_detail(exc: urllib.error.HTTPError) -> str:
-    """Pull Resend's ``message`` out of an HTTP error body, falling back to the
-    raw text (then the reason phrase) when it isn't the expected JSON shape."""
+    """
+    Pull Resend's ``message`` out of an HTTP error body, falling back to the raw text
+    (then the reason phrase) when it isn't the expected JSON shape.
+    """
     try:
         raw = exc.read().decode("utf-8")
     except Exception:  # noqa: BLE001 - diagnostics only, never mask the original
@@ -150,8 +121,10 @@ def _resend_error_detail(exc: urllib.error.HTTPError) -> str:
 
 
 def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:
-    """POST JSON, return parsed JSON. The one network seam (mirrors
-    assistant._post_json) so tests can inject a fake sender."""
+    """
+    POST JSON, return parsed JSON. The one network seam (mirrors assistant._post_json)
+    so tests can inject a fake sender.
+    """
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     with urllib.request.urlopen(req, timeout=15) as resp:

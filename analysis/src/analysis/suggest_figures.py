@@ -1,12 +1,4 @@
-"""Figure-suggestion engine (FR-ANA-7).
-
-Maps each recipe's result shape to a ranked list of recommended
-visualizations, each with its rationale and RQ link.
-
-Sources: Baltes et al. guidelines for SE visualisation; Tufte's "data-ink
-ratio" principles; Lamiroy & Lopes "visualisation guidance for empirical
-SE" (arXiv:2104.12345); NFR-12 dataviz palette.
-"""
+"""Figure-suggestion engine (FR-ANA-7)."""
 
 from __future__ import annotations
 
@@ -24,7 +16,6 @@ class FigureSuggestion:
     when_to_use: str
 
 
-#: Ranked figure suggestions keyed by result shape name.
 _TABLE: dict[str, list[FigureSuggestion]] = {
     "two-group-comparison": [
         FigureSuggestion(
@@ -241,11 +232,7 @@ _TABLE: dict[str, list[FigureSuggestion]] = {
 
 
 def suggest_figures(result_shape: str) -> list[FigureSuggestion]:
-    """Ranked figure suggestions for a given result shape.
-
-    Returns an empty list if the shape is not recognised (callers should
-    fall back to providing a general-purpose strip plot).
-    """
+    """Ranked figure suggestions for a given result shape."""
     return list(_TABLE.get(result_shape, []))
 
 

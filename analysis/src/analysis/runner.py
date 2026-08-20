@@ -1,19 +1,4 @@
-"""Plan-driven analysis runner (FR-ANA-4).
-
-Executes exactly the recipes the protocol's analysis plan names - results
-are traceable to research questions by construction - and writes
-
-    results/<study>/<recipe>/   tables (CSV), figures (PNG + SVG), summary.md
-    results/<study>/report.md   per-RQ stitched report
-
-Plan validation runs first and fails loudly (FR-ANA-2): every unsatisfied
-requirement is printed and lands in the report's validation section naming
-the missing event type / metric column. Recipe runs are best-effort
-recorded to the middleware (`POST /studies/{id}/recipe-runs`) so the
-platform's un-run-recipe cards clear themselves; an offline middleware
-never blocks an analysis (NFR-1 discipline applies to researcher tools
-too).
-"""
+"""Plan-driven analysis runner (FR-ANA-4)."""
 
 from __future__ import annotations
 
@@ -91,9 +76,10 @@ def _record_runs(server: str, study_id: str, runs: list[dict]) -> bool:
 
 
 def _record_findings(server: str, findings: list[dict]) -> None:
-    """Best-effort: log recipe requires-failures to the operational-findings
-    log (FR-META-1) so they surface as task-board cards and feed the
-    retrospective. An offline middleware never blocks the analysis."""
+    """
+    Best-effort: log recipe requires-failures to the operational-findings log
+    (FR-META-1) so they surface as task-board cards and feed the retrospective.
+    """
     try:
         for finding in findings:
             req = urllib.request.Request(
@@ -114,8 +100,10 @@ def run_plan(
     out_root: Path = Path("results"),
     server: str | None = None,
 ) -> RunOutcome:
-    """Validate the protocol's analysis plan against the dataset, run every
-    satisfiable recipe once, and stitch the per-RQ report."""
+    """
+    Validate the protocol's analysis plan against the dataset, run every satisfiable
+    recipe once, and stitch the per-RQ report.
+    """
     plan = protocol.get("analysisPlan", [])
     rq_text = {
         rq["id"]: rq.get("text", "") for rq in protocol.get("researchQuestions", [])
@@ -131,7 +119,6 @@ def run_plan(
         if not c.ok:
             outcome.failed_validation.append(c)
 
-    # Run each satisfiable recipe once, even when several RQs name it.
     runnable = []
     seen = set()
     for c in checks:
@@ -139,7 +126,6 @@ def run_plan(
             seen.add(c.recipe_id)
             runnable.append(REGISTRY[c.recipe_id])
 
-    # Build per-recipe params from the analysisPlan entries.
     plan_params: dict[str, dict] = {}
     for entry in plan:
         for rid in entry.get("recipes", []):
@@ -153,8 +139,6 @@ def run_plan(
     for rec in runnable:
         print(f"running {rec.id} ...", flush=True)
         try:
-            # Inject per-recipe params into dataset.meta before running
-            # (FR-ANA-8: parameterised recipes read from meta).
             recipe_params = plan_params.get(rec.id, {})
             dataset.meta = {**dataset.meta, **recipe_params}
             result = rec.run(dataset)

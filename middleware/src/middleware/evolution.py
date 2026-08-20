@@ -1,35 +1,7 @@
-"""The evolution engine: the deterministic core behind mid-study amendments.
-
-Everything here is a **pure function** — no LLM, no clock, no DB. The
-conversation and compiler propose and produce; this module *classifies* and
-*summarizes*, deterministically, so its every judgment is table-testable:
-
-- :func:`consent_relevance` is *the rule* S3 relies on. Consent-relevance is
-  never an LLM judgment: anything touching the ethics section, an instrument's
-  content policy / capture scope, or introducing a new data stream (a new
-  instrument, or a curated source) is consent-relevant, by rule (FR-CONV-4.2).
-  A threshold or interval tweak inside an existing instrument is *not* — it
-  applies from the next session with no re-approval (F4.2).
-- :func:`change_summary` / :func:`amendment_summary_doc` generate the
-  human-readable amendment delta S1 sends to the ethics board (FR-ANA-6 style:
-  deterministic generation from the record, never a model's prose).
-
-A note on versioning. fixed the protocol document's ``protocolVersion``
-field to a schema-shape enum [1, 2, 3] (v1 live human study, v2 + curated, v3
-agent participants). The amendment counter FR-CONV-4 calls the "protocol
-version" is therefore a *separate* study-revision integer, held in
-``StudyEvolution.current_version`` and stamped onto each ``SessionOpen`` — the
-value the version chips render. Bumping the YAML field per amendment would
-break validation, so the record of "which revision a session ran under" lives
-beside the protocol, not inside its schema field.
-"""
+"""The evolution engine: the deterministic core behind mid-study amendments."""
 
 from __future__ import annotations
 
-#: Instrument sub-keys whose change alters *what is captured or how it is
-#: retained* — the FR-ETH-2 consent surface. A change to any of these (or a
-#: whole new instrument) is consent-relevant; a change to anything else inside
-#: an instrument (a probe interval, a numeric threshold) is not (F4.2).
 CONSENT_SUBKEYS: frozenset[str] = frozenset(
     {"contentPolicy", "capture", "redaction", "record", "scopes", "raw", "adapter"}
 )
@@ -41,37 +13,17 @@ def _instruments(protocol: dict) -> dict:
 
 
 def consent_relevance(before: dict, after: dict) -> tuple[bool, list[str]]:
-    """Decide whether the change from ``before`` to ``after`` is consent-relevant.
-
-    Returns ``(relevant, reasons)`` where ``reasons`` is a sorted list of
-    plain-language sentences (the amendment record quotes them verbatim, so the
-    "why" is recorded, not re-derived). Deterministic and total: the same pair
-    of protocols always yields the same verdict — this is the rule the
-    table-driven test (change → relevant?) pins.
-
-    Extended for FR-CONV-7: a change to any nested ``enabled`` field, or the
-    first appearance of any previously-undeclared metric subtree, is also
-    consent-relevant — because turning capture on/off for an instrument is
-    functionally the same as adding/removing a data stream, and the old
-    flat-subkey check missed it entirely.
-    """
+    """Decide whether the change from ``before`` to ``after`` is consent-relevant."""
     reasons: list[str] = []
 
     before_instr = _instruments(before)
     after_instr = _instruments(after)
 
-    # A new instrument is a new data stream (the paradigm consent-relevant
-    # change: FR-CONV-4.2 "introducing a new data stream").
     for name in sorted(set(after_instr) - set(before_instr)):
         reasons.append(f"adds a new data stream: instruments.{name}")
-    # Removing a stream narrows capture — still a change to the consented
-    # instrument set S3 approved, so it is version-visible and gated too.
     for name in sorted(set(before_instr) - set(after_instr)):
         reasons.append(f"removes a data stream: instruments.{name}")
 
-    # For instruments present in both, only a change to a consent-surface
-    # sub-key (content policy, capture scope, redaction) is relevant; a
-    # threshold/interval tweak is not (F4.2).
     for name in sorted(set(before_instr) & set(after_instr)):
         b = before_instr.get(name) or {}
         a = after_instr.get(name) or {}
@@ -84,15 +36,11 @@ def consent_relevance(before: dict, after: dict) -> tuple[bool, list[str]]:
                     f"({key}: {b.get(key)!r} → {a.get(key)!r})"
                 )
 
-    # FR-CONV-7: recursive ``enabled`` change check — turning capture on/off
-    # at any nesting depth is consent-relevant.
     for name in sorted(set(before_instr) & set(after_instr)):
         if _enabled_changed(before_instr.get(name) or {},
                            after_instr.get(name) or {}, name, reasons):
-            pass  # reasons already appended by helper
+            pass
 
-    # FR-CONV-7: first appearance of a previously-undeclared metric subtree
-    # (e.g. a new top-level key inside an existing instrument) is consent-relevant.
     for name in sorted(set(before_instr) & set(after_instr)):
         b = before_instr.get(name) or {}
         a = after_instr.get(name) or {}
@@ -103,16 +51,12 @@ def consent_relevance(before: dict, after: dict) -> tuple[bool, list[str]]:
                 f"adds a new metric subtree to instruments.{name}: {subkey}"
             )
 
-    # The ethics / consent subtree, whatever shape a template gives it, is a
-    # consent surface in full — any change to it is relevant.
     for section in ("ethics", "consent"):
         if before.get(section) != after.get(section) and (
             before.get(section) is not None or after.get(section) is not None
         ):
             reasons.append(f"changes the {section} scope of the study")
 
-    # A curated data source is a new data stream about (mined) strangers, who
-    # get the same protection as consented participants (FR-ETH-2, wall 7).
     b_cur = before.get("curated") or {}
     a_cur = after.get("curated") or {}
     if not b_cur and a_cur:
@@ -123,8 +67,6 @@ def consent_relevance(before: dict, after: dict) -> tuple[bool, list[str]]:
             f"({b_cur.get('source')!r} → {a_cur.get('source')!r})"
         )
 
-    # Agent participants are a new data source (FR-PROT-9): enrolling them
-    # after ethics approval is consent-relevant.
     b_agents = (before.get("participants") or {}).get("agents")
     a_agents = (after.get("participants") or {}).get("agents")
     if not b_agents and a_agents:
@@ -136,8 +78,10 @@ def consent_relevance(before: dict, after: dict) -> tuple[bool, list[str]]:
 def _enabled_changed(
     before: dict, after: dict, prefix: str, reasons: list
 ) -> bool:
-    """Recursively walk two dicts — if any ``enabled`` field differs at any
-    depth, append a reason and return True. FR-CONV-7."""
+    """
+    Recursively walk two dicts — if any ``enabled`` field differs at any depth, append a
+    reason and return True.
+    """
     changed = False
     for key in sorted(set(before) | set(after)):
         bv = before.get(key)
@@ -154,20 +98,18 @@ def _enabled_changed(
             if _enabled_changed(bv, av, path, reasons):
                 changed = True
         elif isinstance(bv, dict) or isinstance(av, dict):
-            # One side is a dict and the other isn't — structural change.
             reasons.append(f"changes the structure of {path}")
             changed = True
     return changed
 
 
 def change_summary(before: dict, after: dict) -> list[str]:
-    """A plain-language, deterministic list of what the amendment changed —
-    the neutral "what" the ethics-board delta and the amendment banner render.
-    Covers the sections a design conversation edits; ordering is stable.
+    """
+    A plain-language, deterministic list of what the amendment changed — the neutral
+    "what" the ethics-board delta and the amendment banner render.
     """
     lines: list[str] = []
 
-    # Research questions (by text — ids are churny).
     b_rq = {rq.get("text", "") for rq in before.get("researchQuestions", [])}
     a_rq = {rq.get("text", "") for rq in after.get("researchQuestions", [])}
     for t in sorted(a_rq - b_rq):
@@ -215,9 +157,9 @@ def amendment_summary_doc(
     approved_by: str,
     approved_at: str,
 ) -> str:
-    """Render the ethics-board amendment delta as Markdown — the document S1
-    actually sends to S3. Deterministic generation from the amendment record
-    (FR-CONV-4.3, FR-ANA-6 style); no model writes this prose.
+    """
+    Render the ethics-board amendment delta as Markdown — the document S1 actually sends
+    to S3.
     """
     out: list[str] = []
     out.append(
@@ -265,5 +207,3 @@ def amendment_summary_doc(
         out.append("- _unsourced: the amendment carries no citations_")
     out.append("")
     return "\n".join(out)
-
-

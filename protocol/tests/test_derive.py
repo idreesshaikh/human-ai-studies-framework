@@ -12,8 +12,10 @@ def test_join_keys_are_set(pilot):
 
 
 def test_every_derived_key_is_a_real_extension_setting(pilot, repo_root):
-    """Acceptance criterion: the output can be pasted into VS Code settings
-    and accepted by the Cognitive Overlay unchanged."""
+    """
+    Acceptance criterion: the output can be pasted into VS Code settings and accepted by
+    the Cognitive Overlay unchanged.
+    """
     package_json = json.loads(
         (repo_root / "extension" / "package.json").read_text("utf-8")
     )
@@ -26,7 +28,6 @@ def test_instrument_config_flows_through(pilot):
     settings = derive_overlay_settings(pilot, "P02", "unassisted")
     assert settings["tern.fatigue.intervalMinutes"] == 15
     assert settings["tern.stuck.languages"] == ["python"]
-    # 45-minute sessions per the frozen pilot protocol.
     assert settings["tern.session.durationMinutes"] == 45
     assert (
         settings["tern.output.httpEndpoint"]
@@ -35,19 +36,22 @@ def test_instrument_config_flows_through(pilot):
 
 
 def test_ide_health_flows_through_when_declared(pilot):
-    """FR-INST-18: when the protocol declares tern.ideHealth,
-    derive_overlay_settings includes its values."""
+    """
+    FR-INST-18: when the protocol declares tern.ideHealth, derive_overlay_settings
+    includes its values.
+    """
     settings = derive_overlay_settings(pilot, "P01", "ai-assisted")
     assert settings["tern.ideHealth.enabled"] is False
     assert settings["tern.ideHealth.debounceSeconds"] == 10
 
 
 def test_ide_health_omitted_when_not_declared(pilot_doc, write_protocol):
-    """FR-INST-18 safety: ideHealth must not appear in derived settings when
-    the protocol doesn't declare it — no default-on surprise."""
+    """
+    FR-INST-18 safety: ideHealth must not appear in derived settings when the protocol
+    doesn't declare it — no default-on surprise.
+    """
     from protocol.loader import load_protocol
 
-    # Strip ideHealth from the pilot protocol.
     del pilot_doc["instruments"]["tern"]["ideHealth"]
     proto = load_protocol(write_protocol(pilot_doc))
     settings = derive_overlay_settings(proto, "P01", "unassisted")
@@ -56,8 +60,10 @@ def test_ide_health_omitted_when_not_declared(pilot_doc, write_protocol):
 
 
 def test_comprehension_probe_flows_through_when_declared(pilot):
-    """FR-DASH-12: when the protocol declares tern.comprehensionProbe,
-    derive_overlay_settings includes its values."""
+    """
+    FR-DASH-12: when the protocol declares tern.comprehensionProbe,
+    derive_overlay_settings includes its values.
+    """
     settings = derive_overlay_settings(pilot, "P01", "ai-assisted")
     assert settings["tern.comprehensionProbe.enabled"] is True
     assert settings["tern.comprehensionProbe.cadence"] == "every-chunk"
@@ -69,8 +75,10 @@ def test_comprehension_probe_flows_through_when_declared(pilot):
 
 
 def test_comprehension_probe_omitted_when_not_declared(pilot_doc, write_protocol):
-    """FR-DASH-12 safety: comprehensionProbe must not appear in derived settings
-    when the protocol doesn't declare it — no default-on surprise."""
+    """
+    FR-DASH-12 safety: comprehensionProbe must not appear in derived settings when the
+    protocol doesn't declare it — no default-on surprise.
+    """
     from protocol.loader import load_protocol
 
     del pilot_doc["instruments"]["tern"]["comprehensionProbe"]
@@ -84,20 +92,18 @@ def test_unknown_condition_is_rejected(pilot):
         derive_overlay_settings(pilot, "P01", "with-ai")
 
 
-# --- agent-leg hook pack (FR-AGENT-2, FR-PROT-4) ---------------------------
-
-
 def test_agent_hooks_bake_the_protocol_content_policy(pilot):
-    """The consent-matched content policy comes from the protocol, not a
-    side channel (FR-AGENT-5): the pilot declares metadata-only."""
+    """
+    The consent-matched content policy comes from the protocol, not a side channel
+    (FR-AGENT-5): the pilot declares metadata-only.
+    """
     hooks = derive_agent_hooks(pilot)["hooks"]
-    # Every capture trigger runs the one idempotent hook command.
     assert set(hooks) == {"SessionStart", "PostToolUse", "Stop", "SessionEnd"}
     for groups in hooks.values():
         command = groups[0]["hooks"][0]["command"]
         assert "--content-policy metadata-only" in command
-        # Fire-and-forget: a short timeout so a down middleware never stalls
-        # the agent (NFR-1).
+        # Fire-and-forget: a short timeout so a down middleware never stalls the agent
+        # (NFR-1).
         assert groups[0]["hooks"][0]["timeout"] <= 10
 
 

@@ -1,23 +1,6 @@
-"""ziegler-acceptance-rate (RQ-P4): a published paper's analysis as a
-recipe - the FR-ANA-5 proof of concept that "papers become recipes".
-
-Replicates the headline metric of:
-
-    Ziegler, Kalliamvakou, Li, Rice, Rifkin, Simister, Sittampalam,
-    Aftandilian. "Productivity Assessment of Neural Code Completion."
-    MAPS '22 (arXiv:2205.06537), 2022.
-
-Ziegler et al. measure **acceptance rate** - accepted completions divided
-by shown completions - and show it is the telemetry measure that best
-predicts developers' self-reported productivity (better than persistence
-measures). Our `ai_suggestion` lifecycle events (`shown` ->
-`accepted`/`dismissed`) carry exactly the numerator and denominator, per
-session instead of per developer-week; where the paper aggregates over
-weeks of Copilot telemetry, a lab session is our observation unit and the
-condition split replaces their between-user comparison. Following the
-paper's approach we also report the correlation of acceptance rate with
-the session's self-reported measure (our fatigue mean stands in for their
-productivity survey; the substitution is stated, not hidden).
+"""
+ziegler-acceptance-rate (RQ-P4): a published paper's analysis as a recipe - the FR-ANA-5
+proof of concept that "papers become recipes".
 """
 
 from __future__ import annotations
@@ -73,8 +56,6 @@ def run(dataset: Dataset) -> RecipeResult:
     if test:
         tables["test"] = pd.DataFrame([test.row()])
 
-    # The paper's second step: does the telemetry metric track the
-    # self-report? (their productivity survey -> our fatigue mean).
     fatigue = dataset.of_type("fatigue_response")
     if not fatigue.empty:
         f_mean = fatigue.groupby("sessionId")["score"].mean().rename("fatigueMean")

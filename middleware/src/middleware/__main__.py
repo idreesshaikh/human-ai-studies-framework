@@ -1,23 +1,11 @@
-"""``python -m middleware`` - run the ingestion service or CLI commands.
-
-Usage:
-    python -m middleware                   # start the FastAPI service
-    python -m middleware corpus-import     # land the corpus (FR-LIT-8 importer)
-    python -m middleware corpus-verify     # spot-check an existing import
-    python -m middleware corpus-enrich     # backfill abstracts from S2 (batch)
-    python -m middleware templates         # list + validate the registry
-    python -m middleware simulate STUDY    # synthetic dry run over HTTP,
-                                           # then run the analysis plan
-    python -m middleware ethics-package STUDY  # ethics package Markdown
-
-(FR-ING-1; override the port with MIDDLEWARE_PORT, set DATABASE_URL for
-PostgreSQL or MIDDLEWARE_DB for SQLite fallback.)"""
+"""``python -m middleware`` - run the ingestion service or CLI commands."""
 
 import argparse
 import json
 import os
 import sys
 import urllib.request
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -27,8 +15,6 @@ def _auth_headers() -> dict:
 
 
 def _post(server: str, path: str, body: dict) -> dict:
-    # S310: the server URL is operator-supplied config; anything other than
-    # http(s) simply fails the request — no file-scheme surface here.
     req = urllib.request.Request(  # noqa: S310
         f"{server.rstrip('/')}{path}",
         data=json.dumps(body).encode(),
@@ -47,8 +33,6 @@ def _get(server: str, path: str) -> dict:
         return json.loads(res.read())
 
 def _get_raw(server: str, path: str) -> str:
-    # S310: the server URL is operator-supplied config; anything other than
-    # http(s) simply fails the request — no file-scheme surface here.
     req = urllib.request.Request(  # noqa: S310
         f"{server.rstrip('/')}{path}", headers=_auth_headers()
     )
@@ -75,13 +59,9 @@ def cmd_simulate(
     seed: int | None,
     protocol_path: str | None = None,
 ) -> int:
-    """Dry-run a study over plain HTTP, then validate the analysis plan on
-    the synthetic data. Exit 0 only when every planned recipe ran.
-
-    The protocol comes from the server's conversation export (a study
-    designed on the platform), or from ``--protocol`` — the boot-protocol
-    case (``MIDDLEWARE_PROTOCOL``), where no design conversation exists to
-    export.
+    """
+    Dry-run a study over plain HTTP, then validate the analysis plan on the synthetic
+    data.
     """
     import analysis.recipes  # noqa: F401 - registers the built-in recipes
     import yaml
@@ -135,6 +115,7 @@ def main() -> None:
             "corpus-import",
             "corpus-verify",
             "corpus-enrich",
+            "demo-seed",
             "templates",
             "simulate",
             "ethics-package",
@@ -197,7 +178,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Override MIDDLEWARE_DB via --db flag (SQLite only; DATABASE_URL takes precedence)
     if args.db and not os.environ.get("DATABASE_URL"):
         os.environ["MIDDLEWARE_DB"] = args.db
 
@@ -223,6 +203,18 @@ def main() -> None:
             )
         ok = result["tierA"]["count"] > 0 and result["tierB"]["count"] > 0
         sys.exit(0 if ok else 1)
+
+    elif args.command == "demo-seed":
+        from middleware.demo import seed_demo
+        from middleware.settings import Settings
+
+        settings = Settings()
+        made = seed_demo(settings.db_url, now=datetime.now(UTC).isoformat())
+        print(
+            f"demo: project {'created' if made['project'] else 'present'}, "
+            f"study {'created' if made['study'] else 'present'}, "
+            f"{made['sessions']} session mapping(s) added"
+        )
 
     elif args.command == "corpus-verify":
         from middleware.corpus_importer import verify_import
@@ -256,8 +248,6 @@ def main() -> None:
             f"{result['skipped_no_id']} without a resolvable id"
         )
         print(f"  now {after['withAbstract']} of {after['papers']} carry an abstract")
-        # An enrichment run that resolved nothing while candidates existed is
-        # a failure worth a non-zero exit (a scripted backfill should notice).
         sys.exit(0 if result["enriched"] or not result["candidates"] else 1)
 
     elif args.command == "templates":

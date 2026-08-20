@@ -1,41 +1,6 @@
-"""Corpus harvest pipeline (FR-LIT-8): grow the paper corpus by citation
-snowballing from the hand-curated seed set.
-
-Tier A = the hand-curated seeds in docs/papers/README.md (never touched).
-Tier B = harvested candidates: every reference and citation of every seed,
-fetched from the Semantic Scholar Graph API (D8), quality-filtered,
-recency-weighted, connectivity-ranked, deduplicated.
-
-Honesty rules (the corpus's whole value is that it is real):
-- Only papers returned by the live API enter the index - nothing is ever
-  synthesized. Seeds that the API cannot resolve are reported, not faked.
-- Every Tier B row records which seeds discovered it (`via`), its S2
-  paperId, and its external IDs, so every entry is independently
-  verifiable.
-
-Usage:  uv run python scripts/corpus_harvest.py [--target 0]
-The corpus is quality-first and UNCAPPED (FR-LIT-8 rev 2): with the
-default --target 0, every candidate that passes the quality gate AND is
-woven into the seed graph (>= MIN_EDGES_UNCAPPED seeds, or fresh) ships;
-1,000 is the floor, not the ceiling. Pass --target N to reproduce the
-old capped top-N behavior. --propose-tier-a N emits a promotion
-shortlist from the existing index for hand-curation into Tier A.
-Resumable: per-seed API responses are cached in --cache-dir; rerunning
-skips fetched seeds and re-ranks. Emits docs/papers/corpus-index.json
-(machine layer, consumed by the platform importer) and docs/papers/CORPUS.md
-(generated human index). Stdlib only (zero-bloat, D8 posture); paced to
-the public rate limit with exponential backoff on 429.
-
-Auth: set S2_API_KEY (runtime env only - never git/CI, D32 key posture)
-to use the authenticated pool: dedicated 1 req/s, no shared-pool 429s.
-
-Verification (FR-LIT-8 fit criterion F8.1):
-    uv run python scripts/corpus_harvest.py --verify
-re-fetches every Tier B row from the live API (batch endpoint, 500 ids
-per call) and checks stored title + external id against the live record.
-Exit 0 = every row verified; exit 1 = any mismatch (printed). Unresolved
-ids (papers the API no longer returns) are reported separately - they
-are staleness, not fabrication, and a fresh harvest clears them.
+"""
+Corpus harvest pipeline (FR-LIT-8): grow the paper corpus by citation snowballing from
+the hand-curated seed set.
 """
 
 from __future__ import annotations
@@ -70,15 +35,12 @@ NESTED_FIELDS = ",".join(
 )
 REPO = Path(__file__).resolve().parent.parent
 PAPERS_DIR = REPO / "docs" / "papers"
-PAUSE_S = 1.2  # public-pool pacing (D8: self-paced, never hammer)
+PAUSE_S = 1.2
 MAX_BACKOFF_S = 120
 
-# Gate/rank constants are versioned editorial judgment (FR-LIT-8 honesty
-# invariant: changing them is a recorded decision, not a tweak). v2 adds
-# influence, venue recognition, and open-access (reproducibility proxy).
 SCORING_VERSION = 2
-MIN_EDGES_UNCAPPED = 2  # non-fresh papers must be woven into >=2 seeds
-FRESH_WINDOW_Y = 2  # papers this recent pass on any connectivity
+MIN_EDGES_UNCAPPED = 2
+FRESH_WINDOW_Y = 2
 RECOGNIZED_VENUES = re.compile(
     r"ICSE|ESEC|FSE|\bASE\b|ISSTA|ICSME|MSR\b|SANER|TOSEM|TSE\b"
     r"|Empirical Software Engineering|IEEE Software|CACM"
@@ -94,13 +56,9 @@ def log(msg: str) -> None:
 
 
 def read_seeds() -> tuple[int, list[str], set[str]]:
-    """Tier A row count, the arXiv ids usable for snowballing, and the
-    lowercased DOIs of DOI-only seeds.
-
-    Seeds without an arXiv id (author preprints, DOI-only promotions)
-    still count toward Tier A but cannot seed the Semantic Scholar walk;
-    their DOIs are returned so candidates matching them are kept out of
-    Tier B (a paper lives in exactly one tier).
+    """
+    Tier A row count, the arXiv ids usable for snowballing, and the lowercased DOIs of
+    DOI-only seeds.
     """
     text = (PAPERS_DIR / "README.md").read_text()
     tier_a_count = len(re.findall(r"^\| `", text, flags=re.MULTILINE))
@@ -201,8 +159,6 @@ def verify_index() -> int:
         if not res:
             unresolved.append(r["ref"])
             continue
-        # Rows are fetched BY s2PaperId, so identity is anchored; the title
-        # is the fabrication check, the external id the staleness check.
         title_ok = normalize_title(res.get("title") or "") == normalize_title(
             r["title"]
         )
@@ -214,8 +170,6 @@ def verify_index() -> int:
         stored_ext = {"arxiv": ext.get("ArXiv"), "doi": ext.get("DOI")}[scheme]
         id_ok = (stored_ext or "").lower() == value.lower()
         if not id_ok and scheme == "doi":
-            # DataCite arXiv DOI (10.48550/arXiv.X) ≡ arXiv id X - the
-            # same canonicalization the paper store applies.
             m = re.fullmatch(r"10\.48550/arxiv\.(.+)", value, flags=re.IGNORECASE)
             id_ok = bool(m) and (ext.get("ArXiv") or "").lower() == m[1].lower()
         if not id_ok:
@@ -245,19 +199,19 @@ def quality_gate(p: dict, this_year: int) -> bool:
     """Good-quality only: verifiable, titled, and either fresh or cited."""
     ext = p.get("externalIds") or {}
     if not (ext.get("ArXiv") or ext.get("DOI")):
-        return False  # unverifiable -> out
+        return False
     year, cites = p.get("year"), p.get("citationCount") or 0
     if not p.get("title") or not year:
         return False
     if year < 2015 and cites < 200:
-        return False  # pre-deep-learning-era: classics only
+        return False
     if year < 2018 and cites < 100:
         return False
     if year <= this_year - 3 and cites < 10:
-        return False  # had years to be cited, wasn't
+        return False
     if year == this_year - 2 and cites < 3:  # noqa: SIM103 - guard ladder
         return False
-    return True  # fresh papers (last ~2y) pass on seed-connectivity alone
+    return True
 
 
 def is_recognized_venue(p: dict) -> bool:
@@ -268,21 +222,23 @@ def score(p: dict, edges: int, this_year: int) -> float:
     year = p.get("year") or 0
     cites = p.get("citationCount") or 0
     infl = p.get("influentialCitationCount") or 0
-    freshness = max(0, 5 - (this_year - year)) * 1.6  # fresh precedence
+    freshness = max(0, 5 - (this_year - year)) * 1.6
     impact = math.log10(cites + 1) * 2.0
-    influence = math.log10(infl + 1) * 1.2  # citations that *used* the work
-    connectivity = min(edges, 6) * 1.5  # cited by/citing many seeds
+    influence = math.log10(infl + 1) * 1.2
+    connectivity = min(edges, 6) * 1.5
     venue = 0.5 if (p.get("venue") or "").strip() else 0.0
-    venue += 1.0 if is_recognized_venue(p) else 0.0  # recognized venue/lab
-    open_access = 0.4 if p.get("openAccessPdf") else 0.0  # reproducibility
+    venue += 1.0 if is_recognized_venue(p) else 0.0
+    open_access = 0.4 if p.get("openAccessPdf") else 0.0
     return round(freshness + impact + influence + connectivity + venue + open_access, 3)
 
 
 def propose_tier_a(n: int) -> int:
-    """Emit a promotion shortlist: the top-scored Tier B rows with their
-    quality metrics, for hand-curation into Tier A (the human writes or
-    approves every 'why'; generic LLM-infrastructure papers are skipped
-    by the curator, not the script — judgment stays human)."""
+    """
+    Emit a promotion shortlist: the top-scored Tier B rows with their quality metrics,
+    for hand-curation into Tier A (the human writes or approves every 'why'; generic
+    LLM-infrastructure papers are skipped by the curator, not the script — judgment
+    stays human).
+    """
     index = json.loads((PAPERS_DIR / "corpus-index.json").read_text())
     rows = sorted(index["tierB"], key=lambda r: -r["score"])[:n]
     print("| Ref | Title | Year | Venue | Cites | Infl | OA | Score | Via |")
@@ -363,8 +319,10 @@ def main() -> int:
         return pid in seed_pids or doi in seed_dois
 
     def woven(pid: str, p: dict) -> bool:
-        """Uncapped inclusion needs domain weave: multiple seed edges, or
-        freshness (recent papers haven't had time to accumulate edges)."""
+        """
+        Uncapped inclusion needs domain weave: multiple seed edges, or freshness (recent
+        papers haven't had time to accumulate edges).
+        """
         year = p.get("year") or 0
         return (
             len(edges[pid]) >= MIN_EDGES_UNCAPPED or year >= this_year - FRESH_WINDOW_Y

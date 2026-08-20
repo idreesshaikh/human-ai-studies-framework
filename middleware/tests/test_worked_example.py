@@ -1,19 +1,4 @@
-"""P1-3 CI hygiene: the worked example regenerates byte-identically.
-
-``docs/examples/pilot-2026/`` commits the *curated* artifacts of the worked
-example — protocol, ethics package, dry-run report, starter notebook, data
-dictionary — but they are generated output, so they must never drift from
-what the pipeline actually produces. This test re-runs the pipeline
-hermetically (boot protocol + deterministic seeded dry run, all in-process)
-and diffs the notebook and data dictionary against the committed files byte
-for byte.
-
-It is a regression guard, not a fixture: any change that makes the committed
-snapshot unreproducible (a protocol edit, a column-order change, a cell-id
-change) fails here until the example is regenerated with the documented
-commands. The per-recipe figures/CSVs are deliberately not committed — they
-regenerate with the simulate command.
-"""
+"""P1-3 CI hygiene: the worked example regenerates byte-identically."""
 
 from __future__ import annotations
 
@@ -26,15 +11,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "docs" / "examples" / "pilot-2026"
 PROTOCOL = REPO_ROOT / "protocol" / "examples" / "pilot-study.yaml"
 
-#: The exact invocation the worked example documents: 10 participants,
-#: mixed profile, seed 42.
 COUNT = 10
 SEED = 42
 
 
 def _regenerate(tmp_path: Path) -> tuple[str, str]:
-    """Boot the middleware with the pilot protocol and dry-run it, exactly
-    like `python -m middleware simulate` — returns (notebook, dictionary)."""
+    """
+    Boot the middleware with the pilot protocol and dry-run it, exactly like `python -m
+    middleware simulate` — returns (notebook, dictionary).
+    """
     from analysis.dataset import Dataset
     from analysis.notebook import build_notebook, data_dictionary_markdown
     from middleware.app import create_app

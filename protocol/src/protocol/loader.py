@@ -1,9 +1,4 @@
-"""Load and validate study protocol YAML files against the JSON Schema.
-
-The protocol is the machine-readable requirements specification of a study
-("study-as-code"); everything downstream (instruments, lifecycle gates,
-analysis plan) is derived from it.
-"""
+"""Load and validate study protocol YAML files against the JSON Schema."""
 
 import json
 from functools import cache
@@ -34,14 +29,7 @@ def _field_path(error: jsonschema.ValidationError) -> str:
 
 
 def validate_protocol(data: dict) -> list[str]:
-    """All validation errors for an in-memory protocol dict, [] when valid.
-
-    The same schema + referential checks :func:`load_protocol` applies to a
-    file, exposed for callers that hold a dict: the template registry
-    (FR-TPL-1.4 instantiation) and the conversation compiler (FR-CONV-3.2
-    validates on every compile). Referential checks only run once the
-    document is schema-valid, mirroring the file path exactly.
-    """
+    """All validation errors for an in-memory protocol dict, [] when valid."""
     if not isinstance(data, dict):
         return [f"protocol must be a mapping, got {type(data).__name__}"]
     validator = jsonschema.Draft202012Validator(load_schema())
@@ -55,12 +43,7 @@ def validate_protocol(data: dict) -> list[str]:
 
 
 def load_protocol(path: str | Path) -> dict:
-    """Parse a protocol YAML file and validate it against the schema.
-
-    Returns the protocol as a dict. Raises :class:`ProtocolError` with a
-    human-readable message naming the offending field on any failure
-    (missing file, YAML syntax error, or schema violation).
-    """
+    """Parse a protocol YAML file and validate it against the schema."""
     path = Path(path)
     try:
         text = path.read_text("utf-8")
@@ -88,11 +71,7 @@ def load_protocol(path: str | Path) -> dict:
 
 
 def _referential_errors(data: dict) -> list[str]:
-    """Cross-field integrity a JSON Schema cannot express.
-
-    Only checked once the document is schema-valid, so field shapes can be
-    assumed.
-    """
+    """Cross-field integrity a JSON Schema cannot express."""
     errors = []
     rq_ids = {rq["id"] for rq in data["researchQuestions"]}
     for i, entry in enumerate(data["analysisPlan"]):
@@ -108,10 +87,6 @@ def _referential_errors(data: dict) -> list[str]:
 
 
 def uncovered_rqs(protocol: dict) -> list[str]:
-    """Research-question ids no analysis-plan entry answers (FR-PROT-5).
-
-    Traceability by construction: an RQ with no recipe is a specification
-    defect the framework can surface before any data is collected.
-    """
+    """Research-question ids no analysis-plan entry answers (FR-PROT-5)."""
     covered = {entry["rq"] for entry in protocol["analysisPlan"]}
     return [rq["id"] for rq in protocol["researchQuestions"] if rq["id"] not in covered]

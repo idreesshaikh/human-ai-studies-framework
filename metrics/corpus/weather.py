@@ -52,7 +52,10 @@ class DirToDegree(PolluteReformatAll):
 
 
 class GaussBase(Pollute):
-    """Borrowed from https://stackoverflow.com/questions/46093073/adding-gaussian-noise-to-a-dataset-of-floating-points-and-save-it-python"""
+    """
+    Borrowed from
+    https://stackoverflow.com/questions/46093073/adding-gaussian-noise-to-a-dataset-of-floating-points-and-save-it-python
+    """
 
     error_type: ErrorTypes = ErrorTypes.GAUSSIAN_NOISE
 
@@ -70,7 +73,10 @@ class GaussWindSpeed(GaussBase):
 
 
 class GaussCairns(Pollute):
-    """Borrowed from https://stackoverflow.com/questions/46093073/adding-gaussian-noise-to-a-dataset-of-floating-points-and-save-it-python"""
+    """
+    Borrowed from
+    https://stackoverflow.com/questions/46093073/adding-gaussian-noise-to-a-dataset-of-floating-points-and-save-it-python
+    """
 
     error_type: ErrorTypes = ErrorTypes.GAUSSIAN_NOISE
     col = "Humidity9am"
@@ -186,7 +192,7 @@ class Outlier(Pollute):
             if end - start + 1 >= min_length:
                 sequences.append((start, end, arr[start : end + 1]))
 
-            start = end + 1  # next sequence
+            start = end + 1
 
         return sequences
 
@@ -273,18 +279,15 @@ def main():
         CollectiveOutlier,
         GaussCairns,
         GaussCairns2,
-        DateSwap,  # swop after the date is needed
+        DateSwap,
     ]
     total_cells = df.shape[0] * df.shape[1]
     mask = pd.DataFrame(0, index=df.index, columns=df.columns)
     polluted = 0
     for pollution_cls in pollution_functions:
         before = deepcopy(df)
-        # print(df[pollution_cls.col])
         polluted += pollution_cls.pollute(df)
-        # print(df[pollution_cls.col])
         create_pollution_mask(mask=mask, before=before, after=df, cls=pollution_cls)
-        # print(mask[pollution_cls.col])
         print(f"Polluted {pollution_cls.col} {round(polluted / total_cells * 100, 0)}%")
         df.to_csv(Path("datasets/weather_subset4_group4_w_errors.csv"), index=False)
         mask.to_csv(

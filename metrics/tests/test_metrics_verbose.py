@@ -1,14 +1,4 @@
-"""Verbose metric-by-metric tests for the static-metrics leg.
-
-Complements test_static_metrics.py (orchestrator/API surface) with exhaustive
-per-metric cases: every tree-sitter metric gets exact hand-computed
-expectations, every analyzer gets its documented edge cases, and the
-duplicate-name/determinism guarantees of the parser are locked in as
-regression tests.
-
-Layout note: metrics/src is a flat script layout (no package), so it is put
-on sys.path, same as test_static_metrics.py.
-"""
+"""Verbose metric-by-metric tests for the static-metrics leg."""
 
 import sys
 import textwrap
@@ -45,11 +35,6 @@ def parse(source: str):
     """Parse a snippet and return (tree, language) for the metric functions."""
     parser, language = setup_parser()
     return parser.parse(textwrap.dedent(source).encode()), language
-
-
-# ---------------------------------------------------------------------------
-# Metric 1: parameter counts
-# ---------------------------------------------------------------------------
 
 
 class TestParameterCounts:
@@ -95,11 +80,6 @@ class TestParameterCounts:
         assert get_parameter_counts(tree, lang) == {}
 
 
-# ---------------------------------------------------------------------------
-# Metric 2: nesting penalty (2**depth per control-flow block)
-# ---------------------------------------------------------------------------
-
-
 class TestNestingPenalty:
     def test_flat_function_scores_zero(self):
         tree, lang = parse("def f():\n    return 1\n")
@@ -121,7 +101,6 @@ class TestNestingPenalty:
         assert get_nesting_penalty(tree, lang) == {"f": 1}
 
     def test_nesting_doubles_the_cost_per_level(self):
-        # if (2**0) > if (2**1) > if (2**2) = 7
         tree, lang = parse(
             """
             def f(x):
@@ -146,7 +125,6 @@ class TestNestingPenalty:
         assert get_nesting_penalty(tree, lang) == {"f": 2}
 
     def test_block_inside_except_clause_counts_as_nested(self):
-        # try (2**0) + if inside the except clause (2**1) = 3
         tree, lang = parse(
             """
             def f(x):
@@ -160,8 +138,6 @@ class TestNestingPenalty:
         assert get_nesting_penalty(tree, lang) == {"f": 3}
 
     def test_nested_function_blocks_count_for_both_functions(self):
-        # function_definition itself adds no depth, so inner's if costs 2**0
-        # in both walks: outer scores its own if (1) + inner's if (1) = 2.
         tree, lang = parse(
             """
             def outer(x):
@@ -177,14 +153,8 @@ class TestNestingPenalty:
         assert penalties["outer"] == 2
 
 
-# ---------------------------------------------------------------------------
-# Metric 3: average identifier length
-# ---------------------------------------------------------------------------
-
-
 class TestAverageIdentifierLength:
     def test_exact_average_over_every_identifier_occurrence(self):
-        # identifiers: f(1) ab(2) cd(2) ab(2) cd(2) -> 9 chars / 5 = 1.8
         tree, lang = parse(
             """
             def f(ab):
@@ -195,7 +165,6 @@ class TestAverageIdentifierLength:
         assert get_average_identifier_length(tree, lang) == {"f": 1.8}
 
     def test_result_is_rounded_to_two_decimals(self):
-        # identifiers: g(1) x(1) abc(3) -> 5/3 = 1.666... -> 1.67
         tree, lang = parse("def g(x):\n    return abc\n")
         assert get_average_identifier_length(tree, lang) == {"g": 1.67}
 
@@ -206,13 +175,7 @@ class TestAverageIdentifierLength:
                 value.method()
             """
         )
-        # h(1) value(5) method(6) -> 12/3 = 4.0
         assert get_average_identifier_length(result_tree, lang) == {"h": 4.0}
-
-
-# ---------------------------------------------------------------------------
-# Metric 4: variable scope distance
-# ---------------------------------------------------------------------------
 
 
 class TestVariableScopeDistance:
@@ -227,7 +190,6 @@ class TestVariableScopeDistance:
                 return y
             """
         )
-        # x: bound on its line, last read 3 lines later; same for y.
         assert get_variable_scope_distance(tree, lang) == {"g": {"x": 3, "y": 3}}
 
     def test_for_targets_and_walrus_bindings_are_declarations(self):
@@ -273,10 +235,6 @@ class TestVariableScopeDistance:
         assert list(get_variable_scope_distance(tree, lang)["f"]) == ["b", "a"]
 
 
-# ---------------------------------------------------------------------------
-# Parser-wide guarantees: duplicates and determinism
-# ---------------------------------------------------------------------------
-
 DUPLICATE_SOURCE = textwrap.dedent(
     """
     class A:
@@ -295,13 +253,11 @@ DUPLICATE_SOURCE = textwrap.dedent(
 class TestDuplicateNamesAndDeterminism:
     def test_first_definition_wins_for_every_metric(self):
         rows = collect_function_metrics(DUPLICATE_SOURCE.encode())
-        row = rows["dup"]  # A.dup: 2 params, no control flow
+        row = rows["dup"]
         assert row["parameter_count"] == 2
         assert row["nesting_penalty"] == 0
 
     def test_repeated_runs_are_byte_identical(self):
-        # Regression: tree-sitter capture/match order is not guaranteed, so an
-        # unsorted iteration made duplicate resolution flip between runs.
         results = {
             repr(collect_function_metrics(DUPLICATE_SOURCE.encode())) for _ in range(20)
         }
@@ -316,13 +272,8 @@ class TestDuplicateNamesAndDeterminism:
     def test_collect_aggregates_scope_distance_to_max_and_mean(self):
         source = "def g():\n    x = 1\n    y = 2\n    return x + y\n"
         row = collect_function_metrics(source.encode())["g"]
-        assert row["max_scope_distance"] == 2  # x: decl line 1 -> use line 3
-        assert row["mean_scope_distance"] == 1.5  # (2 + 1) / 2
-
-
-# ---------------------------------------------------------------------------
-# Text metrics
-# ---------------------------------------------------------------------------
+        assert row["max_scope_distance"] == 2
+        assert row["mean_scope_distance"] == 1.5
 
 
 class TestIndentationVariance:
@@ -330,11 +281,9 @@ class TestIndentationVariance:
         assert get_indentation_variance("a = 1\nb = 2\nc = 3\n") == 0.0
 
     def test_known_population_stdev(self):
-        # widths 0, 2, 4 -> pstdev = 1.63
         assert get_indentation_variance("a\n  b\n    c\n") == 1.63
 
     def test_tabs_expand_to_four_spaces(self):
-        # widths 4, 0 -> pstdev 2.0
         assert get_indentation_variance("\tx = 1\nx = 2\n") == 2.0
 
     def test_blank_lines_are_ignored(self):
@@ -358,11 +307,6 @@ class TestLineWidthBounds:
         zeros = {"max_line_width": 0, "mean_line_width": 0.0}
         assert get_line_width_bounds("") == zeros
         assert get_line_width_bounds("   \n\t\n") == zeros
-
-
-# ---------------------------------------------------------------------------
-# Radon metrics
-# ---------------------------------------------------------------------------
 
 
 class TestHalsteadEffort:
@@ -401,8 +345,6 @@ class TestCommentRatio:
         assert get_comment_ratio("# a\n# b\nx = 1\n") == 2.0
 
     def test_multiline_docstrings_count_as_documentation(self):
-        # radon's raw.multi counts multi-line strings only; a one-line
-        # docstring is invisible to this ratio.
         source = 'def f():\n    """Docs\n    over two lines."""\n    return 1\n'
         assert get_comment_ratio(source) > 0
 
@@ -412,11 +354,6 @@ class TestCommentRatio:
     def test_empty_and_broken_sources_are_zero(self):
         assert get_comment_ratio("") == 0.0
         assert get_comment_ratio("def broken(:\n") == 0.0
-
-
-# ---------------------------------------------------------------------------
-# SonarQube client (stub-degradable)
-# ---------------------------------------------------------------------------
 
 
 class FakeResponse:
@@ -465,16 +402,11 @@ class TestCognitiveComplexity:
         assert seen["auth"] == ("secret", "")
 
     def test_unreachable_server_degrades_to_none_and_warns_once(self, capsys):
-        url = "http://127.0.0.1:9"  # discard port: connection refused
+        url = "http://127.0.0.1:9"
         assert get_cognitive_complexity("f.py", base_url=url, timeout=0.2) is None
         assert get_cognitive_complexity("f.py", base_url=url, timeout=0.2) is None
         err = capsys.readouterr().err
         assert err.count("not reachable") == 1
-
-
-# ---------------------------------------------------------------------------
-# Orchestrator: file discovery
-# ---------------------------------------------------------------------------
 
 
 class TestDiscoverPythonFiles:

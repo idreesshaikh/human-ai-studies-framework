@@ -1,20 +1,4 @@
-"""Agent-leg event contract (FR-AGENT-1) and the shared StudyEvent envelope.
-
-Every agent-leg row carries the same join keys and schema version as every
-other leg (FR-INST-6): ``participantId``, ``condition``, ``sessionId``,
-``ts``, ``v``. The agent leg is written by several independent
-fire-and-forget producers - the Claude Code conversation capture, the
-workspace snapshotter, the task harness, and the correlation job - and each
-owns a private ``seq`` stream tagged with its ``source`` so they share the
-session join key without colliding (see middleware/db.py).
-
-Event-name reconciliation (deviation from the draft table, noted in
-`requirements/traceability.md`): the type/field names below match the
-already-shipped recipe consumers - ``tool_call`` (field ``tool``) and
-``task_outcome.firstGreenMs`` - rather than the draft table's
-``agent_tool_call``/``toolName``/``timeToFirstGreenMs``. The consumer
-contract is tested; the producer conforms to it.
-"""
+"""Agent-leg event contract (FR-AGENT-1) and the shared StudyEvent envelope."""
 
 from __future__ import annotations
 
@@ -22,18 +6,14 @@ import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-#: Agent-leg schema version (middleware KNOWN_EVENT_SCHEMA_VERSIONS includes
-#: 4). Bumped from the extension's v3 because this leg adds event shapes.
 SCHEMA_VERSION = 4
 
-# Producer streams (each a private per-session ``seq`` space, db.py).
-SOURCE_AGENT = "agent-capture"  # conversation capture (hooks + importer)
-SOURCE_SNAPSHOT = "workspace-snapshot"  # shadow-git snapshotter
-SOURCE_PARTICIPANT_GIT = "participant-git"  # observed participant commits
-SOURCE_HARNESS = "task-harness"  # acceptance-test outcomes
-SOURCE_DERIVED = "agent-derived"  # correlation + evolution derivations
+SOURCE_AGENT = "agent-capture"
+SOURCE_SNAPSHOT = "workspace-snapshot"
+SOURCE_PARTICIPANT_GIT = "participant-git"
+SOURCE_HARNESS = "task-harness"
+SOURCE_DERIVED = "agent-derived"
 
-# Event types (glossary/recipe-aligned).
 EVENT_SESSION_META = "agent_session_meta"
 EVENT_TURN = "agent_turn"
 EVENT_TOOL_CALL = "tool_call"
@@ -47,13 +27,7 @@ EVENT_CODE_EVOLUTION = "code_evolution"
 
 @dataclass(frozen=True)
 class Keys:
-    """The study join keys a producer stamps onto every event.
-
-    Set by the facilitator's runbook as environment variables so the hook
-    scripts and session-runner instruments inherit them without any
-    hand-maintained side configuration (FR-PROT-4 discipline extends to the
-    agent leg): ``STUDY_PARTICIPANT``, ``STUDY_CONDITION``, ``STUDY_SESSION``.
-    """
+    """The study join keys a producer stamps onto every event."""
 
     participant_id: str = ""
     condition: str = ""
@@ -83,12 +57,7 @@ def study_event(
     ts: str | None = None,
     mono: float = -1.0,
 ) -> dict:
-    """One StudyEvent in the middleware wire shape (FR-ING-1).
-
-    ``ts`` defaults to now (hook/snapshot/harness events); transcript-derived
-    events pass the transcript line's own timestamp so the agent leg sits on
-    the real session timeline.
-    """
+    """One StudyEvent in the middleware wire shape (FR-ING-1)."""
     return {
         "v": SCHEMA_VERSION,
         "ts": ts or _now_iso(),

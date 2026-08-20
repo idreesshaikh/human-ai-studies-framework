@@ -1,27 +1,4 @@
-"""Starter-notebook generation: the curated handoff (analysis `notebook`).
-
-The platform's scope ends where the researcher's analysis begins. What a
-researcher needs at that boundary is not a raw dataset but a *loaded,
-documented dataframe*: every column named, every recipe importable, every
-prescribed test stated — with nothing run. That is what this module emits:
-
-``analysis notebook <protocol.yaml>`` writes two artifacts under
-``results/<study>/``:
-
-- ``notebook.ipynb`` — a Jupyter notebook with the data dictionary as
-  markdown, the dataset loaded in one cell, one section per research
-  question, and each planned recipe imported (never executed) with its
-  prescription row stated. The researcher's own analysis starts at the
-  final cell.
-- ``data-dictionary.md`` — the same dictionary standalone, for the data-
-  availability statement.
-
-Deterministic like every other protocol-derived artifact here: the same
-protocol plus dataset always produce the same notebook, byte for byte, no
-model in the loop. The dictionary documents only columns that actually
-exist in the dataset, and payload keys only for event types that actually
-appear — an honest dictionary, not a schema's wish list.
-"""
+"""Starter-notebook generation: the curated handoff (analysis `notebook`)."""
 
 from __future__ import annotations
 
@@ -34,9 +11,6 @@ from analysis.core import REGISTRY
 from analysis.dataset import Dataset
 from analysis.prescribe import design_shapes, prescribe, shape_to_recipe_id
 
-#: Human names for the columns the platform itself stamps. Anything not
-#: listed is a payload key and is documented as "payload key on <type> events"
-#: (or a metric column, where the numeric value is its own meaning).
 _COLUMN_MEANINGS: dict[str, str] = {
     "sessionId": "the session this row belongs to; joins the timeline",
     "participantId": "anonymized participant id (P01, P02, ...)",
@@ -65,9 +39,8 @@ _COLUMN_MEANINGS: dict[str, str] = {
     "frustration": "NASA-TLX subscale rating",
 }
 
-#: Design shape -> built-in recipe that runs its prescribed test. The
-#: reverse of ``prescribe.shape_to_recipe_id``; built from the public API so
-#: the two cannot drift apart.
+# The reverse of ``prescribe.shape_to_recipe_id``; built from the public API so the two
+# cannot drift apart.
 _SHAPE_BY_RECIPE: dict[str, str] = {
     rid: shape
     for shape in design_shapes()
@@ -76,17 +49,7 @@ _SHAPE_BY_RECIPE: dict[str, str] = {
 
 
 def _cell_id(cell_type: str, source: str, index: int) -> str:
-    """A short, stable cell id.
-
-    nbformat 4.5+ requires one (``nbformat.validate`` still only warns today,
-    but names it a coming hard error) - a hand-rolled cell dict that skipped
-    it validated against nothing stronger than this module's own shape
-    assumptions, which is exactly how the missing ``execution_count`` field
-    went unnoticed until a real ``nbformat.validate()`` call caught it.
-    Derived from content + position rather than random, so the notebook's
-    byte-reproducibility guarantee extends to the ids too - a random uuid
-    would make :func:`build_notebook` non-deterministic on its own.
-    """
+    """A short, stable cell id."""
     digest = hashlib.sha256(f"{index}:{cell_type}:{source}".encode()).hexdigest()
     return digest[:8]
 
@@ -105,9 +68,8 @@ def _code_cell(source: str, index: int) -> dict:
         "cell_type": "code",
         "id": _cell_id("code", source, index),
         "metadata": {},
-        # None, not omitted: a code cell that has never run reports no
-        # execution count, and nbformat requires the key to be present even
-        # when its value is null.
+        # None, not omitted: a code cell that has never run reports no execution count,
+        # and nbformat requires the key to be present even when its value is null.
         "execution_count": None,
         "source": source,
         "outputs": [],
@@ -127,8 +89,10 @@ def _event_payload_keys(dataset: Dataset) -> dict[str, list[str]]:
 
 
 def _dictionary_rows(dataset: Dataset) -> list[tuple[str, str, str]]:
-    """``(column, dtype, meaning)`` rows: stamped columns first, then the
-    per-type payload keys, then metric columns."""
+    """
+    ``(column, dtype, meaning)`` rows: stamped columns first, then the per-type payload
+    keys, then metric columns.
+    """
     rows: list[tuple[str, str, str]] = []
     events = dataset.events
     fixed = [c for c in events.columns if c != "payload"]
@@ -139,10 +103,10 @@ def _dictionary_rows(dataset: Dataset) -> list[tuple[str, str, str]]:
     for type_, keys in _event_payload_keys(dataset).items():
         for key in keys:
             rows.append((f"payload.{key}", "any", f"payload key on {type_} events"))
-    # Sorted, never the set's raw iteration order: metric_columns is a set,
-    # and set iteration order is per-process hash-randomized — an unsorted
-    # pass would make the dictionary (and with it every cell id, which is
-    # content-derived) drift between runs of the same pipeline.
+    # Sorted, never the set's raw iteration order: metric_columns is a set, and set
+    # iteration order is per-process hash-randomized — an unsorted pass would make the
+    # dictionary (and with it every cell id, which is content-derived) drift between
+    # runs of the same pipeline.
     for column in sorted(dataset.metric_columns):
         rows.append(
             (
@@ -224,14 +188,7 @@ def _prescription_markdown(recipe_id: str) -> str:
 
 
 def _recipe_cells(dataset: Dataset, entry: dict, cells: list[dict]) -> None:
-    """Append this entry's per-recipe markdown + import cells onto ``cells``.
-
-    Appends in place (rather than returning a fresh list) so each cell's id
-    is derived from its real position in the whole notebook, not a position
-    local to this one research question - two different RQs whose recipe
-    lists happen to match character-for-character must still get distinct
-    cells, and they do, because they land at different indices.
-    """
+    """Append this entry's per-recipe markdown + import cells onto ``cells``."""
     for rid in entry.get("recipes", []):
         rec = REGISTRY.get(rid)
         module = rid.replace("-", "_")
@@ -292,9 +249,6 @@ def build_notebook(protocol: dict, dataset: Dataset, study_id: str) -> dict:
             len(cells),
         )
     )
-    # The one-glance session picture (P2-1): what a session recorded, as a
-    # printable figure — before any recipe, so the researcher sees the shape
-    # of the data (and any integrity flags) first.
     cells.append(
         _markdown_cell(
             "## Session timeline\n"

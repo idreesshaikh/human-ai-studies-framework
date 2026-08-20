@@ -1,29 +1,6 @@
-"""meyer-fragmentation (RQ-P3): work fragmentation as a recipe - the
-second published-paper replication (FR-ANA-5).
-
-Replicates the fragmentation analysis of:
-
-    Meyer, Barton, Murphy, Zimmermann, Fritz. "The Work Life of
-    Developers: Activities, Switches and Perceived Productivity."
-    IEEE Transactions on Software Engineering 43(12):1178-1193, 2017.
-    DOI 10.1109/TSE.2017.2656886.
-
-Meyer et al. instrumented 20 professional developers' machines and found
-highly fragmented work - frequent short activities and context switches -
-and that developers perceive days with *fewer* switches as more
-productive. Session-scale mapping: their activity switch becomes the
-**editor file switch** (`editor_focus` events carrying a `file` payload,
-debounced by the instrument; consecutive events on the same file collapse,
-so a switch is a *change* of file); their fragmentation measures become
-switches per hour and focus-segment durations; their experience-sampled
-perceived productivity becomes our fatigue probes - the closest
-self-report on this timeline, an explicit stand-in stated in methods, as
-in `ziegler-acceptance-rate`.
-
-Test choices: switch rates and segment durations are skewed, tiny-n
-quantities -> the exact Wilcoxon/Mann-Whitney machinery of
-``analysis.stats`` (per-participant means against pseudo-replication);
-switch-rate x fatigue co-variation via Spearman rank correlation.
+"""
+meyer-fragmentation (RQ-P3): work fragmentation as a recipe - the second published-paper
+replication (FR-ANA-5).
 """
 
 from __future__ import annotations
@@ -139,7 +116,6 @@ def run(dataset: Dataset) -> RecipeResult:
             "segment durations not computable."
         )
 
-    # The paper's productivity link: switching vs self-report (fatigue).
     fatigue = dataset.of_type("fatigue_response")
     if not fatigue.empty:
         f_mean = fatigue.groupby("sessionId")["score"].mean().rename("fatigueMean")

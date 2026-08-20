@@ -11,15 +11,7 @@ def test_mint_needs_a_protocol_not_an_approval(client_no_protocol: TestClient):
 
 
 def test_a_designed_study_can_be_set_up_immediately(client_designed: TestClient):
-    """Design then setup, with nothing in between.
-
-    This is the regression that matters most in the whole suite. Minting used
-    to 409 until an ethics approval was recorded on a lifecycle board, so a
-    researcher who had just designed a study - the platform's entire purpose -
-    could not enroll anyone or pair a single editor. Approval is the
-    university's to grant; what the platform owes a participant is the consent
-    statement at pairing, which is unconditional.
-    """
+    """Design then setup, with nothing in between."""
     r = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 2, "grain": "participant"}
     )
@@ -27,8 +19,6 @@ def test_a_designed_study_can_be_set_up_immediately(client_designed: TestClient)
     tokens = r.json()
     assert len(tokens) == 2
 
-    # ...and the editor pairs, all the way to a capture config, still with no
-    # approval recorded anywhere.
     raw = tokens[0]["connectionString"].rsplit("#", 1)[1]
     paired = client_designed.post("/pair/redeem", json={"token": raw})
     assert paired.status_code == 200, paired.text
@@ -45,7 +35,6 @@ def test_mint_batch_assigns_counterbalanced_conditions(client_ethics_ok: TestCli
     toks = r.json()
     assert len(toks) == 4
     conds = [t["condition"] for t in toks]
-    # 2-condition protocol, round-robin -> exactly balanced
     assert conds.count("ai-assisted") == 2 and conds.count("unassisted") == 2
     assert all(t["connectionString"].count("#") == 1 for t in toks)
     assert [t["participantId"] for t in toks] == ["P01", "P02", "P03", "P04"]
@@ -91,12 +80,6 @@ def test_redeem_returns_identity_config_and_consent(client_ethics_ok: TestClient
     assert body["ingestEndpoint"].endswith("/ingest/events")
     assert body["captureConfig"]["settings"]["tern.participantId"] == "P01"
     assert body["contentPolicy"] == "metadata-only"
-    # The study title, not the "pilot" study_id/URL segment, is what the
-    # consent statement embeds (enrollment.consent_statement reads
-    # protocol["study"]["title"]). client_ethics_ok compiles the METR
-    # template with no parameter overrides, so the title is the template's
-    # own default (templates/registry/metr-rct-v1.yaml) rather than the
-    # word "Pilot" — confirmed by inspecting the compiled YAML directly.
     assert "AI assistance on real tasks" in body["consentStatement"]
 
 
@@ -164,7 +147,7 @@ def test_list_status_flips_to_streaming_once_events_arrive(
         "sessionCredential"
     ]
     listed = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()
-    assert listed[0]["status"] == "paired"  # redeemed, but no events yet
+    assert listed[0]["status"] == "paired"
 
     client_ethics_ok.post(
         "/ingest/events",
@@ -173,19 +156,15 @@ def test_list_status_flips_to_streaming_once_events_arrive(
     )
     listed = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()
     assert listed[0]["status"] == "streaming"
-    # Outside the window, it reads back as merely paired.
     stale = client_ethics_ok.get(
         "/studies/pilot/enrollment/tokens", params={"windowSeconds": 0}
     ).json()
     assert stale[0]["status"] == "paired"
 
 
-# ========================================================== toggle tests
-
-
 def test_toggle_catalog_needs_a_protocol(client_no_protocol):
     r = client_no_protocol.get("/studies/pilot/enrollment/toggles/catalog")
-    assert r.status_code == 404  # nothing designed, so nothing to toggle
+    assert r.status_code == 404
 
 
 def test_toggle_catalog_returns_filtered_entries(client_ethics_ok):
@@ -193,11 +172,10 @@ def test_toggle_catalog_returns_filtered_entries(client_ethics_ok):
     r = client_ethics_ok.get("/studies/pilot/enrollment/toggles/catalog")
     assert r.status_code == 200
     entries = r.json()
-    # METR template has tern but not agentCapture.
     names = [e["label"] for e in entries]
     assert "Stuck detection" in names
     assert "Fatigue probe cadence" in names
-    assert "Agent conversation content policy" not in names  # no agentCapture instr
+    assert "Agent conversation content policy" not in names
     assert all(e.get("grounding") for e in entries)
 
 
@@ -206,7 +184,7 @@ def test_toggle_catalog_current_value_matches_protocol(client_ethics_ok):
     r = client_ethics_ok.get("/studies/pilot/enrollment/toggles/catalog")
     stuck = [e for e in r.json() if e["path"] == ["stuck", "enabled"]]
     assert stuck
-    assert stuck[0]["currentValue"] is True  # METR defaults stuck.enabled: true
+    assert stuck[0]["currentValue"] is True
 
 
 def test_toggle_needs_a_protocol(client_no_protocol):
@@ -217,9 +195,7 @@ def test_toggle_needs_a_protocol(client_no_protocol):
 
 
 def test_toggle_works_on_a_designed_study(client_designed):
-    """Toggling used to demand an ethics-approved snapshot to diff against.
-    With no board recording one, the capture toggles on the setup surface were
-    unreachable; the compiled draft is the base now."""
+    """Toggling used to demand an ethics-approved snapshot to diff against."""
     catalog = client_designed.get("/studies/pilot/enrollment/toggles/catalog")
     assert catalog.status_code == 200, catalog.text
     assert catalog.json(), "a designed study has instruments to toggle"
@@ -241,7 +217,6 @@ def test_toggle_nested_enabled_is_consent_relevant(client_ethics_ok):
     assert body["applied"] is True
     assert body["requiresReapproval"] is True
     assert body["amendmentId"]
-    # Verify the amendment exists in the amendment history.
     hist = client_ethics_ok.get("/studies/pilot/amendments").json()
     assert hist["amendments"]
     assert hist["pendingReapproval"] is not None
@@ -275,9 +250,6 @@ def test_toggle_invalid_path_returns_400(client_ethics_ok):
     assert r.status_code == 422
 
 
-# ==========================================================
-
-
 def _events(pid, cond):
     return {
         "events": [
@@ -301,7 +273,6 @@ def test_credentialed_ingest_server_stamps_join_keys(client_ethics_ok: TestClien
     cred = client_ethics_ok.post("/pair/redeem", json={"token": raw}).json()[
         "sessionCredential"
     ]
-    # Client LIES about being P08; the credential says P01 -> server overrides.
     r = client_ethics_ok.post(
         "/ingest/events",
         json=_events("P08", "unassisted"),
@@ -309,7 +280,7 @@ def test_credentialed_ingest_server_stamps_join_keys(client_ethics_ok: TestClien
     )
     assert r.status_code == 200
     row = client_ethics_ok.get("/sessions/s1/events").json()[0]
-    assert row["participantId"] == "P01"  # stamped from the credential
+    assert row["participantId"] == "P01"
     assert row["condition"] == "ai-assisted"
     assert "credential-mismatch" in row["flags"]
 
@@ -327,10 +298,12 @@ def test_ingest_without_credential_still_lands_flagged(client_ethics_ok: TestCli
 
 
 def _db_dependency(client: TestClient):
-    """Find the exact ``db`` closure FastAPI resolved for ``/ingest/events``
-    (Task A7): dependency_overrides is keyed on callable identity, and
-    ``db`` is a closure inside ``create_app`` with no importable name, so
-    the override target must be recovered from the route's dependant tree."""
+    """
+    Find the exact ``db`` closure FastAPI resolved for ``/ingest/events`` (Task A7):
+    dependency_overrides is keyed on callable identity, and ``db`` is a closure inside
+    ``create_app`` with no importable name, so the override target must be recovered
+    from the route's dependant tree.
+    """
     for route in client.app.routes:
         if getattr(route, "path", None) == "/ingest/events":
             for dep in route.dependant.dependencies:
@@ -340,17 +313,9 @@ def _db_dependency(client: TestClient):
 
 
 def test_ingest_survives_a_failing_credential_lookup(client_ethics_ok: TestClient):
-    """Task A7 (Critical): resolve_credential's docstring promises 'never
-    raises', but its DB read was unguarded. A SQLite lock / I/O error /
-    any SQLAlchemy error there must degrade to the already-correct
-    'unauthenticated' path (NFR-1/FR-ING-6: ingest never 500s, never drops
-    a row) - not surface as a 500 that discards the whole batch.
-
-    Forces the credential lookup itself to raise (not just 'no matching
-    row') by overriding the `db` dependency with a session whose FIRST
-    `.scalar(...)` call (the EnrollmentToken lookup) raises, while
-    delegating everything else to a real session bound to the same
-    on-disk sqlite file so the Event insert genuinely persists.
+    """
+    Task A7 (Critical): resolve_credential's docstring promises 'never raises', but its
+    DB read was unguarded.
     """
     from middleware.db import make_session_factory
 
@@ -388,7 +353,7 @@ def test_ingest_survives_a_failing_credential_lookup(client_ethics_ok: TestClien
         )
         assert r.status_code == 200, r.text
         rows = client_ethics_ok.get("/sessions/s1/events").json()
-        assert len(rows) == 1  # the row was NOT dropped
+        assert len(rows) == 1
         assert "unauthenticated" in rows[0]["flags"]
     finally:
         del client_ethics_ok.app.dependency_overrides[db_dep]
@@ -408,4 +373,4 @@ def test_credential_never_persists_into_stored_rows(client_ethics_ok: TestClient
         headers={"authorization": f"Bearer {cred}"},
     )
     dump = client_ethics_ok.get("/sessions/s1/events").text
-    assert cred not in dump  # the secret never leaks into stored data (wall #7)
+    assert cred not in dump

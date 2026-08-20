@@ -1,11 +1,6 @@
-"""Parse and validate the protocol's ``curated:`` section into a
-:class:`SamplingFrame` (FR-CUR-1/2).
-
-The protocol YAML gains a ``curated:`` section (schema addition, additive =>
-``protocolVersion`` bump). This module turns that section into the typed
-frame the adapter consumes, and raises a plain-language error when the frame
-is missing or malformed - the adapter refuses to run without a frame (F2.2),
-and this is where that refusal is decided.
+"""
+Parse and validate the protocol's ``curated:`` section into a :class:`SamplingFrame`
+(FR-CUR-1/2).
 """
 
 from __future__ import annotations
@@ -21,12 +16,7 @@ class FrameError(ValueError):
 
 
 def frame_from_protocol(protocol: dict) -> SamplingFrame:
-    """Extract the sampling frame from a loaded protocol dict.
-
-    Raises :class:`FrameError` (plain language) when ``curated:`` is absent
-    or incomplete - the mined equivalent of running without an approved
-    protocol.
-    """
+    """Extract the sampling frame from a loaded protocol dict."""
     curated = protocol.get("curated")
     if not isinstance(curated, dict):
         raise FrameError(
@@ -66,8 +56,6 @@ def frame_from_protocol(protocol: dict) -> SamplingFrame:
 
     conditions = [str(c) for c in (curated.get("conditions") or [])]
     if not conditions:
-        # Fall back to the study's declared conditions so a frame need not
-        # restate them; the adapter still needs at least one arm to label.
         conditions = [
             str(c.get("name", c)) if isinstance(c, dict) else str(c)
             for c in (protocol.get("conditions") or [])

@@ -51,7 +51,6 @@ def test_harness_emits_failing_then_green_outcome(tmp_path):
     assert first["payload"]["passed"] is False
     assert "firstGreenMs" not in first["payload"]
 
-    # Participant fixes the code; 30 minutes later the suite goes green.
     clock.t += timedelta(minutes=30)
     (tests / "test_it.py").write_text(PASSING)
     green = harness.run(trigger="session-end")
@@ -59,13 +58,14 @@ def test_harness_emits_failing_then_green_outcome(tmp_path):
     assert green["payload"]["total"] == 1
     assert green["payload"]["firstGreenMs"] == 30 * 60 * 1000
 
-    # seq is a private per-producer stream.
     assert [first["seq"], green["seq"]] == [0, 1]
 
 
 def test_first_green_is_sticky(tmp_path):
-    """Once green, time-to-first-green stays pinned to the first pass even if
-    a later run regresses."""
+    """
+    Once green, time-to-first-green stays pinned to the first pass even if a later run
+    regresses.
+    """
     tests = tmp_path / "task-tests"
     _write(tests, "test_it.py", PASSING)
     harness = Harness(Keys("P01", "ai-assisted", "S1"), tests)

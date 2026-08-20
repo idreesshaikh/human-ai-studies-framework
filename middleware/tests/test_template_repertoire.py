@@ -1,19 +1,10 @@
-"""Protocol-repertoire tests (D2/FR-TPL).
-
-The claim under test is the direction itself: templates are generic design
-*shapes* ranked by how widely the corpus uses them, papers attach as ranked
-references rather than the template being a replica of one paper, a rare
-shape needs a strong source to be admitted, and the ranking is deterministic
-(no LLM decides which design is common).
-"""
+"""Protocol-repertoire tests (D2/FR-TPL)."""
 
 import pytest
 from middleware.db import CORPUS_STUDY_ID, Paper, make_session_factory
 
 from middleware import paper_index, template_registry, template_repertoire
 
-#: A corpus of within-subjects crossover papers (a "common" shape) plus one
-#: lone survey paper, so ranking has something to order.
 _CORPUS = [
     (
         "arxiv:2507.09089",
@@ -78,9 +69,11 @@ def session(tmp_path):
 
 
 def test_signature_describes_the_shape_not_the_paper(session):
-    """A shape's signature is design vocabulary — if it were built from the
-    source paper's title or prose, the template would collapse back into a
-    replica of that one paper and every topical paper would 'use' it."""
+    """
+    A shape's signature is design vocabulary — if it were built from the source paper's
+    title or prose, the template would collapse back into a replica of that one paper
+    and every topical paper would 'use' it.
+    """
     template = template_registry.load_template("metr-rct-v1")
     signature = template_repertoire.design_signature(template)
     assert "within-subjects" in signature
@@ -104,11 +97,8 @@ def test_references_rank_papers_that_used_the_design(session):
     found = template_repertoire.references_for(session, template)
     refs = [r["ref"] for r in found["references"]]
 
-    # The declared sources lead, labelled as such.
     assert refs[0] == "arxiv:2507.09089"
     assert found["references"][0]["role"] == "primary-design"
-    # Papers that merely *used* the shape attach as references too, with the
-    # signature phrase that earned them the place as the stated reason.
     users = [r for r in found["references"] if r["role"] == "uses-this-design"]
     assert users
     assert "within-subjects" in users[0]["matchReason"]
@@ -127,14 +117,15 @@ def test_every_reference_clears_the_confidence_gate(session):
 
 
 def test_support_is_a_census_not_a_topical_match(session):
-    """The compiler paper shares no design vocabulary, so it supports
-    nothing; a paper is support for a shape only if it says so."""
+    """
+    The compiler paper shares no design vocabulary, so it supports nothing; a paper is
+    support for a shape only if it says so.
+    """
     entries = template_repertoire.rank_repertoire(session, use_cache=False)
     for entry in entries:
         assert all(r["ref"] != "arxiv:3000.00003" for r in entry["references"])
     survey = next(e for e in entries if e["id"] == "survey-self-report-v1")
     crossover = next(e for e in entries if e["id"] == "within-subjects-crossover-v1")
-    # This little corpus is crossover papers; none of them is a survey.
     assert crossover["support"] > survey["support"]
 
 
@@ -161,7 +152,7 @@ def test_rare_design_needs_a_strong_source_to_be_admitted():
     assert template_repertoire._admission(1, strong)[0] is True
     admitted, note = template_repertoire._admission(1, weak)
     assert admitted is False
-    assert "confidence" in note  # the reason is stated, not silently dropped
+    assert "confidence" in note
     assert template_repertoire._admission(template_repertoire.RARE_SUPPORT_FLOOR, [])[0]
 
 

@@ -1,11 +1,4 @@
-"""No registry template still promises the ethics gate that was removed.
-
-Found by actually generating an ethics package end to end: every template's
-``ethicsRef`` default read "gate blocks data-collection" - a mechanism that
-does not exist any more (the lifecycle board and its ethics gate were
-removed; approval is the researcher's own to obtain and record). Left alone,
-that sentence would have gone out in a real ethics submission.
-"""
+"""No registry template still promises the ethics gate that was removed."""
 
 from __future__ import annotations
 
@@ -14,9 +7,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = REPO_ROOT / "templates" / "registry"
 
-#: Language that names a mechanism the platform no longer has. A new match
-#: here means a template (or a doc that copied from one) is describing
-#: something that isn't true any more.
 STALE_PHRASES = ("gate blocks", "lifecycle gate", "ethics gate")
 
 

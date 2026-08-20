@@ -1,12 +1,4 @@
-"""The power/sensitivity route (P2-2): /studies/{study_id}/power.
-
-The route is a thin, validated seam over ``analysis.power`` — the math is
-tested there. This test pins the contract: study-scoped (authz resolves the
-study; unknown study 404s, no credentials 401), plan-able without a
-compiled protocol, bad parameters rejected as 422 rather than a crash, and
-the payload carrying its own assumptions so the frontend can show them
-without hardcoding.
-"""
+"""The power/sensitivity route (P2-2): /studies/{study_id}/power."""
 
 from __future__ import annotations
 
@@ -72,7 +64,6 @@ def test_power_route_shape_with_defaults(client):
     assert [c["effectSize"] for c in payload["curves"]] == [0.2, 0.5, 0.8]
     points = payload["curves"][2]["points"]
     assert [p["power"] for p in points] == sorted(p["power"] for p in points)
-    # d=0.8 reaches 80% within 120 total; d=0.2 and 0.5 do not.
     by_size = {e["effectSize"]: e for e in payload["requiredN"]}
     assert by_size[0.8]["reachesTarget"] and by_size[0.8]["nPerGroup"] == 26
     assert not by_size[0.2]["reachesTarget"] and not by_size[0.5]["reachesTarget"]
@@ -123,8 +114,10 @@ def test_power_route_404s_for_unknown_study(client):
 
 
 def test_power_route_works_without_a_compiled_protocol(client):
-    """Recruitment planning happens while the design is still in
-    conversation — the route must not demand a compiled protocol."""
+    """
+    Recruitment planning happens while the design is still in conversation — the route
+    must not demand a compiled protocol.
+    """
     study_id = make_study(client, "alice")
     r = client.get(f"/studies/{study_id}/power", headers=bearer("alice"))
     assert r.status_code == 200

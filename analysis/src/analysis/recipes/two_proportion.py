@@ -1,10 +1,6 @@
-"""two-proportion — parameterised recipe for comparing binary outcomes
-across two conditions (2x2 contingency table).
-
-Can be parameterised via the recipe's ``params`` dict:
-- ``figure``: "grouped-bar" (default) or omit
-
-FR-ANA-8: single code path for all proportion comparisons.
+"""
+two-proportion — parameterised recipe for comparing binary outcomes across two
+conditions (2x2 contingency table).
 """
 
 from __future__ import annotations

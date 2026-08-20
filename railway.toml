@@ -25,7 +25,11 @@
 #   MIDDLEWARE_CLERK_*    - (when auth=clerk)
 #
 # Optional:
-#   MIDDLEWARE_SEED_ON_START=1   - seed the demo study on boot
+#   MIDDLEWARE_SEED_ON_START=1   - build the shared demo project on boot:
+#                                  its study, the session -> study mappings,
+#                                  and a replay of the sample sessions. Every
+#                                  signed-in identity is a viewer on it; nobody
+#                                  can write to it. Idempotent per boot.
 #   MISTRAL_API_KEY              - enables the knowledge assistant
 #   MIDDLEWARE_S2_API_KEY        - Semantic Scholar enrichment
 

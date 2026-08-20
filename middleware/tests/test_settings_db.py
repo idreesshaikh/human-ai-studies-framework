@@ -1,12 +1,4 @@
-"""How ``MIDDLEWARE_DB`` resolves to a database.
-
-The failure this guards against is silent, which is what makes it worth a
-test: passing a SQLite *URL* where a path was expected produced
-``sqlite:///sqlite:///data.sqlite3`` — a valid relative filename. Nothing
-raised. The server started, served, and reported healthy against an empty
-database in a directory nobody was looking at, while the real one sat
-untouched with the corpus in it.
-"""
+"""How ``MIDDLEWARE_DB`` resolves to a database."""
 
 from __future__ import annotations
 
@@ -25,7 +17,6 @@ def _clean_env(monkeypatch):
     [
         ("/srv/study.sqlite3", "sqlite:////srv/study.sqlite3"),
         ("relative/study.sqlite3", "sqlite:///relative/study.sqlite3"),
-        # The same two, spelled as URLs — the natural thing to try.
         ("sqlite:////srv/study.sqlite3", "sqlite:////srv/study.sqlite3"),
         ("sqlite:///relative/study.sqlite3", "sqlite:///relative/study.sqlite3"),
     ],

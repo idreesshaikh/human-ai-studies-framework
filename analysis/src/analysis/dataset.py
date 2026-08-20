@@ -1,18 +1,4 @@
-"""The unified study dataset a recipe consumes (FR-ING-4 -> FR-ANA-1).
-
-One object wraps the middleware's one-timeline export: every row carries the
-join keys (``sessionId``, ``participantId``, ``condition``, timestamp,
-schema version - FR-INST-6), and the two legs a recipe distinguishes are
-
-- **events** - StudyEvent rows (``source != "metrics"``): cognitive,
-  behavioral, and (with) agent event types, and
-- **metrics** - static-metrics rows (``source == "metrics"``), function- or
-  file-level per the 9-metric matrix.
-
-Loaders cover both deployment shapes: ``Dataset.fetch()`` pulls
-``GET /studies/{id}/dataset`` from a running middleware; ``from_json()``
-reads the same document exported to a file (replication kits, tests).
-"""
+"""The unified study dataset a recipe consumes (FR-ING-4 -> FR-ANA-1)."""
 
 from __future__ import annotations
 
@@ -23,7 +9,6 @@ from pathlib import Path
 
 import pandas as pd
 
-#: Join-key columns every row of every leg carries (FR-INST-6).
 JOIN_KEYS = ["sessionId", "participantId", "condition"]
 
 
@@ -35,7 +20,6 @@ class Dataset:
         self.rows = rows
         self.meta = meta or {}
 
-    # ------------------------------------------------------------- loaders
 
     @classmethod
     def from_json(cls, path: str | Path) -> Dataset:
@@ -49,13 +33,14 @@ class Dataset:
             doc = json.loads(res.read())
         return cls(rows=doc["rows"], study_id=doc.get("studyId", study_id))
 
-    # ------------------------------------------------------------- frames
 
     @cached_property
     def events(self) -> pd.DataFrame:
-        """StudyEvent rows: join keys + ``ts`` (UTC datetime) + ``type`` +
-        ``seq`` + ``flags`` (integrity marks stamped at ingest; the export
-        always carries the key, empty list when clean) + raw ``payload``."""
+        """
+        StudyEvent rows: join keys + ``ts`` (UTC datetime) + ``type`` + ``seq`` +
+        ``flags`` (integrity marks stamped at ingest; the export always carries the key,
+        empty list when clean) + raw ``payload``.
+        """
         rows = [r for r in self.rows if r.get("source") != "metrics"]
         if not rows:
             return pd.DataFrame(
@@ -67,11 +52,7 @@ class Dataset:
 
     @cached_property
     def metrics(self) -> pd.DataFrame:
-        """Static-metric rows with the payload's metric columns expanded.
-
-        ``level`` is ``function_metrics`` or ``file_metrics`` (the middleware
-        stores it as the row ``type``).
-        """
+        """Static-metric rows with the payload's metric columns expanded."""
         rows = [r for r in self.rows if r.get("source") == "metrics"]
         if not rows:
             return pd.DataFrame(columns=[*JOIN_KEYS, "ts", "level"])
@@ -93,7 +74,6 @@ class Dataset:
         base["ts"] = pd.to_datetime(base["ts"], utc=True, format="mixed")
         return base
 
-    # ------------------------------------------------------------ requires
 
     @cached_property
     def event_types(self) -> set[str]:
@@ -123,7 +103,6 @@ class Dataset:
                         seen.setdefault(c, None)
         return list(seen)
 
-    # ------------------------------------------------------------- helpers
 
     def of_type(self, *types: str) -> pd.DataFrame:
         """Events of the given type(s) with payload keys expanded to columns."""
@@ -138,12 +117,7 @@ class Dataset:
 
     @cached_property
     def session_spans(self) -> pd.DataFrame:
-        """Per session: join keys, first/last event ts, and duration minutes.
-
-        The denominator recipes share; uses the full event span (an honest
-        upper bound on active time - recipes must say so in methods when it
-        matters).
-        """
+        """Per session: join keys, first/last event ts, and duration minutes."""
         if self.events.empty:
             return pd.DataFrame(columns=[*JOIN_KEYS, "start", "end", "durationMinutes"])
         g = self.events.groupby(JOIN_KEYS, as_index=False).agg(

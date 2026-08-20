@@ -1,19 +1,4 @@
-"""Replay the bundled sample sessions against a running middleware.
-
-Smoke-test and demo seed in one command (stdlib only - runs anywhere
-Python runs):
-
-    uv run python middleware/scripts/replay_session.py
-
-Posts the sample overlay session (which contains a deliberate seq gap) in
-the extension's HttpSink wire format, posts the behavioral demo session
-(cognitive + behavioral legs on one timeline), posts the sample
-metrics rows, replays the first event batch a second time to prove
-idempotency (FR-ING-2), uploads the design-phase gate artifacts so the
-lifecycle computes to its ethics gate (FR-DASH-2 demo state, NFR-9), then
-prints the gap report (FR-ING-3) and the one-timeline dataset summary
-(FR-ING-4).
-"""
+"""Replay the bundled sample sessions against a running middleware."""
 
 import argparse
 import json
@@ -26,22 +11,16 @@ from pathlib import Path
 
 SAMPLE_DIR = Path(__file__).resolve().parents[1] / "sample-data"
 
-#: Platform-facing endpoints (lifecycle/gaps/dataset) are auth-gated
-#: whenever MIDDLEWARE_AUTH requires it (unlike /ingest/*, which NFR-1
-#: keeps unauthenticated in every mode). In `token` mode this script can
-#: authenticate itself with the same shared secret; in `clerk` mode there
-#: is no static service credential, so those calls degrade gracefully
-#: instead of crashing the seed run (F1: seed failures never kill the
-#: server, and now never spuriously fail the report either).
+# In `token` mode this script can authenticate itself with the same shared secret; in
+# `clerk` mode there is no static service credential, so those calls degrade gracefully
+# instead of crashing the seed run (F1: seed failures never kill the server, and now
+# never spuriously fail the report either).
 _AUTH_HEADERS = (
     {"Authorization": f"Bearer {os.environ['MIDDLEWARE_TOKEN']}"}
     if os.environ.get("MIDDLEWARE_TOKEN")
     else {}
 )
 
-#: Design-phase gate artifacts (see protocol/examples/pilot-study.yaml).
-#: Seeding these leaves the demo blocked at the *ethics* gate - the
-#: platform acceptance walk uploads the ethics artifacts via the UI.
 DESIGN_ARTIFACTS = {
     "protocol-validated.txt": (
         b"pilot-2026 validated by `protocol validate` (demo artifact)\n"
@@ -172,7 +151,7 @@ def main() -> int:
         if exc.code == 401:
             print("lifecycle: skipped (401 - no service credential for this auth mode)")
         else:
-            pass  # no protocol loaded - lifecycle endpoints are protocol-scoped
+            pass
 
     try:
         gaps = _call("GET", f"{args.server}/sessions/{session_id}/gaps")

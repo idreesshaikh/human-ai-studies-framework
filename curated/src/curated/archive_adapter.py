@@ -1,17 +1,4 @@
-"""Archive / replication-package importer (FR-CUR-4).
-
-Reads published replication packages and research archives (e.g. DevGPT-style
-JSON/CSV exports) and emits NormalizedEvent rows in the same join-keyed schema
-as a live instrument leg. Reuses pseudonymize.py for anonymization and
-threats.py for the validity-threats record verbatim: "mined strangers get the
-same protection as consented participants" (wall #7).
-
-The adapter takes a local file path (the archive) rather than a fetcher,
-because replication packages are pre-downloaded artifacts, not live API
-responses. Deterministic: same archive always produces the same events in
-the same order, so re-import is idempotent under the middleware's
-``(session_id, source, seq)`` unique constraint.
-"""
+"""Archive / replication-package importer (FR-CUR-4)."""
 
 from __future__ import annotations
 
@@ -34,7 +21,6 @@ from curated.pseudonymize import pseudonym
 
 SOURCE = "archive"
 
-# DevGPT event types mapped to the curated event vocabulary.
 _EVENT_TYPE_MAP = {
     "PullRequest": "mined_pull_request",
     "Commit": "mined_commit",
@@ -53,7 +39,6 @@ def _load_json(path: str | Path) -> list[dict]:
         return json.loads(text)
     except (json.JSONDecodeError, ValueError):
         pass
-    # Try JSONL
     out: list[dict] = []
     for line in text.decode("utf-8", errors="replace").splitlines():
         line = line.strip()
@@ -77,11 +62,7 @@ def _load_csv(path: str | Path) -> list[dict]:
 
 
 class ArchiveAdapter:
-    """Mines a local replication-package archive into the curated event schema.
-
-    Accepts JSON, JSONL, or CSV files. Each record is mapped via the
-    ``_EVENT_TYPE_MAP`` and pseudonymized with the per-dataset salt.
-    """
+    """Mines a local replication-package archive into the curated event schema."""
 
     source = SOURCE
 

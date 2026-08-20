@@ -20,6 +20,7 @@ import {
 } from "@/lib/conversationApi";
 import { ApiError } from "@/lib/api";
 import { studyApi } from "@/lib/studyApi";
+import { useSession } from "@/lib/session";
 import type { StudyChange } from "@/lib/presence";
 import type { Understanding } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -28,6 +29,7 @@ import {
   DEFAULT_STEER,
   readSteer,
   writeSteer,
+  defaultSteerFor,
   type SteerLevel,
 } from "@/lib/steer";
 
@@ -45,9 +47,14 @@ export function ConversationView({
   /** The last change another viewer made to this study (FR-PLAT
    *  collaboration). Carries only what changed; the thread re-reads. */
   remoteChange = null,
+  opening = "",
 }: {
   studyId?: string;
   remoteChange?: StudyChange | null;
+  /** A first line to send on arrival, typed by the researcher elsewhere —
+   *  the "what do you want to find out?" answer given while creating the
+   *  project. Sent once, then never again for this study. */
+  opening?: string;
 }) {
   const [turns, setTurns] = useState<Turn[]>(() => [openingTurn()]);
   const [input, setInput] = useState("");
@@ -100,9 +107,35 @@ export function ConversationView({
   const threadEnd = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
 
+  /* Where the dial starts when this study has never had it moved: driven,
+   * unless this researcher has declared themselves experienced. Their own
+   * saved setting for this study always wins over both. */
+  const { me } = useSession();
+  const profileDefault = defaultSteerFor(me?.preferences?.researcherProfile);
   useEffect(() => {
-    setSteer(readSteer(studyId));
-  }, [studyId]);
+    setSteer(readSteer(studyId, profileDefault));
+  }, [studyId, profileDefault]);
+
+  /* The opening line, sent once.
+   *
+   * Guarded on the thread still being empty: the researcher answered "what
+   * do you want to find out?" while creating the project, and that answer is
+   * their first turn. Re-sending it on a remount — a tab switch, a reload
+   * with the navigation state still in history — would put the same sentence
+   * into the thread twice, so the ref latches per study.
+   */
+  const openingSent = useRef("");
+  useEffect(() => {
+    if (!opening.trim() || openingSent.current === studyId) return;
+    // Only into a thread nobody has spoken in yet: the platform's own
+    // greeting is the sole turn present.
+    if (turns.some((t) => t.role === "researcher")) return;
+    openingSent.current = studyId;
+    void sendText(opening.trim());
+    // `sendText` is deliberately absent from the deps: it is redefined every
+    // render, and the ref above — not the dependency list — is what makes
+    // this fire once per study.
+  }, [opening, studyId, turns]);
 
   const changeSteer = useCallback(
     (next: SteerLevel) => {
@@ -258,7 +291,14 @@ export function ConversationView({
   }
 
   async function send() {
-    const text = input.trim();
+    await sendText(input.trim());
+  }
+
+  /* The turn itself, given its text. Split out from `send` so an opening
+   * line the researcher already typed — in the "what do you want to find
+   * out?" field on project creation — can be sent on arrival without being
+   * round-tripped through the composer's state first. */
+  async function sendText(text: string) {
     if (!text || busy) return;
 
     // "finish" / "wrap up" / "done" opens the protocol-review moment rather

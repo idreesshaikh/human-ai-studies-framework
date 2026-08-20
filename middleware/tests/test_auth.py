@@ -1,9 +1,4 @@
-"""Sign-in provider seam (FR-OPS-5, D29).
-
-The contract under test: zero-config stays open, a configured token keeps
-its behavior, Clerk JWTs verify against a JWKS-style key, ingest is
-never authenticated in any mode, and /auth/config leaks no secrets.
-"""
+"""Sign-in provider seam (FR-OPS-5, D29)."""
 
 import datetime as dt
 
@@ -31,13 +26,10 @@ def make_settings(tmp_path, **kw) -> Settings:
     return Settings(**defaults)
 
 
-# ------------------------------------------------------------ mode inference
-
-
 def test_no_config_means_open(tmp_path):
     s = make_settings(tmp_path)
     assert resolve_mode(s) == "none"
-    verifier_from_settings(s)("")  # any request passes
+    verifier_from_settings(s)("")
 
 
 def test_token_set_means_token_mode(tmp_path):
@@ -63,9 +55,6 @@ def test_clerk_mode_without_jwks_fails_loudly(tmp_path):
         verifier_from_settings(s)
 
 
-# ------------------------------------------------------------ token provider
-
-
 def test_token_verifier_accepts_and_rejects(tmp_path):
     verify = verifier_from_settings(make_settings(tmp_path, token="sekrit"))
     verify("Bearer sekrit")
@@ -75,9 +64,6 @@ def test_token_verifier_accepts_and_rejects(tmp_path):
         assert e.value.status_code == 401
 
 
-# ------------------------------------------------------------ clerk provider
-
-
 @pytest.fixture(scope="module")
 def rsa_key():
     return rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -85,7 +71,7 @@ def rsa_key():
 
 def clerk_verifier_with_key(key, issuer=None) -> ClerkVerifier:
     v = ClerkVerifier("https://example.test/jwks.json", issuer=issuer)
-    v._signing_key = lambda token: key.public_key()  # JWKS fetch stubbed
+    v._signing_key = lambda token: key.public_key()
     return v
 
 
@@ -148,9 +134,6 @@ def test_jwks_outage_fails_closed_with_503(rsa_key):
     assert e.value.status_code == 503
 
 
-# --------------------------------------------------------- app-level wiring
-
-
 def test_auth_config_shapes(tmp_path):
     assert public_config(make_settings(tmp_path)) == {"mode": "none"}
     assert public_config(make_settings(tmp_path, token="sekrit")) == {"mode": "token"}
@@ -163,7 +146,7 @@ def test_auth_config_shapes(tmp_path):
         )
     )
     assert clerk == {"mode": "clerk", "clerkPublishableKey": "pk_test_abc"}
-    # the secret token never appears in any config payload
+    # the secret token never appears in any config payload.
     assert "sekrit" not in str(public_config(make_settings(tmp_path, token="sekrit")))
 
 
@@ -180,7 +163,7 @@ def test_views_gated_but_ingest_open_in_token_mode(tmp_path):
         client.get("/files", headers={"Authorization": "Bearer sekrit"}).status_code
         == 200
     )
-    # ingest is never authenticated (sensors are fire-and-forget)
+    # ingest is never authenticated (sensors are fire-and-forget).
     batch = {
         "source": "tern",
         "events": [

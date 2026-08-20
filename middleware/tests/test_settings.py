@@ -1,11 +1,4 @@
-"""Settings.port precedence: MIDDLEWARE_PORT > PORT > 8000.
-
-Railway dynamically assigns PORT per-service and routes/healthchecks
-against it; the app must bind there or every external probe reads
-"service unavailable" even though the app is healthy internally on 8000.
-Local/self-hosted use never sets PORT, so the FR-ING-1 default (every
-instrument leg's 127.0.0.1:8000 endpoint) must stay unaffected.
-"""
+"""Settings.port precedence: MIDDLEWARE_PORT > PORT > 8000."""
 
 from middleware.settings import Settings
 

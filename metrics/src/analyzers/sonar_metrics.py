@@ -1,16 +1,4 @@
-"""SonarQube Cognitive Complexity client - stub-degradable (decision D5).
-
-Cognitive Complexity is the one industry-baseline metric in the matrix
-(metrics/docs/static_code_metrics.md, "Structural & Control Flow"); we query it
-from a local SonarQube rather than reimplementing it, so our numbers stay
-comparable to industry tooling.
-
-Follow-up to activate (documented, not required for the pipeline to run):
-    docker run -d -p 9000:9000 sonarqube:community
-    # run sonar-scanner over the target project, then re-run the orchestrator
-Until a server is reachable, get_cognitive_complexity() returns None (NaN in
-the exported tables) and the orchestrator warns once per run, not per file.
-"""
+"""SonarQube Cognitive Complexity client - stub-degradable (decision D5)."""
 
 import sys
 
@@ -25,10 +13,10 @@ def get_cognitive_complexity(
     token: str | None = None,
     timeout: float = 1.5,
 ) -> float | None:
-    """Fetch cognitive_complexity for a component from SonarQube's Web API.
-
-    Returns None (and warns once per process) when the server is unreachable
-    or the component is unknown - analysis degrades to NaN, never crashes.
+    """
+    Fetch cognitive_complexity for a component from SonarQube's Web API. Returns None
+    (and warns once per process) when the server is unreachable or the component is
+    unknown - analysis degrades to NaN, never crashes.
     """
     global _warned
     auth = (token, "") if token else None

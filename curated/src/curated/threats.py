@@ -1,19 +1,4 @@
-"""The validity-threats record (FR-CUR-3).
-
-Every curated dataset carries a mandatory companion record: the sampling
-frame it was drawn under, the authorship heuristics that fired (with their
-versions, known failure modes, and citations), the biases the researcher
-declares, and the coverage (requested / retrieved / dropped-by-reason). It
-is partially machine-filled - coverage and the heuristic list are *generated*
-from the run; the biases are the researcher's honest work, prompted by named
-starter entries so the section is never silently empty.
-
-The record is a gate artifact: a curated study cannot enter ``analysis``
-without it (F3.2), enforced exactly like every other lifecycle gate. Its
-contents are injected verbatim into the report's and paper draft's
-threats-to-validity section (F3.1) - honesty about provenance travels with
-every claim.
-"""
+"""The validity-threats record (FR-CUR-3)."""
 
 from __future__ import annotations
 
@@ -25,19 +10,18 @@ from curated.heuristics import heuristic_records
 
 @dataclass
 class Bias:
-    """A declared bias: its direction and either a mitigation or an explicit
-    acceptance. One of ``mitigation`` / ``accepted`` must be set - a bias with
-    neither is not honestly recorded."""
+    """
+    A declared bias: its direction and either a mitigation or an explicit acceptance.
+    """
 
     description: str
-    direction: str  # e.g. "over-counts agent PRs", "under-samples small repos"
+    direction: str
     mitigation: str = ""
     accepted: str = ""
 
 
-#: Bias starter entries the miner is prompted to confirm or revise - so the
-#: known provenance pitfalls of GitHub mining are never silently omitted.
-#: Grounded in `mining-coding-agent-activity` and `ai-agents-that-matter`.
+# Bias starter entries the miner is prompted to confirm or revise - so the known
+# provenance pitfalls of GitHub mining are never silently omitted.
 STARTER_BIASES: tuple[Bias, ...] = (
     Bias(
         description=(
@@ -76,8 +60,7 @@ class CoverageRecord:
 
 @dataclass
 class ThreatsRecord:
-    """The full record. ``to_doc`` renders the YAML-shaped dict per
-    ``fr-cur.md`` §4."""
+    """The full record."""
 
     sampling_frame: SamplingFrame
     fired_heuristic_ids: set[str]
@@ -126,9 +109,11 @@ def build_record(
     biases: list[Bias] | None = None,
     actor_unit_note: str = "",
 ) -> ThreatsRecord:
-    """Assemble the record after a run: coverage + heuristics are generated
-    here; ``biases`` default to the starter set (the researcher revises them,
-    but the section is never empty)."""
+    """
+    Assemble the record after a run: coverage + heuristics are generated here;
+    ``biases`` default to the starter set (the researcher revises them, but the section
+    is never empty).
+    """
     return ThreatsRecord(
         sampling_frame=frame,
         fired_heuristic_ids=set(fired_heuristic_ids),
@@ -158,8 +143,7 @@ def _default_actor_unit_note(actor_unit: str) -> str:
 
 
 def validate_record_doc(doc: dict) -> list[str]:
-    """Return a list of problems with a threats-record doc (empty = valid).
-    Used at the analysis gate and when a record is uploaded."""
+    """Return a list of problems with a threats-record doc (empty = valid)."""
     problems: list[str] = []
     if not isinstance(doc, dict):
         return ["the validity-threats record must be a mapping"]

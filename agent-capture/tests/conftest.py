@@ -17,8 +17,10 @@ def fixtures_dir() -> Path:
 
 @pytest.fixture(scope="session")
 def transcript_path(fixtures_dir) -> Path:
-    """A recorded-shape Claude Code transcript, anonymized (no real code
-    content; the assistant text is placeholder)."""
+    """
+    A recorded-shape Claude Code transcript, anonymized (no real code content; the
+    assistant text is placeholder).
+    """
     return fixtures_dir / "sample-transcript.jsonl"
 
 
@@ -29,8 +31,10 @@ def keys() -> Keys:
 
 @pytest.fixture()
 def middleware(tmp_path):
-    """A middleware TestClient built against the real pilot protocol, so the
-    agent leg's join keys are validated end to end (v4 events are known)."""
+    """
+    A middleware TestClient built against the real pilot protocol, so the agent leg's
+    join keys are validated end to end (v4 events are known).
+    """
     from fastapi.testclient import TestClient
     from middleware.app import create_app
     from middleware.settings import Settings

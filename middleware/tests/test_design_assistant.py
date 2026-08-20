@@ -1,10 +1,6 @@
-"""Unit tests for design_assistant.recommend_templates (FR-CONV-1.4) and the
-near-duplicate move guard (``_filter_repeated_moves``).
-
-Regression coverage for a real production gap: an open-ended or loosely
-worded design ask produced zero template candidates, so the model - which
-may only ever choose a template from what this function retrieves - could
-never propose a ``choose-template`` move at all.
+"""
+Unit tests for design_assistant.recommend_templates (FR-CONV-1.4) and the near-duplicate
+move guard (``_filter_repeated_moves``).
 """
 
 from middleware.design_assistant import (
@@ -16,22 +12,23 @@ from middleware.design_assistant import (
 
 
 def test_generic_design_ask_falls_back_to_the_full_catalog():
-    """No template's specific jargon is present, but the ask is clearly
-    about design - the LLM must still get candidates to choose from."""
+    """
+    No template's specific jargon is present, but the ask is clearly about design - the
+    LLM must still get candidates to choose from.
+    """
     templates = recommend_templates("help me get started on the design")
     assert templates, "a design-related ask must never yield zero candidates"
 
 
 def test_rct_phrasing_matches_the_rct_template():
-    """The exact wording researchers actually use ('random control trial(s)'
-    is a common non-technical phrasing of RCT) must resolve to the RCT
-    template, not just the unscored fallback catalog."""
+    """
+    The exact wording researchers actually use ('random control trial(s)' is a common
+    non-technical phrasing of RCT) must resolve to the RCT template, not just the
+    unscored fallback catalog.
+    """
     templates = recommend_templates("I want to do random control trials as design")
     assert templates[0]["templateId"] == "two-group-rct-v1"
     assert "Matched" in templates[0]["matchReason"]
-
-
-# ------------------------------------------- near-duplicate guard (FR-CONV)
 
 
 def _mv(kind: str, proposal: str, patch: dict | None = None) -> ProposedMove:
@@ -78,8 +75,10 @@ def test_distinct_moves_survive_the_filter():
 
 
 def test_choose_template_duplicate_is_keyed_on_template_id():
-    """A re-pitched template is repetition however it's re-worded — and a
-    template the conversation has never seen is not."""
+    """
+    A re-pitched template is repetition however it's re-worded — and a template the
+    conversation has never seen is not.
+    """
     state = _state(template_ids=["metr-rct-v1"])
     repeat = _mv(
         "choose-template",
@@ -101,9 +100,11 @@ def test_filter_is_a_no_op_without_state():
 
 
 def test_caution_never_blocks_the_section_move_that_addresses_it():
-    """Regression: an accepted ethics caution's wording must not stop the
-    ethics posture from ever being proposed — the section move that
-    addresses a caution naturally restates it, and cautions fill nothing."""
+    """
+    Regression: an accepted ethics caution's wording must not stop the ethics posture
+    from ever being proposed — the section move that addresses a caution naturally
+    restates it, and cautions fill nothing.
+    """
     caution = "Workspace snapshots may include personal or sensitive data."
     move = _mv(
         "set-parameter",
@@ -120,8 +121,10 @@ def test_caution_never_blocks_the_section_move_that_addresses_it():
 
 
 def test_a_repeated_caution_is_still_dropped():
-    """Caution-vs-caution (and caution-vs-content) repetition stays
-    suppressed — only the advisory→content direction is exempt."""
+    """
+    Caution-vs-caution (and caution-vs-content) repetition stays suppressed — only the
+    advisory→content direction is exempt.
+    """
     caution = "Workspace snapshots may include personal or sensitive data."
     echo = _mv(
         "caution",

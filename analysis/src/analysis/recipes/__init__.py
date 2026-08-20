@@ -1,8 +1,4 @@
-"""Built-in analysis recipes (FR-ANA-3 + the FR-ANA-5 replication demo).
-
-Importing this package registers every built-in recipe with
-``analysis.core.REGISTRY`` (via the ``@recipe`` decorator).
-"""
+"""Built-in analysis recipes (FR-ANA-3 + the FR-ANA-5 replication demo)."""
 
 from analysis.recipes import (
     agent_interaction_dynamics,

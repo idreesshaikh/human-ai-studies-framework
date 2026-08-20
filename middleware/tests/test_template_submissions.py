@@ -1,8 +1,4 @@
-"""Template-submission endpoint tests (FR-TPL-5 / Slice C).
-
-Covers: submit, list (own vs. owner view), get, approve, reject, duplicate
-approve, bad YAML, non-owner rejection.
-"""
+"""Template-submission endpoint tests (FR-TPL-5 / Slice C)."""
 
 import uuid
 from pathlib import Path
@@ -231,7 +227,6 @@ def test_approve_then_registry_file_exists(client, tmp_path):
     assert r2.json()["status"] == "approved"
     assert r2.json()["reviewComment"] == "Looks good"
 
-    # Verify status via get
     r3 = client.get(f"/templates/submissions/{sid}", headers=_headers())
     assert r3.json()["status"] == "approved"
 
@@ -271,7 +266,7 @@ def test_double_decision_fails(client):
         json={"status": "approved"},
         headers=_headers(),
     )
-    assert r1.status_code == 200, r1.text  # first decision succeeds
+    assert r1.status_code == 200, r1.text
 
     r2 = client.post(
         f"/templates/submissions/{sid}/decision",

@@ -148,7 +148,7 @@ export function DataTab({ studyId }: { studyId: string }) {
                 >
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between p-4 text-left hover:bg-surface-raised/50"
+                    className="flex w-full items-center justify-between p-4 text-left hover:bg-zone-9"
                     onClick={() =>
                       setExpandedSession(isOpen ? null : s.sessionId)
                     }

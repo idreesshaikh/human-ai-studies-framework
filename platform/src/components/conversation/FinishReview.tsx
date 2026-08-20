@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { AlertTriangle, Check } from "lucide-react";
+import { Link } from "react-router-dom";
+import { AlertTriangle, ArrowRight, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -187,6 +188,34 @@ export function FinishReview({
           * this dialog is taller than the viewport, and the action row sat
           * ~370px below the fold: the one thing the review exists to let the
           * researcher do was invisible when it opened. */}
+        {/* Applying used to be the end of the road: the button read "Applied"
+          * and the dialog just sat there, which had a reviewer asking "when
+          * the proposal is complete, how do I continue?". The protocol is
+          * only half the job — it still has to reach participants' editors —
+          * so the next step is named here, where the question is asked. */}
+        {applied && (
+          <div
+            data-agent="applied-next-step"
+            className="mt-3 rounded-card border border-border bg-well p-3"
+          >
+            <p className="type-body text-text">
+              The protocol is applied. Next: bring participants in.
+            </p>
+            <p className="type-caption mt-1 text-text-muted">
+              Mint a link for each participant and their editor joins the study
+              configured exactly the way you just designed it.
+            </p>
+            <Link
+              to="?tab=enrollment"
+              onClick={() => onOpenChange(false)}
+              className="type-control mt-2 inline-flex items-center gap-1.5 rounded-control text-accent underline decoration-border underline-offset-4 hover:decoration-control-edge"
+            >
+              Go to Participants
+              <ArrowRight className="size-4" aria-hidden />
+            </Link>
+          </div>
+        )}
+
         <div className="sticky bottom-0 -mx-5 mt-3 flex items-center justify-end gap-2 border-t border-border bg-surface-raised px-5 py-3">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={applying}>
             Keep editing

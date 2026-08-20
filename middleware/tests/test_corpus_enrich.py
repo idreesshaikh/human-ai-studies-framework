@@ -1,11 +1,4 @@
-"""Abstract-backfill tests (D4): the corpus-enrich job.
-
-Hermetic — the S2 batch endpoint is replaced by a recorded ``post`` stub, so
-these exercise the real selection / batching / write / re-index path without
-a network call. What matters: the highest-confidence papers go first, an
-id S2 cannot resolve leaves the row untouched (never fabricated), the run is
-idempotent and resumable, and retrieval sees the new text.
-"""
+"""Abstract-backfill tests (D4): the corpus-enrich job."""
 
 import pytest
 from middleware.corpus_enrich import (
@@ -20,7 +13,6 @@ from middleware.db import CORPUS_STUDY_ID, Paper, make_session_factory
 
 from middleware import paper_index
 
-#: Long enough to count as a real abstract, unlike a curator's one-liner.
 ABSTRACT = (
     "We ran a within-subjects experiment in which professional developers "
     "completed maintenance tasks with and without an AI coding assistant. "
@@ -105,14 +97,16 @@ class _Stub:
 
 
 def test_candidates_are_ordered_by_confidence(db_url):
-    """The backfill spends its first calls on the papers most likely to be
-    recommended — so a --limit run is a useful partial run."""
+    """
+    The backfill spends its first calls on the papers most likely to be recommended — so
+    a --limit run is a useful partial run.
+    """
     factory = make_session_factory(db_url)
     with factory() as s:
         refs = [p.paper_ref for p in select_candidates(s)]
-    assert refs[0] == "arxiv:2510.20703"  # score 18
-    assert refs[1] == "corpus:trust-in-ai-code-generation"  # seed prior 14
-    assert refs[-1] == "arxiv:1111.00001"  # score 3
+    assert refs[0] == "arxiv:2510.20703"
+    assert refs[1] == "corpus:trust-in-ai-code-generation"
+    assert refs[-1] == "arxiv:1111.00001"
 
 
 def test_enrich_backfills_and_reindexes(db_url):
@@ -127,20 +121,17 @@ def test_enrich_backfills_and_reindexes(db_url):
 
     assert result["candidates"] == 4
     assert result["enriched"] == 3
-    assert result["unresolved"] == 1  # the stale row S2 no longer returns
+    assert result["unresolved"] == 1
     assert post.calls and ENRICH_FIELDS in post.calls[0]["url"]
 
     factory = make_session_factory(db_url)
     with factory() as s:
         rows = {p.paper_ref: p for p in s.query(Paper).all()}
         assert rows["arxiv:2510.20703"].abstract == ABSTRACT
-        # Nothing invented for the row S2 could not resolve.
         assert rows["arxiv:1111.00001"].abstract == ""
-        # The seed keeps its curator note alongside the real abstract.
         seed = rows["corpus:trust-in-ai-code-generation"]
         assert seed.abstract == ABSTRACT
         assert seed.curator_note == "Developer over-reliance on AI-generated code."
-        # Retrieval sees the new text (a term only the abstract carries).
         hits = paper_index.search(s, "maintenance tasks defect density", limit=5)
         assert "arxiv:2510.20703" in {h["paperRef"] for h in hits}
 
@@ -156,7 +147,7 @@ def test_enrich_is_idempotent_and_resumable(db_url):
 
     post2 = _Stub({"s2-mid": ABSTRACT})
     second = enrich_abstracts(db_url, post=post2)
-    assert second["candidates"] == 3  # the enriched row dropped out
+    assert second["candidates"] == 3
     assert second["enriched"] == 1
     assert "s2-high" not in [i for c in post2.calls for i in c["ids"]]
 
@@ -175,8 +166,10 @@ def test_batches_respect_the_chunk_size(db_url):
 
 
 def test_short_abstract_still_counts_as_missing(db_url):
-    """A curator's one-liner is not an abstract — the seed stays a candidate
-    until a real one lands."""
+    """
+    A curator's one-liner is not an abstract — the seed stays a candidate until a real
+    one lands.
+    """
     factory = make_session_factory(db_url)
     with factory() as s:
         seed = (

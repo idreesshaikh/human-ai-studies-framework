@@ -1,30 +1,4 @@
-"""Corpus importer.
-
-Loads the hand-curated Tier A seeds (``docs/papers/README.md``) and the
-harvested Tier B corpus (``docs/papers/corpus-index.json``) into the
-middleware's paper store: ``Paper(tier=A|B)`` rows under the reserved
-``platform-corpus`` study scope, FTS entries for retrieval, and the
-seed-connectivity graph (Tier B ``via`` trails as ``paper_edges`` rows) that
-backs the FR-LIT-9 match ladder's bottom rung. F8.4's fit criterion is
-exactly this landing.
-
-Refs are canonical and stable:
-
-- Tier A seeds index under ``corpus:<file-stem>`` - the slug the specs,
-  the design stub, and template ``source`` lists already cite - with the
-  arXiv/DOI id kept in the row's metadata columns.
-- Tier B entries keep the harvest's own ref (``arxiv:...``/``doi:...``),
-  every one independently verifiable at the Semantic Scholar API (F8.1).
-
-Honesty invariants (FR-LIT-8): nothing synthesized - a Tier A paper's FTS
-body is its title + curator's "why" + local PDF text when present; a Tier B
-body is the title (+ venue) the harvest recorded; both carry the real S2
-abstract once ``corpus-enrich`` (``corpus_enrich.py``) has backfilled it.
-Idempotent: Paper rows upsert on (study_id, paper_ref) - keeping the longer
-abstract, so a re-import never undoes enrichment; FTS entries are
-delete-then-insert; edges insert-or-ignore. Re-running after a corpus update
-is the whole story.
-"""
+"""Corpus importer."""
 
 import json
 import logging
@@ -49,20 +23,10 @@ REPO = Path(__file__).resolve().parent.parent.parent.parent
 PAPERS_DIR = REPO / "docs" / "papers"
 CORPUS_INDEX = PAPERS_DIR / "corpus-index.json"
 
-#: Edge kind for a Tier B paper's discovery trail (``via`` seeds). Distinct
-#: from the S2 'references'/'citations' kinds so the constellation can style
-#: provenance edges differently.
 VIA_EDGE_KIND = "harvested-via"
 
-# Tier A seeds are hand-curated but carry no harvest score. Give them a
-# curated-seed prior on the same score scale as Tier B so a single continuous
-# confidence ranks every paper on merit — the top ~8% of harvested Tier B
-# (score > ~14) can still outrank a seed, so the 100 aren't categorically
-# privileged over the 14,900. (Tier B distribution: median 10.6, p90 13.6,
-# max 21.7.) Tune here, not by re-tiering.
 TIER_A_SEED_SCORE = 14.0
 
-#: Tier A table row: | `file-stem` | [Title](url) - authors | Year | Why |
 _TIER_A_ROW = re.compile(
     r"^\|\s*`([^`]+)`\s*\|\s*(.+?)\s*\|\s*(\d{4})\s*\|\s*(.+?)\s*\|\s*$"
 )
@@ -70,11 +34,7 @@ _MD_LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 
 
 def parse_tier_a() -> list[dict]:
-    """Tier A seed metadata from the hand-curated README table.
-
-    Returns ``{ref, title, year, why, file, arxivId, doi, url}`` per seed,
-    with ``ref = corpus:<file-stem>`` (the canonical citable slug).
-    """
+    """Tier A seed metadata from the hand-curated README table."""
     text = (PAPERS_DIR / "README.md").read_text("utf-8")
     papers = []
     for line in text.splitlines():
@@ -82,7 +42,7 @@ def parse_tier_a() -> list[dict]:
         if not m:
             continue
         stem, paper_cell, year, why = m.groups()
-        if stem.lower() == "file":  # the header row
+        if stem.lower() == "file":
             continue
         link = _MD_LINK.search(paper_cell)
         title = (link.group(1) if link else paper_cell).lstrip("★ ").strip()
@@ -108,9 +68,11 @@ def parse_tier_a() -> list[dict]:
 
 
 def parse_tier_b() -> list[dict]:
-    """Tier B entries from the harvest index, metadata passed through
-    verbatim (quality metrics per FR-LIT-8 F8.5 stay on the index file;
-    the row keeps what the store models)."""
+    """
+    Tier B entries from the harvest index, metadata passed through verbatim (quality
+    metrics per FR-LIT-8 F8.5 stay on the index file; the row keeps what the store
+    models).
+    """
     if not CORPUS_INDEX.exists():
         log.warning("corpus-index.json not found at %s", CORPUS_INDEX)
         return []
@@ -119,10 +81,11 @@ def parse_tier_b() -> list[dict]:
 
 
 def tier_a_body(paper: dict, abstract: str = "") -> str:
-    """The searchable text for a seed: title + curator's why + the enriched
-    abstract when one has landed + local PDF text when a
-    ``docs/papers/<stem>.pdf`` exists (PDFs are gitignored; absent ones
-    degrade to metadata-only, never fail)."""
+    """
+    The searchable text for a seed: title + curator's why + the enriched abstract when
+    one has landed + local PDF text when a ``docs/papers/<stem>.pdf`` exists (PDFs are
+    gitignored; absent ones degrade to metadata-only, never fail).
+    """
     parts = [paper["title"], paper["why"]]
     if abstract:
         parts.append(abstract)
@@ -134,10 +97,6 @@ def tier_a_body(paper: dict, abstract: str = "") -> str:
     return "\n\n".join(parts)
 
 
-#: An ``abstract`` at least this long is a real abstract rather than a
-#: curator's one-line "why" (those average ~67 chars). The backfill uses it
-#: to pick candidates; the importer uses it to keep enriched text in the
-#: searchable body.
 MIN_REAL_ABSTRACT_CHARS = 200
 
 
@@ -153,13 +112,7 @@ def enriched_abstracts(s: Session) -> dict[str, str]:
 
 
 def _upsert_corpus_paper(s: Session, values: dict) -> None:
-    """Upsert one corpus row, keeping the longer ``abstract``.
-
-    Re-importing must not undo an abstract backfill (``corpus-enrich``): a
-    seed's one-line curator "why" is what the importer knows, a real S2
-    abstract is what enrichment landed, and the longer of the two is always
-    the enriched one. Every other column is import-owned and overwritten.
-    """
+    """Upsert one corpus row, keeping the longer ``abstract``."""
     engine = get_engine()
     row = dict(study_id=CORPUS_STUDY_ID, added_at="", **values)
     if engine and engine.dialect.name == "postgresql":
@@ -254,7 +207,7 @@ def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
         for via in entry.get("via", []):
             src = seed_by_arxiv.get(via)
             if not src:
-                continue  # a seed the README no longer lists - skip, honest
+                continue
             _engine = get_engine()
             if _engine and _engine.dialect.name == "postgresql":
                 from sqlalchemy.dialects.postgresql import insert as _pg_insert
@@ -296,11 +249,7 @@ def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
 
 
 def import_corpus(db_url: str) -> dict:
-    """One-shot, idempotent import of both tiers. Returns count summary.
-
-    ``db_url`` is a SQLAlchemy URL string (``sqlite:///...`` or
-    ``postgresql+psycopg://...``), as returned by ``Settings.db_url``.
-    """
+    """One-shot, idempotent import of both tiers."""
     factory = make_session_factory(db_url)
     with factory() as s:
         tier_a = import_tier_a(s)
@@ -313,7 +262,6 @@ def import_corpus(db_url: str) -> dict:
     }
 
 
-#: Seeds the F9.1 demo conversation must retrieve - the spot-check floor.
 _DEMO_SEED_REFS = (
     "corpus:trust-in-ai-code-generation",
     "corpus:insecure-code-with-ai-assistants",
@@ -324,11 +272,9 @@ _DEMO_SEED_REFS = (
 
 
 def verify_import(db_url: str) -> dict[str, bool]:
-    """Spot-check an import against the source files (F8.1/F8.4): demo
-    seeds present and searchable, row counts match the index, via-edges
-    landed.
-
-    ``db_url`` is a SQLAlchemy URL string, as returned by ``Settings.db_url``.
+    """
+    Spot-check an import against the source files (F8.1/F8.4): demo seeds present and
+    searchable, row counts match the index, via-edges landed.
     """
     factory = make_session_factory(db_url)
     expected_a = len(parse_tier_a())

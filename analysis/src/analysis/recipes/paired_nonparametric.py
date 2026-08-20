@@ -1,10 +1,6 @@
-"""paired-nonparametric — parameterised recipe for paired/within-subjects
-comparison designs.
-
-Can be parameterised via the recipe's ``params`` dict:
-- ``figure``: "paired-dots" (default) or "strip"
-
-FR-ANA-8: single code path for all paired comparisons.
+"""
+paired-nonparametric — parameterised recipe for paired/within-subjects comparison
+designs.
 """
 
 from __future__ import annotations

@@ -46,9 +46,6 @@ def metric_row(payload, session="S1", participant="P01", condition="ai-assisted"
     }
 
 
-# ------------------------------------------------------------- the contract
-
-
 def test_every_builtin_recipe_declares_the_full_contract():
     assert len(REGISTRY) >= 9
     for rec in REGISTRY.values():
@@ -92,9 +89,6 @@ def test_validate_plan_fails_loudly_naming_missing_event_type():
     assert "UNKNOWN RECIPE" in checks["nonexistent"].describe()
 
 
-# ------------------------------------------------------------- honest stats
-
-
 def test_cliffs_delta_known_answers():
     assert stats.cliffs_delta([5, 6], [1, 2]) == 1.0
     assert stats.cliffs_delta([1, 2], [5, 6]) == -1.0
@@ -102,8 +96,6 @@ def test_cliffs_delta_known_answers():
 
 
 def test_wilcoxon_paired_known_answer_and_honest_line():
-    # 4 pairs, all differences negative: exact two-sided p = 2/16 = 0.125,
-    # rank-biserial r = -1.
     res = stats.wilcoxon_paired([2, 2, 2, 2], [4, 5, 3, 6], labels=("a", "b"))
     assert res.p == pytest.approx(0.125)
     assert res.effect == pytest.approx(-1.0)
@@ -111,7 +103,7 @@ def test_wilcoxon_paired_known_answer_and_honest_line():
     assert "exact p=0.125" in line
     assert "rank-biserial r=-1.00" in line
     assert "a n=4, b n=4" in line
-    assert "hypothesis-generating" in line  # NFR-8: small n framed as such
+    assert "hypothesis-generating" in line
 
 
 def test_mann_whitney_reports_effect_size_and_cells():
@@ -137,9 +129,6 @@ def test_compare_by_condition_pairs_within_subjects():
     assert res.effect == pytest.approx(-1.0)
 
 
-# ------------------------------------------------------------------ dataset
-
-
 def test_dataset_separates_legs_and_discovers_requirements():
     ds = Dataset(
         rows=[
@@ -149,6 +138,6 @@ def test_dataset_separates_legs_and_discovers_requirements():
     )
     assert ds.event_types == {"fatigue_response"}
     assert "nesting_penalty" in ds.metric_columns
-    assert "file" not in ds.metric_columns  # identifiers are not metrics
+    assert "file" not in ds.metric_columns
     assert ds.conditions == ["ai-assisted"]
     assert len(ds.session_spans) == 1

@@ -1,14 +1,4 @@
-"""Deterministic prescription table (FR-TPL-6).
-
-Every design shape maps to exactly one row: the recommended test, effect
-size, correction, sample-size guidance, and a plain-language rationale.
-The table is LLM-free and keyed by design shape for use by the recommender
-engine in ``design_assistant.py``.
-
-Sources: Baltes et al., "Guidelines for Applied Machine Learning in Software
-Engineering" (arXiv:2508.15503); NFR-8 (no bare p-values); Kitchenham's
-evidence-grading for SE experiments.
-"""
+"""Deterministic prescription table (FR-TPL-6)."""
 
 from __future__ import annotations
 
@@ -22,16 +12,10 @@ class Prescription:
     design_shape: str
     test: str
     effect_size: str
-    correction: str  # e.g., "none", "bonferroni", "holm"
+    correction: str
     sample_size_guidance: str
     rationale: str
 
-
-# ---------------------------------------------------------------------------
-# Prescription table — keyed by design shape. Deterministic and LLM-free.
-# Every entry cites NFR-8 (honest statistics) and the underlying test
-# justification in ``analysis.stats``.
-# ---------------------------------------------------------------------------
 
 _TABLE: dict[str, Prescription] = {
     "two-group": Prescription(
@@ -148,13 +132,11 @@ _TABLE: dict[str, Prescription] = {
     ),
 }
 
-#: Canonical design shapes in display order.
 SHAPES = list(_TABLE.keys())
 
 
 def prescribe(design_shape: str) -> Prescription | None:
-    """Look up the prescription for a design shape. Returns None for unknown
-    shapes (callers should add an unsourced caution move)."""
+    """Look up the prescription for a design shape."""
     return _TABLE.get(design_shape)
 
 
@@ -168,17 +150,6 @@ def design_shapes() -> list[str]:
     return list(SHAPES)
 
 
-#: Design shapes whose prescribed test has a built-in recipe here. Every shape
-#: gets a *prescription* — the exact test, effect size and correction it calls
-#: for — but PHOENIX emits the analysis plan rather than running the analysis,
-#: so only the shapes below can also be executed in-platform.
-#:
-#: The three absentees (Kruskal-Wallis for multi-group, ART ANOVA for
-#: multi-factorial, Friedman for repeated-measures) are prescribed and named
-#: exactly as the others are; they simply run in the researcher's own notebook.
-#: This map used to list recipe ids for them anyway — ids no registry has —
-#: which would have handed any future caller a dead reference for three of the
-#: eight shapes.
 _SHAPE_RECIPES = {
     "two-group": "two-group-nonparametric",
     "paired": "paired-nonparametric",
@@ -188,14 +159,7 @@ _SHAPE_RECIPES = {
 
 
 def shape_to_recipe_id(design_shape: str) -> str | None:
-    """The built-in recipe that runs this shape's prescribed test, if any.
-
-    ``None`` means one of three things, and the caller should treat them
-    alike: the shape is descriptive only (``single-arm``), the shape is
-    unknown, or the prescribed test is not automated in-platform. In every
-    case the prescription itself still names the test to run — use
-    :func:`prescribe` for what to do, and this only for what can be run here.
-    """
+    """The built-in recipe that runs this shape's prescribed test, if any."""
     return _SHAPE_RECIPES.get(design_shape)
 
 

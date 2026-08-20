@@ -1,28 +1,7 @@
-"""ai-review-behavior (RQ-P4): how developers review AI code - the
-differentiator recipe (no off-the-shelf tool computes it, because it joins
-the AI-completion lifecycle, the viewport trace, edit provenance, and the
-cognitive leg on one timeline).
-
-Four analyses:
-
-1. **Review latency, accept vs. not-accept** - `visibleMs` on the terminal
-   `ai_suggestion` event. Exact Mann-Whitney U + Cliff's delta (latencies
-   are skewed durations; the two outcome groups are independent by
-   construction).
-2. **Accept rate by suggestion size quartile** - schema v3 carries
-   `charCount` only on *accepted* suggestions, so the honest computable
-   variant is reported: the accepted-size distribution by quartile plus the
-   overall accept rate, with the limitation stated in methods (a schema
-   extension recording size at `shown` would complete it - that is an
-   instrumentation finding, not something to paper over).
-3. **Scroll coverage before commit-to-code** - for each AI-origin
-   `edit_burst`, viewport dwell on the edited file in the following 60 s
-   (visible-range spans joined by file and time). A dwell of ~0 s means
-   code was accepted without being looked at.
-4. **Review latency vs. most recent fatigue response** - each reviewed
-   suggestion joined to the latest preceding `fatigue_response` on the
-   shared timeline; Spearman rank correlation (monotone association, no
-   linearity assumption at pilot n).
+"""
+ai-review-behavior (RQ-P4): how developers review AI code - the differentiator recipe
+(no off-the-shelf tool computes it, because it joins the AI-completion lifecycle, the
+viewport trace, edit provenance, and the cognitive leg on one timeline).
 """
 
 from __future__ import annotations
@@ -51,9 +30,7 @@ METHODS = (
     "pilot-scale results are hypothesis-generating."
 )
 
-#: Window after an AI insertion in which viewing counts as "reviewing it".
 REVIEW_WINDOW_S = 60
-#: A visible_range span with no successor is assumed visible this long.
 LAST_SPAN_S = 5
 
 
@@ -102,7 +79,6 @@ def run(dataset: Dataset) -> RecipeResult:
     figs = {}
     sentences = []
 
-    # 1. Review latency: accept vs not-accept.
     acc = terminal.loc[terminal["accepted"], "latencyS"].dropna().tolist()
     rej = terminal.loc[~terminal["accepted"], "latencyS"].dropna().tolist()
     if acc and rej:
@@ -114,8 +90,6 @@ def run(dataset: Dataset) -> RecipeResult:
             f"Review latency: accepted n={len(acc)}, not-accepted n={len(rej)} "
             "- both outcome groups needed for a comparison; descriptives only."
         )
-    # Outcome plays the "condition" role for the house strip plot; the real
-    # condition column must go first or the frame ends up with two of them.
     lat_df = terminal.drop(columns=["condition"]).rename(
         columns={"action": "condition"}
     )
@@ -134,7 +108,6 @@ def run(dataset: Dataset) -> RecipeResult:
         xlabel="suggestion outcome",
     )
 
-    # 2. Accept rate + size quartiles (honest schema-v3 variant).
     accept_rate = terminal["accepted"].mean() if len(terminal) else float("nan")
     sentences.append(
         f"Accept rate: {accept_rate:.0%} of {len(terminal)} reviewed "
@@ -160,7 +133,6 @@ def run(dataset: Dataset) -> RecipeResult:
     elif len(sizes):
         tables["accepted_sizes"] = sizes.describe().to_frame().T
 
-    # 3. Scroll coverage of AI-origin bursts (needs the behavioral leg).
     bursts = dataset.of_type("edit_burst")
     spans = _viewport_spans(dataset)
     if not bursts.empty and not spans.empty and "origin" in bursts.columns:
@@ -203,7 +175,6 @@ def run(dataset: Dataset) -> RecipeResult:
             "`visible_range` events alongside `ai_suggestion`."
         )
 
-    # 4. Review latency vs most recent fatigue response.
     fatigue = dataset.of_type("fatigue_response")
     if not fatigue.empty:
         joined = []

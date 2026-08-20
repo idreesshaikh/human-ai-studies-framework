@@ -1,5 +1,7 @@
-"""Paper draft export (FR-ANA-6): golden file, determinism, protocol-derived
-methods, results embedding, and specification-defect logging (FR-META-1)."""
+"""
+Paper draft export (FR-ANA-6): golden file, determinism, protocol-derived methods,
+results embedding, and specification-defect logging (FR-META-1).
+"""
 
 import re
 import shutil
@@ -24,18 +26,14 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 @pytest.fixture(autouse=True)
 def _close_figures():
-    # build_paper returns drafts holding open figures; only write_paper closes
-    # them, so tests that never write would accumulate past pyplot's 20-figure
-    # warning threshold.
+    # build_paper returns drafts holding open figures; only write_paper closes them, so
+    # tests that never write would accumulate past pyplot's 20-figure warning threshold.
     yield
     plt.close("all")
 
 
 def _protocol() -> dict:
     return load_protocol(PILOT)
-
-
-# --- golden file (empty dataset -> purely protocol-derived, deterministic) ---
 
 
 def test_golden_draft_is_byte_identical():
@@ -55,19 +53,13 @@ def test_regeneration_is_identical():
     assert a.bib == b.bib
 
 
-# --- methods synthesised from the protocol -----------------------------------
-
-
 def test_methods_carry_real_probe_intervals_and_metric_definitions():
     draft = build_paper(_protocol(), Dataset(rows=[]), "pilot-2026")
     tex = draft.latex
-    # Real probe interval (15 min) + stuck threshold (90 s) from the protocol.
     assert "15 minutes" in tex
     assert "90 seconds" in tex
-    # Metric definitions from the declared cognitive-load-9 set, with cites.
     assert "Parameter count" in tex and "Miller" in tex
     assert "\\citep{miller1956}" in tex
-    # Counterbalancing + within-subjects design synthesised from the protocol.
     assert "within-subjects" in tex and "counterbalanced" in tex
 
 
@@ -79,36 +71,24 @@ def test_every_rq_and_trace_tag_is_present():
     assert "Threats to validity" in draft.latex
 
 
-# --- results embed the recipe outputs ----------------------------------------
-
-
 def test_results_embed_recipe_summary_and_figures_with_data():
     ds = Dataset(rows=synthetic_rows())
     draft = build_paper(_protocol(), ds, "pilot-2026")
-    # fatigue-by-condition runs on the synthetic data: its summary + figure
-    # land in the RQ-P1 results, and the figure file is emitted.
     assert "fatigue-by-condition" in draft.latex
     assert "\\includegraphics" in draft.latex
     assert any(name.startswith("fatigue-by-condition_") for name in draft.figures)
-    # Booktabs tables appear.
     assert "\\toprule" in draft.latex and "\\bottomrule" in draft.latex
-
-
-# --- specification-defect logging (FR-META-1 / RQ-F1) ------------------------
 
 
 def test_missing_protocol_field_is_logged_as_specification_defect():
     doc = yaml.safe_load(PILOT.read_text())
-    del doc["conditions"]  # a field the methods section needs
+    del doc["conditions"]
     draft = build_paper(doc, Dataset(rows=[]), "pilot-2026")
     kinds = {f["kind"] for f in draft.findings}
     assert "protocol-validation" in kinds
     assert any(f["requirementId"] == "FR-PROT-1" for f in draft.findings)
     # The gap is visible in the draft, not silently dropped.
     assert "TODO" in draft.markdown
-
-
-# --- LaTeX is structurally valid (pdflatex proxy) ----------------------------
 
 
 def test_latex_environments_and_braces_balanced():
@@ -124,16 +104,12 @@ def test_latex_environments_and_braces_balanced():
     assert body.count("{") == body.count("}")
 
 
-# --- real compilation (acceptance: run a TeX engine to prove it) -------------
-
-
 def test_draft_compiles_to_pdf_when_a_tex_engine_is_present(tmp_path):
-    """Acceptance (FR-ANA-6): the emitted draft.tex compiles to a real PDF.
-
-    Skips where no TeX engine is installed (CI, dev boxes without TeX) - the
-    structural-validity test above stands in there. ``tectonic`` is preferred
-    (self-contained, runs the full bib pipeline); ``pdflatex`` is the fallback
-    the acceptance criterion names verbatim."""
+    """
+    Acceptance (FR-ANA-6): the emitted draft.tex compiles to a real PDF. Skips where no
+    TeX engine is installed (CI, dev boxes without TeX) - the structural-validity test
+    above stands in there.
+    """
     engine = shutil.which("tectonic") or shutil.which("pdflatex")
     if not engine:
         pytest.skip("no TeX engine (tectonic/pdflatex) on PATH")
@@ -143,12 +119,8 @@ def test_draft_compiles_to_pdf_when_a_tex_engine_is_present(tmp_path):
     tex = out / "draft.tex"
 
     if engine.endswith("tectonic"):
-        # Tectonic drives latex + bib + xdvipdfmx itself; fetches only the
-        # packages the preamble needs.
         cmd = [engine, "--outdir", str(out), str(tex)]
     else:
-        # Two pdflatex passes bracket bibtex so \citep resolves; run in the
-        # paper dir so the relative figures/ + references.bib paths resolve.
         subprocess.run(
             [engine, "-interaction=nonstopmode", "draft.tex"],
             cwd=out,
@@ -171,16 +143,16 @@ def test_draft_compiles_to_pdf_when_a_tex_engine_is_present(tmp_path):
 
 def test_related_work_and_bib_from_protocol_literature():
     draft = build_paper(_protocol(), Dataset(rows=[]), "pilot-2026")
-    # The three literature refs become cite keys + bib entries.
     assert "arxiv_2302_06590" in draft.bib
     assert "\\citep{arxiv_2302_06590}" in draft.latex
-    # Metric citation stubs are present so \citep resolves under pdflatex.
     assert "@misc{miller1956" in draft.bib
 
 
 def test_curated_threats_record_injected():
-    """FR-CUR-3 F3.1: a curated dataset's validity-threats record is injected
-    verbatim into the paper's threats section, with heuristic citations."""
+    """
+    FR-CUR-3 F3.1: a curated dataset's validity-threats record is injected verbatim into
+    the paper's threats section, with heuristic citations.
+    """
     record = {
         "samplingFrame": {
             "query": "repo:example/app is:merged",
@@ -217,6 +189,5 @@ def test_curated_threats_record_injected():
     assert "repo:example/app is:merged" in md
     assert "bot-suffix" in md and "aidev-ai-coding-agents-github" in md
     assert "excluded-by-inclusion-rule" in md
-    # Without a record, the section is absent (default path unchanged).
     plain = build_paper(_protocol(), Dataset(rows=[]), "pilot-2026").markdown
     assert "Data provenance (curated dataset)" not in plain

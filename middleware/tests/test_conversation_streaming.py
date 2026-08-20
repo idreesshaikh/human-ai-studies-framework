@@ -1,10 +1,4 @@
-"""Streamed design turn (D3): SSE token frames + an identical stored turn.
-
-The perceived-latency fix must not become a second, differently-worded
-answer: what streams is the prose of the *same* turn the blocking endpoint
-would have produced, persisted identically. These drive the real endpoint
-with a scripted LLM stream — no network.
-"""
+"""Streamed design turn (D3): SSE token frames + an identical stored turn."""
 
 import json
 
@@ -18,8 +12,6 @@ from middleware import assistant, design_assistant
 
 STUDY = "stream-study"
 
-#: What a provider would emit for one design turn, split mid-word and
-#: mid-escape so the extractor is exercised the way a real stream arrives.
 _REPLY = {
     "text": "Here is a within-subjects design.\nIt measures task time.",
     "moves": [
@@ -88,9 +80,6 @@ def _events(raw: str) -> list[tuple[str, dict]]:
     return out
 
 
-# ------------------------------------------------------- the extractor
-
-
 def test_extractor_yields_prose_not_json():
     """The researcher sees prose, never the braces of the JSON envelope."""
     extractor = _ReplyTextExtractor()
@@ -104,9 +93,6 @@ def test_extractor_decodes_escapes_and_stops_at_the_close():
     body = json.dumps({"text": 'a "quoted" line\nnext', "moves": [{"kind": "x"}]})
     streamed = "".join(extractor.feed(c) for c in _chunks(body, 5))
     assert streamed == 'a "quoted" line\nnext'
-
-
-# ------------------------------------------------------- the endpoint
 
 
 def test_stream_emits_tokens_then_the_full_turn(client):
@@ -144,8 +130,10 @@ def test_streamed_turn_is_stored_like_a_blocking_one(client):
 
 
 def test_a_broken_stream_falls_back_to_the_blocking_call(client, monkeypatch):
-    """A stream that dies mid-reply must still produce the turn — the
-    fallback is the whole degradation contract (NFR-4)."""
+    """
+    A stream that dies mid-reply must still produce the turn — the fallback is the whole
+    degradation contract (NFR-4).
+    """
 
     class _Broken(_StubClient):
         def stream(self, url, payload, headers):
@@ -159,13 +147,15 @@ def test_a_broken_stream_falls_back_to_the_blocking_call(client, monkeypatch):
         events = _events("".join(res.iter_text()))
 
     assert events[-1][0] == "done"
-    assert events[-1][1]["text"] == _REPLY["text"]  # from the blocking retry
+    assert events[-1][1]["text"] == _REPLY["text"]
 
 
 def test_no_model_closes_the_stream_with_a_holding_turn(client, monkeypatch):
-    """With no provider the stream still closes normally, carrying a holding
-    turn that proposes nothing — not an ``error`` frame (which leaves the
-    thread looking broken) and not an invented reply."""
+    """
+    With no provider the stream still closes normally, carrying a holding turn that
+    proposes nothing — not an ``error`` frame (which leaves the thread looking broken)
+    and not an invented reply.
+    """
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: None)
     with client.stream(
         "POST",
@@ -180,7 +170,6 @@ def test_no_model_closes_the_stream_with_a_holding_turn(client, monkeypatch):
     assert done["moves"] == []
     assert "MISTRAL_API_KEY" in done["text"]
 
-    # The researcher's own turn survives, so they needn't retype it.
     turns = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
     assert any(t["text"] == "over-trust in AI code" for t in turns)
 

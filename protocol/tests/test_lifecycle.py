@@ -54,12 +54,11 @@ def test_all_gates_satisfied_reaches_final_phase(pilot):
     assert missing_artifacts(pilot, everything) == {}
 
 
-# ------------------------------------------------- FR-PROT-10 manual advance
-
-
 def _gateless_after_ethics() -> dict:
-    """A template-shaped protocol: gates on design and ethics only — the
-    shape that used to auto-tick pilot through analysis on one approval."""
+    """
+    A template-shaped protocol: gates on design and ethics only — the shape that used to
+    auto-tick pilot through analysis on one approval.
+    """
     return {
         "phases": [
             {"name": "design", "gates": ["protocol-validated.txt"]},
@@ -74,8 +73,10 @@ def _gateless_after_ethics() -> dict:
 
 
 def test_gateless_phase_requires_explicit_advance():
-    """FR-PROT-10: ethics approval alone must not tick pilot, recruitment,
-    data-collection, and analysis — each needs its completion attestation."""
+    """
+    FR-PROT-10: ethics approval alone must not tick pilot, recruitment, data-collection,
+    and analysis — each needs its completion attestation.
+    """
     proto = _gateless_after_ethics()
     artifacts = {"protocol-validated.txt", "ethics-approval.pdf"}
     assert current_phase(proto, artifacts) == "pilot"
@@ -100,13 +101,17 @@ def test_gateless_phases_appear_in_missing_artifacts():
 
 
 def test_final_phase_never_gets_an_implicit_gate():
-    """There is nothing after write-up to advance to — no phantom open
-    requirement on the last phase."""
+    """
+    There is nothing after write-up to advance to — no phantom open requirement on the
+    last phase.
+    """
     assert gates_by_phase(_gateless_after_ethics())["write-up"] == []
 
 
 def test_declared_gates_are_never_replaced():
-    """The implicit attestation only guards phases that declare nothing —
-    a declared gate list is authoritative as-is."""
+    """
+    The implicit attestation only guards phases that declare nothing — a declared gate
+    list is authoritative as-is.
+    """
     proto = _gateless_after_ethics()
     assert gates_by_phase(proto)["ethics"] == ["ethics-approval.pdf"]

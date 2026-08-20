@@ -1,11 +1,4 @@
-"""Fire-and-forget POST to the ingestion middleware (NFR-1/2).
-
-The agent leg obeys the same never-interrupt-the-participant rule as every
-sensor: a down or slow middleware must never stall the participant's agent.
-So :func:`post_events` swallows every network error, honours a short
-timeout, and reports failure by return value only - the transcript importer
-is the completeness backstop that recovers anything a live POST dropped.
-"""
+"""Fire-and-forget POST to the ingestion middleware (NFR-1/2)."""
 
 from __future__ import annotations
 
@@ -24,8 +17,7 @@ def post_events(
     endpoint: str = DEFAULT_ENDPOINT,
     timeout: float = DEFAULT_TIMEOUT_S,
 ) -> dict:
-    """POST a ``{source, events}`` batch. Returns the middleware's summary,
-    or ``{"posted": 0, "error": ...}`` on any failure (never raises)."""
+    """POST a ``{source, events}`` batch."""
     if not events:
         return {"posted": 0, "error": None}
     body = json.dumps({"source": source, "events": events}).encode()
@@ -41,5 +33,4 @@ def post_events(
         summary["posted"] = len(events)
         return summary
     except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
-        # Best-effort mirror: loss is recoverable from the transcript.
         return {"posted": 0, "error": str(exc)}

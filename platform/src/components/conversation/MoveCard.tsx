@@ -160,7 +160,12 @@ export function MoveCard({
               onClick={() => onDecide(move.moveId, "accepted")}
             >
               <Check aria-hidden />
-              {isCaution ? "Note it" : "Accept"} <kbd className="hidden sm:inline opacity-60">a</kbd>
+              {isCaution ? "Note it" : "Accept"}
+              {/* Drawn as a key cap, the same one the command hint in
+                * ProjectSwitcher wears. As a bare dimmed letter butted
+                * against the label it read as part of the sentence —
+                * "Note it a…" had a reviewer asking "note it as what?" */}
+              <kbd className="type-legend ml-1 hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">a</kbd>
             </Button>
             <Button
               size="sm"
@@ -170,7 +175,7 @@ export function MoveCard({
               onClick={() => onDecide(move.moveId, "rejected")}
             >
               <X aria-hidden />
-              Reject <kbd className="hidden sm:inline opacity-60">r</kbd>
+              Reject<kbd className="type-legend ml-1 hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">r</kbd>
             </Button>
           </div>
         )}

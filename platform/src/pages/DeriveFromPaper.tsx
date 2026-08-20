@@ -14,13 +14,23 @@ import {
 } from "@/lib/templatesApi";
 import { OfflineError } from "@/lib/studyApi";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { CreateStudyFrom } from "@/components/templates/CreateStudyFrom";
 
 /* Turn any corpus paper into an executable template (FR-TPL-4). Search the
  * 15,000-paper corpus, pick a paper, pick a base archetype, and the platform
  * binds them: the paper becomes the design's primary source and the archetype
  * supplies the runnable structure. This is how the whole corpus becomes a set
  * of executable starting points, not just the hand-authored templates. */
-export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] }) {
+export function DeriveFromPaper({
+  templates,
+  seed = null,
+}: {
+  templates: TemplateSummary[];
+  /** A paper chosen from a design shape's own reference list, with that
+   *  shape as its archetype. Fills this panel in rather than making the
+   *  researcher re-find a paper they were already looking at. */
+  seed?: { paper: CorpusHit; baseId: string } | null;
+}) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<CorpusHit[] | null>(null);
   const [paper, setPaper] = useState<CorpusHit | null>(null);
@@ -66,6 +76,19 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
     void search(debouncedQ);
   }, [debouncedQ, search]);
 
+  /* A paper handed over from a shape's reference list. Scrolled to, because
+   * this panel sits below a page of cards and filling it silently off-screen
+   * looks like the click did nothing. */
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!seed) return;
+    setPaper(seed.paper);
+    setBaseId(seed.baseId);
+    setDerived(null);
+    setError(null);
+    panel.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [seed]);
+
   async function derive() {
     if (!paper || !baseId) return;
     setBusy(true);
@@ -80,7 +103,10 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4">
+    <section
+      ref={panel}
+      className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4"
+    >
       <div>
         <h2 className="type-subhead flex items-center gap-2 text-text">
           Start from a paper
@@ -181,6 +207,14 @@ export function DeriveFromPaper({ templates }: { templates: TemplateSummary[] })
             <BookOpen className="size-3" aria-hidden /> Primary source:{" "}
             <span className="font-mono text-text">{derived.template.source[0]?.paperRef}</span>
           </p>
+
+          {/* The point of deriving. Without this the panel produced a card
+            * describing a design and no way to use it, which is exactly the
+            * dead end a reviewer walked into. */}
+          <CreateStudyFrom
+            protocol={derived.protocol}
+            label="Turn this into a study — this design seeds its draft, citing the paper"
+          />
         </div>
       )}
     </section>

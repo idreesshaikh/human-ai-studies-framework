@@ -22,7 +22,7 @@ export const Select = React.forwardRef<
          * (index.css) is the whole focus treatment, same as Input. Adding
          * one here too drew a second blue ring just inside the first. */
         "hover:border-control-edge",
-        "disabled:cursor-not-allowed disabled:opacity-50",
+        "disabled:cursor-not-allowed disabled:border-border disabled:bg-well disabled:text-text-muted",
         className,
       )}
       {...props}

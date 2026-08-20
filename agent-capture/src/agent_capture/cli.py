@@ -1,17 +1,4 @@
-"""``agent-capture`` command-line interface - the session-runner instruments.
-
-Subcommands the facilitator runbook drives (join keys default to the
-``STUDY_*`` environment variables it sets):
-
-- ``agent-capture snapshot`` - one shadow-git snapshot tick + participant-
-  commit observation (FR-INST-15/17); run on save and/or a timer.
-- ``agent-capture harness``  - run the task's acceptance tests, emit
-  ``task_outcome`` (FR-INST-16).
-- ``agent-capture import``   - import a finished transcript (the FR-AGENT-2
-  backstop; thin wrapper over :mod:`agent_capture.import_transcript`).
-- ``agent-capture correlate`` - post-ingest cross-leg correlation +
-  code-evolution derivation (FR-AGENT-3, FR-INST-17).
-"""
+"""``agent-capture`` command-line interface - the session-runner instruments."""
 
 from __future__ import annotations
 

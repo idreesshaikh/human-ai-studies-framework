@@ -1,11 +1,4 @@
-"""Power/sensitivity curve planning math (P2-2).
-
-The bar: exact math (non-central t, not a normal approximation), textbook
-anchors (d=0.8 at 80% power needs 26 per group; d=0.5 needs ~64 per group
-— both two-sample, two-sided, alpha 0.05), monotone power in n and d,
-explicit "not reached within range" rather than a false number, and
-determinism.
-"""
+"""Power/sensitivity curve planning math (P2-2)."""
 
 from __future__ import annotations
 
@@ -14,8 +7,10 @@ from analysis.power import two_sample_power_curve
 
 
 def test_textbook_anchors():
-    """The two values every methods section checks against: 26 per group at
-    d=0.8, ~64 per group at d=0.5 (alpha 0.05, 80% power, two-sided)."""
+    """
+    The two values every methods section checks against: 26 per group at d=0.8, ~64 per
+    group at d=0.5 (alpha 0.05, 80% power, two-sided).
+    """
     r = two_sample_power_curve((0.8,), max_total_n=200)
     (req,) = r["requiredN"]
     assert req["nPerGroup"] == 26
@@ -65,7 +60,7 @@ def test_deterministic_and_json_friendly():
     assert a == b
     import json
 
-    json.dumps(a)  # must be JSON-serializable (the route returns it as-is)
+    json.dumps(a)
 
 
 def test_validation():

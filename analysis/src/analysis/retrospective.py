@@ -1,25 +1,6 @@
-"""Self-improvement retrospective (FR-META-2) - the framework proposes its
-own improvements, a human approves them.
-
-``analysis retrospective`` collects the operational-findings log (FR-META-1),
-the facilitator's ``findings.md``, and recipe-coverage aggregates, then has
-Mistral (D32 rev 2) draft a **changelist proposal**
-(SRS amendments / protocol-schema changes / instrument-config changes /
-rejected ideas), each item citing the findings that evidence it.
-
-Two hard boundaries:
-
-- **FR-ETH-4 / NFR-5:** the prompt is built from findings + *aggregates only*
-  - no participant rows, no session/participant ids. :func:`build_prompt` is
-    the choke point the grep-the-output test guards.
-- **Human gate:** the proposal is *inert* - a Markdown file. The framework
-  never edits its own requirements unattended; "self-evolving" means
-  *self-proposing*. Accepted items are applied by the researcher as ordinary,
-  changes a human makes deliberately.
-
-Offline-degradable: without ``MISTRAL_API_KEY`` it emits
-the collected evidence bundle plus a proposal template for the researcher to
-complete by hand - the evidence is still fully assembled and cited.
+"""
+Self-improvement retrospective (FR-META-2) - the framework proposes its own
+improvements, a human approves them.
 """
 
 from __future__ import annotations
@@ -49,9 +30,6 @@ SYSTEM_PROMPT = (
 )
 
 
-# ------------------------------------------------------------- collection
-
-
 def _get_json(url: str) -> object:
     with urllib.request.urlopen(url, timeout=10) as res:
         return json.loads(res.read())
@@ -64,9 +42,10 @@ def collect_evidence(
     *,
     fetch=None,
 ) -> dict:
-    """Assemble the retrospective's evidence - findings + facilitator notes +
-    coverage aggregates. ``fetch`` is the GET seam (tests inject a stub);
-    network failures degrade to empty rather than raising."""
+    """
+    Assemble the retrospective's evidence - findings + facilitator notes + coverage
+    aggregates.
+    """
     fetch = fetch or _get_json
     findings: list[dict] = []
     coverage: dict = {}
@@ -111,12 +90,8 @@ def _coverage(status: dict) -> dict:
     }
 
 
-# ---------------------------------------------------------- prompt + draft
-
-
 def build_prompt(evidence: dict) -> str:
-    """The user-message body for the model - findings + aggregates only. This is
-    the FR-ETH-4 choke point: it must contain no participant-row data."""
+    """The user-message body for the model - findings + aggregates only."""
     lines = [
         f"# Retrospective evidence for study {evidence['studyId']}",
         "",
@@ -187,22 +162,25 @@ class MistralClient:
 
 
 def make_client():
-    """A Mistral client (D32 rev 2), or None when no key is set (offline
-    path). Never raises."""
+    """A Mistral client (D32 rev 2), or None when no key is set (offline path)."""
     if key := os.environ.get("MISTRAL_API_KEY"):
         return MistralClient(key)
     return None
 
 
 def draft_with_llm(evidence: dict, client) -> str:
-    """Ask the configured model for the proposal (D32); no participant data
-    crosses the boundary."""
+    """
+    Ask the configured model for the proposal (D32); no participant data crosses the
+    boundary.
+    """
     return client.draft(SYSTEM_PROMPT, build_prompt(evidence))
 
 
 def evidence_bundle(evidence: dict) -> str:
-    """Offline fallback: the assembled evidence + a proposal template the
-    researcher completes by hand. The findings are fully cited already."""
+    """
+    Offline fallback: the assembled evidence + a proposal template the researcher
+    completes by hand.
+    """
     return (
         "# Retrospective proposal (TEMPLATE - complete by hand)\n\n"
         "The knowledge assistant was unavailable (no `MISTRAL_API_KEY`); "
@@ -230,9 +208,6 @@ def build_proposal(evidence: dict, client) -> tuple[str, bool]:
         )
         return header + body + "\n", True
     return evidence_bundle(evidence), False
-
-
-# ------------------------------------------------------------------- CLI
 
 
 def _proposal_filename() -> str:

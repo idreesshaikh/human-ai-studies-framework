@@ -28,7 +28,13 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
            * than as focus. The border still answers hover, so the field is
            * not inert-looking before it is focused. */
           "transition-colors duration-fast hover:border-text-muted",
-          "disabled:cursor-not-allowed disabled:opacity-45",
+          /* Refused the way every other control refuses: the field drops out
+           * to the recessed well with muted ink, rather than fading. Fading
+           * is the treatment `button.tsx` documents at length as wrong ("a
+           * washed-out accent fill still reads as the blue button"), so a
+           * disabled field and a disabled button in one form were declining
+           * in two different visual languages. */
+          "disabled:cursor-not-allowed disabled:border-border disabled:bg-well disabled:text-text-muted",
           quantity ? "type-quantity text-right" : "type-body",
           unit && "border-r-0",
           className,

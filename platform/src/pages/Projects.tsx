@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ChevronRight, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
@@ -96,9 +96,14 @@ function RowSkeleton() {
 export function Projects() {
   const api = useApi();
   const { refresh } = useSession();
+  const navigate = useNavigate();
   const { data, loading, error, reload } = useAsync(() => api.listProjects(), [api]);
   const [composing, setComposing] = useState(false);
   const [name, setName] = useState("");
+  /* The answer to the conversation's own opening question, asked here so a
+   * new project can go straight into the chat. Optional: someone setting up
+   * a project for a team, with studies to come later, leaves it empty. */
+  const [question, setQuestion] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [filter, setFilter] = useState("");
@@ -119,6 +124,7 @@ export function Projects() {
   const closeComposer = () => {
     setComposing(false);
     setName("");
+    setQuestion("");
     setCreateError("");
   };
 
@@ -127,14 +133,29 @@ export function Projects() {
     setCreating(true);
     setCreateError("");
     try {
-      await api.createProject(name);
+      const project = await api.createProject(name);
       setName("");
+      setQuestion("");
       setComposing(false);
       // Refresh both the project list and `me` so the creator's owner
       // membership on the new project resolves right away (role-gated controls
       // depend on it).
       reload();
       await refresh();
+
+      /* An idea given here is a study waiting to happen, so make it one and
+       * go. A reviewer expected "the chat interaction to start as soon as I
+       * created a new project" — for them a project *was* a study — and
+       * landing on an empty roster with a small "New study" button in a
+       * section header is what made the design conversation hard to find at
+       * all. Skipping the field keeps the old path, because a project really
+       * can hold several studies and someone setting one up for a team
+       * should not be handed a stray empty one. */
+      const opening = question.trim();
+      if (opening) {
+        const study = await api.createStudy(project.slug, name);
+        navigate(`/p/${project.slug}/studies/${study.id}`, { state: { opening } });
+      }
     } catch (e) {
       // Only the API's own wording reaches the researcher; a bare HTTP status
       // ("Not Found") names no problem and suggests no recovery.
@@ -170,7 +191,12 @@ export function Projects() {
           <h1 className="type-title text-text">Projects</h1>
           <p className="type-body text-text-muted">The rooms your studies live in.</p>
         </div>
-        {!composing && (
+        {/* Hidden while the empty state is showing: that state carries its own
+          * "Create your first project" fill, and with no projects yet BOTH
+          * rendered at once — one region, two accent fills, same destination.
+          * The rule is one fill per region, and when the page is empty the
+          * empty state is the better place for it. */}
+        {!composing && data && data.length > 0 && (
           <Button onClick={openComposer} data-agent="new-project">
             <Plus aria-hidden /> New project
           </Button>
@@ -196,8 +222,31 @@ export function Projects() {
               }}
               aria-describedby="new-project-hint"
             />
+          </div>
+
+          <label htmlFor="new-project-question" className="type-label text-text">
+            What do you want to find out?
+          </label>
+          <Input
+            id="new-project-question"
+            placeholder="Do developers review AI-written code as carefully as their own?"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") create();
+              if (e.key === "Escape") closeComposer();
+            }}
+            aria-describedby="new-project-question-hint"
+          />
+          <p id="new-project-question-hint" className="type-caption text-text-muted">
+            Optional. Answer it and the project opens with a study already
+            talking this through — it is the same question the conversation
+            starts with. Leave it blank to set the project up first.
+          </p>
+
+          <div className="flex flex-wrap gap-2">
             <Button onClick={create} disabled={!name.trim() || creating}>
-              {creating ? "Creating…" : "Create"}
+              {creating ? "Creating…" : question.trim() ? "Create and start" : "Create"}
             </Button>
             <Button variant="outline" onClick={closeComposer} disabled={creating}>
               Cancel
@@ -255,7 +304,11 @@ export function Projects() {
           action={
             <div className="flex flex-wrap items-center justify-center gap-2">
               {!composing && (
-                <Button onClick={openComposer}>
+                {/* Same role, same name: an agent looking for "new-project" must
+                * still find it when the page is empty, which is exactly when
+                * the header's copy is not rendered. The convention doc
+                * licenses sharing a value across two elements doing one job. */}
+                <Button onClick={openComposer} data-agent="new-project">
                   <Plus aria-hidden /> Create your first project
                 </Button>
               )}

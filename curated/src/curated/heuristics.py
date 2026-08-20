@@ -1,16 +1,6 @@
-"""Agent-authorship heuristics as a versioned registry, feeding the
-validity-threats record's ``heuristics`` field (FR-CUR-3).
-
-Identifying which mined activity was authored by an AI agent is *inference*,
-not fact - so it is never inline cleverness buried in the adapter. Each
-heuristic is a named, versioned, cited entry with its known failure modes,
-and every heuristic that fires on a dataset is recorded (id + version) in
-that dataset's validity-threats record. A reader of the resulting paper can
-see exactly how "agent-authored" was decided and where it might be wrong.
-
-Grounding: the heuristics catalogue in `mining-coding-agent-activity` and
-`aidev-ai-coding-agents-github` (bot flags, co-author trailers,
-agent-signature patterns).
+"""
+Agent-authorship heuristics as a versioned registry, feeding the validity-threats
+record's ``heuristics`` field (FR-CUR-3).
 """
 
 from __future__ import annotations
@@ -22,17 +12,19 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class ActorSignal:
-    """What a heuristic inspects: the surface features of a mined actor /
-    authorship record, content-free (a login shape, trailer flags, a bot
-    flag), never raw message bodies."""
+    """
+    What a heuristic inspects: the surface features of a mined actor / authorship
+    record, content-free (a login shape, trailer flags, a bot flag), never raw message
+    bodies.
+    """
 
     login: str
     is_bot_flagged: bool = False
-    #: Co-author trailers present on the commit (values already shape-only:
-    #: the login part, lowercased; never full free-text).
+    # Co-author trailers present on the commit (values already shape-only: the login
+    # part, lowercased; never full free-text).
     coauthor_logins: tuple[str, ...] = ()
-    #: Named agent-signature tokens the fetch layer already extracted from
-    #: structured fields (e.g. a PR app slug), never scraped from prose.
+    # Named agent-signature tokens the fetch layer already extracted from structured
+    # fields (e.g. a PR app slug), never scraped from prose.
     signature_tokens: tuple[str, ...] = ()
 
 
@@ -51,9 +43,6 @@ class Heuristic:
         return self.fn(signal)
 
 
-# Known agent app/bot slugs seen in the mining literature. Kept as a small,
-# explicit, versioned set - extending it bumps the heuristic version so the
-# threats record stays honest about which rule ran.
 _KNOWN_BOT_SUFFIXES = ("[bot]", "-bot", "-ai")
 _KNOWN_AGENT_TOKENS = frozenset(
     {"copilot", "cursor", "devin", "sweep", "claude", "codegen", "aider"}
@@ -77,8 +66,6 @@ def _agent_signature(sig: ActorSignal) -> bool:
     ) or any(tok in sig.login.lower() for tok in _KNOWN_AGENT_TOKENS)
 
 
-#: The registry. The three named heuristics the spec requires as a minimum;
-#: add more freely, each with id/version/cite/failure-modes.
 HEURISTICS: tuple[Heuristic, ...] = (
     Heuristic(
         id="bot-suffix",
@@ -118,9 +105,11 @@ HEURISTICS: tuple[Heuristic, ...] = (
 
 @dataclass
 class AuthorshipVerdict:
-    """The result of classifying an actor: whether it reads as agent-authored
-    and which heuristic ids (with versions) decided it - the audit trail that
-    lands in the threats record."""
+    """
+    The result of classifying an actor: whether it reads as agent-authored and which
+    heuristic ids (with versions) decided it - the audit trail that lands in the threats
+    record.
+    """
 
     is_agent: bool
     fired: list[str] = field(default_factory=list)
@@ -129,16 +118,16 @@ class AuthorshipVerdict:
 def classify(
     signal: ActorSignal, heuristics: tuple[Heuristic, ...] = HEURISTICS
 ) -> AuthorshipVerdict:
-    """Classify an actor; ``is_agent`` is true if any heuristic fires. Records
-    every firing heuristic as ``id@version``."""
+    """Classify an actor; ``is_agent`` is true if any heuristic fires."""
     fired = [f"{h.id}@{h.version}" for h in heuristics if h.matches(signal)]
     return AuthorshipVerdict(is_agent=bool(fired), fired=fired)
 
 
 def heuristic_records(fired_ids: set[str]) -> list[dict]:
-    """The threats-record entries for the heuristics that fired on a dataset
-    (id, version, knownFailureModes, cite). ``fired_ids`` are ``id@version``
-    strings collected across the run."""
+    """
+    The threats-record entries for the heuristics that fired on a dataset (id, version,
+    knownFailureModes, cite).
+    """
     bare = {f.split("@", 1)[0] for f in fired_ids}
     return [
         {
@@ -152,12 +141,14 @@ def heuristic_records(fired_ids: set[str]) -> list[dict]:
     ]
 
 
-# A parsing helper the adapter uses to keep the signature-token extraction in
-# one place (structured fields only, never prose scraping).
+# A parsing helper the adapter uses to keep the signature-token extraction in one place
+# (structured fields only, never prose scraping).
 _TOKEN_SPLIT = re.compile(r"[^a-z0-9]+")
 
 
 def tokenize_slug(slug: str) -> tuple[str, ...]:
-    """Split a structured slug (e.g. an app name) into lowercase tokens for
-    signature matching."""
+    """
+    Split a structured slug (e.g. an app name) into lowercase tokens for signature
+    matching.
+    """
     return tuple(t for t in _TOKEN_SPLIT.split(slug.lower()) if t)

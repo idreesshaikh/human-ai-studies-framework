@@ -50,7 +50,7 @@ def test_connection_string_format():
 def test_capture_config_version_is_stable_and_content_sensitive():
     v1 = enrollment.capture_config_version(PROTOCOL)
     assert len(v1) == 12
-    assert enrollment.capture_config_version(PROTOCOL) == v1  # deterministic
+    assert enrollment.capture_config_version(PROTOCOL) == v1
     changed = {
         **PROTOCOL,
         "instruments": {"tern": {"stuck": {"enabled": False}}},
@@ -97,14 +97,11 @@ def test_content_policy_defaults_to_metadata_only():
 
 def test_consent_statement_is_derived_and_names_the_policy():
     text = enrollment.consent_statement(PROTOCOL, "ai-assisted")
-    assert "Pilot" in text  # study title
-    assert "ai-assisted" in text  # condition
-    # active content policy stated verbatim (FR-AGENT-5)
+    assert "Pilot" in text
+    assert "ai-assisted" in text
     assert "metadata-only" in text
-    assert "raw code" in text.lower()  # the never-captured promise
+    assert "raw code" in text.lower()
 
-
-# ---- FR-DASH-13 / FR-INST-22: the catalog spans all four legs -------------
 
 ALL_FOUR = {
     **PROTOCOL,
@@ -141,11 +138,9 @@ def test_leg_summary_always_returns_all_four_in_order():
 
 
 def test_a_leg_the_protocol_omits_is_unavailable_not_disabled():
-    # PROTOCOL configures `tern` only: metrics and agent are absent entirely.
     by_leg = {s["leg"]: s for s in enrollment.leg_summary(PROTOCOL)}
     assert by_leg[enrollment.LEG_METRICS]["state"] == "unavailable"
     assert by_leg[enrollment.LEG_AGENT]["state"] == "unavailable"
-    # …and a configured leg is not swept up in that.
     assert by_leg[enrollment.LEG_COGNITIVE]["state"] == "enabled"
 
 
@@ -170,8 +165,6 @@ def test_leg_summary_carries_that_legs_toggles_and_nothing_else():
 
 
 def test_snapshot_toggles_name_the_consent_consequence():
-    # The two content-touching exceptions (FR-ETH-2) must say so in the words
-    # the participant reads, not only in the protocol.
     entries = enrollment.toggle_catalog(ALL_FOUR)
     snapshot = next(e for e in entries if e["path"] == ["snapshot", "enabled"])
     assert "consent" in snapshot["description"].lower()

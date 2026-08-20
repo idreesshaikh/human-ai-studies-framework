@@ -1,10 +1,4 @@
-"""Thin, tolerant git wrapper shared by the snapshotter and harness.
-
-git is the snapshot store (D14) and the participant's own VCS: we shell out
-rather than depend on a library. Everything is best-effort - a git failure
-must never interrupt the participant (NFR-1), so callers get empty output,
-not exceptions.
-"""
+"""Thin, tolerant git wrapper shared by the snapshotter and harness."""
 
 from __future__ import annotations
 
@@ -12,10 +6,9 @@ import os
 import subprocess
 from pathlib import Path
 
-#: Repo-context variables an *enclosing* git process exports to its hooks
-#: (commit -> pre-commit, etc.). Inheriting them would silently redirect our
-#: snapshot/harness git calls at the enclosing repo's index instead of the
-#: shadow repo we point at - scrub them so ``--git-dir``/``cwd`` always win.
+# Inheriting them would silently redirect our snapshot/harness git calls at the
+# enclosing repo's index instead of the shadow repo we point at - scrub them so
+# ``--git-dir``/``cwd`` always win.
 _GIT_CONTEXT_VARS = (
     "GIT_DIR",
     "GIT_WORK_TREE",
@@ -32,8 +25,7 @@ def _clean_env() -> dict[str, str]:
 
 
 def git(*args: str, cwd: str | Path | None = None, check: bool = False) -> str:
-    """Run ``git <args>`` and return stdout (stripped). Returns ``""`` on
-    failure unless ``check`` is set."""
+    """Run ``git <args>`` and return stdout (stripped)."""
     try:
         proc = subprocess.run(
             ["git", *args],
@@ -53,8 +45,10 @@ def git(*args: str, cwd: str | Path | None = None, check: bool = False) -> str:
 
 
 def numstat(commit_args: list[str], cwd: str | Path) -> dict:
-    """``{filesChanged, insertions, deletions}`` for ``git diff --numstat
-    <commit_args>`` (content-free - counts only, never paths or text)."""
+    """
+    ``{filesChanged, insertions, deletions}`` for ``git diff --numstat <commit_args>``
+    (content-free - counts only, never paths or text).
+    """
     out = git("diff", "--numstat", *commit_args, cwd=cwd)
     files = insertions = deletions = 0
     for line in out.splitlines():
@@ -62,7 +56,6 @@ def numstat(commit_args: list[str], cwd: str | Path) -> dict:
         if len(parts) < 3:
             continue
         files += 1
-        # Binary files show "-" for counts.
         insertions += int(parts[0]) if parts[0].isdigit() else 0
         deletions += int(parts[1]) if parts[1].isdigit() else 0
     return {"filesChanged": files, "insertions": insertions, "deletions": deletions}

@@ -24,15 +24,16 @@ def repo_root() -> Path:
 
 @pytest.fixture(scope="session")
 def pilot(example_path) -> dict:
-    """The example pilot protocol, loaded and validated. Do not mutate -
-    session-scoped; mutation tests use ``pilot_doc``."""
+    """The example pilot protocol, loaded and validated."""
     return load_protocol(example_path)
 
 
 @pytest.fixture
 def pilot_doc(example_path) -> dict:
-    """The example pilot protocol as a fresh plain (pre-validation) dict,
-    for mutation-based invalid-protocol tests."""
+    """
+    The example pilot protocol as a fresh plain (pre-validation) dict, for
+    mutation-based invalid-protocol tests.
+    """
     return yaml.safe_load(example_path.read_text("utf-8"))
 
 

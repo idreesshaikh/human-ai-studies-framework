@@ -1,16 +1,4 @@
-"""A test double for the language model the design conversation needs.
-
-The conversation requires a model (``design_assistant.ModelUnavailable``), so
-tests need one that is hermetic and deterministic. This is that: a provider
-whose ``post`` never touches the network and returns replies the test chose.
-
-It is emphatically *not* the keyword-scripted assistant that used to ship in
-production. The difference is where it lives and what it is for: this stands
-in for the model so the surrounding machinery - retrieval, grounding
-resolution, the stance gate, the repetition filter, the compiler - can be
-exercised for real. Everything under test is the real implementation; only
-the model's own words are supplied.
-"""
+"""A test double for the language model the design conversation needs."""
 
 from __future__ import annotations
 
@@ -19,7 +7,6 @@ from collections.abc import Callable, Iterable
 
 from middleware import assistant
 
-#: A reply the model might give: prose plus the moves it proposes.
 Reply = dict
 
 
@@ -39,37 +26,30 @@ def always(reply: Reply, captured: list | None = None):
     return _provider(lambda _body: reply, captured)
 
 
-#: The design prompt's user message is ``"<researcher text>\n\nCandidate menu
-#: this turn:\n..."`` (``design_llm._user_message``). The double keys on the
-#: researcher's half only - the menu names templates like
-#: ``survey-self-report-v1``, so matching the whole message would route on the
-#: platform's own vocabulary rather than the researcher's.
 _MENU_MARKER = "\n\nCandidate menu this turn:"
 
 
 def _researcher_text(body: dict) -> str | None:
-    """What the researcher actually said this turn, or None when the call is
-    not a design turn (matching's query expansion shares this provider)."""
+    """
+    What the researcher actually said this turn, or None when the call is not a design
+    turn (matching's query expansion shares this provider).
+    """
     message = body["messages"][-1]["content"]
     head, marker, _ = message.partition(_MENU_MARKER)
     return head if marker else None
 
 
 def _directive(body: dict) -> str:
-    """This turn's stance instruction - the system message the server puts
-    after the history (``design_llm._messages``). A real model is expected to
-    obey it, so the double does too."""
+    """
+    This turn's stance instruction - the system message the server puts after the
+    history (``design_llm._messages``).
+    """
     systems = [m["content"] for m in body["messages"] if m["role"] == "system"]
     return systems[-1] if len(systems) > 1 else ""
 
 
 def _menu_templates(body: dict) -> list[str]:
-    """The template ids on this turn's candidate menu, best match first.
-
-    Menu lines are ``"- <templateId>: <title> (<shape>)"`` for templates and
-    ``"- <paperRef>: <title>"`` for papers (``design_llm._candidate_menu``);
-    template ids end in a version suffix, which is what separates the two.
-    """
+    """The template ids on this turn's candidate menu, best match first."""
     _, marker, menu = body["messages"][-1]["content"].partition(_MENU_MARKER)
     if not marker:
         return []
@@ -84,8 +64,10 @@ def _menu_templates(body: dict) -> list[str]:
 
 
 def _pick_template(body: dict, prefer: str | None) -> str | None:
-    """The template the double adopts: ``prefer`` when the menu offers it,
-    otherwise the menu's own best match."""
+    """
+    The template the double adopts: ``prefer`` when the menu offers it, otherwise the
+    menu's own best match.
+    """
     ids = _menu_templates(body)
     if prefer and prefer in ids:
         return prefer
@@ -93,13 +75,7 @@ def _pick_template(body: dict, prefer: str | None) -> str | None:
 
 
 def in_turn(replies: Iterable[Reply], captured: list | None = None):
-    """A model that gives each reply once, in order, then repeats the last.
-
-    The design conversation makes one model call per turn, but *other*
-    machinery (matching's query expansion) can call the same provider, so
-    replies are consumed only by design-conversation calls - identified by
-    the candidate menu the design prompt always carries.
-    """
+    """A model that gives each reply once, in order, then repeats the last."""
     queue = list(replies)
     assert queue, "in_turn needs at least one reply"
     state = {"i": 0}
@@ -131,11 +107,6 @@ def outage():
             raise TimeoutError("simulated provider outage")
 
     return _Raises()
-
-
-# --------------------------------------------------------------- move shapes
-# Reusable move payloads, so a test says what it is exercising rather than
-# restating the wire format each time.
 
 
 def move(kind: str, section: str, value: str, *, refs: tuple[str, ...] = ()) -> dict:
@@ -196,25 +167,7 @@ def instrument(minutes: int = 45) -> dict:
 
 
 def plausible(captured: list | None = None, prefer: str | None = "metr-rct-v1"):
-    """A double that behaves like a competent, compliant model.
-
-    It reads this turn's directive - the stance the server computes and puts
-    in a system message - and does what it says: ask the named question when
-    the study isn't understood yet, propose a design when invited to, answer
-    rather than re-propose when the researcher asked a question. Only when
-    the directive leaves it free does it respond to the researcher's words.
-
-    ``prefer`` names the template it adopts when the menu offers it, so a
-    test that needs a *known* protocol to enroll against gets one instead of
-    whatever currently ranks top. Pass ``None`` to take the menu's own best
-    match, which is what a real model would most likely do.
-
-    Following the directive (rather than pattern-matching the researcher) is
-    what makes this a stand-in for a model instead of a re-implementation of
-    the keyword assistant that was removed. It also means the tests exercise
-    the *enforcement* layer honestly: the double can be told to misbehave,
-    and the server still has to stop it.
-    """
+    """A double that behaves like a competent, compliant model."""
 
     def handler(body: dict) -> Reply:
         said = _researcher_text(body)
@@ -230,9 +183,6 @@ def plausible(captured: list | None = None, prefer: str | None = "metr-rct-v1"):
             }
 
         moves: list[dict] = []
-        # Instrument changes: asked for outright, so they are acted on rather
-        # than discussed. These ride the same move path as everything else,
-        # which is the point of the amendment tests that use them.
         if "agent-capture" in said or "agent capture" in said:
             return {
                 "text": "That adds a new data stream, which is consent-relevant.",
@@ -269,11 +219,6 @@ def plausible(captured: list | None = None, prefer: str | None = "metr-rct-v1"):
                 ]
             )
 
-        # A design shape is offered when the researcher asks for one or names
-        # one themselves - not the moment the server stops forbidding it. A
-        # model that proposes a template the instant it is allowed to is
-        # exactly the over-eager behaviour the stance gate exists to temper,
-        # so the double waits to be asked, as a good one would.
         invited = (
             "explicitly asked you to name a design" in directive
             or "named a design themselves" in directive
@@ -301,8 +246,10 @@ def plausible(captured: list | None = None, prefer: str | None = "metr-rct-v1"):
 
 
 def agent_capture(policy: str = "metadata-only") -> dict:
-    """Add the agent-capture instrument — a new data stream, so the amendment
-    path treats it as consent-relevant."""
+    """
+    Add the agent-capture instrument — a new data stream, so the amendment path treats
+    it as consent-relevant.
+    """
     return {
         "kind": "add-instrument",
         "target": "instruments.agentCapture",

@@ -1,33 +1,4 @@
-"""The protocol repertoire (FR-TPL): the corpus read as ranked design shapes.
-
-A template here is **not** a replica of one paper. It is a proven, generic
-*design shape* — within-subjects crossover, telemetry × survey, two-group
-RCT, curated mining — and the papers that used that shape attach to it as
-**references**, ranked by the same continuous ``confidence`` that ranks
-grounding everywhere else. That inversion is the point: the literature stops
-being a shelf of 13 replicable studies and becomes a repertoire of designs
-you can rank, pick from, and merge into something novel that is still
-grounded in every paper it draws from.
-
-How a shape earns its place:
-
-- **Support ranks it, common → rare.** A design's ``support`` is how many
-  corpus papers above the confidence gate describe themselves with that
-  shape's curated ``designSignature`` phrases ("crossover",
-  "counterbalanced", "McNemar"). A full census, no LLM, no sampling — so
-  widely used designs surface first and rare ones sit at the tail rather
-  than being hidden. Signatures are curated per template precisely because
-  matching a template's *prose* would score topical similarity instead, and
-  every AI-and-developers paper would "use" every design.
-- **A rare design must be well-sourced.** Below :data:`RARE_SUPPORT_FLOOR`
-  references, a shape is admitted only if its best reference clears
-  :data:`RARE_ADMISSION_CONFIDENCE` — a design seen in one paper is allowed
-  in exactly when that one paper is good. Otherwise it is returned with
-  ``admitted: False`` and the reason, never silently dropped.
-- **Nothing is invented.** References are corpus rows; a declared ``source:``
-  paper the corpus does not hold is reported as unresolved, not fabricated.
-  A shape's support is countable by hand from the same two inputs.
-"""
+"""The protocol repertoire (FR-TPL): the corpus read as ranked design shapes."""
 
 from __future__ import annotations
 
@@ -42,34 +13,17 @@ from middleware.db import CORPUS_STUDY_ID, Paper
 
 log = logging.getLogger(__name__)
 
-#: A reference has to be at least this confident to count as support - the
-#: quality gate that keeps a rare design from being propped up by weak rows.
 MIN_REFERENCE_CONFIDENCE = 0.5
 
-#: Fewer references than this and the design is rare enough to need its best
-#: source to be strong before it is admitted to the repertoire.
 RARE_SUPPORT_FLOOR = 3
 RARE_ADMISSION_CONFIDENCE = 0.75
 
-#: Support bands, purely for the label the UI shows (the ordering is the
-#: continuous support count itself). Calibrated against the current corpus,
-#: where usage spans ~13 papers (2x2 factorial) to ~1700 (benchmark
-#: evaluation) — re-tune here if the corpus's shape changes.
 COMMON_SUPPORT = 100
 ESTABLISHED_SUPPORT = 25
 
 
 def design_signature(template: dict) -> list[str]:
-    """The distinctive phrases a paper using this shape says about itself.
-
-    Curated per template (``designSignature:``), because that is the only
-    honest way to count *design* usage: matching a template's prose instead
-    would score topical similarity, and every AI-and-developers paper would
-    "use" every design. A template without a curated signature (a submission,
-    or one derived from a paper) falls back to its design type and prescribed
-    test names — still far narrower than prose, so it under-counts rather
-    than inflating.
-    """
+    """The distinctive phrases a paper using this shape says about itself."""
     explicit = [
         str(p).strip().lower() for p in template.get("designSignature", []) or []
     ]
@@ -85,22 +39,20 @@ def design_signature(template: dict) -> list[str]:
 
 
 def _signature_pattern(phrases: list[str]) -> re.Pattern[str] | None:
-    """One alternation over every phrase in the repertoire, whole-token (so
-    'tlx' doesn't fire inside another word). One compiled pass per paper
-    keeps a 15k-row census in the low seconds instead of scanning the corpus
-    once per phrase."""
+    """
+    One alternation over every phrase in the repertoire, whole-token (so 'tlx' doesn't
+    fire inside another word).
+    """
     if not phrases:
         return None
-    # Longest first so 'within-subjects' wins over a shorter overlapping
-    # alternative at the same position.
     alternation = "|".join(re.escape(p) for p in sorted(phrases, key=len, reverse=True))
     return re.compile(rf"(?<![a-z0-9])({alternation})(?![a-z0-9])")
 
 
 def scan_corpus(s: Session, signatures: dict[str, list[str]]) -> list[dict]:
-    """One pass over the corpus, recording which signature phrases each
-    paper carries. One scan serves the whole repertoire — the alternative
-    (a query per shape) reads the corpus once per template."""
+    """
+    One pass over the corpus, recording which signature phrases each paper carries.
+    """
     pattern = _signature_pattern(
         sorted({phrase for phrases in signatures.values() for phrase in phrases})
     )
@@ -129,12 +81,7 @@ def scan_corpus(s: Session, signatures: dict[str, list[str]]) -> list[dict]:
 
 
 def _declared_references(s: Session, template: dict) -> tuple[list[dict], list[str]]:
-    """The papers the template itself cites, resolved against the corpus.
-
-    Returns ``(references, unresolved_refs)`` — a declared paper the corpus
-    does not hold is named as unresolved rather than rendered from the
-    template's own say-so.
-    """
+    """The papers the template itself cites, resolved against the corpus."""
     refs: list[dict] = []
     unresolved: list[str] = []
     for src in template.get("source", []) or []:
@@ -162,13 +109,7 @@ def _declared_references(s: Session, template: dict) -> tuple[list[dict], list[s
 def references_for(
     s: Session, template: dict, *, limit: int = 8, scanned: list[dict] | None = None
 ) -> dict:
-    """Papers that used this design shape, declared sources first.
-
-    Returns ``{references, support, phrases, unresolved}``. ``support`` is a
-    full corpus census of papers above the confidence gate carrying one of
-    this shape's signature phrases — not a sample. Deterministic: string
-    matching and the stored confidence, no LLM anywhere in the count.
-    """
+    """Papers that used this design shape, declared sources first."""
     signature = design_signature(template)
     if scanned is None:
         scanned = scan_corpus(s, {"": signature})
@@ -182,8 +123,6 @@ def references_for(
         and (paper["confidence"] or 0.0) >= MIN_REFERENCE_CONFIDENCE
         and any(phrase in signature for phrase in paper["phrases"])
     ]
-    # Strongest evidence first: how much of the signature the paper carries,
-    # then its quality confidence, then the ref so ties are stable.
     users.sort(
         key=lambda p: (
             -len([x for x in p["phrases"] if x in signature]),
@@ -235,22 +174,16 @@ def _admission(support: int, references: list[dict]) -> tuple[bool, str]:
     )
 
 
-#: The repertoire is a pure function of (registry, corpus), and both change
-#: rarely — memoize on the corpus row count so a fresh import or an abstract
-#: backfill invalidates it, but repeated page loads don't re-rank 13 shapes.
+# The repertoire is a pure function of (registry, corpus), and both change rarely —
+# memoize on the corpus row count so a fresh import or an abstract backfill invalidates
+# it, but repeated page loads don't re-rank 13 shapes.
 _CACHE: dict[tuple, list[dict]] = {}
 
 
 def rank_repertoire(
     s: Session, *, limit_refs: int = 6, use_cache: bool = True
 ) -> list[dict]:
-    """Every design shape, ranked common → rare, with its references.
-
-    Each entry: ``{templateId, templateVersion, title, description,
-    designType, dataPath, support, signature, band, admitted,
-    admissionNote, references, unresolvedSources, parameters,
-    statisticalPlan, measures, threats}``.
-    """
+    """Every design shape, ranked common → rare, with its references."""
     corpus_rows = s.scalar(
         select(func.count()).select_from(Paper).where(Paper.study_id == CORPUS_STUDY_ID)
     )
@@ -285,7 +218,6 @@ def rank_repertoire(
                 "unresolvedSources": found["unresolved"],
             }
         )
-    # Common first; ties broken by id so the order is stable across calls.
     entries.sort(key=lambda e: (-e["support"], e["id"]))
     if use_cache:
         _CACHE[key] = entries

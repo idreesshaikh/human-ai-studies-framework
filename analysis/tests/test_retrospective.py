@@ -1,12 +1,12 @@
-"""Self-improvement retrospective (FR-META-2, Part C): evidence
-collection, the FR-ETH-4 prompt boundary, the offline bundle, and a scripted
-Claude draft."""
+"""
+Self-improvement retrospective (FR-META-2, Part C): evidence collection, the FR-ETH-4
+prompt boundary, the offline bundle, and a scripted Claude draft.
+"""
 
 from analysis import retrospective
 
-# A findings log with the two acceptance findings (a seq gap + a
-# requires-fail) plus an aggregate status carrying participant sessions the
-# prompt must NOT leak (FR-ETH-4).
+# A findings log with the two acceptance findings (a seq gap + a requires-fail) plus an
+# aggregate status carrying participant sessions the prompt must NOT leak (FR-ETH-4).
 FINDINGS = [
     {
         "id": 1,
@@ -29,7 +29,7 @@ FINDINGS = [
 STATUS = {
     "lifecycle": {"currentPhase": "analysis"},
     "plannedParticipants": 6,
-    "sessions": [  # carries participant/session ids the prompt must drop
+    "sessions": [
         {"sessionId": "S1", "participantId": "P01", "condition": "ai-assisted"},
         {"sessionId": "S2", "participantId": "P02", "condition": "unassisted"},
     ],
@@ -52,21 +52,20 @@ def test_collect_evidence_pulls_findings_and_aggregate_coverage():
         "http://mw", "pilot-2026", None, fetch=_fake_fetch
     )
     assert len(ev["findings"]) == 2
-    # Coverage is aggregate only - a session *count*, not the session list.
     assert ev["coverage"]["sessionCount"] == 2
     assert "sessions" not in ev["coverage"]
 
 
 def test_prompt_cites_both_findings_and_leaks_no_participant_rows():
-    """Acceptance: both findings are cited as evidence; and the FR-ETH-4
-    grep - no participant-row data reaches the prompt-construction output."""
+    """
+    Acceptance: both findings are cited as evidence; and the FR-ETH-4 grep - no
+    participant-row data reaches the prompt-construction output.
+    """
     ev = retrospective.collect_evidence(
         "http://mw", "pilot-2026", None, fetch=_fake_fetch
     )
     prompt = retrospective.build_prompt(ev)
-    # Both findings cited by requirement id.
     assert "FR-ING-3" in prompt and "FR-ANA-2" in prompt
-    # No participant identifiers or per-session participant rows leak.
     assert "P01" not in prompt and "P02" not in prompt
     assert "participantId" not in prompt
 
@@ -77,7 +76,6 @@ def test_offline_bundle_lists_the_findings_as_a_template(tmp_path):
     )
     proposal, used_llm = retrospective.build_proposal(ev, client=None)
     assert used_llm is False
-    # The evidence is fully assembled and cited for manual drafting.
     assert "FR-ING-3" in proposal and "FR-ANA-2" in proposal
     assert "## Platform changes" in proposal
     assert "Explicitly rejected ideas" in proposal
@@ -94,7 +92,6 @@ def test_facilitator_notes_are_folded_in(tmp_path):
 
 class FakeModel:
     def draft(self, system, prompt):
-        # Echo that it saw both findings, as a real proposal would cite them.
         assert "FR-ING-3" in prompt
         return (
             "## SRS amendments\n- FR-ING-3: amend - the seq-gap finding shows "

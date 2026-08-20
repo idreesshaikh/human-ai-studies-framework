@@ -1,25 +1,5 @@
-"""Normalize a Claude Code transcript JSONL into agent-leg StudyEvents
-(FR-AGENT-1/2).
-
-The transcript at ``~/.claude/projects/<workspace>/<agent-session>.jsonl``
-is one JSON object per line. Its exact shape is internal to Claude Code and
-documented as version-dependent, so this parser is deliberately *tolerant*:
-malformed lines are skipped, missing fields default, and unknown line types
-are ignored. Local JSONL is the completeness backstop (NFR-2) - it must
-never raise on a session it half-understands.
-
-The same function powers both capture paths, which is what makes them
-reconcile (FR-ING-2) instead of duplicate:
-
-- the live hook re-normalizes the transcript-so-far on each trigger and
-  POSTs the whole batch (fire-and-forget liveness), and
-- the importer normalizes the finished transcript once (completeness).
-
-Because the transcript is append-only, an event's ordinal position is
-stable across every re-normalization, so it becomes the producer ``seq``:
-the same logical turn/tool-call always lands at the same ``(session,
-source, seq)`` key and later POSTs are dropped as duplicates. ``seq`` 0 is
-always ``agent_session_meta``.
+"""
+Normalize a Claude Code transcript JSONL into agent-leg StudyEvents (FR-AGENT-1/2).
 """
 
 from __future__ import annotations
@@ -43,9 +23,7 @@ _FENCE = re.compile(r"```([^\n`]*)\n(.*?)```", re.DOTALL)
 
 
 def read_jsonl(path: str | Path) -> list[dict]:
-    """Every parseable JSON object in the file, in order. Tolerant: a
-    truncated final line (a session captured mid-write) or a malformed row
-    is skipped, never fatal."""
+    """Every parseable JSON object in the file, in order."""
     p = Path(path)
     if not p.is_file():
         return []
@@ -64,14 +42,18 @@ def read_jsonl(path: str | Path) -> list[dict]:
 
 
 def _hash(value: str) -> str:
-    """Content-free 16-hex token for a path/target (FR-ETH-2): the leg
-    stores *which* target was touched as a shape, never the path text."""
+    """
+    Content-free 16-hex token for a path/target (FR-ETH-2): the leg stores *which*
+    target was touched as a shape, never the path text.
+    """
     return sha256(value.encode()).hexdigest()[:16]
 
 
 def _text_of(content: object) -> str:
-    """Assistant/user message text, whether ``content`` is a bare string or
-    an Anthropic block array (text blocks concatenated)."""
+    """
+    Assistant/user message text, whether ``content`` is a bare string or an Anthropic
+    block array (text blocks concatenated).
+    """
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -90,8 +72,10 @@ def _blocks(content: object) -> list[dict]:
 
 
 def _code_blocks(text: str) -> list[dict]:
-    """Fenced code blocks in the message text as shapes (FR-ETH-2): language
-    tag, char count, line count - never the code."""
+    """
+    Fenced code blocks in the message text as shapes (FR-ETH-2): language tag, char
+    count, line count - never the code.
+    """
     out = []
     for lang, body in _FENCE.findall(text):
         out.append(
@@ -105,8 +89,10 @@ def _code_blocks(text: str) -> list[dict]:
 
 
 def _usage(message: dict) -> dict:
-    """Token-usage metadata lifted from the transcript (metadata, allowed at
-    every content policy; `requirements/metric-coverage.md` §4)."""
+    """
+    Token-usage metadata lifted from the transcript (metadata, allowed at every content
+    policy; `requirements/metric-coverage.md` §4).
+    """
     usage = message.get("usage") or {}
     out = {}
     if "input_tokens" in usage:
@@ -143,12 +129,7 @@ def _normalize_copilot_chat(
     *,
     min_token_len: int = DEFAULT_MIN_TOKEN_LEN,
 ) -> list[dict]:
-    """Normalize a Copilot Chat / generic JSON transcript shape.
-
-    Expected line shape: ``{timestamp, role, content, tool_name?, tool_input?}``
-    where ``role`` is ``"user"`` or ``"assistant"`` and ``content`` is a bare
-    string. Produces the same event contract as Claude Code transcripts.
-    """
+    """Normalize a Copilot Chat / generic JSON transcript shape."""
     logical: list[tuple[str, str, dict]] = []
     prev_ts: str | None = None
     for turn_index, line in enumerate(lines):
@@ -198,11 +179,7 @@ def _normalize_copilot_chat(
 
 
 def _detect_format(path: str | Path) -> str:
-    """Sniff the transcript format from the first line.
-
-    Returns ``"claude-code"`` (Anthropic-style message blocks) or ``"generic-json"``
-    (flat role/content lines). Falls back to ``"claude-code"`` when undetectable.
-    """
+    """Sniff the transcript format from the first line."""
     lines = read_jsonl(path)
     if not lines:
         return "claude-code"
@@ -223,26 +200,15 @@ def normalize_transcript(
     format: str | None = None,
     min_token_len: int = DEFAULT_MIN_TOKEN_LEN,
 ) -> list[dict]:
-    """The whole transcript as ordered agent-leg StudyEvents (seq = position).
-
-    ``agent_turn`` (both roles), ``tool_call`` (emitted when its result
-    lands, so success/duration are known), and a leading
-    ``agent_session_meta``. Conversation text passes through the content
-    policy (FR-AGENT-5); at ``metadata-only`` no ``content`` field is
-    emitted at all.
-
-    ``format`` is ``"claude-code"`` (default), ``"generic-json"``, or
-    ``None`` (auto-detect). FR-AGENT-4: second-format support via the
-    same event contract.
-    """
+    """The whole transcript as ordered agent-leg StudyEvents (seq = position)."""
     fmt = format or _detect_format(transcript_path)
     lines = read_jsonl(transcript_path)
 
     if fmt == "generic-json":
         return _normalize_copilot_chat(lines, keys, policy, min_token_len=min_token_len)
-    logical: list[tuple[str, str, dict]] = []  # (ts, type, payload)
+    logical: list[tuple[str, str, dict]] = []
     turn_index = 0
-    pending: dict[str, dict] = {}  # tool_use_id -> {name, ts, targetHash}
+    pending: dict[str, dict] = {}
     prev_ts: str | None = None
 
     for line in lines:
@@ -257,7 +223,7 @@ def normalize_transcript(
                 "role": "assistant",
                 "turnIndex": turn_index,
                 "chars": len(text),
-                "responseChars": len(text),  # what the RQ-P5 recipe reads
+                "responseChars": len(text),
                 "codeBlocks": _code_blocks(text),
                 **_usage(msg),
             }
@@ -277,7 +243,6 @@ def normalize_transcript(
                     }
 
         elif mtype == "user":
-            # A user line is either a real prompt or a tool_result carrier.
             for b in _blocks(content):
                 if b.get("type") == "tool_result":
                     logical.append(_tool_call_event(b, pending, ts))

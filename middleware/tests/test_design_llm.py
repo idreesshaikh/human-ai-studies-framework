@@ -1,11 +1,4 @@
-"""Unit tests for the LLM-driven design-conversation seam (FR-CONV-1.4).
-
-Pure tests against ``design_llm.propose_turn`` with a fake, injectable
-provider (mirrors how ``test_knowledge_layer.py`` drives
-``assistant.MistralProvider`` with a scripted ``post``) — no network, no
-HTTP layer. The end-to-end wiring through ``/conversation/turns`` is
-covered separately in ``test_conversation.py``.
-"""
+"""Unit tests for the LLM-driven design-conversation seam (FR-CONV-1.4)."""
 
 import json
 
@@ -57,8 +50,10 @@ def test_propose_turn_happy_path_returns_validated_moves():
 
 
 def test_propose_turn_strips_refs_outside_the_candidate_menu():
-    """Wall #3: a citation the model invents (not in the menu this turn)
-    never survives, even though the JSON is otherwise well-formed."""
+    """
+    Wall #3: a citation the model invents (not in the menu this turn) never survives,
+    even though the JSON is otherwise well-formed.
+    """
     reply = {
         "text": "Reply.",
         "moves": [
@@ -98,11 +93,12 @@ def test_propose_turn_drops_unknown_kind_but_keeps_the_text():
 
 
 def test_propose_turn_drops_a_move_whose_patch_never_validates():
-    """Regression: a non-caution move whose patch fails validation used to
-    render anyway with `patch=None` - accepting it looked like it worked but
-    silently never touched the draft (the "accepted but only noted" trap
-    previously guarded only for choose-template). It must be dropped
-    entirely instead of offered as a dud."""
+    """
+    Regression: a non-caution move whose patch fails validation used to render anyway
+    with `patch=None` - accepting it looked like it worked but silently never touched
+    the draft (the "accepted but only noted" trap previously guarded only for
+    choose-template).
+    """
     reply = {
         "text": "Reply.",
         "moves": [
@@ -122,14 +118,7 @@ def test_propose_turn_drops_a_move_whose_patch_never_validates():
 
 
 def test_add_instrument_kind_naming_the_ethics_section_is_salvaged():
-    """Regression: an observed real-world failure. The model sometimes picks
-    `add-instrument` for an ethics/consent move (it reads as "adding a
-    policy") instead of `set-parameter`. `add-instrument`'s patch shape
-    requires `section: "instruments"`, so the ethics patch used to be
-    dropped outright - the move rendered as an accept/reject card but
-    accepting it never touched the draft (ethics stayed empty forever, no
-    matter how the researcher asked). The patch names a real section by
-    shape, so it must be salvaged and compiled, whatever kind carried it."""
+    """Regression: an observed real-world failure."""
     reply = {
         "text": "Here's an ethics posture.",
         "moves": [
@@ -184,10 +173,12 @@ def test_propose_turn_validates_choose_template_patch():
 
 
 def test_propose_turn_normalizes_list_and_numeric_patch_values():
-    """Section values must end up as strings: a list survives (the compiler
-    flattens it into one entry per item), a number is stringified, and a
-    dict value drops - and therefore drops the whole move, rather than
-    poisoning the draft's schema or offering a move that no-ops."""
+    """
+    Section values must end up as strings: a list survives (the compiler flattens it
+    into one entry per item), a number is stringified, and a dict value drops - and
+    therefore drops the whole move, rather than poisoning the draft's schema or offering
+    a move that no-ops.
+    """
     reply = {
         "text": "Reply.",
         "moves": [
@@ -227,9 +218,11 @@ def test_propose_turn_normalizes_list_and_numeric_patch_values():
 
 
 def test_propose_turn_drops_choose_template_with_hallucinated_id():
-    """A choose-template move naming a template the registry doesn't have is
-    dropped entirely — accepted, it would poison every future compile, and
-    patch-less it would be the "accepted but only noted" trap."""
+    """
+    A choose-template move naming a template the registry doesn't have is dropped
+    entirely — accepted, it would poison every future compile, and patch-less it would
+    be the "accepted but only noted" trap.
+    """
     reply = {
         "text": "Adopt a template.",
         "moves": [
@@ -266,8 +259,10 @@ def test_propose_turn_returns_none_when_reply_is_empty():
 
 
 def test_propose_turn_accepts_text_only_reply_with_no_moves():
-    """A conversational reply with nothing (yet) to propose is not a
-    failure — it's an honest turn."""
+    """
+    A conversational reply with nothing (yet) to propose is not a failure — it's an
+    honest turn.
+    """
     reply = {"text": "Tell me more about your population first.", "moves": []}
     client = _fake_client(reply)
     script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
@@ -275,8 +270,8 @@ def test_propose_turn_accepts_text_only_reply_with_no_moves():
     assert script.moves == ()
 
 
-# ------------------------------------------------ design state (repetition +
-# coverage steering): the structured block the prose history can't carry.
+# ------------------------------------------------ design state (repetition + coverage
+# steering): the structured block the prose history can't carry.
 
 
 def _capturing_client(content: dict, captured: list):
@@ -307,9 +302,6 @@ DESIGN_STATE = {
     "proposed": [],
     "filled": ["researchQuestions", "measures"],
     "empty": ["participants", "statisticalPlan"],
-    # What the protocol itself still lacks - a different list from the eight
-    # conversation sections above, and the only one that decides whether the
-    # draft compiles.
     "outstandingSlots": [
         {
             "key": "participants.planned",
@@ -334,11 +326,11 @@ def test_propose_turn_threads_design_state_into_the_request():
     assert script is not None
     user = captured[0]["messages"][-1]["content"]
     assert "Design state so far:" in user
-    assert "Measure review latency." in user  # accepted — do not re-propose
-    assert "Run a three-arm condition split." in user  # rejected — do not re-pitch
+    assert "Measure review latency." in user
+    assert "Run a three-arm condition split." in user
     assert "The protocol still needs: how many participants" in user
     system = captured[0]["messages"][0]["content"]
-    assert "NEVER re-propose" in system  # the anti-repetition rule is standing
+    assert "NEVER re-propose" in system
 
 
 def test_propose_turn_notes_the_accepted_templates_prescribed_statistics():
@@ -356,15 +348,17 @@ def test_propose_turn_notes_the_accepted_templates_prescribed_statistics():
     user = captured[0]["messages"][-1]["content"]
     assert "Template metr-rct-v1 is accepted and prescribes" in user
     assert "record or refine that prescription" in user
-    # A template never closes the statisticalPlan section outright — the
-    # regression that made the assistant refuse statisticalPlan moves.
+    # A template never closes the statisticalPlan section outright — the regression that
+    # made the assistant refuse statisticalPlan moves.
     assert "do not propose a standalone statisticalPlan move" not in user
 
 
 def test_cautions_render_as_advisory_and_the_prompt_says_they_fill_nothing():
-    """A caution carries no patch: it must not read as draft content in the
-    state block, and the standing prompt must say how ethics actually gets
-    filled (the bug: two accepted ethics cautions, ethics slot still dark)."""
+    """
+    A caution carries no patch: it must not read as draft content in the state block,
+    and the standing prompt must say how ethics actually gets filled (the bug: two
+    accepted ethics cautions, ethics slot still dark).
+    """
     captured: list = []
     client = _capturing_client({"text": "Noted.", "moves": []}, captured)
     state = {
@@ -387,8 +381,10 @@ def test_cautions_render_as_advisory_and_the_prompt_says_they_fill_nothing():
 
 
 def test_propose_turn_without_design_state_omits_the_block():
-    """Backward compatible: no state (stateless demo, first turn) — the
-    request looks exactly like before."""
+    """
+    Backward compatible: no state (stateless demo, first turn) — the request looks
+    exactly like before.
+    """
     captured: list = []
     client = _capturing_client({"text": "Noted.", "moves": []}, captured)
     design_llm.propose_turn(client, "what next?", [], PAPERS, TEMPLATES)

@@ -1,18 +1,4 @@
-"""``protocol`` command-line interface.
-
-Subcommands prove the study-as-code claim end to end:
-
-- ``protocol validate <file>``       - schema + referential validation, RQ
-  coverage report (FR-PROT-1/2/5).
-- ``protocol status <file>``         - current lifecycle phase and the open
-  gate artifacts per phase (FR-PROT-3).
-- ``protocol derive overlay-settings <file> --participant --condition`` -
-  the ``tern.*`` VS Code settings JSON for one session,
-  derived from the protocol alone (FR-PROT-4).
-- ``protocol export replication-kit <file>`` - the study's reproducible
-  archive: protocol + dataset + regenerated report + pinned environment
-  (FR-PROT-7, NFR-6).
-"""
+"""``protocol`` command-line interface."""
 
 import argparse
 import json
@@ -48,8 +34,10 @@ def _cmd_validate(args: argparse.Namespace) -> int:
 
 
 def _collect_artifacts(args: argparse.Namespace) -> set[str]:
-    """Artifacts produced so far: ``--artifact`` names plus, for
-    ``--artifacts-dir``, every file's path relative to that directory."""
+    """
+    Artifacts produced so far: ``--artifact`` names plus, for ``--artifacts-dir``, every
+    file's path relative to that directory.
+    """
     artifacts = set(args.artifact)
     if args.artifacts_dir:
         root = Path(args.artifacts_dir)
@@ -89,8 +77,6 @@ def _cmd_derive_agent_hooks(args: argparse.Namespace) -> int:
     protocol = load_protocol(args.file)
     hooks = derive_agent_hooks(protocol, command=args.command)
     print(json.dumps(hooks, indent=2))
-    # The hook pack is self-contained bar the runbook's exported join keys -
-    # surfaced on stderr so piping stdout to .claude/settings.json stays clean.
     print(
         "# write to <task-workspace>/.claude/settings.json; the facilitator "
         "runbook exports: " + ", ".join(AGENT_HOOK_ENV_VARS),

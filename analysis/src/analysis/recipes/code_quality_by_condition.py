@@ -1,13 +1,4 @@
-"""code-quality-by-condition (RQ-P2): the 9-metric matrix by condition.
-
-Test choice: static-metric distributions are skewed and per-function /
-per-file measurements within one workspace are not independent, so every
-metric is compared with the **exact Mann-Whitney U** at measurement level
-and reported *primarily through its effect size* - **Cliff's delta** - as
-honest statistics demand ("effect sizes, not just p-values"). p-values are
-still shown (exact, two-sided) but the table is sorted by |delta|; the
-independence caveat is explicit in the methods text.
-"""
+"""code-quality-by-condition (RQ-P2): the 9-metric matrix by condition."""
 
 from __future__ import annotations
 
@@ -19,8 +10,6 @@ from analysis.dataset import Dataset
 from analysis.figures import condition_colors
 from analysis.recipes._common import two_conditions
 
-#: The 9-metric cognitive-load matrix (metrics/docs/static_code_metrics.md);
-#: whichever columns the dataset actually carries are analyzed.
 MATRIX = [
     "nesting_penalty",
     "cognitive_complexity",
@@ -100,7 +89,6 @@ def run(dataset: Dataset) -> RecipeResult:
             "only, no comparison possible."
         )
 
-    # Small-multiples: one panel per available metric, every point drawn.
     colors = condition_colors(dataset.conditions)
     ncols = min(3, len(available))
     nrows = -(-len(available) // ncols)

@@ -1,11 +1,4 @@
-"""Starter notebook + data dictionary (the curated handoff).
-
-The notebook must be a valid nbformat-4 document; its dictionary must
-document only columns that actually exist in the dataset (and payload keys
-only for types that appear); and every planned recipe's import cell must
-resolve to a real module. Determinism is asserted like the paper draft's
-golden-file test: same inputs, byte-identical output.
-"""
+"""Starter notebook + data dictionary (the curated handoff)."""
 
 from __future__ import annotations
 
@@ -47,23 +40,20 @@ def test_build_notebook_is_valid_nbformat4_json():
 
 
 def test_the_notebook_actually_opens_in_jupyter():
-    """The bar that matters: not "shaped like nbformat 4" by this module's own
-    assumptions, but valid against nbformat's real schema — the same check
-    Jupyter itself runs on open.
-
-    Regression: a hand-rolled code cell with no ``execution_count`` key
-    passed every check above (it *is* valid JSON, its ``cell_type`` *is*
-    "code", its ``source`` *is* a non-empty string) and still failed
-    ``nbformat.validate`` — "'execution_count' is a required property".
-    Nothing here would have caught that without calling the real validator.
+    """
+    The bar that matters: not "shaped like nbformat 4" by this module's own assumptions,
+    but valid against nbformat's real schema — the same check Jupyter itself runs on
+    open.
     """
     doc = build_notebook(_protocol(), _dataset(), "pilot-2026")
-    nbformat.validate(nbformat.from_dict(doc))  # raises on any schema violation
+    nbformat.validate(nbformat.from_dict(doc))
 
 
 def test_cell_ids_are_present_and_unique():
-    """nbformat 4.5+ requires a cell id; two cells sharing one is also a
-    validation failure nbformat catches but a shape-only check would not."""
+    """
+    nbformat 4.5+ requires a cell id; two cells sharing one is also a validation failure
+    nbformat catches but a shape-only check would not.
+    """
     doc = build_notebook(_protocol(), _dataset(), "pilot-2026")
     ids = [c["id"] for c in doc["cells"]]
     assert all(ids)
@@ -83,10 +73,8 @@ def test_notebook_is_deterministic():
 def test_dictionary_documents_only_real_columns():
     dataset = _dataset()
     md = data_dictionary_markdown(dataset)
-    # The stamped event columns are documented.
     for column in [*JOIN_KEYS, "ts", "type", "seq"]:
         assert f"`{column}`" in md
-    # Every documented payload key actually appears in some payload.
     rows_by_type: dict[str, set[str]] = {}
     for row in dataset.rows:
         if row.get("source") == "metrics":
@@ -100,7 +88,6 @@ def test_dictionary_documents_only_real_columns():
             assert any(key in keys for keys in rows_by_type.values()), (
                 f"documented payload key {key!r} never appears in the data"
             )
-    # Metric columns documented only if numeric values exist.
     for column in dataset.metric_columns:
         assert f"`{column}`" in md
 
@@ -125,16 +112,18 @@ def test_every_planned_recipe_has_a_resolvable_import_cell():
 def test_notebook_never_runs_a_recipe():
     doc = build_notebook(_protocol(), _dataset(), "pilot-2026")
     source = "\n".join(c.get("source", "") for c in doc["cells"])
-    assert ".run(dataset)" in source  # the import cell calls it...
+    assert ".run(dataset)" in source
     assert "result.summary" in source
     # ...but the notebook itself must not execute anything at build time.
     assert "Your analysis starts here" in source
 
 
 def test_notebook_carries_the_session_timeline_cell():
-    """P2-1: the curated handoff leads with the one-glance session picture —
-    the timeline figure — before any recipe, so the researcher sees the shape
-    of the data (and any integrity flags) first."""
+    """
+    P2-1: the curated handoff leads with the one-glance session picture — the timeline
+    figure — before any recipe, so the researcher sees the shape of the data (and any
+    integrity flags) first.
+    """
     doc = build_notebook(_protocol(), _dataset(), "pilot-2026")
     source = "\n".join(c.get("source", "") for c in doc["cells"])
     assert "## Session timeline" in source

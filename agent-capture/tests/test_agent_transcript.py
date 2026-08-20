@@ -14,20 +14,17 @@ def test_normalizes_turns_tools_and_meta(transcript_path, keys):
     events = normalize_transcript(transcript_path, keys, "metadata-only")
     types = [e["type"] for e in events]
 
-    # Leading session meta, then turns and tool calls interleaved.
     assert types[0] == "agent_session_meta"
     assert events[0]["payload"]["agentTool"] == "claude-code"
     assert events[0]["payload"]["modelId"] == "claude-opus-4-8"
-    # cwd is stored only as a content-free hash (FR-ETH-2).
     assert (
         events[0]["payload"]["cwdHash"]
         and "/work" not in events[0]["payload"]["cwdHash"]
     )
 
-    assert types.count("agent_turn") == 4  # 1 user + 3 assistant
-    assert types.count("tool_call") == 2  # Read + Edit
+    assert types.count("agent_turn") == 4
+    assert types.count("tool_call") == 2
 
-    # Every row carries the join keys and the agent-leg schema version.
     for e in events:
         assert e["sessionId"] == "S1"
         assert e["participantId"] == "P01"
@@ -50,7 +47,6 @@ def test_token_usage_is_lifted_as_metadata(transcript_path, keys):
     ]
     assert assistant[0]["payload"]["inputTokens"] == 1200
     assert assistant[0]["payload"]["outputTokens"] == 45
-    # Code blocks captured as shapes, not code.
     fix_turn = assistant[1]["payload"]
     assert fix_turn["codeBlocks"][0]["language"] == "python"
     assert fix_turn["codeBlocks"][0]["lines"] >= 1
@@ -68,8 +64,10 @@ def test_tool_calls_carry_success_and_target_hash(transcript_path, keys):
 
 
 def test_metadata_only_stores_zero_conversation_text(transcript_path, keys):
-    """Acceptance: metadata-only ⇒ no conversation content anywhere
-    (grep-the-output, same discipline as FR-ETH-4)."""
+    """
+    Acceptance: metadata-only ⇒ no conversation content anywhere (grep-the-output, same
+    discipline as FR-ETH-4).
+    """
     events = normalize_transcript(transcript_path, keys, "metadata-only")
     blob = json.dumps(events)
     for leaked in ("ValueError", "detect", "inverted", "negative amount", "content"):
@@ -82,13 +80,15 @@ def test_redacted_keeps_shape_masks_content(transcript_path, keys):
     turns = [e for e in events if e["type"] == "agent_turn"]
     assert any("content" in t["payload"] for t in turns)
     blob = json.dumps(events)
-    assert "ValueError" not in blob  # long identifiers masked
+    assert "ValueError" not in blob
     assert "*" in blob
 
 
 def test_import_and_reimport_reconcile_via_client(transcript_path, keys, middleware):
-    """Hooks + importer of the same session reconcile, not duplicate
-    (FR-ING-2): identical (session, source, seq) keys."""
+    """
+    Hooks + importer of the same session reconcile, not duplicate (FR-ING-2): identical
+    (session, source, seq) keys.
+    """
     events = normalize_transcript(transcript_path, keys, "metadata-only")
     wire = {"source": SOURCE_AGENT, "events": events}
 
@@ -103,8 +103,10 @@ def test_import_and_reimport_reconcile_via_client(transcript_path, keys, middlew
 
 
 def test_hook_run_posts_normalized_events(hook_payload, monkeypatch):
-    """The hook core reads stdin JSON + env, normalizes, and returns the POST
-    summary - all fire-and-forget."""
+    """
+    The hook core reads stdin JSON + env, normalizes, and returns the POST summary - all
+    fire-and-forget.
+    """
     posted = {}
 
     def fake_post(events, *, source, endpoint, timeout=3.0):
@@ -133,11 +135,6 @@ def test_hook_no_transcript_is_a_silent_noop():
 def test_missing_join_keys_default_empty(transcript_path):
     events = normalize_transcript(transcript_path, Keys(), "metadata-only")
     assert events[0]["participantId"] == ""
-
-
-# ---------------------------------------------------------------------------
-# Slice A — Generic / Copilot transcript adapter (FR-AGENT-4)
-# ---------------------------------------------------------------------------
 
 
 def test_generic_json_format_produces_same_event_contract(keys):
@@ -204,7 +201,6 @@ def test_generic_json_tool_call_has_target_hash(keys):
 def test_generic_json_unknown_format_falls_back_to_claude_code(keys):
     path = _FIXTURES / "generic-transcript.jsonl"
     events = normalize_transcript(path, keys, "metadata-only", format="bogus")
-    # bogus format should be treated as claude-code by the dispatch
     assert len(events) > 0
 
 
@@ -226,8 +222,10 @@ def test_generic_json_code_blocks_captured_as_shapes(keys):
 def test_generic_json_and_claude_code_both_respect_policy_table_driven(
     transcript_path, keys
 ):
-    """Table-driven test: every format × policy combination produces the same
-    event contract (FR-AGENT-4)."""
+    """
+    Table-driven test: every format × policy combination produces the same event
+    contract (FR-AGENT-4).
+    """
     generic_path = _FIXTURES / "generic-transcript.jsonl"
     for fmt, path in (("claude-code", transcript_path), ("generic-json", generic_path)):
         for policy in ("metadata-only", "redacted", "full"):
@@ -239,8 +237,10 @@ def test_generic_json_and_claude_code_both_respect_policy_table_driven(
 
 
 def test_middleware_down_then_import_recovers(transcript_path, keys, middleware):
-    """NFR-2: a live POST to a down middleware fails silently (best-effort
-    mirror), and the post-session importer recovers the whole session."""
+    """
+    NFR-2: a live POST to a down middleware fails silently (best-effort mirror), and the
+    post-session importer recovers the whole session.
+    """
     from agent_capture.ingest import post_events
 
     events = normalize_transcript(transcript_path, keys, "metadata-only")
@@ -248,7 +248,6 @@ def test_middleware_down_then_import_recovers(transcript_path, keys, middleware)
     down = post_events(events, source=SOURCE_AGENT, endpoint="http://127.0.0.1:1")
     assert down["posted"] == 0 and down["error"]
 
-    # Importer against the live middleware recovers everything.
     recovered = middleware.post(
         "/ingest/events", json={"source": SOURCE_AGENT, "events": events}
     ).json()

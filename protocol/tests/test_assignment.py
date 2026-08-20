@@ -1,10 +1,4 @@
-"""Counterbalanced assignment: who does which task, under which condition.
-
-The property these tests protect is *balance*, not any particular schedule.
-A rotation that looks varied per participant can still leave a task welded to
-a condition across the cohort — which is how the first version of this engine
-behaved, and it is invisible unless you count the pairings.
-"""
+"""Counterbalanced assignment: who does which task, under which condition."""
 
 from __future__ import annotations
 
@@ -42,17 +36,8 @@ def _cohort(protocol: dict, n: int) -> list[list]:
     return [assign(protocol, i) for i in range(n)]
 
 
-# ------------------------------------------------------------------ balance
-
-
 def test_every_condition_meets_every_task_equally_often():
-    """The confound this engine exists to prevent.
-
-    Rotating the condition order and the task pairing by the same offset
-    keeps them in lockstep: one task ends up permanently attached to one
-    condition, and a difference between conditions is then indistinguishable
-    from a difference between tasks. Only counting the pairings catches it.
-    """
+    """The confound this engine exists to prevent."""
     blocks = [b for seq in _cohort(_protocol(), 4) for b in seq]
     pairings = Counter((b.condition, b.task_id) for b in blocks)
     assert len(pairings) == 4, f"some pairing never happens: {pairings}"
@@ -60,16 +45,16 @@ def test_every_condition_meets_every_task_equally_often():
 
 
 def test_condition_order_is_balanced_across_participants():
-    """Whatever comes second gains practice and loses freshness, so each
-    condition has to come first equally often."""
+    """
+    Whatever comes second gains practice and loses freshness, so each condition has to
+    come first equally often.
+    """
     firsts = Counter(seq[0].condition for seq in _cohort(_protocol(), 4))
     assert set(firsts.values()) == {2}, firsts
 
 
 def test_within_subjects_participants_meet_every_condition():
-    """The whole point of within-subjects: each person is their own
-    comparison. Enrollment used to hand each participant a single condition
-    regardless of the declared design, so nobody ever was."""
+    """The whole point of within-subjects: each person is their own comparison."""
     for seq in _cohort(_protocol(), 4):
         assert {b.condition for b in seq} == {"ai-assisted", "unassisted"}
 
@@ -84,25 +69,24 @@ def test_between_subjects_participants_meet_exactly_one_condition():
     )
     for seq in _cohort(protocol, 4):
         assert len({b.condition for b in seq}) == 1
-    # ...and the cohort is split evenly between them.
     firsts = Counter(seq[0].condition for seq in _cohort(protocol, 4))
     assert set(firsts.values()) == {2}, firsts
 
 
-# ------------------------------------------------------------- determinism
-
-
 def test_assignment_is_a_pure_function_of_protocol_and_index():
-    """A participant's schedule is reproducible from the protocol alone, so a
-    replication can rebuild it without the database that issued it."""
+    """
+    A participant's schedule is reproducible from the protocol alone, so a replication
+    can rebuild it without the database that issued it.
+    """
     protocol = _protocol()
     assert assign(protocol, 7) == assign(protocol, 7)
 
 
 def test_uncounterbalanced_gives_everyone_the_same_order():
-    """Not a bug: a researcher who declares counterbalanced=false has chosen
-    a fixed order, and the engine records that choice rather than overriding
-    it. `assignment_warnings` is where the consequence is stated."""
+    """
+    Not a bug: a researcher who declares counterbalanced=false has chosen a fixed order,
+    and the engine records that choice rather than overriding it.
+    """
     protocol = _protocol(
         participants={
             "planned": 12,
@@ -124,13 +108,8 @@ def test_a_protocol_with_no_conditions_is_refused():
         assign(_protocol(conditions=[]), 0)
 
 
-# ------------------------------------------------------- tasks and eligibility
-
-
 def test_a_protocol_without_declared_tasks_still_assigns():
-    """Tasks are optional (schema v5). A protocol that only describes its work
-    in prose still runs; every session is the one implicit task, so downstream
-    code sees one shape either way."""
+    """Tasks are optional (schema v5)."""
     protocol = _protocol()
     del protocol["tasks"]
     assert [t["id"] for t in tasks_of(protocol)] == [IMPLICIT_TASK_ID]
@@ -167,12 +146,11 @@ def test_a_block_labels_its_session_readably():
     assert block.session_label == f"1-{block.task_id}-{block.condition}"
 
 
-# ---------------------------------------------------------------- warnings
-
-
 def test_fewer_tasks_than_conditions_is_called_out():
-    """Not invalid — a study can be internally consistent and still be
-    weakened by a choice that is easy to miss until the data is in."""
+    """
+    Not invalid — a study can be internally consistent and still be weakened by a choice
+    that is easy to miss until the data is in.
+    """
     protocol = _protocol(tasks=[{"id": "only", "title": "Only"}])
     assert any("repeat a task" in w for w in assignment_warnings(protocol))
 

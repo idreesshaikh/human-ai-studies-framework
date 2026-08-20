@@ -15,26 +15,14 @@ def _text(node) -> str:
 
 
 def _captures(language: Language, query_string: str, node, capture_name: str) -> list:
-    """Runs a query on a node and returns the nodes captured under capture_name.
-
-    The Query must stay referenced until captures() finishes: QueryCursor does
-    not keep the Query alive, and a freed query makes captures() return
-    garbage non-deterministically.
-    """
+    """Runs a query on a node and returns the nodes captured under capture_name."""
     query = Query(language, query_string)
     cursor = QueryCursor(query)
     return cursor.captures(node).get(capture_name, [])
 
 
 def _iter_functions(tree, language: Language):
-    """Yields (func_name, func_node) for every function definition.
-
-    matches() keeps each function's captures together; pairing the flat
-    captures() lists positionally misaligns on nested/method definitions.
-    Match order is not guaranteed either, so pairs are sorted by source
-    position and a name that appears twice in one file keeps its first
-    occurrence (known limitation shared with the Halstead join in main.py).
-    """
+    """Yields (func_name, func_node) for every function definition."""
     query = Query(
         language,
         """
@@ -60,8 +48,8 @@ def _iter_functions(tree, language: Language):
 
 def get_parameter_counts(tree, language: Language) -> dict:
     """
-    Parses Python code and returns a dictionary mapping function names
-    to their parameter counts.
+    Parses Python code and returns a dictionary mapping function names to their
+    parameter counts.
     """
     results = {}
     for func_name, func_node in _iter_functions(tree, language):
@@ -69,18 +57,13 @@ def get_parameter_counts(tree, language: Language) -> dict:
         if param_block is None:
             continue
 
-        # Count the named children inside the (parameters) node.
-        # This ignores punctuation like commas or parentheses.
         results[func_name] = len(param_block.named_children)
 
     return results
 
 
 def _calculate_node_penalty(node, current_depth: int) -> int:
-    """
-    Recursively walks an AST node. If it hits a control flow block,
-    it adds an exponential penalty and increases the depth for its children.
-    """
+    """Recursively walks an AST node."""
     penalty = 0
     nesting_types = {
         "if_statement",
@@ -109,18 +92,18 @@ def get_nesting_penalty(tree, language: Language) -> dict:
 
 
 def get_average_identifier_length(tree, language: Language) -> dict:
-    """Calculates the average length of identifiers (variable names,
-    function names) per function."""
+    """
+    Calculates the average length of identifiers (variable names, function names) per
+    function.
+    """
     results = {}
     for func_name, func_node in _iter_functions(tree, language):
-        # Run the identifier query STRICTLY inside this specific function's node
         identifiers = _captures(language, "(identifier) @id", func_node, "id")
         if not identifiers:
             continue
 
         total_length = sum(len(_text(node)) for node in identifiers)
 
-        # Calculate average and round to 2 decimal places for clean data export
         results[func_name] = round(total_length / len(identifiers), 2)
 
     return results
@@ -128,12 +111,9 @@ def get_average_identifier_length(tree, language: Language) -> dict:
 
 def get_variable_scope_distance(tree, language: Language) -> dict:
     """
-    For every local variable, the distance is the line-count delta between where
-    it is first declared (i.e. first bound/assigned) and where it is last used.
-    A large distance means the reader must hold that variable in working memory
-    across many lines, which is the cognitive cost this metric captures.
+    For every local variable, the distance is the line-count delta between where it is
+    first declared (i.e. first bound/assigned) and where it is last used.
     """
-    # "Declaration" points: the common Python binding forms.
     target_query_string = """
     (assignment left: (identifier) @target)
     (augmented_assignment left: (identifier) @target)
@@ -143,7 +123,6 @@ def get_variable_scope_distance(tree, language: Language) -> dict:
 
     results = {}
     for func_name, func_node in _iter_functions(tree, language):
-        # 1. First line each name is assigned on -> its declaration line.
         decl_line = {}
         for node in _captures(language, target_query_string, func_node, "target"):
             name = _text(node)
@@ -151,18 +130,15 @@ def get_variable_scope_distance(tree, language: Language) -> dict:
             if name not in decl_line or line < decl_line[name]:
                 decl_line[name] = line
 
-        # 2. Last line any locally-declared name appears on -> its final usage.
-        # Every identifier occurrence is a candidate "usage".
         last_use = {}
         for node in _captures(language, "(identifier) @use", func_node, "use"):
             name = _text(node)
             if name not in decl_line:
-                continue  # only track names that were assigned locally
+                continue
             line = node.start_point[0]
             if name not in last_use or line > last_use[name]:
                 last_use[name] = line
 
-        # 3. One record per variable (declaration order), no aggregation.
         results[func_name] = {
             name: last_use[name] - decl_line[name]
             for name in sorted(decl_line, key=lambda n: decl_line[n])
@@ -172,12 +148,9 @@ def get_variable_scope_distance(tree, language: Language) -> dict:
 
 
 def collect_function_metrics(source_bytes: bytes) -> dict:
-    """Run all four tree-sitter metrics over one source file and return
-    per-function rows ready for tabular export.
-
-    Scope distance is per-variable in get_variable_scope_distance(); here it
-    is aggregated to max + mean per function (the raw per-variable dict stays
-    available via the original function).
+    """
+    Run all four tree-sitter metrics over one source file and return per-function rows
+    ready for tabular export.
     """
     parser, language = setup_parser()
     tree = parser.parse(source_bytes)
@@ -202,7 +175,6 @@ def collect_function_metrics(source_bytes: bytes) -> dict:
 
 
 if __name__ == "__main__":
-    # Test our parser on python file inside test folder
     from pathlib import Path
 
     target_file = Path(__file__).resolve().parents[2] / "corpus" / "detect.py"

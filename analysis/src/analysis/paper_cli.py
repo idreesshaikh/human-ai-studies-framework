@@ -1,12 +1,4 @@
-"""``analysis paper`` - write the draft to disk (FR-ANA-6).
-
-Kept out of ``cli.py`` only for readability; wired in as the ``paper``
-subcommand. Writes ``<out>/draft.md``, ``<out>/draft.tex``,
-``<out>/references.bib``, and ``<out>/figures/*.pdf|png``. Best-effort
-enriches related work + bib from the middleware's ingested papers
-(``/papers``); offline it uses the protocol's ``literature:`` list, so the
-draft is deterministic either way.
-"""
+"""``analysis paper`` - write the draft to disk (FR-ANA-6)."""
 
 from __future__ import annotations
 
@@ -72,7 +64,6 @@ def cmd_paper(protocol: dict, dataset: Dataset, study_id: str, args) -> int:
         )
         for f in findings:
             print(f"  - {f['message']}")
-        # Best-effort: record them to the middleware findings log.
         if server:
             _record(server, findings)
     print(f"compile: cd {out_dir} && pdflatex draft && bibtex draft && pdflatex draft")

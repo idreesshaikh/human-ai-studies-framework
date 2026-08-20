@@ -1,13 +1,4 @@
-"""Unit tests for the pure protocol compiler's template resilience.
-
-An accepted move can't be re-decided in the conversation UI, so a single
-accepted choose-template move with a hallucinated template id or invented
-parameters must never make ``compile_moves`` raise — that turned every
-``/conversation/compile`` into a 500 and left the finish review claiming
-the draft was empty despite dozens of accepted moves. The compiler reports
-the broken move and keeps compiling (F1.3: named gaps, never silent ones —
-and never a wedged study).
-"""
+"""Unit tests for the pure protocol compiler's template resilience."""
 
 from middleware import compiler
 
@@ -41,23 +32,24 @@ def _template_move(move_id: str, template_id: str, parameters: dict) -> dict:
 
 
 def test_hallucinated_template_id_reports_instead_of_raising():
-    """The original bug: an accepted choose-template move naming a template
-    the registry doesn't have crashed the compile. Now it falls back to the
-    scaffold, names the broken move in errors, and still emits YAML."""
+    """
+    The original bug: an accepted choose-template move naming a template the registry
+    doesn't have crashed the compile.
+    """
     result = compiler.compile_moves(
         [_rq_move(), _template_move("m-t", "hallucinated-rct-2026", {})]
     )
     assert result.yaml.strip(), "the draft must never come back empty"
     assert not result.valid
     assert any("m-t" in e and "hallucinated-rct-2026" in e for e in result.errors)
-    # No template applied → the unresolved slots are named, not hidden, and
-    # named the way a researcher would name them rather than by schema path.
     assert "the design" in result.unresolved
 
 
 def test_unknown_parameters_are_ignored_with_a_warning():
-    """An LLM-invented parameter name doesn't sink an otherwise-sound
-    template choice — it's dropped, noted, and the template still applies."""
+    """
+    An LLM-invented parameter name doesn't sink an otherwise-sound template choice —
+    it's dropped, noted, and the template still applies.
+    """
     result = compiler.compile_moves(
         [_template_move("m-t", "two-group-rct-v1", {"bogusParam": 999})]
     )
@@ -68,9 +60,11 @@ def test_unknown_parameters_are_ignored_with_a_warning():
 
 
 def test_last_instantiable_template_wins_over_a_broken_later_one():
-    """A broken accepted template move is skipped in favour of the most
-    recent one that instantiates, and the skip is reported as a warning —
-    a valid draft isn't blocked on a move nobody can un-accept."""
+    """
+    A broken accepted template move is skipped in favour of the most recent one that
+    instantiates, and the skip is reported as a warning — a valid draft isn't blocked on
+    a move nobody can un-accept.
+    """
     result = compiler.compile_moves(
         [
             _rq_move(),
@@ -84,10 +78,7 @@ def test_last_instantiable_template_wins_over_a_broken_later_one():
 
 
 def test_list_valued_patch_flattens_into_string_entries():
-    """A move that packs several entries into one list value ("Two
-    conditions: A vs. B" arriving as ["A", "B"]) lands as one string entry
-    per item — appending the raw list made the compiled draft fail schema
-    validation (conditions.N is not of type 'string') with no way out."""
+    """A move that packs several entries into one list value ("Two conditions: A vs."""
     conditions = {
         "moveId": "m-c",
         "kind": "set-parameter",
@@ -111,8 +102,10 @@ def test_list_valued_patch_flattens_into_string_entries():
 
 
 def test_broken_template_before_a_working_one_stays_silent():
-    """Last-wins semantics unchanged: when the newest accepted template move
-    instantiates, earlier ones — broken or not — are simply superseded."""
+    """
+    Last-wins semantics unchanged: when the newest accepted template move instantiates,
+    earlier ones — broken or not — are simply superseded.
+    """
     result = compiler.compile_moves(
         [
             _template_move("m-bad", "hallucinated-rct-2026", {}),

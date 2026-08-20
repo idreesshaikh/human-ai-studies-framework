@@ -1,17 +1,4 @@
-"""Tasks end to end: designed → assigned → captured → attributable.
-
-The claim this file holds the platform to is that a task survives every hop.
-A researcher declares one in conversation; it compiles into the protocol; the
-server assigns it to a session, counterbalanced; the editor receives it in its
-capture config; and every event that session produces comes back stamped with
-it. Break any hop and the data cannot answer "which task was this?", which is
-the question a within-subjects study is built on.
-
-Before this, ``session.taskDescription`` was one prose sentence and the whole
-task model. Enrollment handed each participant one condition round-robin no
-matter what ``participants.design`` said, so a within-subjects study never
-actually ran within-subjects.
-"""
+"""Tasks end to end: designed → assigned → captured → attributable."""
 
 from __future__ import annotations
 
@@ -103,9 +90,6 @@ def _capture_config(client, credential: str, session_id: str) -> dict:
     return r.json()
 
 
-# --------------------------------------------------------- the whole chain
-
-
 def test_a_session_is_assigned_a_task_and_the_editor_receives_it(client):
     _designed_study(client)
     token = _mint(client, 1)[0]
@@ -119,12 +103,6 @@ def test_a_session_is_assigned_a_task_and_the_editor_receives_it(client):
     assert block["condition"]
     assert block["of"] >= 1
 
-    # The task reaches the editor as a real setting, not just as prose to
-    # read - nested under session.* to match what the extension actually
-    # reads (extension/src/vscode/behavior.ts, and the one task setting
-    # package.json declares: "tern.session.taskId"). A flat "tern.taskId"
-    # looked identical here but is a different, unread VS Code key - this
-    # assertion is what would have caught that.
     settings = config["settings"]
     assert settings["tern.session.taskId"] == block["taskId"]
     assert settings["tern.condition"] == block["condition"]
@@ -166,9 +144,10 @@ def test_events_come_back_attributable_to_the_task(client):
 
 
 def test_re_pulling_a_running_session_returns_the_same_block(client):
-    """The editor re-pulls its config at every session start, and a resumed
-    session pulls again. That must not walk the participant to the next
-    task — it would silently skip work and mislabel everything after it."""
+    """
+    The editor re-pulls its config at every session start, and a resumed session pulls
+    again.
+    """
     _designed_study(client)
     token = _mint(client, 1)[0]
     cred = _pair(client, token["connectionString"].rsplit("#", 1)[1])[
@@ -181,8 +160,10 @@ def test_re_pulling_a_running_session_returns_the_same_block(client):
 
 
 def test_the_next_session_advances_to_the_next_block(client):
-    """A within-subjects participant's second session is their second block —
-    a different condition, so they are their own comparison."""
+    """
+    A within-subjects participant's second session is their second block — a different
+    condition, so they are their own comparison.
+    """
     _designed_study(client)
     token = _mint(client, 1)[0]
     cred = _pair(client, token["connectionString"].rsplit("#", 1)[1])[
@@ -198,8 +179,10 @@ def test_the_next_session_advances_to_the_next_block(client):
 
 
 def test_two_participants_meet_the_conditions_in_opposite_orders(client):
-    """Counterbalancing, observable from outside: whatever comes second
-    benefits from practice, so the order has to alternate."""
+    """
+    Counterbalancing, observable from outside: whatever comes second benefits from
+    practice, so the order has to alternate.
+    """
     _designed_study(client)
     tokens = _mint(client, 2)
     firsts = []
@@ -212,8 +195,7 @@ def test_two_participants_meet_the_conditions_in_opposite_orders(client):
 
 
 def test_a_session_without_an_id_reports_a_block_without_consuming_one(client):
-    """An older extension sends no session id. It still learns what the
-    participant is on, but must not burn a block by asking."""
+    """An older extension sends no session id."""
     _designed_study(client)
     token = _mint(client, 1)[0]
     cred = _pair(client, token["connectionString"].rsplit("#", 1)[1])[
@@ -227,5 +209,4 @@ def test_a_session_without_an_id_reports_a_block_without_consuming_one(client):
     assert r.status_code == 200
     assert r.json()["block"]["index"] == 0
 
-    # ...and the first real session still gets block 0.
     assert _capture_config(client, cred, "s-1")["block"]["index"] == 0

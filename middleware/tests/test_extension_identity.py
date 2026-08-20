@@ -1,16 +1,4 @@
-"""The platform's VS Code deep link must name the extension that exists.
-
-VS Code resolves a ``vscode://<publisher>.<name>/...`` URI purely by string
-match against installed extensions. A wrong identity does not error - the URI
-is simply claimed by nobody and the participant sees the click do nothing.
-The platform shipped exactly that failure (``hpi-research.cognitive-overlay``,
-an identity never published under any name), and nothing caught it because the
-literal lived in a React component with no reader on the other side.
-
-So the two ends are pinned together here: ``extension/package.json`` is the
-document of record for the extension's identity, and ``platform/src/lib/
-extension.ts`` is the single place the platform states it.
-"""
+"""The platform's VS Code deep link must name the extension that exists."""
 
 from __future__ import annotations
 
@@ -58,8 +46,10 @@ def test_no_component_hardcodes_its_own_extension_identity() -> None:
 
 
 def test_releases_url_points_at_the_extension_repository() -> None:
-    """TERN is installed from a GitHub release, never the Marketplace, so the
-    install link has to track the repository the extension declares."""
+    """
+    TERN is installed from a GitHub release, never the Marketplace, so the install link
+    has to track the repository the extension declares.
+    """
     repo_url = _manifest()["repository"]["url"].removesuffix(".git")
     assert _constant("EXTENSION_RELEASES_URL").startswith(repo_url), (
         "the install link does not point at the extension's own repository"

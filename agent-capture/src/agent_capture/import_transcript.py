@@ -1,20 +1,4 @@
-"""Post-session transcript importer - the completeness backstop (FR-AGENT-2).
-
-Parses a finished Claude Code transcript JSONL and ingests the whole
-normalized event set. Because ingestion is idempotent on
-``(sessionId, source, seq)`` and the normalized ``seq`` is the transcript
-position (:mod:`agent_capture.transcript`), importing a session whose live
-hooks already landed reconciles to the same rows rather than duplicating
-them - and importing a session whose middleware was down mid-run recovers
-everything (NFR-2).
-
-    uv run python -m agent_capture.import_transcript <transcript.jsonl> \
-        --participant P01 --condition ai-assisted --session S1 \
-        --content-policy metadata-only
-
-Join keys default to the ``STUDY_*`` environment variables the facilitator
-runbook sets, so the common case needs no flags.
-"""
+"""Post-session transcript importer - the completeness backstop (FR-AGENT-2)."""
 
 from __future__ import annotations
 

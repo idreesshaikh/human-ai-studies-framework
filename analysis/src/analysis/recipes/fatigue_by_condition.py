@@ -1,12 +1,4 @@
-"""fatigue-by-condition (RQ-P1): self-reported fatigue under AI assistance.
-
-Test choice: fatigue probes are 1-5 Likert responses - ordinal, tiny n,
-within-subjects design - so the comparison is the **exact Wilcoxon
-signed-rank** on per-participant mean scores when participants have both
-conditions, degrading to the **exact Mann-Whitney U** otherwise (both via
-``analysis.stats.compare_by_condition``, which also carries the effect
-size and per-cell n).
-"""
+"""fatigue-by-condition (RQ-P1): self-reported fatigue under AI assistance."""
 
 from __future__ import annotations
 
@@ -39,7 +31,6 @@ def run(dataset: Dataset) -> RecipeResult:
     df = dataset.of_type("fatigue_response")
     test, cells, sentence = compare_or_describe(df, "score", dataset)
 
-    # Trajectories: score over minutes-into-session, one line per session.
     spans = dataset.session_spans.set_index("sessionId")
     traj = df.join(spans["start"], on="sessionId")
     traj["minute"] = (traj["ts"] - traj["start"]).dt.total_seconds() / 60

@@ -41,6 +41,17 @@ SERVER_PID=$!
   fi
 
   if [ "${MIDDLEWARE_SEED_ON_START:-0}" = "1" ]; then
+    # The sample sessions need somewhere to belong before they are posted.
+    # /ingest carries events, not studies, so replaying alone leaves rows
+    # attributed to no study - which used to be invisible only because the
+    # sessions endpoint ignored its own study_id and showed everything to
+    # everyone. This creates the demo project, its study, and the session ->
+    # study mappings the replay's events land against. Idempotent, and it
+    # talks to the database directly because clerk mode has no service
+    # credential these writes could use over HTTP.
+    uv run python -m middleware demo-seed || \
+      echo "demo seed failed; the sample sessions will belong to no study"
+
     i=0
     while [ "$i" -lt 60 ]; do
       if uv run python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${PORT}/health', timeout=2)" 2>/dev/null; then

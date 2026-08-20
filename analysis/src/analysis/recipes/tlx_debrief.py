@@ -1,12 +1,4 @@
-"""tlx-debrief (RQ-P1): end-of-session NASA-TLX-style subscales.
-
-Test choice: TLX subscales are bounded ordinal ratings, one per session,
-within-subjects design - per subscale the comparison is the exact Wilcoxon
-signed-rank on paired participant values (rank-biserial effect size),
-degrading to the exact Mann-Whitney U + Cliff's delta (via
-``analysis.stats.compare_by_condition``). One test per subscale, each
-carrying its own per-cell n - no omnibus test at pilot n.
-"""
+"""tlx-debrief (RQ-P1): end-of-session NASA-TLX-style subscales."""
 
 from __future__ import annotations
 

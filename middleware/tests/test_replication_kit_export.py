@@ -1,9 +1,4 @@
-"""Replication-kit export from the workspace (D5/FR-PROT-7).
-
-The exporter already existed as a CLI; what is under test here is that the
-same byte-reproducible archive is reachable over HTTP, and that a study with
-nothing to package says so instead of shipping a kit built around a guess.
-"""
+"""Replication-kit export from the workspace (D5/FR-PROT-7)."""
 
 import gzip
 import io
@@ -17,9 +12,10 @@ from middleware.settings import Settings
 STUDY = "kit-study"
 
 def _protocol_yaml() -> str:
-    """A real, valid protocol — instantiated from the registry rather than
-    hand-written, so this test can never pass against a shape the platform
-    would reject."""
+    """
+    A real, valid protocol — instantiated from the registry rather than hand-written, so
+    this test can never pass against a shape the platform would reject.
+    """
     import yaml
 
     from middleware import template_registry
@@ -68,14 +64,15 @@ def test_export_returns_a_downloadable_kit(client):
 
     with tarfile.open(fileobj=io.BytesIO(gzip.decompress(res.content))) as tar:
         names = {n.split("/", 1)[1] for n in tar.getnames() if "/" in n}
-    # The kit's contract: protocol + data + the record needed to rerun it.
     assert {"protocol.yaml", "dataset.json", "versions.json", "README.md"} <= names
     assert any(n.startswith("report") for n in names)
 
 
 def test_export_is_byte_reproducible(client):
-    """Two exports of the same study are the same archive — the property
-    the whole kit exists for (FR-PROT-7)."""
+    """
+    Two exports of the same study are the same archive — the property the whole kit
+    exists for (FR-PROT-7).
+    """
     _seed_draft(client)
     first = client.get(f"/studies/{STUDY}/replication-kit").content
     second = client.get(f"/studies/{STUDY}/replication-kit").content

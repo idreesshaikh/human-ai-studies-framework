@@ -1,13 +1,6 @@
-"""task-outcome-by-condition (RQ-P1..P5 ground truth): acceptance-test
-pass rates and time-to-first-green (needs's task harness).
-
-Test choices: pass/fail counts per condition form a 2x2 table - **Fisher's
-exact test** (the only honest choice at pilot counts) with the odds ratio.
-Time-to-first-green is a skewed duration - exact Mann-Whitney U + Cliff's
-delta (or Wilcoxon when paired, via ``analysis.stats``). The
-outcome-conditioned splits of other legs' headline measures are reported
-as descriptive tables only - splitting tiny cells twice is where p-values
-go to lie.
+"""
+task-outcome-by-condition (RQ-P1..P5 ground truth): acceptance-test pass rates and
+time-to-first-green (needs's task harness).
 """
 
 from __future__ import annotations
@@ -43,7 +36,6 @@ def run(dataset: Dataset) -> RecipeResult:
     outcomes["passed"] = outcomes.get("passed", False).astype(bool)
     spans = dataset.session_spans.set_index("sessionId")
 
-    # One verdict per session: the last outcome; first green for timing.
     last = outcomes.sort_values("ts").groupby("sessionId").tail(1).copy()
 
     def first_green_minutes(sid: str) -> float:
@@ -62,7 +54,6 @@ def run(dataset: Dataset) -> RecipeResult:
     sentences = []
     figs = {}
 
-    # Pass rate x condition (Fisher exact when 2 conditions).
     rate = (
         last.groupby("condition")["passed"].agg(n="count", passed="sum").reset_index()
     )
@@ -91,7 +82,6 @@ def run(dataset: Dataset) -> RecipeResult:
             + " (descriptive only)."
         )
 
-    # Time-to-first-green.
     greens = last.dropna(subset=["firstGreenMinutes"])
     if len(greens):
         ttg_test, ttg_cells, ttg_sentence = compare_or_describe(
@@ -127,7 +117,7 @@ def run(dataset: Dataset) -> RecipeResult:
             continue
         verdict_label = joined["passed"].map({True: "passed", False: "failed"})
         split = (
-            joined.drop(columns=["condition"])  # outcome plays the cell role
+            joined.drop(columns=["condition"])
             .assign(outcome=verdict_label)
             .rename(columns={"outcome": "condition"})
         )

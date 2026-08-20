@@ -1,23 +1,6 @@
-"""The study's ethics package: one Markdown document, generated from the
-protocol alone (FR-AGENT-5, FR-ETH-4).
-
-An ethics committee reads five things about a study, every time: what
-participants are asked to do, what is captured about them, in exactly what
-words they are asked to consent, how their privacy is protected, and how they
-withdraw. All five already exist as protocol-derived facts elsewhere in the
-platform — the consent statement (:func:`enrollment.consent_statement`), the
-content-policy descriptions (:mod:`agent_capture.redact`), the leg summaries
-(:func:`enrollment.leg_summary`), the declared tasks
-(:func:`protocol.assignment.tasks_of`). This module composes them into the
-one document a researcher actually has to submit, rather than asking them to
-assemble it by hand from five different platform surfaces.
-
-Deterministic and pure, like every other protocol-derived artifact here: the
-same protocol always produces the same package, byte for byte, with no model
-in the loop. A field the protocol has not filled is named as missing — the
-same honesty :func:`compiler.unresolved_slots` applies to the draft applies
-here to the document a committee will actually read. An ethics package with a
-placeholder in it is worse than one that says plainly what is not yet decided.
+"""
+The study's ethics package: one Markdown document, generated from the protocol alone
+(FR-AGENT-5, FR-ETH-4).
 """
 
 from __future__ import annotations
@@ -107,11 +90,6 @@ def _tasks_section(protocol: dict) -> list[str]:
     return lines
 
 
-#: How each leg's state reads in a document a participant or a committee
-#: will actually read - "unavailable" (the protocol names no instrument for
-#: this leg at all) and "disabled" (declared, explicitly switched off) are
-#: different facts, and collapsing them would understate what the study
-#: could capture if reconfigured versus what it simply does not touch.
 _STATE_TEXT = {
     "enabled": "active",
     "disabled": "declared, switched off",
@@ -168,14 +146,7 @@ def _withdrawal_section() -> list[str]:
 
 
 def build_ethics_package(protocol: dict) -> str:
-    """The complete package, as one Markdown document.
-
-    Pure function of the protocol: no database, no clock, no model. Suitable
-    to attach to an IRB/ethics submission directly, or to adapt into the
-    institution's own template — this is the platform's honest account of
-    what the study does, not a substitute for the form your institution
-    requires.
-    """
+    """The complete package, as one Markdown document."""
     sections = [
         *_overview(protocol),
         *_design_summary(protocol),

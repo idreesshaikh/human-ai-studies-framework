@@ -1,11 +1,4 @@
-"""Corpus import + matching-ladder tests.
-
-Uses a small hand-seeded corpus (Tier A demo seeds + a couple of connected
-Tier B rows) rather than the full 14k-paper index, so the tests are fast and
-hermetic while still exercising the real code paths: Paper rows land under
-the corpus scope with tiers (F8.4), and the no-LLM match ladder surfaces the
-demo papers with matched-term reasons (F9.1/F9.2) and never invents a paper.
-"""
+"""Corpus import + matching-ladder tests."""
 
 import pytest
 from middleware.corpus_importer import VIA_EDGE_KIND
@@ -92,8 +85,10 @@ def test_rows_land_with_tiers(session):
 
 
 def test_match_surfaces_demo_papers_no_llm(session):
-    """F9.1/F9.2: with no LLM key the ladder still surfaces the trust +
-    insecure papers, with matched-term reasons."""
+    """
+    F9.1/F9.2: with no LLM key the ladder still surfaces the trust + insecure papers,
+    with matched-term reasons.
+    """
     results = matching.match_papers(
         session,
         "junior developers over-trust AI-generated code",
@@ -118,9 +113,11 @@ def test_match_never_invents_a_paper(session):
 
 
 def test_grounding_lookup_resolves_corpus_seed(session):
-    """FR-CONV-2.2: grounding resolves against the corpus for any study, and
-    carries confidence (not a provenance tier — the tier system is removed
-    from ranking and output)."""
+    """
+    FR-CONV-2.2: grounding resolves against the corpus for any study, and carries
+    confidence (not a provenance tier — the tier system is removed from ranking and
+    output).
+    """
     meta = matching.get_paper_metadata(
         session, "corpus:metr-early-2025-dev-productivity"
     )
@@ -130,20 +127,23 @@ def test_grounding_lookup_resolves_corpus_seed(session):
 
 
 def test_corpus_search_path_returns_confidence_ranked_hits(session):
-    """The /corpus/search endpoint's exact call — no study, corpus-only — used
-    by the 'turn a paper into a template' picker. Hits carry a confidence."""
+    """
+    The /corpus/search endpoint's exact call — no study, corpus-only — used by the 'turn
+    a paper into a template' picker.
+    """
     results = matching.match_papers(
         session, "trust in ai generated code", study_id=None, limit=8, use_llm=False
     )
     assert results, "a corpus-only search should surface matching papers"
-    # Confidence rides on every hit (the continuous quality signal, FR-LIT-8).
     assert all("confidence" in r for r in results)
     assert matching.get_paper_metadata(session, "arxiv:9999.99999") is None
 
 
 def test_query_expansion_degrades_to_raw_query_without_a_key(monkeypatch):
-    """Semantic expansion (FR-LIT-9) is best-effort: with no LLM key it returns
-    the query unchanged, so keyword FTS stays the floor (NFR-4)."""
+    """
+    Semantic expansion (FR-LIT-9) is best-effort: with no LLM key it returns the query
+    unchanged, so keyword FTS stays the floor (NFR-4).
+    """
     from middleware import assistant
 
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: None)

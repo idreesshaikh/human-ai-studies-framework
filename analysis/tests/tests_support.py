@@ -1,22 +1,21 @@
-"""Synthetic dataset builder with *constructed known answers* used by the
-runner tests: every participant reports fatigue exactly one step class
-higher unassisted (distinct paired differences -0.5, -1.0, -1.5, -2.0 ->
-exact Wilcoxon two-sided p = 0.125, rank-biserial r = -1.0), and every
-ai-assisted session shows two suggestions and accepts one (acceptance
-rate = 0.5, the Ziegler et al. metric)."""
+"""
+Synthetic dataset builder with *constructed known answers* used by the runner tests:
+every participant reports fatigue exactly one step class higher unassisted (distinct
+paired differences -0.5, -1.0, -1.5, -2.0 -> exact Wilcoxon two-sided p = 0.125,
+rank-biserial r = -1.0), and every ai-assisted session shows two suggestions and accepts
+one (acceptance rate = 0.5, the Ziegler et al.
+"""
 
 from __future__ import annotations
 
 PARTICIPANTS = ["P01", "P02", "P03", "P04"]
-#: (ai-assisted response pair, unassisted response pair) per participant -
-#: paired mean differences: -0.5, -1.0, -1.5, -2.0 (distinct, all negative).
 FATIGUE = {
     "P01": ((2, 2), (2, 3)),
     "P02": ((2, 3), (3, 4)),
     "P03": ((3, 3), (4, 5)),
     "P04": ((2, 4), (5, 5)),
 }
-TLX = {  # mentalDemand per (ai, unassisted)
+TLX = {
     "P01": (9, 11),
     "P02": (10, 13),
     "P03": (11, 12),
@@ -53,7 +52,6 @@ def synthetic_rows() -> list[dict]:
 
         return emit
 
-    # ai-assisted sessions first so dataset.conditions order is stable.
     for cond_i, condition in enumerate(["ai-assisted", "unassisted"]):
         for participant in PARTICIPANTS:
             session = f"S-{participant}-{condition[:2]}"

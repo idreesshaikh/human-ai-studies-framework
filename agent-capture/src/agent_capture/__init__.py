@@ -1,9 +1,7 @@
-"""Agent interaction leg: Claude Code hook capture + transcript import,
-content-policy redaction, workspace snapshotter, task harness, cross-leg
-correlation, and code-evolution derivation.
-
-Satisfies FR-AGENT-1/2/3/5, FR-INST-15/16/17; see requirements/srs.md and
-this package's README.md.
+"""
+Agent interaction leg: Claude Code hook capture + transcript import, content-policy
+redaction, workspace snapshotter, task harness, cross-leg correlation, and
+code-evolution derivation.
 """
 
 __version__ = "0.1.0"

@@ -1,27 +1,4 @@
-"""SQLAlchemy models and engine setup.
-
-Supports both SQLite (local dev / legacy) and PostgreSQL (Railway production).
-The active backend is determined by ``Settings.db_url``:
-
-- ``sqlite:///...``          → SQLite, single file, local-first
-- ``postgresql+psycopg://...`` → PostgreSQL, managed by Railway
-
-Idempotency contracts are preserved on both backends:
-
-- ``events`` UNIQUE on ``(session_id, source, seq)``       → ``upsert_do_nothing``
-- ``metric_rows`` UNIQUE on ``row_hash``                    → ``upsert_do_nothing``
-- ``papers`` UNIQUE on ``(study_id, paper_ref)``            → ``upsert_do_update``
-- ``paper_edges`` UNIQUE on ``(study_id, src, dst, kind)``  → ``upsert_do_nothing``
-- ``paper_links`` UNIQUE on ``(study_id, paper_ref, target)`` → ``upsert_do_nothing``
-
-All callers use the ``upsert_do_nothing`` / ``upsert_do_update`` helpers
-exported from this module; they pick the right dialect automatically.
-
-Full-text search:
-- SQLite: FTS5 virtual table (``paper_fts``) when available, else ``paper_chunks``
-- PostgreSQL: ``tsvector`` column on ``papers`` table; falls back to ``LIKE``
-  scan when the column is absent (same degraded-mode contract as SQLite).
-"""
+"""SQLAlchemy models and engine setup."""
 
 import json
 import logging
@@ -48,9 +25,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 log = logging.getLogger("middleware.db")
 
-# ---------------------------------------------------------------------------
-# Well-known constants (unchanged)
-# ---------------------------------------------------------------------------
 
 IMPLICIT_PROJECT_SLUG = "implicit"
 IMPLICIT_PROJECT_ID = "implicit"
@@ -58,10 +32,6 @@ IMPLICIT_IDENTITY_SUB = "local"
 CORPUS_STUDY_ID = "platform-corpus"
 ROLES = ("owner", "researcher", "viewer")
 
-
-# ---------------------------------------------------------------------------
-# ORM base + models  (schema unchanged from original)
-# ---------------------------------------------------------------------------
 
 class Base(DeclarativeBase):
     pass
@@ -81,9 +51,6 @@ class Event(Base):
     seq: Mapped[int] = mapped_column(Integer)
     participant_id: Mapped[str] = mapped_column(String, index=True)
     condition: Mapped[str] = mapped_column(String)
-    #: Which declared task this session was working on, server-stamped from
-    #: the session's assigned block. Empty for events from before tasks
-    #: existed, and for a session with no block recorded.
     task_id: Mapped[str] = mapped_column(String, default="", index=True)
     v: Mapped[int] = mapped_column(Integer)
     ts: Mapped[str] = mapped_column(String, index=True)
@@ -153,9 +120,6 @@ class Paper(Base):
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     venue: Mapped[str] = mapped_column(String, default="")
     abstract: Mapped[str] = mapped_column(Text, default="")
-    # The Tier A curator's one-line "why this paper matters" note. Kept in
-    # its own column so the S2 abstract backfill (corpus-enrich) can land a
-    # real abstract without overwriting the curation — both feed retrieval.
     curator_note: Mapped[str] = mapped_column(Text, default="")
     doi: Mapped[str] = mapped_column(String, default="")
     arxiv_id: Mapped[str] = mapped_column(String, default="")
@@ -167,11 +131,6 @@ class Paper(Base):
     citation_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     full_text: Mapped[str] = mapped_column(Text, default="")
     tier: Mapped[str] = mapped_column(String, default="study", index=True)
-    # The harvest quality score (FR-LIT-8): a continuous merit signal per
-    # paper, replacing the binary Tier A/B hierarchy as the thing that ranks
-    # groundings. Tier B rows carry their computed score; Tier A seeds get a
-    # curated-seed prior. `confidence` (0..1) is derived from this at read
-    # time — see paper_confidence().
     score: Mapped[float | None] = mapped_column(Float, nullable=True)
     added_via: Mapped[str] = mapped_column(String, default="")
     match_reason: Mapped[str] = mapped_column(Text, default="")
@@ -194,6 +153,7 @@ class PaperEdge(Base):
     dst_ref: Mapped[str] = mapped_column(String, index=True)
     kind: Mapped[str] = mapped_column(String)
     dst_title: Mapped[str] = mapped_column(String, default="")
+    dst_authors: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     dst_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     dst_citation_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
@@ -301,14 +261,7 @@ class Invitation(Base):
 
 
 class EnrollmentToken(Base):
-    """A pairing token binding a study + participant + condition (FR-INST-20).
-
-    ``grain`` is 'participant' (reusable across that participant's sessions)
-    or 'session' (single-use). ``token`` is what the participant pastes (inside
-    a connection string); ``credential`` is the short-lived bearer minted on
-    redeem and sent on ingest so the middleware can server-stamp join keys
-    (FR-ING-7). Mirrors the ``Invitation`` mint/expire/revoke shape.
-    """
+    """A pairing token binding a study + participant + condition (FR-INST-20)."""
 
     __tablename__ = "enrollment_tokens"
     __table_args__ = (
@@ -322,17 +275,10 @@ class EnrollmentToken(Base):
         String, ForeignKey("studies.id"), index=True
     )
     participant_id: Mapped[str] = mapped_column(String)
-    #: Position in the cohort, 0-based. Drives counterbalanced assignment
-    #: (``protocol.assignment.assign``), so a participant's whole schedule is
-    #: reproducible from the protocol and this number alone.
     participant_index: Mapped[int] = mapped_column(Integer, default=0)
-    #: The condition of the participant's *current* block. Kept for the ingest
-    #: server-stamp on events that arrive without a session block recorded;
-    #: a session that has one takes its condition from there instead.
     condition: Mapped[str] = mapped_column(String)
     grain: Mapped[str] = mapped_column(String)
     token: Mapped[str] = mapped_column(String, unique=True, index=True)
-    #: Minted on redeem; sent as the ingest bearer. NULL until first redeem.
     credential: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     expires_at: Mapped[str] = mapped_column(String)
     revoked_at: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -342,25 +288,13 @@ class EnrollmentToken(Base):
 
 
 class SessionBlock(Base):
-    """Which task and condition one session ran under.
-
-    A participant's schedule is a pure function of the protocol and their
-    index, but *which* block a given session took has to be recorded: the
-    assignment says what the third session should be, not which session was
-    the third. Writing it down at session start makes the answer stable if
-    the protocol is later amended, and makes every event attributable to a
-    task by its session id alone.
-
-    One row per session, so re-pulling the capture config for a session
-    already under way returns the same block rather than advancing past it.
-    """
+    """Which task and condition one session ran under."""
 
     __tablename__ = "session_blocks"
 
     session_id: Mapped[str] = mapped_column(String, primary_key=True)
     study_id: Mapped[str] = mapped_column(String, index=True)
     participant_id: Mapped[str] = mapped_column(String, index=True)
-    #: Position in the participant's own sequence, 0-based.
     block_index: Mapped[int] = mapped_column(Integer, default=0)
     task_id: Mapped[str] = mapped_column(String, default="")
     condition: Mapped[str] = mapped_column(String, default="")
@@ -399,11 +333,6 @@ class ConversationTurn(Base):
     recommendations: Mapped[list] = mapped_column(JSON, default=list)
     redacted: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[str] = mapped_column(String)
-    #: Which path produced this platform turn. Always "llm" now that the
-    #: keyword-scripted assistant is gone; kept on the row because existing
-    #: conversations still carry "scripted" turns from before it was removed.
-    #: (FR-CONV-1.4), so the elicitation record (FR-CONV-6) honestly
-    #: records how each claim was produced. Empty for researcher turns.
     source: Mapped[str] = mapped_column(String, default="")
 
 
@@ -417,8 +346,6 @@ class DesignMoveRow(Base):
     turn_id: Mapped[str] = mapped_column(
         String, ForeignKey("conversation_turns.id"), index=True
     )
-    #: 1-based position within the turn — the only orderable column: the id's
-    #: prefix is a random hex turn id, so ordering by id shuffles turns.
     seq: Mapped[int] = mapped_column(Integer, default=0)
     kind: Mapped[str] = mapped_column(String)
     target: Mapped[str] = mapped_column(String, default="")
@@ -523,15 +450,7 @@ class SessionOpen(Base):
 
 
 class UserProfile(Base):
-    """A signed-in identity's per-user preferences (FR-OPS-7, D29).
-
-    Keyed by ``identity_sub`` (the Clerk ``sub`` in clerk mode, ``local`` in
-    none/token mode) so a hosted, multi-tenant deployment can persist a
-    profile per person — theme, default assistant model, saved views — that
-    follows them across devices. The prefs blob is schema-less by design; the
-    server stores whatever the client sends within ``KNOWN_PREF_KEYS`` and
-    the UI owns the per-key semantics. A missing row reads as empty prefs.
-    """
+    """A signed-in identity's per-user preferences (FR-OPS-7, D29)."""
 
     __tablename__ = "user_profiles"
 
@@ -541,12 +460,7 @@ class UserProfile(Base):
 
 
 class TemplateSubmission(Base):
-    """Third-party template contributed for registry review (FR-TPL-5).
-
-    A submitter provides a YAML template; owners of the implicit project
-    (single-facilitator) or any project (multi-tenant) can approve (which
-    writes it to the registry) or reject it.
-    """
+    """Third-party template contributed for registry review (FR-TPL-5)."""
 
     __tablename__ = "template_submissions"
 
@@ -554,7 +468,6 @@ class TemplateSubmission(Base):
     submitter_sub: Mapped[str] = mapped_column(String, index=True)
     name: Mapped[str] = mapped_column(String)
     template_yaml: Mapped[str] = mapped_column(Text)
-    # status: pending | approved | rejected
     status: Mapped[str] = mapped_column(String, default="pending")
     reviewer_sub: Mapped[str] = mapped_column(String, default="")
     review_comment: Mapped[str] = mapped_column(Text, default="")
@@ -562,23 +475,14 @@ class TemplateSubmission(Base):
     reviewed_at: Mapped[str] = mapped_column(String, default="")
 
 
-# ---------------------------------------------------------------------------
-# Dialect-aware upsert helpers
-# ---------------------------------------------------------------------------
-# These are the *only* place in the codebase that touches dialect-specific
-# insert syntax.  app.py imports and calls them; it never imports
-# ``sqlite_insert`` directly any more.
+# app.py imports and calls them; it never imports ``sqlite_insert`` directly any more.
 
 def _is_postgres(engine) -> bool:
     return engine.dialect.name == "postgresql"
 
 
 def upsert_do_nothing(engine, model, rows: list[dict]) -> int:
-    """INSERT … ON CONFLICT DO NOTHING for the given model rows.
-
-    Returns the number of rows actually inserted (0 on full duplicate batch).
-    Works on both SQLite and PostgreSQL.
-    """
+    """INSERT … ON CONFLICT DO NOTHING for the given model rows."""
     if not rows:
         return 0
     from sqlalchemy.orm import Session as _Session
@@ -603,11 +507,7 @@ def upsert_do_update(
     conflict_cols: list[str],
     update_cols: dict,
 ) -> None:
-    """INSERT … ON CONFLICT (conflict_cols) DO UPDATE SET update_cols.
-
-    Works on both SQLite and PostgreSQL.  ``update_cols`` maps column name →
-    value expression (plain value or SQLAlchemy expression).
-    """
+    """INSERT … ON CONFLICT (conflict_cols) DO UPDATE SET update_cols."""
     if not rows:
         return
     from sqlalchemy.orm import Session as _Session
@@ -631,17 +531,9 @@ def upsert_do_update(
         s.commit()
 
 
-# ---------------------------------------------------------------------------
-# Engine / session factory
-# ---------------------------------------------------------------------------
-
-#: Set by ``make_session_factory``; used by ``paper_index`` and the
-#: corpus importer to decide which FTS path to take.
 FTS5_AVAILABLE: bool = False
 PG_FTS_AVAILABLE: bool = False
 
-#: The shared engine; exposed so ``paper_index`` and the corpus importer
-#: can build dialect-aware statements without needing to re-parse the URL.
 _engine = None
 
 
@@ -651,21 +543,9 @@ def get_engine():
 
 
 def make_session_factory(db_url: str | Path) -> sessionmaker:
-    """Create the schema if needed and return a session factory.
-
-    ``db_url`` is a fully-qualified SQLAlchemy URL string, e.g.:
-    - ``sqlite:///path/to/file.sqlite3``
-    - ``postgresql+psycopg://user:pass@host/db``
-
-    A bare :class:`~pathlib.Path` (or a ``sqlite:///``-less path string) is
-    accepted and treated as a SQLite file path — convenient for tests and
-    scripts that already hold a ``Path``. For PostgreSQL a connection pool
-    appropriate for a managed database is configured (pool_size=5,
-    connect_timeout=30 s).
-    """
+    """Create the schema if needed and return a session factory."""
     global _engine, FTS5_AVAILABLE, PG_FTS_AVAILABLE
 
-    # Accept a Path (or a bare path string) as a SQLite file location.
     if isinstance(db_url, Path) or (
         isinstance(db_url, str)
         and not db_url.startswith(("sqlite://", "postgresql"))
@@ -676,7 +556,6 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     is_pg = db_url_str.startswith("postgresql")
 
     if not is_pg:
-        # SQLite: ensure the parent directory exists
         path_part = db_url_str.replace("sqlite:///", "")
         Path(path_part).parent.mkdir(parents=True, exist_ok=True)
         engine = create_engine(db_url_str)
@@ -694,6 +573,7 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _migrate_stored_file_study_id(engine)
     _migrate_paper_curator_note(engine)
     _migrate_conversation_recommendations(engine)
+    _migrate_paper_edge_authors(engine)
     _migrate_design_move_seq(engine)
     _migrate_enrollment_participant_index(engine)
     _migrate_event_task_id(engine)
@@ -710,14 +590,10 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     return sessionmaker(bind=engine, expire_on_commit=False)
 
 
-#: Bounded retry for the *initial* connection only - a managed database can
-#: be briefly unreachable right after provisioning (DNS not yet propagated
-#: on a platform like Railway) or during its own maintenance blip. A
-#: persistent misconfiguration (wrong host, wrong project/network) still
-#: surfaces the same fatal error once attempts are exhausted - this never
-#: silently swallows a real problem, it only gives a transient one time to
-#: heal within a single container lifetime instead of crash-looping on the
-#: very first hiccup.
+# A persistent misconfiguration (wrong host, wrong project/network) still surfaces the
+# same fatal error once attempts are exhausted - this never silently swallows a real
+# problem, it only gives a transient one time to heal within a single container lifetime
+# instead of crash-looping on the very first hiccup.
 _SCHEMA_CONNECT_ATTEMPTS = 5
 _SCHEMA_CONNECT_BASE_DELAY_SECONDS = 2.0
 
@@ -730,9 +606,6 @@ def _create_schema(engine, db_url_str: str) -> None:
             log.info("Schema initialised on %s", engine.dialect.name)
             return
         except OperationalError as exc:
-            # Connection-level failure (DNS resolution, refused, timeout) -
-            # the class of error a transient provisioning/network blip
-            # produces. Retry with backoff; only fatal once exhausted.
             if attempt == _SCHEMA_CONNECT_ATTEMPTS:
                 host = _safe_host(db_url_str)
                 log.critical(
@@ -754,17 +627,7 @@ def _create_schema(engine, db_url_str: str) -> None:
             )
             time.sleep(delay)
         except (IntegrityError, ProgrammingError) as exc:
-            # A benign race, not a real failure: on a platform that briefly
-            # overlaps the old and new container during a redeploy
-            # (Railway), two processes can both run CREATE TABLE against
-            # the same fresh Postgres database within the same instant.
-            # One wins; the other collides on the catalog's own unique
-            # index (pg_type_typname_nsp_index / pg_class - "already
-            # exists") rather than failing more legibly. If every table
-            # this process expects is now present (created by whichever
-            # process won the race), there is nothing actually wrong -
-            # proceed instead of crash-looping forever. Not retried - a
-            # second attempt can't change whether the tables now exist.
+            # Not retried - a second attempt can't change whether the tables now exist.
             if _is_concurrent_create_race(exc) and _all_tables_present(engine):
                 log.warning(
                     "Schema creation raced with a concurrent process on %s "
@@ -783,13 +646,7 @@ def _create_schema(engine, db_url_str: str) -> None:
 
 
 def _migrate_stored_file_study_id(engine) -> None:
-    """Add ``files.study_id`` if missing (both dialects, idempotent).
-
-    Files uploaded before this column existed were visible to every study's
-    lifecycle computation, not just the one they were meant to gate - this
-    backfills the column (existing rows stay NULL/unscoped) so new uploads
-    can be scoped per study.
-    """
+    """Add ``files.study_id`` if missing (both dialects, idempotent)."""
     with engine.begin() as conn:
         cols = {c["name"] for c in inspect(engine).get_columns("files")}
         if "study_id" not in cols:
@@ -798,14 +655,7 @@ def _migrate_stored_file_study_id(engine) -> None:
 
 
 def _migrate_enrollment_participant_index(engine) -> None:
-    """Add ``enrollment_tokens.participant_index`` if missing (idempotent).
-
-    Tokens minted before counterbalanced assignment existed carry no index.
-    They default to 0, which assigns every one of them the first
-    participant's schedule - so this backfills from the mint order that the
-    participant id already encodes ("P01" -> 0), keeping existing studies
-    assigned the way they were enrolled.
-    """
+    """Add ``enrollment_tokens.participant_index`` if missing (idempotent)."""
     with engine.begin() as conn:
         cols = {c["name"] for c in inspect(engine).get_columns("enrollment_tokens")}
         if "participant_index" in cols:
@@ -816,8 +666,6 @@ def _migrate_enrollment_participant_index(engine) -> None:
                 "ADD COLUMN participant_index INTEGER DEFAULT 0"
             )
         )
-        # "P07" -> 6. A participant id in any other shape keeps 0; there is no
-        # honest index to infer from it.
         for row in conn.execute(
             text("SELECT id, participant_id FROM enrollment_tokens")
         ).fetchall():
@@ -834,12 +682,7 @@ def _migrate_enrollment_participant_index(engine) -> None:
 
 
 def _migrate_event_task_id(engine) -> None:
-    """Add ``events.task_id`` if missing (both dialects, idempotent).
-
-    Events collected before tasks were addressable keep an empty task id.
-    That is the honest value: which task they belonged to was never recorded
-    and cannot be reconstructed, so it is left blank rather than guessed.
-    """
+    """Add ``events.task_id`` if missing (both dialects, idempotent)."""
     with engine.begin() as conn:
         cols = {c["name"] for c in inspect(engine).get_columns("events")}
         if "task_id" not in cols:
@@ -850,13 +693,7 @@ def _migrate_event_task_id(engine) -> None:
 
 
 def _migrate_paper_curator_note(engine) -> None:
-    """Add ``papers.curator_note`` if missing (both dialects, idempotent).
-
-    Tier A seeds used to keep the curator's "why" in ``abstract``; the
-    abstract backfill needs that field for the real S2 abstract, so the note
-    moves to its own column. Existing rows keep whatever ``abstract`` holds
-    until the next ``corpus-import`` re-lands them.
-    """
+    """Add ``papers.curator_note`` if missing (both dialects, idempotent)."""
     with engine.begin() as conn:
         cols = {c["name"] for c in inspect(engine).get_columns("papers")}
         if "curator_note" not in cols:
@@ -864,16 +701,18 @@ def _migrate_paper_curator_note(engine) -> None:
             log.info("Added curator_note column to papers (abstract enrichment)")
 
 
-def _migrate_conversation_recommendations(engine) -> None:
-    """Add ``conversation_turns.recommendations`` if missing (both dialects,
-    idempotent).
+def _migrate_paper_edge_authors(engine) -> None:
+    """Add ``paper_edges.dst_authors`` if missing (both dialects, idempotent)."""
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("paper_edges")}
+        if "dst_authors" not in cols:
+            conn.execute(text("ALTER TABLE paper_edges ADD COLUMN dst_authors JSON"))
+            log.info("Added dst_authors column to paper_edges (graph node labels)")
 
-    The literature rail used to be built only from the live turn reply and
-    was never persisted, so a re-read of the conversation (a tab switch, a
-    remount, another viewer's catch-up load) came back with an empty list
-    and the surfaced papers vanished. Existing rows backfill to ``[]`` — the
-    literature those older turns surfaced is gone, but every turn from here
-    on round-trips through a reload.
+
+def _migrate_conversation_recommendations(engine) -> None:
+    """
+    Add ``conversation_turns.recommendations`` if missing (both dialects, idempotent).
     """
     with engine.begin() as conn:
         cols = {c["name"] for c in inspect(engine).get_columns("conversation_turns")}
@@ -888,15 +727,7 @@ def _migrate_conversation_recommendations(engine) -> None:
 
 
 def _migrate_design_move_seq(engine) -> None:
-    """Add ``design_moves.seq`` if missing (both dialects, idempotent).
-
-    Moves had no orderable column, so every read fell back to physical row
-    order (unstable on Postgres — an UPDATE from a decision moves the row)
-    or to ``id``, whose random-hex turn prefix shuffles cross-turn order.
-    The backfill parses the ``-m{i}`` suffix every move id carries (the
-    single creation site formats ids as ``{turn hex}:t{turnSeq}-m{i}``), so
-    existing moves keep their original proposal order within their turn.
-    """
+    """Add ``design_moves.seq`` if missing (both dialects, idempotent)."""
     with engine.begin() as conn:
         cols = {c["name"] for c in inspect(engine).get_columns("design_moves")}
         if "seq" in cols:
@@ -912,10 +743,12 @@ def _migrate_design_move_seq(engine) -> None:
 
 
 def _is_concurrent_create_race(exc: IntegrityError | ProgrammingError) -> bool:
-    """True for the specific concurrent-CREATE-TABLE race on Postgres's own
-    catalog (pg_type/pg_class unique indexes), never for an unrelated
-    integrity/programming error - narrow on purpose (F1.3: named gaps, not
-    silent ones swallowing real schema defects)."""
+    """
+    True for the specific concurrent-CREATE-TABLE race on Postgres's own catalog
+    (pg_type/pg_class unique indexes), never for an unrelated integrity/programming
+    error - narrow on purpose (F1.3: named gaps, not silent ones swallowing real schema
+    defects).
+    """
     msg = str(exc.orig if exc.orig else exc).lower()
     return "pg_type_typname_nsp_index" in msg or (
         "already exists" in msg and "duplicate key" in msg
@@ -923,8 +756,10 @@ def _is_concurrent_create_race(exc: IntegrityError | ProgrammingError) -> bool:
 
 
 def _all_tables_present(engine) -> bool:
-    """Every table this process's models declare already exists (the state
-    a winning concurrent CREATE TABLE would have left behind)."""
+    """
+    Every table this process's models declare already exists (the state a winning
+    concurrent CREATE TABLE would have left behind).
+    """
     existing = set(inspect(engine).get_table_names())
     expected = set(Base.metadata.tables.keys())
     return expected.issubset(existing)
@@ -940,15 +775,12 @@ def _safe_host(db_url: str) -> str:
         return db_url[:40]
 
 
-# ---------------------------------------------------------------------------
-# PostgreSQL FTS setup
-# ---------------------------------------------------------------------------
-
 def _setup_pg_fts(engine) -> None:
-    """Add a ``search_vector`` tsvector column to ``papers`` if absent, and
-    create a GIN index on it.  Idempotent — safe to call on every boot."""
+    """
+    Add a ``search_vector`` tsvector column to ``papers`` if absent, and create a GIN
+    index on it.
+    """
     with engine.begin() as conn:
-        # Check whether the column already exists
         cols = {c["name"] for c in inspect(engine).get_columns("papers")}
         if "search_vector" not in cols:
             conn.execute(text(
@@ -959,22 +791,14 @@ def _setup_pg_fts(engine) -> None:
                 ") STORED"
             ))
             log.info("Added search_vector column to papers (PostgreSQL FTS)")
-        # GIN index — CREATE INDEX IF NOT EXISTS is safe
         conn.execute(text(
             "CREATE INDEX IF NOT EXISTS idx_papers_fts "
             "ON papers USING gin(search_vector)"
         ))
 
 
-# ---------------------------------------------------------------------------
-# SQLite FTS5 setup  (unchanged from original)
-# ---------------------------------------------------------------------------
-
 def _create_fts(engine) -> None:
-    """Create the paper full-text index (FTS5) for SQLite.
-
-    Degrades to a plain ``paper_chunks`` table if FTS5 is absent.
-    """
+    """Create the paper full-text index (FTS5) for SQLite."""
     global FTS5_AVAILABLE
     with engine.begin() as conn:
         try:
@@ -991,16 +815,8 @@ def _create_fts(engine) -> None:
             ))
 
 
-# ---------------------------------------------------------------------------
-# SQLite-only helpers  (schema check + project migration)
-# ---------------------------------------------------------------------------
-
 def _check_schema(engine, db_url: str) -> None:
-    """Fail loudly at startup when an existing SQLite DB predates the schema.
-
-    Skipped for PostgreSQL — Railway provisions a fresh managed DB so there
-    is no risk of a stale volume, and ``create_all`` handles the schema.
-    """
+    """Fail loudly at startup when an existing SQLite DB predates the schema."""
     if _is_postgres(engine):
         return
 
@@ -1023,15 +839,7 @@ def _check_schema(engine, db_url: str) -> None:
 
 
 def _migrate_projects(engine, db_url: str) -> None:
-    """First-boot project adoption (FR-PLAT-1/5).
-
-    The implicit project + its local-identity membership are created on
-    *every* backend (not just SQLite): `none`/`token` single-facilitator
-    mode and any protocol-loaded study resolve through them, and a fresh
-    Railway/PostgreSQL database would otherwise be missing the row its
-    studies reference. Orphan-study adoption is SQLite-only (a legacy
-    migration; PostgreSQL provisions a clean DB).
-    """
+    """First-boot project adoption (FR-PLAT-1/5)."""
     with engine.begin() as conn:
         created_project = _ensure_implicit_project(conn)
         _ensure_implicit_membership(conn)
@@ -1049,7 +857,7 @@ def _migrate_projects(engine, db_url: str) -> None:
 
 
 def _ensure_implicit_project(conn) -> bool:
-    """Create the implicit project row if missing. Returns True if created."""
+    """Create the implicit project row if missing."""
     row = conn.execute(
         text("SELECT id FROM projects WHERE id = :id"), {"id": IMPLICIT_PROJECT_ID}
     ).first()
@@ -1100,8 +908,9 @@ def _ensure_implicit_membership(conn) -> bool:
 
 
 def _adopt_orphan_studies(conn) -> int:
-    """Adopt every studies row with a null/empty project_id into the implicit
-    project.  Returns the count adopted."""
+    """
+    Adopt every studies row with a null/empty project_id into the implicit project.
+    """
     result = conn.execute(
         text(
             "UPDATE studies SET project_id = :p "

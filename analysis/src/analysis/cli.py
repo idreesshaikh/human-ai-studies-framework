@@ -1,14 +1,4 @@
-"""`analysis` CLI (FR-ANA-4).
-
-    analysis run protocol/examples/pilot-study.yaml            # fetch from :8000
-    analysis run pilot.yaml --dataset export.json --out results
-    analysis validate pilot.yaml                               # FR-ANA-2 check only
-    analysis list                                              # registered recipes
-
-Exit codes: 0 = everything ran; 1 = hard error (bad arguments, no data);
-2 = the report was written but the plan had validation failures or a
-recipe raised - loud by design, scripts must notice.
-"""
+"""`analysis` CLI (FR-ANA-4)."""
 
 from __future__ import annotations
 

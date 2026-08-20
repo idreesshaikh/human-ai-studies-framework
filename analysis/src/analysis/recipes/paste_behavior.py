@@ -1,10 +1,4 @@
-"""paste-behavior (RQ-P3): paste size and frequency by condition.
-
-Test choice: paste sizes are heavily right-skewed character counts and
-paste rates are small counts over unequal time bases, so both use the
-exact nonparametric machinery of ``analysis.stats`` (Wilcoxon paired /
-Mann-Whitney U + Cliff's delta). Needs the behavioral leg.
-"""
+"""paste-behavior (RQ-P3): paste size and frequency by condition."""
 
 from __future__ import annotations
 

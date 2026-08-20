@@ -1,20 +1,12 @@
-"""PDF text + title extraction for paper ingest (FR-LIT-1; decision D21).
-
-PyMuPDF (``fitz``) extracts text locally - the bytes never leave the machine
-(NFR-5). The metadata of record still comes from Semantic Scholar (D8); this
-is only the *full text* for the assistant's search and a *title guess* to
-enrich by when the PDF carries no DOI. A scanned or unreadable PDF degrades
-to empty text rather than failing the ingest.
-"""
+"""PDF text + title extraction for paper ingest (FR-LIT-1; decision D21)."""
 
 from __future__ import annotations
 
 
 def extract(content: bytes) -> dict:
-    """Return ``{title, text}`` from PDF bytes. Best-effort: any parse error
-    yields empties so ingest can fall back to metadata-only."""
+    """Return ``{title, text}`` from PDF bytes."""
     try:
-        import fitz  # PyMuPDF
+        import fitz
     except ImportError:
         return {"title": "", "text": ""}
     try:

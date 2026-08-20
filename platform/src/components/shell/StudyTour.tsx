@@ -25,7 +25,7 @@ const STEPS: Step[] = [
   {
     tab: "conversation",
     title: "Talk your study into existence",
-    body: "Start here. Describe a research idea in plain language: the assistant asks the questions a methodologist would and proposes design moves you accept or reject. Type “finish” when you're ready to compile them into a protocol.",
+    body: "Start here. Describe a research idea in plain language and the assistant asks the questions a methodologist would. Its answers arrive as “moves”: one proposed decision each — a sample size, a condition to compare, a measure to take — which you accept or reject one at a time. Type “finish” when you're ready to compile the ones you kept into a protocol.",
   },
   {
     tab: "conversation",

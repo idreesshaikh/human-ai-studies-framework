@@ -1,12 +1,7 @@
-"""The session timeline figure (P2-1): one session's events on a shared
-timeline — a lane per event type in first-appearance order, minutes from the
-session's first event, flagged rows drawn as open diamonds.
-
-The bar: deterministic (same dataset, same figure, byte for byte — the
-SVG-hashsalt is fixed repo-wide), lane order follows the session's own
-chronology rather than alphabetical accident, and a flag is a shape, not a
-footnote. The figure draws from the exported dataset only — no new backend
-contract, no new privacy surface.
+"""
+The session timeline figure (P2-1): one session's events on a shared timeline — a lane
+per event type in first-appearance order, minutes from the session's first event,
+flagged rows drawn as open diamonds.
 """
 
 from __future__ import annotations
@@ -23,7 +18,7 @@ plt.close("all")
 
 def _flagged_rows() -> list[dict]:
     rows = synthetic_rows()
-    rows[3]["flags"] = ["future-ts"]  # one integrity flag, on an agent_turn
+    rows[3]["flags"] = ["future-ts"]
     return rows
 
 
@@ -53,14 +48,16 @@ def test_x_axis_is_minutes_from_session_start():
     duration = (session["ts"].max() - session["ts"].min()).total_seconds() / 60.0
     fig = session_timeline(dataset, sid)
     lo, hi = fig.axes[0].get_xlim()
-    assert lo <= 0  # starts at the session's first event
-    assert hi - lo >= duration  # spans the whole session
+    assert lo <= 0
+    assert hi - lo >= duration
 
 
 def test_flagged_rows_are_drawn_differently():
-    """A row carrying ingest flags must not be silently identical to a clean
-    row: the flagged session renders one more marker collection (the open
-    diamond overlay) than the same session without flags."""
+    """
+    A row carrying ingest flags must not be silently identical to a clean row: the
+    flagged session renders one more marker collection (the open diamond overlay) than
+    the same session without flags.
+    """
     clean = Dataset(rows=synthetic_rows(), study_id="pilot-2026")
     flagged = Dataset(rows=_flagged_rows(), study_id="pilot-2026")
     sid = flagged.rows[0]["sessionId"]

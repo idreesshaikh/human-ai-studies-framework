@@ -22,7 +22,6 @@ COL_ALL = -1
 def flag_with_priority(
     mask: pd.DataFrame, error_type: int, row: int, col: int | str
 ) -> None:
-    # col -1 means all
 
     priority_list = [
         0,
@@ -30,7 +29,7 @@ def flag_with_priority(
         ErrorTypes.MISFIELDED_VALUES.value,
         ErrorTypes.FUZZY_DUPLICATES.value,
         ErrorTypes.EXACT_DUPLICATES.value,
-        ErrorTypes.MISFIELDED_VALUES_IN_ANY_CASE.value,  # hack for highest prio because flagging prio is broken
+        ErrorTypes.MISFIELDED_VALUES_IN_ANY_CASE.value,
     ]
 
     new_prio = priority_list.index(error_type)
@@ -131,7 +130,6 @@ class DetectIncorrectValues(Detect):
                 for col in cols:
                     flag_with_priority(mask, cls.error_type.value, idx, col)
                     detected += 1
-                    # print(col, input.loc[idx, col])
         return detected
 
 
@@ -144,10 +142,6 @@ class DetectIncorrectFuzzyValues(Detect):
     def detect(cls, input: pd.DataFrame, mask: pd.DataFrame) -> int:
         detected = 0
 
-        # string_fields = []
-        # for field_name, field_info in cls.pydantic_class.model_fields.items():
-        #     if field_info.annotation == str or str in getattr(field_info.annotation, '__args__', []):
-        #         string_fields.append(field_name)
 
         for field in cls.string_fields:
             dataframe = input[field].to_list()
@@ -157,12 +151,10 @@ class DetectIncorrectFuzzyValues(Detect):
                 for idx, val in input[field].items()
                 if not exact[idx] and mask[field][idx] == 0
             ]
-            # print(dataframe)
             semhash = SemHash.from_records(records=dataframe, columns=[field])
             duplicates = semhash.self_deduplicate(threshold=0.9).duplicates
 
             for duplicate in duplicates:
-                # print(f"Duplicates of {duplicate.record}: {duplicate.duplicates}")
                 matches = input[input[field] == duplicate.record].index
                 for idx in matches:
                     flag_with_priority(mask, cls.error_type.value, idx, field)
@@ -190,52 +182,8 @@ class UniquenessFuzzyDuplicates(Detect):
         return detected
 
 
-# class DetectFuzzyDuplicates(Detect):
-#     error_type = ErrorTypes.FUZZY_DUPLICATES
-#     model = None
-#     tokenizer = None
-#     threshold: float = 0.85
-#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-#     @classmethod
-#     def _get_embeddings(cls, texts: list[str], batch_size: int = 1) -> np.ndarray:
-#         embeddings_list = []
-#         for i in tqdm.tqdm(range(0, len(texts), batch_size), desc="Embedding batches"):
-#             batch_texts = texts[i : i + batch_size]
-#             inputs = cls.tokenizer(
-#                 batch_texts, return_tensors="pt", truncation=True, padding=True
-#             )
-#             inputs = {k: v.to(cls.device) for k, v in inputs.items()}
-#             with torch.no_grad():
-#                 outputs = cls.model(**inputs)
-#             batch_embeddings = outputs.last_hidden_state.mean(dim=1)
-#             embeddings_list.append(batch_embeddings.cpu().numpy())
-#         return np.vstack(embeddings_list)
-
-#     @classmethod
-#     def detect(cls, input: pd.DataFrame, mask: pd.DataFrame) -> int:
-#         model_name = "sentence-transformers/all-mpnet-base-v2"
-#         cls.model = AutoModel.from_pretrained(model_name).to(cls.device)
-#         cls.tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-#         if cls.model is None or cls.tokenizer is None:
-#             raise ValueError("Model and tokenizer must be set before detection.")
-
-#         detected = 0
-
-#         combined = input.astype(str).agg(" ".join, axis=1).tolist()
-#         embeddings = cls._get_embeddings(combined)
-#         similarity_matrix = cosine_similarity(embeddings)
-
-#         for i in range(len(input)):
-#             for j in range(i + 1, len(input)):
-#                 if similarity_matrix[i, j] > cls.threshold:
-#                     # print(f"Similar rows (index {i}, {j}):")
-#                     # print(input.iloc[[i, j]])
-#                     flag_with_priority(mask, cls.error_type.value, i, COL_ALL)
-#                     flag_with_priority(mask, cls.error_type.value, j, COL_ALL)
-#                     detected += input.shape[1] * 2
-#         return detected
+# if cls.model is None or cls.tokenizer is None: raise ValueError("Model and tokenizer
+# must be set before detection.").
 
 
 class DetectFuzzyDuplicates(Detect):
@@ -246,7 +194,6 @@ class DetectFuzzyDuplicates(Detect):
     def detect(cls, input: pd.DataFrame, mask: pd.DataFrame) -> int:
         detected = 0
 
-        # input = input.head(1000)
 
         string_fields = [
             field
@@ -255,19 +202,15 @@ class DetectFuzzyDuplicates(Detect):
             and ftype.annotation.__origin__ in (Literal, str)
         ]
 
-        # print(input.to_dict(orient='records'))
         records = (
             input.reset_index()
             .rename(columns={"index": "row_id"})
             .to_dict(orient="records")
         )
-        # print(records)
         semhash = SemHash.from_records(records=records, columns=string_fields)
         duplicates = semhash.self_deduplicate(threshold=0.9).duplicates
 
         for duplicate in duplicates:
-            # print(duplicate.record)
-            # print(f"Duplicates of {duplicate.record}: {duplicate.duplicates}")
             if duplicate.exact:
                 continue
 
@@ -292,7 +235,7 @@ class DetectMisfieldedValues(Detect):
         try:
             cls.pydantic_class.__pydantic_validator__.validate_assignment(
                 cls.pydantic_class.model_construct(), field_name, value
-            )  # https://github.com/pydantic/pydantic/discussions/7367#discussioncomment-6953794
+            )
             return True
         except Exception as e:
             return False
@@ -303,7 +246,6 @@ class DetectMisfieldedValues(Detect):
 
     @classmethod
     def detect(cls, input: pd.DataFrame, mask: pd.DataFrame) -> int:
-        # print(cls.pydantic_class.model_fields)
         detected = 0
         for idx, row in input.iterrows():
             for col in input.columns:
@@ -315,20 +257,17 @@ class DetectMisfieldedValues(Detect):
                 ):
                     for other_col in input.columns:
                         if other_col == col:
-                            continue  # ignore the same col
+                            continue
                         other_col_idx = mask.columns.get_loc(other_col)
                         if mask.iloc[idx, other_col_idx] in cls.skip_types:
-                            continue  # ignore if already higher prio
+                            continue
 
                         other_col_value = row[other_col]
                         if not cls.validate_value(other_col, other_col_value):
                             if (
                                 cls.validate_value(other_col, col_value)
                                 and cls.validate_value(col, other_col_value)
-                            ):  # we found a swap, its greedy, but there is no way to figure out which fitting cols its from
-                                # print(
-                                #     f"SWAP: Detected misfielded value in row {idx}, column {col}: {col_value} and {other_col}: {other_col_value} are swapped"
-                                # )
+                            ):
                                 flag_with_priority(
                                     mask, cls.error_type.value, idx, col_idx
                                 )
@@ -344,33 +283,14 @@ class DetectMisfieldedValues(Detect):
                             col_type.annotation == other_col_type.annotation
                             and col_type.metadata == other_col_type.metadata
                         ):
-                            # print(
-                            #     f"col_type {col_type} and other_col_type {other_col_type} are equal"
-                            # )
-                            continue  # if both are literals, ints floats with the same allowed values, we cannot do anything here
+                            continue
 
                         if col_value == other_col_value and cls.validate_value(
                             other_col, other_col_value
                         ):
-                            # print(
-                            #     f"MOVE: Detected misfielded value in row {idx}, column {col}: {col_value} and {other_col}: {other_col_value} are moved"
-                            # )
                             flag_with_priority(mask, cls.error_type.value, idx, col_idx)
-                            # flag_with_priority(
-                            #     mask, cls.error_type.value, idx, other_col_idx
-                            # )
                             detected += 1
                             continue
 
-                        # if cls.validate_value(other_col, other_col_value):
-                        #     print(
-                        #         f"SIMPLE MOVE: Detected misfielded value in row {idx}, column {col}: {col_value} and {other_col}: {other_col_value} are moved"
-                        #     )
-                        #     flag_with_priority(mask, cls.error_type.value, idx, col_idx)
-                        #     flag_with_priority(
-                        #         mask, cls.error_type.value, idx, other_col_idx
-                        #     )
-                        #     detected += 1
-                        #     continue
 
         return detected

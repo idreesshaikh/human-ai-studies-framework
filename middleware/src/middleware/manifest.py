@@ -1,28 +1,4 @@
-"""Platform manifest generator for (FR-AGF-1).
-
-Assembles the platform manifest at startup from documents of record:
-- FastAPI's own OpenAPI doc (API surface)
-- Published JSON Schemas (event, protocol, template)
-- Template registry index
-- Corpus index counts
-- Deployment auth mode
-
-The manifest is served at `GET /.well-known/platform-manifest` (unauthenticated).
-
-Key principle: NO HAND-WRITTEN MANIFEST CONTENT (FR-AGF-1 F1.1). Every value
-is traceable to a generated source. A grep finds no literal capability strings
-outside this generator module.
-
-The manifest shape follows fr-agf.md §2:
-{
-  "platform": {"name", "version", "deployment"},
-  "capabilities": [...],
-  "api": {"openapi": url, "auth": {"mode", "how"}},
-  "schemas": {"event": {...}, "protocol": {...}, "template": {...}},
-  "templates": {"index": url, "count"},
-  "corpus": {"index": url, "count"}
-}
-"""
+"""Platform manifest generator for (FR-AGF-1)."""
 
 from __future__ import annotations
 
@@ -35,9 +11,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-# Imported at module scope (not inside the route factory) so FastAPI can
-# resolve the ``Request`` annotation — under ``from __future__ import
-# annotations`` a locally-imported name is invisible to that resolution.
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
@@ -47,26 +20,21 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Data classes for manifest structure
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class PlatformInfo:
     """Platform identity section."""
 
     name: str
     version: str
-    deployment: str  # "hosted" | "demo"
+    deployment: str
 
 
 @dataclass
 class APIInfo:
     """API surface section."""
 
-    openapi: str  # URL to OpenAPI JSON
-    auth: dict[str, str]  # {"mode", "how"}
+    openapi: str
+    auth: dict[str, str]
 
 
 @dataclass
@@ -86,12 +54,11 @@ class SchemasSection:
     template: SchemaInfo | None = None
 
 
-
 @dataclass
 class TemplatesSection:
     """Template registry info."""
 
-    index: str  # URL to template index
+    index: str
     count: int
 
 
@@ -99,7 +66,7 @@ class TemplatesSection:
 class CorpusSection:
     """Corpus info."""
 
-    index: str  # URL to corpus index
+    index: str
     count: int
     tierA: int
     tierB: int
@@ -107,10 +74,7 @@ class CorpusSection:
 
 @dataclass
 class PlatformManifest:
-    """Complete platform manifest.
-
-    Every value is generated from documents of record. No hand-written content.
-    """
+    """Complete platform manifest."""
 
     platform: PlatformInfo
     capabilities: list[str]
@@ -119,14 +83,11 @@ class PlatformManifest:
     templates: TemplatesSection
     corpus: CorpusSection
 
-    # Additional generated fields (extensions allowed per FR-AGF-1 freedoms)
     generatedAt: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     generator: str = "middleware.manifest"
 
     def to_dict(self, *, deterministic: bool = False) -> dict[str, Any]:
-        """Convert to JSON-serializable dict. ``deterministic`` drops the
-        timestamp so a snapshot (e.g. embedded in AGENTS.md) is stable across
-        runs and the drift check is meaningful (FR-AGF-2)."""
+        """Convert to JSON-serializable dict."""
         result = {
             "platform": asdict(self.platform),
             "capabilities": self.capabilities,
@@ -145,32 +106,18 @@ class PlatformManifest:
         return json.dumps(self.to_dict(), indent=indent)
 
 
-# ---------------------------------------------------------------------------
-# Schema discovery
-# ---------------------------------------------------------------------------
-
-
 def _discover_event_schema_versions(repo: Path) -> list[int]:
     """Discover available event schema versions from the extension."""
-    # Import from app.py where KNOWN_EVENT_SCHEMA_VERSIONS is defined
-    # This keeps the values in sync without hand-written content
     try:
         from middleware.app import KNOWN_EVENT_SCHEMA_VERSIONS
 
         return sorted(KNOWN_EVENT_SCHEMA_VERSIONS)
     except ImportError:
-        # Fallback to known versions from the extension
-        # v2 = cognitive leg; v3 = + behavioral telemetry leg;
-        # v4 = + agent-interaction leg, snapshots, task harness
         return [2, 3, 4]
 
 
 def _discover_protocol_schema_versions(repo: Path) -> list[int]:
-    """Discover supported protocol schema versions from the schema itself.
-
-    Reads the ``protocolVersion`` constraint — an ``enum`` (v1/v2/v3, the
-    current shape) or a legacy ``const`` — so the manifest reports exactly
-    what the validator accepts. Consumers branch on version (FR-PROT-2)."""
+    """Discover supported protocol schema versions from the schema itself."""
     schema_path = (
         repo / "protocol" / "src" / "protocol" / "schema" / "study-protocol.schema.json"
     )
@@ -187,7 +134,6 @@ def _discover_protocol_schema_versions(repo: Path) -> list[int]:
 
 def _discover_template_schema_versions(repo: Path) -> list[int] | None:
     """Discover template schema versions from existing template files."""
-    # Look at actual template files to see what versions are in use
     registry = repo / "templates" / "registry"
     if registry.exists():
         with suppress(Exception):
@@ -202,21 +148,14 @@ def _discover_template_schema_versions(repo: Path) -> list[int] | None:
             if versions:
                 return sorted(versions)
 
-    # Fallback to schema file
     schema_path = repo / "templates" / "schemas" / "template.schema.json"
     if schema_path.exists():
         with suppress(Exception):
             import json
 
             json.loads(schema_path.read_text())
-            # Template schema uses minimum, so return v1 as current
             return [1]
     return None
-
-
-# ---------------------------------------------------------------------------
-# Count functions
-# ---------------------------------------------------------------------------
 
 
 def _count_templates(repo: Path) -> int:
@@ -228,9 +167,8 @@ def _count_templates(repo: Path) -> int:
 
 
 def _count_corpus(repo: Path) -> tuple[int, int, int]:
-    """Count corpus papers: total, tierA, tierB.
-
-    Returns: (total, tierA_count, tierB_count)
+    """
+    Count corpus papers: total, tierA, tierB. Returns: (total, tierA_count, tierB_count)
     """
     corpus_index = repo / "docs" / "papers" / "corpus-index.json"
     if not corpus_index.exists():
@@ -248,10 +186,6 @@ def _count_corpus(repo: Path) -> tuple[int, int, int]:
         return (0, 0, 0)
 
 
-# ---------------------------------------------------------------------------
-# Main generator
-# ---------------------------------------------------------------------------
-
 if TYPE_CHECKING:
     from fastapi.applications import FastAPI
 
@@ -262,38 +196,20 @@ def generate_manifest(
     deployment: str = "hosted",
     auth_mode: str = "none",
 ) -> PlatformManifest:
-    """Generate the platform manifest from documents of record.
-
-    Args:
-        app: FastAPI application (for OpenAPI generation)
-        repo: Repository root path (default: auto-detected)
-        deployment: Deployment mode ("hosted", "demo")
-        auth_mode: The deployment's resolved auth mode (none/token/clerk).
-
-    Returns:
-        Complete PlatformManifest with all sections populated.
-
-    Every value is generated - no hand-written content (FR-AGF-1 F1.1).
-    """
+    """Generate the platform manifest from documents of record."""
     if repo is None:
         repo = Path(__file__).resolve().parent.parent.parent.parent
 
-    # Platform identity (from pyproject.toml or package metadata)
     platform_info = _generate_platform_info(repo, deployment)
 
-    # Capabilities (from available features)
     capabilities = _generate_capabilities(repo)
 
-    # API info (from FastAPI OpenAPI)
     api_info = _generate_api_info(app, repo, deployment, auth_mode)
 
-    # Schemas
     schemas = _generate_schemas_section(repo)
 
-    # Templates
     templates = _generate_templates_section(repo)
 
-    # Corpus
     corpus = _generate_corpus_section(repo)
 
     return PlatformManifest(
@@ -308,7 +224,6 @@ def generate_manifest(
 
 def _generate_platform_info(repo: Path, deployment: str) -> PlatformInfo:
     """Generate platform identity from package metadata."""
-    # Try to get version from pyproject.toml
     version = "0.1.0"
     pyproject = repo / "pyproject.toml"
     if pyproject.exists():
@@ -323,7 +238,6 @@ def _generate_platform_info(repo: Path, deployment: str) -> PlatformInfo:
                     .get("version", data.get("project", {}).get("version", "0.1.0"))
                 )
 
-    # Try middleware package
     middleware_pyproject = repo / "middleware" / "pyproject.toml"
     if middleware_pyproject.exists():
         with suppress(Exception):
@@ -333,7 +247,6 @@ def _generate_platform_info(repo: Path, deployment: str) -> PlatformInfo:
                 data = tomllib.load(f)
                 version = data.get("project", {}).get("version", version)
 
-    # Determine deployment mode from environment
     env_deployment = os.environ.get("DEPLOYMENT_MODE", deployment)
     if env_deployment in ("hosted", "demo"):
         deployment = env_deployment
@@ -349,25 +262,21 @@ def _generate_capabilities(repo: Path) -> list[str]:
     """Generate capabilities list from available features."""
     capabilities = ["conversation", "protocol-compilation"]
 
-    # Check for template registry
     templates_dir = repo / "templates" / "registry"
     if templates_dir.exists() and len(list(templates_dir.glob("*.yaml"))) > 0:
         capabilities.append("templates")
 
-    # Check for corpus
     corpus_index = repo / "docs" / "papers" / "corpus-index.json"
     if corpus_index.exists():
         capabilities.append("corpus")
         capabilities.append("paper-matching")
 
-    # Check for analysis recipes
     analysis_dir = repo / "analysis" / "src" / "analysis"
     if analysis_dir.exists():
         capabilities.append("analysis-recipes")
 
-    # Check for the curated-mining leg (its own package + the middleware
-    # runner). Guard against a missing tree so the generator is robust when
-    # pointed at a partial checkout (feature detection, never a crash).
+    # Guard against a missing tree so the generator is robust when pointed at a partial
+    # checkout (feature detection, never a crash).
     mining_dir = repo / "middleware" / "src" / "middleware"
     if (mining_dir / "mining.py").exists() or (repo / "curated").exists():
         capabilities.append("curated-datasets")
@@ -378,9 +287,7 @@ def _generate_capabilities(repo: Path) -> list[str]:
 def _generate_api_info(
     app: FastAPI | None, repo: Path, deployment: str, auth_mode: str = "none"
 ) -> APIInfo:
-    """Generate API info section. ``auth_mode`` is the deployment's *resolved*
-    mode (from ``auth.resolve_mode(settings)``), so the manifest reports what
-    the running service actually enforces, not a guess."""
+    """Generate API info section."""
     how = {
         "none": "No authentication — single facilitator (NFR-5).",
         "token": "Bearer token (MIDDLEWARE_TOKEN) on platform-facing routes; "
@@ -395,15 +302,12 @@ def _generate_api_info(
 
 def _generate_schemas_section(repo: Path) -> SchemasSection:
     """Generate schemas section from available schema files."""
-    # Event schema
     event_versions = _discover_event_schema_versions(repo)
     event_url = "/schemas/event"
 
-    # Protocol schema
     protocol_versions = _discover_protocol_schema_versions(repo)
     protocol_url = "/schemas/protocol"
 
-    # Template schema (optional)
     template_versions = _discover_template_schema_versions(repo)
     template_info = None
     if template_versions:
@@ -428,12 +332,8 @@ def _generate_corpus_section(repo: Path) -> CorpusSection:
     return CorpusSection(index="/papers/index", count=total, tierA=tier_a, tierB=tier_b)
 
 
-# ---------------------------------------------------------------------------
-# Manifest caching and refresh
-# ---------------------------------------------------------------------------
-
-# Module-level cache, keyed by (deployment, auth_mode) so two deployments in
-# one process (e.g. across tests) don't leak each other's auth mode.
+# Module-level cache, keyed by (deployment, auth_mode) so two deployments in one process
+# (e.g. across tests) don't leak each other's auth mode.
 _manifest_cache: dict[tuple[str, str], PlatformManifest] = {}
 
 
@@ -459,27 +359,13 @@ def refresh_manifest() -> PlatformManifest:
     return get_manifest(force_refresh=True)
 
 
-# ---------------------------------------------------------------------------
-# FastAPI route setup
-# ---------------------------------------------------------------------------
-
-
 def setup_manifest_route(app: FastAPI, auth_mode: str = "none") -> None:
-    """Add the /.well-known/platform-manifest route to a FastAPI app.
-
-    The route is unauthenticated (like /openapi.json) and returns the
-    generated manifest as JSON. ``auth_mode`` is the deployment's resolved
-    mode, so the manifest reports what this service actually enforces.
-    """
+    """Add the /.well-known/platform-manifest route to a FastAPI app."""
     router = APIRouter(prefix="/.well-known")
 
     @router.get("/platform-manifest")
     async def platform_manifest(request: Request) -> JSONResponse:
-        """Platform manifest for AI agents (FR-AGF-1).
-
-        Unauthenticated. Assembled at startup from documents of record.
-        Every value is generated - no hand-written content.
-        """
+        """Platform manifest for AI agents (FR-AGF-1)."""
         manifest = get_manifest(
             app=request.app,
             deployment=os.environ.get("DEPLOYMENT_MODE", "hosted"),
@@ -494,10 +380,6 @@ def setup_manifest_route(app: FastAPI, auth_mode: str = "none") -> None:
 
     app.include_router(router)
 
-
-# ---------------------------------------------------------------------------
-# CLI for testing
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     import argparse

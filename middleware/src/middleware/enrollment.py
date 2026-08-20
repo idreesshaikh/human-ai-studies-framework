@@ -1,9 +1,4 @@
-"""Pure helpers for the live capture link (FR-INST-20/21, FR-ING-7).
-
-No FastAPI/DB state here — the routes in ``app.py`` call these and own the
-session. Keeping the token/config/consent logic pure makes it table-testable
-(the FR-ETH-4 / authz pattern).
-"""
+"""Pure helpers for the live capture link (FR-INST-20/21, FR-ING-7)."""
 
 import json
 from hashlib import sha256
@@ -13,20 +8,12 @@ from protocol.derive import derive_overlay_settings
 
 
 def connection_string(base_url: str, token: str) -> str:
-    """The copy-safe string a participant pastes: ``serverUrl#token``.
-
-    The base URL never contains ``#`` and the token is URL-safe base64, so a
-    single ``#`` split reverses this unambiguously on the extension side.
-    """
+    """The copy-safe string a participant pastes: ``serverUrl#token``."""
     return f"{base_url.rstrip('/')}#{token}"
 
 
 def capture_config_version(protocol: dict) -> str:
-    """A 12-char content hash of the protocol's instruments block.
-
-    Changes iff the derived capture config changes (wall #5). Stateless, so
-    the redeem and capture-config routes compute the same value.
-    """
+    """A 12-char content hash of the protocol's instruments block."""
     blob = json.dumps(
         protocol.get("instruments", {}), sort_keys=True, separators=(",", ":")
     )
@@ -41,19 +28,7 @@ def build_capture_config(
     task: dict | None = None,
     block: dict | None = None,
 ) -> dict:
-    """The versioned, protocol-derived capture config for one producer.
-
-    ``overlay`` returns the flat ``tern.*`` settings the extension
-    applies. Other producers (e.g. ``agent``) can be added behind the same
-    envelope later; this phase serves ``overlay``.
-
-    ``legs`` rides alongside as the *display* half (FR-INST-22): the four legs
-    with their state and toggles, so the IDE's leg surface renders the one
-    catalog rather than re-deriving what a leg does from the flat settings —
-    which it could not do anyway, since ``settings`` carries only the ``tern.*``
-    subtree and two of the four legs live outside it. Purely descriptive: only
-    ``settings`` is ever applied, so this cannot widen what is captured.
-    """
+    """The versioned, protocol-derived capture config for one producer."""
     if producer != "overlay":
         raise ValueError(f"unknown capture-config producer {producer!r}")
     settings = derive_overlay_settings(protocol, participant_id, condition, task)
@@ -64,22 +39,15 @@ def build_capture_config(
         "legs": leg_summary(protocol),
     }
     if block is not None:
-        # The display half of the assignment: what this session is, and where
-        # it sits in the participant's sequence. Purely descriptive - only
-        # ``settings`` configures capture - so the editor can say "task 2 of
-        # 3: fix the failing test" rather than leaving the participant to
-        # work out what they are meant to be doing.
         config["block"] = block
     return config
 
 
 def enabled_instruments(settings: dict) -> list[dict]:
-    """The `{name, enabled}` summary of every sub-instrument this capture
-    config declares an explicit on/off switch for (keys ending ``.enabled``
-    in the flat ``derive_overlay_settings`` output). Used by the enrollment
-    surface's pre-flight visibility (FR-DASH-10) so a researcher can catch a
-    forgotten toggle before a session begins, without hand-deriving a second
-    summary that could drift from what the IDE actually applies.
+    """
+    The `{name, enabled}` summary of every sub-instrument this capture config declares
+    an explicit on/off switch for (keys ending ``.enabled`` in the flat
+    ``derive_overlay_settings`` output).
     """
     out = []
     for key, value in settings.items():
@@ -89,33 +57,18 @@ def enabled_instruments(settings: dict) -> list[dict]:
     return sorted(out, key=lambda e: e["name"])
 
 
-#: Sourced from agent_capture.redact - the module that actually enforces the
-#: policy - rather than kept as a second, independently-worded copy here. Two
-#: copies is how this class of text drifts: enforcement changes, the
-#: description doesn't, and a participant reads a promise the code no longer
-#: keeps.
 def content_policy(protocol: dict) -> str:
     """The study's agent content policy (default metadata-only, the safest)."""
     agent = protocol.get("instruments", {}).get("agentCapture", {})
     return agent.get("contentPolicy", "metadata-only")
 
 
-#: The four instrument legs, in the order a participant should meet them:
-#: what the code looks like, what they did, how they felt, what the agent did.
-#: The IDE's leg surface (FR-INST-22) groups by this field rather than
-#: string-matching instrument names, so an instrument renamed or split later
-#: stays one leg to the participant.
 LEG_METRICS = "metrics"
 LEG_BEHAVIORAL = "behavioral"
 LEG_COGNITIVE = "cognitive"
 LEG_AGENT = "agent"
 
-#: Grounding table for togglable metric paths (FR-DASH-11, FR-DASH-13,
-#: FR-CONV-2). Maps known instrument+path combinations to corpus refs or marks
-#: them unsourced. Only cites sources already in the corpus — never invents
-#: one. Spans all four legs: a console that controls three of four legs sends
-#: the researcher back through the designer for the fourth, and leaves the
-#: participant unable to verify the whole consent promise (FR-INST-22).
+# Only cites sources already in the corpus — never invents one.
 _TOGGLE_CATALOG: list[dict] = [
     {
         "instrument": "tern",
@@ -190,7 +143,6 @@ _TOGGLE_CATALOG: list[dict] = [
         ),
         "grounding": {"unsourced": True},
     },
-    # ---- Behavioral leg -------------------------------------------------
     {
         "instrument": "tern",
         "leg": LEG_BEHAVIORAL,
@@ -235,10 +187,6 @@ _TOGGLE_CATALOG: list[dict] = [
         ),
         "grounding": {"ref": "FR-INST-10", "source": "srs"},
     },
-    # ---- Static-metrics leg ---------------------------------------------
-    # The only leg whose capture reaches actual code content, and therefore
-    # the one a participant most needs to see: snapshots are one of the two
-    # scoped exceptions to privacy-by-construction (FR-ETH-2).
     {
         "instrument": "metrics",
         "leg": LEG_METRICS,
@@ -295,7 +243,6 @@ _TOGGLE_CATALOG: list[dict] = [
         ),
         "grounding": {"ref": "FR-INST-17", "source": "srs"},
     },
-    # ---- Agent-interaction leg ------------------------------------------
     {
         "instrument": "agentCapture",
         "leg": LEG_AGENT,
@@ -333,13 +280,7 @@ _TOGGLE_CATALOG: list[dict] = [
 
 
 def toggle_catalog(protocol: dict) -> list[dict]:
-    """Return the list of togglable metrics for a protocol's instrument shape.
-
-    Filters ``_TOGGLE_CATALOG`` to only include metrics whose instrument
-    exists in the protocol, and resolves the current value from the protocol's
-    nested ``instruments`` dict. Never emits a citation absent from the
-    corpus/SRS (FR-CONV-2).
-    """
+    """Return the list of togglable metrics for a protocol's instrument shape."""
     instruments = protocol.get("instruments") or {}
     out = []
     for entry in _TOGGLE_CATALOG:
@@ -368,9 +309,8 @@ def toggle_catalog(protocol: dict) -> list[dict]:
     return out
 
 
-#: What each leg is, in the participant's words, for the IDE's leg surface
-#: (FR-INST-22). Written once here so the extension never grows a second,
-#: divergent account of what a leg does.
+# Written once here so the extension never grows a second, divergent account of what a
+# leg does.
 _LEG_SUMMARIES = {
     LEG_METRICS: (
         "Static metrics",
@@ -390,20 +330,11 @@ _LEG_SUMMARIES = {
     ),
 }
 
-#: The order a participant meets the legs: the code, what they did, how they
-#: felt, what the agent did.
 LEG_ORDER = (LEG_METRICS, LEG_BEHAVIORAL, LEG_COGNITIVE, LEG_AGENT)
 
 
 def leg_summary(protocol: dict) -> list[dict]:
-    """All four legs with their state under this protocol (FR-INST-22).
-
-    Every leg is always present. A leg the protocol does not enable comes back
-    ``"unavailable"`` rather than being dropped: a participant can only check
-    the consent promise if they can see the full extent of what is *not*
-    captured as well as what is. ``toggles`` carries that leg's slice of
-    ``toggle_catalog``, so the IDE renders one catalog, not its own copy.
-    """
+    """All four legs with their state under this protocol (FR-INST-22)."""
     entries = toggle_catalog(protocol)
     out = []
     for leg in LEG_ORDER:
@@ -412,8 +343,6 @@ def leg_summary(protocol: dict) -> list[dict]:
         if not toggles:
             state = "unavailable"
         else:
-            # A leg is off only when it has an explicit enabled flag set false;
-            # a leg configured without one is on by virtue of being configured.
             switches = [
                 t["currentValue"] for t in toggles if t["path"][-1] == "enabled"
             ]
@@ -429,16 +358,9 @@ def leg_summary(protocol: dict) -> list[dict]:
 
 
 def consent_statement(protocol: dict, condition: str) -> str:
-    """A deterministic, protocol-derived consent paragraph (wall #1, FR-AGENT-5).
-
-    States what the study is, the condition, the active content policy verbatim,
-    and the privacy-by-construction promise every instrument keeps.
-    """
+    """A deterministic, protocol-derived consent paragraph (wall #1, FR-AGENT-5)."""
     title = protocol.get("study", {}).get("title", "this study")
     policy = content_policy(protocol)
-    # POLICY_DESCRIPTIONS is full sentences (agent_capture.redact), already
-    # terminated - appending another "." produced a visible ".." in every
-    # consent statement and every ethics package that quotes it.
     policy_desc = _POLICY_DESCRIPTIONS.get(policy, policy).rstrip(".")
     instruments = ", ".join(sorted(protocol.get("instruments", {}).keys())) or "none"
     return (

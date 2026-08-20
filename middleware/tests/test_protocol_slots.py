@@ -1,14 +1,4 @@
-"""The protocol's slots: what a conversation must supply, and how it says so.
-
-The bug this file pins down: the eight conversation *sections* and the
-protocol's *requirements* were treated as the same list, and they never were.
-A researcher could fill every section, be told nothing was outstanding, and
-still not have a protocol - because ``measures`` fills no protocol field at
-all, while a sample size, a session length and a study title are required and
-were never asked about. Worse, the scaffold invented values for exactly those
-three, so the fields most needing a real answer were the ones that never
-complained.
-"""
+"""The protocol's slots: what a conversation must supply, and how it says so."""
 
 from __future__ import annotations
 
@@ -41,7 +31,6 @@ def _field(move_id: str, path: tuple[str, ...], value: object) -> dict:
     }
 
 
-#: Everything a template-free conversation has to establish, as moves.
 def _complete_moves() -> list[dict]:
     return [
         _append("a1", "researchQuestions", "Do juniors review AI code less?"),
@@ -81,12 +70,7 @@ def _complete_moves() -> list[dict]:
 
 
 def test_a_conversation_reaches_a_valid_protocol_without_a_template():
-    """The headline: a template is a shortcut, not the only road.
-
-    Before this, ``choose-template`` was the *only* way to a compilable
-    protocol however much the researcher typed, because the eight sections
-    were all list-appends and nothing could set a scalar like ``planned``.
-    """
+    """The headline: a template is a shortcut, not the only road."""
     result = compiler.compile_moves(_complete_moves())
     assert result.valid, (result.errors, result.unresolved)
     assert result.unresolved == []
@@ -109,9 +93,7 @@ def test_filling_every_section_is_not_the_same_as_a_protocol():
 
 
 def test_the_scaffold_invents_nothing():
-    """Absent stays absent. A draft claiming one participant doing a task
-    called "draft" for one minute is worse than one that says it doesn't
-    know yet - and it validated, which is how it survived."""
+    """Absent stays absent."""
     result = compiler.compile_moves([_append("a1", "researchQuestions", "Q?")])
     assert "participants" not in result.draft
     assert "session" not in result.draft
@@ -123,32 +105,28 @@ def test_the_scaffold_invents_nothing():
 def test_gaps_are_named_in_the_researcher_s_words_not_the_schema_s():
     result = compiler.compile_moves([_append("a1", "researchQuestions", "Q?")])
     assert "how many participants" in result.unresolved
-    # ...and the schema message it replaces is not also dumped on the reader.
     assert not any("is a required property" in e for e in result.errors)
 
 
 def test_an_unexpected_schema_error_is_never_swallowed():
-    """The error filter may only remove a message that has a plainer twin.
-    A problem no slot covers has to survive, or the filter hides real bugs."""
+    """The error filter may only remove a message that has a plainer twin."""
     moves = [
         *_complete_moves(),
         _append("bad", "researchQuestions", "Q2?"),
     ]
     result = compiler.compile_moves(moves)
     assert result.valid, result.errors
-    # Now break something no slot describes: a malformed condition entry.
     broken = compiler.compile_moves(
         [*_complete_moves(), _append("c9", "conditions", "")]
     )
-    # An empty condition is dropped by the section compiler rather than
-    # written, so the draft stays valid - the point is that nothing crashed
-    # and no slot pretended to explain it.
     assert broken.unresolved == []
 
 
 def test_template_gaps_are_still_reported():
-    """``unresolved`` used to short-circuit to ``[]`` the instant a template
-    instantiated, reporting "nothing outstanding" for whatever it left open."""
+    """
+    ``unresolved`` used to short-circuit to ``[]`` the instant a template instantiated,
+    reporting "nothing outstanding" for whatever it left open.
+    """
     template = {
         "moveId": "t1",
         "kind": "choose-template",
@@ -159,8 +137,6 @@ def test_template_gaps_are_still_reported():
         "status": "accepted",
     }
     result = compiler.compile_moves([template])
-    # This template is complete, so the honest answer here is []. The
-    # guarantee is that the answer is *computed from the draft*, not assumed.
     assert result.unresolved == [
         slot.label for slot in compiler.unresolved_slots(result.draft)
     ]
@@ -171,9 +147,11 @@ def test_template_gaps_are_still_reported():
     [(24, 24), ("24", 24), (0, None), (-3, None), ("twenty-four", None), (True, None)],
 )
 def test_integer_slots_accept_the_same_answer_in_the_wrong_type_only(value, expected):
-    """"24" is the right answer typed loosely and is taken; "twenty-four" is
-    not a number and is refused rather than guessed at, because a silently
-    mangled sample size is worse than an open slot."""
+    """
+    "24" is the right answer typed loosely and is taken; "twenty-four" is not a number
+    and is refused rather than guessed at, because a silently mangled sample size is
+    worse than an open slot.
+    """
     result = compiler.compile_moves(
         [_field("f", ("participants", "planned"), value)]
     )
@@ -181,8 +159,10 @@ def test_integer_slots_accept_the_same_answer_in_the_wrong_type_only(value, expe
 
 
 def test_a_set_field_move_cannot_write_outside_the_declared_slots():
-    """The conversation may fill the protocol's declared gaps and nothing
-    more, so a model cannot invent structure by naming a new path."""
+    """
+    The conversation may fill the protocol's declared gaps and nothing more, so a model
+    cannot invent structure by naming a new path.
+    """
     result = compiler.compile_moves(
         [
             _field("f1", ("study", "id"), "hijacked"),
@@ -203,8 +183,10 @@ def test_a_refused_value_is_warned_about_never_silently_dropped():
 
 
 def test_false_is_an_answer_not_an_absence():
-    """``counterbalanced: false`` is a real methodological choice; the
-    refusal signal is None specifically, never falsiness."""
+    """
+    ``counterbalanced: false`` is a real methodological choice; the refusal signal is
+    None specifically, never falsiness.
+    """
     result = compiler.compile_moves(
         [_field("f", ("participants", "counterbalanced"), False)]
     )
@@ -214,10 +196,11 @@ def test_false_is_an_answer_not_an_absence():
 
 
 def test_the_analysis_plan_compiles_to_the_shape_the_schema_accepts():
-    """Regression: prescriptions used to compile to ``{id, params}`` objects,
-    a shape no schema version has - every accepted prescription produced a
-    protocol that could not validate. Nothing emitted the move, so it never
-    fired, but ``analysisPlan`` is a slot the conversation has to fill."""
+    """
+    Regression: prescriptions used to compile to ``{id, params}`` objects, a shape no
+    schema version has - every accepted prescription produced a protocol that could not
+    validate.
+    """
     result = compiler.compile_moves(_complete_moves())
     assert result.draft["analysisPlan"] == [
         {"rq": "RQ-1", "recipes": ["paired-nonparametric"]}

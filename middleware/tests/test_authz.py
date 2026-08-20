@@ -1,18 +1,4 @@
-"""Project scoping + the permission matrix.
-
-The contract under test:
-
-- the matrix is *data* — every capability × role pair is checked by
-  iterating ``authz.CAPABILITIES`` (so a new capability can't ship
-  untested);
-- the server enforces it — a lower role replaying a higher role's requests
-  gets uniform 403s with a plain-language body;
-- no project-scoped route skips the choke point (a route audit);
-- cross-project access is refused;
-- the boot migration adopts orphan studies into the implicit project;
-- the invitation flow is single-use and expiring; the last owner can't be
-  removed.
-"""
+"""Project scoping + the permission matrix."""
 
 import datetime as dt
 import sqlite3
@@ -32,9 +18,10 @@ FROZEN_NOW = dt.datetime(2026, 7, 18, 12, 0, tzinfo=dt.UTC)
 
 
 def _fake_verifier(authorization: str) -> Identity:
-    """A test verifier: ``Authorization: Bearer <sub>`` becomes a clerk-mode
-    identity whose sub is the token. Lets a test drive many identities
-    without minting real JWTs. Empty header is rejected like a real one."""
+    """
+    A test verifier: ``Authorization: Bearer <sub>`` becomes a clerk-mode identity whose
+    sub is the token.
+    """
     if not authorization.startswith("Bearer "):
         raise HTTPException(401, "missing bearer token")
     sub = authorization.removeprefix("Bearer ")
@@ -43,8 +30,6 @@ def _fake_verifier(authorization: str) -> Identity:
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch) -> TestClient:
-    # Multi-tenant behaviour: swap the verifier for the header-driven fake so
-    # each request can carry a different identity.
     monkeypatch.setattr(auth_mod, "verifier_from_settings", lambda _s: _fake_verifier)
     settings = Settings(
         db_path=tmp_path / "authz.sqlite3",
@@ -52,7 +37,9 @@ def client(tmp_path, monkeypatch) -> TestClient:
         protocol_path=None,
         spa_dist=tmp_path / "no-dist",
     )
-    return TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
+    tc = TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
+    tc.db_path = settings.db_path
+    return tc
 
 
 def bearer(sub: str) -> dict:
@@ -67,8 +54,10 @@ def make_project(client: TestClient, owner: str, name: str) -> str:
 
 
 def add_member(client, slug, owner, sub, role) -> None:
-    """Invite ``sub`` at ``role`` and accept as that identity (the real flow;
-    the invited identity's email doubles as its sub)."""
+    """
+    Invite ``sub`` at ``role`` and accept as that identity (the real flow; the invited
+    identity's email doubles as its sub).
+    """
     inv = client.post(
         f"/projects/{slug}/invitations",
         json={"email": sub, "role": role},
@@ -80,12 +69,11 @@ def add_member(client, slug, owner, sub, role) -> None:
     assert acc.status_code == 200, acc.text
 
 
-# --------------------------------------------------------- the matrix as data
-
-
 def test_matrix_is_data_every_role_capability_pair():
-    """has_role agrees with the rank ordering for every capability × role —
-    iterating the dict is what makes an untested capability impossible."""
+    """
+    has_role agrees with the rank ordering for every capability × role — iterating the
+    dict is what makes an untested capability impossible.
+    """
     for capability, required in CAPABILITIES.items():
         for role in Role:
             expected = ROLE_RANK[role] >= ROLE_RANK[required]
@@ -97,9 +85,6 @@ def test_non_member_never_satisfies_any_capability():
         assert has_role(None, capability) is False
 
 
-# ------------------------------------------------------ server-side enforcement
-
-
 def test_create_project_makes_creator_owner(client):
     slug = make_project(client, "alice", "Alice's lab")
     mine = client.get("/projects", headers=bearer("alice")).json()
@@ -107,12 +92,10 @@ def test_create_project_makes_creator_owner(client):
 
 
 def test_project_list_carries_the_shape_of_each_project(client):
-    """A row says how many studies it holds (FR-PLAT-1), so the project list
-    never has to fan out to ``/projects/{slug}`` once per row.
-
-    It used to carry a lifecycle phase mix too. That went with the lifecycle
-    board: with no phases to advance through, every study reported the same
-    one and the breakdown said nothing."""
+    """
+    A row says how many studies it holds (FR-PLAT-1), so the project list never has to
+    fan out to ``/projects/{slug}`` once per row.
+    """
     slug = make_project(client, "alice", "Counted lab")
 
     empty = client.get("/projects", headers=bearer("alice")).json()[0]
@@ -130,8 +113,10 @@ def test_project_list_carries_the_shape_of_each_project(client):
 
 
 def test_created_project_has_the_same_shape_as_a_listed_one(client):
-    """Create and list return one type, not two wearing the same name: the
-    client models a project once, and a new project is an empty one."""
+    """
+    Create and list return one type, not two wearing the same name: the client models a
+    project once, and a new project is an empty one.
+    """
     res = client.post("/projects", json={"name": "Fresh"}, headers=bearer("alice"))
     assert res.status_code == 200, res.text
     created = res.json()
@@ -151,29 +136,19 @@ def test_delete_study_is_owner_only_and_removes_it(client):
     assert made.status_code == 200, made.text
     study_id = made.json()["id"]
 
-    # A researcher can start a study but not delete one (owner-only).
     denied = client.delete(f"/studies/{study_id}", headers=bearer("rea"))
     assert denied.status_code == 403
 
-    # The owner can, and it's gone from the project afterwards.
     ok = client.delete(f"/studies/{study_id}", headers=bearer("alice"))
     assert ok.status_code == 200 and ok.json()["deleted"] == study_id
     home = client.get(f"/projects/{slug}", headers=bearer("alice")).json()
     assert study_id not in [s["id"] for s in home["studies"]]
-    # Deleting a missing study 404s.
     gone = client.delete(f"/studies/{study_id}", headers=bearer("alice"))
     assert gone.status_code == 404
 
 
 def test_a_studys_library_is_not_open_to_viewers(client):
-    """A viewer reads a study; they do not edit its library.
-
-    These three routes were gated on bare authentication rather than the
-    project choke point, so any signed-in identity could delete another
-    project's papers. The route audit missed them because it matched on
-    parameter names, which a route's own {study_id} satisfies — both halves
-    are fixed together, or the next one slips through the same way.
-    """
+    """A viewer reads a study; they do not edit its library."""
     slug = make_project(client, "alice", "Lab")
     add_member(client, slug, "alice", "rea", "researcher")
     add_member(client, slug, "alice", "vic", "viewer")
@@ -182,7 +157,6 @@ def test_a_studys_library_is_not_open_to_viewers(client):
     ).json()["id"]
     ref = "arxiv:2507.09089"
 
-    # Reading a paper's protocol links is a view; every member may.
     for sub in ("alice", "rea", "vic"):
         assert (
             client.get(
@@ -197,7 +171,6 @@ def test_a_studys_library_is_not_open_to_viewers(client):
         == 403
     )
 
-    # Editing them, or removing a paper, needs contribute.
     for method, path in (
         ("put", f"/studies/{study_id}/papers/{ref}/links"),
         ("delete", f"/studies/{study_id}/papers/{ref}"),
@@ -205,8 +178,8 @@ def test_a_studys_library_is_not_open_to_viewers(client):
         call = getattr(client, method)
         kwargs = {"json": {"targets": ["RQ-1"]}} if method == "put" else {}
         assert call(path, headers=bearer("vic"), **kwargs).status_code == 403
-        # A researcher passes the gate (the DELETE then 404s on a paper that
-        # was never ingested — the point is which side of the gate they land).
+        # A researcher passes the gate (the DELETE then 404s on a paper that was never
+        # ingested — the point is which side of the gate they land).
         allowed = call(path, headers=bearer("rea"), **kwargs)
         assert allowed.status_code in (200, 404), allowed.text
 
@@ -215,10 +188,8 @@ def test_view_capability_across_roles(client):
     slug = make_project(client, "alice", "Lab")
     add_member(client, slug, "alice", "rea", "researcher")
     add_member(client, slug, "alice", "vic", "viewer")
-    # Every member can view the project home.
     for sub in ("alice", "rea", "vic"):
         assert client.get(f"/projects/{slug}", headers=bearer(sub)).status_code == 200
-    # A non-member cannot.
     stranger = client.get(f"/projects/{slug}", headers=bearer("stranger"))
     assert stranger.status_code == 403
 
@@ -227,9 +198,6 @@ def test_manage_members_is_owner_only_with_uniform_403(client):
     slug = make_project(client, "alice", "Lab")
     add_member(client, slug, "alice", "rea", "researcher")
     add_member(client, slug, "alice", "vic", "viewer")
-    # A researcher and a viewer replaying an owner-only request (changing a
-    # member's role) both get 403, each with a plain-language body (not an
-    # empty/opaque error).
     for sub in ("rea", "vic"):
         res = client.patch(
             f"/projects/{slug}/members/vic",
@@ -242,8 +210,6 @@ def test_manage_members_is_owner_only_with_uniform_403(client):
 
 
 def test_researcher_can_invite_but_not_mint_owner(client):
-    # D40: inviting a colleague is a researcher+ capability (members invite
-    # peers), but only an owner can invite another owner.
     slug = make_project(client, "alice", "Lab")
     add_member(client, slug, "alice", "rea", "researcher")
     add_member(client, slug, "alice", "vic", "viewer")
@@ -287,7 +253,6 @@ def test_delete_is_owner_only(client):
         ).status_code
         == 403
     )
-    # Owner deletes with the typed confirmation.
     assert (
         client.request(
             "DELETE",
@@ -313,11 +278,11 @@ def test_delete_requires_typed_confirmation(client):
 
 
 def test_delete_project_removes_its_studies(client):
-    """studies.project_id carries a real FK with no ON DELETE CASCADE —
-    Postgres (the production database) 500s on a dangling reference if a
-    project's studies aren't cascaded first. SQLite doesn't enforce that FK
-    by default, so this only checks the studies are actually gone, not that
-    a lax-FK engine would have caught the omission."""
+    """
+    studies.project_id carries a real FK with no ON DELETE CASCADE — Postgres (the
+    production database) 500s on a dangling reference if a project's studies aren't
+    cascaded first.
+    """
     slug = make_project(client, "alice", "Lab")
     made = client.post(
         f"/projects/{slug}/studies", json={"name": "Doomed"}, headers=bearer("alice")
@@ -334,14 +299,8 @@ def test_delete_project_removes_its_studies(client):
         ).status_code
         == 200
     )
-    # Deleting a missing study 404s (test_delete_study_is_owner_only_and_...
-    # confirms this) — reused here to prove the study didn't survive the
-    # project it belonged to.
     gone = client.delete(f"/studies/{study_id}", headers=bearer("alice"))
     assert gone.status_code == 404
-
-
-# ------------------------------------------------------------ cross-project
 
 
 def test_cross_project_access_refused(client):
@@ -359,28 +318,26 @@ def test_cross_project_access_refused(client):
         ).status_code
         == 403
     )
-    # A slug that doesn't exist at all 404s (learns the prober nothing more).
     assert client.get("/projects/nope", headers=bearer("alice")).status_code == 404
     _ = p1
 
 
-# --------------------------------------------------------------- route audit
-
-
 def test_every_project_scoped_route_carries_the_choke_point(client):
-    """No project-scoped route enforces membership only in the frontend: each
-    ``/projects/{slug}/...`` and ``/studies/{study_id}/...`` route depends on
-    a require_project* factory. The public/self-serve exceptions are listed."""
+    """
+    No project-scoped route enforces membership only in the frontend: each
+    ``/projects/{slug}/...`` and ``/studies/{study_id}/...`` route depends on a
+    require_project* factory.
+    """
     app = client.app
     # Routes that legitimately don't take a project/study scope check.
     exempt = {
-        ("POST", "/projects"),  # create — any signed-in identity
-        ("GET", "/projects"),  # my memberships — self-scoped
-        ("POST", "/invitations/{token}/accept"),  # token is the credential
+        ("POST", "/projects"),
+        ("GET", "/projects"),
+        ("POST", "/invitations/{token}/accept"),
         ("GET", "/me"),
-        # The participant's editor holds a session credential, never a project
-        # identity, so this one is gated on that credential instead (it 401s
-        # without it) — see get_capture_config's docstring, FR-INST-21.
+        # The participant's editor holds a session credential, never a project identity,
+        # so this one is gated on that credential instead (it 401s without it) — see
+        # get_capture_config's docstring, FR-INST-21.
         ("GET", "/studies/{study_id}/capture-config"),
     }
     offenders = []
@@ -399,16 +356,7 @@ def test_every_project_scoped_route_carries_the_choke_point(client):
 
 
 def _authz_capabilities(dependant) -> set:
-    """Every capability a route is actually gated on.
-
-    Looks for the ``__authz_capability__`` stamp ``authz.build_authz`` puts on
-    its closures. The earlier version of this audit collected *parameter
-    names* and passed a route if it mentioned ``slug`` or ``study_id`` — but
-    FastAPI's dependant tree includes the endpoint's own path params, so every
-    ``/studies/{study_id}/...`` route satisfied that test whether or not it
-    was guarded. ``DELETE /studies/{id}/papers/{ref}`` shipped unguarded
-    through exactly that blind spot.
-    """
+    """Every capability a route is actually gated on."""
     capabilities = set()
     stack = [dependant] if dependant else []
     while stack:
@@ -421,15 +369,13 @@ def _authz_capabilities(dependant) -> set:
     return capabilities
 
 
-# ------------------------------------------------------------ boot migration
-
-
 def test_boot_migration_adopts_orphan_studies(tmp_path, monkeypatch):
-    """A study row left by a pre-projects middleware is adopted into the
-    implicit project on boot, not orphaned or dropped."""
+    """
+    A study row left by a pre-projects middleware is adopted into the implicit project
+    on boot, not orphaned or dropped.
+    """
     monkeypatch.setattr(auth_mod, "verifier_from_settings", lambda _s: _fake_verifier)
     db_path = tmp_path / "legacy.sqlite3"
-    # First boot creates the schema (and the implicit project).
     settings = Settings(
         db_path=db_path,
         data_dir=tmp_path / "d",
@@ -437,7 +383,6 @@ def test_boot_migration_adopts_orphan_studies(tmp_path, monkeypatch):
         spa_dist=tmp_path / "no-dist",
     )
     create_app(settings, clock=lambda: FROZEN_NOW)
-    # Simulate a legacy orphan study (null project_id), then reboot.
     con = sqlite3.connect(db_path)
     con.execute(
         "INSERT INTO studies (id, protocol_version, phase, data_path, project_id) "
@@ -452,9 +397,6 @@ def test_boot_migration_adopts_orphan_studies(tmp_path, monkeypatch):
     assert pid == "implicit"
 
 
-# ------------------------------------------------------------ invitations
-
-
 def test_invitation_is_single_use(client):
     slug = make_project(client, "alice", "Lab")
     inv = client.post(
@@ -465,7 +407,6 @@ def test_invitation_is_single_use(client):
     token = inv["token"]
     first = client.post(f"/invitations/{token}/accept", headers=bearer("rea"))
     assert first.status_code == 200
-    # Re-accepting the same token fails — it's spent.
     again = client.post(f"/invitations/{token}/accept", headers=bearer("rea"))
     assert again.status_code == 404
 
@@ -477,7 +418,6 @@ def test_expired_invitation_is_refused(client, tmp_path):
         json={"email": "rea", "role": "researcher"},
         headers=bearer("alice"),
     ).json()
-    # Backdate the expiry directly, then try to accept.
     factory = make_session_factory(tmp_path / "authz.sqlite3")
     from middleware.db import Invitation
     from sqlalchemy import select
@@ -497,3 +437,200 @@ def test_last_owner_cannot_be_removed(client):
     res = client.delete(f"/projects/{slug}/members/alice", headers=bearer("alice"))
     assert res.status_code == 409
     assert "owner" in res.json()["detail"].lower()
+
+
+def _event(seq: int, session: str, participant: str) -> dict:
+    """One v2 StudyEvent in the extension's wire shape."""
+    return {
+        "v": 2,
+        "ts": f"2026-07-18T10:00:{seq:02d}.000Z",
+        "mono": seq * 1000.0,
+        "sessionId": session,
+        "participantId": participant,
+        "condition": "ai-assisted",
+        "seq": seq,
+        "type": "fatigue_response",
+        "payload": {"answer": 3},
+    }
+
+
+def _study_with_session(client, slug, owner, name, session_id, participant) -> str:
+    """A study in ``slug`` with one open session carrying one event."""
+    study = client.post(
+        f"/projects/{slug}/studies", json={"name": name}, headers=bearer(owner)
+    )
+    assert study.status_code == 200, study.text
+    study_id = study.json()["id"]
+    opened = client.post(
+        f"/studies/{study_id}/sessions/start",
+        json={"sessionId": session_id},
+        headers=bearer(owner),
+    )
+    assert opened.status_code == 200, opened.text
+    posted = client.post("/ingest/events", json=[_event(0, session_id, participant)])
+    assert posted.status_code == 200, posted.text
+    return study_id
+
+
+def test_session_list_is_scoped_to_its_own_study(client):
+    """A study's session list holds only that study's sessions."""
+    alice = make_project(client, "alice", "Alice's lab")
+    bob = make_project(client, "bob", "Bob's lab")
+    _study_with_session(client, alice, "alice", "alice study", "alice-s1", "A01")
+    bob_study = _study_with_session(client, bob, "bob", "bob study", "bob-s1", "B01")
+
+    res = client.get(f"/studies/{bob_study}/sessions", headers=bearer("bob"))
+    assert res.status_code == 200, res.text
+    listed = res.json()
+
+    assert [row["sessionId"] for row in listed] == ["bob-s1"]
+    assert "A01" not in {row["participantId"] for row in listed}
+
+
+def test_session_list_includes_sessions_mapped_by_their_block(client):
+    """A paired TERN session counts as its study's, without sessions/start."""
+    from middleware.db import SessionBlock, make_session_factory
+
+    slug = make_project(client, "alice", "Alice's lab")
+    study = client.post(
+        f"/projects/{slug}/studies", json={"name": "paired"}, headers=bearer("alice")
+    ).json()["id"]
+
+    factory = make_session_factory(f"sqlite:///{client.db_path}")
+    with factory() as s:
+        s.add(
+            SessionBlock(
+                session_id="paired-s1",
+                study_id=study,
+                participant_id="P01",
+                block_index=0,
+                task_id="t1",
+                condition="ai-assisted",
+                assigned_at="2026-07-18T10:00:00+00:00",
+            )
+        )
+        s.commit()
+
+    client.post("/ingest/events", json=[_event(0, "paired-s1", "P01")])
+
+    listed = client.get(f"/studies/{study}/sessions", headers=bearer("alice")).json()
+    assert [row["sessionId"] for row in listed] == ["paired-s1"]
+
+
+def test_unattributed_sessions_are_never_adopted_when_multi_tenant(client):
+    """An unpaired session belongs to nobody here, not to whoever asks first."""
+    slug = make_project(client, "alice", "Alice's lab")
+    study = client.post(
+        f"/projects/{slug}/studies", json={"name": "clean"}, headers=bearer("alice")
+    ).json()["id"]
+
+    client.post("/ingest/events", json=[_event(0, "drive-by", "X99")])
+
+    listed = client.get(f"/studies/{study}/sessions", headers=bearer("alice")).json()
+    assert listed == []
+
+
+def test_session_events_refused_to_a_non_member(client):
+    """Knowing a session id is not authorisation to read it."""
+    alice = make_project(client, "alice", "Alice's lab")
+    _study_with_session(client, alice, "alice", "alice study", "alice-s1", "A01")
+    make_project(client, "bob", "Bob's lab")
+
+    events = client.get("/sessions/alice-s1/events", headers=bearer("bob"))
+    assert events.status_code in (403, 404), events.text
+    gaps = client.get("/sessions/alice-s1/gaps", headers=bearer("bob"))
+    assert gaps.status_code in (403, 404), gaps.text
+
+    mine = client.get("/sessions/alice-s1/events", headers=bearer("alice"))
+    assert mine.status_code == 200, mine.text
+    assert [e["seq"] for e in mine.json()] == [0]
+
+
+def test_two_researchers_may_both_name_a_project_test(client):
+    """A project name is not a global resource to be claimed first."""
+    first = client.post("/projects", json={"name": "test"}, headers=bearer("alice"))
+    second = client.post("/projects", json={"name": "test"}, headers=bearer("bob"))
+
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert first.json()["name"] == second.json()["name"] == "test"
+    assert first.json()["slug"] != second.json()["slug"]
+    assert len(client.get("/projects", headers=bearer("bob")).json()) == 1
+
+
+def test_an_explicitly_chosen_slug_still_reports_a_collision(client):
+    """Auto-disambiguation is for a slug the platform derived."""
+    client.post(
+        "/projects", json={"name": "One", "slug": "shared"}, headers=bearer("alice")
+    )
+    clash = client.post(
+        "/projects", json={"name": "Two", "slug": "shared"}, headers=bearer("bob")
+    )
+    assert clash.status_code == 409, clash.text
+
+
+def test_the_demo_project_is_readable_by_anyone_who_signs_in(client):
+    """One fully-built study everybody can look at, nobody can edit."""
+    from middleware.demo import seed_demo
+
+    seed_demo(f"sqlite:///{client.db_path}")
+
+    listed = client.get("/projects", headers=bearer("newcomer")).json()
+    demo = [p for p in listed if p["slug"] == "demo"]
+    assert demo, f"the demo is not offered to a new identity: {listed}"
+    assert demo[0]["role"] == "viewer"
+    assert demo[0]["studyCount"] == 1
+
+
+def test_the_demo_project_cannot_be_written_to(client):
+    """
+    Viewer, and only viewer: a shared example that any visitor could add a study to,
+    rename, or delete is not an example for long.
+    """
+    from middleware.demo import seed_demo
+
+    seed_demo(f"sqlite:///{client.db_path}")
+
+    assert client.get("/projects/demo", headers=bearer("newcomer")).status_code == 200
+    assert (
+        client.post(
+            "/projects/demo/studies",
+            json={"name": "mine"},
+            headers=bearer("newcomer"),
+        ).status_code
+        == 403
+    )
+    assert (
+        client.request(
+            "DELETE",
+            "/projects/demo",
+            json={"confirm": "DELETE"},
+            headers=bearer("newcomer"),
+        ).status_code
+        == 403
+    )
+
+
+def test_the_demo_study_owns_the_sample_sessions(client):
+    """
+    The seeded sample data belongs to the demo study, so it shows there — and nowhere
+    else.
+    """
+    from middleware.demo import DEMO_STUDY_ID, seed_demo
+
+    seed_demo(f"sqlite:///{client.db_path}")
+    client.post("/ingest/events", json=[_event(0, "S-sample-001", "P01")])
+
+    rows = client.get(
+        f"/studies/{DEMO_STUDY_ID}/sessions", headers=bearer("newcomer")
+    ).json()
+    assert [r["sessionId"] for r in rows] == ["S-sample-001"]
+
+    mine = make_project(client, "newcomer", "My lab")
+    study = client.post(
+        f"/projects/{mine}/studies", json={"name": "fresh"}, headers=bearer("newcomer")
+    ).json()["id"]
+    mine_rows = client.get(
+        f"/studies/{study}/sessions", headers=bearer("newcomer")
+    ).json()
+    assert mine_rows == []

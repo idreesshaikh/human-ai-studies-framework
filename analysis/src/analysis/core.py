@@ -1,27 +1,4 @@
-"""Recipe contract and registry (FR-ANA-1/2).
-
-A *recipe* is a pluggable analysis module that consumes the unified study
-dataset and emits tables, figures, a plain-language summary, and the exact
-statistical procedure text for a methods section.
-
-Each recipe declares:
-
-- ``id`` - kebab-case identifier (also its output directory name),
-- ``answers`` - the research-question ids it answers (e.g. ``"RQ-P1"``),
-- ``requires`` - the event types and/or metric columns it needs,
-- ``run(dataset) -> RecipeResult``.
-
-The ``requires`` check is requirements validation (FR-ANA-2, RQ-F2): a
-protocol's analysis plan is validated against the dataset *before* recipes
-run, and a recipe whose data is missing fails loudly at plan-validation
-time - naming the missing event type or metric column - instead of
-producing an empty or misleading result at analysis time.
-
-Statistical honesty (NFR-8): every recipe's summary must report the exact
-test name, an effect size, and per-cell n - never a bare p-value - and must
-frame small samples as hypothesis-generating (``analysis.stats`` does this
-by construction).
-"""
+"""Recipe contract and registry (FR-ANA-1/2)."""
 
 from __future__ import annotations
 
@@ -55,13 +32,7 @@ class Requires:
 
 @dataclass(frozen=True)
 class RecipeResult:
-    """What a recipe emits.
-
-    tables: named DataFrames (name -> table; names become CSV filenames).
-    figures: named matplotlib Figures (name -> figure; saved as PNG + SVG).
-    summary: plain-language findings, honest about n and test used (NFR-8).
-    methods: exact statistical procedure text for the paper's methods section.
-    """
+    """What a recipe emits."""
 
     tables: dict[str, pd.DataFrame] = field(default_factory=dict)
     figures: dict[str, Figure] = field(default_factory=dict)
@@ -77,17 +48,14 @@ class Recipe:
     answers: tuple[str, ...]
     requires: Requires
     run: RunFn
-    #: One-line description for report headers and `analysis list`.
     title: str = ""
 
 
-#: Global recipe registry, populated by the ``@recipe`` decorator at import
-#: time (importing ``analysis.recipes`` registers all built-in recipes).
 REGISTRY: dict[str, Recipe] = {}
 
 
 def recipe(
-    id: str,  # shadows the builtin deliberately: mirrors the contract field name
+    id: str,
     answers: Sequence[str],
     requires_events: Iterable[str] = (),
     requires_metrics: Iterable[str] = (),
@@ -113,16 +81,12 @@ def recipe(
     return register
 
 
-# --------------------------------------------------------- plan validation
-
-
 @dataclass(frozen=True)
 class PlanCheck:
     """Validation outcome for one (RQ, recipe) pair of the analysis plan."""
 
     rq: str
     recipe_id: str
-    #: False when the plan names a recipe the registry doesn't know.
     known: bool
     missing: tuple[str, ...]
 
@@ -145,12 +109,7 @@ class PlanCheck:
 
 
 def validate_plan(analysis_plan: Sequence[dict], dataset: Dataset) -> list[PlanCheck]:
-    """Check every recipe the protocol's analysis plan names (FR-ANA-2).
-
-    ``analysis_plan`` is the protocol's ``analysisPlan`` list
-    (``[{rq, recipes: [...]}]``). Returns one check per (RQ, recipe) pair;
-    callers fail loudly on any ``not ok`` entry *before* running anything.
-    """
+    """Check every recipe the protocol's analysis plan names (FR-ANA-2)."""
     checks = []
     for entry in analysis_plan:
         for rid in entry.get("recipes", []):

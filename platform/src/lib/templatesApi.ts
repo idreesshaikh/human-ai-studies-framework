@@ -70,6 +70,10 @@ export interface DerivedTemplate {
     source: TemplateSource[];
   };
   paper: { ref: string; title: string; confidence: number | null };
+  /** The derived template already filled with its defaults — what a new
+   *  study's draft is seeded from. The template itself is never registered,
+   *  so there is no id anything else could instantiate it by. */
+  protocol: Record<string, unknown>;
 }
 
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {

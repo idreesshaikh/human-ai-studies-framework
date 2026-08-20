@@ -1,24 +1,4 @@
-"""Cross-leg correlation (FR-AGENT-3) - the agent leg meeting the editor leg.
-
-Two derivations, run post-ingest over one session's events:
-
-1. **Burst annotation.** An assistant ``agent_turn`` carrying code blocks,
-   followed within a window by an ``edit_burst`` (origin ``ai``/``paste``)
-   or ``clipboard_paste`` of matching size, is ground truth that the burst
-   came from the agent: we emit a derived ``edit_burst_annotation`` linking
-   the burst to the turn (``agentTurnRef``), strengthening FR-INST-10's
-   heuristic origin classification.
-
-2. **Reliance loop.** The error->agent->paste-back dynamic RQ-P5 is about:
-   a ``clipboard_paste`` (error/context pasted to the agent), then a user
-   ``agent_turn``, then an assistant ``agent_turn`` with code, then an
-   AI-origin ``edit_burst`` back in the editor - all within windows - is
-   emitted as a derived ``reliance_loop`` span.
-
-Derived events are marked ``derived: true`` and written under their own
-producer stream (``agent-derived``); they never overwrite raw data. The job
-is deterministic (ordinal ``seq``), so re-running reconciles.
-"""
+"""Cross-leg correlation (FR-AGENT-3) - the agent leg meeting the editor leg."""
 
 from __future__ import annotations
 
@@ -71,9 +51,11 @@ def find_burst_annotations(
     size_tol_frac: float = DEFAULT_SIZE_TOL_FRAC,
     size_tol_abs: int = DEFAULT_SIZE_TOL_ABS,
 ) -> list[dict]:
-    """Payloads linking AI/paste ``edit_burst`` rows to the assistant turn
-    that most plausibly produced them (nearest preceding turn within the
-    window and size tolerance)."""
+    """
+    Payloads linking AI/paste ``edit_burst`` rows to the assistant turn that most
+    plausibly produced them (nearest preceding turn within the window and size
+    tolerance).
+    """
     turns = [
         e
         for e in _of(events, "agent_turn")
@@ -92,7 +74,7 @@ def find_burst_annotations(
             code = _turn_code_chars(turn)
             tol = max(size_tol_abs, size_tol_frac * code)
             if abs(added - code) <= tol:
-                best = turn  # keep latest matching preceding turn
+                best = turn
         if best is not None:
             out.append(
                 {

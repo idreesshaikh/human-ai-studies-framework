@@ -1,28 +1,4 @@
-"""LLM-driven design-conversation proposals (FR-CONV-1.4).
-
-The design conversation's degradation path (``design_assistant._pick_script``)
-stays exactly as it is — this module is the LLM seam that swaps in *ahead*
-of it when a provider is configured (``assistant.make_client``), never a
-second, parallel path to the compiled protocol.
-
-**Cite-what-you-retrieved, enforced twice.** Retrieval happens first,
-unconditionally, via the platform's existing deterministic tools
-(``matching.match_papers``, ``design_assistant.recommend_templates``)
-*before* the model ever runs. The model only ever rephrases and selects
-against that closed, already-retrieved candidate menu — it never gets to
-invent what to search for and cite in the same breath. Any ``ref`` the
-model returns that isn't in the menu is dropped here; whatever survives is
-checked *again*, unchanged, by ``design_assistant._resolve_grounding``
-(which drops anything that doesn't resolve to a real corpus row). Wall #3
-(FR-CONV-2, "cite only what you retrieved") is enforced by construction at
-both boundaries, not trusted from the model's output.
-
-Mirrors ``matching.rerank_with_llm``'s shape exactly: one
-``try/except Exception`` around the whole call, log + return ``None`` on any
-failure. ``design_assistant.respond`` turns that ``None`` into a plain
-"the model didn't answer, say it again" rather than an unhandled 500 - a
-turn is never half-written, and never invented.
-"""
+"""LLM-driven design-conversation proposals (FR-CONV-1.4)."""
 
 from __future__ import annotations
 
@@ -33,9 +9,8 @@ from middleware.design_assistant import ProposedMove, Turn
 
 log = logging.getLogger(__name__)
 
-#: The only move kinds the compiler/UI understand (mirrors the kinds the
-#: compiler's own move kinds) - an unrecognized
-#: kind is dropped, never passed through blind.
+# The only move kinds the compiler/UI understand (mirrors the kinds the compiler's own
+# move kinds) - an unrecognized kind is dropped, never passed through blind.
 _ALLOWED_KINDS = frozenset(
     {
         "add-rq",
@@ -50,9 +25,6 @@ _ALLOWED_KINDS = frozenset(
     }
 )
 
-#: Draft sections a generic append/set patch may target (``compiler.py``'s
-#: ``SECTIONS``, minus "design" and "instruments" which have their own
-#: dedicated kinds/shapes, validated separately below).
 _PATCHABLE_SECTIONS = frozenset(
     {
         "researchQuestions",
@@ -64,15 +36,12 @@ _PATCHABLE_SECTIONS = frozenset(
     }
 )
 
-#: Rendered into SYSTEM_PROMPT so the model's `patch.section` choices always
-#: match what `_validate_patch` actually accepts — drifting these apart is
-#: exactly what silently drops a move's patch (it still renders and can
-#: still be "accepted", but never lands in the compiled draft).
+# Rendered into SYSTEM_PROMPT so the model's `patch.section` choices always match what
+# `_validate_patch` actually accepts — drifting these apart is exactly what silently
+# drops a move's patch (it still renders and can still be "accepted", but never lands in
+# the compiled draft).
 _SECTION_LIST = ", ".join(sorted(_PATCHABLE_SECTIONS))
 
-#: House style for everything the researcher reads. The model mirrors the
-#: punctuation of its own prompt, so the prompt has to be written in the voice
-#: it should answer in, and then say so outright.
 _HOUSE_STYLE = (
     "VOICE. Write like a methodologist talking to a colleague: plain, direct, "
     "unhedged. Short sentences. Say what is grounded and what is not. Never "
@@ -201,8 +170,6 @@ SYSTEM_PROMPT = (
 )
 
 
-#: Proposal truncation when rendering the design-state block (render-time
-#: only — dedup in ``design_assistant`` always compares full texts).
 _STATE_PROPOSAL_CHARS = 140
 
 
@@ -213,11 +180,11 @@ def _clip(text: str) -> str:
 
 
 def _design_state_block(state: dict | None) -> str:
-    """Render ``design_assistant._load_design_state`` for the user message:
-    every prior move by decision status plus the draft's coverage, the
-    structured facts the prose history can't carry, and what the prompt's
-    REPETITION and coverage rules key on. Empty string when there's no
-    state (no study / no moves yet)."""
+    """
+    Render ``design_assistant._load_design_state`` for the user message: every prior
+    move by decision status plus the draft's coverage, the structured facts the prose
+    history can't carry, and what the prompt's REPETITION and coverage rules key on.
+    """
     if not state:
         return ""
     lines = ["Design state so far:"]
@@ -236,12 +203,6 @@ def _design_state_block(state: dict | None) -> str:
             lines.append(
                 f"- {e['kind']} [{e['section']}]{advisory}: {_clip(e['proposal'])}"
             )
-    # What the *protocol* still lacks — the only coverage that decides whether
-    # the draft can compile. The eight conversation sections used to be
-    # reported here as "Draft coverage", which is a different list: the model
-    # would read "Empty: measures, ethics" off a protocol that was in fact
-    # complete and tell the researcher it could not compile yet. Sections are
-    # how the conversation talks; slots are what the schema requires.
     outstanding = state.get("outstandingSlots")
     if outstanding is None:
         pass
@@ -283,11 +244,10 @@ def _candidate_menu(papers: list[dict], templates: list[dict]) -> str:
 
 
 def _validate_patch(kind: str, patch: object) -> dict | None:
-    """Structural check against the compiler's known op shapes
-    (``compiler.py``'s ``compile_sections``/``_apply_instrument_moves``/
-    ``_accepted_template_moves``). Anything that doesn't match is dropped - the
-    move still renders (informational, no draft change) rather than an
-    unvalidated shape ever reaching the compiler."""
+    """
+    Structural check against the compiler's known op shapes (``compiler.py``'s
+    ``compile_sections``/``_apply_instrument_moves``/ ``_accepted_template_moves``).
+    """
     if kind == "caution":
         return None
     if not isinstance(patch, dict):
@@ -301,17 +261,17 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
             }
         return None
     if kind == "declare-task":
-        # Shape only. Slugging the id, coercing minutes and deciding what is
-        # usable is the compiler's call (``_apply_task_moves``), so one place
-        # decides it and warns rather than silently dropping.
+        # Slugging the id, coercing minutes and deciding what is usable is the
+        # compiler's call (``_apply_task_moves``), so one place decides it and warns
+        # rather than silently dropping.
         title = patch.get("title")
         if isinstance(title, str) and title.strip():
             return patch
         return None
     if patch.get("op") == "set-field":
-        # Shape only. Which slots exist, and whether the value can be the
-        # slot's type, is the compiler's call (``_apply_field_moves``) - one
-        # place decides that, and it warns rather than silently dropping.
+        # Which slots exist, and whether the value can be the slot's type, is the
+        # compiler's call (``_apply_field_moves``) - one place decides that, and it
+        # warns rather than silently dropping.
         path = patch.get("path")
         if (
             isinstance(path, list)
@@ -342,12 +302,6 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
         ):
             return patch
         return None
-    # add-rq / add-measure / set-parameter — and an add-instrument or
-    # reconfigure-instrument patch that names a non-"instruments" section
-    # (the model picking the ethics-adjacent-sounding "add-instrument" kind
-    # for an actual ethics/consent patch is a real, observed mislabeling):
-    # a generic section append/set, salvaged by patch shape rather than
-    # dropped by kind, since the compiler only ever reads the patch.
     if (
         patch.get("section") in _PATCHABLE_SECTIONS
         and patch.get("op") in ("append", "set")
@@ -361,13 +315,7 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
 
 
 def _normalize_value(value: object) -> str | list[str] | None:
-    """Coerce a section-patch value to what the sections actually hold.
-
-    Every list-valued protocol section holds strings; the model sometimes
-    sends a number, or packs several entries into one list ("Two
-    conditions: A vs. B" as ``["A", "B"]``, the compiler flattens a list
-    into one entry per item). Anything that can't become clean strings
-    (a dict, an empty list) drops the patch."""
+    """Coerce a section-patch value to what the sections actually hold."""
     if isinstance(value, str):
         return value
     if isinstance(value, (int, float, bool)):
@@ -383,9 +331,7 @@ def _normalize_value(value: object) -> str | list[str] | None:
 
 
 def _known_template_ids() -> frozenset[str]:
-    """Every template id the registry can actually instantiate. A registry
-    read failure returns the empty set — the turn degrades (template moves
-    dropped) rather than raising into the conversation."""
+    """Every template id the registry can actually instantiate."""
     from middleware import template_registry
 
     try:
@@ -412,10 +358,9 @@ def _parse_moves(
             continue
         patch = _validate_patch(kind, m.get("patch"))
         if kind != "caution" and patch is None:
-            # Every non-caution kind is supposed to carry a patch; one that
-            # didn't validate can never touch the draft even if accepted -
-            # the "accepted but only noted" trap. Drop the whole move rather
-            # than offer a dud that looks actionable but silently no-ops.
+            # Every non-caution kind is supposed to carry a patch; one that didn't
+            # validate can never touch the draft even if accepted - the "accepted but
+            # only noted" trap.
             continue
         if kind == "choose-template" and patch["templateId"] not in known_templates:
             # A hallucinated template id can never instantiate.
@@ -431,16 +376,9 @@ def _parse_moves(
 
 
 class _ReplyTextExtractor:
-    """Pull the value of the reply's leading ``"text"`` field out of a JSON
-    object *as it streams*.
-
-    The design turn is one structured JSON completion — prose plus moves —
-    and the prompt puts ``text`` first, so its characters arrive long before
-    the moves do. Feeding raw JSON to the UI would show the researcher
-    braces; this hands back only the prose fragments, decoded, and stops at
-    the closing quote. Purely additive: the full body is still parsed
-    normally at the end, so a stream this misreads costs a live preview, not
-    the reply.
+    """
+    Pull the value of the reply's leading ``"text"`` field out of a JSON object *as it
+    streams*.
     """
 
     def __init__(self) -> None:
@@ -459,7 +397,6 @@ class _ReplyTextExtractor:
                 self._buf += ch
                 marker = self._buf.find('"text"')
                 if marker == -1:
-                    # Keep only enough tail to still match a split marker.
                     self._buf = self._buf[-8:]
                     continue
                 rest = self._buf[marker + len('"text"') :]
@@ -493,20 +430,7 @@ def _messages(
     directive: str,
     design_state: dict | None = None,
 ) -> list[dict]:
-    """The chat messages for one design turn.
-
-    Two kinds of turn context, deliberately in different places:
-
-    - ``directive`` is this turn's *stance*, who is being talked to, what
-      the conversation still doesn't understand, whether a design may be
-      proposed yet (FR-CONV-9/10). It is its own system message after the
-      history, so it cannot be mistaken for something the researcher said
-      and it outranks the general instructions for this turn.
-    - ``design_state`` is the *record* — every prior move by decision status
-      plus draft coverage. It rides in the user message with the candidate
-      menu, because it is material the model reasons over rather than an
-      instruction it obeys.
-    """
+    """The chat messages for one design turn."""
     menu = _candidate_menu(papers, templates)
     content = f"{text}\n\nCandidate menu this turn:\n{menu}"
     state_block = _design_state_block(design_state)
@@ -530,15 +454,7 @@ def propose_turn_streaming(
     *,
     design_state: dict | None = None,
 ):
-    """:func:`propose_turn`, yielding the reply's prose as it arrives.
-
-    A generator: it yields prose fragments, and its ``return`` value (via
-    ``StopIteration.value``) is the same ``Turn | None`` as the blocking
-    call — so a caller gets live text *and* the identical validated moves,
-    with the same never-raises contract. A provider
-    without a ``stream`` seam, or any streaming failure, falls back to the
-    blocking call rather than losing the turn.
-    """
+    """:func:`propose_turn`, yielding the reply's prose as it arrives."""
     stream = getattr(client, "stream", None)
     if stream is None:
         return propose_turn(
@@ -593,21 +509,11 @@ def propose_turn(
     *,
     design_state: dict | None = None,
 ) -> Turn | None:
-    """Ask the configured LLM provider for this turn's prose + proposed
-    moves, constrained to ``papers``/``templates`` already retrieved this
-    exchange (both built by the caller *before* this call, via the
-    existing deterministic ``matching.match_papers`` /
-    ``design_assistant.recommend_templates``). ``history`` is prior turns
-    as ``{"role": "user"|"assistant", "content": str}`` dicts;
-    ``design_state`` (``design_assistant._load_design_state``) carries the
-    structured accepted/rejected/undecided moves + draft coverage the
-    prose history can't, rendered into the user message so the model
-    can avoid repetition and steer at the empty sections.
-
-    Returns ``None`` on any failure - bad key, timeout, malformed JSON,
-    or a reply with neither usable text nor any valid move. The caller
-    (``design_assistant.respond``) reports it to the researcher;
-    this function never raises and never returns a partial/hybrid result.
+    """
+    Ask the configured LLM provider for this turn's prose + proposed moves, constrained
+    to ``papers``/``templates`` already retrieved this exchange (both built by the
+    caller *before* this call, via the existing deterministic ``matching.match_papers``
+    / ``design_assistant.recommend_templates``).
     """
     candidate_refs = {p["ref"] for p in papers if p.get("ref")}
     candidate_refs |= {t["templateId"] for t in templates if t.get("templateId")}

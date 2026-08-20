@@ -116,7 +116,7 @@ export function Assistant({ studyId }: { studyId: string }) {
           >
             <div
               className={cn(
-                "max-w-[46ch] whitespace-pre-wrap rounded-card px-3 py-2 type-body",
+                "max-w-bubble whitespace-pre-wrap rounded-card px-3 py-2 type-body",
                 m.role === "user"
                   ? "border border-border bg-zone-9 text-text"
                   : "border border-border bg-surface text-text",

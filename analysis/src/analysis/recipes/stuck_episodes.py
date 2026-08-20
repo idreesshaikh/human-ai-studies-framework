@@ -1,12 +1,4 @@
-"""stuck-episodes (RQ-P1): frequency and duration of stuck episodes.
-
-Test choice: episode rates (episodes per hour) and durations (minutes of
-accumulated evidence) are skewed, tiny-n quantities, so both comparisons
-use the exact nonparametric machinery of ``analysis.stats`` (Wilcoxon on
-per-participant means when paired, Mann-Whitney U + Cliff's delta
-otherwise). Rates are normalized by session span so unequal session
-lengths cannot masquerade as condition effects.
-"""
+"""stuck-episodes (RQ-P1): frequency and duration of stuck episodes."""
 
 from __future__ import annotations
 
@@ -48,7 +40,6 @@ def run(dataset: Dataset) -> RecipeResult:
         .agg(episodes=("type", "count"), stuckMinutes=("durationMinutes", "sum"))
         .merge(spans[["sessionId", "durationMinutes"]], on="sessionId")
     )
-    # Sessions with zero episodes still count - join against all sessions.
     all_sessions = spans.merge(
         per_session[["sessionId", "episodes", "stuckMinutes"]],
         on="sessionId",

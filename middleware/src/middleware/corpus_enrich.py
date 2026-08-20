@@ -1,29 +1,4 @@
-"""Abstract backfill for the corpus (FR-LIT-8 quality, FR-LIT-9 matching).
-
-The harvest (``scripts/corpus_harvest.py``) recorded ``title, year,
-externalIds, citationCount`` and never asked Semantic Scholar for
-``abstract``, so the harvested rows are title-only — and a title is thin
-evidence for semantic matching. The Tier A seeds' ``abstract`` field holds
-the curator's one-line "why", not a real abstract either.
-
-This job fixes that from the same open API the corpus was built from, in
-bulk: ``POST /paper/batch`` returns up to 500 papers per request, so the
-whole corpus is minutes of calls rather than a multi-hour crawl.
-
-Discipline, same as the importer:
-
-- **Nothing synthesized.** An abstract is whatever S2 returns for that exact
-  id, or the row keeps what it had. Ids S2 cannot resolve are counted and
-  reported as unresolved — staleness, never fabrication.
-- **Highest confidence first.** Candidates are ordered by the harvest score,
-  so the papers most likely to be recommended are enriched first and a
-  ``--limit`` run is a *useful* partial run.
-- **Idempotent and resumable.** An enriched row stops being a candidate, so
-  re-running continues where it stopped; each batch commits.
-- **Retrieval sees it.** Every enriched row is re-indexed (SQLite FTS5 /
-  chunk table); PostgreSQL's ``search_vector`` is a generated column over
-  title + abstract, so it updates with the write itself.
-"""
+"""Abstract backfill for the corpus (FR-LIT-8 quality, FR-LIT-9 matching)."""
 
 from __future__ import annotations
 
@@ -38,17 +13,11 @@ from middleware.db import CORPUS_STUDY_ID, Paper, make_session_factory
 
 log = logging.getLogger(__name__)
 
-#: Only the abstract is wanted here; the rest of the row is import-owned.
 ENRICH_FIELDS = "abstract,externalIds"
 
 
 def s2_id_for_row(row: Paper) -> str:
-    """The id S2 can resolve this corpus row by, or "" if there is none.
-
-    Harvested rows carry the S2 hash; seeds carry a DOI or arXiv id from the
-    README link. A seed with neither (``corpus:<stem>`` alone) means nothing
-    to S2 and is skipped rather than guessed at.
-    """
+    """The id S2 can resolve this corpus row by, or "" if there is none."""
     if row.s2_id:
         return row.s2_id
     if row.doi:
@@ -77,12 +46,7 @@ def select_candidates(s: Session, *, limit: int | None = None) -> list[Paper]:
 
 
 def _searchable_body(row: Paper, seeds: dict[str, dict]) -> str:
-    """The row's FTS body after enrichment.
-
-    A seed is rebuilt through the importer's own body function (so a local
-    PDF's text is not dropped by re-indexing); a harvested row is venue +
-    the new abstract. ``index_paper`` prepends the title.
-    """
+    """The row's FTS body after enrichment."""
     seed = seeds.get(row.paper_ref)
     if seed is not None:
         return corpus_importer.tier_a_body(seed, row.abstract or "")
@@ -97,11 +61,7 @@ def enrich_abstracts(
     batch_size: int = semantic_scholar.BATCH_MAX_IDS,
     post=semantic_scholar.post_json,
 ) -> dict:
-    """Backfill missing abstracts from S2, in batches. Returns a summary.
-
-    ``limit`` caps how many candidate rows are attempted (highest confidence
-    first); the default attempts every row that still lacks one.
-    """
+    """Backfill missing abstracts from S2, in batches."""
     factory = make_session_factory(db_url)
     summary = {
         "candidates": 0,
@@ -130,8 +90,8 @@ def enrich_abstracts(
                     post=post,
                 )
             except semantic_scholar.SemanticScholarError as exc:
-                # One bad batch must not lose the run's earlier progress -
-                # it is already committed; report and carry on.
+                # One bad batch must not lose the run's earlier progress - it is already
+                # committed; report and carry on.
                 log.warning("batch at %d failed (%s) - skipping", start, exc)
                 continue
             summary["requested"] += len(chunk)
@@ -160,12 +120,7 @@ def enrich_abstracts(
 
 
 def enrichment_status_for_session(s: Session) -> dict:
-    """How much of the corpus carries a real abstract (the honest counter).
-
-    Takes a session rather than opening its own, so a request handler that
-    already has one (``app.py``'s ``GET /corpus/status``) can call this
-    directly instead of standing up a second engine per request.
-    """
+    """How much of the corpus carries a real abstract (the honest counter)."""
     total = s.scalar(
         select(func.count())
         .select_from(Paper)
@@ -188,8 +143,10 @@ def enrichment_status_for_session(s: Session) -> dict:
 
 
 def enrichment_status(db_url: str) -> dict:
-    """CLI convenience: opens its own session (``__main__.py``'s
-    ``corpus-enrich`` command runs outside any request scope)."""
+    """
+    CLI convenience: opens its own session (``__main__.py``'s ``corpus-enrich`` command
+    runs outside any request scope).
+    """
     factory = make_session_factory(db_url)
     with factory() as s:
         return enrichment_status_for_session(s)

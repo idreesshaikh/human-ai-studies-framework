@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Layers,
   BookOpen,
@@ -8,18 +7,15 @@ import {
   ChevronDown,
   Check,
   Info,
-  Plus,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Notice } from "@/components/ui/notice";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { Confidence } from "@/components/conversation/Confidence";
 import { DeriveFromPaper } from "./DeriveFromPaper";
-import { useApi, useSession } from "@/lib/session";
+import { CreateStudyFrom } from "@/components/templates/CreateStudyFrom";
 import {
   templatesApi,
   type RepertoireEntry,
@@ -27,7 +23,6 @@ import {
   type MergeResult,
 } from "@/lib/templatesApi";
 import { OfflineError } from "@/lib/studyApi";
-import { ApiError } from "@/lib/api.ts";
 import { cn } from "@/lib/cn";
 
 /* The protocol repertoire (FR-TPL) — the literature read as *design shapes*
@@ -49,6 +44,14 @@ export function Templates() {
   const [merged, setMerged] = useState<MergeResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* A paper picked out of a design shape's own reference list, handed to
+   * the derive panel below with that shape already chosen as its
+   * archetype. Those rows used to be inert text, which is what made a
+   * reviewer ask why some papers were searchable and the ones listed
+   * under each design were not — two lists, only one of them usable. */
+  const [seed, setSeed] = useState<{ paper: DesignReference; baseId: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     templatesApi
@@ -139,6 +142,7 @@ export function Templates() {
               entry={entry}
               selected={selected.has(entry.id)}
               onToggle={() => toggle(entry.id)}
+              onUsePaper={(paper) => setSeed({ paper, baseId: entry.id })}
             />
           ))}
         </div>
@@ -203,7 +207,9 @@ export function Templates() {
 
       {merged && <MergedResult result={merged} onClose={() => setMerged(null)} />}
 
-      {entries && entries.length > 0 && <DeriveFromPaper templates={entries} />}
+      {entries && entries.length > 0 && (
+        <DeriveFromPaper templates={entries} seed={seed} />
+      )}
     </div>
   );
 }
@@ -212,10 +218,14 @@ function ShapeCard({
   entry,
   selected,
   onToggle,
+  onUsePaper,
 }: {
   entry: RepertoireEntry;
   selected: boolean;
   onToggle: () => void;
+  /** Take one of this shape's reference papers into "Start from a paper",
+   *  with this shape as the archetype. */
+  onUsePaper: (paper: DesignReference) => void;
 }) {
   const [openRefs, setOpenRefs] = useState(false);
   return (
@@ -306,7 +316,11 @@ function ShapeCard({
         {openRefs && (
           <ul className="flex flex-col gap-2 border-l border-border pl-3">
             {entry.references.map((ref) => (
-              <ReferenceRow key={ref.ref} reference={ref} />
+              <ReferenceRow
+                key={ref.ref}
+                reference={ref}
+                onUse={() => onUsePaper(ref)}
+              />
             ))}
             {entry.unresolvedSources.length > 0 && (
               <li className="type-caption text-text-muted">
@@ -353,9 +367,23 @@ function SupportBadge({ entry }: { entry: RepertoireEntry }) {
   );
 }
 
-function ReferenceRow({ reference }: { reference: DesignReference }) {
+/* One paper behind a design shape — and a way to act on it.
+ *
+ * These rows were display-only, sitting a few centimetres above a corpus
+ * search that looked like it should reach them and did not. "Use this paper"
+ * closes that gap: it carries the paper into the derive panel with this
+ * shape already selected as the archetype, which is the route from "a paper
+ * I recognise" to "a study I can run" the page always implied and never
+ * offered. */
+function ReferenceRow({
+  reference,
+  onUse,
+}: {
+  reference: DesignReference;
+  onUse: () => void;
+}) {
   return (
-    <li className="flex flex-col gap-0.5">
+    <li className="group/ref flex flex-col gap-0.5">
       <div className="flex items-center gap-2">
         <Confidence value={reference.confidence ?? undefined} />
         {reference.role !== "uses-this-design" && (
@@ -368,6 +396,14 @@ function ReferenceRow({ reference }: { reference: DesignReference }) {
       <span className="type-legend text-text-muted">
         {reference.matchReason}
       </span>
+      <button
+        type="button"
+        onClick={onUse}
+        data-agent="use-reference-paper"
+        className="type-legend mt-0.5 self-start rounded-control text-accent underline decoration-border underline-offset-4 transition-colors duration-fast hover:decoration-control-edge"
+      >
+        Use this paper
+      </button>
     </li>
   );
 }
@@ -379,44 +415,6 @@ function MergedResult({
   result: MergeResult;
   onClose: () => void;
 }) {
-  const api = useApi();
-  const { refresh } = useSession();
-  const navigate = useNavigate();
-  const [projects, setProjects] = useState<{ slug: string; name: string }[] | null>(null);
-  const [slug, setSlug] = useState("");
-  const [name, setName] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState("");
-
-  useEffect(() => {
-    api
-      .listProjects()
-      .then((ps) => {
-        setProjects(ps.map((p) => ({ slug: p.slug, name: p.name })));
-        setSlug((cur) => cur || ps[0]?.slug || "");
-      })
-      .catch(() => setProjects([]));
-  }, [api]);
-
-  const create = async () => {
-    if (!slug || !name.trim() || creating) return;
-    setCreating(true);
-    setCreateError("");
-    try {
-      const study = await api.createStudy(slug, name.trim(), result.protocol);
-      // Refresh `me` so the new study's membership resolves immediately.
-      await refresh();
-      navigate(`/p/${slug}/studies/${study.id}`);
-    } catch (e) {
-      setCreateError(
-        e instanceof ApiError && e.fromServer
-          ? e.message
-          : "Couldn't create the study. Check the connection and try again.",
-      );
-      setCreating(false);
-    }
-  };
-
   const proto = result.protocol as {
     study?: { title?: string };
     researchQuestions?: { id: string; text: string }[];
@@ -467,67 +465,10 @@ function MergedResult({
       {/* The merge is not a dead end: land it in a project as a study whose
        * protocol draft is already the merged protocol, and keep designing
        * from there in the conversation. */}
-      <div className="mt-4 border-t border-border pt-3">
-        <p className="type-legend text-text-muted">
-          Turn this into a study — the merged protocol seeds its draft
-        </p>
-        {projects === null ? (
-          <p className="mt-2 flex items-center gap-2 type-caption text-text-muted">
-            <Loader2 className="size-4 animate-spin" aria-hidden /> Loading
-            your projects…
-          </p>
-        ) : projects.length === 0 ? (
-          <p className="mt-2 type-caption text-text-muted">
-            No project to put it in yet — create one first.
-          </p>
-        ) : (
-          <div className="mt-2 flex flex-wrap gap-2">
-            <label className="sr-only" htmlFor="merge-project">
-              Project
-            </label>
-            <Select
-              id="merge-project"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              className="w-auto min-w-40"
-            >
-              {projects.map((p) => (
-                <option key={p.slug} value={p.slug}>
-                  {p.name}
-                </option>
-              ))}
-            </Select>
-            <Input
-              className="min-w-0 flex-1 basis-48"
-              placeholder="Name the study…"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") create();
-                if (e.key === "Escape") setName("");
-              }}
-              aria-label="New study name"
-            />
-            <Button
-              size="sm"
-              disabled={!slug || !name.trim() || creating}
-              onClick={create}
-            >
-              {creating ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              ) : (
-                <Plus className="size-4" aria-hidden />
-              )}
-              Create study
-            </Button>
-          </div>
-        )}
-        {createError && (
-          <p role="alert" className="mt-2 type-caption text-critical">
-            {createError}
-          </p>
-        )}
-      </div>
+      <CreateStudyFrom
+        protocol={result.protocol}
+        label="Turn this into a study — the merged protocol seeds its draft"
+      />
     </div>
   );
 }

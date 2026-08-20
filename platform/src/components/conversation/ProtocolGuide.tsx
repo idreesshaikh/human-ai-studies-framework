@@ -42,6 +42,29 @@ export function ProtocolGuide() {
             </div>
           ))}
         </dl>
+
+        {/* Where the list comes from, because "the app says so" is not a
+          * citable answer and a reviewer asked for one outright. Deliberately
+          * careful about the distinction SlotMeter documents: these eight are
+          * how the CONVERSATION is organised, while what a protocol must
+          * carry to validate is the schema's own `required` list. They
+          * overlap but are not the same list, and claiming otherwise here is
+          * what made the old "8/8 = ready to compile" readout untrue. */}
+        <p className="type-caption mt-4 border-t border-border pt-3 text-text-muted">
+          These eight are the sections the design conversation works through.
+          What a protocol must contain in order to validate is defined by the
+          study protocol schema, which you can read at{" "}
+          <a
+            href="/schemas/protocol"
+            target="_blank"
+            rel="noreferrer"
+            className="underline decoration-border underline-offset-4 hover:text-text hover:decoration-control-edge"
+          >
+            /schemas/protocol
+          </a>
+          . The compiler checks the draft against that schema and names
+          anything still missing in plain words.
+        </p>
       </DialogContent>
     </Dialog>
   );

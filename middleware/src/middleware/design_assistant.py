@@ -1,29 +1,4 @@
-"""The design assistant: one researcher turn in, one platform turn out.
-
-Prose plus individually-decidable design moves and grounded paper
-recommendations (FR-CONV-1.3), produced by a language model working inside
-constraints this module computes and *enforces*:
-
-- **Retrieval happens first.** Papers and templates are matched before the
-  model is asked anything, so what it may cite is bounded before it speaks.
-- **The stance is enforced, not requested.** A question gets an answer rather
-  than a fresh batch of proposals; a design shape is withheld until the study
-  is understood. Both are checked in code after the model replies
-  (:func:`_permitted_moves`), because a prompt can be ignored.
-- **Repetition is filtered.** A move already accepted, rejected, or awaiting
-  a decision never comes back, however often the model re-proposes it.
-
-There was once a keyword-routed fallback here that answered when no model was
-configured. It read as a conversation without being one, so it is gone; see
-:class:`ModelUnavailable`.
-
-**Cite-what-you-retrieved (FR-CONV-2.2 / FR-ETH-4).** A move's grounding is
-built *only* from corpus rows the tools returned in this exchange — every
-citation is resolved against the paper store via
-:func:`matching.get_paper_metadata`, so a move can never carry a source the
-platform doesn't hold. A ref that doesn't resolve is dropped and the move is
-labeled unsourced; the grep-the-output test (F2.1) asserts exactly this.
-"""
+"""The design assistant: one researcher turn in, one platform turn out."""
 
 from __future__ import annotations
 
@@ -41,60 +16,28 @@ from middleware.template_registry import list_templates
 
 log = logging.getLogger(__name__)
 
-#: How many prior turns to feed the LLM as history (token-budget cap;
-#: FR-CONV-1.4). A generous-enough window for a design conversation
-#: without unbounded growth per turn.
 _LLM_HISTORY_TURNS = 20
 
-#: How many moves per status bucket the design state carries into the LLM
-#: prompt (token budget — dedup still sees every move via ``keyTexts``).
 _STATE_MOVE_CAP = 30
 
-#: Near-duplicate thresholds (tunable): two moves are the same move when
-#: their content terms overlap this much (denominator: the smaller term
-#: set, so a short prior move can't swallow a longer distinct one) or
-#: their full texts are this similar. The term-overlap test only fires
-#: with enough terms to be meaningful; short texts rely on the ratio.
+# Near-duplicate thresholds (tunable): two moves are the same move when their content
+# terms overlap this much (denominator: the smaller term set, so a short prior move
+# can't swallow a longer distinct one) or their full texts are this similar.
 _DUP_TOKEN_OVERLAP = 0.8
 _DUP_SEQ_RATIO = 0.85
 _DUP_MIN_TERMS = 3
 
 
-#: A message carrying one of these words is asking about design at all, even
-#: when it names none of a specific template's jargon ("help me with design"
-#: matches no template's own keyword profile below). Used to widen the
-#: candidate menu rather than leave the model with nothing to choose from.
 _DESIGN_INTENT_WORDS = ("design", "statistic", "test", "how many", "template")
 
-#: Template-match strength that counts as the researcher naming a design
-#: themselves (FR-CONV-10). A template's own keyword scores 2 and its design
-#: type 3, while a bare title word scores 1 — and "design" is a title word of
-#: nearly every template, so 1 would make "what design should I use?" look
-#: like an answer to itself.
 _NAMED_DESIGN_SCORE = 2
 
 
-#: How many times one design turn is attempted before the conversation gives
-#: up on it. A provider blip - a 429, a 5xx, a truncated JSON body - is the
-#: common failure and it is usually gone by the next call, so retrying costs
-#: one round-trip and saves the turn.
 TURN_ATTEMPTS = 2
 
 
 def holding_turn(reason: str, stance: dict | None = None) -> dict:
-    """What the conversation returns when it could not reach a model.
-
-    Deliberately *not* an answer. It proposes nothing, cites nothing, and
-    changes no draft - so it cannot be mistaken for the design conversation
-    the way the old keyword assistant could. All it does is say what happened
-    and leave the researcher somewhere they can act from, which is the one
-    thing a bare 503 failed to do: the message they had just typed came back
-    as an error banner with no thread to return to.
-
-    It is not persisted either. An outage is not part of the study's design
-    record, and a stored "I couldn't reach the model" would be fed back to
-    that model as history the next time round.
-    """
+    """What the conversation returns when it could not reach a model."""
     return {
         "text": reason,
         "moves": [],
@@ -109,7 +52,6 @@ def holding_turn(reason: str, stance: dict | None = None) -> dict:
     }
 
 
-#: What the researcher is told, by cause. Both name the next thing they can do.
 NO_MODEL = (
     "The design conversation needs a language model, and none is configured. "
     "Set MISTRAL_API_KEY on the middleware and reload. Everything else on "
@@ -123,44 +65,13 @@ MODEL_SILENT = (
 
 
 class ModelUnavailable(RuntimeError):
-    """The design conversation could not reach a language model.
-
-    The platform used to answer anyway, from a keyword-routed script: type
-    "trust" and get the over-trust reply, type "design" and get a template.
-    It read as a conversation and was not one - it could not follow an
-    unusual study, could not answer a question it had no branch for, and
-    proposed the same handful of moves to everyone. A design conversation
-    that cannot actually converse is worse than an honest refusal, because
-    the researcher only discovers the difference after acting on it.
-
-    So the conversation requires a model, and says so plainly when it has
-    none. Everything else on the platform still works without one.
-    """
+    """The design conversation could not reach a language model."""
 
 
 def recommend_templates(
     text: str, *, support: dict[str, int] | None = None
 ) -> list[dict[str, Any]]:
-    """Recommend design archetype templates matching the researcher's input.
-
-    Keyword-based matching over template metadata, ranked by match strength.
-    Each template's own curated ``designSignature`` (the phrases the
-    repertoire counts corpus usage by, FR-TPL) is part of its keyword
-    profile, so a design's vocabulary is declared in one place rather than
-    duplicated here.
-
-    ``support`` is the repertoire's corpus-usage count per template id; when
-    given it breaks ties, so an equally-matching *common* design is offered
-    before a rare one. Absent, matching is unchanged.
-
-    A message with clear design intent but no template-specific jargon
-    (score 0 on every template) still gets the full catalog as candidates -
-    an empty list would silently block the LLM (constrained to cite only
-    what this function retrieves, ``design_llm.propose_turn``) from ever
-    proposing a template for exactly the open-ended asks researchers
-    actually type. Only a message with *no* design intent at all falls
-    through to an empty list.
-    """
+    """Recommend design archetype templates matching the researcher's input."""
     q = text.lower()
     templates = list_templates()
     scored: list[tuple[int, dict[str, Any]]] = []
@@ -202,8 +113,6 @@ def recommend_templates(
         if score > 0:
             scored.append((score, t))
 
-    # Equal match strength → the design the corpus actually uses more often
-    # wins (common before rare); template id last so ordering is stable.
     scored.sort(
         key=lambda x: (
             -x[0],
@@ -220,9 +129,6 @@ def recommend_templates(
             "description": t.get("description", ""),
             "designType": t.get("designType", ""),
             "designShape": t.get("statisticalPlan", {}).get("designShape", ""),
-            # The raw strength, not just its prose: 2+ means the researcher
-            # used this design's own vocabulary, while 1 is only a title word
-            # (the word "design" matches almost every template's title).
             "matchScore": score,
             "matchReason": (
                 f"Matched {score} keyword(s): researcher intent"
@@ -235,12 +141,7 @@ def recommend_templates(
 
 
 def corpus_support(s: Session) -> dict[str, int]:
-    """Per-template corpus usage from the repertoire, for tie-breaking.
-
-    Memoized by the repertoire itself, and degrading: if the ranking is
-    unavailable for any reason the conversation just loses the common-first
-    tie-break, never the recommendation (NFR-4 posture).
-    """
+    """Per-template corpus usage from the repertoire, for tie-breaking."""
     try:
         from middleware import template_repertoire
 
@@ -251,10 +152,7 @@ def corpus_support(s: Session) -> dict[str, int]:
 
 
 def recommend_prescription(design_shape: str) -> dict[str, Any] | None:
-    """Look up the prescription for a design shape (FR-TPL-6).
-
-    Returns a dict with the prescription row, or None if unknown.
-    """
+    """Look up the prescription for a design shape (FR-TPL-6)."""
     try:
         from analysis.prescribe import prescribe
 
@@ -295,8 +193,7 @@ def suggest_figures(result_shape: str) -> list[dict[str, Any]]:
 
 @dataclass
 class ProposedMove:
-    """A design move before grounding is resolved. ``refs`` are corpus paper
-    references the move *wants* to cite; only those that resolve survive."""
+    """A design move before grounding is resolved."""
 
     kind: str
     target: str
@@ -307,12 +204,7 @@ class ProposedMove:
 
 @dataclass
 class Turn:
-    """One platform response: prose + the moves it proposes.
-
-    The model produces these; everything downstream - grounding resolution,
-    repetition filtering, stance enforcement - operates on this shape and is
-    indifferent to which model wrote it.
-    """
+    """One platform response: prose + the moves it proposes."""
 
     text: str
     moves: tuple[ProposedMove, ...]
@@ -320,8 +212,10 @@ class Turn:
 
 
 def _template_source_refs(template_id: str | None) -> tuple[str, ...]:
-    """The paper refs a template cites as its design's sources (FR-TPL) — used
-    to ground a choose-template move. Empty on any lookup failure (degrade)."""
+    """
+    The paper refs a template cites as its design's sources (FR-TPL) — used to ground a
+    choose-template move.
+    """
     if not template_id:
         return ()
     try:
@@ -336,9 +230,7 @@ def _template_source_refs(template_id: str | None) -> tuple[str, ...]:
 
 
 def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
-    """Build grounding from corpus rows only — cite-what-you-retrieved. A ref
-    that doesn't resolve is silently dropped (the move degrades to unsourced),
-    never fabricated (FR-CONV-2.2)."""
+    """Build grounding from corpus rows only — cite-what-you-retrieved."""
     grounding = []
     for ref in refs:
         meta = matching.get_paper_metadata(s, ref)
@@ -358,17 +250,10 @@ def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
 
 
 def _load_history(s: Session, study_id: str | None) -> list[dict]:
-    """Prior turns as ``{"role", "content"}`` dicts, oldest first, capped to
-    ``_LLM_HISTORY_TURNS`` (a token-budget cap, not a correctness
-    requirement) - the shape an LLM chat-completions call expects.
-
-    A platform turn's content includes **the moves it proposed and what the
-    researcher did with them**, not just its prose. The proposals live in
-    ``design_moves``, so a text-only history left the model unable to see
-    what it had itself put on the table: asked "why did you propose that?",
-    it had nothing to explain and could only invent something new — the
-    failure that reads as "it forgot what we were talking about". Decisions
-    are included too, so an already-rejected idea is not re-offered.
+    """
+    Prior turns as ``{"role", "content"}`` dicts, oldest first, capped to
+    ``_LLM_HISTORY_TURNS`` (a token-budget cap, not a correctness requirement) - the
+    shape an LLM chat-completions call expects.
     """
     if study_id is None:
         return []
@@ -384,8 +269,8 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
         for mv in s.scalars(
             select(DesignMoveRow)
             .where(DesignMoveRow.turn_id.in_(turn_ids))
-            # Bucketed per turn, so only in-turn order matters — seq is the
-            # proposal order (id would put e.g. m10 before m2).
+            # Bucketed per turn, so only in-turn order matters — seq is the proposal
+            # order (id would put e.g. m10 before m2).
             .order_by(DesignMoveRow.seq)
         ):
             moves_by_turn.setdefault(mv.turn_id, []).append(mv)
@@ -419,12 +304,7 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
 
 
 def researcher_texts(s: Session, study_id: str | None) -> list[str]:
-    """Everything the *researcher* has said in this study, oldest first.
-
-    The understanding model reads only these: the platform mentioning
-    "conditions" in a question it asked cannot make the platform better
-    informed (FR-CONV-10).
-    """
+    """Everything the *researcher* has said in this study, oldest first."""
     if study_id is None:
         return []
     return list(
@@ -447,36 +327,20 @@ def turn_stance(
     profile: str | None = None,
     steer: str | None = None,
 ) -> dict:
-    """What this turn is, how much is understood, and what may be proposed.
-
-    Computed deterministically (FR-CONV-9/10) so the conversation behaves the
-    same with or without an LLM, and so the two rules that matter are
-    *enforced* rather than merely requested of a model:
-
-    - a follow-up question gets an answer, not a fresh batch of proposals;
-    - a design shape is not named until the idea is understood, unless the
-      researcher explicitly asks for one anyway (their study, their call).
-    """
+    """What this turn is, how much is understood, and what may be proposed."""
     prior = researcher_texts(s, study_id)
     understanding = elicitation.assess_understanding([*prior, text])
     intent = elicitation.classify_turn(text)
-    # A researcher who names a design themselves has not been boxed into
-    # anything — recording their choice is the platform's job, so the gate
-    # opens. A follow-up question never counts, or "why the crossover?" would
-    # re-propose the crossover.
+    # A follow-up question never counts, or "why the crossover?" would re-propose the
+    # crossover.
     named_design = intent != "followup-question" and (
-        # The recommender already exists to map researcher phrasing onto a
-        # design ("a paired RCT", "pre/post"); a positive keyword match there
-        # *is* the researcher naming one. The corpus-facing signatures are
-        # checked too, since abstract vocabulary ("crossover",
-        # "counterbalanced") is also how researchers speak.
         any(r["matchScore"] >= _NAMED_DESIGN_SCORE for r in recommend_templates(text))
         or elicitation.names_a_design(
             text, [tpl.get("designSignature", []) for tpl in list_templates()]
         )
     )
-    # A profile the caller declared is an account fact and outranks the dial;
-    # the dial's implied register only fills in for someone who never set one.
+    # A profile the caller declared is an account fact and outranks the dial; the dial's
+    # implied register only fills in for someone who never set one.
     declared = profile if profile in elicitation.PROFILES else None
     return {
         "intent": intent,
@@ -485,28 +349,21 @@ def turn_stance(
         "understanding": elicitation.understanding_summary(understanding),
         "nextQuestion": elicitation.next_question(understanding),
         "namedDesign": named_design,
-        # An explicit ask lowers the gate but never removes it; a follow-up
-        # question never opens it, because "why did you pick that?" is not
-        # "pick one".
+        # An explicit ask lowers the gate but never removes it; a follow-up question
+        # never opens it, because "why did you pick that?" is not "pick one".
         "mayProposeDesign": named_design
         or elicitation.ready_for_design(
             understanding, requested=intent == "design-request"
         ),
-        # Two gates, both hard: a follow-up question gets an answer rather
-        # than a fresh batch, and an steer level of "checks" proposes
-        # nothing at all. Either one closing is enough to close it.
         "mayProposeMoves": intent != "followup-question"
         and elicitation.proposals_permitted(steer),
     }
 
 
 def _slot_directive(state: dict | None) -> str:
-    """The protocol's outstanding slots, as an instruction the model can act
-    on: what is missing, what type each takes, and how to fill it.
-
-    Without this the model has no way to know a protocol is incomplete - the
-    conversation would happily talk on past a missing sample size, because
-    nothing in the prompt ever mentioned one was needed.
+    """
+    The protocol's outstanding slots, as an instruction the model can act on: what is
+    missing, what type each takes, and how to fill it.
     """
     advice = (state or {}).get("taskAdvice") or ""
     outstanding = (state or {}).get("outstandingSlots") or []
@@ -515,9 +372,8 @@ def _slot_directive(state: dict | None) -> str:
             "The protocol has every slot it needs. Do not invent more work: "
             "if the researcher is happy, tell them it is ready to compile."
         )
-        # Optional, so it never blocks a compile - but a study is far more
-        # analysable with tasks than without, and this is the last honest
-        # moment to say so.
+        # Optional, so it never blocks a compile - but a study is far more analysable
+        # with tasks than without, and this is the last honest moment to say so.
         return f"{complete}\n\n{advice}" if advice else complete
     fillable = [s for s in outstanding if s["valueType"] != "derived"]
     lines = [
@@ -547,8 +403,6 @@ def _slot_directive(state: dict | None) -> str:
 def _directive(stance: dict, state: dict | None = None) -> str:
     """The stance as this turn's instruction to the model."""
     understanding = stance["understanding"]
-    # Register first, then how much to drive: the two levers the steer dial
-    # moves together (elicitation.STEER_LEVELS).
     lines = [
         elicitation.profile_guidance(stance["profile"]),
         elicitation.steer_guidance(stance.get("steer")),
@@ -598,9 +452,6 @@ def _directive(stance: dict, state: dict | None = None) -> str:
             "State plainly which of your assumptions it rests on, so a "
             "wrong one is easy for them to correct."
         )
-    # Only once the study is understood: naming missing protocol slots to
-    # someone who has said one sentence about their idea turns a conversation
-    # into a form.
     if stance["mayProposeDesign"]:
         lines.append(_slot_directive(state))
     return "\n\n".join(lines)
@@ -609,12 +460,7 @@ def _directive(stance: dict, state: dict | None = None) -> str:
 def _permitted_moves(
     moves: tuple[ProposedMove, ...], stance: dict
 ) -> tuple[ProposedMove, ...]:
-    """Apply the stance to a script's moves — the enforcement half.
-
-    A prompt can be ignored; this cannot. A question turn keeps only
-    cautions, and a design shape cannot slip through before the study is
-    understood. Dropped moves are logged, never silently vanished.
-    """
+    """Apply the stance to a script's moves — the enforcement half."""
     kept = []
     for move in moves:
         if not stance["mayProposeMoves"] and move.kind != "caution":
@@ -634,9 +480,11 @@ def _permitted_moves(
 
 
 def _move_key_text(proposal: str, patch: dict | None) -> str:
-    """The semantic payload of a move for near-duplicate comparison: its
-    proposal sentence plus the patch value it would write (a re-worded
-    proposal carrying the same value is still the same move)."""
+    """
+    The semantic payload of a move for near-duplicate comparison: its proposal sentence
+    plus the patch value it would write (a re-worded proposal carrying the same value is
+    still the same move).
+    """
     value = (patch or {}).get("value", "")
     if isinstance(value, list):
         value = " ".join(str(v) for v in value)
@@ -656,21 +504,11 @@ def _is_near_duplicate(a: str, b: str) -> bool:
 def _filter_repeated_moves(
     moves: tuple[ProposedMove, ...], state: dict | None
 ) -> tuple[ProposedMove, ...]:
-    """Drop moves the conversation has already seen (FR-CONV: an accepted
-    move is in the draft, a rejected one was declined, an undecided one is
-    still on the table — re-pitching any of them is repetition). The guard
-    runs regardless of source, so repetition is suppressed even when the
-    LLM ignores its instructions. ``state is None`` (stateless demo, no
-    study) is a no-op.
-
-    A content move (one carrying a patch) is compared only against prior
-    *content* moves — never against patch-less cautions. A caution fills
-    no section, and the section move that addresses a caution's concern
-    naturally restates its wording; treating that as repetition would
-    permanently block the section (an accepted ethics caution must not
-    stop the ethics posture from ever being proposed). A new caution is
-    compared against both pools — echoing either an existing caution or
-    existing draft content is still repetition."""
+    """
+    Drop moves the conversation has already seen (FR-CONV: an accepted move is in the
+    draft, a rejected one was declined, an undecided one is still on the table —
+    re-pitching any of them is repetition).
+    """
     if state is None:
         return moves
     content = state.get("keyTexts") or []
@@ -692,19 +530,17 @@ def _filter_repeated_moves(
 
 
 def _load_design_state(s: Session, study_id: str | None) -> dict | None:
-    """The structured design state the prose history can't carry: every
-    prior move bucketed by decision status, the draft's filled/empty
-    sections (computed deterministically via :func:`compiler.compile_moves`
-    — no LLM), and the accepted template if any. ``None`` when there's no
-    study or no moves yet — the stateless demo path stays stateless."""
+    """
+    The structured design state the prose history can't carry: every prior move bucketed
+    by decision status, the draft's filled/empty sections (computed deterministically
+    via :func:`compiler.compile_moves` — no LLM), and the accepted template if any.
+    """
     if study_id is None:
         return None
     rows = s.scalars(
         select(DesignMoveRow)
         .join(ConversationTurn, DesignMoveRow.turn_id == ConversationTurn.id)
         .where(DesignMoveRow.study_id == study_id)
-        # Conversation order — ordering by id would sort turns by their
-        # random hex prefix, compiling moves out of sequence.
         .order_by(ConversationTurn.seq, DesignMoveRow.seq)
     ).all()
     if not rows:
@@ -722,13 +558,6 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         for row in rows
     ]
     result = compiler.compile_moves(moves)
-    # Coverage mirrors the researcher-visible slot meter (the client draft
-    # model, ``platform/src/lib/compiler.ts``): a template fills only the
-    # ``design`` slot, an add/set-instrument move fills ``instruments``,
-    # every other section needs its own accepted append/set move. NOT
-    # ``result.unresolved`` — that reports ``[]`` once a template
-    # instantiates, which would tell the model every slot is filled while
-    # the researcher still sees empty ones.
     sections = compiler.compile_sections(moves)
     has_instrument = any(
         m["status"] == "accepted"
@@ -755,21 +584,13 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
             if tid:
                 template_ids.append(tid)
         else:
-            # `target` is model-authored free text (design_llm's own JSON
-            # contract), not a validated enum like `patch.section` — an
-            # earlier prompt literally showed "protocol.path" as its example
-            # value, which the model echoed as a literal "protocol." prefix
-            # ("protocol.design", "protocol.researchQuestions") rather than as
-            # a placeholder to fill in. Stripped here so a stale move from
-            # before that prompt fix, or any future drift, can't feed the
-            # bogus section name "protocol" back into the state block the
-            # model reads on its next turn.
+            # Stripped here so a stale move from before that prompt fix, or any future
+            # drift, can't feed the bogus section name "protocol" back into the state
+            # block the model reads on its next turn.
             fallback_target = (m["target"] or "").removeprefix("protocol.")
             section = patch.get("section") or fallback_target.split(".")[0]
-        # Two dedup pools: content moves (carry a patch — they fill draft
-        # sections) vs advisory ones (patch-less cautions). Kept apart so a
-        # section move addressing a caution's concern is never mistaken for
-        # a repeat of it (see _filter_repeated_moves).
+        # Kept apart so a section move addressing a caution's concern is never mistaken
+        # for a repeat of it (see _filter_repeated_moves).
         key = _move_key_text(m["proposal"], m["patch"])
         (key_texts if m["patch"] else advisory_texts).append(key)
         bucket = buckets.get(m["status"])
@@ -777,10 +598,6 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
             bucket.append(
                 {"kind": m["kind"], "section": section, "proposal": m["proposal"]}
             )
-    # What the *protocol* still lacks, as opposed to which of the eight
-    # conversation sections are bare. The two are different questions and the
-    # second was standing in for the first: a researcher could fill every
-    # section, be told nothing was outstanding, and still not have a protocol.
     outstanding = [
         {
             "key": slot.key,
@@ -801,9 +618,9 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         "sessionMinutes": session.get("durationMinutes"),
         "taskCount": len(tasks),
         "taskIds": [t.get("id") for t in tasks if t.get("id")],
-        # Not a gap the protocol can name - tasks are optional - but the one
-        # thing most worth prompting for, because a study collected without
-        # them can never be re-analysed per task.
+        # Not a gap the protocol can name - tasks are optional - but the one thing most
+        # worth prompting for, because a study collected without them can never be
+        # re-analysed per task.
         "taskAdvice": compiler.task_recommendation(result.draft),
         "templateId": result.template_id,
         "templateIds": template_ids,
@@ -823,20 +640,7 @@ def respond(
     profile: str | None = None,
     steer: str | None = None,
 ) -> dict:
-    """One platform turn responding to researcher ``text``.
-
-    Returns ``{text, moves, recommendations, retrievedRefs, source}``.
-    ``moves`` are ``proposed`` (the researcher accepts/rejects each).
-    ``retrievedRefs`` is every corpus ref the tools returned this exchange —
-    persisted on the turn so the grep-the-output grounding test can verify
-    no move cites outside it (F2.1).
-
-    Retrieval runs first — unconditional and deterministic — and the model
-    only selects and phrases against what was actually retrieved, so what it
-    may cite is bounded before it is asked anything. Raises
-    :class:`ModelUnavailable` when there is no model, or when the one
-    configured fails: an unanswerable turn is reported, never faked.
-    """
+    """One platform turn responding to researcher ``text``."""
     if client is None:
         raise ModelUnavailable(NO_MODEL)
     stance = turn_stance(
@@ -844,7 +648,7 @@ def respond(
     )
     state = _load_design_state(s, study_id)
     papers, templates, history = _retrieve(s, text, study_id, history)
-    from middleware import design_llm  # deferred: breaks the import cycle
+    from middleware import design_llm
 
     directive = _directive(stance, state)
     turn = None
@@ -876,13 +680,15 @@ def respond(
 def _retrieve(
     s: Session, text: str, study_id: str | None, history: list[dict] | None
 ) -> tuple[list[dict], list[dict], list[dict]]:
-    """The deterministic retrieval every LLM turn is constrained to cite
-    (papers, templates, history) — run *before* the model is asked anything,
-    so the model can only select from what was actually retrieved."""
+    """
+    The deterministic retrieval every LLM turn is constrained to cite (papers,
+    templates, history) — run *before* the model is asked anything, so the model can
+    only select from what was actually retrieved.
+    """
     papers = matching.match_papers(s, text, study_id=study_id, limit=8, use_llm=False)
     templates = recommend_templates(text, support=corpus_support(s))
-    # An explicit history (the stateless demo passes the visitor's own
-    # prior turns) wins; otherwise load it from the study's stored turns.
+    # An explicit history (the stateless demo passes the visitor's own prior turns)
+    # wins; otherwise load it from the study's stored turns.
     if history is None:
         history = _load_history(s, study_id)
     return papers, templates, history
@@ -899,25 +705,15 @@ def respond_streaming(
     profile: str | None = None,
     steer: str | None = None,
 ):
-    """:func:`respond`, yielding the reply's prose as the model writes it.
-
-    A generator whose ``return`` value is the identical result dict, so the
-    streamed turn and the blocking turn are the same turn — the stream is a
-    live view of the prose, never a second, differently-worded answer. A
-    provider without a stream seam simply yields nothing and returns the
-    same result. Raises :class:`ModelUnavailable` on the same terms as
-    :func:`respond`.
-    """
+    """:func:`respond`, yielding the reply's prose as the model writes it."""
     if client is None:
         raise ModelUnavailable(NO_MODEL)
     stance = turn_stance(
         s, text, study_id=study_id, profile=profile, steer=steer
     )
-    # The streamed turn sees exactly what the blocking turn sees — the same
-    # design state and the same stance — or the two paths would diverge.
     state = _load_design_state(s, study_id)
     papers, templates, history = _retrieve(s, text, study_id, history)
-    from middleware import design_llm  # deferred: breaks the import cycle
+    from middleware import design_llm
 
     directive = _directive(stance, state)
     turn = yield from design_llm.propose_turn_streaming(
@@ -925,9 +721,6 @@ def respond_streaming(
         design_state=state,
     )
     if turn is None:
-        # The stream produced nothing usable. Retry once without it: a
-        # half-delivered stream is the most common way a turn is lost, and
-        # the blocking call often succeeds on exactly the same request.
         log.info("streamed design turn produced nothing; retrying blocking")
         turn = design_llm.propose_turn(
             client, text, history, papers, templates, directive,
@@ -960,17 +753,10 @@ def _assemble(
     stance: dict,
     state: dict | None = None,
 ) -> dict:
-    """Turn the model's reply into the platform turn's result dict: grounding
-    resolved against retrieved rows, recommendations, and the design
-    recommender's prescription/figures.
-
-    Two independent filters apply, and both are *enforcement* rather than
-    instruction — a prompt can be ignored, this cannot:
-
-    1. **Repetition** — a move already accepted, rejected, or awaiting a
-       decision is dropped, however many times the model re-proposes it.
-    2. **Stance** (FR-CONV-9/10) — a question turn keeps only cautions, and
-       a design shape is withheld until the study is understood.
+    """
+    Turn the model's reply into the platform turn's result dict: grounding resolved
+    against retrieved rows, recommendations, and the design recommender's
+    prescription/figures.
     """
     kept = _filter_repeated_moves(turn.moves, state)
     if kept != turn.moves:
@@ -980,9 +766,6 @@ def _assemble(
     moves = []
     for i, sm in enumerate(_permitted_moves(turn.moves, stance)):
         grounding = _resolve_grounding(s, sm.refs)
-        # A choose-template move is grounded by the papers that established its
-        # design — attach them so a template choice is never "unsourced" (the
-        # template encodes those papers' design; they are its references).
         if sm.kind == "choose-template" and not grounding and sm.patch:
             tid = sm.patch.get("templateId")
             grounding = _resolve_grounding(s, _template_source_refs(tid))
@@ -999,12 +782,11 @@ def _assemble(
             }
         )
 
-    # Reuse the retrieval already made for the candidate menu — never a
-    # second match_papers call for the same turn.
+    # Reuse the retrieval already made for the candidate menu — never a second
+    # match_papers call for the same turn.
     recommendations = llm_recommendations or []
     retrieved.update(r["ref"] for r in recommendations)
 
-    # Design recommender (Phase 22): template matches, prescription, figures.
     template_recommendations = recommend_templates(text, support=corpus_support(s))
     design_shape = None
     for tr in template_recommendations:
@@ -1031,9 +813,6 @@ def _assemble(
         "templateRecommendations": template_recommendations,
         "prescription": prescription,
         "figureSuggestions": figure_suggestions,
-        # What the platform understands about the study so far, and what it is
-        # therefore willing to propose — surfaced rather than hidden, so the
-        # researcher can see why a design hasn't been named yet (FR-CONV-10).
         "understanding": stance["understanding"],
         "turnIntent": stance["intent"],
         "retrievedRefs": sorted(retrieved),

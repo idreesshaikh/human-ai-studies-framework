@@ -1,22 +1,4 @@
-"""Static-metrics orchestrator: the 9-metric cognitive-load matrix as tables.
-
-Fans one directory of Python files out to every analyzer and emits two
-research-ready tables (FR-INST-4):
-
-- ``function_metrics``: one row per (file, function) - the tree-sitter four
-  plus Halstead effort.
-- ``file_metrics``: one row per file - indentation variance, line-width
-  bounds, comment ratio, total Halstead effort, SonarQube cognitive
-  complexity (NaN while the server is stubbed, decision D5).
-
-Every row is stamped with the join keys ``participantId``, ``condition``,
-``sessionId``, a capture timestamp, and ``schemaVersion`` so metrics rows
-join the other legs on one timeline (FR-INST-6). ``--format jsonl`` mirrors
-the CSV rows as JSON Lines for middleware ingestion.
-
-Run from the repo root:
-    uv run python metrics/src/main.py [target_dir] --participant P00 ...
-"""
+"""Static-metrics orchestrator: the 9-metric cognitive-load matrix as tables."""
 
 import argparse
 import json
@@ -36,7 +18,6 @@ from analyzers.text_metrics import (
 )
 from parsers.ts_parser import collect_function_metrics
 
-#: Bump on any change to row shape or column meaning (NFR-4).
 SCHEMA_VERSION = 1
 
 DEFAULT_TARGET = Path(__file__).resolve().parents[1] / "corpus"
@@ -52,11 +33,9 @@ def discover_python_files(target: Path) -> list[Path]:
 
 
 def analyze_file(path: Path, target: Path, sonar_url: str) -> tuple[list[dict], dict]:
-    """All metrics for one file: (function rows, file row), join keys not
-    yet stamped. Halstead efforts are joined to tree-sitter rows by function
-    name; a name that appears twice in one file (same-named methods in two
-    classes) keeps its first occurrence - a known limitation, rare in
-    practice and acceptable for the corpus (see implementation plan §5)."""
+    """
+    All metrics for one file: (function rows, file row), join keys not yet stamped.
+    """
     source_bytes = path.read_bytes()
     source = source_bytes.decode("utf-8", errors="replace")
     rel_path = path.relative_to(target).as_posix()
@@ -91,9 +70,11 @@ def build_tables(
     sonar_url: str = "http://localhost:9000",
     timestamp: str | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Analyze every Python file under ``target``; return the two tables,
-    every row stamped with the join keys and a capture timestamp (given, or
-    derived per file from its mtime)."""
+    """
+    Analyze every Python file under ``target``; return the two tables, every row stamped
+    with the join keys and a capture timestamp (given, or derived per file from its
+    mtime).
+    """
     all_function_rows: list[dict] = []
     all_file_rows: list[dict] = []
     for path in discover_python_files(target):
@@ -116,7 +97,7 @@ def write_tables(
         out = out_dir / f"{name}.{fmt}"
         if fmt == "csv":
             df.to_csv(out, index=False)
-        else:  # jsonl: one JSON object per row, NaN -> null
+        else:
             with out.open("w", encoding="utf-8") as fh:
                 for record in df.to_dict(orient="records"):
                     clean = {k: (None if pd.isna(v) else v) for k, v in record.items()}

@@ -1,11 +1,4 @@
-"""A recommender-added paper lands connected, not isolated (live-review fix).
-
-Adding a paper from the recommender used to leave it as a lone node in the
-citation constellation: real, cited, and visibly attached to nothing. These
-tests pin the fix — the corpus's own edges come across with the paper,
-including the *shared* edge to a paper the study already holds — and pin the
-honesty rule that no edge is invented when Semantic Scholar is unreachable.
-"""
+"""A recommender-added paper lands connected, not isolated (live-review fix)."""
 
 import pytest
 from fastapi.testclient import TestClient
@@ -29,8 +22,10 @@ OTHER = "arxiv:2211.03622"
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
-    """S2 unreachable on purpose: whatever connectivity shows up is the
-    corpus's own, not something fetched or fabricated."""
+    """
+    S2 unreachable on purpose: whatever connectivity shows up is the corpus's own, not
+    something fetched or fabricated.
+    """
 
     def _no_network(*a, **k):
         raise semantic_scholar.SemanticScholarError("offline in tests")
@@ -61,7 +56,6 @@ def client(tmp_path, monkeypatch):
                     added_at="",
                 )
             )
-        # The corpus knows both harvested papers were found via the seed.
         for dst in (NEW, OTHER):
             s.add(
                 PaperEdge(
@@ -72,7 +66,6 @@ def client(tmp_path, monkeypatch):
                     dst_title="harvested neighbour",
                 )
             )
-        # The study already holds the seed and one of the neighbours.
         for ref, title in ((SEED, "Investigating and Designing for Trust"),
                            (OTHER, "Security Weaknesses of Generated Code")):
             s.add(
@@ -101,8 +94,10 @@ def test_added_paper_arrives_with_edges(client):
 
 
 def test_the_edge_is_shared_with_a_paper_the_study_already_holds(client):
-    """The point of showing it: the new paper joins the existing constellation
-    rather than floating beside it."""
+    """
+    The point of showing it: the new paper joins the existing constellation rather than
+    floating beside it.
+    """
     _add_from_match(client, NEW)
     graph = client.get(f"/studies/{STUDY}/papers/graph").json()
     ingested = {n["paperRef"] for n in graph["nodes"] if n["ingested"]}
@@ -117,16 +112,16 @@ def test_the_edge_is_shared_with_a_paper_the_study_already_holds(client):
 
 
 def test_no_edge_is_invented_when_the_corpus_has_none(client):
-    """A corpus paper with no edges and no reachable S2 stays honestly
-    unconnected — added, but not wired up with a guess."""
+    """
+    A corpus paper with no edges and no reachable S2 stays honestly unconnected — added,
+    but not wired up with a guess.
+    """
     res = client.post(
         f"/studies/{STUDY}/papers/from-match",
         json={"ref": SEED, "matchReason": "already held"},
     )
     assert res.status_code == 200
     graph = client.get(f"/studies/{STUDY}/papers/graph").json()
-    # The seed's own corpus edges point *out* to the two neighbours; nothing
-    # fabricated a citation between them.
     assert all(
         e["kind"] == VIA_EDGE_KIND for e in graph["edges"] if e["src"] == SEED
     )
@@ -135,7 +130,7 @@ def test_no_edge_is_invented_when_the_corpus_has_none(client):
 def test_adding_twice_does_not_duplicate_edges(client):
     first = _add_from_match(client, NEW)
     second = _add_from_match(client, NEW)
-    assert second["edges"] == 0  # already adopted
+    assert second["edges"] == 0
     graph = client.get(f"/studies/{STUDY}/papers/graph").json()
     keys = [(e["src"], e["dst"], e["kind"]) for e in graph["edges"]]
     assert len(keys) == len(set(keys))

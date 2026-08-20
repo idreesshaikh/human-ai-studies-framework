@@ -1,5 +1,6 @@
-"""Cross-leg correlation window logic + code-evolution derivation
-(FR-AGENT-3, FR-INST-17)."""
+"""
+Cross-leg correlation window logic + code-evolution derivation (FR-AGENT-3, FR-INST-17).
+"""
 
 from datetime import UTC, datetime, timedelta
 
@@ -33,8 +34,6 @@ def _turn(offset, role, code_chars=0, seq=0):
     return ev(offset, "agent_turn", payload, seq=seq)
 
 
-# --- a canonical error -> agent -> paste-back timeline ---------------------
-
 RELIANCE_TIMELINE = [
     ev(
         0,
@@ -55,8 +54,8 @@ def test_reliance_loop_detected_in_window():
     loop = loops[0]
     assert loop["derived"] is True
     assert loop["durationMs"] == 15_000
-    assert loop["startRef"]["seq"] == 10  # the paste
-    assert loop["endRef"]["seq"] == 3  # the paste-back burst
+    assert loop["startRef"]["seq"] == 10
+    assert loop["endRef"]["seq"] == 3
 
 
 def test_reliance_loop_not_detected_outside_window():
@@ -69,7 +68,7 @@ def test_burst_annotation_links_matching_size_turn():
     annotations = find_burst_annotations(RELIANCE_TIMELINE, window_s=120)
     assert len(annotations) == 1
     a = annotations[0]
-    assert a["agentTurnRef"]["seq"] == 2  # the assistant code turn
+    assert a["agentTurnRef"]["seq"] == 2
     assert a["burstCharsAdded"] == 96
 
 
@@ -88,11 +87,7 @@ def test_correlate_session_emits_derived_events():
     assert "edit_burst_annotation" in types
     assert all(e["source"] == "agent-derived" for e in derived)
     assert all(e["payload"]["derived"] is True for e in derived)
-    # Deterministic dense seq so re-runs reconcile.
     assert [e["seq"] for e in derived] == list(range(len(derived)))
-
-
-# --- code evolution (FR-INST-17) ------------------------------------------
 
 
 def test_compute_evolution_loc_churn_and_persistence():
@@ -111,7 +106,6 @@ def test_compute_evolution_loc_churn_and_persistence():
     assert m["aiCharsInserted"] == 200
     assert m["totalCharsInserted"] == 300
     assert m["aiInsertionShare"] == 200 / 300
-    # persistence = surviving AI chars / inserted AI chars (char-approx).
     assert m["aiPersistenceApprox"] == (200 - 40) / 200
     assert m["participantCommits"] == 1
     assert "approximation" in m

@@ -1,26 +1,4 @@
-"""Code-evolution / process metrics (FR-INST-17), derived at session end.
-
-Joins the workspace-snapshot LOC series (FR-INST-15) with origin-classified
-edit bursts (FR-INST-10) into the code leg's literature-standard units - the
-metrics LLM-assistant studies most often report (SLR arXiv:2507.03156;
-Ziegler et al. arXiv:2205.06537):
-
-- **gross / net LOC** added and deleted over the session (from the snapshot
-  ``insertions``/``deletions`` series),
-- within-session **churn** - lines added then removed before session end, and
-- **AI-code persistence** - Ziegler's second measure, the share of AI-origin
-  insertions surviving to session end.
-
-Honesty note carried into the payload: persistence and churn are
-**char-approximated** here. Line-level persistence needs ``edit_burst``
-``startLine``/``endLine`` (a schema-v4 extension change deferred out of this
-phase, `requirements/traceability.md`); until then a recipe must state the
-approximation in its methods, exactly as the metric-coverage review requires.
-
-Emitted as a single ``derived: true`` ``code_evolution`` event per session
-(a recipe-level consumer lands in/later; the derivation is the leg's
-job here).
-"""
+"""Code-evolution / process metrics (FR-INST-17), derived at session end."""
 
 from __future__ import annotations
 
@@ -60,7 +38,7 @@ def compute_evolution(events: list[dict]) -> dict:
         "grossLocInserted": gross_ins,
         "grossLocDeleted": gross_del,
         "netLoc": gross_ins - gross_del,
-        "churnLinesApprox": gross_del,  # within-session removals; approx
+        "churnLinesApprox": gross_del,
         "aiCharsInserted": ai_added,
         "pasteCharsInserted": paste_added,
         "totalCharsInserted": total_added,
@@ -76,8 +54,10 @@ def compute_evolution(events: list[dict]) -> dict:
 
 
 def derive_evolution(events: list[dict], keys: Keys) -> dict | None:
-    """One ``code_evolution`` StudyEvent, or ``None`` when the session has no
-    snapshots or bursts to derive from."""
+    """
+    One ``code_evolution`` StudyEvent, or ``None`` when the session has no snapshots or
+    bursts to derive from.
+    """
     has_inputs = any(
         e.get("type") in ("workspace_snapshot", "edit_burst", "git_commit")
         for e in events
@@ -87,7 +67,7 @@ def derive_evolution(events: list[dict], keys: Keys) -> dict | None:
     return study_event(
         keys,
         source=SOURCE_DERIVED,
-        seq=1_000,  # separate band from correlation's ordinal seqs
+        seq=1_000,
         type=EVENT_CODE_EVOLUTION,
         payload=compute_evolution(events),
     )

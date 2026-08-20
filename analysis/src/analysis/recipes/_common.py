@@ -1,10 +1,4 @@
-"""Shared recipe plumbing: graceful degradation to descriptives.
-
-The pilot replays and dry runs often contain a single condition; every
-comparison recipe must still produce an honest result then - descriptives
-plus an explicit "no comparison possible" note - rather than crashing or
-faking a test.
-"""
+"""Shared recipe plumbing: graceful degradation to descriptives."""
 
 from __future__ import annotations
 
@@ -21,8 +15,10 @@ def two_conditions(df: pd.DataFrame, dataset: Dataset) -> tuple[str, str] | None
 
 
 def describe_cells(df: pd.DataFrame, value: str) -> pd.DataFrame:
-    """Per-condition descriptives: n, min, median, mean, max (always
-    reported next to any test - NFR-8)."""
+    """
+    Per-condition descriptives: n, min, median, mean, max (always reported next to any
+    test - NFR-8).
+    """
     vals = df.assign(_v=pd.to_numeric(df[value], errors="coerce")).dropna(subset=["_v"])
     return (
         vals.groupby("condition")["_v"]
@@ -35,10 +31,7 @@ def describe_cells(df: pd.DataFrame, value: str) -> pd.DataFrame:
 def compare_or_describe(
     df: pd.DataFrame, value: str, dataset: Dataset
 ) -> tuple[stats.TestResult | None, pd.DataFrame, str]:
-    """Standard two-condition comparison with honest degradation.
-
-    Returns (test result or None, per-cell descriptives, summary sentence).
-    """
+    """Standard two-condition comparison with honest degradation."""
     cells = describe_cells(df, value)
     conds = two_conditions(df, dataset)
     if conds is None:

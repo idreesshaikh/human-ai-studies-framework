@@ -51,8 +51,6 @@ def test_snapshot_commits_only_on_change(tmp_path, workspace):
     assert shots[0]["payload"]["trigger"] == "save"
     assert shots[0]["payload"]["insertions"] >= 2
 
-    # No workspace change -> no new shadow commit; the prior one is re-emitted
-    # (idempotent), so the count is stable, not growing.
     again = snap.snapshot(trigger="timer")
     assert len([e for e in again if e["source"] == SOURCE_SNAPSHOT]) == 1
 
@@ -62,8 +60,10 @@ def test_snapshot_commits_only_on_change(tmp_path, workspace):
 
 
 def test_snapshot_seq_is_deterministic_and_idempotent(tmp_path, workspace):
-    """Two independent snapshotters over the same history produce identical
-    (source, seq, hash) tuples - so re-runs reconcile (FR-ING-2)."""
+    """
+    Two independent snapshotters over the same history produce identical (source, seq,
+    hash) tuples - so re-runs reconcile (FR-ING-2).
+    """
     _snapshotter(tmp_path, workspace).snapshot()
     (workspace / "x.py").write_text("x = 1\n")
     key = lambda evs: sorted(  # noqa: E731
@@ -86,7 +86,6 @@ def test_participant_commits_are_observed_content_free(tmp_path, workspace):
     assert len(commits) == 1
     payload = commits[0]["payload"]
     assert payload["hash"] and "filesChanged" in payload
-    # No message text ever (FR-ETH-2).
     assert "message" not in payload
     assert "secret" not in str(payload)
 
@@ -106,11 +105,10 @@ def test_shadow_repo_never_captures_participant_git_internals(tmp_path, workspac
 
 
 def test_git_wrapper_ignores_enclosing_git_context(tmp_path, monkeypatch):
-    """When the snapshotter runs inside another git process (a commit hook,
-    a rebase exec) git exports GIT_DIR/GIT_INDEX_FILE pointing at THAT repo.
-    Inheriting them would silently redirect our shadow-repo operations at the
-    enclosing repo's index - the wrapper must scrub them (regression: the
-    pre-commit pytest hook made workspace snapshots vanish)."""
+    """
+    When the snapshotter runs inside another git process (a commit hook, a rebase exec)
+    git exports GIT_DIR/GIT_INDEX_FILE pointing at THAT repo.
+    """
     monkeypatch.setenv("GIT_DIR", str(tmp_path / "nonexistent-outer.git"))
     monkeypatch.setenv("GIT_INDEX_FILE", str(tmp_path / "nonexistent-index"))
     monkeypatch.setenv("GIT_WORK_TREE", str(tmp_path / "nonexistent-tree"))

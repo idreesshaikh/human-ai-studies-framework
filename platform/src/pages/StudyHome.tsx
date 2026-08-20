@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
   History,
@@ -72,6 +72,16 @@ export function StudyHome() {
       },
       { replace: true },
     );
+  /* A study reached straight from project creation carries the researcher's
+   * answer to "what do you want to find out?" — their first turn, typed
+   * before this workspace existed. Router state, not a query param: it is a
+   * one-time hand-off, not part of the study's address. */
+  const location = useLocation();
+  const opening =
+    typeof (location.state as { opening?: unknown } | null)?.opening === "string"
+      ? ((location.state as { opening: string }).opening)
+      : "";
+
   const [showHistory, setShowHistory] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
@@ -215,7 +225,7 @@ export function StudyHome() {
            * whole workspace column off the side of a phone. A definite width
            * here is also what lets the citation wrap instead of clamp. */
           <div className="min-h-0 min-w-0 flex-1">
-            <ConversationView studyId={id} remoteChange={change} />
+            <ConversationView studyId={id} remoteChange={change} opening={opening} />
           </div>
         )}
         {tab === "library" && <LibraryTab studyId={id} />}

@@ -1,17 +1,4 @@
-"""Listening before proposing, and answering what was asked (FR-CONV-9/10).
-
-The two conversational failures these pin down are the ones a researcher
-actually notices:
-
-1. Asking *"why did you give me this?"* and getting three new proposals back
-   instead of an answer — the platform not listening.
-2. Being handed a design shape off a single sentence, boxed into a study it
-   never asked about.
-
-Both are enforced in code (``design_assistant.turn_stance`` /
-``_permitted_moves``), not merely requested of a model, so they hold on the
-no-LLM path and cannot be prompted away.
-"""
+"""Listening before proposing, and answering what was asked (FR-CONV-9/10)."""
 
 import pytest
 from fastapi.testclient import TestClient
@@ -45,9 +32,6 @@ def _ask(client, text, study=STUDY):
     res = client.post(f"/studies/{study}/conversation/turns", json={"text": text})
     assert res.status_code == 200, res.text
     return res.json()
-
-
-# ------------------------------------------------------------ turn intent
 
 
 @pytest.mark.parametrize(
@@ -85,27 +69,26 @@ def test_a_description_is_not_a_question():
     assert elicitation.classify_turn(SKETCH) == "describe"
 
 
-# -------------------------------------------------------- understanding
-
-
 def test_a_real_description_covers_several_facets():
     understanding = elicitation.assess_understanding([SKETCH])
-    assert understanding["population"]  # developers
-    assert understanding["task"]  # maintenance tasks
-    assert understanding["comparison"]  # with / without
-    assert understanding["outcome"]  # completion time
+    assert understanding["population"]
+    assert understanding["task"]
+    assert understanding["comparison"]
+    assert understanding["outcome"]
     assert elicitation.ready_for_design(understanding)
 
 
 def test_a_vague_opener_understands_nothing():
     understanding = elicitation.assess_understanding(["help me design a study"])
     assert not elicitation.ready_for_design(understanding)
-    assert elicitation.next_question(understanding)  # there is something to ask
+    assert elicitation.next_question(understanding)
 
 
 def test_only_the_researchers_own_words_count():
-    """The platform asking about conditions cannot make the platform better
-    informed — assess_understanding is only ever given researcher turns."""
+    """
+    The platform asking about conditions cannot make the platform better informed —
+    assess_understanding is only ever given researcher turns.
+    """
     understanding = elicitation.assess_understanding([])
     assert not any(understanding.values())
 
@@ -125,9 +108,6 @@ def test_next_question_asks_one_thing():
     assert question.count("?") == 1
 
 
-# ------------------------------------------------- the conversation itself
-
-
 def test_a_vague_opener_gets_a_question_not_a_design(client):
     reply = _ask(client, "I want to study AI and productivity")
     assert [m for m in reply["moves"] if m["kind"] == "choose-template"] == []
@@ -137,16 +117,17 @@ def test_a_vague_opener_gets_a_question_not_a_design(client):
 
 
 def test_asking_for_a_design_from_nothing_does_not_produce_one(client):
-    """The complaint: being boxed in immediately. An explicit ask with no
-    study behind it still gets a conversation, not a template."""
+    """The complaint: being boxed in immediately."""
     reply = _ask(client, "what design and statistics should I use?")
     assert reply["turnIntent"] == "design-request"
     assert [m for m in reply["moves"] if m["kind"] == "choose-template"] == []
 
 
 def test_a_described_study_does_reach_a_design(client):
-    """The gate must open — an elicitation loop with no exit is worse than
-    proposing too early."""
+    """
+    The gate must open — an elicitation loop with no exit is worse than proposing too
+    early.
+    """
     _ask(client, SKETCH)
     reply = _ask(client, "what design and statistics should I use?")
     assert reply["understanding"]["readyForDesign"] is True
@@ -166,8 +147,10 @@ def test_why_gets_an_answer_not_new_proposals(client):
 
 
 def test_a_gated_turn_still_keeps_its_safe_moves(client):
-    """Withholding the design shape is not a reason to withhold a grounded
-    caution — the turn stays useful while it asks."""
+    """
+    Withholding the design shape is not a reason to withhold a grounded caution — the
+    turn stays useful while it asks.
+    """
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
     assert reply["understanding"]["readyForDesign"] is False
     assert reply["moves"], "safe moves should survive the design gate"
@@ -181,9 +164,6 @@ def test_understanding_accumulates_across_turns(client):
     later = _ask(client, "they refactor a legacy module, and I'll time them")
     known = later["understanding"]["known"]
     assert "population" in known and "task" in known
-
-
-# ------------------------------------------------------------- profiles
 
 
 def test_every_profile_has_distinct_guidance():
@@ -212,8 +192,10 @@ def test_the_profile_catalog_is_served(client):
 
 
 def test_the_profile_reaches_the_turn_directive(client):
-    """A saved profile changes how the conversation talks (the directive the
-    model is given), without changing what counts as sound method."""
+    """
+    A saved profile changes how the conversation talks (the directive the model is
+    given), without changing what counts as sound method.
+    """
     from middleware.db import make_session_factory
     from middleware.design_assistant import _directive, turn_stance
 
@@ -225,31 +207,63 @@ def test_the_profile_reaches_the_turn_directive(client):
         )
     assert "STUDENT" in student and "STUDENT" not in expert
     assert "EXPERIENCED" in expert
-    # The gate language is identical in both: rigour doesn't vary by audience.
     assert ("enough to design" in student) == ("enough to design" in expert)
 
 
 def test_a_researcher_naming_a_design_is_not_second_guessed(client):
-    """The gate stops the *platform* boxing someone in — it was never meant
-    to overrule a researcher who names the design themselves."""
+    """
+    The gate stops the *platform* boxing someone in — it was never meant to overrule a
+    researcher who names the design themselves.
+    """
     reply = _ask(client, "let's run a within-subjects crossover study")
-    assert reply["understanding"]["readyForDesign"] is False  # still learning
+    assert reply["understanding"]["readyForDesign"] is False
     assert [m for m in reply["moves"] if m["kind"] == "choose-template"], (
         "a design the researcher named must be recorded, not withheld"
     )
 
 
 def test_asking_what_design_to_use_is_not_naming_one(client):
-    """'what design should I use?' must not read as an answer to itself —
-    'design' is a word in nearly every template's title."""
+    """
+    'what design should I use?' must not read as an answer to itself — 'design' is a
+    word in nearly every template's title.
+    """
     reply = _ask(client, "what design should I use?")
     assert [m for m in reply["moves"] if m["kind"] == "choose-template"] == []
 
 
 def test_asking_why_about_a_named_design_still_answers(client):
-    """A follow-up question never opens the gate, or 'why the crossover?'
-    would re-propose the crossover instead of explaining it."""
+    """
+    A follow-up question never opens the gate, or 'why the crossover?' would re-propose
+    the crossover instead of explaining it.
+    """
     _ask(client, "let's run a within-subjects crossover study")
     reply = _ask(client, "why that crossover design?")
     assert reply["turnIntent"] == "followup-question"
     assert [m for m in reply["moves"] if m["kind"] != "caution"] == []
+
+
+def test_understanding_summary_carries_the_next_question():
+    """The UI shows the researcher what is being asked next."""
+    understanding = elicitation.assess_understanding(["I want to study developers"])
+    summary = elicitation.understanding_summary(understanding)
+
+    assert summary["nextQuestion"] == elicitation.next_question(understanding)
+    assert summary["nextQuestion"], "something is still missing, so something is asked"
+
+
+def test_understanding_summary_asks_nothing_once_every_facet_is_known():
+    understanding = dict.fromkeys(elicitation.FACETS, True)
+    assert elicitation.understanding_summary(understanding)["nextQuestion"] == ""
+
+
+def test_understanding_summary_labels_every_facet_not_just_missing_ones():
+    """
+    ``missingLabels`` names only what is absent, which is fine for a sentence about what
+    is missing and useless for a checklist that has to name the steps already done.
+    """
+    understanding = elicitation.assess_understanding(["developers refactoring code"])
+    summary = elicitation.understanding_summary(understanding)
+
+    assert set(summary["facetLabels"]) == set(elicitation.FACETS)
+    for facet, spec in elicitation.FACETS.items():
+        assert summary["facetLabels"][facet] == spec["label"]

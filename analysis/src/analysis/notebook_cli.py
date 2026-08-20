@@ -1,10 +1,4 @@
-"""CLI wiring for the `notebook` subcommand (curated handoff).
-
-Kept out of ``cli.py`` only for readability; wired in as the ``notebook``
-subcommand, mirroring ``paper_cli``. Output lands under
-``results/<study>/notebook.ipynb`` plus ``data-dictionary.md``, or with
-``--dictionary-only`` just the dictionary.
-"""
+"""CLI wiring for the `notebook` subcommand (curated handoff)."""
 
 from __future__ import annotations
 

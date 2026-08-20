@@ -79,8 +79,16 @@ export interface Understanding {
   known: string[];
   missing: string[];
   missingLabels: string[];
+  /** Every facet's label, keyed by facet id — including the ones already
+   *  known. `missingLabels` covers only what is absent, which cannot name a
+   *  completed step. */
+  facetLabels?: Record<string, string>;
   readyForDesign: boolean;
   facetsNeeded: number;
+  /** The question the conversation will ask next, or "" when every facet is
+   *  known. Decided by the server (elicitation.next_question) and shown so
+   *  the researcher can see what is coming, not only what is missing. */
+  nextQuestion?: string;
 }
 
 /** A paper matched to the researcher's idea. */

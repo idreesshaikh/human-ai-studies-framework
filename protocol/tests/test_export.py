@@ -1,11 +1,4 @@
-"""Replication-kit tests (FR-PROT-7, NFR-6).
-
-The headline test IS the acceptance criterion: re-running the analysis
-from the kit's own dataset regenerates a byte-identical ``report.md``
-("fresh checkout + the kit" simulated as a clean output directory and the
-same pinned environment). A second test proves the archive itself is
-deterministic: two exports of the same inputs are byte-identical.
-"""
+"""Replication-kit tests (FR-PROT-7, NFR-6)."""
 
 import json
 import os
@@ -109,7 +102,6 @@ def test_kit_contents_complete(kit, tmp_path):
     assert manifest["studyId"] == "kit-test"
     assert manifest["eventSchemaVersions"] == [3]
     assert manifest["datasetRows"] == 8
-    # The recipe registry travels with the kit (versions of the analyses).
     ids = {r["id"] for r in manifest["recipes"]}
     assert "fatigue-by-condition" in ids
     assert "ziegler-acceptance-rate" in ids
@@ -143,7 +135,6 @@ def test_reproduction_is_byte_identical(kit, tmp_path):
     reproduced = (fresh / "kit-test" / "report.md").read_bytes()
     shipped = (root / "report" / "kit-test" / "report.md").read_bytes()
     assert reproduced == shipped
-    # Tables too - the honest-stats lines must survive the round trip.
     assert (fresh / "kit-test" / "fatigue-by-condition" / "test.csv").read_bytes() == (
         root / "report/kit-test/fatigue-by-condition/test.csv"
     ).read_bytes()
