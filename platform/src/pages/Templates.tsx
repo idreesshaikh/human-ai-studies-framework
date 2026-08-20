@@ -4,10 +4,14 @@ import {
   BookOpen,
   Loader2,
   X,
-  ChevronDown,
   Check,
   Info,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Notice } from "@/components/ui/notice";
@@ -19,7 +23,6 @@ import { CreateStudyFrom } from "@/components/templates/CreateStudyFrom";
 import {
   templatesApi,
   type RepertoireEntry,
-  type DesignReference,
   type MergeResult,
 } from "@/lib/templatesApi";
 import { OfflineError } from "@/lib/studyApi";
@@ -44,14 +47,7 @@ export function Templates() {
   const [merged, setMerged] = useState<MergeResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /* A paper picked out of a design shape's own reference list, handed to
-   * the derive panel below with that shape already chosen as its
-   * archetype. Those rows used to be inert text, which is what made a
-   * reviewer ask why some papers were searchable and the ones listed
-   * under each design were not — two lists, only one of them usable. */
-  const [seed, setSeed] = useState<{ paper: DesignReference; baseId: string } | null>(
-    null,
-  );
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   useEffect(() => {
     templatesApi
@@ -118,6 +114,10 @@ export function Templates() {
         <Notice kind="problem">{error}</Notice>
       )}
 
+      {entries && entries.length > 0 && (
+        <DeriveFromPaper templates={entries} />
+      )}
+
       {entries === null && !error ? (
         <p className="flex items-center gap-2 type-body text-text-muted">
           <Loader2 className="size-4 animate-spin" aria-hidden /> Ranking the
@@ -142,7 +142,7 @@ export function Templates() {
               entry={entry}
               selected={selected.has(entry.id)}
               onToggle={() => toggle(entry.id)}
-              onUsePaper={(paper) => setSeed({ paper, baseId: entry.id })}
+              onDetail={() => setDetailId(entry.id)}
             />
           ))}
         </div>
@@ -207,8 +207,13 @@ export function Templates() {
 
       {merged && <MergedResult result={merged} onClose={() => setMerged(null)} />}
 
-      {entries && entries.length > 0 && (
-        <DeriveFromPaper templates={entries} seed={seed} />
+      {detailId && entries && (
+        <ShapeDetailPanel
+          entry={entries.find((e) => e.id === detailId)!}
+          selected={selected.has(detailId)}
+          onToggle={() => toggle(detailId)}
+          onClose={() => setDetailId(null)}
+        />
       )}
     </div>
   );
@@ -218,16 +223,13 @@ function ShapeCard({
   entry,
   selected,
   onToggle,
-  onUsePaper,
+  onDetail,
 }: {
   entry: RepertoireEntry;
   selected: boolean;
   onToggle: () => void;
-  /** Take one of this shape's reference papers into "Start from a paper",
-   *  with this shape as the archetype. */
-  onUsePaper: (paper: DesignReference) => void;
+  onDetail: () => void;
 }) {
-  const [openRefs, setOpenRefs] = useState(false);
   return (
     <Card
       data-agent="design-shape"
@@ -277,7 +279,7 @@ function ShapeCard({
               )}
             </span>
           </span>
-          <span className="type-subhead min-w-0 flex-1 text-balance text-text">
+          <span className="type-subhead min-w-0 flex-1 text-text">
             {entry.title}
           </span>
         </label>
@@ -285,53 +287,22 @@ function ShapeCard({
         {/* Clamped, so a shelf of cards stays comparable down the row: one
           * card with a five-line description and another with fifteen is a
           * ragged shelf you cannot scan across. The full text is a click
-          * away in the study itself. */}
-        <p className="type-caption line-clamp-4 text-text-muted">
-          {entry.description}
-        </p>
+          * away in the detail panel. */}
+        <button
+          type="button"
+          onClick={onDetail}
+          className="text-left transition-colors duration-fast hover:text-accent"
+          aria-label={`View details for ${entry.title}`}
+        >
+          <p className="type-caption line-clamp-4 text-text-muted hover:text-text-muted">
+            {entry.description}
+          </p>
+        </button>
 
         <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">
           <SupportBadge entry={entry} />
           <Badge variant="outline">{entry.designType}</Badge>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setOpenRefs((v) => !v)}
-          className="type-caption flex items-center gap-1.5 self-start rounded-control text-text-muted transition-colors duration-fast hover:text-text"
-          aria-expanded={openRefs}
-        >
-          <BookOpen className="size-3" aria-hidden />
-          {entry.references.length} reference
-          {entry.references.length === 1 ? "" : "s"}
-          <ChevronDown
-            className={cn(
-              "size-3 transition-transform duration-standard",
-              openRefs && "rotate-180",
-            )}
-            aria-hidden
-          />
-        </button>
-
-        {openRefs && (
-          <ul className="flex flex-col gap-2 border-l border-border pl-3">
-            {entry.references.map((ref) => (
-              <ReferenceRow
-                key={ref.ref}
-                reference={ref}
-                onUse={() => onUsePaper(ref)}
-              />
-            ))}
-            {entry.unresolvedSources.length > 0 && (
-              <li className="type-caption text-text-muted">
-                Cited but not in the corpus:{" "}
-                <span className="type-quantity identifier">
-                  {entry.unresolvedSources.join(", ")}
-                </span>
-              </li>
-            )}
-          </ul>
-        )}
       </CardContent>
     </Card>
   );
@@ -375,36 +346,77 @@ function SupportBadge({ entry }: { entry: RepertoireEntry }) {
  * shape already selected as the archetype, which is the route from "a paper
  * I recognise" to "a study I can run" the page always implied and never
  * offered. */
-function ReferenceRow({
-  reference,
-  onUse,
+function ShapeDetailPanel({
+  entry,
+  selected,
+  onToggle,
+  onClose,
 }: {
-  reference: DesignReference;
-  onUse: () => void;
+  entry: RepertoireEntry;
+  selected: boolean;
+  onToggle: () => void;
+  onClose: () => void;
 }) {
   return (
-    <li className="group/ref flex flex-col gap-0.5">
-      <div className="flex items-center gap-2">
-        <Confidence value={reference.confidence ?? undefined} />
-        {reference.role !== "uses-this-design" && (
-          <span className="type-legend text-text-muted">
-            {reference.role.replace(/-/g, " ")}
-          </span>
-        )}
-      </div>
-      <span className="type-caption text-text">{reference.title}</span>
-      <span className="type-legend text-text-muted">
-        {reference.matchReason}
-      </span>
-      <button
-        type="button"
-        onClick={onUse}
-        data-agent="use-reference-paper"
-        className="type-legend mt-0.5 self-start rounded-control text-accent underline decoration-border underline-offset-4 transition-colors duration-fast hover:decoration-control-edge"
-      >
-        Use this paper
-      </button>
-    </li>
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-work max-h-[80vh] flex flex-col">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <DialogTitle className="type-display">{entry.title}</DialogTitle>
+            <p className="mt-2 type-caption text-text-muted">{BAND_COPY[entry.band]}</p>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggle}
+              className="cursor-pointer"
+            />
+            <span className="type-caption text-text-muted">Include in merge</span>
+          </label>
+        </div>
+
+        <div className="flex-1 overflow-y-auto space-y-4">
+          <div>
+            <h3 className="type-label text-text">Description</h3>
+            <p className="mt-2 type-body text-text">{entry.description}</p>
+          </div>
+
+          <div>
+            <h3 className="type-label text-text">Design type</h3>
+            <p className="mt-2 type-body text-text">{entry.designType}</p>
+          </div>
+
+          <div>
+            <h3 className="type-label flex items-center gap-2 text-text">
+              <BookOpen className="size-4" aria-hidden />
+              References ({entry.references.length})
+            </h3>
+            <ul className="mt-2 space-y-2">
+              {entry.references.map((ref) => (
+                <li key={ref.ref} className="rounded-control border border-border p-2">
+                  <div className="flex items-center gap-2">
+                    <Confidence value={ref.confidence ?? undefined} />
+                    {ref.role !== "uses-this-design" && (
+                      <span className="type-caption text-text-muted">
+                        {ref.role.replace(/-/g, " ")}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 type-caption text-text">{ref.title}</p>
+                  <p className="type-caption text-text-muted">{ref.matchReason}</p>
+                </li>
+              ))}
+            </ul>
+            {entry.unresolvedSources.length > 0 && (
+              <p className="mt-2 type-caption text-text-muted">
+                Cited but not in the corpus: {entry.unresolvedSources.join(", ")}
+              </p>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

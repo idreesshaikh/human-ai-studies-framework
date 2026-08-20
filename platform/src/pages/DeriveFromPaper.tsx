@@ -5,6 +5,7 @@ import { Notice } from "@/components/ui/notice";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { Confidence } from "@/components/conversation/Confidence";
 import {
   templatesApi,
@@ -79,7 +80,7 @@ export function DeriveFromPaper({
   /* A paper handed over from a shape's reference list. Scrolled to, because
    * this panel sits below a page of cards and filling it silently off-screen
    * looks like the click did nothing. */
-  const panel = useRef<HTMLElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!seed) return;
     setPaper(seed.paper);
@@ -103,19 +104,17 @@ export function DeriveFromPaper({
   }
 
   return (
-    <section
-      ref={panel}
-      className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4"
-    >
-      <div>
-        <h2 className="type-subhead flex items-center gap-2 text-text">
-          Start from a paper
-        </h2>
-        <p className="mt-1 type-caption text-text-muted">
-          Search the corpus, pick a paper, and run it through an archetype: the
-          paper becomes your design's primary citation.
-        </p>
-      </div>
+    <Card ref={panel}>
+      <CardContent className="flex flex-col gap-3 p-4">
+        <div>
+          <h2 className="type-subhead flex items-center gap-2 text-text">
+            Start from a paper
+          </h2>
+          <p className="mt-1 type-caption text-text-muted">
+            Search the corpus, pick a paper, and run it through an archetype: the
+            paper becomes your design's primary citation.
+          </p>
+        </div>
 
       <div className="flex gap-2">
         <div className="relative flex-1">
@@ -214,6 +213,7 @@ export function DeriveFromPaper({
           />
         </div>
       )}
-    </section>
+      </CardContent>
+    </Card>
   );
 }

@@ -52,7 +52,6 @@ retrofitted.
 | `add-paper` | `RecommendationCard` | add the paper to the study set |
 | `recommender-rail` | `RecommenderRail` | the persistent literature-recommender panel beside the conversation (landmark) |
 | `design-shape` | `Templates` | one design shape in the ranked protocol repertoire; `data-agent-ref` carries its template id |
-| `use-reference-paper` | `Templates` | use a matched reference paper in the study (decision point) |
 | `draft-rail` | `DraftRail` | the compiled protocol-draft view (landmark) |
 | `draft-apply` | `DraftRail` | apply the server-validated compiled draft to the protocol (decision point) |
 | `draft-finish` | `DraftRail` | open the finish-and-review moment that prepares the protocol draft (decision point) |
@@ -168,3 +167,5 @@ retrofitted.
   (`HatchLegend`'s key to the record's marks). Added the newer names that
   had drifted out: `use-reference-paper`, `protocol-path`, `path-up-next`,
   `applied-next-step`, `seed-study`.
+- **2026-08-20**: Templates detail panel redesign: `use-reference-paper` removed
+  (references now shown in dialog, no inline "use" action).
