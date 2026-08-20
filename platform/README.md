@@ -6,6 +6,10 @@ the study through to a paper. React 19 + Vite + TypeScript + Tailwind v4 +
 shadcn/ui (vendored, owned in-repo). The middleware serves the built app at
 `/`; one process is the whole stack (FR-PLAT, FR-CONV, NFR-12).
 
+> Working on the frontend itself? See [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md)
+> for the data layer, the state model, the client/server mirrors, and the
+> conventions the build enforces.
+
 ## What's here
 
 - **The design conversation**: type an idea; the platform replies with
