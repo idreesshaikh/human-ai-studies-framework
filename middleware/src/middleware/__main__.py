@@ -115,6 +115,8 @@ def main() -> None:
             "corpus-import",
             "corpus-verify",
             "corpus-enrich",
+            "mine-designs",
+            "promote-templates",
             "demo-seed",
             "templates",
             "simulate",
@@ -249,6 +251,69 @@ def main() -> None:
         )
         print(f"  now {after['withAbstract']} of {after['papers']} carry an abstract")
         sys.exit(0 if result["enriched"] or not result["candidates"] else 1)
+
+    elif args.command == "mine-designs":
+        import logging
+
+        from middleware.db import create_session
+        from middleware.mine_designs import mine_and_draft, report_drafts
+        from middleware.settings import Settings
+
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
+        settings = Settings()
+        s = create_session(settings.db_url)
+        try:
+            drafts = mine_and_draft(s)
+            print(report_drafts(drafts))
+        finally:
+            s.close()
+
+    elif args.command == "promote-templates":
+        import logging
+        from pathlib import Path
+
+        from middleware import template_registry
+
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
+        root = Path(__file__).resolve().parent.parent.parent
+        drafts_dir = root / "templates" / "drafts"
+        registry_dir = root / "templates" / "registry"
+
+        # Find all draft files
+        draft_files = sorted(drafts_dir.glob("mined-design-*.yaml"))
+        if not draft_files:
+            print("No mined templates to promote")
+            sys.exit(0)
+
+        promoted = 0
+        skipped = 0
+        for draft_path in draft_files:
+            import yaml
+            doc = yaml.safe_load(draft_path.read_text())
+            problems = template_registry.validate_template(doc)
+            if problems:
+                print(f"✗ {draft_path.name}: {len(problems)} problem(s)")
+                for problem in problems[:2]:
+                    print(f"  - {problem}")
+                skipped += 1
+            else:
+                # Move to registry
+                target = registry_dir / draft_path.name
+                target.write_text(draft_path.read_text())
+                draft_path.unlink()
+                print(f"✓ {draft_path.name} → registry")
+                promoted += 1
+
+        print(f"\nPromoted {promoted}, skipped {skipped}")
+        # Re-validate full registry
+        all_problems = template_registry.validate_registry()
+        if all_problems:
+            print(f"Registry validation: {len(all_problems)} problem(s)")
+            for problem in all_problems[:5]:
+                print(f"  - {problem}")
+            sys.exit(1)
+        else:
+            print("Registry validation: OK")
 
     elif args.command == "templates":
         from middleware import template_registry
