@@ -3,6 +3,7 @@ import { AppFrame } from "@/components/shell/AppFrame";
 import { SignInScreen } from "@/components/shell/SignInScreen";
 import { useAuth } from "@/lib/auth.tsx";
 import { Hero } from "@/pages/Hero";
+import { QuickStart } from "@/pages/QuickStart";
 import { Projects } from "@/pages/Projects";
 import { ProjectHome } from "@/pages/ProjectHome";
 import { StudyHome } from "@/pages/StudyHome";
@@ -49,6 +50,7 @@ export default function App() {
             hard navigation (refresh, bookmark, the sign-in/sign-out
             location.reload()), which bypasses the SPA shell entirely and
             shows the raw API response instead of this page. */}
+        <Route path="/start" element={<QuickStart />} />
         <Route path="/home" element={<Projects />} />
         <Route path="/settings" element={<AccountSettings />} />
         {/* The repertoire is project-agnostic (FR-TPL): one global browse,

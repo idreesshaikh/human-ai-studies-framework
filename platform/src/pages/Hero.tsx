@@ -40,8 +40,8 @@ export function Hero() {
 
         <div className="flex animate-in flex-col items-center gap-2 fade-in delay-150 duration-entrance ease-out sm:flex-row">
           <Button asChild>
-            <Link to="/home">
-              Start a project <ArrowRight aria-hidden />
+            <Link to="/start">
+              Start designing <ArrowRight aria-hidden />
             </Link>
           </Button>
           {/* The repertoire is the other way in: a researcher who already

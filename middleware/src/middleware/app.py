@@ -1985,10 +1985,31 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         identity: auth.Identity = Depends(resolve_identity),
         s: Session = Depends(db),
     ) -> dict:
-        """Create a new project (FR-PLAT-1)."""
+        """Create a new project (FR-PLAT-1), or return existing implicit project."""
         name = str(body.get("name", "")).strip()
         if not name:
             raise HTTPException(400, "name is required")
+
+        # Phase 6: Implicit personal projects. If the caller creates a project named
+        # "Personal", check if they already have one — if so, return it (reusable).
+        if name == "Personal":
+            existing = s.scalar(
+                select(Project).join(Membership).where(
+                    (Project.name == "Personal")
+                    & (Membership.identity_sub == identity.sub)
+                    & (Membership.role == "owner")
+                )
+            )
+            if existing:
+                return {
+                    "id": existing.id,
+                    "slug": existing.slug,
+                    "name": existing.name,
+                    "role": "owner",
+                    "createdAt": existing.created_at,
+                    "studyCount": len(existing.studies),
+                }
+
         chosen = str(body.get("slug", "")).strip()
         slug = chosen
         if not slug:
