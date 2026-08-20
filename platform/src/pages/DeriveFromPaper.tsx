@@ -143,8 +143,19 @@ export function DeriveFromPaper({
 
       {error && <Notice kind="problem">{error}</Notice>}
 
-      {hits && hits.length === 0 && (
-        <p className="type-caption text-text-muted">No corpus papers match that. Try other terms.</p>
+      {!q.trim() && !hits && (
+        <p className="rounded-input border border-dashed border-border-strong bg-bg p-3 text-center type-caption text-text-muted">
+          Search the corpus by keywords, author, or topic
+        </p>
+      )}
+
+      {q.trim() && hits && hits.length === 0 && (
+        <div className="rounded-input border border-border bg-bg p-3">
+          <p className="type-body text-text-muted">No corpus papers match "{q}".</p>
+          <p className="mt-1 type-caption text-text-muted">
+            Try different keywords or browse proven designs on the repertoire page.
+          </p>
+        </div>
       )}
 
       {hits && hits.length > 0 && (

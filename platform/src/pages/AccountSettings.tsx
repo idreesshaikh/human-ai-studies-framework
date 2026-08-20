@@ -30,14 +30,19 @@ export function AccountSettings() {
 
   return (
     <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
-      <h1 className="type-title text-text">Account settings</h1>
+      <div>
+        <h1 className="type-title text-text">Account settings</h1>
+        <p className="type-body mt-1 max-w-reading text-text-muted">
+          Manage your preferences across all projects.
+        </p>
+      </div>
 
       <Card>
         <CardContent className="flex flex-col gap-4 p-4">
           <div>
-            <h2 className="type-subhead text-text">Your preferences</h2>
-            <p className="type-body text-text-muted">
-              Settings are saved to your account and follow you across devices.
+            <h2 className="type-subhead text-text">Display & assistant</h2>
+            <p className="type-caption text-text-muted">
+              These settings apply to all your projects.
             </p>
           </div>
           <div className="flex flex-col gap-2">

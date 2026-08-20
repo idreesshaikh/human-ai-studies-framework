@@ -102,12 +102,23 @@ export function Templates() {
           * meant to find. */}
         <h1 className="type-title text-text">Protocol repertoire</h1>
         <p className="type-body mt-1 max-w-reading text-text-muted">
-          Proven design shapes, ranked by how widely the corpus uses them. The
-          papers that used a shape are its references; pick two or more shapes
-          and merge them into one novel protocol, grounded in every paper it
-          draws from. No project needed to browse, a merge can become a study
-          in any of your projects.
+          Proven design shapes from a 15,000-paper corpus, ranked by how widely
+          they're actually used. The papers behind each shape are its references;
+          pick two or more and merge them into one novel protocol grounded in
+          every paper it draws from. No project needed to browse.
         </p>
+        {entries && (
+          <p className="mt-2 type-caption text-text-muted">
+            <span className="type-quantity text-text">{admitted.length}</span> design shape
+            {admitted.length === 1 ? "" : "s"} ready to use
+            {held.length > 0 && (
+              <>
+                {" "}
+                · <span className="type-quantity text-text-muted">{held.length}</span> held back (too rare)
+              </>
+            )}
+          </p>
+        )}
       </div>
 
       {error && (
