@@ -9,7 +9,7 @@ Click **`Study: idle`** in the status bar, or run _TERN: Start Study Session_
 from the command palette (F1).
 
 <figure markdown="span">
-  ![Command palette](assets/screens/tern-command-palette.png){ width="700" }
+  ![Command palette](../assets/screens/tern-command-palette.png){ width="700" }
   <figcaption>All TERN commands are available from the command palette.</figcaption>
 </figure>
 
@@ -20,17 +20,17 @@ from the command palette (F1).
    will go. Nothing starts until you confirm.
 
 <figure markdown="span">
-  ![Participant ID prompt](assets/screens/tern-participant-id.png){ width="700" }
+  ![Participant ID prompt](../assets/screens/tern-participant-id.png){ width="700" }
   <figcaption>Enter the participant ID.</figcaption>
 </figure>
 
 <figure markdown="span">
-  ![Condition pick](assets/screens/tern-condition.png){ width="700" }
+  ![Condition pick](../assets/screens/tern-condition.png){ width="700" }
   <figcaption>Pick the assigned condition.</figcaption>
 </figure>
 
 <figure markdown="span">
-  ![Preflight check](assets/screens/tern-preflight.png){ width="700" }
+  ![Preflight check](../assets/screens/tern-preflight.png){ width="700" }
   <figcaption>Review the preflight summary and begin the session.</figcaption>
 </figure>
 
@@ -46,12 +46,12 @@ minutes and seconds. Click it any time to open the session menu:
 - **End study session** — finish early and open the debrief.
 
 <figure markdown="span">
-  ![Session running](assets/screens/tern-session-running.png){ width="700" }
+  ![Session running](../assets/screens/tern-session-running.png){ width="700" }
   <figcaption>The status-bar countdown is the only permanent UI.</figcaption>
 </figure>
 
 <figure markdown="span">
-  ![Session menu](assets/screens/tern-status-menu.png){ width="700" }
+  ![Session menu](../assets/screens/tern-status-menu.png){ width="700" }
   <figcaption>The session menu from the status bar.</figcaption>
 </figure>
 
@@ -63,12 +63,12 @@ pause** (≥4 s of silence, up to 60 s), so it never interrupts mid-keystroke.
 You can also answer one anytime via **Log fatigue now**.
 
 <figure markdown="span">
-  ![Fatigue probe](assets/screens/tern-fatigue-probe.png){ width="700" }
+  ![Fatigue probe](../assets/screens/tern-fatigue-probe.png){ width="700" }
   <figcaption>The fatigue micro-prompt, keyboard-first.</figcaption>
 </figure>
 
 <figure markdown="span">
-  ![Fatigue answered](assets/screens/tern-fatigue-answer.png){ width="700" }
+  ![Fatigue answered](../assets/screens/tern-fatigue-answer.png){ width="700" }
   <figcaption>Answer with 1–7 and Enter.</figcaption>
 </figure>
 
@@ -91,7 +91,7 @@ When the timer elapses — or you run _End Study Session_ — a frosted-glass
 automatically.
 
 <figure markdown="span">
-  ![The end-of-study debrief](assets/screens/tern-debrief.png){ width="700" }
+  ![The end-of-study debrief](../assets/screens/tern-debrief.png){ width="700" }
   <figcaption>The NASA-TLX-inspired debrief.</figcaption>
 </figure>
 

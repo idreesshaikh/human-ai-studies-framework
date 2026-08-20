@@ -6,7 +6,7 @@ PHOENIX asks the questions a research methodologist would, and proposes
 literature or plainly marked unsourced.
 
 <figure markdown="span">
-  ![The design conversation with moves](assets/screens/study-conversation-with-moves.png){ width="800" }
+  ![The design conversation with moves](../assets/screens/study-conversation-with-moves.png){ width="800" }
   <figcaption>Proposals arrive one at a time; you accept or reject each.</figcaption>
 </figure>
 
@@ -45,7 +45,7 @@ the assistant proposes aggressively; low steer means it asks more and
 presumes less. The dial is continuous and takes effect on the next turn.
 
 <figure markdown="span">
-  ![The conversation thread](assets/screens/study-conversation.png){ width="800" }
+  ![The conversation thread](../assets/screens/study-conversation.png){ width="800" }
   <figcaption>The streaming conversation with the protocol draft compiling alongside.</figcaption>
 </figure>
 
@@ -60,4 +60,4 @@ immediately.
 - It will not fabricate a citation. No source, no citation.
 - It will not let the chat outrank the compiled draft — the
   [protocol document](protocol-draft.md) is the single record of the study.
-- It will not present demo or synthetic data as findings.
+- It will nobet present demo or synthetic data as findings.

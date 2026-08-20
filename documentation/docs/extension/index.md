@@ -7,7 +7,7 @@ configured entirely by the protocol you designed, so the study you designed is
 the study that runs.
 
 <figure markdown="span">
-  ![TERN sidebar, idle](assets/screens/tern-sidebar-idle.png){ width="700" }
+  ![TERN sidebar, idle](../assets/screens/tern-sidebar-idle.png){ width="700" }
   <figcaption>The TERN sidebar: session status, what is captured, and where your data goes.</figcaption>
 </figure>
 

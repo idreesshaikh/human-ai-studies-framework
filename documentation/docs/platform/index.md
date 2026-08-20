@@ -5,7 +5,7 @@ and coordinated — from the first research idea to the participant links that
 configure TERN on each machine.
 
 <figure markdown="span">
-  ![The platform home](assets/screens/hero.png){ width="800" }
+  ![The platform home](../assets/screens/hero.png){ width="800" }
   <figcaption>The hero: describe an idea in plain language.</figcaption>
 </figure>
 

@@ -12,7 +12,7 @@ into one novel protocol, grounded in every paper it draws from. No project
 needed to browse — a merge can become a study in any of your projects.
 
 <figure markdown="span">
-  ![The protocol repertoire](assets/screens/repertoire.png){ width="800" }
+  ![The protocol repertoire](../assets/screens/repertoire.png){ width="800" }
   <figcaption>Design shapes ranked by corpus usage, each binding its statistical plan.</figcaption>
 </figure>
 
@@ -37,7 +37,7 @@ the paper's position in the corpus, its confidence score, and the design moves
 it supports.
 
 <figure markdown="span">
-  ![The literature constellation](assets/screens/study-library.png){ width="800" }
+  ![The literature constellation](../assets/screens/study-library.png){ width="800" }
   <figcaption>The corpus behind every proposal.</figcaption>
 </figure>
 

@@ -5,7 +5,7 @@ beside them — deterministically. The same answers always produce the same
 protocol; no AI is involved in compilation.
 
 <figure markdown="span">
-  ![The protocol draft rail compiling](assets/screens/study-draft-rail.png){ width="800" }
+  ![The protocol draft rail compiling](../assets/screens/study-draft-rail.png){ width="800" }
   <figcaption>The compiled draft, live beside the conversation.</figcaption>
 </figure>
 
@@ -38,4 +38,4 @@ how widely the corpus uses them. Each shape binds its statistical plan — the
 exact tests, effect sizes, and per-cell-n rules it requires. Merging two or
 more shapes produces a novel protocol grounded in every paper it draws from.
 
-![The protocol repertoire](assets/screens/repertoire.png){ width="800" }
+![The protocol repertoire](../assets/screens/repertoire.png){ width="800" }

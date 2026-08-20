@@ -30,7 +30,7 @@ in local mode without authentication.
 ## Your first study
 
 <figure markdown="span">
-  ![Project list](assets/screens/projects.png){ width="800" }
+  ![Project list](../assets/screens/projects.png){ width="800" }
   <figcaption>Your projects — create one or browse proven designs first.</figcaption>
 </figure>
 

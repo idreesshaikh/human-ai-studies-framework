@@ -5,7 +5,7 @@ assigned. The protocol configures TERN on each participant's machine, and task
 order is rotated so every participant meets every condition.
 
 <figure markdown="span">
-  ![The participants tab](assets/screens/study-participants.png){ width="800" }
+  ![The participants tab](../assets/screens/study-participants.png){ width="800" }
   <figcaption>Create participant links that install the study on the editor.</figcaption>
 </figure>
 
@@ -32,7 +32,7 @@ Participants, researchers, and viewers are managed through projects:
 | Viewer | Read-only access |
 
 <figure markdown="span">
-  ![Project members](assets/screens/project-members.png){ width="800" }
+  ![Project members](../assets/screens/project-members.png){ width="800" }
   <figcaption>Project membership and roles.</figcaption>
 </figure>
 

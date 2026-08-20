@@ -7,9 +7,8 @@ edit_uri: blob/main/documentation/docs/
 
 theme:
   name: material
-  custom_dir: overrides
   icon:
-    logo: material/phoenix-framework
+    logo: material/microscope
     repo: fontawesome/brands/github
   font:
     text: Inter
@@ -46,6 +45,7 @@ plugins:
   - search
   - git-revision-date-localized:
       enable_creation_date: true
+      enable_git_follow: false
 
 markdown_extensions:
   - admonition

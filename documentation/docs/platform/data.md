@@ -5,7 +5,7 @@ The platform handles design, setup, and curation — then stops: you get the
 data, a data dictionary, and an analysis plan, ready for your own notebook.
 
 <figure markdown="span">
-  ![The data tab](assets/screens/study-data.png){ width="800" }
+  ![The data tab](../assets/screens/study-data.png){ width="800" }
   <figcaption>Collection status, dry runs, and the analysis handoff.</figcaption>
 </figure>
 
@@ -42,7 +42,7 @@ each plausible effect size needs to reach the target. The model's assumptions
 are stated alongside the numbers.
 
 <figure markdown="span">
-  ![Recruitment planning](assets/screens/study-planning.png){ width="800" }
+  ![Recruitment planning](../assets/screens/study-planning.png){ width="800" }
   <figcaption>Power across sample size, with the model's assumptions stated.</figcaption>
 </figure>
 

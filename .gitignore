@@ -68,3 +68,6 @@ platform/.ds-shipped.css
 # only the curated text artifacts (protocol, ethics package, report,
 # notebook, data dictionary) are tracked.
 docs/examples/pilot-2026/*/
+
+# Documentation site build output
+documentation/site/
