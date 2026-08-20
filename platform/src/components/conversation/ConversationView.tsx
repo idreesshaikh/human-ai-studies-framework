@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PanelRight, Send, X } from "lucide-react";
+import { PanelRight, PanelRightClose, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { StreamingTurn } from "./StreamingTurn";
 import { DraftRail } from "./DraftRail";
 import { RecommenderRail } from "./RecommenderRail";
 import { FinishReview } from "./FinishReview";
-import { HatchLegend } from "./HatchLegend";
 import { SteerDial } from "./SteerDial";
 import { ConversationStart } from "./ConversationStart";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -29,9 +28,9 @@ import {
   DEFAULT_STEER,
   readSteer,
   writeSteer,
-  defaultSteerFor,
   type SteerLevel,
 } from "@/lib/steer";
+import { usePanel, togglePanel } from "@/lib/panels";
 
 /** The first still-undecided move across these turns — the one a reply hands
  *  the caret to, so `a` / `r` act on the top proposal rather than the last. */
@@ -72,9 +71,7 @@ export function ConversationView({
   const [applied, setApplied] = useState(false);
   const [showFinish, setShowFinish] = useState(false);
   const [showDraft, setShowDraft] = useState(false);
-  // Right rail toggles between the protocol draft (primary) and the surfaced
-  // literature (secondary). The draft is the study's document of record, so it
-  // leads; the recommender is one toggle away.
+  const draftFolded = usePanel("draft");
   const [rail, setRail] = useState<"papers" | "draft">("draft");
   /* The one move the caret goes to, set only when a reply lands in answer
    * to something this researcher just sent. Never on a page they merely
@@ -558,45 +555,43 @@ export function ConversationView({
             type="button"
             size="icon"
             variant="ghost"
-            className="lg:hidden"
-            aria-label={showDraft ? "Hide draft" : "Show draft"}
-            onClick={() => setShowDraft((v) => !v)}
+            aria-label={draftFolded ? "Show protocol draft" : "Hide protocol draft"}
+            onClick={() => togglePanel("draft")}
           >
-            {/* Drawn icons, not Unicode glyphs. `≡` and `×` in a button are
-              * the craft floor's "unicode standing in for an icon system", and
-              * they rendered at the button's text size next to a 16px lucide
-              * send icon beside them. */}
-            {showDraft ? (
-              <X className="size-4" aria-hidden />
-            ) : (
+            {draftFolded ? (
               <PanelRight className="size-4" aria-hidden />
+            ) : (
+              <PanelRightClose className="size-4" aria-hidden />
             )}
-            </Button>
+          </Button>
           </div>
         </form>
       </section>
 
-      {/* Right rail: toggle between the surfaced literature and the protocol
-          draft. On mobile it's hidden until the composer's toggle opens it.
-          The one left hairline lives here, on the container — DraftRail and
-          RecommenderRail used to each draw their own, redundantly. */}
+      {/* Right rail: toggle between literature and protocol draft.
+          Desktop: minimizable via fold button, persisted per device.
+          Mobile: toggled via composer button (showDraft). */}
       <div
         className={cn(
-          "flex min-h-0 flex-col border-l border-border-strong lg:flex",
-          showDraft ? "flex" : "hidden",
+          "flex min-h-0 flex-col border-l border-border-strong transition-all duration-fast",
+          draftFolded ? "w-[2.125rem]" : "w-[30rem]",
+          "hidden lg:flex",
+          showDraft ? "flex lg:flex" : "hidden",
         )}
       >
-        <div className="border-b border-border-strong bg-surface p-2">
-          <SegmentedControl
-            value={rail}
-            onChange={setRail}
-            aria-label="Right panel: literature or protocol draft"
-            options={[
-              { value: "draft", label: "Protocol draft" },
-              { value: "papers", label: "Literature" },
-            ]}
-          />
-        </div>
+        {!draftFolded && (
+          <div className="border-b border-border-strong bg-surface p-2">
+            <SegmentedControl
+              value={rail}
+              onChange={setRail}
+              aria-label="Right panel: literature or protocol draft"
+              options={[
+                { value: "draft", label: "Protocol draft" },
+                { value: "papers", label: "Literature" },
+              ]}
+            />
+          </div>
+        )}
         <div className="min-h-0 flex-1 overflow-hidden">
           {rail === "papers" ? (
             <RecommenderRail
@@ -618,6 +613,16 @@ export function ConversationView({
             />
           )}
         </div>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => togglePanel("draft")}
+          aria-label={draftFolded ? "Expand draft rail" : "Collapse draft rail"}
+          className="shrink-0 rounded-none border-t border-border-strong"
+        >
+          {draftFolded ? <PanelRight className="size-4" /> : <PanelRightClose className="size-4" />}
+        </Button>
       </div>
 
       <FinishReview

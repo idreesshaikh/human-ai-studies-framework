@@ -10,6 +10,8 @@ import {
   Layers,
   Users,
   Settings,
+  PanelLeft,
+  PanelLeftClose,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -26,6 +28,7 @@ import { ProjectSwitcher } from "./ProjectSwitcher";
 import { useSession } from "@/lib/session";
 import { useAuth } from "@/lib/auth.tsx";
 import { getTheme, nextTheme, subscribeTheme } from "@/lib/theme";
+import { usePanel, togglePanel } from "@/lib/panels";
 import { cn } from "@/lib/cn";
 
 const THEME_ICON = { light: Sun, dark: Moon };
@@ -39,18 +42,10 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const { slug: routeSlug } = useParams<{ slug?: string }>();
   const hasProjectNav = /^\/p\/[^/]+/.test(pathname);
-  // A study workspace clips here and lets its own tab own the one scroller
-  // (StudyHome + its Surfaces); every other route still scrolls in the
-  // shell. Never both, or a tall page grows two scrollbars.
   const isWorkspace = /^\/p\/[^/]+\/studies\/[^/]+/.test(pathname);
-  // Use the slug from the current route; fall back to the first membership
-  // only on pages that have no slug param (shouldn't happen when hasProjectNav
-  // is true, but keeps the type-system happy).
   const navSlug = routeSlug ?? me?.memberships?.[0]?.projectSlug ?? "";
-  // Read the applied theme live: the profile's saved theme lands after this
-  // shell mounts, and a mount-time copy would leave the toggle a step behind
-  // (its first click then re-applied what was already on screen).
   const theme = useSyncExternalStore(subscribeTheme, getTheme, getTheme);
+  const navFolded = usePanel("nav");
   const [navOpen, setNavOpen] = useState(false);
   const Icon = THEME_ICON[theme];
 
@@ -156,31 +151,53 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           data-agent="project-nav"
           aria-label="Main"
           className={cn(
-            "w-56 shrink-0 border-r border-border-strong bg-surface p-3",
+            "shrink-0 border-r border-border-strong bg-surface transition-all duration-fast",
+            navFolded ? "w-[3.25rem]" : "w-56",
             navOpen
               ? "fixed inset-y-0 left-0 z-40 block pt-[calc(var(--header-h)+0.5rem)] lg:static lg:pt-0"
-              : "hidden lg:block",
+              : "hidden lg:flex lg:flex-col",
           )}
         >
-          <div className="flex flex-col gap-1">
-            {navItem("/home", "Projects", <FolderOpen className="size-4" aria-hidden />)}
+          <div className="flex flex-1 flex-col gap-1 overflow-auto p-3">
+            {navItem(
+              "/home",
+              "Projects",
+              <FolderOpen className="size-4" aria-hidden />,
+            )}
             {navItem("/repertoire", "Templates", <Layers className="size-4" aria-hidden />)}
+
+            {hasProjectNav && (
+              <>
+                {!navFolded && (
+                  <p className="type-legend mb-2 mt-4 border-t border-border px-1 pt-4 text-text-muted">
+                    Project
+                  </p>
+                )}
+                <div className="flex flex-col gap-1">
+                  {navItem(
+                    `/p/${navSlug}`,
+                    "Studies",
+                    <FlaskConical className="size-4" aria-hidden />,
+                    {
+                      forceActive: pathname.includes("/studies/"),
+                    },
+                  )}
+                  {navItem(`/p/${navSlug}/members`, "Members", <Users className="size-4" aria-hidden />)}
+                  {navItem(`/p/${navSlug}/settings`, "Settings", <Settings className="size-4" aria-hidden />)}
+                </div>
+              </>
+            )}
           </div>
 
-          {hasProjectNav && (
-            <>
-              <p className="type-legend mb-2 mt-4 border-t border-border px-1 pt-4 text-text-muted">
-                Project
-              </p>
-              <div className="flex flex-col gap-1">
-                {navItem(`/p/${navSlug}`, "Studies", <FlaskConical className="size-4" aria-hidden />, {
-                  forceActive: pathname.includes("/studies/"),
-                })}
-                {navItem(`/p/${navSlug}/members`, "Members", <Users className="size-4" aria-hidden />)}
-                {navItem(`/p/${navSlug}/settings`, "Settings", <Settings className="size-4" aria-hidden />)}
-              </div>
-            </>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => togglePanel("nav")}
+            aria-label={navFolded ? "Expand nav" : "Collapse nav"}
+            className="shrink-0 rounded-none border-t border-border"
+          >
+            {navFolded ? <PanelLeft className="size-4" /> : <PanelLeftClose className="size-4" />}
+          </Button>
         </nav>
         <main className={cn("min-h-0 flex-1", isWorkspace ? "overflow-hidden" : "overflow-auto")}>
           {children}

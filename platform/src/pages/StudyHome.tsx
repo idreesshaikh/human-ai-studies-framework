@@ -127,48 +127,19 @@ export function StudyHome() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Row 1: where am I, and the actions that apply to the whole study —
-       * not to any one tab. Row 2 carries the study's own name, so this row
-       * never needs to repeat it. */}
-      <div className="type-label flex items-center gap-3 border-b border-border bg-surface px-4 py-2">
+      {/* ONE header row: project link + study name + tabs + actions */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface px-4 py-2">
         <Link
           to={`/p/${slug}`}
-          className="flex items-center gap-1 text-text-muted hover:text-text"
+          className="type-label flex items-center gap-1 text-text-muted hover:text-text"
         >
           <ChevronLeft className="size-4" aria-hidden /> {slug}
         </Link>
-        <div className="ml-auto flex items-center gap-2">
-          <PresenceChips viewers={viewers} meSub={me?.sub} />
-          <ExportStudy studyId={id} />
-          {shownState.ethicsApprovedAt && (
-            <Button
-              variant="ghost"
-              size="sm"
-              data-agent="amendment-history-toggle"
-              onClick={() => setShowHistory((v) => !v)}
-            >
-              <History className="size-4" aria-hidden />
-              {showHistory ? "Hide history" : "History"}
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="How this workspace works"
-            data-agent="tour-open"
-            onClick={() => setShowTour(true)}
-          >
-            <HelpCircle className="size-4" aria-hidden />
-          </Button>
-        </div>
-      </div>
 
-      {/* Row 2: the study's name, once — and the tabs beside it, since a tab
-       * switch stays within this one study. */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-surface px-4 py-2.5">
         <h1 className="type-title text-text">{id}</h1>
+
         <nav
-          className="flex items-center gap-0.5 sm:gap-1"
+          className="ml-auto flex items-center gap-0.5 sm:gap-1"
           aria-label="Study sections"
           data-agent="study-tabs"
         >
@@ -202,6 +173,31 @@ export function StudyHome() {
             </button>
           ))}
         </nav>
+
+        <div className="flex items-center gap-2">
+          <PresenceChips viewers={viewers} meSub={me?.sub} />
+          <ExportStudy studyId={id} />
+          {shownState.ethicsApprovedAt && (
+            <Button
+              variant="ghost"
+              size="sm"
+              data-agent="amendment-history-toggle"
+              onClick={() => setShowHistory((v) => !v)}
+            >
+              <History className="size-4" aria-hidden />
+              {showHistory ? "Hide history" : "History"}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="How this workspace works"
+            data-agent="tour-open"
+            onClick={() => setShowTour(true)}
+          >
+            <HelpCircle className="size-4" aria-hidden />
+          </Button>
+        </div>
       </div>
 
       <AmendmentBanner

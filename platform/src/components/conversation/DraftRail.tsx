@@ -141,7 +141,7 @@ export function DraftRail({
             </p>
           )
         ) : serverYaml?.trim() ? (
-          <pre className="tabular type-caption whitespace-pre-wrap font-mono leading-relaxed text-text">
+          <pre className="tabular type-caption whitespace-pre-wrap type-quantity leading-relaxed text-text">
             {serverYaml}
           </pre>
         ) : (
@@ -182,7 +182,7 @@ export function DraftRail({
           <summary className="type-caption cursor-pointer text-text-muted select-none">
             View raw YAML
           </summary>
-          <pre className="tabular type-caption mt-1 max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-2 font-mono leading-relaxed text-text">
+          <pre className="tabular type-caption mt-1 max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-2 type-quantity leading-relaxed text-text">
             {serverYaml}
           </pre>
         </details>

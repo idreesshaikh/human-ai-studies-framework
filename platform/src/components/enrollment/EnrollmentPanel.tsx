@@ -119,7 +119,7 @@ export function EnrollmentPanel({
               Download the .vsix
             </a>{" "}
             and install it with{" "}
-            <span className="font-mono">Extensions: Install from VSIX…</span>
+            <span className="type-quantity">Extensions: Install from VSIX…</span>
           </p>
         </div>
         {canMint && <MintDialog studyId={studyId} onMinted={load} />}
@@ -155,7 +155,7 @@ export function EnrollmentPanel({
             <tbody>
               {rows.map((t) => (
                 <tr key={t.id} className="border-t border-border">
-                  <td className="py-1.5 font-mono">{t.participantId}</td>
+                  <td className="py-1.5 type-quantity">{t.participantId}</td>
                   <td className="py-1.5">{t.condition}</td>
                   <td className="py-1.5">{t.grain}</td>
                   <td className={cn("py-1.5", STATUS_STYLE[t.status])}>
