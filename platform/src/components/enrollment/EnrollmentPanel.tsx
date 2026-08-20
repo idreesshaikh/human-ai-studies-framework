@@ -41,12 +41,22 @@ export function EnrollmentPanel({
   );
   const [copied, setCopied] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const canMint = hasRole(role, "mint_token");
   const canToggle = hasRole(role, "toggle_capture");
 
   const load = useCallback(() => {
-    void api.listEnrollmentTokens(studyId).then(setRows);
-    void api.toggleCatalog(studyId).then(setCatalog);
+    // A study with no compiled protocol has nothing to enroll — surface it
+    // calmly instead of letting a rejected read blank the tab.
+    void api
+      .listEnrollmentTokens(studyId)
+      .then(setRows)
+      .catch((e: unknown) =>
+        setLoadError(
+          e instanceof Error ? e.message : "Could not load enrollment.",
+        ),
+      );
+    void api.toggleCatalog(studyId).then(setCatalog).catch(() => {});
   }, [studyId, api]);
   useEffect(load, [load]);
 
@@ -119,11 +129,24 @@ export function EnrollmentPanel({
               Download the .vsix
             </a>{" "}
             and install it with{" "}
-            <span className="type-quantity">Extensions: Install from VSIX…</span>
+            <kbd className="type-legend rounded-chip border border-border px-1.5 py-0.5 text-text-muted">
+              Extensions: Install from VSIX…
+            </kbd>
           </p>
         </div>
-        {canMint && <MintDialog studyId={studyId} onMinted={load} />}
+        {canMint && !loadError && <MintDialog studyId={studyId} onMinted={load} />}
       </div>
+      {loadError && (
+        <p
+          role="status"
+          className="rounded-input border border-dashed border-border px-3 py-3 type-body text-text-muted"
+        >
+          {loadError.toLowerCase().includes("no protocol") ||
+          loadError.toLowerCase().includes("not found")
+            ? "This study has no compiled protocol yet. Finish the design conversation first, then enroll participants here."
+            : `Couldn't load enrollment. ${loadError}`}
+        </p>
+      )}
       {revokeError && (
         <p role="alert" className="type-body text-status-critical">
           {revokeError}

@@ -22,17 +22,18 @@ const SHAPE_LABEL: Record<string, string> = {
   "single-arm": "Single arm (descriptive)",
 };
 
-export function PrescriptionPanel() {
+export function PrescriptionPanel({ studyId }: { studyId: string }) {
   const [rows, setRows] = useState<Prescription[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
-    studyApi.prescriptions().then((r) => live && setRows(r));
+    setRows(null);
+    studyApi.prescriptions(studyId).then((r) => live && setRows(r));
     return () => {
       live = false;
     };
-  }, []);
+  }, [studyId]);
 
   return (
     <section className="flex flex-col gap-3">
@@ -42,14 +43,20 @@ export function PrescriptionPanel() {
           What analysis your design calls for
         </h2>
         <p className="mt-1 type-caption text-text-muted">
-          The exact test, effect size, and correction for each design shape, with the reasoning.
-          Honest by construction: effect sizes and per-cell n, never a bare p-value.
+          The exact test, effect size, and correction this study's own compiled
+          analysis plan calls for, with the reasoning. Honest by construction:
+          effect sizes and per-cell n, never a bare p-value.
         </p>
       </div>
 
       {rows === null ? (
         <p className="flex items-center gap-2 type-body text-text-muted">
           <Loader2 className="size-4 animate-spin" aria-hidden /> Loading…
+        </p>
+      ) : rows.length === 0 ? (
+        <p className="type-body text-text-muted">
+          Nothing prescribed yet — this fills in once your design conversation
+          compiles a research question with an analysis plan.
         </p>
       ) : (
         <div className="overflow-hidden rounded-card border border-border bg-surface">

@@ -27,28 +27,6 @@ export const Card = React.forwardRef<
 ));
 Card.displayName = "Card";
 
-/* The title block: every sheet names itself, and the name sits on a ruled band
- * rather than floating above the content. */
-export const CardHeader = ({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-  <div
-    className={cn(
-      "flex flex-col gap-1 border-b border-border px-4 py-3",
-      className,
-    )}
-    {...props}
-  />
-);
-
-export const CardTitle = ({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("type-subhead", className)} {...props} />
-);
-
 export const CardContent = ({
   className,
   ...props

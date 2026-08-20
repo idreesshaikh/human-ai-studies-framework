@@ -31,8 +31,31 @@ const TIERS: SegmentOption<string>[] = [
 type ChatMsg = {
   role: "user" | "assistant";
   content: string;
-  citations?: string[];
 };
+
+/* The system prompt requires every claim to carry an inline `[ref §chunk]` /
+ * `[protocol:field]` / `[dataset-summary]` source tag — that's what makes
+ * per-claim grounding checkable rather than "trust the whole paragraph".
+ * Stripping the tags to declutter the prose would throw that traceability
+ * away; the fix is to render each tag as a chip IN PLACE, in its own
+ * sentence, instead of leaving raw bracket syntax in the text and then also
+ * repeating every tag a second time as a flat list under the bubble — the
+ * previous behaviour, which read as broken markup, not as citations. */
+function renderCited(content: string) {
+  const parts = content.split(/(\[[^[\]]+\])/g);
+  return parts.map((part, i) => {
+    const tag = /^\[([^[\]]+)\]$/.exec(part);
+    if (!tag) return part;
+    return (
+      <span
+        key={i}
+        className="mx-0.5 inline-block rounded-chip border border-accent px-1.5 py-px align-baseline type-legend text-accent"
+      >
+        {tag[1]}
+      </span>
+    );
+  });
+}
 
 export function Assistant({ studyId }: { studyId: string }) {
   const [chat, setChat] = useState<ChatMsg[]>([]);
@@ -66,10 +89,7 @@ export function Assistant({ studyId }: { studyId: string }) {
     try {
       const history = next.map((m) => ({ role: m.role, content: m.content }));
       const res = await studyApi.assistant(studyId, q, history.slice(0, -1), model);
-      setChat((c) => [
-        ...c,
-        { role: "assistant", content: res.answer, citations: res.citations },
-      ]);
+      setChat((c) => [...c, { role: "assistant", content: res.answer }]);
     } catch (e) {
       setNote(
         e instanceof OfflineError
@@ -122,20 +142,8 @@ export function Assistant({ studyId }: { studyId: string }) {
                   : "border border-border bg-surface text-text",
               )}
             >
-              {m.content}
+              {m.role === "assistant" ? renderCited(m.content) : m.content}
             </div>
-            {m.citations && m.citations.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {m.citations.map((c) => (
-                  <span
-                    key={c}
-                    className="rounded-chip border border-accent px-2 py-0.5 type-legend text-accent"
-                  >
-                    {c}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         ))}
         {asking && <p className="type-body text-text-muted">thinking…</p>}

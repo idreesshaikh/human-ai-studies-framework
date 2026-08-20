@@ -8,6 +8,7 @@ from analysis.prescribe import (
     prescribe,
     prescription_table,
     shape_to_recipe_id,
+    shapes_from_recipe_ids,
 )
 
 
@@ -71,6 +72,24 @@ def test_a_named_recipe_always_exists():
         recipe_id = shape_to_recipe_id(shape)
         if recipe_id is not None:
             assert recipe_id in REGISTRY, f"{shape} -> missing recipe {recipe_id}"
+
+
+def test_shapes_from_recipe_ids_resolves_a_studys_own_plan():
+    """
+    A study's compiled analysisPlan stores recipe ids ("paired-nonparametric"),
+    not shape ids ("paired") — this is what lets the Data tab show only the
+    prescription for a study's own design instead of every shape PHOENIX
+    knows, regardless of that study's actual design (the previous bug).
+    """
+    assert shapes_from_recipe_ids({"paired-nonparametric"}) == {"paired"}
+    assert shapes_from_recipe_ids(
+        {"two-group-nonparametric", "correlation"}
+    ) == {"two-group", "correlation"}
+
+
+def test_shapes_from_recipe_ids_ignores_unknown_recipes():
+    assert shapes_from_recipe_ids(set()) == set()
+    assert shapes_from_recipe_ids({"not-a-real-recipe"}) == set()
 
 
 def test_a_shape_without_a_recipe_is_still_prescribed_for():

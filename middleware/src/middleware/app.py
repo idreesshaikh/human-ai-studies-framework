@@ -3113,16 +3113,41 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         }
 
     @app.get("/analysis/prescriptions")
-    def analysis_prescriptions() -> dict:
+    def analysis_prescriptions(
+        study_id: str | None = None, s: Session = Depends(db)
+    ) -> dict:
         """
-        The deterministic, LLM-free prescription table (FR-TPL-6): every design shape →
+        The deterministic, LLM-free prescription table (FR-TPL-6): design shape →
         the exact test, effect size, correction, and sample-size guidance, each with its
         rationale.
-        """
-        from analysis.prescribe import design_shapes
 
+        Without ``study_id`` this is the full reference table — every shape PHOENIX
+        knows how to prescribe, the browsable catalogue. With ``study_id``, it's
+        filtered to the shape(s) that study's *own compiled protocol* actually calls
+        for (read off ``analysisPlan[].recipes[]`` and mapped back through the same
+        shape→recipe table the compiler used to pick them) — "what analysis your
+        design calls for" was previously showing the full catalogue unconditionally
+        on every study's Data tab, identical regardless of that study's actual
+        design, which the researcher reads as bespoke guidance it isn't.
+        """
+        from analysis.prescribe import design_shapes, shapes_from_recipe_ids
+
+        if study_id is None:
+            rows = [
+                design_assistant.recommend_prescription(shape)
+                for shape in design_shapes()
+            ]
+            return {"prescriptions": [r for r in rows if r is not None]}
+
+        protocol = _resolve_study_protocol(s, study_id)
+        recipe_ids: set[str] = set()
+        for entry in (protocol or {}).get("analysisPlan") or []:
+            recipe_ids.update(entry.get("recipes") or [])
+        matched_shapes = shapes_from_recipe_ids(recipe_ids)
         rows = [
-            design_assistant.recommend_prescription(shape) for shape in design_shapes()
+            design_assistant.recommend_prescription(shape)
+            for shape in design_shapes()
+            if shape in matched_shapes
         ]
         return {"prescriptions": [r for r in rows if r is not None]}
 
@@ -4239,6 +4264,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         @app.get("/repertoire", include_in_schema=False)
         def spa_repertoire_route() -> FileResponse:
+            return _shell()
+
+        @app.get("/start", include_in_schema=False)
+        def spa_start_route() -> FileResponse:
+            return _shell()
+
+        @app.get("/settings", include_in_schema=False)
+        def spa_settings_route() -> FileResponse:
             return _shell()
 
         app.mount("/", StaticFiles(directory=dist), name="platform")

@@ -14,8 +14,40 @@ GRAPH_API = "https://api.semanticscholar.org/graph/v1"
 REC_API = "https://api.semanticscholar.org/recommendations/v1"
 
 _MIN_INTERVAL = 1.0
-_pace_lock = threading.Lock()
-_last_request = 0.0
+# S2 documents the Graph API and the Recommendations API as separate services
+# with their own quotas. Pacing every call through one shared clock (the old
+# `_pace_lock`/`_last_request` pair) served no correctness purpose and cost a
+# real second of latency per paper add: `fetch_edges` fires a Graph API
+# request (references), then citations (same host), then a Recommendations
+# request — the third one waited behind the first two's clock for no reason,
+# and any concurrent request from another user queued behind the same single
+# clock regardless of which service it was calling. Pacing per host lets
+# unrelated services (and, moot for a single-process pace, unrelated
+# requests) stop blocking each other while each host still respects its own
+# 1 req/s budget.
+_pace_locks: dict[str, threading.Lock] = {}
+_pace_locks_guard = threading.Lock()
+_last_request: dict[str, float] = {}
+
+
+def _host(url: str) -> str:
+    """The pacing bucket for a URL. Graph API and Recommendations API share
+    one domain (``api.semanticscholar.org``) and differ only by path prefix
+    (``/graph/v1/...`` vs ``/recommendations/v1/...``), so netloc alone would
+    silently collapse both services into the same clock — the two are paced
+    separately by service, keyed on netloc *and* the path's first segment."""
+    parts = urllib.parse.urlsplit(url)
+    service = parts.path.strip("/").split("/", 1)[0]
+    return f"{parts.netloc}/{service}"
+
+
+def _lock_for(host: str) -> threading.Lock:
+    with _pace_locks_guard:
+        lock = _pace_locks.get(host)
+        if lock is None:
+            lock = threading.Lock()
+            _pace_locks[host] = lock
+        return lock
 
 PAPER_FIELDS = "title,authors,year,venue,abstract,externalIds,citationCount"
 EDGE_FIELDS = "title,authors,year,externalIds,citationCount"
@@ -34,14 +66,17 @@ def _headers() -> dict[str, str]:
     return {"x-api-key": key} if key else {}
 
 
-def _pace() -> None:
-    """Hold every caller to S2's 1 req/s budget (cumulative, all endpoints)."""
-    global _last_request
-    with _pace_lock:
-        wait = _MIN_INTERVAL - (time.monotonic() - _last_request)
+def _pace(url: str) -> None:
+    """Hold callers to S2's 1 req/s budget, tracked separately per host — the
+    Graph API and the Recommendations API are distinct services with their
+    own quotas, not one shared 1 req/s budget for the whole client."""
+    host = _host(url)
+    lock = _lock_for(host)
+    with lock:
+        wait = _MIN_INTERVAL - (time.monotonic() - _last_request.get(host, 0.0))
         if wait > 0:
             time.sleep(wait)
-        _last_request = time.monotonic()
+        _last_request[host] = time.monotonic()
 
 
 def get_json(url: str, *, retries: int = 5) -> object:
@@ -50,7 +85,7 @@ def get_json(url: str, *, retries: int = 5) -> object:
     exponential fallback on a 429.
     """
     for attempt in range(retries):
-        _pace()
+        _pace(url)
         req = urllib.request.Request(url, headers=_headers())
         try:
             with urllib.request.urlopen(req, timeout=20) as res:
@@ -72,7 +107,7 @@ def post_json(url: str, payload: dict, *, retries: int = 5) -> object:
     body = json.dumps(payload).encode()
     headers = {**_headers(), "Content-Type": "application/json"}
     for attempt in range(retries):
-        _pace()
+        _pace(url)
         req = urllib.request.Request(url, data=body, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=60) as res:

@@ -1,3 +1,5 @@
+import { GradeMark } from "./GradeMark";
+
 /* The blank plate.
  *
  * A study workspace opened for the first time is a plate with nothing marked
@@ -74,29 +76,22 @@ export function ConversationStart({ onUse }: { onUse: (text: string) => void }) 
 
               {/* The two marks the researcher meets first, shown where they
                 * are explained rather than keyed at the foot of an empty
-                * field. Same three magnitudes the foot key prints, so the
-                * scale taught here is the scale read there. */}
+                * field. Grounded uses the same GradeMark pips a real
+                * citation chip renders (GroundingChip); unsourced uses the
+                * same dashed ring MoveCard's UnsourcedLabel renders — each
+                * example is the exact mark it teaches, not a stand-in. */}
               {step.key && (
                 <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5">
                   <span className="flex items-center gap-1.5">
-                    <span aria-hidden className="flex items-center gap-1">
-                      {[1, 3, 5].map((m) => (
-                        <span
-                          key={m}
-                          className="flex size-4 items-center justify-center"
-                        >
-                          <span className={`mag mag-${m}`} />
-                        </span>
-                      ))}
-                    </span>
+                    <GradeMark level={4} />
                     <span className="type-caption text-text-muted">
-                      bigger mark, stronger evidence
+                      more pips, stronger grounding in the corpus
                     </span>
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span aria-hidden className="mark-unsourced" />
                     <span className="type-caption text-text-muted">
-                      unsourced: your call
+                      unsourced — use your own judgment
                     </span>
                   </span>
                 </div>

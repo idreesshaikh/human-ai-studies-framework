@@ -224,10 +224,26 @@ export function StudyHome() {
             <ConversationView studyId={id} remoteChange={change} opening={opening} />
           </div>
         )}
-        {tab === "library" && <LibraryTab studyId={id} />}
-        {tab === "data" && <DataTab studyId={id} />}
-        {tab === "planning" && <PowerPanel studyId={id} />}
-        {tab === "enrollment" && <EnrollmentPanel studyId={id} role={role} />}
+        {tab === "library" && (
+          <div className="min-h-0 min-w-0 flex-1">
+            <LibraryTab studyId={id} />
+          </div>
+        )}
+        {tab === "data" && (
+          <div className="min-h-0 min-w-0 flex-1">
+            <DataTab studyId={id} />
+          </div>
+        )}
+        {tab === "planning" && (
+          <div className="min-h-0 min-w-0 flex-1">
+            <PowerPanel studyId={id} />
+          </div>
+        )}
+        {tab === "enrollment" && (
+          <div className="min-h-0 min-w-0 flex-1">
+            <EnrollmentPanel studyId={id} role={role} />
+          </div>
+        )}
       </div>
 
       {showTour && (

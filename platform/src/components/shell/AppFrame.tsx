@@ -70,17 +70,30 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       to={to}
       end={end}
       onClick={() => setNavOpen(false)}
+      // Folded, the rail is icon-only by design (w-[3.25rem]) — but the
+      // label itself never stopped rendering, so it just got clipped
+      // mid-word ("Pro", "Ten") by the narrow container instead of
+      // disappearing. `title` keeps the destination discoverable on hover
+      // once the visible text is gone.
+      title={navFolded ? label : undefined}
       className={({ isActive }) =>
         cn(
-          "type-control flex items-center gap-2 rounded-control border px-2.5 py-1.5 transition-all duration-standard",
+          "type-control flex items-center gap-2 rounded-control border py-1.5 transition-all duration-standard",
+          // The folded rail is 3.25rem (52px) wide with 0.75rem of outer
+          // padding on each side (12px), leaving 28px per row — px-2.5's
+          // 20px of horizontal padding was sized for the expanded row and
+          // left too little room for even the icon alone, which then
+          // flex-shrank to a sliver instead of staying square. Folded gets
+          // its own tight, centred padding sized to the icon.
+          navFolded ? "justify-center px-1.5" : "px-2.5",
           isActive || forceActive
             ? "control-axis"
             : "border-transparent text-text-muted hover:bg-zone-9 hover:text-text",
         )
       }
     >
-      {icon}
-      {label}
+      <span className="shrink-0">{icon}</span>
+      <span className={navFolded ? "sr-only" : undefined}>{label}</span>
     </NavLink>
   );
 
@@ -126,6 +139,12 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
               <DropdownMenuItem asChild>
                 <Link to="/home">All projects</Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/settings">
+                  <Settings className="size-4" aria-hidden /> Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem destructive onClick={signOut}>
                 <LogOut className="size-4" aria-hidden /> Sign out
               </DropdownMenuItem>

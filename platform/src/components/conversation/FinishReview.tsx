@@ -113,12 +113,16 @@ export function FinishReview({
                 key={m.moveId}
                 className="flex items-start gap-2 border-b border-border px-3 py-2 type-body last:border-0"
               >
-                <span className="mt-0.5 shrink-0 type-caption text-text-muted">
+                <span className="mt-0.5 w-32 shrink-0 type-caption text-text-muted">
                   {/* The plain-words label, never the raw dotted path (see
                     * targetLabel: an earlier prompt version had the model
                     * literally echoing "protocol.design" as a real target,
                     * and even a well-formed path like "researchQuestions[]"
-                    * is still code, not a name a researcher reads). */}
+                    * is still code, not a name a researcher reads). A fixed
+                    * width here — not just shrink-0 — is what makes every
+                    * row's proposal text start at the same x position;
+                    * without it "Design" and "Research questions" left each
+                    * row's second column starting somewhere different. */}
                   {targetLabel(m.target)}
                 </span>
                 <span className="min-w-0 flex-1 text-text">{m.proposal}</span>

@@ -38,6 +38,9 @@ export function SlotMeter({
 }) {
   const path = buildProtocolPath(draft, understanding);
   const bare = MANDATORY_SLOTS.filter((s) => draft[s].length === 0);
+  const current = path.phases
+    .flatMap((p) => p.steps)
+    .find((s) => s.status === "current");
 
   return (
     <div className="flex flex-col gap-3">
@@ -48,21 +51,41 @@ export function SlotMeter({
         </span>
       </div>
 
-      <div className="flex flex-col gap-3" data-agent="protocol-path">
-        {path.phases.map((phase) => (
-          <div key={phase.title} className="flex flex-col gap-1">
-            <p className="type-legend text-text-muted">{phase.title}</p>
-            {/* One rule down the left edge with the steps hanging off it —
-              * the same figure ConversationStart uses for the mechanism, so a
-              * sequence looks like a sequence in both places. */}
-            <ul className="flex flex-col border-l border-border pl-3">
-              {phase.steps.map((step) => (
-                <Step key={step.id} step={step} />
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
+      {/* The full phase-by-phase checklist is real, load-bearing information
+        * — nothing here is invented — but at 13 rows it was also the tallest
+        * thing in the rail, pushing the compiled protocol itself (the
+        * document of record, per the product's own first principle) below a
+        * scroll on every study past its first few moves. Collapsed by
+        * default, same `<details>` pattern "View raw YAML" already uses
+        * below: the current step stays visible either way, so a glance still
+        * answers "where am I", and the full walk is one click away rather
+        * than gone. */}
+      {current && (
+        <p className="type-caption text-text-muted" data-agent="protocol-path-current">
+          <span className="type-legend text-accent">Now</span>{" "}
+          {current.label}
+        </p>
+      )}
+      <details className="group" data-agent="protocol-path">
+        <summary className="type-caption cursor-pointer text-text-muted select-none">
+          {path.phases.map((p) => p.title).join(" · ")}
+        </summary>
+        <div className="mt-2 flex flex-col gap-3">
+          {path.phases.map((phase) => (
+            <div key={phase.title} className="flex flex-col gap-1">
+              <p className="type-legend text-text-muted">{phase.title}</p>
+              {/* One rule down the left edge with the steps hanging off it —
+                * the same figure ConversationStart uses for the mechanism, so
+                * a sequence looks like a sequence in both places. */}
+              <ul className="flex flex-col border-l border-border pl-3">
+                {phase.steps.map((step) => (
+                  <Step key={step.id} step={step} />
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </details>
 
       {/* What is actually being asked right now. The path says where the
         * researcher is; this says what would move them. */}

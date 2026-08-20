@@ -22,6 +22,9 @@ const CLEAR_RADIUS = 0.34;
 
 const TRANSIENT_EVERY = 4.5;
 const TRANSIENT_LIFE = 2.6;
+/** A signal travels one thread roughly this often, and takes this long to cross it. */
+const SIGNAL_EVERY = 2.1;
+const SIGNAL_LIFE = 1.3;
 const GLYPH_DRAW = 3.2;
 const GLYPH_HOLD = 4.5;
 const GLYPH_FADE = 1.8;
@@ -379,7 +382,52 @@ export function ObservatoryField({ className }: { className?: string }) {
         ctx.stroke();
       }
 
-      for (const slot of [0, 1]) {
+      // A signal travels one thread at a time — the connections aren't just
+      // static geometry, something is moving through the network.
+      const sigCycle = Math.floor(t / SIGNAL_EVERY);
+      const sigAge = t - sigCycle * SIGNAL_EVERY;
+      if (sigAge < SIGNAL_LIFE) {
+        const from = field[(sigCycle * 53) % field.length];
+        const fp = pos(from, t);
+        let toIdx = -1;
+        let toD = Infinity;
+        for (let j = 0; j < field.length; j++) {
+          if (field[j] === from) continue;
+          const q = pos(field[j], t);
+          const d = Math.hypot(q.x - fp.x, q.y - fp.y);
+          if (d < reach && d < toD) {
+            toD = d;
+            toIdx = j;
+          }
+        }
+        if (toIdx >= 0) {
+          const tp = pos(field[toIdx], t);
+          const k = sigAge / SIGNAL_LIFE;
+          const ease = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+          const sxp = fp.x + (tp.x - fp.x) * ease;
+          const syp = fp.y + (tp.y - fp.y) * ease;
+          const fade = Math.sin(k * Math.PI);
+          ctx.globalAlpha = fade * 0.75;
+          ctx.fillStyle = ink;
+          ctx.beginPath();
+          ctx.arc(sxp, syp, short * 0.0028 + 1, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      /* Glyphs place at fixed normalized coordinates (cx/cy as a fraction of
+       * the field's own w/h), which only stays clear of the header's text
+       * column on a roughly desktop aspect ratio — the star field's own
+       * CLEAR_RADIUS is a circle from centre and works for a field of tiny
+       * points, but a glyph's traced span is a wide horizontal mark, and on
+       * a narrow/tall mobile viewport the text column runs nearly edge to
+       * edge, not just near centre. w * 0.06 sits in open margin next to a
+       * desktop-width column and directly under mobile's full-width prose.
+       * Skipping glyphs below the field's own field width breakpoint is
+       * simpler and more robust than teaching the canvas the header's exact
+       * text rect for a purely decorative flourish. */
+      const showGlyphs = w >= 640;
+      for (const slot of showGlyphs ? [0, 1] : []) {
         const gt = t + slot * (GLYPH_CYCLE / 2);
         const turn = Math.floor(gt / GLYPH_CYCLE);
         const local = gt - turn * GLYPH_CYCLE;

@@ -324,12 +324,22 @@ export function Constellation({
               const isSel = n.paperRef === selected;
               const inFocusNeighbourhood = active.has(n.paperRef);
               const r = nodeRadius(degrees.get(n.paperRef) ?? 0);
-              const showLabel = labelVisible({
-                selected: isSel,
-                inFocusNeighbourhood,
-                radius: r,
-                zoomK: view.k,
-              });
+              // A bare year with no author ("2026") carries almost no
+              // identity, and a well-connected but metadata-thin suggested
+              // node earns the same auto-reveal threshold as a fully
+              // described one — left unguarded, dozens of those nodes all
+              // degrade to the same string and paint on top of each other.
+              // Still shown on explicit hover/select, where one instance is
+              // legible; just not swept in by the ambient degree threshold.
+              const hasIdentity = Boolean(n.authors?.[0]);
+              const showLabel =
+                (hasIdentity || isSel || inFocusNeighbourhood) &&
+                labelVisible({
+                  selected: isSel,
+                  inFocusNeighbourhood,
+                  radius: r,
+                  zoomK: view.k,
+                });
               const label = showLabel ? nodeLabel(n) : "";
               const highlighted = isSel || inFocusNeighbourhood;
               return (

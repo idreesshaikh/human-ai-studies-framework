@@ -166,3 +166,13 @@ def shape_to_recipe_id(design_shape: str) -> str | None:
 def runnable_shapes() -> list[str]:
     """Design shapes whose prescribed test PHOENIX can run itself."""
     return [s for s in SHAPES if s in _SHAPE_RECIPES]
+
+
+def shapes_from_recipe_ids(recipe_ids: set[str]) -> set[str]:
+    """Which design shapes a compiled analysis plan's recipe ids actually call
+    for — the inverse of `shape_to_recipe_id`, so a study's own
+    `analysisPlan[].recipes[]` (recipe ids, e.g. "paired-nonparametric") can
+    be read back as the shape(s) whose prescription to show, instead of the
+    full catalogue every study saw regardless of its own design."""
+    recipe_to_shape = {recipe: shape for shape, recipe in _SHAPE_RECIPES.items()}
+    return {recipe_to_shape[r] for r in recipe_ids if r in recipe_to_shape}

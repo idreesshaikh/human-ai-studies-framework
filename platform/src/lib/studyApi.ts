@@ -436,13 +436,15 @@ export const studyApi = {
     })),
 
   /** The deterministic prescription table (FR-TPL-6): design shape → exact
-   * test, effect size, correction, sample-size guidance. Not study-scoped. */
-  prescriptions: () =>
+   * test, effect size, correction, sample-size guidance. Pass a `study`
+   * to scope it to that study's own compiled analysis plan; omit it for
+   * the full browsable catalogue of every shape PHOENIX can prescribe. */
+  prescriptions: (study?: string) =>
     liveOrSeed(
       () =>
-        req<{ prescriptions: Prescription[] }>(`/analysis/prescriptions`).then(
-          (d) => d.prescriptions,
-        ),
+        req<{ prescriptions: Prescription[] }>(
+          `/analysis/prescriptions${study ? `?study_id=${enc(study)}` : ""}`,
+        ).then((d) => d.prescriptions),
       SEED_PRESCRIPTIONS,
     ),
   /** The power/sensitivity curve (P2-2): exact two-sample t-test power

@@ -213,8 +213,7 @@ export function ConversationView({
 
   /* Nothing of the study's own is on the sheet yet: the only turn is the
    * platform's opening line and no move has been proposed. The blank record
-   * teaches the first move here; the hatch key at the foot waits until there
-   * are marks for it to explain. */
+   * teaches the first move here. */
   const threadEmpty =
     !turns.some((t) => t.role === "researcher") && allMoves.length === 0;
   const clientDraft = useMemo(() => compileAll(allMoves), [allMoves]);
@@ -351,6 +350,7 @@ export function ConversationView({
 
   function decide(moveId: string, status: MoveStatus) {
     let previousStatus: MoveStatus | undefined;
+    const move = turns.flatMap((t) => t.moves).find((m) => m.moveId === moveId);
     setTurns((prev) =>
       prev.map((t) => ({
         ...t,
@@ -381,6 +381,32 @@ export function ConversationView({
         );
         setNote("That decision didn't reach the server. Try it again.");
       });
+
+      // Accepting a move that cites papers is the researcher endorsing that
+      // evidence, not just the move's text — the grounding chips already
+      // read as "these papers back this", so leaving them out of the
+      // Library made that reading false: the assistant could describe a
+      // cited paper as already part of the study while the Library and
+      // citation graph had no record of it. Every resolved grounding.ref is
+      // a real corpus paper (the server only attaches metadata it actually
+      // found — see design_assistant._resolve_grounding), so this is safe
+      // to fire for all of them, not just a filtered subset.
+      if (status === "accepted" && move && move.grounding.length > 0) {
+        for (const g of move.grounding) {
+          if (addedRefs.has(g.ref)) continue;
+          setAddedRefs((prev) => new Set(prev).add(g.ref));
+          studyApi.addPaperFromMatch(studyId, g.ref, g.why).catch(() => {
+            setAddedRefs((prev) => {
+              const next = new Set(prev);
+              next.delete(g.ref);
+              return next;
+            });
+            setNote(
+              "Accepted, but couldn't add its cited paper to your library. Try again from the Literature panel.",
+            );
+          });
+        }
+      }
     }
   }
 

@@ -41,16 +41,7 @@ export function Hero() {
         <div className="flex animate-in flex-col items-center gap-2 fade-in delay-150 duration-entrance ease-out sm:flex-row">
           <Button asChild>
             <Link to="/start">
-              Start designing <ArrowRight aria-hidden />
-            </Link>
-          </Button>
-          {/* The repertoire is the other way in: a researcher who already
-           * knows the shape they want (or wants to see what the corpus
-           * actually supports) starts from proven designs instead of a blank
-           * conversation. */}
-          <Button variant="outline" asChild>
-            <Link to="/repertoire">
-              Browse proven designs <ArrowRight aria-hidden />
+              Start a project <ArrowRight aria-hidden />
             </Link>
           </Button>
         </div>

@@ -141,19 +141,20 @@ export function Projects() {
       reload();
       await refresh();
 
-      /* An idea given here is a study waiting to happen, so make it one and
-       * go. A reviewer expected "the chat interaction to start as soon as I
+      /* A project always gets its first study for free, question or not. A
+       * reviewer expected "the chat interaction to start as soon as I
        * created a new project" — for them a project *was* a study — and
        * landing on an empty roster with a small "New study" button in a
        * section header is what made the design conversation hard to find at
-       * all. Skipping the field keeps the old path, because a project really
-       * can hold several studies and someone setting one up for a team
-       * should not be handed a stray empty one. */
+       * all. That used to happen only when this field was filled in, which
+       * made the whole fix as easy to miss as the field itself; creating the
+       * study unconditionally is what actually keeps the promise. Someone
+       * setting a project up for a team with no idea yet still gets a study
+       * to open into rather than a dead end — an unwanted default one is a
+       * single delete away in Studies, not a wall to design around. */
       const opening = question.trim();
-      if (opening) {
-        const study = await api.createStudy(project.slug, name);
-        navigate(`/p/${project.slug}/studies/${study.id}`, { state: { opening } });
-      }
+      const study = await api.createStudy(project.slug, name);
+      navigate(`/p/${project.slug}/studies/${study.id}`, { state: { opening } });
     } catch (e) {
       // Only the API's own wording reaches the researcher; a bare HTTP status
       // ("Not Found") names no problem and suggests no recovery.
@@ -183,7 +184,7 @@ export function Projects() {
   );
 
   return (
-    <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
+    <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="type-title text-text">Projects</h1>
@@ -237,14 +238,15 @@ export function Projects() {
             aria-describedby="new-project-question-hint"
           />
           <p id="new-project-question-hint" className="type-caption text-text-muted">
-            Optional. Answer it and the project opens with a study already
-            talking this through — it is the same question the conversation
-            starts with. Leave it blank to set the project up first.
+            Optional. Either way you land straight in the design conversation
+            for the project's first study; answer it here and the
+            conversation opens already talking it through instead of waiting
+            for you to type it there.
           </p>
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={create} disabled={!name.trim() || creating}>
-              {creating ? "Creating…" : question.trim() ? "Create and start" : "Create"}
+              {creating ? "Creating…" : "Create and start"}
             </Button>
             <Button variant="outline" onClick={closeComposer} disabled={creating}>
               Cancel

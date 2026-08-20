@@ -32,6 +32,7 @@ export function DataTab({ studyId }: { studyId: string }) {
   const [rows, setRows] = useState<DatasetRow[]>([]);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [seeded, setSeeded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [dryRun, setDryRun] = useState<{
     report: { participants: number; sessions: number; events: number } | null;
     error: string | null;
@@ -39,14 +40,23 @@ export function DataTab({ studyId }: { studyId: string }) {
   }>({ report: null, error: null, busy: false });
 
   const refresh = (live: boolean) => {
-    Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)]).then(
-      ([s, d]) => {
+    Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)])
+      .then(([s, d]) => {
         if (!live) return;
+        setLoadError(null);
         setSessions(s.sessions);
         setConditions(s.conditions);
         setRows(d.rows.filter((r) => r.source === "metrics"));
-      },
-    );
+      })
+      .catch((e: unknown) => {
+        if (!live) return;
+        // A study that hasn't compiled a protocol yet has no data — that's a
+        // real, reachable state, not a fault. Surface it calmly instead of
+        // letting the rejection blank the tab.
+        setLoadError(
+          e instanceof Error ? e.message : "Could not load this study's data.",
+        );
+      });
   };
 
   useEffect(() => {
@@ -97,9 +107,19 @@ export function DataTab({ studyId }: { studyId: string }) {
           middleware to see this study's real sessions and metrics.
         </p>
       )}
+      {loadError && (
+        <EmptyState
+          line={
+            loadError.toLowerCase().includes("no protocol")
+              ? "This study has no compiled protocol yet. Finish the design conversation first, and its sessions and metrics appear here."
+              : `Couldn't load this study's data. ${loadError}`
+          }
+        />
+      )}
+
       {/* Before any data exists, the provenance decision comes first: collect
           it live or rehearse with synthetic data. */}
-      {sessions.length === 0 && (
+      {!loadError && sessions.length === 0 && (
         <DataProvenance
           conditions={conditions}
           onDryRun={runDryRun}
@@ -215,7 +235,7 @@ export function DataTab({ studyId }: { studyId: string }) {
           <h2 className="type-section text-text">Metrics by condition</h2>
           <MetricStrip rows={metricRows} conditions={conditions} />
         </section>
-        <PrescriptionPanel />
+        <PrescriptionPanel studyId={studyId} />
       </div>
     </Surface>
   );

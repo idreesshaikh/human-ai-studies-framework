@@ -43,7 +43,6 @@ retrofitted.
 | `conversation-thinking` | `ConversationView` | the platform is composing a reply (LLM or scripted), a transient landmark |
 | `conversation-streaming` | `ConversationView` | the reply's prose as it streams in (transient; replaced by the real turn) |
 | `understanding-line` | `DraftRail` | what the platform still doesn't know, and why no design shape is proposed yet |
-| `hatch-legend` | `HatchLegend` | the key to the record's four marks: mark size is grounding strength, an open ring is unsourced, a doubled mark is a conflict, a struck line is superseded |
 | `move-card` | `MoveCard` | one proposed design move (decision point); `data-agent-kind`, `data-agent-status` refine it |
 | `move-accept` | `MoveCard` | accept the move |
 | `move-reject` | `MoveCard` | reject the move |
@@ -55,7 +54,8 @@ retrofitted.
 | `draft-rail` | `DraftRail` | the compiled protocol-draft view (landmark) |
 | `draft-apply` | `DraftRail` | apply the server-validated compiled draft to the protocol (decision point) |
 | `draft-finish` | `DraftRail` | open the finish-and-review moment that prepares the protocol draft (decision point) |
-| `protocol-path` | `SlotMeter` | the phased checklist of protocol steps covered so far (landmark) |
+| `protocol-path-current` | `SlotMeter` | the current step, shown even while the full phased checklist is collapsed |
+| `protocol-path` | `SlotMeter` | the phased checklist of protocol steps covered so far (landmark), collapsed by default behind a disclosure |
 | `path-up-next` | `SlotMeter` | what would move the researcher next, named under the path |
 | `applied-next-step` | `FinishReview` | the callout shown after the draft is applied: what to do next (bring participants in) |
 | `protocol-guide-open` | `ProtocolGuide` | open the reference explaining the 8 mandatory protocol-draft sections (help) |
@@ -99,73 +99,3 @@ retrofitted.
 | `live-sessions` | `LiveSessions` | the live-session monitor: who is running right now (landmark, FR-DASH-10) |
 | `live-session` | `LiveSessions` | one running session, with its event rate, task, condition and gap count; `data-agent-ref` carries the session id |
 | `swimlane-timeline` | `SwimlaneTimeline` | the per-session swimlane chart (landmark, FR-DASH-4) |
-
-## Changelog
-
-- **2026-07-18**: initial inventory. No prior names to
-  supersede.
-- **2026-07-18**: evolution surfaces added: amendment banner/history +
-  version chip (FR-CONV-4), feedback marking + platform-findings lineage
-  (FR-CONV-5).
-- **2026-07-18**: knowledge-layer migration:
-  study workspace tabs, citation constellation, metric-strip chart
-  (FR-LIT-2/4, FR-DASH-5).
-- **2026-07-19**: live capture link: enrollment panel + mint-links dialog
-  (FR-DASH-10, Phase 19).
-- **2026-07-21**: live conversation compile added: `draft-apply` (apply the
-  server-validated draft to the protocol).
-- **2026-07-21**: resolved a stash-pop conflict that had dropped the
-  amendment banner/history wiring from `StudyHome`; restored
-  `amendment-history-toggle`.
-- **2026-07-21**: capture-console phase: `toggle-popover` for FR-DASH-11
-  per-metric toggles on the enrollment surface.
-- **2026-07-21**: session-timeline phase: `swimlane-timeline` for FR-DASH-4
-  per-session chart.
-- **2026-07-21**: LLM-driven conversation (FR-CONV-1.4): `conversation-thinking`
-  (transient landmark while a turn is composing) + `data-agent-status="llm-guided"`
-  on `StreamingTurn`'s author line (secondary attribute, not a new landmark).
-- **2026-07-30**: `protocol-guide-open` opens a reference dialog explaining
-  the 8 mandatory `ProtocolDraft` sections.
-- **2026-08-06**: removed the platform-findings surface (FR-CONV-5): the
-  "Platform findings" nav item/page and the conversation "flag for the
-  platform" affordance are gone, taking `feedback-mark`, `feedback-composer`,
-  `feedback-send`, `feedback-marked`, `platform-findings`, and
-  `retrospective-proposal` with them.
-- **2026-08-18**: scope cut to design + setup. The lifecycle board and its
-  phase rail are gone, so `project-list` rows no longer carry a phase mix.
-  Added `extension-install-link`; `open-in-vscode` now also appears in
-  `EnrollmentPanel`, and both build their URI from `lib/extension.ts` after
-  the deep link was found pointing at an extension identity that has never
-  existed.
-- **2026-08-18**: `live-sessions` / `live-session` — the live-session monitor
-  on the Participants surface. Documented from the component rather than by its
-  author; correct the wording here if it undersells what they mark.
-- **2026-08-18**: `steer-dial` — the steer-level control on the design
-  conversation. Named `assist-dial` for part of the same day; renamed with the
-  label the researcher actually reads, so the contract name and the UI agree.
-- **2026-08-18**: `understanding-line` moved from `UnderstandingLine` (deleted)
-  into `DraftRail`. It answers "why has no design been proposed yet", which is
-  a question about the draft, not a turn in the thread; printed under every
-  exchange it repeated itself on each turn.
-- **2026-08-18**: `new-study-open` — the inline new-study composer's trigger
-  on the project home.
-- **2026-08-18**: `live-sessions` / `live-session` — the live-session monitor
-  on the Participants surface. `GET /studies/{id}/live` had computed per-session
-  event rates and gap counts all along with nothing rendering them.
-- **2026-08-19**: `export-ethics-package` — the ethics-package download in
-  the study export menu.
-- **2026-08-19**: `export-notebook` — the starter-notebook download in the
-  study export menu.
-- **2026-08-19**: `power-curve` — the power/sensitivity chart on the new
-  Planning surface. A browser agent lands here to read the curve the
-  researcher is planning recruitment against.
-- **2026-08-19**: `power-required` — the required-n table beside the
-  power curve: effect size × per-group/total n × whether the target is
-  reached within the explored range.
-- **2026-08-20**: restore sync after a docs regression: `open-design-shape`
-  removed (the Templates detail panel is gone), `hatch-legend` re-documented
-  (`HatchLegend`'s key to the record's marks). Added the newer names that
-  had drifted out: `use-reference-paper`, `protocol-path`, `path-up-next`,
-  `applied-next-step`, `seed-study`.
-- **2026-08-20**: Templates detail panel redesign: `use-reference-paper` removed
-  (references now shown in dialog, no inline "use" action).
