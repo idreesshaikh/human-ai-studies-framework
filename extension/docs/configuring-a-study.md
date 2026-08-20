@@ -103,7 +103,7 @@ say. Under it, each stream can be turned off independently:
 | Setting | Records |
 | --- | --- |
 | `tern.behavior.captureFocus` | Editor/tab focus switches and window focus. |
-| `tern.behavior.captureVisibleRanges` | Debounced scroll position, for coverage analysis. |
+| `tern.behavior.captureVisibleRanges` | Scroll position, recorded when scrolling settles, for coverage analysis. |
 | `tern.behavior.captureEditBursts` | Aggregated edits with an origin guess (human / AI / paste / undo-redo). |
 | `tern.behavior.captureClipboard` | Paste sizes and internal-copy timing. |
 | `tern.behavior.captureAiLifecycle` | AI suggestion shown/accepted/rejected, with review latency. |

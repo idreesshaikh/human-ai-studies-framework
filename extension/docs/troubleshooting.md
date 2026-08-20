@@ -3,7 +3,8 @@
 TERN is built to never interrupt the participant, which means most failures
 are quiet: nothing pops up, the session just doesn't capture what you
 expected. So the habit that saves you is checking early rather than waiting
-for the end of a session to find a leg empty.
+for the end of a session to find that one of your data streams captured
+nothing.
 
 Two facts make troubleshooting straightforward once you internalise them:
 
@@ -22,8 +23,8 @@ When something looks wrong, run through these before digging in:
    session is active; if it says `Study: idle`, nothing is being captured.
 2. Open the data folder (_TERN: Open Study Data Folder_) and check the JSONL
    file is there and growing.
-3. Are you working in a captured language? By default the behavioral leg only
-   watches Python (`tern.behavior.languages`). Editing a Markdown or JSON
+3. Are you working in a captured language? By default the behavioral capture
+   only watches Python (`tern.behavior.languages`). Editing a Markdown or JSON
    file records almost nothing — this is the single most common surprise.
 4. Is the file inside the workspace? Files outside the open workspace folder
    are ignored (`tern.behavior.workspaceInternalOnly`).
@@ -39,7 +40,7 @@ Almost always one of the first checks above.
   `tern.behavior.languages` *and* `tern.stuck.languages`.
 - **File outside the workspace.** Open the task folder as the workspace so
   its files are counted as internal.
-- **Behavioral leg switched off.** `tern.behavior.enabled` is the master
+- **Behavioral capture switched off.** `tern.behavior.enabled` is the master
   switch; if it's `false`, none of the behavioral streams run.
 
 If the JSONL file has `session_start` but nothing after it, capture is
