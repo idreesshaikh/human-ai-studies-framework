@@ -1,4 +1,4 @@
-# Registry templates (13 so far, meant to keep growing)
+# Registry templates (15 so far, meant to keep growing)
 
 A **template** encodes one proven, *generic* study design: a design
 **shape** (its structure, its prescribed statistics, its required
@@ -71,13 +71,52 @@ task); repository-mining (`cursor-mining-v1`) is blocked on real
 repository-trend recipes, not on template YAML (see
 `templates/drafts/README.md`). Two honest additions, not a padded count.
 
+**Wave 2, second fill** (real corpus gaps, found by scanning for
+methodology clusters no existing `designSignature` matched at all — see
+`scripts/mine_templates.py` below for the systematic version of that
+same search):
+- **field-experiment-v1**: a real manipulation run inside participants'
+  actual ongoing work rather than a controlled lab session — distinct
+  from both `observational-field-v1` (no manipulation at all) and
+  `two-group-rct-v1` (a controlled setting). Grounded in "The Cybernetic
+  Teammate" field experiment (`doi:10.2139/ssrn.5207588`).
+- **cognitive-load-comparison-v1**: the one existing analysis recipe no
+  template had ever named (`fatigue-by-condition`) — for studies whose
+  actual research question is cognitive load itself, not task outcome
+  with workload as a side measure. Grounded in "When Help Hurts:
+  Verification Load and Fatigue with AI Coding Assistants"
+  (`corpus:when-help-hurts-verification-load-fatigue`).
+
 Wave 1's archetypes are grounded in `corpus:guidelines-empirical-llm-se`
 (the empirical-SE-with-LLMs guidance paper); each also carries its own
 design-specific citation where one applies. **Wave 2** (up to ~24
 archetypes total, per Phase 22's spec) is independent template-authoring
-work that enriches the demo, in progress (13/~24). Beyond Wave 2,
+work that enriches the demo, in progress (15/~24). Beyond Wave 2,
 FR-TPL-5 (community template contribution) is the intended path for
-growing the registry past what the owner hand-authors alone.
+growing the registry past what the owner hand-authors alone —
+`scripts/mine_templates.py` is that path's automated front half:
+
+- `--gaps` reports **methodology phrases the corpus uses that no template
+  here claims** — the registry's blind-spot list, ranked by how many
+  corpus papers use each. It anchors on the head noun of a phrase
+  ("… *study*", "… *experiment*", "… *evaluation*") rather than on a list
+  of known methods, which is what lets it surface archetypes nobody
+  thought to name; a fixed keyword table can only re-find its own
+  entries. This is the automated form of the manual scan that found
+  `field-experiment-v1` and `cognitive-load-comparison-v1`. A row is
+  evidence, **not** a template: read the papers behind a phrase, and
+  judge whether it is genuinely distinct from the shapes already here
+  before authoring one. (The current top row, "case study" at 78 papers,
+  is exactly such a judgment call against `observational-field-v1` — do
+  not simply bolt the phrase onto an existing signature, which would
+  claim those papers for a design they did not use.)
+- With no flag it clusters the corpus by recurring design vocabulary and,
+  with `--submit`, queues clusters with real support as `pending`
+  `TemplateSubmission` rows (tagged `source: mined`, reviewed at
+  `/submissions` exactly like a human contribution, never written into
+  this directory directly). Its drafting vocabulary is coarse by design —
+  a human reviewer refines or rejects every mined draft; nothing mined is
+  promoted automatically.
 
 A template enters this directory only once `validate_registry()` passes
 for it (schema, mandatory citations, every recipe exists, and every

@@ -9,6 +9,7 @@ import {
   edgeState,
   edgeOpacity,
   labelVisible,
+  labelMode,
   driftOffset,
   nextSettleAlpha,
   shouldSettle,
@@ -22,8 +23,9 @@ import { cn } from "@/lib/cn";
 /* The citation constellation (FR-LIT-2, FR-LIT-10) — a study's papers grow a
  * graph around themselves: seed → neighbourhood → grow, Obsidian-graph-view
  * styled: degree-sized dots, near-invisible edges that light up in the
- * hovered/focused neighbourhood, labels that reveal by zoom/focus/selection
- * rather than sitting on permanently, and a gentle idle drift. Deterministic
+ * hovered/focused neighbourhood, always-on author+year labels for a
+ * study-sized graph (degrading to zoom-gated labels above 150 nodes), and a
+ * gentle idle drift. Deterministic
  * force layout underneath it all (no d3-force, D17) — see forceLayout.ts and
  * constellationView.ts for the pure logic this is glue over.
  *
@@ -56,12 +58,29 @@ const EDGE: Record<string, { color: string; label: string }> = {
   recommendations: { color: "var(--series-3)", label: "recommended" },
 };
 
-/** "Surname et al., 2019" — the short label a node shows once revealed. */
+const TITLE_LABEL_MAX = 34;
+
+/** A truncated title, the fallback identity for a node with a real record
+ * but no author list — most suggested (not-yet-ingested) nodes carry a
+ * denormalized title from edge harvest without a parsed author array. A
+ * title is unique per paper, unlike a bare year, so it doesn't reintroduce
+ * the duplicate-label problem a bare-year fallback caused. */
+function truncatedTitle(title: string): string {
+  return title.length > TITLE_LABEL_MAX
+    ? `${title.slice(0, TITLE_LABEL_MAX - 1)}…`
+    : title;
+}
+
+/** "Surname et al., 2019" — the short label a node shows once revealed.
+ * Falls back to a truncated title, never a bare year: a year alone is the
+ * one non-identity this label must never produce, since many unrelated
+ * nodes sharing a publication year would collapse to the same string. */
 function nodeLabel(n: PositionedNode): string {
   const author = n.authors?.[0]?.split(" ").pop();
   const who = author ? (n.authors!.length > 1 ? `${author} et al.` : author) : "";
   if (who && n.year) return `${who}, ${n.year}`;
-  return who || (n.year ? String(n.year) : "");
+  if (who) return who;
+  return n.title ? truncatedTitle(n.title) : "";
 }
 
 type View = { x: number; y: number; k: number };
@@ -267,6 +286,10 @@ export function Constellation({
   }
 
   const panning = gesture.current?.kind === "pan";
+  // Small studies get always-on author+year labels (reference-manager-grade);
+  // large harvested neighbourhoods degrade to zoom-gated labels so they stay
+  // legible instead of painting over each other.
+  const alwaysLabels = labelMode(graph.nodes.length) === "always";
 
   return (
     <figure className="m-0 flex flex-col gap-2">
@@ -324,22 +347,32 @@ export function Constellation({
               const isSel = n.paperRef === selected;
               const inFocusNeighbourhood = active.has(n.paperRef);
               const r = nodeRadius(degrees.get(n.paperRef) ?? 0);
-              // A bare year with no author ("2026") carries almost no
+              // Two different guards, because the two reveal paths have
+              // different risk profiles. The zoom-gated degree-threshold
+              // path (dense mode, large graphs) requires a real author: a
+              // bare year with no author ("2026") carries almost no
               // identity, and a well-connected but metadata-thin suggested
-              // node earns the same auto-reveal threshold as a fully
-              // described one — left unguarded, dozens of those nodes all
-              // degrade to the same string and paint on top of each other.
-              // Still shown on explicit hover/select, where one instance is
-              // legible; just not swept in by the ambient degree threshold.
-              const hasIdentity = Boolean(n.authors?.[0]);
+              // node used to earn the same auto-reveal threshold as a
+              // fully described one — dozens of those nodes degraded to
+              // the same string and painted on top of each other. Always
+              // mode (small, curated graphs — see labelMode) accepts a
+              // title too: most suggested nodes have a real, unique title
+              // from edge harvest even without a parsed author list, and a
+              // title never collides the way a bare year does, so it's
+              // safe to treat as identity there. Both paths still show on
+              // explicit hover/select regardless.
+              const hasAuthor = Boolean(n.authors?.[0]);
+              const hasTitle = Boolean(n.title);
+              const hasIdentity = alwaysLabels ? hasAuthor || hasTitle : hasAuthor;
               const showLabel =
                 (hasIdentity || isSel || inFocusNeighbourhood) &&
-                labelVisible({
-                  selected: isSel,
-                  inFocusNeighbourhood,
-                  radius: r,
-                  zoomK: view.k,
-                });
+                (alwaysLabels ||
+                  labelVisible({
+                    selected: isSel,
+                    inFocusNeighbourhood,
+                    radius: r,
+                    zoomK: view.k,
+                  }));
               const label = showLabel ? nodeLabel(n) : "";
               const highlighted = isSel || inFocusNeighbourhood;
               return (

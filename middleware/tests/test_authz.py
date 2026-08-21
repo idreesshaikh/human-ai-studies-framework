@@ -6,7 +6,7 @@ import sqlite3
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from middleware.app import create_app
+from middleware.app import _slug_from_text, create_app
 from middleware.auth import Identity
 from middleware.authz import CAPABILITIES, ROLE_RANK, Role, has_role
 from middleware.db import make_session_factory
@@ -124,6 +124,56 @@ def test_created_project_has_the_same_shape_as_a_listed_one(client):
     assert created.keys() == listed.keys()
     assert created["role"] == "owner"
     assert created["studyCount"] == 0
+
+
+def test_slug_from_text_backs_off_to_a_word_boundary():
+    """
+    A study name is often a whole typed sentence (the "describe your study"
+    opening question), not a short title — a hard character cut lands
+    mid-word as often as not, and that becomes the study's permanent id.
+    """
+    long = "Does AI pair programming change debugging time, comparing telemetry?"
+    assert _slug_from_text(long, 40) == "does-ai-pair-programming-change"
+    # No boundary within the limit at all: the hard cut is the only option.
+    assert _slug_from_text("supercalifragilisticexpialidocious", 10) == (
+        "supercalif"
+    )
+    # Short text well under the limit is untouched.
+    assert _slug_from_text("Hello World", 40) == "hello-world"
+
+
+def test_study_name_from_a_long_sentence_keeps_whole_words(client):
+    slug = make_project(client, "alice", "Sentence lab")
+    long = "Does AI pair programming change debugging time, comparing telemetry?"
+    made = client.post(
+        f"/projects/{slug}/studies", json={"name": long}, headers=bearer("alice")
+    )
+    assert made.status_code == 200, made.text
+    words = {w.strip(",?").lower() for w in long.split()}
+    last_word = made.json()["id"].split("-")[-1]
+    assert last_word in words
+
+
+def test_reposting_personal_reuses_the_existing_project(client):
+    """
+    Every "quick start" entry point posts {name: "Personal"} to land the caller in
+    their one implicit project — the second and later calls must return the same
+    project (with an accurate studyCount), not 500 on a nonexistent relationship.
+    """
+    first = client.post("/projects", json={"name": "Personal"}, headers=bearer("dee"))
+    assert first.status_code == 200, first.text
+
+    made = client.post(
+        f"/projects/{first.json()['slug']}/studies",
+        json={"name": "One"},
+        headers=bearer("dee"),
+    )
+    assert made.status_code == 200, made.text
+
+    second = client.post("/projects", json={"name": "Personal"}, headers=bearer("dee"))
+    assert second.status_code == 200, second.text
+    assert second.json()["id"] == first.json()["id"]
+    assert second.json()["studyCount"] == 1
 
 
 def test_delete_study_is_owner_only_and_removes_it(client):
@@ -614,6 +664,81 @@ def test_the_demo_project_cannot_be_written_to(client):
         ).status_code
         == 403
     )
+
+
+def test_status_only_reports_this_study_s_sessions(client):
+    """
+    `/status` read `Event` with no study scoping at all: it grouped every event
+    row in the database by session and returned the lot, so one project's Data
+    tab listed another project's sessions and participants. `/sessions` had
+    closed exactly this leak; `/status` answers the same question and never got
+    the same treatment. Both now share `_session_scope`.
+    """
+    from middleware.demo import DEMO_STUDY_ID, seed_demo
+
+    seed_demo(f"sqlite:///{client.db_path}")
+    client.post("/ingest/events", json=[_event(0, "S-sample-001", "P01")])
+
+    slug = make_project(client, "alice", "Other lab")
+    # `/status` needs a protocol before it will report anything, so this study
+    # is seeded with a minimal one — the leak being tested is about whose
+    # sessions come back, not about protocol resolution.
+    mine = client.post(
+        f"/projects/{slug}/studies",
+        json={
+            "name": "Mine",
+            "protocol": {
+                "protocolVersion": 4,
+                "study": {"id": "mine", "title": "Mine"},
+                "researchQuestions": [{"id": "RQ-1", "text": "A question?"}],
+                "conditions": ["ai-assisted"],
+                "participants": {"planned": 2, "design": "within-subjects"},
+                "phases": [{"name": "design", "gates": []}],
+            },
+        },
+        headers=bearer("alice"),
+    ).json()["id"]
+    client.post(
+        f"/studies/{mine}/sessions/start",
+        json={"sessionId": "S-mine-001"},
+        headers=bearer("alice"),
+    )
+    client.post("/ingest/events", json=[_event(0, "S-mine-001", "P09")])
+
+    mine_status = client.get(f"/studies/{mine}/status", headers=bearer("alice")).json()
+    assert [s["sessionId"] for s in mine_status["sessions"]] == ["S-mine-001"]
+
+    demo_status = client.get(
+        f"/studies/{DEMO_STUDY_ID}/status", headers=bearer("alice")
+    ).json()
+    assert "S-mine-001" not in [s["sessionId"] for s in demo_status["sessions"]]
+
+
+def test_the_demo_study_resolves_a_protocol(client):
+    """
+    The demo exists to be "one fully-built study anybody can look at", and every
+    panel that shows collected data — the whole Data tab, Planning, /status —
+    gates on the study resolving a protocol. It never could: the seeder wrote a
+    project, a study row and session mappings but no protocol, and the boot
+    protocol (when one is loaded at all) is a different study id, so all three
+    resolution paths missed and /status 404'd on the one study seeded with real
+    sessions and metrics.
+    """
+    from middleware.demo import DEMO_STUDY_ID, seed_demo
+
+    seed_demo(f"sqlite:///{client.db_path}")
+
+    res = client.get(f"/studies/{DEMO_STUDY_ID}/protocol", headers=bearer("newcomer"))
+    assert res.status_code == 200, res.text
+    proto = res.json()
+    # The design the bundled sample sessions actually implement — P02 appears in
+    # both conditions, so a demo protocol claiming anything else would describe
+    # data the demo does not have.
+    assert proto["conditions"] == ["ai-assisted", "unassisted"]
+    assert proto["participants"]["design"] == "within-subjects"
+
+    status = client.get(f"/studies/{DEMO_STUDY_ID}/status", headers=bearer("newcomer"))
+    assert status.status_code == 200, status.text
 
 
 def test_the_demo_study_owns_the_sample_sessions(client):

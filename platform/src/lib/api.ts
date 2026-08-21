@@ -112,6 +112,7 @@ export interface EnrollmentTokenCaptureConfig {
 
 export interface ToggleCatalogEntry {
   instrument: string;
+  leg?: string;
   path: string[];
   label: string;
   description: string;
@@ -137,6 +138,19 @@ export interface EnrollmentTokenView {
   /** The capture config the IDE will run under (FR-DASH-10 pre-flight
    * visibility); null for an agent-participant study with no overlay. */
   captureConfig?: EnrollmentTokenCaptureConfig | null;
+  /** Per-mint toggle overrides layered on the protocol-derived defaults. */
+  captureOverrides?: CaptureOverrides | null;
+}
+
+/** A mint-time capture-config override: one instrument toggle addressed by path. */
+export interface CaptureOverrides {
+  toggles: ToggleCatalogOverride[];
+}
+
+export interface ToggleCatalogOverride {
+  instrument: string;
+  path: string[];
+  value: unknown;
 }
 
 export interface Api {
@@ -158,7 +172,12 @@ export interface Api {
   createInvitation(slug: string, role: Role): Promise<Invitation>;
   revokeInvitation(slug: string, id: string): Promise<void>;
   acceptInvitation(token: string): Promise<{ projectSlug: string; role: Role }>;
-  mintEnrollmentTokens(studyId: string, count: number, grain: "participant" | "session"): Promise<EnrollmentTokenView[]>;
+  mintEnrollmentTokens(
+    studyId: string,
+    count: number,
+    grain: "participant" | "session",
+    overrides?: CaptureOverrides | null,
+  ): Promise<EnrollmentTokenView[]>;
   listEnrollmentTokens(studyId: string): Promise<EnrollmentTokenView[]>;
   revokeEnrollmentToken(studyId: string, tokenId: string): Promise<void>;
   toggleCatalog(studyId: string): Promise<ToggleCatalogEntry[]>;
@@ -334,8 +353,17 @@ class HttpBackend implements Api {
     this.call<{ projectSlug: string; role: Role }>(
       "POST",
       `/invitations/${token}/accept`);
-  mintEnrollmentTokens = (studyId: string, count: number, grain: "participant" | "session") =>
-    this.call<EnrollmentTokenView[]>("POST", `/studies/${studyId}/enrollment/tokens`, { count, grain });
+  mintEnrollmentTokens = (
+    studyId: string,
+    count: number,
+    grain: "participant" | "session",
+    overrides?: CaptureOverrides | null,
+  ) =>
+    this.call<EnrollmentTokenView[]>("POST", `/studies/${studyId}/enrollment/tokens`, {
+      count,
+      grain,
+      ...(overrides ? { overrides } : {}),
+    });
   listEnrollmentTokens = (studyId: string) =>
     this.call<EnrollmentTokenView[]>("GET", `/studies/${studyId}/enrollment/tokens`);
   revokeEnrollmentToken = (studyId: string, tokenId: string) =>
@@ -619,7 +647,12 @@ export class InMemoryBackend implements Api {
     throw new ApiError(404, "invitation not found: it may have expired or been revoked");
   }
 
-  async mintEnrollmentTokens(studyId: string, count: number, grain: "participant" | "session"): Promise<EnrollmentTokenView[]> {
+  async mintEnrollmentTokens(
+    studyId: string,
+    count: number,
+    grain: "participant" | "session",
+    overrides?: CaptureOverrides | null,
+  ): Promise<EnrollmentTokenView[]> {
     const rows = this.enrollments.get(studyId) ?? [];
     const conditions: string[] = ["ai-assisted", "unassisted"];
     const start = rows.length;
@@ -637,6 +670,7 @@ export class InMemoryBackend implements Api {
           captureConfigVersion: "demo000001",
           enabledInstruments: [{ name: "stuck", enabled: true }],
         },
+        captureOverrides: overrides ?? null,
       };
       rows.push(row);
       minted.push(row);

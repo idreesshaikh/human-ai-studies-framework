@@ -245,6 +245,7 @@ class TemplateSubmitIn(BaseModel):
 
     name: str = Field(min_length=1, max_length=200)
     templateYaml: str = Field(min_length=1)
+    source: str = Field(default="human", pattern=r"^(human|mined)$")
 
 
 class TemplateDecisionIn(BaseModel):
@@ -259,6 +260,9 @@ class MintTokensIn(BaseModel):
 
     count: int = 1
     grain: str = "participant"
+    # Per-mint capture-config overrides, layered on the protocol-derived defaults for
+    # every token in the batch. ``{"toggles": [{"instrument", "path", "value"}, ...]}``.
+    overrides: dict | None = None
 
 
 class RedeemIn(BaseModel):
@@ -308,6 +312,21 @@ log = logging.getLogger(__name__)
 def _sse(event: str, data: dict) -> str:
     """One server-sent event frame."""
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+def _slug_from_text(text: str, max_len: int) -> str:
+    """A URL-safe id from free text — a project or study name, often a whole
+    typed sentence (e.g. the "describe your study" opening question) rather
+    than a short title. A hard character cut lands mid-word as often as not
+    ("...debuggin"), which then sits as the study's permanent id; back off to
+    the last word boundary within the limit instead, keeping the hard cut
+    only when the text has no boundary to back off to at all."""
+    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    if len(slug) <= max_len:
+        return slug
+    truncated = slug[:max_len]
+    boundary = truncated.rfind("-")
+    return truncated[:boundary] if boundary > 0 else truncated
 
 
 def create_app(settings: Settings | None = None, clock: Clock | None = None) -> FastAPI:
@@ -565,16 +584,21 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return {"id": record.id, "sha256": digest, "duplicate": False}
 
 
-    @app.get(
-        "/studies/{study_id}/sessions",
-        dependencies=[Depends(require_project_for_study("view"))],
-    )
-    def list_sessions(study_id: str, s: Session = Depends(db)) -> list[dict]:
+    def _session_scope(study_id: str):
+        """
+        A predicate for "this session_id belongs to this study".
+
+        Sessions are attributed through ``SessionOpen``/``SessionBlock``; events
+        and metric rows carry only a ``session_id``, so any query that reads
+        them per-study MUST go through this. `/studies/{id}/status` did not, and
+        returned every session in the database for whichever study was asked —
+        one project's Data tab listing another's participants. Shared by both
+        readers so they cannot drift apart again.
+        """
         scoped = union(
             select(SessionOpen.session_id).where(SessionOpen.study_id == study_id),
             select(SessionBlock.session_id).where(SessionBlock.study_id == study_id),
         )
-
         # Multi-tenant (clerk) never adopts them: an unattributable session there could
         # have come from anyone, which is precisely the leak this scoping closes.
         adopt_unattributed = settings.auth != "clerk" and check.study_id == study_id
@@ -583,6 +607,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         def in_this_study(column):
             here = column.in_(scoped)
             return or_(here, column.notin_(mapped)) if adopt_unattributed else here
+
+        return in_this_study
+
+    @app.get(
+        "/studies/{study_id}/sessions",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def list_sessions(study_id: str, s: Session = Depends(db)) -> list[dict]:
+        in_this_study = _session_scope(study_id)
 
         out = {}
         event_rows = s.execute(
@@ -777,6 +810,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 {"name": p["name"], "gates": list(p.get("gates", []))}
                 for p in proto["phases"]
             ],
+            # The resolved protocol as-is, for surfaces that render the whole
+            # document rather than this card's summary of it. The conversation's
+            # draft rail is the reason: it could only obtain a protocol from
+            # `/conversation/compile`, which needs a contribute capability, so
+            # every viewer — and every visitor to the read-only demo — saw an
+            # empty "no design shape yet" rail over a fully compiled protocol.
+            # Additive: the summary fields above are unchanged.
+            "document": proto,
         }
 
     @app.get(
@@ -790,11 +831,17 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if proto is None:
             raise HTTPException(404, f"no protocol for study {study_id!r}")
 
+        # Every read below is scoped to this study's sessions; without it the
+        # status document described the whole database (see `_session_scope`).
+        in_this_study = _session_scope(study_id)
+
         seqs_by_session: dict[str, dict[str, list[int]]] = defaultdict(
             lambda: defaultdict(list)
         )
         for sid, src, seq in s.execute(
-            select(Event.session_id, Event.source, Event.seq)
+            select(Event.session_id, Event.source, Event.seq).where(
+                in_this_study(Event.session_id)
+            )
         ):
             seqs_by_session[sid][src].append(seq)
 
@@ -802,7 +849,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         flagged_events: dict[str, int] = defaultdict(int)
         for sid, flags in s.execute(
             select(Event.session_id, Event.flags).where(
-                func.json_array_length(Event.flags) > 0
+                func.json_array_length(Event.flags) > 0,
+                in_this_study(Event.session_id),
             )
         ):
             flagged_events[sid] += 1
@@ -816,7 +864,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 Event.condition,
                 func.count(),
                 func.max(Event.received_at),
-            ).group_by(Event.session_id, Event.participant_id, Event.condition)
+            )
+            .where(in_this_study(Event.session_id))
+            .group_by(Event.session_id, Event.participant_id, Event.condition)
         ):
             agg = _session_gap_facts(seqs_by_session[sid])
             sessions[sid] = {
@@ -838,7 +888,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 MetricRow.participant_id,
                 MetricRow.condition,
                 func.count(),
-            ).group_by(
+            )
+            .where(in_this_study(MetricRow.session_id))
+            .group_by(
                 MetricRow.session_id, MetricRow.participant_id, MetricRow.condition
             )
         ):
@@ -2001,19 +2053,24 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
             )
             if existing:
+                study_count = s.scalar(
+                    select(func.count())
+                    .select_from(Study)
+                    .where(Study.project_id == existing.id)
+                ) or 0
                 return {
                     "id": existing.id,
                     "slug": existing.slug,
                     "name": existing.name,
                     "role": "owner",
                     "createdAt": existing.created_at,
-                    "studyCount": len(existing.studies),
+                    "studyCount": study_count,
                 }
 
         chosen = str(body.get("slug", "")).strip()
         slug = chosen
         if not slug:
-            slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:50]
+            slug = _slug_from_text(name, 50)
         if not slug:
             slug = secrets.token_hex(4)
         if chosen:
@@ -2165,7 +2222,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if proj is None:
             raise HTTPException(404, "project not found")
         name = str(body.get("name", "")).strip()
-        base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:40] if name else ""
+        base = _slug_from_text(name, 40) if name else ""
         if not base:
             base = "study"
         study_id = base
@@ -2518,6 +2575,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 participant_index=index,
                 condition=condition,
                 grain=body.grain,
+                capture_overrides=enrollment.clean_capture_overrides(body.overrides),
                 token=token,
                 expires_at=expires,
                 created_at=now(),
@@ -2582,7 +2640,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             if protocol is not None:
                 try:
                     cfg = enrollment.build_capture_config(
-                        protocol, r.participant_id, r.condition
+                        protocol,
+                        r.participant_id,
+                        r.condition,
+                        overrides=r.capture_overrides,
                     )
                     capture_config = {
                         "captureConfigVersion": cfg["captureConfigVersion"],
@@ -2601,6 +2662,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "status": status,
                     "connectionString": enrollment.connection_string(base, r.token),
                     "captureConfig": capture_config,
+                    "captureOverrides": r.capture_overrides,
                 }
             )
         return out
@@ -2769,7 +2831,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "sessionCredential": row.credential,
             "ingestEndpoint": f"{base}/ingest/events",
             "captureConfig": enrollment.build_capture_config(
-                protocol, row.participant_id, row.condition
+                protocol,
+                row.participant_id,
+                row.condition,
+                overrides=row.capture_overrides,
             ),
             "consentStatement": enrollment.consent_statement(protocol, row.condition),
             "contentPolicy": enrollment.content_policy(protocol),
@@ -2890,6 +2955,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             (block or {}).get("condition") or row.condition,
             task=task,
             block=block,
+            overrides=row.capture_overrides,
         )
 
     @app.get(
@@ -3196,6 +3262,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             name=body.name,
             template_yaml=body.templateYaml,
             status="pending",
+            source=body.source,
             created_at=now(),
         )
         s.add(row)
@@ -3204,6 +3271,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "id": row.id,
             "name": row.name,
             "status": row.status,
+            "source": row.source,
             "createdAt": row.created_at,
         }
 
@@ -3234,6 +3302,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "name": r.name,
                     "submitterSub": r.submitter_sub,
                     "status": r.status,
+                    "source": r.source,
                     "reviewerSub": r.reviewer_sub or None,
                     "reviewComment": r.review_comment or None,
                     "createdAt": r.created_at,
@@ -3265,6 +3334,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "name": row.name,
             "submitterSub": row.submitter_sub,
             "status": row.status,
+            "source": row.source,
             "templateYaml": row.template_yaml,
             "reviewerSub": row.reviewer_sub or None,
             "reviewComment": row.review_comment or None,
@@ -3327,6 +3397,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "id": row.id,
             "name": row.name,
             "status": row.status,
+            "source": row.source,
             "reviewerSub": row.reviewer_sub,
             "reviewComment": row.review_comment or None,
             "reviewedAt": row.reviewed_at,
@@ -4264,6 +4335,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         @app.get("/repertoire", include_in_schema=False)
         def spa_repertoire_route() -> FileResponse:
+            return _shell()
+
+        @app.get("/submissions", include_in_schema=False)
+        def spa_submissions_route() -> FileResponse:
             return _shell()
 
         @app.get("/start", include_in_schema=False)

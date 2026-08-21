@@ -51,9 +51,13 @@ const buttonVariants = cva(
         struck: "plate-lift control-ink border shadow-mark",
       },
       size: {
-        default: "h-10",
-        sm: "h-8 px-3",
-        icon: "size-10 px-0",
+        /* 44px is the comfortable touch target (WCAG 2.5.5, AAA); a control
+         * someone reaches for by pointer earns the full size. `sm` is the one
+         * compact escape hatch for dense inline rows (table actions, the
+         * compose bar) and still clears the 24px AA floor with room. */
+        default: "h-11",
+        sm: "h-9 px-3",
+        icon: "size-11 px-0",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

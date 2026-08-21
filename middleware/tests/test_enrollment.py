@@ -83,6 +83,70 @@ def test_enabled_instruments_reflects_a_disabled_toggle():
     ]
 
 
+def test_apply_capture_overrides_layers_on_derived_settings():
+    settings = {
+        "tern.participantId": "P03",
+        "tern.stuck.enabled": True,
+        "tern.behavior.captureAiLifecycle": True,
+    }
+    overrides = {
+        "toggles": [
+            {
+                "instrument": "tern",
+                "path": ["behavior", "captureAiLifecycle"],
+                "value": False,
+            }
+        ]
+    }
+    out = enrollment.apply_capture_overrides(settings, overrides)
+    assert out["tern.behavior.captureAiLifecycle"] is False
+    # The non-overridden setting is untouched.
+    assert out["tern.stuck.enabled"] is True
+
+
+def test_apply_capture_overrides_is_a_no_op_without_overrides():
+    settings = {"tern.stuck.enabled": True}
+    assert enrollment.apply_capture_overrides(settings, None) == settings
+    assert enrollment.apply_capture_overrides(settings, {"toggles": []}) == settings
+
+
+def test_build_capture_config_applies_overrides():
+    cfg = enrollment.build_capture_config(
+        PROTOCOL,
+        "P03",
+        "ai-assisted",
+        overrides={
+            "toggles": [
+                {"instrument": "tern", "path": ["stuck", "enabled"], "value": False}
+            ]
+        },
+    )
+    assert cfg["settings"]["tern.stuck.enabled"] is False
+
+
+def test_clean_capture_overrides_drops_malformed_entries():
+    raw = {
+        "toggles": [
+            {"instrument": "tern", "path": ["stuck", "enabled"], "value": False},
+            {"instrument": "", "path": [], "value": True},  # empty instrument
+            {"instrument": "tern", "path": "not-a-list", "value": True},
+            {"instrument": "tern", "path": ["ok"], "value": True, "extra": 1},
+        ]
+    }
+    cleaned = enrollment.clean_capture_overrides(raw)
+    assert cleaned == {
+        "toggles": [
+            {"instrument": "tern", "path": ["stuck", "enabled"], "value": False},
+            {"instrument": "tern", "path": ["ok"], "value": True},
+        ]
+    }
+
+
+def test_clean_capture_overrides_none_for_empty():
+    assert enrollment.clean_capture_overrides(None) is None
+    assert enrollment.clean_capture_overrides({"toggles": []}) is None
+
+
 def test_content_policy_defaults_to_metadata_only():
     assert enrollment.content_policy(PROTOCOL) == "metadata-only"
     p = {

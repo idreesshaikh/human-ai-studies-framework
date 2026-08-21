@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Layers,
   BookOpen,
@@ -6,6 +7,7 @@ import {
   X,
   Check,
   Info,
+  MessageSquareText,
 } from "lucide-react";
 import {
   Dialog,
@@ -16,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Notice } from "@/components/ui/notice";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { Confidence } from "@/components/conversation/Confidence";
 import { DeriveFromPaper } from "./DeriveFromPaper";
@@ -24,8 +27,11 @@ import {
   templatesApi,
   type RepertoireEntry,
   type MergeResult,
+  type CorpusHit,
 } from "@/lib/templatesApi";
 import { OfflineError } from "@/lib/studyApi";
+import { useApi, useSession } from "@/lib/session";
+import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
 /* The protocol repertoire (FR-TPL) — the literature read as *design shapes*
@@ -48,6 +54,24 @@ export function Templates() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  /* A paper handed over from a shape's reference list ("Use this paper").
+   * Carries the paper into the derive panel with that shape pre-selected as
+   * the archetype, so the researcher never re-finds a paper they were already
+   * looking at. */
+  const [seed, setSeed] = useState<{
+    paper: CorpusHit;
+    baseId: string;
+  } | null>(null);
+
+  /* The conversational alternative to checkbox-merging: describe the study in
+   * plain language and the assistant works the design (and, when shapes are
+   * selected, the merge) out in a design conversation. */
+  const api = useApi();
+  const { refresh } = useSession();
+  const navigate = useNavigate();
+  const [describe, setDescribe] = useState("");
+  const [describeBusy, setDescribeBusy] = useState(false);
+  const [describeError, setDescribeError] = useState("");
 
   useEffect(() => {
     templatesApi
@@ -93,6 +117,38 @@ export function Templates() {
     }
   }
 
+  async function describeStudy() {
+    const text = describe.trim();
+    if (!text || describeBusy) return;
+    setDescribeBusy(true);
+    setDescribeError("");
+    try {
+      // Same implicit-personal-project path as QuickStart: no naming friction,
+      // the researcher lands straight in the conversation.
+      const project = await api.createProject("Personal");
+      const title =
+        text.length > 60 ? `${text.slice(0, 57).trimEnd()}…` : text;
+      // With shapes already selected, name them in the opening so the
+      // assistant proposes that merge immediately instead of asking which
+      // shapes the researcher means.
+      const opening =
+        selected.size >= 2
+          ? `Merge these design shapes: ${[...selected].join(", ")}. ${text}`
+          : text;
+      const study = await api.createStudy(project.slug, title);
+      await refresh();
+      navigate(`/p/${project.slug}/studies/${study.id}`, { state: { opening } });
+    } catch (e) {
+      setDescribeError(
+        e instanceof ApiError && e.fromServer
+          ? e.message
+          : "Couldn't start the conversation. Try again in a moment.",
+      );
+    } finally {
+      setDescribeBusy(false);
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
       <div>
@@ -119,6 +175,16 @@ export function Templates() {
             )}
           </p>
         )}
+        <p className="mt-1 type-caption text-text-muted">
+          <Link
+            to="/submissions"
+            className="inline-block py-1 -my-1 underline underline-offset-2 hover:text-text"
+          >
+            Review template submissions
+          </Link>{" "}
+          — proposed shapes from researchers and the corpus miner, awaiting a
+          decision before they enter the registry.
+        </p>
       </div>
 
       {error && (
@@ -126,7 +192,53 @@ export function Templates() {
       )}
 
       {entries && entries.length > 0 && (
-        <DeriveFromPaper templates={entries} />
+        <DeriveFromPaper templates={entries} seed={seed} />
+      )}
+
+      {/* The conversational alternative to browsing and checking boxes. A
+        * researcher who can describe their problem but not name the shapes it
+        * needs gets a path straight into a design conversation; shapes they
+        * have already selected are handed over as an explicit merge request,
+        * so the assistant proposes the pairing rather than asking them to
+        * re-articulate it. */}
+      {entries && entries.length > 0 && (
+        <section className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4">
+          <h2 className="type-subhead flex items-center gap-2 text-text">
+            <MessageSquareText className="size-4" aria-hidden />
+            Describe your study instead
+          </h2>
+          <p className="type-caption text-text-muted">
+            {selected.size >= 2
+              ? `The ${selected.size} shapes you selected will be proposed as a merge in a design conversation.`
+              : "Not sure which shapes fit? Describe the study in plain language and the assistant works the design out with you."}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              value={describe}
+              onChange={(e) => setDescribe(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void describeStudy()}
+              placeholder="e.g. Does AI pair programming change debugging time, comparing telemetry with self-report?"
+              aria-label="Describe your study"
+              className="min-w-0 flex-1 basis-56"
+            />
+            <Button
+              size="sm"
+              onClick={() => void describeStudy()}
+              disabled={!describe.trim() || describeBusy}
+            >
+              {describeBusy ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                "Start conversation"
+              )}
+            </Button>
+          </div>
+          {describeError && (
+            <p role="alert" className="type-caption text-critical">
+              {describeError}
+            </p>
+          )}
+        </section>
       )}
 
       {entries === null && !error ? (
@@ -224,6 +336,10 @@ export function Templates() {
           selected={selected.has(detailId)}
           onToggle={() => toggle(detailId)}
           onClose={() => setDetailId(null)}
+          onUsePaper={(paper, baseId) => {
+            setDetailId(null);
+            setSeed({ paper, baseId });
+          }}
         />
       )}
     </div>
@@ -362,11 +478,13 @@ function ShapeDetailPanel({
   selected,
   onToggle,
   onClose,
+  onUsePaper,
 }: {
   entry: RepertoireEntry;
   selected: boolean;
   onToggle: () => void;
   onClose: () => void;
+  onUsePaper: (paper: CorpusHit, baseId: string) => void;
 }) {
   return (
     <Dialog open onOpenChange={onClose}>
@@ -406,16 +524,39 @@ function ShapeDetailPanel({
             <ul className="mt-2 space-y-2">
               {entry.references.map((ref) => (
                 <li key={ref.ref} className="rounded-control border border-border p-2">
-                  <div className="flex items-center gap-2">
-                    <Confidence value={ref.confidence ?? undefined} />
-                    {ref.role !== "uses-this-design" && (
-                      <span className="type-caption text-text-muted">
-                        {ref.role.replace(/-/g, " ")}
-                      </span>
-                    )}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <Confidence value={ref.confidence ?? undefined} />
+                        {ref.role !== "uses-this-design" && (
+                          <span className="type-caption text-text-muted">
+                            {ref.role.replace(/-/g, " ")}
+                          </span>
+                        )}
+                      </div>
+                      <p className="type-caption text-text">{ref.title}</p>
+                      <p className="type-caption text-text-muted">{ref.matchReason}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        onUsePaper(
+                          {
+                            ref: ref.ref,
+                            title: ref.title,
+                            year: ref.year,
+                            venue: ref.venue,
+                            confidence: ref.confidence,
+                            matchReason: ref.matchReason,
+                          },
+                          entry.id,
+                        )
+                      }
+                    >
+                      Use this paper
+                    </Button>
                   </div>
-                  <p className="mt-1 type-caption text-text">{ref.title}</p>
-                  <p className="type-caption text-text-muted">{ref.matchReason}</p>
                 </li>
               ))}
             </ul>
@@ -490,7 +631,7 @@ function MergedResult({
        * from there in the conversation. */}
       <CreateStudyFrom
         protocol={result.protocol}
-        label="Turn this into a study. the merged protocol seeds its draft"
+        label="Turn this into a study — the merged protocol seeds its draft"
       />
     </div>
   );

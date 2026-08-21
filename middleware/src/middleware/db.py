@@ -279,6 +279,9 @@ class EnrollmentToken(Base):
     participant_index: Mapped[int] = mapped_column(Integer, default=0)
     condition: Mapped[str] = mapped_column(String)
     grain: Mapped[str] = mapped_column(String)
+    # Per-mint capture-config overrides, layered on the protocol-derived defaults at
+    # redeem time (FR-INST-20). ``{"toggles": [{"instrument", "path", "value"}, ...]}``.
+    capture_overrides: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     token: Mapped[str] = mapped_column(String, unique=True, index=True)
     credential: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     expires_at: Mapped[str] = mapped_column(String)
@@ -470,6 +473,10 @@ class TemplateSubmission(Base):
     name: Mapped[str] = mapped_column(String)
     template_yaml: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String, default="pending")
+    # Where the submission came from: a human researcher ("human") or the
+    # corpus-mining pipeline ("mined"). Shown in the review queue so a mined
+    # draft is reviewed as a proposal, never mistaken for a hand-authored one.
+    source: Mapped[str] = mapped_column(String, default="human")
     reviewer_sub: Mapped[str] = mapped_column(String, default="")
     review_comment: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[str] = mapped_column(String)
@@ -579,6 +586,8 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _migrate_enrollment_participant_index(engine)
     _migrate_event_task_id(engine)
     _migrate_invitation_created_at(engine)
+    _migrate_enrollment_capture_overrides(engine)
+    _migrate_template_submission_source(engine)
 
     if is_pg:
         _setup_pg_fts(engine)
@@ -692,6 +701,33 @@ def _migrate_event_task_id(engine) -> None:
                 text("ALTER TABLE events ADD COLUMN task_id VARCHAR DEFAULT ''")
             )
             log.info("Added task_id column to events (per-task attribution)")
+
+
+def _migrate_enrollment_capture_overrides(engine) -> None:
+    """Add ``enrollment_tokens.capture_overrides`` if missing (idempotent)."""
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("enrollment_tokens")}
+        if "capture_overrides" in cols:
+            return
+        conn.execute(
+            text("ALTER TABLE enrollment_tokens ADD COLUMN capture_overrides JSON")
+        )
+        log.info("Added capture_overrides to enrollment_tokens (mint-time config)")
+
+
+def _migrate_template_submission_source(engine) -> None:
+    """Add ``template_submissions.source`` if missing (idempotent)."""
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("template_submissions")}
+        if "source" in cols:
+            return
+        conn.execute(
+            text(
+                "ALTER TABLE template_submissions "
+                "ADD COLUMN source VARCHAR DEFAULT 'human'"
+            )
+        )
+        log.info("Added source to template_submissions (mined provenance)")
 
 
 def _migrate_invitation_created_at(engine) -> None:

@@ -205,7 +205,7 @@ export function DataTab({ studyId }: { studyId: string }) {
                         <>
                           <AlertTriangle className="size-3" aria-hidden />
                           {s.missingEvents > 0
-                            ? `${s.missingEvents} events missing`
+                            ? `${s.missingEvents} event${s.missingEvents === 1 ? "" : "s"} missing`
                             : "in progress"}
                           {s.flagKinds.length > 0 && ` · ${s.flagKinds.join(", ")}`}
                         </>

@@ -21,6 +21,7 @@ import { StudyTour, tourSeen, markTourSeen } from "@/components/shell/StudyTour"
 import { ExportStudy } from "@/components/shell/ExportStudy";
 import { PresenceChips } from "@/components/shell/PresenceChips";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { evolutionStore, useEvolution } from "@/lib/evolutionStub";
 import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
@@ -99,7 +100,21 @@ export function StudyHome() {
   // (the session's memberships can be a session old, which is what made the
   // Revoke control on Participants come and go); "still loading" stays
   // distinct from "viewer" — see lib/role.ts.
-  const { data: project } = useAsync(() => api.projectHome(slug), [api, slug]);
+  const { data: project, loading: projectLoading } = useAsync(
+    () => api.projectHome(slug),
+    [api, slug],
+  );
+  /* In local (non-Clerk) dev mode, the server's per-study authorization
+   * check waves through any unknown study id — deliberately, since local
+   * mode has no real accounts to check against — so a stale bookmark, a
+   * typo'd id, or a deleted study all render a fully interactive, empty
+   * workspace with no sign anything is wrong (verified live: every
+   * conversation/compile call the page fires returns 200 for a study that
+   * was never created). `project.studies` is the same list the sidebar
+   * and Studies tab already read from, so cross-checking against it here
+   * is a real "does this study exist in THIS project" answer, not a guess. */
+  const studyExists =
+    projectLoading || !project ? null : project.studies.some((st) => st.id === id);
   const roleState = resolveRole({
     projectMembers: project?.members,
     meSub: me?.sub,
@@ -125,13 +140,27 @@ export function StudyHome() {
     amendments: [],
   };
 
+  if (studyExists === false) {
+    return (
+      <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
+        <Notice kind="problem">
+          Study &quot;{id}&quot; doesn&apos;t exist in {slug}.{" "}
+          <Link to={`/p/${slug}`} className="underline">
+            Back to studies
+          </Link>
+          .
+        </Notice>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* ONE header row: project link + study name + tabs + actions */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface px-4 py-2">
         <Link
           to={`/p/${slug}`}
-          className="type-label flex items-center gap-1 text-text-muted hover:text-text"
+          className="type-label -my-1 flex items-center gap-1 rounded-control px-1.5 py-1.5 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
         >
           <ChevronLeft className="size-4" aria-hidden /> {slug}
         </Link>
@@ -157,7 +186,7 @@ export function StudyHome() {
                * action you can take", and a tab you are already on is a
                * position, not an action. */
               className={cn(
-                "type-control relative flex items-center gap-1.5 rounded-control border px-2 sm:px-2.5 py-1.5 transition-all duration-standard",
+                "type-control relative flex items-center gap-1.5 rounded-control border px-2 sm:px-2.5 py-2 transition-all duration-standard",
                 tab === t.id
                   ? "control-axis axis-under"
                   : "border-transparent text-text-muted hover:bg-zone-9 hover:text-text")}

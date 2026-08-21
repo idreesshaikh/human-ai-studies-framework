@@ -78,7 +78,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       title={navFolded ? label : undefined}
       className={({ isActive }) =>
         cn(
-          "type-control flex items-center gap-2 rounded-control border py-1.5 transition-all duration-standard",
+          "type-control flex items-center gap-2 rounded-control border py-2 transition-all duration-standard",
           // The folded rail is 3.25rem (52px) wide with 0.75rem of outer
           // padding on each side (12px), leaving 28px per row — px-2.5's
           // 20px of horizontal padding was sized for the expanded row and
@@ -108,7 +108,11 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         >
           <Menu className="size-5" aria-hidden />
         </button>
-        <Link to="/home" className="flex items-center gap-2" aria-label="Phoenix, home">
+        <Link
+          to="/home"
+          className="-ml-2 flex items-center gap-2 rounded-control px-2 py-2 transition-colors duration-fast hover:bg-zone-9"
+          aria-label="Phoenix, home"
+        >
           <PhoenixMark size={22} />
           <span className="type-subhead tracking-tight text-text">Phoenix</span>
         </Link>
@@ -119,7 +123,10 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="rounded-chip" aria-label="Account">
+              <button
+                className="rounded-chip -m-1.5 p-1.5 transition-colors duration-fast hover:bg-zone-9"
+                aria-label="Account"
+              >
                 <Avatar name={accountName} src={accountImg} />
               </button>
             </DropdownMenuTrigger>

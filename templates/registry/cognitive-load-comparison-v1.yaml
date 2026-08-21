@@ -1,0 +1,131 @@
+templateVersion: 1
+templateId: cognitive-load-comparison-v1
+title: Cognitive load / workload comparison
+description: |
+  A within-subjects comparison whose primary research question is
+  cognitive load itself, not task outcome with workload as a side
+  measure. Use when the study's actual claim is about mental effort or
+  verification burden under AI assistance ("reviewing AI suggestions is
+  more/less taxing than writing code unaided"), not whether the assisted
+  arm finishes faster. Prescribes the paired self-reported-fatigue
+  comparison (`fatigue-by-condition`).
+designType: rct-within-subjects
+
+designSignature:
+  - "cognitive load"
+  - "mental workload"
+  - "verification load"
+  - "verification fatigue"
+  - "workload"
+dataPath: live
+source:
+  - paperRef: corpus:when-help-hurts-verification-load-fatigue
+    role: primary-design
+parameters:
+  studyId:
+    type: string
+    default: cognitive-load-study
+  title:
+    type: string
+    default: "Cognitive load under AI assistance"
+  conditions:
+    type: conditions
+    default: [unassisted, ai-assisted]
+  participantPlan:
+    type: participants
+    min: 8
+    default: 16
+  sessionMinutes:
+    type: int
+    default: 75
+    min: 30
+    max: 150
+  taskDescription:
+    type: string
+    default: Development task completed once per condition, with fatigue
+      probes at fixed intervals
+  researchers:
+    type: conditions
+    default: [Researcher]
+  ethicsRef:
+    type: string
+    default: "pending: not yet obtained"
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+measures:
+  - id: fatigue-by-condition
+    leg: cognitive
+    elements: [fatigue_response]
+    description: Self-reported fatigue (1-5) compared between conditions
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: self-reported fatigue (paired, matched by participant)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      smallN: hypothesis-generating
+threats:
+  - threat: order-effect
+    mitigation: Condition order is counterbalanced across participants
+  - threat: probe-reactivity
+    mitigation: Fixed-interval fatigue probes are identical across
+      conditions, so any reactivity applies equally to both
+protocolSkeleton:
+  protocolVersion: 4
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  researchQuestions:
+    - id: RQ-1
+      text: Does self-reported cognitive load differ between the
+        unassisted and AI-assisted condition?
+  conditions: "{{ conditions }}"
+  participants:
+    planned: "{{ participantPlan }}"
+    design: within-subjects
+    counterbalanced: true
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ taskDescription }}"
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 10
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 5
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages: [python]
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: cognitive-load-9
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [fatigue-by-condition]

@@ -231,6 +231,25 @@ def test_asking_what_design_to_use_is_not_naming_one(client):
     assert [m for m in reply["moves"] if m["kind"] == "choose-template"] == []
 
 
+def test_naming_a_template_id_is_naming_a_design(client):
+    """
+    The repertoire's "describe your study instead" entry point seeds a study's opening
+    turn with the template ids a researcher selected, so the assistant proposes the
+    pairing rather than asking which shapes they mean. Naming an id must open the
+    design gate — an explicit ask is never overruled by the facet gate.
+    """
+    from middleware.db import make_session_factory
+    from middleware.design_assistant import turn_stance
+
+    factory = make_session_factory(client.db_url)
+    with factory() as s:
+        stance = turn_stance(
+            s, "merge metr-rct-v1 with survey-self-report-v1", study_id=None
+        )
+    assert stance["namedDesign"] is True
+    assert stance["mayProposeDesign"] is True
+
+
 def test_asking_why_about_a_named_design_still_answers(client):
     """
     A follow-up question never opens the gate, or 'why the crossover?' would re-propose

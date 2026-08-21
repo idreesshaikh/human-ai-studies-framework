@@ -100,7 +100,7 @@ export function StudyTour({
           <button
             onClick={onClose}
             aria-label="Skip the tour"
-            className="text-text-muted hover:text-text"
+            className="rounded-control -m-2 p-2 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
           >
             <X className="size-4" aria-hidden />
           </button>

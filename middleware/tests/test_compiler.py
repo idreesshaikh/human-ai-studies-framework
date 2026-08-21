@@ -1,5 +1,7 @@
 """Unit tests for the pure protocol compiler's template resilience."""
 
+import yaml
+
 from middleware import compiler
 
 
@@ -55,6 +57,42 @@ def test_hallucinated_template_id_reports_instead_of_raising():
     assert not result.valid
     assert any("m-t" in e and "hallucinated-rct-2026" in e for e in result.errors)
     assert "the design" in result.unresolved
+
+
+def test_a_seeded_draft_survives_the_first_zero_move_compile():
+    """
+    A study created from "derive from paper" or "merge templates" (`app.py`'s
+    `create_study` writes the seed protocol as the study's `ProtocolDraftRow`,
+    which the caller passes back in as `base_yaml`) auto-compiles once on
+    landing, before any move exists. With no template move to instantiate,
+    the compiler used to fall straight to a bare scaffold, discarding the
+    seed entirely — silently breaking the promise both promotion flows make
+    ("this design seeds its draft, citing the paper"/"the merged protocol").
+    """
+    seed = {
+        "protocolVersion": 4,
+        "study": {"id": "draft", "title": "Seeded from a paper", "researchers": ["Researcher"]},
+        "researchQuestions": [{"id": "RQ-1", "text": "Does the seed survive?"}],
+        "phases": [{"name": "design", "gates": []}],
+    }
+    result = compiler.compile_moves([], base_yaml=yaml.safe_dump(seed))
+    assert "Seeded from a paper" in result.yaml
+    assert "Does the seed survive?" in result.yaml
+
+    # A move layers on top of the seed exactly as it would on a
+    # template-instantiated base, rather than replacing it.
+    with_move = compiler.compile_moves([_rq_move()], base_yaml=yaml.safe_dump(seed))
+    assert "Seeded from a paper" in with_move.yaml
+    assert "over-trust AI-generated code" in with_move.yaml
+
+
+def test_garbage_base_yaml_falls_back_to_the_blank_scaffold():
+    """Not every base_yaml is a real seed — an in-progress draft with no
+    template and no seed still starts clean, and outright junk never crashes
+    the compile."""
+    result = compiler.compile_moves([], base_yaml="not: a, protocol")
+    assert result.yaml.strip()
+    assert "study" in result.yaml
 
 
 def test_unknown_parameters_are_ignored_with_a_warning():

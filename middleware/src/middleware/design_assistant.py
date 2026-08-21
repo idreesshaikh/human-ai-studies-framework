@@ -319,6 +319,20 @@ def researcher_texts(s: Session, study_id: str | None) -> list[str]:
     )
 
 
+def _names_template_id(text: str, templates: list[dict]) -> bool:
+    """Whether the researcher's own words name a specific template by id.
+
+    The repertoire's "describe your study instead" entry point seeds a study's
+    opening turn with the template ids the researcher already selected, so the
+    assistant proposes the merge immediately instead of asking again which
+    shapes they mean. Naming an id is naming a design — an explicit ask must
+    never be overruled by the facet gate."""
+    q = (text or "").lower()
+    return any(
+        t.get("templateId") and t["templateId"].lower() in q for t in templates
+    )
+
+
 def turn_stance(
     s: Session,
     text: str,
@@ -331,13 +345,15 @@ def turn_stance(
     prior = researcher_texts(s, study_id)
     understanding = elicitation.assess_understanding([*prior, text])
     intent = elicitation.classify_turn(text)
+    templates = list_templates()
     # A follow-up question never counts, or "why the crossover?" would re-propose the
     # crossover.
     named_design = intent != "followup-question" and (
         any(r["matchScore"] >= _NAMED_DESIGN_SCORE for r in recommend_templates(text))
         or elicitation.names_a_design(
-            text, [tpl.get("designSignature", []) for tpl in list_templates()]
+            text, [tpl.get("designSignature", []) for tpl in templates]
         )
+        or _names_template_id(text, templates)
     )
     # A profile the caller declared is an account fact and outranks the dial; the dial's
     # implied register only fills in for someone who never set one.

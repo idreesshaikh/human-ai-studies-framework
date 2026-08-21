@@ -1,0 +1,152 @@
+templateVersion: 1
+templateId: bounded-case-study-v1
+title: Bounded case study (one team, cohort, or organisation)
+description: |
+  An in-depth study of AI-assisted development inside one bounded context —
+  a single team, cohort, or company — where the contribution is contextual
+  insight, not a generalisable effect. Distinct from
+  single-arm-benchmark-v1 (one arm against an external benchmark) and
+  observational-field-v1 (naturalistic telemetry across a population): here
+  the unit of analysis is the context itself. Any comparison is within that
+  context, so it prescribes the paired test and states generalisability as a
+  threat.
+designType: case-study
+
+designSignature:
+  - "case study"
+  - "case studies"
+  - "industry case study"
+  - "single organisation"
+  - "single organization"
+dataPath: live
+source:
+  - paperRef: doi:10.1145/3639477.3643648
+    role: primary-design
+  - paperRef: doi:10.1109/ICSE-SEIP66354.2025.00035
+    role: design-reference
+parameters:
+  studyId:
+    type: string
+    default: bounded-case-study
+  title:
+    type: string
+    default: "Bounded case study of AI-assisted development"
+  caseContext:
+    type: string
+    default: one development team
+    description: The bounded unit this study is a case of
+    rationale: A case study's claims are about this context and no other,
+      so the context is named in the research question itself
+  conditions:
+    type: conditions
+    default: [unassisted, ai-assisted]
+  participantPlan:
+    type: participants
+    min: 1
+    default: 8
+    rationale: Bounded by whoever is in the context; a case study does not
+      recruit to a power calculation
+  sessionMinutes:
+    type: int
+    default: 90
+    min: 15
+    max: 480
+  taskDescription:
+    type: string
+    default: The context's own real work, observed under both conditions
+  researchers:
+    type: conditions
+    default: [Researcher]
+  ethicsRef:
+    type: string
+    default: "pending: not yet obtained"
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+measures:
+  - id: within-context-outcome
+    leg: behavioral
+    elements: [task_outcome]
+    description: Outcome compared within this one context, not across contexts
+  - id: perceived-load
+    leg: cognitive
+    elements: [fatigue_response]
+    description: How the context's own developers experienced the work
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: within-context comparison (paired by participant)
+      test: wilcoxon-signed-rank
+      effectSize: matched-pairs rank-biserial
+      smallN: hypothesis-generating
+threats:
+  - threat: generalisability
+    mitigation: The unit of analysis is this context. Findings are reported
+      as descriptive of it, and the report states the context's relevant
+      properties (domain, team size, tooling maturity) so a reader can judge
+      transferability rather than assume it
+  - threat: selection-of-case
+    mitigation: Why this context was chosen is stated up front, including
+      whether access rather than representativeness drove the choice
+  - threat: observer-effect
+    mitigation: Instruments capture aggregates from real work rather than an
+      assigned lab task, and participants see what is captured before any
+      recording starts
+protocolSkeleton:
+  protocolVersion: 4
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  researchQuestions:
+    - id: RQ-1
+      text: Within {{ caseContext }}, how does AI assistance change the work
+        and how do the developers there experience it?
+  conditions: "{{ conditions }}"
+  participants:
+    planned: "{{ participantPlan }}"
+    design: within-subjects
+    counterbalanced: false
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ taskDescription }}"
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 15
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 5
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages: [python]
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: cognitive-load-9
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [paired-nonparametric, fatigue-by-condition]

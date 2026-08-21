@@ -1,0 +1,124 @@
+# The demo study's protocol — the document of record for the read-only study
+# in the demo project (`middleware/demo.py`).
+#
+# This is deliberately NOT a copy of `protocol/examples/pilot-study.yaml`:
+# that one is a frozen, versioned artifact of the real pilot, and the demo
+# must never be mistaken for it. What the two share is the design the sample
+# sessions actually implement — the same two conditions, the same
+# within-subjects shape — because `sample-session*.jsonl` were recorded
+# against exactly that design (P02 appears in both conditions; P01 in one).
+#
+# Every recipe named below has real events in `sample-data/*.jsonl`, so the
+# demo's Data and Planning tabs render populated rather than empty:
+#   fatigue_response  -> fatigue-by-condition
+#   stuck_response    -> stuck-episodes
+#   end_survey        -> tlx-debrief
+#   clipboard_paste   -> paste-behavior
+#   editor_focus      -> meyer-fragmentation
+#   ai_suggestion     -> ai-review-behavior, ziegler-acceptance-rate
+#   sample-metrics    -> code-quality-by-condition
+# The real pilot's RQ-P5 (agent-interaction-dynamics, task-outcome-by-
+# condition) is omitted on purpose: the sample sessions carry no agent or
+# task_outcome events, and a demo that prescribes an analysis it has no data
+# for would be teaching the opposite of this platform's own rule.
+
+protocolVersion: 4
+
+study:
+  id: ai-and-developer-productivity
+  title: "AI assistance and developer productivity: a within-subjects pilot"
+  researchers:
+    - Demo Researcher
+  ethicsRef: "demo study — illustrative only, no ethics application"
+
+researchQuestions:
+  - id: RQ-P1
+    text: >-
+      How does AI assistance affect self-reported cognitive load
+      (fatigue probes, stuck episodes, TLX debrief)?
+  - id: RQ-P2
+    text: >-
+      How does AI assistance affect the static cognitive-load profile of the
+      code produced (9-metric matrix over workspace snapshots)?
+  - id: RQ-P3
+    text: >-
+      How does AI assistance change working behavior - pasting, file
+      switching, active vs idle time?
+  - id: RQ-P4
+    text: >-
+      How do developers review AI-generated code before accepting it
+      (review latency, scroll coverage, accept rate)?
+
+conditions:
+  - ai-assisted
+  - unassisted
+
+participants:
+  planned: 6
+  design: within-subjects
+  counterbalanced: true
+
+session:
+  # 60 minutes, matching the `plannedDurationMinutes` the sample sessions
+  # actually carry in their `session_start` payload.
+  durationMinutes: 60
+  taskDescription: >-
+    Two matched Python maintenance tasks, one per condition, order
+    counterbalanced per participant. In ai-assisted sessions the participant
+    works with an AI coding assistant; in unassisted sessions AI tooling is
+    disabled.
+
+instruments:
+  tern:
+    session:
+      durationMinutes: 60
+    fatigue:
+      intervalMinutes: 15
+      waitForPauseSeconds: 4
+      jitterPercent: 20
+      quietTailMinutes: 5
+    stuck:
+      enabled: true
+      thresholdSeconds: 90
+      cooldownMinutes: 5
+      languages: [python]
+    output:
+      httpEndpoint: "http://127.0.0.1:8000/ingest/events"
+  metrics:
+    metricSet: cognitive-load-9
+
+phases:
+  - name: design
+    gates:
+      - protocol-validated.txt
+  - name: ethics
+    gates:
+      - ethics-approval.pdf
+  - name: pilot
+    gates: []
+  - name: recruitment
+    gates: []
+  - name: data-collection
+    gates: []
+  - name: analysis
+    gates: []
+  - name: write-up
+    gates: []
+
+analysisPlan:
+  - rq: RQ-P1
+    recipes: [fatigue-by-condition, stuck-episodes, tlx-debrief]
+  - rq: RQ-P2
+    recipes: [code-quality-by-condition]
+  - rq: RQ-P3
+    recipes: [paste-behavior, meyer-fragmentation]
+  - rq: RQ-P4
+    recipes: [ai-review-behavior, ziegler-acceptance-rate]
+
+literature:
+  - paperRef: "arxiv:2302.06590"
+    justifies: [RQ-P3, RQ-P4]
+  - paperRef: "arxiv:2205.06537"
+    justifies: [RQ-P4]
+  - paperRef: "doi:10.1109/TSE.2017.2656886"
+    justifies: [RQ-P3]

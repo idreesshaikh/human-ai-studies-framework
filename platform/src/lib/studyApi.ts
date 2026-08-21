@@ -506,6 +506,18 @@ export const studyApi = {
       { sessions: SEED_SESSIONS, conditions: SEED_CONDITIONS },
       { sessions: [], conditions: [] },
     ),
+  /** The study's compiled protocol, read-only.
+   *
+   *  The conversation gets its protocol back from `/conversation/compile`,
+   *  which needs a contribute-level capability — so a viewer (and every
+   *  visitor to the read-only demo) got a 403 there and saw an empty
+   *  "no design shape yet" rail over a fully compiled protocol. This is the
+   *  view-capability twin of that call: no compilation, no write, just the
+   *  document of record. */
+  protocol: (study: string) =>
+    req<{ document?: Record<string, unknown> }>(
+      `/studies/${enc(study)}/protocol`,
+    ).then((r) => r.document ?? null),
   sessionEvents: (studyId: string, sessionId: string) =>
     liveOrSeedStudy(
       studyId,

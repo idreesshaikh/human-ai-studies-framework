@@ -2,10 +2,29 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from middleware.db import Project, SessionOpen, Study, make_session_factory
+from middleware.db import (
+    Project,
+    ProtocolDraftRow,
+    SessionOpen,
+    Study,
+    make_session_factory,
+)
+
+#: The demo study's own protocol, kept beside the sample sessions it describes.
+#: Without it the demo can never resolve a protocol at all: ``_resolve_study_
+#: protocol`` looks for an approved snapshot, then a compiled draft, then the
+#: boot protocol — and the boot protocol (when one is loaded) is ``pilot-2026``,
+#: a different study id. So every panel that gates on "has a compiled protocol"
+#: — the whole Data tab, Planning, the status endpoint — returned 404 on the one
+#: study that exists to show them populated.
+DEMO_PROTOCOL_PATH = (
+    Path(__file__).resolve().parents[2] / "sample-data" / "demo-protocol.yaml"
+)
 
 DEMO_PROJECT_ID = "demo"
 DEMO_PROJECT_SLUG = "demo"
@@ -29,7 +48,7 @@ def seed_demo(db_url: str, *, now: str = "") -> dict:
 
 
 def _seed(s: Session, now: str) -> dict:
-    made: dict = {"project": False, "study": False, "sessions": 0}
+    made: dict = {"project": False, "study": False, "sessions": 0, "protocol": False}
 
     project = s.get(Project, DEMO_PROJECT_ID)
     if project is None:
@@ -60,6 +79,22 @@ def _seed(s: Session, now: str) -> dict:
         )
         s.flush()
         made["study"] = True
+
+    # The protocol is what makes the demo "one fully-built study anybody can
+    # look at" rather than a study whose data exists but can never surface.
+    # Written as a compiled draft, the same row the design conversation's own
+    # approve step writes, so the demo reaches the UI through the ordinary path
+    # rather than a special case.
+    if s.get(ProtocolDraftRow, DEMO_STUDY_ID) is None and DEMO_PROTOCOL_PATH.is_file():
+        s.add(
+            ProtocolDraftRow(
+                study_id=DEMO_STUDY_ID,
+                yaml=DEMO_PROTOCOL_PATH.read_text(),
+                compilation_id="",
+                updated_at=now,
+            )
+        )
+        made["protocol"] = True
 
     existing = set(
         s.scalars(

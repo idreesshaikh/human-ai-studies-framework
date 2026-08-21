@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, Check, ExternalLink } from "lucide-react";
 import { useApi } from "@/lib/session";
+import { studyApi } from "@/lib/studyApi";
 import { hasRole, type Role } from "@/lib/capabilities";
 import type { EnrollmentTokenView, ToggleCatalogEntry } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,13 @@ export function EnrollmentPanel({
   const [copied, setCopied] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState("");
   const [loadError, setLoadError] = useState("");
+  /* Participants this study already holds data for. Enrollment tokens and
+   * collected sessions are different facts: a study can carry sessions that
+   * never came through a minted link (a curated import, a replayed capture,
+   * the bundled demo). Saying "No participants yet" on the strength of an
+   * empty token list made this tab contradict the Data tab, which was listing
+   * those same participants and their completed sessions. */
+  const [dataParticipants, setDataParticipants] = useState<string[]>([]);
   const canMint = hasRole(role, "mint_token");
   const canToggle = hasRole(role, "toggle_capture");
 
@@ -57,6 +65,16 @@ export function EnrollmentPanel({
         ),
       );
     void api.toggleCatalog(studyId).then(setCatalog).catch(() => {});
+    void studyApi
+      .status(studyId)
+      .then((s) =>
+        setDataParticipants([
+          ...new Set(
+            s.sessions.map((row) => row.participantId).filter(Boolean),
+          ),
+        ]),
+      )
+      .catch(() => setDataParticipants([]));
   }, [studyId, api]);
   useEffect(load, [load]);
 
@@ -103,8 +121,15 @@ export function EnrollmentPanel({
     <Surface measure="wide" label="Participants" data-agent="enrollment-panel">
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1">
+          {/* Counts enrollment links, so it says "enrolled" only about
+            * enrolment — a study holding imported or replayed sessions has
+            * participants without ever having minted one. */}
           <h2 className="type-section text-text">
-            {rows.length === 0 ? "None enrolled" : `${rows.length} enrolled`}
+            {rows.length === 0
+              ? dataParticipants.length > 0
+                ? "None enrolled through a link"
+                : "None enrolled"
+              : `${rows.length} enrolled`}
           </h2>
           <p className="mt-1 type-caption text-text-muted">
             One link per participant. They paste it once, their editor joins the
@@ -123,7 +148,7 @@ export function EnrollmentPanel({
               href={EXTENSION_RELEASES_URL}
               target="_blank"
               rel="noreferrer"
-              className="underline underline-offset-2 hover:text-text"
+              className="inline-block py-1 -my-1 underline underline-offset-2 hover:text-text"
               data-agent="extension-install-link"
             >
               Download the .vsix
@@ -159,7 +184,17 @@ export function EnrollmentPanel({
       <LiveSessions studyId={studyId} />
       {rows.length === 0 ? (
         <p className="rounded-input border border-dashed border-border px-3 py-6 text-center type-body text-text-muted">
-          No participants yet: mint a link to enroll the first one.
+          {dataParticipants.length > 0 ? (
+            <>
+              No enrollment links minted yet. This study already holds data for{" "}
+              {dataParticipants.length} participant
+              {dataParticipants.length === 1 ? "" : "s"} (
+              {dataParticipants.join(", ")}) collected outside the enrollment
+              flow — see the Data tab. Mint a link to enroll anyone new.
+            </>
+          ) : (
+            "No participants yet: mint a link to enroll the first one."
+          )}
         </p>
       ) : (
         <div className="overflow-x-auto">

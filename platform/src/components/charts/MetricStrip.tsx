@@ -70,10 +70,30 @@ export function MetricStrip({
   rows: DatasetRow[];
   conditions: string[];
 }) {
-  const [metricKey, setMetricKey] = useState(METRICS[0].key);
+  // `null` means "nobody has chosen yet" — not "no metric". An explicit
+  // choice always wins; until there is one, the strip opens on a metric that
+  // actually has rows.
+  const [chosen, setChosen] = useState<string | null>(null);
   const [asTable, setAsTable] = useState(false);
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
 
+  /* Which metrics this dataset actually carries. `cognitive_complexity` is
+   * first in METRICS and comes from SonarQube, so it is null for every row a
+   * study captured without a Sonar server wired up (the bundled sample data
+   * included). Opening on it showed "no metric rows carry cognitive_complexity"
+   * over a dataset holding six populated metrics — the panel read as broken
+   * when it was merely pointed at the one column nobody had filled. */
+  const populated = useMemo(() => {
+    const has = (key: string) =>
+      rows.some((r) => {
+        const v = r.payload[key];
+        return typeof v === "number" && Number.isFinite(v);
+      });
+    return new Set(METRICS.filter((m) => has(m.key)).map((m) => m.key));
+  }, [rows]);
+
+  const metricKey =
+    chosen ?? METRICS.find((m) => populated.has(m.key))?.key ?? METRICS[0].key;
   const metric = METRICS.find((m) => m.key === metricKey) ?? METRICS[0];
 
   const points = useMemo(
@@ -119,7 +139,7 @@ export function MetricStrip({
           Metric
           <Select
             value={metricKey}
-            onValueChange={setMetricKey}
+            onValueChange={setChosen}
             options={METRICS.map((m) => ({ value: m.key, label: m.label }))}
             className="h-8 w-auto"
           />

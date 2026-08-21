@@ -10,6 +10,9 @@
  *   - "incident" means touching the focus node itself, not just its
  *     neighbourhood (two neighbours citing each other are "dimmed")
  *   - labels reveal by selection, focus, or zoomed-in radius — never always
+ *     (the dense mode above the always-on node-count limit)
+ *   - the label mode flips from always-on to zoom-gated at the node-count
+ *     threshold, so a small study reads by name and a large one stays legible
  *   - drift is deterministic per ref and never depends on render order
  *   - the settle alpha schedule decays and the node-count gate is honoured
  */
@@ -21,6 +24,7 @@ import {
   edgeState,
   edgeOpacity,
   labelVisible,
+  labelMode,
   driftPhase,
   driftOffset,
   nextSettleAlpha,
@@ -34,6 +38,7 @@ import {
   DIMMED_EDGE_OPACITY,
   SETTLE_ALPHA0,
   SETTLE_NODE_LIMIT,
+  LABEL_ALWAYS_NODE_LIMIT,
 } from "../src/lib/constellationView.ts";
 
 let failures = 0;
@@ -117,6 +122,24 @@ ok(
 ok(
   "zooming in reveals the same node's label",
   labelVisible({ selected: false, inFocusNeighbourhood: false, radius: 3.5, zoomK: 4 }),
+);
+
+// --------------------------------------------------------------- labelMode
+ok(
+  "a study-sized graph gets always-on labels",
+  labelMode(LABEL_ALWAYS_NODE_LIMIT) === "always",
+);
+ok(
+  "a small graph gets always-on labels",
+  labelMode(3) === "always",
+);
+ok(
+  "a harvested neighbourhood past the limit degrades to zoom-gated labels",
+  labelMode(LABEL_ALWAYS_NODE_LIMIT + 1) === "dense",
+);
+ok(
+  "an empty graph still gets always-on labels (no labels to clash)",
+  labelMode(0) === "always",
 );
 
 // --------------------------------------------------------------- drift

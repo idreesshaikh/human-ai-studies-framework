@@ -17,6 +17,19 @@ export const SETTLE_ALPHA0 = 0.35;
 export const SETTLE_DECAY_PER_FRAME = 0.94;
 export const SETTLE_MAX_MS = 1000;
 export const SETTLE_NODE_LIMIT = 150;
+/** Above this many nodes, always-on labels stop being legible and the view
+ * degrades to zoom-gated labels instead. Tuned well below `SETTLE_NODE_
+ * LIMIT`: a node without a parsed author list falls back to its title
+ * (Constellation.tsx's `nodeLabel`), which runs noticeably wider than an
+ * "Author, Year" string — at 150 nodes a real harvested neighbourhood
+ * (most of which lack authors) rendered as a solid wall of overlapping
+ * title text, worse than the zoom-gated behaviour it replaced. 40 keeps
+ * "always" for the genuinely small case (a new study and its first
+ * citations) legible; anything larger falls back to the pre-existing,
+ * already-legible hub-first zoom-gated reveal. */
+export const LABEL_ALWAYS_NODE_LIMIT = 40;
+
+export type LabelMode = "always" | "dense";
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
@@ -90,8 +103,9 @@ export function edgeOpacity(state: "neutral" | "incident" | "dimmed"): number {
 /** Whether a node's label shows: always for the selected node or the
  * current focus/neighbourhood (so a highlighted cluster reads by name), and
  * otherwise only once its rendered radius (`r * zoomK`) clears a threshold —
- * zooming in is what reveals more names, not a permanent label on every
- * ingested paper (illegible clutter once a neighbourhood runs to hundreds). */
+ * zooming in is what reveals more names. This is the *dense* mode's contract;
+ * below `LABEL_ALWAYS_NODE_LIMIT` nodes the view uses always-on labels
+ * (`labelMode`), never this zoom gate. */
 export function labelVisible(opts: {
   selected: boolean;
   inFocusNeighbourhood: boolean;
@@ -100,6 +114,14 @@ export function labelVisible(opts: {
 }): boolean {
   if (opts.selected || opts.inFocusNeighbourhood) return true;
   return opts.radius * opts.zoomK >= LABEL_ZOOM_THRESHOLD;
+}
+
+/** Which label treatment a graph of this size gets: always-on author+year
+ * labels (reference-manager-grade by default) below the node-count limit,
+ * zoom-gated labels above it where permanent labels would paint over each
+ * other. Deliberately a single, honest threshold rather than a per-node guess. */
+export function labelMode(nodeCount: number): LabelMode {
+  return nodeCount <= LABEL_ALWAYS_NODE_LIMIT ? "always" : "dense";
 }
 
 /** A deterministic per-node phase from its ref, so the idle drift has no

@@ -104,7 +104,7 @@ export function DeriveFromPaper({
   }
 
   return (
-    <Card ref={panel}>
+    <Card ref={panel} className="border-strong bg-surface-raised">
       <CardContent className="flex flex-col gap-3 p-4">
         <div>
           <h2 className="type-subhead flex items-center gap-2 text-text">

@@ -61,3 +61,21 @@ def test_uncovered_rq_is_reported(pilot_doc, write_protocol):
     dropped = pilot_doc["analysisPlan"].pop()
     protocol = load_protocol(write_protocol(pilot_doc))
     assert uncovered_rqs(protocol) == [dropped["rq"]]
+
+
+def test_a_protocol_declaring_tern_behavior_validates(pilot_doc, write_protocol):
+    """
+    The TERN extension documents a ``tern.behavior.*`` block, but the schema's
+    ``instruments.tern`` used to declare ``additionalProperties: false`` without
+    listing ``behavior``, so a protocol that set it failed validation. It must now
+    validate.
+    """
+    pilot_doc["instruments"]["tern"]["behavior"] = {
+        "enabled": True,
+        "captureAiLifecycle": True,
+        "captureFocus": True,
+        "workspaceInternalOnly": True,
+        "languages": ["python"],
+    }
+    protocol = load_protocol(write_protocol(pilot_doc))
+    assert protocol["instruments"]["tern"]["behavior"]["captureAiLifecycle"] is True

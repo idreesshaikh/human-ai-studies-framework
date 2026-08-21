@@ -319,3 +319,44 @@ def test_approve_with_invalid_yaml_fails(client, tmp_path):
         headers=_headers(),
     )
     assert r2.status_code == 422, r2.text
+
+
+def test_mined_drafts_submit_as_source_mined(client):
+    """
+    The mining pipeline queues candidates through the same review door as a human
+    submission, tagged ``source=mined`` so the review UI shows provenance. Only
+    valid drafts are queued; an invalid one is left for the mining report.
+    """
+    from middleware.db import TemplateSubmission, make_session_factory
+    from middleware.mine_designs import submit_drafts
+    from sqlalchemy import select
+
+    valid = yaml.safe_load(VALID_TEMPLATE)
+    drafts = [
+        {
+            "id": "mined-01-v1",
+            "count": 12,
+            "phrases": ["between subjects"],
+            "template": valid,
+            "valid": True,
+            "problems": [],
+        },
+        {
+            "id": "mined-02-v1",
+            "count": 4,
+            "phrases": ["benchmark"],
+            "template": {"templateId": "broken", "title": "Broken"},
+            "valid": False,
+            "problems": ["missing protocolSkeleton"],
+        },
+    ]
+
+    sf = make_session_factory(client.db_path)
+    with sf() as s:
+        ids = submit_drafts(s, drafts)
+        rows = list(s.scalars(select(TemplateSubmission)))
+        mined = [r for r in rows if r.source == "mined"]
+        assert [r.id for r in mined] == ids
+        assert len(mined) == 1
+        assert mined[0].status == "pending"
+        assert mined[0].submitter_sub == "system:miner"

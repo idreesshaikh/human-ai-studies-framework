@@ -66,7 +66,7 @@ export function SegmentedControl<T extends string>({
               }
             }}
             className={cn(
-              "type-control relative rounded-control-inner px-3 py-1.5 transition-colors duration-standard",
+              "type-control relative rounded-control-inner px-3 py-2 transition-colors duration-standard",
               selected
                 ? "control-axis axis-under"
                 : "text-text-muted hover:bg-zone-9 hover:text-text",

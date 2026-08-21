@@ -136,6 +136,47 @@ def test_list_carries_capture_config_pre_flight_visibility(
     assert row["connectionString"] and "#" in row["connectionString"]
 
 
+def test_mint_with_overrides_layers_on_the_redeemed_config(
+    client_ethics_ok: TestClient,
+):
+    """Mint-time toggle overrides persist and reach the redeemed capture config."""
+    overrides = {
+        "toggles": [
+            {
+                "instrument": "tern",
+                "path": ["stuck", "enabled"],
+                "value": False,
+            }
+        ]
+    }
+    tok = client_ethics_ok.post(
+        "/studies/pilot/enrollment/tokens",
+        json={"count": 1, "grain": "participant", "overrides": overrides},
+    ).json()[0]
+
+    listed = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()
+    assert listed[0]["captureOverrides"] == overrides
+    assert listed[0]["captureConfig"]["enabledInstruments"] == [
+        {"name": "stuck", "enabled": False}
+    ]
+
+    raw = tok["connectionString"].rsplit("#", 1)[1]
+    body = client_ethics_ok.post("/pair/redeem", json={"token": raw}).json()
+    assert body["captureConfig"]["settings"]["tern.stuck.enabled"] is False
+
+
+def test_mint_without_overrides_behaves_like_today(client_ethics_ok: TestClient):
+    """No overrides on the request means no override column state (regression guard)."""
+    client_ethics_ok.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
+    )
+    listed = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()
+    assert listed[0]["captureOverrides"] is None
+    assert listed[0]["captureConfig"]["enabledInstruments"] == [
+        {"name": "stuck", "enabled": True}
+    ]
+
+
 def test_list_status_flips_to_streaming_once_events_arrive(
     client_ethics_ok: TestClient,
 ):

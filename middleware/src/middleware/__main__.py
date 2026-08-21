@@ -178,6 +178,12 @@ def main() -> None:
         help="ethics-package: write the Markdown to this file "
         "(default: print to stdout)",
     )
+    parser.add_argument(
+        "--submit",
+        action="store_true",
+        help="mine-designs: submit valid drafts as pending review submissions "
+        "(source=mined) instead of writing files to templates/drafts/",
+    )
     args = parser.parse_args()
 
     if args.db and not os.environ.get("DATABASE_URL"):
@@ -256,15 +262,23 @@ def main() -> None:
         import logging
 
         from middleware.db import create_session
-        from middleware.mine_designs import mine_and_draft, report_drafts
+        from middleware.mine_designs import (
+            mine_and_draft,
+            report_drafts,
+            submit_drafts,
+        )
         from middleware.settings import Settings
 
         logging.basicConfig(level=logging.INFO, format="%(message)s")
         settings = Settings()
         s = create_session(settings.db_url)
         try:
-            drafts = mine_and_draft(s)
+            drafts = mine_and_draft(s, write_files=not args.submit)
             print(report_drafts(drafts))
+            if args.submit:
+                ids = submit_drafts(s, drafts)
+                print(f"\nSubmitted {len(ids)} valid draft(s) for review "
+                      f"(source=mined): ids {ids}")
         finally:
             s.close()
 

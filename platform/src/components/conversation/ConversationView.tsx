@@ -65,6 +65,11 @@ export function ConversationView({
    * to explain why it hasn't proposed a design yet. */
   const [understanding, setUnderstanding] = useState<Understanding | undefined>();
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
+  /** The protocol as a reader sees it, when this identity may not compile. */
+  const [readOnlyProtocol, setReadOnlyProtocol] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
@@ -239,8 +244,20 @@ export function ConversationView({
     try {
       const result = await conversationApi.compile(studyId);
       setCompileResult(result);
+      setReadOnlyProtocol(null);
     } catch {
       setCompileResult(null);
+      /* Compiling is a contribute-level action, so a viewer 403s here — and
+       * used to be shown an empty "no design shape yet" rail over a protocol
+       * that exists and is fully compiled (the read-only demo made this
+       * unmissable: Data and Planning rendered the protocol while this rail
+       * claimed there wasn't one). Fall back to the view-capability document
+       * so a reader sees the study's record; they still can't compile it. */
+      try {
+        setReadOnlyProtocol(await studyApi.protocol(studyId));
+      } catch {
+        setReadOnlyProtocol(null);
+      }
     }
   }, [live, studyId]);
 
@@ -451,7 +468,7 @@ export function ConversationView({
   return (
     <div
       data-agent="conversation"
-      className="split-rail h-full"
+      className={cn("split-rail h-full", draftFolded && "rail-folded")}
     >
       <section className="flex h-full min-h-0 min-w-0 flex-col">
         <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
@@ -573,7 +590,7 @@ export function ConversationView({
           Desktop: minimizable via fold button, persisted per device. */}
       <div
         className={cn(
-          "flex min-h-0 flex-col border-l border-border-strong transition-all duration-fast",
+          "flex min-h-0 flex-col border-l border-border-strong bg-surface transition-all duration-fast",
           draftFolded ? "w-[2.125rem]" : "w-[30rem]",
           "hidden lg:flex",
         )}
@@ -603,12 +620,18 @@ export function ConversationView({
               understanding={understanding}
               draft={clientDraft}
               serverYaml={compileResult?.yaml}
-              protocol={compileResult?.protocol}
+              protocol={compileResult?.protocol ?? readOnlyProtocol ?? undefined}
               compileValid={compileResult?.valid}
               unresolved={compileResult?.unresolved}
-              onApply={live ? applyDraft : undefined}
+              /* A reader can see the record; only a contributor can change it,
+               * so the actions stay off when the compile came back 403. */
+              onApply={live && compileResult ? applyDraft : undefined}
               applying={applying}
-              onFinish={live ? () => { void refreshCompile(); setShowFinish(true); } : undefined}
+              onFinish={
+                live && compileResult
+                  ? () => { void refreshCompile(); setShowFinish(true); }
+                  : undefined
+              }
             />
           )}
         </div>

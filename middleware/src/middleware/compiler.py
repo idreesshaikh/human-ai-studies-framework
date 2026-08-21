@@ -364,6 +364,26 @@ def _instantiate_leniently(patch: dict) -> tuple[dict, list[str]]:
     return instantiated, notes
 
 
+def _seeded_draft(base_yaml: str | None) -> dict | None:
+    """A protocol to start from when this call's moves establish no template
+    of their own — either a study created from a "derive from paper" or
+    "merge templates" promotion (seeded at creation, `app.py`'s
+    `create_study`), or an in-progress study's own last compiled state.
+    Without this, a freshly seeded study's very first auto-compile (zero
+    moves yet) silently discarded the seed for a blank scaffold — the
+    promotion flow's own copy promises "this design seeds its draft",
+    which was false the moment the researcher landed on the page."""
+    if not base_yaml:
+        return None
+    try:
+        parsed = yaml.safe_load(base_yaml)
+    except yaml.YAMLError:
+        return None
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("study"), dict):
+        return None
+    return parsed
+
+
 def _scaffold_from_sections(sections: dict[str, list]) -> dict:
     """Build a protocol from free-text sections alone (no template)."""
     draft: dict = {
@@ -647,7 +667,12 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
         warnings.extend(failed)
         failed = []
     else:
-        draft = _scaffold_from_sections(sections)
+        seeded = _seeded_draft(base_yaml)
+        draft = (
+            _refine(seeded, sections)
+            if seeded is not None
+            else _scaffold_from_sections(sections)
+        )
 
     _apply_instrument_moves(draft, moves)
 

@@ -21,7 +21,10 @@ export function Members() {
     [api, slug],
   );
 
-  if (loading) {
+  // Only the first load blanks the page — a background reload (e.g. after
+  // creating an invitation) must not unmount an open dialog out from under
+  // the researcher mid-action.
+  if (loading && !data) {
     return (
       <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
         <p className="flex items-center gap-2 type-body text-text-muted">

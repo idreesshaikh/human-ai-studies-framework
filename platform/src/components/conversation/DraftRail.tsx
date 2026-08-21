@@ -53,6 +53,18 @@ export function DraftRail({
     ? summarizeProtocol(protocol)
     : null;
 
+  /* This rail carries two different things: how far the CONVERSATION has got
+   * (the step path, the "no design shape yet" caution) and what the PROTOCOL
+   * currently says. A study can hold a complete protocol without a
+   * conversation ever having happened — seeded from a template, a merged
+   * pair, or a derived paper, and every study anyone is only reading. In that
+   * case the conversation half claimed "0/13 steps · Not covered yet:
+   * Research questions…" directly above the research questions it was
+   * listing. The progress half is simply not about this study, so it is not
+   * shown; the protocol still is. */
+  const conversationStarted = MANDATORY_SLOTS.some((s) => draft[s].length > 0);
+  const showConversationProgress = conversationStarted || !sections?.length;
+
   return (
     <aside
       data-agent="draft-rail"
@@ -64,25 +76,38 @@ export function DraftRail({
             Protocol draft
           </h2>
           <p className="type-caption text-text-muted">
-            Compiled from the moves you've accepted.
+            {showConversationProgress
+              ? "Compiled from the moves you've accepted."
+              : // No moves were accepted here — this protocol arrived with the
+                // study (a template, a merge, a derived paper) or belongs to
+                // someone else's study you are reading.
+                "The study's protocol as it currently stands."}
           </p>
         </div>
         <ProtocolGuide />
       </div>
 
-      <SlotMeter draft={draft} unresolved={unresolved} understanding={understanding} />
+      {showConversationProgress && (
+        <SlotMeter
+          draft={draft}
+          unresolved={unresolved}
+          understanding={understanding}
+        />
+      )}
 
       {/* The "still working out X, Y, Z" line used to live here. The path
         * above now names those same facets as steps, marks which one is
         * current, and prints the question being asked — so the sentence had
         * become the same information a third time. What it said that the
         * steps do not is *why* it matters, which is kept. */}
-      {understanding && !understanding.readyForDesign && (
-        <p className="type-caption text-text-muted" data-agent="understanding-line">
-          No design shape yet: a design that follows from too little is a
-          guess you would have to unpick later.
-        </p>
-      )}
+      {showConversationProgress &&
+        understanding &&
+        !understanding.readyForDesign && (
+          <p className="type-caption text-text-muted" data-agent="understanding-line">
+            No design shape yet: a design that follows from too little is a
+            guess you would have to unpick later.
+          </p>
+        )}
 
       {/* One row, and one hierarchy. Two stacked full-width blocks of the
         * same weight is not a choice, it is a wall: the researcher had to

@@ -39,7 +39,7 @@ export function ProjectSwitcher({ memberships }: { memberships: Membership[] }) 
         type="button"
         data-agent="project-switcher"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-input border border-border px-2 py-1 type-caption text-text-muted transition-colors duration-fast hover:bg-zone-9"
+        className="flex items-center gap-2 rounded-input border border-border px-2 py-2 type-caption text-text-muted transition-colors duration-fast hover:bg-zone-9"
       >
         <FolderOpen className="size-3.5" aria-hidden />
         Switch project

@@ -78,6 +78,124 @@ def extract_design_phrases(text: str) -> set[str]:
     return found
 
 
+#: Head nouns that a methodology phrase in this literature almost always ends
+#: in ("a *diary study*", "a *controlled experiment*", "an *ablation study*").
+#: Anchoring on the head noun rather than on a list of known methods is what
+#: lets :func:`uncovered_methodology_phrases` surface designs nobody has
+#: thought to name yet — the fixed ``DESIGN_KEYWORDS`` table above can only
+#: ever re-find what someone already wrote into it.
+_METHOD_HEADS = (
+    "study",
+    "studies",
+    "experiment",
+    "trial",
+    "evaluation",
+    "analysis",
+    "comparison",
+    "survey",
+    "review",
+    "deployment",
+)
+
+#: Phrases that are about the *subject* rather than the method ("code review"
+#: is what the papers study, not how), plus secondary-research designs. A
+#: systematic/scoping/literature review is a real methodology, but it studies
+#: other papers rather than running a study with participants — this platform
+#: designs and instruments primary studies, so a template for one could never
+#: compile to a protocol. They dominated the report by volume and a reviewer
+#: would reject every one of them, so they are filtered rather than ranked.
+_NOT_A_METHOD = (
+    "code review",
+    "peer review",
+    "the review",
+    "this review",
+    "literature review",
+    "systematic review",
+    "scoping review",
+    "comprehensive review",
+    "critical review",
+    "narrative review",
+    "umbrella review",
+    "meta-analysis",
+    "comprehensive survey",
+    "systematic survey",
+)
+
+_PHRASE_RE = re.compile(r"[a-z][a-z0-9-]*(?:\s+[a-z][a-z0-9-]*){0,2}")
+
+#: Stripped from the front of a candidate so "an empirical study", "the
+#: empirical study" and "empirical study" are counted as one phrase rather
+#: than three near-duplicates competing for the same slot in the report.
+_LEADING_NOISE = (
+    "a", "an", "the", "this", "that", "our", "its", "their", "these", "those",
+    "and", "or", "of", "for", "with", "in", "on", "to", "from", "by", "as",
+    "we", "is", "was", "are", "were", "present", "presents", "propose",
+)
+
+
+def _normalise_phrase(phrase: str) -> str:
+    """Drop leading articles/connectives; "" when nothing meaningful is left."""
+    words = phrase.split()
+    while words and words[0] in _LEADING_NOISE:
+        words.pop(0)
+    return " ".join(words) if len(words) >= 2 else ""
+
+
+def uncovered_methodology_phrases(
+    s: Session, *, min_papers: int = 5, limit: int = 40
+) -> list[dict]:
+    """
+    Methodology phrases the corpus uses that **no registry template claims**.
+
+    This is the registry's blind-spot report: for each candidate phrase it
+    returns how many corpus papers describe themselves with it, so a human can
+    see at a glance which real design archetypes the repertoire has no shape
+    for. It is the automated form of the manual scan that found
+    ``field-experiment-v1`` and ``cognitive-load-comparison-v1`` — both of
+    which had real support and matched none of the then-13 templates.
+
+    Deliberately *not* wired into template drafting: a phrase is evidence that
+    a design exists in the literature, not a design. Authoring the shape it
+    implies (its statistics, its instruments, its threats) is human work.
+    """
+    covered: set[str] = set()
+    for tpl in template_registry.list_templates():
+        for phrase in tpl.get("designSignature", []) or []:
+            covered.add(str(phrase).strip().lower())
+
+    papers = s.execute(
+        select(Paper.paper_ref, Paper.title, Paper.abstract).where(
+            Paper.study_id == CORPUS_STUDY_ID
+        )
+    ).all()
+
+    counts: dict[str, int] = {}
+    for _ref, title, abstract in papers:
+        text = f"{title or ''} {abstract or ''}".lower()
+        seen_here: set[str] = set()
+        for match in _PHRASE_RE.finditer(text):
+            phrase = match.group(0).strip()
+            if not phrase.endswith(_METHOD_HEADS):
+                continue
+            phrase = _normalise_phrase(phrase)
+            # A bare head noun ("study") is not a methodology phrase.
+            if not phrase:
+                continue
+            if phrase in covered or any(bad in phrase for bad in _NOT_A_METHOD):
+                continue
+            seen_here.add(phrase)
+        for phrase in seen_here:
+            counts[phrase] = counts.get(phrase, 0) + 1
+
+    ranked = [
+        {"phrase": phrase, "papers": n}
+        for phrase, n in counts.items()
+        if n >= min_papers
+    ]
+    ranked.sort(key=lambda r: (-r["papers"], r["phrase"]))
+    return ranked[:limit]
+
+
 def cluster_papers_by_designs(s: Session) -> dict[frozenset[str], list[dict]]:
     """Group corpus papers by their design characteristics."""
     # Load all corpus papers
@@ -119,6 +237,13 @@ def identify_top_clusters(
     return ranked
 
 
+#: The schema's real `designType` enum (`templates/schemas/template.schema.json`).
+#: The values this function used to return ("empirical-study",
+#: "observational-between-subjects", "repeated-measures", "crossover-design",
+#: "survey-design", "single-arm-design", "benchmark-evaluation") were never in
+#: that enum at all, so every single mined draft failed `validate_template`
+#: before this fix — confirmed by running the pipeline against the real
+#: corpus: 28 clusters with 3+ papers each, 0 valid.
 def infer_design_type(phrases: frozenset[str]) -> str:
     """Guess a designType slug based on the phrase set."""
     # Hierarchical inference
@@ -128,28 +253,41 @@ def infer_design_type(phrases: frozenset[str]) -> str:
     ):
         if any(p in phrases for p in ["randomly assigned", "randomized", "rct"]):
             return "rct-between-subjects"
-        return "observational-between-subjects"
+        return "observational"
 
     if any(
         p in phrases for p in ["within subjects", "within-subject", "repeated measures"]
     ):
         if "crossover" in phrases:
-            return "crossover-design"
-        return "repeated-measures"
+            return "rct-within-subjects"
+        return "quasi-experiment"
 
     if any(p in phrases for p in ["observational", "field study", "naturalistic"]):
-        return "observational-field"
+        return "observational"
 
     if any(p in phrases for p in ["survey", "questionnaire", "self-report"]):
-        return "survey-design"
+        return "survey"
 
     if any(p in phrases for p in ["single arm", "single-arm", "single group"]):
-        return "single-arm-design"
+        return "case-study"
 
     if any(p in phrases for p in ["benchmark", "benchmark evaluation"]):
-        return "benchmark-evaluation"
+        return "case-study"
 
-    return "empirical-study"
+    return "lab-experiment"
+
+
+#: Recipe id -> the statistical test name it actually runs, read off the
+#: existing registry templates that name each recipe (`test:` under
+#: `statisticalPlan.perRQ`). `infer_analysis_recipe` only ever returns one of
+#: these two recipes (a paired vs. independent-groups binary split) — coarse,
+#: but every mined draft is a `pending` `TemplateSubmission` a human reviews
+#: and can refine before it ever reaches the registry (FR-TPL-5), so the bar
+#: here is "schema-valid enough to review", not "correct enough to ship".
+_TEST_FOR_RECIPE = {
+    "two-group-nonparametric": ("mann-whitney-u", "cliffs-delta"),
+    "paired-nonparametric": ("wilcoxon-signed-rank", "matched-pairs rank-biserial"),
+}
 
 
 def infer_analysis_recipe(phrases: frozenset[str]) -> str:
@@ -203,6 +341,7 @@ def draft_template_yaml(
     """Generate a draft template YAML structure."""
     title = f"{design_type.replace('-', ' ').title()} Design"
     description = f"A study design characterized by: {', '.join(sorted(phrases)[:5])}"
+    test, effect_size = _TEST_FOR_RECIPE.get(recipe, ("mann-whitney-u", "cliffs-delta"))
 
     # Use the highest-confidence paper as the primary source
     papers_sorted = sorted(papers, key=lambda p: p["confidence"], reverse=True)
@@ -222,7 +361,7 @@ def draft_template_yaml(
         "description": description,
         "designType": design_type,
         "designSignature": sorted(phrases)[:10],  # Top 10 phrases
-        "dataPath": "archive",  # Could be 'live' for active data collection
+        "dataPath": "live",
         "source": [source_entry] if source_entry else [],
         "parameters": {
             "studyId": {
@@ -253,8 +392,9 @@ def draft_template_yaml(
                 {
                     "rq": "RQ-1",
                     "outcome": "primary measure",
-                    "test": recipe,
-                    "effectSize": "cohens-d",
+                    "test": test,
+                    "effectSize": effect_size,
+                    "smallN": "hypothesis-generating",
                 }
             ],
         },
@@ -396,3 +536,44 @@ def report_drafts(drafts: list[dict]) -> str:
                 lines.append(f"  - {problem}")
 
     return "\n".join(lines)
+
+
+def submit_drafts(s: Session, drafts: list[dict]) -> list[int]:
+    """
+    Submit mined draft templates into the existing human-review pipeline as ``pending``
+    ``TemplateSubmission`` rows (FR-TPL-5), instead of writing them straight into the
+    registry. Approval is a human decision made through the review queue; the approval
+    path already writes the YAML into ``templates/registry/`` for real, so a mined
+    candidate and a hand-authored one reach the registry through the same door.
+
+    Only drafts that validated are submitted; a draft with problems would fail
+    approval anyway, so it is left for the mining report to surface rather than
+    queued for a reviewer to trip over.
+    """
+    from datetime import UTC, datetime
+
+    import yaml
+
+    from middleware.db import TemplateSubmission
+
+    ids: list[int] = []
+    for draft in drafts:
+        if not draft["valid"]:
+            continue
+        template = draft["template"]
+        yaml_text = yaml.safe_dump(
+            template, sort_keys=False, default_flow_style=False
+        )
+        row = TemplateSubmission(
+            submitter_sub="system:miner",
+            name=template.get("title") or draft["id"],
+            template_yaml=yaml_text,
+            status="pending",
+            source="mined",
+            created_at=datetime.now(UTC).isoformat(timespec="milliseconds"),
+        )
+        s.add(row)
+        s.flush()
+        ids.append(row.id)
+    s.commit()
+    return ids

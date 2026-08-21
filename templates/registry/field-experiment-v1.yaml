@@ -1,0 +1,138 @@
+templateVersion: 1
+templateId: field-experiment-v1
+title: Field experiment (real deployment, between-subjects)
+description: |
+  A between-subjects comparison run inside participants' actual ongoing
+  work rather than an assigned lab task — a tool rollout, a team split, or
+  an opt-in period where one group gets the AI assistant and a comparable
+  group does not. Distinct from observational-field-v1 (no manipulation)
+  and two-group-rct-v1 (a controlled lab session): the manipulation here
+  is real, the setting is not controlled. Prescribes Mann-Whitney U with
+  Cliff's delta, same as any independent two-group comparison.
+designType: field-study
+
+designSignature:
+  - "field experiment"
+  - "natural experiment"
+  - "field trial"
+  - "randomized field trial"
+  - "real-world deployment"
+dataPath: live
+source:
+  - paperRef: doi:10.2139/ssrn.5207588
+    role: primary-design
+parameters:
+  studyId:
+    type: string
+    default: field-experiment-study
+  title:
+    type: string
+    default: "Field experiment: real deployment"
+  conditions:
+    type: conditions
+    default: [no-assistant, ai-assistant]
+  participantPlan:
+    type: participants
+    min: 10
+    default: 40
+    rationale: Field-level noise needs a larger n than a controlled lab
+      session to detect the same effect size
+  sessionMinutes:
+    type: int
+    default: 120
+    min: 30
+    max: 480
+  taskDescription:
+    type: string
+    default: Participants' own ongoing work, not an assigned lab task
+  researchers:
+    type: conditions
+    default: [Researcher]
+  ethicsRef:
+    type: string
+    default: "pending: not yet obtained"
+  outputEndpoint:
+    type: string
+    default: "http://127.0.0.1:8000/ingest/events"
+measures:
+  - id: primary-outcome
+    leg: behavioral
+    elements: [task_outcome]
+    description: Real-work outcome compared across the two field arms
+statisticalPlan:
+  unit: participant
+  perRQ:
+    - rq: RQ-1
+      outcome: primary measure (independent, two-group, field setting)
+      test: mann-whitney-u
+      effectSize: cliffs-delta
+      smallN: hypothesis-generating
+threats:
+  - threat: selection-bias
+    mitigation: Assignment to arms is randomized where the deployment
+      allows it; where it cannot be (e.g. an opt-in rollout), this is
+      stated as a limitation, not concealed as random
+  - threat: confound-with-setting
+    mitigation: Because the environment is not controlled, the report
+      names concurrent events (other tool changes, seasonal load) that
+      could confound the comparison
+  - threat: contamination
+    mitigation: Arms are separated by team or time window to reduce
+      spillover between assigned and unassigned participants
+protocolSkeleton:
+  protocolVersion: 4
+  study:
+    id: "{{ studyId }}"
+    title: "{{ title }}"
+    researchers: "{{ researchers }}"
+    ethicsRef: "{{ ethicsRef }}"
+  researchQuestions:
+    - id: RQ-1
+      text: In real ongoing work, does the AI-assistant arm differ from
+        the no-assistant arm on the primary outcome?
+  conditions: "{{ conditions }}"
+  participants:
+    planned: "{{ participantPlan }}"
+    design: between-subjects
+    counterbalanced: false
+  session:
+    durationMinutes: "{{ sessionMinutes }}"
+    taskDescription: "{{ taskDescription }}"
+  instruments:
+    tern:
+      session:
+        durationMinutes: "{{ sessionMinutes }}"
+      fatigue:
+        intervalMinutes: 15
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 5
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages: [python]
+      output:
+        httpEndpoint: "{{ outputEndpoint }}"
+    metrics:
+      metricSet: cognitive-load-9
+  phases:
+    - name: design
+      gates:
+        - protocol-validated.txt
+    - name: ethics
+      gates:
+        - ethics-approval.pdf
+    - name: pilot
+      gates: []
+    - name: recruitment
+      gates: []
+    - name: data-collection
+      gates: []
+    - name: analysis
+      gates: []
+    - name: write-up
+      gates: []
+  analysisPlan:
+    - rq: RQ-1
+      recipes: [two-group-nonparametric]

@@ -27,11 +27,14 @@ def build_capture_config(
     producer: str = "overlay",
     task: dict | None = None,
     block: dict | None = None,
+    overrides: dict | None = None,
 ) -> dict:
     """The versioned, protocol-derived capture config for one producer."""
     if producer != "overlay":
         raise ValueError(f"unknown capture-config producer {producer!r}")
     settings = derive_overlay_settings(protocol, participant_id, condition, task)
+    if overrides:
+        settings = apply_capture_overrides(settings, overrides)
     config = {
         "captureConfigVersion": capture_config_version(protocol),
         "producer": producer,
@@ -41,6 +44,57 @@ def build_capture_config(
     if block is not None:
         config["block"] = block
     return config
+
+
+def apply_capture_overrides(settings: dict, overrides: dict) -> dict:
+    """
+    Layer mint-time toggle overrides on top of the derived ``tern.*`` settings.
+
+    ``overrides`` is ``{"toggles": [{"instrument", "path", "value"}, ...]}`` — the same
+    ``{instrument, path, value}`` triples ``TogglePopover`` sends. Each triple addresses
+    one flat setting key ``{instrument}.{path[0]}.{path[1]}...``, so ``tern`` overrides
+    land exactly where ``derive_overlay_settings`` put them. Condition assignment stays
+    untouched: overrides only tune what an already-assigned condition captures.
+    """
+    if not overrides:
+        return settings
+    out = dict(settings)
+    for toggle in overrides.get("toggles") or []:
+        instrument = toggle.get("instrument")
+        path = toggle.get("path")
+        if not instrument or not isinstance(path, list) or not path:
+            continue
+        key = f"{instrument}.{'.'.join(str(p) for p in path)}"
+        out[key] = toggle.get("value")
+    return out
+
+
+def clean_capture_overrides(overrides: dict | None) -> dict | None:
+    """
+    Reduce a client-supplied overrides blob to the well-formed toggles only, so a stray
+    key or a non-list path can never be persisted and later read back as a toggle.
+    Returns ``None`` for an empty or malformed override set.
+    """
+    if not isinstance(overrides, dict):
+        return None
+    toggles = []
+    for entry in overrides.get("toggles") or []:
+        if not isinstance(entry, dict):
+            continue
+        instrument = entry.get("instrument")
+        path = entry.get("path")
+        if (
+            isinstance(instrument, str)
+            and instrument
+            and isinstance(path, list)
+            and path
+            and all(isinstance(p, str) and p for p in path)
+            and "value" in entry
+        ):
+            toggles.append(
+                {"instrument": instrument, "path": list(path), "value": entry["value"]}
+            )
+    return {"toggles": toggles} if toggles else None
 
 
 def enabled_instruments(settings: dict) -> list[dict]:

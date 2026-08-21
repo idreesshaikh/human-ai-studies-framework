@@ -443,6 +443,14 @@ body::before {
     .split-rail {
       grid-template-columns: 1fr clamp(var(--rail-min), var(--rail-share), var(--rail-max));
     }
+    /* The rail's own fold toggle narrows its div to an icon-only strip, but
+     * the grid track above stays clamped to its floor (--rail-min) unless
+     * told otherwise — leaving the div's real width and the column it sits
+     * in disagree, and the freed space between them paints as bare page
+     * background. This track shrinks to match. */
+    .split-rail.rail-folded {
+      grid-template-columns: 1fr auto;
+    }
   }
 }
 

@@ -324,6 +324,90 @@
                 }
               }
             },
+            "behavior": {
+              "description": "The behavioral telemetry leg (FR-INST-5/8/9/10). Optional \u2014 when absent the leg is disabled. Streams record sizes, timings, and salted hashes, never content.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "description": "Master switch for the behavioral leg.",
+                  "type": "boolean"
+                },
+                "captureFocus": {
+                  "description": "Editor/tab and window focus switches.",
+                  "type": "boolean"
+                },
+                "captureVisibleRanges": {
+                  "description": "Scroll position when it settles, for coverage analysis.",
+                  "type": "boolean"
+                },
+                "captureEditBursts": {
+                  "description": "Aggregated edits with an origin guess (human / AI / paste / undo-redo).",
+                  "type": "boolean"
+                },
+                "captureClipboard": {
+                  "description": "Paste sizes and internal-copy timing.",
+                  "type": "boolean"
+                },
+                "captureAiLifecycle": {
+                  "description": "AI suggestion shown/accepted/rejected, with review latency.",
+                  "type": "boolean"
+                },
+                "captureSaves": {
+                  "description": "File save sizes.",
+                  "type": "boolean"
+                },
+                "captureHeartbeat": {
+                  "description": "Active/idle transitions.",
+                  "type": "boolean"
+                },
+                "captureAttention": {
+                  "description": "Region-level time-on-code from caret and hover.",
+                  "type": "boolean"
+                },
+                "languages": {
+                  "description": "Only files in these languages are captured.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "workspaceInternalOnly": {
+                  "description": "Files outside the workspace are never captured, only noted.",
+                  "type": "boolean"
+                },
+                "burstGapMs": {
+                  "description": "Minimum gap between edit bursts.",
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "aiCorrelationMs": {
+                  "description": "Window for tying an edit to an accepted AI suggestion.",
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "aiBlockCharThreshold": {
+                  "description": "A block this large arriving this fast is treated as injected, not typed.",
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "aiBlockMaxDurationMs": {
+                  "description": "The 'nobody types this fast' window paired with aiBlockCharThreshold.",
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "pasteCorrelationMs": {
+                  "description": "Window for tying an edit to a paste.",
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "idleWindowSeconds": {
+                  "description": "Seconds without activity before the session reads idle.",
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              }
+            },
             "comprehensionProbe": {
               "description": "Comprehension probe cadence (FR-DASH-12, FR-INST-19). Optional \u2014 when absent probes are disabled.",
               "type": "object",
