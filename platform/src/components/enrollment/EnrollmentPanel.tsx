@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Copy, Check, ExternalLink } from "lucide-react";
 import { useApi } from "@/lib/session";
 import { studyApi } from "@/lib/studyApi";
@@ -6,6 +7,8 @@ import { hasRole, type Role } from "@/lib/capabilities";
 import type { EnrollmentTokenView, ToggleCatalogEntry } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/shell/Surface";
+import { EmptyState } from "@/components/shell/EmptyState";
+import { Notice } from "@/components/ui/notice";
 import { LiveSessions } from "./LiveSessions";
 import { MintDialog } from "./MintDialog";
 import { TogglePopover } from "./TogglePopover";
@@ -115,10 +118,44 @@ export function EnrollmentPanel({
     });
   };
 
+  /* Same precondition as the Data tab, and the same treatment: a study whose
+   * protocol has never compiled cannot enroll anyone, so that is one fact
+   * with one move that resolves it — not a caution stacked above a live
+   * "Mint links" button, a "no sessions running" readout and a dashed box,
+   * each describing a consequence of it. */
+  const noProtocol =
+    !!loadError &&
+    (loadError.toLowerCase().includes("no protocol") ||
+      loadError.toLowerCase().includes("not found"));
+
+  if (noProtocol) {
+    return (
+      <Surface measure="work" label="Participants" data-agent="enrollment-panel">
+        <EmptyState
+          line="Nobody can be enrolled yet: this study has no compiled protocol. Participants join by pasting a link that carries the protocol, so it has to exist before a link can be minted."
+          action={
+            <Button asChild size="sm">
+              <Link to={{ search: "?tab=conversation" }}>
+                Open the design conversation
+              </Link>
+            </Button>
+          }
+        />
+      </Surface>
+    );
+  }
+
   return (
-    /* Wider than the standard reading measure — the enrollment table carries
-     * seven columns, the contract's one justified escape hatch to `wide`. */
-    <Surface measure="wide" label="Participants" data-agent="enrollment-panel">
+    /* `work`, the same measure Data and Planning use — the four tabs of one
+     * workspace must not move the content column as you switch between them.
+     * This panel was the odd one out at `wide`, so Participants sat 192px
+     * wider than Data and Planning and the page visibly jumped between tabs.
+     *
+     * The old justification — seven columns needing the contract's escape
+     * hatch — does not hold: the table is `min-w-3xl` (768px) inside
+     * `overflow-x-auto`, and `work` leaves 896px of column, so it fits with
+     * room to spare and still scrolls on its own if a window gets tighter. */
+    <Surface measure="work" label="Participants" data-agent="enrollment-panel">
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1">
           {/* Counts enrollment links, so it says "enrolled" only about
@@ -131,7 +168,10 @@ export function EnrollmentPanel({
                 : "None enrolled"
               : `${rows.length} enrolled`}
           </h2>
-          <p className="mt-1 type-caption text-text-muted">
+          {/* Prose is held to the reading measure even inside a wider column —
+            * the layout contract has a measure for running text precisely so
+            * a panel does not set its prose to the width its table needs. */}
+          <p className="mt-1 max-w-reading type-caption text-text-muted">
             One link per participant. They paste it once, their editor joins the
             study, and what each instrument will capture is listed before
             anything is recorded.
@@ -141,7 +181,13 @@ export function EnrollmentPanel({
             * not on the Marketplace, so VS Code cannot fetch it on demand the
             * way a Marketplace link would. Say so once, here, rather than
             * letting a participant click a link that does nothing. */}
-          <p className="mt-1 type-caption text-text-muted">
+          {/* Same measure, and it matters more here: this sentence ends in a
+            * mono command chip, so at full width the chip was stranded out at
+            * the right edge on its own. VS Code's command really is named
+            * "Extensions: Install from VSIX…" — that ellipsis is part of the
+            * name, not a truncation — but marooned at the end of a very long
+            * line it read as a string that had been cut off. */}
+          <p className="mt-1 max-w-reading type-caption text-text-muted">
             Participants need the {EXTENSION_NAME} extension first. It is not
             on the Marketplace.{" "}
             <a
@@ -154,23 +200,29 @@ export function EnrollmentPanel({
               Download the .vsix
             </a>{" "}
             and install it with{" "}
-            <kbd className="type-legend rounded-chip border border-border px-1.5 py-0.5 text-text-muted">
+            {/* Verbatim, and in the measurement voice. `type-legend`
+              * uppercases and tracks its contents, which is right for a
+              * column head and wrong for a string the participant has to
+              * find in a menu: this rendered as "EXTENSIONS: INSTALL FROM
+              * VSIX…", a command that matches nothing they can search for. */}
+            <kbd className="type-quantity whitespace-nowrap rounded-chip border border-border px-1.5 py-0.5 font-mono text-text">
               Extensions: Install from VSIX…
             </kbd>
           </p>
         </div>
-        {canMint && !loadError && <MintDialog studyId={studyId} onMinted={load} />}
+        {/* Only while there is a roster to add to. With none, the same control
+          * moves into the empty state below, next to the sentence telling you
+          * to press it — it used to sit a thousand pixels away at the far
+          * right of a `wide` surface, so the instruction and its button were
+          * never in one glance. */}
+        {canMint && !loadError && rows.length > 0 && (
+          <MintDialog studyId={studyId} onMinted={load} />
+        )}
       </div>
       {loadError && (
-        <p
-          role="status"
-          className="rounded-input border border-dashed border-border px-3 py-3 type-body text-text-muted"
-        >
-          {loadError.toLowerCase().includes("no protocol") ||
-          loadError.toLowerCase().includes("not found")
-            ? "This study has no compiled protocol yet. Finish the design conversation first, then enroll participants here."
-            : `Couldn't load enrollment. ${loadError}`}
-        </p>
+        <Notice kind="problem">
+          Couldn&apos;t load enrollment. {loadError}
+        </Notice>
       )}
       {revokeError && (
         <p role="alert" className="type-body text-status-critical">
@@ -183,19 +235,28 @@ export function EnrollmentPanel({
         * the answer belongs before the enrollment table, not after it. */}
       <LiveSessions studyId={studyId} />
       {rows.length === 0 ? (
-        <p className="rounded-input border border-dashed border-border px-3 py-6 text-center type-body text-text-muted">
-          {dataParticipants.length > 0 ? (
-            <>
-              No enrollment links minted yet. This study already holds data for{" "}
-              {dataParticipants.length} participant
-              {dataParticipants.length === 1 ? "" : "s"} (
-              {dataParticipants.join(", ")}) collected outside the enrollment
-              flow — see the Data tab. Mint a link to enroll anyone new.
-            </>
-          ) : (
-            "No participants yet: mint a link to enroll the first one."
-          )}
-        </p>
+        /* The one place this absence is stated, and it carries the control
+          * that ends it. The heading above already says "None enrolled"; this
+          * used to repeat it as a sentence in a dashed box with the button
+          * that would fix it parked off at the other end of the row. */
+        <EmptyState
+          line={
+            dataParticipants.length > 0 ? (
+              <>
+                No enrollment links minted yet. This study already holds data
+                for {dataParticipants.length} participant
+                {dataParticipants.length === 1 ? "" : "s"} (
+                {dataParticipants.join(", ")}) collected outside the enrollment
+                flow — see the Data tab. Mint a link to enroll anyone new.
+              </>
+            ) : (
+              "Each participant gets one link. Mint the first one and it appears here with its condition, its capture list, and whether it has been claimed."
+            )
+          }
+          action={
+            canMint ? <MintDialog studyId={studyId} onMinted={load} /> : undefined
+          }
+        />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-3xl type-body">

@@ -39,6 +39,10 @@ import {
   SETTLE_ALPHA0,
   SETTLE_NODE_LIMIT,
   LABEL_ALWAYS_NODE_LIMIT,
+  LENSES,
+  lensEdges,
+  lensNodes,
+  lensCounts,
 } from "../src/lib/constellationView.ts";
 
 let failures = 0;
@@ -173,6 +177,61 @@ ok(
   "a harvested neighbourhood past the node limit skips the settle animation",
   !shouldSettle(SETTLE_NODE_LIMIT + 1),
 );
+
+// ------------------------------------------------------------------ lenses
+// A study with two of its own papers, plus one suggestion arriving down each
+// of the three relations — so every lens has exactly one thing to show and
+// the anchors are shared.
+const LENS_NODES = [
+  { paperRef: "own-a", ingested: true },
+  { paperRef: "own-b", ingested: true },
+  { paperRef: "earlier", ingested: false },
+  { paperRef: "later", ingested: false },
+  { paperRef: "similar", ingested: false },
+];
+const LENS_EDGES = [
+  { src: "own-a", dst: "earlier", kind: "references" },
+  { src: "later", dst: "own-a", kind: "citations" },
+  { src: "own-b", dst: "similar", kind: "recommendations" },
+];
+
+ok("the four lenses are all/earlier/later/similar",
+  LENSES.map((l) => l.id).join(",") ===
+    "all,references,citations,recommendations");
+ok("every lens carries a researcher-facing label and a hint",
+  LENSES.every((l) => l.label.length > 0 && l.hint.length > 0));
+
+ok("`all` keeps every edge, by identity (no allocation in the common case)",
+  lensEdges(LENS_EDGES, "all") === LENS_EDGES);
+ok("a lens keeps only its own relation",
+  lensEdges(LENS_EDGES, "citations").every((e) => e.kind === "citations") &&
+    lensEdges(LENS_EDGES, "citations").length === 1);
+
+// The anchor rule: a researcher's own papers never vanish, even when the
+// active lens leaves them with no edges at all.
+const earlierOnly = lensNodes(LENS_NODES, LENS_EDGES, "references");
+ok("every ingested paper survives every lens",
+  LENSES.every(({ id }) =>
+    lensNodes(LENS_NODES, LENS_EDGES, id).filter((n) => n.ingested).length === 2));
+ok("`own-b` survives a lens that leaves it with no edges",
+  earlierOnly.some((n) => n.paperRef === "own-b"));
+ok("a suggestion survives only on the lens that introduced it",
+  earlierOnly.some((n) => n.paperRef === "earlier") &&
+    !earlierOnly.some((n) => n.paperRef === "later") &&
+    !earlierOnly.some((n) => n.paperRef === "similar"));
+ok("`all` keeps every node, by identity",
+  lensNodes(LENS_NODES, LENS_EDGES, "all") === LENS_NODES);
+
+// The badge counts suggestions, not nodes — the anchors are not what a
+// researcher is choosing between.
+const counts = lensCounts(LENS_NODES, LENS_EDGES);
+ok("each lens counts exactly its own suggestions, never the anchors",
+  counts.references === 1 && counts.citations === 1 &&
+    counts.recommendations === 1);
+ok("`all` counts every suggestion", counts.all === 3);
+ok("a lens with nothing harvested counts zero rather than going missing",
+  lensCounts(LENS_NODES, [], "citations") &&
+    lensCounts(LENS_NODES, []).citations === 0);
 
 console.log(
   failures === 0 ? "\n✓ all checks pass" : `\n✗ ${failures} check(s) failed`,

@@ -87,6 +87,7 @@
    * one it sits inside. */
   --radius-control-inner: 0.375rem;
   --radius-input: 0.5rem;
+  --radius-mark: 0.25rem; /* 4px — the grounding mark's reference frame */
   --radius-chip: 999px; /* a legend key, a grounding chip, a role pill */
   --radius-dot: 999px;
 
@@ -175,7 +176,13 @@
   --rail-share: 32vw;
 
   --header-h: 3.5rem;
-  --constellation-h: 22.5rem;
+  /* The constellation's pane. It was a fixed 22.5rem back when the Library
+   * was a two-column split and the graph shared its row with a chat panel.
+   * As the tab's centrepiece it scales with the window instead: tall enough
+   * on a laptop to read a harvested neighbourhood without immediately
+   * zooming, floored so a short window still gets a graph rather than a
+   * letterbox, and capped so it never outgrows a tall display. */
+  --constellation-h: clamp(24rem, 54vh, 42rem);
 
   /* The coordinate grid's pitch. Wide enough that the ruling reads as a
    * coordinate field rather than as graph paper: at 1.5rem the lines were

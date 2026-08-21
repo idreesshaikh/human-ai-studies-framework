@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Outlet, Route, Routes, Link } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, Link, useLocation } from "react-router-dom";
 import { AppFrame } from "@/components/shell/AppFrame";
 import { SignInScreen } from "@/components/shell/SignInScreen";
 import { useAuth } from "@/lib/auth.tsx";
@@ -27,9 +27,6 @@ const StudyHome = lazy(() =>
 const Templates = lazy(() =>
   import("@/pages/Templates").then((m) => ({ default: m.Templates })),
 );
-const TemplateSubmissions = lazy(() =>
-  import("@/pages/TemplateSubmissions").then((m) => ({ default: m.TemplateSubmissions })),
-);
 const Members = lazy(() =>
   import("@/pages/Members").then((m) => ({ default: m.Members })),
 );
@@ -49,19 +46,40 @@ const InviteAccept = lazy(() =>
 function PageFallback() {
   return (
     <div className="flex min-h-[50vh] items-center justify-center" aria-hidden>
-      <span className="mag mag-3 animate-pulse" />
+      <span className="size-2.5 animate-pulse rounded-dot bg-text-muted" />
     </div>
   );
 }
 
+/* Routes the shell renders to anyone, credential or not.
+ *
+ * The repertoire is a public browse and the middleware already treats it as
+ * one: `/templates/repertoire`, `/templates/merge`, `/templates/from-paper`
+ * and `/corpus/search` all carry no auth dependency and answer 200 to an
+ * unauthenticated request. The gate was the SPA's own invention, and it made
+ * the page contradict its own first line — "No project needed to browse" —
+ * by demanding an account before a visitor saw a single design shape.
+ *
+ * Public means readable, not writable. Every action that creates something
+ * still needs an identity, and each one says so where it is (CreateStudyFrom,
+ * the describe-a-study panel). */
+const PUBLIC_PATHS = new Set(["/repertoire"]);
+
 function Shell() {
   const { config, needed, hasCredential, resolving } = useAuth();
+  const { pathname } = useLocation();
   // While the credential check is still in flight (clerk-js loading), show
   // neither the app nor the sign-in card — `hasCredential` reads false for
   // that whole window even for an already-signed-in session, and rendering
   // the sign-in screen on its say-so flashes it on every refresh.
   if (resolving) return null;
-  if (config.mode !== "none" && (needed || !hasCredential)) return <SignInScreen />;
+  if (
+    config.mode !== "none" &&
+    (needed || !hasCredential) &&
+    !PUBLIC_PATHS.has(pathname)
+  ) {
+    return <SignInScreen />;
+  }
   return (
     <AppFrame>
       <Outlet />
@@ -72,7 +90,11 @@ function Shell() {
 function NotFound() {
   return (
     <div className="mx-auto flex max-w-narrow flex-col items-center gap-3 p-16 text-center">
-      <p className="type-subhead text-text">Nothing here</p>
+      {/* An `h1`, not a styled paragraph. This was the one page in the app
+        * with no heading at all, so the one place a reader is most likely to
+        * be lost — a mistyped or dead URL — announced nothing to a screen
+        * reader and gave a document-outline reader an empty page. */}
+      <h1 className="type-subhead text-text">Nothing here</h1>
       <Link to="/" className="text-accent hover:underline">
         Back to the start
       </Link>
@@ -85,6 +107,12 @@ export default function App() {
     <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/" element={<Hero />} />
+        {/* A real address for signing in, so a public page has somewhere to
+            send someone that can carry them back afterwards (?next=). Outside
+            `Shell`: the whole point is that it renders without a credential,
+            and once there is one it forwards rather than framing an app the
+            visitor has already left. */}
+        <Route path="/signin" element={<SignInScreen />} />
         <Route path="/invitations/:token" element={<InviteAccept />} />
         <Route element={<Shell />}>
           {/* Not "/projects" — that's the backend's GET /projects API path
@@ -101,7 +129,6 @@ export default function App() {
               would show raw JSON on a hard navigation. The old project-scoped
               URL keeps working. */}
           <Route path="/repertoire" element={<Templates />} />
-          <Route path="/submissions" element={<TemplateSubmissions />} />
           <Route path="/p/:slug" element={<ProjectHome />} />
           <Route path="/p/:slug/studies/:id" element={<StudyHome />} />
           <Route

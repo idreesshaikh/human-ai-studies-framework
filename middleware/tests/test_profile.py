@@ -75,14 +75,14 @@ def test_put_preferences_round_trip(tmp_path, rsa_key):
         json={
             "preferences": {
                 "theme": "dark",
-                "defaultAssistantModel": "mistral-large-latest",
+                "savedViews": {"library": "constellation"},
             }
         },
     )
     assert res.status_code == 200
     saved = res.json()["preferences"]
     assert saved["theme"] == "dark"
-    assert saved["defaultAssistantModel"] == "mistral-large-latest"
+    assert saved["savedViews"] == {"library": "constellation"}
 
     me = client.get("/me", headers=auth(rsa_key)).json()
     assert me["preferences"]["theme"] == "dark"
@@ -110,10 +110,10 @@ def test_preferences_merge_on_subsequent_puts(tmp_path, rsa_key):
     res = client.put(
         "/me/preferences",
         headers=auth(rsa_key),
-        json={"preferences": {"defaultAssistantModel": "mistral-medium-latest"}},
+        json={"preferences": {"savedViews": {"library": "list"}}},
     )
     saved = res.json()["preferences"]
-    assert saved == {"theme": "dark", "defaultAssistantModel": "mistral-medium-latest"}
+    assert saved == {"theme": "dark", "savedViews": {"library": "list"}}
 
 
 def test_profiles_are_scoped_per_clerk_sub(tmp_path, rsa_key):
@@ -156,10 +156,3 @@ def test_clerk_sub_resolves_project_membership(tmp_path, rsa_key):
     assert other.status_code in (403, 404)
 
 
-def test_assistant_models_catalog_is_public(tmp_path, rsa_key):
-    client = clerk_client(tmp_path, rsa_key)
-    res = client.get("/assistant/models")
-    assert res.status_code == 200
-    body = res.json()
-    assert "mistral-small-latest" in body["models"]
-    assert body["defaultModel"]

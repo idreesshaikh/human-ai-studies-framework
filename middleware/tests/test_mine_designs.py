@@ -1,8 +1,8 @@
 """
-Corpus-mining pipeline tests (FR-TPL-5): every draft the miner produces must
-validate against the real template schema, and a qualifying draft must reach
-the review queue as a `pending`/`mined` `TemplateSubmission` — the two
-guarantees `scripts/mine_templates.py` relies on.
+Corpus-mining pipeline tests: every draft the miner produces must validate
+against the real template schema, and only the drafts that validated may be
+written to `templates/drafts/` — the two guarantees
+`scripts/mine_templates.py` relies on.
 
 Before the fixes in this file's companion change, `infer_design_type` and
 `draft_template_yaml` produced values the schema has never accepted
@@ -16,10 +16,10 @@ future change can't silently regress it without a real corpus on hand.
 from __future__ import annotations
 
 import pytest
+import yaml
 from middleware.db import (
     CORPUS_STUDY_ID,
     Paper,
-    TemplateSubmission,
     make_session_factory,
 )
 
@@ -175,16 +175,15 @@ def test_uncovered_phrases_drops_leading_articles(session):
     assert mine_designs._normalise_phrase("the study") == ""
 
 
-def test_submit_drafts_only_queues_valid_ones_as_pending_mined(session):
+def test_write_drafts_only_writes_the_valid_ones(tmp_path, session):
     drafts = mine_designs.mine_and_draft(session, write_files=False)
-    ids = mine_designs.submit_drafts(session, drafts)
-    assert ids
+    written = mine_designs.write_drafts(drafts, output_dir=tmp_path)
+    assert written
 
-    rows = (
-        session.query(TemplateSubmission).filter(TemplateSubmission.id.in_(ids)).all()
-    )
-    assert len(rows) == len(ids)
-    for row in rows:
-        assert row.status == "pending"
-        assert row.source == "mined"
-        assert row.submitter_sub == "system:miner"
+    # Every file on disk is a draft that validated; the invalid ones are the
+    # mining report's business, not the tree's.
+    valid_ids = {d["id"] for d in drafts if d["valid"]}
+    assert {p.stem for p in written} == valid_ids
+    for path in written:
+        assert path.exists()
+        assert yaml.safe_load(path.read_text())["templateId"]

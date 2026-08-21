@@ -1,8 +1,7 @@
 import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Badge } from "@/components/ui/badge";
-import { Confidence } from "./Confidence";
-import { GradeMark, magnitude } from "./GradeMark";
+import { Confidence, ConfidenceValue, GroundingMark } from "./Confidence";
 import type { Grounding } from "@/lib/types";
 
 /* A citation chip: the paper title (quality shown as a confidence meter in the
@@ -81,11 +80,12 @@ export function GroundingChip({ g }: { g: Grounding }) {
         onBlur={() => setOpen(false)}
         onClick={() => setOpen((v) => !v)}
       >
-        {/* The chip is clean; the citation's own confidence is the small
-          * magnitude mark at its left, read against the same key as every
-          * other quantity in the app. A wall of citations still reads as a
-          * field of magnitudes — the strong support is visible before a
-          * single title is read — without marking up the whole chip. */}
+        {/* The chip is clean; the citation's own confidence is the framed
+          * mark and its printed score at the left. A wall of citations reads
+          * as a field of magnitudes against identical frames — the strong
+          * support is visible before a single title is read — without marking
+          * up the whole chip. The words stay in the hover card, where there is
+          * room for them. */}
         {/* `normal-case` and the caption voice: the Badge's own role is
           * `type-legend`, which uppercases and tracks its label. That is right
           * for a key ("OWNER", "DESIGN") and wrong for a citation, which is
@@ -98,11 +98,9 @@ export function GroundingChip({ g }: { g: Grounding }) {
           className="type-caption max-w-full gap-1.5 normal-case tracking-normal"
         >
           {g.confidence != null && (
-            /* Four pips, filled based on confidence level (1-4 scale). This replaces
-               the continuous magnitude mark with a discrete five-level system for
-               clearer visual comparison across citations. */
-            <span className="mt-0.5 shrink-0 self-start">
-              <GradeMark level={magnitude(g.confidence)} />
+            <span className="flex shrink-0 items-center gap-1 self-start">
+              <GroundingMark value={g.confidence} />
+              <ConfidenceValue value={g.confidence} />
             </span>
           )}
           {/* Two lines of title, not one clamped line: a citation cut to

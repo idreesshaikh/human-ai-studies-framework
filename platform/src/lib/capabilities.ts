@@ -6,14 +6,13 @@
  * mismatch just means a button appears that the server then refuses (safe,
  * if untidy). */
 
-export type Role = "owner" | "researcher" | "viewer";
+export type Role = "owner" | "member" | "viewer";
 
 export type Capability =
   | "view"
   | "contribute"
   | "apply_draft"
   | "run_recipe"
-  | "freeze"
   | "invite_member"
   | "manage_members"
   | "delete"
@@ -22,22 +21,21 @@ export type Capability =
 
 export const ROLE_RANK: Record<Role, number> = {
   viewer: 0,
-  researcher: 1,
+  member: 1,
   owner: 2,
 };
 
 /** The minimum role each capability needs. */
 export const MATRIX: Record<Capability, Role> = {
   view: "viewer",
-  contribute: "researcher",
-  apply_draft: "researcher",
-  run_recipe: "researcher",
-  freeze: "owner",
-  invite_member: "researcher",
+  contribute: "member",
+  apply_draft: "member",
+  run_recipe: "member",
+  invite_member: "member",
   manage_members: "owner",
   delete: "owner",
-  mint_token: "researcher",
-  toggle_capture: "researcher",
+  mint_token: "member",
+  toggle_capture: "member",
 };
 
 /** True if `role` can exercise `capability`. A missing role (non-member)
@@ -49,6 +47,6 @@ export function hasRole(role: Role | null | undefined, capability: Capability): 
 
 export const ROLE_LABELS: Record<Role, string> = {
   owner: "Owner",
-  researcher: "Researcher",
+  member: "Member",
   viewer: "Viewer",
 };

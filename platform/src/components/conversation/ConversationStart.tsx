@@ -1,4 +1,4 @@
-import { GradeMark } from "./GradeMark";
+import { Confidence } from "./Confidence";
 
 /* The blank plate.
  *
@@ -74,18 +74,19 @@ export function ConversationStart({ onUse }: { onUse: (text: string) => void }) 
                 {step.rest}
               </p>
 
-              {/* The two marks the researcher meets first, shown where they
+              {/* The two states the researcher meets first, shown where they
                 * are explained rather than keyed at the foot of an empty
-                * field. Grounded uses the same GradeMark pips a real
+                * field. Grounded uses the same framed mark and score a real
                 * citation chip renders (GroundingChip); unsourced uses the
                 * same dashed ring MoveCard's UnsourcedLabel renders — each
-                * example is the exact mark it teaches, not a stand-in. */}
+                * example is the exact notation it teaches, not a stand-in. */}
               {step.key && (
                 <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5">
                   <span className="flex items-center gap-1.5">
-                    <GradeMark level={4} />
+                    <Confidence value={0.86} words={false} />
                     <span className="type-caption text-text-muted">
-                      more pips, stronger grounding in the corpus
+                      a bigger dot in the same frame — stronger grounding in
+                      the corpus
                     </span>
                   </span>
                   <span className="flex items-center gap-1.5">

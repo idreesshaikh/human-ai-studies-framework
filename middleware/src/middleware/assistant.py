@@ -1,23 +1,16 @@
 """
-Knowledge assistant - grounded Q&A over papers + protocol + dataset *aggregates*
-(FR-LIT-4), powered by Mistral with tool use (D32 rev 2, superseding D10/D22).
+The shared LLM client layer: provider setup, model tiers, and the protocol's
+``literature:`` seed links. The design conversation and the corpus match ladder
+are its only callers — this module holds no conversational surface of its own.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import statistics
 import urllib.request
-from collections import defaultdict
 from collections.abc import Callable
 from typing import Protocol
-
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
-from middleware import paper_index
-from middleware.db import Event, MetricRow, Paper
 
 MISTRAL_MODEL = "mistral-medium-latest"
 MISTRAL_BEST_MODEL = "mistral-large-latest"
@@ -74,103 +67,6 @@ TOOL_SCHEMAS = [
         "input_schema": {"type": "object", "properties": {}},
     },
 ]
-
-
-def search_papers_tool(s: Session, query: str, study_id: str | None = None) -> str:
-    """Passages from the papers THIS study holds."""
-    hits = paper_index.search(s, query)
-    if study_id is not None:
-        held = {
-            ref
-            for (ref,) in s.execute(
-                select(Paper.paper_ref).where(Paper.study_id == study_id)
-            )
-        }
-        hits = [h for h in hits if h["paperRef"] in held]
-    if not hits:
-        return "No matching passages in this study's papers."
-    return "\n\n".join(
-        f"[{h['paperRef']} §{h['chunkIdx']}] {h['snippet']}" for h in hits
-    )
-
-
-def get_protocol_tool(protocol: dict | None) -> str:
-    if not protocol:
-        return "No protocol is loaded for this deployment."
-    view = {
-        "studyId": protocol.get("study", {}).get("id"),
-        "title": protocol.get("study", {}).get("title"),
-        "conditions": protocol.get("conditions"),
-        "researchQuestions": protocol.get("researchQuestions"),
-        "instruments": protocol.get("instruments"),
-        "analysisPlan": protocol.get("analysisPlan"),
-        "literature": protocol.get("literature"),
-    }
-    return json.dumps(view, indent=2, default=str)
-
-
-def dataset_summary(s: Session) -> dict:
-    """Per-condition counts + metric means/medians."""
-    conditions: dict[str, dict] = defaultdict(
-        lambda: {"sessions": set(), "events": 0, "eventTypes": defaultdict(int)}
-    )
-    for cond, sid, type_, n in s.execute(
-        select(Event.condition, Event.session_id, Event.type, func.count()).group_by(
-            Event.condition, Event.session_id, Event.type
-        )
-    ):
-        c = conditions[cond or "(unknown)"]
-        c["sessions"].add(sid)
-        c["events"] += n
-        c["eventTypes"][type_] += n
-
-    values: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
-    for cond, row in s.execute(select(MetricRow.condition, MetricRow.row)):
-        for key, val in (row or {}).items():
-            if key in ("participantId", "sessionId", "timestamp", "condition"):
-                continue
-            if isinstance(val, (int, float)) and not isinstance(val, bool):
-                values[cond or "(unknown)"][key].append(float(val))
-
-    metrics: dict[str, dict] = {}
-    for cond, cols in values.items():
-        metrics[cond] = {
-            key: {
-                "n": len(vals),
-                "mean": round(statistics.fmean(vals), 4),
-                "median": round(statistics.median(vals), 4),
-            }
-            for key, vals in cols.items()
-        }
-
-    return {
-        "conditions": {
-            cond: {
-                "sessions": len(c["sessions"]),
-                "events": c["events"],
-                "eventTypes": dict(c["eventTypes"]),
-            }
-            for cond, c in conditions.items()
-        },
-        "metrics": metrics,
-    }
-
-
-def get_dataset_summary_tool(s: Session) -> str:
-    return json.dumps(dataset_summary(s), indent=2)
-
-
-def build_tools(
-    s: Session, protocol: dict | None, study_id: str | None = None
-) -> dict[str, Callable[[dict], str]]:
-    """The tool name → implementation map."""
-    return {
-        "search_papers": lambda i: search_papers_tool(
-            s, str(i.get("query", "")), study_id
-        ),
-        "get_protocol": lambda i: get_protocol_tool(protocol),
-        "get_dataset_summary": lambda i: get_dataset_summary_tool(s),
-    }
 
 
 def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:
@@ -381,35 +277,6 @@ def make_client(model: str | None = None) -> LLMClient | None:
         return None
     chosen = model if model in MISTRAL_MODELS else MISTRAL_MODEL
     return MistralProvider(key, model=chosen)
-
-
-def _extract_citations(text: str) -> list[str]:
-    """
-    Pull the ``[...]`` source tags the system prompt requires, in order, de-duplicated -
-    the platform renders them as clickable chips.
-    """
-    import re
-
-    seen: dict[str, None] = {}
-    for m in re.findall(r"\[([^\[\]]+)\]", text):
-        seen.setdefault(m.strip(), None)
-    return list(seen)
-
-
-def answer_question(
-    question: str,
-    history: list[dict],
-    *,
-    tools: dict[str, Callable[[dict], str]],
-    client,
-) -> dict:
-    """Run the grounded tool-use loop and return ``{answer, citations, toolCalls}``."""
-    answer, tool_calls = client.run(question, history, tools)
-    return {
-        "answer": answer,
-        "citations": _extract_citations(answer),
-        "toolCalls": tool_calls,
-    }
 
 
 def protocol_literature_targets(protocol: dict | None) -> dict[str, list[str]]:

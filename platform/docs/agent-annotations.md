@@ -52,6 +52,7 @@ retrofitted.
 | `recommender-rail` | `RecommenderRail` | the persistent literature-recommender panel beside the conversation (landmark) |
 | `design-shape` | `Templates` | one design shape in the ranked protocol repertoire; `data-agent-ref` carries its template id |
 | `draft-rail` | `DraftRail` | the compiled protocol-draft view (landmark) |
+| `draft-slot-plate` | `DraftRail` | every mandatory protocol slot as an address, filled or still an open ring (landmark) |
 | `draft-apply` | `DraftRail` | apply the server-validated compiled draft to the protocol (decision point) |
 | `draft-finish` | `DraftRail` | open the finish-and-review moment that prepares the protocol draft (decision point) |
 | `protocol-path-current` | `SlotMeter` | the current step, shown even while the full phased checklist is collapsed |
@@ -71,21 +72,15 @@ retrofitted.
 | `sign-in` | `SignInScreen` | the sign-in gate (landmark), shown instead of project UI until a credential exists |
 | `invite` | `InviteDialog` | open the invite dialog (decision point) |
 | `member-actions` | `MembersTable` | open a member's role/remove menu (decision point) |
-| `amendment-banner` | `AmendmentBanner` | the study's amendment state (consent surface); `data-agent-paused` refines it |
-| `amendment-reapprove` | `AmendmentBanner` | record the ethics re-approval that lifts the session pause (decision point) |
-| `amendment-history` | `AmendmentHistory` | the amendment record list (landmark) |
-| `amendment-history-toggle` | `StudyHome` | show/hide the amendment history |
-| `version-chip` | `AmendmentHistory` | one protocol-revision chip |
 | `study-tabs` | `StudyHome` | the study workspace section tabs (landmark) |
-| `presence-chips` | `PresenceChips` | who else is viewing this study right now (absent when you're alone) |
 | `study-export` | `ExportStudy` | open the share/export menu for this study |
 | `export-replication-kit` | `ExportStudy` | download the byte-reproducible replication kit (FR-PROT-7) |
 | `export-elicitation-record` | `ExportStudy` | download the elicitation record (FR-CONV-6) |
-| `export-ethics-package` | `ExportStudy` | download the ethics package: design, tasks, capture, and exact consent text (FR-AGENT-5) |
 | `export-notebook` | `ExportStudy` | download the starter notebook + data dictionary, zipped (FR-ANA-6) |
 | `power-curve` | `PowerPanel` | the power/sensitivity chart on the Planning surface (P2-2) |
 | `power-required` | `PowerPanel` | the required-n table: effect size × per-group/total n × target reached |
 | `constellation` | `Constellation` | the citation-graph canvas (landmark) |
+| `constellation-lens` | `Constellation` | which citation relation is on screen — earlier / later / similar work, or all; `data-agent-kind` carries the current lens |
 | `metric-strip` | `MetricStrip` | the per-condition metric distribution chart (landmark) |
 | `live-sessions` | `LiveSessions` | the live-session monitor: who is running right now, what task, and whether data is arriving (landmark, FR-DASH-3) |
 | `live-session` | `LiveSessions` | one running session; `data-agent-ref` carries its session id |

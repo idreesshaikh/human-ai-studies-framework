@@ -24,8 +24,6 @@ declare module "react/jsx-runtime";
 
 declare module "platform" {
   // Components, providers, and re-exported router primitives — used as values.
-  export const AmendmentBanner: any;
-  export const AmendmentHistory: any;
   export const Avatar: any;
   export const Badge: any;
   export const Button: any;
@@ -55,7 +53,6 @@ declare module "platform" {
   export const DropdownMenuSeparator: any;
   export const DropdownMenuTrigger: any;
   export const EmptyState: any;
-  export const FeedbackAffordance: any;
   export const GroundingChip: any;
   export const Input: any;
   export const Label: any;
@@ -72,9 +69,7 @@ declare module "platform" {
   export const THead: any;
   export const TR: any;
   export const Table: any;
-  export const TierBadge: any;
   export const UnsourcedLabel: any;
-  export const VersionChip: any;
 
   // The real types the previews import in type position.
   export type Amendment = import("../../platform/src/lib/types").Amendment;

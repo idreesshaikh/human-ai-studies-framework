@@ -30,7 +30,7 @@ async function throws(name, status, fn) {
 }
 
 // The matrix mirrors the server: hasRole agrees with the rank ordering.
-const roles = ["viewer", "researcher", "owner"];
+const roles = ["viewer", "member", "owner"];
 let matrixOk = true;
 for (const cap of Object.keys(MATRIX)) {
   for (const role of roles) {
@@ -41,8 +41,8 @@ for (const cap of Object.keys(MATRIX)) {
 ok("permission matrix matches rank ordering", matrixOk);
 ok("a non-member satisfies nothing", roles.every(() => true) && !hasRole(null, "view"));
 ok("viewer can view but not contribute", hasRole("viewer", "view") && !hasRole("viewer", "contribute"));
-ok("researcher can contribute but not manage members",
-  hasRole("researcher", "contribute") && !hasRole("researcher", "manage_members"));
+ok("member can contribute but not manage members",
+  hasRole("member", "contribute") && !hasRole("member", "manage_members"));
 ok("owner can do everything", Object.keys(MATRIX).every((c) => hasRole("owner", c)));
 
 // The in-memory backend behaves like the server's shape.
@@ -54,7 +54,7 @@ const mine = await api.listProjects();
 ok("new project appears in my list", mine.some((p) => p.slug === created.slug));
 
 // Invitations are reusable (Phase 7b: email-less share links).
-const inv = await api.createInvitation("sample-lab", "viewer");
+const inv = await api.createInvitation("sample-lab", "member");
 const accepted = await api.acceptInvitation(inv.token);
 // Existing member keeps their role; invitations don't downgrade.
 ok("accepting a link as existing member keeps role", accepted.role === "owner");
@@ -62,10 +62,10 @@ const reaccepted = await api.acceptInvitation(inv.token);
 ok("re-accepting the same link is allowed (reusable)", reaccepted.role === "owner");
 
 // Role change sticks.
-await api.changeRole("sample-lab", "sam@lab.test", "researcher");
+await api.changeRole("sample-lab", "dana@lab.test", "owner");
 const members = await api.members("sample-lab");
 ok("role change sticks",
-  members.find((m) => m.identitySub === "sam@lab.test")?.role === "researcher");
+  members.find((m) => m.identitySub === "dana@lab.test")?.role === "owner");
 
 // Last owner can't be removed (on the fresh project, "you" is sole owner).
 await throws("last owner can't be removed", 409, () =>
@@ -87,7 +87,7 @@ ok("delete with correct confirmation removes the project",
 // entirely. "Loading" and "viewer" must never collapse into one answer.
 
 const MEMBERS = [{ identitySub: "me", role: "owner" }];
-const MEMBERSHIPS = [{ projectSlug: "lab", role: "researcher" }];
+const MEMBERSHIPS = [{ projectSlug: "lab", role: "member" }];
 
 ok("role is unknown while the session loads",
   resolveRole({ meLoading: true, slug: "lab" }).status === "loading");
@@ -105,7 +105,7 @@ ok("the session's membership answers when the payload lacks me",
   roleOrNull(resolveRole({
     projectMembers: [], meSub: "me",
     memberships: MEMBERSHIPS, meLoading: false, slug: "lab",
-  })) === "researcher");
+  })) === "member");
 
 ok("a genuine non-member resolves to no role, not to loading",
   (() => {

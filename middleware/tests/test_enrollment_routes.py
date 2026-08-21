@@ -27,8 +27,8 @@ def test_a_designed_study_can_be_set_up_immediately(client_designed: TestClient)
     assert body["consentStatement"].strip()
 
 
-def test_mint_batch_assigns_counterbalanced_conditions(client_ethics_ok: TestClient):
-    r = client_ethics_ok.post(
+def test_mint_batch_assigns_counterbalanced_conditions(client_designed: TestClient):
+    r = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 4, "grain": "participant"}
     )
     assert r.status_code == 200
@@ -40,37 +40,37 @@ def test_mint_batch_assigns_counterbalanced_conditions(client_ethics_ok: TestCli
     assert [t["participantId"] for t in toks] == ["P01", "P02", "P03", "P04"]
 
 
-def test_list_then_revoke(client_ethics_ok: TestClient):
-    client_ethics_ok.post(
+def test_list_then_revoke(client_designed: TestClient):
+    client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "session"}
     )
-    listed = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()
+    listed = client_designed.get("/studies/pilot/enrollment/tokens").json()
     assert listed[0]["status"] == "unredeemed"
     tid = listed[0]["id"]
     assert (
-        client_ethics_ok.delete(f"/studies/pilot/enrollment/tokens/{tid}").status_code
+        client_designed.delete(f"/studies/pilot/enrollment/tokens/{tid}").status_code
         == 200
     )
-    assert client_ethics_ok.get("/studies/pilot/enrollment/tokens").json() == []
+    assert client_designed.get("/studies/pilot/enrollment/tokens").json() == []
     # IDOR guard: a token that isn't in this study cannot be revoked via it.
-    other = client_ethics_ok.post(
+    other = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "session"}
     ).json()[0]
     # 404 (not 403): a study's members must not learn another study's token exists.
     assert (
-        client_ethics_ok.delete(
+        client_designed.delete(
             f"/studies/other-study/enrollment/tokens/{other['id']}"
         ).status_code
         == 404
     )
 
 
-def test_redeem_returns_identity_config_and_consent(client_ethics_ok: TestClient):
-    tok = client_ethics_ok.post(
+def test_redeem_returns_identity_config_and_consent(client_designed: TestClient):
+    tok = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
     ).json()[0]
     raw = tok["connectionString"].split("#", 1)[1]
-    r = client_ethics_ok.post("/pair/redeem", json={"token": raw})
+    r = client_designed.post("/pair/redeem", json={"token": raw})
     assert r.status_code == 200
     body = r.json()
     assert body["studyId"] == "pilot"
@@ -83,38 +83,38 @@ def test_redeem_returns_identity_config_and_consent(client_ethics_ok: TestClient
     assert "AI assistance on real tasks" in body["consentStatement"]
 
 
-def test_session_grain_token_is_single_use(client_ethics_ok: TestClient):
-    tok = client_ethics_ok.post(
+def test_session_grain_token_is_single_use(client_designed: TestClient):
+    tok = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "session"}
     ).json()[0]
     raw = tok["connectionString"].split("#", 1)[1]
-    assert client_ethics_ok.post("/pair/redeem", json={"token": raw}).status_code == 200
-    second = client_ethics_ok.post("/pair/redeem", json={"token": raw})
+    assert client_designed.post("/pair/redeem", json={"token": raw}).status_code == 200
+    second = client_designed.post("/pair/redeem", json={"token": raw})
     assert second.status_code == 410
 
 
-def test_revoked_token_cannot_redeem(client_ethics_ok: TestClient):
-    tok = client_ethics_ok.post(
+def test_revoked_token_cannot_redeem(client_designed: TestClient):
+    tok = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
     ).json()[0]
-    client_ethics_ok.delete(f"/studies/pilot/enrollment/tokens/{tok['id']}")
+    client_designed.delete(f"/studies/pilot/enrollment/tokens/{tok['id']}")
     raw = tok["connectionString"].split("#", 1)[1]
-    assert client_ethics_ok.post("/pair/redeem", json={"token": raw}).status_code == 410
+    assert client_designed.post("/pair/redeem", json={"token": raw}).status_code == 410
 
 
 def test_capture_config_matches_redeem_and_requires_credential(
-    client_ethics_ok: TestClient,
+    client_designed: TestClient,
 ):
-    tok = client_ethics_ok.post(
+    tok = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
     ).json()[0]
     raw = tok["connectionString"].split("#", 1)[1]
-    cred = client_ethics_ok.post("/pair/redeem", json={"token": raw}).json()[
+    cred = client_designed.post("/pair/redeem", json={"token": raw}).json()[
         "sessionCredential"
     ]
 
-    assert client_ethics_ok.get("/studies/pilot/capture-config").status_code == 401
-    r = client_ethics_ok.get(
+    assert client_designed.get("/studies/pilot/capture-config").status_code == 401
+    r = client_designed.get(
         "/studies/pilot/capture-config",
         headers={"authorization": f"Bearer {cred}"},
     )
@@ -123,12 +123,12 @@ def test_capture_config_matches_redeem_and_requires_credential(
 
 
 def test_list_carries_capture_config_pre_flight_visibility(
-    client_ethics_ok: TestClient,
+    client_designed: TestClient,
 ):
-    client_ethics_ok.post(
+    client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
     )
-    row = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()[0]
+    row = client_designed.get("/studies/pilot/enrollment/tokens").json()[0]
     assert row["captureConfig"]["captureConfigVersion"]
     assert row["captureConfig"]["enabledInstruments"] == [
         {"name": "stuck", "enabled": True}
@@ -137,7 +137,7 @@ def test_list_carries_capture_config_pre_flight_visibility(
 
 
 def test_mint_with_overrides_layers_on_the_redeemed_config(
-    client_ethics_ok: TestClient,
+    client_designed: TestClient,
 ):
     """Mint-time toggle overrides persist and reach the redeemed capture config."""
     overrides = {
@@ -149,28 +149,28 @@ def test_mint_with_overrides_layers_on_the_redeemed_config(
             }
         ]
     }
-    tok = client_ethics_ok.post(
+    tok = client_designed.post(
         "/studies/pilot/enrollment/tokens",
         json={"count": 1, "grain": "participant", "overrides": overrides},
     ).json()[0]
 
-    listed = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()
+    listed = client_designed.get("/studies/pilot/enrollment/tokens").json()
     assert listed[0]["captureOverrides"] == overrides
     assert listed[0]["captureConfig"]["enabledInstruments"] == [
         {"name": "stuck", "enabled": False}
     ]
 
     raw = tok["connectionString"].rsplit("#", 1)[1]
-    body = client_ethics_ok.post("/pair/redeem", json={"token": raw}).json()
+    body = client_designed.post("/pair/redeem", json={"token": raw}).json()
     assert body["captureConfig"]["settings"]["tern.stuck.enabled"] is False
 
 
-def test_mint_without_overrides_behaves_like_today(client_ethics_ok: TestClient):
+def test_mint_without_overrides_behaves_like_today(client_designed: TestClient):
     """No overrides on the request means no override column state (regression guard)."""
-    client_ethics_ok.post(
+    client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
     )
-    listed = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()
+    listed = client_designed.get("/studies/pilot/enrollment/tokens").json()
     assert listed[0]["captureOverrides"] is None
     assert listed[0]["captureConfig"]["enabledInstruments"] == [
         {"name": "stuck", "enabled": True}
@@ -178,26 +178,26 @@ def test_mint_without_overrides_behaves_like_today(client_ethics_ok: TestClient)
 
 
 def test_list_status_flips_to_streaming_once_events_arrive(
-    client_ethics_ok: TestClient,
+    client_designed: TestClient,
 ):
-    tok = client_ethics_ok.post(
+    tok = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
     ).json()[0]
     raw = tok["connectionString"].split("#", 1)[1]
-    cred = client_ethics_ok.post("/pair/redeem", json={"token": raw}).json()[
+    cred = client_designed.post("/pair/redeem", json={"token": raw}).json()[
         "sessionCredential"
     ]
-    listed = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()
+    listed = client_designed.get("/studies/pilot/enrollment/tokens").json()
     assert listed[0]["status"] == "paired"
 
-    client_ethics_ok.post(
+    client_designed.post(
         "/ingest/events",
         json=_events("P01", "ai-assisted"),
         headers={"authorization": f"Bearer {cred}"},
     )
-    listed = client_ethics_ok.get("/studies/pilot/enrollment/tokens").json()
+    listed = client_designed.get("/studies/pilot/enrollment/tokens").json()
     assert listed[0]["status"] == "streaming"
-    stale = client_ethics_ok.get(
+    stale = client_designed.get(
         "/studies/pilot/enrollment/tokens", params={"windowSeconds": 0}
     ).json()
     assert stale[0]["status"] == "paired"
@@ -208,9 +208,9 @@ def test_toggle_catalog_needs_a_protocol(client_no_protocol):
     assert r.status_code == 404
 
 
-def test_toggle_catalog_returns_filtered_entries(client_ethics_ok):
+def test_toggle_catalog_returns_filtered_entries(client_designed):
     """Only entries whose instrument is present in the protocol appear."""
-    r = client_ethics_ok.get("/studies/pilot/enrollment/toggles/catalog")
+    r = client_designed.get("/studies/pilot/enrollment/toggles/catalog")
     assert r.status_code == 200
     entries = r.json()
     names = [e["label"] for e in entries]
@@ -220,9 +220,9 @@ def test_toggle_catalog_returns_filtered_entries(client_ethics_ok):
     assert all(e.get("grounding") for e in entries)
 
 
-def test_toggle_catalog_current_value_matches_protocol(client_ethics_ok):
+def test_toggle_catalog_current_value_matches_protocol(client_designed):
     """The currentValue field mirrors the protocol's instrument config."""
-    r = client_ethics_ok.get("/studies/pilot/enrollment/toggles/catalog")
+    r = client_designed.get("/studies/pilot/enrollment/toggles/catalog")
     stuck = [e for e in r.json() if e["path"] == ["stuck", "enabled"]]
     assert stuck
     assert stuck[0]["currentValue"] is True
@@ -248,46 +248,38 @@ def test_toggle_works_on_a_designed_study(client_designed):
     assert r.json()["applied"] is True
 
 
-def test_toggle_nested_enabled_is_consent_relevant(client_ethics_ok):
-    """FR-CONV-7: toggling a nested 'enabled' field records an amendment."""
+def test_toggle_nested_enabled_applies(client_designed):
+    """Toggling a nested 'enabled' field applies to the protocol."""
     body = {"instrument": "tern", "path": ["stuck", "enabled"],
-            "value": False, "rationale": "testing FR-CONV-7"}
-    r = client_ethics_ok.post("/studies/pilot/enrollment/toggles", json=body)
+            "value": False, "rationale": "quieter pilot"}
+    r = client_designed.post("/studies/pilot/enrollment/toggles", json=body)
     assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["applied"] is True
-    assert body["requiresReapproval"] is True
-    assert body["amendmentId"]
-    hist = client_ethics_ok.get("/studies/pilot/amendments").json()
-    assert hist["amendments"]
-    assert hist["pendingReapproval"] is not None
+    assert r.json()["applied"] is True
 
 
-def test_toggle_non_consent_change_applies_directly(client_ethics_ok):
-    """A threshold change is NOT consent-relevant — applies without amendment."""
+def test_toggle_threshold_change_applies(client_designed):
+    """A threshold change applies the same way."""
     body = {"instrument": "tern", "path": ["stuck", "thresholdSeconds"],
             "value": 120, "rationale": "fine-tune"}
-    r = client_ethics_ok.post("/studies/pilot/enrollment/toggles", json=body)
+    r = client_designed.post("/studies/pilot/enrollment/toggles", json=body)
     assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["applied"] is True
-    assert body["requiresReapproval"] is False
+    assert r.json()["applied"] is True
 
 
-def test_toggle_catalog_reflects_amended_protocol(client_ethics_ok):
+def test_toggle_catalog_reflects_changed_protocol(client_designed):
     """After a toggle, the catalog returns the new currentValue."""
     body = {"instrument": "tern", "path": ["stuck", "enabled"],
             "value": False, "rationale": "turn off stuck"}
-    client_ethics_ok.post("/studies/pilot/enrollment/toggles", json=body)
-    r = client_ethics_ok.get("/studies/pilot/enrollment/toggles/catalog")
+    client_designed.post("/studies/pilot/enrollment/toggles", json=body)
+    r = client_designed.get("/studies/pilot/enrollment/toggles/catalog")
     stuck = [e for e in r.json() if e["path"] == ["stuck", "enabled"]]
     assert stuck[0]["currentValue"] is False
 
 
-def test_toggle_invalid_path_returns_400(client_ethics_ok):
+def test_toggle_invalid_path_returns_400(client_designed):
     body = {"instrument": "tern", "path": ["nonexistent", "value"],
             "value": True, "rationale": "bad"}
-    r = client_ethics_ok.post("/studies/pilot/enrollment/toggles", json=body)
+    r = client_designed.post("/studies/pilot/enrollment/toggles", json=body)
     assert r.status_code == 422
 
 
@@ -306,35 +298,35 @@ def _events(pid, cond):
     }
 
 
-def test_credentialed_ingest_server_stamps_join_keys(client_ethics_ok: TestClient):
-    tok = client_ethics_ok.post(
+def test_credentialed_ingest_server_stamps_join_keys(client_designed: TestClient):
+    tok = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
     ).json()[0]
     raw = tok["connectionString"].split("#", 1)[1]
-    cred = client_ethics_ok.post("/pair/redeem", json={"token": raw}).json()[
+    cred = client_designed.post("/pair/redeem", json={"token": raw}).json()[
         "sessionCredential"
     ]
-    r = client_ethics_ok.post(
+    r = client_designed.post(
         "/ingest/events",
         json=_events("P08", "unassisted"),
         headers={"authorization": f"Bearer {cred}"},
     )
     assert r.status_code == 200
-    row = client_ethics_ok.get("/sessions/s1/events").json()[0]
+    row = client_designed.get("/sessions/s1/events").json()[0]
     assert row["participantId"] == "P01"
     assert row["condition"] == "ai-assisted"
     assert "credential-mismatch" in row["flags"]
 
 
-def test_ingest_without_credential_still_lands_flagged(client_ethics_ok: TestClient):
+def test_ingest_without_credential_still_lands_flagged(client_designed: TestClient):
     # Bearer present but bogus -> never 401, row stored and flagged.
-    r = client_ethics_ok.post(
+    r = client_designed.post(
         "/ingest/events",
         json=_events("P01", "ai-assisted"),
         headers={"authorization": "Bearer not-a-real-credential"},
     )
     assert r.status_code == 200
-    row = client_ethics_ok.get("/sessions/s1/events").json()[0]
+    row = client_designed.get("/sessions/s1/events").json()[0]
     assert "unauthenticated" in row["flags"]
 
 
@@ -353,15 +345,15 @@ def _db_dependency(client: TestClient):
     raise AssertionError("could not find the `db` dependency on /ingest/events")
 
 
-def test_ingest_survives_a_failing_credential_lookup(client_ethics_ok: TestClient):
+def test_ingest_survives_a_failing_credential_lookup(client_designed: TestClient):
     """
     Task A7 (Critical): resolve_credential's docstring promises 'never raises', but its
     DB read was unguarded.
     """
     from middleware.db import make_session_factory
 
-    db_dep = _db_dependency(client_ethics_ok)
-    real_factory = make_session_factory(client_ethics_ok.db_path)
+    db_dep = _db_dependency(client_designed)
+    real_factory = make_session_factory(client_designed.db_path)
 
     class _FailFirstScalar:
         def __init__(self, real):
@@ -385,33 +377,33 @@ def test_ingest_survives_a_failing_credential_lookup(client_ethics_ok: TestClien
         finally:
             real.close()
 
-    client_ethics_ok.app.dependency_overrides[db_dep] = failing_db
+    client_designed.app.dependency_overrides[db_dep] = failing_db
     try:
-        r = client_ethics_ok.post(
+        r = client_designed.post(
             "/ingest/events",
             json=_events("P01", "ai-assisted"),
             headers={"authorization": "Bearer anything"},
         )
         assert r.status_code == 200, r.text
-        rows = client_ethics_ok.get("/sessions/s1/events").json()
+        rows = client_designed.get("/sessions/s1/events").json()
         assert len(rows) == 1
         assert "unauthenticated" in rows[0]["flags"]
     finally:
-        del client_ethics_ok.app.dependency_overrides[db_dep]
+        del client_designed.app.dependency_overrides[db_dep]
 
 
-def test_credential_never_persists_into_stored_rows(client_ethics_ok: TestClient):
-    tok = client_ethics_ok.post(
+def test_credential_never_persists_into_stored_rows(client_designed: TestClient):
+    tok = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
     ).json()[0]
     raw = tok["connectionString"].split("#", 1)[1]
-    cred = client_ethics_ok.post("/pair/redeem", json={"token": raw}).json()[
+    cred = client_designed.post("/pair/redeem", json={"token": raw}).json()[
         "sessionCredential"
     ]
-    client_ethics_ok.post(
+    client_designed.post(
         "/ingest/events",
         json=_events("P01", "ai-assisted"),
         headers={"authorization": f"Bearer {cred}"},
     )
-    dump = client_ethics_ok.get("/sessions/s1/events").text
+    dump = client_designed.get("/sessions/s1/events").text
     assert cred not in dump

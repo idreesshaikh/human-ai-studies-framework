@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { onUnauthorized, setTokenProvider } from "./api.ts";
+import { apiBase, onUnauthorized, setTokenProvider } from "./api.ts";
 
 /* Sign-in state for the app shell (FR-OPS-5, D29).
  *
@@ -277,7 +277,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void (async () => {
       let cfg: AuthConfig = { mode: "none" };
       try {
-        const res = await fetch("/auth/config", { credentials: "include" });
+        // Against the API's base, not a bare relative path — see apiBase().
+        const res = await fetch(`${apiBase()}/auth/config`, {
+          credentials: "include",
+        });
         if (res.ok) {
           cfg = await res.json();
         } else if (res.status === 404) {

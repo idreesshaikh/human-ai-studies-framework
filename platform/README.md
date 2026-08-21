@@ -19,12 +19,11 @@ shadcn/ui (vendored, owned in-repo). The middleware serves the built app at
   assistant drives: register and initiative both move with it, enforced
   server-side, never the rigor of the method itself.
 - **The study workspace** (tabs): **Library**: live paper ingest
-  (arXiv/DOI/PDF), the citation constellation, and the grounded assistant;
+  (arXiv/DOI/PDF) and the citation constellation;
   **Data**: honest per-condition metric shapes and session integrity;
   **Participants**: mint pairing links, watch who is streaming, and toggle
   what each instrument captures.
-- **Projects, roles, hero, members**, and the evolution surfaces (amendment
-  banner + history).
+- **Projects, roles, hero, members**.
 
 The study surfaces are explorable with **no backend**: they fall back to a
 curated offline seed. The design conversation is the exception — it needs a
@@ -78,13 +77,13 @@ Keep `npm run check` green before committing.
 ```
 src/
   pages/                    Hero, Projects, ProjectHome, StudyHome, Members, …
-  components/conversation/  the design conversation + evolution surfaces
-  components/library/        LibraryTab, Constellation, Assistant
+  components/conversation/  the design conversation
+  components/library/        LibraryTab, Constellation
   components/charts/         DataTab, MetricStrip, SwimlaneTimeline
   components/enrollment/     EnrollmentPanel, MintDialog, LiveSessions
   components/members/        MembersTable, InviteDialog
   components/shell/          AppFrame, ProjectSwitcher, RoleGate
-  components/brand/          PhoenixMark, Constellation (the literature field)
+  components/brand/          PhoenixMark
   components/hero/           HeroShowcase (the self-running demo on `/`)
   components/ui/             vendored shadcn primitives
   lib/                       api/studyApi clients, compiler, extension, forceLayout

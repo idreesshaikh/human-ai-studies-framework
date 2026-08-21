@@ -72,3 +72,6 @@ docs/examples/pilot-2026/*/
 
 # Documentation site build output
 documentation/site/
+
+# Playwright CLI session logs/snapshots
+.playwright-cli/

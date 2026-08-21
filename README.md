@@ -119,14 +119,14 @@ approved never runs.
 ## Worked example
 
 Follow one study from idea to notebook with the real generated artifacts in
-[`docs/examples/`](docs/examples/): the protocol, an ethics package, a dry-run
-report, and the starter notebook.
+[`docs/examples/`](docs/examples/): the protocol, a dry-run report, the data
+dictionary, and the starter notebook.
 
 ## Status
 
 A master's research project, under active development. See
-[`PRODUCT.md`](PRODUCT.md) for the product record: users, positioning,
-constraints, and what's confirmed versus still open.
+[`SCOPE.md`](SCOPE.md) for the boundary: the five steps this handles, what
+it deliberately does not do, and the constraints that bind future work.
 
 ## License
 

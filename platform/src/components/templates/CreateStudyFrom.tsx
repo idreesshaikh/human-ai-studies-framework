@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useApi, useSession } from "@/lib/session";
+import { useAuth } from "@/lib/auth.tsx";
 import { ApiError } from "@/lib/api.ts";
+import { signInHref } from "@/lib/returnTo";
 
 /* "Turn this into a study" — the one way off the templates page.
  *
@@ -31,7 +33,10 @@ export function CreateStudyFrom({
 }) {
   const api = useApi();
   const { refresh } = useSession();
+  const { hasCredential } = useAuth();
+  const signedOut = !hasCredential;
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
   const [projects, setProjects] = useState<{ slug: string; name: string }[] | null>(
     null,
   );
@@ -41,6 +46,8 @@ export function CreateStudyFrom({
   const [createError, setCreateError] = useState("");
 
   useEffect(() => {
+    // Nothing to list without an identity, and asking would only 401.
+    if (signedOut) return;
     api
       .listProjects()
       .then((ps) => {
@@ -48,7 +55,7 @@ export function CreateStudyFrom({
         setSlug((cur) => cur || ps[0]?.slug || "");
       })
       .catch(() => setProjects([]));
-  }, [api]);
+  }, [api, signedOut]);
 
   const create = async () => {
     if (!slug || !name.trim() || creating) return;
@@ -77,7 +84,21 @@ export function CreateStudyFrom({
         * field. The sentence rendered as two shouted lines ending in a full
         * stop. */}
       <p className="type-body text-text-muted">{label}</p>
-      {projects === null ? (
+      {/* Browsing the repertoire needs no account; keeping something out of it
+        * does. Signed out, the project read 401s and the catch below turned
+        * that into "No project to put it in yet — create one first", which
+        * names the wrong obstacle and prescribes something equally
+        * impossible. State the real one, with the move that clears it. */}
+      {signedOut ? (
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <p className="type-caption text-text-muted">
+            Sign in to keep this — a study has to live in one of your projects.
+          </p>
+          <Button asChild size="sm" variant="outline">
+            <Link to={signInHref(pathname + search)}>Sign in</Link>
+          </Button>
+        </div>
+      ) : projects === null ? (
         <p className="mt-2 flex items-center gap-2 type-caption text-text-muted">
           <Loader2 className="size-4 animate-spin" aria-hidden /> Loading your
           projects…

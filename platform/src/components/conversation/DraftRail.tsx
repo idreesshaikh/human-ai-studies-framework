@@ -156,49 +156,32 @@ export function DraftRail({
         {sections ? (
           sections.length > 0 ? (
             <div className="flex flex-col gap-2.5">
+              {/* A freshly created study compiles to a protocol that is not
+                * empty — it carries scaffolding the researcher never wrote
+                * ("Study: led by Researcher", "Phases: design") — so
+                * `sections.length > 0` was true from the first paint and the
+                * blank plate below was never reached. What the rail showed
+                * instead was two lines of boilerplate above four hundred
+                * pixels of nothing, which says less than nothing: it reads as
+                * a protocol that is finished and almost empty.
+                *
+                * Until the conversation has resolved a single mandatory slot,
+                * the plate's own frame leads and the compiled scaffolding
+                * follows it. */}
+              {!conversationStarted && <SlotPlate draft={draft} />}
               {sections.map((section) => (
                 <SectionBlock key={section.heading} section={section} />
               ))}
             </div>
           ) : (
-            <p className="type-caption text-text-muted">
-              The compiled protocol is empty so far.
-            </p>
+            <SlotPlate draft={draft} />
           )
         ) : serverYaml?.trim() ? (
           <pre className="tabular type-caption whitespace-pre-wrap type-quantity leading-relaxed text-text">
             {serverYaml}
           </pre>
         ) : (
-          /* The plate's own frame: every slot the protocol needs, as an
-           * address that either carries something or is still blank. An
-           * unfilled slot is marked with the open ring — the same notation
-           * "nothing identified here yet" wears everywhere else — instead of
-           * repeating the sentence "Not yet resolved." eight times down the
-           * rail, which was eight lines of text saying what eight marks say
-           * at a glance. */
-          <ul className="divide-y divide-border">
-            {MANDATORY_SLOTS.map((s) => (
-              <li key={s} className="flex items-baseline gap-2.5 py-2">
-                <span className="type-label min-w-0 flex-1 text-text">
-                  {SLOT_LABELS[s]}
-                </span>
-                {draft[s].length > 0 ? (
-                  <ul className="type-body flex min-w-0 flex-[2] flex-col gap-0.5 text-text">
-                    {draft[s].map((v, i) => (
-                      <li key={i}>{v}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <span
-                    className="mark-unsourced shrink-0 self-center"
-                    role="img"
-                    aria-label="not yet resolved"
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
+          <SlotPlate draft={draft} />
         )}
       </div>
 
@@ -213,6 +196,37 @@ export function DraftRail({
         </details>
       )}
     </aside>
+  );
+}
+
+/* The plate's own frame: every slot the protocol needs, as an address that
+ * either carries something or is still blank. An unfilled slot is marked with
+ * the open ring — the same notation "nothing identified here yet" wears
+ * everywhere else — instead of repeating the sentence "Not yet resolved."
+ * eight times down the rail, which was eight lines of text saying what eight
+ * marks say at a glance. */
+function SlotPlate({ draft }: { draft: ProtocolDraft }) {
+  return (
+    <ul className="divide-y divide-border" data-agent="draft-slot-plate">
+      {MANDATORY_SLOTS.map((s) => (
+        <li key={s} className="flex items-baseline gap-2.5 py-2">
+          <span className="type-label min-w-0 flex-1 text-text">{SLOT_LABELS[s]}</span>
+          {draft[s].length > 0 ? (
+            <ul className="type-body flex min-w-0 flex-[2] flex-col gap-0.5 text-text">
+              {draft[s].map((v, i) => (
+                <li key={i}>{v}</li>
+              ))}
+            </ul>
+          ) : (
+            <span
+              className="mark-unsourced shrink-0 self-center"
+              role="img"
+              aria-label="not yet resolved"
+            />
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 

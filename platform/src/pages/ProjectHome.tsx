@@ -14,6 +14,7 @@ import { memberLabel } from "@/lib/memberLabel";
 import { ApiError } from "@/lib/api.ts";
 import { resolveRole, roleOrNull } from "@/lib/role";
 import { cn } from "@/lib/cn";
+import { humanSlug } from "@/lib/slug";
 
 /* Project home: its studies, and a preview of who's on the team. */
 export function ProjectHome() {
@@ -185,8 +186,12 @@ export function ProjectHome() {
                   <Link
                     to={`/p/${slug}/studies/${st.id}`}
                     className="type-body min-w-0 flex-1 truncate font-semibold text-text after:absolute after:inset-0"
+                    title={humanSlug(st.id)}
                   >
-                    {st.id}
+                    {/* A study has no title column — its id is its slug — so
+                      * this roster was listing raw addresses where a reader
+                      * expects names. The URL still carries the slug. */}
+                    {humanSlug(st.id)}
                   </Link>
                   <RoleGate
                     role={mine}
@@ -243,9 +248,15 @@ export function ProjectHome() {
           {/* Not accent-coloured. The one accent on a screen belongs to the
             * action that screen is for; a secondary link tinted the same
             * blue makes the researcher check two things to find one. */}
+          {/* `inline-block py-1 -my-1`: the same trick the extension-install
+            * link uses. At 12px caption type this sat 18px tall as a
+            * standalone navigation control, under the 24px target minimum,
+            * and it is not inside a sentence so the inline exception does not
+            * cover it. The padding buys the height back without moving
+            * anything, since the negative margin gives it straight back. */}
           <Link
             to={`/p/${slug}/members`}
-            className="type-caption text-text-muted underline decoration-border underline-offset-4 transition-colors duration-fast hover:text-text hover:decoration-control-edge"
+            className="type-caption -my-1 inline-block py-1 text-text-muted underline decoration-border underline-offset-4 transition-colors duration-fast hover:text-text hover:decoration-control-edge"
           >
             Manage members
           </Link>

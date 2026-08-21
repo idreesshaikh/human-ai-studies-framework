@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Upload, X, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Surface } from "@/components/shell/Surface";
 import { Constellation } from "./Constellation";
-import { Assistant } from "./Assistant";
 import {
   studyApi,
   OfflineError,
@@ -13,8 +13,8 @@ import {
 import { ingestIdForRef } from "@/lib/forceLayout";
 import { cn } from "@/lib/cn";
 
-/* The Library — the knowledge layer (FR-LIT-1/2/3/4). Live paper ingest (arXiv/DOI/PDF), the
- * citation constellation, protocol-element links, and the grounded assistant.
+/* The Library — the knowledge layer (FR-LIT-1/2/3). Live paper ingest
+ * (arXiv/DOI/PDF), the citation constellation, and protocol-element links.
  * The corpus is the product's knowledge, not background reading — so this is a
  * first-class study surface, not a side panel. */
 export function LibraryTab({ studyId }: { studyId: string }) {
@@ -77,13 +77,19 @@ export function LibraryTab({ studyId }: { studyId: string }) {
   const selectedNode = graph?.nodes.find((n) => n.paperRef === selected) ?? null;
 
   return (
-    <div className="split-rail h-full min-h-0 w-full flex-1">
-      <section
-        className="flex min-h-0 min-w-0 flex-col gap-stack overflow-y-auto overscroll-contain p-gutter"
-        tabIndex={0}
-        role="region"
-        aria-label="Library"
-      >
+    /* A Surface, like every other screen. This tab hand-rolled its own root,
+     * scroller, gutter and (absent) measure, which put it outside the layout
+     * contract entirely: it ran the full width of the window while Data and
+     * Planning sat centred at `work`, so moving between the four tabs of one
+     * workspace moved the content column under the researcher. `Surface`
+     * owns the clip, the scroll, the gutter, the rhythm and the measure —
+     * and the keyboard-reachable region this markup was duplicating by hand.
+     *
+     * The escape from the contract was easy to miss while this tab still had
+     * a second panel beside it; with that gone the single column stretched to
+     * the whole window and the mismatch became the most visible thing about
+     * the workspace. */
+    <Surface measure="work" label="Library">
         {/* Ingest bar — the live-fetch moment. */}
         <div className="flex flex-wrap items-center gap-2">
           <Input
@@ -265,25 +271,6 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             )}
           </aside>
         )}
-      </section>
-
-      {/* The assistant rides alongside, full height — it owns its own
-       * scroller (Assistant.tsx), so this column doesn't need the old
-       * viewport-relative sticky hack (that math assumed the page, not the
-       * panel, was what scrolled). */}
-      <aside className="flex min-h-0 min-w-0 flex-col border-l border-border p-gutter">
-        <div className="hidden h-full min-h-0 lg:flex lg:flex-col">
-          <Assistant studyId={studyId} />
-        </div>
-        <details className="lg:hidden">
-          <summary className="cursor-pointer rounded-input border border-border bg-surface px-4 py-2 type-body font-medium text-text">
-            Assistant
-          </summary>
-          <div className="mt-2">
-            <Assistant studyId={studyId} />
-          </div>
-        </details>
-      </aside>
-    </div>
+    </Surface>
   );
 }

@@ -122,3 +122,81 @@ def test_from_paper_route_hands_back_a_protocol_to_start_from(client_tpl):
     assert "protocol" in body, "no protocol to seed a study with"
     assert isinstance(body["protocol"].get("study"), dict)
     assert isinstance(body["protocol"].get("researchQuestions"), list)
+
+
+def test_derive_from_paper_fields_match_the_schema_bounds():
+    """
+    The caps this module trims to are the schema's, not guesses. Pinned, because a
+    schema loosened or tightened without this file following would either reject
+    valid derivations again or trim text that no longer needed trimming.
+    """
+    import json
+    from pathlib import Path
+
+    schema_path = (
+        Path(__file__).resolve().parents[2]
+        / "templates"
+        / "schemas"
+        / "template.schema.json"
+    )
+    props = json.loads(schema_path.read_text())["properties"]
+
+    assert props["title"]["maxLength"] == tr._TITLE_MAX
+    assert props["description"]["maxLength"] == tr._DESCRIPTION_MAX
+    # templateId is bounded by its pattern (1 + 61 + 1) rather than by
+    # `maxLength`, so this pins "no looser than the schema" rather than equality.
+    assert props["templateId"]["maxLength"] >= tr._TEMPLATE_ID_MAX
+    pattern_max = 1 + 61 + 1
+    assert pattern_max == tr._TEMPLATE_ID_MAX
+
+
+def test_a_long_paper_title_still_derives_a_schema_valid_template():
+    """
+    The corpus is full of titles long enough to overrun the schema's caps. Composing
+    past them raised a 422 at the researcher for picking two ordinary menu entries —
+    a real pairing that failed: this archetype's own title plus a 73-character paper
+    name came to 134 characters against a cap of 120.
+    """
+    long_title = (
+        "Investigating and Designing for Trust in AI-powered Code Generation Tools"
+    )
+    derived = tr.derive_template_from_paper(
+        "corpus:trust-in-ai-code-generation",
+        "metr-rct-v1",
+        title=long_title,
+    )
+
+    assert len(derived["title"]) <= tr._TITLE_MAX
+    assert len(derived["description"]) <= tr._DESCRIPTION_MAX
+    assert len(derived["templateId"]) <= tr._TEMPLATE_ID_MAX
+    # Trimmed, not truncated into nonsense: the archetype's own name survives, so the
+    # card still says what kind of design this is.
+    base_title = tr.load_template("metr-rct-v1")["title"]
+    assert derived["title"].startswith(f"{base_title} — after ")
+    assert derived["title"].endswith("\u2026"), "a cut title should say it was cut"
+    # The paper is still the primary source even when its name was shortened.
+    assert derived["source"][0]["paperRef"] == "corpus:trust-in-ai-code-generation"
+
+    # And it must still be a template the rest of the pipeline accepts.
+    out = tr.instantiate_doc(derived, {})
+    assert validate_protocol(out["protocol"]) == []
+
+
+def test_derived_template_id_is_always_schema_legal():
+    """
+    A paper ref that slugs to a trailing hyphen, or one long enough to overrun the id
+    cap, both produced ids the schema's pattern rejects.
+    """
+    import re
+
+    pattern = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+
+    for ref in (
+        "corpus:trailing-punctuation!!!",
+        "corpus:" + "a-very-long-paper-reference" * 4,
+        "corpus:ok",
+    ):
+        derived = tr.derive_template_from_paper(ref, "metr-rct-v1", title="T")
+        tid = derived["templateId"]
+        assert len(tid) <= tr._TEMPLATE_ID_MAX, tid
+        assert pattern.match(tid), tid

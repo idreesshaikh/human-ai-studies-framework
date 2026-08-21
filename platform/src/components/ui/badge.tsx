@@ -8,8 +8,8 @@ import { cn } from "@/lib/cn";
  * Provenance is carried by the mark's FORM, never by its colour alone, so each
  * variant pairs its tone with a form a greyscale print and a colour-blind
  * reader both resolve:
- *   grounded  — a solid, ruled key, carrying the caller's magnitude mark for
- *               the citation's own confidence: cited into the corpus
+ *   grounded  — a solid, ruled key, carrying the citation's own framed
+ *               magnitude mark and score: cited into the corpus
  *   unsourced — the open ring's dashed outline: your call, not an error
  *   active    — the one accent mark, for the single thing in play
  * `default` and `outline` are unmarked keys carrying no provenance claim. */

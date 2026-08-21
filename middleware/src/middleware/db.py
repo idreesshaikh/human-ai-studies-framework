@@ -30,7 +30,6 @@ IMPLICIT_PROJECT_SLUG = "implicit"
 IMPLICIT_PROJECT_ID = "implicit"
 IMPLICIT_IDENTITY_SUB = "local"
 CORPUS_STUDY_ID = "platform-corpus"
-ROLES = ("owner", "researcher", "viewer")
 
 
 class Base(DeclarativeBase):
@@ -183,20 +182,6 @@ class S2Cache(Base):
     fetched_at: Mapped[str] = mapped_column(String)
 
 
-class Finding(Base):
-    """Operational-findings log (FR-META-1)."""
-
-    __tablename__ = "findings"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    at: Mapped[str] = mapped_column(String)
-    source: Mapped[str] = mapped_column(String)
-    kind: Mapped[str] = mapped_column(String, default="", index=True)
-    requirement_id: Mapped[str] = mapped_column(String, default="")
-    message: Mapped[str] = mapped_column(Text)
-    context: Mapped[dict] = mapped_column(JSON, default=dict)
-    status: Mapped[str] = mapped_column(String, default="open")
-
 
 class RecipeRun(Base):
     """One recorded analysis-recipe run."""
@@ -230,7 +215,7 @@ class Membership(Base):
     __tablename__ = "memberships"
     __table_args__ = (
         CheckConstraint(
-            "role IN ('owner', 'researcher', 'viewer')",
+            "role IN ('owner', 'member')",
             name="ck_membership_role",
         ),
     )
@@ -253,7 +238,6 @@ class Invitation(Base):
     project_id: Mapped[str] = mapped_column(
         String, ForeignKey("projects.id"), index=True
     )
-    email: Mapped[str] = mapped_column(String, default="")
     role: Mapped[str] = mapped_column(String)
     token: Mapped[str] = mapped_column(String, unique=True, index=True)
     created_at: Mapped[str] = mapped_column(String, default="")
@@ -406,42 +390,6 @@ class ProtocolDraftRow(Base):
     updated_at: Mapped[str] = mapped_column(String, default="")
 
 
-class StudyEvolution(Base):
-    """One row per study tracking its amendment lifecycle (FR-CONV-4)."""
-
-    __tablename__ = "study_evolution"
-
-    study_id: Mapped[str] = mapped_column(String, primary_key=True)
-    ethics_approved_at: Mapped[str] = mapped_column(String, default="")
-    approved_yaml: Mapped[str] = mapped_column(Text, default="")
-    current_version: Mapped[int] = mapped_column(Integer, default=1)
-    pending_reapproval: Mapped[str] = mapped_column(String, default="")
-    updated_at: Mapped[str] = mapped_column(String, default="")
-
-
-class Amendment(Base):
-    """One post-ethics protocol change (FR-CONV-4.2)."""
-
-    __tablename__ = "amendments"
-
-    id: Mapped[str] = mapped_column(String, primary_key=True)
-    study_id: Mapped[str] = mapped_column(String, index=True)
-    compilation_id: Mapped[str] = mapped_column(String, default="")
-    from_version: Mapped[int] = mapped_column(Integer)
-    to_version: Mapped[int] = mapped_column(Integer)
-    summary: Mapped[str] = mapped_column(Text, default="")
-    changes: Mapped[list] = mapped_column(JSON, default=list)
-    rationale: Mapped[str] = mapped_column(Text, default="")
-    grounding: Mapped[list] = mapped_column(JSON, default=list)
-    consent_relevant: Mapped[int] = mapped_column(Integer, default=0)
-    consent_reasons: Mapped[list] = mapped_column(JSON, default=list)
-    approved_by: Mapped[str] = mapped_column(String, default="")
-    role: Mapped[str] = mapped_column(String, default="")
-    reapproval_artifact: Mapped[str] = mapped_column(String, default="")
-    reapproved_at: Mapped[str] = mapped_column(String, default="")
-    created_at: Mapped[str] = mapped_column(String)
-
-
 class SessionOpen(Base):
     """The protocol version a data-collection session opened under (FR-CONV-4.4)."""
 
@@ -462,25 +410,6 @@ class UserProfile(Base):
     prefs: Mapped[dict] = mapped_column(JSON, default=dict)
     updated_at: Mapped[str] = mapped_column(String, default="")
 
-
-class TemplateSubmission(Base):
-    """Third-party template contributed for registry review (FR-TPL-5)."""
-
-    __tablename__ = "template_submissions"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    submitter_sub: Mapped[str] = mapped_column(String, index=True)
-    name: Mapped[str] = mapped_column(String)
-    template_yaml: Mapped[str] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String, default="pending")
-    # Where the submission came from: a human researcher ("human") or the
-    # corpus-mining pipeline ("mined"). Shown in the review queue so a mined
-    # draft is reviewed as a proposal, never mistaken for a hand-authored one.
-    source: Mapped[str] = mapped_column(String, default="human")
-    reviewer_sub: Mapped[str] = mapped_column(String, default="")
-    review_comment: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[str] = mapped_column(String)
-    reviewed_at: Mapped[str] = mapped_column(String, default="")
 
 
 # app.py imports and calls them; it never imports ``sqlite_insert`` directly any more.
@@ -587,7 +516,6 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _migrate_event_task_id(engine)
     _migrate_invitation_created_at(engine)
     _migrate_enrollment_capture_overrides(engine)
-    _migrate_template_submission_source(engine)
 
     if is_pg:
         _setup_pg_fts(engine)
@@ -713,21 +641,6 @@ def _migrate_enrollment_capture_overrides(engine) -> None:
             text("ALTER TABLE enrollment_tokens ADD COLUMN capture_overrides JSON")
         )
         log.info("Added capture_overrides to enrollment_tokens (mint-time config)")
-
-
-def _migrate_template_submission_source(engine) -> None:
-    """Add ``template_submissions.source`` if missing (idempotent)."""
-    with engine.begin() as conn:
-        cols = {c["name"] for c in inspect(engine).get_columns("template_submissions")}
-        if "source" in cols:
-            return
-        conn.execute(
-            text(
-                "ALTER TABLE template_submissions "
-                "ADD COLUMN source VARCHAR DEFAULT 'human'"
-            )
-        )
-        log.info("Added source to template_submissions (mined provenance)")
 
 
 def _migrate_invitation_created_at(engine) -> None:

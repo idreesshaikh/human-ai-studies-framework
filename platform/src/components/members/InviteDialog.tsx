@@ -9,27 +9,20 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
-import { Label } from "@/components/ui/label";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useApi } from "@/lib/session";
-import { ROLE_LABELS, type Role } from "@/lib/capabilities.ts";
 import { ApiError, type Invitation } from "@/lib/api.ts";
 
-const INVITABLE: Role[] = ["researcher", "viewer"];
-
-/* Invite a colleague with a reusable share link. Pick a role and get a link
- * that anyone can use to join with that role. Links are revocable. */
+/* Invite a colleague with a reusable share link. Anyone who opens it joins
+ * as a member; links are revocable. */
 export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () => void }) {
   const api = useApi();
   const [open, setOpen] = useState(false);
-  const [role, setRole] = useState<Role>("researcher");
   const [invite, setInvite] = useState<Invitation | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const reset = () => {
-    setRole("researcher");
     setInvite(null);
     setCopied(false);
     setError("");
@@ -40,7 +33,7 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
     setError("");
     setBusy(true);
     try {
-      const inv = await api.createInvitation(slug, role);
+      const inv = await api.createInvitation(slug, "member");
       setInvite(inv);
       onInvited();
     } catch (e) {
@@ -78,15 +71,6 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
 
         {!invite ? (
           <div className="mt-4 flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <Label>Invite as</Label>
-              <SegmentedControl
-                aria-label="Role"
-                value={role}
-                onChange={setRole}
-                options={INVITABLE.map((r) => ({ value: r, label: ROLE_LABELS[r] }))}
-              />
-            </div>
             {error && <Notice kind="problem">{error}</Notice>}
             <Button onClick={submit} disabled={busy} className="mt-1 self-start">
               {busy ? "Creating…" : "Create link"}
@@ -95,7 +79,7 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
         ) : (
           <div className="mt-4 flex flex-col gap-3">
             <p className="type-body text-text">
-              Share this link to invite people as <span className="font-medium">{ROLE_LABELS[invite.role]}</span>:
+              Share this link to invite people as a member:
             </p>
             <div className="flex items-center gap-2 rounded-input border border-border bg-bg px-2 py-1.5">
               <Link2 className="size-4 shrink-0 text-text-muted" aria-hidden />

@@ -22,29 +22,32 @@ class Role(StrEnum):
     """A membership role on a project (fr-plat.md §2)."""
 
     OWNER = "owner"
-    RESEARCHER = "researcher"
+    MEMBER = "member"
+    # Read-only, internal only: the demo project grants it so a signed-in
+    # visitor can look but never write. Not assignable via invitations.
     VIEWER = "viewer"
 
 
 ROLE_RANK: dict[Role, int] = {
     Role.VIEWER: 0,
-    Role.RESEARCHER: 1,
+    Role.MEMBER: 1,
     Role.OWNER: 2,
 }
 
 
-ROLES: frozenset[str] = frozenset(r.value for r in Role)
+# The roles a human can actually hold or be invited as. "viewer" is a
+# demo-only grant, never a row in the members table.
+ROLES: frozenset[str] = frozenset({"owner", "member"})
 
 
 CAPABILITIES: dict[str, Role] = {
     "view": Role.VIEWER,
-    "contribute": Role.RESEARCHER,
-    "apply_draft": Role.RESEARCHER,
-    "run_recipe": Role.RESEARCHER,
-    "mint_token": Role.RESEARCHER,
-    "toggle_capture": Role.RESEARCHER,
-    "freeze": Role.OWNER,
-    "invite_member": Role.RESEARCHER,
+    "contribute": Role.MEMBER,
+    "apply_draft": Role.MEMBER,
+    "run_recipe": Role.MEMBER,
+    "mint_token": Role.MEMBER,
+    "toggle_capture": Role.MEMBER,
+    "invite_member": Role.MEMBER,
     "manage_members": Role.OWNER,
     "delete": Role.OWNER,
 }
@@ -64,7 +67,7 @@ def _forbidden(capability: str, role: str | None) -> HTTPException:
     if role is None:
         body = (
             f"You're not a member of this project; {capability} needs at "
-            "least the viewer role. Ask an owner for an invitation."
+            "least the member role. Ask an owner for an invitation."
         )
     else:
         body = (

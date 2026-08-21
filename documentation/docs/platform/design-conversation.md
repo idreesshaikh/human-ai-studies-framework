@@ -21,10 +21,6 @@ literature or plainly marked unsourced.
    "no source found" label.
 3. **Accept or reject.** Accepted moves compile into the protocol draft in real
    time. Rejected moves are dropped; the assistant adapts.
-4. **Amend, don't rewrite.** Mid-study, the conversation stays open and
-   instrumentation can evolve through phase-aware amendment rules — after
-   ethics approval, changes are version-visible and consent-relevant ones gate
-   until re-approved.
 
 ## Grounding is a type, not a tone
 
@@ -60,4 +56,4 @@ immediately.
 - It will not fabricate a citation. No source, no citation.
 - It will not let the chat outrank the compiled draft — the
   [protocol document](protocol-draft.md) is the single record of the study.
-- It will nobet present demo or synthetic data as findings.
+- It will not present demo or synthetic data as findings.

@@ -7,41 +7,106 @@
   "tsconfig": "tsconfig.app.json",
   "cssEntry": ".ds-shipped.css",
   "tokensGlob": "src/styles/tokens.css",
-  "runtimeFontPrefixes": ["Iowan"],
-  "extraEntries": ["react-router-dom"],
+  "runtimeFontPrefixes": [
+    "Iowan"
+  ],
+  "extraEntries": [
+    "react-router-dom"
+  ],
   "readmeHeader": ".design-sync/conventions.md",
   "componentSrcMap": {
-    "Assistant": null,
     "Constellation": null,
     "DataTab": null,
     "LibraryTab": null,
-    "LifecycleTab": null,
     "MetricStrip": null
   },
   "overrides": {
-    "Dialog": { "cardMode": "single", "viewport": "660x460" },
-    "DialogContent": { "cardMode": "single", "viewport": "660x460" },
-    "DialogTitle": { "cardMode": "single", "viewport": "660x460" },
-    "DialogDescription": { "cardMode": "single", "viewport": "660x460" },
-    "DialogTrigger": { "cardMode": "single", "viewport": "660x460" },
-    "DialogClose": { "cardMode": "single", "viewport": "660x460" },
-    "DropdownMenu": { "cardMode": "single", "viewport": "440x380" },
-    "DropdownMenuContent": { "cardMode": "single", "viewport": "440x380" },
-    "DropdownMenuTrigger": { "cardMode": "single", "viewport": "440x380" },
-    "DropdownMenuItem": { "cardMode": "single", "viewport": "440x380" },
-    "DropdownMenuCheckItem": { "cardMode": "single", "viewport": "440x380" },
-    "DropdownMenuLabel": { "cardMode": "single", "viewport": "440x380" },
-    "DropdownMenuSeparator": { "cardMode": "single", "viewport": "440x380" },
-    "CommandDialog": { "cardMode": "single", "viewport": "660x520" },
-    "CommandInput": { "cardMode": "single", "viewport": "660x520" },
-    "CommandList": { "cardMode": "single", "viewport": "660x520" },
-    "CommandEmpty": { "cardMode": "single", "viewport": "660x520" },
-    "CommandGroup": { "cardMode": "single", "viewport": "660x520" },
-    "CommandItem": { "cardMode": "single", "viewport": "660x520" },
-    "ConversationView": { "cardMode": "single", "viewport": "1040x700" },
-    "DraftRail": { "cardMode": "single", "viewport": "440x580" },
-    "AmendmentHistory": { "cardMode": "column" },
-    "AmendmentBanner": { "cardMode": "column" },
-    "StreamingTurn": { "cardMode": "column" }
+    "Dialog": {
+      "cardMode": "single",
+      "viewport": "660x460"
+    },
+    "DialogContent": {
+      "cardMode": "single",
+      "viewport": "660x460"
+    },
+    "DialogTitle": {
+      "cardMode": "single",
+      "viewport": "660x460"
+    },
+    "DialogDescription": {
+      "cardMode": "single",
+      "viewport": "660x460"
+    },
+    "DialogTrigger": {
+      "cardMode": "single",
+      "viewport": "660x460"
+    },
+    "DialogClose": {
+      "cardMode": "single",
+      "viewport": "660x460"
+    },
+    "DropdownMenu": {
+      "cardMode": "single",
+      "viewport": "440x380"
+    },
+    "DropdownMenuContent": {
+      "cardMode": "single",
+      "viewport": "440x380"
+    },
+    "DropdownMenuTrigger": {
+      "cardMode": "single",
+      "viewport": "440x380"
+    },
+    "DropdownMenuItem": {
+      "cardMode": "single",
+      "viewport": "440x380"
+    },
+    "DropdownMenuCheckItem": {
+      "cardMode": "single",
+      "viewport": "440x380"
+    },
+    "DropdownMenuLabel": {
+      "cardMode": "single",
+      "viewport": "440x380"
+    },
+    "DropdownMenuSeparator": {
+      "cardMode": "single",
+      "viewport": "440x380"
+    },
+    "CommandDialog": {
+      "cardMode": "single",
+      "viewport": "660x520"
+    },
+    "CommandInput": {
+      "cardMode": "single",
+      "viewport": "660x520"
+    },
+    "CommandList": {
+      "cardMode": "single",
+      "viewport": "660x520"
+    },
+    "CommandEmpty": {
+      "cardMode": "single",
+      "viewport": "660x520"
+    },
+    "CommandGroup": {
+      "cardMode": "single",
+      "viewport": "660x520"
+    },
+    "CommandItem": {
+      "cardMode": "single",
+      "viewport": "660x520"
+    },
+    "ConversationView": {
+      "cardMode": "single",
+      "viewport": "1040x700"
+    },
+    "DraftRail": {
+      "cardMode": "single",
+      "viewport": "440x580"
+    },
+    "StreamingTurn": {
+      "cardMode": "column"
+    }
   }
 }

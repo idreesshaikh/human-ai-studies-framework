@@ -1,6 +1,6 @@
 /* The study-data client. Talks to the ingestion middleware for the study
  * operational + knowledge endpoints — papers, the citation graph, the grounded
- * assistant, session status, and the dataset.
+ * session status, and the dataset.
  *
  * Same-origin by default: in production the middleware serves this SPA (NFR-7),
  * so `''` resolves to :8000. Set VITE_API_BASE for a separate origin (needs
@@ -12,7 +12,7 @@
  * Offline posture: the platform is explorable with no server (the hero demo,
  * `npm run dev` with nothing on :8000). Read endpoints fall back to a curated
  * seed so the constellation and charts still render beautifully; live actions
- * (ingest, assistant) raise `OfflineError`, which the UI shows as a calm
+ * (ingest) raise `OfflineError`, which the UI shows as a calm
  * "needs the running middleware" notice. Nothing load-bearing is cloud-owned. */
 
 import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
@@ -75,18 +75,6 @@ export interface PaperGraph {
   studyId: string;
   nodes: GraphNode[];
   edges: GraphEdge[];
-}
-
-export interface AssistantAnswer {
-  answer: string;
-  citations: string[];
-  toolCalls: { tool: string; input: Record<string, unknown> }[];
-}
-
-export interface AssistantConfig {
-  configured: boolean;
-  models: string[];
-  defaultModel: string;
 }
 
 export interface DatasetRow {
@@ -368,17 +356,6 @@ export const studyApi = {
       `${study}-replication-kit.tar.gz`,
     );
   },
-  /** The ethics package (FR-AGENT-5, FR-ETH-4): design, tasks, what is
-   *  captured, and the exact consent text, generated from the protocol
-   *  alone. A 409 (no compiled protocol yet) surfaces as the same
-   *  `ApiError` every other study read does — the caller's existing catch
-   *  handles it, so nothing bespoke is needed here. */
-  downloadEthicsPackage: async (study: string) => {
-    await saveAs(
-      `/studies/${enc(study)}/ethics-package`,
-      `${study}-ethics-package.md`,
-    );
-  },
   /** The starter notebook + data dictionary, zipped: the curated handoff.
    *  A loaded, documented dataframe with every planned recipe imported —
    *  never run — so a researcher's own analysis starts from a known point
@@ -393,22 +370,6 @@ export const studyApi = {
       `${study}-elicitation-record.json`,
     );
   },
-  assistantConfig: (study: string) =>
-    liveOrSeed(
-      () => req<AssistantConfig>(`/studies/${enc(study)}/assistant/config`),
-      { configured: false, models: [], defaultModel: "" },
-    ),
-  assistant: (
-    study: string,
-    question: string,
-    history: { role: string; content: string }[],
-    model?: string,
-  ) =>
-    post<AssistantAnswer>(`/studies/${enc(study)}/assistant`, {
-      question,
-      history,
-      ...(model ? { model } : {}),
-    }),
   dataset: (study: string) =>
     liveOrSeedStudy(
       study,

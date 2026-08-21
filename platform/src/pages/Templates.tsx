@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Layers,
   BookOpen,
@@ -31,8 +31,10 @@ import {
 } from "@/lib/templatesApi";
 import { OfflineError } from "@/lib/studyApi";
 import { useApi, useSession } from "@/lib/session";
+import { useAuth } from "@/lib/auth.tsx";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { signInHref } from "@/lib/returnTo";
 
 /* The protocol repertoire (FR-TPL) — the literature read as *design shapes*
  * rather than as thirteen studies to replicate. Each shape is ranked by how
@@ -40,6 +42,26 @@ import { cn } from "@/lib/cn";
  * hang off it as ranked references, and picking two or more merges them into
  * one novel protocol that stays grounded in every paper it draws from. Merging
  * is the hero action, not a footnote. */
+
+/** How many shapes one URL may select. A merge is a comparison a person
+ * makes, not a batch job, and an unbounded list from a hand-edited address
+ * would be posted to the merge endpoint verbatim. */
+const MAX_SHAPES = 12;
+
+/** The `shapes` parameter as a list of ids: trimmed, de-duplicated, capped.
+ * One reader for the address, used by both the component that renders the
+ * selection and the updater that writes it, so the two can never disagree
+ * about what the URL currently says. */
+function parseShapes(raw: string | null): string[] {
+  return [
+    ...new Set(
+      (raw ?? "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, MAX_SHAPES);
+}
 
 const BAND_COPY: Record<RepertoireEntry["band"], string> = {
   common: "Widely used across the corpus",
@@ -49,7 +71,27 @@ const BAND_COPY: Record<RepertoireEntry["band"], string> = {
 
 export function Templates() {
   const [entries, setEntries] = useState<RepertoireEntry[] | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  /* The selection lives in the URL, not in component state.
+   *
+   * It is genuinely addressable information — which design shapes a
+   * researcher is holding side by side — and treating it as component state
+   * meant it could not survive the one thing this page routinely does to it:
+   * sending someone to sign in. Signing in ends in `location.reload()`, so a
+   * visitor who merged two shapes, was told to sign in to keep the result,
+   * and did, came back to an empty page and had to find and re-tick both
+   * shapes from memory.
+   *
+   * In the query string it survives that reload for free (the return-to
+   * `next` carries `pathname + search`, so it is already being handed back),
+   * and it becomes shareable and back-buttonable as a side effect: a merge
+   * is now a link you can paste to a collaborator. */
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const selected = useMemo(
+    () => new Set(parseShapes(searchParams.get("shapes"))),
+    [searchParams],
+  );
+
   const [merged, setMerged] = useState<MergeResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +110,13 @@ export function Templates() {
    * selected, the merge) out in a design conversation. */
   const api = useApi();
   const { refresh } = useSession();
+  const { hasCredential } = useAuth();
+  /* The repertoire is public to READ. Everything on this page that writes —
+   * starting a conversation, turning a shape into a study — still needs an
+   * identity, and says so where it is. */
+  const signedOut = !hasCredential;
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
   const [describe, setDescribe] = useState("");
   const [describeBusy, setDescribeBusy] = useState(false);
   const [describeError, setDescribeError] = useState("");
@@ -95,27 +143,97 @@ export function Templates() {
     [entries],
   );
 
+  /* Writing the selection back to the address.
+   *
+   * `replace`, not push: ticking eight boxes is one act of choosing, and
+   * pushing each one would bury the page the researcher arrived from under
+   * eight history entries they have to click back through.
+   *
+   * Changing the selection always drops `merged` — a merged protocol names
+   * the exact shapes it came from, so leaving the flag set while the
+   * selection moves under it would restore a result for a different set than
+   * the one now ticked. */
+  const updateSelection = useCallback(
+    (
+      update: (current: string[]) => string[],
+      opts: { merged?: boolean } = {},
+    ) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          /* The next selection is derived from `prev` INSIDE the updater, not
+           * from the `selected` this render closed over. Two toggles in one
+           * tick — a double click, a keyboard repeat, a test driving two
+           * checkboxes back to back — both read the same stale render and the
+           * second silently discarded the first: ticking two shapes left one
+           * in the address. */
+          const ids = update(parseShapes(params.get("shapes"))).slice(
+            0,
+            MAX_SHAPES,
+          );
+          if (ids.length > 0) params.set("shapes", ids.join(","));
+          else params.delete("shapes");
+          if (opts.merged) params.set("merged", "1");
+          else params.delete("merged");
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   const toggle = (id: string) => {
     setMerged(null);
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    updateSelection((current) =>
+      current.includes(id)
+        ? current.filter((x) => x !== id)
+        : [...current, id],
+    );
   };
 
-  async function merge() {
-    setBusy(true);
-    setError(null);
-    try {
-      setMerged(await templatesApi.merge([...selected]));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't merge those designs.");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const clearSelection = () => {
+    setMerged(null);
+    updateSelection(() => []);
+  };
+
+  const merge = useCallback(
+    async (ids: string[]) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const result = await templatesApi.merge(ids);
+        setMerged(result);
+        // Record in the address that a merge is showing, so a reload (a
+        // sign-in, a shared link) restores the result and not just the ticks.
+        updateSelection(() => ids, { merged: true });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't merge those designs.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [updateSelection],
+  );
+
+  /* Restore a merge the address says was showing.
+   *
+   * The merge endpoint composes templates at request time and writes nothing,
+   * so recomputing it on arrival is safe and is the only way to bring the
+   * result back — the protocol itself is far too large to carry in a URL.
+   *
+   * `restoredRef` keys the attempt on the exact selection, so a failure is
+   * reported once rather than retried on every render, and re-ticking a
+   * different pair is still allowed to try. */
+  const restoredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (searchParams.get("merged") !== "1") return;
+    if (selected.size < 2) return;
+    const key = [...selected].sort().join(",");
+    if (restoredRef.current === key) return;
+    restoredRef.current = key;
+    void merge([...selected]);
+  }, [searchParams, selected, merge]);
 
   async function describeStudy() {
     const text = describe.trim();
@@ -175,16 +293,6 @@ export function Templates() {
             )}
           </p>
         )}
-        <p className="mt-1 type-caption text-text-muted">
-          <Link
-            to="/submissions"
-            className="inline-block py-1 -my-1 underline underline-offset-2 hover:text-text"
-          >
-            Review template submissions
-          </Link>{" "}
-          — proposed shapes from researchers and the corpus miner, awaiting a
-          decision before they enter the registry.
-        </p>
       </div>
 
       {error && (
@@ -221,17 +329,28 @@ export function Templates() {
               aria-label="Describe your study"
               className="min-w-0 flex-1 basis-56"
             />
-            <Button
-              size="sm"
-              onClick={() => void describeStudy()}
-              disabled={!describe.trim() || describeBusy}
-            >
-              {describeBusy ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              ) : (
-                "Start conversation"
-              )}
-            </Button>
+            {/* Starting a conversation creates a project and a study, so this
+              * is the one control in the panel that needs an identity. The
+              * field stays usable either way — a visitor can still frame the
+              * question they came with — but the button says what it will
+              * actually do rather than failing after the click. */}
+            {signedOut ? (
+              <Button asChild size="sm">
+                <Link to={signInHref(pathname + search)}>Sign in to start</Link>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => void describeStudy()}
+                disabled={!describe.trim() || describeBusy}
+              >
+                {describeBusy ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  "Start conversation"
+                )}
+              </Button>
+            )}
           </div>
           {describeError && (
             <p role="alert" className="type-caption text-critical">
@@ -253,22 +372,41 @@ export function Templates() {
            a column forces a reader to hold each one in memory to compare it
            with the next; side by side, the titles, design types and support
            badges line up as columns you can read across.
-           `items-start` keeps each plate at its own height: with the default
-           stretch, opening one card's references grew the whole grid row and
-           dragged its row-mates up to match, leaving them framing several
-           hundred pixels of empty plate. A shelf of closed cards still reads
-           evenly, since the clamped description already holds them level. */
-        <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {admitted.map((entry) => (
-            <ShapeCard
-              key={entry.id}
-              entry={entry}
-              selected={selected.has(entry.id)}
-              onToggle={() => toggle(entry.id)}
-              onDetail={() => setDetailId(entry.id)}
-            />
-          ))}
-        </div>
+           
+           Cards STRETCH to their row. `items-start` used to be right: a card
+           expanded in place to show its references, and stretching dragged its
+           row-mates up to match, leaving them framing empty plate. That is no
+           longer how details open — they are a dialog now — so nothing ever
+           grows in place, and all `items-start` still did was let every card
+           sit at its own height. It does not hold them level the way the old
+           comment claimed: a one-line title next to a two-line one differs by
+           21px, so each row ended on a ragged edge and the shelf read as
+           broken rather than as a set of alternatives. */
+        <section className="flex flex-col gap-2">
+          {/* The page's primary shelf had no heading at all, while the lesser
+            * "Held back" shelf below it did — so the grid simply began, and
+            * the tick box on every card was an affordance whose purpose was
+            * explained only in a paragraph three panels up. The heading names
+            * the shelf and says what selecting is for, where the selecting
+            * happens. */}
+          <h2 className="type-subhead text-text">Design shapes</h2>
+          <p className="type-caption text-text-muted">
+            Tick two or more to merge them into one protocol grounded in every
+            paper they draw from. Open a card for its full description and its
+            references.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {admitted.map((entry) => (
+              <ShapeCard
+                key={entry.id}
+                entry={entry}
+                selected={selected.has(entry.id)}
+                onToggle={() => toggle(entry.id)}
+                onDetail={() => setDetailId(entry.id)}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {held.length > 0 && (
@@ -309,14 +447,15 @@ export function Templates() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setSelected(new Set());
-                setMerged(null);
-              }}
+              onClick={clearSelection}
             >
               Clear
             </Button>
-            <Button size="sm" disabled={selected.size < 2 || busy} onClick={merge}>
+            <Button
+              size="sm"
+              disabled={selected.size < 2 || busy}
+              onClick={() => void merge([...selected])}
+            >
               {busy ? (
                 <Loader2 className="size-4 animate-spin" aria-hidden />
               ) : (
@@ -328,7 +467,18 @@ export function Templates() {
         </div>
       )}
 
-      {merged && <MergedResult result={merged} onClose={() => setMerged(null)} />}
+      {/* Dismissing has to clear the flag too, or the next reload would
+          dutifully restore the very card the researcher just closed. */}
+      {merged && (
+        <MergedResult
+          result={merged}
+          onClose={() => {
+            setMerged(null);
+            restoredRef.current = null;
+            updateSelection((current) => current);
+          }}
+        />
+      )}
 
       {detailId && entries && (
         <ShapeDetailPanel
@@ -435,18 +585,16 @@ function ShapeCard({
   );
 }
 
-/** How widely the corpus uses this shape, as a MAGNITUDE.
+/** How widely the corpus uses this shape.
  *
- * "How much evidence stands behind this" is the same question the grounding
- * marks answer everywhere else in the app, so it gets the same notation
- * rather than a third vocabulary of coloured pills. It also retires three
- * token names that never existed (`grounded-soft`, `surface-sunken`,
- * `unsourced-soft` as a background), each of which had been silently
- * rendering as no background at all or as a mid-tone slab. */
-const BAND_MAGNITUDE = { common: 5, established: 3, rare: 1 } as const;
-
+ * "How much evidence stands behind this" is the same question grounding
+ * answers everywhere else in the app, so it is answered the same way: the
+ * count is PRINTED, in the machine face, and the dot that used to sit beside
+ * it is gone. The dot was a second encoding of a number already on the line —
+ * and a size ramp nobody could rank without the two marks side by side (see
+ * DESIGN.md, The Printed-Magnitude Rule). The band's own words stay in the
+ * title, where they explain what the count means. */
 function SupportBadge({ entry }: { entry: RepertoireEntry }) {
-  const mag = BAND_MAGNITUDE[entry.band as keyof typeof BAND_MAGNITUDE] ?? 1;
   return (
     <span
       className="inline-flex items-center gap-1.5"
@@ -454,9 +602,6 @@ function SupportBadge({ entry }: { entry: RepertoireEntry }) {
         entry.support === 1 ? "" : "s"
       } describe themselves with: ${entry.signature.join(", ")}`}
     >
-      <span aria-hidden className="flex size-4 items-center justify-center">
-        <span className={`mag mag-${mag}`} />
-      </span>
       <span className="type-caption text-text-muted">
         <span className="type-quantity text-text">{entry.support}</span> paper
         {entry.support === 1 ? "" : "s"}
@@ -489,7 +634,13 @@ function ShapeDetailPanel({
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-work max-h-[80vh] flex flex-col">
-        <div className="flex items-start justify-between gap-4">
+        {/* `pr-9` reserves the corner the Close button occupies. `DialogContent`
+          * positions it `absolute right-4 top-4`, so it floats OVER whatever
+          * the header puts there — and this header ends in an interactive
+          * label, which overlapped it by 12px: the right end of "Include in
+          * merge" was painted under the X, and clicking those pixels hit the
+          * close button instead of the checkbox they appeared to belong to. */}
+        <div className="flex items-start justify-between gap-4 pr-9">
           <div className="flex-1">
             <DialogTitle className="type-display">{entry.title}</DialogTitle>
             <p className="mt-2 type-caption text-text-muted">{BAND_COPY[entry.band]}</p>

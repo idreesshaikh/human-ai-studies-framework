@@ -16,8 +16,6 @@ import { studyApi, OfflineError } from "@/lib/studyApi";
  * - the replication kit — protocol, joined dataset, regenerated report and
  *   pinned versions, byte-reproducible, the thing a reviewer reruns;
  * - the elicitation record — the decision chain from idea to specification;
- * - the ethics package — design, tasks, what is captured, and the exact
- *   consent text, for the submission every study needs before it can run;
  * - the starter notebook — a loaded, documented dataframe with every
  *   planned recipe imported and never run: where the platform's own scope
  *   ends and the researcher's analysis begins. */
@@ -27,7 +25,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   async function run(
-    kind: "kit" | "record" | "ethics" | "notebook",
+    kind: "kit" | "record" | "notebook",
     download: () => Promise<void>,
   ) {
     setBusy(kind);
@@ -90,20 +88,6 @@ export function ExportStudy({ studyId }: { studyId: string }) {
               <span className="type-caption text-text-muted">
                 The decision chain: turns, moves and their grounding,
                 compilations, approvals.
-              </span>
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            data-agent="export-ethics-package"
-            onSelect={() =>
-              void run("ethics", () => studyApi.downloadEthicsPackage(studyId))
-            }
-          >
-            <div className="flex flex-col gap-0.5">
-              <span>Ethics package</span>
-              <span className="type-caption text-text-muted">
-                Design, tasks, what is captured, and the exact consent text,
-                for your submission.
               </span>
             </div>
           </DropdownMenuItem>

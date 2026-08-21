@@ -32,7 +32,6 @@ export function TogglePopover({
   const api = useApi();
   const [applying, setApplying] = useState(false);
   const [result, setResult] = useState<{
-    requiresReapproval?: boolean;
     error?: string;
   } | null>(null);
   const canToggle = hasRole(role, "toggle_capture");
@@ -103,14 +102,8 @@ export function TogglePopover({
         </Button>
       ) : result.error ? (
         <Notice kind="problem">{result.error}</Notice>
-      ) : result.requiresReapproval ? (
-        <Notice kind="note">
-          <span className="font-medium">Amendment pending.</span> This change
-          affects what is captured. New sessions are paused until you
-          re-upload ethics approval.
-        </Notice>
       ) : (
-        <p className="type-caption text-accent">Applied. No re-approval needed.</p>
+        <p className="type-caption text-accent">Applied.</p>
       )}
     </div>
   );

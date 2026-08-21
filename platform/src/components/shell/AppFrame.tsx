@@ -30,6 +30,7 @@ import { useAuth } from "@/lib/auth.tsx";
 import { getTheme, nextTheme, subscribeTheme } from "@/lib/theme";
 import { usePanel, togglePanel } from "@/lib/panels";
 import { cn } from "@/lib/cn";
+import { signInHref } from "@/lib/returnTo";
 
 const THEME_ICON = { light: Sun, dark: Moon };
 
@@ -38,8 +39,13 @@ const THEME_ICON = { light: Sun, dark: Moon };
  * viewports. */
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const { me, setThemePreference } = useSession();
-  const { signOut, user: clerkUser, config } = useAuth();
-  const { pathname } = useLocation();
+  const { signOut, user: clerkUser, config, hasCredential } = useAuth();
+  /* No identity, and this deployment wants one. `hasCredential` already reads
+   * true in `mode: "none"` (a local deployment has no accounts to be signed
+   * out of), so this is only ever true on a public route reached by someone
+   * who has not signed in. */
+  const signedOut = !hasCredential;
+  const { pathname, search } = useLocation();
   const { slug: routeSlug } = useParams<{ slug?: string }>();
   const hasProjectNav = /^\/p\/[^/]+/.test(pathname);
   const isWorkspace = /^\/p\/[^/]+\/studies\/[^/]+/.test(pathname);
@@ -100,16 +106,22 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-border bg-surface px-4 py-2">
-        <button
-          type="button"
-          className="rounded-input border border-transparent p-1 text-text hover:border-border hover:bg-zone-9 lg:hidden"
-          onClick={() => setNavOpen((v) => !v)}
-          aria-label="Toggle navigation"
-        >
-          <Menu className="size-5" aria-hidden />
-        </button>
+        {/* Nothing to open when the rail is not rendered. */}
+        {!signedOut && (
+          <button
+            type="button"
+            className="rounded-input border border-transparent p-1 text-text hover:border-border hover:bg-zone-9 lg:hidden"
+            onClick={() => setNavOpen((v) => !v)}
+            aria-label="Toggle navigation"
+          >
+            <Menu className="size-5" aria-hidden />
+          </button>
+        )}
+        {/* Signed out, "home" is the public front, not the projects list the
+          * visitor cannot see — the wordmark was the one control on a public
+          * page guaranteed to dead-end at the sign-in gate. */}
         <Link
-          to="/home"
+          to={signedOut ? "/" : "/home"}
           className="-ml-2 flex items-center gap-2 rounded-control px-2 py-2 transition-colors duration-fast hover:bg-zone-9"
           aria-label="Phoenix, home"
         >
@@ -117,10 +129,20 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           <span className="type-subhead tracking-tight text-text">Phoenix</span>
         </Link>
         <div className="ml-auto flex items-center gap-2">
-          <ProjectSwitcher memberships={me?.memberships ?? []} />
+          {!signedOut && <ProjectSwitcher memberships={me?.memberships ?? []} />}
           <Button variant="ghost" size="icon" onClick={cycleTheme} aria-label={`Theme: ${theme}`}>
             <Icon aria-hidden />
           </Button>
+          {/* Signed out, there is no account to open a menu about and no
+            * project to switch between — an avatar reading "You" over a
+            * "Sign out" item would be describing a session that does not
+            * exist. The one thing a visitor on a public page can do with
+            * their identity is acquire one. */}
+          {signedOut ? (
+            <Button asChild size="sm" variant="outline">
+              <Link to={signInHref(pathname + search)}>Sign in</Link>
+            </Button>
+          ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -157,6 +179,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
       </header>
 
@@ -173,15 +196,22 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             aria-hidden
           />
         )}
+        {/* Signed out, the rail would hold one reachable destination and two
+          * that bounce straight back to the sign-in gate. A nav whose items
+          * mostly refuse is worse than no nav: the public page keeps the
+          * header (mark, theme, Sign in) and gets its whole width. */}
         <nav
           data-agent="project-nav"
           aria-label="Main"
+          hidden={signedOut}
           className={cn(
             "shrink-0 border-r border-border-strong bg-surface transition-all duration-fast",
             navFolded ? "w-[3.25rem]" : "w-56",
-            navOpen
-              ? "fixed inset-y-0 left-0 z-40 block pt-[calc(var(--header-h)+0.5rem)] lg:static lg:pt-0"
-              : "hidden lg:flex lg:flex-col",
+            signedOut
+              ? "hidden"
+              : navOpen
+                ? "fixed inset-y-0 left-0 z-40 block pt-[calc(var(--header-h)+0.5rem)] lg:static lg:pt-0"
+                : "hidden lg:flex lg:flex-col",
           )}
         >
           <div className="flex flex-1 flex-col gap-1 overflow-auto p-3">
@@ -215,15 +245,28 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             )}
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
+          {/* The rail's footer, not a floating square in the corner. Expanded,
+            * it says what it does; folded, the icon carries it and the name
+            * moves to the accessible label. As a bare `size-icon` button it
+            * painted as one unexplained 44px glyph pinned to the bottom-left
+            * of the window, visually detached from the rail it belongs to. */}
+          <button
+            type="button"
             onClick={() => togglePanel("nav")}
-            aria-label={navFolded ? "Expand nav" : "Collapse nav"}
-            className="shrink-0 rounded-none border-t border-border"
+            aria-label={navFolded ? "Expand navigation" : "Collapse navigation"}
+            aria-expanded={!navFolded}
+            className={cn(
+              "type-control flex shrink-0 items-center gap-2 border-t border-border py-3 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text",
+              navFolded ? "justify-center px-1.5" : "px-4",
+            )}
           >
-            {navFolded ? <PanelLeft className="size-4" /> : <PanelLeftClose className="size-4" />}
-          </Button>
+            {navFolded ? (
+              <PanelLeft className="size-4" aria-hidden />
+            ) : (
+              <PanelLeftClose className="size-4" aria-hidden />
+            )}
+            {!navFolded && <span>Collapse</span>}
+          </button>
         </nav>
         <main className={cn("min-h-0 flex-1", isWorkspace ? "overflow-hidden" : "overflow-auto")}>
           {children}

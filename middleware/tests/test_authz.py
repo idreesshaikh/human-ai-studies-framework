@@ -178,7 +178,7 @@ def test_reposting_personal_reuses_the_existing_project(client):
 
 def test_delete_study_is_owner_only_and_removes_it(client):
     slug = make_project(client, "alice", "Lab")
-    add_member(client, slug, "alice", "rea", "researcher")
+    add_member(client, slug, "alice", "rea", "member")
     made = client.post(
         f"/projects/{slug}/studies", json={"name": "Doomed"}, headers=bearer("rea")
     )
@@ -196,17 +196,16 @@ def test_delete_study_is_owner_only_and_removes_it(client):
     assert gone.status_code == 404
 
 
-def test_a_studys_library_is_not_open_to_viewers(client):
-    """A viewer reads a study; they do not edit its library."""
+def test_a_studys_library_is_closed_to_non_members(client):
+    """A member edits a study's library; a stranger cannot even read it."""
     slug = make_project(client, "alice", "Lab")
-    add_member(client, slug, "alice", "rea", "researcher")
-    add_member(client, slug, "alice", "vic", "viewer")
+    add_member(client, slug, "alice", "rea", "member")
     study_id = client.post(
         f"/projects/{slug}/studies", json={"name": "Library"}, headers=bearer("alice")
     ).json()["id"]
     ref = "arxiv:2507.09089"
 
-    for sub in ("alice", "rea", "vic"):
+    for sub in ("alice", "rea"):
         assert (
             client.get(
                 f"/studies/{study_id}/papers/{ref}/links", headers=bearer(sub)
@@ -226,18 +225,17 @@ def test_a_studys_library_is_not_open_to_viewers(client):
     ):
         call = getattr(client, method)
         kwargs = {"json": {"targets": ["RQ-1"]}} if method == "put" else {}
-        assert call(path, headers=bearer("vic"), **kwargs).status_code == 403
-        # A researcher passes the gate (the DELETE then 404s on a paper that was never
+        # A member passes the gate (the DELETE then 404s on a paper that was never
         # ingested — the point is which side of the gate they land).
         allowed = call(path, headers=bearer("rea"), **kwargs)
         assert allowed.status_code in (200, 404), allowed.text
+        assert call(path, headers=bearer("stranger"), **kwargs).status_code == 403
 
 
 def test_view_capability_across_roles(client):
     slug = make_project(client, "alice", "Lab")
-    add_member(client, slug, "alice", "rea", "researcher")
-    add_member(client, slug, "alice", "vic", "viewer")
-    for sub in ("alice", "rea", "vic"):
+    add_member(client, slug, "alice", "rea", "member")
+    for sub in ("alice", "rea"):
         assert client.get(f"/projects/{slug}", headers=bearer(sub)).status_code == 200
     stranger = client.get(f"/projects/{slug}", headers=bearer("stranger"))
     assert stranger.status_code == 403
@@ -245,34 +243,31 @@ def test_view_capability_across_roles(client):
 
 def test_manage_members_is_owner_only_with_uniform_403(client):
     slug = make_project(client, "alice", "Lab")
-    add_member(client, slug, "alice", "rea", "researcher")
-    add_member(client, slug, "alice", "vic", "viewer")
-    for sub in ("rea", "vic"):
-        res = client.patch(
-            f"/projects/{slug}/members/vic",
-            json={"role": "researcher"},
-            headers=bearer(sub),
-        )
-        assert res.status_code == 403
-        detail = res.json()["detail"]
-        assert detail and "role" in detail.lower()
+    add_member(client, slug, "alice", "rea", "member")
+    res = client.patch(
+        f"/projects/{slug}/members/rea",
+        json={"role": "owner"},
+        headers=bearer("rea"),
+    )
+    assert res.status_code == 403
+    detail = res.json()["detail"]
+    assert detail and "role" in detail.lower()
 
 
-def test_researcher_can_invite_but_not_mint_owner(client):
+def test_member_can_invite_but_not_mint_owner(client):
     slug = make_project(client, "alice", "Lab")
-    add_member(client, slug, "alice", "rea", "researcher")
-    add_member(client, slug, "alice", "vic", "viewer")
+    add_member(client, slug, "alice", "rea", "member")
 
     ok = client.post(
         f"/projects/{slug}/invitations",
-        json={"role": "researcher"},
+        json={"role": "member"},
         headers=bearer("rea"),
     )
     assert ok.status_code == 200
     assert ok.json()["url"].startswith("/invitations/")
-    assert ok.json()["role"] == "researcher"
+    assert ok.json()["role"] == "member"
 
-    # A researcher cannot escalate by inviting an owner.
+    # A member cannot escalate by inviting an owner.
     escalate = client.post(
         f"/projects/{slug}/invitations",
         json={"role": "owner"},
@@ -280,18 +275,10 @@ def test_researcher_can_invite_but_not_mint_owner(client):
     )
     assert escalate.status_code == 403
 
-    # A viewer cannot invite at all.
-    denied = client.post(
-        f"/projects/{slug}/invitations",
-        json={"role": "viewer"},
-        headers=bearer("vic"),
-    )
-    assert denied.status_code == 403
-
 
 def test_delete_is_owner_only(client):
     slug = make_project(client, "alice", "Lab")
-    add_member(client, slug, "alice", "rea", "researcher")
+    add_member(client, slug, "alice", "rea", "member")
     assert (
         client.request(
             "DELETE",
@@ -449,7 +436,7 @@ def test_invitation_link_is_reusable_until_revoked(client):
     slug = make_project(client, "alice", "Lab")
     inv = client.post(
         f"/projects/{slug}/invitations",
-        json={"role": "researcher"},
+        json={"role": "member"},
         headers=bearer("alice"),
     ).json()
     token = inv["token"]
@@ -470,7 +457,7 @@ def test_expired_invitation_is_refused(client, tmp_path):
     slug = make_project(client, "alice", "Lab")
     inv = client.post(
         f"/projects/{slug}/invitations",
-        json={"role": "researcher"},
+        json={"role": "member"},
         headers=bearer("alice"),
     ).json()
     factory = make_session_factory(tmp_path / "authz.sqlite3")

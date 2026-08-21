@@ -374,6 +374,38 @@ def merge_templates(template_ids: list[str], parameters: dict) -> dict:
     return {"protocol": merged, "templateIds": template_ids, "sources": sources}
 
 
+# The bounds a derived template is validated against. A derived template is
+# checked by the same schema as a hand-authored one
+# (templates/schemas/template.schema.json), and every field below is composed
+# from a corpus paper's title — text this module does not control and cannot
+# assume is short. `test_derive_from_paper_fields_match_the_schema_bounds`
+# pins these to the schema so they cannot drift apart silently.
+_TITLE_MAX = 120
+_DESCRIPTION_MAX = 500
+# 63, not the schema's `maxLength: 64` — templateId also carries a pattern,
+# `^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`, which admits at most 1 + 61 + 1
+# characters. The pattern is the tighter of the two constraints, and trimming
+# to `maxLength` alone still produced ids the schema rejected.
+_TEMPLATE_ID_MAX = 63
+
+
+def _fit(text: str, limit: int) -> str:
+    """
+    `text` shortened to at most `limit` characters, broken at a word boundary when
+    one is near enough the end to be worth using, and marked with an ellipsis so a
+    reader can see it was cut rather than wondering where the sentence went.
+    """
+    if len(text) <= limit:
+        return text
+    keep = text[: limit - 1].rstrip()
+    space = keep.rfind(" ")
+    # Only break on a word if that does not throw away most of the budget; for a
+    # single very long token, a hard cut is better than an almost-empty string.
+    if space > limit // 2:
+        keep = keep[:space].rstrip()
+    return keep + "\u2026"
+
+
 def derive_template_from_paper(
     paper_ref: str, base_template_id: str, *, title: str = "", year: int | None = None
 ) -> dict:
@@ -382,18 +414,31 @@ def derive_template_from_paper(
     paper (FR-TPL-4) — this is how the corpus's thousands of papers become executable
     starting points without hand-authoring one template each: any paper is "run" through
     the nearest archetype, cited as the design's primary source.
+
+    Every composed field is bounded to the schema's limits. They were not, and the
+    corpus is full of papers whose titles are long enough to overrun them: running
+    "Investigating and Designing for Trust in AI-powered Code Generation Tools"
+    through the "Within-subject human-AI synergy comparison" archetype composed a
+    134-character title against a 120-character cap, so the derivation failed schema
+    validation and the researcher got a 422 for picking two ordinary things from two
+    menus. The paper's title is the part that gets shortened, because it sits at the
+    end of every one of these strings and the archetype's own name is what makes the
+    result legible.
     """
     base = load_template(base_template_id)
     derived = copy.deepcopy(base)
-    slug = re.sub(r"[^a-z0-9]+", "-", paper_ref.lower())
-    derived["templateId"] = f"{base_template_id}--{slug}"
+    # `strip("-")`: the schema's templateId pattern forbids a leading or trailing
+    # hyphen, and a paper ref ending in punctuation slugs to exactly that.
+    slug = re.sub(r"[^a-z0-9]+", "-", paper_ref.lower()).strip("-")
+    derived["templateId"] = f"{base_template_id}--{slug}"[:_TEMPLATE_ID_MAX].rstrip("-")
     label = title or paper_ref
     base_title = base.get("title", base_template_id)
-    derived["title"] = f"{base_title} — after {label}"
-    derived["description"] = (
+    derived["title"] = _fit(f"{base_title} — after {label}", _TITLE_MAX)
+    derived["description"] = _fit(
         f"The {base.get('designType', 'study')} archetype specialised toward "
         f"{label}. Cite this paper as the design's source; adjust parameters to "
-        f"your replication or extension."
+        f"your replication or extension.",
+        _DESCRIPTION_MAX,
     )
     derived["source"] = [
         {"paperRef": paper_ref, "role": "primary-design"},

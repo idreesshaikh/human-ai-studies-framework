@@ -158,3 +158,88 @@ export function nextSettleAlpha(alpha: number): number {
 export function shouldSettle(nodeCount: number): boolean {
   return nodeCount > 0 && nodeCount <= SETTLE_NODE_LIMIT;
 }
+
+/* ---- Lenses -----------------------------------------------------------
+ *
+ * A citation graph answers three different questions at once, and drawn all
+ * together it answers none of them clearly: what this study's papers cite,
+ * what cites them, and what merely resembles them are three separate reading
+ * tasks sharing one canvas. The lens is which of those three is on screen.
+ *
+ * The vocabulary is the researcher's, not the API's: `references` is *earlier
+ * work* (the study's papers point back at it), `citations` is *later work*
+ * (it points forward at the study's papers), `recommendations` is *similar
+ * work* (no direction, just resemblance). "All" stays the default, because a
+ * researcher opening the tab has not yet asked one of the three questions. */
+
+export type Lens = "all" | "references" | "citations" | "recommendations";
+
+export const LENSES: { id: Lens; label: string; hint: string }[] = [
+  {
+    id: "all",
+    label: "All",
+    hint: "Every relation at once: earlier, later, and similar work",
+  },
+  {
+    id: "references",
+    label: "Earlier work",
+    hint: "Papers your library cites — where this study's thinking comes from",
+  },
+  {
+    id: "citations",
+    label: "Later work",
+    hint: "Papers citing your library — what happened after",
+  },
+  {
+    id: "recommendations",
+    label: "Similar work",
+    hint: "Papers that resemble your library without citing it either way",
+  },
+];
+
+/** The edges a lens keeps. `all` is the identity, deliberately returning the
+ * same array so the common case allocates nothing. */
+export function lensEdges<E extends { kind: string }>(edges: E[], lens: Lens): E[] {
+  return lens === "all" ? edges : edges.filter((e) => e.kind === lens);
+}
+
+/**
+ * The nodes a lens keeps.
+ *
+ * Every ingested paper survives every lens, even when the lens leaves it with
+ * no edges at all: those are the study's own library — its anchors — and a
+ * lens that made a researcher's own papers vanish would read as data loss
+ * rather than as a filter. Suggestions are the opposite: one exists only as
+ * the far end of a harvested relation, so it survives only while the relation
+ * that introduced it does.
+ */
+export function lensNodes<N extends { paperRef: string; ingested: boolean }>(
+  nodes: N[],
+  edges: { src: string; dst: string; kind: string }[],
+  lens: Lens,
+): N[] {
+  if (lens === "all") return nodes;
+  const reachable = new Set<string>();
+  for (const e of lensEdges(edges, lens)) {
+    reachable.add(e.src);
+    reachable.add(e.dst);
+  }
+  return nodes.filter((n) => n.ingested || reachable.has(n.paperRef));
+}
+
+/**
+ * How many *suggested* papers each lens has to offer, for the control's own
+ * badges. Counting suggestions rather than nodes is the point: the number a
+ * researcher is choosing between is how much undiscovered work sits behind
+ * each question, and the papers already in the study are not that.
+ */
+export function lensCounts(
+  nodes: { paperRef: string; ingested: boolean }[],
+  edges: { src: string; dst: string; kind: string }[],
+): Record<Lens, number> {
+  const counts = {} as Record<Lens, number>;
+  for (const { id } of LENSES) {
+    counts[id] = lensNodes(nodes, edges, id).filter((n) => !n.ingested).length;
+  }
+  return counts;
+}

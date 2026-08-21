@@ -54,19 +54,17 @@ the shipped stylesheet (`styles.css` → `_ds_bundle.css`). Two ways to reach th
 
 ### The product's own vocabulary (use it; it's the whole point)
 
-- **Provenance is visible everywhere.** `TierBadge` marks a paper's source:
-  Tier A (●, hand-curated seed), Tier B (◌, harvested), study (★, in this
-  study). `GroundingChip` cites a paper inline; `UnsourcedLabel` honestly marks
-  a move with no citation (dashed amber: "needs your judgment", never shameful).
+- **Provenance is visible everywhere.** `GroundingChip` cites a paper inline;
+  `UnsourcedLabel` honestly marks a move with no citation (dashed amber:
+  "needs your judgment", never shameful).
 - **The design conversation** is the core surface: `ConversationView` (full
   two-panel: thread + `DraftRail`), `StreamingTurn` (one turn), `MoveCard` (a
   proposed design move the researcher accepts `a` / rejects `r`: grounded,
   unsourced, caution, or accepted states), `RecommendationCard` (a matched
   paper), `SlotMeter` + `DraftRail` (the protocol compiling live from accepted
-  moves), `FeedbackAffordance` (flag a turn as platform feedback).
-- **Evolution**: `AmendmentBanner` (a consent surface: plainly states the
-  study's revision; when a consent-relevant amendment awaits ethics re-approval
-  it says "new sessions paused"), `AmendmentHistory`, `VersionChip`.
+  moves).
+- **The Library**: `Constellation` (the citation graph, read one relation at a
+  time through its lens), `LibraryTab`.
 - **Voice**: first person for platform actions; no exclamation marks near
   numbers; statistics never animate. Content is study-domain (participants
   `P-01`, conditions `AI-assisted`/`Control`, real corpus papers), never

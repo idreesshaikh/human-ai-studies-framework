@@ -538,42 +538,31 @@ def report_drafts(drafts: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def submit_drafts(s: Session, drafts: list[dict]) -> list[int]:
+def write_drafts(drafts: list[dict], output_dir: Path | None = None) -> list[Path]:
     """
-    Submit mined draft templates into the existing human-review pipeline as ``pending``
-    ``TemplateSubmission`` rows (FR-TPL-5), instead of writing them straight into the
-    registry. Approval is a human decision made through the review queue; the approval
-    path already writes the YAML into ``templates/registry/`` for real, so a mined
-    candidate and a hand-authored one reach the registry through the same door.
+    Write mined draft templates to ``templates/drafts/`` as YAML files, for review
+    as a diff before anything reaches ``templates/registry/``.
 
-    Only drafts that validated are submitted; a draft with problems would fail
-    approval anyway, so it is left for the mining report to surface rather than
-    queued for a reviewer to trip over.
+    Mining never writes into the registry itself. A mined draft is a proposal, and
+    promoting one is a human decision made the same way every other change to the
+    repertoire is made — by reading the YAML and committing it. Only drafts that
+    validated are written; a draft with problems is left for the mining report to
+    surface rather than dropped into the tree for someone to trip over.
     """
-    from datetime import UTC, datetime
-
     import yaml
 
-    from middleware.db import TemplateSubmission
+    if output_dir is None:
+        root = Path(__file__).resolve().parent.parent.parent.parent
+        output_dir = root / "templates" / "drafts"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    ids: list[int] = []
+    written: list[Path] = []
     for draft in drafts:
         if not draft["valid"]:
             continue
-        template = draft["template"]
-        yaml_text = yaml.safe_dump(
-            template, sort_keys=False, default_flow_style=False
+        dest = output_dir / f"{draft['id']}.yaml"
+        dest.write_text(
+            yaml.safe_dump(draft["template"], sort_keys=False, default_flow_style=False)
         )
-        row = TemplateSubmission(
-            submitter_sub="system:miner",
-            name=template.get("title") or draft["id"],
-            template_yaml=yaml_text,
-            status="pending",
-            source="mined",
-            created_at=datetime.now(UTC).isoformat(timespec="milliseconds"),
-        )
-        s.add(row)
-        s.flush()
-        ids.append(row.id)
-    s.commit()
-    return ids
+        written.append(dest)
+    return written

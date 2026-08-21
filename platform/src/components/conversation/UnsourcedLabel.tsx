@@ -7,8 +7,8 @@
  * every unsourced card in the thread, which is a lot of chrome to say one
  * quiet thing.
  *
- * A grounded move carries a magnitude mark in the same position, so the two
- * states are read in one place and compared by form. */
+ * A grounded move carries its framed mark and score in the same position, so
+ * the two states are read in one place and compared by form. */
 export function UnsourcedLabel() {
   return (
     <span className="inline-flex items-center gap-1.5">

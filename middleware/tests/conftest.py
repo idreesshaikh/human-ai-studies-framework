@@ -109,12 +109,6 @@ def _reach_approved_protocol(client, study=STUDY):
     return result
 
 
-def _approve_ethics(client, study=STUDY):
-    r = client.post(f"/studies/{study}/ethics-approval")
-    assert r.status_code == 200, r.text
-    return r.json()
-
-
 @pytest.fixture()
 def client_no_protocol(tmp_path) -> TestClient:
     return _build_client(tmp_path)
@@ -125,12 +119,4 @@ def client_designed(tmp_path) -> TestClient:
     """Designed and compiled, nothing more - the state setup starts from."""
     tc = _build_client(tmp_path)
     _reach_approved_protocol(tc)
-    return tc
-
-
-@pytest.fixture()
-def client_ethics_ok(tmp_path) -> TestClient:
-    tc = _build_client(tmp_path)
-    _reach_approved_protocol(tc)
-    _approve_ethics(tc)
     return tc

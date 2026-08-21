@@ -32,23 +32,6 @@ def _get(server: str, path: str) -> dict:
     with urllib.request.urlopen(req, timeout=60) as res:  # noqa: S310
         return json.loads(res.read())
 
-def _get_raw(server: str, path: str) -> str:
-    req = urllib.request.Request(  # noqa: S310
-        f"{server.rstrip('/')}{path}", headers=_auth_headers()
-    )
-    with urllib.request.urlopen(req, timeout=60) as res:  # noqa: S310
-        return res.read().decode("utf-8")
-
-
-def cmd_ethics(study_id: str, server: str, out: str | None = None) -> int:
-    """Download the study's ethics package (Markdown) via the platform route."""
-    text = _get_raw(server, f"/studies/{study_id}/ethics-package")
-    if out:
-        Path(out).write_text(text)
-        print(f"ethics package: {out}")
-    else:
-        print(text)
-    return 0
 
 
 def cmd_simulate(
@@ -115,12 +98,9 @@ def main() -> None:
             "corpus-import",
             "corpus-verify",
             "corpus-enrich",
-            "mine-designs",
-            "promote-templates",
             "demo-seed",
             "templates",
             "simulate",
-            "ethics-package",
         ],
         help="Command to run (default: serve)",
     )
@@ -128,7 +108,7 @@ def main() -> None:
         "study_id",
         nargs="?",
         default=None,
-        help="simulate / ethics-package: the study id to dry-run or export",
+        help="simulate: the study id to dry-run",
     )
     parser.add_argument(
         "--db",
@@ -171,18 +151,6 @@ def main() -> None:
         help="simulate: local protocol YAML to validate against "
         "(needed when the study was boot-loaded via MIDDLEWARE_PROTOCOL "
         "and has no design-conversation draft)",
-    )
-    parser.add_argument(
-        "--out",
-        default=None,
-        help="ethics-package: write the Markdown to this file "
-        "(default: print to stdout)",
-    )
-    parser.add_argument(
-        "--submit",
-        action="store_true",
-        help="mine-designs: submit valid drafts as pending review submissions "
-        "(source=mined) instead of writing files to templates/drafts/",
     )
     args = parser.parse_args()
 
@@ -258,77 +226,6 @@ def main() -> None:
         print(f"  now {after['withAbstract']} of {after['papers']} carry an abstract")
         sys.exit(0 if result["enriched"] or not result["candidates"] else 1)
 
-    elif args.command == "mine-designs":
-        import logging
-
-        from middleware.db import create_session
-        from middleware.mine_designs import (
-            mine_and_draft,
-            report_drafts,
-            submit_drafts,
-        )
-        from middleware.settings import Settings
-
-        logging.basicConfig(level=logging.INFO, format="%(message)s")
-        settings = Settings()
-        s = create_session(settings.db_url)
-        try:
-            drafts = mine_and_draft(s, write_files=not args.submit)
-            print(report_drafts(drafts))
-            if args.submit:
-                ids = submit_drafts(s, drafts)
-                print(f"\nSubmitted {len(ids)} valid draft(s) for review "
-                      f"(source=mined): ids {ids}")
-        finally:
-            s.close()
-
-    elif args.command == "promote-templates":
-        import logging
-        from pathlib import Path
-
-        from middleware import template_registry
-
-        logging.basicConfig(level=logging.INFO, format="%(message)s")
-        root = Path(__file__).resolve().parent.parent.parent
-        drafts_dir = root / "templates" / "drafts"
-        registry_dir = root / "templates" / "registry"
-
-        # Find all draft files
-        draft_files = sorted(drafts_dir.glob("mined-design-*.yaml"))
-        if not draft_files:
-            print("No mined templates to promote")
-            sys.exit(0)
-
-        promoted = 0
-        skipped = 0
-        for draft_path in draft_files:
-            import yaml
-            doc = yaml.safe_load(draft_path.read_text())
-            problems = template_registry.validate_template(doc)
-            if problems:
-                print(f"✗ {draft_path.name}: {len(problems)} problem(s)")
-                for problem in problems[:2]:
-                    print(f"  - {problem}")
-                skipped += 1
-            else:
-                # Move to registry
-                target = registry_dir / draft_path.name
-                target.write_text(draft_path.read_text())
-                draft_path.unlink()
-                print(f"✓ {draft_path.name} → registry")
-                promoted += 1
-
-        print(f"\nPromoted {promoted}, skipped {skipped}")
-        # Re-validate full registry
-        all_problems = template_registry.validate_registry()
-        if all_problems:
-            print(f"Registry validation: {len(all_problems)} problem(s)")
-            for problem in all_problems[:5]:
-                print(f"  - {problem}")
-            sys.exit(1)
-        else:
-            print("Registry validation: OK")
-
     elif args.command == "templates":
         from middleware import template_registry
 
@@ -354,14 +251,6 @@ def main() -> None:
             )
         )
 
-    elif args.command == "ethics-package":
-        if not args.study_id:
-            print(
-                "ethics-package needs a study id: "
-                "python -m middleware ethics-package <study_id>"
-            )
-            sys.exit(2)
-        sys.exit(cmd_ethics(args.study_id, server=args.server, out=args.out))
 
 
 if __name__ == "__main__":

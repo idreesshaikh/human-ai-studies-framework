@@ -150,8 +150,6 @@ def test_unknown_condition_is_stored_and_flagged_not_dropped(client):
     assert res["flagged"] == 1
     stored = client.get("/sessions/S1/events").json()[0]
     assert "unknown-condition" in stored["flags"]
-    findings = client.get("/findings").json()
-    assert any(f["requirementId"] == "FR-ING-6" for f in findings)
 
 
 def test_unknown_participant_is_flagged(client):
@@ -422,7 +420,7 @@ def test_spa_is_served_when_built(tmp_path):
     # a route missing from this allowlist is invisible to the SPA fallback and a
     # direct navigation, refresh, or bookmark 404s on the *server*, even though
     # the client-side router would have handled it fine from a soft navigation.
-    for route in ("/home", "/start", "/settings", "/repertoire", "/submissions"):
+    for route in ("/home", "/start", "/settings", "/repertoire"):
         res = client.get(route)
         assert res.status_code == 200, f"{route} should serve the SPA shell"
         assert "mission control" in res.text, route

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
+import { Confidence } from "@/components/conversation/Confidence";
 
 /* The hero's thesis, running by itself: the platform's core loop played out as
  * a deterministic, no-LLM showcase. A researcher's question types itself, a
@@ -137,8 +138,9 @@ export function HeroShowcase() {
           *
           * Drawn in the SAME vocabulary the real conversation uses, because
           * this is the promise the product has to keep four clicks later: the
-          * kind label in the plate's small voice, the magnitude mark for how
-          * strongly the move is grounded, sentence-case controls, one plate. */}
+          * kind label in the plate's small voice, the framed mark and score
+          * for how strongly the move is grounded, sentence-case controls, one
+          * plate. */}
         {showMove && (
           <div className="hero-fold-in border-t border-border pt-4">
             <div className="flex items-center gap-2">
@@ -151,9 +153,7 @@ export function HeroShowcase() {
             {grounded && (
               <div className="hero-glow-in mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="flex size-4 items-center justify-center">
-                    <span className="mag mag-5" />
-                  </span>
+                  <Confidence value={0.93} words={false} />
                   <span className="type-caption text-text-muted">
                     strongly grounded
                   </span>

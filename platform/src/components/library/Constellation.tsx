@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Maximize2 } from "lucide-react";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { layoutGraph, degreeMap, relaxStep, type PositionedNode } from "@/lib/forceLayout";
 import {
   nodeRadius,
@@ -15,6 +16,11 @@ import {
   shouldSettle,
   SETTLE_ALPHA0,
   SETTLE_MAX_MS,
+  LENSES,
+  lensEdges,
+  lensNodes,
+  lensCounts,
+  type Lens,
 } from "@/lib/constellationView";
 import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
 import type { PaperGraph } from "@/lib/studyApi";
@@ -42,8 +48,14 @@ import { cn } from "@/lib/cn";
  * it (a manually-placed node opts out of settle/drift — it stays where it
  * was put), and "Fit" resets the view. */
 
-const W = 640;
-const H = 440;
+/* The layout's coordinate space. `layoutGraph` normalises into it, so these
+ * are the graph's room to breathe rather than a pixel size — the SVG scales
+ * the box to whatever width the Library gives it. Widened from 640×440 once
+ * the Library became a single column: at the old box a harvested
+ * neighbourhood packed its nodes tight enough that labels collided before
+ * the zoom-gate ever kicked in. */
+const W = 1000;
+const H = 620;
 const MIN_K = 0.4;
 const MAX_K = 4;
 const DRAG_THRESHOLD = 4; // px of movement before a press counts as a drag
@@ -96,12 +108,25 @@ export function Constellation({
   onSelect: (ref: string) => void;
 }) {
   const reducedMotion = usePrefersReducedMotion();
-  const base = useMemo(
-    () => layoutGraph(graph.nodes, graph.edges, { width: W, height: H }),
-    [graph],
+
+  /* Which of the three relations is on screen. Everything below reads the
+   * lensed graph, never `graph` — the layout, the degree sizing and the
+   * neighbourhood highlight all have to agree with what is actually drawn,
+   * or a node would sit at a position solved for edges nobody can see. */
+  const [lens, setLens] = useState<Lens>("all");
+  const counts = useMemo(() => lensCounts(graph.nodes, graph.edges), [graph]);
+  const edges = useMemo(() => lensEdges(graph.edges, lens), [graph, lens]);
+  const nodes = useMemo(
+    () => lensNodes(graph.nodes, graph.edges, lens),
+    [graph, lens],
   );
-  const degrees = useMemo(() => degreeMap(graph.nodes, graph.edges), [graph]);
-  const adjacency = useMemo(() => buildAdjacency(graph.edges), [graph]);
+
+  const base = useMemo(
+    () => layoutGraph(nodes, edges, { width: W, height: H }),
+    [nodes, edges],
+  );
+  const degrees = useMemo(() => degreeMap(nodes, edges), [nodes, edges]);
+  const adjacency = useMemo(() => buildAdjacency(edges), [edges]);
 
   // Per-node position overrides produced by dragging a node — the one thing
   // that opts a node out of the settle/drift layers below (respecting a
@@ -122,7 +147,7 @@ export function Constellation({
     let current = base;
     const tick = (now: number) => {
       if (cancelled || now - start > SETTLE_MAX_MS) return;
-      current = relaxStep(current, graph.edges, alpha, { width: W, height: H });
+      current = relaxStep(current, edges, alpha, { width: W, height: H });
       setSettled(current);
       alpha = nextSettleAlpha(alpha);
       if (alpha > 0.002) raf = requestAnimationFrame(tick);
@@ -132,8 +157,8 @@ export function Constellation({
       cancelled = true;
       cancelAnimationFrame(raf);
     };
-    // `graph.edges` is used only for the relax math, not as a re-trigger —
-    // it's already implied by `base` changing when the graph does.
+    // `edges` is used only for the relax math, not as a re-trigger — it's
+    // already implied by `base` changing when the graph or the lens does.
   }, [base, reducedMotion]);
 
   // Layer 3 — the render-only idle drift: a ticking clock, nothing more.
@@ -289,10 +314,33 @@ export function Constellation({
   // Small studies get always-on author+year labels (reference-manager-grade);
   // large harvested neighbourhoods degrade to zoom-gated labels so they stay
   // legible instead of painting over each other.
-  const alwaysLabels = labelMode(graph.nodes.length) === "always";
+  const alwaysLabels = labelMode(nodes.length) === "always";
 
   return (
     <figure className="m-0 flex flex-col gap-2">
+      {/* The lens strip. Counts are suggestions, not nodes: the number is
+        * how much undiscovered work sits behind each question, which is the
+        * thing being chosen between. A lens with nothing behind it stays
+        * selectable rather than disappearing — "no later work harvested yet"
+        * is an answer, and a control that reshuffles itself as papers arrive
+        * is harder to learn than one that holds still. */}
+      <div
+        data-agent="constellation-lens"
+        data-agent-kind={lens}
+        className="flex flex-wrap items-center gap-2"
+      >
+        <SegmentedControl
+          value={lens}
+          onChange={setLens}
+          aria-label="Which citation relation to show"
+          options={LENSES.map((l) => ({
+            value: l.id,
+            label: counts[l.id] > 0 ? `${l.label} (${counts[l.id]})` : l.label,
+            hint: l.hint,
+          }))}
+        />
+      </div>
+
       <div className="relative h-[var(--constellation-h)] w-full overflow-hidden rounded-card bg-bg">
         {/* A calm field, not a boxed chart: a faint vignette instead of a
          * hard edge, so the graph reads as a space rather than a panel. */}
@@ -324,7 +372,7 @@ export function Constellation({
           }}
         >
           <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
-            {graph.edges.map((e) => {
+            {edges.map((e) => {
               const a = posByRef.get(e.src);
               const b = posByRef.get(e.dst);
               if (!a || !b) return null;

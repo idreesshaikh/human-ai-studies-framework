@@ -15,7 +15,7 @@ sequenceDiagram
 
     O->>M: POST /ingest/events - {source, events[]}
     M-->>O: {inserted, duplicates, flagged}
-    Note over M: UNIQUE(sessionId, seq) → replays never duplicate<br/>unknown condition/participant → stored + flagged + finding
+    Note over M: UNIQUE(sessionId, seq) → replays never duplicate<br/>unknown condition/participant → stored + flagged, never dropped
     X->>M: POST /ingest/metrics - JSONL rows
     M-->>X: {inserted, duplicates, flagged}
     R->>M: GET /sessions/:id/gaps
@@ -35,8 +35,9 @@ MIDDLEWARE_PROTOCOL=protocol/examples/pilot-study.yaml \
 Config (env): `MIDDLEWARE_PORT`, `MIDDLEWARE_DB`, `MIDDLEWARE_DATA_DIR`,
 `MIDDLEWARE_PROTOCOL`. With a protocol loaded, ingested rows whose
 condition isn't declared - or whose participant is outside the plan
-(convention `P1..P<planned>`) - are stored **and flagged**, never dropped,
-and each flagged batch is logged to `/findings` (FR-META-1).
+(convention `P1..P<planned>`) - are stored **and flagged**, never dropped.
+The ingest response carries the flagged count, and each flagged batch is
+logged as a server warning.
 
 ## Run in Docker
 
@@ -85,10 +86,9 @@ report (FR-ING-3) and the one-timeline dataset summary (FR-ING-4).
 | `GET /sessions/{id}/gaps` | seq-gap integrity report |
 | `GET /studies/{id}/dataset` | one-timeline export, `?format=json\|csv` |
 | `GET /studies/{id}/protocol` | protocol summary for the platform overview + trace chips (MP-06) |
-| `GET /studies/{id}/status` | factual status doc the task board derives its cards from (FR-DASH-7) |
+| `GET /studies/{id}/status` | factual per-study status: sessions, ingests, and what the protocol still needs |
 | `GET /studies/{id}/live` | sessions with ingests in the last 5 min + rate buckets (FR-DASH-3) |
 | `GET /files` | uploaded artifact index |
-| `POST/GET /findings` | operational-findings log (FR-META-1; full wiring MP-11) |
 | `POST/GET/PATCH /tasks` | manual task-board cards (MP-06) |
 | `GET /health` | liveness + loaded protocol |
 

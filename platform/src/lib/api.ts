@@ -29,7 +29,7 @@ export interface Me {
 }
 
 /** The shape the server persists per identity (FR-OPS-7). The server only
- * stores keys it recognises (`theme`, `defaultAssistantModel`, `savedViews`);
+ * stores keys it recognises (`theme`, `savedViews`);
  * the UI owns their semantics. */
 /** Who the design conversation is talking to (FR-CONV-9). Changes register,
  *  pacing, and which trade-offs get surfaced — never what counts as sound
@@ -57,7 +57,6 @@ export const FALLBACK_RESEARCHER_PROFILES: {
 
 export interface Preferences {
   theme?: "light" | "dark" | "system";
-  defaultAssistantModel?: string;
   savedViews?: string[];
   researcherProfile?: ResearcherProfile;
 }
@@ -82,9 +81,6 @@ export interface Member {
   role: Role;
   invitedBy?: string;
   joinedAt?: string;
-  /** Resolved from the invitation that brought them in, when one exists —
-   * absent for the project creator or a pre-invitation-system member. */
-  email?: string | null;
 }
 
 export interface Invitation {
@@ -122,8 +118,6 @@ export interface ToggleCatalogEntry {
 
 export interface ToggleResult {
   applied: boolean;
-  requiresReapproval?: boolean;
-  amendmentId?: string;
   error?: string;
 }
 
@@ -187,11 +181,6 @@ export interface Api {
   updatePreferences(prefs: Partial<Preferences>): Promise<Preferences>;
   /** The catalog of assistant model tiers the platform may pick
    * (FR-OPS-7 profile default). Unauthenticated catalog, never the key. */
-  assistantModels(): Promise<{
-    configured: boolean;
-    models: string[];
-    defaultModel: string;
-  }>;
   /** The researcher profiles the design conversation adapts to (FR-CONV-9),
    * from the server's own `elicitation.PROFILES` — the source of truth, so
    * this list can't drift from what `Settings` used to hardcode. */
@@ -253,7 +242,7 @@ export function onUnauthorized(listener: () => void): () => void {
 }
 
 /** The live bearer token (Clerk session JWT, or the pasted-token fallback)
- * — exported so `studyApi.ts`/`conversationApi.ts`/`evolutionApi.ts` share
+ * — exported so `studyApi.ts`/`conversationApi.ts` share
  * the exact same token source as this module instead of each re-reading
  * `localStorage` directly, which never sees a Clerk-issued token at all. */
 export async function getAuthToken(): Promise<string | null> {
@@ -378,11 +367,6 @@ class HttpBackend implements Api {
       "/me/preferences",
       { preferences: prefs },
     ).then((r) => r.preferences);
-  assistantModels = () =>
-    this.call<{ configured: boolean; models: string[]; defaultModel: string }>(
-      "GET",
-      "/assistant/models",
-    );
   researcherProfiles = () =>
     this.call<{
       profiles: { id: string; label: string; description: string }[];
@@ -432,14 +416,11 @@ export class InMemoryBackend implements Api {
       createdAt: "2026-07-10T09:00:00.000Z",
       studies: [
         { id: "over-trust-2026" },
-        // A demo study mid-evolution: its amendment banner + history
-        // are seeded in evolutionStub.ts.
         { id: "sample-study-2026" },
       ],
       members: [
         { identitySub: "you", role: "owner", joinedAt: "2026-07-10T09:00:00.000Z" },
-        { identitySub: "dana@lab.test", role: "researcher", joinedAt: "2026-07-11T09:00:00.000Z" },
-        { identitySub: "sam@lab.test", role: "viewer", joinedAt: "2026-07-12T09:00:00.000Z" },
+        { identitySub: "dana@lab.test", role: "member", joinedAt: "2026-07-11T09:00:00.000Z" },
       ],
       invitations: [],
     });
@@ -723,8 +704,7 @@ export class InMemoryBackend implements Api {
     }
     const lastKey = body.path[body.path.length - 1];
     node[lastKey] = body.value;
-    const relevant = body.path.includes("enabled") || body.path[body.path.length - 1] === "enabled";
-    return { applied: true, requiresReapproval: relevant, amendmentId: relevant ? "amend-demo" : undefined };
+    return { applied: true };
   }
 
   async updatePreferences(prefs: Partial<Preferences>): Promise<Preferences> {
@@ -732,17 +712,6 @@ export class InMemoryBackend implements Api {
     return { ...this.prefs };
   }
 
-  async assistantModels(): Promise<{
-    configured: boolean;
-    models: string[];
-    defaultModel: string;
-  }> {
-    return {
-      configured: true,
-      models: ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest"],
-      defaultModel: "mistral-medium-latest",
-    };
-  }
 
   async researcherProfiles(): Promise<{
     profiles: { id: string; label: string; description: string }[];
@@ -780,12 +749,26 @@ function withOfflineFallback(live: Api, offline: Api): Api {
   return new Proxy(live, handler);
 }
 
-/** Same-origin by default — in production the middleware serves this SPA
- * at `/` (NFR-7), so a relative base reaches the real API with no build-time
- * config. Set VITE_API_BASE only for a separate-origin deployment (needs
- * MIDDLEWARE_CORS_ORIGINS, FR-OPS-6, D30). */
+/** Where the middleware answers. Same-origin by default — in production it
+ * serves this SPA at `/` (NFR-7), so an empty base reaches the real API with
+ * no build-time config. Set VITE_API_BASE only for a separate-origin
+ * deployment (needs MIDDLEWARE_CORS_ORIGINS, FR-OPS-6, D30).
+ *
+ * Exported because `createApi` is not the only caller that has to reach the
+ * middleware: the auth provider asks it which sign-in mode to present before
+ * any `Api` exists, and it was asking with a bare relative path. On a
+ * separate-origin deployment that path resolves against the SPA's own host,
+ * which answers every unknown route with `index.html` and a 200 — so the
+ * config read parsed HTML as JSON, threw, hit the "no server reachable"
+ * catch, and left the app in `mode: "none"`. The shell then renders as
+ * though no sign-in exists, every call 401s, and the researcher is shown
+ * "missing or invalid bearer token" on a page with no way to sign in. */
+export function apiBase(): string {
+  return (
+    (typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_BASE : undefined) ?? ""
+  );
+}
+
 export function createApi(): Api {
-  const base =
-    (typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_BASE : undefined) ?? "";
-  return withOfflineFallback(new HttpBackend(base), new InMemoryBackend());
+  return withOfflineFallback(new HttpBackend(apiBase()), new InMemoryBackend());
 }

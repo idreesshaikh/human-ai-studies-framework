@@ -92,9 +92,8 @@ Wave 1's archetypes are grounded in `corpus:guidelines-empirical-llm-se`
 design-specific citation where one applies. **Wave 2** (up to ~24
 archetypes total, per Phase 22's spec) is independent template-authoring
 work that enriches the demo, in progress (15/~24). Beyond Wave 2,
-FR-TPL-5 (community template contribution) is the intended path for
-growing the registry past what the owner hand-authors alone —
-`scripts/mine_templates.py` is that path's automated front half:
+`scripts/mine_templates.py` is the automated front half of growing the
+registry past what the owner hand-authors alone:
 
 - `--gaps` reports **methodology phrases the corpus uses that no template
   here claims** — the registry's blind-spot list, ranked by how many
@@ -110,13 +109,13 @@ growing the registry past what the owner hand-authors alone —
   is exactly such a judgment call against `observational-field-v1` — do
   not simply bolt the phrase onto an existing signature, which would
   claim those papers for a design they did not use.)
-- With no flag it clusters the corpus by recurring design vocabulary and,
-  with `--submit`, queues clusters with real support as `pending`
-  `TemplateSubmission` rows (tagged `source: mined`, reviewed at
-  `/submissions` exactly like a human contribution, never written into
-  this directory directly). Its drafting vocabulary is coarse by design —
-  a human reviewer refines or rejects every mined draft; nothing mined is
-  promoted automatically.
+- With no flag it clusters the corpus by recurring design vocabulary and
+  reports what it found; with `--write` it writes the clusters with real
+  support into `../drafts/` as YAML, never into this directory directly.
+  Its drafting vocabulary is coarse by design — a mined draft is a
+  proposal, and promoting one into this directory is a human decision made
+  by reading the YAML and committing it. Nothing mined is promoted
+  automatically.
 
 A template enters this directory only once `validate_registry()` passes
 for it (schema, mandatory citations, every recipe exists, and every

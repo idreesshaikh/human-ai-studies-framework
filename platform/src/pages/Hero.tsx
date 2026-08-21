@@ -2,23 +2,41 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhoenixMark } from "@/components/brand/PhoenixMark";
-import { ObservatoryField } from "@/components/brand/ObservatoryField";
 import { HeroShowcase } from "@/components/hero/HeroShowcase";
 
 /* The public front. It doesn't run a live model any more (the old embedded
- * demo endpoint was unreliable); it *shows* the product. Behind the headline, a
- * quiet "living literature constellation" drifts — the platform's own metaphor
- * — and below it a deterministic, self-running showcase plays the core loop:
- * a question types itself, a grounded design-move card folds in, its citation
- * chips light. No account, no network, nothing to break.
+ * demo endpoint was unreliable); it *shows* the product: a deterministic,
+ * self-running showcase plays the core loop — a question types itself, a
+ * grounded design-move card folds in, its citation chips light. No account,
+ * no network, nothing to break.
  *
- * The header gets one staged entrance (mark → headline → CTA); the constellation
- * and showcase carry their own motion, both frozen under reduced motion. */
+ * The header gets one staged entrance (mark → headline → CTA); the showcase
+ * carries its own motion, frozen under reduced motion. */
 export function Hero() {
   return (
     <div className="relative mx-auto flex min-h-full max-w-wide flex-col gap-14 px-6 py-16 sm:py-24">
-      {/* Ambient artwork, behind everything and non-interactive. */}
-      <ObservatoryField className="pointer-events-none absolute inset-0 -z-10 h-full w-full" />
+      {/* The way back in. This page offered exactly one door — "Start a
+        * project" — so a researcher who already had an account had nothing to
+        * click: signing in meant guessing a URL, being bounced to the gate,
+        * and arriving at the sign-in card by accident.
+        *
+        * Deliberately not fills. The accent on this page means "start a
+        * project", and a second filled control in the same region would make
+        * neither of them the next step.
+        *
+        * The repertoire sits here too now that its route is actually public:
+        * it is the one thing a visitor can do in full without an account, and
+        * burying the corpus behind a sign-up was the front page's biggest
+        * omission — 15,000 papers of ranked design shapes, browsable, and
+        * nothing said so. */}
+      <div className="absolute right-6 top-6 z-10 flex items-center gap-1">
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/repertoire">Browse the repertoire</Link>
+        </Button>
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/signin">Sign in</Link>
+        </Button>
+      </div>
 
       <header className="flex flex-col items-center gap-7 text-center">
         <div className="flex animate-in items-center gap-2.5 fade-in duration-entrance ease-out">
@@ -30,7 +48,13 @@ export function Hero() {
           Talk your <span className="italic">study</span> into existence
         </h1>
 
-        <p className="type-body-lg max-w-[52ch] animate-in fade-in text-text-muted delay-100 duration-entrance ease-out">
+        {/* `text-balance`: centred and left to wrap, this set four lines with
+          * a hard-ragged right edge and the single word "protocol." alone on
+          * the last one — an orphan under a display headline is the one
+          * typographic slip a reader registers as sloppiness without being
+          * able to name it. Balanced, the four lines come out even and
+          * nothing is stranded. */}
+        <p className="type-body-lg max-w-[52ch] animate-in text-balance fade-in text-text-muted delay-100 duration-entrance ease-out">
           Describe a research idea, in plain language. Phoenix proposes
           design moves{" "}
           <span className="font-semibold text-text">grounded</span> in the

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   CheckCircle2,
   AlertTriangle,
@@ -13,6 +14,8 @@ import { PrescriptionPanel } from "./PrescriptionPanel";
 import { DataProvenance } from "./DataProvenance";
 import { Surface } from "@/components/shell/Surface";
 import { EmptyState } from "@/components/shell/EmptyState";
+import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import {
   studyApi,
   OfflineError,
@@ -95,6 +98,44 @@ export function DataTab({ studyId }: { studyId: string }) {
 
   const metricRows = rows;
 
+  /* A study whose protocol has never compiled has no data by definition — not
+   * three separate absences. The tab used to say so three times, in three
+   * dashed boxes of equal weight stacked down five hundred pixels: "no
+   * compiled protocol", then "no sessions", then "no metric rows carry
+   * cognitive_complexity" — the last two being consequences of the first, and
+   * the metric picker above them offering a choice that could not change
+   * anything. Three statements of one fact read as three faults.
+   *
+   * One precondition, said once, with the move that resolves it. */
+  const noProtocol =
+    !!loadError && loadError.toLowerCase().includes("no protocol");
+
+  if (noProtocol) {
+    return (
+      <Surface measure="work" label="Data">
+        <EmptyState
+          line={
+            <>
+              Nothing has been collected yet: this study has no compiled
+              protocol. Design it in the conversation and apply the draft —
+              its sessions, integrity flags and metrics appear here once
+              participants start running it.
+            </>
+          }
+          action={
+            <Button asChild size="sm">
+              {/* The tab lives in the URL, so this is a real link: it is
+                * back-navigable and shareable, not a state poke. */}
+              <Link to={{ search: "?tab=conversation" }}>
+                Open the design conversation
+              </Link>
+            </Button>
+          }
+        />
+      </Surface>
+    );
+  }
+
   return (
     <Surface measure="work" label="Data">
       {seeded && (
@@ -107,14 +148,12 @@ export function DataTab({ studyId }: { studyId: string }) {
           middleware to see this study's real sessions and metrics.
         </p>
       )}
+      {/* The no-protocol case returned above; anything reaching here is a
+        * genuine fault, so it is reported as one rather than as an absence. */}
       {loadError && (
-        <EmptyState
-          line={
-            loadError.toLowerCase().includes("no protocol")
-              ? "This study has no compiled protocol yet. Finish the design conversation first, and its sessions and metrics appear here."
-              : `Couldn't load this study's data. ${loadError}`
-          }
-        />
+        <Notice kind="problem">
+          Couldn&apos;t load this study&apos;s data. {loadError}
+        </Notice>
       )}
 
       {/* Before any data exists, the provenance decision comes first: collect

@@ -23,10 +23,31 @@ const LINE_COLORS = [
   "var(--series-7)",
 ];
 
+/* A stroke pattern per series, carried everywhere the series appears.
+ *
+ * tokens.css commits this world to it in as many words — "every series that
+ * must survive a greyscale print carries a mark as well as a hue" — and the
+ * curve was the one place that didn't: three solid 1.6px lines separated by
+ * colour alone, which is also the exactly the reading a red-green viewer, a
+ * greyscale print of a thesis chapter, or a projector with the saturation
+ * crushed does not get. */
+const LINE_DASHES = ["", "7 3", "2 3", "9 3 2 3"];
+
 const ALPHAS = [0.01, 0.05, 0.1];
 const TARGETS = [0.8, 0.9];
 const MAX_NS = [60, 120, 200, 400];
 const SIZES = [0.2, 0.5, 0.8];
+
+/* A series' identity is its EFFECT SIZE, not its position in the response.
+ * Keyed by position in `doc.curves`, deselecting d=0.2 promoted d=0.5 into
+ * slot 0 and the pink curve silently turned blue — the same quantity drawn
+ * in the colour that had meant a different one a moment earlier, which is
+ * the one thing a planning chart must never do. */
+function seriesOf(effectSize: number): { color: string; dash: string } {
+  const i = SIZES.indexOf(effectSize);
+  const k = i >= 0 ? i : LINE_COLORS.length - 1;
+  return { color: LINE_COLORS[k], dash: LINE_DASHES[k] };
+}
 
 export function PowerPanel({ studyId }: { studyId: string }) {
   const [alpha, setAlpha] = useState(0.05);
@@ -110,23 +131,58 @@ export function PowerPanel({ studyId }: { studyId: string }) {
           </label>
           <div className="flex flex-col gap-1">
             <span className="type-caption text-text-muted">effect sizes (Cohen's d)</span>
+            {/* These are the chart's legend, and they happen to be
+              * switchable — so each one carries the stroke its curve is drawn
+              * with, and you can read the key off the control rather than
+              * matching two colours across the panel.
+              *
+              * They are emphatically NOT accent. Selected used to mean
+              * `border-accent`, which put three accent-edged controls in a
+              * row directly above an accent-free chart: in this world a fill
+              * or an edge in the accent means "an action you can take", and
+              * a size you have already switched on is a state, not an action
+              * — the exact "two things both meaning primary" failure
+              * tokens.css says this palette exists to end. On is a raised
+              * plate with a strong edge and its own series mark; off is flat
+              * paper with the mark drained out of it. */}
             <div className="flex gap-2">
-              {SIZES.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  aria-pressed={sizes.includes(d)}
-                  onClick={() => toggleSize(d)}
-                  className={cn(
-                    "h-10 rounded-input border px-3 type-body transition-colors duration-fast",
-                    sizes.includes(d)
-                      ? "border-accent bg-surface-raised text-text shadow-mark"
-                      : "border-border bg-surface text-text-muted hover:border-accent",
-                  )}
-                >
-                  d={d}
-                </button>
-              ))}
+              {SIZES.map((d) => {
+                const on = sizes.includes(d);
+                const { color, dash } = seriesOf(d);
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleSize(d)}
+                    className={cn(
+                      "flex h-10 items-center gap-2 rounded-input border px-3 type-body transition-colors duration-fast",
+                      on
+                        ? "border-border-strong bg-surface-raised text-text shadow-mark"
+                        : "border-border bg-surface text-text-muted hover:border-border-strong hover:text-text",
+                    )}
+                  >
+                    <svg
+                      width={16}
+                      height={2}
+                      viewBox="0 0 16 2"
+                      aria-hidden
+                      className="shrink-0 overflow-visible"
+                    >
+                      <line
+                        x1={0}
+                        y1={1}
+                        x2={16}
+                        y2={1}
+                        stroke={on ? color : "var(--border-strong)"}
+                        strokeWidth={1.6}
+                        strokeDasharray={dash || undefined}
+                      />
+                    </svg>
+                    d={d}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -295,13 +351,13 @@ function PowerChart({ doc }: { doc: PowerDoc }) {
           className="fill-text-muted type-caption"
           transform={`rotate(-90 12 ${M.top + PLOT_H / 2})`}
         >
-          power
+          power (%)
         </text>
 
         {/* One line per effect size; a filled diamond marks the first n at
             which the target is reached. */}
         {doc.curves.map((curve, i) => {
-          const color = LINE_COLORS[i % LINE_COLORS.length];
+          const { color, dash } = seriesOf(curve.effectSize);
           const points = curve.points
             .map((p) => `${x(p.totalN).toFixed(1)},${y(p.power).toFixed(1)}`)
             .join(" ");
@@ -313,6 +369,7 @@ function PowerChart({ doc }: { doc: PowerDoc }) {
                 fill="none"
                 stroke={color}
                 strokeWidth={1.6}
+                strokeDasharray={dash || undefined}
               />
               {req?.reachesTarget && req.nPerGroup !== null && (
                 <circle
@@ -330,7 +387,8 @@ function PowerChart({ doc }: { doc: PowerDoc }) {
           );
         })}
 
-        {/* Legend */}
+        {/* Legend — the same stroke the curve is drawn with, dash included, so
+            the key is readable as a key without reference to colour. */}
         <g transform={`translate(${M.left}, ${M.top - 6})`}>
           {doc.curves.map((curve, i) => (
             <g key={curve.effectSize} transform={`translate(${i * 110}, 0)`}>
@@ -339,8 +397,9 @@ function PowerChart({ doc }: { doc: PowerDoc }) {
                 y1={0}
                 x2={16}
                 y2={0}
-                stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                stroke={seriesOf(curve.effectSize).color}
                 strokeWidth={1.6}
+                strokeDasharray={seriesOf(curve.effectSize).dash || undefined}
               />
               <text x={22} y={3} className="fill-text type-caption">
                 d={curve.effectSize}

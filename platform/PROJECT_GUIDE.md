@@ -30,7 +30,7 @@ decision first — the leanness is a requirement (NFR-10), not an accident.
 flowchart TD
     subgraph client [platform/ SPA]
       pages[pages/ + components/] --> shell[useApi() — Api interface]
-      pages --> study[studyApi / conversationApi / evolutionApi / templatesApi]
+      pages --> study[studyApi / conversationApi / templatesApi]
       shell --> backends{VITE_API_BASE?}
       backends -->|live| http[HttpBackend]
       backends -->|offline| mem[InMemoryBackend]
@@ -68,14 +68,14 @@ falls through to the fake. Components reach it through context —
 
 ### Pattern B — standalone fetch clients (the study workspace)
 
-`studyApi.ts`, `conversationApi.ts`, `evolutionApi.ts`, and `templatesApi.ts`
+`studyApi.ts`, `conversationApi.ts`, and `templatesApi.ts`
 are **not** part of the `Api` interface and are **not** wrapped in
 `withOfflineFallback`. Each is a small module with its own `req()` helper and
 shares one `OfflineError` (exported from `studyApi.ts`). When the server is
 unreachable they *raise* `OfflineError`, and the calling component decides
 what to show (usually a calm "you're offline" note, sometimes a fall-through
 to a stub). This pattern covers **the design conversation, the Library, the
-Data tab, and the evolution surfaces**.
+Data tab, and the templates surfaces**.
 
 Why two patterns: the shell benefits from a swappable fake so the app is fully
 navigable offline; the workspace surfaces are richer and handle offline
@@ -139,7 +139,6 @@ counterparts:
 | Client | Mirrors (server) | What it does |
 | --- | --- | --- |
 | `lib/compiler.ts` | `middleware/compiler.py` | Folds accepted moves into a draft — pure, deterministic. Gives the draft rail its instant preview; the server compile is authoritative. |
-| `lib/evolutionStub.ts` | the evolution endpoints | The offline store behind the amendment banner and history. |
 
 **Contributor warning:** these are not generated from the server — they're
 hand-kept parallels. If you change a compile rule or a move shape on one side,
@@ -157,12 +156,6 @@ reply. The only remnant is `conversationOpening.ts` — the opening prompt,
 which asks a question and claims nothing. So the shell and study surfaces
 degrade to seeded/offline data, but the conversation degrades to honesty, not
 to a stub.
-
-Current status of the evolution transport: the amendment surfaces still lean
-on `evolutionStub`, while `evolutionApi.ts` holds the real server calls and the
-backend endpoints exist and are tested. The wiring is being connected slice by
-slice, so treat marked feedback as not reliably persisted yet — check the
-current call sites before depending on it.
 
 ## 7. Auth (three modes)
 
@@ -194,8 +187,9 @@ touching it.
 - **Accessibility is a gate, not a nicety.** Both themes meet WCAG AA;
   `prefers-reduced-motion` disables animation with no loss of function;
   consent/ethics surfaces never animate. `usePrefersReducedMotion` is the hook.
-- **`verify-*.mjs`** are behaviour harnesses (slice1, shell, evolution,
-  library, timeline) run by `npm run verify`. They are not component unit tests
+- **`verify-*.mjs`** are behaviour harnesses (slice1, shell, library,
+  timeline, layout, constellation, comparator, protocol-path) run by
+  `npm run verify`. They are not component unit tests
   — there is currently no vitest/RTL setup — so they check specific invariants
   rather than rendering.
 
@@ -208,8 +202,8 @@ src/
   App.tsx                   routes
   pages/                    Hero, Projects, ProjectHome, StudyHome, Members, Settings, …
   components/
-    conversation/           the design conversation + Steer (SteerDial) + evolution surfaces
-    library/                LibraryTab, Constellation, Assistant
+    conversation/           the design conversation + Steer (SteerDial)
+    library/                LibraryTab, Constellation
     charts/                 DataTab, MetricStrip, SwimlaneTimeline (hand-built SVG)
     shell/                  AppFrame, ProjectSwitcher, RoleGate, SignInScreen
     enrollment/ members/    participant enrollment; project members
@@ -217,9 +211,8 @@ src/
     ui/                     vendored shadcn primitives (owned)
   lib/
     api.ts                  the Api interface + HttpBackend + InMemoryBackend + auth seam
-    studyApi / conversationApi / evolutionApi / templatesApi   standalone fetch clients
+    studyApi / conversationApi / templatesApi   standalone fetch clients
     compiler.ts             client mirror of the server compiler
-    evolutionStub.ts        offline store for the amendment surfaces (see §6)
     conversationOpening.ts  the opening prompt (all that remains of the old design stub)
     steer.ts                the Steer control's levels (register + initiative)
     session.tsx             ApiProvider + SessionProvider (context)
@@ -237,7 +230,6 @@ scripts/                    lint-no-raw-literals, check-agent-annotations, verif
 - Adding a shell data method means editing **both** backends in `api.ts`.
 - Don't collide a route path with a middleware API path (`/home`, not
   `/projects`).
-- If you touch `compiler.ts` or `evolutionStub.ts`, check the server
-  counterpart named in §6. Don't reintroduce a scripted conversation stub —
+- If you touch `compiler.ts`, check the server counterpart named in §6. Don't reintroduce a scripted conversation stub —
   its removal was deliberate (§6).
 - New dependency → `requirements/build-vs-adopt.md` first.

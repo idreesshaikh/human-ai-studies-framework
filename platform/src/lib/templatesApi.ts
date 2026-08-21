@@ -76,22 +76,6 @@ export interface DerivedTemplate {
   protocol: Record<string, unknown>;
 }
 
-export interface TemplateSubmission {
-  id: number;
-  name: string;
-  submitterSub: string;
-  status: string;
-  source: string;
-  reviewerSub: string | null;
-  reviewComment: string | null;
-  createdAt: string;
-  reviewedAt: string | null;
-}
-
-export interface TemplateSubmissionDetail extends TemplateSubmission {
-  templateYaml: string;
-}
-
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
@@ -148,16 +132,5 @@ export const templatesApi = {
     req<DerivedTemplate>(`/templates/from-paper`, {
       method: "POST",
       body: JSON.stringify({ paperRef, baseTemplateId }),
-    }),
-  submissions: () =>
-    req<{ submissions: TemplateSubmission[]; count: number }>(
-      `/templates/submissions`,
-    ),
-  submission: (id: number) =>
-    req<TemplateSubmissionDetail>(`/templates/submissions/${id}`),
-  decideSubmission: (id: number, status: "approved" | "rejected", reviewComment: string) =>
-    req<{ id: number; status: string }>(`/templates/submissions/${id}/decision`, {
-      method: "POST",
-      body: JSON.stringify({ status, reviewComment }),
     }),
 };

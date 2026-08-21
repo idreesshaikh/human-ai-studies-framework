@@ -285,7 +285,7 @@ def test_no_draft_applies_without_approval(client):
     after = client.get(f"/studies/{STUDY}/conversation/export").json()
     assert after["currentDraft"] == result["yaml"]
     assert len(after["approvals"]) == 1
-    assert after["approvals"][0]["role"] in ("owner", "researcher")
+    assert after["approvals"][0]["role"] in ("owner", "member")
 
 
 def test_rejecting_a_move_keeps_it_out_of_the_draft(client):

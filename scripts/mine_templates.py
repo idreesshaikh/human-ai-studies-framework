@@ -1,16 +1,15 @@
 """
-Corpus-mining pipeline (FR-TPL-5): cluster the paper corpus by recurring design
-vocabulary, draft a template YAML for each cluster with real support, and queue
-the ones that validate as `pending` TemplateSubmission rows for human review.
+Corpus-mining pipeline: cluster the paper corpus by recurring design vocabulary,
+draft a template YAML for each cluster with real support, and write the ones that
+validate into templates/drafts/ for review.
 
-Mining never writes into templates/registry/ directly — approval is a human
-decision made through the existing submissions review queue at /submissions,
-the same door a hand-authored contribution uses (see
-middleware/src/middleware/mine_designs.py:submit_drafts).
+Mining never writes into templates/registry/ directly. A mined draft is a
+proposal; promoting one is a human decision made by reading the YAML and
+committing it, the same way every other change to the repertoire is made.
 
 Usage:
     uv run python scripts/mine_templates.py                 # report only
-    uv run python scripts/mine_templates.py --submit         # also queue them
+    uv run python scripts/mine_templates.py --write         # also write drafts
     uv run python scripts/mine_templates.py --min-papers 15 --min-phrases 2
 """
 
@@ -42,9 +41,9 @@ def main() -> int:
         "only says where to look.",
     )
     parser.add_argument(
-        "--submit",
+        "--write",
         action="store_true",
-        help="Queue qualifying drafts as pending TemplateSubmission rows. "
+        help="Write qualifying drafts to templates/drafts/ as YAML. "
         "Without this flag, only the report is printed — nothing is written.",
     )
     parser.add_argument(
@@ -54,7 +53,7 @@ def main() -> int:
         help="Minimum corpus support to even consider a cluster (default 8). "
         "The single-generic-word clusters (\"coding\", \"measuring\") clear the "
         "mining script's own min_papers=3 floor easily on volume alone; this "
-        "second, stricter gate is what keeps the review queue from filling "
+        "second, stricter gate is what keeps templates/drafts/ from filling "
         "with clusters no reviewer would find worth a decision.",
     )
     parser.add_argument(
@@ -104,17 +103,19 @@ def main() -> int:
             f"bar (>= {args.min_papers} papers, >= {args.min_phrases} phrases)."
         )
 
-        if not args.submit:
-            print("Dry run — nothing written. Pass --submit to queue these.")
+        if not args.write:
+            print("Dry run — nothing written. Pass --write to draft these.")
             return 0
 
         if not qualifying:
-            print("Nothing to submit.")
+            print("Nothing to write.")
             return 0
 
-        ids = mine_designs.submit_drafts(s, qualifying)
-        print(f"Queued {len(ids)} pending TemplateSubmission rows: {ids}")
-        print("Review them at /submissions.")
+        paths = mine_designs.write_drafts(qualifying)
+        print(f"Wrote {len(paths)} draft(s) to templates/drafts/:")
+        for path in paths:
+            print(f"  {path.name}")
+        print("Read them, then commit the ones worth keeping into templates/registry/.")
         return 0
     finally:
         s.close()

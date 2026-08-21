@@ -39,7 +39,7 @@ export function Members() {
   // The caller's role comes from their own memberships (the server enforces
   // regardless; this only decides which controls to show).
   const mine = (me?.memberships.find((m) => m.projectSlug === slug)?.role ??
-    "viewer") as Role;
+    "member") as Role;
 
   return (
     <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ArrowLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -35,7 +35,7 @@ const STEPS: Step[] = [
   {
     tab: "library",
     title: "Your literature, as a living map",
-    body: "The papers behind your study: add any by arXiv id, DOI, or PDF. The assistant's recommendations land here too. Drag the constellation to explore the citation neighbourhood.",
+    body: "The papers behind your study: add any by arXiv id, DOI, or PDF. Each one pulls in the papers it cites, the papers citing it, and related work — drag the constellation to explore that neighbourhood, and click a suggested paper to add it.",
   },
   {
     tab: "data",
@@ -71,6 +71,51 @@ export function StudyTour({
     onTab(STEPS[clamped].tab);
   };
 
+  /* Focus has to move INTO the dialog when it opens.
+   *
+   * This is what makes the rest of the component work at all. The key handler
+   * below hangs off this div, and React delivers keydown by bubbling from
+   * whatever is focused — with focus left on `body`, nothing bubbled through
+   * here, so Escape did not close the tour and the arrow keys did not step it.
+   * Every keyboard affordance this dialog claims to have was inert.
+   *
+   * It is also what `aria-modal="true"` promises and did not deliver: with
+   * focus outside, Tab walked the app chrome *behind* the scrim (the first
+   * stop was the "Phoenix, home" link), so a keyboard or screen-reader user
+   * met an obscured page instead of the walkthrough — on the very first
+   * screen a new researcher sees.
+   *
+   * The panel takes focus rather than the "Next" button, so a screen reader
+   * reads the dialog from its own top instead of starting at the last
+   * control; and the element that was focused before is restored on close,
+   * so dismissing the tour returns the researcher where they were. */
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    panel.current?.focus();
+    return () => previous?.focus?.();
+  }, []);
+
+  /* Tab stays inside while it is open. Without this the trap is only
+   * advisory: `aria-modal` tells assistive tech to ignore the background, but
+   * it does not stop the Tab key from reaching it. */
+  const trapTab = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const focusable = panel.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]),a[href],input:not([disabled]),[tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable || focusable.length === 0) return;
+    const first = focusable[0];
+    const lastEl = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      lastEl.focus();
+    } else if (!e.shiftKey && document.activeElement === lastEl) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-4 sm:items-center"
@@ -81,9 +126,20 @@ export function StudyTour({
         if (e.key === "Escape") onClose();
         if (e.key === "ArrowRight" && !last) go(i + 1);
         if (e.key === "ArrowLeft" && i > 0) go(i - 1);
+        trapTab(e);
       }}
     >
-      <div className="w-full max-w-md rounded-card border border-border-strong bg-surface-raised p-5 shadow-lifted">
+      {/* `tabIndex={-1}`: focusable by script, never a stop in the Tab order
+        * itself. No outline suppression is needed and none is written — a
+        * programmatic `.focus()` does not match `:focus-visible` (verified in
+        * the browser), so the global focus ring in index.css correctly stays
+        * off for this hand-off and still fires for every real control inside
+        * when the researcher tabs to it. */}
+      <div
+        ref={panel}
+        tabIndex={-1}
+        className="w-full max-w-md rounded-card border border-border-strong bg-surface-raised p-5 shadow-lifted"
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
             {STEPS.map((_, n) => (

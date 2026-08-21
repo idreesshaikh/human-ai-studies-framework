@@ -60,8 +60,8 @@ Repo-specific gotchas for future re-syncs. One bullet per gotcha.
   node_modules specifier) dedupes fine, so `ProjectSwitcher` renders. To author
   these later: unify the module (e.g. add session.tsx to the same synth-entry
   graph as the components, or a re-export that resolves through the `@/` alias).
-- **6 newer components excluded via `componentSrcMap: null`**: `Assistant`,
-  `Constellation`, `DataTab`, `LibraryTab`, `LifecycleTab`, `MetricStrip`. They
+- **4 newer components excluded via `componentSrcMap: null`**:
+  `Constellation`, `DataTab`, `LibraryTab`, `MetricStrip`. They
   appeared in `src/components` mid-sync (another agent building the Phase B/C
   surfaces) and are router/data-bound (render "Not Found" without routes). They
   were outside this sync's validated scope: **author + include them on a future

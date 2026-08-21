@@ -5,7 +5,6 @@ import io
 import itertools
 import json
 import logging
-import queue
 import re
 import secrets
 import tempfile
@@ -43,13 +42,9 @@ from middleware import (
     design_assistant,
     elicitation,
     enrollment,
-    ethics_package,
-    evolution,
-    manifest,
     matching,
     paper_index,
     pdf,
-    presence,
     semantic_scholar,
     template_registry,
     template_repertoire,
@@ -58,14 +53,12 @@ from middleware import demo as demo_mod
 from middleware.db import (
     CORPUS_STUDY_ID,
     IMPLICIT_PROJECT_ID,
-    Amendment,
     ApprovalEvent,
     Compilation,
     ConversationTurn,
     DesignMoveRow,
     EnrollmentToken,
     Event,
-    Finding,
     Invitation,
     Membership,
     MetricRow,
@@ -80,8 +73,6 @@ from middleware.db import (
     SessionOpen,
     StoredFile,
     Study,
-    StudyEvolution,
-    TemplateSubmission,
     UserProfile,
     get_engine,
     make_session_factory,
@@ -132,14 +123,6 @@ class EventBatch(BaseModel):
     events: list[StudyEventIn]
 
 
-class FindingIn(BaseModel):
-    source: str = ""
-    kind: str = ""
-    requirementId: str = ""
-    message: str
-    context: dict = Field(default_factory=dict)
-    status: str = "open"
-
 
 class RecipeRunIn(BaseModel):
     """One recipe run recorded by the analysis runner."""
@@ -162,13 +145,6 @@ class PaperLinksIn(BaseModel):
 
     targets: list[str] = Field(default_factory=list)
 
-
-class AssistantIn(BaseModel):
-    """One knowledge-assistant turn (FR-LIT-4)."""
-
-    question: str
-    history: list[dict] = Field(default_factory=list)
-    model: str | None = None
 
 
 class MatchIn(BaseModel):
@@ -214,15 +190,6 @@ class ApproveIn(BaseModel):
     rationale: str = ""
 
 
-class ReapprovalIn(BaseModel):
-    """
-    Record the updated ethics artifact that lifts a consent-relevant amendment's session
-    pause (FR-CONV-4.2, F4.1).
-    """
-
-    artifact: str = ""
-
-
 class SessionStartIn(BaseModel):
     """
     Open a data-collection session under the study's current protocol revision
@@ -239,20 +206,6 @@ class TemplateInstantiateIn(BaseModel):
     studyId: str = ""
     title: str = ""
 
-
-class TemplateSubmitIn(BaseModel):
-    """Submit a third-party template for registry review (FR-TPL-5)."""
-
-    name: str = Field(min_length=1, max_length=200)
-    templateYaml: str = Field(min_length=1)
-    source: str = Field(default="human", pattern=r"^(human|mined)$")
-
-
-class TemplateDecisionIn(BaseModel):
-    """Owner decision on a template submission (FR-TPL-5)."""
-
-    status: str = Field(pattern=r"^(approved|rejected)$")
-    reviewComment: str = ""
 
 
 class MintTokensIn(BaseModel):
@@ -343,17 +296,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     def _resolve_study_protocol(s: Session, study_id: str) -> dict | None:
         """
-        Resolve a study's protocol, most-specific source first: an approved snapshot,
-        then the compiled draft, then the boot protocol (the single-facilitator fallback
-        for a study never taken through the design conversation).
+        Resolve a study's protocol: the compiled draft, then the boot protocol (the
+        single-facilitator fallback for a study never taken through the design
+        conversation).
         """
         import yaml
 
-        from middleware.db import ProtocolDraftRow, StudyEvolution
+        from middleware.db import ProtocolDraftRow
 
-        evo = s.get(StudyEvolution, study_id)
-        if evo is not None and evo.approved_yaml:
-            return yaml.safe_load(evo.approved_yaml)
         draft = s.get(ProtocolDraftRow, study_id)
         if draft is not None and draft.yaml:
             return yaml.safe_load(draft.yaml)
@@ -367,8 +317,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             s.commit()
 
     app = FastAPI(title="Study ingestion middleware", version="0.1.0")
-
-    manifest.setup_manifest_route(app, auth_mode=auth.resolve_mode(settings))
 
     if settings.cors_origins:
         from fastapi.middleware.cors import CORSMiddleware
@@ -392,25 +340,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def now() -> str:
         return clock().isoformat(timespec="milliseconds")
 
-    def log_finding(
-        s: Session,
-        source: str,
-        requirement_id: str,
-        message: str,
-        context: dict,
-        *,
-        kind: str = "",
-    ) -> None:
-        s.add(
-            Finding(
-                at=now(),
-                source=source,
-                kind=kind,
-                requirement_id=requirement_id,
-                message=message,
-                context=context,
-            )
-        )
 
     def check_study_id(study_id: str) -> None:
         if check.study_id is not None and study_id != check.study_id:
@@ -501,13 +430,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         inserted = store_events(s, rows, received)
         if flagged:
-            log_finding(
-                s,
-                source="ingest/events",
-                requirement_id="FR-ING-6",
-                message=f"{flagged}/{len(rows)} events stored with integrity flags",
-                context={"sessions": sorted({r["session_id"] for r in rows})},
-                kind="integrity-flag",
+            log.warning(
+                "%d/%d events stored with integrity flags (sessions: %s)",
+                flagged,
+                len(rows),
+                ", ".join(sorted({r["session_id"] for r in rows})),
             )
         return {
             "received": len(rows),
@@ -531,13 +458,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             flags_by_row.append(flags)
         inserted = store_metric_rows(s, rows, received, flags_by_row)
         if flagged:
-            log_finding(
-                s,
-                source="ingest/metrics",
-                requirement_id="FR-ING-6",
-                message=f"{flagged}/{len(rows)} metric rows stored with flags",
-                context={},
-                kind="integrity-flag",
+            log.warning(
+                "%d/%d metric rows stored with integrity flags", flagged, len(rows)
             )
         return {
             "received": len(rows),
@@ -1291,13 +1213,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         try:
             edges = semantic_scholar.fetch_edges(paper_ref, fetch=cached_fetch(s))
         except semantic_scholar.SemanticScholarError as exc:
-            log_finding(
-                s,
-                "papers/graph",
-                "FR-LIT-2",
-                f"edge harvest failed for {paper_ref}: {exc}",
-                {},
-            )
+            log.warning("edge harvest failed for %s: %s", paper_ref, exc)
             return 0
         n = 0
         _engine = get_engine()
@@ -1683,135 +1599,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             s.add(PaperLink(study_id=study_id, paper_ref=paper_ref, target=target))
         return {"paperRef": paper_ref, "links": wanted}
 
-    @app.get(
-        "/studies/{study_id}/assistant/config",
-        dependencies=[Depends(require_project_for_study("view"))],
-    )
-    def assistant_config(study_id: str) -> dict:
-        """
-        Whether the assistant is configured and which Mistral model tiers the platform
-        may pick (D32 rev 2).
-        """
-
-        ready = assistant.configured()
-        return {
-            "configured": ready,
-            "models": list(assistant.MISTRAL_MODELS) if ready else [],
-            "defaultModel": assistant.MISTRAL_MODEL,
-        }
-
-    @app.get("/assistant/models")
-    def assistant_models() -> dict:
-        """The catalog of assistant model tiers the platform may pick (D32 rev 2)."""
-
-        return {
-            "configured": assistant.configured(),
-            "models": list(assistant.MISTRAL_MODELS),
-            "defaultModel": assistant.MISTRAL_MODEL,
-        }
-
-    @app.post(
-        "/studies/{study_id}/assistant",
-        dependencies=[Depends(require_project_for_study("contribute"))],
-    )
-    def knowledge_assistant(
-        study_id: str, body: AssistantIn, s: Session = Depends(db)
-    ) -> dict:
-        """Grounded Q&A over papers + protocol + dataset *aggregates* (FR-LIT-4)."""
-
-        client = assistant.make_client(body.model)
-        if client is None:
-            raise HTTPException(
-                503,
-                "knowledge assistant unavailable: set MISTRAL_API_KEY. "
-                "All other views work offline.",
-            )
-        # Scoped to THIS study: the full-text index spans every study and the whole
-        # corpus, so an unscoped search let the assistant answer from papers the study's
-        # own library had never adopted, and assert they were in it while the list and
-        # graph beside it showed nothing.
-        tools = assistant.build_tools(s, protocol_doc, study_id=study_id)
-        try:
-            return assistant.answer_question(
-                body.question, body.history, tools=tools, client=client
-            )
-        except Exception as exc:
-            raise HTTPException(502, f"assistant error: {exc}") from exc
-
-
-    @app.post("/findings")
-    def add_finding(finding: FindingIn, s: Session = Depends(db)) -> dict:
-        """Record one operational finding (FR-META-1)."""
-        s.add(
-            Finding(
-                at=now(),
-                source=finding.source,
-                kind=finding.kind,
-                requirement_id=finding.requirementId,
-                message=finding.message,
-                context=finding.context,
-                status=finding.status,
-            )
-        )
-        return {"ok": True}
-
-    @app.get("/findings", dependencies=[Depends(view_auth)])
-    def list_findings(s: Session = Depends(db)) -> list[dict]:
-        rows = s.scalars(select(Finding).order_by(Finding.id))
-        return [_finding_json(f) for f in rows]
-
-    @app.post(
-        "/studies/{study_id}/findings/scan",
-        dependencies=[Depends(require_project_for_study("view"))],
-    )
-    def scan_findings(study_id: str, s: Session = Depends(db)) -> dict:
-        """
-        Auto-write the read-detectable operational findings (FR-META-1): per-producer
-        seq gaps (FR-ING-3) and unsatisfied current-phase gate blocks (FR-PROT-3).
-        """
-
-        existing = {
-            (f.kind, json.dumps(f.context, sort_keys=True))
-            for f in s.scalars(select(Finding))
-        }
-        written = 0
-
-        def emit(kind: str, req: str, message: str, context: dict) -> None:
-            nonlocal written
-            key = (kind, json.dumps(context, sort_keys=True))
-            if key in existing:
-                return
-            existing.add(key)
-            log_finding(
-                s,
-                source="findings/scan",
-                requirement_id=req,
-                message=message,
-                context=context,
-                kind=kind,
-            )
-            written += 1
-
-        by: dict[tuple[str, str], list[int]] = defaultdict(list)
-        for sid, src, seq in s.execute(
-            select(Event.session_id, Event.source, Event.seq)
-        ):
-            by[(sid, src)].append(seq)
-        for (sid, src), seqs in by.items():
-            summary = _gap_summary(sorted(seqs))
-            if summary["gaps"]:
-                missing = summary["expected"] - summary["received"]
-                emit(
-                    "seq-gap",
-                    "FR-ING-3",
-                    f"{sid} ({src}): {len(summary['gaps'])} seq gap(s), "
-                    f"{missing} event(s) missing",
-                    {"session": sid, "source": src},
-                )
-
-        return {"written": written}
-
-
     @app.get("/schemas/event")
     def event_schema() -> dict:
         """Event schema for agent consumption (FR-AGF-1)."""
@@ -2167,24 +1954,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         member_rows = list(
             s.scalars(select(Membership).where(Membership.project_id == proj.id))
         )
-        # Membership only ever stores the bare identity_sub (a Clerk user id for hosted
-        # deployments) - resolve a human label from the invitation that brought each
-        # member in, where one exists, so the UI never has to show a raw "user_..."
-        # string as someone's name.
-        invited_by_ids = [m.invited_by for m in member_rows if m.invited_by]
-        invite_emails = {
-            inv.id: inv.email
-            for inv in (
-                s.scalars(select(Invitation).where(Invitation.id.in_(invited_by_ids)))
-                if invited_by_ids
-                else []
-            )
-        }
         members = [
             {
                 "identitySub": m.identity_sub,
                 "role": m.role,
-                "email": invite_emails.get(m.invited_by) if m.invited_by else None,
             }
             for m in member_rows
         ]
@@ -2276,8 +2049,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         ApprovalEvent,
         Compilation,
         ProtocolDraftRow,
-        StudyEvolution,
-        Amendment,
         SessionOpen,
     )
 
@@ -2292,7 +2063,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def delete_study(study_id: str, s: Session = Depends(db)) -> dict:
         """
         Delete a study and everything scoped to it (FR-PLAT-1): its conversation, design
-        moves, drafts, papers, enrollment, mining, and evolution records.
+        moves, drafts, papers, enrollment, and mining records.
         """
         study = s.get(Study, study_id)
         if study is None:
@@ -2706,16 +2477,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         dependencies=[Depends(require_project_for_study("toggle_capture"))],
     )
     def apply_toggle(study_id: str, body: ToggleIn, s: Session = Depends(db)) -> dict:
-        """Apply one metric toggle as a protocol amendment (FR-DASH-11)."""
-        from middleware.db import Amendment, StudyEvolution
-
-        evo = s.get(StudyEvolution, study_id)
-        if evo is None:
-            evo = StudyEvolution(study_id=study_id, current_version=1)
-            s.add(evo)
-        before = yaml.safe_load(evo.approved_yaml) if evo.approved_yaml else None
-        if before is None:
-            before = _resolve_study_protocol(s, study_id)
+        """Apply one metric toggle to the protocol's instruments block (FR-DASH-11)."""
+        before = _resolve_study_protocol(s, study_id)
         if not before:
             raise HTTPException(404, "study not found")
         if not before.get("instruments"):
@@ -2746,50 +2509,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 422, f"toggle would produce an invalid protocol: {'; '.join(errors)}"
             )
 
-        relevant, reasons = evolution.consent_relevance(before, draft)
-        changes = evolution.change_summary(before, draft)
         new_yaml = yaml.safe_dump(draft, default_flow_style=False)
-
-        if relevant:
-            from_v = evo.current_version
-            to_v = from_v + 1
-            amend = Amendment(
-                id=secrets.token_hex(8),
-                study_id=study_id,
-                compilation_id="",
-                from_version=from_v,
-                to_version=to_v,
-                summary=changes[0] if changes else "metric toggle",
-                changes=changes,
-                rationale=body.rationale,
-                grounding=[],
-                consent_relevant=1,
-                consent_reasons=reasons,
-                approved_by="",
-                role="",
-                created_at=now(),
-            )
-            s.add(amend)
-            evo.current_version = to_v
-            evo.approved_yaml = new_yaml
-            evo.pending_reapproval = amend.id
-            evo.updated_at = now()
-            s.commit()
-            return {
-                "applied": True,
-                "requiresReapproval": True,
-                "amendmentId": amend.id,
-                "fromVersion": from_v,
-                "toVersion": to_v,
-                "consentReasons": reasons,
-            }
-        evo.approved_yaml = new_yaml
-        evo.updated_at = now()
+        row = s.get(ProtocolDraftRow, study_id)
+        if row is None:
+            row = ProtocolDraftRow(study_id=study_id)
+            s.add(row)
+        row.yaml = new_yaml
+        row.updated_at = now()
         s.commit()
-        return {
-            "applied": True,
-            "requiresReapproval": False,
-        }
+        return {"applied": True}
 
     @app.post("/pair/redeem")
     def pair_redeem(body: RedeemIn, request: Request, s: Session = Depends(db)) -> dict:
@@ -2939,7 +2667,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     ) -> dict:
         """
         Session-boundary re-pull of the capture config (FR-INST-21): the extension
-        re-fetches this at the start of each session so a protocol amendment lands
+        re-fetches this at the start of each session so a protocol change lands
         without re-pairing.
         """
         row = resolve_credential(s, authorization)
@@ -3025,7 +2753,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             s.close()
 
     KNOWN_PREF_KEYS = frozenset(
-        {"theme", "defaultAssistantModel", "savedViews"}
+        {"theme", "savedViews"}
     )
 
     @app.put(
@@ -3218,192 +2946,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return {"prescriptions": [r for r in rows if r is not None]}
 
 
-    def _owner_membership(identity: auth.Identity, s: Session) -> Membership | None:
-        """Check if the caller is an owner on the implicit project."""
-        from middleware.authz import has_role
-
-        m = s.scalar(
-            select(Membership).where(
-                Membership.project_id == IMPLICIT_PROJECT_ID,
-                Membership.identity_sub == identity.sub,
-            )
-        )
-        if m is not None and has_role(m.role, "manage_members"):
-            return m
-        return None
-
-    @app.post(
-        "/templates/submissions",
-        dependencies=[Depends(resolve_identity)],
-    )
-    def submit_template(
-        body: TemplateSubmitIn,
-        identity: auth.Identity = Depends(resolve_identity),
-        s: Session = Depends(db),
-    ) -> dict:
-        """Submit a third-party template YAML for registry review (FR-TPL-5)."""
-
-        try:
-            loaded = yaml.safe_load(body.templateYaml)
-            if not isinstance(loaded, dict):
-                raise ValueError("template YAML must be a mapping")
-            problems = template_registry.validate_template(loaded)
-        except yaml.YAMLError as exc:
-            raise HTTPException(422, f"invalid YAML: {exc}") from exc
-        except Exception as exc:
-            raise HTTPException(422, str(exc)) from exc
-        if problems:
-            raise HTTPException(
-                422, f"template validation failed: {'; '.join(problems)}"
-            )
-
-        row = TemplateSubmission(
-            submitter_sub=identity.sub,
-            name=body.name,
-            template_yaml=body.templateYaml,
-            status="pending",
-            source=body.source,
-            created_at=now(),
-        )
-        s.add(row)
-        s.commit()
-        return {
-            "id": row.id,
-            "name": row.name,
-            "status": row.status,
-            "source": row.source,
-            "createdAt": row.created_at,
-        }
-
-    @app.get("/templates/submissions")
-    def list_template_submissions(
-        identity: auth.Identity = Depends(resolve_identity),
-        s: Session = Depends(db),
-    ) -> dict:
-        """List template submissions (FR-TPL-5)."""
-        owner = _owner_membership(identity, s)
-        if owner is not None:
-            rows = s.scalars(
-                select(TemplateSubmission).order_by(
-                    TemplateSubmission.created_at.desc()
-                )
-            )
-        else:
-            rows = s.scalars(
-                select(TemplateSubmission)
-                .where(TemplateSubmission.submitter_sub == identity.sub)
-                .order_by(TemplateSubmission.created_at.desc())
-            )
-        items = []
-        for r in rows:
-            items.append(
-                {
-                    "id": r.id,
-                    "name": r.name,
-                    "submitterSub": r.submitter_sub,
-                    "status": r.status,
-                    "source": r.source,
-                    "reviewerSub": r.reviewer_sub or None,
-                    "reviewComment": r.review_comment or None,
-                    "createdAt": r.created_at,
-                    "reviewedAt": r.reviewed_at or None,
-                }
-            )
-        return {"submissions": items, "count": len(items)}
-
-    @app.get(
-        "/templates/submissions/{sub_id}",
-        dependencies=[Depends(resolve_identity)],
-    )
-    def get_template_submission(
-        sub_id: int,
-        identity: auth.Identity = Depends(resolve_identity),
-        s: Session = Depends(db),
-    ) -> dict:
-        """View a single template submission and its full YAML."""
-        row = s.scalar(
-            select(TemplateSubmission).where(TemplateSubmission.id == sub_id)
-        )
-        if row is None:
-            raise HTTPException(404, "submission not found")
-        owner = _owner_membership(identity, s)
-        if row.submitter_sub != identity.sub and owner is None:
-            raise HTTPException(403, "not your submission")
-        return {
-            "id": row.id,
-            "name": row.name,
-            "submitterSub": row.submitter_sub,
-            "status": row.status,
-            "source": row.source,
-            "templateYaml": row.template_yaml,
-            "reviewerSub": row.reviewer_sub or None,
-            "reviewComment": row.review_comment or None,
-            "createdAt": row.created_at,
-            "reviewedAt": row.reviewed_at or None,
-        }
-
-    @app.post(
-        "/templates/submissions/{sub_id}/decision",
-        dependencies=[Depends(resolve_identity)],
-    )
-    def decide_template_submission(
-        sub_id: int,
-        body: TemplateDecisionIn,
-        identity: auth.Identity = Depends(resolve_identity),
-        s: Session = Depends(db),
-    ) -> dict:
-        """Approve or reject a template submission (FR-TPL-5, owner only)."""
-        owner = _owner_membership(identity, s)
-        if owner is None:
-            raise HTTPException(403, "only project owners may review submissions")
-
-        row = s.scalar(
-            select(TemplateSubmission).where(TemplateSubmission.id == sub_id)
-        )
-        if row is None:
-            raise HTTPException(404, "submission not found")
-        if row.status != "pending":
-            raise HTTPException(409, f"submission already {row.status}")
-
-        row.status = body.status
-        row.reviewer_sub = identity.sub
-        row.review_comment = body.reviewComment
-        row.reviewed_at = now()
-
-        if body.status == "approved":
-            try:
-                loaded = yaml.safe_load(row.template_yaml)
-                if not isinstance(loaded, dict):
-                    raise ValueError("template YAML must be a mapping")
-                problems = template_registry.validate_template(loaded)
-                if problems:
-                    raise ValueError(f"validation failed: {'; '.join(problems)}")
-                repo = Path(__file__).resolve().parent.parent.parent.parent
-                reg_dir = repo / "templates" / "registry"
-                reg_dir.mkdir(parents=True, exist_ok=True)
-                slug = row.name.lower().replace(" ", "-").replace("/", "-")
-                dest = reg_dir / f"submission-{row.id}-{slug}.yaml"
-                if dest.exists():
-                    raise ValueError(f"file {dest.name} already exists in registry")
-                dest.write_text(
-                    yaml.safe_dump(loaded, sort_keys=False, default_flow_style=False)
-                )
-            except Exception as exc:
-                s.rollback()
-                raise HTTPException(422, str(exc)) from exc
-
-        s.commit()
-        return {
-            "id": row.id,
-            "name": row.name,
-            "status": row.status,
-            "source": row.source,
-            "reviewerSub": row.reviewer_sub,
-            "reviewComment": row.review_comment or None,
-            "reviewedAt": row.reviewed_at,
-        }
-
-
     def _conversation_seq(s: Session, study_id: str) -> int:
         last = s.scalar(
             select(func.max(ConversationTurn.seq)).where(
@@ -3512,9 +3054,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
             )
         s.commit()
-        presence.hub.publish(
-            study_id, "study", {"changed": "conversation", "turnId": platform.id}
-        )
         return {
             "researcherTurnId": researcher.id,
             "platformTurnId": platform.id,
@@ -3603,44 +3142,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "Cache-Control": "no-store",
                 "X-Accel-Buffering": "no",
             },
-        )
-
-    @app.get(
-        "/studies/{study_id}/presence/stream",
-        dependencies=[Depends(require_project_for_study("view"))],
-    )
-    def presence_stream(
-        study_id: str,
-        identity: auth.Identity = Depends(resolve_identity),
-    ) -> StreamingResponse:
-        """Who else is in this study, and a push when it changes."""
-
-        def frames():
-            viewer = presence.hub.subscribe(
-                study_id, identity.sub, identity.display_name, now()
-            )
-            try:
-                yield _sse("hello", {"viewerId": viewer.viewer_id})
-                yield _sse("presence", {"viewers": presence.hub.viewers(study_id)})
-                while True:
-                    try:
-                        event, data = viewer.events.get(
-                            timeout=presence.KEEPALIVE_SECONDS
-                        )
-                    except queue.Empty:
-                        yield ": keepalive\n\n"
-                        continue
-                    yield _sse(event, data)
-                    if viewer.dropped:
-                        missed, viewer.dropped = viewer.dropped, 0
-                        yield _sse("dropped", {"count": missed})
-            finally:
-                presence.hub.unsubscribe(study_id, viewer.viewer_id)
-
-        return StreamingResponse(
-            frames(),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
         )
 
     @app.get(
@@ -3747,16 +3248,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 if got is not None:
                     adopted.append(got)
         s.commit()
-        presence.hub.publish(
-            study_id,
-            "study",
-            {
-                "changed": "move",
-                "moveId": move_id,
-                "status": mv.status,
-                "papersAdded": adopted,
-            },
-        )
         return {"moveId": move_id, "status": mv.status, "papersAdded": adopted}
 
     @app.post(
@@ -3836,19 +3327,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 f"Resolve: {comp.errors or comp.unresolved}",
             )
 
-        evo = s.get(StudyEvolution, study_id)
-        is_amendment = evo is not None and bool(evo.ethics_approved_at)
-        amendment_out: dict | None = None
-        if is_amendment:
-            if str(membership.role) != authz.Role.OWNER.value:
-                raise HTTPException(
-                    403,
-                    "This study has ethics approval, so changing its protocol "
-                    "is an amendment that only an owner may approve. Ask an "
-                    "owner to approve it.",
-                )
-            amendment_out = _record_amendment(s, evo, comp, body)
-
         s.add(
             ApprovalEvent(
                 study_id=study_id,
@@ -3867,67 +3345,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         draft.compilation_id = comp.id
         draft.updated_at = now()
         s.commit()
-        presence.hub.publish(
-            study_id, "study", {"changed": "draft", "compilationId": comp.id}
-        )
-        out: dict = {"applied": True, "compilationId": comp.id}
-        if amendment_out is not None:
-            out["amendment"] = amendment_out
-        return out
-
-    def _record_amendment(
-        s: Session, evo: StudyEvolution, comp: Compilation, body: ApproveIn
-    ) -> dict:
-        """
-        Write the Amendment record for a post-ethics application and advance the study's
-        approved snapshot + revision.
-        """
-        before = yaml.safe_load(evo.approved_yaml) or {}
-        after = yaml.safe_load(comp.draft_yaml) or {}
-        relevant, reasons = evolution.consent_relevance(before, after)
-        changes = evolution.change_summary(before, after)
-        grounding = sorted(
-            {
-                ref
-                for mv in s.scalars(
-                    select(DesignMoveRow).where(DesignMoveRow.id.in_(comp.move_ids))
-                )
-                for g in (mv.grounding or [])
-                if (ref := g.get("ref")) and ref != "none"
-            }
-        )
-        from_v = evo.current_version
-        to_v = from_v + 1
-        amend = Amendment(
-            id=secrets.token_hex(8),
-            study_id=evo.study_id,
-            compilation_id=comp.id,
-            from_version=from_v,
-            to_version=to_v,
-            summary=changes[0] if changes else "protocol amendment",
-            changes=changes,
-            rationale=body.rationale,
-            grounding=grounding,
-            consent_relevant=int(relevant),
-            consent_reasons=reasons,
-            approved_by=body.approvedBy,
-            role=authz.Role.OWNER.value,
-            created_at=now(),
-        )
-        s.add(amend)
-        evo.current_version = to_v
-        evo.approved_yaml = comp.draft_yaml
-        if relevant:
-            evo.pending_reapproval = amend.id
-        evo.updated_at = now()
-        return {
-            "amendmentId": amend.id,
-            "fromVersion": from_v,
-            "toVersion": to_v,
-            "consentRelevant": relevant,
-            "consentReasons": reasons,
-            "requiresReapproval": relevant,
-        }
+        return {"applied": True, "compilationId": comp.id}
 
     @app.get(
         "/studies/{study_id}/conversation/export",
@@ -3965,24 +3383,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 select(ApprovalEvent).where(ApprovalEvent.study_id == study_id)
             )
         ]
-        amendments = [
-            _amendment_json(a)
-            for a in s.scalars(
-                select(Amendment)
-                .where(Amendment.study_id == study_id)
-                .order_by(Amendment.from_version)
-            )
-        ]
         draft = s.get(ProtocolDraftRow, study_id)
         return {
             "studyId": study_id,
             "turns": conv["turns"],
             "compilations": compilations,
             "approvals": approvals,
-            # The elicitation record now carries design and amendment history (FR-CONV-6
-            # extended by amendment hunks); redaction never unmakes a decision, so
-            # amendments survive a redacted turn intact.
-            "amendments": amendments,
             "currentDraft": draft.yaml if draft else "",
         }
 
@@ -4064,31 +3470,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             },
         )
 
-    @app.get(
-        "/studies/{study_id}/ethics-package",
-        dependencies=[Depends(require_project_for_study("view"))],
-    )
-    def download_ethics_package(study_id: str, s: Session = Depends(db)):
-        """The study's ethics package as a Markdown download."""
-        proto = _resolve_study_protocol(s, study_id)
-        if proto is None:
-            raise HTTPException(
-                409,
-                f"study {study_id!r} has no compiled protocol yet. "
-                "Approve a draft in the design conversation first",
-            )
-        body = ethics_package.build_ethics_package(proto)
-        return Response(
-            content=body.encode("utf-8"),
-            media_type="text/markdown; charset=utf-8",
-            headers={
-                "Content-Disposition": (
-                    f'attachment; filename="{study_id}-ethics-package.md"'
-                ),
-                "Cache-Control": "no-store",
-            },
-        )
-
 
     @app.post(
         "/studies/{study_id}/simulate",
@@ -4133,45 +3514,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
 
     @app.post(
-        "/studies/{study_id}/ethics-approval",
-        dependencies=[Depends(require_project_for_study("freeze"))],
-    )
-    def approve_ethics(study_id: str, s: Session = Depends(db)) -> dict:
-        """
-        Record that the study's current draft has ethics approval (owner, FR-PLAT-2).
-        """
-        draft = s.get(ProtocolDraftRow, study_id)
-        if draft is None or not draft.yaml:
-            raise HTTPException(
-                409,
-                "approve a compiled protocol draft before recording ethics "
-                "approval. There is nothing to freeze yet.",
-            )
-        evo = s.get(StudyEvolution, study_id)
-        if evo is None:
-            evo = StudyEvolution(study_id=study_id, current_version=1)
-            s.add(evo)
-        evo.ethics_approved_at = now()
-        evo.approved_yaml = draft.yaml
-        evo.current_version = evo.current_version or 1
-        evo.pending_reapproval = ""
-        evo.updated_at = now()
-        s.commit()
-        return {
-            "ethicsApprovedAt": evo.ethics_approved_at,
-            "version": evo.current_version,
-        }
-
-    @app.post(
         "/studies/{study_id}/sessions/start",
         dependencies=[Depends(require_project_for_study("run_recipe"))],
     )
     def start_session(
         study_id: str, body: SessionStartIn, s: Session = Depends(db)
     ) -> dict:
-        """
-        Open a data-collection session under the study's current revision (FR-CONV-4).
-        """
+        """Open a data-collection session under the study's protocol (FR-CONV-4)."""
         existing = s.get(SessionOpen, body.sessionId)
         if existing is not None:
             return {
@@ -4179,110 +3528,20 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "protocolVersion": existing.protocol_version,
                 "resumed": True,
             }
-        evo = s.get(StudyEvolution, study_id)
-        if evo is not None and evo.pending_reapproval:
-            raise HTTPException(
-                409,
-                "New sessions are paused: a consent-relevant amendment is "
-                "awaiting ethics re-approval. Upload the re-approval to resume; "
-                "already-collected data and any open sessions are unaffected.",
-            )
-        version = evo.current_version if evo is not None else 1
         s.add(
             SessionOpen(
                 session_id=body.sessionId,
                 study_id=study_id,
-                protocol_version=version,
+                protocol_version=1,
                 opened_at=now(),
             )
         )
         s.commit()
         return {
             "sessionId": body.sessionId,
-            "protocolVersion": version,
+            "protocolVersion": 1,
             "resumed": False,
         }
-
-    @app.post(
-        "/studies/{study_id}/reapproval",
-        dependencies=[Depends(require_project_for_study("freeze"))],
-    )
-    def record_reapproval(
-        study_id: str, body: ReapprovalIn, s: Session = Depends(db)
-    ) -> dict:
-        """
-        Record the updated ethics artifact that lifts a consent-relevant amendment's
-        session pause (owner, F4.1).
-        """
-        evo = s.get(StudyEvolution, study_id)
-        if evo is None or not evo.pending_reapproval:
-            raise HTTPException(
-                409, "no amendment on this study is awaiting re-approval."
-            )
-        amend = s.get(Amendment, evo.pending_reapproval)
-        if amend is not None:
-            amend.reapproval_artifact = body.artifact or "ethics-reapproval"
-            amend.reapproved_at = now()
-        evo.pending_reapproval = ""
-        evo.updated_at = now()
-        s.commit()
-        return {"reapproved": True, "amendmentId": amend.id if amend else ""}
-
-    @app.get(
-        "/studies/{study_id}/amendments",
-        dependencies=[Depends(require_project_for_study("view"))],
-    )
-    def list_amendments(study_id: str, s: Session = Depends(db)) -> dict:
-        """
-        The amendment history (FR-CONV-4.6): versions, summaries, approvers, artifacts —
-        a quiet record that evolution is normal.
-        """
-        evo = s.get(StudyEvolution, study_id)
-        amendments = [
-            _amendment_json(a)
-            for a in s.scalars(
-                select(Amendment)
-                .where(Amendment.study_id == study_id)
-                .order_by(Amendment.from_version)
-            )
-        ]
-        return {
-            "studyId": study_id,
-            "ethicsApprovedAt": evo.ethics_approved_at if evo else "",
-            "currentVersion": evo.current_version if evo else 1,
-            "pendingReapproval": evo.pending_reapproval if evo else "",
-            "amendments": amendments,
-        }
-
-    @app.get(
-        "/studies/{study_id}/amendments/{amendment_id}/summary",
-        dependencies=[Depends(require_project_for_study("view"))],
-    )
-    def amendment_summary(
-        study_id: str, amendment_id: str, s: Session = Depends(db)
-    ) -> PlainTextResponse:
-        """
-        The ethics-board amendment delta as Markdown (FR-CONV-4.3): what changed, why,
-        consent impact — generated deterministically from the amendment record (FR-ANA-6
-        style), the document S1 sends S3.
-        """
-        amend = s.get(Amendment, amendment_id)
-        if amend is None or amend.study_id != study_id:
-            raise HTTPException(404, "amendment not found")
-        doc = evolution.amendment_summary_doc(
-            study_id=study_id,
-            from_version=amend.from_version,
-            to_version=amend.to_version,
-            rationale=amend.rationale,
-            changes=amend.changes,
-            consent_relevant=bool(amend.consent_relevant),
-            consent_reasons=amend.consent_reasons,
-            grounding=amend.grounding,
-            approved_by=amend.approved_by,
-            approved_at=amend.created_at,
-        )
-        return PlainTextResponse(doc, media_type="text/markdown")
-
 
     @app.get("/health")
     def health() -> dict:
@@ -4335,10 +3594,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         @app.get("/repertoire", include_in_schema=False)
         def spa_repertoire_route() -> FileResponse:
-            return _shell()
-
-        @app.get("/submissions", include_in_schema=False)
-        def spa_submissions_route() -> FileResponse:
             return _shell()
 
         @app.get("/start", include_in_schema=False)
@@ -4408,42 +3663,6 @@ def _session_gap_facts(seqs_by_source: dict[str, list[int]]) -> dict:
         "complete": bool(completes) and all(completes),
     }
 
-
-def _amendment_json(a: Amendment) -> dict:
-    """
-    One amendment row as JSON (FR-CONV-4): version delta, summary, consent verdict +
-    reasons, approver, and the re-approval artifact once uploaded.
-    """
-    return {
-        "id": a.id,
-        "compilationId": a.compilation_id,
-        "fromVersion": a.from_version,
-        "toVersion": a.to_version,
-        "summary": a.summary,
-        "changes": a.changes,
-        "rationale": a.rationale,
-        "grounding": a.grounding,
-        "consentRelevant": bool(a.consent_relevant),
-        "consentReasons": a.consent_reasons,
-        "approvedBy": a.approved_by,
-        "role": a.role,
-        "reapprovalArtifact": a.reapproval_artifact or None,
-        "reapprovedAt": a.reapproved_at or None,
-        "at": a.created_at,
-    }
-
-
-def _finding_json(f: Finding) -> dict:
-    return {
-        "id": f.id,
-        "at": f.at,
-        "source": f.source,
-        "kind": f.kind,
-        "requirementId": f.requirement_id,
-        "message": f.message,
-        "context": f.context,
-        "status": f.status,
-    }
 
 
 def _event_json(e: Event) -> dict:

@@ -47,7 +47,7 @@ export function MoveCard({
   const compiled = Boolean(move.patch);
   const decided = move.status !== "proposed";
   /* Whether ANY citation stands behind this move. How strongly each one does
-   * is carried by that citation's own magnitude mark on its chip, so the card
+   * is carried by that citation's own printed score on its chip, so the card
    * needs the boolean and not the maximum. */
   const grounded = move.grounding.length > 0;
 
@@ -89,17 +89,17 @@ export function MoveCard({
         move.status === "proposed" && "sheet-land",
         move.status === "accepted" && "duration-settle ease-sheet",
         move.status === "rejected" && "duration-standard",
-        /* No citation, no magnitude: an undecided unsourced move wears the
+        /* No citation, no score: an undecided unsourced move wears the
          * open ring's dashed outline until the researcher rules on it. */
         !grounded && !decided && "held-back",
       )}
     >
-      {/* No card-level magnitude mark. Its strength IS the strength of the
-        * citation behind it, and the grounding chip below already carries that
-        * citation's own mark: the card was printing the same magnitude twice,
+      {/* No card-level score. Its strength IS the strength of the citation
+        * behind it, and the grounding chip below already prints that
+        * citation's own score: the card was stating the same value twice,
         * once floating in the top-right corner where it read as a
-        * notification dot rather than as evidence. The mark belongs beside the
-        * source it measures. */}
+        * notification dot rather than as evidence. The score belongs beside
+        * the source it measures. */}
       <CardContent className="flex flex-col gap-2 p-3">
           <div
             className={cn(

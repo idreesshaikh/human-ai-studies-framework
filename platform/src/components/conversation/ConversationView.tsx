@@ -19,7 +19,6 @@ import {
 } from "@/lib/conversationApi";
 import { ApiError } from "@/lib/api";
 import { studyApi } from "@/lib/studyApi";
-import type { StudyChange } from "@/lib/presence";
 import type { Understanding } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import type { DesignMove, MoveStatus, Turn } from "@/lib/types";
@@ -42,13 +41,9 @@ function firstProposed(turns: Turn[]): string | null {
 
 export function ConversationView({
   studyId = "study",
-  /** The last change another viewer made to this study (FR-PLAT
-   *  collaboration). Carries only what changed; the thread re-reads. */
-  remoteChange = null,
   opening = "",
 }: {
   studyId?: string;
-  remoteChange?: StudyChange | null;
   /** A first line to send on arrival, typed by the researcher elsewhere —
    *  the "what do you want to find out?" answer given while creating the
    *  project. Sent once, then never again for this study. */
@@ -136,62 +131,6 @@ export function ConversationView({
     growComposer();
   }, [input, growComposer]);
 
-  /* A colleague changed this study: re-read the thread instead of trusting
-   * the event, and skip a change this client just made itself (our own turn
-   * is already on screen). */
-  const knownTurnIds = useRef<Set<string>>(new Set());
-  const knownMoveIds = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    knownTurnIds.current = new Set(turns.map((t) => t.turnId));
-    knownMoveIds.current = new Set(
-      turns.flatMap((t) => t.moves.map((m) => m.moveId)),
-    );
-  }, [turns]);
-
-  useEffect(() => {
-    if (!remoteChange || !live) return;
-    if (remoteChange.turnId && knownTurnIds.current.has(remoteChange.turnId)) return;
-    // A decision on a card already on screen changes exactly one status —
-    // patch it in place instead of replacing the thread. The full re-read
-    // used to run even for this client's own decisions (a move event carries
-    // no turnId, so the guard above never fired) and would clobber any
-    // still-in-flight optimistic decision. The patch mirrors what a re-read
-    // would return, so the stream stays a nudge, not a source of truth.
-    if (
-      remoteChange.changed === "move" &&
-      remoteChange.moveId &&
-      remoteChange.status &&
-      knownMoveIds.current.has(remoteChange.moveId)
-    ) {
-      const { moveId } = remoteChange;
-      const status = remoteChange.status as MoveStatus;
-      setTurns((prev) =>
-        prev.map((t) => ({
-          ...t,
-          moves: t.moves.map((m) => (m.moveId === moveId ? { ...m, status } : m)),
-        })),
-      );
-      return;
-    }
-    let cancelled = false;
-    loadConversation(studyId)
-      .then(({ turns: t, understanding: u }) => {
-        if (!cancelled) {
-          setTurns(t);
-          setUnderstanding(u);
-        }
-      })
-      .catch(() => {
-        /* A failed catch-up leaves the thread as it was — never blanked. */
-      });
-    return () => {
-      cancelled = true;
-    };
-    // Re-runs per pushed change. `turns` is deliberately not a dependency:
-    // the already-known ids are read from a ref, so a re-read can't retrigger
-    // itself.
-  }, [remoteChange, studyId, live]);
-
   useEffect(() => {
     let cancelled = false;
     loadConversation(studyId).then(({ turns: t, understanding: u }) => {
@@ -216,11 +155,20 @@ export function ConversationView({
     [turns],
   );
 
-  /* Nothing of the study's own is on the sheet yet: the only turn is the
-   * platform's opening line and no move has been proposed. The blank record
-   * teaches the first move here. */
+  /* Nothing of the study's own is on the sheet yet: the platform has not
+   * answered and no move has been proposed. The blank record teaches the
+   * first move here.
+   *
+   * The researcher's OWN opening question does not end the blank state. It
+   * used to: a study opened from "Start a project" carries that question in
+   * as its first turn, which flipped this to false before the workspace had
+   * ever painted — so the one screen that explains how the record gets
+   * written was skipped by exactly the researchers who had never seen it,
+   * and what they got instead was a single unanswered bubble above half a
+   * screen of bare ground. A question you asked and nothing has answered is
+   * still a blank plate. */
   const threadEmpty =
-    !turns.some((t) => t.role === "researcher") && allMoves.length === 0;
+    !turns.some((t) => t.role === "platform") && allMoves.length === 0;
   const clientDraft = useMemo(() => compileAll(allMoves), [allMoves]);
 
   // The literature the conversation has surfaced, de-duplicated by ref, newest
@@ -471,11 +419,25 @@ export function ConversationView({
       className={cn("split-rail h-full", draftFolded && "rail-folded")}
     >
       <section className="flex h-full min-h-0 min-w-0 flex-col">
-        <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4 sm:p-6">
           {/* The rail only looked slim because this column was unbounded —
            * centring the thread at the reading measure is what actually
-           * fixed it, not the rail's own width. */}
-          <div className="mx-auto flex w-full max-w-reading flex-col space-y-6">
+           * fixed it, not the rail's own width.
+           *
+           * `mt-auto` anchors the thread to the BOTTOM of the scroller while
+           * it is shorter than the viewport, and does nothing once it is
+           * taller. A record grows downward toward the hand writing it, so a
+           * two-line conversation belongs against the composer, not pinned to
+           * the top of 500px of bare ground — which is what a study opened
+           * from "Start a project" showed: one seeded turn floating alone
+           * above half a screen of empty grid. */}
+          <div className="mx-auto mt-auto flex w-full max-w-reading flex-col space-y-6">
+            {/* Above the turns, not after them. It is what is printed on the
+              * blank plate, so it belongs where the record starts — a
+              * researcher who arrived with an opening question already asked
+              * should read it before their own unanswered line, not under
+              * it. */}
+            {threadEmpty && <ConversationStart onUse={takeOpening} />}
             {turns.map((t) => (
               <StreamingTurn
                 key={t.turnId}
@@ -484,7 +446,6 @@ export function ConversationView({
                 focusMoveId={focusMoveId}
               />
             ))}
-            {threadEmpty && <ConversationStart onUse={takeOpening} />}
             {busy && live && (
               <div className="flex flex-col items-start gap-3" data-agent="conversation-thinking">
                 {streamingText && (
@@ -532,22 +493,28 @@ export function ConversationView({
 
         <form
           data-agent="conversation-composer"
-          className="border-t border-border bg-surface px-2 py-1.5"
+          className="border-t border-border bg-surface px-4 py-3 sm:px-6"
           onSubmit={(e) => {
             e.preventDefault();
             send();
           }}
         >
-          {/* ONE composer frame: textarea + steer dial + send button all together,
-            * unified border, single focus treatment via index.css global. The
-            * steer is now part of the composer ergonomics, not a separate rail. */}
-          <div className="mb-1.5 flex items-center gap-1">
-            <SteerDial value={steer} onChange={changeSteer} />
-          </div>
-          <div className="flex items-center gap-1 rounded-card border border-control-edge bg-surface px-2 py-1.5 focus-within:border-accent">
+          {/* ONE composer object, at the same measure as the thread it
+            * belongs to. It used to be two stacked bands: a 30px strip
+            * carrying the steer dial, then the input frame under it. Three
+            * type roles (a tracked legend, a gradient track, a running
+            * sentence) crammed into a half-height strip made the noisiest
+            * region on the screen the one directly above the thing the
+            * researcher came here to type — and left the input frame reading
+            * as something the strip was labelling.
+            *
+            * Folded into one frame the steer sits on the composer's own
+            * bottom edge, where it reads as what it is: a setting on this
+            * conversation, held next to the control that advances it. */}
+          <div className="mx-auto flex w-full max-w-reading flex-col gap-2 rounded-card border border-control-edge bg-surface px-3 py-2.5 focus-within:border-accent">
             <textarea
               ref={composer}
-              className="type-body min-h-9 max-h-32 flex-1 resize-none overflow-y-auto border-0 bg-transparent text-text placeholder:text-text-muted"
+              className="type-body min-h-9 max-h-40 w-full resize-none overflow-y-auto border-0 bg-transparent text-text placeholder:text-text-muted"
               placeholder="What do you want to find out?"
               value={input}
               rows={1}
@@ -560,55 +527,94 @@ export function ConversationView({
               }}
               aria-label="Message the design assistant"
             />
-          <Button
-            type="submit"
-            size="icon"
-            data-agent="conversation-send"
-            aria-label="Send"
-            disabled={busy}
-          >
-            <Send aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            aria-label={draftFolded ? "Show protocol draft" : "Hide protocol draft"}
-            onClick={() => togglePanel("draft")}
-          >
-            {draftFolded ? (
-              <PanelRight className="size-4" aria-hidden />
-            ) : (
-              <PanelRightClose className="size-4" aria-hidden />
-            )}
-          </Button>
+            <div className="flex items-end gap-3 border-t border-border pt-2">
+              <SteerDial value={steer} onChange={changeSteer} className="min-w-0 flex-1" />
+              <Button
+                type="submit"
+                size="icon"
+                data-agent="conversation-send"
+                aria-label="Send"
+                disabled={busy}
+              >
+                <Send aria-hidden />
+              </Button>
+            </div>
           </div>
         </form>
       </section>
 
       {/* Right rail: toggle between literature and protocol draft.
-          Desktop: minimizable via fold button, persisted per device. */}
+          Desktop: minimizable via fold button, persisted per device.
+
+          Folded, this used to be a 2.125rem (34px) column with the panel's
+          full-width contents still rendering inside it — a `p-gutter` aside
+          needs 64px for its padding alone, so what actually painted was a
+          30px-wide vertical slice of clipped words hanging off the edge of
+          the window, and the only control that could restore it lived on the
+          composer, three hundred pixels away and unlabelled. Folded is now a
+          real icon strip that says what it is and reopens itself. */}
       <div
         className={cn(
-          "flex min-h-0 flex-col border-l border-border-strong bg-surface transition-all duration-fast",
-          draftFolded ? "w-[2.125rem]" : "w-[30rem]",
-          "hidden lg:flex",
+          "hidden min-h-0 flex-col border-l border-border-strong bg-surface transition-all duration-fast lg:flex",
+          /* Expanded, the rail fills the track the grid gave it — it must not
+           * name its own width. `.split-rail` sizes this column as
+           * `clamp(--rail-min, --rail-share, --rail-max)`, and `--rail-share`
+           * is `32vw`, so on any window narrower than 90rem the track lands
+           * BELOW the 30rem this div used to hardcode: at 1440px the track
+           * computed to 460.8px against a 480px div, and the extra 19px of
+           * the protocol draft hung past the right edge of the window and was
+           * clipped. Two widths for one column can only agree by coincidence.
+           *
+           * Folded is the reverse case and stays explicit: that track is
+           * `auto`, so it takes its width FROM this div. */
+          draftFolded ? "w-11" : "w-full",
         )}
       >
-        {!draftFolded && (
-          <div className="border-b border-border-strong bg-surface p-2">
+        {draftFolded ? (
+          <div className="flex flex-col items-center gap-1 py-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Show protocol draft"
+              aria-expanded={false}
+              onClick={() => togglePanel("draft")}
+            >
+              <PanelRight className="size-4" aria-hidden />
+            </Button>
+            {/* Set along the rail it reopens, so a folded panel still names
+              * itself instead of leaving one unexplained glyph in a gutter. */}
+            <span
+              className="type-legend select-none text-text-muted [writing-mode:vertical-rl]"
+              aria-hidden
+            >
+              {rail === "papers" ? "Literature" : "Protocol draft"}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 border-b border-border-strong bg-surface p-2">
             <SegmentedControl
               value={rail}
               onChange={setRail}
+              className="min-w-0 flex-1"
               aria-label="Right panel: literature or protocol draft"
               options={[
                 { value: "draft", label: "Protocol draft" },
                 { value: "papers", label: "Literature" },
               ]}
             />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              aria-label="Hide protocol draft"
+              aria-expanded
+              onClick={() => togglePanel("draft")}
+            >
+              <PanelRightClose className="size-4" aria-hidden />
+            </Button>
           </div>
         )}
-        <div className="min-h-0 flex-1 overflow-hidden">
+        <div className={cn("min-h-0 flex-1 overflow-hidden", draftFolded && "hidden")}>
           {rail === "papers" ? (
             <RecommenderRail
               recommendations={recommendations}
@@ -635,16 +641,9 @@ export function ConversationView({
             />
           )}
         </div>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => togglePanel("draft")}
-          aria-label={draftFolded ? "Expand draft rail" : "Collapse draft rail"}
-          className="shrink-0 rounded-none border-t border-border-strong"
-        >
-          {draftFolded ? <PanelRight className="size-4" /> : <PanelRightClose className="size-4" />}
-        </Button>
+        {/* The fold control lives in this panel's header, beside the name of
+          * the thing it folds — not pinned to the far bottom corner, and not
+          * duplicated onto the composer. One toggle, where its own title is. */}
       </div>
 
       <FinishReview
