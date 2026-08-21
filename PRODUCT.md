@@ -50,8 +50,16 @@ claims are structural, not marketing:
 - **The statistical plan rides with the design.** The repertoire binds each
   proven design to the exact tests, effect sizes, and per-cell-n rules it
   requires. The step researchers fear most is answered by construction.
-- **Remove the LLM and the platform still works** through the structured
-  designer. The no-key degradation path is a requirement, not an accident.
+- **Remove the LLM and everything except the conversation still works.** The
+  repertoire, corpus search, merge, derive-from-paper, the compiler, the
+  analysis recipes, and every export run with no model configured. The design
+  *conversation* is the one surface that genuinely requires one, and with no
+  key it says so plainly and proposes nothing. There was once a keyword-routed
+  fallback that answered anyway; it read as a conversation without being one,
+  so it was removed on purpose (see `design_assistant.ModelUnavailable`).
+  Restoring that kind of fallback would violate the grounding rule above —
+  a scripted reply masquerading as a designed one is exactly the third state
+  this product refuses to have.
 
 ## Operating Context
 
