@@ -16,8 +16,14 @@ future change can't silently regress it without a real corpus on hand.
 from __future__ import annotations
 
 import pytest
+from middleware.db import (
+    CORPUS_STUDY_ID,
+    Paper,
+    TemplateSubmission,
+    make_session_factory,
+)
+
 from middleware import mine_designs, template_registry
-from middleware.db import Paper, TemplateSubmission, CORPUS_STUDY_ID, make_session_factory
 
 
 def _paper(ref: str, title: str, abstract: str) -> Paper:
@@ -99,7 +105,7 @@ def test_draft_template_yaml_validates(session):
     top = mine_designs.identify_top_clusters(clusters, min_papers=3)
     assert top, "the fixture corpus should produce at least one 3+ paper cluster"
 
-    for phrases, count in top:
+    for phrases, _count in top:
         design_type = mine_designs.infer_design_type(phrases)
         recipe = mine_designs.infer_analysis_recipe(phrases)
         draft = mine_designs.draft_template_yaml(
@@ -119,7 +125,9 @@ def test_draft_template_yaml_validates(session):
 def test_mine_and_draft_end_to_end(session):
     drafts = mine_designs.mine_and_draft(session, write_files=False)
     assert drafts
-    assert all(d["valid"] for d in drafts), [d["problems"] for d in drafts if not d["valid"]]
+    assert all(d["valid"] for d in drafts), [
+        d["problems"] for d in drafts if not d["valid"]
+    ]
 
 
 def test_uncovered_phrases_finds_designs_the_registry_does_not_claim(session):
@@ -172,7 +180,9 @@ def test_submit_drafts_only_queues_valid_ones_as_pending_mined(session):
     ids = mine_designs.submit_drafts(session, drafts)
     assert ids
 
-    rows = session.query(TemplateSubmission).filter(TemplateSubmission.id.in_(ids)).all()
+    rows = (
+        session.query(TemplateSubmission).filter(TemplateSubmission.id.in_(ids)).all()
+    )
     assert len(rows) == len(ids)
     for row in rows:
         assert row.status == "pending"

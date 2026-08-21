@@ -71,7 +71,11 @@ def test_a_seeded_draft_survives_the_first_zero_move_compile():
     """
     seed = {
         "protocolVersion": 4,
-        "study": {"id": "draft", "title": "Seeded from a paper", "researchers": ["Researcher"]},
+        "study": {
+            "id": "draft",
+            "title": "Seeded from a paper",
+            "researchers": ["Researcher"],
+        },
         "researchQuestions": [{"id": "RQ-1", "text": "Does the seed survive?"}],
         "phases": [{"name": "design", "gates": []}],
     }

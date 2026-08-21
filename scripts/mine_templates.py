@@ -24,9 +24,10 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "middleware" / "src"))
 sys.path.insert(0, str(REPO / "analysis" / "src"))
 
-from middleware import mine_designs  # noqa: E402
 from middleware.db import make_session_factory  # noqa: E402
 from middleware.settings import Settings  # noqa: E402
+
+from middleware import mine_designs  # noqa: E402
 
 
 def main() -> int:

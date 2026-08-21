@@ -34,6 +34,7 @@ shadow.git/
 
 # AI assistant state (local only)
 .claude/
+.codex/
 .agents/
 .impeccable/
 .playwright-mcp/
