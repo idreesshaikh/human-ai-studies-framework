@@ -13,8 +13,8 @@ STUDY = "kit-study"
 
 def _protocol_yaml() -> str:
     """
-    A real, valid protocol  -  instantiated from the registry rather than hand-written, so
-    this test can never pass against a shape the platform would reject.
+    A real, valid protocol  -  instantiated from the registry rather than hand-written,
+    so this test can never pass against a shape the platform would reject.
     """
     import yaml
 

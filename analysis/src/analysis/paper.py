@@ -479,12 +479,13 @@ def _curated_threats(md: list, tex: list, record: dict) -> None:
         )
     cov = record.get("coverage", {})
     dropped = ", ".join(f"{k}: {v}" for k, v in (cov.get("dropped") or {}).items())
+    coverage_suffix = f"; dropped  -  {dropped}." if dropped else "."
     _para(
         md,
         tex,
         "threats / coverage (FR-CUR-3)",
         f"**Coverage.** Requested {cov.get('requested', 0)}, retrieved "
-        f"{cov.get('retrieved', 0)}" + (f"; dropped  -  {dropped}." if dropped else "."),
+        f"{cov.get('retrieved', 0)}" + coverage_suffix,
         bold_head="Coverage",
     )
 

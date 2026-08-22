@@ -79,7 +79,7 @@ def assign(protocol: dict, participant_index: int) -> list[Block]:
 
 
 def _rotated(items: list, by: int) -> list:
-    """``items`` rotated left by ``by``  -  the Latin-square row for this participant."""
+    """Rotate ``items`` left by ``by`` for the participant's Latin-square row."""
     if not items:
         return []
     offset = by % len(items)

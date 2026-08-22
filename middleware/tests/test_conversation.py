@@ -364,7 +364,8 @@ def test_evasive_conversation_names_unresolved_slots(client):
     result = _compile(client)
     assert not result["valid"]
     assert result["unresolved"], "empty draft must name its unresolved slots"
-    # The scaffold's errors must name only real, currently-satisfiable gaps  -  'kite' was
+    # The scaffold's errors must name only real, currently-satisfiable gaps  -  'kite'
+    # was
     # the pre-rename instrument key (v1/v2 schema branch); nothing has written it since
     # 'tern', so it must never appear as an error a researcher is asked to resolve.
     assert not any("kite" in e for e in result["errors"])
@@ -944,7 +945,8 @@ def test_design_move_seq_migration_backfills_from_id(tmp_path):
 
 def test_merge_templates_move_flows_end_to_end(client, tmp_path, monkeypatch):
     """
-    Phase 5: a merge-templates move survives the whole wire  -  persisted with its patch,
+    Phase 5: a merge-templates move survives the whole wire  -  persisted with its
+    patch,
     reloaded with mergeData reconstructed, compiled into a merged protocol on accept.
     """
     import model_double as md

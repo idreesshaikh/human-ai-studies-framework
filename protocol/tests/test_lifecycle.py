@@ -56,8 +56,8 @@ def test_all_gates_satisfied_reaches_final_phase(pilot):
 
 def _gateless_after_ethics() -> dict:
     """
-    A template-shaped protocol: gates on design and ethics only  -  the shape that used to
-    auto-tick pilot through analysis on one approval.
+    A template-shaped protocol: gates on design and ethics only  -  the shape that
+    used to auto-tick pilot through analysis on one approval.
     """
     return {
         "phases": [

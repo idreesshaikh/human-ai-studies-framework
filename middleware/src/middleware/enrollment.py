@@ -50,8 +50,9 @@ def apply_capture_overrides(settings: dict, overrides: dict) -> dict:
     """
     Layer mint-time toggle overrides on top of the derived ``tern.*`` settings.
 
-    ``overrides`` is ``{"toggles": [{"instrument", "path", "value"}, ...]}``  -  the same
-    ``{instrument, path, value}`` triples ``TogglePopover`` sends. Each triple addresses
+    ``overrides`` is ``{"toggles": [{"instrument", "path", "value"}, ...]}``
+    -  the same ``{instrument, path, value}`` triples ``TogglePopover`` sends. Each
+    triple addresses
     one flat setting key ``{instrument}.{path[0]}.{path[1]}...``, so ``tern`` overrides
     land exactly where ``derive_overlay_settings`` put them. Condition assignment stays
     untouched: overrides only tune what an already-assigned condition captures.

@@ -131,8 +131,8 @@ def test_streamed_turn_is_stored_like_a_blocking_one(client):
 
 def test_a_broken_stream_falls_back_to_the_blocking_call(client, monkeypatch):
     """
-    A stream that dies mid-reply must still produce the turn  -  the fallback is the whole
-    degradation contract (NFR-4).
+    A stream that dies mid-reply must still produce the turn  -  the fallback is the
+    whole degradation contract (NFR-4).
     """
 
     class _Broken(_StubClient):

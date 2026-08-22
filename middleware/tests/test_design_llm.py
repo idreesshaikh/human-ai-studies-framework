@@ -425,7 +425,8 @@ def test_propose_turn_notes_the_accepted_templates_prescribed_statistics():
     user = captured[0]["messages"][-1]["content"]
     assert "Template metr-rct-v1 is accepted and prescribes" in user
     assert "record or refine that prescription" in user
-    # A template never closes the statisticalPlan section outright  -  the regression that
+    # A template never closes the statisticalPlan section outright  -  the regression
+    # that
     # made the assistant refuse statisticalPlan moves.
     assert "do not propose a standalone statisticalPlan move" not in user
 

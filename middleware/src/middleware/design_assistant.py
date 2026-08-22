@@ -213,8 +213,8 @@ class Turn:
 
 def _template_source_refs(template_id: str | None) -> tuple[str, ...]:
     """
-    The paper refs a template cites as its design's sources (FR-TPL)  -  used to ground a
-    choose-template move.
+    The paper refs a template cites as its design's sources (FR-TPL)  -  used to ground
+    a choose-template move.
     """
     if not template_id:
         return ()

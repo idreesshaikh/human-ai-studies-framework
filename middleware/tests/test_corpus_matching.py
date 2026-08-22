@@ -128,8 +128,8 @@ def test_grounding_lookup_resolves_corpus_seed(session):
 
 def test_corpus_search_path_returns_confidence_ranked_hits(session):
     """
-    The /corpus/search endpoint's exact call  -  no study, corpus-only  -  used by the 'turn
-    a paper into a template' picker.
+    The /corpus/search endpoint's exact call  -  no study, corpus-only  -  used by the
+    'turn a paper into a template' picker.
     """
     results = matching.match_papers(
         session, "trust in ai generated code", study_id=None, limit=8, use_llm=False

@@ -343,7 +343,7 @@ def start_background_import(db_url: str, session_factory) -> dict[str, object]:
                         expected=expected,
                         error="",
                     )
-            except Exception as exc:  # noqa: BLE001 - report startup health in the UI
+            except Exception as exc:
                 log.exception("background corpus import failed")
                 with _BOOTSTRAP_LOCK:
                     _BOOTSTRAP_STATE.update(

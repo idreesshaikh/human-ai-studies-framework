@@ -107,8 +107,8 @@ def test_a_paper_derived_template_instantiates_to_a_valid_protocol():
 
 def test_from_paper_route_hands_back_a_protocol_to_start_from(client_tpl):
     """
-    The route carries the protocol, not just the template  -  otherwise the UI has a card
-    it can display and nothing it can act on.
+    The route carries the protocol, not just the template  -  otherwise the UI has a
+    card it can display and nothing it can act on.
     """
     hits = client_tpl.get("/corpus/search?q=ai").json()["results"]
     assert hits, "the compose fixture needs at least one corpus paper"

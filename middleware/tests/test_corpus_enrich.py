@@ -98,8 +98,8 @@ class _Stub:
 
 def test_candidates_are_ordered_by_confidence(db_url):
     """
-    The backfill spends its first calls on the papers most likely to be recommended  -  so
-    a --limit run is a useful partial run.
+    The backfill spends its first calls on the papers most likely to be recommended
+    -  so a --limit run is a useful partial run.
     """
     factory = make_session_factory(db_url)
     with factory() as s:

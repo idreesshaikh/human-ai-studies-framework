@@ -143,8 +143,8 @@ def default_capture_instrument(session_minutes: int = 45) -> dict:
 
 
 # Deliberately generic maintenance work on the researcher's own repository: the *shape*
-# is what a study needs  -  one task per condition, comparable in kind, neither tied to a
-# condition  -  and the content is meant to be replaced.
+# is what a study needs  -  one task per condition, comparable in kind, neither tied to
+# a condition  -  and the content is meant to be replaced.
 SAMPLE_TASKS: tuple[dict, ...] = (
     {
         "id": "task-a",
@@ -167,8 +167,8 @@ SAMPLE_TASKS: tuple[dict, ...] = (
 
 def sample_tasks(count: int) -> list[dict]:
     """
-    ``count`` starter tasks  -  one per condition, so a within-subjects participant never
-    has to repeat one.
+    ``count`` starter tasks  -  one per condition, so a within-subjects participant
+    never has to repeat one.
     """
     out = []
     for i in range(max(count, 1)):

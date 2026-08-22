@@ -116,8 +116,8 @@ def test_unknown_parameters_are_ignored_with_a_warning():
 def test_last_instantiable_template_wins_over_a_broken_later_one():
     """
     A broken accepted template move is skipped in favour of the most recent one that
-    instantiates, and the skip is reported as a warning  -  a valid draft isn't blocked on
-    a move nobody can un-accept.
+    instantiates, and the skip is reported as a warning  -  a valid draft isn't blocked
+    on a move nobody can un-accept.
     """
     result = compiler.compile_moves(
         [

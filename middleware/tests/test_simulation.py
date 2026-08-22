@@ -108,7 +108,8 @@ def test_simulate_needs_a_protocol(client_no_protocol: TestClient):
 def _normalize(row: dict) -> tuple:
     """
     A hashable projection with the per-run nonce stripped from every session id  -
-    top-level and the one nested inside metric payloads  -  so rows from two runs compare.
+    top-level and the one nested inside metric payloads  -  so rows from two runs
+    compare.
     """
     session = row["sessionId"].rsplit("-", 1)[0]
     payload = row["payload"]

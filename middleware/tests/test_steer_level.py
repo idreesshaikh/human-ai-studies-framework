@@ -34,8 +34,8 @@ def _stance(**over) -> dict:
 
 def test_every_level_names_a_register_and_an_initiative():
     """
-    Both levers, for every stop  -  a level that only changed the register would make the
-    dial a duplicate of the profile setting in Settings.
+    Both levers, for every stop  -  a level that only changed the register would make
+    the dial a duplicate of the profile setting in Settings.
     """
     for key, spec in elicitation.STEER_LEVELS.items():
         assert spec["profile"] in elicitation.PROFILES, key

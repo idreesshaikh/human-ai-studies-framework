@@ -48,8 +48,8 @@ from middleware import (
     auth,
     authz,
     compiler,
-    corpus_importer,
     corpus_enrich,
+    corpus_importer,
     design_assistant,
     elicitation,
     enrollment,
@@ -2055,8 +2055,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def create_study(slug: str, body: dict, s: Session = Depends(db)) -> dict:
         """
         Start a new study in this project (FR-PLAT-1 continued): the design conversation
-        needs a study row to attach its moves/drafts to before it can run  -  this is that
-        row, empty and pre-design, ready for the researcher to talk it into existence.
+        needs a study row to attach its moves/drafts to before it can run
+        -  this is that row, empty and pre-design, ready for the researcher to talk it
+        into existence.
         """
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
@@ -3320,8 +3321,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 for t in turns
             ],
             # Recomputed the same way a fresh turn computes it
-            # (`design_assistant.turn_stance`)  -  otherwise a reload blanks the line the
-            # UI keeps this for, until the next turn is sent.
+            # (`design_assistant.turn_stance`)  -  otherwise a reload blanks the line
+            # the UI keeps this for, until the next turn is sent.
             "understanding": elicitation.understanding_summary(
                 elicitation.assess_understanding(
                     design_assistant.researcher_texts(s, study_id)

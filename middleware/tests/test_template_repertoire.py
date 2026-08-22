@@ -70,8 +70,9 @@ def session(tmp_path):
 
 def test_signature_describes_the_shape_not_the_paper(session):
     """
-    A shape's signature is design vocabulary  -  if it were built from the source paper's
-    title or prose, the template would collapse back into a replica of that one paper
+    A shape's signature is design vocabulary  -  if it were built from the source
+    paper's title or prose, the template would collapse back into a replica of that one
+    paper
     and every topical paper would 'use' it.
     """
     template = template_registry.load_template("metr-rct-v1")
