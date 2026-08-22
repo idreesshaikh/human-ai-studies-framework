@@ -77,6 +77,28 @@ export interface PaperGraph {
   edges: GraphEdge[];
 }
 
+/** One recipe the dry run actually executed, with the statistic it produced. */
+export interface DryRunResult {
+  recipeId: string;
+  title: string;
+  rqs: string[];
+  answers: string[];
+  /** The recipe's own human-readable result — test, p-value, effect size, and
+   *  its own caveats. Rendered verbatim: the honesty is in the wording. */
+  summary: string;
+}
+
+/** The analysis plan, validated and run against the dry run's synthetic data. */
+export interface DryRunPlan {
+  planned: number;
+  ran: string[];
+  blocked: { recipeId: string; rq: string; reason: string }[];
+  errors?: Record<string, string>;
+  results: DryRunResult[];
+  /** Present only when the protocol has no analysis plan to validate yet. */
+  note?: string;
+}
+
 export interface DatasetRow {
   source: string;
   ts: string;
@@ -439,8 +461,11 @@ export const studyApi = {
     ),
   /** Synthetic dry run (FR-DRY-1): N simulated participants through the
    * real ingest path — tokens minted, session blocks recorded, events and
-   * metrics stored exactly as a live capture would. The report states what
-   * landed. A live action: never seeded, offline raises `OfflineError`. */
+   * metrics stored exactly as a live capture would — and then the study's
+   * own analysis plan run over what landed. `plan` is the half that answers
+   * the researcher's real question: whether the statistics this design
+   * prescribes can actually be computed, before anyone sits down.
+   * A live action: never seeded, offline raises `OfflineError`. */
   simulate: (study: string, count = 10, profile = "mixed", seed?: number) =>
     post<{
       participants: number;
@@ -452,6 +477,7 @@ export const studyApi = {
       metricRows: number;
       tokensMinted: number;
       studyId: string;
+      plan: DryRunPlan;
     }>(`/studies/${enc(study)}/simulate`, {
       count,
       profile,
@@ -476,9 +502,15 @@ export const studyApi = {
    *  view-capability twin of that call: no compilation, no write, just the
    *  document of record. */
   protocol: (study: string) =>
-    req<{ document?: Record<string, unknown> }>(
-      `/studies/${enc(study)}/protocol`,
-    ).then((r) => r.document ?? null),
+    liveOrSeedStudy(
+      study,
+      () =>
+        req<{ document?: Record<string, unknown> }>(
+          `/studies/${enc(study)}/protocol`,
+        ).then((r) => r.document ?? null),
+      SEED_PROTOCOL,
+      null,
+    ),
   sessionEvents: (studyId: string, sessionId: string) =>
     liveOrSeedStudy(
       studyId,
@@ -501,6 +533,44 @@ const SEED_PAPERS: Paper[] = [
   seedPaper("corpus:insecure-code-with-ai-assistants", "Do Users Write More Insecure Code with AI Assistants?", 2023, 302, ["measure:correctness"]),
   seedPaper("corpus:realhumaneval", "RealHumanEval: Measuring the Human Utility of Coding Assistants", 2024, 47, []),
 ];
+
+const SEED_PROTOCOL: Record<string, unknown> = {
+  protocolVersion: 4,
+  study: {
+    id: "demo-study",
+    title: "AI assistance and developer productivity: a within-subjects pilot",
+    researchers: ["Demo Researcher"],
+    ethicsRef: "Illustrative demo only. This is synthetic data.",
+  },
+  researchQuestions: [
+    "How does AI assistance affect task time and correctness?",
+    "How carefully do developers review AI-generated code before accepting it?",
+  ],
+  design: "Counterbalanced within-subjects comparison with matched maintenance tasks.",
+  participants: "Six developers, each completing both conditions.",
+  conditions: ["ai-assisted", "unassisted"],
+  measures: [
+    "task completion time",
+    "task correctness",
+    "self-reported fatigue",
+    "review latency and acceptance rate",
+  ],
+  instruments: {
+    tern: {
+      session: { durationMinutes: 60 },
+      fatigue: { intervalMinutes: 15 },
+      stuck: { enabled: true, thresholdSeconds: 90 },
+      metrics: { metricSet: "cognitive-load-9" },
+    },
+  },
+  analysisPlan: [
+    { rq: "RQ-P1", recipes: ["fatigue-by-condition", "stuck-episodes", "tlx-debrief"] },
+    { rq: "RQ-P2", recipes: ["code-quality-by-condition"] },
+    { rq: "RQ-P3", recipes: ["paste-behavior", "meyer-fragmentation"] },
+    { rq: "RQ-P4", recipes: ["ai-review-behavior", "ziegler-acceptance-rate"] },
+  ],
+  literature: SEED_PAPERS.slice(0, 3).map((paper) => ({ paperRef: paper.paperRef })),
+};
 
 function seedPaper(
   ref: string,
@@ -558,7 +628,7 @@ function seedGraph(study: string): PaperGraph {
   return { studyId: study, nodes, edges };
 }
 
-const SEED_CONDITIONS = ["ai-assisted", "unaided"];
+const SEED_CONDITIONS = ["ai-assisted", "unassisted"];
 
 // A small metric dataset (function-level) so the metric strip has a shape.
 const SEED_METRICS: DatasetRow[] = seedMetricRows();
@@ -568,8 +638,8 @@ function seedMetricRows(): DatasetRow[] {
   // Deterministic, plausible cognitive_complexity split: ai-assisted a touch
   // higher-variance (the kind of shape the study probes). No randomness.
   const cfg: [string, number[]][] = [
-    ["ai-assisted", [4, 6, 7, 9, 11, 13, 8, 15, 6, 10]],
-    ["unaided", [5, 6, 6, 7, 8, 8, 9, 7, 6, 10]],
+    ["ai-assisted", [4, 6, 7, 9, 11, 8]],
+    ["unassisted", [5, 6, 8, 7, 9, 10]],
   ];
   let seq = 0;
   for (const [condition, values] of cfg) {
@@ -577,8 +647,8 @@ function seedMetricRows(): DatasetRow[] {
       rows.push({
         source: "metrics",
         ts: "",
-        sessionId: `S-${condition}`,
-        participantId: `P${i + 1}`,
+          sessionId: `S-sample-${String(i * 2 + (condition === "ai-assisted" ? 1 : 2)).padStart(3, "0")}`,
+          participantId: `P${String(i + 1).padStart(2, "0")}`,
         condition,
         type: "function_metrics",
         seq: seq++,
@@ -659,10 +729,19 @@ const SEED_SESSION_EVENTS: import("./timeline").EventRow[] = [
   },
 ];
 
-const SEED_SESSIONS: SessionStatus[] = [
-  { sessionId: "S-ai-assisted", participantId: "P1", condition: "ai-assisted", events: 214, metricRows: 10, flaggedEvents: 0, flagKinds: [], gapCount: 0, missingEvents: 0, complete: true, lastReceivedAt: "2026-07-16T15:02:00.000Z" },
-  { sessionId: "S-unaided", participantId: "P1", condition: "unaided", events: 198, metricRows: 10, flaggedEvents: 1, flagKinds: ["unknown-condition"], gapCount: 1, missingEvents: 2, complete: false, lastReceivedAt: "2026-07-16T15:40:00.000Z" },
-];
+const SEED_SESSIONS: SessionStatus[] = Array.from({ length: 12 }, (_, i) => ({
+  sessionId: `S-sample-${String(i + 1).padStart(3, "0")}`,
+  participantId: `P${String(Math.floor(i / 2) + 1).padStart(2, "0")}`,
+  condition: i % 2 === 0 ? "ai-assisted" : "unassisted",
+  events: 48 + (i % 4) * 7,
+  metricRows: 2,
+  flaggedEvents: i === 3 ? 1 : 0,
+  flagKinds: i === 3 ? ["sequence-gap"] : [],
+  gapCount: i === 3 ? 1 : 0,
+  missingEvents: i === 3 ? 2 : 0,
+  complete: i !== 3,
+  lastReceivedAt: `2026-07-${String(16 + Math.floor(i / 4)).padStart(2, "0")}T15:02:00.000Z`,
+}));
 
 
 // Offline fallback for the prescription table (the live values come from the
@@ -687,11 +766,8 @@ const SEED_PRESCRIPTIONS: Prescription[] = [
   },
 ];
 
-// Offline stand-in for the power curve (P2-2). The live payload is exact
-// non-central-t math from the middleware; the stand-in uses the normal
-// approximation of the same two-sample t-test power formula, computed
-// deterministically at module load. It exists so the demo study still
-// renders with nothing on :8000 — the existing seeded-data banner says so.
+// Offline stand-in for the power curve (P2-2). The demo is within-subjects,
+// so this uses the paired-difference approximation used by its live model.
 function normCdf(x: number): number {
   return 0.5 * (1 + erf(x / Math.SQRT2));
 }
@@ -720,20 +796,20 @@ function seedPowerDoc(opts: {
   const maxTotalN = opts.maxN ?? 120;
   const sizes = opts.effectSizes ?? [0.2, 0.5, 0.8];
   const zCrit = Z_ALPHA[alpha] ?? 1.9599639845;
-  const maxPerGroup = Math.floor(maxTotalN / 2);
+  const maxParticipants = maxTotalN;
   const curves: PowerCurve[] = [];
   const requiredN: PowerRequirement[] = [];
   for (const d of sizes) {
     const points: PowerPoint[] = [];
-    for (let n = 2; n <= maxPerGroup; n += 1) {
+    for (let n = 2; n <= maxParticipants; n += 1) {
       const power = Math.min(
         1,
         Math.max(
           0,
-          1 - normCdf(zCrit - d * Math.sqrt(n / 2)) + normCdf(-zCrit - d * Math.sqrt(n / 2)),
+          1 - normCdf(zCrit - d * Math.sqrt(n)) + normCdf(-zCrit - d * Math.sqrt(n)),
         ),
       );
-      points.push({ nPerGroup: n, totalN: 2 * n, power: Math.round(power * 1e6) / 1e6 });
+      points.push({ nPerGroup: n, totalN: n, power: Math.round(power * 1e6) / 1e6 });
     }
     const reached = points.find((p) => p.power >= powerTarget);
     requiredN.push({
@@ -746,7 +822,7 @@ function seedPowerDoc(opts: {
     curves.push({ effectSize: d, points });
   }
   return {
-    model: "two-sample t-test, independent means, equal per-group n, two-sided",
+    model: "paired t-test, within-subjects differences, two-sided",
     alpha,
     powerTarget,
     maxTotalN,

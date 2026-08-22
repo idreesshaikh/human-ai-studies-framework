@@ -75,23 +75,6 @@ def _record_runs(server: str, study_id: str, runs: list[dict]) -> bool:
         return False
 
 
-def _record_findings(server: str, findings: list[dict]) -> None:
-    """
-    Best-effort: log recipe requires-failures to the operational-findings log
-    (FR-META-1) so they surface as task-board cards and feed the retrospective.
-    """
-    try:
-        for finding in findings:
-            req = urllib.request.Request(
-                f"{server.rstrip('/')}/findings",
-                data=json.dumps(finding).encode(),
-                headers={"content-type": "application/json"},
-                method="POST",
-            )
-            urllib.request.urlopen(req, timeout=5)
-    except OSError:
-        pass
-
 
 def run_plan(
     protocol: dict,
@@ -152,20 +135,6 @@ def run_plan(
 
     _write_report(outcome, plan, rq_text, results, outputs)
 
-    if server and outcome.failed_validation:
-        _record_findings(
-            server,
-            [
-                {
-                    "source": "analysis/run",
-                    "kind": "requires-fail",
-                    "requirementId": "FR-ANA-2",
-                    "message": c.describe(),
-                    "context": {"recipe": c.recipe_id, "rq": c.rq},
-                }
-                for c in outcome.failed_validation
-            ],
-        )
     if server:
         runs = [
             {

@@ -18,13 +18,14 @@ is anything that exposes it or captures more than a participant consented to:
   events, uploads, or paper sets. Studies are scoped per project and per study;
   a path that crosses either boundary is a vulnerability.
 - **Capture beyond consent** — any way to make TERN record something the
-  consent statement did not name, or to change what is captured without the
-  amendment path that makes the change visible.
+  consent statement did not name, or to change what is captured without that
+  change surfacing in the consent statement a participant sees at their next
+  session start.
 - **Enrollment token abuse** — redeeming a revoked or expired pairing link,
   reusing a single-use one, or minting a credential for a study you have no
   role on.
 - **Authentication and authorization** — bypassing sign-in, escalating a
-  `viewer` or `researcher` role to `owner`, or acting on a project you were
+  `viewer` or `member` role to `owner`, or acting on a project you were
   never invited to.
 - **Ingest integrity** — writing events attributed to a participant, condition,
   or task other than the one your credential was issued for. Join keys are

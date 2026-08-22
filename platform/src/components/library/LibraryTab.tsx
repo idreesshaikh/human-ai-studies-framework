@@ -175,102 +175,105 @@ export function LibraryTab({ studyId }: { studyId: string }) {
           </ul>
         </div>
 
-        {/* The constellation. */}
-        <div className="rounded-card border border-border bg-surface p-4">
-          <h3 className="mb-2 type-body font-medium text-text">
-            Citation constellation
-          </h3>
-          {graph && (
-            <Constellation graph={graph} selected={selected} onSelect={select} />
-          )}
-        </div>
+        {/* Keep the selected paper paired with the graph so selecting a node
+            never sends the graph out of view before its action is reachable. */}
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
+          <div className="rounded-card border border-border bg-surface p-4">
+            <h3 className="mb-2 type-body font-medium text-text">
+              Citation constellation
+            </h3>
+            {graph && (
+              <Constellation graph={graph} selected={selected} onSelect={select} />
+            )}
+          </div>
 
-        {/* Selected-paper detail. */}
-        {selectedNode && (
-          <aside className="relative rounded-card border border-border bg-surface-raised p-4">
-            <button
-              className="absolute right-3 top-3 text-text-muted hover:text-text"
-              onClick={() => setSelected(null)}
-              aria-label="Close detail"
-            >
-              <X className="size-4" aria-hidden />
-            </button>
-            <h4 className="pr-6 font-medium text-text">
-              {selectedNode.title || selected}
-            </h4>
-            <p className="mt-0.5 type-caption text-text-muted">
-              {selected}
-              {selectedNode.year ? ` · ${selectedNode.year}` : ""}
-              {selectedNode.citationCount != null
-                ? ` · ${selectedNode.citationCount} citations`
-                : ""}
-            </p>
-            {selectedPaper ? (
-              <>
-                {selectedPaper.abstract && (
-                  <p className="mt-2 type-body leading-relaxed text-text-muted">
-                    {selectedPaper.abstract}
+          {/* Selected-paper detail. */}
+          {selectedNode && (
+            <aside className="relative rounded-card border border-border bg-surface-raised p-4 lg:sticky lg:top-4">
+              <button
+                className="absolute right-3 top-3 text-text-muted hover:text-text"
+                onClick={() => setSelected(null)}
+                aria-label="Close detail"
+              >
+                <X className="size-4" aria-hidden />
+              </button>
+              <h4 className="pr-6 font-medium text-text">
+                {selectedNode.title || selected}
+              </h4>
+              <p className="mt-0.5 type-caption text-text-muted">
+                {selected}
+                {selectedNode.year ? ` · ${selectedNode.year}` : ""}
+                {selectedNode.citationCount != null
+                  ? ` · ${selectedNode.citationCount} citations`
+                  : ""}
+              </p>
+              {selectedPaper ? (
+                <>
+                  {selectedPaper.abstract && (
+                    <p className="mt-2 type-body leading-relaxed text-text-muted">
+                      {selectedPaper.abstract}
+                    </p>
+                  )}
+                  <label className="mt-3 block type-body text-text">
+                    Protocol links
+                    <Input
+                      value={linkDraft}
+                      onChange={(e) => setLinkDraft(e.target.value)}
+                      placeholder="RQ-1, metric:parameter_count, recipe:…"
+                      className="mt-1"
+                    />
+                  </label>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="subtle"
+                      disabled={busy}
+                      onClick={() =>
+                        run(() =>
+                          studyApi.setPaperLinks(
+                            studyId,
+                            selected!,
+                            linkDraft.split(",").map((t) => t.trim()).filter(Boolean),
+                          ),
+                        )
+                      }
+                    >
+                      Save links
+                    </Button>
+                    {selectedPaper.url && (
+                      <a
+                        href={selectedPaper.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 type-body text-accent hover:underline"
+                      >
+                        <ExternalLink className="size-3" aria-hidden /> open
+                      </a>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="mt-2">
+                  <p className="type-body text-text-muted">
+                    Suggested paper, not yet in the study.
                   </p>
-                )}
-                <label className="mt-3 block type-body text-text">
-                  Protocol links
-                  <Input
-                    value={linkDraft}
-                    onChange={(e) => setLinkDraft(e.target.value)}
-                    placeholder="RQ-1, metric:parameter_count, recipe:…"
-                    className="mt-1"
-                  />
-                </label>
-                <div className="mt-2 flex items-center gap-2">
                   <Button
                     size="sm"
                     variant="subtle"
+                    className="mt-2"
                     disabled={busy}
-                    onClick={() =>
-                      run(() =>
-                        studyApi.setPaperLinks(
-                          studyId,
-                          selected!,
-                          linkDraft.split(",").map((t) => t.trim()).filter(Boolean),
-                        ),
-                      )
-                    }
+                    onClick={() => {
+                      const id = ingestIdForRef(selected!);
+                      if (id) run(() => studyApi.ingestPaper(studyId, id));
+                    }}
                   >
-                    Save links
+                    <Plus aria-hidden /> Add to study
                   </Button>
-                  {selectedPaper.url && (
-                    <a
-                      href={selectedPaper.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1 type-body text-accent hover:underline"
-                    >
-                      <ExternalLink className="size-3" aria-hidden /> open
-                    </a>
-                  )}
                 </div>
-              </>
-            ) : (
-              <div className="mt-2">
-                <p className="type-body text-text-muted">
-                  Suggested paper, not yet in the study.
-                </p>
-                <Button
-                  size="sm"
-                  variant="subtle"
-                  className="mt-2"
-                  disabled={busy}
-                  onClick={() => {
-                    const id = ingestIdForRef(selected!);
-                    if (id) run(() => studyApi.ingestPaper(studyId, id));
-                  }}
-                >
-                  <Plus aria-hidden /> Add to study
-                </Button>
-              </div>
-            )}
-          </aside>
-        )}
+              )}
+            </aside>
+          )}
+        </div>
     </Surface>
   );
 }

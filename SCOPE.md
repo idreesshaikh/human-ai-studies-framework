@@ -40,8 +40,12 @@ researchers here in the first place — *getting the statistics wrong*:
   researcher can move through.
 
 And one proving step: **the synthetic dry run**, which pushes simulated
-participants through the real capture path so the analysis plan is tested
-against data before a real session happens.
+participants through the real capture path *and then runs the study's own
+prescribed statistics over what landed*. Both halves matter: the first proves
+the capture path works, the second proves the analysis plan is satisfiable —
+which is the one thing a researcher cannot learn any other way, and the step
+they are most afraid of getting wrong. Each recipe reports its own result
+verbatim, caveats included.
 
 ## Not this
 
@@ -55,7 +59,7 @@ a decision rather than an omission.
 | **Mid-study amendments** | The phase-aware amendment rules existed to serve the ethics gate. With the gate gone they guarded nothing. |
 | **Live presence** | Who else is looking at the study right now changes no decision this product supports. It cost a server thread to answer. |
 | **Community template contribution** | A submission queue with approve/reject moderation is a workflow for many contributors. Mining writes YAML into `templates/drafts/`; promoting one is a human reading it and committing it. |
-| **An operational-findings meta-layer** | A log about the platform's own behaviour that no user in the five steps above ever reads. Integrity flags belong in the ingest response and the server log. |
+| **An operational-findings meta-layer** | A log about the platform's own behaviour that no user in the five steps above ever reads, and the self-improvement retrospective that consumed it (FR-META-1/2). Integrity flags belong in the ingest response and the server log. |
 | **An agent-readable platform manifest** | Nothing in the arc above consumed it. The published `/schemas/*` endpoints remain; they are used. |
 | **A third role, and freezing** | Owner and member. `viewer` survives only as the demo project's internal read-only grant and is not invitable. |
 | **A second chat surface** | The Library had its own grounded Q&A assistant, separate from the design conversation. Two chat boxes in one product, in two vocabularies, both apparently "the assistant". The design conversation is the one conversational surface; the Library is for reading and exploring, not asking. |

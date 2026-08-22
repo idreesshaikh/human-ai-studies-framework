@@ -51,8 +51,9 @@ services:
       middleware:
         condition: service_healthy
     command: >
+      sh -c 'uv run python -m middleware demo-seed &&
       uv run python middleware/scripts/replay_session.py
-      --server http://middleware:8000
+      --server http://middleware:8000 --study-id demo-study'
     restart: "no"
 
   sonarqube:

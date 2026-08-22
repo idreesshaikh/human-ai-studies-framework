@@ -72,6 +72,7 @@ def _upload(server: str, filename: str, content: bytes) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server", default="http://127.0.0.1:8000")
+    parser.add_argument("--study-id", default="demo-study")
     parser.add_argument(
         "--events", type=Path, default=SAMPLE_DIR / "sample-session.jsonl"
     )
@@ -91,6 +92,15 @@ def main() -> int:
     parser.add_argument(
         "--metrics", type=Path, default=SAMPLE_DIR / "sample-metrics.jsonl"
     )
+    parser.add_argument(
+        "--extra-events",
+        type=Path,
+        nargs="*",
+        default=sorted(SAMPLE_DIR.glob("sample-session-[4-9].jsonl"))
+        + sorted(SAMPLE_DIR.glob("sample-session-10.jsonl"))
+        + sorted(SAMPLE_DIR.glob("sample-session-11.jsonl")),
+        help="additional demo session files",
+    )
     args = parser.parse_args()
 
     try:
@@ -100,7 +110,7 @@ def main() -> int:
             f"error: middleware not reachable at {args.server}: {exc}", file=sys.stderr
         )
         return 1
-    study_id = health.get("studyId") or "adhoc"
+    study_id = args.study_id
     print(f"middleware ok - study {study_id!r}")
 
     events = _read_jsonl(args.events)
@@ -131,6 +141,18 @@ def main() -> int:
         print(
             f"unassisted session {unassisted[0]['sessionId']}: "
             f"{u['inserted']} inserted (both conditions now render)"
+        )
+
+    for extra_path in args.extra_events:
+        if not extra_path.exists():
+            continue
+        extra = _read_jsonl(extra_path)
+        if not extra:
+            continue
+        result = _call("POST", f"{args.server}/ingest/events", {"source": "tern", "events": extra})
+        print(
+            f"demo session {extra[0]['sessionId']}: "
+            f"{result['inserted']} inserted ({extra[0]['participantId']} {extra[0]['condition']})"
         )
 
     rows = _read_jsonl(args.metrics)

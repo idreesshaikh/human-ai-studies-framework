@@ -191,6 +191,56 @@ def test_simulated_data_drives_the_analysis_plan(client_designed: TestClient):
     assert outcome.executed, "at least one recipe should run on simulated data"
 
 
+def test_the_route_reports_the_statistics_it_ran(client_designed: TestClient):
+    """
+    The dry run's own response carries the plan result, not just the row counts.
+
+    This is what the Data tab renders, and it is the half a researcher actually
+    needs: whether the tests this design prescribes can be computed at all. It
+    has to come back from the route itself — a UI that had to shell out to the
+    CLI for it would never show it.
+    """
+    _design_and_approve(client_designed)
+    r = client_designed.post(
+        "/studies/pilot/simulate", json={"count": 8, "profile": "mixed", "seed": 3}
+    )
+    assert r.status_code == 200, r.text
+    plan = r.json()["plan"]
+
+    assert plan["planned"] > 0, "the designed study prescribes at least one test"
+    assert plan["ran"], "at least one prescribed test should run on synthetic data"
+    assert not plan["errors"], plan["errors"]
+
+    # Every recipe that ran reports a real statistical summary, tied back to the
+    # research question it answers. An empty summary would render as a silent
+    # green tick, which is the one outcome this surface must never produce.
+    assert len(plan["results"]) == len(plan["ran"])
+    for result in plan["results"]:
+        assert result["recipeId"] in plan["ran"]
+        assert result["summary"].strip(), f"{result['recipeId']} reported no summary"
+        assert result["rqs"], f"{result['recipeId']} is not tied to an RQ"
+
+    # A blocked recipe says what it was missing, never just "failed".
+    for blocked in plan["blocked"]:
+        assert blocked["reason"].strip()
+
+
+def test_a_study_with_no_analysis_plan_says_so_rather_than_failing(
+    client_designed: TestClient,
+):
+    """
+    A dry run before the design names any statistics is a reachable state, not a
+    fault: it still proves the capture path. The plan half says plainly that
+    there was nothing to validate.
+    """
+    from middleware.simulation import run_plan_summary
+
+    plan = run_plan_summary({"analysisPlan": []}, [], "pilot")
+    assert plan["planned"] == 0
+    assert plan["ran"] == []
+    assert "no analysis plan" in plan["note"]
+
+
 def test_all_profiles_generate_full_sessions():
     protocol = {
         "conditions": ["ai-assisted", "unassisted"],

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 import random
 import secrets
 from collections.abc import Callable
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from middleware.db import EnrollmentToken, SessionBlock
+
+log = logging.getLogger(__name__)
 
 PROFILES = ("fast", "struggling", "novice", "expert")
 
@@ -420,3 +424,118 @@ def simulate_into(
         "metricRows": inserted_metrics,
         "tokensMinted": len(token_rows),
     }
+
+
+def run_plan_summary(protocol: dict, rows: list[dict], study_id: str) -> dict:
+    """
+    Run the protocol's analysis plan over ``rows`` and return a JSON-safe summary.
+
+    This is the half of the dry run that matters. Storing synthetic events proves
+    the capture path works; running the *prescribed* statistics over them proves
+    the analysis plan is satisfiable before a single real participant sits down —
+    which is the one thing a researcher cannot find out any other way, and the
+    step they are most afraid of getting wrong.
+
+    Deliberately not ``analysis.runner.run_plan``: that writes figures, tables and
+    a stitched report to ``results/`` and prints as it goes, which is right for a
+    CLI run and wrong inside a web request. Here the plan is validated, each
+    satisfiable recipe is run once in-process, and only each recipe's own
+    human-readable ``summary`` comes back. Figures are closed rather than
+    written, so a dry run costs no disk and leaks no Matplotlib state.
+    """
+    import analysis.recipes  # noqa: F401 - registers the built-in recipes
+    from analysis.core import REGISTRY, validate_plan
+    from analysis.dataset import Dataset
+
+    plan = protocol.get("analysisPlan") or []
+    if not plan:
+        return {
+            "planned": 0,
+            "ran": [],
+            "blocked": [],
+            "results": [],
+            "note": (
+                "This protocol has no analysis plan yet, so there was nothing to "
+                "validate. Choose a design in the conversation — each one carries "
+                "the statistics it requires."
+            ),
+        }
+
+    dataset = Dataset(rows=rows, study_id=study_id)
+    checks = validate_plan(plan, dataset)
+
+    # One entry per (RQ, recipe) pair; a recipe named by two RQs runs once.
+    rq_by_recipe: dict[str, list[str]] = {}
+    for c in checks:
+        rq_by_recipe.setdefault(c.recipe_id, []).append(c.rq)
+
+    blocked = [
+        {
+            "recipeId": c.recipe_id,
+            "rq": c.rq,
+            "reason": (
+                "not a registered recipe"
+                if not c.known
+                else "needs " + ", ".join(c.missing)
+            ),
+        }
+        for c in checks
+        if not c.ok
+    ]
+
+    # Per-recipe params ride on the plan entry, exactly as `run_plan` reads them.
+    params: dict[str, dict] = {}
+    for entry in plan:
+        for rid in entry.get("recipes", []):
+            if isinstance(rid, dict):
+                params[rid["id"]] = rid.get("params", {})
+            elif rid not in params:
+                params[rid] = {}
+
+    results: list[dict] = []
+    ran: list[str] = []
+    errors: dict[str, str] = {}
+    for recipe_id in dict.fromkeys(c.recipe_id for c in checks if c.ok):
+        recipe = REGISTRY[recipe_id]
+        try:
+            # Fresh per recipe, not merged onto whatever the previous recipe
+            # left behind — `dataset` is one object reused across every
+            # iteration of this loop, so an accumulating merge would leak a
+            # param key set for an earlier recipe into a later one that never
+            # specified it.
+            dataset.meta = dict(params.get(recipe_id, {}))
+            result = recipe.run(dataset)
+        except Exception as exc:  # noqa: BLE001 - reported, never raised at the caller
+            errors[recipe_id] = f"{type(exc).__name__}: {exc}"
+            log.warning("dry-run recipe %s failed: %s", recipe_id, errors[recipe_id])
+            continue
+        _close_figures(result)
+        ran.append(recipe_id)
+        results.append(
+            {
+                "recipeId": recipe_id,
+                "title": recipe.title or recipe_id,
+                "rqs": sorted(set(rq_by_recipe.get(recipe_id, []))),
+                "answers": list(recipe.answers),
+                "summary": result.summary,
+            }
+        )
+
+    return {
+        "planned": len({c.recipe_id for c in checks}),
+        "ran": ran,
+        "blocked": blocked,
+        "errors": errors,
+        "results": results,
+    }
+
+
+def _close_figures(result) -> None:
+    """Release a recipe's Matplotlib figures — nothing here is being written."""
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:  # pragma: no cover - matplotlib ships with analysis
+        return
+    for fig in getattr(result, "figures", {}).values():
+        with suppress(Exception):
+            plt.close(fig)

@@ -39,7 +39,7 @@ const THEME_ICON = { light: Sun, dark: Moon };
  * viewports. */
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const { me, setThemePreference } = useSession();
-  const { signOut, user: clerkUser, config, hasCredential } = useAuth();
+  const { signOut, user: clerkUser, hasCredential } = useAuth();
   /* No identity, and this deployment wants one. `hasCredential` already reads
    * true in `mode: "none"` (a local deployment has no accounts to be signed
    * out of), so this is only ever true on a public route reached by someone
@@ -53,6 +53,22 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   const theme = useSyncExternalStore(subscribeTheme, getTheme, getTheme);
   const navFolded = usePanel("nav");
   const [navOpen, setNavOpen] = useState(false);
+  /* What the rail actually renders as, which is NOT simply `navFolded`.
+   *
+   * `navFolded` is a per-device preference (panels.ts) with no notion of
+   * viewport — it is set by folding the desktop rail and stays set the next
+   * time this same browser opens a narrow window, because it has no reason
+   * to know that window is a phone. The mobile drawer (`navOpen`) shares its
+   * markup with the desktop rail, so honoring `navFolded` there collapsed
+   * every label to a 52px column of bare glyphs — and did it inside an
+   * overlay whose own fold button had just been removed as meaningless in
+   * that context (see below), leaving no way back to full width short of
+   * clearing localStorage.
+   *
+   * The mobile drawer already has its show/hide control, the hamburger, so
+   * it never folds: full labels, full width, always, while `navOpen` is
+   * true. */
+  const showFolded = navFolded && !navOpen;
   const Icon = THEME_ICON[theme];
 
   // In hosted (clerk) mode the Clerk session carries the real identity
@@ -81,7 +97,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       // mid-word ("Pro", "Ten") by the narrow container instead of
       // disappearing. `title` keeps the destination discoverable on hover
       // once the visible text is gone.
-      title={navFolded ? label : undefined}
+      title={showFolded ? label : undefined}
       className={({ isActive }) =>
         cn(
           "type-control flex items-center gap-2 rounded-control border py-2 transition-all duration-standard",
@@ -91,7 +107,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           // left too little room for even the icon alone, which then
           // flex-shrank to a sliver instead of staying square. Folded gets
           // its own tight, centred padding sized to the icon.
-          navFolded ? "justify-center px-1.5" : "px-2.5",
+          showFolded ? "justify-center px-1.5" : "px-2.5",
           isActive || forceActive
             ? "control-axis"
             : "border-transparent text-text-muted hover:bg-zone-9 hover:text-text",
@@ -99,7 +115,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       }
     >
       <span className="shrink-0">{icon}</span>
-      <span className={navFolded ? "sr-only" : undefined}>{label}</span>
+      <span className={showFolded ? "sr-only" : undefined}>{label}</span>
     </NavLink>
   );
 
@@ -160,14 +176,8 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
                     {clerkUser.email}
                   </span>
                 )}
-                <span className="mt-0.5 block type-caption font-normal text-text-muted">
-                  {me?.mode ?? config.mode ?? "local"}
-                </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/home">All projects</Link>
-              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to="/settings">
                   <Settings className="size-4" aria-hidden /> Settings
@@ -206,7 +216,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           hidden={signedOut}
           className={cn(
             "shrink-0 border-r border-border-strong bg-surface transition-all duration-fast",
-            navFolded ? "w-[3.25rem]" : "w-56",
+            showFolded ? "w-[3.25rem]" : "w-56",
             signedOut
               ? "hidden"
               : navOpen
@@ -224,7 +234,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
 
             {hasProjectNav && (
               <>
-                {!navFolded && (
+                {!showFolded && (
                   <p className="type-legend mb-2 mt-4 border-t border-border px-1 pt-4 text-text-muted">
                     Project
                   </p>
@@ -249,14 +259,24 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             * it says what it does; folded, the icon carries it and the name
             * moves to the accessible label. As a bare `size-icon` button it
             * painted as one unexplained 44px glyph pinned to the bottom-left
-            * of the window, visually detached from the rail it belongs to. */}
+            * of the window, visually detached from the rail it belongs to.
+            *
+            * `hidden lg:flex`: this `<nav>` is shared between the desktop
+            * static rail and the mobile slide-over (`navOpen`), and folding
+            * is a desktop-only idea — the overlay already has a show/hide
+            * control, the hamburger, so a second one that shrinks it to an
+            * icon strip *while it stays open* has no coherent job to do.
+            * Rendered anyway, tapping it inside the mobile drawer collapsed
+            * every label to a 52px column of bare glyphs with no visible way
+            * back — the button that had just done that was now unlabelled
+            * too. Below `lg` the control simply is not there. */}
           <button
             type="button"
             onClick={() => togglePanel("nav")}
             aria-label={navFolded ? "Expand navigation" : "Collapse navigation"}
             aria-expanded={!navFolded}
             className={cn(
-              "type-control flex shrink-0 items-center gap-2 border-t border-border py-3 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text",
+              "hidden shrink-0 items-center gap-2 border-t border-border py-3 type-control text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text lg:flex",
               navFolded ? "justify-center px-1.5" : "px-4",
             )}
           >

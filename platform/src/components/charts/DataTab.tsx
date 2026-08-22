@@ -12,6 +12,7 @@ import { MetricStrip } from "./MetricStrip";
 import { SwimlaneTimeline } from "./SwimlaneTimeline";
 import { PrescriptionPanel } from "./PrescriptionPanel";
 import { DataProvenance } from "./DataProvenance";
+import { DryRunPlan } from "./DryRunPlan";
 import { Surface } from "@/components/shell/Surface";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -35,14 +36,15 @@ export function DataTab({ studyId }: { studyId: string }) {
   const [rows, setRows] = useState<DatasetRow[]>([]);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [seeded, setSeeded] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dryRun, setDryRun] = useState<{
-    report: { participants: number; sessions: number; events: number } | null;
+    report: Awaited<ReturnType<typeof studyApi.simulate>> | null;
     error: string | null;
     busy: boolean;
   }>({ report: null, error: null, busy: false });
 
-  const refresh = (live: boolean) => {
+  const refresh = (live: boolean, initial = false) => {
     Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)])
       .then(([s, d]) => {
         if (!live) return;
@@ -59,6 +61,9 @@ export function DataTab({ studyId }: { studyId: string }) {
         setLoadError(
           e instanceof Error ? e.message : "Could not load this study's data.",
         );
+      })
+      .finally(() => {
+        if (live && initial) setLoading(false);
       });
   };
 
@@ -66,7 +71,20 @@ export function DataTab({ studyId }: { studyId: string }) {
     // If any read falls back to built-in sample data, say so honestly.
     const off = onSeededData(() => setSeeded(true));
     let live = true;
-    refresh(live);
+    // Re-arm the loading gate on every study switch, not just first mount —
+    // `StudyHome` doesn't remount `DataTab` on a route change between two
+    // studies, so without this the stale `loading: false` from the previous
+    // study let its sessions/rows flash under the new study's tab for the
+    // gap between navigation and this fetch resolving. Clearing the arrays
+    // too, not just the flag: if the new study's fetch fails with anything
+    // other than "no protocol", the old study's sessions would otherwise
+    // still be sitting in state and render right alongside that error.
+    setLoading(true);
+    setSessions([]);
+    setConditions([]);
+    setRows([]);
+    setLoadError(null);
+    refresh(live, true);
     return () => {
       live = false;
       off();
@@ -109,6 +127,8 @@ export function DataTab({ studyId }: { studyId: string }) {
    * One precondition, said once, with the move that resolves it. */
   const noProtocol =
     !!loadError && loadError.toLowerCase().includes("no protocol");
+
+  if (loading) return null;
 
   if (noProtocol) {
     return (
@@ -186,6 +206,7 @@ export function DataTab({ studyId }: { studyId: string }) {
           </p>
         </div>
       )}
+      {dryRun.report?.plan && <DryRunPlan plan={dryRun.report.plan} />}
       {dryRun.error && (
         <p className="type-caption text-critical" role="alert">
           {dryRun.error}

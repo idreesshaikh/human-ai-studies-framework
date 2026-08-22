@@ -82,6 +82,8 @@ retrofitted.
 | `constellation` | `Constellation` | the citation-graph canvas (landmark) |
 | `constellation-lens` | `Constellation` | which citation relation is on screen — earlier / later / similar work, or all; `data-agent-kind` carries the current lens |
 | `metric-strip` | `MetricStrip` | the per-condition metric distribution chart (landmark) |
+| `dry-run-plan` | `DryRunPlan` | the dry run's analysis-plan result: which prescribed tests ran on synthetic data, and which could not (landmark) |
+| `dry-run-recipe` | `DryRunPlan` | one prescribed test that ran, with its verbatim statistical summary; `data-agent-ref` carries the recipe id |
 | `live-sessions` | `LiveSessions` | the live-session monitor: who is running right now, what task, and whether data is arriving (landmark, FR-DASH-3) |
 | `live-session` | `LiveSessions` | one running session; `data-agent-ref` carries its session id |
 | `enrollment-panel` | `EnrollmentPanel` | the study's participant enrollment surface (landmark) |

@@ -20,12 +20,12 @@ This researcher is the tiebreaker for every product decision. They stay only if
 the platform demonstrably encodes real methodological knowledge, and they leave
 the moment it reads as a task board in disguise.
 
-Secondary audiences, all inside a project's role model (`owner` / `member` /
-`viewer`, mirrored from `middleware/authz.py` into
-`platform/src/lib/capabilities.ts`): project owners managing membership and
-invitations; collaborating members contributing to the same study; viewers with
-read-only access. Participants never use this app — they meet the study inside
-TERN, the VS Code extension.
+Secondary audiences, inside a project's role model (mirrored from
+`middleware/authz.py` into `platform/src/lib/capabilities.ts`): project owners
+managing membership and invitations, and collaborating members contributing to
+the same study. Those are the two invitable roles. `viewer` survives only as
+the demo project's internal read-only grant and is never invited. Participants
+never use this app — they meet the study inside TERN, the VS Code extension.
 
 ## Product Purpose
 
@@ -43,6 +43,13 @@ validated, versioned protocol whose every design decision is either cited into
 the corpus or honestly labelled unsourced — plus the statistical plan that
 design requires, the instrumentation to collect it, and a curated dataset they
 can analyse in the notebook they already use.
+
+**The boundary is recorded in [`SCOPE.md`](SCOPE.md)**, which lists what was
+built and deliberately removed — the ethics workflow, study phases, mid-study
+amendments, live presence, community submissions, the findings meta-layer, the
+platform manifest, the Library's separate chat assistant, the hero's ambient
+artwork. That file is the authority on where the line sits; this one records
+who the product is for and what it does inside it.
 
 ## Positioning
 
@@ -85,6 +92,11 @@ rail beside them. From there: participant links (`vscode://…/pair` deep links)
 that install the study on a participant's editor, capture running under a
 consent statement the researcher approved, and finally the curated handoff.
 
+There are no lifecycle phases and no approval gate between designing a study
+and running it. Ethics approval is the university's to grant; what the platform
+owes a participant is an unmissable account of what will be captured, which is
+the consent statement carried by the pairing link.
+
 The middleware serves the built app at `/`; one process is the whole stack, so
 in production the API is same-origin and `VITE_API_BASE` is empty.
 
@@ -113,7 +125,9 @@ Confirmed and shipping:
   scores, citation chips, and the literature constellation.
 - **Protocol repertoire**: generic proven designs (`templates/registry/`, 16 at
   time of writing) ranked common→rare, each binding its statistical plan,
-  composable by merging; plus derive-from-paper and community submissions.
+  composable by merging, plus derive-from-paper. Mining writes candidates into
+  `templates/drafts/`; promoting one is a human reading it and committing it,
+  not a submission queue with moderation.
 - **Recruitment planning**: the power/sensitivity curve for the study's planned
   comparison — exact two-sample t-test power across sample size, and the total n
   each plausible effect size needs to hit the target, with the model's
@@ -124,8 +138,8 @@ Confirmed and shipping:
 - **Synthetic dry run** (`POST /studies/{id}/simulate`, `middleware simulate`):
   simulated participants through the real capture path, validating the analysis
   plan against data before a real session happens.
-- **Projects, roles, invitations**; ethics package; templates; per-study
-  enrollment and capture toggles.
+- **Projects, roles, invitations**; templates; per-study enrollment and capture
+  toggles.
 
 **Where the product stops.** PHOENIX handles design, setup and curation, then
 hands off: a dataset shaped for the design, a data dictionary, and a starter

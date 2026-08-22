@@ -85,28 +85,6 @@ def main(argv: list[str] | None = None) -> int:
         help="write only the standalone data-dictionary.md",
     )
 
-    p_retro = sub.add_parser(
-        "retrospective",
-        help="draft a self-improvement changelist proposal "
-        "from the findings log (FR-META-2)",
-    )
-    p_retro.add_argument("protocol", help="study protocol YAML")
-    p_retro.add_argument("--study", help="study id (default: the protocol's)")
-    p_retro.add_argument(
-        "--server",
-        default=DEFAULT_SERVER,
-        help=f"middleware base URL (default {DEFAULT_SERVER})",
-    )
-    p_retro.add_argument(
-        "--findings-md", help="facilitator findings.md (e.g. findings.md)"
-    )
-    p_retro.add_argument(
-        "--out",
-        default="retrospective",
-        type=Path,
-        help="output directory (default retrospective/)",
-    )
-
     p_list = sub.add_parser("list", help="list registered recipes")
     p_list.add_argument(
         "--json",
@@ -145,11 +123,6 @@ def main(argv: list[str] | None = None) -> int:
 
     protocol = _load_protocol(args.protocol)
     study_id = args.study or protocol["study"]["id"]
-
-    if args.command == "retrospective":
-        from analysis.retrospective import cmd_retrospective
-
-        return cmd_retrospective(protocol, study_id, args)
 
     dataset = _load_dataset(args, study_id)
 

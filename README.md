@@ -110,7 +110,7 @@ approved never runs.
 | `middleware/` | The server: API, search, design assistant; serves the web app |
 | `protocol/` | Study schema, validator, counterbalanced assignment |
 | `extension/` | TERN, the VS Code extension participants run |
-| `templates/` | 13 ready-made study designs, each citing the papers behind it |
+| `templates/` | 16 ready-made study designs, each citing the papers behind it |
 | `analysis/` | The recipe catalogue: which exact test to run for which design |
 | `agent-capture/` | The AI's side: transcripts, snapshots, task harness |
 | `metrics/` | Code-complexity measurements |

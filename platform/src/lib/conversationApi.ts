@@ -11,6 +11,7 @@ import type {
 import { getAuthToken, notifyUnauthorized } from "./api.ts";
 import { OfflineError } from "./studyApi.ts";
 import { openingTurn } from "./conversationOpening.ts";
+import { isDemoStudy } from "./demo.ts";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -154,6 +155,82 @@ function mapTurn(raw: Record<string, unknown>): Turn {
   };
 }
 
+const DEMO_CONVERSATION: Turn[] = [
+  {
+    turnId: "demo-turn-researcher",
+    role: "researcher",
+    author: "Demo Researcher",
+    text: "I want to know whether AI assistance changes developer productivity and how carefully developers review the code it suggests.",
+    moves: [],
+    recommendations: [],
+  },
+  {
+    turnId: "demo-turn-platform",
+    role: "platform",
+    author: "Platform",
+    source: "llm",
+    text: "Start with a within-subjects comparison: each developer completes matched maintenance tasks with AI assistance and without it. That lets the comparison use each developer as their own control. I would measure task time, correctness, and review behaviour. The evidence below is grounded in the corpus.",
+    moves: [
+      {
+        moveId: "demo-move-design",
+        kind: "choose-template",
+        target: "design",
+        proposal: "Use a counterbalanced within-subjects design so each developer completes matched tasks in both conditions.",
+        patch: { templateId: "within-subjects-crossover-v1", parameters: {} },
+        grounding: [
+          {
+            ref: "corpus:metr-early-2025-dev-productivity",
+            confidence: 0.94,
+            title: "Measuring the Impact of Early-2025 AI on Developer Productivity",
+            year: 2025,
+            venue: "METR",
+            why: "Pairs perceived productivity with observed task completion and correctness.",
+          },
+        ],
+        status: "accepted",
+      },
+      {
+        moveId: "demo-move-measure",
+        kind: "add-measure",
+        target: "measures[]",
+        proposal: "Measure task completion time, correctness, self-reported fatigue, and review latency in both conditions.",
+        patch: { section: "measures", op: "append", value: "task time, correctness, fatigue, and review latency" },
+        grounding: [
+          {
+            ref: "corpus:trust-in-ai-code-generation",
+            confidence: 0.98,
+            title: "Investigating and Designing for Trust in AI-powered Code Generation",
+            year: 2024,
+            venue: "Empirical Software Engineering",
+            why: "Measures whether developers verify AI-generated code before accepting it.",
+          },
+        ],
+        status: "proposed",
+      },
+    ],
+    recommendations: [
+      {
+        ref: "corpus:trust-in-ai-code-generation",
+        confidence: 0.98,
+        title: "Investigating and Designing for Trust in AI-powered Code Generation",
+        year: 2024,
+        venue: "Empirical Software Engineering",
+        matchReason: "Measures whether developers verify AI-generated code before accepting it.",
+        inStudy: false,
+      },
+      {
+        ref: "corpus:metr-early-2025-dev-productivity",
+        confidence: 0.94,
+        title: "Measuring the Impact of Early-2025 AI on Developer Productivity",
+        year: 2025,
+        venue: "METR",
+        matchReason: "Pairs perceived productivity with observed task completion and correctness.",
+        inStudy: false,
+      },
+    ],
+  },
+];
+
 export interface CompileResult {
   compilationId: string;
   valid: boolean;
@@ -175,10 +252,29 @@ export const conversationApi = {
   async get(
     studyId: string,
   ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
-    const data = await req<{
-      turns: Record<string, unknown>[];
-      understanding?: Understanding;
-    }>(`/studies/${encodeURIComponent(studyId)}/conversation`);
+    let data: { turns: Record<string, unknown>[]; understanding?: Understanding };
+    try {
+      data = await req<{
+        turns: Record<string, unknown>[];
+        understanding?: Understanding;
+      }>(`/studies/${encodeURIComponent(studyId)}/conversation`);
+    } catch (error) {
+      if (error instanceof OfflineError && isDemoStudy(studyId)) {
+        return {
+          turns: DEMO_CONVERSATION,
+          understanding: {
+            facets: { population: true, task: true, comparison: true, measures: true },
+            known: ["population", "task", "comparison", "measures"],
+            missing: [],
+            missingLabels: [],
+            readyForDesign: true,
+            facetsNeeded: 4,
+            nextQuestion: "",
+          },
+        };
+      }
+      throw error;
+    }
     const turns = data.turns.map(mapTurn);
     return {
       turns: turns.length ? turns : [openingTurn()],

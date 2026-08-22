@@ -632,12 +632,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "sources": [{"source": src, **summaries[src]} for src in sorted(summaries)],
         }
 
-    @app.get(
-        "/studies/{study_id}/dataset",
-        dependencies=[Depends(require_project_for_study("view"))],
-    )
-    def dataset(study_id: str, format: str = "json", s: Session = Depends(db)):
-        """The joined one-timeline export all legs share (FR-ING-4)."""
+    def _joined_rows(s: Session) -> list[dict]:
+        """
+        The joined one-timeline rows (FR-ING-4), in-process.
+
+        Shared by the dataset export and the dry run's plan validation, so the
+        statistics a dry run reports are computed over exactly the rows a
+        researcher would download — not a second, drifting join.
+        """
         rows = [
             {
                 "source": e.source,
@@ -666,6 +668,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             for m in s.scalars(select(MetricRow))
         ]
         rows.sort(key=lambda r: (r["ts"], r["source"], r["seq"] or 0))
+        return rows
+
+    @app.get(
+        "/studies/{study_id}/dataset",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def dataset(study_id: str, format: str = "json", s: Session = Depends(db)):
+        """The joined one-timeline export all legs share (FR-ING-4)."""
+        rows = _joined_rows(s)
         if format == "json":
             return {"studyId": study_id, "rows": rows}
         if format == "csv":
@@ -1030,9 +1041,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def list_papers(study_id: str, s: Session = Depends(db)) -> list[dict]:
         """The study's paper set."""
 
+        study_protocol = _resolve_study_protocol(s, study_id)
         proto_refs = {
             entry.get("paperRef")
-            for entry in (protocol_doc or {}).get("literature", [])
+            for entry in (study_protocol or {}).get("literature", [])
         }
         links_by_ref: dict[str, list[str]] = defaultdict(list)
         for ref, target in s.execute(
@@ -2703,7 +2715,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         two-sample t-test power (non-central t, equal per-group n, two-sided) across
         per-group n, plus the first n reaching the target power, per effect size.
         """
-        from analysis.power import two_sample_power_curve
+        from analysis.power import paired_power_curve, two_sample_power_curve
 
         try:
             sizes = [float(x.strip()) for x in effectSizes.split(",")]
@@ -2712,7 +2724,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 422, "effectSizes must be a comma-separated list of numbers"
             ) from exc
         try:
-            return two_sample_power_curve(
+            protocol = _resolve_study_protocol(s, study_id)
+            participants = (protocol or {}).get("participants", {})
+            design = participants.get("design", "") if isinstance(participants, dict) else ""
+            calculator = (
+                paired_power_curve
+                if str(design).lower() in {"within-subjects", "paired"}
+                else two_sample_power_curve
+            )
+            return calculator(
                 sizes,
                 alpha=alpha,
                 power_target=powerTarget,
@@ -2938,6 +2958,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         for entry in (protocol or {}).get("analysisPlan") or []:
             recipe_ids.update(entry.get("recipes") or [])
         matched_shapes = shapes_from_recipe_ids(recipe_ids)
+        participants = (protocol or {}).get("participants", {})
+        participant_design = (
+            participants.get("design", "")
+            if isinstance(participants, dict)
+            else ""
+        )
+        # Domain-specific recipes answer the study's operational questions, while
+        # the prescription catalogue is keyed by statistical design shape. The
+        # protocol's participant design is the authoritative bridge when a
+        # recipe has no generic shape mapping.
+        if str(participant_design).lower() in {"within-subjects", "paired"}:
+            matched_shapes.add("paired")
         rows = [
             design_assistant.recommend_prescription(shape)
             for shape in design_shapes()
@@ -2978,13 +3010,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 steer=body.steer,
             )
         except design_assistant.ModelUnavailable as exc:
-            s.commit()
             log.info("design turn unanswered: %s", exc)
-            return {
-                "researcherTurnId": researcher.id,
-                "platformTurnId": "",
-                **design_assistant.holding_turn(str(exc)),
-            }
+            # Persisted like any other reply, not held in memory only. The
+            # unpersisted version was the researcher's own question surviving
+            # a reload while the platform's explanation of why it went
+            # unanswered did not — so the exact moment a plain answer mattered
+            # most was the one moment it was allowed to vanish. `source:
+            # "unavailable"` still marks it as neither grounded nor scripted;
+            # the client already renders that source as "Not answered"
+            # (StreamingTurn.tsx) rather than as a real reply.
+            return _persist_platform_turn(
+                s, study_id, researcher, design_assistant.holding_turn(str(exc))
+            )
         return _persist_platform_turn(s, study_id, researcher, reply)
 
     def _append_researcher_turn(
@@ -3120,16 +3157,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 # close the stream with a normal `done` frame carrying the holding turn
                 # - an `error` frame would leave the thread looking broken rather than
                 # waiting.
-                s.commit()
+                #
+                # Persisted, same as the blocking endpoint's branch just above
+                # and for the same reason: unpersisted, a reload kept the
+                # researcher's question on screen and silently dropped the one
+                # sentence explaining why nothing answered it.
                 log.info("conversation turn unanswered: %s", exc)
-                yield _sse(
-                    "done",
-                    {
-                        "researcherTurnId": researcher.id,
-                        "platformTurnId": "",
-                        **design_assistant.holding_turn(str(exc)),
-                    },
+                payload = _persist_platform_turn(
+                    s, study_id, researcher, design_assistant.holding_turn(str(exc))
                 )
+                yield _sse("done", payload)
             except Exception as exc:
                 log.exception("streaming conversation turn failed")
                 s.rollback()
@@ -3175,6 +3212,20 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "reason": str(mv.patch.get("reason") or ""),
                 }
             moves_by_turn[mv.turn_id].append(wire)
+
+        study_refs = set(
+            s.scalars(select(Paper.paper_ref).where(Paper.study_id == study_id))
+        )
+
+        def current_recommendations(recommendations: list | None) -> list:
+            return [
+                {
+                    **recommendation,
+                    "inStudy": recommendation.get("ref") in study_refs,
+                }
+                for recommendation in (recommendations or [])
+            ]
+
         return {
             "studyId": study_id,
             "turns": [
@@ -3186,7 +3237,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "text": "" if t.redacted else t.text,
                     "redacted": bool(t.redacted),
                     "moves": moves_by_turn.get(t.id, []),
-                    "recommendations": t.recommendations or [],
+                    "recommendations": current_recommendations(t.recommendations),
                     "source": t.source,
                 }
                 for t in turns
@@ -3482,7 +3533,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s: Session = Depends(db),
     ) -> dict:
         """Synthetic dry run: N synthetic participants through the real ingest path."""
-        from middleware.simulation import PROFILES, simulate_into
+        from middleware.simulation import PROFILES, run_plan_summary, simulate_into
 
         proto = _resolve_study_protocol(s, study_id)
         if proto is None:
@@ -3510,6 +3561,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             start=clock(),
         )
         outcome["studyId"] = study_id
+        # The half that answers the researcher's real question. `simulate_into`
+        # committed through the `db` dependency, so the rows are already there
+        # to analyse — and they are the same joined rows the dataset export
+        # hands back, not a parallel construction.
+        s.flush()
+        outcome["plan"] = run_plan_summary(proto, _joined_rows(s), study_id)
         return outcome
 
 

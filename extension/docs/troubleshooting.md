@@ -143,9 +143,10 @@ things that look like bugs are intended:
 The pairing step (_TERN: Connect to Study_) can refuse for a few specific
 reasons:
 
-- **"This study has not cleared its ethics gate."** Pairing is blocked until
-  the study is ethics-approved — no data collection before approval. This is
-  a study-state issue, not a client problem.
+- **"No protocol for this study."** Pairing is blocked until the study has a
+  compiled, validated protocol — ask the researcher to finish and apply the
+  design conversation's draft. This is a study-state issue, not a client
+  problem; there is no separate ethics-approval gate to clear.
 - **The link is invalid, used, or expired.** A single-use link that's already
   been redeemed, or one past its expiry, won't work — ask the researcher for
   a fresh connection string.

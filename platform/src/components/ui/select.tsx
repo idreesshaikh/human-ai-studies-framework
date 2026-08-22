@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +55,6 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
               onSelect={() => onValueChange?.(option.value)}
               className="cursor-pointer"
             >
-              <Check className="mr-2 size-4" aria-hidden />
               <div className="flex flex-col">
                 <span className="type-body">{option.label}</span>
                 {option.hint && (

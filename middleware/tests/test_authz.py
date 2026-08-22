@@ -728,6 +728,37 @@ def test_the_demo_study_resolves_a_protocol(client):
     assert status.status_code == 200, status.text
 
 
+def test_the_demo_study_shows_the_design_record(client):
+    """The read-only demo includes the conversation it is meant to teach."""
+    from middleware.demo import DEMO_STUDY_ID, seed_demo
+
+    seed_demo(f"sqlite:///{client.db_path}")
+
+    conversation = client.get(
+        f"/studies/{DEMO_STUDY_ID}/conversation", headers=bearer("newcomer")
+    )
+    assert conversation.status_code == 200, conversation.text
+    turns = conversation.json()["turns"]
+    platform_turn = next(turn for turn in turns if turn["role"] == "platform")
+    assert platform_turn["source"] == "demo"
+    assert platform_turn["moves"]
+    assert platform_turn["recommendations"]
+
+
+def test_the_demo_study_shows_its_paired_prescription(client):
+    """Domain recipe IDs still resolve through the protocol's design shape."""
+    from middleware.demo import DEMO_STUDY_ID, seed_demo
+
+    seed_demo(f"sqlite:///{client.db_path}")
+
+    response = client.get(
+        f"/analysis/prescriptions?study_id={DEMO_STUDY_ID}",
+        headers=bearer("newcomer"),
+    )
+    assert response.status_code == 200, response.text
+    assert [row["designShape"] for row in response.json()["prescriptions"]] == ["paired"]
+
+
 def test_the_demo_study_owns_the_sample_sessions(client):
     """
     The seeded sample data belongs to the demo study, so it shows there — and nowhere

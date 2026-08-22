@@ -263,7 +263,19 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
         .order_by(ConversationTurn.seq.desc())
         .limit(_LLM_HISTORY_TURNS)
     ).scalars().all()
-    turn_ids = [row.id for row in rows if row.role == "platform"]
+    turn_ids = [
+        row.id
+        for row in rows
+        # `source == "unavailable"` is excluded from the id list gathering
+        # moves below and, more importantly, from the loop that builds
+        # `history` itself (the `continue` below) — a holding turn carries no
+        # moves regardless, but it must never enter the transcript replayed
+        # back to the model: it is not part of the study's design record,
+        # and feeding "I couldn't reach the model" back in as a fabricated
+        # assistant turn is exactly the contamination this exclusion exists
+        # to prevent.
+        if row.role == "platform" and row.source != "unavailable"
+    ]
     moves_by_turn: dict[str, list[DesignMoveRow]] = {}
     if turn_ids:
         for mv in s.scalars(
@@ -277,6 +289,14 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
 
     history: list[dict] = []
     for row in reversed(rows):
+        # A holding turn ("no model configured", "the provider is down") is
+        # persisted now so the UI can show it again after a reload
+        # (app.py's ModelUnavailable branches), but it is not a real answer
+        # and must never be replayed to the model as if one of its own past
+        # turns said it — skip it here the same way an empty turn is skipped
+        # below.
+        if row.role == "platform" and row.source == "unavailable":
+            continue
         moves = moves_by_turn.get(row.id, [])
         content = row.text or ""
         if moves:

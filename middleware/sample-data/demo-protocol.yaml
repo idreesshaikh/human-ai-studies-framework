@@ -6,7 +6,8 @@
 # must never be mistaken for it. What the two share is the design the sample
 # sessions actually implement — the same two conditions, the same
 # within-subjects shape — because `sample-session*.jsonl` were recorded
-# against exactly that design (P02 appears in both conditions; P01 in one).
+# against exactly that design (P03-P06 appear in both conditions; P01 remains
+# a deliberately partial cognitive example and P02 is the behavioral pair).
 #
 # Every recipe named below has real events in `sample-data/*.jsonl`, so the
 # demo's Data and Planning tabs render populated rather than empty:
@@ -25,7 +26,7 @@
 protocolVersion: 4
 
 study:
-  id: ai-and-developer-productivity
+  id: demo-study
   title: "AI assistance and developer productivity: a within-subjects pilot"
   researchers:
     - Demo Researcher
@@ -116,9 +117,13 @@ analysisPlan:
     recipes: [ai-review-behavior, ziegler-acceptance-rate]
 
 literature:
-  - paperRef: "arxiv:2302.06590"
+  - paperRef: "corpus:trust-in-ai-code-generation"
     justifies: [RQ-P3, RQ-P4]
-  - paperRef: "arxiv:2205.06537"
-    justifies: [RQ-P4]
-  - paperRef: "doi:10.1109/TSE.2017.2656886"
-    justifies: [RQ-P3]
+  - paperRef: "corpus:metr-early-2025-dev-productivity"
+    justifies: [RQ-P1, RQ-P2]
+  - paperRef: "corpus:guidelines-empirical-llm-se"
+    justifies: [RQ-P1, RQ-P2, RQ-P3, RQ-P4]
+  - paperRef: "corpus:insecure-code-with-ai-assistants"
+    justifies: [RQ-P2, RQ-P4]
+  - paperRef: "corpus:realhumaneval"
+    justifies: [RQ-P2, RQ-P4]

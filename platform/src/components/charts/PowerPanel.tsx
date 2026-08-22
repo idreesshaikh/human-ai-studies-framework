@@ -216,11 +216,17 @@ export function PowerPanel({ studyId }: { studyId: string }) {
         ) : (
           <>
             <PowerChart doc={doc} />
-            <RequiredTable requirements={doc.requiredN} maxTotalN={doc.maxTotalN} />
+            <RequiredTable
+              requirements={doc.requiredN}
+              maxTotalN={doc.maxTotalN}
+              paired={doc.model.startsWith("paired")}
+            />
             <p className="type-caption text-text-muted">
               Model: {doc.model}. alpha = {doc.alpha}, target ={" "}
               {doc.powerTarget * 100}%, range explored up to total n ={" "}
-              {doc.maxTotalN}. Per-group n is half the total (equal groups).
+               {doc.maxTotalN}. {doc.model.startsWith("paired")
+                 ? "Each participant contributes one observation in each condition."
+                 : "Per-group n is half the total (equal groups)."}
             </p>
           </>
         )}
@@ -231,6 +237,7 @@ export function PowerPanel({ studyId }: { studyId: string }) {
 
 function PowerChart({ doc }: { doc: PowerDoc }) {
   const plotW = SVG_W - M.left - M.right;
+  const paired = doc.model.startsWith("paired");
   const xMax = doc.maxTotalN;
   const x = (totalN: number) => M.left + (plotW * totalN) / xMax;
   const y = (power: number) => M.top + PLOT_H * (1 - power);
@@ -342,7 +349,7 @@ function PowerChart({ doc }: { doc: PowerDoc }) {
           textAnchor="middle"
           className="fill-text-muted type-caption"
         >
-          total n (both groups)
+          {paired ? "participants with both conditions" : "total n (both groups)"}
         </text>
         <text
           x={12}
@@ -373,7 +380,7 @@ function PowerChart({ doc }: { doc: PowerDoc }) {
               />
               {req?.reachesTarget && req.nPerGroup !== null && (
                 <circle
-                  cx={x(2 * req.nPerGroup)}
+                  cx={x(paired ? req.totalN ?? 0 : 2 * req.nPerGroup)}
                   cy={y(req.powerAtTargetN ?? 0)}
                   r={4}
                   fill="var(--surface)"
@@ -415,9 +422,11 @@ function PowerChart({ doc }: { doc: PowerDoc }) {
 function RequiredTable({
   requirements,
   maxTotalN,
+  paired,
 }: {
   requirements: PowerRequirement[];
   maxTotalN: number;
+  paired: boolean;
 }) {
   return (
     <div className="overflow-x-auto rounded-card border border-border bg-surface">
@@ -425,7 +434,7 @@ function RequiredTable({
         <thead>
           <tr className="border-b border-border text-left type-caption text-text-muted">
             <th className="px-4 py-2 font-normal">effect size</th>
-            <th className="px-4 py-2 font-normal">per-group n</th>
+            <th className="px-4 py-2 font-normal">{paired ? "participants" : "per-group n"}</th>
             <th className="px-4 py-2 font-normal">total n</th>
             <th className="px-4 py-2 font-normal">target reached</th>
           </tr>
@@ -444,7 +453,7 @@ function RequiredTable({
                 {r.reachesTarget ? (
                   <span className="flex items-center gap-1 text-text">
                     <Crosshair className="size-3" aria-hidden />
-                    {r.totalN} total
+                    {r.totalN} {paired ? "participants" : "total"}
                   </span>
                 ) : (
                   <span className="text-text-muted">

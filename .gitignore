@@ -38,6 +38,7 @@ shadow.git/
 .agents/
 .impeccable/
 .playwright-mcp/
+skills-lock.json
 
 # Coverage artifacts (pytest-cov, CI metrics gate)
 .coverage

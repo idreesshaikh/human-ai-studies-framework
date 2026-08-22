@@ -85,3 +85,66 @@ def two_sample_power_curve(
         "curves": curves,
         "requiredN": required,
     }
+
+
+def _paired_power_at(n: int, d: float, alpha: float) -> float:
+    """Exact two-sided power for a paired t-test on within-person differences."""
+    df = n - 1
+    noncentrality = d * n**0.5
+    t_crit = sps.t.ppf(1.0 - alpha / 2.0, df)
+    return float(
+        sps.nct.sf(t_crit, df, noncentrality)
+        + sps.nct.cdf(-t_crit, df, noncentrality)
+    )
+
+
+def paired_power_curve(
+    effect_sizes: Iterable[float] = DEFAULT_EFFECT_SIZES,
+    *,
+    alpha: float = DEFAULT_ALPHA,
+    power_target: float = DEFAULT_POWER_TARGET,
+    max_total_n: int = DEFAULT_MAX_TOTAL_N,
+) -> dict:
+    """Power planning for a within-subjects comparison."""
+    sizes = [float(d) for d in effect_sizes]
+    if not sizes:
+        raise ValueError("at least one effect size is required")
+    if any(d <= 0 or d != d for d in sizes):
+        raise ValueError(f"effect sizes must be positive numbers, got {effect_sizes!r}")
+    _validate(alpha, power_target, max_total_n)
+
+    ns = list(range(2, max_total_n + 1))
+    curves: list[dict] = []
+    required: list[dict] = []
+    for d in sizes:
+        powers = [_paired_power_at(n, d, alpha) for n in ns]
+        curves.append(
+            {
+                "effectSize": d,
+                "points": [
+                    {"nPerGroup": n, "totalN": n, "power": round(p, 6)}
+                    for n, p in zip(ns, powers, strict=True)
+                ],
+            }
+        )
+        reached = next(
+            ((n, p) for n, p in zip(ns, powers, strict=True) if p >= power_target), None
+        )
+        required.append(
+            {
+                "effectSize": d,
+                "nPerGroup": reached[0] if reached else None,
+                "totalN": reached[0] if reached else None,
+                "powerAtTargetN": round(reached[1], 6) if reached else None,
+                "reachesTarget": reached is not None,
+            }
+        )
+
+    return {
+        "model": "paired t-test, within-subjects differences, two-sided",
+        "alpha": alpha,
+        "powerTarget": power_target,
+        "maxTotalN": max_total_n,
+        "curves": curves,
+        "requiredN": required,
+    }

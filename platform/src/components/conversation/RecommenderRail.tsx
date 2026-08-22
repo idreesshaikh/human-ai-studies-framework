@@ -1,4 +1,5 @@
 import { RecommendationCard } from "./RecommendationCard";
+import { EmptyState } from "@/components/shell/EmptyState";
 import type { Recommendation } from "@/lib/types";
 
 /* The live literature recommender (FR-LIT-9). The persistent home for papers
@@ -30,9 +31,7 @@ export function RecommenderRail({
       </div>
 
       {recommendations.length === 0 ? (
-        <p className="rounded-input border border-dashed border-border px-3 py-6 text-center type-caption text-text-muted">
-          As you describe your study, relevant papers appear here, grounded in the corpus.
-        </p>
+        <EmptyState line="As you describe your study, relevant papers appear here, grounded in the corpus." />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
           {recommendations.map((r) => (

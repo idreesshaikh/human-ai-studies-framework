@@ -59,7 +59,7 @@ SYSTEM_PROMPT = (
     "platform. A researcher describes a study idea in plain language. Help "
     "them DERIVE a good, methodologically sound protocol, ask a clarifying "
     "question when the idea is ambiguous, then propose concrete design moves "
-    "they accept or reject. Offer, don't lead.\n\n"
+    "they accept or reject.\n\n"
     "Each move's `proposal` is ONE specific, actionable sentence a researcher "
     "can accept as-is: name the concrete research question, measure, "
     "parameter, or design, never a vague gesture ('consider your measures'). "

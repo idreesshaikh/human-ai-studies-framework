@@ -143,6 +143,26 @@ def test_recommendations_survive_a_conversation_reload(client):
     assert reloaded_refs == sent_refs
 
 
+def test_recommendation_in_study_state_is_recomputed_after_add(client):
+    """A stored recommendation reflects the current Library after a reload."""
+    reply = _ask(client, "I think junior developers over-trust AI-generated code")
+    recommendation = reply["recommendations"][0]
+    assert recommendation["inStudy"] is False
+
+    added = client.post(
+        f"/studies/{STUDY}/papers/from-match",
+        json={"ref": recommendation["ref"], "matchReason": "test"},
+    )
+    assert added.status_code == 200, added.text
+
+    reloaded = client.get(f"/studies/{STUDY}/conversation").json()
+    platform_turn = next(t for t in reloaded["turns"] if t["role"] == "platform")
+    current = next(
+        r for r in platform_turn["recommendations"] if r["ref"] == recommendation["ref"]
+    )
+    assert current["inStudy"] is True
+
+
 def test_self_report_draws_metr_caution(client):
     """F2.2: measuring productivity by self-report alone gets the METR caution."""
     reply = _ask(client, "I'll measure productivity by self-report survey")
@@ -476,17 +496,50 @@ def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(
     assert body["text"]
 
 
-def test_a_holding_turn_is_never_written_into_the_record(client, monkeypatch):
+def test_a_holding_turn_survives_a_reload(client, monkeypatch):
     """
-    An outage is not part of the study's design record — and a stored "I couldn't reach
-    the model" would be replayed to that model as history on the next turn.
+    The explanation of why nothing answered matters most exactly when the researcher
+    comes back to a silent thread — so it has to still be there after a reload, not
+    just for the one browser session that happened to be open when it failed.
     """
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())
     client.post(f"/studies/{STUDY}/conversation/turns", json={"text": "a thought"})
 
     turns = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
-    assert [t["role"] for t in turns] == ["researcher"]
+    assert [t["role"] for t in turns] == ["researcher", "platform"]
     assert turns[0]["text"] == "a thought"
+    assert turns[1]["source"] == "unavailable"
+    assert turns[1]["text"]
+
+
+def test_a_holding_turn_is_never_replayed_to_the_model(tmp_path, monkeypatch):
+    """
+    Persisted for display is not the same as part of the design record. A holding
+    turn still must never reach the model as history on a later, real turn — a stored
+    "I couldn't reach the model" replayed back in would be a fabricated assistant turn,
+    and the model would answer as though it had said that itself.
+    """
+    from middleware import design_assistant as da
+
+    settings = Settings(
+        db_path=tmp_path / "replay.sqlite3",
+        data_dir=tmp_path / "data",
+        port=8000,
+        spa_dist=tmp_path / "no-dist",
+    )
+    factory = make_session_factory(f"sqlite:///{settings.db_path}")
+    local_client = TestClient(create_app(settings))
+
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())
+    local_client.post(f"/studies/{STUDY}/conversation/turns", json={"text": "a thought"})
+
+    with factory() as s:
+        history = da._load_history(s, STUDY)
+    assert all("couldn't reach" not in h["content"].lower() for h in history)
+    assert all(h["role"] == "user" for h in history), (
+        "the only turn on record is the researcher's own — the holding turn must "
+        "not surface as a fabricated assistant message"
+    )
 
 
 def test_the_researchers_own_turn_survives_a_model_outage(client, monkeypatch):

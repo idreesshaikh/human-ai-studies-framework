@@ -159,18 +159,21 @@ export function DraftRail({
               {/* A freshly created study compiles to a protocol that is not
                 * empty — it carries scaffolding the researcher never wrote
                 * ("Study: led by Researcher", "Phases: design") — so
-                * `sections.length > 0` was true from the first paint and the
-                * blank plate below was never reached. What the rail showed
-                * instead was two lines of boilerplate above four hundred
-                * pixels of nothing, which says less than nothing: it reads as
-                * a protocol that is finished and almost empty.
-                *
-                * Until the conversation has resolved a single mandatory slot,
-                * the plate's own frame leads and the compiled scaffolding
-                * follows it. */}
-              {!conversationStarted && <SlotPlate draft={draft} />}
+                * `sections.length > 0` was true from the first paint even
+                * when no move had ever been accepted. Showing the unfilled
+                * `SlotPlate` here too meant every slot it lists as "not yet
+                * resolved" sat directly above the real, filled-in section
+                * saying the opposite — a study whose protocol arrived
+                * pre-built (template, merge, derived paper) contradicted
+                * itself before a reader got past the first screen. The plate
+                * only belongs where there is truly nothing else to show,
+                * which is the `sections.length === 0` branch below. */}
               {sections.map((section) => (
-                <SectionBlock key={section.heading} section={section} />
+                <SectionBlock
+                  key={section.heading}
+                  section={section}
+                  collapsible={sections.length > 4}
+                />
               ))}
             </div>
           ) : (
@@ -230,16 +233,21 @@ function SlotPlate({ draft }: { draft: ProtocolDraft }) {
   );
 }
 
-function SectionBlock({ section }: { section: ProtocolSection }) {
+function SectionBlock({
+  section,
+  collapsible,
+}: {
+  section: ProtocolSection;
+  collapsible: boolean;
+}) {
   return (
-    /* A record, not a run of paragraphs. Every section of the compiled draft
-     * is a heading and the values under it, so it is set as one: the heading
-     * in the plate's own label voice, the values hanging off a rule, and a
-     * ruled division between sections. Stacked as bare paragraphs at the same
-     * size, the headings and the values ran together and the rail read as
-     * prose rather than as a document with parts. */
-    <div className="border-t border-border pt-2.5 first:border-0 first:pt-0">
-      <h3 className="type-legend text-text-muted">{section.heading}</h3>
+    <details
+      open={!collapsible}
+      className="border-t border-border pt-2.5 first:border-0 first:pt-0"
+    >
+      <summary className="type-legend cursor-pointer text-text-muted">
+        {section.heading}
+      </summary>
       {section.lines.length > 1 ? (
         <ul className="mt-1 flex flex-col gap-1">
           {section.lines.map((line, i) => (
@@ -251,6 +259,6 @@ function SectionBlock({ section }: { section: ProtocolSection }) {
       ) : (
         <p className="type-body mt-1 text-text">{section.lines[0]}</p>
       )}
-    </div>
+    </details>
   );
 }

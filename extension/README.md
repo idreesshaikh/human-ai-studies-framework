@@ -87,8 +87,10 @@ from the study protocol — no manual configuration, no side-channel.
 5. Run **_TERN: Start Study Session_** when ready — the session uses the
    configuration that arrived from the study.
 
-The middleware refuses to pair a study that has not cleared its ethics gate:
-no data is collected before approval. Capture settings are re-checked at the
+The middleware refuses to pair a study with no compiled, validated protocol —
+there is no separate ethics-approval gate; that approval is the university's
+to grant, and what the platform owes the participant is the consent statement
+above, shown before capture begins. Capture settings are re-checked at the
 start of each session, so a researcher can update the protocol between
 sessions and paired participants pick up the change on their next start.
 

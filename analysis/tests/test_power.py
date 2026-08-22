@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from analysis.power import two_sample_power_curve
+from analysis.power import paired_power_curve, two_sample_power_curve
 
 
 def test_textbook_anchors():
@@ -74,3 +74,11 @@ def test_validation():
         two_sample_power_curve(())
     with pytest.raises(ValueError):
         two_sample_power_curve((-0.2,))
+
+
+def test_paired_curve_uses_participants_not_two_independent_groups():
+    result = paired_power_curve((0.8,), max_total_n=80)
+    curve = result["curves"][0]
+    assert result["model"].startswith("paired t-test")
+    assert curve["points"][0]["totalN"] == curve["points"][0]["nPerGroup"]
+    assert result["requiredN"][0]["totalN"] < 52
