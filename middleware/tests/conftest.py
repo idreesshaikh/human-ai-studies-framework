@@ -16,8 +16,6 @@ def _model(monkeypatch):
 
     double = model_double.plausible()
     monkeypatch.setenv("MISTRAL_API_KEY", "test-key")
-    monkeypatch.delenv("LLM_BASE_URL", raising=False)
-    monkeypatch.delenv("LLM_API_KEY", raising=False)
     monkeypatch.setattr(assistant, "_post_json", double.post)
     monkeypatch.setattr(
         assistant.MistralProvider, "__init__", _provider_init(double.post)
@@ -27,14 +25,14 @@ def _model(monkeypatch):
 def _provider_init(default_post):
     """A ``MistralProvider.__init__`` whose default transport is the double."""
 
-    def __init__(self, api_key, model=None, post=None, stream=None):
+    def __init__(self, api_key, post=None, stream=None):
         from middleware import assistant
 
         assistant._ChatCompletionsProvider.__init__(
             self,
             "https://api.mistral.ai/v1/chat/completions",
             api_key,
-            model or assistant.MISTRAL_MODEL,
+            assistant.MISTRAL_MODEL,
             post or default_post,
             stream or assistant._post_stream,
         )

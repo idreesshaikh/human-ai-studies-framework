@@ -216,99 +216,17 @@ def _seed_events_and_metrics(client):
     )
 
 
-def test_make_client_validates_the_model_tier(monkeypatch):
-    monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
+def test_make_client_uses_mistral_large(monkeypatch):
     monkeypatch.setenv("MISTRAL_API_KEY", "m")
     assert assistant.make_client().model == assistant.MISTRAL_MODEL
-    assert assistant.make_client("mistral-large-latest").model == "mistral-large-latest"
-    assert assistant.make_client("gpt-99").model == assistant.MISTRAL_MODEL
     monkeypatch.delenv("MISTRAL_API_KEY")
     assert assistant.make_client() is None
 
 
-def test_make_client_prefers_the_openai_compatible_override(monkeypatch):
-    monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
-    monkeypatch.setenv("MISTRAL_API_KEY", "m")
-    monkeypatch.setenv("LLM_BASE_URL", "https://api.openai.com/v1")
-    monkeypatch.setenv("LLM_API_KEY", "sk-test")
-    monkeypatch.setenv("LLM_MODEL", "gpt-4o")
-    client = assistant.make_client("mistral-large-latest")
-    assert isinstance(client, assistant.OpenAICompatibleProvider)
-    assert client.model == "gpt-4o"
-    assert client.base_url == "https://api.openai.com/v1/chat/completions"
-    assert assistant.configured() is True
-
-
-def test_make_client_openai_compatible_defaults_model_when_unset(monkeypatch):
-    monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
-    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
-    monkeypatch.setenv("LLM_BASE_URL", "https://my-gateway.example/v1/")
-    monkeypatch.setenv("LLM_API_KEY", "sk-test")
-    monkeypatch.delenv("LLM_MODEL", raising=False)
-    client = assistant.make_client()
-    assert client.model == assistant.DEFAULT_OPENAI_COMPATIBLE_MODEL
-    assert client.base_url == "https://my-gateway.example/v1/chat/completions"
-
-
-def test_make_client_falls_back_to_mistral_without_the_override(monkeypatch):
-    monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
-    monkeypatch.delenv("LLM_BASE_URL", raising=False)
-    monkeypatch.delenv("LLM_API_KEY", raising=False)
+def test_make_client_uses_mistral_large_only(monkeypatch):
     monkeypatch.setenv("MISTRAL_API_KEY", "m")
     client = assistant.make_client()
     assert isinstance(client, assistant.MistralProvider)
-    assert client.model == assistant.MISTRAL_MODEL
+    assert client.model == "mistral-large-latest"
     monkeypatch.delenv("MISTRAL_API_KEY")
     assert assistant.configured() is False
-
-
-def test_make_client_uses_opencode_go_for_the_design_default(monkeypatch):
-    monkeypatch.delenv("LLM_BASE_URL", raising=False)
-    monkeypatch.delenv("LLM_API_KEY", raising=False)
-    monkeypatch.delenv("LLM_MODEL", raising=False)
-    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
-    monkeypatch.setenv("OPENCODE_API_KEY", "opencode-test")
-
-    client = assistant.make_client(assistant.MISTRAL_BEST_MODEL)
-
-    assert isinstance(client, assistant.OpenAICompatibleProvider)
-    assert client.model == "deepseek-v4-flash"
-    assert client.base_url == "https://opencode.ai/zen/go/v1/chat/completions"
-    assert assistant.configured() is True
-
-
-def test_opencode_provider_falls_back_to_mistral_for_blocking_requests(monkeypatch):
-    monkeypatch.delenv("LLM_BASE_URL", raising=False)
-    monkeypatch.delenv("LLM_API_KEY", raising=False)
-    monkeypatch.delenv("LLM_MODEL", raising=False)
-    monkeypatch.setenv("OPENCODE_API_KEY", "opencode-test")
-    monkeypatch.setenv("MISTRAL_API_KEY", "mistral-test")
-
-    seen: list[tuple[str, str]] = []
-
-    def rejected(url, payload, headers):
-        raise PermissionError("primary rejected")
-
-    def recovered(url, payload, headers):
-        seen.append((url, payload["model"]))
-        return {"choices": [{"message": {"content": "ok"}}]}
-
-    primary = assistant.OpenAICompatibleProvider(
-        "https://opencode.example/v1",
-        "opencode-test",
-        "deepseek-v4-flash",
-        post=rejected,
-    )
-    fallback = assistant.MistralProvider("mistral-test", post=recovered)
-    client = assistant.FailoverProvider(primary, fallback)
-
-    result = client.post(
-        primary.base_url,
-        {"model": "deepseek-v4-flash", "messages": []},
-        {"Authorization": "Bearer opencode-test"},
-    )
-
-    assert result["choices"][0]["message"]["content"] == "ok"
-    assert seen == [
-        ("https://api.mistral.ai/v1/chat/completions", "mistral-medium-latest")
-    ]

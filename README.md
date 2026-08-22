@@ -36,10 +36,9 @@ against data before a single real session happens.
 
 ## Quick start
 
-Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22, and a model key for
-the design conversation. The recommended compatible route is an OpenCode Go
-key, which defaults to Kimi K3; a Mistral key remains a supported fallback.
-Everything else works without a model key.
+Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22, and a Mistral API key
+for the design conversation. PHOENIX uses Mistral Large only, keeping model
+processing on the EU Mistral route. Everything else works without a model key.
 
 ```bash
 git clone https://github.com/idreesshaikh/human-ai-studies-framework.git
@@ -48,12 +47,7 @@ cd human-ai-studies-framework
 uv sync --all-packages
 (cd platform && npm ci && npm run build)
 
-echo "OPENCODE_API_KEY=..." >> .env
-# Optional: DeepSeek V4 Flash is the default for the OpenCode Go endpoint.
-# OPENCODE_MODEL=deepseek-v4-flash
-
-# Or use Mistral when OpenCode is unavailable.
-# MISTRAL_API_KEY=sk-...
+echo "MISTRAL_API_KEY=..." >> .env
 
 uv run python -m middleware corpus-import   # load the 15,000-paper index
 uv run python -m middleware serve           # web app on :8000
@@ -62,14 +56,11 @@ uv run python -m middleware serve           # web app on :8000
 Open <http://localhost:8000> and describe your idea. Or use Docker, which
 brings its own Postgres: `docker compose up`.
 
-The provider selection order is explicit `LLM_BASE_URL` + `LLM_API_KEY`, then
-OpenCode (`OPENCODE_API_KEY`), then Mistral (`MISTRAL_API_KEY`). When both
-OpenCode and Mistral are configured, OpenCode is tried first and Mistral Large
-automatically takes over if the compatible gateway rejects or loses a request.
-Set `OPENCODE_BASE_URL` and `OPENCODE_MODEL` to test another OpenCode-compatible
-model without changing the application code. The conversation still enforces
-the platform contract itself: one question, one reversible move, valid
-grounding, and compiler-checked protocol patches.
+The design conversation has one provider and one model: Mistral Large
+(`mistral-large-latest`) through Mistral's EU service. There are no alternate
+gateway or model routes to configure. The conversation still enforces the
+platform contract itself: one question, one reversible move, valid grounding,
+and compiler-checked protocol patches.
 
 ### Running a session
 

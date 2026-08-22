@@ -3170,12 +3170,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     def _design_turn_client():
         """
-        Use the configured strongest model for the design conversation. These turns
-        shape the researcher's protocol, so response quality and reasoning take priority
-        over a small latency saving. The explicit model argument keeps the Mistral tier
-        visible, while OpenCode and other compatible overrides honour their own model.
+        Use the platform's sole Mistral Large model for the design conversation. These
+        turns shape the researcher's protocol, so the model boundary stays explicit.
         """
-        return assistant.make_client(assistant.MISTRAL_BEST_MODEL)
+        return assistant.make_client()
 
     def _persist_platform_turn(
         s: Session, study_id: str, researcher: ConversationTurn, reply: dict

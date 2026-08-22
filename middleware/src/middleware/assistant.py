@@ -1,33 +1,19 @@
 """
-The shared LLM client layer: provider setup, model tiers, and the protocol's
-``literature:`` seed links. The design conversation and the corpus match ladder
-are its only callers  -  this module holds no conversational surface of its own.
+The shared Mistral client layer and the protocol's ``literature:`` seed links.
+The design conversation and the corpus match ladder are its only callers - this
+module holds no conversational surface of its own.
 """
 
 from __future__ import annotations
 
 import json
-import logging
 import os
 import urllib.request
 from collections.abc import Callable
 from typing import Protocol
 
-log = logging.getLogger(__name__)
-
-MISTRAL_MODEL = "mistral-medium-latest"
-MISTRAL_BEST_MODEL = "mistral-large-latest"
-MISTRAL_MODELS = (
-    "mistral-small-latest",
-    "mistral-medium-latest",
-    "mistral-large-latest",
-)
-DEFAULT_OPENAI_COMPATIBLE_MODEL = "gpt-4o-mini"
-OPENCODE_BASE_URL = "https://opencode.ai/zen/go/v1/chat/completions"
-# DeepSeek V4 Flash is the OpenCode Go default for this app: it uses the
-# Chat Completions endpoint already implemented here and has a much larger
-# request allowance than Kimi K3. Override with OPENCODE_MODEL when needed.
-OPENCODE_MODEL = "deepseek-v4-flash"
+# The platform intentionally uses one sovereign, EU-based model route.
+MISTRAL_MODEL = "mistral-large-latest"
 MAX_TOKENS = 2048
 MAX_TOOL_ROUNDS = 6
 
@@ -123,8 +109,7 @@ class LLMClient(Protocol):
     """
     The shape every LLM-consuming feature in this module calls against (the knowledge
     assistant, the design conversation's ``design_llm.py``, and
-    ``matching.rerank_with_llm``) - formalized now that a second provider
-    (``OpenAICompatibleProvider``) is real, not just a duck-typed convention.
+    ``matching.rerank_with_llm``).
     """
 
     model: str
@@ -136,10 +121,7 @@ class LLMClient(Protocol):
 
 class _ChatCompletionsProvider:
     """
-    A tool-use loop over any host that speaks the OpenAI chat-completions shape -
-    Mistral's REST API already speaks this exact shape (D32), so an OpenAI-compatible
-    override is the same loop pointed at a different ``base_url``/``model``, not a
-    second implementation.
+    Mistral's chat-completions tool-use loop (D32).
     """
 
     name = "chat-completions"
@@ -226,149 +208,33 @@ class MistralProvider(_ChatCompletionsProvider):
     def __init__(
         self,
         api_key: str,
-        model: str = MISTRAL_MODEL,
         post=_post_json,
         stream=_post_stream,
     ):
         super().__init__(
-            "https://api.mistral.ai/v1/chat/completions", api_key, model, post, stream
+            "https://api.mistral.ai/v1/chat/completions",
+            api_key,
+            MISTRAL_MODEL,
+            post,
+            stream,
         )
-
-
-class OpenAICompatibleProvider(_ChatCompletionsProvider):
-    """
-    Any OpenAI-compatible host (OpenAI itself, or a compatible gateway in front of
-    another model), configured entirely via env vars
-    (``LLM_BASE_URL``/``LLM_API_KEY``/``LLM_MODEL``) - drop in a better model's API key
-    and it works immediately, no code change (FR-CONV-1.4).
-    """
-
-    name = "openai-compatible"
-
-    def __init__(
-        self,
-        base_url: str,
-        api_key: str,
-        model: str,
-        post=_post_json,
-        stream=_post_stream,
-    ):
-        root = base_url.rstrip("/")
-        endpoint = (
-            root if root.endswith("/chat/completions") else f"{root}/chat/completions"
-        )
-        super().__init__(endpoint, api_key, model, post, stream)
-
-
-class FailoverProvider:
-    """Keep a compatible primary model from making the conversation unavailable.
-
-    OpenCode can reject a request at the edge even while its catalogue endpoint is
-    reachable. When a configured Mistral key exists, retry the same request against
-    Mistral with its own endpoint and model. The wrapper preserves the small provider
-    surface used by both the design conversation and the knowledge assistant.
-    """
-
-    name = "failover"
-
-    def __init__(
-        self, primary: _ChatCompletionsProvider, fallback: _ChatCompletionsProvider
-    ):
-        self.primary = primary
-        self.fallback = fallback
-        self.model = primary.model
-        self.base_url = primary.base_url
-        self.api_key = primary.api_key
-
-    @staticmethod
-    def _payload(provider: _ChatCompletionsProvider, payload: dict) -> dict:
-        body = dict(payload)
-        body["model"] = provider.model
-        return body
-
-    def _fallback_reason(self, exc: Exception) -> None:
-        log.warning(
-            "primary model unavailable (%s); retrying with %s",
-            type(exc).__name__,
-            self.fallback.model,
-        )
-
-    def post(self, url: str, payload: dict, headers: dict[str, str]) -> dict:
-        try:
-            return self.primary.post(url, payload, headers)
-        except Exception as exc:  # noqa: BLE001 - provider failure is the fallback seam
-            self._fallback_reason(exc)
-            return self.fallback.post(
-                self.fallback.base_url,
-                self._payload(self.fallback, payload),
-                {"Authorization": f"Bearer {self.fallback.api_key}"},
-            )
-
-    def stream(self, url: str, payload: dict, headers: dict[str, str]):
-        try:
-            yield from self.primary.stream(url, payload, headers)
-        except Exception as exc:  # noqa: BLE001 - provider failure is the fallback seam
-            self._fallback_reason(exc)
-            yield from self.fallback.stream(
-                self.fallback.base_url,
-                self._payload(self.fallback, payload),
-                {"Authorization": f"Bearer {self.fallback.api_key}"},
-            )
-
-    def run(
-        self, question: str, history: list[dict], tools: dict[str, Callable]
-    ) -> tuple[str, list[dict]]:
-        try:
-            return self.primary.run(question, history, tools)
-        except Exception as exc:  # noqa: BLE001 - provider failure is the fallback seam
-            self._fallback_reason(exc)
-            return self.fallback.run(question, history, tools)
 
 
 def configured() -> bool:
     """
-    Whether an LLM client can be built - an explicit compatible gateway, OpenCode, or
-    the Mistral fallback (D32 rev 2).
+    Whether the EU Mistral model route can be built.
     """
-    if os.environ.get("LLM_BASE_URL") and os.environ.get("LLM_API_KEY"):
-        return True
-    if os.environ.get("OPENCODE_API_KEY"):
-        return True
     return bool(os.environ.get("MISTRAL_API_KEY"))
 
 
-def make_client(model: str | None = None) -> LLMClient | None:
+def make_client() -> LLMClient | None:
     """
-    Resolve the configured LLM client, or ``None`` when nothing is configured (callers
-    then degrade gracefully - never raises).
+    Resolve the sole configured Mistral Large client, or ``None`` when no key exists.
     """
-    base_url = os.environ.get("LLM_BASE_URL")
-    override_key = os.environ.get("LLM_API_KEY")
-    if base_url and override_key:
-        override_model = os.environ.get("LLM_MODEL") or DEFAULT_OPENAI_COMPATIBLE_MODEL
-        return OpenAICompatibleProvider(base_url, override_key, override_model)
-    opencode_key = os.environ.get("OPENCODE_API_KEY")
-    if opencode_key:
-        primary = OpenAICompatibleProvider(
-            os.environ.get("OPENCODE_BASE_URL", OPENCODE_BASE_URL),
-            opencode_key,
-            os.environ.get("OPENCODE_MODEL", OPENCODE_MODEL),
-        )
-        mistral_key = os.environ.get("MISTRAL_API_KEY")
-        if mistral_key:
-            fallback_model = (
-                model if model in MISTRAL_MODELS else MISTRAL_BEST_MODEL
-            )
-            return FailoverProvider(
-                primary,
-                MistralProvider(mistral_key, model=fallback_model),
-            )
-        return primary
     key = os.environ.get("MISTRAL_API_KEY")
     if not key:
         return None
-    chosen = model if model in MISTRAL_MODELS else MISTRAL_MODEL
-    return MistralProvider(key, model=chosen)
+    return MistralProvider(key)
 
 
 def protocol_literature_targets(protocol: dict | None) -> dict[str, list[str]]:

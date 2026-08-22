@@ -54,7 +54,7 @@ def holding_turn(reason: str, stance: dict | None = None) -> dict:
 
 NO_MODEL = (
     "The design conversation needs a language model, and none is configured. "
-    "Set OPENCODE_API_KEY or MISTRAL_API_KEY on the middleware and reload. "
+    "Set MISTRAL_API_KEY on the middleware and reload. "
     "Everything else on the platform works without one."
 )
 MODEL_SILENT = (
