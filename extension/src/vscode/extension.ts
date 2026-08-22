@@ -81,12 +81,12 @@ function sidebarSession(): SidebarSession {
   const s = study;
   const conf = vscode.workspace.getConfiguration('tern');
   if (!s) {
-    return { active: false, paused: false, remainingMs: 0 };
+    return { active: false, paused: false };
   }
   return {
     active: true,
+    ending: s.ending,
     paused: s.session.paused,
-    remainingMs: s.session.remainingMs,
     participantId: conf.get<string>('participantId'),
     condition: conf.get<string>('condition'),
     dataFile: s.dataFile,
@@ -272,13 +272,18 @@ async function startSession(): Promise<void> {
       .map((i) => i.label)
       .join(', ') || 'none';
   const preflightChoice = await vscode.window.showInformationMessage(
-    `Session will capture: ${on}. Will NOT capture: ${off}. Begin?`,
+    'Ready to start this study session?',
     {
       modal: true,
-      detail: `Participant: ${participantId.trim()}, Condition: ${conditionPick.value}`,
+      detail: [
+        `Participant: ${participantId.trim()}`,
+        `Condition: ${conditionPick.label}`,
+        '',
+        `Will capture: ${on}`,
+        `Will not capture: ${off}`,
+      ].join('\n'),
     },
     'Begin session',
-    'Cancel',
   );
   if (preflightChoice !== 'Begin session') return;
 
@@ -550,7 +555,11 @@ function onTick(remaining: number): void {
   } else {
     statusBar.tick(remaining);
   }
-  sidebar.refresh();
+  // The status bar is the live second-by-second clock. Rebuilding all three
+  // tree providers here made the sidebar visibly flicker every second and
+  // caused an avoidable burst of accessibility work. The sidebar is refreshed
+  // at session start, pause/resume, and end instead; its countdown is
+  // intentionally secondary to the status bar.
   if (++s.ticksSinceSnapshot >= SNAPSHOT_EVERY_TICKS) {
     s.ticksSinceSnapshot = 0;
     persistSnapshot();
@@ -564,6 +573,8 @@ async function finishStudy(reason: 'elapsed' | 'manual'): Promise<void> {
   // real end, not a break, so the attention stream is flushed as 'session-end'.
   s.behavior?.pause('session-end');
   s.ending = true;
+  statusBar.debrief();
+  sidebar.refresh();
 
   // Freeze sensors so nothing fires during the debrief.
   s.detector.stop();
@@ -625,6 +636,7 @@ function pauseSession(): void {
   });
   persistSnapshot();
   statusBar.paused(s.session.remainingMs);
+  sidebar.refresh();
 }
 
 function resumeSession(): void {
@@ -640,6 +652,7 @@ function resumeSession(): void {
   });
   persistSnapshot();
   statusBar.tick(s.session.remainingMs);
+  sidebar.refresh();
 }
 
 function teardownStudy(resetStatusBar: boolean): void {

@@ -1,7 +1,19 @@
-# TERN - Developer Study Companion
+# TERN 1.0.0 - Developer Study Companion
 
 A zero-distraction VS Code extension for developer studies. While a participant
-works on a task (with or without AI assistance), it:
+works on a task (with or without AI assistance), TERN quietly turns the session
+into a research-ready timeline without turning the editor into a dashboard.
+
+## The short version
+
+**Pair once. Consent first. Work normally. Get a clean timeline.**
+
+TERN is the participant-side instrument in PHOENIX. The platform supplies the
+protocol; TERN supplies the in-editor session clock, short reflection prompts,
+content-free behavioral telemetry, and a local-first JSONL record. The network
+is optional. The participant stays in control.
+
+While a participant works on a task, TERN:
 
 - **Samples fatigue in-flow** - a 7-point Likert micro-prompt appears at a
   configurable interval as a native floating QuickPick (the same translucent,
@@ -60,7 +72,14 @@ window opens with the extension loaded. In that window:
    opens and the data file is finalized.
 
 To install for real participants: `npm run package` produces a `.vsix`, then
-`code --install-extension tern-0.2.0.vsix`.
+`code --install-extension tern-1.0.0.vsix`.
+
+### Try it without a study server
+
+Open [`examples/tern-lab`](examples/tern-lab) for a runnable sample workspace.
+It uses a ten-minute local-only session with a fifteen-second stuck threshold,
+so you can see TERN respond to real editor activity without pairing a real
+participant or sending anything over the network.
 
 To try the stuck prompt quickly, set `tern.stuck.thresholdSeconds`
 to `15` and `tern.stuck.cooldownMinutes` to `1`, start a session,
@@ -71,7 +90,7 @@ place the cursor in a file and wiggle it occasionally without typing.
 The Quick start above configures the extension by hand, which is ideal for
 local testing. Real participants instead **connect to a study on the
 middleware**, so their identity, condition, and capture settings all come
-from the study protocol  -  no manual configuration, no side-channel.
+from the study protocol - no manual configuration, no side-channel.
 
 1. The researcher mints a **connection string** for the participant (from the
    platform / middleware). It looks like `https://your-study-server#<token>`.
@@ -84,10 +103,10 @@ from the study protocol  -  no manual configuration, no side-channel.
    and the middleware endpoint automatically, and stores a session credential
    securely (VS Code SecretStorage). A one-line summary confirms exactly what
    the study will capture.
-5. Run **_TERN: Start Study Session_** when ready  -  the session uses the
+5. Run **_TERN: Start Study Session_** when ready - the session uses the
    configuration that arrived from the study.
 
-The middleware refuses to pair a study with no compiled, validated protocol  -
+The middleware refuses to pair a study with no compiled, validated protocol -
 there is no separate ethics-approval gate; that approval is the university's
 to grant, and what the platform owes the participant is the consent statement
 above, shown before capture begins. Capture settings are re-checked at the
@@ -148,7 +167,7 @@ Events land in `<workspace>/.study-data/<participant>_<timestamp>.jsonl`
 | `end_survey_response` / `end_survey_skipped` | Debrief submitted / dismissed    | responses (per-item 1–7), comments, msToComplete                                  |
 | `session_end`                                | Everything flushed               | reason                                                                            |
 
-### Behavioral telemetry events (schema v3)
+### Behavioral telemetry events (schema v4)
 
 The behavioral leg (MP-05) adds the event types below. All payloads are
 FR-ETH-2-safe: sizes, shapes, and timings only - never code content,

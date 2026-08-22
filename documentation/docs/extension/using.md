@@ -1,4 +1,4 @@
-# Using TERN
+# Using TERN 1.0.0
 
 A study session is a focused work interval, from the moment a participant
 starts it to the debrief. Everything in between is captured as events.
@@ -8,36 +8,23 @@ starts it to the debrief. Everything in between is captured as events.
 Click **`Study: idle`** in the status bar, or run _TERN: Start Study Session_
 from the command palette (F1).
 
-<figure markdown="span">
-  ![Command palette](../assets/screens/tern-command-palette.png){ width="700" }
-  <figcaption>All TERN commands are available from the command palette.</figcaption>
-</figure>
-
 1. **Participant ID**  -  enter the participant's ID, e.g. `P07`.
 2. **Condition**  -  pick the A/B condition: **AI-assisted** or **Unassisted**.
    The condition is assigned by the study's counterbalanced rotation.
 3. **Preflight check**  -  a summary of what will be captured and where the data
    will go. Nothing starts until you confirm.
 
-<figure markdown="span">
-  ![Participant ID prompt](../assets/screens/tern-participant-id.png){ width="700" }
-  <figcaption>Enter the participant ID.</figcaption>
-</figure>
-
-<figure markdown="span">
-  ![Condition pick](../assets/screens/tern-condition.png){ width="700" }
-  <figcaption>Pick the assigned condition.</figcaption>
-</figure>
-
-<figure markdown="span">
-  ![Preflight check](../assets/screens/tern-preflight.png){ width="700" }
-  <figcaption>Review the preflight summary and begin the session.</figcaption>
-</figure>
+The participant prompt, condition picker, and preflight check are native VS Code
+surfaces, so they inherit the editor's keyboard navigation and accessibility
+behaviour. The preflight dialog is the last gate: choosing **Begin session** is
+the moment the local event file is created.
 
 ## During the session
 
-The only permanent UI is the **status-bar countdown**  -  the session clock in
-minutes and seconds. Click it any time to open the session menu:
+The **status-bar countdown** is the single live clock, in minutes and seconds.
+The TERN sidebar mirrors the session state but deliberately does not redraw once
+per second; this keeps the editor calm and avoids a flickering tree view. Click
+the status-bar clock any time to open the session menu:
 
 - **Log fatigue now**  -  answer a fatigue probe immediately.
 - **Pause study session**  -  take a break; paused time is excluded from the
@@ -46,13 +33,8 @@ minutes and seconds. Click it any time to open the session menu:
 - **End study session**  -  finish early and open the debrief.
 
 <figure markdown="span">
-  ![Session running](../assets/screens/tern-session-running.png){ width="700" }
-  <figcaption>The status-bar countdown is the only permanent UI.</figcaption>
-</figure>
-
-<figure markdown="span">
-  ![Session menu](../assets/screens/tern-status-menu.png){ width="700" }
-  <figcaption>The session menu from the status bar.</figcaption>
+  ![TERN recording a real sample workspace](../assets/screens/tern-sample-code.png){ width="700" }
+  <figcaption>A real TERN session in the sample workspace: code stays in the editor, while the live clock stays in the status bar.</figcaption>
 </figure>
 
 ### Fatigue probes
@@ -61,16 +43,6 @@ A 7-point Likert micro-prompt (`1`–`7` + Enter, `Esc` to skip) appears at a
 configurable interval as a native floating QuickPick. It **waits for a typing
 pause** (≥4 s of silence, up to 60 s), so it never interrupts mid-keystroke.
 You can also answer one anytime via **Log fatigue now**.
-
-<figure markdown="span">
-  ![Fatigue probe](../assets/screens/tern-fatigue-probe.png){ width="700" }
-  <figcaption>The fatigue micro-prompt, keyboard-first.</figcaption>
-</figure>
-
-<figure markdown="span">
-  ![Fatigue answered](../assets/screens/tern-fatigue-answer.png){ width="700" }
-  <figcaption>Answer with 1–7 and Enter.</figcaption>
-</figure>
 
 ### Stuck detection
 
@@ -88,7 +60,9 @@ which is signal too.
 
 When the timer elapses  -  or you run _End Study Session_  -  a frosted-glass
 **end-of-study debrief** (NASA-TLX-inspired, same 7-point scale) opens
-automatically.
+automatically. During the debrief the status bar says **Study: debrief** and the
+sidebar says **Debrief in progress**; the countdown is never left running behind
+the survey.
 
 <figure markdown="span">
   ![The end-of-study debrief](../assets/screens/tern-debrief.png){ width="700" }

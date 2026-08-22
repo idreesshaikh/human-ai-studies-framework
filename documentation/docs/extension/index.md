@@ -1,10 +1,13 @@
-# TERN · Developer Study Companion
+# TERN 1.0.0 · Developer Study Companion
 
 TERN is the VS Code extension participants run during a study. It hosts two of
 the framework's instrument legs  -  the **cognitive/self-report** leg and the
 **behavioural telemetry** leg  -  under one install and one sink pipeline. It is
 configured entirely by the protocol you designed, so the study you designed is
 the study that runs.
+
+> **The participant experience in one line:** pair once, consent first, work
+> normally, and leave with a clean timeline—not a recording of the work itself.
 
 <figure markdown="span">
   ![TERN sidebar, idle](../assets/screens/tern-sidebar-idle.png){ width="700" }
@@ -58,3 +61,10 @@ the study that runs.
 - [Captured data](captured-data.md)  -  the event schema, one file per session.
 - [Privacy](privacy.md)  -  what is captured, what never is, and where data
   goes.
+
+## Try it before pairing a real study
+
+The repository ships a small [`TERN lab`](https://github.com/idreesshaikh/human-ai-studies-framework/tree/main/extension/examples/tern-lab)
+workspace. It is deliberately local-only and tuned for a quick demonstration:
+open `sample_app.py`, start a ten-minute session, make a few edits, and pause
+on `prioritize_tasks` long enough to see the inline stuck prompt.

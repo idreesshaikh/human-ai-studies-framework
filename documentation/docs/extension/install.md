@@ -1,4 +1,9 @@
-# Installing TERN
+# Installing TERN 1.0.0
+
+TERN is distributed as a VSIX because participants install it into VS Code,
+not into the PHOENIX web app. The participant path is intentionally small:
+
+`install → pair → consent → start → work → export`
 
 ## For participants (paired install)
 
@@ -24,6 +29,17 @@ npm install
 npm run package            # produces tern-<version>.vsix
 code --install-extension tern-<version>.vsix
 ```
+
+For the 1.0.0 release, the artifact is named `tern-1.0.0.vsix`.
+
+### A five-minute local demo
+
+The repository includes a safe, unpaired workspace at
+[`extension/examples/tern-lab`](https://github.com/idreesshaikh/human-ai-studies-framework/tree/main/extension/examples/tern-lab).
+It writes only to a local `.study-data/` directory and uses a short demo
+threshold for stuck detection. Open `sample_app.py`, start a session, then
+move around the file, edit, save, and pause on `prioritize_tasks` to see the
+extension's core signals in action.
 
 ## Running the extension development host
 

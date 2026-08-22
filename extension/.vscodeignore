@@ -17,5 +17,7 @@ node_modules/**
 **/*.ts
 !out/**/*.js
 docs/**
+examples/**
+**/.study-data/**
 PROJECT_GUIDE.md
 media/icon.svg

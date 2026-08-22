@@ -32,8 +32,9 @@ import { STATE_BLOCK, STATE_LEGS, STATE_PENDING } from './pairing';
  *  own and cannot keep a finished session alive. */
 export interface SidebarSession {
   active: boolean;
+  /** The session is closed to capture while the end survey is on screen. */
+  ending?: boolean;
   paused: boolean;
-  remainingMs: number;
   participantId?: string;
   condition?: string;
   dataFile?: string;
@@ -57,13 +58,6 @@ const STATE_WORDS: Record<LegState, string> = {
   disabled: 'Off for this study',
   unavailable: 'Not part of this study',
 };
-
-function fmtRemaining(ms: number): string {
-  const total = Math.max(0, Math.round(ms / 1000));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 
 /** One row. `kind` keeps the three providers' node types apart without a
  *  class hierarchy nobody needs. */
@@ -134,10 +128,28 @@ export class SessionView extends BaseProvider {
         ),
       ];
     }
+    if (s.ending) {
+      return [
+        new Row(
+          'Debrief in progress',
+          'Answer the questions to finish',
+          'comment-discussion',
+        ),
+        ...(s.participantId
+          ? [
+              new Row(
+                'You are',
+                `${s.participantId} · ${s.condition ?? ''}`.trim(),
+                'account',
+              ),
+            ]
+          : []),
+      ];
+    }
     const rows = [
       new Row(
         s.paused ? 'Paused' : 'Recording',
-        fmtRemaining(s.remainingMs) + ' left',
+        s.paused ? 'Timer paused' : 'Timer in status bar',
         s.paused ? 'debug-pause' : 'record',
       ),
     ];

@@ -178,8 +178,8 @@ All settings live under the `tern.*` namespace (VS Code Settings →
 search "TERN"). Defined in `package.json` under
 `contributes.configuration`.
 
-This is the flat reference. For a task-oriented walkthrough  -  which settings
-matter when you set up a study, and why the defaults are what they are  -  see
+This is the flat reference. For a task-oriented walkthrough - which settings
+matter when you set up a study, and why the defaults are what they are - see
 [`docs/configuring-a-study.md`](docs/configuring-a-study.md).
 
 | Setting                           | Default       | Meaning                                                                                         |
@@ -222,7 +222,7 @@ stamped by `Recorder`:
 
 ```jsonc
 {
-  "v": 3,                       // SCHEMA_VERSION - bump on shape changes
+  "v": 4,                       // SCHEMA_VERSION - bump on shape changes
   "ts": "2026-07-07T14:03:22.114Z", // wall clock, for cross-leg joins
   "mono": 903221,               // monotonic ms since start, for durations
   "sessionId": "s-lx2...",

@@ -4,7 +4,36 @@ All notable changes to the TERN extension are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] - 2026-07-21
+## [1.0.0] - 2026-08-22
+
+TERN is ready for its first public release. This release packages the complete
+study-participant path: safe pairing, consent before capture, protocol-derived
+settings, a quiet session surface, content-free behavioral telemetry, crash
+recovery, and a local-first JSONL sink with optional middleware delivery.
+
+### Added
+
+- A participant-facing TERN sidebar with session state, capture scope, and
+  local/mirrored data status.
+- Protocol pairing through a copy-safe connection string or `vscode://` deep
+  link, with consent shown before any capture starts.
+- Session-boundary config refreshes that defer protocol changes until the next
+  session instead of mutating a live run.
+- A runnable [`examples/tern-lab`](examples/tern-lab) workspace for trying the
+  extension without a study server.
+
+### Privacy and reliability
+
+- Capture is local-first: a network outage cannot erase the session file.
+- Middleware credentials live in VS Code SecretStorage and are never written
+  to event rows.
+- The ingest server stamps study identity and assignment keys, while the
+  extension records only the content-free fields its protocol enables.
+- The extension's core suite covers session timing, pairing, config boundaries,
+  telemetry classification, privacy filters, survey state, and sink failure
+  isolation.
+
+## [Unreleased]
 
 ### Changed
 

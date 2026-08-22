@@ -2,7 +2,7 @@
   "name": "tern",
   "displayName": "TERN: Telemetry for Engineering & Reasoning Norms",
   "description": "Zero-distraction in-IDE overlay for developer studies: fatigue Likert sampling, stuck detection with inline code prompts, and session telemetry.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "idreesrazak",
   "repository": {
     "type": "git",

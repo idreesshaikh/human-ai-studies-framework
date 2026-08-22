@@ -1,0 +1,13 @@
+{
+  "tern.participantId": "DEMO-01",
+  "tern.condition": "unassisted",
+  "tern.session.durationMinutes": 10,
+  "tern.fatigue.intervalMinutes": 2,
+  "tern.fatigue.waitForPauseSeconds": 1,
+  "tern.fatigue.jitterPercent": 0,
+  "tern.fatigue.quietTailMinutes": 0,
+  "tern.stuck.thresholdSeconds": 15,
+  "tern.stuck.cooldownMinutes": 1,
+  "tern.behavior.languages": ["python"],
+  "tern.output.httpEndpoint": ""
+}

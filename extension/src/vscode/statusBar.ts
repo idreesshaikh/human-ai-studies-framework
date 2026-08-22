@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { formatRemaining } from '../core/clock';
 
 /**
  * The only permanently visible UI: a small countdown in the status bar.
@@ -24,22 +25,24 @@ export class SessionStatusBar implements vscode.Disposable {
   }
 
   tick(remainingMs: number): void {
-    const totalSec = Math.round(remainingMs / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    this.item.text = `$(pulse) ${m}:${s.toString().padStart(2, '0')}`;
+    this.item.text = `$(pulse) ${formatRemaining(remainingMs)}`;
     this.item.tooltip =
       'Study session running - click for options (log fatigue, end session)';
   }
 
   /** Session running but paused: freeze the countdown and flag it. */
   paused(remainingMs: number): void {
-    const totalSec = Math.round(remainingMs / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    this.item.text = `$(debug-pause) ${m}:${s.toString().padStart(2, '0')} paused`;
+    this.item.text = `$(debug-pause) ${formatRemaining(remainingMs)} paused`;
     this.item.tooltip =
       'Study session paused - click for options (resume, end session)';
+    this.item.backgroundColor = undefined;
+  }
+
+  /** The timer is intentionally replaced while the end-of-session survey is open. */
+  debrief(): void {
+    this.item.text = '$(comment-discussion) Study: debrief';
+    this.item.tooltip =
+      'Study debrief open - complete it to finish the session';
     this.item.backgroundColor = undefined;
   }
 
