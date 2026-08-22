@@ -213,7 +213,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
 
           {/* Selected-paper detail. */}
           {selectedNode && (
-            <aside className="relative rounded-card border border-border bg-surface-raised p-4 lg:sticky lg:top-4">
+            <aside className="relative max-h-[var(--constellation-h)] min-h-0 overflow-y-auto rounded-card border border-border bg-surface-raised p-4 lg:sticky lg:top-4">
               <button
                 className="absolute right-3 top-3 text-text-muted hover:text-text"
                 onClick={() => setSelected(null)}

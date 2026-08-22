@@ -203,7 +203,7 @@ function layoutTimelineGraph(
   const mix = (semantic: number, physics: number, semanticWeight: number) =>
     semantic * semanticWeight + physics * (1 - semanticWeight);
 
-  return base.map((n, i) => {
+  const semantic = base.map((n, i) => {
     const sameYear = n.year == null ? [] : byYear.get(n.year) ?? [];
     const yearIndex = sameYear.indexOf(i);
     /* Keep the year axis honest while giving same-year papers a small orbit.
@@ -225,6 +225,86 @@ function layoutTimelineGraph(
       y: mix(citationY, n.y, 0.62),
     };
   });
+
+  // The semantic projection is intentionally strong, but it can put a large
+  // ingested hub and many same-year suggestions on the same coordinate. A
+  // normal force solve would separate them, yet it would also erase the year
+  // axis. Resolve only the visual collisions here: suggestions yield first,
+  // ingested papers stay close to their semantic anchors, and a light return
+  // pull keeps the publication scale readable.
+  return separateTimelineNodes(nodes, edges, semantic, width, height);
+}
+
+function separateTimelineNodes(
+  nodes: GraphNodeIn[],
+  edges: GraphEdgeIn[],
+  points: PositionedNode[],
+  width: number,
+  height: number,
+): PositionedNode[] {
+  const degree = new Map(nodes.map((n) => [n.paperRef, 0]));
+  for (const edge of edges) {
+    if (degree.has(edge.src)) degree.set(edge.src, degree.get(edge.src)! + 1);
+    if (degree.has(edge.dst)) degree.set(edge.dst, degree.get(edge.dst)! + 1);
+  }
+  const citationValues = nodes.map((n) => Math.log1p(Math.max(0, n.citationCount ?? 0)));
+  const maxCitation = Math.max(...citationValues, 1);
+  const radius = nodes.map((n, i) => {
+    const degreeRadius = 9 + 3.8 * Math.sqrt(degree.get(n.paperRef) ?? 0);
+    const citationShare = Math.sqrt(citationValues[i] / maxCitation);
+    return Math.min(34, degreeRadius + citationShare * 11);
+  });
+  const target = points.map((p) => ({ x: p.x, y: p.y }));
+  const out = points.map((p) => ({ ...p }));
+  const iterations = nodes.length > 180 ? 48 : 90;
+
+  const pushApart = () => {
+    for (let a = 0; a < out.length; a++) {
+      for (let b = a + 1; b < out.length; b++) {
+        let dx = out[a].x - out[b].x;
+        let dy = out[a].y - out[b].y;
+        let distance = Math.hypot(dx, dy);
+        if (distance < 0.01) {
+          dx = (a - b) * 0.17;
+          dy = 0.23;
+          distance = Math.hypot(dx, dy);
+        }
+        const minimum = radius[a] + radius[b] + 7;
+        if (distance >= minimum) continue;
+
+        const amount = (minimum - distance) / distance;
+        const ux = dx * amount;
+        const uy = dy * amount;
+        // A study paper is an anchor. Let its suggested neighbours move away
+        // from it, instead of letting a crowded harvest drag the anchor into
+        // an unreadable knot.
+        const aWeight = nodes[a].ingested ? 0.14 : 1;
+        const bWeight = nodes[b].ingested ? 0.14 : 1;
+        const total = aWeight + bWeight;
+        out[a].x += ux * (aWeight / total);
+        out[a].y += uy * (aWeight / total);
+        out[b].x -= ux * (bWeight / total);
+        out[b].y -= uy * (bWeight / total);
+      }
+    }
+  };
+
+  for (let step = 0; step < iterations; step++) {
+    pushApart();
+    for (let i = 0; i < out.length; i++) {
+      const pull = nodes[i].ingested ? 0.035 : 0.012;
+      out[i].x += (target[i].x - out[i].x) * pull;
+      out[i].y += (target[i].y - out[i].y) * pull;
+      const margin = radius[i] + 10;
+      out[i].x = clamp(out[i].x, margin, width - margin);
+      out[i].y = clamp(out[i].y, margin, height - margin);
+    }
+  }
+  // A short collision-only tail prevents the semantic return pull from
+  // reintroducing a final one-pixel overlap after the main solve.
+  for (let pass = 0; pass < 4; pass++) pushApart();
+
+  return out.map((p) => ({ ...p, x: clamp(p.x, 0, width), y: clamp(p.y, 0, height) }));
 }
 
 function clamp(v: number, lo: number, hi: number): number {

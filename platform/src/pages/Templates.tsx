@@ -693,17 +693,17 @@ function ShapeDetailPanel({
 
         <div className="flex-1 overflow-y-auto space-y-4">
           <div>
-            <h3 className="type-label text-text">Description</h3>
+            <h3 className="type-label font-semibold text-text">Description</h3>
             <p className="mt-2 type-body text-text">{entry.description}</p>
           </div>
 
           <div>
-            <h3 className="type-label text-text">Design type</h3>
+            <h3 className="type-label font-semibold text-text">Design type</h3>
             <p className="mt-2 type-body text-text">{humanizeDesignType(entry.designType)}</p>
           </div>
 
           <div>
-            <h3 className="type-label flex items-center gap-2 text-text">
+            <h3 className="type-label flex items-center gap-2 font-semibold text-text">
               <BookOpen className="size-4" aria-hidden />
               References ({entry.references.length})
             </h3>

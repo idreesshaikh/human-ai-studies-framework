@@ -4,8 +4,8 @@
  * docs/roadmap). `Constellation.tsx` is thin glue over these functions:
  * state wiring, SVG markup, and the pointer/keyboard event plumbing. */
 
-export const NODE_RADIUS_MIN = 7;
-export const NODE_RADIUS_MAX = 30;
+export const NODE_RADIUS_MIN = 9;
+export const NODE_RADIUS_MAX = 34;
 export const LABEL_ZOOM_THRESHOLD = 12;
 export const NEUTRAL_EDGE_OPACITY = 0.32;
 export const INCIDENT_EDGE_OPACITY = 0.86;
@@ -43,7 +43,7 @@ export function nodeRadius(
   citationCount: number | null = null,
   maxCitationCount = 0,
 ): number {
-  const degreeRadius = NODE_RADIUS_MIN + 3.4 * Math.sqrt(Math.max(0, degree));
+  const degreeRadius = NODE_RADIUS_MIN + 3.8 * Math.sqrt(Math.max(0, degree));
   const citationShare =
     citationCount != null && maxCitationCount > 0
       ? Math.sqrt(
@@ -51,7 +51,7 @@ export function nodeRadius(
             Math.log1p(Math.max(1, maxCitationCount)),
         )
       : 0;
-  return clamp(degreeRadius + citationShare * 9, NODE_RADIUS_MIN, NODE_RADIUS_MAX);
+  return clamp(degreeRadius + citationShare * 11, NODE_RADIUS_MIN, NODE_RADIUS_MAX);
 }
 
 /** Every node's neighbours, both directions  -  an edge kind doesn't matter

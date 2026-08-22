@@ -99,6 +99,52 @@ ok("degreeMap counts in + out edges", degrees.get("a") === 2);
 ok("degreeMap counts a node with one edge", degrees.get("b") === 1);
 ok("degreeMap gives an unconnected node degree 0", degrees.get("d") === 0);
 
+// The timeline projection must keep a dense harvest from covering the study's
+// own papers. This is a researcher-facing invariant, not just a visual nicety:
+// the anchor is the paper the user already chose, so it must remain selectable.
+const timelineNodes = [
+  { paperRef: "anchor", title: "Anchor", year: 2024, citationCount: 300, ingested: true },
+  ...Array.from({ length: 12 }, (_, i) => ({
+    paperRef: `suggested-${i}`,
+    title: `Suggested ${i}`,
+    year: 2024,
+    citationCount: 2,
+    ingested: false,
+  })),
+];
+const timelineEdges = timelineNodes.slice(1).map((n) => ({
+  src: "anchor",
+  dst: n.paperRef,
+  kind: "recommendations",
+}));
+const timeline = layoutGraph(timelineNodes, timelineEdges, {
+  width: 1000,
+  height: 620,
+  spread: true,
+  timeline: true,
+});
+const timelineReplay = layoutGraph(timelineNodes, timelineEdges, {
+  width: 1000,
+  height: 620,
+  spread: true,
+  timeline: true,
+});
+const anchor = timeline.find((n) => n.paperRef === "anchor");
+const nearestSuggested = Math.min(
+  ...timeline
+    .filter((n) => !n.ingested)
+    .map((n) => Math.hypot(n.x - anchor.x, n.y - anchor.y)),
+);
+ok(
+  "timeline layout is deterministic",
+  JSON.stringify(timeline) === JSON.stringify(timelineReplay),
+);
+ok(
+  "timeline keeps suggested nodes outside the anchor halo",
+  nearestSuggested > 30,
+  `nearest suggestion ${nearestSuggested.toFixed(1)}px away`,
+);
+
 // ----------------------------------------------------------- relaxStep
 const settleFrom = layoutGraph(nodes, edges, { width: W, height: H });
 const relaxed = relaxStep(settleFrom, edges, 0.35, { width: W, height: H });
