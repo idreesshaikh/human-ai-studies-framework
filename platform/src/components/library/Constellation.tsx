@@ -15,6 +15,7 @@ import {
   lensEdges,
   lensNodes,
   lensCounts,
+  curateGraph,
   type Lens,
 } from "@/lib/constellationView";
 import type { PaperGraph } from "@/lib/studyApi";
@@ -146,11 +147,18 @@ export function Constellation({
    * neighbourhood highlight all have to agree with what is actually drawn,
    * or a node would sit at a position solved for edges nobody can see. */
   const [lens, setLens] = useState<Lens>("all");
-  const counts = useMemo(() => lensCounts(graph.nodes, graph.edges), [graph]);
-  const edges = useMemo(() => lensEdges(graph.edges, lens), [graph, lens]);
+  const curatedGraph = useMemo(() => curateGraph(graph), [graph]);
+  const counts = useMemo(
+    () => lensCounts(curatedGraph.nodes, curatedGraph.edges),
+    [curatedGraph],
+  );
+  const edges = useMemo(
+    () => lensEdges(curatedGraph.edges, lens),
+    [curatedGraph, lens],
+  );
   const nodes = useMemo(
-    () => lensNodes(graph.nodes, graph.edges, lens),
-    [graph, lens],
+    () => lensNodes(curatedGraph.nodes, curatedGraph.edges, lens),
+    [curatedGraph, lens],
   );
 
   const base = useMemo(
@@ -433,7 +441,7 @@ export function Constellation({
                 />
               );
             })}
-            {positioned.map((n) => {
+            {[...positioned.filter((n) => !n.ingested), ...positioned.filter((n) => n.ingested)].map((n) => {
               const isSel = n.paperRef === selected;
               const inFocusNeighbourhood = active.has(n.paperRef);
               const r = nodeRadius(

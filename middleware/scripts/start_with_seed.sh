@@ -19,7 +19,8 @@ SERVER_PID=$!
 #   2. Backfill paper abstracts from Semantic Scholar (opt-in via
 #      MIDDLEWARE_ENRICH_ON_START; batched, resumable, highest-confidence
 #      first, so a partial run still sharpens matching).
-#   3. Seed the demo study's data (opt-in via MIDDLEWARE_SEED_ON_START).
+#   3. Seed the demo study's data (enabled by default; set
+#      MIDDLEWARE_SEED_ON_START=0 to skip it).
 (
   if ! uv run python -m middleware corpus-verify >/dev/null 2>&1; then
     echo "corpus not present  -  importing (FR-LIT-8)…"
@@ -40,7 +41,7 @@ SERVER_PID=$!
       echo "abstract enrichment failed; matching falls back to title-only text"
   fi
 
-  if [ "${MIDDLEWARE_SEED_ON_START:-0}" = "1" ]; then
+  if [ "${MIDDLEWARE_SEED_ON_START:-1}" = "1" ]; then
     # The sample sessions need somewhere to belong before they are posted.
     # /ingest carries events, not studies, so replaying alone leaves rows
     # attributed to no study - which used to be invisible only because the

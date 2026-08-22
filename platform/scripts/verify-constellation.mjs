@@ -43,6 +43,9 @@ import {
   lensEdges,
   lensNodes,
   lensCounts,
+  curateGraph,
+  MAX_SUGGESTED_NODES,
+  MAX_SUGGESTIONS_PER_ANCHOR,
 } from "../src/lib/constellationView.ts";
 
 let failures = 0;
@@ -232,6 +235,33 @@ ok("`all` counts every suggestion", counts.all === 3);
 ok("a lens with nothing harvested counts zero rather than going missing",
   lensCounts(LENS_NODES, [], "citations") &&
     lensCounts(LENS_NODES, []).citations === 0);
+
+// --------------------------------------------------------- graph curation
+const CURATED_NODES = [
+  { paperRef: "anchor-a", ingested: true, citationCount: 80 },
+  { paperRef: "anchor-b", ingested: true, citationCount: 60 },
+  ...Array.from({ length: 80 }, (_, i) => ({
+    paperRef: `suggestion-${i}`,
+    ingested: false,
+    citationCount: 100 - i,
+  })),
+];
+const CURATED_EDGES = CURATED_NODES.slice(2).map((node, i) => ({
+  src: i % 2 === 0 ? "anchor-a" : "anchor-b",
+  dst: node.paperRef,
+  kind: i % 3 === 0 ? "references" : i % 3 === 1 ? "citations" : "recommendations",
+}));
+const curated = curateGraph({ nodes: CURATED_NODES, edges: CURATED_EDGES });
+ok("graph curation keeps every ingested anchor", curated.nodes.filter((n) => n.ingested).length === 2);
+ok("graph curation caps the suggestion neighbourhood", curated.nodes.filter((n) => !n.ingested).length <= MAX_SUGGESTED_NODES);
+ok("graph curation caps each anchor's suggestions", CURATED_NODES.slice(0, 2).every((anchor) =>
+  curated.edges.filter((e) => e.src === anchor.paperRef || e.dst === anchor.paperRef).length <=
+    MAX_SUGGESTIONS_PER_ANCHOR));
+ok("graph curation drops unsupported internal edge kinds",
+  curateGraph({
+    nodes: [{ paperRef: "own", ingested: true }, { paperRef: "via", ingested: false }],
+    edges: [{ src: "own", dst: "via", kind: "harvested-via" }],
+  }).edges.length === 0);
 
 console.log(
   failures === 0 ? "\n✓ all checks pass" : `\n✗ ${failures} check(s) failed`,

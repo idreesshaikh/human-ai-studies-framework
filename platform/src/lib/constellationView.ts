@@ -209,6 +209,153 @@ export const LENSES: { id: Lens; label: string; hint: string }[] = [
   },
 ];
 
+/** A readable map is a curated view of the graph, not a dump of every API
+ * neighbour. Keep the data in storage, but give the canvas a bounded number of
+ * high-signal suggestions around the papers the researcher actually ingested. */
+export const MAX_SUGGESTED_NODES = 48;
+export const MAX_SUGGESTIONS_PER_ANCHOR = 12;
+export const MAX_SUGGESTIONS_PER_RELATION = 6;
+
+const RELATION_ORDER = ["references", "citations", "recommendations"] as const;
+
+type CuratableNode = {
+  paperRef: string;
+  ingested: boolean;
+  citationCount?: number | null;
+};
+
+type CuratableEdge = {
+  src: string;
+  dst: string;
+  kind: string;
+};
+
+/** Keep ingested papers and direct study-to-study links, then select a small,
+ * balanced neighbourhood around each ingested paper. Suggestions are ranked
+ * by citation weight, de-duplicated when several relations point to the same
+ * paper, and capped globally so four ingested papers cannot paint hundreds of
+ * circles over the anchors. */
+export function curateGraph<
+  N extends CuratableNode,
+  E extends CuratableEdge,
+  G extends { nodes: N[]; edges: E[] },
+>(graph: G): G {
+  const ingested = graph.nodes.filter((node) => node.ingested);
+  const ingestedRefs = new Set(ingested.map((node) => node.paperRef));
+  const nodesByRef = new Map(graph.nodes.map((node) => [node.paperRef, node]));
+  const supportedEdges = graph.edges.filter((edge) =>
+    RELATION_ORDER.includes(edge.kind as (typeof RELATION_ORDER)[number]),
+  );
+  const directEdges = supportedEdges.filter(
+    (edge) => ingestedRefs.has(edge.src) && ingestedRefs.has(edge.dst),
+  );
+
+  type Candidate = { edge: E; anchor: string; suggestion: string };
+  const relationRank = new Map<string, number>(
+    RELATION_ORDER.map((kind, index) => [kind, RELATION_ORDER.length - index]),
+  );
+  const candidatesByPair = new Map<string, Candidate>();
+  for (const edge of supportedEdges) {
+    const srcIsAnchor = ingestedRefs.has(edge.src);
+    const dstIsAnchor = ingestedRefs.has(edge.dst);
+    if (srcIsAnchor === dstIsAnchor) continue;
+    const anchor = srcIsAnchor ? edge.src : edge.dst;
+    const suggestion = srcIsAnchor ? edge.dst : edge.src;
+    if (ingestedRefs.has(suggestion)) continue;
+    const key = `${anchor}\u0000${suggestion}`;
+    const current = candidatesByPair.get(key);
+    const nextScore = [
+      nodesByRef.get(suggestion)?.citationCount ?? 0,
+      relationRank.get(edge.kind) ?? 0,
+    ];
+    const currentScore = current
+      ? [
+          nodesByRef.get(current.suggestion)?.citationCount ?? 0,
+          relationRank.get(current.edge.kind) ?? 0,
+        ]
+      : null;
+    if (
+      current === undefined ||
+      nextScore[0] > currentScore![0] ||
+      (nextScore[0] === currentScore![0] && nextScore[1] > currentScore![1])
+    ) {
+      candidatesByPair.set(key, { edge, anchor, suggestion });
+    }
+  }
+
+  const selectedByAnchor = new Map<string, Candidate[]>();
+  for (const anchor of ingested.map((node) => node.paperRef)) {
+    const candidates = [...candidatesByPair.values()]
+      .filter((candidate) => candidate.anchor === anchor)
+      .sort((a, b) => {
+        const citationDelta =
+          (nodesByRef.get(b.suggestion)?.citationCount ?? 0) -
+          (nodesByRef.get(a.suggestion)?.citationCount ?? 0);
+        if (citationDelta !== 0) return citationDelta;
+        const relationDelta =
+          (relationRank.get(b.edge.kind) ?? 0) -
+          (relationRank.get(a.edge.kind) ?? 0);
+        return relationDelta || a.suggestion.localeCompare(b.suggestion);
+      });
+    const buckets = new Map<string, Candidate[]>();
+    for (const kind of RELATION_ORDER) {
+      buckets.set(
+        kind,
+        candidates.filter((candidate) => candidate.edge.kind === kind),
+      );
+    }
+    const chosen: Candidate[] = [];
+    for (let round = 0; chosen.length < MAX_SUGGESTIONS_PER_ANCHOR; round += 1) {
+      let progressed = false;
+      for (const kind of RELATION_ORDER) {
+        const bucket = buckets.get(kind)!;
+        const candidate = bucket[round];
+        if (candidate && round < MAX_SUGGESTIONS_PER_RELATION) {
+          chosen.push(candidate);
+          progressed = true;
+        }
+        if (chosen.length >= MAX_SUGGESTIONS_PER_ANCHOR) break;
+      }
+      if (!progressed) break;
+    }
+    selectedByAnchor.set(anchor, chosen);
+  }
+
+  const selected: Candidate[] = [];
+  const selectedSuggestions = new Set<string>();
+  const maxRounds = Math.max(...[...selectedByAnchor.values()].map((items) => items.length), 0);
+  for (let round = 0; round < maxRounds && selected.length < MAX_SUGGESTED_NODES; round += 1) {
+    for (const anchor of ingested.map((node) => node.paperRef)) {
+      const candidate = selectedByAnchor.get(anchor)?.[round];
+      if (!candidate) continue;
+      if (
+        selectedSuggestions.size >= MAX_SUGGESTED_NODES &&
+        !selectedSuggestions.has(candidate.suggestion)
+      ) {
+        continue;
+      }
+      selected.push(candidate);
+      selectedSuggestions.add(candidate.suggestion);
+      if (selected.length >= MAX_SUGGESTED_NODES) break;
+    }
+  }
+
+  const edges = [
+    ...directEdges,
+    ...selected.map((candidate) => candidate.edge),
+  ];
+  const retainedRefs = new Set(ingested.map((node) => node.paperRef));
+  for (const edge of edges) {
+    retainedRefs.add(edge.src);
+    retainedRefs.add(edge.dst);
+  }
+  return {
+    ...graph,
+    nodes: graph.nodes.filter((node) => retainedRefs.has(node.paperRef)),
+    edges,
+  };
+}
+
 /** The edges a lens keeps. `all` is the identity, deliberately returning the
  * same array so the common case allocates nothing. */
 export function lensEdges<E extends { kind: string }>(edges: E[], lens: Lens): E[] {

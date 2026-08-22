@@ -33,7 +33,7 @@ export function StreamingTurn({
           "type-body animate-in fade-in duration-entrance",
           isPlatform
             ? "max-w-bubble px-1 py-1 text-text"
-            : "max-w-[42ch] rounded-card border border-border bg-zone-9 px-3.5 py-2.5 text-text",
+            : "max-w-[52ch] rounded-card border border-border bg-zone-9 px-3.5 py-2.5 text-text",
           /* A holding turn is not the conversation  -  the model could not be
            * reached, so it proposes nothing and cites nothing. It reads as a
            * notice rather than a reply, because mistaking one for the other

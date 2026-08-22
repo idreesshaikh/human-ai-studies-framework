@@ -35,6 +35,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
     ]);
     setPapers(ps);
     setGraph(g);
+    return g;
   }, [studyId]);
 
   useEffect(() => {
@@ -43,10 +44,34 @@ export function LibraryTab({ studyId }: { studyId: string }) {
 
   useEffect(() => {
     if (!edgesPending) return;
-    const timer = window.setTimeout(() => {
-      void load().finally(() => setEdgesPending(false));
-    }, 1000);
-    return () => window.clearTimeout(timer);
+    let cancelled = false;
+    let timer: number | undefined;
+    let attempts = 0;
+
+    /* Edge harvesting runs after the add response and paces its three upstream
+     * requests. One retry was shorter than that work, so the map could stay at
+     * its two ingested nodes forever. Keep the loading state alive for a small,
+     * bounded window and stop early as soon as a real edge lands. */
+    const poll = async () => {
+      try {
+        const next = await load();
+        if (cancelled) return;
+        if (next.edges.length > 0 || attempts >= 5) {
+          setEdgesPending(false);
+          return;
+        }
+        attempts += 1;
+        timer = window.setTimeout(() => void poll(), 1000);
+      } catch {
+        if (!cancelled) setEdgesPending(false);
+      }
+    };
+
+    timer = window.setTimeout(() => void poll(), 1000);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
   }, [edgesPending, load]);
 
   async function run(fn: () => Promise<unknown>) {

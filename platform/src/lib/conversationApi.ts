@@ -169,7 +169,7 @@ const DEMO_CONVERSATION: Turn[] = [
     role: "platform",
     author: "Platform",
     source: "llm",
-    text: "Start with a within-subjects comparison: each developer completes matched maintenance tasks with AI assistance and without it. That lets the comparison use each developer as their own control. I would measure task time, correctness, and review behaviour. The evidence below is grounded in the corpus.",
+    text: "Your idea points to a within-subjects comparison: each developer completes matched maintenance tasks with and without AI assistance. First, who will take part, and roughly how many people can you realistically recruit?",
     moves: [
       {
         moveId: "demo-move-design",

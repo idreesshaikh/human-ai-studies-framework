@@ -462,6 +462,11 @@ def _directive(stance: dict, state: dict | None = None) -> str:
             "next question is: "
             + (stance["nextQuestion"] or "(none)")
         )
+        lines.append(
+            "ONE STEP ONLY. This turn should help the researcher answer that "
+            "first missing facet. Reflect their idea briefly, then ask that one "
+            "question. Do not add a different protocol move in the same turn."
+        )
     else:
         lines.append(
             "You now know who takes part, what they do, what is compared, "

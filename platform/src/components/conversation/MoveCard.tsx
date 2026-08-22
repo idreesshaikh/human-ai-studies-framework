@@ -46,6 +46,8 @@ export function MoveCard({
   // compiler folds a patch-less move into the draft.
   const compiled = Boolean(move.patch);
   const decided = move.status !== "proposed";
+  const isMergedResearchQuestion =
+    move.kind === "add-rq" && move.status === "accepted" && compiled;
   /* Whether ANY citation stands behind this move. How strongly each one does
    * is carried by that citation's own printed score on its chip, so the card
    * needs the boolean and not the maximum. */
@@ -89,6 +91,7 @@ export function MoveCard({
         move.status === "proposed" && "sheet-land",
         move.status === "accepted" && "duration-settle ease-sheet",
         move.status === "rejected" && "duration-standard",
+        isMergedResearchQuestion && "move-card-merged",
         /* No citation, no score: an undecided unsourced move wears the
          * open ring's dashed outline until the researcher rules on it. */
         !grounded && !decided && "held-back",

@@ -293,6 +293,10 @@ export function DataTab({ studyId }: { studyId: string }) {
       <div className="flex flex-col gap-stack">
         <section className="flex flex-col gap-stack">
           <h2 className="type-section text-text">Metrics by condition</h2>
+          <p className="-mt-2 max-w-reading type-body text-text-muted">
+            Compare one code measure across study conditions. Each dot is one
+            analyzed function; the line shows the group median.
+          </p>
           <MetricStrip rows={metricRows} conditions={conditions} />
         </section>
         <PrescriptionPanel studyId={studyId} />

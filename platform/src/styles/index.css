@@ -711,6 +711,18 @@ body::before {
     var(--shadow-plate);
 }
 
+/* An accepted research question is already part of the conversation record. Its
+ * grounding chip and ruled bands still carry the useful structure, but the
+ * second outer sheet made a settled answer feel like another decision to make. */
+.move-card-merged {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .move-card-merged {
+  box-shadow: none;
+}
+
 /* A plate being moved: it lifts toward the lamp and settles back on press.
  * Pointer and keyboard both trigger :active. */
 .plate-lift,

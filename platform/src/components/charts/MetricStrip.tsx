@@ -18,18 +18,17 @@ const METRICS: { key: string; label: string; definition: string }[] = [
     key: "cognitive_complexity",
     label: "Cognitive complexity",
     definition:
-      "SonarSource's score for how hard a function is to follow (branches, jumps, nesting).",
+      "A code-structure score: higher values mean more branches, jumps, or nesting to keep track of.",
   },
   {
     key: "parameter_count",
-    label: "Parameter count",
-    definition: "Arguments per function, against the ~7-item working-memory bound.",
+    label: "Function inputs",
+    definition: "How many arguments each function accepts.",
   },
   {
     key: "nesting_penalty",
-    label: "Nesting penalty",
-    definition:
-      "How deeply code nests inside ifs and loops: deeper nesting is harder to hold in your head.",
+    label: "Nesting depth",
+    definition: "How many layers of ifs and loops sit inside one another.",
   },
 ];
 
@@ -164,10 +163,9 @@ export function MetricStrip({
         <EmptyState
           line={
             <>
-              No metric rows carry{" "}
-              <span className="type-quantity identifier">{metric.key}</span> yet.
-              Metric rows appear after the metrics tool analyses a session's
-              code.
+              No measurements for <span className="font-medium text-text">{metric.label}</span> yet.
+              Choose another measure above, or run the metrics tool on a
+              session&apos;s code.
             </>
           }
         />
@@ -186,7 +184,7 @@ export function MetricStrip({
             <tbody className="tabular">
               {byCondition.map((c) => (
                 <tr key={c.condition} className="border-b border-border last:border-0">
-                  <td className="px-3 py-2 text-text">{c.condition}</td>
+                  <td className="px-3 py-2 text-text">{conditionLabel(c.condition)}</td>
                   {c.stats ? (
                     <>
                       <td className="px-3 py-2">{c.stats.n}</td>
@@ -281,7 +279,7 @@ export function MetricStrip({
                       textAnchor="middle"
                       className="fill-text type-caption font-semibold"
                     >
-                      {c.condition}
+                      {conditionLabel(c.condition)}
                     </text>
                     <text
                       x={cx}
@@ -321,4 +319,10 @@ function niceCeil(v: number): number {
   if (v <= 0) return 1;
   const mag = Math.pow(10, Math.floor(Math.log10(v)));
   return Math.ceil(v / mag) * mag;
+}
+
+function conditionLabel(value: string): string {
+  return value
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
