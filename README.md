@@ -49,8 +49,8 @@ uv sync --all-packages
 (cd platform && npm ci && npm run build)
 
 echo "OPENCODE_API_KEY=..." >> .env
-# Optional: Kimi K3 is the default for the OpenCode Go endpoint.
-# OPENCODE_MODEL=kimi-k3
+# Optional: DeepSeek V4 Flash is the default for the OpenCode Go endpoint.
+# OPENCODE_MODEL=deepseek-v4-flash
 
 # Or use Mistral when OpenCode is unavailable.
 # MISTRAL_API_KEY=sk-...
@@ -63,8 +63,10 @@ Open <http://localhost:8000> and describe your idea. Or use Docker, which
 brings its own Postgres: `docker compose up`.
 
 The provider selection order is explicit `LLM_BASE_URL` + `LLM_API_KEY`, then
-OpenCode (`OPENCODE_API_KEY`), then Mistral (`MISTRAL_API_KEY`). Set
-`OPENCODE_BASE_URL` and `OPENCODE_MODEL` to test another OpenCode-compatible
+OpenCode (`OPENCODE_API_KEY`), then Mistral (`MISTRAL_API_KEY`). When both
+OpenCode and Mistral are configured, OpenCode is tried first and Mistral Large
+automatically takes over if the compatible gateway rejects or loses a request.
+Set `OPENCODE_BASE_URL` and `OPENCODE_MODEL` to test another OpenCode-compatible
 model without changing the application code. The conversation still enforces
 the platform contract itself: one question, one reversible move, valid
 grounding, and compiler-checked protocol patches.

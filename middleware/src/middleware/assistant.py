@@ -7,10 +7,13 @@ are its only callers  -  this module holds no conversational surface of its own.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import urllib.request
 from collections.abc import Callable
 from typing import Protocol
+
+log = logging.getLogger(__name__)
 
 MISTRAL_MODEL = "mistral-medium-latest"
 MISTRAL_BEST_MODEL = "mistral-large-latest"
@@ -21,7 +24,10 @@ MISTRAL_MODELS = (
 )
 DEFAULT_OPENAI_COMPATIBLE_MODEL = "gpt-4o-mini"
 OPENCODE_BASE_URL = "https://opencode.ai/zen/go/v1/chat/completions"
-OPENCODE_MODEL = "kimi-k3"
+# DeepSeek V4 Flash is the OpenCode Go default for this app: it uses the
+# Chat Completions endpoint already implemented here and has a much larger
+# request allowance than Kimi K3. Override with OPENCODE_MODEL when needed.
+OPENCODE_MODEL = "deepseek-v4-flash"
 MAX_TOKENS = 2048
 MAX_TOOL_ROUNDS = 6
 
@@ -254,6 +260,71 @@ class OpenAICompatibleProvider(_ChatCompletionsProvider):
         super().__init__(endpoint, api_key, model, post, stream)
 
 
+class FailoverProvider:
+    """Keep a compatible primary model from making the conversation unavailable.
+
+    OpenCode can reject a request at the edge even while its catalogue endpoint is
+    reachable. When a configured Mistral key exists, retry the same request against
+    Mistral with its own endpoint and model. The wrapper preserves the small provider
+    surface used by both the design conversation and the knowledge assistant.
+    """
+
+    name = "failover"
+
+    def __init__(
+        self, primary: _ChatCompletionsProvider, fallback: _ChatCompletionsProvider
+    ):
+        self.primary = primary
+        self.fallback = fallback
+        self.model = primary.model
+        self.base_url = primary.base_url
+        self.api_key = primary.api_key
+
+    @staticmethod
+    def _payload(provider: _ChatCompletionsProvider, payload: dict) -> dict:
+        body = dict(payload)
+        body["model"] = provider.model
+        return body
+
+    def _fallback_reason(self, exc: Exception) -> None:
+        log.warning(
+            "primary model unavailable (%s); retrying with %s",
+            type(exc).__name__,
+            self.fallback.model,
+        )
+
+    def post(self, url: str, payload: dict, headers: dict[str, str]) -> dict:
+        try:
+            return self.primary.post(url, payload, headers)
+        except Exception as exc:  # noqa: BLE001 - provider failure is the fallback seam
+            self._fallback_reason(exc)
+            return self.fallback.post(
+                self.fallback.base_url,
+                self._payload(self.fallback, payload),
+                {"Authorization": f"Bearer {self.fallback.api_key}"},
+            )
+
+    def stream(self, url: str, payload: dict, headers: dict[str, str]):
+        try:
+            yield from self.primary.stream(url, payload, headers)
+        except Exception as exc:  # noqa: BLE001 - provider failure is the fallback seam
+            self._fallback_reason(exc)
+            yield from self.fallback.stream(
+                self.fallback.base_url,
+                self._payload(self.fallback, payload),
+                {"Authorization": f"Bearer {self.fallback.api_key}"},
+            )
+
+    def run(
+        self, question: str, history: list[dict], tools: dict[str, Callable]
+    ) -> tuple[str, list[dict]]:
+        try:
+            return self.primary.run(question, history, tools)
+        except Exception as exc:  # noqa: BLE001 - provider failure is the fallback seam
+            self._fallback_reason(exc)
+            return self.fallback.run(question, history, tools)
+
+
 def configured() -> bool:
     """
     Whether an LLM client can be built - an explicit compatible gateway, OpenCode, or
@@ -278,11 +349,21 @@ def make_client(model: str | None = None) -> LLMClient | None:
         return OpenAICompatibleProvider(base_url, override_key, override_model)
     opencode_key = os.environ.get("OPENCODE_API_KEY")
     if opencode_key:
-        return OpenAICompatibleProvider(
+        primary = OpenAICompatibleProvider(
             os.environ.get("OPENCODE_BASE_URL", OPENCODE_BASE_URL),
             opencode_key,
             os.environ.get("OPENCODE_MODEL", OPENCODE_MODEL),
         )
+        mistral_key = os.environ.get("MISTRAL_API_KEY")
+        if mistral_key:
+            fallback_model = (
+                model if model in MISTRAL_MODELS else MISTRAL_BEST_MODEL
+            )
+            return FailoverProvider(
+                primary,
+                MistralProvider(mistral_key, model=fallback_model),
+            )
+        return primary
     key = os.environ.get("MISTRAL_API_KEY")
     if not key:
         return None

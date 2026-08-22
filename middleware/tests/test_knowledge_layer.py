@@ -272,6 +272,43 @@ def test_make_client_uses_opencode_go_for_the_design_default(monkeypatch):
     client = assistant.make_client(assistant.MISTRAL_BEST_MODEL)
 
     assert isinstance(client, assistant.OpenAICompatibleProvider)
-    assert client.model == "kimi-k3"
+    assert client.model == "deepseek-v4-flash"
     assert client.base_url == "https://opencode.ai/zen/go/v1/chat/completions"
     assert assistant.configured() is True
+
+
+def test_opencode_provider_falls_back_to_mistral_for_blocking_requests(monkeypatch):
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.setenv("OPENCODE_API_KEY", "opencode-test")
+    monkeypatch.setenv("MISTRAL_API_KEY", "mistral-test")
+
+    seen: list[tuple[str, str]] = []
+
+    def rejected(url, payload, headers):
+        raise PermissionError("primary rejected")
+
+    def recovered(url, payload, headers):
+        seen.append((url, payload["model"]))
+        return {"choices": [{"message": {"content": "ok"}}]}
+
+    primary = assistant.OpenAICompatibleProvider(
+        "https://opencode.example/v1",
+        "opencode-test",
+        "deepseek-v4-flash",
+        post=rejected,
+    )
+    fallback = assistant.MistralProvider("mistral-test", post=recovered)
+    client = assistant.FailoverProvider(primary, fallback)
+
+    result = client.post(
+        primary.base_url,
+        {"model": "deepseek-v4-flash", "messages": []},
+        {"Authorization": "Bearer opencode-test"},
+    )
+
+    assert result["choices"][0]["message"]["content"] == "ok"
+    assert seen == [
+        ("https://api.mistral.ai/v1/chat/completions", "mistral-medium-latest")
+    ]
