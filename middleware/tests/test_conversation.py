@@ -494,6 +494,33 @@ def test_llm_configured_and_healthy_produces_an_llm_sourced_turn(client, monkeyp
     assert grounded_refs == {"corpus:trust-in-ai-code-generation"}
 
 
+def test_prose_only_model_turn_gets_one_guided_decision_card(client, monkeypatch):
+    """A model's prose must still resolve into the platform's next decision."""
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.silent())
+
+    turn = _ask(client, "I want to research how junior engineers use AI")
+
+    assert turn["source"] == "llm"
+    assert len(turn["moves"]) == 1
+    assert turn["moves"][0]["kind"] == "declare-task"
+    assert turn["moves"][0]["grounding"] == []
+
+
+def test_rejected_guided_card_turns_into_a_concrete_choice(client, monkeypatch):
+    """Rejecting a default must change the next turn instead of replaying it."""
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.silent())
+
+    first = _ask(client, "I want to research how junior engineers use AI")
+    move = first["moves"][0]
+    _accept(client, move["moveId"], status="rejected")
+
+    next_turn = _ask(client, "what?")
+
+    assert next_turn["moves"] == []
+    assert "actual work" in next_turn["text"]
+    assert move["proposal"] not in next_turn["text"]
+
+
 def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(
     client, monkeypatch
 ):

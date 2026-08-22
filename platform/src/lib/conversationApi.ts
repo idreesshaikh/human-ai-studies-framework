@@ -107,6 +107,19 @@ function mapPatch(raw: unknown): DesignMove["patch"] {
       value: patch.value,
     };
   }
+  if (
+    patch.op === "set-field" &&
+    Array.isArray(patch.path) &&
+    patch.path.every((part) => typeof part === "string") &&
+    patch.path.length > 0 &&
+    "value" in patch
+  ) {
+    return {
+      op: "set-field",
+      path: patch.path as string[],
+      value: patch.value,
+    };
+  }
   if (typeof patch.section === "string" && (patch.op === "append" || patch.op === "set")) {
     return {
       section: patch.section as keyof ProtocolDraft,

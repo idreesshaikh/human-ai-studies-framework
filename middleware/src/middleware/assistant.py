@@ -20,6 +20,8 @@ MISTRAL_MODELS = (
     "mistral-large-latest",
 )
 DEFAULT_OPENAI_COMPATIBLE_MODEL = "gpt-4o-mini"
+OPENCODE_BASE_URL = "https://opencode.ai/zen/go/v1/chat/completions"
+OPENCODE_MODEL = "kimi-k3"
 MAX_TOKENS = 2048
 MAX_TOOL_ROUNDS = 6
 
@@ -254,10 +256,12 @@ class OpenAICompatibleProvider(_ChatCompletionsProvider):
 
 def configured() -> bool:
     """
-    Whether an LLM client can be built - the OpenAI-compatible override or a Mistral key
-    (D32 rev 2).
+    Whether an LLM client can be built - an explicit compatible gateway, OpenCode, or
+    the Mistral fallback (D32 rev 2).
     """
     if os.environ.get("LLM_BASE_URL") and os.environ.get("LLM_API_KEY"):
+        return True
+    if os.environ.get("OPENCODE_API_KEY"):
         return True
     return bool(os.environ.get("MISTRAL_API_KEY"))
 
@@ -272,6 +276,13 @@ def make_client(model: str | None = None) -> LLMClient | None:
     if base_url and override_key:
         override_model = os.environ.get("LLM_MODEL") or DEFAULT_OPENAI_COMPATIBLE_MODEL
         return OpenAICompatibleProvider(base_url, override_key, override_model)
+    opencode_key = os.environ.get("OPENCODE_API_KEY")
+    if opencode_key:
+        return OpenAICompatibleProvider(
+            os.environ.get("OPENCODE_BASE_URL", OPENCODE_BASE_URL),
+            opencode_key,
+            os.environ.get("OPENCODE_MODEL", OPENCODE_MODEL),
+        )
     key = os.environ.get("MISTRAL_API_KEY")
     if not key:
         return None

@@ -57,6 +57,13 @@ _HOUSE_STYLE = (
     "comma, a colon, or brackets instead. One idea per sentence beats one "
     "sentence with a dash in the middle. Do not use semicolons to join two "
     "independent clauses either; start a new sentence.\n\n"
+    "DECISION CONTRACT. When proposals are permitted and the researcher is not "
+    "asking you to explain a previous turn, do not return prose alone if the "
+    "next safe decision is clear. Return exactly one actionable move card with "
+    "the reply. A card is the platform's unit of progress: the researcher can "
+    "accept it, reject it, or correct it. Return no move only when the turn is "
+    "a follow-up explanation, a methodological caution, or a genuinely unsafe "
+    "guess.\n\n"
 )
 
 SYSTEM_PROMPT = (

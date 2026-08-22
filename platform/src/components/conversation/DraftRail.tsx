@@ -58,8 +58,12 @@ export function DraftRail({
       !Array.isArray(protocolStudy) &&
       (protocolStudy as Record<string, unknown>).id === "draft",
   );
-  const sections: ProtocolSection[] | null = protocol
-    ? summarizeProtocol(protocol, { includeEmpty: Boolean(isFreshDraft) })
+  /* The server creates a useful scaffold immediately, but its raw shape also
+   * contains implementation sections such as phases before the researcher has
+   * made a single decision. Start with the human eight-slot outline; switch to
+   * the richer compiled document once there is something real to read. */
+  const sections: ProtocolSection[] | null = protocol && !isFreshDraft
+    ? summarizeProtocol(protocol)
     : null;
 
   /* A fresh study has a real protocol scaffold (`study` + `phases`) before
@@ -70,7 +74,7 @@ export function DraftRail({
   const draftCaption = conversationStarted
     ? "Compiled from the moves you've accepted."
     : isFreshDraft
-      ? "Your answers will fill this outline."
+      ? "Your answers will fill these eight sections."
       : "The study's protocol as it currently stands.";
 
   return (
@@ -89,7 +93,11 @@ export function DraftRail({
       </div>
 
       {showConversationProgress && (
-        <SlotMeter draft={draft} unresolved={unresolved} understanding={understanding} />
+        <SlotMeter
+          draft={draft}
+          unresolved={isFreshDraft ? undefined : unresolved}
+          understanding={understanding}
+        />
       )}
 
       {/* The scroller is the document body. Progress and actions stay outside
@@ -109,6 +117,8 @@ export function DraftRail({
           ) : (
             <SlotPlate draft={draft} />
           )
+        ) : isFreshDraft ? (
+          <SlotPlate draft={draft} />
         ) : serverYaml?.trim() ? (
           <pre className="tabular type-caption whitespace-pre-wrap type-quantity leading-relaxed text-text">
             {serverYaml}

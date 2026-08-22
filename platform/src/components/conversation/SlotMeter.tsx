@@ -45,21 +45,15 @@ export function SlotMeter({
   return (
     <div className="flex flex-col gap-2 px-gutter pb-3" data-agent="slot-meter">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="type-caption text-text-muted">Conversation progress</span>
+        <span className="type-caption text-text-muted">Protocol progress</span>
         <span className="tabular type-caption text-text-muted">
-          <span className="type-quantity text-text">{path.done}</span>/{path.total} covered
+          <span className="type-quantity text-text">{path.done}</span>/{path.total} sections covered
         </span>
       </div>
 
-      {/* The full phase-by-phase checklist is real, load-bearing information
-        *  -  nothing here is invented  -  but at 13 rows it was also the tallest
-        * thing in the rail, pushing the compiled protocol itself (the
-        * document of record, per the product's own first principle) below a
-        * scroll on every study past its first few moves. Collapsed by
-        * default, same `<details>` pattern "View raw YAML" already uses
-        * below: the current step stays visible either way, so a glance still
-        * answers "where am I", and the full walk is one click away rather
-        * than gone. */}
+      {/* The full path is useful when someone wants orientation, but it is
+        * deliberately collapsed. The visible focus plus the eight protocol
+        * sections are enough for a calm glance; the detail is one click away. */}
       {current && (
         <p
           className="rounded-input bg-accent-wash px-3 py-2 type-caption text-text"

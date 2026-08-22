@@ -5,17 +5,15 @@
  *
  * Checks that:
  *   - the two phases appear in the order the conversation actually walks
- *     them (understand the idea, then fill the protocol)
+ *     them (current focus, then fill the protocol)
  *   - exactly ONE step on the whole path is "current"  -  the cursor is what
  *     makes it a path rather than a checklist, and two of them is worse than
  *     none
- *   - the cursor crosses the phase boundary: once every facet is known, the
- *     current step is the first unfilled protocol section
- *   - a known facet never claims the cursor, however late in the list it sits
- *   - the counts cover both phases, so "3 / 13" means what it says
- *   - a step already DONE is still named correctly  -  labels come from the
- *     server's facet map, not from pairing `missingLabels` by position,
- *     which mislabels every completed step as soon as one is known
+ *   - once the idea is understood, the current step is the first unfilled
+ *     protocol section
+ *   - the focus row is orientation, not a sixth protocol requirement
+ *   - the count stays at eight protocol sections, so it cannot become a
+ *     misleading 13-step checklist
  *   - the next question is passed through from the server, never composed
  *   - the path still builds before the first turn returns, when there is no
  *     understanding at all
@@ -66,7 +64,7 @@ const fresh = buildProtocolPath(
 ok(
   "phases run understand -> fill",
   fresh.phases.map((p) => p.title).join(" | ") ===
-    "Understanding your idea | Filling the protocol",
+    "Current focus | Filling the protocol",
   fresh.phases.map((p) => p.title).join(" | "),
 );
 
@@ -74,13 +72,13 @@ ok("exactly one current step", currents(fresh).length === 1, `${currents(fresh).
 
 ok(
   "the cursor starts on the first unknown facet",
-  currents(fresh)[0].id === "facet:population",
+  currents(fresh)[0].id === "focus",
   currents(fresh)[0].id,
 );
 
 ok(
   "counts span both phases",
-  fresh.total === 13 && fresh.done === 0,
+  fresh.total === 8 && fresh.done === 0,
   `${fresh.done} / ${fresh.total}`,
 );
 
@@ -90,27 +88,20 @@ ok(
   fresh.upNext,
 );
 
-// --- a known facet must not claim the cursor -------------------------------
+// --- the current focus stays a single orientation row ----------------------
 const skipped = buildProtocolPath(
   EMPTY_DRAFT,
   understanding({ known: ["population", "task"] }),
 );
 ok(
-  "a known facet is never current",
-  currents(skipped)[0].id === "facet:comparison",
+  "the focus row carries the next missing facet",
+  currents(skipped)[0].id === "focus" && skipped.phases[0].steps[0].label === "label:comparison",
   currents(skipped)[0].id,
 );
 ok(
-  "known facets count as done",
-  skipped.done === 2,
+  "the focus row is not counted as protocol progress",
+  skipped.done === 0,
   `${skipped.done}`,
-);
-
-const doneFacets = skipped.phases[0].steps.filter((s) => s.status === "done");
-ok(
-  "a completed step keeps its own label",
-  doneFacets.map((s) => s.label).join(",") === "label:population,label:task",
-  doneFacets.map((s) => s.label).join(","),
 );
 
 // --- the cursor crosses into phase two -------------------------------------
@@ -139,7 +130,7 @@ ok(
   currents(partly)[0].id === "slot:participants",
   currents(partly)[0].id,
 );
-ok("counts include filled sections", partly.done === 7, `${partly.done} / ${partly.total}`);
+ok("counts include filled sections", partly.done === 2, `${partly.done} / ${partly.total}`);
 
 // --- before the first turn returns -----------------------------------------
 const noUnderstanding = buildProtocolPath(EMPTY_DRAFT, undefined);

@@ -2,10 +2,10 @@
  *
  * The conversation already walks a fixed order  -  the elicitation facets
  * first (a design shape is withheld until enough of the idea is understood),
- * then the protocol's own sections. Both halves existed; neither was ever
- * shown as a sequence. A researcher saw a row of eight dots filling up and a
- * line naming what was missing, which answers "how far along am I" but not
- * "what is still going to be asked of me, and how much of it is there".
+ * then the protocol's own sections. The rail should make that order legible
+ * without turning the researcher into a 13-step form. The current facet is
+ * therefore shown as a single focus row; progress belongs to the eight
+ * protocol sections that the draft actually records.
  *
  * Two reviewers asked for the same thing in different words: one for the
  * steps in a "more guided fashion... so that all the information needed for
@@ -63,27 +63,23 @@ export function buildProtocolPath(
   const phases: PathPhase[] = [];
   let cursorTaken = false;
 
-  /* Phase one: the facets a design shape actually follows from. Driven by the
-   * server's own facet map so the order and the naming match the questions
-   * the conversation asks  -  a second list here would drift from it. Absent
-   * before the first turn comes back, in which case the path is just the
-   * protocol sections. */
+  /* Phase one: the single facet the assistant is asking about now. Showing
+   * every known and unknown facet here made a calm decision path look like a
+   * second checklist. The server's first missing label remains the source of
+   * truth for the visible focus. */
   if (understanding) {
-    const facetSteps: PathStep[] = Object.entries(understanding.facets).map(
-      ([id, known]) => ({
-        id: `facet:${id}`,
-        /* Named by the server's own facet labels. An earlier version paired
-         * `missingLabels` to facets by position, which silently mislabelled
-         * every step the researcher had already completed  -  the labels only
-         * travel for the MISSING facets, so the indices stop lining up the
-         * moment one is known. */
-        label: understanding.facetLabels?.[id] ?? id,
-        status: known ? "done" : "todo",
-      }),
-    );
-    const [steps, taken] = withCursor(facetSteps, cursorTaken);
-    cursorTaken = taken;
-    phases.push({ title: "Understanding your idea", steps });
+    const missing = understanding.missingLabels?.[0];
+    phases.push({
+      title: "Current focus",
+      steps: [
+        {
+          id: "focus",
+          label: missing || "Ready to shape the study",
+          status: missing ? "current" : "done",
+        },
+      ],
+    });
+    cursorTaken = Boolean(missing);
   }
 
   /* Phase two: the eight sections the conversation fills. Deliberately NOT
@@ -98,7 +94,9 @@ export function buildProtocolPath(
   const [steps] = withCursor(slotSteps, cursorTaken);
   phases.push({ title: "Filling the protocol", steps });
 
-  const all = phases.flatMap((p) => p.steps);
+  /* The focus row is orientation, not another protocol requirement. Counting
+   * it here was the source of the misleading 1/13 meter. */
+  const all = slotSteps;
   return {
     phases,
     done: all.filter((s) => s.status === "done").length,

@@ -54,8 +54,8 @@ def holding_turn(reason: str, stance: dict | None = None) -> dict:
 
 NO_MODEL = (
     "The design conversation needs a language model, and none is configured. "
-    "Set MISTRAL_API_KEY on the middleware and reload. Everything else on "
-    "the platform works without one."
+    "Set OPENCODE_API_KEY or MISTRAL_API_KEY on the middleware and reload. "
+    "Everything else on the platform works without one."
 )
 MODEL_SILENT = (
     "I couldn't reach the model just now, so this turn went unanswered. "
@@ -526,7 +526,9 @@ def _directive(stance: dict, state: dict | None = None) -> str:
     return "\n\n".join(lines)
 
 
-def _scaffolding_turn(stance: dict, papers: list[dict]) -> Turn:
+def _scaffolding_turn(
+    stance: dict, papers: list[dict], state: dict | None = None
+) -> Turn:
     """Give a stuck researcher a useful explanation and one visible next move.
 
     This is intentionally deterministic. A low-information reply is the one place
@@ -544,7 +546,16 @@ def _scaffolding_turn(stance: dict, papers: list[dict]) -> Turn:
             ),
             moves=(),
         )
-    facet = understanding.get("missing", ["outcome"])[0]
+    missing = understanding.get("missing") or []
+    if not missing:
+        return Turn(
+            text=(
+                "The study is understood enough to make a design choice. "
+                "What would you like to settle next?"
+            ),
+            moves=(),
+        )
+    facet = missing[0]
     copy: dict[str, tuple[str, ProposedMove | None]] = {
         "population": (
             "That is okay. We first need a practical description of who can take part, "
@@ -624,6 +635,29 @@ def _scaffolding_turn(stance: dict, papers: list[dict]) -> Turn:
             None,
         ),
     )
+    if move and not _filter_repeated_moves((move,), state):
+        # A rejected or still-pending suggestion must not be shown again as if
+        # the researcher never answered. Keep the next turn useful by naming
+        # the actual choice instead of looping the same example.
+        if facet == "task":
+            text = (
+                "The example task is only a starting point, and I will not repeat it. "
+                "What is the actual work: writing code, debugging a defect, or "
+                "AI-generated code?"
+            )
+        elif facet == "population":
+            text = (
+                "The participant example is only a starting point, and I will not "
+                "repeat it. "
+                "Who can you realistically recruit, and roughly how many people?"
+            )
+        elif facet == "outcome":
+            text = (
+                "The correctness measure is only a starting point, and I will not "
+                "repeat it. Which result matters most here: time, correctness, "
+                "review quality, or understanding?"
+            )
+        move = None
     return Turn(text=text, moves=(move,) if move else ())
 
 
@@ -892,7 +926,7 @@ def respond(
         return _assemble(
             s,
             text,
-            _scaffolding_turn(stance, papers),
+            _scaffolding_turn(stance, papers, state),
             llm_recommendations=papers,
             seq=seq,
             study_id=study_id,
@@ -966,7 +1000,7 @@ def respond_streaming(
     state = _load_design_state(s, study_id)
     papers, templates, history = _retrieve(s, text, study_id, history)
     if stance["intent"] == "needs-scaffolding":
-        turn = _scaffolding_turn(stance, papers)
+        turn = _scaffolding_turn(stance, papers, state)
         if turn.text:
             yield turn.text
         return _assemble(
@@ -1027,13 +1061,32 @@ def _assemble(
     against retrieved rows, recommendations, and the design recommender's
     prescription/figures.
     """
+    had_model_moves = bool(turn.moves)
     kept = _filter_repeated_moves(turn.moves, state)
     if kept != turn.moves:
         turn = Turn(turn.text, kept, turn.match_query)
+    permitted = _permitted_moves(kept, stance, state)
+    if (
+        not permitted
+        and not had_model_moves
+        and stance.get("mayProposeMoves")
+        and stance.get("intent") != "followup-question"
+    ):
+        # The model's prose is still valuable, but a prose-only turn leaves the
+        # researcher with nothing to decide. Use the same constrained
+        # scaffolding card as the explicit "what?" path, then run it through
+        # the exact same repetition and steer gates as model-authored moves.
+        guided = _scaffolding_turn(stance, llm_recommendations or [], state)
+        guided_kept = _filter_repeated_moves(guided.moves, state)
+        guided_permitted = _permitted_moves(guided_kept, stance, state)
+        if guided_permitted:
+            turn = Turn(turn.text, guided_kept, turn.match_query)
+            kept = guided_kept
+            permitted = guided_permitted
     retrieved: set[str] = set()
 
     moves = []
-    for i, sm in enumerate(_permitted_moves(turn.moves, stance, state)):
+    for i, sm in enumerate(permitted):
         grounding = _resolve_grounding(s, sm.refs)
         if sm.kind == "choose-template" and not grounding and sm.patch:
             tid = sm.patch.get("templateId")

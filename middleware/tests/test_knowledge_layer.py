@@ -217,6 +217,7 @@ def _seed_events_and_metrics(client):
 
 
 def test_make_client_validates_the_model_tier(monkeypatch):
+    monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
     monkeypatch.setenv("MISTRAL_API_KEY", "m")
     assert assistant.make_client().model == assistant.MISTRAL_MODEL
     assert assistant.make_client("mistral-large-latest").model == "mistral-large-latest"
@@ -226,6 +227,7 @@ def test_make_client_validates_the_model_tier(monkeypatch):
 
 
 def test_make_client_prefers_the_openai_compatible_override(monkeypatch):
+    monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
     monkeypatch.setenv("MISTRAL_API_KEY", "m")
     monkeypatch.setenv("LLM_BASE_URL", "https://api.openai.com/v1")
     monkeypatch.setenv("LLM_API_KEY", "sk-test")
@@ -238,6 +240,7 @@ def test_make_client_prefers_the_openai_compatible_override(monkeypatch):
 
 
 def test_make_client_openai_compatible_defaults_model_when_unset(monkeypatch):
+    monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     monkeypatch.setenv("LLM_BASE_URL", "https://my-gateway.example/v1/")
     monkeypatch.setenv("LLM_API_KEY", "sk-test")
@@ -248,6 +251,7 @@ def test_make_client_openai_compatible_defaults_model_when_unset(monkeypatch):
 
 
 def test_make_client_falls_back_to_mistral_without_the_override(monkeypatch):
+    monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
     monkeypatch.delenv("LLM_BASE_URL", raising=False)
     monkeypatch.delenv("LLM_API_KEY", raising=False)
     monkeypatch.setenv("MISTRAL_API_KEY", "m")
@@ -256,3 +260,18 @@ def test_make_client_falls_back_to_mistral_without_the_override(monkeypatch):
     assert client.model == assistant.MISTRAL_MODEL
     monkeypatch.delenv("MISTRAL_API_KEY")
     assert assistant.configured() is False
+
+
+def test_make_client_uses_opencode_go_for_the_design_default(monkeypatch):
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    monkeypatch.setenv("OPENCODE_API_KEY", "opencode-test")
+
+    client = assistant.make_client(assistant.MISTRAL_BEST_MODEL)
+
+    assert isinstance(client, assistant.OpenAICompatibleProvider)
+    assert client.model == "kimi-k3"
+    assert client.base_url == "https://opencode.ai/zen/go/v1/chat/completions"
+    assert assistant.configured() is True
