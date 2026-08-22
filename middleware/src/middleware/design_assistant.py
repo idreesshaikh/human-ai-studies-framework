@@ -549,7 +549,8 @@ def _scaffolding_turn(stance: dict, papers: list[dict]) -> Turn:
         "population": (
             "That is okay. We first need a practical description of who can take part, "
             "not a perfect population. For example, this could be junior engineers "
-            "who already use AI coding tools. Is that close to the people you can reach?",
+            "who already use AI coding tools. Is that close to the people you can "
+            "reach?",
             ProposedMove(
                 "set-parameter",
                 "participants[]",
@@ -569,10 +570,13 @@ def _scaffolding_turn(stance: dict, papers: list[dict]) -> Turn:
             ProposedMove(
                 "declare-task",
                 "tasks[]",
-                "Have participants complete a small bug-fixing task on a shared project.",
+                "Have participants complete a small bug-fixing task on a shared "
+                "project.",
                 {
                     "title": "Complete a small bug-fixing task on a shared project",
-                    "description": "Participants diagnose and fix the same kind of project issue.",
+                    "description": (
+                        "Participants diagnose and fix the same kind of project issue."
+                    ),
                 },
                 (),
             ),
@@ -591,11 +595,15 @@ def _scaffolding_turn(stance: dict, papers: list[dict]) -> Turn:
             ProposedMove(
                 "add-measure",
                 "measures[]",
-                "Measure solution correctness by counting passed test cases and substantive defects.",
+                "Measure solution correctness by counting passed test cases and "
+                "substantive defects.",
                 {
                     "section": "measures",
                     "op": "append",
-                    "value": "solution correctness: passed test cases and substantive defects",
+                    "value": (
+                        "solution correctness: passed test cases and "
+                        "substantive defects"
+                    ),
                 },
                 tuple(p["ref"] for p in papers[:1] if p.get("ref")),
             ),
@@ -611,7 +619,8 @@ def _scaffolding_turn(stance: dict, papers: list[dict]) -> Turn:
         facet,
         (
             "That is okay. I can break the study into one decision at a time. "
-            "Which part should we settle next: who takes part, what they do, or what we measure?",
+            "Which part should we settle next: who takes part, what they do, or "
+            "what we measure?",
             None,
         ),
     )

@@ -70,7 +70,10 @@ def test_low_information_replies_request_scaffolding(text):
 
 def test_a_question_about_a_prior_move_is_not_misclassified_as_stuck():
     assert not elicitation.needs_scaffolding("I don't know why you proposed that")
-    assert elicitation.classify_turn("I don't know why you proposed that") == "followup-question"
+    assert (
+        elicitation.classify_turn("I don't know why you proposed that")
+        == "followup-question"
+    )
 
 
 @pytest.mark.parametrize(
@@ -191,7 +194,8 @@ def test_understanding_accumulates_across_turns(client):
 def test_stuck_researcher_gets_explanation_and_actionable_measure_card(client):
     _ask(
         client,
-        "I want junior engineers to debug code with AI and without AI in a 45-minute lab session.",
+        "I want junior engineers to debug code with AI and without AI in a "
+        "45-minute lab session.",
     )
     reply = _ask(client, "I don't know you help me")
     assert reply["turnIntent"] == "needs-scaffolding"
