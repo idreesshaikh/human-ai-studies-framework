@@ -462,11 +462,19 @@ def _directive(stance: dict, state: dict | None = None) -> str:
             "next question is: "
             + (stance["nextQuestion"] or "(none)")
         )
-        lines.append(
-            "ONE STEP ONLY. This turn should help the researcher answer that "
-            "first missing facet. Reflect their idea briefly, then ask that one "
-            "question. Do not add a different protocol move in the same turn."
-        )
+        if stance["intent"] == "followup-question":
+            lines.append(
+                "Answer the question before doing anything else. Do not attach "
+                "a new design move to this explanation."
+            )
+        else:
+            lines.append(
+                "ONE STEP ONLY. Help the researcher answer the first missing "
+                "facet. Reflect their idea briefly, then ask that one question. "
+                "If their latest message contains one concrete task, measure, "
+                "research question, or protocol value, record only that safe "
+                "fact as one move. Do not propose a design shape yet."
+            )
     else:
         lines.append(
             "You now know who takes part, what they do, what is compared, "
@@ -504,11 +512,25 @@ def _directive(stance: dict, state: dict | None = None) -> str:
     return "\n\n".join(lines)
 
 
+def _move_section(move: ProposedMove) -> str:
+    """Return the protocol section a move would touch, when it has one."""
+    if move.kind == "choose-template" or move.kind == "merge-templates":
+        return "design"
+    patch = move.patch or {}
+    if patch.get("section"):
+        return str(patch["section"])
+    path = patch.get("path")
+    if isinstance(path, list) and path:
+        return str(path[0])
+    return (move.target or "").removeprefix("protocol.").split(".")[0]
+
+
 def _permitted_moves(
-    moves: tuple[ProposedMove, ...], stance: dict
+    moves: tuple[ProposedMove, ...], stance: dict, state: dict | None = None
 ) -> tuple[ProposedMove, ...]:
     """Apply the stance to a script's moves  -  the enforcement half."""
     kept = []
+    assist_move_seen = False
     for move in moves:
         if not stance["mayProposeMoves"] and move.kind != "caution":
             log.info(
@@ -526,6 +548,18 @@ def _permitted_moves(
                 "held back %s: the study isn't understood yet", move.kind
             )
             continue
+        if stance.get("steer") == "assists" and move.kind != "caution":
+            # Assists is the structural-gap stop: it may fill one section the
+            # draft has not covered, but it should not keep pitching choices the
+            # researcher has already settled. The model is still responsible
+            # for selecting the best move; this is the server-side boundary.
+            if _move_section(move) in set((state or {}).get("filled") or []):
+                log.info("held back %s: assists only fills an empty section", move.kind)
+                continue
+            if assist_move_seen:
+                log.info("held back %s: assists offers one move at a time", move.kind)
+                continue
+            assist_move_seen = True
         kept.append(move)
     return tuple(kept)
 
@@ -833,7 +867,7 @@ def _assemble(
     retrieved: set[str] = set()
 
     moves = []
-    for i, sm in enumerate(_permitted_moves(turn.moves, stance)):
+    for i, sm in enumerate(_permitted_moves(turn.moves, stance, state)):
         grounding = _resolve_grounding(s, sm.refs)
         if sm.kind == "choose-template" and not grounding and sm.patch:
             tid = sm.patch.get("templateId")

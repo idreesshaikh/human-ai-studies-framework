@@ -257,10 +257,16 @@ ok("graph curation caps the suggestion neighbourhood", curated.nodes.filter((n) 
 ok("graph curation caps each anchor's suggestions", CURATED_NODES.slice(0, 2).every((anchor) =>
   curated.edges.filter((e) => e.src === anchor.paperRef || e.dst === anchor.paperRef).length <=
     MAX_SUGGESTIONS_PER_ANCHOR));
-ok("graph curation drops unsupported internal edge kinds",
+const discovered = curateGraph({
+  nodes: [{ paperRef: "own", ingested: true }, { paperRef: "via", ingested: false }],
+  edges: [{ src: "own", dst: "via", kind: "harvested-via" }],
+});
+ok("corpus discovery edges remain visible as recommendations",
+  discovered.edges.length === 1 && discovered.edges[0].kind === "recommendations");
+ok("graph curation drops unrelated internal edge kinds",
   curateGraph({
     nodes: [{ paperRef: "own", ingested: true }, { paperRef: "via", ingested: false }],
-    edges: [{ src: "own", dst: "via", kind: "harvested-via" }],
+    edges: [{ src: "own", dst: "via", kind: "internal-only" }],
   }).edges.length === 0);
 
 console.log(

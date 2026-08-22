@@ -12,6 +12,12 @@ class _Move:
         self.kind = kind
 
 
+class _SectionMove(_Move):
+    def __init__(self, kind: str, section: str) -> None:
+        super().__init__(kind)
+        self.patch = {"section": section}
+
+
 def _stance(**over) -> dict:
     base = {
         "intent": "statement",
@@ -84,11 +90,43 @@ def test_a_talkative_level_keeps_every_move():
     assert [m.kind for m in kept] == ["choose-template", "add-measure", "caution"]
 
 
+def test_assists_only_keeps_one_move_for_an_empty_section():
+    moves = (
+        _SectionMove("add-measure", "measures"),
+        _SectionMove("add-rq", "researchQuestions"),
+        _Move("caution"),
+    )
+    kept = _permitted_moves(
+        moves,
+        _stance(steer="assists"),
+        {"filled": ["measures"]},
+    )
+    assert [m.kind for m in kept] == ["add-rq", "caution"]
+
+
 def test_the_directive_carries_both_levers_into_the_prompt():
     """The model is told who it is speaking to AND how much to drive, in that order."""
     directive = _directive(_stance(steer="checks", profile="experienced"))
     assert elicitation.PROFILES["experienced"]["guidance"] in directive
     assert elicitation.STEER_LEVELS["checks"]["guidance"] in directive
+
+
+def test_missing_facets_still_allow_one_safe_concrete_move():
+    stance = _stance(
+        intent="describe",
+        steer="leads",
+        understanding={
+            "missing": ["task"],
+            "missingLabels": ["the programming task"],
+            "known": ["population"],
+            "facetsNeeded": 5,
+        },
+        nextQuestion="What will participants do?",
+        mayProposeDesign=False,
+    )
+    directive = _directive(stance)
+    assert "record only that safe fact as one move" in directive
+    assert "Do not add a different protocol move" not in directive
 
 
 def test_the_dial_never_changes_the_method():

@@ -217,6 +217,7 @@ export const MAX_SUGGESTIONS_PER_ANCHOR = 12;
 export const MAX_SUGGESTIONS_PER_RELATION = 6;
 
 const RELATION_ORDER = ["references", "citations", "recommendations"] as const;
+const CORPUS_DISCOVERY_KIND = "harvested-via";
 
 type CuratableNode = {
   paperRef: string;
@@ -243,9 +244,20 @@ export function curateGraph<
   const ingested = graph.nodes.filter((node) => node.ingested);
   const ingestedRefs = new Set(ingested.map((node) => node.paperRef));
   const nodesByRef = new Map(graph.nodes.map((node) => [node.paperRef, node]));
-  const supportedEdges = graph.edges.filter((edge) =>
-    RELATION_ORDER.includes(edge.kind as (typeof RELATION_ORDER)[number]),
-  );
+  const supportedEdges = graph.edges.flatMap((edge) => {
+    if (RELATION_ORDER.includes(edge.kind as (typeof RELATION_ORDER)[number])) {
+      return [edge];
+    }
+    /* Corpus matching stores provenance as `harvested-via`: a Tier B paper was
+     * discovered through one of the study's papers. That is not a citation,
+     * but it is a useful recommendation edge for the visual literature map.
+     * Translate it only at this presentation boundary; matching and the API
+     * retain the precise internal kind. */
+    if (edge.kind === CORPUS_DISCOVERY_KIND) {
+      return [{ ...edge, kind: "recommendations" } as E];
+    }
+    return [];
+  });
   const directEdges = supportedEdges.filter(
     (edge) => ingestedRefs.has(edge.src) && ingestedRefs.has(edge.dst),
   );
