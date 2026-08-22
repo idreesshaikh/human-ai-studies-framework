@@ -63,7 +63,7 @@ export function StreamingTurn({
       </div>
 
       {turn.moves.length > 0 && (
-        <div className="flex w-full min-w-0 max-w-bubble flex-col gap-1.5">
+        <div className="flex w-full min-w-0 max-w-decision flex-col gap-1.5">
           {turn.moves.map((m) => (
             <MoveCard
               key={m.moveId}

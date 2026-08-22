@@ -4,9 +4,12 @@
 #   v0.3.0-rc.1  → gates → GHCR image → GitHub pre-release; deploys demo.
 #   v0.3.0       → the same, as a full release.
 #
+# A manual run can repair or refresh an existing release without moving its
+# tag. This keeps the artifact hand-off idempotent after a partial run.
+#
 # Railway is the sole deployment target. The container image is pushed to
 # GHCR and a Railway redeploy is triggered via the Railway API. The extension
-# The extension is distributed as a .vsix attached to the GitHub Release, and
+# is distributed as a .vsix attached to the GitHub Release, and
 # only that way — TERN is deliberately not on the VS Code Marketplace. The
 # platform's pairing link therefore has to point participants at the release
 # page before it can hand them a vscode:// deep link, since a sideloaded
@@ -23,6 +26,12 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing tag to build and publish"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -78,9 +87,11 @@ jobs:
 
       - name: Build and push versioned image
         run: |
+          TAG="${{ inputs.release_tag || github.ref_name }}"
           IMAGE="ghcr.io/${{ github.repository }}/middleware"
-          docker build -f middleware/Dockerfile -t "$IMAGE:${{ github.ref_name }}" .
-          docker push "$IMAGE:${{ github.ref_name }}"
+          docker build -f middleware/Dockerfile -t "$IMAGE:$TAG" .
+          docker push "$IMAGE:$TAG"
+          docker manifest inspect "$IMAGE:$TAG" >/dev/null
 
       - uses: actions/setup-node@v7
         with:
@@ -98,14 +109,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ github.ref_name }}"
+          TAG="${{ inputs.release_tag || github.ref_name }}"
           FLAGS=""
           case "$TAG" in *-rc.*) FLAGS="--prerelease" ;; esac
-          gh release create "$TAG" --verify-tag --title "$TAG" $FLAGS \
-            --notes "Container image: \`ghcr.io/${{ github.repository }}/middleware:$TAG\`
+          NOTES="Container image: \`ghcr.io/${{ github.repository }}/middleware:$TAG\`
 
-          Extension \`.vsix\` attached (install via \`code --install-extension\`)." \
-            extension/*.vsix
+          Extension \`.vsix\` attached (install via \`code --install-extension\`)."
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "${{ github.repository }}" --title "$TAG" $FLAGS --notes "$NOTES"
+          else
+            gh release create "$TAG" --repo "${{ github.repository }}" --verify-tag --title "$TAG" $FLAGS --notes "$NOTES"
+          fi
+          gh release upload "$TAG" --repo "${{ github.repository }}" --clobber extension/*.vsix
 
   deploy-demo:
     name: Deploy demo to Railway (all tags)

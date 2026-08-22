@@ -35,6 +35,10 @@ export interface LayoutOptions {
   spring?: number;
   /** Spread nodes through the available canvas instead of a centre ring. */
   spread?: boolean;
+  /** Keep the physics, but reserve the x-axis for publication year and the
+   * y-axis for citation weight so a researcher can read time and influence
+   * without needing to decode a cloud of dots. */
+  timeline?: boolean;
 }
 
 /** Position every node in `[0,width] × [0,height]`. Ingested nodes anchor the
@@ -44,6 +48,7 @@ export function layoutGraph(
   edges: GraphEdgeIn[],
   opts: LayoutOptions = {},
 ): PositionedNode[] {
+  if (opts.timeline) return layoutTimelineGraph(nodes, edges, opts);
   const width = opts.width ?? 640;
   const height = opts.height ?? 440;
   // Each iteration is O(n²); harvested neighbourhoods reach hundreds of nodes,
@@ -151,6 +156,75 @@ export function layoutGraph(
   }
 
   return nodes.map((n, i) => ({ ...n, x: pos[i].x, y: pos[i].y }));
+}
+
+/**
+ * A semantic layer over the same deterministic physics used by the classic
+ * constellation. ResearchRabbit's timeline view makes publication year the
+ * horizontal reading direction and citation count the vertical signal; this
+ * keeps that intuition while retaining Obsidian-like space, repulsion, and
+ * citation gravity from the base solve.
+ *
+ * Missing years stay in a small discovery lane at the right edge. They are
+ * visibly unknown rather than being assigned a fake year, which matters in a
+ * literature map where “new” and “not dated” are different claims.
+ */
+function layoutTimelineGraph(
+  nodes: GraphNodeIn[],
+  edges: GraphEdgeIn[],
+  opts: LayoutOptions,
+): PositionedNode[] {
+  const width = opts.width ?? 640;
+  const height = opts.height ?? 440;
+  const base = layoutGraph(nodes, edges, {
+    ...opts,
+    timeline: false,
+    spread: true,
+  });
+  const years = nodes.flatMap((n) => (n.year == null ? [] : [n.year]));
+  if (years.length === 0) return base;
+
+  const minYear = Math.min(...years);
+  const maxYear = Math.max(...years);
+  const yearSpan = Math.max(maxYear - minYear, 1);
+  const byYear = new Map<number, number[]>();
+  nodes.forEach((n, i) => {
+    if (n.year == null) return;
+    const group = byYear.get(n.year) ?? [];
+    group.push(i);
+    byYear.set(n.year, group);
+  });
+  const cited = nodes.map((n) => Math.log1p(Math.max(0, n.citationCount ?? 0)));
+  const maxCited = Math.max(...cited, 1);
+  const left = 76;
+  const right = width - 76;
+  const top = 52;
+  const bottom = height - 58;
+  const mix = (semantic: number, physics: number, semanticWeight: number) =>
+    semantic * semanticWeight + physics * (1 - semanticWeight);
+
+  return base.map((n, i) => {
+    const sameYear = n.year == null ? [] : byYear.get(n.year) ?? [];
+    const yearIndex = sameYear.indexOf(i);
+    /* Keep the year axis honest while giving same-year papers a small orbit.
+     * Without this, a harvested batch from one publication year forms a
+     * vertical stack and its labels collapse into one another. */
+    const sameYearOffset =
+      sameYear.length > 1
+        ? (yearIndex - (sameYear.length - 1) / 2) * Math.min(52, (right - left) / (sameYear.length + 1))
+        : 0;
+    const yearX =
+      n.year == null
+        ? right
+        : left + ((n.year - minYear) / yearSpan) * (right - left) + sameYearOffset;
+    const citationY =
+      bottom - (cited[i] / maxCited) * (bottom - top);
+    return {
+      ...n,
+      x: mix(yearX, n.x, 0.82),
+      y: mix(citationY, n.y, 0.62),
+    };
+  });
 }
 
 function clamp(v: number, lo: number, hi: number): number {

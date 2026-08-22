@@ -52,6 +52,9 @@ const created = await api.createProject("Fresh Project");
 ok("create project makes creator an owner", created.role === "owner", created.slug);
 const mine = await api.listProjects();
 ok("new project appears in my list", mine.some((p) => p.slug === created.slug));
+ok("the shared demo remains view-only", mine.some((p) => p.slug === "demo" && p.role === "viewer"));
+await throws("read-only demo refuses study creation", 403, () =>
+  api.createStudy("demo", "Should not be created"));
 
 // Invitations are reusable (Phase 7b: email-less share links).
 const inv = await api.createInvitation("sample-lab", "member");

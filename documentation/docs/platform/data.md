@@ -1,63 +1,67 @@
 # Data
 
-The Data tab is where collection, curation, and the analysis handoff live.
-The platform handles design, setup, and curation  -  then stops: you get the
-data, a data dictionary, and an analysis plan, ready for your own notebook.
+The Data tab answers the question every researcher needs answered before
+analysis: **what arrived, how complete is it, and is it live or rehearsal data?**
 
 <figure markdown="span">
-  ![The data tab](../assets/screens/study-data.png){ width="800" }
-  <figcaption>Collection status, dry runs, and the analysis handoff.</figcaption>
+  ![The current Phoenix Data tab](../assets/screens/phoenix-demo-data-current.png){ width="900" }
+  <figcaption>Complete sessions stay visible beside an intentional sequence-gap warning; the platform does not quietly repair evidence.</figcaption>
 </figure>
 
-## Two data paths, one schema
+## Two paths, one schema
 
-- **The live path**  -  cognitive (self-report), behavioural, static-metrics, and
-  agent instrument legs, configured per study from the protocol.
-- **The curated path**  -  archive import adapters, with a mandatory
-  validity-threats record.
+- **Live capture** — TERN’s cognitive, behavioural, static-metrics, and agent
+  legs, configured per study from the approved protocol.
+- **Curated import** — archive adapters with a validity-threats record, for
+  studies that began elsewhere.
 
-Both converge on one schema, so analysis is uniform regardless of where the
-events came from.
+Both paths converge on the same event and metric schema, so the analysis plan
+does not change depending on how a row entered the project.
 
 ## Synthetic dry run
 
-Before collecting anything real, run a **synthetic dry run**: simulated
-participants through the real capture path. The server route
-(`POST /studies/{study_id}/simulate`) and the Data tab's **Run a dry run**
-button do this in-process.
+Before recruiting, send simulated participants through the real ingest and
+analysis path:
 
 ```bash
 uv run python -m middleware simulate pilot-2026 --count 10 --seed 42
 ```
 
-The run validates the study's analysis plan against the synthetic data and
-exits 0 only when every planned recipe ran. The analysis plan is proven against
-data before a single real session happens.
+The run validates every recipe in the study’s analysis plan and exits non-zero
+if the plan cannot be satisfied. This is a plumbing and design check, not an
+empirical result.
+
+## Integrity is a first-class result
+
+The Data tab exposes event counts, metric rows, and sequence gaps per session.
+A red `sequence-gap` marker means events are missing from the expected sequence;
+it does not mean the platform guessed what happened. Complete and incomplete
+sessions remain distinguishable for the researcher’s decision.
+
+The banner also distinguishes built-in sample data from a live middleware
+connection. Screenshots and demo rows are useful for understanding the UI, never
+for making a claim about participants.
 
 ## Recruitment planning
 
-The Planning tab shows the power/sensitivity curve for the study's planned
-comparison  -  exact two-sample t-test power across sample size, and the total n
-each plausible effect size needs to reach the target. The model's assumptions
-are stated alongside the numbers.
+The Planning tab shows the power/sensitivity curve for the planned comparison,
+including the assumptions behind the target and the total `n` needed across
+plausible effect sizes. It keeps a sample-size decision attached to the protocol
+instead of burying it in a later notebook.
 
-<figure markdown="span">
-  ![Recruitment planning](../assets/screens/study-planning.png){ width="800" }
-  <figcaption>Power across sample size, with the model's assumptions stated.</figcaption>
-</figure>
+## The analysis hand-off
 
-## The analysis handoff
+The protocol that configured TERN also produces the hand-off:
 
-The same plan that configures instrumentation also produces the handoff:
+- **`notebook`** — a loaded, documented dataframe with planned recipes and a
+  standalone `data-dictionary.md`;
+- **`paper`** — a first-draft Methods + Results section from the same plan;
+- **`run` / `validate` / `list`** — execute recipes, check plan satisfaction, and
+  catalogue what exists.
 
-- **`notebook`**  -  `results/<study>/notebook.ipynb`: a loaded, documented
-  dataframe with every planned recipe imported  -  never run  -  plus a standalone
-  `data-dictionary.md`.
-- **`paper`**  -  a first-draft Methods + Results paper section from the same
-  plan.
-- **`run` / `validate` / `list`**  -  execute recipes, check plan satisfaction,
-  and catalogue what exists.
+The research team still owns the final analysis and interpretation. PHOENIX
+makes the inputs, assumptions, and integrity decisions inspectable.
 
-!!! warning
-    The demo study's data is synthetic and must never be presented as a
-    finding. Anything shown in `demo-study` is illustrative.
+!!! warning "Synthetic means synthetic"
+    The checked-in `demo-study` data is illustrative. Never present it as a
+    finding or combine it with a live result without an explicit provenance rule.

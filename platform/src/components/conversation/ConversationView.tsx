@@ -347,7 +347,7 @@ export function ConversationView({
             ),
           })),
         );
-        setNote("That decision didn't reach the server. Try it again.");
+        setNote("This decision is still local. It didn't reach the server, so nothing was changed. Try again.");
       });
 
       // Accepting a move that cites papers is the researcher endorsing that
@@ -488,7 +488,7 @@ export function ConversationView({
 
         {note && (
           <div className="border-t border-border bg-surface px-4 py-2 sm:px-6">
-            <Notice kind="offline" className="mx-auto max-w-reading">
+            <Notice kind="offline" className="mx-auto w-full max-w-bubble">
               {note}
             </Notice>
           </div>
@@ -507,10 +507,10 @@ export function ConversationView({
             * opens above its button, so the composer never grows a second
             * permanent band or makes the input compete with a full-width
             * slider. */}
-          <div className="mx-auto flex w-full max-w-reading items-end gap-2 rounded-card border border-control-edge bg-surface px-2.5 py-1.5 focus-within:border-accent">
+          <div className="mx-auto flex w-full max-w-reading items-end gap-1.5 rounded-card border border-control-edge bg-surface px-2 focus-within:border-accent">
             <textarea
               ref={composer}
-              className="type-body min-h-9 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-0 py-1.5 text-text placeholder:text-text-muted"
+              className="type-body min-h-7 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-0 py-0.5 text-text placeholder:text-text-muted"
               placeholder="What do you want to find out?"
               value={input}
               rows={1}
@@ -527,7 +527,7 @@ export function ConversationView({
             <Button
               type="submit"
               size="sm"
-              className="!size-10 !px-0"
+              className="!size-8 !px-0"
               data-agent="conversation-send"
               aria-label="Send"
               disabled={busy}

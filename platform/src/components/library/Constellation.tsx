@@ -66,6 +66,21 @@ const EDGE: Record<string, { color: string; label: string }> = {
   recommendations: { color: "var(--series-3)", label: "recommended" },
 };
 
+function edgePath(
+  a: PositionedNode,
+  b: PositionedNode,
+  kind: string,
+  index: number,
+): string {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const direction = dx >= 0 ? 1 : -1;
+  const bend = kind === "recommendations" ? 34 : 22 + (index % 3) * 8;
+  const cx = (a.x + b.x) / 2;
+  const cy = (a.y + b.y) / 2 + direction * bend + (dy === 0 ? 8 : 0);
+  return `M ${a.x} ${a.y} Q ${cx} ${cy} ${b.x} ${b.y}`;
+}
+
 const TITLE_LABEL_MAX = 34;
 
 /** A truncated title, the fallback identity for a node with a real record
@@ -139,7 +154,13 @@ export function Constellation({
   );
 
   const base = useMemo(
-    () => layoutGraph(nodes, edges, { width: W, height: H, spread: true }),
+    () =>
+      layoutGraph(nodes, edges, {
+        width: W,
+        height: H,
+        spread: true,
+        timeline: true,
+      }),
     [nodes, edges],
   );
   const degrees = useMemo(() => degreeMap(nodes, edges), [nodes, edges]);
@@ -174,6 +195,25 @@ export function Constellation({
     () => new Map(positioned.map((n) => [n.paperRef, n])),
     [positioned],
   );
+  const maxCitationCount = useMemo(
+    () => Math.max(...nodes.map((n) => n.citationCount ?? 0), 0),
+    [nodes],
+  );
+  const yearMarks = useMemo(() => {
+    const byYear = new Map<number, number[]>();
+    for (const n of positioned) {
+      if (n.year == null) continue;
+      const values = byYear.get(n.year) ?? [];
+      values.push(n.x);
+      byYear.set(n.year, values);
+    }
+    return [...byYear.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([year, xs]) => ({
+        year,
+        x: xs.reduce((sum, value) => sum + value, 0) / xs.length,
+      }));
+  }, [positioned]);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
@@ -357,20 +397,36 @@ export function Constellation({
           }}
         >
           <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
-            {edges.map((e) => {
+            <g aria-hidden className="pointer-events-none">
+              {yearMarks.map(({ year, x }) => (
+                <g key={year}>
+                  <line
+                    x1={x}
+                    y1={38}
+                    x2={x}
+                    y2={H - 46}
+                    stroke="var(--viz-grid)"
+                    strokeDasharray="2 7"
+                    strokeWidth={1}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                </g>
+              ))}
+            </g>
+            {edges.map((e, edgeIndex) => {
               const a = posByRef.get(e.src);
               const b = posByRef.get(e.dst);
               if (!a || !b) return null;
               const state = edgeState(e.src, e.dst, focusRef);
+              const edge = EDGE[e.kind] ?? { color: "var(--viz-axis)", label: "relation" };
               return (
-                <line
+                <path
                   key={`${e.src}-${e.dst}-${e.kind}`}
-                  x1={a.x}
-                  y1={a.y}
-                  x2={b.x}
-                  y2={b.y}
-                  stroke={state === "incident" ? (EDGE[e.kind]?.color ?? "var(--viz-axis)") : "var(--viz-axis)"}
-                  strokeWidth={1.2}
+                  d={edgePath(a, b, e.kind, edgeIndex)}
+                  fill="none"
+                  stroke={edge.color}
+                  strokeWidth={state === "incident" ? 2.2 : 1.5}
+                  strokeDasharray={e.kind === "recommendations" ? "4 5" : undefined}
                   vectorEffect="non-scaling-stroke"
                   opacity={edgeOpacity(state)}
                   className="transition-opacity duration-standard"
@@ -380,7 +436,11 @@ export function Constellation({
             {positioned.map((n) => {
               const isSel = n.paperRef === selected;
               const inFocusNeighbourhood = active.has(n.paperRef);
-              const r = nodeRadius(degrees.get(n.paperRef) ?? 0);
+              const r = nodeRadius(
+                degrees.get(n.paperRef) ?? 0,
+                n.citationCount,
+                maxCitationCount,
+              );
               // Two different guards, because the two reveal paths have
               // different risk profiles. The zoom-gated degree-threshold
               // path (dense mode, large graphs) requires a real author: a
@@ -399,6 +459,7 @@ export function Constellation({
               const hasTitle = Boolean(n.title);
               const hasIdentity = alwaysLabels ? hasAuthor || hasTitle : hasAuthor;
               const showLabel =
+                (n.ingested || isSel || inFocusNeighbourhood) &&
                 (hasIdentity || isSel || inFocusNeighbourhood) &&
                 (alwaysLabels ||
                   labelVisible({
@@ -408,6 +469,8 @@ export function Constellation({
                     zoomK: view.k,
                   }));
               const label = showLabel ? nodeLabel(n) : "";
+              const labelAnchor = n.x < W * 0.24 ? "start" : n.x > W * 0.76 ? "end" : "middle";
+              const labelOffset = labelAnchor === "start" ? r + 8 : labelAnchor === "end" ? -(r + 8) : 0;
               const highlighted = isSel || inFocusNeighbourhood;
               return (
                 <g
@@ -430,22 +493,23 @@ export function Constellation({
                 >
                   <circle
                     r={r}
-                    fill={n.ingested ? "var(--accent)" : "var(--bg)"}
-                    fillOpacity={1}
+                    fill={n.ingested ? "var(--accent)" : "var(--series-3)"}
+                    fillOpacity={n.ingested ? 0.96 : 0.9}
                     stroke={
                       highlighted
-                        ? "var(--accent)"
+                        ? "var(--series-4)"
                         : n.ingested
-                          ? "none"
-                          : "var(--viz-axis)"
+                          ? "var(--accent)"
+                          : "var(--series-3)"
                     }
-                    strokeWidth={highlighted ? 2 : n.ingested ? 0 : 1.5}
+                    strokeWidth={highlighted ? 3 : 1.5}
                     vectorEffect="non-scaling-stroke"
                   />
                   {label && (
                     <text
+                      x={labelOffset}
                       y={r + 11}
-                      textAnchor="middle"
+                      textAnchor={labelAnchor}
                       transform={`scale(${1 / view.k})`}
                       // The counter-scale above keeps this text a constant
                       // rendered size regardless of zoom  -  without it, a
@@ -468,6 +532,19 @@ export function Constellation({
               );
             })}
           </g>
+          <g aria-hidden className="pointer-events-none">
+            {yearMarks.map(({ year, x }) => (
+              <text
+                key={year}
+                x={(x + view.x) * view.k}
+                y={H - 18}
+                textAnchor="middle"
+                className="fill-text-muted text-legend-svg"
+              >
+                {year}
+              </text>
+            ))}
+          </g>
         </svg>
         <button
           type="button"
@@ -480,9 +557,9 @@ export function Constellation({
       </div>
 
       <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 type-caption text-text-muted">
-        <span className="text-text-muted/80">Drag to pan · scroll to zoom · drag a node to move · hover or focus a paper to light its neighbourhood</span>
+        <span className="text-text-muted/80">Older ← publication year → newer · circle size = citation count · drag to pan · scroll to zoom</span>
         <LegendDot filled label="ingested" />
-        <LegendDot filled={false} label="suggested, click to add" />
+        <LegendDot color="var(--series-3)" label="suggested, click to add" />
         {Object.entries(EDGE).map(([kind, { color, label }]) => (
           <span key={kind} className="flex items-center gap-1">
             <span
@@ -498,15 +575,25 @@ export function Constellation({
   );
 }
 
-function LegendDot({ filled, label }: { filled: boolean; label: string }) {
+function LegendDot({
+  filled = true,
+  color,
+  label,
+}: {
+  filled?: boolean;
+  color?: string;
+  label: string;
+}) {
   return (
     <span className="flex items-center gap-1">
       <span
         aria-hidden
         className={cn(
           "inline-block size-2.5 rounded-chip",
-          filled ? "bg-accent" : "border border-viz-axis",
+          !color && filled && "bg-accent",
+          !color && !filled && "border border-viz-axis",
         )}
+        style={color ? { background: color } : undefined}
       />
       {label}
     </span>

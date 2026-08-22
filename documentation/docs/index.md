@@ -1,84 +1,75 @@
 # PHOENIX · Human–AI Study Framework
 
-Design, instrument, and analyse human–AI software-development studies  -  by
-talking it through.
+## From a research idea to a study you can trust
 
-**PHOENIX** is a research platform that turns a study idea into a grounded,
-statistically prescribed, ethics-ready protocol, and then instruments it
-automatically on participants' machines.
+PHOENIX is the researcher-facing half of the framework: a grounded design
+conversation, a deterministic protocol compiler, a participant hand-off, and a
+curated analysis path in one place. **TERN** is the participant-facing half: a
+small VS Code extension that runs the approved study and records only the
+signals the protocol permits.
 
 <figure markdown="span">
-  ![PHOENIX  -  the platform hero](assets/screens/hero.png){ width="800" }
-  <figcaption>Describe your idea; PHOENIX talks back with the literature.</figcaption>
+  ![The current Phoenix home page](assets/screens/phoenix-home-current.png){ width="900" }
+  <figcaption>Start with the question, not a blank form. PHOENIX turns plain language into explicit, reviewable study decisions.</figcaption>
 </figure>
 
-## What this framework does
+## The whole project, in one spine
 
-| Stage | What happens | Where |
+| Researcher action | PHOENIX provides | TERN provides |
 | --- | --- | --- |
-| **Design** | Describe your idea; accept or reject design-move suggestions one at a time. Every suggestion cites a real paper  -  or explicitly says it doesn't. | Platform |
-| **Compile** | Accepted choices become a protocol deterministically  -  the same answers always produce the same protocol, no AI involved. Missing pieces are flagged. | Platform |
-| **Run** | The protocol configures **TERN**, the VS Code extension, on each participant's machine. Task order is rotated so every participant meets every condition. | Platform → Extension |
-| **Collect** | TERN tracks how participants felt (short surveys), what they did (edits, tab switches, stuck moments), and what the AI did. Never raw code, keystrokes, or clipboard text. | Extension |
-| **Analyse** | You get a dataset shaped for your design, a data dictionary, and a starter notebook with the exact test to run. | Platform |
+| Frame the question | Literature-grounded design moves with citations or an explicit unsourced label | — |
+| Freeze the method | A versioned protocol, validation, consent statement, and capture configuration | Reads only the approved configuration |
+| Rehearse the study | Synthetic participants through the real ingest and analysis path | — |
+| Invite a participant | A one-use pairing link and counterbalanced task assignment | Installs the study into VS Code after consent |
+| Run the session | Live session and integrity visibility | Timer, probes, behaviour signals, local JSONL, optional HTTP mirror |
+| Make the result portable | Curated data, dictionary, analysis recipes, notebook and paper hand-off | — |
 
-The framework spans two products, documented here in two sections:
+That separation is the thesis in product form: the platform makes the method
+explicit and reproducible; the extension makes the participant experience
+lightweight and privacy-preserving; the middleware makes the boundary between
+them observable.
 
-- **[Platform](platform/index.md)**  -  the web app where you design, compile, and
-  coordinate the study.
-- **[TERN extension](extension/index.md)**  -  the VS Code extension participants
-  run, capturing everything the protocol approved.
+## What PHOENIX protects
 
-## Why it exists
+- **Methodological coherence.** Accepted design moves compile into the protocol
+  that configures the session. The chat cannot silently outrank the draft.
+- **Evidence traceability.** Each grounded move carries its paper and confidence;
+  a missing source is shown as missing rather than dressed up as certainty.
+- **Participant dignity.** TERN records sizes, shapes, and timings—not raw code,
+  keystrokes, clipboard text, or off-workspace paths. The consent statement and
+  preflight summary are generated from the same approved capture config.
+- **Analysis readiness.** A synthetic dry run exercises the real capture path
+  before recruitment, while sequence gaps and incomplete sessions remain visible
+  instead of being quietly smoothed away.
 
-Researchers studying human–AI software development face a reliability problem:
-every study that designs its own instruments, instruments ad hoc, and analyses
-with improvised statistics produces results that cannot be compared  -  or
-trusted.
+## Two products, one workflow
 
-PHOENIX encodes the methodological knowledge instead: proven designs are bound
-to the statistics they require, every instrument is configured from the
-approved protocol, and the analysis plan is fixed before a single real session
-runs. The step researchers fear most  -  *"will my statistics be right?"*  -  is
-answered by construction.
+- **[Platform](platform/index.md)** — design, compile, rehearse, recruit, curate.
+- **[TERN Extension](extension/index.md)** — pair, consent, work, probe, debrief.
 
-## The four angles, in one place
+The [platform quick start](platform/quickstart.md) is the fastest route through
+the complete loop. If you are a participant, start with [Installing TERN](extension/install.md).
 
-| Leg | Instrument | What it captures |
-| --- | --- | --- |
-| How participants feel | TERN probes | Fatigue Likert, end-of-session TLX survey |
-| What participants do | TERN telemetry | Focus switches, edit bursts, pastes (sizes only), stuck episodes |
-| What the AI does | agent-capture | Tool calls, transcripts, suggestion lifecycle |
-| What the code looks like | metrics | Complexity profile of the code produced |
-
-Every leg is configured per study from the protocol and disclosed in the
-participant's consent statement. A capture config the researcher has not
-approved never runs.
-
-## Quick start
+## Try the release locally
 
 Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22, and a
-[Mistral API key](https://console.mistral.ai/) (needed only for the design
-conversation; everything else works without one).
+[Mistral API key](https://console.mistral.ai/) for the design conversation.
 
 ```bash
 git clone https://github.com/idreesshaikh/human-ai-studies-framework.git
 cd human-ai-studies-framework
-
 uv sync --all-packages
 (cd platform && npm ci && npm run build)
-
 echo "MISTRAL_API_KEY=sk-..." >> .env
-
-uv run python -m middleware corpus-import   # load the 15,000-paper index
-uv run python -m middleware serve           # web app on :8000
+uv run python -m middleware corpus-import
+uv run python -m middleware serve
 ```
 
-Open <http://localhost:8000> and describe your idea. Or use Docker, which
-brings its own Postgres: `docker compose up`.
+Open <http://localhost:8000>, or run the
+[TERN lab on GitHub](https://github.com/idreesshaikh/human-ai-studies-framework/tree/main/extension/examples/tern-lab)
+in VS Code to see the participant side without pairing a real study.
 
-## Worked example
-
-Follow one study from idea to notebook with the real generated artifacts in the
-[repository's `docs/examples/` folder](https://github.com/idreesshaikh/human-ai-studies-framework/tree/main/docs/examples):
-the protocol, an ethics package, a dry-run report, and the starter notebook.
+!!! warning "Demo data is not a finding"
+    The checked-in demo study and screenshots are synthetic fixtures. They exist
+    to make the workflow tangible and to exercise integrity states; they must
+    never be reported as empirical results.

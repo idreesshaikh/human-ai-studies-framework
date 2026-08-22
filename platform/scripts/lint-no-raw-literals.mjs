@@ -33,8 +33,8 @@ const PATTERNS = [
   },
 ];
 
-/* The layout contract's four measures (`src/lib/layout.ts`) plus `bubble`
- * (chat/thinking-bubble reading width, --measure-bubble) are the only named
+/* The layout contract's four measures (`src/lib/layout.ts`) plus the named
+ * conversation measures (`bubble` and `decision`) are the only named
  * max-w-* a Surface root may use. Enforced only in files that have actually
  * adopted the contract  -  the list grows as the rest of the app migrates
  * (docs/roadmap "experience overhaul", phase A). Applying it repo-wide today
@@ -53,7 +53,14 @@ const LAYOUT_CONTRACT_FILES = new Set([
   "pages/Settings.tsx",
   "pages/Templates.tsx",
 ]);
-const ALLOWED_MEASURES = new Set(["narrow", "reading", "work", "wide", "bubble"]);
+const ALLOWED_MEASURES = new Set([
+  "narrow",
+  "reading",
+  "work",
+  "wide",
+  "bubble",
+  "decision",
+]);
 const MAX_W_RE = /\bmax-w-([a-zA-Z0-9][a-zA-Z0-9-]*)\b/g;
 
 function walk(dir) {

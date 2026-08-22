@@ -51,7 +51,7 @@ export function SteerDial({
       <button
         type="button"
         className={cn(
-          "plate-lift inline-flex h-10 items-center gap-2 rounded-control border border-control-edge bg-surface px-2.5 text-text shadow-mark transition-colors duration-fast hover:bg-zone-9",
+          "plate-lift inline-flex h-8 items-center gap-1.5 rounded-control border border-control-edge bg-surface px-2 text-text shadow-mark transition-colors duration-fast hover:bg-zone-9",
           open && "border-accent bg-zone-9",
         )}
         aria-haspopup="dialog"

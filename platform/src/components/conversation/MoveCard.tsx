@@ -100,11 +100,11 @@ export function MoveCard({
         * once floating in the top-right corner where it read as a
         * notification dot rather than as evidence. The score belongs beside
         * the source it measures. */}
-      <CardContent className="flex flex-col gap-3 p-3">
+      <CardContent className="flex flex-col gap-1.5 p-2">
         <div className="min-w-0">
           <div
             className={cn(
-              "flex flex-col gap-2",
+              "flex flex-col gap-1.5",
               move.status === "accepted" && "opacity-70",
               move.status === "rejected" && "opacity-60",
             )}
@@ -129,7 +129,7 @@ export function MoveCard({
           </div>
 
           {move.kind === "merge-templates" && move.mergeData ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               <p className="type-body leading-snug text-text">{move.proposal}</p>
               <p className="type-caption text-text-muted italic">{move.mergeData.reason}</p>
             </div>
@@ -151,7 +151,7 @@ export function MoveCard({
          * inherit the card's 40/60% fade and render see-through, which is
          * worse than not fading it. Citations stay fully legible regardless
          * of the card's decided state, same reasoning as the Undo button. */}
-        <div className="mt-2 flex min-w-0 flex-wrap items-start gap-1 border-t border-border pt-2">
+        <div className="mt-1 flex min-w-0 flex-wrap items-start gap-1 border-t border-border pt-1">
           {move.grounding.length > 0 ? (
             move.grounding.map((g) => <GroundingChip key={g.ref} g={g} />)
           ) : (
@@ -161,51 +161,51 @@ export function MoveCard({
 
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2 sm:justify-end">
-        {!decided && (
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="subtle"
-              data-agent="move-accept"
-              className="min-h-9"
-              onClick={() => onDecide(move.moveId, "accepted")}
-            >
-              <Check aria-hidden />
-              {isCaution ? "Note it" : "Accept"}
-              {/* Drawn as a key cap, the same one the command hint in
-                * ProjectSwitcher wears. As a bare dimmed letter butted
-                * against the label it read as part of the sentence  -
-                * "Note it a…" had a reviewer asking "note it as what?" */}
-              <kbd className="type-legend ml-1 hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">a</kbd>
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              data-agent="move-reject"
-              className="min-h-9"
-              onClick={() => onDecide(move.moveId, "rejected")}
-            >
-              <X aria-hidden />
-              Reject<kbd className="type-legend ml-1 hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">r</kbd>
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-border pt-1 sm:justify-end">
+          {!decided && (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="subtle"
+                data-agent="move-accept"
+                className="!h-8 !px-2.5"
+                onClick={() => onDecide(move.moveId, "accepted")}
+              >
+                <Check aria-hidden />
+                {isCaution ? "Note it" : "Accept"}
+                {/* Drawn as a key cap, the same one the command hint in
+                  * ProjectSwitcher wears. As a bare dimmed letter butted
+                  * against the label it read as part of the sentence  -
+                  * "Note it a…" had a reviewer asking "note it as what?" */}
+                <kbd className="type-legend ml-1 hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">a</kbd>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                data-agent="move-reject"
+                className="!h-8 !px-2.5"
+                onClick={() => onDecide(move.moveId, "rejected")}
+              >
+                <X aria-hidden />
+                Reject<kbd className="type-legend ml-1 hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">r</kbd>
+              </Button>
+            </div>
+          )}
 
-        {decided && (
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              data-agent="move-undo"
-              className="min-h-9"
-              onClick={() => onDecide(move.moveId, "proposed")}
-            >
-              <Undo2 aria-hidden />
-              Undo
-            </Button>
-          </div>
-        )}
+          {decided && (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                data-agent="move-undo"
+                className="!h-8 !px-2.5"
+                onClick={() => onDecide(move.moveId, "proposed")}
+              >
+                <Undo2 aria-hidden />
+                Undo
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

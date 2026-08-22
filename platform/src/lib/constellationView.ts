@@ -4,12 +4,12 @@
  * docs/roadmap). `Constellation.tsx` is thin glue over these functions:
  * state wiring, SVG markup, and the pointer/keyboard event plumbing. */
 
-export const NODE_RADIUS_MIN = 3.5;
-export const NODE_RADIUS_MAX = 22;
+export const NODE_RADIUS_MIN = 7;
+export const NODE_RADIUS_MAX = 30;
 export const LABEL_ZOOM_THRESHOLD = 12;
-export const NEUTRAL_EDGE_OPACITY = 0.16;
-export const INCIDENT_EDGE_OPACITY = 0.7;
-export const DIMMED_EDGE_OPACITY = 0.05;
+export const NEUTRAL_EDGE_OPACITY = 0.32;
+export const INCIDENT_EDGE_OPACITY = 0.86;
+export const DIMMED_EDGE_OPACITY = 0.06;
 export const NEUTRAL_NODE_OPACITY = 1;
 export const DIMMED_NODE_OPACITY = 0.14;
 export const DRIFT_AMPLITUDE = 1.2;
@@ -38,8 +38,20 @@ function clamp(v: number, lo: number, hi: number): number {
 /** Node size by degree, not raw citation count: hubs read as obviously
  * bigger, leaves stay dust-small, and a paper's centrality *to this study's
  * graph* is what's shown  -  not how well-cited it happens to be generally. */
-export function nodeRadius(degree: number): number {
-  return clamp(NODE_RADIUS_MIN + 2.6 * Math.sqrt(Math.max(0, degree)), NODE_RADIUS_MIN, NODE_RADIUS_MAX);
+export function nodeRadius(
+  degree: number,
+  citationCount: number | null = null,
+  maxCitationCount = 0,
+): number {
+  const degreeRadius = NODE_RADIUS_MIN + 3.4 * Math.sqrt(Math.max(0, degree));
+  const citationShare =
+    citationCount != null && maxCitationCount > 0
+      ? Math.sqrt(
+          Math.log1p(Math.max(0, citationCount)) /
+            Math.log1p(Math.max(1, maxCitationCount)),
+        )
+      : 0;
+  return clamp(degreeRadius + citationShare * 9, NODE_RADIUS_MIN, NODE_RADIUS_MAX);
 }
 
 /** Every node's neighbours, both directions  -  an edge kind doesn't matter

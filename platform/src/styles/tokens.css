@@ -160,7 +160,12 @@
   --measure-reading: 44rem;
   --measure-work: 60rem;
   --measure-wide: 72rem;
-  --measure-bubble: 46ch;
+  /* Evidence cards are a deliberate inset in the conversation, not a second
+   * full-width panel. Keeping them below half of a typical chat column leaves
+   * the surrounding thread visible and makes the source chip feel like proof
+   * attached to a decision rather than a dashboard tile. */
+  --measure-bubble: 38ch;
+  --measure-decision: 36ch;
 
   /* The spacing rhythm  -  a Surface's gutter, the gap between titled sections,
    * within a section, and the tightest cluster. Unchanged contract. */

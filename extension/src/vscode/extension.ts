@@ -32,6 +32,7 @@ import {
   refreshConfigAtSessionStart,
 } from './pairing';
 import { preflightSummary } from '../core/preflight';
+import { confirmPreflight } from './preflightPrompt';
 import { wireEditorSignals } from './signals';
 import { CompositeSink, HttpSink, JsonlSink } from './sinks';
 import { SessionStatusBar } from './statusBar';
@@ -261,31 +262,14 @@ async function startSession(): Promise<void> {
       val?.workspaceValue ?? val?.globalValue ?? val?.defaultValue ?? false;
   }
   const items = preflightSummary(flags);
-  const on =
-    items
-      .filter((i) => i.on)
-      .map((i) => i.label)
-      .join(', ') || 'nothing';
-  const off =
-    items
-      .filter((i) => !i.on)
-      .map((i) => i.label)
-      .join(', ') || 'none';
-  const preflightChoice = await vscode.window.showInformationMessage(
-    'Ready to start this study session?',
-    {
-      modal: true,
-      detail: [
-        `Participant: ${participantId.trim()}`,
-        `Condition: ${conditionPick.label}`,
-        '',
-        `Will capture: ${on}`,
-        `Will not capture: ${off}`,
-      ].join('\n'),
-    },
-    'Begin session',
-  );
-  if (preflightChoice !== 'Begin session') return;
+  const accepted = await confirmPreflight({
+    participantId: participantId.trim(),
+    condition: conditionPick.label,
+    durationMinutes: durationMin,
+    capture: items.filter((i) => i.on).map((i) => i.label),
+    notCaptured: items.filter((i) => !i.on).map((i) => i.label),
+  });
+  if (!accepted) return;
 
   bootSession({
     participantId: participantId.trim(),

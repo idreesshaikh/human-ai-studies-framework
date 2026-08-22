@@ -1,47 +1,47 @@
 # Protocol draft
 
-As you accept design moves in the conversation, the **protocol draft** compiles
-beside them  -  deterministically. The same answers always produce the same
-protocol; no AI is involved in compilation.
+The protocol draft is where a conversation becomes a study. It compiles from
+the design moves you accepted and stays visible while the next decision is
+being made.
 
 <figure markdown="span">
-  ![The protocol draft rail compiling](../assets/screens/study-draft-rail.png){ width="800" }
-  <figcaption>The compiled draft, live beside the conversation.</figcaption>
+  ![The current protocol rail](../assets/screens/phoenix-demo-conversation-current.png){ width="900" }
+  <figcaption>The draft rail shows coverage, missing sections, and the exact choices that will drive the run.</figcaption>
 </figure>
 
 ## The document of record
 
-The protocol is the single record of the study. The conversation is how it
-comes to exist, but the compiled protocol is what gets validated, versioned,
-and eventually run. The UI never lets the chat outrank the compiled draft.
+The conversation explains the reasoning; the compiled protocol defines the
+study. Only the protocol drives:
+
+- the conditions and counterbalanced task order;
+- the measures and instrument legs;
+- the consent statement shown before pairing;
+- TERN’s approved capture configuration;
+- the analysis plan and its validation rules.
+
+That is how the framework keeps the thesis coherent: the artifact designed by
+the researcher is the artifact the participant runs.
 
 ## What compilation means
 
-- **Deterministic.** Accepted choices compile through the protocol schema into
-  versioned YAML. No randomness, no LLM in the loop.
-- **Diffed.** Every change is shown as a diff against the previous version
-  before it is applied.
-- **Validated.** If something is missing  -  a condition, a measure, a
-  participant-count rule  -  the protocol tells you exactly what.
-- **Approved, not automatic.** Diffs are applied only on human approval.
+- **Deterministic.** Accepted choices compile through the protocol schema into a
+  versioned document. No LLM is involved in compilation.
+- **Diffed.** Changes are visible against the previous version before approval.
+- **Validated.** Missing conditions, measures, or participant-count rules are
+  named instead of being silently defaulted.
+- **Human-approved.** A draft is not a study run until the researcher approves
+  the change.
 
 ## Consent and responsibility
 
-PHOENIX does not approve research or replace an institution's ethics process.
-It makes the capture decision explicit: the participant sees the protocol-derived
-consent statement before pairing, and the approved capture configuration is what
-TERN applies for the run. The researcher remains responsible for institutional
-approval and for deciding whether a later study run needs a new review.
+PHOENIX does not grant ethics approval. It makes the capture decision explicit:
+the participant sees the protocol-derived consent statement, and TERN applies
+the approved configuration for that run. The researcher remains responsible for
+institutional review and for deciding when an amendment requires a new review.
 
-There is no lifecycle board or mid-study amendment workflow. PHOENIX's boundary
-is deliberate: it designs, sets up, and curates the study, then hands off the
-dataset and analysis plan.
+## Proven shapes and novel protocols
 
-## The repertoire it draws from
-
-Proven design shapes from the [protocol repertoire](library.md) are ranked by
-how widely the corpus uses them. Each shape binds its statistical plan  -  the
-exact tests, effect sizes, and per-cell-n rules it requires. Merging two or
-more shapes produces a novel protocol grounded in every paper it draws from.
-
-![The protocol repertoire](../assets/screens/repertoire.png){ width="800" }
+The [Library](library.md) ranks proven design shapes by corpus usage. Each shape
+binds the statistical plan it requires. Merging shapes produces a new protocol
+grounded in the papers attached to the chosen moves.

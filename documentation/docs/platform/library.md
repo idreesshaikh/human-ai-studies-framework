@@ -1,48 +1,46 @@
 # Library
 
-The Library is the platform's living literature: the **protocol repertoire** of
-proven design shapes, and the **literature constellation** of ~15,000 papers
-that grounds every proposal.
+The Library is PHOENIX’s evidence surface: proven protocol shapes on one side,
+the literature constellation behind them on the other. It lets a researcher
+reuse a method without treating reuse as a black box.
+
+<figure markdown="span">
+  ![The current Phoenix literature library](../assets/screens/phoenix-demo-library-current.png){ width="900" }
+  <figcaption>Five papers, their relationships, and the study’s evidence trail in one working view.</figcaption>
+</figure>
 
 ## Protocol repertoire
 
-Proven design shapes, ranked by how widely the corpus uses them. The papers
-that used a shape are its references; pick two or more shapes and merge them
-into one novel protocol, grounded in every paper it draws from. No project
-needed to browse  -  a merge can become a study in any of your projects.
+Design shapes are ranked by how widely the corpus uses them. Each shape carries
+the statistical plan it requires; merging shapes creates a novel protocol while
+retaining every supporting reference.
 
-<figure markdown="span">
-  ![The protocol repertoire](../assets/screens/repertoire.png){ width="800" }
-  <figcaption>Design shapes ranked by corpus usage, each binding its statistical plan.</figcaption>
-</figure>
+Examples include:
 
-Examples of shapes in the repertoire:
+- **Single-arm benchmark evaluation** — descriptive measures only, with no
+  inferential comparison;
+- **Self-report-only AI-assistance study** — within-subject experience measures;
+- **Within-subject human–AI synergy comparison** — matched human-only,
+  AI-only, and collaborative conditions with explicit synergy measures.
 
-- **Single-arm benchmark evaluation**  -  a single-condition study with no
-  comparison group; all measures descriptive only, no inferential tests.
-- **Self-report-only survey of AI-assistance experience**  -  a within-subjects
-  design with no objective performance measure; every research question is
-  answered from the end-of-session self-report (TLX-style subscales).
-- **Within-subject human-AI synergy comparison**  -  compares human-only,
-  AI-only, and human-AI collaborative performance; measures synergy cases.
-
-Each shape binds its statistical plan: the exact tests, effect sizes, and
-per-cell-n rules it requires. The step researchers fear most  -  *"will my
-statistics be right?"*  -  is answered by construction.
+The repertoire is a starting point. The researcher still decides whether the
+shape fits the question, population, task, and ethics boundary.
 
 ## Literature constellation
 
-Every citation chip in the design conversation opens into the constellation:
-the paper's position in the corpus, its confidence score, and the design moves
-it supports.
-
-<figure markdown="span">
-  ![The literature constellation](../assets/screens/study-library.png){ width="800" }
-  <figcaption>The corpus behind every proposal.</figcaption>
-</figure>
+Citation chips from the design conversation open the supporting paper in the
+constellation: its position in the corpus, confidence score, and the moves it
+supports. The platform distinguishes a citation from an unsourced suggestion
+at the data-model level, not just by styling.
 
 ## Corpus provenance
 
-Grounding is a type, not a tone: every proposal is either cited into the
-corpus or explicitly marked unsourced. There is no third state. Confidence
-scores are real, computed against the FTS5 index of the corpus.
+Local development can import the project corpus with:
+
+```bash
+uv run python -m middleware corpus-import
+```
+
+Grounding is a type, not a tone: every proposal is cited or explicitly
+unsourced. That distinction travels with the protocol and remains available in
+the analysis and ethics hand-off.

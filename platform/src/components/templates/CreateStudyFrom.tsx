@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/select";
 import { useApi, useSession } from "@/lib/session";
 import { useAuth } from "@/lib/auth.tsx";
 import { ApiError } from "@/lib/api.ts";
+import { hasRole } from "@/lib/capabilities";
 import { signInHref } from "@/lib/returnTo";
 
 /* "Turn this into a study"  -  the one way off the templates page.
@@ -51,8 +52,11 @@ export function CreateStudyFrom({
     api
       .listProjects()
       .then((ps) => {
-        setProjects(ps.map((p) => ({ slug: p.slug, name: p.name })));
-        setSlug((cur) => cur || ps[0]?.slug || "");
+        // A viewer can browse the shared demo, but cannot create a study in
+        // it. Keep read-only destinations out of this write control entirely.
+        const writable = ps.filter((p) => hasRole(p.role, "contribute"));
+        setProjects(writable.map((p) => ({ slug: p.slug, name: p.name })));
+        setSlug((cur) => cur || writable[0]?.slug || "");
       })
       .catch(() => setProjects([]));
   }, [api, signedOut]);

@@ -1,11 +1,13 @@
-# Quick start
+# Platform quick start
 
-Run the whole stack locally in four commands. Prerequisites:
-[uv](https://docs.astral.sh/uv/), Node 22, and a
-[Mistral API key](https://console.mistral.ai/) (needed only for the design
-conversation).
+Get from a question to a rehearsed participant hand-off without leaving the
+study workspace. The shortest useful demo uses the local platform, the seeded
+demo study, and the TERN lab in the repository.
 
-## Local setup
+## 1. Start the platform
+
+Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22, and a
+[Mistral API key](https://console.mistral.ai/) for the design conversation.
 
 ```bash
 git clone https://github.com/idreesshaikh/human-ai-studies-framework.git
@@ -13,59 +15,85 @@ cd human-ai-studies-framework
 
 uv sync --all-packages
 (cd platform && npm ci && npm run build)
-
 echo "MISTRAL_API_KEY=sk-..." >> .env
-
-uv run python -m middleware corpus-import   # load the 15,000-paper index
-uv run python -m middleware serve           # web app on :8000
+uv run python -m middleware corpus-import
+uv run python -m middleware serve
 ```
 
-Open <http://localhost:8000>. Without `MIDDLEWARE_AUTH` set, the server runs
-in local mode without authentication.
+Open <http://localhost:8000>. Without `MIDDLEWARE_AUTH`, local mode serves the
+platform without sign-in. `docker compose up` is the alternative when you want
+the containerized stack.
 
-!!! tip "Docker"
-    `docker compose up` brings the whole stack up with its own Postgres  -
-    no local Python or Node install needed.
-
-## Your first study
+## 2. Start with a project
 
 <figure markdown="span">
-  ![Project list](../assets/screens/projects.png){ width="800" }
-  <figcaption>Your projects  -  create one or browse proven designs first.</figcaption>
+  ![Current Phoenix projects](../assets/screens/phoenix-projects-current.png){ width="900" }
+  <figcaption>A project keeps studies, collaborators, evidence, and data under one research boundary.</figcaption>
 </figure>
 
-1. **Start a project** from the home page, or browse the
-   [protocol repertoire](library.md) first to see proven design shapes.
-2. Open the project and describe your research idea in the
-   [design conversation](design-conversation.md).
-3. Rule on the proposals one at a time  -  accept or reject, watching the
-   [protocol draft](protocol-draft.md) compile beside you.
-4. Move through gates and ethics, then open **Participants** to create
-   participant links that configure TERN on each machine.
-5. Use the **Data** tab to dry-run the capture path and hand the dataset off to
-   your own notebook with the exact test to run.
+1. Choose **Start a project**, or open a proven design from **Templates**.
+2. Create a study and open **Conversation**.
+3. Describe the question, population, task, and comparison in plain language.
+4. Accept or reject design moves one at a time. A citation chip means the move
+   is grounded; an explicit unsourced label means it is not.
 
-## The CLI, end to end
+<figure markdown="span">
+  ![Current Phoenix design conversation](../assets/screens/phoenix-demo-conversation-current.png){ width="900" }
+  <figcaption>The conversation and protocol draft stay side by side, so a design decision has a visible downstream consequence.</figcaption>
+</figure>
 
-The same paths the web app drives are one command each (all take
-`MIDDLEWARE_TOKEN` for auth and `--server` to point elsewhere):
+## 3. Compile before you recruit
+
+Open the protocol rail and resolve the sections marked **Still needed**. The
+compiler turns accepted moves into the protocol that will drive consent,
+assignment, instrumentation, and analysis. Review the diff and validation
+messages before approving a version.
+
+Then open **Planning** to inspect the power curve and the assumptions behind the
+planned comparison. This keeps a sample-size decision attached to the design it
+belongs to rather than hidden in a later notebook.
+
+## 4. Rehearse the real data path
+
+From **Data**, run a synthetic dry run before a real participant arrives:
 
 ```bash
 uv run python -m middleware simulate pilot-2026 --count 10 --seed 42
-# simulated 10 participants (mixed): 20 sessions, 713 events, …
-# plan validation: 4 recipe(s) ran, 0 check(s) failed; report under results/
+```
 
-uv run python -m analysis.cli run protocol/examples/pilot-study.yaml --server http://127.0.0.1:8000
+The command drives the capture path and validates every planned analysis recipe.
+It exits successfully only when the plan is satisfied. Synthetic rows are
+labelled as such; they are a plumbing test, not evidence.
+
+<figure markdown="span">
+  ![Current Phoenix data view](../assets/screens/phoenix-demo-data-current.png){ width="900" }
+  <figcaption>The Data view keeps complete sessions and a deliberate sequence-gap warning visible at the same time.</figcaption>
+</figure>
+
+## 5. Hand the study to TERN
+
+Open **Participants** and install the release artifact before minting links:
+
+1. Download `tern-1.0.0.vsix` from the [GitHub release](https://github.com/idreesshaikh/human-ai-studies-framework/releases/tag/v1.0.0).
+2. In VS Code, run **Extensions: Install from VSIX…**.
+3. Mint one link for each participant and send it to the matching person.
+4. The participant opens the link, reads consent, and starts with the assigned
+   condition already configured.
+
+<figure markdown="span">
+  ![Current Phoenix participant hand-off](../assets/screens/phoenix-demo-participants-current.png){ width="900" }
+  <figcaption>The platform makes the sideloaded TERN release and the participant path explicit before a session starts.</figcaption>
+</figure>
+
+## 6. Produce the analysis hand-off
+
+The same protocol drives the data dictionary, recipes, and notebook scaffold:
+
+```bash
 uv run python -m analysis.cli notebook protocol/examples/pilot-study.yaml --server http://127.0.0.1:8000
 uv run python -m analysis.cli paper protocol/examples/pilot-study.yaml
 ```
 
-- `simulate`  -  synthetic dry run over plain HTTP, then validates the study's
-  analysis plan against the synthetic data. Exit 0 only when every planned
-  recipe ran.
-- `notebook`  -  the curated handoff: `results/<study>/notebook.ipynb` (a loaded,
-  documented dataframe with every planned recipe imported  -  never run) plus a
-  standalone `data-dictionary.md`.
-- `paper`  -  a first-draft Methods + Results paper section, from the same plan.
-- `run` / `validate` / `list`  -  execute recipes, check plan satisfaction, and
-  catalogue what exists (`uv run python -m analysis.cli --help`).
+Use `run`, `validate`, and `list` to execute, verify, and catalogue recipes.
+The research team keeps ownership of the final analysis and institutional ethics
+decisions; PHOENIX makes the path reproducible and inspectable.

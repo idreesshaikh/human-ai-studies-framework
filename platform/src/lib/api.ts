@@ -1,4 +1,4 @@
-import type { Role } from "./capabilities.ts";
+import { hasRole, type Role } from "./capabilities.ts";
 
 /* The shell's data layer. One typed interface, two implementations:
  *
@@ -533,6 +533,9 @@ export class InMemoryBackend implements Api {
     protocol?: Record<string, unknown>,
   ): Promise<{ id: string }> {
     const p = this.get(slug);
+    if (!hasRole(this.roleOn(slug), "contribute")) {
+      throw new ApiError(403, "you cannot create a study in a read-only project");
+    }
     const base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "study";
     let id = base;
     let suffix = 1;

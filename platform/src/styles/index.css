@@ -124,6 +124,7 @@
   --container-work: var(--measure-work);
   --container-wide: var(--measure-wide);
   --container-bubble: var(--measure-bubble);
+  --container-decision: var(--measure-decision);
 
   /* The spacing rhythm as p-gutter / gap-section / gap-stack / gap-tight. */
   --spacing-gutter: var(--space-gutter);

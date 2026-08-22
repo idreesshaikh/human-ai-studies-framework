@@ -201,9 +201,11 @@ export function LibraryTab({ studyId }: { studyId: string }) {
           )}
         >
           <div className="rounded-card border border-border bg-surface p-4">
-            <h3 className="mb-2 type-body font-medium text-text">
-              Citation constellation
-            </h3>
+            <h3 className="type-subhead text-text">Literature map</h3>
+            <p className="mt-0.5 type-caption text-text-muted">
+              Publication year runs left to right; node size shows citation weight;
+              edge colour shows how papers are related.
+            </p>
             {graph && (
               <Constellation graph={graph} selected={selected} onSelect={select} />
             )}
