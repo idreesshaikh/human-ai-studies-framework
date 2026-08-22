@@ -756,7 +756,9 @@ def test_the_demo_study_shows_its_paired_prescription(client):
         headers=bearer("newcomer"),
     )
     assert response.status_code == 200, response.text
-    assert [row["designShape"] for row in response.json()["prescriptions"]] == ["paired"]
+    assert [row["designShape"] for row in response.json()["prescriptions"]] == [
+        "paired"
+    ]
 
 
 def test_the_demo_study_owns_the_sample_sessions(client):

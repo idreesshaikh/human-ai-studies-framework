@@ -104,7 +104,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        health = _call("GET", f"{args.server}/health")
+        _call("GET", f"{args.server}/health")
     except (urllib.error.URLError, OSError) as exc:
         print(
             f"error: middleware not reachable at {args.server}: {exc}", file=sys.stderr
@@ -149,10 +149,15 @@ def main() -> int:
         extra = _read_jsonl(extra_path)
         if not extra:
             continue
-        result = _call("POST", f"{args.server}/ingest/events", {"source": "tern", "events": extra})
+        result = _call(
+            "POST",
+            f"{args.server}/ingest/events",
+            {"source": "tern", "events": extra},
+        )
         print(
             f"demo session {extra[0]['sessionId']}: "
-            f"{result['inserted']} inserted ({extra[0]['participantId']} {extra[0]['condition']})"
+            f"{result['inserted']} inserted "
+            f"({extra[0]['participantId']} {extra[0]['condition']})"
         )
 
     rows = _read_jsonl(args.metrics)

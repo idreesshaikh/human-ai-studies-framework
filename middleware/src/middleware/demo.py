@@ -9,11 +9,11 @@ from sqlalchemy.orm import Session
 
 from middleware.db import (
     CORPUS_STUDY_ID,
-    Project,
     ConversationTurn,
     DesignMoveRow,
     Paper,
     PaperLink,
+    Project,
     ProtocolDraftRow,
     SessionOpen,
     Study,
@@ -69,7 +69,9 @@ DEMO_RECOMMENDATIONS = [
         "title": "Investigating and Designing for Trust in AI-powered Code Generation",
         "year": 2024,
         "venue": "Empirical Software Engineering",
-        "matchReason": "Measures whether developers verify AI-generated code before accepting it.",
+        "matchReason": (
+            "Measures whether developers verify AI-generated code before accepting it."
+        ),
     },
     {
         "ref": "corpus:metr-early-2025-dev-productivity",
@@ -77,7 +79,10 @@ DEMO_RECOMMENDATIONS = [
         "title": "Measuring the Impact of Early-2025 AI on Developer Productivity",
         "year": 2025,
         "venue": "METR",
-        "matchReason": "Pairs perceived productivity with observed task completion and correctness.",
+        "matchReason": (
+            "Pairs perceived productivity with observed task completion "
+            "and correctness."
+        ),
     },
 ]
 
@@ -151,7 +156,8 @@ def _seed(s: Session, now: str) -> dict:
         p.paper_ref: p
         for p in s.scalars(
             select(Paper).where(
-                Paper.study_id == CORPUS_STUDY_ID, Paper.paper_ref.in_(DEMO_LIBRARY_REFS)
+                Paper.study_id == CORPUS_STUDY_ID,
+                Paper.paper_ref.in_(DEMO_LIBRARY_REFS),
             )
         )
     }
@@ -201,7 +207,11 @@ def _seed(s: Session, now: str) -> dict:
                 seq=1,
                 role="researcher",
                 author="Demo Researcher",
-                text="I want to know whether AI assistance changes developer productivity and how carefully developers review the code it suggests.",
+                text=(
+                    "I want to know whether AI assistance changes developer "
+                    "productivity and how carefully developers review the code it "
+                    "suggests."
+                ),
                 retrieved_refs=[],
                 recommendations=[],
                 created_at=now,
@@ -215,7 +225,14 @@ def _seed(s: Session, now: str) -> dict:
                 seq=2,
                 role="platform",
                 author="Platform",
-                text="Start with a within-subjects comparison: each developer completes matched maintenance tasks with AI assistance and without it. That lets the comparison use each developer as their own control. I would measure task time, correctness, and review behaviour. The evidence below is grounded in the corpus.",
+                text=(
+                    "Start with a within-subjects comparison: each developer "
+                    "completes matched maintenance tasks with AI assistance and "
+                    "without it. That lets the comparison use each developer as "
+                    "their own control. I would measure task time, correctness, "
+                    "and review behaviour. The evidence below is grounded in the "
+                    "corpus."
+                ),
                 retrieved_refs=[r["ref"] for r in DEMO_RECOMMENDATIONS],
                 recommendations=DEMO_RECOMMENDATIONS,
                 created_at=now,
@@ -230,9 +247,27 @@ def _seed(s: Session, now: str) -> dict:
                 seq=1,
                 kind="choose-template",
                 target="design",
-                proposal="Use a counterbalanced within-subjects design so each developer completes matched tasks in both conditions.",
+                proposal=(
+                    "Use a counterbalanced within-subjects design so each "
+                    "developer completes matched tasks in both conditions."
+                ),
                 patch={"templateId": "within-subjects-crossover-v1", "parameters": {}},
-                grounding=[{"ref": "corpus:metr-early-2025-dev-productivity", "confidence": 0.94, "title": "Measuring the Impact of Early-2025 AI on Developer Productivity", "year": 2025, "venue": "METR", "why": "Pairs perceived productivity with observed task completion and correctness."}],
+                grounding=[
+                    {
+                        "ref": "corpus:metr-early-2025-dev-productivity",
+                        "confidence": 0.94,
+                        "title": (
+                            "Measuring the Impact of Early-2025 AI on Developer "
+                            "Productivity"
+                        ),
+                        "year": 2025,
+                        "venue": "METR",
+                        "why": (
+                            "Pairs perceived productivity with observed task "
+                            "completion and correctness."
+                        ),
+                    }
+                ],
                 status="accepted",
                 decided_by="Demo Researcher",
                 decided_at=now,
@@ -246,9 +281,31 @@ def _seed(s: Session, now: str) -> dict:
                 seq=2,
                 kind="add-measure",
                 target="measures[]",
-                proposal="Measure task completion time, correctness, self-reported fatigue, and review latency in both conditions.",
-                patch={"section": "measures", "op": "append", "value": "task time, correctness, fatigue, and review latency"},
-                grounding=[{"ref": "corpus:trust-in-ai-code-generation", "confidence": 0.98, "title": "Investigating and Designing for Trust in AI-powered Code Generation", "year": 2024, "venue": "Empirical Software Engineering", "why": "Measures whether developers verify AI-generated code before accepting it."}],
+                proposal=(
+                    "Measure task completion time, correctness, self-reported "
+                    "fatigue, and review latency in both conditions."
+                ),
+                patch={
+                    "section": "measures",
+                    "op": "append",
+                    "value": "task time, correctness, fatigue, and review latency",
+                },
+                grounding=[
+                    {
+                        "ref": "corpus:trust-in-ai-code-generation",
+                        "confidence": 0.98,
+                        "title": (
+                            "Investigating and Designing for Trust in AI-powered "
+                            "Code Generation"
+                        ),
+                        "year": 2024,
+                        "venue": "Empirical Software Engineering",
+                        "why": (
+                            "Measures whether developers verify AI-generated code "
+                            "before accepting it."
+                        ),
+                    }
+                ],
                 status="proposed",
             )
         )

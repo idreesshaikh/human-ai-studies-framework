@@ -531,7 +531,9 @@ def test_a_holding_turn_is_never_replayed_to_the_model(tmp_path, monkeypatch):
     local_client = TestClient(create_app(settings))
 
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())
-    local_client.post(f"/studies/{STUDY}/conversation/turns", json={"text": "a thought"})
+    local_client.post(
+        f"/studies/{STUDY}/conversation/turns", json={"text": "a thought"}
+    )
 
     with factory() as s:
         history = da._load_history(s, STUDY)

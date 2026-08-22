@@ -2726,7 +2726,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         try:
             protocol = _resolve_study_protocol(s, study_id)
             participants = (protocol or {}).get("participants", {})
-            design = participants.get("design", "") if isinstance(participants, dict) else ""
+            design = (
+                participants.get("design", "")
+                if isinstance(participants, dict)
+                else ""
+            )
             calculator = (
                 paired_power_curve
                 if str(design).lower() in {"within-subjects", "paired"}
