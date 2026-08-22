@@ -86,7 +86,7 @@ def test_a_vague_opener_understands_nothing():
 
 def test_only_the_researchers_own_words_count():
     """
-    The platform asking about conditions cannot make the platform better informed —
+    The platform asking about conditions cannot make the platform better informed  -
     assess_understanding is only ever given researcher turns.
     """
     understanding = elicitation.assess_understanding([])
@@ -125,7 +125,7 @@ def test_asking_for_a_design_from_nothing_does_not_produce_one(client):
 
 def test_a_described_study_does_reach_a_design(client):
     """
-    The gate must open — an elicitation loop with no exit is worse than proposing too
+    The gate must open  -  an elicitation loop with no exit is worse than proposing too
     early.
     """
     _ask(client, SKETCH)
@@ -148,7 +148,7 @@ def test_why_gets_an_answer_not_new_proposals(client):
 
 def test_a_gated_turn_still_keeps_its_safe_moves(client):
     """
-    Withholding the design shape is not a reason to withhold a grounded caution — the
+    Withholding the design shape is not a reason to withhold a grounded caution  -  the
     turn stays useful while it asks.
     """
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
@@ -212,7 +212,7 @@ def test_the_profile_reaches_the_turn_directive(client):
 
 def test_a_researcher_naming_a_design_is_not_second_guessed(client):
     """
-    The gate stops the *platform* boxing someone in — it was never meant to overrule a
+    The gate stops the *platform* boxing someone in  -  it was never meant to overrule a
     researcher who names the design themselves.
     """
     reply = _ask(client, "let's run a within-subjects crossover study")
@@ -224,7 +224,7 @@ def test_a_researcher_naming_a_design_is_not_second_guessed(client):
 
 def test_asking_what_design_to_use_is_not_naming_one(client):
     """
-    'what design should I use?' must not read as an answer to itself — 'design' is a
+    'what design should I use?' must not read as an answer to itself  -  'design' is a
     word in nearly every template's title.
     """
     reply = _ask(client, "what design should I use?")
@@ -236,7 +236,7 @@ def test_naming_a_template_id_is_naming_a_design(client):
     The repertoire's "describe your study instead" entry point seeds a study's opening
     turn with the template ids a researcher selected, so the assistant proposes the
     pairing rather than asking which shapes they mean. Naming an id must open the
-    design gate — an explicit ask is never overruled by the facet gate.
+    design gate  -  an explicit ask is never overruled by the facet gate.
     """
     from middleware.db import make_session_factory
     from middleware.design_assistant import turn_stance

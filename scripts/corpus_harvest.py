@@ -236,7 +236,7 @@ def propose_tier_a(n: int) -> int:
     """
     Emit a promotion shortlist: the top-scored Tier B rows with their quality metrics,
     for hand-curation into Tier A (the human writes or approves every 'why'; generic
-    LLM-infrastructure papers are skipped by the curator, not the script — judgment
+    LLM-infrastructure papers are skipped by the curator, not the script  -  judgment
     stays human).
     """
     index = json.loads((PAPERS_DIR / "corpus-index.json").read_text())
@@ -245,11 +245,11 @@ def propose_tier_a(n: int) -> int:
     print("| --- | ----- | ---- | ----- | ----- | ---- | -- | ----- | --- |")
     for r in rows:
         title = r["title"].replace("|", "\\|")
-        venue = (r.get("venue") or "—").replace("|", "\\|")
+        venue = (r.get("venue") or " - ").replace("|", "\\|")
         print(
             f"| `{r['ref']}` | {title} | {r['year']} | {venue} "
             f"| {r.get('citationCount', 0)} | {r.get('influentialCitationCount', 0)} "
-            f"| {'✓' if r.get('openAccess') else '—'} | {r['score']} "
+            f"| {'✓' if r.get('openAccess') else ' - '} | {r['score']} "
             f"| {len(r.get('via', []))} |"
         )
     return 0
@@ -390,12 +390,12 @@ def main() -> int:
     )
 
     lines = [
-        "# Corpus Tier B — harvested index (generated, do not hand-edit)",
+        "# Corpus Tier B  -  harvested index (generated, do not hand-edit)",
         "",
         f"Generated {index['generatedAt']} by `scripts/corpus_harvest.py` "
         "(FR-LIT-8). Tier A = the hand-curated seeds in `README.md`. Every row "
         "below was returned by the Semantic Scholar Graph API via citation "
-        "snowballing from the seeds — quality-gated, recency-weighted, "
+        "snowballing from the seeds  -  quality-gated, recency-weighted, "
         "connectivity-ranked. Tier A seeds without an arXiv id count toward "
         "the corpus total but cannot seed the walk. "
         "`via` = seed arXiv ids that discovered it. "
@@ -410,12 +410,12 @@ def main() -> int:
     ]
     for s, pid, p in picked:
         title = p["title"].replace("|", "\\|")
-        venue = ((p.get("venue") or "").strip() or "—").replace("|", "\\|")
+        venue = ((p.get("venue") or "").strip() or " - ").replace("|", "\\|")
         infl = p.get("influentialCitationCount") or 0
         lines.append(
             f"| `{ref_of(p)}` | {title} | {p['year']} | {venue} | "
             f"{p.get('citationCount') or 0} | {infl} | "
-            f"{'✓' if p.get('openAccessPdf') else '—'} | {s} | {len(edges[pid])} |"
+            f"{'✓' if p.get('openAccessPdf') else ' - '} | {s} | {len(edges[pid])} |"
         )
     (PAPERS_DIR / "CORPUS.md").write_text("\n".join(lines) + "\n")
     log(f"wrote corpus-index.json + CORPUS.md ({len(picked) + tier_a_count} papers)")

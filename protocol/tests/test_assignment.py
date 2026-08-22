@@ -148,7 +148,7 @@ def test_a_block_labels_its_session_readably():
 
 def test_fewer_tasks_than_conditions_is_called_out():
     """
-    Not invalid — a study can be internally consistent and still be weakened by a choice
+    Not invalid  -  a study can be internally consistent and still be weakened by a choice
     that is easy to miss until the data is in.
     """
     protocol = _protocol(tasks=[{"id": "only", "title": "Only"}])

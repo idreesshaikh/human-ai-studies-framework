@@ -3,7 +3,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/cn";
 
-/* Button — a control on the plate. Rounded, hairline-framed, and set in the
+/* Button  -  a control on the plate. Rounded, hairline-framed, and set in the
  * product's own sentence-case voice: mono is reserved for measured
  * quantities, and tracked caps made every control shout its label in a tool
  * whose job is to be quiet enough to think in.
@@ -41,7 +41,7 @@ const buttonVariants = cva(
          * removes something a colleague could be relying on. */
         danger:
           "plate-lift border border-critical bg-surface text-critical shadow-mark hover:bg-critical hover:text-paper",
-        /* Legacy aliases — `filtration` and `struck` were the old world's
+        /* Legacy aliases  -  `filtration` and `struck` were the old world's
          * names for "the one next action" and "a committed control". Both
          * resolve into this world's single fill so no call site changes
          * meaning while it is being migrated. */

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
  * gets it there.
  *
  * The frame is dashed, which is this world's mark for "logged, nothing
- * identified yet" — the same notation an unsourced claim and an unfilled
+ * identified yet"  -  the same notation an unsourced claim and an unfilled
  * protocol slot wear. A solid plate around an empty region reads as a thing
  * that exists and happens to be blank; a dashed one reads as a space waiting
  * to be filled, which is what it is. Quiet by construction: no icon, no

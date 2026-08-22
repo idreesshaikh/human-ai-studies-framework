@@ -17,7 +17,7 @@ import { resolveRole, roleOrNull } from "../src/lib/role.ts";
 
 let failures = 0;
 const ok = (name, cond, detail = "") => {
-  console.log(`${cond ? "✓" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${cond ? "✓" : "✗"} ${name}${detail ? `  -  ${detail}` : ""}`);
   if (!cond) failures++;
 };
 async function throws(name, status, fn) {
@@ -83,7 +83,7 @@ ok("delete with correct confirmation removes the project",
 //
 // The regression this guards: pages resolved my role with `… ?? "viewer"`,
 // so while the session was still loading every owner-only control rendered
-// as if I were a viewer — the delete button appeared late, or looked absent
+// as if I were a viewer  -  the delete button appeared late, or looked absent
 // entirely. "Loading" and "viewer" must never collapse into one answer.
 
 const MEMBERS = [{ identitySub: "me", role: "owner" }];

@@ -195,7 +195,7 @@ def understanding_summary(understanding: dict[str, bool]) -> dict:
     }
 
 
-# The *method* never changes with the profile — the same designs, the same statistics,
+# The *method* never changes with the profile  -  the same designs, the same statistics,
 # the same honesty about threats.
 PROFILES: dict[str, dict] = {
     "student": {

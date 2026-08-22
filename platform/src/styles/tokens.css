@@ -1,7 +1,7 @@
-/* Design tokens — the single source of truth for colour, tone, type, rule,
+/* Design tokens  -  the single source of truth for colour, tone, type, rule,
  * radius, motion, and the mark system.
  *
- * THE PLATE AND THE LOG — the working field is an observatory night-log kept
+ * THE PLATE AND THE LOG  -  the working field is an observatory night-log kept
  * beside a star atlas. The protocol draft is the plate: a ruled coordinate
  * field where every slot has an address and nothing appears off-grid. The
  * conversation is the log: dated entries, each one either confirmed against
@@ -13,10 +13,10 @@
  * FOUR MARKS, AND NO FIFTH. Provenance is carried by a mark's form and size,
  * never by hue, so every state survives a greyscale print and a colour-blind
  * reader:
- *   size      — how strongly a claim is grounded (five magnitudes)
- *   open ring — unsourced: seen and logged, not identified
- *   struck    — superseded: replaced, left legible, never erased
- *   doubled   — conflict: two marks claiming one coordinate
+ *   size       -  how strongly a claim is grounded (five magnitudes)
+ *   open ring  -  unsourced: seen and logged, not identified
+ *   struck     -  superseded: replaced, left legible, never erased
+ *   doubled    -  conflict: two marks claiming one coordinate
  *
  * ONE EMPHASIS, AND NO SECOND. The failure this world replaces was two
  * competing fills: a near-black "committed" fill and a magenta "next action"
@@ -42,7 +42,7 @@
  * blue read as every research tool ever shipped. A darkroom "exposure record"
  * in bone paper and dichroic magenta encoded provenance as six hatch densities
  * nobody could read, and spent its one colour on the brand mark, the primary
- * button, the active tab, and every link at once — the confusion this world
+ * button, the active tab, and every link at once  -  the confusion this world
  * exists to end.
  *
  * This is the only place raw hex / ms / px values live. Components consume
@@ -56,7 +56,7 @@
    * A plate has mass and a tracked field never stops moving. Six durations:
    * a control answering, a state changing, a mark arriving, a plate landing,
    * the comparator's beat, and the drift of a field under guiding. */
-  --motion-instant: 90ms; /* press, commit — faster than thought */
+  --motion-instant: 90ms; /* press, commit  -  faster than thought */
   --motion-fast: 140ms; /* hover, focus, tint */
   --motion-standard: 220ms; /* control state, panel reveal, axis travel */
   --motion-entrance: 320ms; /* a mark arriving on the plate */
@@ -78,16 +78,16 @@
    * Plates in an atlas are bound with rounded corners and its legend keys are
    * struck as circles. Rounded is a commitment here, not a softening: a plate
    * reads at 12px, a control at 8px, a key is fully round. */
-  --radius-plate: 0.75rem; /* 12px — a plate, a card, a dialog */
-  --radius-card: var(--radius-plate); /* legacy alias — call sites consume it */
-  --radius-control: 0.5rem; /* 8px — buttons, tabs, segmented controls */
+  --radius-plate: 0.75rem; /* 12px  -  a plate, a card, a dialog */
+  --radius-card: var(--radius-plate); /* legacy alias  -  call sites consume it */
+  --radius-control: 0.5rem; /* 8px  -  buttons, tabs, segmented controls */
   /* A control nested inside a control's own frame: a segment inside a
    * segmented group, inset by the group's padding. Concentric radii have to
    * step down by the inset or the inner corner looks squarer than the outer
    * one it sits inside. */
   --radius-control-inner: 0.375rem;
   --radius-input: 0.5rem;
-  --radius-mark: 0.25rem; /* 4px — the grounding mark's reference frame */
+  --radius-mark: 0.25rem; /* 4px  -  the grounding mark's reference frame */
   --radius-chip: 999px; /* a legend key, a grounding chip, a role pill */
   --radius-dot: 999px;
 
@@ -100,7 +100,7 @@
   --rule-heavy: 3px; /* the axis mark, and only the axis mark */
 
   /* ---- Type ----------------------------------------------------------
-   * Two faces, three jobs. Archivo carries everything set in letters — an
+   * Two faces, three jobs. Archivo carries everything set in letters  -  an
    * atlas is labelled in a grotesk, at small sizes, precisely. Spline Sans
    * Mono carries quantities and only quantities, because a magnitude, an
    * effect size, and a per-cell n must align down a column. Mono is never a
@@ -111,7 +111,7 @@
   --font-mono: "Spline Sans Mono Variable", "Spline Sans Mono", ui-monospace,
     "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
   --font-text: var(--font-sans);
-  --font-serif: var(--font-sans); /* legacy alias — this world has no serif */
+  --font-serif: var(--font-sans); /* legacy alias  -  this world has no serif */
 
   /* Width axis. The compressed-caps display voice belonged to the discarded
    * world and shouted on every screen; an atlas label is set at normal width
@@ -121,20 +121,20 @@
   --width-section: 100;
   --width-normal: 100;
 
-  /* Type scale — named by ROLE. A screen picks the role its content plays and
+  /* Type scale  -  named by ROLE. A screen picks the role its content plays and
    * the scale decides the size. Body stays at 14px: this is a data-dense tool
    * where tables and metric shapes must fit, and hierarchy is bought above
    * body, not below it. */
-  --text-legend: 0.6875rem; /* 11px — a key on the plate, a column head */
-  --text-caption: 0.75rem; /* 12px — metadata, counts, timestamps */
-  --text-quantity: 0.8125rem; /* 13px — measured values, tabular */
-  --text-quantity-lg: 1.375rem; /* 22px — a headline count: a tally, a total */
-  --text-label: 0.8125rem; /* 13px — form and control labels */
-  --text-body: 0.875rem; /* 14px — the app's default voice */
-  --text-body-lg: 1rem; /* 16px — sustained reading (log entries, findings) */
-  --text-subhead: 1rem; /* 16px — a plate's own title */
-  --text-section: 1.25rem; /* 20px — a division within a page */
-  --text-title: 1.75rem; /* 28px — the page's name; exactly one per screen */
+  --text-legend: 0.6875rem; /* 11px  -  a key on the plate, a column head */
+  --text-caption: 0.75rem; /* 12px  -  metadata, counts, timestamps */
+  --text-quantity: 0.8125rem; /* 13px  -  measured values, tabular */
+  --text-quantity-lg: 1.375rem; /* 22px  -  a headline count: a tally, a total */
+  --text-label: 0.8125rem; /* 13px  -  form and control labels */
+  --text-body: 0.875rem; /* 14px  -  the app's default voice */
+  --text-body-lg: 1rem; /* 16px  -  sustained reading (log entries, findings) */
+  --text-subhead: 1rem; /* 16px  -  a plate's own title */
+  --text-section: 1.25rem; /* 20px  -  a division within a page */
+  --text-title: 1.75rem; /* 28px  -  the page's name; exactly one per screen */
   --text-display: clamp(2.75rem, 5.5vw, 4rem); /* the headline, once */
 
   /* Leading tightens as type grows. */
@@ -144,16 +144,16 @@
   --leading-normal: 1.5;
   --leading-relaxed: 1.6;
 
-  /* Tracking — an atlas key is tracked open so it reads as a label rather
+  /* Tracking  -  an atlas key is tracked open so it reads as a label rather
    * than a word; running type sits near zero and display closes up slightly.
    * Floor is -0.03em; nothing tighter. */
   --tracking-display: -0.022em;
   --tracking-title: -0.014em;
   --tracking-section: -0.008em;
   --tracking-legend: 0.1em;
-  --tracking-control: 0; /* controls are sentence case — see .type-control */
+  --tracking-control: 0; /* controls are sentence case  -  see .type-control */
 
-  /* ---- Layout — unchanged contract ------------------------------------
+  /* ---- Layout  -  unchanged contract ------------------------------------
    * The four content widths, chosen by what the page is FOR
    * (src/lib/layout.ts, verify-layout.mjs), plus the chat measure. */
   --measure-narrow: 26rem;
@@ -162,14 +162,14 @@
   --measure-wide: 72rem;
   --measure-bubble: 46ch;
 
-  /* The spacing rhythm — a Surface's gutter, the gap between titled sections,
+  /* The spacing rhythm  -  a Surface's gutter, the gap between titled sections,
    * within a section, and the tightest cluster. Unchanged contract. */
   --space-gutter: 2rem;
   --space-section: 2rem;
   --space-stack: 0.75rem;
   --space-tight: 0.5rem;
 
-  /* The split rail — unchanged geometry. Here it is the meridian the plate
+  /* The split rail  -  unchanged geometry. Here it is the meridian the plate
    * is ruled against. */
   --rail-min: 22rem;
   --rail-max: 30rem;
@@ -194,10 +194,10 @@
    * Chart paper on a desk in daylight. The ground is cool and unprinted; a
    * plate is the white it was printed on. */
 
-  --ground: #eff3f9; /* unprinted chart paper — the desk */
+  --ground: #eff3f9; /* unprinted chart paper  -  the desk */
   --bg: var(--ground);
   --surface: #ffffff; /* a plate: what the record is printed on */
-  --surface-raised: #ffffff; /* the topmost plate — separated by shadow */
+  --surface-raised: #ffffff; /* the topmost plate  -  separated by shadow */
   /* A recessed region: a code block, a slider track, a groove, a refused
    * control. It has to be DISTINCT from `--zone-9`, which is the cleared
    * ground of the axis mark and of hover. Both were #e9eef6, so a disabled
@@ -228,11 +228,11 @@
   --text: var(--ink);
   --text-muted: #52637c;
 
-  --border: #dce4ef; /* hairline — incidental division */
+  --border: #dce4ef; /* hairline  -  incidental division */
   --border-strong: #aabbcf; /* the framing rule of a titled plate */
   --grid: #e4ebf4; /* the coordinate grid ruled under the plate */
   /* The boundary of an INTERACTIVE control, which is the pairing WCAG 2.2
-   * SC 1.4.11 actually binds at 3:1 — a plate's frame is decoration and a
+   * SC 1.4.11 actually binds at 3:1  -  a plate's frame is decoration and a
    * grid line is a graticule, but the edge that tells you where a button
    * ends is information. Kept as its own token so a later pass cannot
    * lighten the frames and silently take the controls with them. */
@@ -245,20 +245,20 @@
   --accent-contrast: #ffffff; /* the label on a filled accent control */
   --accent-wash: #e7f0fe; /* the cleared field under an accent mark */
 
-  /* The marks. Drawn, not typed — a shade off the body ink so a magnitude
+  /* The marks. Drawn, not typed  -  a shade off the body ink so a magnitude
    * reads as something struck onto the plate. */
   --mark: #2b4666;
   --unsourced: #5b6c85; /* the open ring's stroke, and its label */
   --superseded: #5e6d85; /* struck through, and still readable */
   --conflict: var(--ink); /* a doubled mark reads at full density */
-  --critical: #b0231b; /* error ink — never a second accent */
+  --critical: #b0231b; /* error ink  -  never a second accent */
 
   --focus-ring: #1059d8;
   --caret: #1059d8;
   --selection: #d8e6fd;
   --thread: #52637c; /* the tether line in the brand mark */
 
-  /* Shadow — a plate lying on paper. Offset and soft blur, never a
+  /* Shadow  -  a plate lying on paper. Offset and soft blur, never a
    * zero-offset halo. Three depths: a mark on the plate, a plate laid down,
    * a plate lifted to be moved. */
   --shadow-mark: 0 1px 2px rgba(14, 27, 45, 0.06);
@@ -266,14 +266,14 @@
     0 4px 12px -4px rgba(14, 27, 45, 0.09);
   --shadow-lifted: 0 8px 20px -6px rgba(14, 27, 45, 0.14),
     0 20px 44px -18px rgba(14, 27, 45, 0.16);
-  /* Legacy alias — call sites consume it. */
+  /* Legacy alias  -  call sites consume it. */
   --shadow-sheet: var(--shadow-plate);
 
-  /* Chart palette — the dataviz skill's validated categorical order (8 slots,
+  /* Chart palette  -  the dataviz skill's validated categorical order (8 slots,
    * light column), kept verbatim: the set is CVD-validated as a set (worst
    * adjacent CVD dE 9.1, normal-vision dE 19.6) and re-picking hues to match
    * this world's blue discipline would silently break that guarantee. Charts
-   * are the one place the palette opens up — and every series that must
+   * are the one place the palette opens up  -  and every series that must
    * survive a greyscale print carries a mark as well as a hue. */
   --series-1: #2a78d6;
   --series-2: #008300;
@@ -311,7 +311,7 @@
   --well: #0c1526;
 
   /* The same ramp, read on the light table: step 0 flips to the lit end so
-   * `zone-9` stays "one step off the surface" in both renditions — on paper
+   * `zone-9` stays "one step off the surface" in both renditions  -  on paper
    * that step is a tint, on the table it is a glow. */
   --zone-0: #e9eff8;
   --zone-1: #d3dcea;
@@ -365,7 +365,7 @@
     0 26px 56px -20px rgba(0, 0, 0, 0.5);
   --shadow-sheet: var(--shadow-plate);
 
-  /* Chart palette — the dataviz skill's dark column, stepped for the dark
+  /* Chart palette  -  the dataviz skill's dark column, stepped for the dark
    * surface (not an auto-flip), validated as a set. */
   --series-1: #3987e5;
   --series-2: #008300;
@@ -386,17 +386,41 @@
  * rendition lives solely under [data-theme="dark"], applied by the toggle and
  * the pre-paint script in index.html. */
 
-/* Respect the OS "reduce motion" setting. Every surface stays fully usable
- * with animation off: plates arrive already landed, the tracked field holds
- * still, and the comparator stops alternating on its own — its manual blink
- * still works, because that one is a tool, not an effect. */
+/* Respect the OS "reduce motion" setting. Authored motion stops, but state
+ * changes remain visible: hover/focus colors and layout changes still resolve
+ * immediately instead of being hidden behind a blanket transition kill. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  :root {
+    --motion-instant: 0ms;
+    --motion-fast: 0ms;
+    --motion-standard: 0ms;
+    --motion-entrance: 0ms;
+    --motion-settle: 0ms;
+    --motion-blink: 0ms;
+    --motion-drift: 0ms;
+    --motion-cascade: 0ms;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-in,
+  .animate-pulse,
+  .plate-land,
+  .sheet-land,
+  .mark-develop,
+  .entry-rise,
+  .comparator-a,
+  .comparator-b,
+  .cascade-char,
+  .field-drift,
+  .mark-pulse,
+  .cursor-block,
+  .just-written,
+  .refuse,
+  .hero-fold-in,
+  .hero-glow-in {
+    animation: none !important;
   }
 }

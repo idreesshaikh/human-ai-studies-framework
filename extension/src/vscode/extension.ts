@@ -48,7 +48,7 @@ interface RunningStudy {
   session: StudySession;
   recorder: Recorder;
   sink: EventSink;
-  /** Set only when an HTTP endpoint is configured — the Data view's "not yet
+  /** Set only when an HTTP endpoint is configured  -  the Data view's "not yet
    *  sent" count has no meaning for a local-only session. */
   httpSink?: HttpSink;
   detector: StuckDetector;
@@ -227,13 +227,13 @@ async function startSession(): Promise<void> {
 
   // The session id is minted here rather than inside StudySession so it can
   // be sent with the config re-pull below: the server assigns this session's
-  // task block against it, which makes the assignment idempotent — a re-pull
+  // task block against it, which makes the assignment idempotent  -  a re-pull
   // for a session already under way returns the same block instead of
   // advancing the participant past one.
   const plannedSessionId = newSessionId();
 
   // A session boundary is the only point capture config may change (wall
-  // #6) — re-pull it now, before the clock arms, and get this IDE's paired
+  // #6)  -  re-pull it now, before the clock arms, and get this IDE's paired
   // credential (if any) for the HttpSink.
   const credential = await refreshConfigAtSessionStart(
     extContext,
@@ -328,7 +328,7 @@ interface BootConfig {
   fatigueIntervalMs: number;
   /** The session credential to send with ingest, if this IDE is paired. */
   credential?: string;
-  /** The id a fresh session must use — minted before the capture-config
+  /** The id a fresh session must use  -  minted before the capture-config
    *  re-pull so the server can assign this session's task block against it.
    *  Absent on a crash recovery, which keeps the id it is restoring. */
   plannedSessionId?: string;
@@ -502,7 +502,7 @@ function bootSession(boot: BootConfig): void {
         cur.recorder.record(type, payload);
         // Feed accepted AI chunks to the comprehension probe machine (Phase
         // 21, FR-INST-19). An ai-origin burst that survived the undo window
-        // is an "accepted chunk" — fire the state machine.
+        // is an "accepted chunk"  -  fire the state machine.
         if (
           type === 'edit_burst' &&
           payload.origin === 'ai' &&
@@ -742,7 +742,7 @@ async function offerCrashRecovery(): Promise<void> {
   const startSeq = JsonlSink.lastSeqIn(snap.dataFile) + 1;
 
   // A crash-recovery resume continues the interrupted session, it does not
-  // start a new one — reuse the paired credential as-is, never re-pull
+  // start a new one  -  reuse the paired credential as-is, never re-pull
   // config here (wall #6: a running/resuming session is never reconfigured).
   const credential = await getStoredCredential(extContext);
 

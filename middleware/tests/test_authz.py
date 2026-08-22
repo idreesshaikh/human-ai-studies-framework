@@ -70,7 +70,7 @@ def add_member(client, slug, owner, sub, role) -> None:
 
 def test_matrix_is_data_every_role_capability_pair():
     """
-    has_role agrees with the rank ordering for every capability × role — iterating the
+    has_role agrees with the rank ordering for every capability × role  -  iterating the
     dict is what makes an untested capability impossible.
     """
     for capability, required in CAPABILITIES.items():
@@ -129,7 +129,7 @@ def test_created_project_has_the_same_shape_as_a_listed_one(client):
 def test_slug_from_text_backs_off_to_a_word_boundary():
     """
     A study name is often a whole typed sentence (the "describe your study"
-    opening question), not a short title — a hard character cut lands
+    opening question), not a short title  -  a hard character cut lands
     mid-word as often as not, and that becomes the study's permanent id.
     """
     long = "Does AI pair programming change debugging time, comparing telemetry?"
@@ -157,7 +157,7 @@ def test_study_name_from_a_long_sentence_keeps_whole_words(client):
 def test_reposting_personal_reuses_the_existing_project(client):
     """
     Every "quick start" entry point posts {name: "Personal"} to land the caller in
-    their one implicit project — the second and later calls must return the same
+    their one implicit project  -  the second and later calls must return the same
     project (with an accurate studyCount), not 500 on a nonexistent relationship.
     """
     first = client.post("/projects", json={"name": "Personal"}, headers=bearer("dee"))
@@ -226,7 +226,7 @@ def test_a_studys_library_is_closed_to_non_members(client):
         call = getattr(client, method)
         kwargs = {"json": {"targets": ["RQ-1"]}} if method == "put" else {}
         # A member passes the gate (the DELETE then 404s on a paper that was never
-        # ingested — the point is which side of the gate they land).
+        # ingested  -  the point is which side of the gate they land).
         allowed = call(path, headers=bearer("rea"), **kwargs)
         assert allowed.status_code in (200, 404), allowed.text
         assert call(path, headers=bearer("stranger"), **kwargs).status_code == 403
@@ -314,7 +314,7 @@ def test_delete_requires_typed_confirmation(client):
 
 def test_delete_project_removes_its_studies(client):
     """
-    studies.project_id carries a real FK with no ON DELETE CASCADE — Postgres (the
+    studies.project_id carries a real FK with no ON DELETE CASCADE  -  Postgres (the
     production database) 500s on a dangling reference if a project's studies aren't
     cascaded first.
     """
@@ -342,7 +342,7 @@ def test_cross_project_access_refused(client):
     p1 = make_project(client, "alice", "One")
     make_project(client, "bob", "Two")
     p2 = client.get("/projects", headers=bearer("bob")).json()[0]["slug"]
-    # Alice is not a member of Bob's project — she can't read or delete it.
+    # Alice is not a member of Bob's project  -  she can't read or delete it.
     assert client.get(f"/projects/{p2}", headers=bearer("alice")).status_code == 403
     assert (
         client.request(
@@ -371,7 +371,7 @@ def test_every_project_scoped_route_carries_the_choke_point(client):
         ("POST", "/invitations/{token}/accept"),
         ("GET", "/me"),
         # The participant's editor holds a session credential, never a project identity,
-        # so this one is gated on that credential instead (it 401s without it) — see
+        # so this one is gated on that credential instead (it 401s without it)  -  see
         # get_capture_config's docstring, FR-INST-21.
         ("GET", "/studies/{study_id}/capture-config"),
     }
@@ -442,7 +442,7 @@ def test_invitation_link_is_reusable_until_revoked(client):
     token = inv["token"]
     first = client.post(f"/invitations/{token}/accept", headers=bearer("rea"))
     assert first.status_code == 200
-    # A second person can use the same link — sharing, not single-use.
+    # A second person can use the same link  -  sharing, not single-use.
     second = client.post(f"/invitations/{token}/accept", headers=bearer("bob"))
     assert second.status_code == 200
     home = client.get(f"/projects/{slug}", headers=bearer("alice")).json()
@@ -668,7 +668,7 @@ def test_status_only_reports_this_study_s_sessions(client):
 
     slug = make_project(client, "alice", "Other lab")
     # `/status` needs a protocol before it will report anything, so this study
-    # is seeded with a minimal one — the leak being tested is about whose
+    # is seeded with a minimal one  -  the leak being tested is about whose
     # sessions come back, not about protocol resolution.
     mine = client.post(
         f"/projects/{slug}/studies",
@@ -704,7 +704,7 @@ def test_status_only_reports_this_study_s_sessions(client):
 def test_the_demo_study_resolves_a_protocol(client):
     """
     The demo exists to be "one fully-built study anybody can look at", and every
-    panel that shows collected data — the whole Data tab, Planning, /status —
+    panel that shows collected data  -  the whole Data tab, Planning, /status  -
     gates on the study resolving a protocol. It never could: the seeder wrote a
     project, a study row and session mappings but no protocol, and the boot
     protocol (when one is loaded at all) is a different study id, so all three
@@ -718,7 +718,7 @@ def test_the_demo_study_resolves_a_protocol(client):
     res = client.get(f"/studies/{DEMO_STUDY_ID}/protocol", headers=bearer("newcomer"))
     assert res.status_code == 200, res.text
     proto = res.json()
-    # The design the bundled sample sessions actually implement — P02 appears in
+    # The design the bundled sample sessions actually implement  -  P02 appears in
     # both conditions, so a demo protocol claiming anything else would describe
     # data the demo does not have.
     assert proto["conditions"] == ["ai-assisted", "unassisted"]
@@ -763,7 +763,7 @@ def test_the_demo_study_shows_its_paired_prescription(client):
 
 def test_the_demo_study_owns_the_sample_sessions(client):
     """
-    The seeded sample data belongs to the demo study, so it shows there — and nowhere
+    The seeded sample data belongs to the demo study, so it shows there  -  and nowhere
     else.
     """
     from middleware.demo import DEMO_STUDY_ID, seed_demo

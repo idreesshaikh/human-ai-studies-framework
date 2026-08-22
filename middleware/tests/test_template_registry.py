@@ -8,7 +8,7 @@ from middleware import template_registry as tr
 
 def test_registry_is_valid():
     """
-    F2.3 (and the registry invariant): the shipped registry has no problems — schema,
+    F2.3 (and the registry invariant): the shipped registry has no problems  -  schema,
     mandatory citations, every recipe exists, every skeleton placeholder is a declared
     parameter.
     """

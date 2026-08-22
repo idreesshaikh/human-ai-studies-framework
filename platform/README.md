@@ -26,7 +26,7 @@ shadcn/ui (vendored, owned in-repo). The middleware serves the built app at
 - **Projects, roles, hero, members**.
 
 The study surfaces are explorable with **no backend**: they fall back to a
-curated offline seed. The design conversation is the exception — it needs a
+curated offline seed. The design conversation is the exception  -  it needs a
 language model and says so when it has none, rather than answering from a
 script that reads like the real thing. Live actions wire to the
 middleware where it's running; the backend swaps in behind the same shapes.
@@ -67,7 +67,7 @@ Keep `npm run check` green before committing.
   Tailwind `text-*` utility for the same reason it forbids a raw hex.
 - **Provenance is a mark, never a colour.** A claim's grounding strength is a
   magnitude (size), unsourced is an open ring, superseded is struck through,
-  a conflict is doubled — so every state survives a greyscale print and a
+  a conflict is doubled  -  so every state survives a greyscale print and a
   colour-blind reader. One accent fill marks the single next action per
   region; a nav item, tab, or selected row is a *position* (an axis rule),
   never a fill.

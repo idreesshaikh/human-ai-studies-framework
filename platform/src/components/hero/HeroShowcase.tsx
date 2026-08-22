@@ -101,7 +101,7 @@ export function HeroShowcase() {
       aria-label={A11Y_LABEL}
       className="overflow-hidden rounded-card border border-border-strong bg-surface shadow-lifted"
     >
-      {/* Label strip — a live design session, not a disclaimer. */}
+      {/* Label strip  -  a live design session, not a disclaimer. */}
       <div
         aria-hidden
         className="flex items-center gap-2 border-b border-border bg-surface-raised px-4 py-2.5"
@@ -197,7 +197,7 @@ export function HeroShowcase() {
               * decided, it is COMPILED. Same dot meter SlotMeter draws in the
               * real draft rail (a square per protocol section, filled or not)
               * and the same "in draft" wording MoveCard uses for a move whose
-              * patch has landed — so a returning researcher recognises this
+              * patch has landed  -  so a returning researcher recognises this
               * as the mechanism they already used, not a marketing gloss on
               * it. */}
             {compiled && (

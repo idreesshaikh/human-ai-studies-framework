@@ -267,7 +267,7 @@ protocolSkeleton:
     - name: write-up
       gates: []
 
-  # NOT YET RUNNABLE — see the header note: these recipe ids exist in the
+  # NOT YET RUNNABLE  -  see the header note: these recipe ids exist in the
   # catalogue but are the wrong measurement unit for repository mining.
   # Swap in real repository-trend recipes once built, then move to registry.
   analysisPlan:

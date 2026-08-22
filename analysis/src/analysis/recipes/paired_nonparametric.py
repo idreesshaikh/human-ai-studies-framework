@@ -1,5 +1,5 @@
 """
-paired-nonparametric — parameterised recipe for paired/within-subjects comparison
+paired-nonparametric  -  parameterised recipe for paired/within-subjects comparison
 designs.
 """
 
@@ -97,6 +97,6 @@ def run(dataset: Dataset) -> RecipeResult:
     summary = cells.to_string(index=False)
     return RecipeResult(
         tables=tables,
-        summary=f"Paired comparison not possible — descriptives only.\n{summary}",
+        summary=f"Paired comparison not possible  -  descriptives only.\n{summary}",
         methods=METHOD_TEMPLATE.format(figure=_figure_label(figure_form)),
     )

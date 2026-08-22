@@ -1,5 +1,5 @@
 """
-two-proportion — parameterised recipe for comparing binary outcomes across two
+two-proportion  -  parameterised recipe for comparing binary outcomes across two
 conditions (2x2 contingency table).
 """
 
@@ -90,7 +90,7 @@ def run(dataset: Dataset) -> RecipeResult:
                 methods=METHOD_TEMPLATE.format(figure=_figure_label(figure_form)),
             )
     else:
-        summary_parts.append("Single condition — proportions only.")
+        summary_parts.append("Single condition  -  proportions only.")
 
     summary_parts.append(
         "; ".join(f"{r.condition}: {int(r.passed)}/{int(r.n)} ({r.proportion:.0%})"

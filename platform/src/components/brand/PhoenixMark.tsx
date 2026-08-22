@@ -1,7 +1,7 @@
 /* The brand mark: Phoenix, drawn as the constellation it is.
  *
  * Phoenix is a real southern constellation, so the product's own name is
- * already an object in the field this app is built to read — which lets the
+ * already an object in the field this app is built to read  -  which lets the
  * mark be written in the app's own notation rather than in a logo language
  * borrowed from somewhere else. Stars are magnitude marks, exactly as they
  * are everywhere else in the product: size is brightness, and precisely one
@@ -12,7 +12,7 @@
  * is what an atlas does, and it means the mark inherits the page's own ink in
  * both renditions instead of needing a ground of its own to sit on.
  * `public/favicon.svg` carries the same geometry with a ground behind it,
- * hardcoded to hex because a browser tab can't read CSS custom properties —
+ * hardcoded to hex because a browser tab can't read CSS custom properties  -
  * the two are edited together. */
 
 /** The figure: wings spread, head up, one long tail. `m` is the magnitude
@@ -21,7 +21,7 @@ const STARS: { x: number; y: number; m: number; lead?: boolean }[] = [
   { x: 16, y: 6.5, m: 1.9 }, // head
   { x: 4.8, y: 11.6, m: 2.1 }, // left wingtip
   { x: 10.6, y: 13.9, m: 1.5 }, // left shoulder
-  { x: 16, y: 15.6, m: 3.1, lead: true }, // the heart — the one bright star
+  { x: 16, y: 15.6, m: 3.1, lead: true }, // the heart  -  the one bright star
   { x: 21.4, y: 13.9, m: 1.5 }, // right shoulder
   { x: 27.2, y: 11.6, m: 2.1 }, // right wingtip
   { x: 16, y: 25.2, m: 1.7 }, // tail

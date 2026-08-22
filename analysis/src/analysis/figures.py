@@ -161,7 +161,7 @@ def session_timeline(
             lane_order.append(t)
     colors = {t: PALETTE[i % len(PALETTE)] for i, t in enumerate(lane_order)}
     title = (
-        f"Session {session_id} — "
+        f"Session {session_id}  -  "
         f"{session['condition'].iloc[0]}, {session['participantId'].iloc[0]}"
     )
     fig, ax = new_axes(title, "minutes from session start", "", figsize=figsize)

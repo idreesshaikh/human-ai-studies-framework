@@ -1,6 +1,6 @@
 /* Theme control. The app always starts in light; dark is an explicit choice
  * the researcher makes with the toggle, and it persists. There is no
- * OS-"system" auto-dark — a first load (and any load before a choice) is
+ * OS-"system" auto-dark  -  a first load (and any load before a choice) is
  * light, every time, on every machine. A pre-paint inline script in
  * index.html applies the stored choice before first paint so there's no
  * flash. */
@@ -12,7 +12,7 @@ const KEY = "platform-theme";
  * carries a saved theme (FR-OPS-7) that lands one round-trip after the shell
  * has already mounted. A toggle holding its own mount-time copy of the theme
  * would then be a step behind the page and spend its first click re-applying
- * what is already on screen — a dead click. So the applied theme is the one
+ * what is already on screen  -  a dead click. So the applied theme is the one
  * store, and every control reads it live. */
 const listeners = new Set<() => void>();
 

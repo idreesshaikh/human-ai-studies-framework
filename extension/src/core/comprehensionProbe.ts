@@ -1,5 +1,5 @@
 /**
- * Comprehension-probe state machine — vscode-free, injected clock (NFR-3).
+ * Comprehension-probe state machine  -  vscode-free, injected clock (NFR-3).
  *
  * Satisfies FR-INST-19 (comprehension probes for accepted AI chunks) and
  * FR-DASH-12 (protocol-configured cadence). The machine transitions:
@@ -27,7 +27,7 @@ export interface ChunkReference {
 }
 
 /**
- * Chunk metadata — only what FR-ETH-2 permits: shapes, sizes, and a
+ * Chunk metadata  -  only what FR-ETH-2 permits: shapes, sizes, and a
  * stable reference. NEVER code text.
  */
 export interface ChunkMeta {

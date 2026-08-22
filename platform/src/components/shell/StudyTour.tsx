@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ArrowLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-/* A focused, first-study walkthrough. It doesn't just describe the workspace —
+/* A focused, first-study walkthrough. It doesn't just describe the workspace  -
  * it drives it: advancing switches the active tab (via onTab), so each step is
  * read against the surface it's about. Deliberately in-house (no tour library):
  * full keyboard + reduced-motion control, and nothing new to pull in. Shown
@@ -25,7 +25,7 @@ const STEPS: Step[] = [
   {
     tab: "conversation",
     title: "Talk your study into existence",
-    body: "Start here. Describe a research idea in plain language and the assistant asks the questions a methodologist would. Its answers arrive as “moves”: one proposed decision each — a sample size, a condition to compare, a measure to take — which you accept or reject one at a time. Type “finish” when you're ready to compile the ones you kept into a protocol.",
+    body: "Start here. Describe a research idea in plain language and the assistant asks the questions a methodologist would. Its answers arrive as “moves”: one proposed decision each  -  a sample size, a condition to compare, a measure to take  -  which you accept or reject one at a time. Type “finish” when you're ready to compile the ones you kept into a protocol.",
   },
   {
     tab: "conversation",
@@ -35,7 +35,7 @@ const STEPS: Step[] = [
   {
     tab: "library",
     title: "Your literature, as a living map",
-    body: "The papers behind your study: add any by arXiv id, DOI, or PDF. Each one pulls in the papers it cites, the papers citing it, and related work — drag the constellation to explore that neighbourhood, and click a suggested paper to add it.",
+    body: "The papers behind your study: add any by arXiv id, DOI, or PDF. Each one pulls in the papers it cites, the papers citing it, and related work  -  drag the constellation to explore that neighbourhood, and click a suggested paper to add it.",
   },
   {
     tab: "data",
@@ -44,7 +44,7 @@ const STEPS: Step[] = [
   },
   {
     tab: "planning",
-    title: "Recruit enough — before anyone runs",
+    title: "Recruit enough  -  before anyone runs",
     body: "The power curve for the study's planned comparison: how power moves with sample size, and the total n each plausible effect size needs to reach your target. Planning math, with its assumptions stated.",
   },
   {
@@ -75,14 +75,14 @@ export function StudyTour({
    *
    * This is what makes the rest of the component work at all. The key handler
    * below hangs off this div, and React delivers keydown by bubbling from
-   * whatever is focused — with focus left on `body`, nothing bubbled through
+   * whatever is focused  -  with focus left on `body`, nothing bubbled through
    * here, so Escape did not close the tour and the arrow keys did not step it.
    * Every keyboard affordance this dialog claims to have was inert.
    *
    * It is also what `aria-modal="true"` promises and did not deliver: with
    * focus outside, Tab walked the app chrome *behind* the scrim (the first
    * stop was the "Phoenix, home" link), so a keyboard or screen-reader user
-   * met an obscured page instead of the walkthrough — on the very first
+   * met an obscured page instead of the walkthrough  -  on the very first
    * screen a new researcher sees.
    *
    * The panel takes focus rather than the "Next" button, so a screen reader
@@ -130,7 +130,7 @@ export function StudyTour({
       }}
     >
       {/* `tabIndex={-1}`: focusable by script, never a stop in the Tab order
-        * itself. No outline suppression is needed and none is written — a
+        * itself. No outline suppression is needed and none is written  -  a
         * programmatic `.focus()` does not match `:focus-visible` (verified in
         * the browser), so the global focus ring in index.css correctly stays
         * off for this hand-off and still fires for every real control inside

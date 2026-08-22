@@ -161,7 +161,7 @@ def test_re_pulling_a_running_session_returns_the_same_block(client):
 
 def test_the_next_session_advances_to_the_next_block(client):
     """
-    A within-subjects participant's second session is their second block — a different
+    A within-subjects participant's second session is their second block  -  a different
     condition, so they are their own comparison.
     """
     _designed_study(client)

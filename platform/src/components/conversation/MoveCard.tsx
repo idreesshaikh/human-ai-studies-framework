@@ -20,12 +20,12 @@ const KIND_LABEL: Record<DesignMove["kind"], string> = {
   caution: "Caution",
 };
 
-/* A proposed design move with accept/reject, and an Undo once decided —
+/* A proposed design move with accept/reject, and an Undo once decided  -
  * reopens the card to "proposed" rather than flipping straight to the
  * opposite decision. Keyboard-first: a / r when the card is focused (undo
  * is click-only; a long-since-decided card isn't the one holding focus).
  * Accepted moves fold toward the draft rail; rejected ones fade out. A
- * caution has no patch, so accepting it just marks it noted — it never
+ * caution has no patch, so accepting it just marks it noted  -  it never
  * changes the draft. */
 export function MoveCard({
   move,
@@ -35,14 +35,14 @@ export function MoveCard({
   move: DesignMove;
   onDecide: (moveId: string, status: MoveStatus) => void;
   /** True only for the first undecided move of a reply the researcher just
-   *  asked for (see ConversationView) — never on a page they merely opened. */
+   *  asked for (see ConversationView)  -  never on a page they merely opened. */
   autoFocus?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const isCaution = move.kind === "caution";
   // A non-caution move can still land here with no patch (e.g. the LLM
   // proposed a section the compiler doesn't recognize and it got dropped
-  // at validation) — "in draft" would be a lie in that case, since neither
+  // at validation)  -  "in draft" would be a lie in that case, since neither
   // compiler folds a patch-less move into the draft.
   const compiled = Boolean(move.patch);
   const decided = move.status !== "proposed";
@@ -63,7 +63,7 @@ export function MoveCard({
   /* The caret goes to this card only when it answers something the researcher
    * just sent. `a` and `r` decide a design move from one unmodified keystroke,
    * so a card that takes focus on a page they merely opened arms a decision on
-   * a proposal they have not read — the human decides, and they cannot decide
+   * a proposal they have not read  -  the human decides, and they cannot decide
    * what they have not been shown. The thread's own scroll-to-end brings a new
    * reply into view either way. */
   useEffect(() => {
@@ -82,10 +82,10 @@ export function MoveCard({
       aria-label={`${KIND_LABEL[move.kind]} move: ${move.proposal}`}
       className={cn(
         "relative transition-all",
-        /* A proposed move is a sheet being laid on the record: it arrives with
-         * mass and settles with one overshoot. Accepted, it squares up to the
-         * draft it just became part of; rejected, it stays on the page struck
-         * rather than vanishing, because nothing here is ever erased. */
+      /* A proposed move is a compact decision sheet: it has enough framing to
+         * separate a protocol choice from the conversation, without becoming a
+         * second giant assistant message. Accepted and rejected moves remain
+         * readable because nothing here is ever erased. */
         move.status === "proposed" && "sheet-land",
         move.status === "accepted" && "duration-settle ease-sheet",
         move.status === "rejected" && "duration-standard",
@@ -100,7 +100,8 @@ export function MoveCard({
         * once floating in the top-right corner where it read as a
         * notification dot rather than as evidence. The score belongs beside
         * the source it measures. */}
-      <CardContent className="flex flex-col gap-2 p-3">
+      <CardContent className="flex flex-col gap-3 p-3">
+        <div className="min-w-0">
           <div
             className={cn(
               "flex flex-col gap-2",
@@ -129,13 +130,13 @@ export function MoveCard({
 
           {move.kind === "merge-templates" && move.mergeData ? (
             <div className="flex flex-col gap-2">
-              <p className="type-body text-text">{move.proposal}</p>
+              <p className="type-body leading-snug text-text">{move.proposal}</p>
               <p className="type-caption text-text-muted italic">{move.mergeData.reason}</p>
             </div>
           ) : (
             <p
               className={cn(
-                "type-body pr-3 text-text",
+                "type-body pr-3 leading-snug text-text",
                 move.status === "rejected" && "superseded",
               )}
             >
@@ -146,11 +147,11 @@ export function MoveCard({
 
         {/* Outside the faded wrapper above, deliberately: CSS opacity always
          * applies to every descendant, including a popover positioned
-         * absolutely outside its parent's box — a citation's hover card would
+         * absolutely outside its parent's box  -  a citation's hover card would
          * inherit the card's 40/60% fade and render see-through, which is
          * worse than not fading it. Citations stay fully legible regardless
          * of the card's decided state, same reasoning as the Undo button. */}
-        <div className="flex min-w-0 flex-wrap items-start gap-1">
+        <div className="mt-2 flex min-w-0 flex-wrap items-start gap-1 border-t border-border pt-2">
           {move.grounding.length > 0 ? (
             move.grounding.map((g) => <GroundingChip key={g.ref} g={g} />)
           ) : (
@@ -158,8 +159,11 @@ export function MoveCard({
           )}
         </div>
 
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2 sm:justify-end">
         {!decided && (
-          <div className="mt-1 flex gap-2">
+          <div className="flex gap-2">
             <Button
               size="sm"
               variant="subtle"
@@ -171,7 +175,7 @@ export function MoveCard({
               {isCaution ? "Note it" : "Accept"}
               {/* Drawn as a key cap, the same one the command hint in
                 * ProjectSwitcher wears. As a bare dimmed letter butted
-                * against the label it read as part of the sentence —
+                * against the label it read as part of the sentence  -
                 * "Note it a…" had a reviewer asking "note it as what?" */}
               <kbd className="type-legend ml-1 hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">a</kbd>
             </Button>
@@ -189,7 +193,7 @@ export function MoveCard({
         )}
 
         {decided && (
-          <div className="mt-1 flex gap-2">
+          <div className="flex gap-2">
             <Button
               size="sm"
               variant="ghost"
@@ -202,6 +206,7 @@ export function MoveCard({
             </Button>
           </div>
         )}
+        </div>
       </CardContent>
     </Card>
   );

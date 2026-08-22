@@ -19,17 +19,17 @@ import { apiBase, onUnauthorized, setTokenProvider } from "./api.ts";
  * - token mode: signing in stores the bearer token where the API client
  *   already looks (`middleware.token`, see api.ts's tokenProvider default).
  * - clerk mode: clerk-js is hot-loaded from the Clerk instance's own domain
- *   (Clerk's documented pattern for non-React apps — the npm package's ESM
+ *   (Clerk's documented pattern for non-React apps  -  the npm package's ESM
  *   build ships without the UI renderer, so self-bundling mounts nothing;
  *   @clerk/clerk-js stays a types-only devDependency, never a runtime one).
  *   Since clerk-js v6 the component renderer lives in a second script,
  *   @clerk/ui: it must load first (it sets window.__internal_ClerkUICtor)
- *   and the constructor is passed to Clerk.load({ ui: { ClerkUI } }) — a
+ *   and the constructor is passed to Clerk.load({ ui: { ClerkUI } })  -  a
  *   bare load() initializes headless and mountSignIn throws "not loaded
  *   with Ui components". Once loaded, the API client gets a live token
  *   getter (Clerk session JWTs are short-lived; clerk-js refreshes them, we
  *   fetch one per request via setTokenProvider). If the script can't load,
- *   the paste-a-token fallback still works — a manually issued session
+ *   the paste-a-token fallback still works  -  a manually issued session
  *   token verifies server-side the same way. */
 
 export interface AuthConfig {
@@ -44,7 +44,7 @@ interface ClerkUser {
   imageUrl?: string;
 }
 
-/** The handful of Clerk instance members this module actually calls — typed
+/** The handful of Clerk instance members this module actually calls  -  typed
  * by hand so no runtime dependency on @clerk/clerk-js is needed (the real
  * object arrives via the hotloaded script, never imported). */
 interface ClerkInstance {
@@ -70,13 +70,13 @@ interface ClerkInstance {
 /** Themes the hosted Clerk widget to match Phoenix's own design tokens
  * (tokens.css) instead of Clerk's stock look. Clerk's components mount as
  * plain DOM in this page (no iframe, no shadow root), so `var(--x)` values
- * resolve live off `:root` / `[data-theme]` — the widget re-themes for free
+ * resolve live off `:root` / `[data-theme]`  -  the widget re-themes for free
  * when the app's light/dark toggle flips `data-theme`, with no rebuild or
  * remount needed. `header`/`headerTitle`/`headerSubtitle` are hidden since
  * `SignInScreen` renders the matching heading itself, once, above every
  * sign-in surface (Clerk widget or token-paste fallback alike). */
 const CLERK_APPEARANCE = {
-  /* Matches the `clerk` layer named in index.css's @layer order — without
+  /* Matches the `clerk` layer named in index.css's @layer order  -  without
    * it, Clerk's own (unlayered) CSS always beats our Tailwind v4 utility
    * classes below (bg-transparent, shadow-none, w-full…) regardless of
    * specificity, since Tailwind v4 utilities live inside a cascade layer
@@ -110,7 +110,7 @@ const CLERK_APPEARANCE = {
     // dev-mode-banner overlay (see the CSS backstop in index.css), and adds
     // the margin-top the row above it doesn't otherwise reserve.
     footerItem: "relative mt-2",
-    // Just drop the "last used" indicator outright — pulling it into flow
+    // Just drop the "last used" indicator outright  -  pulling it into flow
     // (a prior attempt) still crowded the button row and truncated its
     // label, and it's cosmetic, not load-bearing for the sign-in flow.
     lastAuthenticationStrategyBadge: "hidden",
@@ -157,7 +157,7 @@ function injectScript(src: string, configure?: (s: HTMLScriptElement) => void): 
   });
 }
 
-/** Inject Clerk's hotload scripts from the instance domain — @clerk/ui first
+/** Inject Clerk's hotload scripts from the instance domain  -  @clerk/ui first
  * (the component renderer), then clerk-js core; resolves to the
  * auto-instantiated window.Clerk plus the UI constructor to pass into
  * Clerk.load(). */
@@ -186,13 +186,13 @@ interface AuthState {
   /** True once clerk-js (+ its UI renderer) has loaded and can mount. */
   clerkReady: boolean;
   user: ClerkUser | null;
-  /** True until the credential check has actually run once — false/loading
+  /** True until the credential check has actually run once  -  false/loading
    * for clerk mode while clerk-js is still loading. `Shell` should render
    * neither the app nor the sign-in screen while this is true, or a signed-
    * in reload flashes the sign-in card for the resolution window. */
   resolving: boolean;
-  /** Whether *some* credential exists — a signed-in Clerk user or a pasted
-   * token — so `Shell` can gate before the first round-trip 401s. */
+  /** Whether *some* credential exists  -  a signed-in Clerk user or a pasted
+   * token  -  so `Shell` can gate before the first round-trip 401s. */
   hasCredential: boolean;
   mountSignIn: (el: HTMLDivElement) => void;
   unmountSignIn: (el: HTMLDivElement) => void;
@@ -209,14 +209,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<ClerkUser | null>(null);
   // True until we actually know whether a credential exists. In clerk mode,
   // `hasCredential` reads false the instant `config.mode` flips to "clerk"
-  // but before clerk-js has loaded and checked the session cookie — without
+  // but before clerk-js has loaded and checked the session cookie  -  without
   // this gate, `Shell` reads that transient "no credential yet" as "sign
   // in needed" and flashes the token-paste sign-in card on every refresh of
   // an already-signed-in session, for as long as clerk-js takes to load.
   const [resolving, setResolving] = useState(true);
   const clerkRef = useRef<ClerkInstance | null>(null);
   // Clerk's addListener fires immediately with the *current* state on
-  // registration, not only on real changes — without this guard, a user who
+  // registration, not only on real changes  -  without this guard, a user who
   // is already signed in (the common case: every reload) gets reloaded
   // again the instant the listener registers, forever (the "kept
   // refreshing" bug). Only reload on a genuine falsy->truthy transition.
@@ -265,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
     } catch {
-      // clerk-js unreachable (offline, blocked CDN…) — the token-paste
+      // clerk-js unreachable (offline, blocked CDN…)  -  the token-paste
       // fallback surface stays usable; never a hard failure.
     } finally {
       setResolving(false);
@@ -277,7 +277,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void (async () => {
       let cfg: AuthConfig = { mode: "none" };
       try {
-        // Against the API's base, not a bare relative path — see apiBase().
+        // Against the API's base, not a bare relative path  -  see apiBase().
         const res = await fetch(`${apiBase()}/auth/config`, {
           credentials: "include",
         });
@@ -291,7 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         // No server reachable at all (local dev with nothing on :8000, a
-        // static preview) — stay in "none". createApi() already falls back
+        // static preview)  -  stay in "none". createApi() already falls back
         // to the offline in-memory demo for this exact case, so the shell
         // should stay unlocked rather than show a sign-in dead end.
       }
@@ -324,7 +324,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // without it, StrictMode's dev-only double-invoke (mount -> cleanup ->
   // mount) mounts a second widget instance into the same node without ever
   // tearing down the first, and since Clerk's internal step content is
-  // absolutely positioned, the two instances overlap instead of stacking —
+  // absolutely positioned, the two instances overlap instead of stacking  -
   // read as clipped/ghosted content, not a doubled layout.
   const unmountSignIn = useCallback((el: HTMLDivElement) => {
     clerkRef.current?.unmountSignIn(el);

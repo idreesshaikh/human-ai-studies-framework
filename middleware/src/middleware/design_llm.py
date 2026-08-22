@@ -38,7 +38,7 @@ _PATCHABLE_SECTIONS = frozenset(
 )
 
 # Rendered into SYSTEM_PROMPT so the model's `patch.section` choices always match what
-# `_validate_patch` actually accepts — drifting these apart is exactly what silently
+# `_validate_patch` actually accepts  -  drifting these apart is exactly what silently
 # drops a move's patch (it still renders and can still be "accepted", but never lands in
 # the compiled draft).
 _SECTION_LIST = ", ".join(sorted(_PATCHABLE_SECTIONS))

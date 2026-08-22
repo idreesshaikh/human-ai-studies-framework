@@ -1,4 +1,4 @@
-/* Turns the compiled protocol dict (CompileResult.protocol — the same
+/* Turns the compiled protocol dict (CompileResult.protocol  -  the same
  * structured draft the compiler yaml.safe_dump()s) into short prose lines
  * for the draft rail, instead of dumping the raw YAML. Pure and
  * schema-tolerant: known top-level keys (per
@@ -33,7 +33,7 @@ function humanizeKey(key: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
-/** Recursively renders any JSON value into one readable line — used for
+/** Recursively renders any JSON value into one readable line  -  used for
  * instrument configs and any section this module doesn't know about yet. */
 function describeValue(v: unknown): string {
   if (v == null) return "";
@@ -115,7 +115,7 @@ function formatSession(session: Record<string, unknown>): ProtocolSection {
   return { heading: "Session", lines };
 }
 
-/* The declared tasks (protocol v5) — what each session actually runs, as
+/* The declared tasks (protocol v5)  -  what each session actually runs, as
  * opposed to `session.taskDescription`, which is the study's prose summary.
  * Reads as a numbered list because the count matters: a within-subjects
  * study wants at least one task per condition. */

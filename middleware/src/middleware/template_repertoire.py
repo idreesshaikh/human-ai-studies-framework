@@ -169,12 +169,12 @@ def _admission(support: int, references: list[dict]) -> tuple[bool, str]:
         return True, ""
     return False, (
         f"Seen in only {support} corpus paper(s), and the strongest of them "
-        f"is {best:.2f} confidence — below the {RARE_ADMISSION_CONFIDENCE} "
+        f"is {best:.2f} confidence  -  below the {RARE_ADMISSION_CONFIDENCE} "
         "a rare design needs to be proposed."
     )
 
 
-# The repertoire is a pure function of (registry, corpus), and both change rarely —
+# The repertoire is a pure function of (registry, corpus), and both change rarely  -
 # memoize on the corpus row count so a fresh import or an abstract backfill invalidates
 # it, but repeated page loads don't re-rank 13 shapes.
 _CACHE: dict[tuple, list[dict]] = {}

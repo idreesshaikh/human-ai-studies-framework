@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { cn } from "@/lib/cn";
 
-/* A paper's continuous quality confidence (0..1) — the signal that replaces
+/* A paper's continuous quality confidence (0..1)  -  the signal that replaces
  * the binary Tier A/B hierarchy.
  *
  * A MAGNITUDE DOT IN A FIXED FRAME, WITH THE SCORE PRINTED BESIDE IT. Two
@@ -11,9 +11,9 @@ import { cn } from "@/lib/cn";
  * to judge absolute circle size against nothing; the pips failed because they
  * quantised a continuous score into four steps and still needed a key.
  *
- * The frame answers the first — every mark is read against the same box, so
+ * The frame answers the first  -  every mark is read against the same box, so
  * the comparison is relative, which is the judgement the eye is actually good
- * at — and the continuous diameter answers the second: 0.51 and 0.74 never
+ * at  -  and the continuous diameter answers the second: 0.51 and 0.74 never
  * render alike. The number is printed alongside either way, so a reader who
  * needs the exact value never has to estimate it from a drawing, and a
  * greyscale print or a colour-blind reader loses nothing: the whole notation
@@ -33,7 +33,7 @@ export function groundingLabel(value: number): string {
 }
 
 /** The mark: a dot sized by the score, inside the constant reference frame.
- * Decorative — the score prints beside it, and `Confidence` carries the
+ * Decorative  -  the score prints beside it, and `Confidence` carries the
  * accessible name, so a screen reader would otherwise hear the value twice.
  *
  * The diameter arrives as a RATIO, not a length: the raw px live in
@@ -100,12 +100,12 @@ export function Confidence({
       className={cn("inline-flex items-center gap-1.5", className)}
       role="img"
       aria-label={`Literature confidence ${printed}, ${band}`}
-      title={`Literature confidence ${printed} — ${band}`}
+      title={`Literature confidence ${printed}  -  ${band}`}
     >
       <GroundingMark value={value} />
       {/* Tabular figures: a column of citations must align on the decimal
         * point, or a list reads as a ragged edge rather than as a comparable
-        * scale — which is the whole reason the mark is framed. */}
+        * scale  -  which is the whole reason the mark is framed. */}
       <ConfidenceValue value={value} />
       {words && <span className="type-caption text-text-muted">{band}</span>}
     </span>

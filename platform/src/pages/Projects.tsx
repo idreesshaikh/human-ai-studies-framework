@@ -13,7 +13,7 @@ import { ApiError, type ProjectSummary } from "@/lib/api.ts";
 /* The project list, and the one place a project is created.
  *
  * A row's job is to answer "which project?" in one glance, so it carries the
- * shape of what is inside — how many studies — rather than a name and a
+ * shape of what is inside  -  how many studies  -  rather than a name and a
  * folder icon. The count arrives on the list response itself
  * (`GET /projects`), so the answer costs no extra request.
  *
@@ -143,14 +143,14 @@ export function Projects() {
 
       /* A project always gets its first study for free, question or not. A
        * reviewer expected "the chat interaction to start as soon as I
-       * created a new project" — for them a project *was* a study — and
+       * created a new project"  -  for them a project *was* a study  -  and
        * landing on an empty roster with a small "New study" button in a
        * section header is what made the design conversation hard to find at
        * all. That used to happen only when this field was filled in, which
        * made the whole fix as easy to miss as the field itself; creating the
        * study unconditionally is what actually keeps the promise. Someone
        * setting a project up for a team with no idea yet still gets a study
-       * to open into rather than a dead end — an unwanted default one is a
+       * to open into rather than a dead end  -  an unwanted default one is a
        * single delete away in Studies, not a wall to design around. */
       const opening = question.trim();
       const study = await api.createStudy(project.slug, name);
@@ -192,7 +192,7 @@ export function Projects() {
         </div>
         {/* Hidden while the empty state is showing: that state carries its own
           * "Create your first project" fill, and with no projects yet BOTH
-          * rendered at once — one region, two accent fills, same destination.
+          * rendered at once  -  one region, two accent fills, same destination.
           * The rule is one fill per region, and when the page is empty the
           * empty state is the better place for it. */}
         {!composing && data && data.length > 0 && (
@@ -348,7 +348,7 @@ export function Projects() {
       )}
 
       {/* Templates-first: the repertoire needs no project, so it sits below
-       * the roster — the second way in for a researcher who already knows
+       * the roster  -  the second way in for a researcher who already knows
        * the shape they want. */}
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-surface-raised p-4">
         <div className="min-w-0 basis-64 grow">

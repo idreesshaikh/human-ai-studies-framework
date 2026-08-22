@@ -13,10 +13,10 @@ import { studyApi, OfflineError } from "@/lib/studyApi";
  * things a researcher actually needs to hand to someone else, or to
  * themselves at the platform's own boundary:
  *
- * - the replication kit — protocol, joined dataset, regenerated report and
+ * - the replication kit  -  protocol, joined dataset, regenerated report and
  *   pinned versions, byte-reproducible, the thing a reviewer reruns;
- * - the elicitation record — the decision chain from idea to specification;
- * - the starter notebook — a loaded, documented dataframe with every
+ * - the elicitation record  -  the decision chain from idea to specification;
+ * - the starter notebook  -  a loaded, documented dataframe with every
  *   planned recipe imported and never run: where the platform's own scope
  *   ends and the researcher's analysis begins. */
 export function ExportStudy({ studyId }: { studyId: string }) {

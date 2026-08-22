@@ -22,7 +22,7 @@ def frame_from_protocol(protocol: dict) -> SamplingFrame:
         raise FrameError(
             "this study has no `curated:` section, so there is no sampling "
             "frame to mine against. Declare the frame in the protocol first "
-            "(query, window, actor unit) — mining never improvises its scope."
+            "(query, window, actor unit)  -  mining never improvises its scope."
         )
     frame = curated.get("samplingFrame")
     if not isinstance(frame, dict):
@@ -40,7 +40,7 @@ def frame_from_protocol(protocol: dict) -> SamplingFrame:
     if not start or not end:
         raise FrameError(
             "the sampling frame needs a `window` with `start` and `end` "
-            "dates — an open-ended mine is not a reproducible frame."
+            "dates  -  an open-ended mine is not a reproducible frame."
         )
 
     actor_unit = str(curated.get("actorUnit", "developer")).strip()

@@ -3,14 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "PHOENIX \u2014 conversational study designer (FR-PLAT, FR-CONV, NFR-12; D34/D37)",
+  "description": "PHOENIX  -  conversational study designer (FR-PLAT, FR-CONV, NFR-12; D34/D37)",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint . && node scripts/lint-no-raw-literals.mjs && node scripts/check-agent-annotations.mjs",
     "verify": "node --experimental-strip-types scripts/verify-slice1.mjs && node --experimental-strip-types scripts/verify-shell.mjs && node --experimental-strip-types scripts/verify-library.mjs && node --experimental-strip-types scripts/verify-timeline.mjs && node --experimental-strip-types scripts/verify-layout.mjs && node --experimental-strip-types scripts/verify-constellation.mjs && node --experimental-strip-types scripts/verify-comparator.mjs && node --experimental-strip-types scripts/verify-protocol-path.mjs && node scripts/check-contrast.mjs",
-    "check": "tsc -b && npm run lint && npm run verify && npm run build"
+    "check": "tsc -b && npm run lint && npm run verify && npm run build",
+    "a11y": "node scripts/a11y.mjs"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
@@ -28,7 +29,9 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^9.17.0",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/vite": "^4.0.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",

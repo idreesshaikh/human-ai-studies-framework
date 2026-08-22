@@ -192,7 +192,7 @@ def test_every_catalog_entry_carries_a_leg_and_honest_grounding():
         assert entry["label"] and entry["description"]
         grounding = entry["grounding"]
         # Either a real ref into the SRS/corpus, or honestly marked unsourced
-        # (FR-CONV-2) — never a bare, unlabelled absence.
+        # (FR-CONV-2)  -  never a bare, unlabelled absence.
         assert grounding.get("unsourced") is True or grounding.get("ref")
 
 

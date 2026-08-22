@@ -39,7 +39,7 @@ export function DeriveFromPaper({
    * survives the reload that signing in performs. Its own key names, since it
    * shares an address with the repertoire's `shapes`/`merged`.
    *
-   * The derived template is recomputed rather than carried — `/templates/
+   * The derived template is recomputed rather than carried  -  `/templates/
    * from-paper` binds a paper to an archetype at request time and writes
    * nothing, and the protocol it returns is far too large for a query
    * string. */
@@ -66,7 +66,7 @@ export function DeriveFromPaper({
 
   /* The field itself stays local so typing is instant; only the settled
    * query reaches the address (see the debounce below), which is also the
-   * only value worth restoring. Seeded from the URL once, on mount — with
+   * only value worth restoring. Seeded from the URL once, on mount  -  with
    * every write a `replace`, there are no history entries for a back button
    * to walk, so there is nothing to sync back the other way. */
   const [q, setQ] = useState(() => searchParams.get("paperq") ?? "");
@@ -97,7 +97,7 @@ export function DeriveFromPaper({
   };
 
   /* Search as you type, one request per pause rather than per keystroke
-   * (the input itself stays instant — only its effect is debounced). A
+   * (the input itself stays instant  -  only its effect is debounced). A
    * reply that arrives after a newer query is dropped, so results can't
    * arrive out of order. */
   const debouncedQ = useDebouncedValue(q);
@@ -114,7 +114,7 @@ export function DeriveFromPaper({
     setError(null);
     /* Deliberately NOT clearing `derived` here. Restoring a derivation from
      * the address and re-running the stored query happen together on a cold
-     * load, and the debounced search settles LAST — so clearing it inside the
+     * load, and the debounced search settles LAST  -  so clearing it inside the
      * search wiped the very card the URL had just asked to be restored. What
      * invalidates a derivation is the researcher typing a new query, which is
      * handled at the field itself. */
@@ -139,7 +139,7 @@ export function DeriveFromPaper({
 
   /* The settled query, published to the address. Writing per keystroke would
    * churn the URL for every letter; this fires on the same pause the search
-   * itself does. Re-running after the write is harmless — the value now
+   * itself does. Re-running after the write is harmless  -  the value now
    * matches and it returns. */
   useEffect(() => {
     const term = debouncedQ.trim();
@@ -186,7 +186,7 @@ export function DeriveFromPaper({
         const result = await templatesApi.fromPaper(ref, base);
         setDerived(result);
         // A paper reached by a seeded hand-off, or restored from a cold URL,
-        // may never have appeared in a search on this visit — the derived
+        // may never have appeared in a search on this visit  -  the derived
         // payload carries enough to name it in the row above.
         setPaper((current) =>
           current?.ref === result.paper.ref
@@ -350,7 +350,7 @@ export function DeriveFromPaper({
             * dead end a reviewer walked into. */}
           <CreateStudyFrom
             protocol={derived.protocol}
-            label="Turn this into a study — this design seeds its draft, citing the paper"
+            label="Turn this into a study  -  this design seeds its draft, citing the paper"
           />
         </div>
       )}

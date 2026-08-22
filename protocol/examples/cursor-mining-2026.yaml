@@ -1,8 +1,8 @@
-# Curated-dataset demo study (MP-16, FR-CUR) — the "dataset already exists"
+# Curated-dataset demo study (MP-16, FR-CUR)  -  the "dataset already exists"
 # branch made real. Instead of running live sessions, this study mines merged
 # pull requests from GitHub, comparing agent-authored and human-authored work,
 # and lands the mined activity in the same one-timeline event shape a live
-# study produces — so the same recipes, report, and paper-draft mechanisms run
+# study produces  -  so the same recipes, report, and paper-draft mechanisms run
 # unchanged (F1.1).
 #
 # The `curated:` section is the sampling frame: the mined equivalent of "the
@@ -41,7 +41,7 @@ conditions: # the comparison arms mined rows are labeled with
 participants:
   # Mined actor units, not enrolled participants. The schema requires a
   # positive planned count; for a mined study this is the target actor count,
-  # a nominal floor — the true n is the coverage the mining job reports.
+  # a nominal floor  -  the true n is the coverage the mining job reports.
   planned: 1
   design: between-subjects
   counterbalanced: false

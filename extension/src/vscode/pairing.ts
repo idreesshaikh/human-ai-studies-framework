@@ -12,16 +12,16 @@ import { ConsentGate } from '../core/consentGate';
 const SECRET_CRED = 'tern.sessionCredential';
 const STATE_SERVER = 'tern.serverUrl';
 const STATE_VERSION = 'tern.captureConfigVersion';
-/** The leg summary from the config currently *in force* — what the sidebar
+/** The leg summary from the config currently *in force*  -  what the sidebar
  *  (FR-INST-22) renders. Written only where the config is actually applied,
  *  so the surface can never claim a leg is running before it is. */
 export const STATE_LEGS = 'tern.legs';
-/** Set when the server has a newer config than the one in force — i.e. a
+/** Set when the server has a newer config than the one in force  -  i.e. a
  *  researcher amended the study mid-session. Wall #6 says it lands at the
  *  next session start, so the sidebar shows it as pending rather than
  *  silently implying the change already took effect. */
 export const STATE_PENDING = 'tern.pendingConfigVersion';
-/** The task block this session was assigned — what the sidebar shows the
+/** The task block this session was assigned  -  what the sidebar shows the
  *  participant so they know what they have been asked to do. */
 export const STATE_BLOCK = 'tern.sessionBlock';
 
@@ -36,7 +36,7 @@ interface RedeemResult {
   contentPolicy: string;
 }
 
-/** Identity/transport keys resolved from the redeem, NOT from the protocol —
+/** Identity/transport keys resolved from the redeem, NOT from the protocol  -
  * applyConfig must never clobber them (else a session-start refresh would
  * reset the paired endpoint to the protocol's example value). */
 const IDENTITY_KEYS = new Set([
@@ -57,7 +57,7 @@ async function applyConfig(cfg: CaptureConfig): Promise<void> {
 }
 
 /** The credential last stored by a successful pairing, or undefined if this
- * IDE has never paired. Read-only — does not touch the network. */
+ * IDE has never paired. Read-only  -  does not touch the network. */
 export async function getStoredCredential(
   context: vscode.ExtensionContext,
 ): Promise<string | undefined> {
@@ -65,7 +65,7 @@ export async function getStoredCredential(
 }
 
 /** Re-pull the study's capture config at a session boundary and apply it if
- * the version changed AND no session is active (wall #6 — see
+ * the version changed AND no session is active (wall #6  -  see
  * `shouldApplyCaptureConfig`). `sessionActive` is the caller's own liveness
  * flag (e.g. `Boolean(study)`); the only real call site passes `false`
  * because it runs before the clock arms, but the guard fails closed even if
@@ -115,7 +115,7 @@ export async function refreshConfigAtSessionStart(
         await context.workspaceState.update(STATE_PENDING, undefined);
       } else {
         // Not applied. Either nothing changed, or a change arrived mid-session
-        // and wall #6 holds it until the next start — record which, so the
+        // and wall #6 holds it until the next start  -  record which, so the
         // sidebar can say so instead of showing stale state as current.
         await context.workspaceState.update(
           STATE_PENDING,
@@ -126,7 +126,7 @@ export async function refreshConfigAtSessionStart(
       }
     }
   } catch {
-    // Never block a session on a config refresh — last-applied config stands.
+    // Never block a session on a config refresh  -  last-applied config stands.
   }
   return cred;
 }
@@ -134,7 +134,7 @@ export async function refreshConfigAtSessionStart(
 /** Redeem a connection string, gate on consent, persist identity + the
  * credential, apply the initial capture config, and show the pre-flight
  * summary. Shared by the `connectToStudy` command and the `vscode://…/pair`
- * URI handler — one redeem path, no second mechanism. */
+ * URI handler  -  one redeem path, no second mechanism. */
 export async function pairFromConnectionString(
   context: vscode.ExtensionContext,
   raw: string,
@@ -167,7 +167,7 @@ export async function pairFromConnectionString(
     return;
   }
 
-  // Consent gate — show the statement + policy, require explicit acceptance.
+  // Consent gate  -  show the statement + policy, require explicit acceptance.
   const gate = new ConsentGate(result.consentStatement, result.contentPolicy);
   const choice = await vscode.window.showInformationMessage(
     result.consentStatement,

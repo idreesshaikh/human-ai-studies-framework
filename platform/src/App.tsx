@@ -5,7 +5,7 @@ import { SignInScreen } from "@/components/shell/SignInScreen";
 import { useAuth } from "@/lib/auth.tsx";
 
 /* Route-level code splitting. The marketing hero and the study workspace (the
- * two heaviest subtrees — the workspace pulls the whole conversation, charts,
+ * two heaviest subtrees  -  the workspace pulls the whole conversation, charts,
  * constellation, and enrollment stack) load only when the researcher actually
  * opens them, instead of riding in the first payload everyone pays for. The
  * chrome (AppFrame + auth) stays eager: it is on every signed-in screen and
@@ -57,7 +57,7 @@ function PageFallback() {
  * one: `/templates/repertoire`, `/templates/merge`, `/templates/from-paper`
  * and `/corpus/search` all carry no auth dependency and answer 200 to an
  * unauthenticated request. The gate was the SPA's own invention, and it made
- * the page contradict its own first line — "No project needed to browse" —
+ * the page contradict its own first line  -  "No project needed to browse"  -
  * by demanding an account before a visitor saw a single design shape.
  *
  * Public means readable, not writable. Every action that creates something
@@ -69,7 +69,7 @@ function Shell() {
   const { config, needed, hasCredential, resolving } = useAuth();
   const { pathname } = useLocation();
   // While the credential check is still in flight (clerk-js loading), show
-  // neither the app nor the sign-in card — `hasCredential` reads false for
+  // neither the app nor the sign-in card  -  `hasCredential` reads false for
   // that whole window even for an already-signed-in session, and rendering
   // the sign-in screen on its say-so flashes it on every refresh.
   if (resolving) return null;
@@ -89,16 +89,16 @@ function Shell() {
 
 function NotFound() {
   return (
-    <div className="mx-auto flex max-w-narrow flex-col items-center gap-3 p-16 text-center">
+    <main className="mx-auto flex max-w-narrow flex-col items-center gap-3 p-16 text-center">
       {/* An `h1`, not a styled paragraph. This was the one page in the app
         * with no heading at all, so the one place a reader is most likely to
-        * be lost — a mistyped or dead URL — announced nothing to a screen
+        * be lost  -  a mistyped or dead URL  -  announced nothing to a screen
         * reader and gave a document-outline reader an empty page. */}
       <h1 className="type-subhead text-text">Nothing here</h1>
       <Link to="/" className="text-accent hover:underline">
         Back to the start
       </Link>
-    </div>
+    </main>
   );
 }
 
@@ -115,7 +115,7 @@ export default function App() {
         <Route path="/signin" element={<SignInScreen />} />
         <Route path="/invitations/:token" element={<InviteAccept />} />
         <Route element={<Shell />}>
-          {/* Not "/projects" — that's the backend's GET /projects API path
+          {/* Not "/projects"  -  that's the backend's GET /projects API path
               (app.py); same-path SPA route + API route can't coexist on a
               hard navigation (refresh, bookmark, the sign-in/sign-out
               location.reload()), which bypasses the SPA shell entirely and
@@ -124,7 +124,7 @@ export default function App() {
           <Route path="/home" element={<Projects />} />
           <Route path="/settings" element={<AccountSettings />} />
           {/* The repertoire is project-agnostic (FR-TPL): one global browse,
-              not one per project. Not "/templates" — that's the backend's
+              not one per project. Not "/templates"  -  that's the backend's
               GET /templates API path (app.py), and the same-path collision
               would show raw JSON on a hard navigation. The old project-scoped
               URL keeps working. */}

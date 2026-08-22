@@ -101,7 +101,7 @@ export class HttpSink implements EventSink {
   private timer: ReturnType<typeof setInterval>;
   private inFlight = false;
   private consecutiveFailures = 0;
-  /** Events confirmed delivered by a successful POST — the sidebar's Data
+  /** Events confirmed delivered by a successful POST  -  the sidebar's Data
    *  view reads this to say how much of what was written has actually left
    *  the machine (NFR-2: loss must be detectable, not just written-to-disk). */
   private delivered = 0;

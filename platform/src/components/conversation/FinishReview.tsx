@@ -14,7 +14,7 @@ import { BlinkComparator } from "./BlinkComparator";
 import { hasEarlierVersion } from "@/lib/comparator";
 
 /* A YAML-scalar line whose entire value is an empty collection, e.g.
- * "instruments: {}" or "  gates: []" — a still-unresolved slot rendered as
+ * "instruments: {}" or "  gates: []"  -  a still-unresolved slot rendered as
  * flow-style by the YAML dumper (empty mappings/sequences have no block
  * form). It carries no information the "Still unresolved" line below
  * doesn't already say in plain words, so it's dropped rather than shown
@@ -22,7 +22,7 @@ import { hasEarlierVersion } from "@/lib/comparator";
 const EMPTY_COLLECTION = /^\s*[\w.]+:\s*(\{\}|\[\])\s*$/;
 
 /* Turns the server's unified diff (`---`/`+++`/`@@`/`+`/`-` lines) into
- * per-line pieces so each can be colored on its own — a flat <pre> string
+ * per-line pieces so each can be colored on its own  -  a flat <pre> string
  * can't do that. File-header lines are dropped ("draft-before"/"draft-after"
  * mean nothing to a researcher), as are empty-collection placeholder lines;
  * hunk headers become a plain divider instead of raw `@@ -0,0 +1,3 @@` diff
@@ -45,9 +45,9 @@ function parseDiffLines(diff: string) {
 }
 
 /* The "finish the conversation → here's your protocol" moment. When the
- * researcher wraps up, this gathers everything the conversation produced —
+ * researcher wraps up, this gathers everything the conversation produced  -
  * the design moves they accepted, how many are grounded in the literature,
- * and the compiled protocol — into one calm review before it becomes the
+ * and the compiled protocol  -  into one calm review before it becomes the
  * document of record. It's the payoff: talk became a study. */
 export function FinishReview({
   open,
@@ -119,7 +119,7 @@ export function FinishReview({
                     * literally echoing "protocol.design" as a real target,
                     * and even a well-formed path like "researchQuestions[]"
                     * is still code, not a name a researcher reads). A fixed
-                    * width here — not just shrink-0 — is what makes every
+                    * width here  -  not just shrink-0  -  is what makes every
                     * row's proposal text start at the same x position;
                     * without it "Design" and "Research questions" left each
                     * row's second column starting somewhere different. */}
@@ -195,7 +195,7 @@ export function FinishReview({
         {/* Applying used to be the end of the road: the button read "Applied"
           * and the dialog just sat there, which had a reviewer asking "when
           * the proposal is complete, how do I continue?". The protocol is
-          * only half the job — it still has to reach participants' editors —
+          * only half the job  -  it still has to reach participants' editors  -
           * so the next step is named here, where the question is asked. */}
         {applied && (
           <div

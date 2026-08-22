@@ -11,7 +11,7 @@ import {
 } from "@/lib/timeline";
 
 /* Per-session swimlane timeline (FR-DASH-4): one lane per leg, events as marks
- * positioned by ts on a shared time axis. Pure rendering — no new backend
+ * positioned by ts on a shared time axis. Pure rendering  -  no new backend
  * contract, no new privacy surface: every row is already join-keyed by wall #4.
  * Table-view twin ships from day one (wall #10, NFR-12). */
 

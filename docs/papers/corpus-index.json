@@ -10861,7 +10861,7 @@
   {
    "ref": "arxiv:2509.15867",
    "s2PaperId": "500a7509aca9233904623f22b3d8052f2852299f",
-   "title": "FAIR: Framing AI’s Role in Programming Competitions — Understanding How LLMs Are Changing the Game in Competitive Programming",
+   "title": "FAIR: Framing AI’s Role in Programming Competitions  -  Understanding How LLMs Are Changing the Game in Competitive Programming",
    "year": 2025,
    "venue": "International Conference on Human Factors in Computing Systems",
    "recognizedVenue": false,
@@ -13665,7 +13665,7 @@
   {
    "ref": "doi:10.1109/ACCESS.2025.3532853",
    "s2PaperId": "09d8841eeb362a2c04f055f70f16d634093c83bc",
-   "title": "Agentic AI: Autonomous Intelligence for Complex Goals—A Comprehensive Survey",
+   "title": "Agentic AI: Autonomous Intelligence for Complex Goals - A Comprehensive Survey",
    "year": 2025,
    "venue": "IEEE Access",
    "recognizedVenue": false,
@@ -25741,7 +25741,7 @@
   {
    "ref": "arxiv:2310.18648",
    "s2PaperId": "ee5b4913249e1800d8c7cf5a4479a8596add0447",
-   "title": "Generative Artificial Intelligence for Software Engineering—A Research Agenda",
+   "title": "Generative Artificial Intelligence for Software Engineering - A Research Agenda",
    "year": 2023,
    "venue": "Software, Practice & Experience",
    "recognizedVenue": false,
@@ -40463,7 +40463,7 @@
   {
    "ref": "arxiv:2602.01797",
    "s2PaperId": "ace6bd914cdc22d2dbe672ebc56c4930537c07af",
-   "title": "ORCH: many analyses, one merge—a deterministic multi-agent orchestrator for discrete-choice reasoning with EMA-guided routing",
+   "title": "ORCH: many analyses, one merge - a deterministic multi-agent orchestrator for discrete-choice reasoning with EMA-guided routing",
    "year": 2026,
    "venue": "Frontiers Artif. Intell.",
    "recognizedVenue": false,
@@ -71085,7 +71085,7 @@
   {
    "ref": "arxiv:2504.06771",
    "s2PaperId": "9f956c7f72cec7dd7512806f79de20b51c418bcf",
-   "title": "AI, Help Me Think—but for Myself: Assisting People in Complex Decision-Making by Providing Different Kinds of Cognitive Support",
+   "title": "AI, Help Me Think - but for Myself: Assisting People in Complex Decision-Making by Providing Different Kinds of Cognitive Support",
    "year": 2025,
    "venue": "International Conference on Human Factors in Computing Systems",
    "recognizedVenue": false,
@@ -73258,7 +73258,7 @@
   {
    "ref": "doi:10.9785/cr-2026-420406",
    "s2PaperId": "0727e715612a6dec3f04684fdbda36d980bf4adf",
-   "title": "KI‑generierter Code in IT‑Projekten (Teil 1) — Praxis und Urheberrechtsschutz",
+   "title": "KI‑generierter Code in IT‑Projekten (Teil 1)  -  Praxis und Urheberrechtsschutz",
    "year": 2026,
    "venue": "Comput. und Recht",
    "recognizedVenue": false,
@@ -87327,7 +87327,7 @@
   {
    "ref": "doi:10.1145/3498326",
    "s2PaperId": "da89bff43b38405ea152e9cc1d58efc3e74a82cc",
-   "title": "Designing PairBuddy—A Conversational Agent for Pair Programming",
+   "title": "Designing PairBuddy - A Conversational Agent for Pair Programming",
    "year": 2022,
    "venue": "ACM Trans. Comput. Hum. Interact.",
    "recognizedVenue": false,
@@ -96463,7 +96463,7 @@
   {
    "ref": "doi:10.1109/ACCESS.2024.3443621",
    "s2PaperId": "f98a616a4a34ee492c85ba883a228cfb0d320940",
-   "title": "Navigating the Pitfalls: Analyzing the Behavior of LLMs as a Coding Assistant for Computer Science Students—A Systematic Review of the Literature",
+   "title": "Navigating the Pitfalls: Analyzing the Behavior of LLMs as a Coding Assistant for Computer Science Students - A Systematic Review of the Literature",
    "year": 2024,
    "venue": "IEEE Access",
    "recognizedVenue": false,
@@ -109286,7 +109286,7 @@
   {
    "ref": "doi:10.1177/22104968261461351",
    "s2PaperId": "7ef8ae2b1cf3e1d8cc0717ee5ff1a13bab8a41b8",
-   "title": "Evaluating Large Language Models for RDF Knowledge Graph-Related Tasks—The LLM-KG-Bench-Framework 3",
+   "title": "Evaluating Large Language Models for RDF Knowledge Graph-Related Tasks - The LLM-KG-Bench-Framework 3",
    "year": 2026,
    "venue": "Semantic Web: – Interoperability, Usability, Applicability",
    "recognizedVenue": false,
@@ -119003,7 +119003,7 @@
   {
    "ref": "doi:10.1186/s13643-016-0384-4",
    "s2PaperId": "1227f2fefc26f204d2ce07b005aedd7d74e6e72a",
-   "title": "Rayyan—a web and mobile app for systematic reviews",
+   "title": "Rayyan - a web and mobile app for systematic reviews",
    "year": 2016,
    "venue": "Systematic Reviews",
    "recognizedVenue": false,
@@ -134263,7 +134263,7 @@
   {
    "ref": "doi:10.3390/knowledge5040022",
    "s2PaperId": "c13adf741a81b748ef9c8dd404ac18a426c0ef43",
-   "title": "The New Normal and the Era of Misknowledge—Understanding Generative AI and Its Impacts on Knowledge Work",
+   "title": "The New Normal and the Era of Misknowledge - Understanding Generative AI and Its Impacts on Knowledge Work",
    "year": 2025,
    "venue": "Knowledge",
    "recognizedVenue": false,
@@ -144936,7 +144936,7 @@
   {
    "ref": "doi:10.1145/365153.365168",
    "s2PaperId": "a798bca71c8833e49ad9bac22da4b5c3503f1e6a",
-   "title": "ELIZA—a computer program for the study of natural language communication between man and machine",
+   "title": "ELIZA - a computer program for the study of natural language communication between man and machine",
    "year": 1966,
    "venue": "CACM",
    "recognizedVenue": true,
@@ -168050,7 +168050,7 @@
    "s2PaperId": "719f0824ba3dd268c3b7eee06f4b8ae41882804f",
    "title": "Does ChatGPT need a psychiatrist? Similarities between human psychopathology and errors in large language models",
    "year": 2026,
-   "venue": "NPP—Digital Psychiatry and Neuroscience",
+   "venue": "NPP - Digital Psychiatry and Neuroscience",
    "recognizedVenue": false,
    "citationCount": 0,
    "influentialCitationCount": 0,
@@ -176992,7 +176992,7 @@
   {
    "ref": "doi:10.1186/s12651-026-00424-6",
    "s2PaperId": "aeb139d44409e3f978917d9ee7dc31d11e17afca",
-   "title": "In-demand skills: a shield against automation—evidence from online job vacancies",
+   "title": "In-demand skills: a shield against automation - evidence from online job vacancies",
    "year": 2026,
    "venue": "Journal for labour market research",
    "recognizedVenue": false,
@@ -177440,7 +177440,7 @@
   {
    "ref": "doi:10.3724/jtke-20250008",
    "s2PaperId": "b0fa8c0d7c8a13fd11aa2d893e808942a9325281",
-   "title": "Joint entity-relation extraction: A key technique for knowledge graph construction—A survey",
+   "title": "Joint entity-relation extraction: A key technique for knowledge graph construction - A survey",
    "year": 2026,
    "venue": "Journal of Terminology and Knowledge Engineering",
    "recognizedVenue": false,
@@ -177728,7 +177728,7 @@
   {
    "ref": "doi:10.23919/DATE69613.2026.11539468",
    "s2PaperId": "b2ecc447b24bb3e6636467e5948d3fe7e401b018",
-   "title": "Special Day—A Design Blueprint for Scalable Multi-Agent Architectures in Complex EDA Workflows",
+   "title": "Special Day - A Design Blueprint for Scalable Multi-Agent Architectures in Complex EDA Workflows",
    "year": 2026,
    "venue": "Design, Automation and Test in Europe",
    "recognizedVenue": false,
@@ -193417,7 +193417,7 @@
   {
    "ref": "doi:10.1007/s40670-024-02206-6",
    "s2PaperId": "1e523ae5c2fd50d6cc975020b2fb700cdba1f365",
-   "title": "ChatGPT and Other Large Language Models in Medical Education — Scoping Literature Review",
+   "title": "ChatGPT and Other Large Language Models in Medical Education  -  Scoping Literature Review",
    "year": 2024,
    "venue": "The journal of the International Association of Medical Science Educators : JIAMSE",
    "recognizedVenue": false,
@@ -196879,7 +196879,7 @@
   {
    "ref": "doi:10.1016/j.telpol.2025.103055",
    "s2PaperId": "0b61046e1302e5e9ef864a57a22a3b616758baf2",
-   "title": "How is artificial intelligence shaping the labor demand of firms? ——evidence from text-mining analysis of listed companies",
+   "title": "How is artificial intelligence shaping the labor demand of firms?  -  - evidence from text-mining analysis of listed companies",
    "year": 2025,
    "venue": "Telecommunications Policy",
    "recognizedVenue": false,
@@ -205864,7 +205864,7 @@
   {
    "ref": "doi:10.1007/s10645-025-09452-y",
    "s2PaperId": "bcff86af19743697eb8bd8f3efc9545bac7ead23",
-   "title": "The Human Capital — Artificial Intelligence Symbiosis and Economic Growth",
+   "title": "The Human Capital  -  Artificial Intelligence Symbiosis and Economic Growth",
    "year": 2025,
    "venue": "The Economist",
    "recognizedVenue": false,
@@ -207708,7 +207708,7 @@
   {
    "ref": "arxiv:2306.03102",
    "s2PaperId": "917c966627cdc27af62ab08d9f9350e94e050621",
-   "title": "ChatGPT is a Remarkable Tool—For Experts",
+   "title": "ChatGPT is a Remarkable Tool - For Experts",
    "year": 2023,
    "venue": "Data Intelligence",
    "recognizedVenue": false,
@@ -237944,7 +237944,7 @@
   {
    "ref": "doi:10.1177/00218863241285454",
    "s2PaperId": "11d23e6abcc1b9022f8ceb54dde822196b351dd5",
-   "title": "Generative AI Beyond the Hype—New Technologies in the Face of Organizing and Organizations",
+   "title": "Generative AI Beyond the Hype - New Technologies in the Face of Organizing and Organizations",
    "year": 2024,
    "venue": "Journal of Applied Behavioral Science",
    "recognizedVenue": false,
@@ -238536,7 +238536,7 @@
   {
    "ref": "doi:10.1038/d41586-025-04053-w",
    "s2PaperId": "01b1033db57a4a48f032bdd243eacfa75134dda5",
-   "title": "AI is transforming the economy — understanding its impact requires both data and imagination",
+   "title": "AI is transforming the economy  -  understanding its impact requires both data and imagination",
    "year": 2025,
    "venue": "Nature",
    "recognizedVenue": false,
@@ -239960,7 +239960,7 @@
   {
    "ref": "doi:10.61453/jobss.v2025no07",
    "s2PaperId": "33ba3a220521702a7d8bbd9f6fb8770f884beb1f",
-   "title": "Designing for Complementarity: Skills, Work, and Education in the Age of AI — A Review",
+   "title": "Designing for Complementarity: Skills, Work, and Education in the Age of AI  -  A Review",
    "year": 2025,
    "venue": "Journal of Business and Social Sciences",
    "recognizedVenue": false,

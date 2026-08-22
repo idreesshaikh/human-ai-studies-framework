@@ -98,7 +98,7 @@ class _Stub:
 
 def test_candidates_are_ordered_by_confidence(db_url):
     """
-    The backfill spends its first calls on the papers most likely to be recommended — so
+    The backfill spends its first calls on the papers most likely to be recommended  -  so
     a --limit run is a useful partial run.
     """
     factory = make_session_factory(db_url)
@@ -167,7 +167,7 @@ def test_batches_respect_the_chunk_size(db_url):
 
 def test_short_abstract_still_counts_as_missing(db_url):
     """
-    A curator's one-liner is not an abstract — the seed stays a candidate until a real
+    A curator's one-liner is not an abstract  -  the seed stays a candidate until a real
     one lands.
     """
     factory = make_session_factory(db_url)

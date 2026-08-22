@@ -10,7 +10,7 @@ import { SlotMeter } from "./SlotMeter";
 import { ProtocolGuide } from "./ProtocolGuide";
 
 /* The draft rail: the protocol compiled so far, told as prose sections
- * rather than raw YAML — a researcher should be able to read it, not parse
+ * rather than raw YAML  -  a researcher should be able to read it, not parse
  * it. The literal compiled document is still one click away behind "View
  * raw YAML" for anyone (or any agent) that wants it verbatim. */
 export function DraftRail({
@@ -41,7 +41,7 @@ export function DraftRail({
    * changes, which is exactly what chat is bad at carrying. */
   understanding?: Understanding;
 }) {
-  /* Readiness is the server's answer, not a count of lit dots — the eight
+  /* Readiness is the server's answer, not a count of lit dots  -  the eight
    * conversation sections and the protocol's requirements are different
    * lists. Before the first compile comes back, fall back to the sections so
    * the button still reads sensibly. */
@@ -56,7 +56,7 @@ export function DraftRail({
   /* This rail carries two different things: how far the CONVERSATION has got
    * (the step path, the "no design shape yet" caution) and what the PROTOCOL
    * currently says. A study can hold a complete protocol without a
-   * conversation ever having happened — seeded from a template, a merged
+   * conversation ever having happened  -  seeded from a template, a merged
    * pair, or a derived paper, and every study anyone is only reading. In that
    * case the conversation half claimed "0/13 steps · Not covered yet:
    * Research questions…" directly above the research questions it was
@@ -68,9 +68,9 @@ export function DraftRail({
   return (
     <aside
       data-agent="draft-rail"
-      className="flex h-full flex-col gap-stack bg-surface p-gutter"
+      className="flex h-full flex-col bg-surface"
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2 p-gutter pb-3">
         <div>
           <h2 className="type-subhead text-text">
             Protocol draft
@@ -78,7 +78,7 @@ export function DraftRail({
           <p className="type-caption text-text-muted">
             {showConversationProgress
               ? "Compiled from the moves you've accepted."
-              : // No moves were accepted here — this protocol arrived with the
+              : // No moves were accepted here  -  this protocol arrived with the
                 // study (a template, a merge, a derived paper) or belongs to
                 // someone else's study you are reading.
                 "The study's protocol as it currently stands."}
@@ -88,82 +88,23 @@ export function DraftRail({
       </div>
 
       {showConversationProgress && (
-        <SlotMeter
-          draft={draft}
-          unresolved={unresolved}
-          understanding={understanding}
-        />
+        <SlotMeter draft={draft} unresolved={unresolved} understanding={understanding} />
       )}
 
-      {/* The "still working out X, Y, Z" line used to live here. The path
-        * above now names those same facets as steps, marks which one is
-        * current, and prints the question being asked — so the sentence had
-        * become the same information a third time. What it said that the
-        * steps do not is *why* it matters, which is kept. */}
-      {showConversationProgress &&
-        understanding &&
-        !understanding.readyForDesign && (
-          <p className="type-caption text-text-muted" data-agent="understanding-line">
-            No design shape yet: a design that follows from too little is a
-            guess you would have to unpick later.
-          </p>
-        )}
-
-      {/* One row, and one hierarchy. Two stacked full-width blocks of the
-        * same weight is not a choice, it is a wall: the researcher had to
-        * read both labels to work out which one was available to them, and
-        * the disabled one looked exactly like the enabled one.
-        *
-        * Reviewing is always the live step, so it is the accent fill.
-        * Applying is the commit that follows a review, so it stays an
-        * outline until the compile says it is valid, and it never competes
-        * with the action that leads to it. */}
-      {(onFinish || onApply) && (
-        <div className="flex flex-wrap items-center gap-2">
-          {onFinish && (
-            <Button
-              size="sm"
-              data-agent="draft-finish"
-              onClick={onFinish}
-            >
-              {complete ? "Finish and review" : "Review draft"}
-            </Button>
-          )}
-          {onApply && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!compileValid || applying}
-              data-agent="draft-apply"
-              onClick={onApply}
-              title={
-                compileValid
-                  ? undefined
-                  : "The draft has to compile and validate before it can be applied."
-              }
-            >
-              {applying ? "Applying…" : "Apply to protocol"}
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* The scroller, not a box. The rail already frames this column; an
-        * inner border here put a second frame inside the first one and made
-        * the draft look like a widget parked in a panel rather than the
-        * document of record. */}
-      <div className="min-h-0 flex-1 overflow-auto">
+      {/* The scroller is the document body. Progress and actions stay outside
+        * it, so the rail has a stable command area while the protocol grows. */}
+      <div className="min-h-0 flex-1 overflow-auto px-gutter">
         {sections ? (
           sections.length > 0 ? (
             <div className="flex flex-col gap-2.5">
               {/* A freshly created study compiles to a protocol that is not
-                * empty — it carries scaffolding the researcher never wrote
-                * ("Study: led by Researcher", "Phases: design") — so
+                * empty  -  it carries scaffolding the researcher never wrote
+                * ("Study: led by Researcher", "Phases: design")  -  so
                 * `sections.length > 0` was true from the first paint even
                 * when no move had ever been accepted. Showing the unfilled
                 * `SlotPlate` here too meant every slot it lists as "not yet
                 * resolved" sat directly above the real, filled-in section
-                * saying the opposite — a study whose protocol arrived
+                * saying the opposite  -  a study whose protocol arrived
                 * pre-built (template, merge, derived paper) contradicted
                 * itself before a reader got past the first screen. The plate
                 * only belongs where there is truly nothing else to show,
@@ -188,24 +129,58 @@ export function DraftRail({
         )}
       </div>
 
-      {sections && sections.length > 0 && serverYaml?.trim() && (
-        <details className="group">
-          <summary className="type-caption cursor-pointer text-text-muted select-none">
-            View raw YAML
-          </summary>
-          <pre className="tabular type-caption mt-1 max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-2 type-quantity leading-relaxed text-text">
-            {serverYaml}
-          </pre>
-        </details>
-      )}
+      <div className="flex flex-col gap-3 border-t border-border bg-surface p-gutter pt-3">
+        {sections && sections.length > 0 && serverYaml?.trim() && (
+          <details className="group">
+            <summary className="type-caption cursor-pointer text-text-muted select-none">
+              View raw YAML
+            </summary>
+            <pre className="tabular type-caption mt-1 max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-2 type-quantity leading-relaxed text-text">
+              {serverYaml}
+            </pre>
+          </details>
+        )}
+
+        {(onFinish || onApply) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {onFinish && (
+              <Button
+                size="sm"
+                data-agent="draft-finish"
+                onClick={onFinish}
+                className="flex-1"
+              >
+                {complete ? "Finish and review" : "Review draft"}
+              </Button>
+            )}
+            {onApply && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!compileValid || applying}
+                data-agent="draft-apply"
+                onClick={onApply}
+                className="flex-1"
+                title={
+                  compileValid
+                    ? undefined
+                    : "The draft has to compile and validate before it can be applied."
+                }
+              >
+                {applying ? "Applying…" : "Apply to protocol"}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
     </aside>
   );
 }
 
 /* The plate's own frame: every slot the protocol needs, as an address that
  * either carries something or is still blank. An unfilled slot is marked with
- * the open ring — the same notation "nothing identified here yet" wears
- * everywhere else — instead of repeating the sentence "Not yet resolved."
+ * the open ring  -  the same notation "nothing identified here yet" wears
+ * everywhere else  -  instead of repeating the sentence "Not yet resolved."
  * eight times down the rail, which was eight lines of text saying what eight
  * marks say at a glance. */
 function SlotPlate({ draft }: { draft: ProtocolDraft }) {

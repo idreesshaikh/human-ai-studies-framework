@@ -115,7 +115,7 @@ def test_power_route_404s_for_unknown_study(client):
 
 def test_power_route_works_without_a_compiled_protocol(client):
     """
-    Recruitment planning happens while the design is still in conversation — the route
+    Recruitment planning happens while the design is still in conversation  -  the route
     must not demand a compiled protocol.
     """
     study_id = make_study(client, "alice")

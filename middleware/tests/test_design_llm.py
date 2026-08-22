@@ -221,7 +221,7 @@ def test_propose_turn_normalizes_list_and_numeric_patch_values():
 def test_propose_turn_drops_choose_template_with_hallucinated_id():
     """
     A choose-template move naming a template the registry doesn't have is dropped
-    entirely — accepted, it would poison every future compile, and patch-less it would
+    entirely  -  accepted, it would poison every future compile, and patch-less it would
     be the "accepted but only noted" trap.
     """
     reply = {
@@ -273,7 +273,7 @@ def test_propose_turn_validates_merge_templates_patch():
 
 def test_propose_turn_drops_merge_with_a_hallucinated_template_id():
     """
-    A merge naming even one template the registry doesn't have is dropped — a merged
+    A merge naming even one template the registry doesn't have is dropped  -  a merged
     protocol built on a hallucinated id could never instantiate.
     """
     reply = {
@@ -337,7 +337,7 @@ def test_propose_turn_returns_none_when_reply_is_empty():
 
 def test_propose_turn_accepts_text_only_reply_with_no_moves():
     """
-    A conversational reply with nothing (yet) to propose is not a failure — it's an
+    A conversational reply with nothing (yet) to propose is not a failure  -  it's an
     honest turn.
     """
     reply = {"text": "Tell me more about your population first.", "moves": []}
@@ -425,7 +425,7 @@ def test_propose_turn_notes_the_accepted_templates_prescribed_statistics():
     user = captured[0]["messages"][-1]["content"]
     assert "Template metr-rct-v1 is accepted and prescribes" in user
     assert "record or refine that prescription" in user
-    # A template never closes the statisticalPlan section outright — the regression that
+    # A template never closes the statisticalPlan section outright  -  the regression that
     # made the assistant refuse statisticalPlan moves.
     assert "do not propose a standalone statisticalPlan move" not in user
 
@@ -459,7 +459,7 @@ def test_cautions_render_as_advisory_and_the_prompt_says_they_fill_nothing():
 
 def test_propose_turn_without_design_state_omits_the_block():
     """
-    Backward compatible: no state (stateless demo, first turn) — the request looks
+    Backward compatible: no state (stateless demo, first turn)  -  the request looks
     exactly like before.
     """
     captured: list = []

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
-/* Plain table primitives — precise register: hairline rules, tabular
+/* Plain table primitives  -  precise register: hairline rules, tabular
  * numerals, no motion. */
 export const Table = ({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) => (
   <div className="w-full overflow-x-auto">

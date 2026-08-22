@@ -3,7 +3,7 @@ import { EmptyState } from "@/components/shell/EmptyState";
 import type { Recommendation } from "@/lib/types";
 
 /* The live literature recommender (FR-LIT-9). The persistent home for papers
- * the conversation surfaces — it refreshes as the conversation grows, ranked
+ * the conversation surfaces  -  it refreshes as the conversation grows, ranked
  * by confidence + relevance (no provenance tier). One click adds a paper to
  * the study's Library. This is the single "add a paper" affordance; the
  * inline per-turn cards are gone so there's one mental model. */

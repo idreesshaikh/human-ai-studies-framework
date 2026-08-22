@@ -65,6 +65,7 @@ platform/.ds-shipped.css
 # packages. The git history is the record once a plan finishes.
 .superpowers/
 docs/superpowers/
+requirements/
 
 # Worked-example per-recipe outputs (docs/examples): figures, tables, and
 # per-recipe summaries regenerate with `python -m middleware simulate`;

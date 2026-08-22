@@ -2,7 +2,7 @@
 #
 # The middleware container builds from the repo root (uv workspace context)
 # using the multi-stage Dockerfile in middleware/. A PostgreSQL plugin does
-# NOT automatically inject DATABASE_URL into a separate service — add an
+# NOT automatically inject DATABASE_URL into a separate service  -  add an
 # explicit variable reference on the middleware service (Variables tab ->
 # + New Variable -> Add Reference -> the Postgres service -> DATABASE_URL).
 # Skip this and the middleware silently falls back to local SQLite (fails
@@ -11,13 +11,13 @@
 # middleware reads it via Settings and connects with psycopg3 + SQLAlchemy
 # 2.x once the reference is wired up.
 #
-# One-time manual step (Railway has no config-as-code volume declaration —
+# One-time manual step (Railway has no config-as-code volume declaration  -
 # this can't live in this file): attach a persistent Volume to the service
-# — dashboard → service → Settings → Volumes → New Volume — mounted at
+#  -  dashboard → service → Settings → Volumes → New Volume  -  mounted at
 # /data. Without it, uploaded files (consent PDFs, paper PDFs) written to
 # MIDDLEWARE_DATA_DIR silently vanish on every redeploy/restart, since only
 # their hash/path is in Postgres, never the bytes. Postgres itself needs no
-# such step — the PostgreSQL plugin manages its own storage.
+# such step  -  the PostgreSQL plugin manages its own storage.
 #
 # Required env vars to set in the Railway dashboard:
 #   MIDDLEWARE_AUTH       - "clerk" (recommended) or "token"

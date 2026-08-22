@@ -1,7 +1,7 @@
 # Data
 
 The Data tab is where collection, curation, and the analysis handoff live.
-The platform handles design, setup, and curation — then stops: you get the
+The platform handles design, setup, and curation  -  then stops: you get the
 data, a data dictionary, and an analysis plan, ready for your own notebook.
 
 <figure markdown="span">
@@ -11,9 +11,9 @@ data, a data dictionary, and an analysis plan, ready for your own notebook.
 
 ## Two data paths, one schema
 
-- **The live path** — cognitive (self-report), behavioural, static-metrics, and
+- **The live path**  -  cognitive (self-report), behavioural, static-metrics, and
   agent instrument legs, configured per study from the protocol.
-- **The curated path** — archive import adapters, with a mandatory
+- **The curated path**  -  archive import adapters, with a mandatory
   validity-threats record.
 
 Both converge on one schema, so analysis is uniform regardless of where the
@@ -37,7 +37,7 @@ data before a single real session happens.
 ## Recruitment planning
 
 The Planning tab shows the power/sensitivity curve for the study's planned
-comparison — exact two-sample t-test power across sample size, and the total n
+comparison  -  exact two-sample t-test power across sample size, and the total n
 each plausible effect size needs to reach the target. The model's assumptions
 are stated alongside the numbers.
 
@@ -50,12 +50,12 @@ are stated alongside the numbers.
 
 The same plan that configures instrumentation also produces the handoff:
 
-- **`notebook`** — `results/<study>/notebook.ipynb`: a loaded, documented
-  dataframe with every planned recipe imported — never run — plus a standalone
+- **`notebook`**  -  `results/<study>/notebook.ipynb`: a loaded, documented
+  dataframe with every planned recipe imported  -  never run  -  plus a standalone
   `data-dictionary.md`.
-- **`paper`** — a first-draft Methods + Results paper section from the same
+- **`paper`**  -  a first-draft Methods + Results paper section from the same
   plan.
-- **`run` / `validate` / `list`** — execute recipes, check plan satisfaction,
+- **`run` / `validate` / `list`**  -  execute recipes, check plan satisfaction,
   and catalogue what exists.
 
 !!! warning

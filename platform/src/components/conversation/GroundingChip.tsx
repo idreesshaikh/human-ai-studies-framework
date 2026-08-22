@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Badge } from "@/components/ui/badge";
 import { Confidence, ConfidenceValue, GroundingMark } from "./Confidence";
 import type { Grounding } from "@/lib/types";
+import { publicPaperReference } from "@/lib/paperReference";
 
 /* A citation chip: the paper title (quality shown as a confidence meter in the
  * hover card). Hover (or click/focus for keyboard and touch) reveals title,
@@ -13,11 +14,12 @@ export function GroundingChip({ g }: { g: Grounding }) {
   const anchor = useRef<HTMLSpanElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState({ left: 0, top: 0 });
+  const citation = publicPaperReference(g.ref);
 
   /* The card renders into <body> and is placed from the chip's own box. As an
    * absolutely-positioned sibling it was clipped by the conversation's
-   * scroller — a citation opened near the foot of the thread was sheared
-   * mid-ref against the scroller's edge — and position:fixed does not escape
+   * scroller  -  a citation opened near the foot of the thread was sheared
+   * mid-ref against the scroller's edge  -  and position:fixed does not escape
    * it either, because the move card itself establishes a containing block.
    * Out in the body it can also flip above the chip when there is no room
    * below. Hover still works across the gap: React routes mouseenter/leave
@@ -82,8 +84,8 @@ export function GroundingChip({ g }: { g: Grounding }) {
       >
         {/* The chip is clean; the citation's own confidence is the framed
           * mark and its printed score at the left. A wall of citations reads
-          * as a field of magnitudes against identical frames — the strong
-          * support is visible before a single title is read — without marking
+          * as a field of magnitudes against identical frames  -  the strong
+          * support is visible before a single title is read  -  without marking
           * up the whole chip. The words stay in the hover card, where there is
           * room for them. */}
         {/* `normal-case` and the caption voice: the Badge's own role is
@@ -131,9 +133,11 @@ export function GroundingChip({ g }: { g: Grounding }) {
               <Confidence value={g.confidence} />
             </span>
             <span className="type-body mt-1 block text-text">{g.why}</span>
-            <span className="type-quantity identifier mt-1 block break-all text-text-muted">
-              {g.ref}
-            </span>
+            {citation && (
+              <span className="type-quantity identifier mt-1 block break-all text-text-muted">
+                {citation}
+              </span>
+            )}
           </div>,
           document.body,
         )}

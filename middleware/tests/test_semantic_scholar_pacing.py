@@ -12,13 +12,13 @@ from middleware import semantic_scholar as s2
 def test_pace_is_independent_per_host(monkeypatch):
     # A monotonic clock never actually starts at 0.0 (it's process/system
     # uptime), so seed it well clear of `_last_request`'s 0.0 "never called"
-    # sentinel — a real first call is always effectively infinitely stale.
+    # sentinel  -  a real first call is always effectively infinitely stale.
     clock = {"t": 100.0}
     slept: list[float] = []
 
     monkeypatch.setattr(s2.time, "monotonic", lambda: clock["t"])
     monkeypatch.setattr(s2.time, "sleep", lambda secs: slept.append(secs))
-    # Fresh per-test state — module-level dicts persist across tests otherwise.
+    # Fresh per-test state  -  module-level dicts persist across tests otherwise.
     monkeypatch.setattr(s2, "_last_request", {})
     monkeypatch.setattr(s2, "_pace_locks", {})
 
@@ -35,7 +35,7 @@ def test_pace_is_independent_per_host(monkeypatch):
 def test_pace_advances_independently_per_host(monkeypatch):
     # A monotonic clock never actually starts at 0.0 (it's process/system
     # uptime), so seed it well clear of `_last_request`'s 0.0 "never called"
-    # sentinel — a real first call is always effectively infinitely stale.
+    # sentinel  -  a real first call is always effectively infinitely stale.
     clock = {"t": 100.0}
     slept: list[float] = []
 

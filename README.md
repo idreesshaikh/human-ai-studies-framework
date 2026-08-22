@@ -6,7 +6,7 @@ You describe what you want to find out in plain English. PHOENIX asks the
 questions a research methodologist would, suggests design choices backed by a
 15,000-paper corpus, and compiles your answers into a study protocol that
 validates. That protocol configures **TERN**, a VS Code extension, on each
-participant's machine — so the study you designed is the study that runs.
+participant's machine  -  so the study you designed is the study that runs.
 
 It handles design, setup, and curation, then stops: you get the data, a data
 dictionary, and an analysis plan, ready for your own notebook.
@@ -15,19 +15,19 @@ dictionary, and an analysis plan, ready for your own notebook.
 
 1. **Talk it through.** Describe your idea; accept or reject suggestions one at
    a time. Every suggestion cites a real paper, or says it doesn't.
-2. **Compile.** Your accepted choices become a protocol, deterministically —
+2. **Compile.** Your accepted choices become a protocol, deterministically  -
    the same answers always produce the same protocol, no AI involved. If
    something is missing, it tells you what.
 3. **Run.** The protocol configures TERN on each participant's machine and
    rotates task order so every participant meets every condition. A click
    produces participant links (`vscode://…/pair` deep links) that install the
-   study on the editor — consent statement, capture config, everything.
+   study on the editor  -  consent statement, capture config, everything.
 4. **Collect.** TERN tracks how participants felt (short surveys), what they
-   did (edits, tab switches), and what the AI did — never raw code, keystrokes,
+   did (edits, tab switches), and what the AI did  -  never raw code, keystrokes,
    or clipboard content. Every event is stored idempotently and flagged, never
    dropped.
 5. **Analyse elsewhere.** You get a dataset shaped for your design, a data
-   dictionary, and a starter notebook with the exact test to run — curated by
+   dictionary, and a starter notebook with the exact test to run  -  curated by
    PHOENIX, analysed in whatever notebook you already use.
 
 Before collecting anything you can run a **synthetic dry run**: simulated
@@ -59,7 +59,7 @@ brings its own Postgres: `docker compose up`.
 ### Running a session
 
 Create a participant link on the **Participants** tab. TERN ships as a `.vsix`
-on the [releases page](https://github.com/idreesshaikh/human-ai-studies-framework/releases/latest) —
+on the [releases page](https://github.com/idreesshaikh/human-ai-studies-framework/releases/latest)  -
 install it via **Extensions: Install from VSIX…** and open the link. The editor
 joins the study already configured as designed.
 
@@ -78,15 +78,15 @@ uv run python -m analysis.cli notebook protocol/examples/pilot-study.yaml --serv
 uv run python -m analysis.cli paper protocol/examples/pilot-study.yaml
 ```
 
-- `simulate` — synthetic dry run over plain HTTP, then validates the study's
+- `simulate`  -  synthetic dry run over plain HTTP, then validates the study's
   analysis plan against the synthetic data. Exit 0 only when every planned
   recipe ran. The server route (`POST /studies/{study_id}/simulate`) and the
   Data tab's **Run a dry run** button do the same thing in-process.
-- `notebook` — the curated handoff: `results/<study>/notebook.ipynb` (a loaded,
-  documented dataframe with every planned recipe imported — never run) plus a
+- `notebook`  -  the curated handoff: `results/<study>/notebook.ipynb` (a loaded,
+  documented dataframe with every planned recipe imported  -  never run) plus a
   standalone `data-dictionary.md`.
-- `paper` — a first-draft Methods + Results paper section, from the same plan.
-- `run` / `validate` / `list` — execute recipes, check plan satisfaction, and
+- `paper`  -  a first-draft Methods + Results paper section, from the same plan.
+- `run` / `validate` / `list`  -  execute recipes, check plan satisfaction, and
   catalogue what exists (see `uv run python -m analysis.cli --help`).
 
 ## The four angles, in one place

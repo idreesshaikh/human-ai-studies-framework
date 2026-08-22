@@ -29,7 +29,7 @@ def _frontend_move_kind_union() -> set[str]:
 
 def _kind_label_keys() -> set[str]:
     """
-    Parse KIND_LABEL's own keys out of MoveCard.tsx — belt and braces alongside the
+    Parse KIND_LABEL's own keys out of MoveCard.tsx  -  belt and braces alongside the
     TypeScript compiler's own exhaustiveness check, since a test failure here explains
     *why* in a way a red `npm run check` does not.
     """

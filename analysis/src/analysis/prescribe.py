@@ -95,7 +95,7 @@ _TABLE: dict[str, Prescription] = {
         correction="none (single 2×2 table); "
         "Holm-Bonferroni if multiple proportion comparisons",
         sample_size_guidance="≥5 per cell recommended (Fisher remains "
-        "valid below 5 — the exact test is defined for any 2×2 table)",
+        "valid below 5  -  the exact test is defined for any 2×2 table)",
         rationale="Binary outcome (pass/fail, accept/reject) by condition. "
         "Fisher's exact test is the gold standard for 2×2 tables at "
         "pilot counts (no minimum cell count assumption). Odds ratio is "
@@ -128,7 +128,7 @@ _TABLE: dict[str, Prescription] = {
         "Reporting descriptive statistics (n, min, median, mean, max) "
         "is the only honest analysis. Framed explicitly as "
         "hypothesis-generating (NFR-8). No p-values or effect sizes "
-        "computed — they would be meaningless without a comparator.",
+        "computed  -  they would be meaningless without a comparator.",
     ),
 }
 
@@ -170,7 +170,7 @@ def runnable_shapes() -> list[str]:
 
 def shapes_from_recipe_ids(recipe_ids: set[str]) -> set[str]:
     """Which design shapes a compiled analysis plan's recipe ids actually call
-    for — the inverse of `shape_to_recipe_id`, so a study's own
+    for  -  the inverse of `shape_to_recipe_id`, so a study's own
     `analysisPlan[].recipes[]` (recipe ids, e.g. "paired-nonparametric") can
     be read back as the shape(s) whose prescription to show, instead of the
     full catalogue every study saw regardless of its own design."""

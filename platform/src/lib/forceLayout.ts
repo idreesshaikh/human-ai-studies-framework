@@ -3,7 +3,7 @@
  * Hand-rolled rather than pulling in d3-force / react-force-graph: the graph is
  * small (a study cites dozens of papers), and the charting discipline is to
  * build the marks ourselves (D17). A fixed number of iterations with seeded
- * start positions makes the layout deterministic — the same graph always
+ * start positions makes the layout deterministic  -  the same graph always
  * renders the same way, and it is unit-testable with no DOM. */
 
 export interface GraphNodeIn {
@@ -33,6 +33,8 @@ export interface LayoutOptions {
   /** Charge (node repulsion) and spring (edge attraction) strengths. */
   charge?: number;
   spring?: number;
+  /** Spread nodes through the available canvas instead of a centre ring. */
+  spread?: boolean;
 }
 
 /** Position every node in `[0,width] × [0,height]`. Ingested nodes anchor the
@@ -46,23 +48,46 @@ export function layoutGraph(
   const height = opts.height ?? 440;
   // Each iteration is O(n²); harvested neighbourhoods reach hundreds of nodes,
   // so scale iterations down as n grows to keep a relayout under a frame budget
-  // (still deterministic — n is data).
+  // (still deterministic  -  n is data).
   const iterations =
     opts.iterations ??
     (nodes.length > 200 ? 80 : nodes.length > 100 ? 150 : 300);
   const charge = opts.charge ?? 2200;
   const spring = opts.spring ?? 0.02;
+  const spread = opts.spread ?? false;
   const cx = width / 2;
   const cy = height / 2;
 
   if (nodes.length === 0) return [];
 
-  // Seeded start positions on a circle — deterministic, no randomness.
+  // Seeded start positions are deterministic, with two deliberately different
+  // modes. The compact ring remains the stable primitive-layout default used
+  // by the pure fixture; the rendered constellation opts into a phyllotaxis
+  // seed so a real graph starts across the canvas rather than in a central
+  // knot. The inner/outer ellipses preserve the useful visual distinction
+  // between papers in the study and suggested neighbours without wasting the
+  // pane's width.
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const ingestedCount = nodes.filter((n) => n.ingested).length;
+  const ingestedSeen = new Map<string, number>();
+  const suggestedSeen = new Map<string, number>();
   const pos = nodes.map((n, i) => {
-    const angle = (i / nodes.length) * Math.PI * 2;
-    const radius = n.ingested ? width * 0.16 : width * 0.34;
-    return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+    if (!spread) {
+      const angle = (i / nodes.length) * Math.PI * 2;
+      const radius = n.ingested ? width * 0.16 : width * 0.34;
+      return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+    }
+    const seen = n.ingested ? ingestedSeen : suggestedSeen;
+    const index = seen.get(n.paperRef) ?? 0;
+    seen.set(n.paperRef, index + 1);
+    const count = n.ingested ? Math.max(ingestedCount, 1) : Math.max(nodes.length - ingestedCount, 1);
+    const angle = index * goldenAngle + (n.ingested ? 0 : Math.PI / 5);
+    const radius = Math.sqrt((index + 0.6) / count);
+    const rx = n.ingested ? width * 0.38 : width * 0.46;
+    const ry = n.ingested ? height * 0.34 : height * 0.44;
+    return { x: cx + Math.cos(angle) * radius * rx, y: cy + Math.sin(angle) * radius * ry };
   });
+  const anchors = pos.map((p) => ({ ...p }));
 
   const index = new Map(nodes.map((n, i) => [n.paperRef, i]));
   const links = edges
@@ -107,9 +132,15 @@ export function layoutGraph(
     // Gentle pull to centre so disconnected nodes don't drift off-canvas;
     // ingested nodes are pulled harder so they stay central.
     for (let i = 0; i < nodes.length; i++) {
-      const pull = nodes[i].ingested ? 0.012 : 0.006;
+      const pull = spread ? (nodes[i].ingested ? 0.004 : 0.002) : nodes[i].ingested ? 0.012 : 0.006;
       fx[i] += (cx - pos[i].x) * pull;
       fy[i] += (cy - pos[i].y) * pull;
+      if (spread) {
+        // Keep the semantic seed visible. Without an anchor, edge springs
+        // turn a well-spread constellation into a compact citation knot.
+        fx[i] += (anchors[i].x - pos[i].x) * 0.018;
+        fy[i] += (anchors[i].y - pos[i].y) * 0.018;
+      }
     }
 
     const cool = 0.85 * (1 - step / iterations) + 0.05;
@@ -126,7 +157,7 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
-/** How many edges touch each node (in + out). Additive — the Obsidian-style
+/** How many edges touch each node (in + out). Additive  -  the Obsidian-style
  * constellation sizes a node by degree (`3.5 + 2.6*sqrt(deg)`: hubs obvious,
  * leaves dust) rather than by raw citation count, which conflates "central
  * to this study" with "generally well-cited". Computed straight from the
@@ -148,10 +179,11 @@ export interface RelaxOptions {
   height?: number;
   charge?: number;
   spring?: number;
+  spread?: boolean;
 }
 
 /** One frame of a *live* settle animation, separate from `layoutGraph`'s own
- * fixed-iteration solve — which stays untouched by this addition, so its
+ * fixed-iteration solve  -  which stays untouched by this addition, so its
  * golden-snapshot output (`verify-library.mjs`) can never drift underneath
  * it. Same physics shape as one pass of that loop (repulsion + spring +
  * centre-pull), but driven by a decaying `alpha` rather than a fixed
@@ -169,6 +201,7 @@ export function relaxStep(
   const height = opts.height ?? 440;
   const charge = opts.charge ?? 2200;
   const spring = opts.spring ?? 0.02;
+  const spread = opts.spread ?? false;
   const cx = width / 2;
   const cy = height / 2;
 
@@ -211,7 +244,7 @@ export function relaxStep(
   }
 
   for (let i = 0; i < nodes.length; i++) {
-    const pull = nodes[i].ingested ? 0.012 : 0.006;
+    const pull = spread ? (nodes[i].ingested ? 0.004 : 0.002) : nodes[i].ingested ? 0.012 : 0.006;
     fx[i] += (cx - nodes[i].x) * pull;
     fy[i] += (cy - nodes[i].y) * pull;
   }

@@ -113,7 +113,7 @@ def test_the_edge_is_shared_with_a_paper_the_study_already_holds(client):
 
 def test_no_edge_is_invented_when_the_corpus_has_none(client):
     """
-    A corpus paper with no edges and no reachable S2 stays honestly unconnected — added,
+    A corpus paper with no edges and no reachable S2 stays honestly unconnected  -  added,
     but not wired up with a guess.
     """
     res = client.post(

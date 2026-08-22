@@ -152,7 +152,7 @@ def validate_record_doc(doc: dict) -> list[str]:
     biases = doc.get("biases")
     if not biases:
         problems.append(
-            "biases is empty — declare at least the known provenance biases "
+            "biases is empty  -  declare at least the known provenance biases "
             "(the starter entries are a floor, not a ceiling)"
         )
     else:
@@ -160,7 +160,7 @@ def validate_record_doc(doc: dict) -> list[str]:
             if not (b.get("mitigation") or b.get("accepted")):
                 problems.append(
                     f"biases[{i}] has neither a mitigation nor an explicit "
-                    "acceptance — an unaddressed bias is not honestly recorded"
+                    "acceptance  -  an unaddressed bias is not honestly recorded"
                 )
     if "coverage" not in doc:
         problems.append("coverage is missing (requested/retrieved/dropped)")

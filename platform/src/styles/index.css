@@ -1,11 +1,11 @@
 /* Cascade layer order: Tailwind v4's own utilities live in a layer, so any
  * unlayered CSS a third-party widget injects (Clerk's hosted sign-in UI)
- * automatically wins over our utility classes regardless of specificity —
+ * automatically wins over our utility classes regardless of specificity  -
  * that's what was leaving Clerk's default card chrome (background,
  * shadow, padding) showing through the `bg-transparent`/`shadow-none`
  * classes passed via CLERK_APPEARANCE.elements (auth.tsx). Naming a `clerk`
  * layer here, matched by `cssLayerName: "clerk"` in CLERK_APPEARANCE, makes
- * Clerk inject into that layer instead — placed before `utilities` in this
+ * Clerk inject into that layer instead  -  placed before `utilities` in this
  * order, so our utility classes now cascade after Clerk's and win. */
 @layer theme, base, clerk, components, utilities;
 @import "tailwindcss";
@@ -45,7 +45,7 @@
   --color-accent-wash: var(--accent-wash);
   --color-thread: var(--thread);
 
-  /* Legacy aliases — call sites still consume these names. Both resolve into
+  /* Legacy aliases  -  call sites still consume these names. Both resolve into
    * the one accent, because this world has exactly one. */
   --color-accent-fill: var(--accent);
   --color-accent-soft: var(--accent-wash);
@@ -66,7 +66,7 @@
 
   /* Provenance, as form and tone rather than hue. A grounded claim is drawn
    * at full density; an unsourced one is an open ring. Both always carry
-   * their form as well as their colour — see the mark utilities below — so
+   * their form as well as their colour  -  see the mark utilities below  -  so
    * the distinction never rests on colour alone. */
   --color-mark: var(--mark);
   --color-grounded: var(--mark);
@@ -82,7 +82,7 @@
   --color-conflict: var(--conflict);
   --color-critical: var(--critical);
 
-  /* Chart palette (dataviz skill) — utilities text-series-1, stroke-series-3,
+  /* Chart palette (dataviz skill)  -  utilities text-series-1, stroke-series-3,
    * bg-viz-grid, etc. resolve back to the token source, both renditions. */
   --color-series-1: var(--series-1);
   --color-series-2: var(--series-2);
@@ -137,12 +137,12 @@
   --duration-standard: var(--motion-standard);
   --duration-entrance: var(--motion-entrance);
   --duration-settle: var(--motion-settle);
-  /* Legacy alias — `duration-press` call sites predate `instant`. */
+  /* Legacy alias  -  `duration-press` call sites predate `instant`. */
   --duration-press: var(--motion-instant);
   --ease-out: var(--ease-out);
   --ease-in-out: var(--ease-in-out);
   --ease-settle: var(--ease-settle);
-  /* Legacy alias — `ease-sheet` call sites predate `ease-settle`. */
+  /* Legacy alias  -  `ease-sheet` call sites predate `ease-settle`. */
   --ease-sheet: var(--ease-settle);
 }
 
@@ -301,7 +301,7 @@ body::before {
 }
 
 /* Tabular numerals for anything showing numbers, and for every quantity by
- * construction — a measurement that shifts width between states is not
+ * construction  -  a measurement that shifts width between states is not
  * comparable down a column. */
 .tabular,
 .type-quantity {
@@ -324,16 +324,16 @@ body::before {
  * systems never fight for specificity.
  *
  * Roles, and what each one claims:
- *   type-display   the headline, once — the only role above 28px
- *   type-title     the page's name — exactly one per screen
+ *   type-display   the headline, once  -  the only role above 28px
+ *   type-title     the page's name  -  exactly one per screen
  *   type-section   a titled division within a page
  *   type-subhead   a plate's own title
  *   type-body-lg   sustained reading (the log, findings prose)
  *   type-body      the app's default voice
  *   type-label     a form or control label
- *   type-control   a button or tab — sentence case, never mono, never caps
+ *   type-control   a button or tab  -  sentence case, never mono, never caps
  *   type-caption   metadata: counts, timestamps, provenance
- *   type-quantity  a measured value — mono, tabular, fixed width
+ *   type-quantity  a measured value  -  mono, tabular, fixed width
  *   type-legend    a key on the plate: a column head, a legend row
  *
  * type-legend is a LABEL ON A FIELD. It is never set above a heading as an
@@ -441,7 +441,7 @@ body::before {
     /* minmax(0, 1fr), never a bare `1fr`. A grid track's implicit floor is
      * min-content, so the conversation column refused to shrink below the
      * widest thing inside it and pushed the rail's track off the side of the
-     * window — the folded rail resolved to a 34px track holding a 64px panel
+     * window  -  the folded rail resolved to a 34px track holding a 64px panel
      * and painted as a clipped sliver hanging past the viewport edge. */
     grid-template-columns: minmax(0, 1fr);
   }
@@ -453,7 +453,7 @@ body::before {
     }
     /* The rail's own fold toggle narrows its div to an icon-only strip, but
      * the grid track above stays clamped to its floor (--rail-min) unless
-     * told otherwise — leaving the div's real width and the column it sits
+     * told otherwise  -  leaving the div's real width and the column it sits
      * in disagree, and the freed space between them paints as bare page
      * background. This track shrinks to match. */
     .split-rail.rail-folded {
@@ -484,7 +484,7 @@ body::before {
  * accent fill at opacity 1, which made the one thing on a screen that could NOT
  * be pressed look like the one thing the researcher was meant to press. And a
  * refused control must not land on `--zone-9` either, because that value
- * already means "you are here" (the axis mark's cleared ground) and "hover" —
+ * already means "you are here" (the axis mark's cleared ground) and "hover"  -
  * one surface value cannot carry three jobs. Refused controls therefore sit in
  * the well, framed, with muted ink: recessed rather than tinted. */
 .control-primary {
@@ -521,7 +521,7 @@ body::before {
 .control-axis {
   position: relative;
   /* NO fill. This class's own contract says an axis mark is "a rule on the
-   * spine, never a fill", and it was painting `--zone-9` anyway — the same
+   * spine, never a fill", and it was painting `--zone-9` anyway  -  the same
    * value the `subtle` button variant and the Accept chip use for an ACTION.
    * One surface value carried both "where you are" and "something you can
    * press", and only a 3px rule told them apart. Position is now the rule plus
@@ -572,10 +572,10 @@ body::before {
  * provenance needs to say is said by a mark's FORM, so every state survives a
  * greyscale print and a colour-blind reader:
  *
- *   framed dot — how strongly a claim is grounded, with its score printed
- *   open ring  — unsourced: seen and logged, not identified
- *   struck     — superseded: replaced, left legible, never erased
- *   doubled    — conflict: two marks claiming one coordinate
+ *   framed dot  -  how strongly a claim is grounded, with its score printed
+ *   open ring   -  unsourced: seen and logged, not identified
+ *   struck      -  superseded: replaced, left legible, never erased
+ *   doubled     -  conflict: two marks claiming one coordinate
  *
  * THE FRAME IS THE POINT. Two notations competed for the grounding job before
  * this one and each shipped documented as the replacement for the other: a
@@ -583,8 +583,8 @@ body::before {
  * dot failed because it asked the eye to judge absolute circle size with
  * nothing to compare against; the pips failed because they quantised a
  * continuous score into four steps and still needed a key. A dot inside a
- * FIXED frame answers the first — every mark is read against the same box, so
- * the comparison is relative and pre-attentive — and a CONTINUOUS diameter
+ * FIXED frame answers the first  -  every mark is read against the same box, so
+ * the comparison is relative and pre-attentive  -  and a CONTINUOUS diameter
  * answers the second: 0.51 and 0.74 never render alike. The number is printed
  * beside it either way, so nothing rests on the drawing alone.
  *
@@ -627,7 +627,7 @@ body::before {
     height var(--motion-entrance) var(--ease-out);
 }
 
-/* Unsourced: seen and logged, not identified. An open ring — the atlas's own
+/* Unsourced: seen and logged, not identified. An open ring  -  the atlas's own
  * notation for an object with no catalogue entry. Never a colour on its own,
  * and never the same shape as a grounded mark at any size. */
 .mark-unsourced {
@@ -640,7 +640,7 @@ body::before {
   background: transparent;
 }
 
-/* Conflict: two marks claiming one coordinate — a double star. Nothing else
+/* Conflict: two marks claiming one coordinate  -  a double star. Nothing else
  * in the system doubles, so a doubled mark always means exactly one thing. */
 .mark-conflict {
   position: relative;
@@ -675,7 +675,7 @@ body::before {
   color: var(--superseded);
 }
 
-/* Held back — the old world's name for an undecided field. Kept as the dashed
+/* Held back  -  the old world's name for an undecided field. Kept as the dashed
  * treatment of the open ring, applied to a whole region rather than a dot. */
 .held-back {
   outline: var(--rule-hair) dashed var(--unsourced);
@@ -736,7 +736,7 @@ body::before {
  * The world's native motion, authored once rather than scattered as hover
  * effects. Five moves, each with a job:
  *
- *   land      a plate arriving on the draft — the one watchable move
+ *   land      a plate arriving on the draft  -  the one watchable move
  *   develop   a mark coming up after the plate it belongs to has landed
  *   travel    the axis mark moving to a new position instead of cutting
  *   blink     the comparator alternating two plates so the change moves
@@ -762,7 +762,7 @@ body::before {
   animation: plate-land var(--motion-settle) var(--ease-settle) both;
 }
 
-/* A mark developing after its plate has landed — the way an object comes up
+/* A mark developing after its plate has landed  -  the way an object comes up
  * out of a long exposure. Staggered by a delay set at the call site. */
 @keyframes mark-develop {
   from {
@@ -795,7 +795,7 @@ body::before {
 }
 
 /* The comparator. Two plates alternate on a beat and the only thing that
- * appears to move is what actually changed — the blink comparator, which is
+ * appears to move is what actually changed  -  the blink comparator, which is
  * how a moving object was found on a photographic plate, and exactly what a
  * protocol diff is asking a reader to do. */
 @keyframes comparator-blink {
@@ -852,7 +852,7 @@ body::before {
   animation: field-drift var(--motion-drift) linear infinite;
 }
 
-/* A faint object pulsing as it is picked out of the field — used only for the
+/* A faint object pulsing as it is picked out of the field  -  used only for the
  * live/streaming affordance, never as decoration. */
 @keyframes mark-pulse {
   0%,
@@ -880,7 +880,7 @@ body::before {
 }
 
 /* A value that has just been written to the draft, held in the accent's wash
- * for a beat and then released — so a change that happened off-screen is
+ * for a beat and then released  -  so a change that happened off-screen is
  * still findable when the reader scrolls back to it. */
 @keyframes just-written {
   from {
@@ -1030,7 +1030,7 @@ body::before {
 /* Clerk's hosted sign-in widget (auth.tsx CLERK_APPEARANCE) mounts as plain
  * DOM with Clerk's own stable `cl-*` class names. The `appearance` prop is
  * the intended way to theme it, but a second, hard override here guards
- * against any element the prop doesn't reach — without this, Clerk's own
+ * against any element the prop doesn't reach  -  without this, Clerk's own
  * card can keep its own background regardless of theme, leaving app text
  * rendered on top of it unreadable (worst in dark mode: light text over
  * Clerk's own light default). Scoped to .clerk-embed so it never touches
@@ -1074,19 +1074,19 @@ body::before {
   max-height: none !important;
 }
 /* The "last used" indicator badge (see lastAuthenticationStrategyBadge in
- * CLERK_APPEARANCE, auth.tsx) is dropped outright — the backstop below is
+ * CLERK_APPEARANCE, auth.tsx) is dropped outright  -  the backstop below is
  * what actually hides it if the appearance prop's classes lose the cascade. */
 .clerk-embed .cl-lastAuthenticationStrategyBadge {
   display: none !important;
 }
-/* The "Development mode" banner's own decorative background — a purely
+/* The "Development mode" banner's own decorative background  -  a purely
  * visual overlay div Clerk renders behind that text, tagged with this data
  * attribute rather than a stable class name (its `cl-internal-*` hash
  * changes across Clerk builds, so it can't be targeted by class the way the
  * rest of this file does). At this widget's layout it bleeds up over the
  * Continue button above the footer instead of staying behind the banner
  * text. The "Development mode" notice text itself (a Clerk/ToS requirement
- * on dev instances) is untouched — only this background decoration is
+ * on dev instances) is untouched  -  only this background decoration is
  * neutralized, matching how every other piece of Clerk's default chrome in
  * this file is stripped in favor of the app's own transparent surface. */
 .clerk-embed .cl-footerItem {

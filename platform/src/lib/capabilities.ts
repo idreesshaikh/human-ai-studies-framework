@@ -1,6 +1,6 @@
 /* The permission matrix, mirrored from the server so the UI can reflect it.
  *
- * The server is the enforcement — this copy exists only so the shell can
+ * The server is the enforcement  -  this copy exists only so the shell can
  * show or hide controls a role can't use, and never as the security
  * boundary. Keep it in step with middleware/authz.py's CAPABILITIES; a
  * mismatch just means a button appears that the server then refuses (safe,

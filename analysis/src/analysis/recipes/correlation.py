@@ -1,5 +1,5 @@
 """
-correlation — parameterised recipe for assessing monotonic association between two
+correlation  -  parameterised recipe for assessing monotonic association between two
 variables.
 """
 

@@ -21,7 +21,7 @@ export function Members() {
     [api, slug],
   );
 
-  // Only the first load blanks the page — a background reload (e.g. after
+  // Only the first load blanks the page  -  a background reload (e.g. after
   // creating an invitation) must not unmount an open dialog out from under
   // the researcher mid-action.
   if (loading && !data) {

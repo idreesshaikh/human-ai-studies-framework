@@ -108,7 +108,7 @@ test('debounce resets on new record within window', async () => {
   const events: IdeHealthEvent[] = [];
   const c = new IdeHealthCollector(FAST_DEBOUNCE, (e) => events.push(e));
   c.recordDiagnostics(1, 0);
-  // Record again half-way through the debounce window — the timer resets.
+  // Record again half-way through the debounce window  -  the timer resets.
   await new Promise((r) => setTimeout(r, FAST_DEBOUNCE.debounceMs / 2));
   c.recordDiagnostics(0, 2);
   await new Promise((r) => setTimeout(r, FAST_DEBOUNCE.debounceMs * 0.8));
@@ -137,7 +137,7 @@ test('collector can be disposed without error', () => {
   assert.equal(events.length, 1, 'no more events after dispose');
 });
 
-test('content-free: emitted event carries no diagnostic message, file path, or code content — FR-ETH-2', () => {
+test('content-free: emitted event carries no diagnostic message, file path, or code content  -  FR-ETH-2', () => {
   const events: IdeHealthEvent[] = [];
   const c = new IdeHealthCollector(FAST_DEBOUNCE, (e) => events.push(e));
   c.recordDiagnostics(5, 3);

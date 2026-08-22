@@ -82,7 +82,7 @@ def extract_design_phrases(text: str) -> set[str]:
 #: in ("a *diary study*", "a *controlled experiment*", "an *ablation study*").
 #: Anchoring on the head noun rather than on a list of known methods is what
 #: lets :func:`uncovered_methodology_phrases` surface designs nobody has
-#: thought to name yet — the fixed ``DESIGN_KEYWORDS`` table above can only
+#: thought to name yet  -  the fixed ``DESIGN_KEYWORDS`` table above can only
 #: ever re-find what someone already wrote into it.
 _METHOD_HEADS = (
     "study",
@@ -100,7 +100,7 @@ _METHOD_HEADS = (
 #: Phrases that are about the *subject* rather than the method ("code review"
 #: is what the papers study, not how), plus secondary-research designs. A
 #: systematic/scoping/literature review is a real methodology, but it studies
-#: other papers rather than running a study with participants — this platform
+#: other papers rather than running a study with participants  -  this platform
 #: designs and instruments primary studies, so a template for one could never
 #: compile to a protocol. They dominated the report by volume and a reviewer
 #: would reject every one of them, so they are filtered rather than ranked.
@@ -151,7 +151,7 @@ def uncovered_methodology_phrases(
     returns how many corpus papers describe themselves with it, so a human can
     see at a glance which real design archetypes the repertoire has no shape
     for. It is the automated form of the manual scan that found
-    ``field-experiment-v1`` and ``cognitive-load-comparison-v1`` — both of
+    ``field-experiment-v1`` and ``cognitive-load-comparison-v1``  -  both of
     which had real support and matched none of the then-13 templates.
 
     Deliberately *not* wired into template drafting: a phrase is evidence that
@@ -242,7 +242,7 @@ def identify_top_clusters(
 #: "observational-between-subjects", "repeated-measures", "crossover-design",
 #: "survey-design", "single-arm-design", "benchmark-evaluation") were never in
 #: that enum at all, so every single mined draft failed `validate_template`
-#: before this fix — confirmed by running the pipeline against the real
+#: before this fix  -  confirmed by running the pipeline against the real
 #: corpus: 28 clusters with 3+ papers each, 0 valid.
 def infer_design_type(phrases: frozenset[str]) -> str:
     """Guess a designType slug based on the phrase set."""
@@ -280,7 +280,7 @@ def infer_design_type(phrases: frozenset[str]) -> str:
 #: Recipe id -> the statistical test name it actually runs, read off the
 #: existing registry templates that name each recipe (`test:` under
 #: `statisticalPlan.perRQ`). `infer_analysis_recipe` only ever returns one of
-#: these two recipes (a paired vs. independent-groups binary split) — coarse,
+#: these two recipes (a paired vs. independent-groups binary split)  -  coarse,
 #: but every mined draft is a `pending` `TemplateSubmission` a human reviews
 #: and can refine before it ever reaches the registry (FR-TPL-5), so the bar
 #: here is "schema-valid enough to review", not "correct enough to ship".
@@ -545,7 +545,7 @@ def write_drafts(drafts: list[dict], output_dir: Path | None = None) -> list[Pat
 
     Mining never writes into the registry itself. A mined draft is a proposal, and
     promoting one is a human decision made the same way every other change to the
-    repertoire is made — by reading the YAML and committing it. Only drafts that
+    repertoire is made  -  by reading the YAML and committing it. Only drafts that
     validated are written; a draft with problems is left for the mining report to
     surface rather than dropped into the tree for someone to trip over.
     """

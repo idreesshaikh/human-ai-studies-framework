@@ -66,7 +66,7 @@ def test_a_seeded_draft_survives_the_first_zero_move_compile():
     which the caller passes back in as `base_yaml`) auto-compiles once on
     landing, before any move exists. With no template move to instantiate,
     the compiler used to fall straight to a bare scaffold, discarding the
-    seed entirely — silently breaking the promise both promotion flows make
+    seed entirely  -  silently breaking the promise both promotion flows make
     ("this design seeds its draft, citing the paper"/"the merged protocol").
     """
     seed = {
@@ -91,7 +91,7 @@ def test_a_seeded_draft_survives_the_first_zero_move_compile():
 
 
 def test_garbage_base_yaml_falls_back_to_the_blank_scaffold():
-    """Not every base_yaml is a real seed — an in-progress draft with no
+    """Not every base_yaml is a real seed  -  an in-progress draft with no
     template and no seed still starts clean, and outright junk never crashes
     the compile."""
     result = compiler.compile_moves([], base_yaml="not: a, protocol")
@@ -101,7 +101,7 @@ def test_garbage_base_yaml_falls_back_to_the_blank_scaffold():
 
 def test_unknown_parameters_are_ignored_with_a_warning():
     """
-    An LLM-invented parameter name doesn't sink an otherwise-sound template choice —
+    An LLM-invented parameter name doesn't sink an otherwise-sound template choice  -
     it's dropped, noted, and the template still applies.
     """
     result = compiler.compile_moves(
@@ -116,7 +116,7 @@ def test_unknown_parameters_are_ignored_with_a_warning():
 def test_last_instantiable_template_wins_over_a_broken_later_one():
     """
     A broken accepted template move is skipped in favour of the most recent one that
-    instantiates, and the skip is reported as a warning — a valid draft isn't blocked on
+    instantiates, and the skip is reported as a warning  -  a valid draft isn't blocked on
     a move nobody can un-accept.
     """
     result = compiler.compile_moves(
@@ -158,7 +158,7 @@ def test_list_valued_patch_flattens_into_string_entries():
 def test_broken_template_before_a_working_one_stays_silent():
     """
     Last-wins semantics unchanged: when the newest accepted template move instantiates,
-    earlier ones — broken or not — are simply superseded.
+    earlier ones  -  broken or not  -  are simply superseded.
     """
     result = compiler.compile_moves(
         [
@@ -175,7 +175,7 @@ def test_broken_template_before_a_working_one_stays_silent():
 def test_accepted_merge_templates_compiles_into_the_draft():
     """
     Phase 5: an accepted merge-templates move composes its shapes into one grounded
-    protocol — the RQs and literature of every merged template survive, renumbered.
+    protocol  -  the RQs and literature of every merged template survive, renumbered.
     """
     result = compiler.compile_moves(
         [
@@ -199,7 +199,7 @@ def test_accepted_merge_templates_compiles_into_the_draft():
 
 def test_merge_with_a_hallucinated_template_reports_instead_of_raising():
     """
-    A merge naming an unknown template must not crash the compile — same lenient
+    A merge naming an unknown template must not crash the compile  -  same lenient
     contract as a hallucinated choose-template.
     """
     result = compiler.compile_moves(

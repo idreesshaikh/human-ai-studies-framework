@@ -1,7 +1,7 @@
 import { AlertTriangle, CloudOff, Info } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-/* Notice — the one way this app tells the researcher something went wrong,
+/* Notice  -  the one way this app tells the researcher something went wrong,
  * something is degraded, or something is worth knowing.
  *
  * It exists because there were four ways. A failed load rendered as a

@@ -143,8 +143,8 @@ def default_capture_instrument(session_minutes: int = 45) -> dict:
 
 
 # Deliberately generic maintenance work on the researcher's own repository: the *shape*
-# is what a study needs — one task per condition, comparable in kind, neither tied to a
-# condition — and the content is meant to be replaced.
+# is what a study needs  -  one task per condition, comparable in kind, neither tied to a
+# condition  -  and the content is meant to be replaced.
 SAMPLE_TASKS: tuple[dict, ...] = (
     {
         "id": "task-a",
@@ -167,7 +167,7 @@ SAMPLE_TASKS: tuple[dict, ...] = (
 
 def sample_tasks(count: int) -> list[dict]:
     """
-    ``count`` starter tasks — one per condition, so a within-subjects participant never
+    ``count`` starter tasks  -  one per condition, so a within-subjects participant never
     has to repeat one.
     """
     out = []
@@ -203,7 +203,7 @@ def _is_supplied(value: object) -> bool:
 
 
 def task_recommendation(draft: dict) -> str:
-    """Whether this draft should declare tasks, and why — or "" if it is fine."""
+    """Whether this draft should declare tasks, and why  -  or "" if it is fine."""
     conditions = draft.get("conditions") or []
     tasks = draft.get("tasks") or []
     participants = draft.get("participants") or {}
@@ -216,7 +216,7 @@ def task_recommendation(draft: dict) -> str:
                 "This study has no declared tasks, so every session runs the "
                 "same undifferentiated work. In a within-subjects design that "
                 "means each participant meets the same task twice and the "
-                "second time they already know it — declare one task per "
+                "second time they already know it  -  declare one task per "
                 "condition and the platform will counterbalance which task "
                 "goes with which."
             )
@@ -256,7 +256,7 @@ class MoveTrace:
 class CompileResult:
     """
     The outcome of a compile: the draft protocol, its YAML, a diff from the base,
-    whether it validates, and — when it doesn't — the errors (F3.2) and the named
+    whether it validates, and  -  when it doesn't  -  the errors (F3.2) and the named
     unresolved slots (F1.3).
     """
 
@@ -366,11 +366,11 @@ def _instantiate_leniently(patch: dict) -> tuple[dict, list[str]]:
 
 def _seeded_draft(base_yaml: str | None) -> dict | None:
     """A protocol to start from when this call's moves establish no template
-    of their own — either a study created from a "derive from paper" or
+    of their own  -  either a study created from a "derive from paper" or
     "merge templates" promotion (seeded at creation, `app.py`'s
     `create_study`), or an in-progress study's own last compiled state.
     Without this, a freshly seeded study's very first auto-compile (zero
-    moves yet) silently discarded the seed for a blank scaffold — the
+    moves yet) silently discarded the seed for a blank scaffold  -  the
     promotion flow's own copy promises "this design seeds its draft",
     which was false the moment the researcher landed on the page."""
     if not base_yaml:
@@ -403,7 +403,7 @@ def _scaffold_from_sections(sections: dict[str, list]) -> dict:
 
 def _apply_instrument_moves(draft: dict, moves: list[dict]) -> None:
     """
-    Apply accepted instrument moves onto the draft in place — the FR-CONV-4.4
+    Apply accepted instrument moves onto the draft in place  -  the FR-CONV-4.4
     "instrument evolution rides the same path" contract.
     """
     instruments = draft.get("instruments")
@@ -662,7 +662,7 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
         template_id = instantiated.get("templateId")
         template_version = instantiated.get("templateVersion")
         draft = _refine(instantiated["protocol"], sections)
-        # Later accepted design moves that failed were skipped in favour of this one —
+        # Later accepted design moves that failed were skipped in favour of this one  -
         # say so, but don't block a valid draft on them.
         warnings.extend(failed)
         failed = []

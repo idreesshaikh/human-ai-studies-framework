@@ -56,11 +56,11 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   /* What the rail actually renders as, which is NOT simply `navFolded`.
    *
    * `navFolded` is a per-device preference (panels.ts) with no notion of
-   * viewport — it is set by folding the desktop rail and stays set the next
+   * viewport  -  it is set by folding the desktop rail and stays set the next
    * time this same browser opens a narrow window, because it has no reason
    * to know that window is a phone. The mobile drawer (`navOpen`) shares its
    * markup with the desktop rail, so honoring `navFolded` there collapsed
-   * every label to a 52px column of bare glyphs — and did it inside an
+   * every label to a 52px column of bare glyphs  -  and did it inside an
    * overlay whose own fold button had just been removed as meaningless in
    * that context (see below), leaving no way back to full width short of
    * clearing localStorage.
@@ -92,7 +92,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       to={to}
       end={end}
       onClick={() => setNavOpen(false)}
-      // Folded, the rail is icon-only by design (w-[3.25rem]) — but the
+      // Folded, the rail is icon-only by design (w-[3.25rem])  -  but the
       // label itself never stopped rendering, so it just got clipped
       // mid-word ("Pro", "Ten") by the narrow container instead of
       // disappearing. `title` keeps the destination discoverable on hover
@@ -102,7 +102,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         cn(
           "type-control flex items-center gap-2 rounded-control border py-2 transition-all duration-standard",
           // The folded rail is 3.25rem (52px) wide with 0.75rem of outer
-          // padding on each side (12px), leaving 28px per row — px-2.5's
+          // padding on each side (12px), leaving 28px per row  -  px-2.5's
           // 20px of horizontal padding was sized for the expanded row and
           // left too little room for even the icon alone, which then
           // flex-shrank to a sliver instead of staying square. Folded gets
@@ -134,7 +134,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           </button>
         )}
         {/* Signed out, "home" is the public front, not the projects list the
-          * visitor cannot see — the wordmark was the one control on a public
+          * visitor cannot see  -  the wordmark was the one control on a public
           * page guaranteed to dead-end at the sign-in gate. */}
         <Link
           to={signedOut ? "/" : "/home"}
@@ -150,7 +150,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             <Icon aria-hidden />
           </Button>
           {/* Signed out, there is no account to open a menu about and no
-            * project to switch between — an avatar reading "You" over a
+            * project to switch between  -  an avatar reading "You" over a
             * "Sign out" item would be describing a session that does not
             * exist. The one thing a visitor on a public page can do with
             * their identity is acquire one. */}
@@ -180,7 +180,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link to="/settings">
-                  <Settings className="size-4" aria-hidden /> Settings
+                  <Settings className="size-4" aria-hidden /> Account settings
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -193,7 +193,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* One sidebar, always — a researcher switches between projects,
+      {/* One sidebar, always  -  a researcher switches between projects,
        * templates, members and settings from the same rail everywhere,
        * rather than a top strip outside a project and a side rail inside
        * one. The "Project" group only appears once a project is in scope,
@@ -231,6 +231,8 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
               <FolderOpen className="size-4" aria-hidden />,
             )}
             {navItem("/repertoire", "Templates", <Layers className="size-4" aria-hidden />)}
+            {!hasProjectNav &&
+              navItem("/settings", "Account settings", <Settings className="size-4" aria-hidden />)}
 
             {hasProjectNav && (
               <>
@@ -249,7 +251,11 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
                     },
                   )}
                   {navItem(`/p/${navSlug}/members`, "Members", <Users className="size-4" aria-hidden />)}
-                  {navItem(`/p/${navSlug}/settings`, "Settings", <Settings className="size-4" aria-hidden />)}
+                  {navItem(
+                    `/p/${navSlug}/settings`,
+                    "Project settings",
+                    <Settings className="size-4" aria-hidden />,
+                  )}
                 </div>
               </>
             )}
@@ -263,12 +269,12 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             *
             * `hidden lg:flex`: this `<nav>` is shared between the desktop
             * static rail and the mobile slide-over (`navOpen`), and folding
-            * is a desktop-only idea — the overlay already has a show/hide
+            * is a desktop-only idea  -  the overlay already has a show/hide
             * control, the hamburger, so a second one that shrinks it to an
             * icon strip *while it stays open* has no coherent job to do.
             * Rendered anyway, tapping it inside the mobile drawer collapsed
             * every label to a 52px column of bare glyphs with no visible way
-            * back — the button that had just done that was now unlabelled
+            * back  -  the button that had just done that was now unlabelled
             * too. Below `lg` the control simply is not there. */}
           <button
             type="button"

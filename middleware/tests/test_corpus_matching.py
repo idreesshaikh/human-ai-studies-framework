@@ -115,7 +115,7 @@ def test_match_never_invents_a_paper(session):
 def test_grounding_lookup_resolves_corpus_seed(session):
     """
     FR-CONV-2.2: grounding resolves against the corpus for any study, and carries
-    confidence (not a provenance tier — the tier system is removed from ranking and
+    confidence (not a provenance tier  -  the tier system is removed from ranking and
     output).
     """
     meta = matching.get_paper_metadata(
@@ -128,7 +128,7 @@ def test_grounding_lookup_resolves_corpus_seed(session):
 
 def test_corpus_search_path_returns_confidence_ranked_hits(session):
     """
-    The /corpus/search endpoint's exact call — no study, corpus-only — used by the 'turn
+    The /corpus/search endpoint's exact call  -  no study, corpus-only  -  used by the 'turn
     a paper into a template' picker.
     """
     results = matching.match_papers(

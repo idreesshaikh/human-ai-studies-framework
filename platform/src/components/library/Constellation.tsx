@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Maximize2 } from "lucide-react";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { layoutGraph, degreeMap, relaxStep, type PositionedNode } from "@/lib/forceLayout";
+import { layoutGraph, degreeMap, type PositionedNode } from "@/lib/forceLayout";
 import {
   nodeRadius,
   buildAdjacency,
@@ -11,45 +11,41 @@ import {
   edgeOpacity,
   labelVisible,
   labelMode,
-  driftOffset,
-  nextSettleAlpha,
-  shouldSettle,
-  SETTLE_ALPHA0,
-  SETTLE_MAX_MS,
   LENSES,
   lensEdges,
   lensNodes,
   lensCounts,
   type Lens,
 } from "@/lib/constellationView";
-import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
 import type { PaperGraph } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
-/* The citation constellation (FR-LIT-2, FR-LIT-10) — a study's papers grow a
+/* The citation constellation (FR-LIT-2, FR-LIT-10)  -  a study's papers grow a
  * graph around themselves: seed → neighbourhood → grow, Obsidian-graph-view
  * styled: degree-sized dots, near-invisible edges that light up in the
  * hovered/focused neighbourhood, always-on author+year labels for a
  * study-sized graph (degrading to zoom-gated labels above 150 nodes), and a
  * gentle idle drift. Deterministic
- * force layout underneath it all (no d3-force, D17) — see forceLayout.ts and
+ * force layout underneath it all (no d3-force, D17)  -  see forceLayout.ts and
  * constellationView.ts for the pure logic this is glue over.
  *
  * Three motion layers, deliberately separate:
- *   1. `layoutGraph`'s own deterministic solve — the seed, and the only
+ *   1. `layoutGraph`'s own deterministic solve  -  the seed, and the only
  *      thing rendered under reduced motion.
  *   2. A bounded rAF "settle" (`relaxStep`, decaying alpha, <1s, skipped
  *      above 150 nodes) that lets the seed visibly relax into place.
- *   3. A render-only sinusoidal drift, added at paint time only — never
- *      written back to any position state, so it cannot diverge.
+ *   3. The graph stays still at rest. A previous render-only sinusoidal drift
+ *      updated React state every animation frame and made a large literature
+ *      graph spend its idle time re-rendering; a research instrument should
+ *      keep that budget for interaction and reading.
  *
  * Interaction (hand-rolled on the SVG transform, still no d3): drag the
  * background to pan, scroll to zoom toward the cursor, drag a node to nudge
- * it (a manually-placed node opts out of settle/drift — it stays where it
+ * it (a manually-placed node opts out of settle/drift  -  it stays where it
  * was put), and "Fit" resets the view. */
 
 /* The layout's coordinate space. `layoutGraph` normalises into it, so these
- * are the graph's room to breathe rather than a pixel size — the SVG scales
+ * are the graph's room to breathe rather than a pixel size  -  the SVG scales
  * the box to whatever width the Library gives it. Widened from 640×440 once
  * the Library became a single column: at the old box a harvested
  * neighbourhood packed its nodes tight enough that labels collided before
@@ -61,7 +57,7 @@ const MAX_K = 4;
 const DRAG_THRESHOLD = 4; // px of movement before a press counts as a drag
 
 // Edge kinds → non-adjacent, CVD-distinct series slots (the legend labels carry
-// identity too — never color alone). Only shown at full identity on the
+// identity too  -  never color alone). Only shown at full identity on the
 // incident edges of a focused/hovered node; otherwise every edge recedes to
 // one neutral, near-invisible line (constellationView.ts's edgeOpacity).
 const EDGE: Record<string, { color: string; label: string }> = {
@@ -73,7 +69,7 @@ const EDGE: Record<string, { color: string; label: string }> = {
 const TITLE_LABEL_MAX = 34;
 
 /** A truncated title, the fallback identity for a node with a real record
- * but no author list — most suggested (not-yet-ingested) nodes carry a
+ * but no author list  -  most suggested (not-yet-ingested) nodes carry a
  * denormalized title from edge harvest without a parsed author array. A
  * title is unique per paper, unlike a bare year, so it doesn't reintroduce
  * the duplicate-label problem a bare-year fallback caused. */
@@ -83,7 +79,7 @@ function truncatedTitle(title: string): string {
     : title;
 }
 
-/** "Surname et al., 2019" — the short label a node shows once revealed.
+/** "Surname et al., 2019"  -  the short label a node shows once revealed.
  * Falls back to a truncated title, never a bare year: a year alone is the
  * one non-identity this label must never produce, since many unrelated
  * nodes sharing a publication year would collapse to the same string. */
@@ -98,6 +94,29 @@ function nodeLabel(n: PositionedNode): string {
 type View = { x: number; y: number; k: number };
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
+function fitView(nodes: PositionedNode[]): View {
+  if (nodes.length === 0) return { x: 0, y: 0, k: 1 };
+  const xs = nodes.map((n) => n.x);
+  const ys = nodes.map((n) => n.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const padding = 56;
+  const spanX = Math.max(maxX - minX, 120);
+  const spanY = Math.max(maxY - minY, 96);
+  const k = clamp(
+    Math.min((W - padding * 2) / spanX, (H - padding * 2) / spanY),
+    MIN_K,
+    MAX_K,
+  );
+  return {
+    x: W / 2 - ((minX + maxX) / 2) * k,
+    y: H / 2 - ((minY + maxY) / 2) * k,
+    k,
+  };
+}
+
 export function Constellation({
   graph,
   selected,
@@ -107,10 +126,8 @@ export function Constellation({
   selected: string | null;
   onSelect: (ref: string) => void;
 }) {
-  const reducedMotion = usePrefersReducedMotion();
-
   /* Which of the three relations is on screen. Everything below reads the
-   * lensed graph, never `graph` — the layout, the degree sizing and the
+   * lensed graph, never `graph`  -  the layout, the degree sizing and the
    * neighbourhood highlight all have to agree with what is actually drawn,
    * or a node would sit at a position solved for edges nobody can see. */
   const [lens, setLens] = useState<Lens>("all");
@@ -122,70 +139,36 @@ export function Constellation({
   );
 
   const base = useMemo(
-    () => layoutGraph(nodes, edges, { width: W, height: H }),
+    () => layoutGraph(nodes, edges, { width: W, height: H, spread: true }),
     [nodes, edges],
   );
   const degrees = useMemo(() => degreeMap(nodes, edges), [nodes, edges]);
   const adjacency = useMemo(() => buildAdjacency(edges), [edges]);
 
-  // Per-node position overrides produced by dragging a node — the one thing
+  // Per-node position overrides produced by dragging a node  -  the one thing
   // that opts a node out of the settle/drift layers below (respecting a
   // deliberate placement matters more than the ambient motion).
   const [moved, setMoved] = useState<Record<string, { x: number; y: number }>>({});
 
-  // Layer 2 — the bounded settle: starts at `base` each time the graph
-  // itself changes, then relaxes for <1s (skipped under reduced motion or
-  // above the node-count limit, in which case it's just `base`).
-  const [settled, setSettled] = useState<PositionedNode[]>(base);
-  useEffect(() => {
-    setSettled(base);
-    if (reducedMotion || !shouldSettle(base.length)) return;
-    let alpha = SETTLE_ALPHA0;
-    let cancelled = false;
-    let raf = 0;
-    const start = performance.now();
-    let current = base;
-    const tick = (now: number) => {
-      if (cancelled || now - start > SETTLE_MAX_MS) return;
-      current = relaxStep(current, edges, alpha, { width: W, height: H });
-      setSettled(current);
-      alpha = nextSettleAlpha(alpha);
-      if (alpha > 0.002) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(raf);
-    };
-    // `edges` is used only for the relax math, not as a re-trigger — it's
-    // already implied by `base` changing when the graph or the lens does.
-  }, [base, reducedMotion]);
+  // The spread seed is already the readable arrangement. A second live force
+  // pass used to undo it by pulling linked papers back into a centre knot,
+  // while also making the graph re-render on every animation frame. Keep the
+  // first paint deterministic and still; pan, zoom, focus and drag provide
+  // the useful motion.
+  const settled = base;
 
-  // Layer 3 — the render-only idle drift: a ticking clock, nothing more.
-  // Never influences `settled`/`moved`, so it can never accumulate.
-  const [driftT, setDriftT] = useState(0);
+  // A new lens or harvested neighbourhood gets its own useful framing. This
+  // is intentionally tied to the solved base, not every settle frame, so a
+  // researcher's manual zoom remains theirs until the graph actually changes.
   useEffect(() => {
-    if (reducedMotion) return;
-    let raf = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      setDriftT((now - start) / 1000);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [reducedMotion]);
+    setView(fitView(base));
+    setMoved({});
+  }, [base]);
 
-  const positioned = useMemo(() => {
-    return settled.map((n) => {
-      const override = moved[n.paperRef];
-      if (override) return { ...n, ...override };
-      if (reducedMotion) return n;
-      const { dx, dy } = driftOffset(n.paperRef, driftT);
-      return { ...n, x: n.x + dx, y: n.y + dy };
-    });
-    // `driftT` drives this memo every frame by design — the drift layer.
-  }, [settled, moved, driftT, reducedMotion]);
+  const positioned = useMemo(
+    () => settled.map((n) => ({ ...n, ...(moved[n.paperRef] ?? {}) })),
+    [settled, moved],
+  );
 
   const posByRef = useMemo(
     () => new Map(positioned.map((n) => [n.paperRef, n])),
@@ -194,7 +177,7 @@ export function Constellation({
 
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
-  // Who has the focus/hover right now — drives the neighbourhood highlight.
+  // Who has the focus/hover right now  -  drives the neighbourhood highlight.
   // `pointerenter`/`pointerleave` AND `focus`/`blur` both drive it, so
   // keyboard use gets the same neighbourhood highlight a mouse hover does.
   const [focusRef, setFocusRef] = useState<string | null>(null);
@@ -210,13 +193,17 @@ export function Constellation({
     moved: boolean;
   } | null>(null);
 
-  // Client px → viewBox units (the SVG is drawn in a 0..W / 0..H box that CSS
-  // then scales to fit the pane).
+  // Client px → viewBox units. `preserveAspectRatio="meet"` can letterbox one
+  // axis; mapping the whole client rect directly made zoom drift toward the
+  // wrong point whenever the pane and viewBox had different aspect ratios.
   const toBox = useCallback((clientX: number, clientY: number) => {
     const rect = svgRef.current!.getBoundingClientRect();
+    const scale = Math.min(rect.width / W, rect.height / H);
+    const offsetX = (rect.width - W * scale) / 2;
+    const offsetY = (rect.height - H * scale) / 2;
     return {
-      sx: ((clientX - rect.left) / rect.width) * W,
-      sy: ((clientY - rect.top) / rect.height) * H,
+      sx: (clientX - rect.left - offsetX) / scale,
+      sy: (clientY - rect.top - offsetY) / scale,
     };
   }, []);
 
@@ -279,7 +266,7 @@ export function Constellation({
 
   // A native, non-passive listener: React attaches `onWheel` as passive at
   // the root for scroll performance, which silently ignores this handler's
-  // `preventDefault()` — the page scrolls underneath the graph while you
+  // `preventDefault()`  -  the page scrolls underneath the graph while you
   // zoom it. Only a listener registered with `{ passive: false }` directly
   // on the element actually blocks the scroll.
   useEffect(() => {
@@ -287,17 +274,15 @@ export function Constellation({
     if (!el) return;
     const handler = (e: WheelEvent) => {
       e.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const sx = ((e.clientX - rect.left) / rect.width) * W;
-      const sy = ((e.clientY - rect.top) / rect.height) * H;
+      const { sx, sy } = toBox(e.clientX, e.clientY);
       zoomAt(sx, sy, e.deltaY);
     };
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);
-  }, [zoomAt]);
+  }, [toBox, zoomAt]);
 
   const fit = () => {
-    setView({ x: 0, y: 0, k: 1 });
+    setView(fitView(base));
     setMoved({});
   };
 
@@ -321,7 +306,7 @@ export function Constellation({
       {/* The lens strip. Counts are suggestions, not nodes: the number is
         * how much undiscovered work sits behind each question, which is the
         * thing being chosen between. A lens with nothing behind it stays
-        * selectable rather than disappearing — "no later work harvested yet"
+        * selectable rather than disappearing  -  "no later work harvested yet"
         * is an answer, and a control that reshuffles itself as papers arrive
         * is harder to learn than one that holds still. */}
       <div
@@ -385,7 +370,8 @@ export function Constellation({
                   x2={b.x}
                   y2={b.y}
                   stroke={state === "incident" ? (EDGE[e.kind]?.color ?? "var(--viz-axis)") : "var(--viz-axis)"}
-                  strokeWidth={1}
+                  strokeWidth={1.2}
+                  vectorEffect="non-scaling-stroke"
                   opacity={edgeOpacity(state)}
                   className="transition-opacity duration-standard"
                 />
@@ -401,9 +387,9 @@ export function Constellation({
               // bare year with no author ("2026") carries almost no
               // identity, and a well-connected but metadata-thin suggested
               // node used to earn the same auto-reveal threshold as a
-              // fully described one — dozens of those nodes degraded to
+              // fully described one  -  dozens of those nodes degraded to
               // the same string and painted on top of each other. Always
-              // mode (small, curated graphs — see labelMode) accepts a
+              // mode (small, curated graphs  -  see labelMode) accepts a
               // title too: most suggested nodes have a real, unique title
               // from edge harvest even without a parsed author list, and a
               // title never collides the way a bare year does, so it's
@@ -444,10 +430,17 @@ export function Constellation({
                 >
                   <circle
                     r={r}
-                    fill={n.ingested ? "var(--accent)" : "var(--text-muted)"}
-                    fillOpacity={n.ingested ? 1 : 0.45}
-                    stroke={highlighted ? "var(--accent)" : "none"}
-                    strokeWidth={highlighted ? 2 : 0}
+                    fill={n.ingested ? "var(--accent)" : "var(--bg)"}
+                    fillOpacity={1}
+                    stroke={
+                      highlighted
+                        ? "var(--accent)"
+                        : n.ingested
+                          ? "none"
+                          : "var(--viz-axis)"
+                    }
+                    strokeWidth={highlighted ? 2 : n.ingested ? 0 : 1.5}
+                    vectorEffect="non-scaling-stroke"
                   />
                   {label && (
                     <text
@@ -455,7 +448,7 @@ export function Constellation({
                       textAnchor="middle"
                       transform={`scale(${1 / view.k})`}
                       // The counter-scale above keeps this text a constant
-                      // rendered size regardless of zoom — without it, a
+                      // rendered size regardless of zoom  -  without it, a
                       // label would grow right along with the graph.
                       /* An SVG label inside the graph, at the scale's own legend step. */
                       className="fill-text-muted text-legend-svg"

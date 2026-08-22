@@ -46,7 +46,7 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
     return (await res.json()) as T;
   } catch {
     // A 200 that isn't real JSON (dev-server SPA fallback, misconfigured
-    // proxy) means there's no real API behind this origin — same offline
+    // proxy) means there's no real API behind this origin  -  same offline
     // posture as an unreachable server.
     throw new OfflineError();
   }
@@ -77,7 +77,7 @@ function mapGrounding(raw: unknown[]): Grounding[] {
 function mapPatch(raw: unknown): DesignMove["patch"] {
   if (!raw || typeof raw !== "object") return undefined;
   const patch = raw as Record<string, unknown>;
-  // A choose-template move's patch: {templateId, parameters} — no
+  // A choose-template move's patch: {templateId, parameters}  -  no
   // section/op at all, so it must be checked before the generic shape.
   if (typeof patch.templateId === "string" && patch.templateId) {
     return {
@@ -242,7 +242,7 @@ export interface CompileResult {
   diff: string;
   yaml: string;
   /** The compiled protocol as structured data (same dict the server dumps
-   * to `yaml`) — lets the UI render prose instead of parsing YAML text.
+   * to `yaml`)  -  lets the UI render prose instead of parsing YAML text.
    * Optional so replies from an older server still parse. */
   protocol?: Record<string, unknown>;
   templateId: string | null;
@@ -329,8 +329,8 @@ export const conversationApi = {
    *
    * `onToken` is called with each prose fragment; the resolved value is the
    * same `{turns}` the blocking call returns, so a caller can treat the
-   * stream as presentation only. Any streaming failure — no SSE support, a
-   * proxy that buffers, a mid-stream drop — falls back to `sendTurn`, so
+   * stream as presentation only. Any streaming failure  -  no SSE support, a
+   * proxy that buffers, a mid-stream drop  -  falls back to `sendTurn`, so
    * the turn is never lost to a display feature. */
   async sendTurnStreaming(
     studyId: string,
@@ -438,7 +438,7 @@ export const conversationApi = {
 };
 
 /** Callers (`ConversationView`) need to tell a genuine live load apart from
- * an offline fallback so `live` state stays accurate — swallowing
+ * an offline fallback so `live` state stays accurate  -  swallowing
  * `OfflineError` here would report success either way and leave the caller
  * stuck retrying doomed live calls. Let it throw; the caller's own catch
  * keeps the thread as it is and says why. */

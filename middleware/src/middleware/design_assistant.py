@@ -213,7 +213,7 @@ class Turn:
 
 def _template_source_refs(template_id: str | None) -> tuple[str, ...]:
     """
-    The paper refs a template cites as its design's sources (FR-TPL) — used to ground a
+    The paper refs a template cites as its design's sources (FR-TPL)  -  used to ground a
     choose-template move.
     """
     if not template_id:
@@ -230,7 +230,7 @@ def _template_source_refs(template_id: str | None) -> tuple[str, ...]:
 
 
 def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
-    """Build grounding from corpus rows only — cite-what-you-retrieved."""
+    """Build grounding from corpus rows only  -  cite-what-you-retrieved."""
     grounding = []
     for ref in refs:
         meta = matching.get_paper_metadata(s, ref)
@@ -268,7 +268,7 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
         for row in rows
         # `source == "unavailable"` is excluded from the id list gathering
         # moves below and, more importantly, from the loop that builds
-        # `history` itself (the `continue` below) — a holding turn carries no
+        # `history` itself (the `continue` below)  -  a holding turn carries no
         # moves regardless, but it must never enter the transcript replayed
         # back to the model: it is not part of the study's design record,
         # and feeding "I couldn't reach the model" back in as a fabricated
@@ -281,7 +281,7 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
         for mv in s.scalars(
             select(DesignMoveRow)
             .where(DesignMoveRow.turn_id.in_(turn_ids))
-            # Bucketed per turn, so only in-turn order matters — seq is the proposal
+            # Bucketed per turn, so only in-turn order matters  -  seq is the proposal
             # order (id would put e.g. m10 before m2).
             .order_by(DesignMoveRow.seq)
         ):
@@ -293,7 +293,7 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
         # persisted now so the UI can show it again after a reload
         # (app.py's ModelUnavailable branches), but it is not a real answer
         # and must never be replayed to the model as if one of its own past
-        # turns said it — skip it here the same way an empty turn is skipped
+        # turns said it  -  skip it here the same way an empty turn is skipped
         # below.
         if row.role == "platform" and row.source == "unavailable":
             continue
@@ -345,7 +345,7 @@ def _names_template_id(text: str, templates: list[dict]) -> bool:
     The repertoire's "describe your study instead" entry point seeds a study's
     opening turn with the template ids the researcher already selected, so the
     assistant proposes the merge immediately instead of asking again which
-    shapes they mean. Naming an id is naming a design — an explicit ask must
+    shapes they mean. Naming an id is naming a design  -  an explicit ask must
     never be overruled by the facet gate."""
     q = (text or "").lower()
     return any(
@@ -502,7 +502,7 @@ def _directive(stance: dict, state: dict | None = None) -> str:
 def _permitted_moves(
     moves: tuple[ProposedMove, ...], stance: dict
 ) -> tuple[ProposedMove, ...]:
-    """Apply the stance to a script's moves — the enforcement half."""
+    """Apply the stance to a script's moves  -  the enforcement half."""
     kept = []
     for move in moves:
         if not stance["mayProposeMoves"] and move.kind != "caution":
@@ -552,7 +552,7 @@ def _filter_repeated_moves(
 ) -> tuple[ProposedMove, ...]:
     """
     Drop moves the conversation has already seen (FR-CONV: an accepted move is in the
-    draft, a rejected one was declined, an undecided one is still on the table —
+    draft, a rejected one was declined, an undecided one is still on the table  -
     re-pitching any of them is repetition).
     """
     if state is None:
@@ -584,7 +584,7 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
     """
     The structured design state the prose history can't carry: every prior move bucketed
     by decision status, the draft's filled/empty sections (computed deterministically
-    via :func:`compiler.compile_moves` — no LLM), and the accepted template if any.
+    via :func:`compiler.compile_moves`  -  no LLM), and the accepted template if any.
     """
     if study_id is None:
         return None
@@ -746,7 +746,7 @@ def _retrieve(
 ) -> tuple[list[dict], list[dict], list[dict]]:
     """
     The deterministic retrieval every LLM turn is constrained to cite (papers,
-    templates, history) — run *before* the model is asked anything, so the model can
+    templates, history)  -  run *before* the model is asked anything, so the model can
     only select from what was actually retrieved.
     """
     papers = matching.match_papers(s, text, study_id=study_id, limit=8, use_llm=False)
@@ -855,7 +855,7 @@ def _assemble(
             }
         moves.append(move)
 
-    # Reuse the retrieval already made for the candidate menu — never a second
+    # Reuse the retrieval already made for the candidate menu  -  never a second
     # match_papers call for the same turn.
     recommendations = llm_recommendations or []
     retrieved.update(r["ref"] for r in recommendations)

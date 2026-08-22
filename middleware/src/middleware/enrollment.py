@@ -50,7 +50,7 @@ def apply_capture_overrides(settings: dict, overrides: dict) -> dict:
     """
     Layer mint-time toggle overrides on top of the derived ``tern.*`` settings.
 
-    ``overrides`` is ``{"toggles": [{"instrument", "path", "value"}, ...]}`` — the same
+    ``overrides`` is ``{"toggles": [{"instrument", "path", "value"}, ...]}``  -  the same
     ``{instrument, path, value}`` triples ``TogglePopover`` sends. Each triple addresses
     one flat setting key ``{instrument}.{path[0]}.{path[1]}...``, so ``tern`` overrides
     land exactly where ``derive_overlay_settings`` put them. Condition assignment stays
@@ -122,7 +122,7 @@ LEG_BEHAVIORAL = "behavioral"
 LEG_COGNITIVE = "cognitive"
 LEG_AGENT = "agent"
 
-# Only cites sources already in the corpus — never invents one.
+# Only cites sources already in the corpus  -  never invents one.
 _TOGGLE_CATALOG: list[dict] = [
     {
         "instrument": "tern",
@@ -160,7 +160,7 @@ _TOGGLE_CATALOG: list[dict] = [
         "label": "IDE health stream",
         "description": (
             "Captures aggregate diagnostic counts (errors, warnings) and "
-            "build/test invocations — a content-free struggle proxy."
+            "build/test invocations  -  a content-free struggle proxy."
         ),
         "grounding": {"ref": "FR-INST-18", "source": "srs"},
     },
@@ -292,7 +292,7 @@ _TOGGLE_CATALOG: list[dict] = [
         "path": ["captureVcsActivity"],
         "label": "Commit activity",
         "description": (
-            "Records your commits in the task repo as counts and timings — "
+            "Records your commits in the task repo as counts and timings  -  "
             "files changed, insertions, deletions. Never the message text."
         ),
         "grounding": {"ref": "FR-INST-17", "source": "srs"},
@@ -372,7 +372,7 @@ _LEG_SUMMARIES = {
     ),
     LEG_BEHAVIORAL: (
         "Behavioral",
-        "Records what you did in the editor — never what you wrote.",
+        "Records what you did in the editor  -  never what you wrote.",
     ),
     LEG_COGNITIVE: (
         "Cognitive",
@@ -421,7 +421,7 @@ def consent_statement(protocol: dict, condition: str) -> str:
         f'You are joining "{title}" in the {condition} condition. '
         f"While you work, this study captures aggregate signals from these "
         f"instruments: {instruments}. It never records raw code content, "
-        f"keystrokes, or clipboard text — only sizes, shapes, timings, and "
+        f"keystrokes, or clipboard text  -  only sizes, shapes, timings, and "
         f'salted hashes. Agent-conversation capture is set to "{policy}": '
         f"{policy_desc}. You appear in all data only as an anonymized ID. "
         f"You can stop the session at any time."

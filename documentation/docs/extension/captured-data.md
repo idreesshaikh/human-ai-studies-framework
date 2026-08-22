@@ -3,7 +3,7 @@
 Everything TERN records lands in one file per session:
 `<workspace>/.study-data/<participant>_<timestamp>.jsonl` (configurable).
 Every line is one event, stamped with the session, participant, condition, and
-a sequence number — so this dataset joins cleanly with the behavior-capture
+a sequence number  -  so this dataset joins cleanly with the behavior-capture
 stream and the static-metrics snapshots in pandas.
 
 ```json
@@ -44,14 +44,14 @@ stream and the static-metrics snapshots in pandas.
 ## Behavioral telemetry events (schema v4)
 
 The behavioral leg adds the event types below. All payloads are
-FR-ETH-2-safe: sizes, shapes, and timings only — never code content,
+FR-ETH-2-safe: sizes, shapes, and timings only  -  never code content,
 keystrokes, clipboard text, or off-workspace paths. Capture is filtered to
 protocol-declared languages (`tern.behavior.languages`, pilot: Python) and
 workspace-internal files.
 
 | Event type | When | Key payload fields |
 | --- | --- | --- |
-| `editor_focus` | Active editor changed or window focus changed | file, languageId, groupCount — or state (`focused`/`blurred`) |
+| `editor_focus` | Active editor changed or window focus changed | file, languageId, groupCount  -  or state (`focused`/`blurred`) |
 | `visible_range` | Scroll/resize settled | file, topLine, bottomLine, totalLines |
 | `edit_burst` | 2 s without edits, or file switch | file, charsAdded, charsDeleted, linesTouched, durationMs, origin |
 | `clipboard_paste` | Paste landed in a captured file | charCount, lineCount, msSinceInternalCopy, targetFile |
@@ -66,7 +66,7 @@ workspace-internal files.
 
 ## Sinks
 
-The JSONL file is always written regardless — a dead server never loses data.
+The JSONL file is always written regardless  -  a dead server never loses data.
 Set `tern.output.httpEndpoint` (e.g. `http://localhost:8000/cognitive`) to also
 stream batched events to the middleware. Batches POST as
 `{"source":"tern","events":[...]}` every 5 s; the source string is normalised

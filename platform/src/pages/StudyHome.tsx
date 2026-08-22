@@ -68,7 +68,7 @@ export function StudyHome() {
       { replace: true },
     );
   /* A study reached straight from project creation carries the researcher's
-   * answer to "what do you want to find out?" — their first turn, typed
+   * answer to "what do you want to find out?"  -  their first turn, typed
    * before this workspace existed. Router state, not a query param: it is a
    * one-time hand-off, not part of the study's address. */
   const location = useLocation();
@@ -80,8 +80,8 @@ export function StudyHome() {
   const [showTour, setShowTour] = useState(false);
   /* The tab the researcher was on when the tour opened.
    *
-   * The tour BORROWS the workspace to demonstrate it — each step switches the
-   * tab to whatever it is describing — and it has to give it back. It did
+   * The tour BORROWS the workspace to demonstrate it  -  each step switches the
+   * tab to whatever it is describing  -  and it has to give it back. It did
    * not: the last step is about Participants, so every first-run walkthrough
    * ended by abandoning the researcher on the Participants tab of a study
    * with no protocol, looking at "Nobody can be enrolled yet". The one screen
@@ -119,14 +119,14 @@ export function StudyHome() {
   // My role in this study's project. The project payload is the fresh source
   // (the session's memberships can be a session old, which is what made the
   // Revoke control on Participants come and go); "still loading" stays
-  // distinct from "member" — see lib/role.ts.
+  // distinct from "member"  -  see lib/role.ts.
   const { data: project, loading: projectLoading } = useAsync(
     () => api.projectHome(slug),
     [api, slug],
   );
   /* In local (non-Clerk) dev mode, the server's per-study authorization
-   * check waves through any unknown study id — deliberately, since local
-   * mode has no real accounts to check against — so a stale bookmark, a
+   * check waves through any unknown study id  -  deliberately, since local
+   * mode has no real accounts to check against  -  so a stale bookmark, a
    * typo'd id, or a deleted study all render a fully interactive, empty
    * workspace with no sign anything is wrong (verified live: every
    * conversation/compile call the page fires returns 200 for a study that
@@ -165,7 +165,7 @@ export function StudyHome() {
        * it) is one kind of thing; which part of it you are looking at is
        * another. Packed into a single row these four groups could not fit a
        * 1440px window, so `flex-wrap` silently dropped the actions onto a
-       * second line under the title — a two-tier header by accident, aligned
+       * second line under the title  -  a two-tier header by accident, aligned
        * to nothing.
        *
        * Tiering it deliberately also puts the tab strip on the workspace's
@@ -185,7 +185,7 @@ export function StudyHome() {
                * already on the payload this page loads for the role check.
                *
                * Below `sm` the name gives its width back to the study's own
-               * title, which is the thing this screen is about — carrying
+               * title, which is the thing this screen is about  -  carrying
                * both truncated a 390px header to "Trust cali…". The chevron
                * still goes back, and the link keeps its name above. */}
               <span className="hidden max-w-40 truncate sm:inline">
@@ -229,7 +229,7 @@ export function StudyHome() {
               onClick={() => setTab(t.id)}
               aria-label={t.label}
               aria-current={tab === t.id ? "page" : undefined}
-              /* The active section carries the axis mark — a rule on the
+              /* The active section carries the axis mark  -  a rule on the
                * edge the strip is ruled against, plus a cleared ground. It is
                * the same "you are here" form the project sidebar uses, and it
                * is deliberately not a fill: a fill in this app means "an
@@ -245,7 +245,7 @@ export function StudyHome() {
               {/* Narrow screens can't carry five labels, but five bare glyphs
                 * tell a stranger nothing and a phone has no hover to fall back
                 * on. The section you are in says its name; the rest are marks
-                * you can reach — which is also what the struck mark means. */}
+                * you can reach  -  which is also what the struck mark means. */}
               <span className={cn(tab === t.id ? "inline" : "hidden sm:inline")}>
                 {t.label}
               </span>
@@ -255,7 +255,7 @@ export function StudyHome() {
       </header>
 
       {/* This row clips; it never scrolls itself. Each tab owns its one
-       * scroller (a Surface body, or — for Library — its own split-rail
+       * scroller (a Surface body, or  -  for Library  -  its own split-rail
        * columns), so the workspace never ends up with two scrollbars. */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {tab === "conversation" && (

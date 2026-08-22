@@ -4,6 +4,7 @@ import json
 import logging
 import re
 from pathlib import Path
+from threading import Lock, Thread
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
@@ -26,6 +27,16 @@ CORPUS_INDEX = PAPERS_DIR / "corpus-index.json"
 VIA_EDGE_KIND = "harvested-via"
 
 TIER_A_SEED_SCORE = 14.0
+
+_EXPECTED_ROWS: int | None = None
+_BOOTSTRAP_LOCK = Lock()
+_BOOTSTRAP_THREAD: Thread | None = None
+_BOOTSTRAP_STATE: dict[str, object] = {
+    "state": "idle",
+    "papers": 0,
+    "expected": 0,
+    "error": "",
+}
 
 _TIER_A_ROW = re.compile(
     r"^\|\s*`([^`]+)`\s*\|\s*(.+?)\s*\|\s*(\d{4})\s*\|\s*(.+?)\s*\|\s*$"
@@ -78,6 +89,35 @@ def parse_tier_b() -> list[dict]:
         return []
     data = json.loads(CORPUS_INDEX.read_text("utf-8"))
     return [e for e in data.get("tierB", []) if e.get("ref")]
+
+
+def expected_corpus_rows() -> int:
+    """The number of paper rows represented by the checked-in corpus manifest."""
+    global _EXPECTED_ROWS
+    if _EXPECTED_ROWS is None:
+        _EXPECTED_ROWS = len(parse_tier_a()) + len(parse_tier_b())
+    return _EXPECTED_ROWS
+
+
+def corpus_status_for_session(s: Session) -> dict[str, object]:
+    """Return an honest readiness status for the corpus-backed UI."""
+    total = s.scalar(
+        select(func.count())
+        .select_from(Paper)
+        .where(Paper.study_id == CORPUS_STUDY_ID)
+    ) or 0
+    expected = expected_corpus_rows()
+    with _BOOTSTRAP_LOCK:
+        state = dict(_BOOTSTRAP_STATE)
+    if total >= expected > 0:
+        state.update(state="ready", papers=total, expected=expected, error="")
+    elif state.get("state") not in {"loading", "error"}:
+        state.update(
+            state="partial" if total else "empty", papers=total, expected=expected
+        )
+    else:
+        state.update(papers=total, expected=expected)
+    return state
 
 
 def tier_a_body(paper: dict, abstract: str = "") -> str:
@@ -248,9 +288,9 @@ def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
     return indexed
 
 
-def import_corpus(db_url: str) -> dict:
+def import_corpus(db_url: str, *, session_factory=None) -> dict:
     """One-shot, idempotent import of both tiers."""
-    factory = make_session_factory(db_url)
+    factory = session_factory or make_session_factory(db_url)
     with factory() as s:
         tier_a = import_tier_a(s)
         s.commit()
@@ -260,6 +300,63 @@ def import_corpus(db_url: str) -> dict:
         "tierA": {"count": len(tier_a), "chunks": sum(tier_a.values())},
         "tierB": {"count": len(tier_b), "chunks": sum(tier_b.values())},
     }
+
+
+def start_background_import(db_url: str, session_factory) -> dict[str, object]:
+    """Warm an empty/default database without delaying the first page response."""
+    global _BOOTSTRAP_THREAD
+    with _BOOTSTRAP_LOCK:
+        if _BOOTSTRAP_THREAD is not None and _BOOTSTRAP_THREAD.is_alive():
+            return dict(_BOOTSTRAP_STATE)
+
+        with session_factory() as s:
+            current = s.scalar(
+                select(func.count())
+                .select_from(Paper)
+                .where(Paper.study_id == CORPUS_STUDY_ID)
+            ) or 0
+        expected = expected_corpus_rows()
+        if current >= expected > 0:
+            _BOOTSTRAP_STATE.update(
+                state="ready", papers=current, expected=expected, error=""
+            )
+            return dict(_BOOTSTRAP_STATE)
+
+        _BOOTSTRAP_STATE.update(
+            state="loading", papers=current, expected=expected, error=""
+        )
+
+        def run() -> None:
+            global _BOOTSTRAP_THREAD
+            try:
+                import_corpus(db_url, session_factory=session_factory)
+                with session_factory() as s:
+                    total = s.scalar(
+                        select(func.count())
+                        .select_from(Paper)
+                        .where(Paper.study_id == CORPUS_STUDY_ID)
+                    ) or 0
+                with _BOOTSTRAP_LOCK:
+                    _BOOTSTRAP_STATE.update(
+                        state="ready" if total >= expected else "partial",
+                        papers=total,
+                        expected=expected,
+                        error="",
+                    )
+            except Exception as exc:  # noqa: BLE001 - report startup health in the UI
+                log.exception("background corpus import failed")
+                with _BOOTSTRAP_LOCK:
+                    _BOOTSTRAP_STATE.update(
+                        state="error", papers=current, expected=expected, error=str(exc)
+                    )
+            finally:
+                _BOOTSTRAP_THREAD = None
+
+        _BOOTSTRAP_THREAD = Thread(
+            target=run, name="phoenix-corpus-import", daemon=True
+        )
+        _BOOTSTRAP_THREAD.start()
+        return dict(_BOOTSTRAP_STATE)
 
 
 _DEMO_SEED_REFS = (

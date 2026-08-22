@@ -54,7 +54,7 @@ def _state(key_texts=(), template_ids=(), advisory_texts=(), merge_keys=()) -> d
 
 def test_near_duplicate_catches_exact_and_paraphrase():
     prior = (
-        "Measure review latency — the time a suggestion stays visible "
+        "Measure review latency  -  the time a suggestion stays visible "
         "before accept/reject."
     )
     assert _is_near_duplicate(prior, prior)
@@ -77,7 +77,7 @@ def test_distinct_moves_survive_the_filter():
 
 def test_choose_template_duplicate_is_keyed_on_template_id():
     """
-    A re-pitched template is repetition however it's re-worded — and a template the
+    A re-pitched template is repetition however it's re-worded  -  and a template the
     conversation has never seen is not.
     """
     state = _state(template_ids=["metr-rct-v1"])
@@ -123,7 +123,7 @@ def test_filter_is_a_no_op_without_state():
 def test_caution_never_blocks_the_section_move_that_addresses_it():
     """
     Regression: an accepted ethics caution's wording must not stop the ethics posture
-    from ever being proposed — the section move that addresses a caution naturally
+    from ever being proposed  -  the section move that addresses a caution naturally
     restates it, and cautions fill nothing.
     """
     caution = "Workspace snapshots may include personal or sensitive data."
@@ -143,7 +143,7 @@ def test_caution_never_blocks_the_section_move_that_addresses_it():
 
 def test_a_repeated_caution_is_still_dropped():
     """
-    Caution-vs-caution (and caution-vs-content) repetition stays suppressed — only the
+    Caution-vs-caution (and caution-vs-content) repetition stays suppressed  -  only the
     advisory→content direction is exempt.
     """
     caution = "Workspace snapshots may include personal or sensitive data."

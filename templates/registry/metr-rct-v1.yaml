@@ -1,6 +1,6 @@
 templateVersion: 1
 
-# METR RCT Template — randomized controlled trial of AI assistance on real tasks.
+# METR RCT Template  -  randomized controlled trial of AI assistance on real tasks.
 # Encodes the METR early-2025 developer-productivity design (arxiv:2507.09089):
 # a within-subjects RCT measuring objective outcomes (task time, correctness)
 # alongside self-reported perception, to surface the perception gap where
@@ -196,7 +196,7 @@ protocolSkeleton:
     - name: write-up
       gates: []
 
-  # Recipes that exist in the analysis catalogue (F2.3 — a template cannot
+  # Recipes that exist in the analysis catalogue (F2.3  -  a template cannot
   # promise an analysis the platform can't run).
   analysisPlan:
     - rq: RQ-1

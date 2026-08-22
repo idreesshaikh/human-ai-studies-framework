@@ -2,7 +2,7 @@
      is drawn as strokes only, on a 24×24 grid, and must read at 16px.
 
      A tern over a horizon: the bird the extension is named for, and the four
-     capture legs as the four strokes converging on one timeline — the same
+     capture legs as the four strokes converging on one timeline  -  the same
      "four legs, one timeline" idea the sidebar exists to show. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
      stroke="currentColor" stroke-width="1.6" stroke-linecap="round"

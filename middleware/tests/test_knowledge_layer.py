@@ -87,7 +87,7 @@ def test_ingest_by_arxiv_id_stores_metadata_and_seeds_links(client):
         "/studies/pilot-2026/papers", json={"arxivId": "2302.06590"}
     ).json()
     assert res["paperRef"] == "arxiv:2302.06590"
-    assert res["edges"] >= 1
+    assert res["edges"] == 0 and res["edgesPending"] is True
 
     papers = client.get("/studies/pilot-2026/papers").json()
     peng = next(p for p in papers if p["paperRef"] == "arxiv:2302.06590")

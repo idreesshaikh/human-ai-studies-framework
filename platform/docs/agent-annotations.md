@@ -42,7 +42,8 @@ retrofitted.
 | `conversation-send` | `ConversationView` | send the researcher's message |
 | `conversation-thinking` | `ConversationView` | the platform is composing a reply (LLM or scripted), a transient landmark |
 | `conversation-streaming` | `ConversationView` | the reply's prose as it streams in (transient; replaced by the real turn) |
-| `understanding-line` | `DraftRail` | what the platform still doesn't know, and why no design shape is proposed yet |
+| `slot-meter` | `SlotMeter` | compact protocol coverage and the next question |
+| `protocol-readiness` | `SlotMeter` | whether the protocol is ready to review |
 | `move-card` | `MoveCard` | one proposed design move (decision point); `data-agent-kind`, `data-agent-status` refine it |
 | `move-accept` | `MoveCard` | accept the move |
 | `move-reject` | `MoveCard` | reject the move |
@@ -80,7 +81,7 @@ retrofitted.
 | `power-curve` | `PowerPanel` | the power/sensitivity chart on the Planning surface (P2-2) |
 | `power-required` | `PowerPanel` | the required-n table: effect size × per-group/total n × target reached |
 | `constellation` | `Constellation` | the citation-graph canvas (landmark) |
-| `constellation-lens` | `Constellation` | which citation relation is on screen — earlier / later / similar work, or all; `data-agent-kind` carries the current lens |
+| `constellation-lens` | `Constellation` | which citation relation is on screen  -  earlier / later / similar work, or all; `data-agent-kind` carries the current lens |
 | `metric-strip` | `MetricStrip` | the per-condition metric distribution chart (landmark) |
 | `dry-run-plan` | `DryRunPlan` | the dry run's analysis-plan result: which prescribed tests ran on synthetic data, and which could not (landmark) |
 | `dry-run-recipe` | `DryRunPlan` | one prescribed test that ran, with its verbatim statistical summary; `data-agent-ref` carries the recipe id |
@@ -89,7 +90,7 @@ retrofitted.
 | `enrollment-panel` | `EnrollmentPanel` | the study's participant enrollment surface (landmark) |
 | `mint-tokens` | `MintDialog` | open the mint-enrollment-links dialog (decision point) |
 | `open-in-vscode` | `MintDialog`, `EnrollmentPanel` | the vscode:// deep-link companion to a minted connection string (decision point) |
-| `extension-install-link` | `EnrollmentPanel` | where a participant without the extension gets it — TERN ships as a GitHub release artifact, not on the Marketplace, so the deep link has nothing to resolve to until this is followed (decision point) |
+| `extension-install-link` | `EnrollmentPanel` | where a participant without the extension gets it  -  TERN ships as a GitHub release artifact, not on the Marketplace, so the deep link has nothing to resolve to until this is followed (decision point) |
 | `new-study-open` | `ProjectHome` | open the inline new-study composer (decision point) |
 | `steer-dial` | `SteerDial` | how much the researcher wants the assistant to drive this conversation: the one control that moves both register and initiative (`elicitation.STEER_LEVELS`) (decision point) |
 | `toggle-popover` | `TogglePopover` | per-metric capture-toggle popover showing label, grounding, and apply button (FR-DASH-11) |

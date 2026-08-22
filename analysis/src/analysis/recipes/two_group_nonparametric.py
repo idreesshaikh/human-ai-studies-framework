@@ -1,5 +1,5 @@
 """
-two-group-nonparametric — parameterised recipe for two-group independent-comparison
+two-group-nonparametric  -  parameterised recipe for two-group independent-comparison
 designs.
 """
 
@@ -81,6 +81,6 @@ def run(dataset: Dataset) -> RecipeResult:
     summary = cells.to_string(index=False)
     return RecipeResult(
         tables=tables,
-        summary=f"Single condition present — descriptives only.\n{summary}",
+        summary=f"Single condition present  -  descriptives only.\n{summary}",
         methods=METHOD_TEMPLATE.format(figure=_figure_label(figure_form)),
     )

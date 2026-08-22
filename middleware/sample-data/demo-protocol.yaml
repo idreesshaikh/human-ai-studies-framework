@@ -1,11 +1,11 @@
-# The demo study's protocol — the document of record for the read-only study
+# The demo study's protocol  -  the document of record for the read-only study
 # in the demo project (`middleware/demo.py`).
 #
 # This is deliberately NOT a copy of `protocol/examples/pilot-study.yaml`:
 # that one is a frozen, versioned artifact of the real pilot, and the demo
 # must never be mistaken for it. What the two share is the design the sample
-# sessions actually implement — the same two conditions, the same
-# within-subjects shape — because `sample-session*.jsonl` were recorded
+# sessions actually implement  -  the same two conditions, the same
+# within-subjects shape  -  because `sample-session*.jsonl` were recorded
 # against exactly that design (P03-P06 appear in both conditions; P01 remains
 # a deliberately partial cognitive example and P02 is the behavioral pair).
 #
@@ -30,7 +30,7 @@ study:
   title: "AI assistance and developer productivity: a within-subjects pilot"
   researchers:
     - Demo Researcher
-  ethicsRef: "demo study — illustrative only, no ethics application"
+  ethicsRef: "demo study  -  illustrative only, no ethics application"
 
 researchQuestions:
   - id: RQ-P1

@@ -131,7 +131,7 @@ def test_streamed_turn_is_stored_like_a_blocking_one(client):
 
 def test_a_broken_stream_falls_back_to_the_blocking_call(client, monkeypatch):
     """
-    A stream that dies mid-reply must still produce the turn — the fallback is the whole
+    A stream that dies mid-reply must still produce the turn  -  the fallback is the whole
     degradation contract (NFR-4).
     """
 
@@ -153,7 +153,7 @@ def test_a_broken_stream_falls_back_to_the_blocking_call(client, monkeypatch):
 def test_no_model_closes_the_stream_with_a_holding_turn(client, monkeypatch):
     """
     With no provider the stream still closes normally, carrying a holding turn that
-    proposes nothing — not an ``error`` frame (which leaves the thread looking broken)
+    proposes nothing  -  not an ``error`` frame (which leaves the thread looking broken)
     and not an invented reply.
     """
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: None)

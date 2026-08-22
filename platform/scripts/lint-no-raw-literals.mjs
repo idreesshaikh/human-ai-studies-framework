@@ -8,7 +8,7 @@
  *   - hex colours   (#fff, #4338ca, #4338caff)
  *   - px literals    (12px), including Tailwind arbitrary values [12px]
  *   - ms/s durations (200ms, 0.4s)
- *   - raw type sizes  (text-xs, text-sm, text-[0.65rem]) — size is a role
+ *   - raw type sizes  (text-xs, text-sm, text-[0.65rem])  -  size is a role
  * Tailwind scale utilities (size-2.5, min-h-11, max-w-40) are unitless and
  * pass. Exit 1 on any hit. */
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -23,7 +23,7 @@ const PATTERNS = [
   /* Type size is a ROLE, not a utility. Tailwind's own text-* scale and any
    * arbitrary text-[…] size both bypass the nine roles in index.css, which is
    * where family, leading, weight and numeral behaviour are decided together
-   * — `font-mono text-xs` in particular looked right and silently shipped
+   *  -  `font-mono text-xs` in particular looked right and silently shipped
    * proportional figures, so a column of measurements did not line up. Colour
    * utilities (text-text-muted, text-accent) are untouched: only a SIZE is
    * flagged. */
@@ -36,10 +36,10 @@ const PATTERNS = [
 /* The layout contract's four measures (`src/lib/layout.ts`) plus `bubble`
  * (chat/thinking-bubble reading width, --measure-bubble) are the only named
  * max-w-* a Surface root may use. Enforced only in files that have actually
- * adopted the contract — the list grows as the rest of the app migrates
+ * adopted the contract  -  the list grows as the rest of the app migrates
  * (docs/roadmap "experience overhaul", phase A). Applying it repo-wide today
  * would also flag incidental widths that were never part of the contract (a
- * dialog's content width, a tooltip's max-w-sm, a paragraph's wrap width) —
+ * dialog's content width, a tooltip's max-w-sm, a paragraph's wrap width)  -
  * nine type roles and four measures are deliberately the full vocabulary;
  * multiplying measures for every incidental width is the failure the
  * contract exists to prevent. */
@@ -110,7 +110,7 @@ for (const file of walk(ROOT)) {
       const m = re.exec(line);
       if (m) {
         console.error(
-          `${file}:${i + 1}  ${name} "${m[0]}" — use a token instead`,
+          `${file}:${i + 1}  ${name} "${m[0]}"  -  use a token instead`,
         );
         hits++;
       }
@@ -121,7 +121,7 @@ for (const file of walk(ROOT)) {
       while ((m = MAX_W_RE.exec(line))) {
         if (!ALLOWED_MEASURES.has(m[1])) {
           console.error(
-            `${file}:${i + 1}  bare "max-w-${m[1]}" — this screen has adopted ` +
+            `${file}:${i + 1}  bare "max-w-${m[1]}"  -  this screen has adopted ` +
               `the layout contract; use a measure token (narrow/reading/work/wide/bubble)`,
           );
           hits++;
@@ -132,7 +132,7 @@ for (const file of walk(ROOT)) {
 }
 
 if (hits > 0) {
-  console.error(`\n✗ ${hits} raw literal(s) found (NFR-12 F1). Tokens only.`);
+  console.error(`\n✗ ${hits} raw literal(s) found. Use design tokens.`);
   process.exit(1);
 }
-console.log("✓ no raw hex/ms/px literals or type sizes in components (NFR-12 F1)");
+console.log("✓ no raw visual literals or type sizes in components");

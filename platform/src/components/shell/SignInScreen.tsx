@@ -42,15 +42,15 @@ export function SignInScreen() {
     // Without this, StrictMode's dev-only double-invoke mounts a second
     // widget instance into the same node without tearing down the first,
     // and the two overlap (Clerk's step content is absolutely positioned)
-    // instead of stacking — read as clipped/ghosted content.
+    // instead of stacking  -  read as clipped/ghosted content.
     return () => unmountSignIn(el);
   }, [showClerkWidget, mountSignIn, unmountSignIn]);
 
   /* Already signed in: forward, don't frame a sign-in card.
    *
    * This is the whole return-to mechanism. Signing in ends in
-   * `location.reload()`, so the browser comes back to this same URL —
-   * `/signin?next=/repertoire` — and by then the credential exists. Reading
+   * `location.reload()`, so the browser comes back to this same URL  -
+   * `/signin?next=/repertoire`  -  and by then the credential exists. Reading
    * `next` here and redirecting is what carries the researcher back to the
    * page they left, across a reload that destroys every other kind of state.
    *
@@ -65,7 +65,7 @@ export function SignInScreen() {
 
   return (
     /* The page is full width and the CONTENT is measured. These were the same
-     * element — `relative mx-auto max-w-narrow` — so the theme toggle's
+     * element  -  `relative mx-auto max-w-narrow`  -  so the theme toggle's
      * `right-4` resolved against a 26rem column rather than the window, and
      * it hung in open space a third of the way across the screen instead of
      * sitting in the corner it was written for. */
@@ -140,7 +140,7 @@ function TokenForm({ awaitingClerk }: { awaitingClerk: boolean }) {
     >
       {/* A visible label and a stated source. The field carried its name in a
        * placeholder and an aria-label only, so the one instruction on the
-       * page vanished the moment you typed into it — and it named the thing
+       * page vanished the moment you typed into it  -  and it named the thing
        * ("Session token") without ever saying where a researcher is supposed
        * to get one, which is the only question anyone actually has here. */}
       <Label htmlFor={fieldId}>Session token</Label>
@@ -158,7 +158,7 @@ function TokenForm({ awaitingClerk }: { awaitingClerk: boolean }) {
         ) : (
           <>
             This deployment signs in with a token rather than an account. Ask
-            whoever runs it for yours — it is the value of{" "}
+            whoever runs it for yours  -  it is the value of{" "}
             {/* An identifier, so it is set in the measurement voice, the same
               * as every other literal a reader has to match exactly. */}
             <span className="font-mono text-text">MIDDLEWARE_TOKEN</span> on the

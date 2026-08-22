@@ -18,7 +18,7 @@ SEED = 42
 def _regenerate(tmp_path: Path) -> tuple[str, str]:
     """
     Boot the middleware with the pilot protocol and dry-run it, exactly like `python -m
-    middleware simulate` — returns (notebook, dictionary).
+    middleware simulate`  -  returns (notebook, dictionary).
     """
     from analysis.dataset import Dataset
     from analysis.notebook import build_notebook, data_dictionary_markdown
@@ -49,7 +49,7 @@ def _regenerate(tmp_path: Path) -> tuple[str, str]:
     protocol = load_protocol(PROTOCOL)
     study_id = "pilot-2026"
     notebook = json.dumps(build_notebook(protocol, dataset, study_id), indent=1) + "\n"
-    dictionary = f"# {study_id} — data dictionary\n\n" + data_dictionary_markdown(
+    dictionary = f"# {study_id}  -  data dictionary\n\n" + data_dictionary_markdown(
         dataset
     )
     return notebook, dictionary

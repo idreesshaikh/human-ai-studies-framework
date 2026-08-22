@@ -198,7 +198,7 @@ class RecipeRun(Base):
 
 
 class Project(Base):
-    """One research project — the scoping root (FR-PLAT-1)."""
+    """One research project  -  the scoping root (FR-PLAT-1)."""
 
     __tablename__ = "projects"
 
@@ -380,7 +380,7 @@ class ApprovalEvent(Base):
 
 
 class ProtocolDraftRow(Base):
-    """The study's current compiled draft — one row per study."""
+    """The study's current compiled draft  -  one row per study."""
 
     __tablename__ = "protocol_drafts"
 
@@ -767,7 +767,7 @@ def _create_fts(engine) -> None:
                 "USING fts5(paper_ref, chunk_idx UNINDEXED, body)"
             ))
             FTS5_AVAILABLE = True
-        except Exception:  # noqa: BLE001 — minimal SQLite without FTS5
+        except Exception:  # noqa: BLE001  -  minimal SQLite without FTS5
             FTS5_AVAILABLE = False
             conn.execute(text(
                 "CREATE TABLE IF NOT EXISTS paper_chunks ("

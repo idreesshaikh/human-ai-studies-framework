@@ -8,12 +8,12 @@ web
 
 ## Users
 
-**Primary — the adopting researcher** (industry or academia), who is not the
+**Primary  -  the adopting researcher** (industry or academia), who is not the
 maintainer. They arrive with a research idea, not a protocol, and need to run
 their own study on human–AI software development. They are competent in their
 domain and afraid of getting the statistics wrong. Their job: turn an idea into
 a grounded, statistically prescribed, ethics-ready protocol without reading a
-methods thesis first — by choosing a published, citable design rather than
+methods thesis first  -  by choosing a published, citable design rather than
 reinventing methodology.
 
 This researcher is the tiebreaker for every product decision. They stay only if
@@ -25,7 +25,7 @@ Secondary audiences, inside a project's role model (mirrored from
 managing membership and invitations, and collaborating members contributing to
 the same study. Those are the two invitable roles. `viewer` survives only as
 the demo project's internal read-only grant and is never invited. Participants
-never use this app — they meet the study inside TERN, the VS Code extension.
+never use this app  -  they meet the study inside TERN, the VS Code extension.
 
 ## Product Purpose
 
@@ -40,12 +40,12 @@ that was designed is the study that runs.
 
 Success: a researcher describes an idea in plain language and leaves with a
 validated, versioned protocol whose every design decision is either cited into
-the corpus or honestly labelled unsourced — plus the statistical plan that
+the corpus or honestly labelled unsourced  -  plus the statistical plan that
 design requires, the instrumentation to collect it, and a curated dataset they
 can analyse in the notebook they already use.
 
 **The boundary is recorded in [`SCOPE.md`](SCOPE.md)**, which lists what was
-built and deliberately removed — the ethics workflow, study phases, mid-study
+built and deliberately removed  -  the ethics workflow, study phases, mid-study
 amendments, live presence, community submissions, the findings meta-layer, the
 platform manifest, the Library's separate chat assistant, the hero's ambient
 artwork. That file is the authority on where the line sits; this one records
@@ -55,7 +55,7 @@ who the product is for and what it does inside it.
 
 The mechanism a neighbouring product could not truthfully copy: **accepted
 design moves compile deterministically into a versioned protocol.** The
-conversation is not a chat skin over a document — it is how the document comes
+conversation is not a chat skin over a document  -  it is how the document comes
 to exist, and the document stays the single record of the study. Three further
 claims are structural, not marketing:
 
@@ -72,20 +72,20 @@ claims are structural, not marketing:
   it says so plainly and proposes nothing (`design_assistant.ModelUnavailable`).
   A keyword-routed fallback once answered anyway; it read as a conversation
   without being one, so it was removed on purpose. Restoring that kind of
-  fallback would violate the grounding rule above — a scripted reply
+  fallback would violate the grounding rule above  -  a scripted reply
   masquerading as a designed one is exactly the third state this product
   refuses to have.
 
 ## Operating Context
 
 A researcher works in a browser, usually on a laptop, in a normal working
-environment — a shared office, a lab, a home desk — most often in daylight or
+environment  -  a shared office, a lab, a home desk  -  most often in daylight or
 under office light, in sittings long enough to rule on a whole sequence of
 proposals.
 
 The route through the product: the public hero (`/`), which also exposes the
 repertoire without an account; sign-in (the server announces its mode via
-`GET /auth/config` — `none`, `token` or `clerk`); a project (`/p/:slug`); a
+`GET /auth/config`  -  `none`, `token` or `clerk`); a project (`/p/:slug`); a
 study workspace (`/p/:slug/studies/:id`) whose tabs are **Conversation,
 Library, Data, Planning, Participants**, with the compiled protocol draft in a
 rail beside them. From there: participant links (`vscode://…/pair` deep links)
@@ -113,7 +113,7 @@ Confirmed and shipping:
 - **Design conversation** with streaming turns and design-move cards the
   researcher accepts or rejects one at a time.
 - **Steer** (`platform/src/lib/steer.ts`), a four-stop dial at the head of the
-  thread — checks / assists / guides / leads. It moves two real server levers:
+  thread  -  checks / assists / guides / leads. It moves two real server levers:
   register (`elicitation.PROFILES`) and initiative (the design assistant's turn
   stance). The account-wide profile in Settings is the default it starts from.
   The **method never changes with it**: turning steer down buys a quieter
@@ -129,7 +129,7 @@ Confirmed and shipping:
   `templates/drafts/`; promoting one is a human reading it and committing it,
   not a submission queue with moderation.
 - **Recruitment planning**: the power/sensitivity curve for the study's planned
-  comparison — exact two-sample t-test power across sample size, and the total n
+  comparison  -  exact two-sample t-test power across sample size, and the total n
   each plausible effect size needs to hit the target, with the model's
   assumptions stated beside the numbers.
 - **Two data paths, one schema**: the live path (cognitive, behavioural,
@@ -152,7 +152,7 @@ Constraints that bind all future work:
 
 - Stack is fixed: React 19 + Vite + Tailwind v4 + vendored shadcn/ui on Radix,
   TypeScript, react-router. Deliberately no state library, no data-fetching
-  library, no chart library — charts are hand-built SVG. A new UI dependency is
+  library, no chart library  -  charts are hand-built SVG. A new UI dependency is
   a `requirements/build-vs-adopt.md` decision, not a convenience (NFR-10).
 - **Tokens are the sole source of raw values and of type sizes.**
   `platform/scripts/lint-no-raw-literals.mjs` enforces it; charts and UI must
@@ -205,7 +205,7 @@ provenance-tier call site moves when that lands.
   produced by `simulate`.
 - Absences future work must not fabricate: no customers, no pricing, no
   benchmarks, no adoption numbers, no testimonials. The corpus size (~15,000) is
-  the only quantitative claim, and it is not verifiable from the running UI —
+  the only quantitative claim, and it is not verifiable from the running UI  -
   state the mechanism instead unless the figure is sourced.
 - Status is honest: a master's research project under active development.
 
@@ -216,7 +216,7 @@ provenance-tier call site moves when that lands.
 2. **Grounded or unsourced, never ambiguous.** Provenance is a first-class
    visual citizen with exactly two honest states.
 3. **Answer the statistics by construction.** Wherever a design appears, the
-   plan it requires appears with it — with per-cell n and effect sizes wherever
+   plan it requires appears with it  -  with per-cell n and effect sizes wherever
    results appear.
 4. **Teach in the empty state.** Every empty view states what will appear and
    the one action that gets it there.

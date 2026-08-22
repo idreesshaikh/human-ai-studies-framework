@@ -72,16 +72,16 @@ repository-trend recipes, not on template YAML (see
 `templates/drafts/README.md`). Two honest additions, not a padded count.
 
 **Wave 2, second fill** (real corpus gaps, found by scanning for
-methodology clusters no existing `designSignature` matched at all — see
+methodology clusters no existing `designSignature` matched at all  -  see
 `scripts/mine_templates.py` below for the systematic version of that
 same search):
 - **field-experiment-v1**: a real manipulation run inside participants'
-  actual ongoing work rather than a controlled lab session — distinct
+  actual ongoing work rather than a controlled lab session  -  distinct
   from both `observational-field-v1` (no manipulation at all) and
   `two-group-rct-v1` (a controlled setting). Grounded in "The Cybernetic
   Teammate" field experiment (`doi:10.2139/ssrn.5207588`).
 - **cognitive-load-comparison-v1**: the one existing analysis recipe no
-  template had ever named (`fatigue-by-condition`) — for studies whose
+  template had ever named (`fatigue-by-condition`)  -  for studies whose
   actual research question is cognitive load itself, not task outcome
   with workload as a side measure. Grounded in "When Help Hurts:
   Verification Load and Fatigue with AI Coding Assistants"
@@ -96,7 +96,7 @@ work that enriches the demo, in progress (15/~24). Beyond Wave 2,
 registry past what the owner hand-authors alone:
 
 - `--gaps` reports **methodology phrases the corpus uses that no template
-  here claims** — the registry's blind-spot list, ranked by how many
+  here claims**  -  the registry's blind-spot list, ranked by how many
   corpus papers use each. It anchors on the head noun of a phrase
   ("… *study*", "… *experiment*", "… *evaluation*") rather than on a list
   of known methods, which is what lets it surface archetypes nobody
@@ -106,13 +106,13 @@ registry past what the owner hand-authors alone:
   evidence, **not** a template: read the papers behind a phrase, and
   judge whether it is genuinely distinct from the shapes already here
   before authoring one. (The current top row, "case study" at 78 papers,
-  is exactly such a judgment call against `observational-field-v1` — do
+  is exactly such a judgment call against `observational-field-v1`  -  do
   not simply bolt the phrase onto an existing signature, which would
   claim those papers for a design they did not use.)
 - With no flag it clusters the corpus by recurring design vocabulary and
   reports what it found; with `--write` it writes the clusters with real
   support into `../drafts/` as YAML, never into this directory directly.
-  Its drafting vocabulary is coarse by design — a mined draft is a
+  Its drafting vocabulary is coarse by design  -  a mined draft is a
   proposal, and promoting one into this directory is a human decision made
   by reading the YAML and committing it. Nothing mined is promoted
   automatically.

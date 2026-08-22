@@ -7,11 +7,11 @@ import { studyApi, onSeededData } from "@/lib/studyApi";
 import type { PowerDoc, PowerRequirement } from "@/lib/types";
 
 /* The Planning surface (P2-2): the power/sensitivity curve for the study's
- * planned comparison — how power moves with total n, and the first n that
+ * planned comparison  -  how power moves with total n, and the first n that
  * reaches the target, per effect size. Planning math only, from the
  * middleware's /studies/{id}/power: the payload carries its own model and
  * assumptions, and a target not reached within the explored range is
- * reported as such, never as a number. Nothing here animates — the numbers
+ * reported as such, never as a number. Nothing here animates  -  the numbers
  * are the point. */
 const SVG_W = 840;
 const M = { left: 56, right: 24, top: 16, bottom: 36 };
@@ -25,8 +25,8 @@ const LINE_COLORS = [
 
 /* A stroke pattern per series, carried everywhere the series appears.
  *
- * tokens.css commits this world to it in as many words — "every series that
- * must survive a greyscale print carries a mark as well as a hue" — and the
+ * tokens.css commits this world to it in as many words  -  "every series that
+ * must survive a greyscale print carries a mark as well as a hue"  -  and the
  * curve was the one place that didn't: three solid 1.6px lines separated by
  * colour alone, which is also the exactly the reading a red-green viewer, a
  * greyscale print of a thesis chapter, or a projector with the saturation
@@ -40,7 +40,7 @@ const SIZES = [0.2, 0.5, 0.8];
 
 /* A series' identity is its EFFECT SIZE, not its position in the response.
  * Keyed by position in `doc.curves`, deselecting d=0.2 promoted d=0.5 into
- * slot 0 and the pink curve silently turned blue — the same quantity drawn
+ * slot 0 and the pink curve silently turned blue  -  the same quantity drawn
  * in the colour that had meant a different one a moment earlier, which is
  * the one thing a planning chart must never do. */
 function seriesOf(effectSize: number): { color: string; dash: string } {
@@ -55,10 +55,12 @@ export function PowerPanel({ studyId }: { studyId: string }) {
   const [maxN, setMaxN] = useState(120);
   const [sizes, setSizes] = useState<number[]>([0.2, 0.5, 0.8]);
   const [doc, setDoc] = useState<PowerDoc | null>(null);
+  const [loading, setLoading] = useState(true);
   const [seeded, setSeeded] = useState(false);
 
   const load = useCallback(
     (live: boolean) => {
+      setLoading(true);
       studyApi
         .power(studyId, { alpha, powerTarget, maxN, effectSizes: sizes })
         .then((d) => {
@@ -66,6 +68,9 @@ export function PowerPanel({ studyId }: { studyId: string }) {
         })
         .catch(() => {
           if (live) setDoc(null);
+        })
+        .finally(() => {
+          if (live) setLoading(false);
         });
     },
     [studyId, alpha, powerTarget, maxN, sizes],
@@ -94,10 +99,24 @@ export function PowerPanel({ studyId }: { studyId: string }) {
           <h2 className="type-section text-text">Recruitment planning</h2>
           <p className="type-body text-text-muted">
             Power for the planned comparison, before any participant. The
-            curve is planning math, not a result — the model and its
+            curve is planning math, not a result  -  the model and its
             assumptions are stated with the numbers.
           </p>
         </div>
+
+        {loading && doc === null ? (
+          <div className="rounded-card border border-dashed border-border-strong bg-surface p-5">
+            <p className="type-body text-text-muted">Loading the study plan…</p>
+          </div>
+        ) : doc?.note ? (
+          <div className="rounded-card border border-dashed border-border-strong bg-surface p-5">
+            <p className="type-body text-text">{doc.note}</p>
+            <p className="mt-2 type-caption text-text-muted">
+              The chart will appear once Phoenix has a real comparison to size.
+            </p>
+          </div>
+        ) : (
+          <>
 
         {/* Controls: alpha, target, explored range, effect sizes. Every
             change refetches the exact curve from the middleware. */}
@@ -132,7 +151,7 @@ export function PowerPanel({ studyId }: { studyId: string }) {
           <div className="flex flex-col gap-1">
             <span className="type-caption text-text-muted">effect sizes (Cohen's d)</span>
             {/* These are the chart's legend, and they happen to be
-              * switchable — so each one carries the stroke its curve is drawn
+              * switchable  -  so each one carries the stroke its curve is drawn
               * with, and you can read the key off the control rather than
               * matching two colours across the panel.
               *
@@ -141,7 +160,7 @@ export function PowerPanel({ studyId }: { studyId: string }) {
               * row directly above an accent-free chart: in this world a fill
               * or an edge in the accent means "an action you can take", and
               * a size you have already switched on is a state, not an action
-              * — the exact "two things both meaning primary" failure
+              *  -  the exact "two things both meaning primary" failure
               * tokens.css says this palette exists to end. On is a raised
               * plate with a strong edge and its own series mark; off is flat
               * paper with the mark drained out of it. */}
@@ -189,7 +208,7 @@ export function PowerPanel({ studyId }: { studyId: string }) {
 
         {seeded && (
           <p className="type-caption text-text-muted" role="status">
-            Middleware unreachable — showing the built-in stand-in curve
+            Middleware unreachable  -  showing the built-in stand-in curve
             (normal approximation of the same formula), not a live study
             plan.
           </p>
@@ -204,7 +223,7 @@ export function PowerPanel({ studyId }: { studyId: string }) {
         ) : sizes.length === 0 ? (
           <div className="rounded-card border border-border bg-surface p-4">
             <p className="type-body text-text-muted">
-              Nothing to draw — select at least one effect size.
+              Nothing to draw  -  select at least one effect size.
             </p>
           </div>
         ) : doc.curves.length === 0 ? (
@@ -228,6 +247,9 @@ export function PowerPanel({ studyId }: { studyId: string }) {
                  ? "Each participant contributes one observation in each condition."
                  : "Per-group n is half the total (equal groups)."}
             </p>
+          </>
+        )}
+
           </>
         )}
       </section>
@@ -394,7 +416,7 @@ function PowerChart({ doc }: { doc: PowerDoc }) {
           );
         })}
 
-        {/* Legend — the same stroke the curve is drawn with, dash included, so
+        {/* Legend  -  the same stroke the curve is drawn with, dash included, so
             the key is readable as a key without reference to colour. */}
         <g transform={`translate(${M.left}, ${M.top - 6})`}>
           {doc.curves.map((curve, i) => (
@@ -444,10 +466,10 @@ function RequiredTable({
             <tr key={r.effectSize} className="border-b border-border last:border-0">
               <td className="px-4 py-2 tabular text-text">d = {r.effectSize}</td>
               <td className="px-4 py-2 tabular text-text">
-                {r.nPerGroup ?? "—"}
+                {r.nPerGroup ?? " - "}
               </td>
               <td className="px-4 py-2 tabular text-text">
-                {r.totalN ?? "—"}
+                {r.totalN ?? " - "}
               </td>
               <td className="px-4 py-2">
                 {r.reachesTarget ? (

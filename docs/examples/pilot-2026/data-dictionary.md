@@ -1,4 +1,4 @@
-# pilot-2026 — data dictionary
+# pilot-2026  -  data dictionary
 
 ## Data dictionary
 
@@ -10,7 +10,7 @@ Every column in the exported dataset, one row each. A payload key is documented 
 | `participantId` | str | anonymized participant id (P01, P02, ...) |
 | `condition` | str | the condition this session ran under |
 | `ts` | datetime64[us, UTC] | UTC timestamp (ISO-8601, millisecond precision) |
-| `type` | str | event type — what the row records |
+| `type` | str | event type  -  what the row records |
 | `seq` | int64 | per-session sequence number on the producer's stream |
 | `flags` | object | integrity flags the middleware stamped on ingest (empty = clean) |
 | `payload.chars` | any | payload key on agent_turn events |

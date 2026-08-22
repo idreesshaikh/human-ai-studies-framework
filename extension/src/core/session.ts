@@ -70,7 +70,7 @@ export class StudySession implements Disposable {
      * The adapter needs the id before the session exists: it sends it with
      * the capture-config re-pull so the server can assign this session's
      * task block against it. A restored session ignores this and keeps its
-     * own id — that session was already assigned.
+     * own id  -  that session was already assigned.
      */
     plannedId?: string,
   ) {

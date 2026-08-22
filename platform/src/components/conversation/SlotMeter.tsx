@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
  * This was a row of eight dots. The dots were honest about how far along the
  * draft was and silent about everything else: what the order is, what is
  * being asked next, and how much is left. Two reviewers said the same thing
- * from opposite directions — one wanted the steps walked "in a more guided
+ * from opposite directions  -  one wanted the steps walked "in a more guided
  * fashion... so that all the information needed for the protocol is asked
  * for in a more systematic way", the other wanted "an overview somewhere
  * (like a chatlist) of what the user needs to provide" to make it "easier to
@@ -17,9 +17,9 @@ import { cn } from "@/lib/cn";
  * Readiness is still a separate question, and still the server's to answer.
  * The steps below are what the CONVERSATION works through; the sentence at
  * the foot is what the COMPILE says, in the researcher's own words
- * (`compiler.PROTOCOL_SLOTS`). Those are different lists — `measures` has no
+ * (`compiler.PROTOCOL_SLOTS`). Those are different lists  -  `measures` has no
  * protocol field at all, while a sample size and a study title are required
- * and are not sections — which is why filling every step has never been the
+ * and are not sections  -  which is why filling every step has never been the
  * same claim as "ready to compile", and why this component must not make it.
  */
 export function SlotMeter({
@@ -43,16 +43,16 @@ export function SlotMeter({
     .find((s) => s.status === "current");
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2 px-gutter pb-3" data-agent="slot-meter">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="type-legend text-text-muted">Steps covered</span>
+        <span className="type-caption text-text-muted">Conversation progress</span>
         <span className="tabular type-caption text-text-muted">
-          <span className="type-quantity text-text">{path.done}</span> / {path.total}
+          <span className="type-quantity text-text">{path.done}</span>/{path.total} covered
         </span>
       </div>
 
       {/* The full phase-by-phase checklist is real, load-bearing information
-        * — nothing here is invented — but at 13 rows it was also the tallest
+        *  -  nothing here is invented  -  but at 13 rows it was also the tallest
         * thing in the rail, pushing the compiled protocol itself (the
         * document of record, per the product's own first principle) below a
         * scroll on every study past its first few moves. Collapsed by
@@ -61,23 +61,25 @@ export function SlotMeter({
         * answers "where am I", and the full walk is one click away rather
         * than gone. */}
       {current && (
-        <p className="type-caption text-text-muted" data-agent="protocol-path-current">
-          <span className="type-legend text-accent">Now</span>{" "}
-          {current.label}
+        <p
+          className="rounded-input bg-accent-wash px-3 py-2 type-caption text-text"
+          data-agent="protocol-path-current"
+        >
+          <span className="type-legend text-accent">Now</span>{" "}{current.label}
         </p>
       )}
       <details className="group" data-agent="protocol-path">
         <summary className="type-caption cursor-pointer text-text-muted select-none">
-          {path.phases.map((p) => p.title).join(" · ")}
+          Show conversation path
         </summary>
-        <div className="mt-2 flex flex-col gap-3">
+        <div className="mt-2 flex flex-col gap-2">
           {path.phases.map((phase) => (
-            <div key={phase.title} className="flex flex-col gap-1">
+            <div key={phase.title} className="flex flex-col gap-1.5">
               <p className="type-legend text-text-muted">{phase.title}</p>
-              {/* One rule down the left edge with the steps hanging off it —
+              {/* One rule down the left edge with the steps hanging off it  -
                 * the same figure ConversationStart uses for the mechanism, so
                 * a sequence looks like a sequence in both places. */}
-              <ul className="flex flex-col border-l border-border pl-3">
+                <ul className="flex flex-col border-l border-border pl-3">
                 {phase.steps.map((step) => (
                   <Step key={step.id} step={step} />
                 ))}
@@ -91,33 +93,37 @@ export function SlotMeter({
         * researcher is; this says what would move them. */}
       {path.upNext && (
         <p className="type-caption text-text-muted" data-agent="path-up-next">
-          <span className="text-text">Up next:</span> {path.upNext}
+          <span className="text-text">Next question:</span> {path.upNext}
         </p>
       )}
 
       {unresolved === undefined ? (
         bare.length > 0 ? (
-          <p className="type-caption text-text-muted">
-            Not covered yet: {bare.map((s) => SLOT_LABELS[s]).join(", ")}.
-          </p>
+          <details className="group">
+            <summary className="type-caption cursor-pointer text-text-muted select-none">
+              Still needed ({bare.length})
+            </summary>
+            <p className="mt-1 type-caption text-text-muted">
+              {bare.map((s) => SLOT_LABELS[s]).join(", ")}.
+            </p>
+          </details>
         ) : null
       ) : unresolved.length === 0 ? (
-        <p className="type-caption text-text">
+        <p className="type-caption text-text" data-agent="protocol-readiness">
           The protocol has everything it needs: ready to compile.
         </p>
       ) : (
-        <p className="type-caption text-text-muted">
-          {/* The server names these slots in its own schema vocabulary
-            * ("statisticalPlan", "researchQuestions"). A camelCase identifier
-            * in a sentence a researcher reads is the code leaking through the
-            * product, so each one is mapped to the label the rest of the app
-            * already uses and anything unmapped falls back to itself. */}
-          The protocol still needs:{" "}
-          {unresolved
-            .map((slot) => SLOT_LABELS[slot as keyof typeof SLOT_LABELS] ?? slot)
-            .join(", ")}
-          .
-        </p>
+        <details className="group">
+          <summary className="type-caption cursor-pointer text-text-muted select-none">
+            Still needed ({unresolved.length})
+          </summary>
+          <p className="mt-1 type-caption text-text-muted">
+            {unresolved
+              .map((slot) => SLOT_LABELS[slot as keyof typeof SLOT_LABELS] ?? slot)
+              .join(", ")}
+            .
+          </p>
+        </details>
       )}
     </div>
   );
@@ -125,7 +131,7 @@ export function SlotMeter({
 
 /* One step. The mark carries the state, not colour alone: a filled dot is
  * settled, a ruled dot is where the conversation is now, an outlined dot is
- * still ahead. Deliberately NOT the `mark-unsourced` ring — that notation
+ * still ahead. Deliberately NOT the `mark-unsourced` ring  -  that notation
  * means "no source for this", and a step nobody has reached yet is not an
  * unsourced claim. One mark, one meaning. */
 function Step({ step }: { step: PathStep }) {

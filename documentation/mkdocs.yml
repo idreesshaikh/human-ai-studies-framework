@@ -43,9 +43,6 @@ theme:
 
 plugins:
   - search
-  - git-revision-date-localized:
-      enable_creation_date: true
-      enable_git_follow: false
 
 markdown_extensions:
   - admonition
@@ -71,7 +68,7 @@ extra:
       link: https://github.com/idreesshaikh/human-ai-studies-framework
   generator: false
 
-copyright: Copyright &copy; 2026 — Released under the MIT License
+copyright: Copyright &copy; 2026  -  Released under the MIT License
 
 nav:
   - Home: index.md

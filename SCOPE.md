@@ -11,20 +11,20 @@ PHOENIX handles **design, setup, and curation, then stops.** Five steps:
 
 1. **Talk it through.** The researcher describes an idea; the assistant
    proposes design moves one at a time. Every move carries a real citation or
-   an explicit "no source found" label — there is no third state.
+   an explicit "no source found" label  -  there is no third state.
 2. **Compile.** Accepted moves fold deterministically into a protocol. The
    same answers always produce the same protocol, with no model involved.
 3. **Run.** The protocol configures TERN on each participant's machine and
    rotates task order. Pairing links carry the consent statement and the
    capture config the researcher approved.
 4. **Collect.** TERN records how participants felt, what they did, and what
-   the AI did — never raw code, keystrokes, or clipboard content. Events are
+   the AI did  -  never raw code, keystrokes, or clipboard content. Events are
    stored idempotently and flagged, never dropped.
 5. **Hand off.** A dataset shaped for the design, a data dictionary, and a
    starter notebook naming the exact test to run.
 
 Two things ride alongside the spine because they answer the fear that brings
-researchers here in the first place — *getting the statistics wrong*:
+researchers here in the first place  -  *getting the statistics wrong*:
 
 - **The repertoire.** Proven designs, each binding the statistical plan it
   requires, so the test is chosen by the design rather than after the fact.
@@ -32,8 +32,8 @@ researchers here in the first place — *getting the statistics wrong*:
   planned comparison, with its assumptions stated beside the numbers.
 - **The Library and its citation constellation.** The corpus is the product's
   knowledge, not background reading. A study's papers grow a graph around
-  themselves from real Semantic Scholar data — what they cite, what cites
-  them, what resembles them — read one relation at a time through a lens
+  themselves from real Semantic Scholar data  -  what they cite, what cites
+  them, what resembles them  -  read one relation at a time through a lens
   (earlier / later / similar work), and a suggested paper is one click from
   being in the study, which regrows the graph. This is the surface where
   "grounded in 15,000 papers" stops being a claim and becomes something a
@@ -42,7 +42,7 @@ researchers here in the first place — *getting the statistics wrong*:
 And one proving step: **the synthetic dry run**, which pushes simulated
 participants through the real capture path *and then runs the study's own
 prescribed statistics over what landed*. Both halves matter: the first proves
-the capture path works, the second proves the analysis plan is satisfiable —
+the capture path works, the second proves the analysis plan is satisfiable  -
 which is the one thing a researcher cannot learn any other way, and the step
 they are most afraid of getting wrong. Each recipe reports its own result
 verbatim, caveats included.
@@ -54,7 +54,7 @@ a decision rather than an omission.
 
 | Not this | Why |
 | --- | --- |
-| **An ethics workflow** | Approval is the university's to grant. The platform owes a participant an unmissable account of what will be captured — the consent statement at pairing — not a gate that blocked setting up a study that was already designed. |
+| **An ethics workflow** | Approval is the university's to grant. The platform owes a participant an unmissable account of what will be captured  -  the consent statement at pairing  -  not a gate that blocked setting up a study that was already designed. |
 | **Study phases and a lifecycle board** | Tracking a study across seven phases was ceremony no researcher worked through, and its gate made a compiled study impossible to actually run. |
 | **Mid-study amendments** | The phase-aware amendment rules existed to serve the ethics gate. With the gate gone they guarded nothing. |
 | **Live presence** | Who else is looking at the study right now changes no decision this product supports. It cost a server thread to answer. |
@@ -86,6 +86,6 @@ a decision rather than an omission.
 
 ## Status
 
-A master's research project, under active development. The codebase — the
-protocol schema, the compiler, the verify scripts — is ground truth for what
+A master's research project, under active development. The codebase  -  the
+protocol schema, the compiler, the verify scripts  -  is ground truth for what
 exists and behaves. This file is ground truth for what *should*.

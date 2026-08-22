@@ -2,17 +2,17 @@
  * vscode-free pairing state machine (FR-INST-20, NFR-3).
  *
  * States:
- *   idle              — never paired, no pairing attempt in progress
- *   redeeming         — /pair/redeem fetch in flight
- *   consent-pending   — server responded; waiting for participant to accept
+ *   idle               -  never paired, no pairing attempt in progress
+ *   redeeming          -  /pair/redeem fetch in flight
+ *   consent-pending    -  server responded; waiting for participant to accept
  *                       the consent statement (FR-AGENT-5)
- *   paired            — pairing complete; identity + config applied,
+ *   paired             -  pairing complete; identity + config applied,
  *                       awaiting session start
- *   capturing         — a session is actively running under the paired config
+ *   capturing          -  a session is actively running under the paired config
  *
  * The ``unpaired-fallback`` is not a machine state but an outcome:
  * when the machine stays ``idle`` the adapter reads any legacy hand-typed
- * settings — the pre-pairing path continues working (wall #9).
+ * settings  -  the pre-pairing path continues working (wall #9).
  */
 
 export type PairingState =

@@ -28,9 +28,9 @@ import {
   writeSteer,
   type SteerLevel,
 } from "@/lib/steer";
-import { usePanel, togglePanel } from "@/lib/panels";
+import { readRail, usePanel, togglePanel, writeRail, type RailId } from "@/lib/panels";
 
-/** The first still-undecided move across these turns — the one a reply hands
+/** The first still-undecided move across these turns  -  the one a reply hands
  *  the caret to, so `a` / `r` act on the top proposal rather than the last. */
 function firstProposed(turns: Turn[]): string | null {
   for (const t of turns) {
@@ -44,19 +44,19 @@ export function ConversationView({
   opening = "",
 }: {
   studyId?: string;
-  /** A first line to send on arrival, typed by the researcher elsewhere —
+  /** A first line to send on arrival, typed by the researcher elsewhere  -
    *  the "what do you want to find out?" answer given while creating the
    *  project. Sent once, then never again for this study. */
   opening?: string;
 }) {
-  const [turns, setTurns] = useState<Turn[]>(() => [openingTurn()]);
+  const [turns, setTurns] = useState<Turn[]>(() => [openingTurn(opening)]);
   const [input, setInput] = useState("");
   const [addedRefs, setAddedRefs] = useState<Set<string>>(new Set());
   const [live, setLive] = useState(true);
   const [busy, setBusy] = useState(false);
   /* The reply's prose while it streams; null once the real turn lands. */
   const [streamingText, setStreamingText] = useState<string | null>(null);
-  /* What the platform understands about the study so far (FR-CONV-10) — used
+  /* What the platform understands about the study so far (FR-CONV-10)  -  used
    * to explain why it hasn't proposed a design yet. */
   const [understanding, setUnderstanding] = useState<Understanding | undefined>();
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
@@ -70,7 +70,7 @@ export function ConversationView({
   const [applied, setApplied] = useState(false);
   const [showFinish, setShowFinish] = useState(false);
   const draftFolded = usePanel("draft");
-  const [rail, setRail] = useState<"papers" | "draft">("draft");
+  const [rail, setRail] = useState<RailId>(() => readRail(studyId));
   /* The one move the caret goes to, set only when a reply lands in answer
    * to something this researcher just sent. Never on a page they merely
    * opened, and never for a colleague's change arriving over the stream:
@@ -86,28 +86,13 @@ export function ConversationView({
 
   useEffect(() => {
     setSteer(readSteer(studyId, DEFAULT_STEER));
+    setRail(readRail(studyId));
   }, [studyId]);
 
-  /* The opening line, sent once.
-   *
-   * Guarded on the thread still being empty: the researcher answered "what
-   * do you want to find out?" while creating the project, and that answer is
-   * their first turn. Re-sending it on a remount — a tab switch, a reload
-   * with the navigation state still in history — would put the same sentence
-   * into the thread twice, so the ref latches per study.
-   */
-  const openingSent = useRef("");
-  useEffect(() => {
-    if (!opening.trim() || openingSent.current === studyId) return;
-    // Only into a thread nobody has spoken in yet: the platform's own
-    // greeting is the sole turn present.
-    if (turns.some((t) => t.role === "researcher")) return;
-    openingSent.current = studyId;
-    void sendText(opening.trim());
-    // `sendText` is deliberately absent from the deps: it is redefined every
-    // render, and the ref above — not the dependency list — is what makes
-    // this fire once per study.
-  }, [opening, studyId, turns]);
+  const changeRail = (next: RailId) => {
+    setRail(next);
+    writeRail(studyId, next);
+  };
 
   const changeSteer = useCallback(
     (next: SteerLevel) => {
@@ -118,7 +103,7 @@ export function ConversationView({
   );
 
   // The composer grows with what's typed instead of clipping or scrolling
-  // inside a fixed single row — capped so a very long message still scrolls
+  // inside a fixed single row  -  capped so a very long message still scrolls
   // rather than pushing the send button off-screen.
   const growComposer = useCallback(() => {
     const el = composer.current;
@@ -131,11 +116,27 @@ export function ConversationView({
     growComposer();
   }, [input, growComposer]);
 
+  // Keep the newest turn in view while the optimistic message and streamed
+  // reply arrive. The frame throttle prevents a token stream from issuing a
+  // scroll for every fragment, while smooth scrolling keeps the thread from
+  // jumping under the reader's eyes.
+  useEffect(() => {
+    if (!busy && streamingText == null) return;
+    const frame = requestAnimationFrame(() =>
+      threadEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [busy, streamingText]);
+
   useEffect(() => {
     let cancelled = false;
     loadConversation(studyId).then(({ turns: t, understanding: u }) => {
       if (!cancelled) {
-        setTurns(t);
+        const initial =
+          t.length === 1 && t[0].turnId === "opening"
+            ? [openingTurn(opening)]
+            : t;
+        setTurns(initial);
         setUnderstanding(u);
         setLive(true);
       }
@@ -162,7 +163,7 @@ export function ConversationView({
    * The researcher's OWN opening question does not end the blank state. It
    * used to: a study opened from "Start a project" carries that question in
    * as its first turn, which flipped this to false before the workspace had
-   * ever painted — so the one screen that explains how the record gets
+   * ever painted  -  so the one screen that explains how the record gets
    * written was skipped by exactly the researchers who had never seen it,
    * and what they got instead was a single unanswered bubble above half a
    * screen of bare ground. A question you asked and nothing has answered is
@@ -172,7 +173,7 @@ export function ConversationView({
   const clientDraft = useMemo(() => compileAll(allMoves), [allMoves]);
 
   // The literature the conversation has surfaced, de-duplicated by ref, newest
-  // turns first — the recommender rail's source. Refreshes as turns arrive.
+  // turns first  -  the recommender rail's source. Refreshes as turns arrive.
   const recommendations = useMemo<Recommendation[]>(() => {
     const seen = new Set<string>();
     const out: Recommendation[] = [];
@@ -195,7 +196,7 @@ export function ConversationView({
       setReadOnlyProtocol(null);
     } catch {
       setCompileResult(null);
-      /* Compiling is a contribute-level action, so a viewer 403s here — and
+      /* Compiling is a contribute-level action, so a viewer 403s here  -  and
        * used to be shown an empty "no design shape yet" rail over a protocol
        * that exists and is fully compiled (the read-only demo made this
        * unmissable: Data and Planning rendered the protocol while this rail
@@ -214,7 +215,7 @@ export function ConversationView({
   }, [allMoves, live, refreshCompile]);
 
   /* An opening taken from the blank record: it lands in the composer for the
-   * researcher to edit, and the caret goes with it. Never sent for them —
+   * researcher to edit, and the caret goes with it. Never sent for them  -
    * the human sends. */
   function takeOpening(text: string) {
     setInput(text);
@@ -231,14 +232,14 @@ export function ConversationView({
   }
 
   /* The turn itself, given its text. Split out from `send` so an opening
-   * line the researcher already typed — in the "what do you want to find
-   * out?" field on project creation — can be sent on arrival without being
+   * line the researcher already typed  -  in the "what do you want to find
+   * out?" field on project creation  -  can be sent on arrival without being
    * round-tripped through the composer's state first. */
   async function sendText(text: string) {
     if (!text || busy) return;
 
     // "finish" / "wrap up" / "done" opens the protocol-review moment rather
-    // than sending a turn — the researcher is signalling they're ready to
+    // than sending a turn  -  the researcher is signalling they're ready to
     // compile, not asking another question.
     if (/^\s*(finish|wrap up|wrap-up|done|i'?m done|that'?s it)\b/i.test(text)) {
       setInput("");
@@ -248,7 +249,7 @@ export function ConversationView({
     }
 
     // Optimistic: show the researcher's message and clear the composer
-    // immediately — before any network/LLM round-trip — so the thread never
+    // immediately  -  before any network/LLM round-trip  -  so the thread never
     // sits with the box full while the model "thinks". The pending id is
     // swapped for the server-assigned researcher turn once the reply lands
     // (the real id is what feedback-marking keys on).
@@ -265,7 +266,9 @@ export function ConversationView({
     setInput("");
     setBusy(true);
     const scrollDown = () =>
-      queueMicrotask(() => threadEnd.current?.scrollIntoView({ block: "end" }));
+      queueMicrotask(() =>
+        threadEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" }),
+      );
     scrollDown();
 
     try {
@@ -275,7 +278,7 @@ export function ConversationView({
         // duplicated message.
         // Streamed: the reply's prose appears as the model writes it, so the
         // thread is alive instead of blank for the whole round-trip. The
-        // streamed text is presentation only — the resolved turns are the
+        // streamed text is presentation only  -  the resolved turns are the
         // same ones the blocking call returns, and replace it wholesale.
         setStreamingText("");
         const appended = await conversationApi.sendTurnStreaming(
@@ -297,7 +300,7 @@ export function ConversationView({
     } catch (e) {
       /* No invented reply. The platform used to answer from a keyword script
        * whenever the server was unreachable, which read as a design
-       * conversation and was not one — a researcher had no way to tell the
+       * conversation and was not one  -  a researcher had no way to tell the
        * difference until they acted on it. What they typed stays on screen,
        * and the reason it went unanswered is stated. */
       setLive(false);
@@ -328,7 +331,7 @@ export function ConversationView({
     );
     if (live) {
       // A rejected decision used to be swallowed, so the card showed a
-      // decision the draft never received — the researcher would compile and
+      // decision the draft never received  -  the researcher would compile and
       // find the move missing with no explanation. Rolling back only this
       // one move (not the whole thread) matters once Undo exists: another
       // request can be in flight when this one fails, and a whole-thread
@@ -348,13 +351,13 @@ export function ConversationView({
       });
 
       // Accepting a move that cites papers is the researcher endorsing that
-      // evidence, not just the move's text — the grounding chips already
+      // evidence, not just the move's text  -  the grounding chips already
       // read as "these papers back this", so leaving them out of the
       // Library made that reading false: the assistant could describe a
       // cited paper as already part of the study while the Library and
       // citation graph had no record of it. Every resolved grounding.ref is
       // a real corpus paper (the server only attaches metadata it actually
-      // found — see design_assistant._resolve_grounding), so this is safe
+      // found  -  see design_assistant._resolve_grounding), so this is safe
       // to fire for all of them, not just a filtered subset.
       if (status === "accepted" && move && move.grounding.length > 0) {
         for (const g of move.grounding) {
@@ -378,7 +381,7 @@ export function ConversationView({
   async function addPaper(ref: string) {
     // Optimistic: mark it added immediately so the card settles.
     setAddedRefs((prev) => new Set(prev).add(ref));
-    // Offline previews stay local-only — there's no study to write to.
+    // Offline previews stay local-only  -  there's no study to write to.
     if (!live) return;
     const rec = turns
       .flatMap((t) => t.recommendations)
@@ -387,7 +390,7 @@ export function ConversationView({
       // Actually ingest it into the study's Library, keeping the match reason.
       await studyApi.addPaperFromMatch(studyId, ref, rec?.matchReason ?? "");
     } catch {
-      // Roll the flag back so the researcher can retry — silent success on a
+      // Roll the flag back so the researcher can retry  -  silent success on a
       // no-op was the old bug.
       setAddedRefs((prev) => {
         const next = new Set(prev);
@@ -419,8 +422,8 @@ export function ConversationView({
       className={cn("split-rail h-full", draftFolded && "rail-folded")}
     >
       <section className="flex h-full min-h-0 min-w-0 flex-col">
-        <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4 sm:p-6">
-          {/* The rail only looked slim because this column was unbounded —
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto scroll-smooth p-4 sm:p-6">
+          {/* The rail only looked slim because this column was unbounded  -
            * centring the thread at the reading measure is what actually
            * fixed it, not the rail's own width.
            *
@@ -428,12 +431,12 @@ export function ConversationView({
            * it is shorter than the viewport, and does nothing once it is
            * taller. A record grows downward toward the hand writing it, so a
            * two-line conversation belongs against the composer, not pinned to
-           * the top of 500px of bare ground — which is what a study opened
+           * the top of 500px of bare ground  -  which is what a study opened
            * from "Start a project" showed: one seeded turn floating alone
            * above half a screen of empty grid. */}
-          <div className="mx-auto mt-auto flex w-full max-w-reading flex-col space-y-6">
+          <div className="mx-auto mt-auto flex w-full max-w-reading flex-col space-y-4">
             {/* Above the turns, not after them. It is what is printed on the
-              * blank plate, so it belongs where the record starts — a
+              * blank plate, so it belongs where the record starts  -  a
               * researcher who arrived with an opening question already asked
               * should read it before their own unanswered line, not under
               * it. */}
@@ -449,12 +452,12 @@ export function ConversationView({
             {busy && live && (
               <div className="flex flex-col items-start gap-3" data-agent="conversation-thinking">
                 {streamingText && (
-                  <div className="max-w-bubble animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 type-body duration-entrance">
+                  <div className="max-w-[62ch] animate-in fade-in px-1 py-1 type-body duration-entrance">
                     <span className="mb-1 block type-caption text-text-muted opacity-70">
                       Platform
                     </span>
                     {/* The reply as it is being written. Live for a screen
-                     * reader too, but polite — it must not interrupt. */}
+                     * reader too, but polite  -  it must not interrupt. */}
                     <span
                       className="whitespace-pre-wrap text-text"
                       aria-live="polite"
@@ -466,11 +469,11 @@ export function ConversationView({
                 )}
                 {/* The model streams `text` before `moves` in the same
                  * completion, so the prose can finish well before the move
-                 * cards are ready — this stays its own card, separate from
+                 * cards are ready  -  this stays its own card, separate from
                  * the reply bubble above, through that whole gap instead of
                  * disappearing the moment text appears (which read as the
                  * reply being done when it wasn't). */}
-                <div className="max-w-bubble animate-in fade-in rounded-card border border-border bg-surface px-4 py-3 type-body duration-entrance">
+                <div className="max-w-[62ch] animate-in fade-in px-1 py-1 type-body duration-entrance">
                   <span className="inline-flex items-center gap-1 animate-pulse text-text-muted">
                     <span className="size-1.5 rounded-full bg-text-muted" />
                     <span className="size-1.5 rounded-full bg-text-muted" />
@@ -493,28 +496,21 @@ export function ConversationView({
 
         <form
           data-agent="conversation-composer"
-          className="border-t border-border bg-surface px-4 py-3 sm:px-6"
+          className="border-t border-border bg-surface px-4 py-2 sm:px-6"
           onSubmit={(e) => {
             e.preventDefault();
             send();
           }}
         >
-          {/* ONE composer object, at the same measure as the thread it
-            * belongs to. It used to be two stacked bands: a 30px strip
-            * carrying the steer dial, then the input frame under it. Three
-            * type roles (a tracked legend, a gradient track, a running
-            * sentence) crammed into a half-height strip made the noisiest
-            * region on the screen the one directly above the thing the
-            * researcher came here to type — and left the input frame reading
-            * as something the strip was labelling.
-            *
-            * Folded into one frame the steer sits on the composer's own
-            * bottom edge, where it reads as what it is: a setting on this
-            * conversation, held next to the control that advances it. */}
-          <div className="mx-auto flex w-full max-w-reading flex-col gap-2 rounded-card border border-control-edge bg-surface px-3 py-2.5 focus-within:border-accent">
+          {/* One command bar: the message is primary, the conversation mode is
+            * adjacent and compact, and send closes the row. The mode picker
+            * opens above its button, so the composer never grows a second
+            * permanent band or makes the input compete with a full-width
+            * slider. */}
+          <div className="mx-auto flex w-full max-w-reading items-end gap-2 rounded-card border border-control-edge bg-surface px-2.5 py-1.5 focus-within:border-accent">
             <textarea
               ref={composer}
-              className="type-body min-h-9 max-h-40 w-full resize-none overflow-y-auto border-0 bg-transparent text-text placeholder:text-text-muted"
+              className="type-body min-h-9 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-0 py-1.5 text-text placeholder:text-text-muted"
               placeholder="What do you want to find out?"
               value={input}
               rows={1}
@@ -527,18 +523,17 @@ export function ConversationView({
               }}
               aria-label="Message the design assistant"
             />
-            <div className="flex items-end gap-3 border-t border-border pt-2">
-              <SteerDial value={steer} onChange={changeSteer} className="min-w-0 flex-1" />
-              <Button
-                type="submit"
-                size="icon"
-                data-agent="conversation-send"
-                aria-label="Send"
-                disabled={busy}
-              >
-                <Send aria-hidden />
-              </Button>
-            </div>
+            <SteerDial value={steer} onChange={changeSteer} />
+            <Button
+              type="submit"
+              size="sm"
+              className="!size-10 !px-0"
+              data-agent="conversation-send"
+              aria-label="Send"
+              disabled={busy}
+            >
+              <Send aria-hidden />
+            </Button>
           </div>
         </form>
       </section>
@@ -547,7 +542,7 @@ export function ConversationView({
           Desktop: minimizable via fold button, persisted per device.
 
           Folded, this used to be a 2.125rem (34px) column with the panel's
-          full-width contents still rendering inside it — a `p-gutter` aside
+          full-width contents still rendering inside it  -  a `p-gutter` aside
           needs 64px for its padding alone, so what actually painted was a
           30px-wide vertical slice of clipped words hanging off the edge of
           the window, and the only control that could restore it lived on the
@@ -556,7 +551,7 @@ export function ConversationView({
       <div
         className={cn(
           "hidden min-h-0 flex-col border-l border-border-strong bg-surface transition-all duration-fast lg:flex",
-          /* Expanded, the rail fills the track the grid gave it — it must not
+          /* Expanded, the rail fills the track the grid gave it  -  it must not
            * name its own width. `.split-rail` sizes this column as
            * `clamp(--rail-min, --rail-share, --rail-max)`, and `--rail-share`
            * is `32vw`, so on any window narrower than 90rem the track lands
@@ -594,7 +589,7 @@ export function ConversationView({
           <div className="flex items-center gap-2 border-b border-border-strong bg-surface p-2">
             <SegmentedControl
               value={rail}
-              onChange={setRail}
+              onChange={changeRail}
               className="min-w-0 flex-1"
               aria-label="Right panel: literature or protocol draft"
               options={[
@@ -642,7 +637,7 @@ export function ConversationView({
           )}
         </div>
         {/* The fold control lives in this panel's header, beside the name of
-          * the thing it folds — not pinned to the far bottom corner, and not
+          * the thing it folds  -  not pinned to the far bottom corner, and not
           * duplicated onto the composer. One toggle, where its own title is. */}
       </div>
 

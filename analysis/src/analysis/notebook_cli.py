@@ -14,7 +14,7 @@ def cmd_notebook(protocol: dict, dataset, study_id: str, args) -> int:
         from analysis.notebook import data_dictionary_markdown
 
         path = out_dir / "data-dictionary.md"
-        header = f"# {study_id} — data dictionary\n\n"
+        header = f"# {study_id}  -  data dictionary\n\n"
         path.write_text(header + data_dictionary_markdown(dataset))
         print(f"data dictionary: {path}")
         return 0

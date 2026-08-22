@@ -19,7 +19,7 @@ _MIN_INTERVAL = 1.0
 # `_pace_lock`/`_last_request` pair) served no correctness purpose and cost a
 # real second of latency per paper add: `fetch_edges` fires a Graph API
 # request (references), then citations (same host), then a Recommendations
-# request — the third one waited behind the first two's clock for no reason,
+# request  -  the third one waited behind the first two's clock for no reason,
 # and any concurrent request from another user queued behind the same single
 # clock regardless of which service it was calling. Pacing per host lets
 # unrelated services (and, moot for a single-process pace, unrelated
@@ -34,7 +34,7 @@ def _host(url: str) -> str:
     """The pacing bucket for a URL. Graph API and Recommendations API share
     one domain (``api.semanticscholar.org``) and differ only by path prefix
     (``/graph/v1/...`` vs ``/recommendations/v1/...``), so netloc alone would
-    silently collapse both services into the same clock — the two are paced
+    silently collapse both services into the same clock  -  the two are paced
     separately by service, keyed on netloc *and* the path's first segment."""
     parts = urllib.parse.urlsplit(url)
     service = parts.path.strip("/").split("/", 1)[0]
@@ -67,7 +67,7 @@ def _headers() -> dict[str, str]:
 
 
 def _pace(url: str) -> None:
-    """Hold callers to S2's 1 req/s budget, tracked separately per host — the
+    """Hold callers to S2's 1 req/s budget, tracked separately per host  -  the
     Graph API and the Recommendations API are distinct services with their
     own quotas, not one shared 1 req/s budget for the whole client."""
     host = _host(url)

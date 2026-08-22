@@ -4,8 +4,8 @@ import type { Role } from "./capabilities.ts";
  *
  *  - HttpBackend talks to the middleware (used when VITE_API_BASE is set);
  *  - InMemoryBackend is a self-contained fake that seeds a couple of
- *    projects and the demo, so the whole shell is explorable — and
- *    testable — with no server running. It also powers the hero's offline
+ *    projects and the demo, so the whole shell is explorable  -  and
+ *    testable  -  with no server running. It also powers the hero's offline
  *    demo, mirroring how the conversation runs on a deterministic stub.
  *
  * Both enforce nothing: authorization is the server's job. The fake mimics
@@ -32,7 +32,7 @@ export interface Me {
  * stores keys it recognises (`theme`, `savedViews`);
  * the UI owns their semantics. */
 /** Who the design conversation is talking to (FR-CONV-9). Changes register,
- *  pacing, and which trade-offs get surfaced — never what counts as sound
+ *  pacing, and which trade-offs get surfaced  -  never what counts as sound
  *  method. Unset means the platform uses its default posture. */
 export type ResearcherProfile =
   | "student"
@@ -40,7 +40,7 @@ export type ResearcherProfile =
   | "experienced"
   | "industry";
 
-/** Offline fallback only — mirrors `elicitation.PROFILES` on the server,
+/** Offline fallback only  -  mirrors `elicitation.PROFILES` on the server,
  * which is the source of truth (`researcherProfiles()` fetches the real
  * catalogue live). Kept here, not re-typed ad hoc at each call site, so
  * there's exactly one place this can drift from the server's copy. */
@@ -127,7 +127,7 @@ export interface EnrollmentTokenView {
   condition: string;
   grain: "participant" | "session";
   status: "unredeemed" | "paired" | "streaming" | "revoked";
-  /** Present only right after minting — the participant's one-paste link. */
+  /** Present only right after minting  -  the participant's one-paste link. */
   connectionString?: string;
   /** The capture config the IDE will run under (FR-DASH-10 pre-flight
    * visibility); null for an agent-participant study with no overlay. */
@@ -182,7 +182,7 @@ export interface Api {
   /** The catalog of assistant model tiers the platform may pick
    * (FR-OPS-7 profile default). Unauthenticated catalog, never the key. */
   /** The researcher profiles the design conversation adapts to (FR-CONV-9),
-   * from the server's own `elicitation.PROFILES` — the source of truth, so
+   * from the server's own `elicitation.PROFILES`  -  the source of truth, so
    * this list can't drift from what `Settings` used to hardcode. */
   researcherProfiles(): Promise<{
     profiles: { id: string; label: string; description: string }[];
@@ -194,7 +194,7 @@ export interface Api {
  * message. */
 export class ApiError extends Error {
   status: number;
-  /** Whether `message` is a sentence somebody wrote for a person — the API's
+  /** Whether `message` is a sentence somebody wrote for a person  -  the API's
    * own `detail` ("slug 'lab' is taken"), or one of this module's offline
    * messages. False means it was reconstructed from the HTTP status because
    * the response carried no `detail`: a proxy's error page, an edge
@@ -209,7 +209,7 @@ export class ApiError extends Error {
   }
 }
 
-/** The middleware is unreachable (no server, network down) — distinct from
+/** The middleware is unreachable (no server, network down)  -  distinct from
  * `ApiError`, which means the server answered but refused. `createApi()`
  * catches this to fall back to the offline fake; callers that want to tell
  * "no server" apart from "signed out" can catch it directly. */
@@ -220,7 +220,7 @@ export class OfflineError extends Error {
   }
 }
 
-/** A bearer token to send with every request, refreshed on demand — Clerk
+/** A bearer token to send with every request, refreshed on demand  -  Clerk
  * session JWTs are short-lived, so this is called per request rather than
  * cached. Set by the auth layer once a Clerk session exists; defaults to the
  * pasted-token fallback (`localStorage['middleware.token']`), matching
@@ -232,7 +232,7 @@ export function setTokenProvider(provider: () => Promise<string | null>): void {
   tokenProvider = provider;
 }
 
-/** Notified whenever the server answers 401 — the auth layer subscribes to
+/** Notified whenever the server answers 401  -  the auth layer subscribes to
  * show the sign-in surface without every page needing to catch it itself. */
 const unauthorizedListeners = new Set<() => void>();
 
@@ -242,7 +242,7 @@ export function onUnauthorized(listener: () => void): () => void {
 }
 
 /** The live bearer token (Clerk session JWT, or the pasted-token fallback)
- * — exported so `studyApi.ts`/`conversationApi.ts` share
+ *  -  exported so `studyApi.ts`/`conversationApi.ts` share
  * the exact same token source as this module instead of each re-reading
  * `localStorage` directly, which never sees a Clerk-issued token at all. */
 export async function getAuthToken(): Promise<string | null> {
@@ -250,7 +250,7 @@ export async function getAuthToken(): Promise<string | null> {
 }
 
 /** Fires the same "show the sign-in surface" signal `HttpBackend` fires on
- * its own 401s — shared so every API client's 401 converges on one global
+ * its own 401s  -  shared so every API client's 401 converges on one global
  * gate instead of each page rendering the raw error text itself. */
 export function notifyUnauthorized(): void {
   unauthorizedListeners.forEach((l) => l());
@@ -282,8 +282,8 @@ class HttpBackend implements Api {
     }
     if (!res.ok) {
       // `res.statusText` is blank over HTTP/2 (no reason phrase on the
-      // wire), so a non-JSON error body — an edge/proxy rate-limit page,
-      // not our own JSON errors — used to leave `detail` as "", which
+      // wire), so a non-JSON error body  -  an edge/proxy rate-limit page,
+      // not our own JSON errors  -  used to leave `detail` as "", which
       // `{err && ...}` then renders as nothing: a real failure with no
       // visible feedback at all.
       let detail = res.statusText || `Request failed (${res.status})`;
@@ -306,7 +306,7 @@ class HttpBackend implements Api {
     } catch {
       // A 200 that isn't real JSON (e.g. a dev server's SPA-fallback
       // index.html, or a misconfigured proxy) means there's no real API
-      // behind this origin — the same offline posture as an unreachable
+      // behind this origin  -  the same offline posture as an unreachable
       // server, so it degrades the same way instead of throwing a raw
       // parse error at the UI.
       throw new OfflineError();
@@ -436,7 +436,7 @@ export class InMemoryBackend implements Api {
     });
 
     // Seed protocol shapes so toggleCatalog/applyToggle work offline. Keyed
-    // "tern" to match the real protocol schema's instrument name — this used
+    // "tern" to match the real protocol schema's instrument name  -  this used
     // to say "cognitiveOverlay" (the pre-rename name), which the live
     // enrollment panel's toggle-chip lookup (filtered on "tern") could never
     // match: the offline demo's toggle popover silently never opened.
@@ -543,7 +543,7 @@ export class InMemoryBackend implements Api {
     p.studies.push({ id });
     // Mirrors the real backend: an optional seed protocol (e.g. "start from
     // this template") lands as the study's draft immediately, offline the
-    // same as live — a demo session starting a study from a template must
+    // same as live  -  a demo session starting a study from a template must
     // see the same design the live path would give it, not a blank one.
     if (protocol) this.protocols.set(id, protocol);
     return { id };
@@ -686,8 +686,8 @@ export class InMemoryBackend implements Api {
       }
       entries.push({ instrument, path, label, description: desc, grounding, currentValue: value });
     };
-    addEntry("tern", ["stuck", "enabled"], "Stuck detection", "Detects dwell/scroll-thrash", { ref: "FR-INST-2", source: "srs" });
-    addEntry("tern", ["ideHealth", "enabled"], "IDE health stream", "Captures diagnostic counts", { ref: "FR-INST-18", source: "srs" });
+    addEntry("tern", ["stuck", "enabled"], "Stuck detection", "Detects dwell/scroll-thrash", { ref: "TERN stuck detector", source: "Instrumentation catalogue" });
+    addEntry("tern", ["ideHealth", "enabled"], "IDE health stream", "Captures diagnostic counts", { ref: "TERN IDE health stream", source: "Instrumentation catalogue" });
     return entries;
   }
 
@@ -723,10 +723,10 @@ export class InMemoryBackend implements Api {
 }
 
 /** Every call tries the real backend first and falls back to the in-memory
- * fake only on `OfflineError` (no server reachable) — never on a real
+ * fake only on `OfflineError` (no server reachable)  -  never on a real
  * `ApiError`, so a genuine 401/403/404 still surfaces. Preserves offline
  * explorability (`npm run dev` with nothing on :8000, static previews) while
- * a deployed instance — same origin, per NFR-7 — always talks to the real
+ * a deployed instance  -  same origin, per NFR-7  -  always talks to the real
  * server. Mirrors `studyApi.ts`'s per-call live-or-seed posture. */
 function withOfflineFallback(live: Api, offline: Api): Api {
   const handler: ProxyHandler<Api> = {
@@ -749,7 +749,7 @@ function withOfflineFallback(live: Api, offline: Api): Api {
   return new Proxy(live, handler);
 }
 
-/** Where the middleware answers. Same-origin by default — in production it
+/** Where the middleware answers. Same-origin by default  -  in production it
  * serves this SPA at `/` (NFR-7), so an empty base reaches the real API with
  * no build-time config. Set VITE_API_BASE only for a separate-origin
  * deployment (needs MIDDLEWARE_CORS_ORIGINS, FR-OPS-6, D30).
@@ -758,7 +758,7 @@ function withOfflineFallback(live: Api, offline: Api): Api {
  * middleware: the auth provider asks it which sign-in mode to present before
  * any `Api` exists, and it was asking with a bare relative path. On a
  * separate-origin deployment that path resolves against the SPA's own host,
- * which answers every unknown route with `index.html` and a 200 — so the
+ * which answers every unknown route with `index.html` and a 200  -  so the
  * config read parsed HTML as JSON, threw, hit the "no server reachable"
  * catch, and left the app in `mode: "none"`. The shell then renders as
  * though no sign-in exists, every call 401s, and the researcher is shown

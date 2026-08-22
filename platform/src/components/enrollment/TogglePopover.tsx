@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { cn } from "@/lib/cn";
+import { publicPaperReference } from "@/lib/paperReference";
 
 interface CatalogEntry {
   instrument: string;
@@ -85,9 +86,14 @@ export function TogglePopover({
               Uncited: researcher's judgment
             </Badge>
           ) : (
-            <Badge variant="grounded" title={`Source: ${entry.grounding.source}`}>
-              {entry.grounding.ref}
-            </Badge>
+            (() => {
+              const citation = publicPaperReference(entry.grounding?.ref ?? "");
+              return citation ? (
+                <Badge variant="grounded" title={`Source: ${entry.grounding.source}`}>
+                  {citation}
+                </Badge>
+              ) : null;
+            })()
           )}
         </div>
       )}

@@ -54,11 +54,11 @@ function toggleKey(e: ToggleCatalogEntry): string {
 }
 
 /* Mint pairing tokens for a study. Copy-link (here: copy connection string) is
- * the primary affordance — the participant pastes it into their IDE once. The
+ * the primary affordance  -  the participant pastes it into their IDE once. The
  * dialog also carries the per-mint capture config: every switch the protocol
  * declares can be tuned for the whole batch before minting (AI lifecycle,
  * behavioral streams, metric toggles), layered on the protocol-derived defaults
- * rather than re-derived. Condition assignment is never touched here — that
+ * rather than re-derived. Condition assignment is never touched here  -  that
  * stays the assignment engine's job. */
 export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: () => void }) {
   const api = useApi();
@@ -115,7 +115,7 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
       setMinted(rows);
       onMinted();
     } catch (e) {
-      // Surface the server's reason instead of a silent no-op — the common case
+      // Surface the server's reason instead of a silent no-op  -  the common case
       // is the 409 "clear the ethics gate first" (production keeps that gate;
       // set MIDDLEWARE_DEV_MODE to mint on an unapproved study while testing).
       setError(e instanceof ApiError ? e.message : "Could not mint links. Check your connection and try again.");

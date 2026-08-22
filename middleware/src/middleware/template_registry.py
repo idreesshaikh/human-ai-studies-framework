@@ -90,13 +90,13 @@ def validate_template(doc: dict) -> list[str]:
                 )
     # Every {{ placeholder }} in the skeleton must be a declared parameter, else the
     # template passes validation but cannot instantiate (F1.1: a template *instantiates*
-    # into a valid protocol — validation must guarantee that, not just schema-shape).
+    # into a valid protocol  -  validation must guarantee that, not just schema-shape).
     declared = set(doc.get("parameters", {}))
     used = _skeleton_placeholders(doc.get("protocolSkeleton", {}))
     for name in sorted(used - declared):
         problems.append(
             f"{tid}: protocolSkeleton uses {{{{ {name} }}}} but no parameter "
-            f"{name!r} is declared — the template could not instantiate"
+            f"{name!r} is declared  -  the template could not instantiate"
         )
     return problems
 
@@ -347,7 +347,7 @@ def _merge_protocols(protocols: list[dict], template_ids: list[str]) -> dict:
 
 def merge_templates(template_ids: list[str], parameters: dict) -> dict:
     """
-    Compose several templates into one protocol at runtime (FR-TPL) — the "borrow a
+    Compose several templates into one protocol at runtime (FR-TPL)  -  the "borrow a
     measure from here, an analysis from there" move that lets a researcher build
     something novel that's still grounded in every source paper it draws from.
     """
@@ -377,12 +377,12 @@ def merge_templates(template_ids: list[str], parameters: dict) -> dict:
 # The bounds a derived template is validated against. A derived template is
 # checked by the same schema as a hand-authored one
 # (templates/schemas/template.schema.json), and every field below is composed
-# from a corpus paper's title — text this module does not control and cannot
+# from a corpus paper's title  -  text this module does not control and cannot
 # assume is short. `test_derive_from_paper_fields_match_the_schema_bounds`
 # pins these to the schema so they cannot drift apart silently.
 _TITLE_MAX = 120
 _DESCRIPTION_MAX = 500
-# 63, not the schema's `maxLength: 64` — templateId also carries a pattern,
+# 63, not the schema's `maxLength: 64`  -  templateId also carries a pattern,
 # `^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`, which admits at most 1 + 61 + 1
 # characters. The pattern is the tighter of the two constraints, and trimming
 # to `maxLength` alone still produced ids the schema rejected.
@@ -411,7 +411,7 @@ def derive_template_from_paper(
 ) -> dict:
     """
     Bind a corpus paper to a base archetype, producing a template specialised to that
-    paper (FR-TPL-4) — this is how the corpus's thousands of papers become executable
+    paper (FR-TPL-4)  -  this is how the corpus's thousands of papers become executable
     starting points without hand-authoring one template each: any paper is "run" through
     the nearest archetype, cited as the design's primary source.
 
@@ -433,7 +433,7 @@ def derive_template_from_paper(
     derived["templateId"] = f"{base_template_id}--{slug}"[:_TEMPLATE_ID_MAX].rstrip("-")
     label = title or paper_ref
     base_title = base.get("title", base_template_id)
-    derived["title"] = _fit(f"{base_title} — after {label}", _TITLE_MAX)
+    derived["title"] = _fit(f"{base_title}  -  after {label}", _TITLE_MAX)
     derived["description"] = _fit(
         f"The {base.get('designType', 'study')} archetype specialised toward "
         f"{label}. Cite this paper as the design's source; adjust parameters to "

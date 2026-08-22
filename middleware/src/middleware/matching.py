@@ -185,7 +185,7 @@ _EXPANSION_MAX = 512
 def expand_query(query: str) -> str:
     """
     Bridge vocabulary gaps for keyword FTS by asking the LLM for the concepts and
-    synonyms a paper on this topic might use — the *semantic meaning* layer over the
+    synonyms a paper on this topic might use  -  the *semantic meaning* layer over the
     inverted index, now searching real abstracts (``corpus-enrich``) rather than titles
     alone.
     """
@@ -201,7 +201,7 @@ def expand_query(query: str) -> str:
         return q
     prompt = (
         "A researcher described a study idea. List 6-10 concise search keywords "
-        "and close synonyms a paper on this topic might use — comma-separated, "
+        "and close synonyms a paper on this topic might use  -  comma-separated, "
         "no explanation.\n\nIdea: " + q
     )
     try:
@@ -275,7 +275,8 @@ def match_papers(
         candidate.update(
             title=row.title,
             year=row.year,
-            venue=row.venue,
+            venue=_display_venue(row.venue),
+            identifier=_public_identifier(row),
             inStudy=candidate["ref"] in study_refs,
             confidence=conf,
         )
@@ -286,7 +287,7 @@ def match_papers(
             + WEIGHT_CONFIDENCE * (conf if conf is not None else 0.0)
         )
         if "matchReason" not in candidate:
-            candidate["matchReason"] = _reason_for(query_terms, candidate, row)
+            candidate["matchReason"] = _reason_for(s, query_terms, candidate, row)
         enriched.append(candidate)
 
     enriched.sort(key=lambda c: -c.get("score", 0.0))
@@ -301,6 +302,7 @@ def match_papers(
             "title": c.get("title", ""),
             "year": c.get("year"),
             "venue": c.get("venue", ""),
+            "identifier": c.get("identifier", ""),
             "inStudy": c.get("inStudy", False),
             "confidence": c.get("confidence"),
             "matchReason": c.get("matchReason", ""),
@@ -309,7 +311,26 @@ def match_papers(
     ]
 
 
-def _reason_for(query_terms: list[str], candidate: dict, row: Paper) -> str:
+def _display_venue(venue: str | None) -> str:
+    """Turn source metadata into a reader-facing venue label."""
+    value = (venue or "").strip()
+    if value.lower() in {"arxiv.org", "arxiv", "arx iv"}:
+        return "arXiv preprint"
+    return value
+
+
+def _public_identifier(row: Paper) -> str:
+    """Prefer a stable scholarly identifier; never expose a corpus slug."""
+    if row.doi:
+        return f"doi:{row.doi.removeprefix('doi:')}"
+    if row.arxiv_id:
+        return f"arXiv:{row.arxiv_id.removeprefix('arxiv:')}"
+    if not row.paper_ref.startswith("corpus:"):
+        return row.paper_ref
+    return ""
+
+
+def _reason_for(s: Session, query_terms: list[str], candidate: dict, row: Paper) -> str:
     """
     A deterministic, honest reason: the matched terms (F9.2), or the vouching seeds for
     a graph-only match.
@@ -319,11 +340,21 @@ def _reason_for(query_terms: list[str], candidate: dict, row: Paper) -> str:
     )
     if matched:
         return f"Matches your terms: {', '.join(matched[:4])}."
-    via = candidate.get("via", [])
+    via = sorted(set(candidate.get("via", [])))
     if via:
-        seeds = ", ".join(v.removeprefix("corpus:") for v in sorted(set(via))[:3])
-        return f"Cited alongside the seed paper(s): {seeds}."
-    return "Related in the corpus graph."
+        titles = list(
+            s.scalars(
+                select(Paper.title).where(
+                    Paper.study_id == CORPUS_STUDY_ID,
+                    Paper.paper_ref.in_(via),
+                )
+            )
+        )
+        if titles:
+            shown = ", ".join(titles[:2])
+            suffix = " and another paper" if len(titles) > 2 else ""
+            return f"Related to {shown}{suffix} in your library."
+    return "Related to papers in your library."
 
 
 def get_paper_metadata(s: Session, paper_ref: str) -> dict | None:

@@ -35,7 +35,7 @@ export interface Plates {
   /** Nothing existed before this compile, so the instrument has one plate. */
   firstVersion: boolean;
   /** Rows the container must reserve so a shorter plate's turn cannot collapse
-   * the layout — which would be the one motion the comparator must never
+   * the layout  -  which would be the one motion the comparator must never
    * make. */
   rows: number;
 }

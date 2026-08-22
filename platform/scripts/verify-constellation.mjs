@@ -9,7 +9,7 @@
  *   - node/edge opacity match the at-rest vs. focused states
  *   - "incident" means touching the focus node itself, not just its
  *     neighbourhood (two neighbours citing each other are "dimmed")
- *   - labels reveal by selection, focus, or zoomed-in radius — never always
+ *   - labels reveal by selection, focus, or zoomed-in radius  -  never always
  *     (the dense mode above the always-on node-count limit)
  *   - the label mode flips from always-on to zoom-gated at the node-count
  *     threshold, so a small study reads by name and a large one stays legible
@@ -47,7 +47,7 @@ import {
 
 let failures = 0;
 const ok = (name, cond, detail = "") => {
-  console.log(`${cond ? "✓" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${cond ? "✓" : "✗"} ${name}${detail ? `  -  ${detail}` : ""}`);
   if (!cond) failures++;
 };
 
@@ -180,7 +180,7 @@ ok(
 
 // ------------------------------------------------------------------ lenses
 // A study with two of its own papers, plus one suggestion arriving down each
-// of the three relations — so every lens has exactly one thing to show and
+// of the three relations  -  so every lens has exactly one thing to show and
 // the anchors are shared.
 const LENS_NODES = [
   { paperRef: "own-a", ingested: true },
@@ -222,7 +222,7 @@ ok("a suggestion survives only on the lens that introduced it",
 ok("`all` keeps every node, by identity",
   lensNodes(LENS_NODES, LENS_EDGES, "all") === LENS_NODES);
 
-// The badge counts suggestions, not nodes — the anchors are not what a
+// The badge counts suggestions, not nodes  -  the anchors are not what a
 // researcher is choosing between.
 const counts = lensCounts(LENS_NODES, LENS_EDGES);
 ok("each lens counts exactly its own suggestions, never the anchors",

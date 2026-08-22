@@ -107,7 +107,7 @@ def test_a_paper_derived_template_instantiates_to_a_valid_protocol():
 
 def test_from_paper_route_hands_back_a_protocol_to_start_from(client_tpl):
     """
-    The route carries the protocol, not just the template — otherwise the UI has a card
+    The route carries the protocol, not just the template  -  otherwise the UI has a card
     it can display and nothing it can act on.
     """
     hits = client_tpl.get("/corpus/search?q=ai").json()["results"]
@@ -153,7 +153,7 @@ def test_derive_from_paper_fields_match_the_schema_bounds():
 def test_a_long_paper_title_still_derives_a_schema_valid_template():
     """
     The corpus is full of titles long enough to overrun the schema's caps. Composing
-    past them raised a 422 at the researcher for picking two ordinary menu entries —
+    past them raised a 422 at the researcher for picking two ordinary menu entries  -
     a real pairing that failed: this archetype's own title plus a 73-character paper
     name came to 134 characters against a cap of 120.
     """
@@ -172,7 +172,7 @@ def test_a_long_paper_title_still_derives_a_schema_valid_template():
     # Trimmed, not truncated into nonsense: the archetype's own name survives, so the
     # card still says what kind of design this is.
     base_title = tr.load_template("metr-rct-v1")["title"]
-    assert derived["title"].startswith(f"{base_title} — after ")
+    assert derived["title"].startswith(f"{base_title}  -  after ")
     assert derived["title"].endswith("\u2026"), "a cut title should say it was cut"
     # The paper is still the primary source even when its name was shortened.
     assert derived["source"][0]["paperRef"] == "corpus:trust-in-ai-code-generation"

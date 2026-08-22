@@ -45,6 +45,13 @@ export interface RepertoireEntry extends TemplateSummary {
   unresolvedSources: string[];
 }
 
+export interface CorpusStatus {
+  state: "idle" | "empty" | "loading" | "partial" | "ready" | "error";
+  papers: number;
+  expected: number;
+  error: string;
+}
+
 export interface MergeResult {
   protocol: Record<string, unknown>;
   templateIds: string[];
@@ -70,7 +77,7 @@ export interface DerivedTemplate {
     source: TemplateSource[];
   };
   paper: { ref: string; title: string; confidence: number | null };
-  /** The derived template already filled with its defaults — what a new
+  /** The derived template already filled with its defaults  -  what a new
    *  study's draft is seeded from. The template itself is never registered,
    *  so there is no id anything else could instantiate it by. */
   protocol: Record<string, unknown>;
@@ -114,6 +121,7 @@ export const templatesApi = {
       repertoire: RepertoireEntry[];
       count: number;
       minReferenceConfidence: number;
+      corpus: CorpusStatus;
     }>(`/templates/repertoire?limitRefs=${limitRefs}`),
   plan: (id: string) =>
     req<{ templateId: string; explanation: string[] }>(

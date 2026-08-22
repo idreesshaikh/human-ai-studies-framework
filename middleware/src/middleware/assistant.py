@@ -1,7 +1,7 @@
 """
 The shared LLM client layer: provider setup, model tiers, and the protocol's
 ``literature:`` seed links. The design conversation and the corpus match ladder
-are its only callers — this module holds no conversational surface of its own.
+are its only callers  -  this module holds no conversational surface of its own.
 """
 
 from __future__ import annotations

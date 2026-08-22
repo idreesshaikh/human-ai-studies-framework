@@ -19,7 +19,7 @@ import { STATE_BLOCK, STATE_LEGS, STATE_PENDING } from './pairing';
  *
  * Tree views rather than a webview, deliberately: they inherit VS Code's
  * theming, keyboard navigation, and screen-reader behaviour, which is most of
- * NFR-12's bar met by construction instead of re-implemented in HTML — and
+ * NFR-12's bar met by construction instead of re-implemented in HTML  -  and
  * they cannot execute anything, which matters on a surface that renders
  * server-supplied strings.
  *
@@ -37,7 +37,7 @@ export interface SidebarSession {
   participantId?: string;
   condition?: string;
   dataFile?: string;
-  /** Events written locally vs. mirrored upstream — a `seq` gap here is how
+  /** Events written locally vs. mirrored upstream  -  a `seq` gap here is how
    *  loss stays detectable (NFR-2), so it belongs on the participant's
    *  surface, not only in a log file. */
   written?: number;
@@ -108,7 +108,7 @@ abstract class BaseProvider implements vscode.TreeDataProvider<Row> {
   protected abstract roots(): Row[];
 }
 
-/** View 1 — Session. The start/pause/end actions that were previously only
+/** View 1  -  Session. The start/pause/end actions that were previously only
  *  reachable through the status-bar quick-pick. */
 export class SessionView extends BaseProvider {
   constructor(
@@ -173,7 +173,7 @@ export class SessionView extends BaseProvider {
   }
 }
 
-/** View 2 — Capture. All four legs, always. */
+/** View 2  -  Capture. All four legs, always. */
 export class CaptureView extends BaseProvider {
   constructor(private readonly context: vscode.ExtensionContext) {
     super();
@@ -233,7 +233,7 @@ export class CaptureView extends BaseProvider {
               ? t.currentValue
                 ? 'on'
                 : 'off'
-              : String(t.currentValue ?? '—'),
+              : String(t.currentValue ?? ' - '),
             t.consentRelevant ? 'shield' : undefined,
           ),
       );
@@ -261,7 +261,7 @@ export class CaptureView extends BaseProvider {
   }
 }
 
-/** View 3 — Data. Where it goes, and whether any of it went missing. */
+/** View 3  -  Data. Where it goes, and whether any of it went missing. */
 export class DataView extends BaseProvider {
   constructor(private readonly probe: SessionProbe) {
     super();
@@ -279,7 +279,7 @@ export class DataView extends BaseProvider {
       ),
       new Row(
         'Sent to the study server',
-        endpoint ? endpoint : 'not connected — local only',
+        endpoint ? endpoint : 'not connected  -  local only',
         endpoint ? 'cloud-upload' : 'circle-slash',
       ),
     ];

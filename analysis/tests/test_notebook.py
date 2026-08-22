@@ -42,7 +42,7 @@ def test_build_notebook_is_valid_nbformat4_json():
 def test_the_notebook_actually_opens_in_jupyter():
     """
     The bar that matters: not "shaped like nbformat 4" by this module's own assumptions,
-    but valid against nbformat's real schema — the same check Jupyter itself runs on
+    but valid against nbformat's real schema  -  the same check Jupyter itself runs on
     open.
     """
     doc = build_notebook(_protocol(), _dataset(), "pilot-2026")
@@ -120,8 +120,8 @@ def test_notebook_never_runs_a_recipe():
 
 def test_notebook_carries_the_session_timeline_cell():
     """
-    P2-1: the curated handoff leads with the one-glance session picture — the timeline
-    figure — before any recipe, so the researcher sees the shape of the data (and any
+    P2-1: the curated handoff leads with the one-glance session picture  -  the timeline
+    figure  -  before any recipe, so the researcher sees the shape of the data (and any
     integrity flags) first.
     """
     doc = build_notebook(_protocol(), _dataset(), "pilot-2026")

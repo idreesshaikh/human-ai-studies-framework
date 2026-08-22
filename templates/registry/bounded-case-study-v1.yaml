@@ -2,8 +2,8 @@ templateVersion: 1
 templateId: bounded-case-study-v1
 title: Bounded case study (one team, cohort, or organisation)
 description: |
-  An in-depth study of AI-assisted development inside one bounded context —
-  a single team, cohort, or company — where the contribution is contextual
+  An in-depth study of AI-assisted development inside one bounded context  -
+  a single team, cohort, or company  -  where the contribution is contextual
   insight, not a generalisable effect. Distinct from
   single-arm-benchmark-v1 (one arm against an external benchmark) and
   observational-field-v1 (naturalistic telemetry across a population): here

@@ -71,7 +71,7 @@ place the cursor in a file and wiggle it occasionally without typing.
 The Quick start above configures the extension by hand, which is ideal for
 local testing. Real participants instead **connect to a study on the
 middleware**, so their identity, condition, and capture settings all come
-from the study protocol — no manual configuration, no side-channel.
+from the study protocol  -  no manual configuration, no side-channel.
 
 1. The researcher mints a **connection string** for the participant (from the
    platform / middleware). It looks like `https://your-study-server#<token>`.
@@ -84,10 +84,10 @@ from the study protocol — no manual configuration, no side-channel.
    and the middleware endpoint automatically, and stores a session credential
    securely (VS Code SecretStorage). A one-line summary confirms exactly what
    the study will capture.
-5. Run **_TERN: Start Study Session_** when ready — the session uses the
+5. Run **_TERN: Start Study Session_** when ready  -  the session uses the
    configuration that arrived from the study.
 
-The middleware refuses to pair a study with no compiled, validated protocol —
+The middleware refuses to pair a study with no compiled, validated protocol  -
 there is no separate ethics-approval gate; that approval is the university's
 to grant, and what the platform owes the participant is the consent statement
 above, shown before capture begins. Capture settings are re-checked at the

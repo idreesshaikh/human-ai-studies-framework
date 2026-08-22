@@ -1,4 +1,4 @@
-/* Steer — how much the design assistant drives the conversation.
+/* Steer  -  how much the design assistant drives the conversation.
  *
  * One control, two real levers, both of which already exist in the
  * middleware and neither of which is cosmetic:
@@ -11,7 +11,7 @@
  *              what was asked and flags only what is methodologically wrong.
  *
  * The METHOD never changes with this control. The same designs, the same
- * statistics, the same honesty about what is grounded and what is not — a
+ * statistics, the same honesty about what is grounded and what is not  -  a
  * researcher who turns steer down gets a quieter colleague, never a less
  * rigorous one, and one who turns it up is not given easier science. That
  * invariant is the reason this is a comfort setting and not a quality
@@ -73,7 +73,7 @@ export const STEER_STOPS: readonly SteerStop[] = [
  *
  * This was `guides` (2), which follows the researcher's own order rather than
  * steering. That suits someone who knows what they want next and strands
- * someone meeting the tool for the first time — two reviewers described the
+ * someone meeting the tool for the first time  -  two reviewers described the
  * result identically, as a conversation with no visible order and no sense of
  * how much was left. `leads` asks one question per turn and names the move it
  * would make, which is the systematic walk they asked for. Matches
@@ -86,8 +86,8 @@ export const DEFAULT_STEER: SteerLevel = 3;
  * someone who has run studies before: an experienced methodologist wants a
  * colleague who proposes and gets out of the way, not one who marches them
  * through a questionnaire. So a declared `experienced` profile starts at
- * `guides` instead. Everyone else — including anyone who has never opened
- * Settings — starts driven, because that is the case the default is for.
+ * `guides` instead. Everyone else  -  including anyone who has never opened
+ * Settings  -  starts driven, because that is the case the default is for.
  *
  * Only the STARTING point. The dial is per-study and always wins once moved. */
 export function defaultSteerFor(profile?: string | null): SteerLevel {
@@ -110,7 +110,7 @@ export function readSteer(
 ): SteerLevel {
   try {
     /* Read the string first and test it for absence explicitly. `Number(null)`
-     * is 0, and 0 is a valid level — so coercing first silently turned "this
+     * is 0, and 0 is a valid level  -  so coercing first silently turned "this
      * researcher has never touched the dial" into "this researcher asked for
      * the quietest setting", which is the one stop that stops proposals
      * arriving at all. */

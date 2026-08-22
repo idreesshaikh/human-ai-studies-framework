@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { MetricStrip } from "./MetricStrip";
 import { type DatasetRow } from "@/lib/studyApi";
 
-/* Deterministic synthetic rows for a rehearsal — NOT real data and never
+/* Deterministic synthetic rows for a rehearsal  -  NOT real data and never
  * persisted or sent to the server. A seeded LCG (no Math.random, matching the
  * charts' determinism) gives each condition a plausible-but-distinct spread so
  * the researcher can see the shape of their analysis before collecting

@@ -2,7 +2,7 @@
 
 The heart of the platform. You describe a research idea in plain English;
 PHOENIX asks the questions a research methodologist would, and proposes
-**design moves** — concrete design choices, each grounded in the published
+**design moves**  -  concrete design choices, each grounded in the published
 literature or plainly marked unsourced.
 
 <figure markdown="span">
@@ -15,7 +15,7 @@ literature or plainly marked unsourced.
 1. **Describe your idea.** Type what you want to find out, e.g.
    *"Do junior developers over-trust AI-generated code? What should I compare
    and measure?"*
-2. **Rule on proposals.** The assistant proposes one design move at a time —
+2. **Rule on proposals.** The assistant proposes one design move at a time  -
    a design shape, a measure, a comparison, a participant-count rule. Every
    move card carries its source: a real citation, or an explicit
    "no source found" label.
@@ -26,9 +26,9 @@ literature or plainly marked unsourced.
 
 Every proposal is either:
 
-- **Cited** — backed by one or more papers from the ~15,000-paper corpus, with
+- **Cited**  -  backed by one or more papers from the ~15,000-paper corpus, with
   a confidence score and citation chips; or
-- **Unsourced** — explicitly labelled, when no supporting paper exists.
+- **Unsourced**  -  explicitly labelled, when no supporting paper exists.
 
 There is no third state, and the UI never lets one masquerade as the other.
 Click any citation chip to open the paper in the literature library.
@@ -48,12 +48,12 @@ presumes less. The dial is continuous and takes effect on the next turn.
 ## Design session card
 
 The hero surfaces a **design session** card for quick access to a fresh
-conversation — open it, type an idea, and the assistant starts proposing
+conversation  -  open it, type an idea, and the assistant starts proposing
 immediately.
 
 ## What the assistant will not do
 
 - It will not fabricate a citation. No source, no citation.
-- It will not let the chat outrank the compiled draft — the
+- It will not let the chat outrank the compiled draft  -  the
   [protocol document](protocol-draft.md) is the single record of the study.
 - It will not present demo or synthetic data as findings.

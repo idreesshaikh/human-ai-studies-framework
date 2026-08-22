@@ -35,7 +35,11 @@ export function RecommendationCard({
           <span className="tabular type-caption text-text-muted">{rec.year}</span>
         </div>
         <p className="font-medium text-text">{rec.title}</p>
-        <p className="type-caption text-text-muted">{rec.venue}</p>
+        {(rec.venue || rec.identifier) && (
+          <p className="type-caption text-text-muted">
+            {[rec.venue, rec.identifier].filter(Boolean).join(" · ")}
+          </p>
+        )}
         <p className="type-body text-text">{rec.matchReason}</p>
         <Button
           size="sm"

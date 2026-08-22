@@ -70,7 +70,7 @@ def session(tmp_path):
 
 def test_signature_describes_the_shape_not_the_paper(session):
     """
-    A shape's signature is design vocabulary — if it were built from the source paper's
+    A shape's signature is design vocabulary  -  if it were built from the source paper's
     title or prose, the template would collapse back into a replica of that one paper
     and every topical paper would 'use' it.
     """
@@ -138,7 +138,7 @@ def test_repertoire_is_ranked_common_to_rare(session):
 
 
 def test_ranking_is_deterministic(session):
-    """No LLM decides which design is common — two runs rank identically."""
+    """No LLM decides which design is common  -  two runs rank identically."""
     first = template_repertoire.rank_repertoire(session, use_cache=False)
     second = template_repertoire.rank_repertoire(session, use_cache=False)
     assert [e["id"] for e in first] == [e["id"] for e in second]

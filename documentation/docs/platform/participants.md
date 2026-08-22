@@ -12,14 +12,14 @@ order is rotated so every participant meets every condition.
 ## Participant links
 
 A click produces a participant link (`vscode://…/pair` deep link). Opening it
-in VS Code installs the study on that machine — consent statement, capture
-config, everything — already configured exactly as designed. No per-machine
+in VS Code installs the study on that machine  -  consent statement, capture
+config, everything  -  already configured exactly as designed. No per-machine
 setup, no configuration drift.
 
 ## Counterbalanced assignment
 
 Task order is rotated automatically so every participant meets every condition
-in a different order — the study you designed is the study that runs.
+in a different order  -  the study you designed is the study that runs.
 
 ## Projects, roles, and invitations
 

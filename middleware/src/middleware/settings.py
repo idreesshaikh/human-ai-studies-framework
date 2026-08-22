@@ -54,7 +54,7 @@ class Settings:
         )
     )
     # Priority: MIDDLEWARE_PORT (explicit operator override) > PORT (Railway dynamically
-    # assigns this per-service and routes/healthchecks against it — the app must
+    # assigns this per-service and routes/healthchecks against it  -  the app must
     # actually bind here or every external probe reads "service unavailable" even though
     # the app is healthy internally) > 8000 (the FR-ING-1 default every instrument leg's
     # 127.0.0.1 endpoint assumes for local/self-hosted use, where PORT is never set).

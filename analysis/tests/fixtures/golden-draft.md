@@ -72,7 +72,7 @@ In the AI condition the agent interaction is captured via claude-code under a me
 | Comment ratio | comment lines / source lines | [@nejmeh1988] |
 
 <!-- trace: FR-ETH-1 / FR-ETH-2 / ethics -->
-Ethics reference: UoM CS ethics application (pending — not yet obtained). Consent is matched to the declared content policy (FR-ETH-2/FR-AGENT-5).
+Ethics reference: UoM CS ethics application (pending  -  not yet obtained). Consent is matched to the declared content policy (FR-ETH-2/FR-AGENT-5).
 
 ## Results
 

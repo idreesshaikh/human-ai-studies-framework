@@ -28,7 +28,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 /* The study's enrollment surface (FR-DASH-10): mint pairing links, see who has
  * paired / is streaming with live polling, revoke, and toggle per-metric
- * capture (FR-DASH-11). Lives inside the study workspace — running a study is
+ * capture (FR-DASH-11). Lives inside the study workspace  -  running a study is
  * part of the study. */
 export function EnrollmentPanel({
   studyId,
@@ -57,7 +57,7 @@ export function EnrollmentPanel({
   const canToggle = hasRole(role, "toggle_capture");
 
   const load = useCallback(() => {
-    // A study with no compiled protocol has nothing to enroll — surface it
+    // A study with no compiled protocol has nothing to enroll  -  surface it
     // calmly instead of letting a rejected read blank the tab.
     void api
       .listEnrollmentTokens(studyId)
@@ -90,7 +90,7 @@ export function EnrollmentPanel({
     };
   }, [load]);
 
-  /* Revoking used to be `void api.revoke(...).then(load)` — a rejection
+  /* Revoking used to be `void api.revoke(...).then(load)`  -  a rejection
    * became an unhandled promise and the row simply stayed, which reads as
    * the button doing nothing. Optimistic, with a rollback and a stated
    * reason. */
@@ -120,7 +120,7 @@ export function EnrollmentPanel({
 
   /* Same precondition as the Data tab, and the same treatment: a study whose
    * protocol has never compiled cannot enroll anyone, so that is one fact
-   * with one move that resolves it — not a caution stacked above a live
+   * with one move that resolves it  -  not a caution stacked above a live
    * "Mint links" button, a "no sessions running" readout and a dashed box,
    * each describing a consequence of it. */
   const noProtocol =
@@ -146,20 +146,20 @@ export function EnrollmentPanel({
   }
 
   return (
-    /* `work`, the same measure Data and Planning use — the four tabs of one
+    /* `work`, the same measure Data and Planning use  -  the four tabs of one
      * workspace must not move the content column as you switch between them.
      * This panel was the odd one out at `wide`, so Participants sat 192px
      * wider than Data and Planning and the page visibly jumped between tabs.
      *
-     * The old justification — seven columns needing the contract's escape
-     * hatch — does not hold: the table is `min-w-3xl` (768px) inside
+     * The old justification  -  seven columns needing the contract's escape
+     * hatch  -  does not hold: the table is `min-w-3xl` (768px) inside
      * `overflow-x-auto`, and `work` leaves 896px of column, so it fits with
      * room to spare and still scrolls on its own if a window gets tighter. */
     <Surface measure="work" label="Participants" data-agent="enrollment-panel">
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1">
           {/* Counts enrollment links, so it says "enrolled" only about
-            * enrolment — a study holding imported or replayed sessions has
+            * enrolment  -  a study holding imported or replayed sessions has
             * participants without ever having minted one. */}
           <h2 className="type-section text-text">
             {rows.length === 0
@@ -168,10 +168,10 @@ export function EnrollmentPanel({
                 : "None enrolled"
               : `${rows.length} enrolled`}
           </h2>
-          {/* Prose is held to the reading measure even inside a wider column —
+          {/* Prose is held to the reading measure even inside a wider column  -
             * the layout contract has a measure for running text precisely so
             * a panel does not set its prose to the width its table needs. */}
-          <p className="mt-1 max-w-reading type-caption text-text-muted">
+          <p className="mt-1 max-w-work type-body text-text-muted">
             One link per participant. They paste it once, their editor joins the
             study, and what each instrument will capture is listed before
             anything is recorded.
@@ -184,12 +184,15 @@ export function EnrollmentPanel({
           {/* Same measure, and it matters more here: this sentence ends in a
             * mono command chip, so at full width the chip was stranded out at
             * the right edge on its own. VS Code's command really is named
-            * "Extensions: Install from VSIX…" — that ellipsis is part of the
-            * name, not a truncation — but marooned at the end of a very long
+            * "Extensions: Install from VSIX…"  -  that ellipsis is part of the
+            * name, not a truncation  -  but marooned at the end of a very long
             * line it read as a string that had been cut off. */}
-          <p className="mt-1 max-w-reading type-caption text-text-muted">
+          <p className="mt-2 max-w-work type-body text-text-muted">
             Participants need the {EXTENSION_NAME} extension first. It is not
-            on the Marketplace.{" "}
+            on the Marketplace.
+          </p>
+          <div className="mt-1 flex max-w-work flex-wrap items-center gap-x-1.5 gap-y-1 type-caption text-text-muted">
+            <span>Download the extension:</span>{" "}
             <a
               href={EXTENSION_RELEASES_URL}
               target="_blank"
@@ -198,8 +201,8 @@ export function EnrollmentPanel({
               data-agent="extension-install-link"
             >
               Download the .vsix
-            </a>{" "}
-            and install it with{" "}
+            </a>
+            <span>and install it with</span>
             {/* Verbatim, and in the measurement voice. `type-legend`
               * uppercases and tracks its contents, which is right for a
               * column head and wrong for a string the participant has to
@@ -208,11 +211,11 @@ export function EnrollmentPanel({
             <kbd className="type-quantity whitespace-nowrap rounded-chip border border-border px-1.5 py-0.5 font-mono text-text">
               Extensions: Install from VSIX…
             </kbd>
-          </p>
+          </div>
         </div>
         {/* Only while there is a roster to add to. With none, the same control
           * moves into the empty state below, next to the sentence telling you
-          * to press it — it used to sit a thousand pixels away at the far
+          * to press it  -  it used to sit a thousand pixels away at the far
           * right of a `wide` surface, so the instruction and its button were
           * never in one glance. */}
         {canMint && !loadError && rows.length > 0 && (
@@ -247,7 +250,7 @@ export function EnrollmentPanel({
                 for {dataParticipants.length} participant
                 {dataParticipants.length === 1 ? "" : "s"} (
                 {dataParticipants.join(", ")}) collected outside the enrollment
-                flow — see the Data tab. Mint a link to enroll anyone new.
+                flow  -  see the Data tab. Mint a link to enroll anyone new.
               </>
             ) : (
               "Each participant gets one link. Mint the first one and it appears here with its condition, its capture list, and whether it has been claimed."

@@ -1,9 +1,9 @@
 <!-- Marketplace listing icon (converted to media/icon.png, which is what
-     package.json points at — the Marketplace rejects SVG).
+     package.json points at  -  the Marketplace rejects SVG).
 
      Distinct from media/tern.svg: that one is the activity-bar glyph and must
      be monochrome `currentColor` strokes so VS Code can theme it. This one
-     stands alone on a listing page, so it carries its own colour — the
+     stands alone on a listing page, so it carries its own colour  -  the
      platform's signal blue on the dark observatory ground, matching
      galleryBanner. Same mark: four capture legs converging on one timeline. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 128 128">

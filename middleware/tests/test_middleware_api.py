@@ -416,7 +416,7 @@ def test_spa_is_served_when_built(tmp_path):
     assert client.get("/assets/app.js").status_code == 200
     assert client.get("/health").json()["status"] == "ok"
 
-    # Every top-level client route App.tsx renders must be enumerated here too —
+    # Every top-level client route App.tsx renders must be enumerated here too  -
     # a route missing from this allowlist is invisible to the SPA fallback and a
     # direct navigation, refresh, or bookmark 404s on the *server*, even though
     # the client-side router would have handled it fine from a soft navigation.

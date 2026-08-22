@@ -86,8 +86,8 @@ const PAIRS = [
   ["--accent", "--surface", 3, "the accent as a control edge"],
   ["--focus-ring", "--bg", 3, "the focus ring on the ground"],
   ["--focus-ring", "--surface", 3, "the focus ring on a plate"],
-  /* The mark ink sets TYPE as well as the grounding dot — the printed score
-   * (Confidence.tsx) — so it is held to the 4.5:1 text floor rather than the
+  /* The mark ink sets TYPE as well as the grounding dot  -  the printed score
+   * (Confidence.tsx)  -  so it is held to the 4.5:1 text floor rather than the
    * 3:1 a drawn graphic alone would answer to. The dot's reference FRAME is
    * `--control-edge`, asserted above: it is a graphical object required to
    * understand the value, so SC 1.4.11 binds it at 3:1. */
@@ -107,7 +107,7 @@ for (const [selector, rendition] of [
     const ok = r >= floor;
     if (!ok) failures++;
     console.log(
-      `  ${ok ? "✓" : "✗"} ${r.toFixed(2)}:1 (needs ${floor}) — ${what}`,
+      `  ${ok ? "✓" : "✗"} ${r.toFixed(2)}:1 (needs ${floor})  -  ${what}`,
     );
   }
 }

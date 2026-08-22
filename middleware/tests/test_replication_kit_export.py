@@ -13,7 +13,7 @@ STUDY = "kit-study"
 
 def _protocol_yaml() -> str:
     """
-    A real, valid protocol — instantiated from the registry rather than hand-written, so
+    A real, valid protocol  -  instantiated from the registry rather than hand-written, so
     this test can never pass against a shape the platform would reject.
     """
     import yaml
@@ -70,7 +70,7 @@ def test_export_returns_a_downloadable_kit(client):
 
 def test_export_is_byte_reproducible(client):
     """
-    Two exports of the same study are the same archive — the property the whole kit
+    Two exports of the same study are the same archive  -  the property the whole kit
     exists for (FR-PROT-7).
     """
     _seed_draft(client)

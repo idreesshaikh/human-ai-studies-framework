@@ -484,7 +484,7 @@ def _curated_threats(md: list, tex: list, record: dict) -> None:
         tex,
         "threats / coverage (FR-CUR-3)",
         f"**Coverage.** Requested {cov.get('requested', 0)}, retrieved "
-        f"{cov.get('retrieved', 0)}" + (f"; dropped — {dropped}." if dropped else "."),
+        f"{cov.get('retrieved', 0)}" + (f"; dropped  -  {dropped}." if dropped else "."),
         bold_head="Coverage",
     )
 
@@ -597,7 +597,7 @@ _TEX_ESCAPES = {
     "^": "\\textasciicircum{}",
 }
 _TEX_UNICODE = {
-    "—": "---",
+    " - ": " - ",
     "–": "--",
     "→": "$\\rightarrow$",
     "≥": "$\\geq$",

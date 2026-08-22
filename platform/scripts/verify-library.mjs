@@ -10,13 +10,13 @@
  *   - the exact node positions match a golden snapshot (below)
  *
  * The golden snapshot exists because the other three checks would all still
- * pass after a refactor that moved every node to a different (x, y) — none
+ * pass after a refactor that moved every node to a different (x, y)  -  none
  * of them pin the actual layout. It is the safety net for the Obsidian-style
  * constellation rewrite: `layoutGraph`'s body must not change underneath it
  * (`forceLayout.ts`'s new helpers are additive-only), so this snapshot should
  * never need updating by that work. If a *deliberate* layout change ever
  * needs one, regenerate it by running this fixture through `layoutGraph` and
- * copying its rounded output back in — never hand-edit the numbers.
+ * copying its rounded output back in  -  never hand-edit the numbers.
  */
 import {
   layoutGraph,
@@ -27,7 +27,7 @@ import {
 
 let failures = 0;
 const ok = (name, cond, detail = "") => {
-  console.log(`${cond ? "✓" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${cond ? "✓" : "✗"} ${name}${detail ? `  -  ${detail}` : ""}`);
   if (!cond) failures++;
 };
 

@@ -9,8 +9,8 @@ title: Telemetry and self-report join for AI code completion productivity
 
 description: |
   Combines fine-grained telemetry (acceptance rate, latency) with self-report
-  survey data to measure productivity. The recipe 'ziegler-acceptance-rate'
-  already exists (FR-ANA-5), closing the design->analysis loop.
+  survey data to measure productivity. The existing acceptance-rate analysis
+  connects the study design to the analysis plan.
 
 source:
   - paperRef: arxiv:2205.06537
@@ -131,7 +131,7 @@ instruments:
 
 statisticalPlan:
   unit: participant
-  
+
   perRQ:
     - rq: primary
       outcome: acceptance-rate (proportion, paired)
@@ -140,7 +140,7 @@ statisticalPlan:
       aggregationUnit: per-participant
       smallN: hypothesis-generating
       multipleComparison: bonferroni
-      
+
     - rq: correlation
       outcome: acceptance-rate (continuous) vs self-report-productivity (ordinal)
       test: spearman
@@ -152,20 +152,20 @@ threats:
   - threat: demand-characteristics
     mitigation: Participants unaware of acceptance rate being measured
     cite: guidelines-empirical-llm-se
-  
+
   - threat: social-desirability-bias
     mitigation: Anonymized responses and neutral framing
     cite: guidelines-empirical-llm-se
 
 protocolSkeleton:
   protocolVersion: 4
-  
+
   study:
     id: "{{ studyId }}"
     title: "{{ title }}"
     researchers: "{{ researchers }}"
     ethicsRef: "{{ ethicsRef }}"
-  
+
   researchQuestions:
     - id: RQ-1
       text: "What is the acceptance rate for AI-generated code completions?"
@@ -173,21 +173,21 @@ protocolSkeleton:
       text: "How does acceptance rate correlate with self-reported productivity?"
     - id: RQ-3
       text: "What is the latency between code completion display and acceptance?"
-  
+
   conditions: "{{ conditions }}"
-  
+
   participants:
     planned: "{{ participantPlan }}"
     design: within-subjects
     counterbalanced: true
-  
+
   session:
     durationMinutes: "{{ sessionMinutes }}"
     taskDescription: |
       Participants complete {{ taskCount }} coding tasks. Code completion suggestions
       are shown by the AI assistant. Participants may accept or reject each suggestion.
       {{ taskDescription }}
-  
+
   instruments:
     tern:
       session:
@@ -220,7 +220,7 @@ protocolSkeleton:
       gates: []
     - name: write-up
       gates: []
-  
+
   analysisPlan:
     - rq: RQ-1
       recipes: [ziegler-acceptance-rate]
@@ -228,7 +228,7 @@ protocolSkeleton:
       recipes: [ai-review-behavior]
     - rq: RQ-3
       recipes: [task-outcome-by-condition]
-  
+
   literature:
     - paperRef: arxiv:2205.06537
       justifies: [RQ-1, RQ-2, RQ-3]

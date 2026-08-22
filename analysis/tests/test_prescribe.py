@@ -77,7 +77,7 @@ def test_a_named_recipe_always_exists():
 def test_shapes_from_recipe_ids_resolves_a_studys_own_plan():
     """
     A study's compiled analysisPlan stores recipe ids ("paired-nonparametric"),
-    not shape ids ("paired") — this is what lets the Data tab show only the
+    not shape ids ("paired")  -  this is what lets the Data tab show only the
     prescription for a study's own design instead of every shape PHOENIX
     knows, regardless of that study's actual design (the previous bug).
     """

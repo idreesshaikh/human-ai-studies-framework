@@ -4,7 +4,7 @@ import { studyApi, type Prescription } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
 /* The prescription table (FR-TPL-6, NFR-8): for each design shape, the exact
- * test, effect size, correction, and sample-size guidance — each with its
+ * test, effect size, correction, and sample-size guidance  -  each with its
  * plain-language rationale, never a bare test name. This is the reassurance a
  * researcher needs before collecting data: the statistical formulation they
  * most fear getting wrong, made explicit and honest. Deterministic, LLM-free.
@@ -55,7 +55,7 @@ export function PrescriptionPanel({ studyId }: { studyId: string }) {
         </p>
       ) : rows.length === 0 ? (
         <p className="type-body text-text-muted">
-          Nothing prescribed yet — this fills in once your design conversation
+          Nothing prescribed yet  -  this fills in once your design conversation
           compiles a research question with an analysis plan.
         </p>
       ) : (

@@ -19,7 +19,7 @@ export function decodeConnectionString(raw: string): Connection {
   const i = s.lastIndexOf('#');
   if (i <= 0) {
     throw new ConnectionStringError(
-      'That does not look like a connection string — paste the whole line your researcher gave you.',
+      'That does not look like a connection string  -  paste the whole line your researcher gave you.',
     );
   }
   const serverUrl = s.slice(0, i).replace(/\/$/, '');

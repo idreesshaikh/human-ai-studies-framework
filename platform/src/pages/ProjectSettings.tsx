@@ -25,7 +25,7 @@ export function ProjectSettings() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
-  // My role here, with "not known yet" kept distinct from "viewer" — see
+  // My role here, with "not known yet" kept distinct from "viewer"  -  see
   // lib/role.ts. Defaulting to viewer while the session loaded is what made
   // the owner-only danger zone flicker in and out.
   const roleState = resolveRole({
@@ -59,7 +59,7 @@ export function ProjectSettings() {
       return;
     }
     // The project is gone. Refreshing the session is housekeeping after the
-    // fact — if it fails, that must not be reported as a failed delete, which
+    // fact  -  if it fails, that must not be reported as a failed delete, which
     // is what happened while this sat inside the try above.
     await refresh().catch(() => {});
     navigate("/home");
@@ -90,7 +90,7 @@ export function ProjectSettings() {
                 Save
               </Button>
             </div>
-            {/* The slug is set once at creation and never follows a rename —
+            {/* The slug is set once at creation and never follows a rename  -
              * intentional, so bookmarks and shared invite links never break.
              * Called out here so that stays a design decision, not a bug
              * report. */}

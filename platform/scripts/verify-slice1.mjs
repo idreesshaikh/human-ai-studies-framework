@@ -1,7 +1,7 @@
 /* Exercises the client-side protocol compiler (no browser needed). Run:
  *   node --experimental-strip-types scripts/verify-slice1.mjs
  *
- * This used to drive the client's design stub — a keyword-scripted stand-in
+ * This used to drive the client's design stub  -  a keyword-scripted stand-in
  * for the conversation that answered whenever the server was unreachable.
  * The stub is gone (the conversation requires a model and says so when it
  * has none), so the moves below are written out here instead. They are the
@@ -14,7 +14,7 @@ import { emptyDraft } from "../src/lib/types.ts";
 
 let failures = 0;
 const ok = (name, cond, detail = "") => {
-  console.log(`${cond ? "✓" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${cond ? "✓" : "✗"} ${name}${detail ? `  -  ${detail}` : ""}`);
   if (!cond) failures++;
 };
 
@@ -46,7 +46,7 @@ const mixed = accepted.map((m) =>
 ok("rejected move absent from draft",
   !compileAll(mixed).measures.includes("Review latency"));
 
-// Determinism — same accepted moves, same base → identical draft.
+// Determinism  -  same accepted moves, same base → identical draft.
 ok("compilation is deterministic (replay identical)",
   JSON.stringify(compileAll(accepted)) === JSON.stringify(compileAll(accepted)));
 

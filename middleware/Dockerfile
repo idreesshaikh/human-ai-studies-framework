@@ -9,7 +9,7 @@ RUN npm ci
 COPY platform/ ./
 RUN npm run build
 
-# Stage 2: the middleware itself — single process serves API + SPA (NFR-7).
+# Stage 2: the middleware itself  -  single process serves API + SPA (NFR-7).
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
@@ -34,7 +34,7 @@ COPY --from=web /web/dist platform/dist
 # the harvested Tier B index. Without these the `papers` table can't be
 # imported, so `match_papers` finds nothing and every design move degrades to
 # "unsourced". A late layer (changes only on re-harvest) so it doesn't bust the
-# dependency cache. PDFs are gitignored/optional — title+why text suffices.
+# dependency cache. PDFs are gitignored/optional  -  title+why text suffices.
 COPY docs/papers/README.md docs/papers/corpus-index.json docs/papers/
 
 ENV MIDDLEWARE_DATA_DIR=/data \
@@ -43,10 +43,10 @@ ENV MIDDLEWARE_DATA_DIR=/data \
 
 EXPOSE 8000
 # Uploaded artifacts (consent PDFs, paper PDFs) live under here as plain
-# files — only their hash/path go in Postgres. On Railway this path must be
+# files  -  only their hash/path go in Postgres. On Railway this path must be
 # backed by an attached Volume (see railway.toml) or every redeploy/restart
 # silently drops them; docker-compose.yml already mounts a named volume here
-# for local dev. No Dockerfile VOLUME instruction here — Railway's builder
+# for local dev. No Dockerfile VOLUME instruction here  -  Railway's builder
 # rejects it ("use Railway Volumes" instead), and it isn't needed: Railway
 # mounts its Volume at /data by dashboard configuration regardless of any
 # image-level VOLUME declaration.

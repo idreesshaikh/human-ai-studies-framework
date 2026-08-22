@@ -12,10 +12,11 @@ import {
 } from "@/lib/studyApi";
 import { ingestIdForRef } from "@/lib/forceLayout";
 import { cn } from "@/lib/cn";
+import { paperIdentifier } from "@/lib/paperReference";
 
-/* The Library — the knowledge layer (FR-LIT-1/2/3). Live paper ingest
+/* The Library  -  the knowledge layer (FR-LIT-1/2/3). Live paper ingest
  * (arXiv/DOI/PDF), the citation constellation, and protocol-element links.
- * The corpus is the product's knowledge, not background reading — so this is a
+ * The corpus is the product's knowledge, not background reading  -  so this is a
  * first-class study surface, not a side panel. */
 export function LibraryTab({ studyId }: { studyId: string }) {
   const [papers, setPapers] = useState<Paper[]>([]);
@@ -25,6 +26,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
   const [linkDraft, setLinkDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [edgesPending, setEdgesPending] = useState(false);
 
   const load = useCallback(async () => {
     const [ps, g] = await Promise.all([
@@ -38,6 +40,14 @@ export function LibraryTab({ studyId }: { studyId: string }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!edgesPending) return;
+    const timer = window.setTimeout(() => {
+      void load().finally(() => setEdgesPending(false));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [edgesPending, load]);
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -60,7 +70,11 @@ export function LibraryTab({ studyId }: { studyId: string }) {
       : /^10\./.test(raw)
         ? { doi: raw }
         : { arxivId: raw };
-    run(() => studyApi.ingestPaper(studyId, id)).then(() => setIdInput(""));
+    run(async () => {
+      const result = await studyApi.ingestPaper(studyId, id);
+      setEdgesPending(Boolean(result.edgesPending));
+      return result;
+    }).then(() => setIdInput(""));
   }
 
   function uploadPdf(ev: React.ChangeEvent<HTMLInputElement>) {
@@ -82,7 +96,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
      * contract entirely: it ran the full width of the window while Data and
      * Planning sat centred at `work`, so moving between the four tabs of one
      * workspace moved the content column under the researcher. `Surface`
-     * owns the clip, the scroll, the gutter, the rhythm and the measure —
+     * owns the clip, the scroll, the gutter, the rhythm and the measure  -
      * and the keyboard-reachable region this markup was duplicating by hand.
      *
      * The escape from the contract was easy to miss while this tab still had
@@ -90,7 +104,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
      * the whole window and the mismatch became the most visible thing about
      * the workspace. */
     <Surface measure="work" label="Library">
-        {/* Ingest bar — the live-fetch moment. */}
+        {/* Ingest bar  -  the live-fetch moment. */}
         <div className="flex flex-wrap items-center gap-2">
           <Input
             value={idInput}
@@ -121,13 +135,18 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             service allows one request per second)…
           </p>
         )}
+        {edgesPending && !busy && (
+          <p className="type-caption text-text-muted" role="status">
+            Paper added. Its citation neighbourhood is filling in.
+          </p>
+        )}
         {note && (
           <p className="rounded-input border border-border bg-surface p-3 type-body text-text-muted">
             {note}
           </p>
         )}
 
-        {/* Library list — the study's primary paper set. Papers accepted from
+        {/* Library list  -  the study's primary paper set. Papers accepted from
             the design conversation's recommendations land here too. */}
         <div className="rounded-card border border-border bg-surface">
           <div className="flex items-center justify-between border-b border-border px-4 py-2">
@@ -136,9 +155,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
               {papers.length} {papers.length === 1 ? "paper" : "papers"}
             </span>
           </div>
-          {/* No inner max-h/scroll here — the panel has exactly one
-           * scroller (this section's own overflow-y-auto above). */}
-          <ul>
+          <ul className="max-h-64 overflow-y-auto">
             {papers.map((p) => (
               <li
                 key={p.paperRef}
@@ -152,7 +169,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                   onClick={() => select(p.paperRef)}
                   title={p.title || p.paperRef}
                 >
-                  {p.title || p.paperRef}
+                  {p.title || "Untitled paper"}
                 </button>
                 {p.year && (
                   <span className="tabular type-caption text-text-muted">{p.year}</span>
@@ -177,7 +194,12 @@ export function LibraryTab({ studyId }: { studyId: string }) {
 
         {/* Keep the selected paper paired with the graph so selecting a node
             never sends the graph out of view before its action is reachable. */}
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
+        <div
+          className={cn(
+            "items-start gap-4",
+            selectedNode && "grid lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]",
+          )}
+        >
           <div className="rounded-card border border-border bg-surface p-4">
             <h3 className="mb-2 type-body font-medium text-text">
               Citation constellation
@@ -201,7 +223,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                 {selectedNode.title || selected}
               </h4>
               <p className="mt-0.5 type-caption text-text-muted">
-                {selected}
+                {paperIdentifier(selectedPaper ?? { paperRef: selected ?? "" }) ?? "Library paper"}
                 {selectedNode.year ? ` · ${selectedNode.year}` : ""}
                 {selectedNode.citationCount != null
                   ? ` · ${selectedNode.citationCount} citations`

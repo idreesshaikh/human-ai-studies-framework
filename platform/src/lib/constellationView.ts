@@ -1,4 +1,4 @@
-/* Pure decision logic for the Obsidian-style constellation view — kept out
+/* Pure decision logic for the Obsidian-style constellation view  -  kept out
  * of the component so `verify-library.mjs` can assert every branch without
  * a DOM (the project has no component test tooling; see PROJECT_GUIDE /
  * docs/roadmap). `Constellation.tsx` is thin glue over these functions:
@@ -21,7 +21,7 @@ export const SETTLE_NODE_LIMIT = 150;
  * degrades to zoom-gated labels instead. Tuned well below `SETTLE_NODE_
  * LIMIT`: a node without a parsed author list falls back to its title
  * (Constellation.tsx's `nodeLabel`), which runs noticeably wider than an
- * "Author, Year" string — at 150 nodes a real harvested neighbourhood
+ * "Author, Year" string  -  at 150 nodes a real harvested neighbourhood
  * (most of which lack authors) rendered as a solid wall of overlapping
  * title text, worse than the zoom-gated behaviour it replaced. 40 keeps
  * "always" for the genuinely small case (a new study and its first
@@ -37,12 +37,12 @@ function clamp(v: number, lo: number, hi: number): number {
 
 /** Node size by degree, not raw citation count: hubs read as obviously
  * bigger, leaves stay dust-small, and a paper's centrality *to this study's
- * graph* is what's shown — not how well-cited it happens to be generally. */
+ * graph* is what's shown  -  not how well-cited it happens to be generally. */
 export function nodeRadius(degree: number): number {
   return clamp(NODE_RADIUS_MIN + 2.6 * Math.sqrt(Math.max(0, degree)), NODE_RADIUS_MIN, NODE_RADIUS_MAX);
 }
 
-/** Every node's neighbours, both directions — an edge kind doesn't matter
+/** Every node's neighbours, both directions  -  an edge kind doesn't matter
  * for adjacency, only for its rendered colour. */
 export function buildAdjacency(
   edges: { src: string; dst: string }[],
@@ -59,7 +59,7 @@ export function buildAdjacency(
   return adjacency;
 }
 
-/** The focused/hovered node plus its immediate neighbours — what lights up.
+/** The focused/hovered node plus its immediate neighbours  -  what lights up.
  * Empty when nothing is focused (the baseline, everything at rest). */
 export function activeNeighbourhood(
   focusRef: string | null,
@@ -79,9 +79,9 @@ export function nodeOpacity(ref: string, active: Set<string>): number {
 }
 
 /** An edge's state: `neutral` at rest, `incident` (touches the focused
- * node directly — reveal its real kind colour) or `dimmed` (anything else,
+ * node directly  -  reveal its real kind colour) or `dimmed` (anything else,
  * once something has focus) otherwise. Two neighbours of the focused node
- * that happen to cite each other are `dimmed`, not `incident` — "incident"
+ * that happen to cite each other are `dimmed`, not `incident`  -  "incident"
  * means touching the focus node itself, not merely inside its neighbourhood. */
 export function edgeState(
   src: string,
@@ -102,7 +102,7 @@ export function edgeOpacity(state: "neutral" | "incident" | "dimmed"): number {
 
 /** Whether a node's label shows: always for the selected node or the
  * current focus/neighbourhood (so a highlighted cluster reads by name), and
- * otherwise only once its rendered radius (`r * zoomK`) clears a threshold —
+ * otherwise only once its rendered radius (`r * zoomK`) clears a threshold  -
  * zooming in is what reveals more names. This is the *dense* mode's contract;
  * below `LABEL_ALWAYS_NODE_LIMIT` nodes the view uses always-on labels
  * (`labelMode`), never this zoom gate. */
@@ -132,7 +132,7 @@ export function driftPhase(ref: string): number {
   return (h % 1000) / 1000 * Math.PI * 2;
 }
 
-/** Render-only per-node offset at time `t` (seconds) — never written back
+/** Render-only per-node offset at time `t` (seconds)  -  never written back
  * to any position state, so it cannot accumulate or diverge; a caller adds
  * this to a node's settled (x, y) purely for the current frame's paint. */
 export function driftOffset(ref: string, t: number): { dx: number; dy: number } {
@@ -144,14 +144,14 @@ export function driftOffset(ref: string, t: number): { dx: number; dy: number } 
 }
 
 /** The settle animation's alpha schedule: given the previous frame's alpha,
- * the next one — decays geometrically until it's negligible. Pure so the
+ * the next one  -  decays geometrically until it's negligible. Pure so the
  * schedule (and therefore roughly how many frames it takes) is assertable
  * without a rAF loop. */
 export function nextSettleAlpha(alpha: number): number {
   return alpha * SETTLE_DECAY_PER_FRAME;
 }
 
-/** Whether the bounded rAF settle should run at all for this graph size —
+/** Whether the bounded rAF settle should run at all for this graph size  -
  * skipped above the node limit (each frame is an O(n²) relaxStep) so a large
  * harvested neighbourhood never costs a dropped-frame animation for a
  * refinement that was already good enough after `layoutGraph`'s own solve. */
@@ -183,12 +183,12 @@ export const LENSES: { id: Lens; label: string; hint: string }[] = [
   {
     id: "references",
     label: "Earlier work",
-    hint: "Papers your library cites — where this study's thinking comes from",
+    hint: "Papers your library cites  -  where this study's thinking comes from",
   },
   {
     id: "citations",
     label: "Later work",
-    hint: "Papers citing your library — what happened after",
+    hint: "Papers citing your library  -  what happened after",
   },
   {
     id: "recommendations",
@@ -207,7 +207,7 @@ export function lensEdges<E extends { kind: string }>(edges: E[], lens: Lens): E
  * The nodes a lens keeps.
  *
  * Every ingested paper survives every lens, even when the lens leaves it with
- * no edges at all: those are the study's own library — its anchors — and a
+ * no edges at all: those are the study's own library  -  its anchors  -  and a
  * lens that made a researcher's own papers vanish would read as data loss
  * rather than as a filter. Suggestions are the opposite: one exists only as
  * the far end of a harvested relation, so it survives only while the relation

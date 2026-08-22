@@ -32,7 +32,7 @@ def derive_overlay_settings(
     """Return the flat ``tern.*`` settings for one session."""
     if _PREFIX not in protocol.get("instruments", {}):
         raise ProtocolError(
-            "this protocol declares no tern instrument — it is an "
+            "this protocol declares no tern instrument  -  it is an "
             "agent-participant study (FR-PROT-9). Use `derive agent-hooks` for "
             "its harness-oriented config; there is no overlay to derive."
         )

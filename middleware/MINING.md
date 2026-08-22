@@ -4,7 +4,7 @@ Phase 4: Growing the registry from 13 shapes to ~100 by mining the corpus for re
 
 ## Overview
 
-The mining process automatically discovers design shapes used in papers across the 15,000-paper corpus, generates draft templates, and validates them. It does NOT require manual curation — the automation ensures every template is valid, citable, and grounded.
+The mining process automatically discovers design shapes used in papers across the 15,000-paper corpus, generates draft templates, and validates them. It does NOT require manual curation  -  the automation ensures every template is valid, citable, and grounded.
 
 ## Running the Miner
 
@@ -72,7 +72,7 @@ A paper is included in a cluster if any of its discovered phrases are exact matc
 
 **Admission thresholds** (post-validation, automatic ranking):
 - Common: ≥100 papers
-- Established: ≥25 papers  
+- Established: ≥25 papers
 - Rare: 3–24 papers (admitted only if sourced well)
 
 **Rare-design gates:** A rare design is admitted if:

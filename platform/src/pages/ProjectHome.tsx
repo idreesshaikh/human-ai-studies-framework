@@ -35,7 +35,7 @@ export function ProjectHome() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState("");
   // The list the page renders. Held locally so a delete can be applied
-  // optimistically and *rolled back* if the server refuses — the same shape
+  // optimistically and *rolled back* if the server refuses  -  the same shape
   // MembersTable uses. The previous version swallowed every error, so a 403,
   // a 404, or being offline all looked identical to nothing happening.
   type Study = NonNullable<typeof data>["studies"][number];
@@ -44,7 +44,7 @@ export function ProjectHome() {
     if (data) setStudies(data.studies);
   }, [data]);
 
-  // My role here — and whether that is known yet. Treating "still loading" as
+  // My role here  -  and whether that is known yet. Treating "still loading" as
   // "viewer" is what made the delete control appear a beat late, or seem to
   // be missing altogether.
   const roleState = resolveRole({
@@ -83,7 +83,7 @@ export function ProjectHome() {
     setCreateError("");
     try {
       const study = await api.createStudy(slug, studyName);
-      // Refresh `me` so the new study's membership/role resolves immediately —
+      // Refresh `me` so the new study's membership/role resolves immediately  -
       // otherwise role-gated controls (e.g. Mint links) stay hidden until an
       // unrelated refresh fires.
       await refresh();
@@ -96,7 +96,7 @@ export function ProjectHome() {
 
   // Only the *first* load blanks the page; a post-delete `reload()` refetch
   // shouldn't unmount the whole tree while `studies` already reflects the
-  // optimistic update — that remount was the delete-study flicker.
+  // optimistic update  -  that remount was the delete-study flicker.
   if (loading && !data) {
     return (
       <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
@@ -188,7 +188,7 @@ export function ProjectHome() {
                     className="type-body min-w-0 flex-1 truncate font-semibold text-text after:absolute after:inset-0"
                     title={humanSlug(st.id)}
                   >
-                    {/* A study has no title column — its id is its slug — so
+                    {/* A study has no title column  -  its id is its slug  -  so
                       * this roster was listing raw addresses where a reader
                       * expects names. The URL still carries the slug. */}
                     {humanSlug(st.id)}

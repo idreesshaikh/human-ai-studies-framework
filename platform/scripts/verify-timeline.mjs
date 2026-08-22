@@ -13,7 +13,7 @@ import { assembleLanes, timeScale, parseTs, laneStyle } from "../src/lib/timelin
 
 let failures = 0;
 const ok = (name, cond, detail = "") => {
-  console.log(`${cond ? "✓" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${cond ? "✓" : "✗"} ${name}${detail ? `  -  ${detail}` : ""}`);
   if (!cond) failures++;
 };
 

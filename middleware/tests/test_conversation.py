@@ -130,7 +130,7 @@ def test_recommendations_surface_the_two_demo_papers(client):
 def test_recommendations_survive_a_conversation_reload(client):
     """
     A tab switch / remount re-reads the conversation via GET rather than trusting client
-    state — the literature rail must not go blank on that re-read (it used to:
+    state  -  the literature rail must not go blank on that re-read (it used to:
     recommendations were only ever returned inline on the turn reply, never persisted).
     """
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
@@ -275,7 +275,7 @@ def test_study_created_with_seeded_protocol_draft(client):
 def test_study_rejects_non_protocol_seed(client):
     """
     A seed that is not a compiled protocol (no study/researchQuestions) is a 422 naming
-    the shape — and leaves no half-created study row.
+    the shape  -  and leaves no half-created study row.
     """
     r = client.post(
         "/projects/implicit/studies",
@@ -323,7 +323,7 @@ def test_rejecting_a_move_keeps_it_out_of_the_draft(client):
 
 def test_undoing_a_decision_reopens_the_move(client, tmp_path):
     """
-    A decided move can be reopened back to 'proposed' — undo, not just accept/reject.
+    A decided move can be reopened back to 'proposed'  -  undo, not just accept/reject.
     """
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
     rq_moves = [m for m in reply["moves"] if m["kind"] == "add-rq"]
@@ -364,7 +364,7 @@ def test_evasive_conversation_names_unresolved_slots(client):
     result = _compile(client)
     assert not result["valid"]
     assert result["unresolved"], "empty draft must name its unresolved slots"
-    # The scaffold's errors must name only real, currently-satisfiable gaps — 'kite' was
+    # The scaffold's errors must name only real, currently-satisfiable gaps  -  'kite' was
     # the pre-rename instrument key (v1/v2 schema branch); nothing has written it since
     # 'tern', so it must never appear as an error a researcher is asked to resolve.
     assert not any("kite" in e for e in result["errors"])
@@ -403,7 +403,7 @@ def test_unsourced_move_compiles_with_grounding_recorded(client, monkeypatch):
 def test_invalid_draft_cannot_be_approved(client):
     """
     F3.2/F3.3: a scaffold that fails validation returns errors/unresolved and cannot be
-    applied — a conversation never silently produces (or applies) an invalid draft.
+    applied  -  a conversation never silently produces (or applies) an invalid draft.
     """
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
     for m in reply["moves"]:
@@ -419,8 +419,8 @@ def test_invalid_draft_cannot_be_approved(client):
 
 def test_export_renders_the_full_chain(client):
     """
-    F6.1: the elicitation export carries the chain — turns → moves → grounding →
-    compilation → approval — navigable in both directions.
+    F6.1: the elicitation export carries the chain  -  turns → moves → grounding →
+    compilation → approval  -  navigable in both directions.
     """
     result = _drive_to_valid_draft(client)
     client.post(
@@ -438,7 +438,7 @@ def test_export_renders_the_full_chain(client):
 
 def test_reloading_the_conversation_recomputes_understanding(client):
     """
-    A reload used to blank the understanding line until the next turn was sent —
+    A reload used to blank the understanding line until the next turn was sent  -
     `understanding` was only ever set from a turn's own reply, never recomputed from the
     stored history.
     """
@@ -499,7 +499,7 @@ def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(
 def test_a_holding_turn_survives_a_reload(client, monkeypatch):
     """
     The explanation of why nothing answered matters most exactly when the researcher
-    comes back to a silent thread — so it has to still be there after a reload, not
+    comes back to a silent thread  -  so it has to still be there after a reload, not
     just for the one browser session that happened to be open when it failed.
     """
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())
@@ -515,7 +515,7 @@ def test_a_holding_turn_survives_a_reload(client, monkeypatch):
 def test_a_holding_turn_is_never_replayed_to_the_model(tmp_path, monkeypatch):
     """
     Persisted for display is not the same as part of the design record. A holding
-    turn still must never reach the model as history on a later, real turn — a stored
+    turn still must never reach the model as history on a later, real turn  -  a stored
     "I couldn't reach the model" replayed back in would be a fabricated assistant turn,
     and the model would answer as though it had said that itself.
     """
@@ -539,7 +539,7 @@ def test_a_holding_turn_is_never_replayed_to_the_model(tmp_path, monkeypatch):
         history = da._load_history(s, STUDY)
     assert all("couldn't reach" not in h["content"].lower() for h in history)
     assert all(h["role"] == "user" for h in history), (
-        "the only turn on record is the researcher's own — the holding turn must "
+        "the only turn on record is the researcher's own  -  the holding turn must "
         "not surface as a fabricated assistant message"
     )
 
@@ -713,7 +713,7 @@ def _conversation_request(captured: list) -> str:
 def test_template_leaves_statistical_plan_and_ethics_open(client, monkeypatch):
     """
     An accepted template fills only the design slot (mirroring the researcher-visible
-    meter) — statisticalPlan and ethics stay listed as empty, and the state invites
+    meter)  -  statisticalPlan and ethics stay listed as empty, and the state invites
     recording the template's prescription instead of forbidding statisticalPlan moves.
     """
     template_move = {
@@ -750,7 +750,7 @@ def test_template_leaves_statistical_plan_and_ethics_open(client, monkeypatch):
     )
     turn2 = _ask(client, "what about the ethics posture?")
     user = _conversation_request(captured)
-    filled_part = user.split("Draft coverage — filled:")[-1].split("Empty:")[0]
+    filled_part = user.split("Draft coverage  -  filled:")[-1].split("Empty:")[0]
     empty_part = user.split("Empty:")[-1]
     assert "design" in filled_part
     assert "statisticalPlan" in empty_part
@@ -767,7 +767,7 @@ def test_template_leaves_statistical_plan_and_ethics_open(client, monkeypatch):
     )
     _ask(client, "what next?")
     user = _conversation_request(captured)
-    filled_part = user.split("Draft coverage — filled:")[-1].split("Empty:")[0]
+    filled_part = user.split("Draft coverage  -  filled:")[-1].split("Empty:")[0]
     assert "ethics" in filled_part
 
 
@@ -775,7 +775,7 @@ def test_accepted_ethics_caution_does_not_block_the_ethics_move(client, monkeypa
     """
     Regression: after accepting an ethics caution, the pairing ethics append/set move
     (which restates the caution's concern, as the prompt asks) must still reach the
-    researcher — not be dropped as a repeat.
+    researcher  -  not be dropped as a repeat.
     """
     caution_move = {
         "kind": "caution",
@@ -864,7 +864,7 @@ def test_conversation_read_orders_moves_by_seq_not_row_order(client, tmp_path):
 def test_conversation_read_round_trips_move_targets(client):
     """
     The re-read every remote change triggers must return the same move the turn reply
-    carried — `target` used to be dropped, blanking the finish review's target lines
+    carried  -  `target` used to be dropped, blanking the finish review's target lines
     after any decision.
     """
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
@@ -944,7 +944,7 @@ def test_design_move_seq_migration_backfills_from_id(tmp_path):
 
 def test_merge_templates_move_flows_end_to_end(client, tmp_path, monkeypatch):
     """
-    Phase 5: a merge-templates move survives the whole wire — persisted with its patch,
+    Phase 5: a merge-templates move survives the whole wire  -  persisted with its patch,
     reloaded with mergeData reconstructed, compiled into a merged protocol on accept.
     """
     import model_double as md

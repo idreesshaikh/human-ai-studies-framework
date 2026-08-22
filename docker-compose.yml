@@ -1,6 +1,6 @@
 # Local dev environment mirroring Railway production (NFR-7/9).
 #
-# PostgreSQL is the default — the same backend Railway uses. SQLite is no
+# PostgreSQL is the default  -  the same backend Railway uses. SQLite is no
 # longer the primary path; this compose file always boots with Postgres so
 # you reproduce the Railway environment locally before deploying.
 #
@@ -9,7 +9,7 @@
 #                                            # complexity metric (FR-INST-4, D5)
 #   docker compose up -d                     # detached
 #
-# All data lives in named volumes — they persist across restarts.
+# All data lives in named volumes  -  they persist across restarts.
 # Wipe with: docker compose down -v
 
 services:

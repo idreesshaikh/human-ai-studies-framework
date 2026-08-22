@@ -5,14 +5,36 @@ import { useSyncExternalStore } from "react";
  * A per-device ergonomic, not an identity preference: how much chrome you
  * want around the work depends on the screen you are sitting at, so this
  * follows the machine rather than the account. Same external-store shape as
- * `theme.ts`, and for the same reason — the value can change from more than
+ * `theme.ts`, and for the same reason  -  the value can change from more than
  * one place, so React has to subscribe to it rather than copy it at mount.
  */
 
 export type PanelId = "nav" | "draft";
+export type RailId = "papers" | "draft";
 
 const KEY = "phoenix.panels";
 const listeners = new Set<() => void>();
+
+function railKey(studyId: string): string {
+  return `phoenix.study.${studyId}.rail`;
+}
+
+export function readRail(studyId: string, fallback: RailId = "draft"): RailId {
+  try {
+    const value = localStorage.getItem(railKey(studyId));
+    return value === "papers" || value === "draft" ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function writeRail(studyId: string, rail: RailId): void {
+  try {
+    localStorage.setItem(railKey(studyId), rail);
+  } catch {
+    /* Storage denied: the rail still works for this mount. */
+  }
+}
 
 /** Cached so `getSnapshot` returns a stable reference; `useSyncExternalStore`
  * re-renders forever if it hands back a fresh object each call. */

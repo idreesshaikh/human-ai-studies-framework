@@ -26,10 +26,10 @@ import {
 } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
-/* The Data surface — the study's collected data as honest shapes (NFR-8).
+/* The Data surface  -  the study's collected data as honest shapes (NFR-8).
  * Per-session
  * integrity (completeness, seq gaps, flags) and the metric distribution split
- * by condition. Nothing here animates — data is the celebration. */
+ * by condition. Nothing here animates  -  data is the celebration. */
 export function DataTab({ studyId }: { studyId: string }) {
   const [sessions, setSessions] = useState<SessionStatus[]>([]);
   const [conditions, setConditions] = useState<string[]>([]);
@@ -55,7 +55,7 @@ export function DataTab({ studyId }: { studyId: string }) {
       })
       .catch((e: unknown) => {
         if (!live) return;
-        // A study that hasn't compiled a protocol yet has no data — that's a
+        // A study that hasn't compiled a protocol yet has no data  -  that's a
         // real, reachable state, not a fault. Surface it calmly instead of
         // letting the rejection blank the tab.
         setLoadError(
@@ -71,7 +71,7 @@ export function DataTab({ studyId }: { studyId: string }) {
     // If any read falls back to built-in sample data, say so honestly.
     const off = onSeededData(() => setSeeded(true));
     let live = true;
-    // Re-arm the loading gate on every study switch, not just first mount —
+    // Re-arm the loading gate on every study switch, not just first mount  -
     // `StudyHome` doesn't remount `DataTab` on a route change between two
     // studies, so without this the stale `loading: false` from the previous
     // study let its sessions/rows flash under the new study's tab for the
@@ -116,11 +116,11 @@ export function DataTab({ studyId }: { studyId: string }) {
 
   const metricRows = rows;
 
-  /* A study whose protocol has never compiled has no data by definition — not
+  /* A study whose protocol has never compiled has no data by definition  -  not
    * three separate absences. The tab used to say so three times, in three
    * dashed boxes of equal weight stacked down five hundred pixels: "no
    * compiled protocol", then "no sessions", then "no metric rows carry
-   * cognitive_complexity" — the last two being consequences of the first, and
+   * cognitive_complexity"  -  the last two being consequences of the first, and
    * the metric picker above them offering a choice that could not change
    * anything. Three statements of one fact read as three faults.
    *
@@ -137,7 +137,7 @@ export function DataTab({ studyId }: { studyId: string }) {
           line={
             <>
               Nothing has been collected yet: this study has no compiled
-              protocol. Design it in the conversation and apply the draft —
+              protocol. Design it in the conversation and apply the draft  -
               its sessions, integrity flags and metrics appear here once
               participants start running it.
             </>
@@ -288,7 +288,7 @@ export function DataTab({ studyId }: { studyId: string }) {
         )}
       </section>
 
-      {/* Metrics and the prescription that reads them sit close together —
+      {/* Metrics and the prescription that reads them sit close together  -
           they're one analytical unit, tighter than the section gap. */}
       <div className="flex flex-col gap-stack">
         <section className="flex flex-col gap-stack">

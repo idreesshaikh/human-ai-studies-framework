@@ -5,7 +5,7 @@
  * lanes, sorted deterministically by timestamp. Provides a minimal time-to-pixel
  * scale (hand-rolled, matching MetricStrip.tsx's no-dependency pattern).
  *
- * Wall #4: renders exactly the join-keyed rows every leg already emits —
+ * Wall #4: renders exactly the join-keyed rows every leg already emits  -
  * invents no new event shape.
  */
 

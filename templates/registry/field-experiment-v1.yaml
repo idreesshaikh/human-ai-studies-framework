@@ -3,7 +3,7 @@ templateId: field-experiment-v1
 title: Field experiment (real deployment, between-subjects)
 description: |
   A between-subjects comparison run inside participants' actual ongoing
-  work rather than an assigned lab task — a tool rollout, a team split, or
+  work rather than an assigned lab task  -  a tool rollout, a team split, or
   an opt-in period where one group gets the AI assistant and a comparable
   group does not. Distinct from observational-field-v1 (no manipulation)
   and two-group-rct-v1 (a controlled lab session): the manipulation here

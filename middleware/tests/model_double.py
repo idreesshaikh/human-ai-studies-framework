@@ -237,7 +237,7 @@ def plausible(captured: list | None = None, prefer: str | None = "metr-rct-v1"):
         )
         if not invited:
             return {
-                "text": "Tell me more — who takes part, and what will they do?",
+                "text": "Tell me more  -  who takes part, and what will they do?",
                 "moves": moves,
             }
 
@@ -259,7 +259,7 @@ def plausible(captured: list | None = None, prefer: str | None = "metr-rct-v1"):
 
 def agent_capture(policy: str = "metadata-only") -> dict:
     """
-    Add the agent-capture instrument — a new data stream, so the amendment path treats
+    Add the agent-capture instrument  -  a new data stream, so the amendment path treats
     it as consent-relevant.
     """
     return {
@@ -277,7 +277,7 @@ def agent_capture(policy: str = "metadata-only") -> dict:
 
 
 def stuck_threshold(seconds: int) -> dict:
-    """Retune the stuck detector — a config tweak, not a new data stream."""
+    """Retune the stuck detector  -  a config tweak, not a new data stream."""
     return {
         "kind": "reconfigure-instrument",
         "target": "instruments.tern.stuck.thresholdSeconds",

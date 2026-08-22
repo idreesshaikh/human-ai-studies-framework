@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-/* A small segmented control — the record's tab strip: a row of ruled cells
+/* A small segmented control  -  the record's tab strip: a row of ruled cells
  * where the selected one is struck at full density and the rest stay paper.
  * A radio group for picking one of a few short options (the platform has no
  * ToggleGroup/Tabs primitive, and a native <select> reads as a stray form

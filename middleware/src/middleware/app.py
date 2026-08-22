@@ -5,6 +5,7 @@ import io
 import itertools
 import json
 import logging
+import os
 import re
 import secrets
 import tempfile
@@ -17,7 +18,16 @@ from pathlib import Path
 from urllib.parse import quote as _urlquote
 
 import yaml
-from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    Form,
+    Header,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import (
     FileResponse,
     PlainTextResponse,
@@ -38,6 +48,7 @@ from middleware import (
     auth,
     authz,
     compiler,
+    corpus_importer,
     corpus_enrich,
     design_assistant,
     elicitation,
@@ -268,7 +279,7 @@ def _sse(event: str, data: dict) -> str:
 
 
 def _slug_from_text(text: str, max_len: int) -> str:
-    """A URL-safe id from free text — a project or study name, often a whole
+    """A URL-safe id from free text  -  a project or study name, often a whole
     typed sentence (e.g. the "describe your study" opening question) rather
     than a short title. A hard character cut lands mid-word as often as not
     ("...debuggin"), which then sits as the study's permanent id; back off to
@@ -317,6 +328,22 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             s.commit()
 
     app = FastAPI(title="Study ingestion middleware", version="0.1.0")
+
+    # The repository ships the full corpus, so a fresh local database should not
+    # silently degrade every grounded template into "seen in 0 papers". Import it in
+    # a daemon thread so the health endpoint and the shell become usable immediately.
+    # Test databases stay hermetic; operators can force either behavior explicitly.
+    bootstrap_override = os.environ.get("MIDDLEWARE_CORPUS_BOOTSTRAP")
+    default_db = settings.db_path is not None and (
+        Path(settings.db_path).name == "middleware.sqlite3"
+    )
+    should_bootstrap = (
+        bootstrap_override.lower() not in {"0", "false", "no"}
+        if bootstrap_override is not None
+        else bool(settings.database_url or default_db)
+    )
+    if should_bootstrap:
+        corpus_importer.start_background_import(settings.db_url, session_factory)
 
     if settings.cors_origins:
         from fastapi.middleware.cors import CORSMiddleware
@@ -513,7 +540,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         Sessions are attributed through ``SessionOpen``/``SessionBlock``; events
         and metric rows carry only a ``session_id``, so any query that reads
         them per-study MUST go through this. `/studies/{id}/status` did not, and
-        returned every session in the database for whichever study was asked —
+        returned every session in the database for whichever study was asked  -
         one project's Data tab listing another's participants. Shared by both
         readers so they cannot drift apart again.
         """
@@ -638,7 +665,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         Shared by the dataset export and the dry run's plan validation, so the
         statistics a dry run reports are computed over exactly the rows a
-        researcher would download — not a second, drifting join.
+        researcher would download  -  not a second, drifting join.
         """
         rows = [
             {
@@ -747,7 +774,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             # document rather than this card's summary of it. The conversation's
             # draft rail is the reason: it could only obtain a protocol from
             # `/conversation/compile`, which needs a contribute capability, so
-            # every viewer — and every visitor to the read-only demo — saw an
+            # every viewer  -  and every visitor to the read-only demo  -  saw an
             # empty "no design shape yet" rail over a fully compiled protocol.
             # Additive: the summary fields above are unchanged.
             "document": proto,
@@ -1222,6 +1249,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     def harvest_edges(s: Session, study_id: str, paper_ref: str) -> int:
         """Fetch and store the paper's graph neighbourhood (FR-LIT-2)."""
+        # Adding the same paper again should be a local idempotent read, not another
+        # three remote calls. The persistent response cache handles individual URLs;
+        # this guard handles the more common whole-paper repeat.
+        if s.scalar(
+            select(PaperEdge.id).where(
+                PaperEdge.study_id == study_id,
+                PaperEdge.src_ref == paper_ref,
+            )
+        ) is not None:
+            return 0
         try:
             edges = semantic_scholar.fetch_edges(paper_ref, fetch=cached_fetch(s))
         except semantic_scholar.SemanticScholarError as exc:
@@ -1265,12 +1302,21 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 n += len(s.execute(stmt.returning(PaperEdge.id)).fetchall())
         return n
 
+    def harvest_edges_in_background(study_id: str, paper_ref: str) -> None:
+        """Enrich after the paper has already become visible to the researcher."""
+        with session_factory() as background_session:
+            harvest_edges(background_session, study_id, paper_ref)
+            background_session.commit()
+
     @app.post(
         "/studies/{study_id}/papers",
         dependencies=[Depends(require_project_for_study("contribute"))],
     )
     def ingest_paper(
-        study_id: str, body: PaperIngestIn, s: Session = Depends(db)
+        study_id: str,
+        body: PaperIngestIn,
+        background_tasks: BackgroundTasks,
+        s: Session = Depends(db),
     ) -> dict:
         """
         Ingest one paper by arXiv id / DOI (FR-LIT-1 id path): fetch S2 metadata, index
@@ -1288,11 +1334,21 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         except semantic_scholar.SemanticScholarError as exc:
             raise HTTPException(502, f"Semantic Scholar: {exc}") from exc
         upsert_paper(s, study_id, record, source="id")
-        edges = harvest_edges(s, study_id, record["paperRef"])
+        # Release the request transaction before the background session opens its
+        # enrichment transaction. This matters for SQLite, where a response that is
+        # already ready can still hold the writer lock until dependency cleanup.
+        s.commit()
+        # Metadata is the blocking part of the add action. The neighbourhood is useful
+        # but not required to confirm the paper, so let the graph catch up in a fresh
+        # session after this response is sent.
+        background_tasks.add_task(
+            harvest_edges_in_background, study_id, record["paperRef"]
+        )
         return {
             "paperRef": record["paperRef"],
             "title": record["title"],
-            "edges": edges,
+            "edges": 0,
+            "edgesPending": True,
         }
 
     @app.post(
@@ -1563,14 +1619,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.execute(stmt)
         _seed_links(s, study_id, corpus_row.paper_ref)
         adopted = _adopt_corpus_edges(s, study_id, corpus_row.paper_ref)
-        harvested = harvest_edges(s, study_id, corpus_row.paper_ref)
         return {
             "studyId": study_id,
             "paperRef": corpus_row.paper_ref,
             "title": corpus_row.title,
             "tier": corpus_row.tier,
             "addedVia": "match",
-            "edges": adopted + harvested,
+            "edges": adopted,
         }
 
     @app.get(
@@ -1842,7 +1897,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(400, "name is required")
 
         # Phase 6: Implicit personal projects. If the caller creates a project named
-        # "Personal", check if they already have one — if so, return it (reusable).
+        # "Personal", check if they already have one  -  if so, return it (reusable).
         if name == "Personal":
             existing = s.scalar(
                 select(Project).join(Membership).where(
@@ -2000,7 +2055,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def create_study(slug: str, body: dict, s: Session = Depends(db)) -> dict:
         """
         Start a new study in this project (FR-PLAT-1 continued): the design conversation
-        needs a study row to attach its moves/drafts to before it can run — this is that
+        needs a study row to attach its moves/drafts to before it can run  -  this is that
         row, empty and pre-design, ready for the researcher to talk it into existence.
         """
         proj = s.scalar(select(Project).where(Project.slug == slug))
@@ -2207,7 +2262,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         role = str(body.get("role", "")).strip()
         if role not in authz.ROLES:
             raise HTTPException(400, f"role must be one of: {list(authz.ROLES)}")
-        # A member can invite peers (D40), but only an owner can mint an owner invite —
+        # A member can invite peers (D40), but only an owner can mint an owner invite  -
         # otherwise invite_member would be a backdoor to ownership.
         if role == authz.Role.OWNER.value:
             caller = s.scalar(
@@ -2346,7 +2401,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             index = n - 1
             # It used to be a bare round-robin over conditions, which is a
             # between-subjects assignment applied regardless of what the protocol
-            # declared — a within-subjects participant got one condition and never met
+            # declared  -  a within-subjects participant got one condition and never met
             # the other, so nobody was ever their own comparison.
             blocks = assign(protocol, index)
             condition = blocks[0].condition if blocks else conditions[0]
@@ -2736,12 +2791,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 if str(design).lower() in {"within-subjects", "paired"}
                 else two_sample_power_curve
             )
-            return calculator(
+            result = calculator(
                 sizes,
                 alpha=alpha,
                 power_target=powerTarget,
                 max_total_n=maxN,
             )
+            if not design:
+                result["note"] = (
+                    "No planned comparison yet. Describe the conditions and study "
+                    "design in Conversation before using recruitment planning."
+                )
+            return result
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 
@@ -2832,7 +2893,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def template_plan(template_id: str) -> dict:
         """
         The statistical-plan explainer (FR-TPL-2.3): each choice in plain language with
-        its why — never a bare test name.
+        its why  -  never a bare test name.
         """
         try:
             tpl = template_registry.load_template(template_id)
@@ -2852,13 +2913,22 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         The protocol repertoire (FR-TPL): design shapes ranked common → rare by how many
         corpus papers use them, each carrying its ranked references.
         """
-        entries = template_repertoire.rank_repertoire(
-            s, limit_refs=max(1, min(limitRefs, 20))
+        corpus = corpus_importer.corpus_status_for_session(s)
+        # Do not repeatedly scan a partially imported corpus. The client keeps the
+        # small readiness poll cheap and only asks for the full ranking once every
+        # manifest row is present, so partial matches can never look authoritative.
+        entries = (
+            template_repertoire.rank_repertoire(
+                s, limit_refs=max(1, min(limitRefs, 20))
+            )
+            if corpus["state"] == "ready"
+            else []
         )
         return {
             "repertoire": entries,
             "count": len(entries),
             "minReferenceConfidence": template_repertoire.MIN_REFERENCE_CONFIDENCE,
+            "corpus": corpus,
             "generatedAt": now(),
         }
 
@@ -2880,7 +2950,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     @app.get("/corpus/search")
     def corpus_search(q: str = "", limit: int = 8, s: Session = Depends(db)) -> dict:
         """
-        Search the corpus for papers (FR-LIT-9), not study-scoped — powers the "turn
+        Search the corpus for papers (FR-LIT-9), not study-scoped  -  powers the "turn
         this paper into a template" picker.
         """
         query = q.strip()
@@ -2897,7 +2967,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         How much of the corpus carries a real abstract, not just a title (FR-LIT-8
         quality).
         """
-        return corpus_enrich.enrichment_status_for_session(s)
+        return {
+            **corpus_importer.corpus_status_for_session(s),
+            **corpus_enrich.enrichment_status_for_session(s),
+        }
 
     @app.post("/templates/from-paper")
     def template_from_paper(body: dict, s: Session = Depends(db)) -> dict:
@@ -2939,11 +3012,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         the exact test, effect size, correction, and sample-size guidance, each with its
         rationale.
 
-        Without ``study_id`` this is the full reference table — every shape PHOENIX
+        Without ``study_id`` this is the full reference table  -  every shape PHOENIX
         knows how to prescribe, the browsable catalogue. With ``study_id``, it's
         filtered to the shape(s) that study's *own compiled protocol* actually calls
         for (read off ``analysisPlan[].recipes[]`` and mapped back through the same
-        shape→recipe table the compiler used to pick them) — "what analysis your
+        shape→recipe table the compiler used to pick them)  -  "what analysis your
         design calls for" was previously showing the full catalogue unconditionally
         on every study's Data tab, identical regardless of that study's actual
         design, which the researcher reads as bespoke guidance it isn't.
@@ -3018,7 +3091,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             # Persisted like any other reply, not held in memory only. The
             # unpersisted version was the researcher's own question surviving
             # a reload while the platform's explanation of why it went
-            # unanswered did not — so the exact moment a plain answer mattered
+            # unanswered did not  -  so the exact moment a plain answer mattered
             # most was the one moment it was allowed to vanish. `source:
             # "unavailable"` still marks it as neither grounded nor scripted;
             # the client already renders that source as "Not answered"
@@ -3247,7 +3320,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 for t in turns
             ],
             # Recomputed the same way a fresh turn computes it
-            # (`design_assistant.turn_stance`) — otherwise a reload blanks the line the
+            # (`design_assistant.turn_stance`)  -  otherwise a reload blanks the line the
             # UI keeps this for, until the next turn is sent.
             "understanding": elicitation.understanding_summary(
                 elicitation.assess_understanding(
@@ -3264,7 +3337,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         study_id: str, move_id: str, body: MoveDecisionIn, s: Session = Depends(db)
     ) -> dict:
         """
-        Accept, reject, or reopen ("proposed") a design move (FR-CONV-1.2) — undo is
+        Accept, reject, or reopen ("proposed") a design move (FR-CONV-1.2)  -  undo is
         just deciding "proposed" again.
         """
         if body.status not in ("accepted", "rejected", "proposed"):
@@ -3371,7 +3444,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         membership: Membership = Depends(require_project_for_study("apply_draft")),
         s: Session = Depends(db),
     ) -> dict:
-        """Apply a compiled diff — the audited step (FR-CONV-3.3/F3.3)."""
+        """Apply a compiled diff  -  the audited step (FR-CONV-3.3/F3.3)."""
         comp = s.get(Compilation, body.compilationId)
         if comp is None or comp.study_id != study_id:
             raise HTTPException(404, "compilation not found")
@@ -3408,8 +3481,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     )
     def export_elicitation(study_id: str, s: Session = Depends(db)) -> dict:
         """
-        The elicitation record (FR-CONV-6): the full chain from idea to specification —
-        turns, moves + grounding, compilations, approvals, and the current draft —
+        The elicitation record (FR-CONV-6): the full chain from idea to specification  -
+        turns, moves + grounding, compilations, approvals, and the current draft  -
         captured by construction, not reconstructed.
         """
         conv = get_conversation(study_id, s)
@@ -3567,7 +3640,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         outcome["studyId"] = study_id
         # The half that answers the researcher's real question. `simulate_into`
         # committed through the `db` dependency, so the rows are already there
-        # to analyse — and they are the same joined rows the dataset export
+        # to analyse  -  and they are the same joined rows the dataset export
         # hands back, not a parallel construction.
         s.flush()
         outcome["plan"] = run_plan_summary(proto, _joined_rows(s), study_id)

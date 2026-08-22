@@ -10,7 +10,7 @@ import {
  * Subscribes to onDidChangeDiagnostics to capture error/warning counts,
  * and provides a method for the task harness to signal build/test invocations.
  * Gated by the effective tern.ideHealth.enabled flag (checked at
- * session start, never mid-session — wall #6).
+ * session start, never mid-session  -  wall #6).
  */
 export class VscodeIdeHealthAdapter implements vscode.Disposable {
   private _collector: IdeHealthCollector;
@@ -34,7 +34,7 @@ export class VscodeIdeHealthAdapter implements vscode.Disposable {
             warnings += 1;
         }
       }
-      // Emit the *delta* since the last flush — the collector resets on flush.
+      // Emit the *delta* since the last flush  -  the collector resets on flush.
       this._collector.recordDiagnostics(errors, warnings);
     });
     this._disposables.push(this._diagListener);

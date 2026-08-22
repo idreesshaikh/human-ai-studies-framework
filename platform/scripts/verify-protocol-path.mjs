@@ -1,4 +1,4 @@
-/* Exercises the protocol path — the ordered list of what the conversation
+/* Exercises the protocol path  -  the ordered list of what the conversation
  * still needs, shown so a researcher can estimate how long the chat will be.
  * Run:
  *   node --experimental-strip-types scripts/verify-protocol-path.mjs
@@ -6,14 +6,14 @@
  * Checks that:
  *   - the two phases appear in the order the conversation actually walks
  *     them (understand the idea, then fill the protocol)
- *   - exactly ONE step on the whole path is "current" — the cursor is what
+ *   - exactly ONE step on the whole path is "current"  -  the cursor is what
  *     makes it a path rather than a checklist, and two of them is worse than
  *     none
  *   - the cursor crosses the phase boundary: once every facet is known, the
  *     current step is the first unfilled protocol section
  *   - a known facet never claims the cursor, however late in the list it sits
  *   - the counts cover both phases, so "3 / 13" means what it says
- *   - a step already DONE is still named correctly — labels come from the
+ *   - a step already DONE is still named correctly  -  labels come from the
  *     server's facet map, not from pairing `missingLabels` by position,
  *     which mislabels every completed step as soon as one is known
  *   - the next question is passed through from the server, never composed
@@ -24,7 +24,7 @@ import { buildProtocolPath } from "../src/lib/protocolPath.ts";
 
 let failures = 0;
 const ok = (name, cond, detail = "") => {
-  console.log(`${cond ? "✓" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${cond ? "✓" : "✗"} ${name}${detail ? `  -  ${detail}` : ""}`);
   if (!cond) failures++;
 };
 

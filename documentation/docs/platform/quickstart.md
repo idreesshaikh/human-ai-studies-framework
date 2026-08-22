@@ -24,21 +24,21 @@ Open <http://localhost:8000>. Without `MIDDLEWARE_AUTH` set, the server runs
 in local mode without authentication.
 
 !!! tip "Docker"
-    `docker compose up` brings the whole stack up with its own Postgres —
+    `docker compose up` brings the whole stack up with its own Postgres  -
     no local Python or Node install needed.
 
 ## Your first study
 
 <figure markdown="span">
   ![Project list](../assets/screens/projects.png){ width="800" }
-  <figcaption>Your projects — create one or browse proven designs first.</figcaption>
+  <figcaption>Your projects  -  create one or browse proven designs first.</figcaption>
 </figure>
 
 1. **Start a project** from the home page, or browse the
    [protocol repertoire](library.md) first to see proven design shapes.
 2. Open the project and describe your research idea in the
    [design conversation](design-conversation.md).
-3. Rule on the proposals one at a time — accept or reject, watching the
+3. Rule on the proposals one at a time  -  accept or reject, watching the
    [protocol draft](protocol-draft.md) compile beside you.
 4. Move through gates and ethics, then open **Participants** to create
    participant links that configure TERN on each machine.
@@ -60,12 +60,12 @@ uv run python -m analysis.cli notebook protocol/examples/pilot-study.yaml --serv
 uv run python -m analysis.cli paper protocol/examples/pilot-study.yaml
 ```
 
-- `simulate` — synthetic dry run over plain HTTP, then validates the study's
+- `simulate`  -  synthetic dry run over plain HTTP, then validates the study's
   analysis plan against the synthetic data. Exit 0 only when every planned
   recipe ran.
-- `notebook` — the curated handoff: `results/<study>/notebook.ipynb` (a loaded,
-  documented dataframe with every planned recipe imported — never run) plus a
+- `notebook`  -  the curated handoff: `results/<study>/notebook.ipynb` (a loaded,
+  documented dataframe with every planned recipe imported  -  never run) plus a
   standalone `data-dictionary.md`.
-- `paper` — a first-draft Methods + Results paper section, from the same plan.
-- `run` / `validate` / `list` — execute recipes, check plan satisfaction, and
+- `paper`  -  a first-draft Methods + Results paper section, from the same plan.
+- `run` / `validate` / `list`  -  execute recipes, check plan satisfaction, and
   catalogue what exists (`uv run python -m analysis.cli --help`).

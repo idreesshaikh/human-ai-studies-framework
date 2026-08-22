@@ -5,7 +5,7 @@
 # are the instruments, and the bump to protocolVersion 3 is the sole schema-level
 # difference from a v1/v2 protocol. FR-PROT-9 is satisfied exactly when
 # `protocol validate` passes on this file. Loaded by test_agent_participants.py;
-# keep it minimal — every block below is the least the schema and the derive
+# keep it minimal  -  every block below is the least the schema and the derive
 # helpers require.
 
 protocolVersion: 3 # FR-PROT-9 schema revision (agent participants)

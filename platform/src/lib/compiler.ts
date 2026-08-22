@@ -9,7 +9,7 @@ import {
 } from "./types.ts";
 
 /* Turns accepted design moves into a protocol draft. A pure function of
- * (base draft, accepted moves): no LLM, no clock, no randomness — replaying
+ * (base draft, accepted moves): no LLM, no clock, no randomness  -  replaying
  * the same moves against the same base always yields the same draft. The
  * conversation proposes moves; only this deterministic step builds the draft.
  *
@@ -23,7 +23,7 @@ export function compile(
   for (const move of moves) {
     if (move.status !== "accepted") continue;
     if (move.kind === "merge-templates") {
-      // A merged protocol is a real design — the slot reads as filled with
+      // A merged protocol is a real design  -  the slot reads as filled with
       // the shapes being combined (the server's merge is authoritative).
       draft.design = move.mergeData?.templateIds ?? [];
       continue;
@@ -42,13 +42,13 @@ export function compile(
       ) {
         draft.instruments.push(name);
       }
-      // `reconfigure` tweaks an already-added instrument's config — it
+      // `reconfigure` tweaks an already-added instrument's config  -  it
       // never fills the slot on its own (matches the server: an add/set
       // move is what makes the instrument exist at all).
       continue;
     }
     if (isFieldPatch(move.patch)) {
-      // Only participants.* maps onto one of the eight sections here — the
+      // Only participants.* maps onto one of the eight sections here  -  the
       // other fillable slots (session.*, study.*) are administrative detail
       // this client-side preview does not track. This used to match none of
       // the type guards at all, so an accepted set-field move silently did
@@ -73,7 +73,7 @@ export function compile(
   return draft;
 }
 
-/** Compile from scratch over the full move history — the draft rail's
+/** Compile from scratch over the full move history  -  the draft rail's
  * source of truth. Folding over every move (rather than mutating in place)
  * is what lets rejecting a move cleanly remove its effect. */
 export function compileAll(moves: DesignMove[]): ProtocolDraft {

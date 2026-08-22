@@ -89,6 +89,12 @@ jobs:
       - name: Check (tsc + lint + verify + build)
         run: npm run check
 
+      - name: Install Chromium for accessibility smoke test
+        run: npx playwright install chromium
+
+      - name: Accessibility smoke test
+        run: npm run a11y
+
   docker:
     name: Middleware image builds
     runs-on: ubuntu-latest

@@ -1,7 +1,7 @@
 # Platform
 
 The PHOENIX platform is the web application where a study is designed, compiled,
-and coordinated — from the first research idea to the participant links that
+and coordinated  -  from the first research idea to the participant links that
 configure TERN on each machine.
 
 <figure markdown="span">
@@ -11,14 +11,14 @@ configure TERN on each machine.
 
 ## What the platform covers
 
-- **Design** — a structured conversation with the design assistant. Every
+- **Design**  -  a structured conversation with the design assistant. Every
   proposal is either cited into the corpus or plainly marked unsourced; there
   is no third state.
-- **Compile** — accepted moves compile deterministically into a versioned
+- **Compile**  -  accepted moves compile deterministically into a versioned
   protocol, diffed, validated, and applied only on your approval.
-- **Coordinate** — projects, roles, invitations, participants, and the
+- **Coordinate**  -  projects, roles, invitations, participants, and the
   participant links that install the study on each editor.
-- **Catalogue** — curated data, per-RQ reports, a data dictionary, and a
+- **Catalogue**  -  curated data, per-RQ reports, a data dictionary, and a
   starter notebook with the exact test to run.
 
 ## Core pages
@@ -35,7 +35,7 @@ configure TERN on each machine.
 ## Authentication & local setup
 
 The platform uses Clerk for authentication in production. Locally you can run
-it without auth by leaving `MIDDLEWARE_AUTH` unset — the server serves the
+it without auth by leaving `MIDDLEWARE_AUTH` unset  -  the server serves the
 built app at `http://localhost:8000` in a single process.
 
 ```bash

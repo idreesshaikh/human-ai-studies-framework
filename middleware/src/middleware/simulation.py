@@ -277,7 +277,7 @@ def simulate(
     """Generate ``count`` synthetic participants' sessions as plain dicts."""
     if profile not in PROFILES and profile != "mixed":
         raise ValueError(f"unknown profile {profile!r}; pick from {PROFILES}")
-    # S311: determinism beats cryptographic strength here — a seeded dry run must be
+    # S311: determinism beats cryptographic strength here  -  a seeded dry run must be
     # reproducible; this generator is never used for secrets.
     rng = random.Random(seed)  # noqa: S311
     from protocol.assignment import assign
@@ -432,7 +432,7 @@ def run_plan_summary(protocol: dict, rows: list[dict], study_id: str) -> dict:
 
     This is the half of the dry run that matters. Storing synthetic events proves
     the capture path works; running the *prescribed* statistics over them proves
-    the analysis plan is satisfiable before a single real participant sits down —
+    the analysis plan is satisfiable before a single real participant sits down  -
     which is the one thing a researcher cannot find out any other way, and the
     step they are most afraid of getting wrong.
 
@@ -456,7 +456,7 @@ def run_plan_summary(protocol: dict, rows: list[dict], study_id: str) -> dict:
             "results": [],
             "note": (
                 "This protocol has no analysis plan yet, so there was nothing to "
-                "validate. Choose a design in the conversation — each one carries "
+                "validate. Choose a design in the conversation  -  each one carries "
                 "the statistics it requires."
             ),
         }
@@ -499,7 +499,7 @@ def run_plan_summary(protocol: dict, rows: list[dict], study_id: str) -> dict:
         recipe = REGISTRY[recipe_id]
         try:
             # Fresh per recipe, not merged onto whatever the previous recipe
-            # left behind — `dataset` is one object reused across every
+            # left behind  -  `dataset` is one object reused across every
             # iteration of this loop, so an accumulating merge would leak a
             # param key set for an earlier recipe into a later one that never
             # specified it.
@@ -531,7 +531,7 @@ def run_plan_summary(protocol: dict, rows: list[dict], study_id: str) -> dict:
 
 
 def _close_figures(result) -> None:
-    """Release a recipe's Matplotlib figures — nothing here is being written."""
+    """Release a recipe's Matplotlib figures  -  nothing here is being written."""
     try:
         import matplotlib.pyplot as plt
     except ImportError:  # pragma: no cover - matplotlib ships with analysis

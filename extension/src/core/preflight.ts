@@ -1,7 +1,7 @@
 /**
  * The "will capture / will not capture" summary shown before a session's clock
  * arms (FR-INST-21). A forgotten toggle is caught here, before any task data is
- * recorded — the hard-wall alternative to mid-session reconfiguration (wall #6).
+ * recorded  -  the hard-wall alternative to mid-session reconfiguration (wall #6).
  */
 
 export interface PreflightItem {

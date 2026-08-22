@@ -13,10 +13,10 @@ from the command palette (F1).
   <figcaption>All TERN commands are available from the command palette.</figcaption>
 </figure>
 
-1. **Participant ID** — enter the participant's ID, e.g. `P07`.
-2. **Condition** — pick the A/B condition: **AI-assisted** or **Unassisted**.
+1. **Participant ID**  -  enter the participant's ID, e.g. `P07`.
+2. **Condition**  -  pick the A/B condition: **AI-assisted** or **Unassisted**.
    The condition is assigned by the study's counterbalanced rotation.
-3. **Preflight check** — a summary of what will be captured and where the data
+3. **Preflight check**  -  a summary of what will be captured and where the data
    will go. Nothing starts until you confirm.
 
 <figure markdown="span">
@@ -36,14 +36,14 @@ from the command palette (F1).
 
 ## During the session
 
-The only permanent UI is the **status-bar countdown** — the session clock in
+The only permanent UI is the **status-bar countdown**  -  the session clock in
 minutes and seconds. Click it any time to open the session menu:
 
-- **Log fatigue now** — answer a fatigue probe immediately.
-- **Pause study session** — take a break; paused time is excluded from the
+- **Log fatigue now**  -  answer a fatigue probe immediately.
+- **Pause study session**  -  take a break; paused time is excluded from the
   study clock and the probe schedule.
-- **Resume study session** — pick up where you left off.
-- **End study session** — finish early and open the debrief.
+- **Resume study session**  -  pick up where you left off.
+- **End study session**  -  finish early and open the debrief.
 
 <figure markdown="span">
   ![Session running](../assets/screens/tern-session-running.png){ width="700" }
@@ -81,12 +81,12 @@ actions above it:
 
 *Yes, I'm stuck · No, just thinking · I'd like a hint · Dismiss*
 
-Ignored prompts time out silently after 60 s — the timeout itself is recorded,
+Ignored prompts time out silently after 60 s  -  the timeout itself is recorded,
 which is signal too.
 
 ## Ending a session
 
-When the timer elapses — or you run _End Study Session_ — a frosted-glass
+When the timer elapses  -  or you run _End Study Session_  -  a frosted-glass
 **end-of-study debrief** (NASA-TLX-inspired, same 7-point scale) opens
 automatically.
 

@@ -1,7 +1,7 @@
-# Project Guide — the platform
+# Project Guide  -  the platform
 
 This is the guide for working *on* the frontend. The [README](README.md)
-covers what the app is and how to run it; this covers how it's built —
+covers what the app is and how to run it; this covers how it's built  -
 the data layer, the state model, the parts that mirror the server, and the
 conventions the build enforces.
 
@@ -12,7 +12,7 @@ react-router. What's notable is what's **absent**: no state-management
 library, no data-fetching library, no chart library. Those are deliberate.
 
 - **shadcn components are vendored and owned** (`src/components/ui/`). They're
-  edited in-repo, not consumed as a dependency — the look is ours, not a
+  edited in-repo, not consumed as a dependency  -  the look is ours, not a
   library's default.
 - **Charts are hand-built SVG** (`src/components/charts/`, `src/lib/
   forceLayout.ts`). One design-token system covers the app and the charts, so
@@ -22,14 +22,14 @@ library, no data-fetching library, no chart library. Those are deliberate.
   loading/error/retry logic ourselves.
 
 If you're reaching for a new dependency, that's a `requirements/build-vs-adopt.md`
-decision first — the leanness is a requirement (NFR-10), not an accident.
+decision first  -  the leanness is a requirement (NFR-10), not an accident.
 
 ## 2. Architecture at a glance
 
 ```mermaid
 flowchart TD
     subgraph client [platform/ SPA]
-      pages[pages/ + components/] --> shell[useApi() — Api interface]
+      pages[pages/ + components/] --> shell[useApi()  -  Api interface]
       pages --> study[studyApi / conversationApi / templatesApi]
       shell --> backends{VITE_API_BASE?}
       backends -->|live| http[HttpBackend]
@@ -45,28 +45,28 @@ The middleware serves the built app at `/`, so in production the API is
 same-origin and `VITE_API_BASE` is empty. Set it only for a separate-origin
 deployment.
 
-## 3. The data layer — two patterns, know which is which
+## 3. The data layer  -  two patterns, know which is which
 
 This is the part that isn't obvious from the folder names. There are **two
 different ways** a component talks to the backend.
 
-### Pattern A — the `Api` interface (the shell)
+### Pattern A  -  the `Api` interface (the shell)
 
 `src/lib/api.ts` defines one `Api` interface (`me`, `listProjects`,
 `createStudy`, `members`, `createInvitation`, `mintEnrollmentTokens`, …) with
 **two implementations**:
 
-- `HttpBackend` — talks to the middleware.
-- `InMemoryBackend` — a self-contained fake that seeds a couple of projects
+- `HttpBackend`  -  talks to the middleware.
+- `InMemoryBackend`  -  a self-contained fake that seeds a couple of projects
   and the demo, so the whole shell is explorable and testable with no server.
 
 `getApi()` returns `withOfflineFallback(new HttpBackend(base), new
 InMemoryBackend())`: live calls go to the middleware, and a network failure
-falls through to the fake. Components reach it through context —
+falls through to the fake. Components reach it through context  -
 `ApiProvider` at the root, `useApi()` in a component. This pattern covers
 **projects, studies, members, invitations, enrollment, preferences**.
 
-### Pattern B — standalone fetch clients (the study workspace)
+### Pattern B  -  standalone fetch clients (the study workspace)
 
 `studyApi.ts`, `conversationApi.ts`, and `templatesApi.ts`
 are **not** part of the `Api` interface and are **not** wrapped in
@@ -88,18 +88,18 @@ Every client gets its bearer token through one indirection:
 `setTokenProvider()`. `auth.tsx` installs the real getter once sign-in
 resolves; until then it returns `null`. A `401` calls `notifyUnauthorized()`,
 which raises the sign-in surface. This is why auth is pluggable (token or
-Clerk) without any client knowing which mode is active — see §7.
+Clerk) without any client knowing which mode is active  -  see §7.
 
 ## 4. State and data fetching
 
 There is no store library. State lives in three places:
 
-- **Local component state** (`useState`) for view state — the conversation
+- **Local component state** (`useState`) for view state  -  the conversation
   thread, form inputs, which tab is open.
 - **React Context** for two cross-cutting things: the `Api` instance
   (`useApi`) and the signed-in session (`useSession`, holds `me` and the
   project role). Both live in `src/lib/session.tsx`.
-- **`useAsync(loader, deps)`** (`src/lib/useAsync.ts`) — the one data-fetching
+- **`useAsync(loader, deps)`** (`src/lib/useAsync.ts`)  -  the one data-fetching
   primitive. It runs a loader, tracks `{ data, loading, error, reload }`, and
   cancels stale results with a `live` flag.
 
@@ -109,7 +109,7 @@ error. `useAsync` listens for a `CREDENTIAL_READY_EVENT` and reloads when auth
 catches up. If you write a data loader that seems to "stick" on a stale error
 right after sign-in, this is the mechanism to look at.
 
-`useAsync` has no cache and no request dedup — two components loading the same
+`useAsync` has no cache and no request dedup  -  two components loading the same
 resource make two requests. That's a deliberate simplicity trade; keep it in
 mind before fetching the same thing in several places.
 
@@ -119,7 +119,7 @@ Routes are declared in `src/App.tsx`. Public routes (`/`, invitation accept)
 sit outside the authenticated `Shell`; everything else renders inside it.
 
 One non-obvious rule, called out in `App.tsx`: the projects list is at `/home`,
-**not** `/projects` — because `/projects` is the backend's API path, and a
+**not** `/projects`  -  because `/projects` is the backend's API path, and a
 same-path SPA route can't coexist with an API route on a hard navigation
 (refresh, bookmark). When you add a page, don't collide its path with a
 middleware route.
@@ -138,21 +138,21 @@ counterparts:
 
 | Client | Mirrors (server) | What it does |
 | --- | --- | --- |
-| `lib/compiler.ts` | `middleware/compiler.py` | Folds accepted moves into a draft — pure, deterministic. Gives the draft rail its instant preview; the server compile is authoritative. |
+| `lib/compiler.ts` | `middleware/compiler.py` | Folds accepted moves into a draft  -  pure, deterministic. Gives the draft rail its instant preview; the server compile is authoritative. |
 
-**Contributor warning:** these are not generated from the server — they're
+**Contributor warning:** these are not generated from the server  -  they're
 hand-kept parallels. If you change a compile rule or a move shape on one side,
 change the other, or the optimistic preview will quietly disagree with the
 authoritative result. `npm run verify` checks the compiler's determinism but
 does **not** currently check client/server agreement.
 
-**The conversation has no such mirror — on purpose.** There used to be a
+**The conversation has no such mirror  -  on purpose.** There used to be a
 client-side scripted assistant (`designStub.ts`) that answered from a keyword
 script whenever the server was unreachable. It was removed deliberately: a
 script that reads on screen exactly like the real conversation is an
 impersonation of it. Now the conversation needs the server (and a language
 model); without them it shows an honest offline notice rather than faking a
-reply. The only remnant is `conversationOpening.ts` — the opening prompt,
+reply. The only remnant is `conversationOpening.ts`  -  the opening prompt,
 which asks a question and claims nothing. So the shell and study surfaces
 degrade to seeded/offline data, but the conversation degrades to honesty, not
 to a stub.
@@ -161,25 +161,25 @@ to a stub.
 
 The middleware announces its mode via `GET /auth/config`; the client adapts:
 
-- **none** — no sign-in; every call is anonymous.
-- **token** — paste a bearer token; it's stored where `tokenProvider` looks.
-- **clerk** — clerk-js is hot-loaded from the Clerk instance's own domain (no
+- **none**  -  no sign-in; every call is anonymous.
+- **token**  -  paste a bearer token; it's stored where `tokenProvider` looks.
+- **clerk**  -  clerk-js is hot-loaded from the Clerk instance's own domain (no
   npm runtime dependency; `@clerk/clerk-js` stays a types-only dev dep), and
   the live JWT getter is installed into `tokenProvider`. The paste-a-token
   fallback still works in this mode.
 
 All of this lives in `src/lib/auth.tsx`. Because it depends on clerk-js
-internals, treat it as fragile — verify against Clerk's current loader before
+internals, treat it as fragile  -  verify against Clerk's current loader before
 touching it.
 
 ## 8. The design system and the gates that enforce it
 
-- **Design tokens are the only home for raw values.** Colour, motion, radius —
+- **Design tokens are the only home for raw values.** Colour, motion, radius  -
   all in `src/styles/tokens.css`, including the chart palette; type sizes are
   named roles in `src/styles/index.css` (a component sets size through a role,
   not a bare `text-*` utility). Components use tokens via Tailwind utilities or
   `var()`. `scripts/lint-no-raw-literals.mjs` fails the build on a raw
-  hex/px/ms — or a bare type utility — in a component.
+  hex/px/ms  -  or a bare type utility  -  in a component.
 - **`data-agent` annotations** on landmarks and decision points make the UI
   legible to agents (FR-AGF-3). They're documented in
   [`docs/agent-annotations.md`](docs/agent-annotations.md) and kept honest by
@@ -190,7 +190,7 @@ touching it.
 - **`verify-*.mjs`** are behaviour harnesses (slice1, shell, library,
   timeline, layout, constellation, comparator, protocol-path) run by
   `npm run verify`. They are not component unit tests
-  — there is currently no vitest/RTL setup — so they check specific invariants
+   -  there is currently no vitest/RTL setup  -  so they check specific invariants
   rather than rendering.
 
 `npm run check` (typecheck + lint + verify + build) is the gate. Keep it green.
@@ -226,10 +226,10 @@ scripts/                    lint-no-raw-literals, check-agent-annotations, verif
 ## 10. Conventions and gotchas, in one place
 
 - Keep `npm run check` green before committing.
-- No raw colour/px/ms in a component — use a token.
+- No raw colour/px/ms in a component  -  use a token.
 - Adding a shell data method means editing **both** backends in `api.ts`.
 - Don't collide a route path with a middleware API path (`/home`, not
   `/projects`).
-- If you touch `compiler.ts`, check the server counterpart named in §6. Don't reintroduce a scripted conversation stub —
+- If you touch `compiler.ts`, check the server counterpart named in §6. Don't reintroduce a scripted conversation stub  -
   its removal was deliberate (§6).
 - New dependency → `requirements/build-vs-adopt.md` first.

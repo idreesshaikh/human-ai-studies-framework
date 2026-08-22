@@ -1,5 +1,5 @@
 """
-The session timeline figure (P2-1): one session's events on a shared timeline — a lane
+The session timeline figure (P2-1): one session's events on a shared timeline  -  a lane
 per event type in first-appearance order, minutes from the session's first event,
 flagged rows drawn as open diamonds.
 """

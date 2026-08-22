@@ -34,7 +34,7 @@ def _stance(**over) -> dict:
 
 def test_every_level_names_a_register_and_an_initiative():
     """
-    Both levers, for every stop — a level that only changed the register would make the
+    Both levers, for every stop  -  a level that only changed the register would make the
     dial a duplicate of the profile setting in Settings.
     """
     for key, spec in elicitation.STEER_LEVELS.items():
@@ -46,7 +46,7 @@ def test_every_level_names_a_register_and_an_initiative():
 def test_an_unknown_or_absent_level_falls_back_rather_than_going_silent():
     """
     An older client, or an agent posting a turn without the field, must still get a full
-    instruction — never an empty one.
+    instruction  -  never an empty one.
     """
     assert elicitation.steer_guidance(None) == (
         elicitation.STEER_LEVELS[elicitation.DEFAULT_STEER]["guidance"]

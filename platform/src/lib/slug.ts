@@ -1,7 +1,7 @@
 /* Slugs read as words.
  *
  * A study's id IS its slug in the schema, and a registry entry's is too, so
- * these strings get printed as titles all over the app — a workspace's <h1>
+ * these strings get printed as titles all over the app  -  a workspace's <h1>
  * included. Sentence-casing the first letter alone is not enough: the terms a
  * methods tool is full of are acronyms, and `rct-between-subjects` rendering
  * as "Rct between subjects" (or an AI study as "…in ai code review") reads as

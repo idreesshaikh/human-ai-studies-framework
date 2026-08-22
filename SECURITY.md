@@ -7,30 +7,30 @@
 
 Include what you did, what happened, and what you expected. A proof of concept
 helps; a working exploit is not required. Expect an acknowledgement within a
-week — this is a single-maintainer research project, not a staffed product.
+week  -  this is a single-maintainer research project, not a staffed product.
 
 ## In scope
 
 PHOENIX handles research participant data, so the highest-severity class here
 is anything that exposes it or captures more than a participant consented to:
 
-- **Participant data exposure** — reading another project's or study's data,
+- **Participant data exposure**  -  reading another project's or study's data,
   events, uploads, or paper sets. Studies are scoped per project and per study;
   a path that crosses either boundary is a vulnerability.
-- **Capture beyond consent** — any way to make TERN record something the
+- **Capture beyond consent**  -  any way to make TERN record something the
   consent statement did not name, or to change what is captured without that
   change surfacing in the consent statement a participant sees at their next
   session start.
-- **Enrollment token abuse** — redeeming a revoked or expired pairing link,
+- **Enrollment token abuse**  -  redeeming a revoked or expired pairing link,
   reusing a single-use one, or minting a credential for a study you have no
   role on.
-- **Authentication and authorization** — bypassing sign-in, escalating a
+- **Authentication and authorization**  -  bypassing sign-in, escalating a
   `viewer` or `member` role to `owner`, or acting on a project you were
   never invited to.
-- **Ingest integrity** — writing events attributed to a participant, condition,
+- **Ingest integrity**  -  writing events attributed to a participant, condition,
   or task other than the one your credential was issued for. Join keys are
   server-stamped precisely so the client cannot claim them.
-- **Prompt injection reaching the corpus or the protocol** — content in a paper
+- **Prompt injection reaching the corpus or the protocol**  -  content in a paper
   or a researcher's message that causes a design move to cite a paper the
   platform does not hold, or to write a protocol field outside the declared
   fillable slots.
@@ -42,7 +42,7 @@ is anything that exposes it or captures more than a participant consented to:
 - Denial of service through volume against your own instance.
 - Anything requiring an attacker to already hold the researcher's own
   credentials or filesystem access.
-- Findings against a deployment's own misconfiguration — an instance run with
+- Findings against a deployment's own misconfiguration  -  an instance run with
   `MIDDLEWARE_AUTH` unset is unauthenticated by design, for local single-user
   use.
 
@@ -54,7 +54,7 @@ that broke:
 - Participant data stays on the researcher's infrastructure. Nothing under
   `.study-data/` or `results/` is ever committed, and no participant data is
   sent to a third party.
-- Instruments record aggregates, shapes, timings, and salted hashes — never raw
+- Instruments record aggregates, shapes, timings, and salted hashes  -  never raw
   code, keystrokes, or clipboard contents.
 - The language model sees retrieved paper metadata and the conversation. It
   never sees participant event data.

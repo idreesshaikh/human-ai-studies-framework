@@ -7,7 +7,7 @@ import type { DryRunPlan as Plan } from "@/lib/studyApi";
  * Storing synthetic events only proves the capture path works. This is the
  * other half: the study's own analysis plan, run over that synthetic data, so
  * a researcher learns whether the statistics their design prescribes can
- * actually be computed — before a single real participant sits down. It is the
+ * actually be computed  -  before a single real participant sits down. It is the
  * one thing no amount of reading the protocol will tell them, and the step
  * they are most afraid of getting wrong.
  *
@@ -16,7 +16,7 @@ import type { DryRunPlan as Plan } from "@/lib/studyApi";
  * ("small n: hypothesis-generating only, not confirmatory"), their own schema
  * gaps, and when a comparison could not be made at all. Paraphrasing that into
  * a tidier sentence, or reducing it to a green tick, would strip precisely the
- * part a researcher has to read. Nothing here animates — this is a result. */
+ * part a researcher has to read. Nothing here animates  -  this is a result. */
 export function DryRunPlan({ plan }: { plan: Plan }) {
   if (plan.note) {
     return (
@@ -29,7 +29,7 @@ export function DryRunPlan({ plan }: { plan: Plan }) {
   const ran = plan.ran.length;
   const failures = Object.entries(plan.errors ?? {});
   /* "Every prescribed test computed" is the claim worth making plainly, and
-   * only when it is true of the whole plan — a blocked recipe or a raised
+   * only when it is true of the whole plan  -  a blocked recipe or a raised
    * error both make it false, so both must clear before the calm wording. */
   const complete = ran === plan.planned && plan.blocked.length === 0 && !failures.length;
 
@@ -52,7 +52,7 @@ export function DryRunPlan({ plan }: { plan: Plan }) {
             <>
               {ran} of {plan.planned} prescribed{" "}
               {plan.planned === 1 ? "test" : "tests"} ran. The rest are listed
-              below with what they were missing — better to learn it here than
+              below with what they were missing  -  better to learn it here than
               after collecting from real participants.
             </>
           )}{" "}
@@ -100,7 +100,7 @@ export function DryRunPlan({ plan }: { plan: Plan }) {
           <ul className="mt-1.5 flex flex-col gap-1">
             {plan.blocked.map((b) => (
               <li key={`${b.rq}-${b.recipeId}`} className="type-caption text-text-muted">
-                <span className="text-text">{b.recipeId}</span> ({b.rq}) —{" "}
+                <span className="text-text">{b.recipeId}</span> ({b.rq})  - {" "}
                 {b.reason}
               </li>
             ))}
@@ -118,7 +118,7 @@ export function DryRunPlan({ plan }: { plan: Plan }) {
           <ul className="mt-1.5 flex flex-col gap-1">
             {failures.map(([id, message]) => (
               <li key={id} className="type-caption text-text-muted">
-                <span className="text-text">{id}</span> — {message}
+                <span className="text-text">{id}</span>  -  {message}
               </li>
             ))}
           </ul>

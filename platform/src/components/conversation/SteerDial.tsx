@@ -1,30 +1,18 @@
-import { useId } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Check, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { STEER_STOPS, steerStop, type SteerLevel } from "@/lib/steer";
 
-/* The steer dial — how much the assistant drives this conversation.
+/* The steer mode  -  how much the assistant drives this conversation.
  *
- * It sits at the head of the thread, not on the composer. What it governs is
- * the conversation as a whole, not the one message about to be sent, and a
- * control stacked directly above the input reads as a property of that input
- * — as well as pushing the thing the researcher actually came to type further
- * down the screen every time the window gets short.
+ * It belongs in the composer command bar because it changes how the assistant
+ * responds to the next message. The bar exposes the current mode as a compact
+ * button; the four choices live in a small picker so the input stays the main
+ * thing to look at and the mode remains one click away.
  *
- * The track is a gradient, because the thing being set is a continuum: at the
- * quiet end the assistant answers and little else, and the field fills toward
- * the accent as it takes on more of the work. Colour alone carries the
- * direction of travel. Tick marks drawn on top of it were fighting the
- * gradient for the same job and losing at both, and the readout beside the
- * track already names the stop the thumb is resting on.
- *
- * It states its effect twice — the stop's name, and a line saying what changes
- * about the next turn — and both update as it is dragged, before anything is
- * committed. A control whose effect you cannot see from where it lives is a
- * control nobody trusts.
- *
- * A native range input carries the keyboard contract for free: arrows step,
- * Home and End jump to the ends, and the value is announced. Nothing here
- * re-implements that. */
+ * The four options are real modes, not decorative labels: selecting one keeps
+ * the existing server profile and initiative levers, and the active mode is
+ * announced with aria-pressed. */
 export function SteerDial({
   value,
   onChange,
@@ -34,42 +22,93 @@ export function SteerDial({
   onChange: (next: SteerLevel) => void;
   className?: string;
 }) {
-  const id = useId();
   const stop = steerStop(value);
-  const max = STEER_STOPS.length - 1;
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
 
   return (
     <div
       data-agent="steer-dial"
-      /* Wraps rather than truncating: the effect line is the half of this
-        * control that says what it DOES, and hiding it below `md:` left a
-        * phone with a gradient and one word. */
-      className={cn("flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1", className)}
+      ref={rootRef}
+      className={cn("relative shrink-0", className)}
     >
-      <label htmlFor={id} className="type-legend shrink-0 text-text-muted">
-        Steer
-      </label>
+      <button
+        type="button"
+        className={cn(
+          "plate-lift inline-flex h-10 items-center gap-2 rounded-control border border-control-edge bg-surface px-2.5 text-text shadow-mark transition-colors duration-fast hover:bg-zone-9",
+          open && "border-accent bg-zone-9",
+        )}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`Steer mode: ${stop.label}`}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <SlidersHorizontal className="size-4 text-text-muted" aria-hidden />
+        <span className="type-control">{stop.label}</span>
+        <ChevronDown
+          className={cn("size-3.5 text-text-muted transition-transform duration-fast", open && "rotate-180")}
+          aria-hidden
+        />
+      </button>
 
-      <input
-        id={id}
-        type="range"
-        className="steer-range focus-ring-owned shrink-0"
-        min={0}
-        max={max}
-        step={1}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value) as SteerLevel)}
-        aria-valuetext={`${stop.label}. ${stop.summary}`}
-      />
-
-      {/* The readout. `aria-live` is deliberately absent: the range input
-        * already announces its own value text on every step, and a live
-        * region here would say the same sentence a second time. */}
-      <p className="type-caption min-w-0 text-text-muted">
-        <span className="font-semibold text-text">{stop.label}</span>
-        {". "}
-        {stop.summary}
-      </p>
+      {open && (
+        <div
+          role="dialog"
+          aria-label="Choose steer mode"
+          className="absolute bottom-full right-0 z-50 mb-2 w-80 rounded-card border border-border bg-surface-raised p-2 shadow-lifted"
+        >
+          <div className="px-2 pb-2 pt-1">
+            <p className="type-subhead text-text">Steer the assistant</p>
+            <p className="type-caption mt-0.5 text-text-muted">
+              Choose how much initiative it takes in this study.
+            </p>
+          </div>
+          <div className="space-y-1">
+            {STEER_STOPS.map((option) => {
+              const selected = option.level === value;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => {
+                    onChange(option.level);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-start gap-2 rounded-input px-2 py-2 text-left transition-colors duration-fast hover:bg-zone-9",
+                    selected && "bg-accent-wash",
+                  )}
+                >
+                  <span className="flex size-4 shrink-0 items-center justify-center rounded-dot border border-control-edge bg-surface">
+                    {selected && <Check className="size-3 text-accent" aria-hidden />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="type-control block text-text">{option.label}</span>
+                    <span className="type-caption block text-text-muted">{option.summary}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

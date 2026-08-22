@@ -20,7 +20,7 @@ import { cn } from "@/lib/cn";
  * single worst place in the product to show invented data. */
 
 const POLL_MS = 5_000;
-/** Beyond this a session has gone quiet — the extension batches every 5s. */
+/** Beyond this a session has gone quiet  -  the extension batches every 5s. */
 const QUIET_MS = 30_000;
 
 function quietFor(iso: string, now: number): number {
@@ -73,7 +73,7 @@ export function LiveSessions({ studyId }: { studyId: string }) {
     };
   }, [studyId]);
 
-  // Before the first reply, say nothing rather than "no one is running" —
+  // Before the first reply, say nothing rather than "no one is running"  -
   // the two are different answers and only one of them is known yet.
   if (sessions === null) return null;
 

@@ -69,7 +69,7 @@ test('leg state is read from the middleware summary, not re-derived', () => {
   assert.equal(byId.get('agent')?.state, 'unavailable');
 });
 
-test('with no capture config, every leg is unavailable — never a silent off', () => {
+test('with no capture config, every leg is unavailable  -  never a silent off', () => {
   const legs = readLegs(undefined);
   assert.equal(legs.length, 4);
   assert.ok(legs.every((l) => l.state === 'unavailable'));
@@ -160,7 +160,7 @@ test('capturesContent is false when the content toggle is off', () => {
 });
 
 test('capturesContent ignores a content toggle on a leg that is not running', () => {
-  // The toggle says "snapshots on", but the leg itself is disabled — claiming
+  // The toggle says "snapshots on", but the leg itself is disabled  -  claiming
   // content capture here would frighten a participant about nothing.
   const off = JSON.parse(JSON.stringify(CFG)) as CaptureConfigLike;
   (off.legs as { state: string }[])[0].state = 'disabled';

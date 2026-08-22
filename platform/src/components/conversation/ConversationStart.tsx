@@ -3,7 +3,7 @@ import { Confidence } from "./Confidence";
 /* The blank plate.
  *
  * A study workspace opened for the first time is a plate with nothing marked
- * on it: correct, honest, and — left bare — silent about what the researcher
+ * on it: correct, honest, and  -  left bare  -  silent about what the researcher
  * is supposed to do next. This is what is printed on the blank plate. It
  * states the mechanism in the order it actually runs (say the idea → rule on
  * what comes back → compile it), shows the two marks the researcher will be
@@ -19,7 +19,7 @@ import { Confidence } from "./Confidence";
  * dismissal, no progress. It stops being drawn the moment the conversation
  * has anything of its own to show. */
 
-/** Openings a researcher can take as their own — loaded into the composer to
+/** Openings a researcher can take as their own  -  loaded into the composer to
  * edit, never sent for them. Deliberately none of them is the example the
  * platform's greeting already prints a few lines above: on a phone the two sat
  * within one screen and read as the same sentence stuttering. */
@@ -78,21 +78,21 @@ export function ConversationStart({ onUse }: { onUse: (text: string) => void }) 
                 * are explained rather than keyed at the foot of an empty
                 * field. Grounded uses the same framed mark and score a real
                 * citation chip renders (GroundingChip); unsourced uses the
-                * same dashed ring MoveCard's UnsourcedLabel renders — each
+                * same dashed ring MoveCard's UnsourcedLabel renders  -  each
                 * example is the exact notation it teaches, not a stand-in. */}
               {step.key && (
                 <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5">
                   <span className="flex items-center gap-1.5">
                     <Confidence value={0.86} words={false} />
                     <span className="type-caption text-text-muted">
-                      a bigger dot in the same frame — stronger grounding in
+                      a bigger dot in the same frame  -  stronger grounding in
                       the corpus
                     </span>
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span aria-hidden className="mark-unsourced" />
                     <span className="type-caption text-text-muted">
-                      unsourced — use your own judgment
+                      unsourced  -  use your own judgment
                     </span>
                   </span>
                 </div>

@@ -48,7 +48,7 @@ def test_ide_health_flows_through_when_declared(pilot):
 def test_ide_health_omitted_when_not_declared(pilot_doc, write_protocol):
     """
     FR-INST-18 safety: ideHealth must not appear in derived settings when the protocol
-    doesn't declare it — no default-on surprise.
+    doesn't declare it  -  no default-on surprise.
     """
     from protocol.loader import load_protocol
 
@@ -77,7 +77,7 @@ def test_comprehension_probe_flows_through_when_declared(pilot):
 def test_comprehension_probe_omitted_when_not_declared(pilot_doc, write_protocol):
     """
     FR-DASH-12 safety: comprehensionProbe must not appear in derived settings when the
-    protocol doesn't declare it — no default-on surprise.
+    protocol doesn't declare it  -  no default-on surprise.
     """
     from protocol.loader import load_protocol
 

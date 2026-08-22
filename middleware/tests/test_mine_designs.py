@@ -1,13 +1,13 @@
 """
 Corpus-mining pipeline tests: every draft the miner produces must validate
 against the real template schema, and only the drafts that validated may be
-written to `templates/drafts/` — the two guarantees
+written to `templates/drafts/`  -  the two guarantees
 `scripts/mine_templates.py` relies on.
 
 Before the fixes in this file's companion change, `infer_design_type` and
 `draft_template_yaml` produced values the schema has never accepted
 (`designType: "empirical-study"`, `dataPath: "archive"`, `effectSize:
-"cohens-d"`, and a `statisticalPlan.test` that was actually a recipe id) —
+"cohens-d"`, and a `statisticalPlan.test` that was actually a recipe id)  -
 confirmed by running the miner against the real 15k-paper corpus: 28 clusters
 with 3+ papers, 0 valid. These tests pin the fix with synthetic data so a
 future change can't silently regress it without a real corpus on hand.
@@ -42,7 +42,7 @@ def session(tmp_path):
     sf = make_session_factory(tmp_path / "mine.sqlite3")
     s = sf()
     # A cluster with real, distinct multi-phrase support (3 papers, matching
-    # "between subjects" + "control group" + "randomly assigned") — the shape
+    # "between subjects" + "control group" + "randomly assigned")  -  the shape
     # of cluster the miner is meant to surface.
     for i in range(3):
         s.add(
@@ -84,7 +84,7 @@ def session(tmp_path):
 def test_infer_design_type_only_returns_real_schema_values(phrases, expected):
     """
     Every branch must land on one of the schema's nine real `designType`
-    values — the bug this pins is `infer_design_type` returning slugs like
+    values  -  the bug this pins is `infer_design_type` returning slugs like
     "empirical-study" or "crossover-design" that were never in the enum at
     all, so every mined draft failed validation before it could even be
     read for its actual content.
@@ -134,7 +134,7 @@ def test_uncovered_phrases_finds_designs_the_registry_does_not_claim(session):
     """
     The blind-spot report: a methodology phrase with real corpus support that
     no template's `designSignature` claims. This is what the fixed keyword
-    table in `DESIGN_KEYWORDS` structurally cannot do — it only ever re-finds
+    table in `DESIGN_KEYWORDS` structurally cannot do  -  it only ever re-finds
     what someone already wrote into it, so an archetype nobody thought to name
     stays invisible however many papers use it.
     """

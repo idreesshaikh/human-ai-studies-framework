@@ -107,8 +107,8 @@ def test_simulate_needs_a_protocol(client_no_protocol: TestClient):
 
 def _normalize(row: dict) -> tuple:
     """
-    A hashable projection with the per-run nonce stripped from every session id —
-    top-level and the one nested inside metric payloads — so rows from two runs compare.
+    A hashable projection with the per-run nonce stripped from every session id  -
+    top-level and the one nested inside metric payloads  -  so rows from two runs compare.
     """
     session = row["sessionId"].rsplit("-", 1)[0]
     payload = row["payload"]
@@ -197,7 +197,7 @@ def test_the_route_reports_the_statistics_it_ran(client_designed: TestClient):
 
     This is what the Data tab renders, and it is the half a researcher actually
     needs: whether the tests this design prescribes can be computed at all. It
-    has to come back from the route itself — a UI that had to shell out to the
+    has to come back from the route itself  -  a UI that had to shell out to the
     CLI for it would never show it.
     """
     _design_and_approve(client_designed)

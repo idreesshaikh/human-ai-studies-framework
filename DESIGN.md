@@ -1,6 +1,6 @@
 ---
 name: PHOENIX
-description: An observatory desk for designing human–AI studies — ruled ground, printed plates, one blue signal.
+description: An observatory desk for designing human–AI studies  -  ruled ground, printed plates, one blue signal.
 colors:
   signal: "#1059d8"
   signal-contrast: "#ffffff"
@@ -178,7 +178,7 @@ components:
 **Creative North Star: "The Observatory Desk"**
 
 The whole product happens on one desk in an observatory. The desk itself is
-ruled — a coordinate graticule you feel rather than read, holding still while
+ruled  -  a coordinate graticule you feel rather than read, holding still while
 everything else scrolls across it. On the desk lie **plates**: printed sheets,
 squared, hairline-framed, lifted a millimetre off the paper by their own
 shadow. Beside them sits the **log**: dated entries, each one either confirmed
@@ -189,7 +189,7 @@ someone competent is working at.
 Light and dark are two renditions of that one desk, never an inversion of each
 other. Light is the atlas printed on chart paper, read in daylight: a cool
 unprinted ground, plates in true white, blue-black ink. Dark is the same plate
-on a **light table** at night — the bench goes unlit and the plates step *up*
+on a **light table** at night  -  the bench goes unlit and the plates step *up*
 toward the lamp, catching a lit top edge, their shadows deepening beneath them
 rather than softening away. A dark plate that merely sits a few percent above
 the page is the generic dark-mode prior and is wrong here.
@@ -206,13 +206,13 @@ is bought *above* body, never below it.
 **Key Characteristics:**
 
 - One signal blue, used only for an action you can take or the axis mark that
-  says where you are — never for the brand, never for links, never decoratively.
+  says where you are  -  never for the brand, never for links, never decoratively.
 - A ruled ground at a 4rem pitch, masked away from the top of the viewport, felt
   and never counted.
 - Plates: 12px corners, hairline frame, offset shadow, never nested inside one
   another.
 - Provenance carried by **form** (framed dot, open ring, struck line, doubled
-  mark) and by **printed number**, never by hue — and never by a size the eye
+  mark) and by **printed number**, never by hue  -  and never by a size the eye
   has nothing to judge against.
 - Two faces, three jobs: Archivo for everything set in letters, Spline Sans Mono
   for quantities and only quantities.
@@ -230,7 +230,7 @@ rather than as dirt on it.
 ### Primary
 
 - **Signal** (`#1059d8` light / `#5ea3ff` dark): the only saturated colour in
-  the app, and it means one thing — *this is where the work is now*. It fills a
+  the app, and it means one thing  -  *this is where the work is now*. It fills a
   control that is the next action in its region, and it rules the 3px axis mark
   that says where you are. It is never the brand mark's colour, never a link's
   colour, never a chart series, never a decorative wash.
@@ -241,12 +241,12 @@ rather than as dirt on it.
 
 ### Neutral
 
-- **Chart Paper** (`#eff3f9` light / `#05090f` dark): the desk — the unprinted
+- **Chart Paper** (`#eff3f9` light / `#05090f` dark): the desk  -  the unprinted
   ground everything lies on.
 - **Plate White** (`#ffffff` light / `#1a2b48` dark): what the record is printed
   on. In dark this steps *up* out of the ground (1.41:1), and the topmost plate
   further still (1.69:1).
-- **Well** (`#dde5f0` light / `#0c1526` dark): a genuinely recessed region — a
+- **Well** (`#dde5f0` light / `#0c1526` dark): a genuinely recessed region  -  a
   code block, a slider track, a refused control. Distinct from the hover step by
   construction.
 - **Blue-Black Ink** (`#0e1b2d` light / `#e9eff8` dark): text, frames, the
@@ -254,14 +254,14 @@ rather than as dirt on it.
 - **Muted Ink** (`#52637c` light / `#9cafc7` dark): metadata, placeholders,
   captions, unselected siblings in a strip.
 - **Hairline** (`#dce4ef`), **Framing Rule** (`#aabbcf`), **Graticule**
-  (`#e4ebf4`): three weights of division — incidental, a titled plate's frame,
+  (`#e4ebf4`): three weights of division  -  incidental, a titled plate's frame,
   and the coordinate grid under everything.
 - **Control Edge** (`#6f7f96` light / `#7288b0` dark): the boundary of an
   *interactive* control, kept as its own token because WCAG 2.2 SC 1.4.11 binds
   it at 3:1 while a plate's frame is decoration. A later pass may lighten frames
   without silently taking the controls with them.
 
-### Tertiary — the mark inks
+### Tertiary  -  the mark inks
 
 - **Drawn Mark** (`#2b4666`): a shade off body ink, so a mark reads as something
   *struck onto* the plate rather than typed into it.
@@ -280,7 +280,7 @@ must survive a greyscale print carries a mark as well as a hue.
 ### Named Rules
 
 **The One Fill Rule.** A fill is an action you can take. It is always the
-signal, and there is at most one primary fill per *region* — not per viewport. A
+signal, and there is at most one primary fill per *region*  -  not per viewport. A
 genuinely split surface with two panels doing two jobs (send / review) correctly
 has two. Within one region, a second fill means one of the two is wrong.
 
@@ -302,10 +302,10 @@ sits in the *well*, recessed, never in the hover tint.
 ## Typography
 
 **Display / Body Font:** Archivo Variable (with Helvetica Neue, Helvetica,
-Arial, sans-serif) — one grotesk covers every role set in letters, because an
+Arial, sans-serif)  -  one grotesk covers every role set in letters, because an
 atlas is labelled in a grotesk: precise at 11px, with presence at display size.
 **Quantity Font:** Spline Sans Mono Variable (with ui-monospace, SF Mono, Menlo,
-Consolas) — quantities and only quantities.
+Consolas)  -  quantities and only quantities.
 
 **Character:** Sober, tightly spaced, engineered. Hierarchy comes from size and
 weight, never from a compressed width axis or tracked caps; the width axis is
@@ -317,14 +317,14 @@ field rather than as a word.
 
 - **Display** (680, `clamp(2.75rem, 5.5vw, 4rem)`, 1.0, balanced): the headline,
   once. The only role above 28px.
-- **Title** (640, 28px, 1.12, balanced): the page's name — exactly one per screen.
+- **Title** (640, 28px, 1.12, balanced): the page's name  -  exactly one per screen.
 - **Section** (600, 20px, 1.35): a titled division within a page.
 - **Subhead** (600, 16px, 1.35): a plate's own title.
-- **Body Large** (400, 16px, 1.6): sustained reading — log entries, findings prose.
+- **Body Large** (400, 16px, 1.6): sustained reading  -  log entries, findings prose.
 - **Body** (400, 14px, 1.5): the app's default voice.
 - **Label** (500, 13px, 1.5): a form or control label.
 - **Control** (550, 13px, 1.5, sentence case): a button or a tab.
-- **Caption** (400, 12px, 1.5): metadata — counts, timestamps, provenance.
+- **Caption** (400, 12px, 1.5): metadata  -  counts, timestamps, provenance.
 - **Quantity** (mono, 500, 13px, tabular): a measured value. **Quantity Large**
   (mono, 500, 22px, 1.0) for a tally or total called out on its own.
 - **Legend** (600, 11px, uppercase, 0.1em): a key on the plate, a column head.
@@ -339,7 +339,7 @@ align down a column; a sentence must not.
 **The Sentence-Case Rule.** Controls read in the product's own voice. Tracked
 caps on buttons made every control shout its label in a tool whose job is to be
 quiet enough to think in. Legend is the only uppercase role, and it is a label
-on a field — never an eyebrow set above a heading.
+on a field  -  never an eyebrow set above a heading.
 
 **The No-Fractions Rule.** `font-feature-settings` on quantities is `normal`,
 deliberately. The `frac` feature makes "1/3" pretty and everything else wrong:
@@ -353,20 +353,20 @@ measurement that changes width between states is not comparable down a column.
 ## Layout
 
 Four content measures, chosen by what the page is *for*, never by reaching for
-a bare utility width: **narrow** (26rem — a focused form), **reading** (44rem —
-prose), **work** (60rem — the default working measure), **wide** (72rem — a
+a bare utility width: **narrow** (26rem  -  a focused form), **reading** (44rem  -
+prose), **work** (60rem  -  the default working measure), **wide** (72rem  -  a
 dense dashboard), plus a **bubble** measure (46ch) for conversation turns.
 
-The spacing rhythm is four steps: **tight** (0.5rem — the tightest cluster),
-**stack** (0.75rem — within a section), **section** (2rem — between titled
-sections), **gutter** (2rem — a Surface's own inset). One `Surface` owns one
+The spacing rhythm is four steps: **tight** (0.5rem  -  the tightest cluster),
+**stack** (0.75rem  -  within a section), **section** (2rem  -  between titled
+sections), **gutter** (2rem  -  a Surface's own inset). One `Surface` owns one
 measure, one gutter, one rhythm and one scroller; this is asserted by
 `verify-layout.mjs` and `verify-shell.mjs`, not left to convention.
 
 The workspace's split geometry is a measured column plus a rail that grows with
 the window between a floor (22rem) and a cap (30rem) at 32vw, collapsing to a
 single column below 64rem. The rail's track uses `minmax(0, 1fr)` and never a
-bare `1fr` — a grid track's implicit min-content floor is what pushes a rail off
+bare `1fr`  -  a grid track's implicit min-content floor is what pushes a rail off
 the side of the window.
 
 The desk's graticule is a fixed hairline grid at a 4rem pitch, at low alpha,
@@ -376,7 +376,7 @@ content. Plates scroll across a field that holds still.
 ### Named Rules
 
 **The Felt-Not-Read Rule.** A ruling you can count is graph paper. The pitch is
-wide (4rem, never 1.5rem), the alpha low, and the mask aggressive — on a quiet
+wide (4rem, never 1.5rem), the alpha low, and the mask aggressive  -  on a quiet
 page the ground must never become the loudest thing on screen.
 
 ## Elevation & Depth
@@ -386,12 +386,12 @@ never a zero-offset halo, and never a glow. Three depths and no fourth.
 
 ### Shadow Vocabulary
 
-- **Mark** (`0 1px 2px rgba(14,27,45,0.06)`): a mark on the plate — the barest
+- **Mark** (`0 1px 2px rgba(14,27,45,0.06)`): a mark on the plate  -  the barest
   separation, used by controls and chips.
 - **Plate** (`0 1px 2px rgba(14,27,45,0.05), 0 4px 12px -4px rgba(14,27,45,0.09)`):
   a plate laid down on the desk. The default for cards, panels and dialogs.
 - **Lifted** (`0 8px 20px -6px rgba(14,27,45,0.14), 0 20px 44px -18px rgba(14,27,45,0.16)`):
-  a plate picked up to be moved — hover and drag only.
+  a plate picked up to be moved  -  hover and drag only.
 
 In dark, depth is the lamp *under* the plate: the shadows deepen
 (`rgba(0,0,0,0.4–0.62)`) instead of fading, and a plate carries a lit top edge.
@@ -410,31 +410,31 @@ block. The app always opens on the atlas in daylight; dark lives solely under
 
 ## Shapes
 
-Rounded is a commitment, not a softening — plates in an atlas are bound with
+Rounded is a commitment, not a softening  -  plates in an atlas are bound with
 rounded corners and its legend keys are struck as circles. Five steps: a **plate**
 at 12px (cards, panels, dialogs), a **control** at 8px (buttons, tabs, inputs),
-a **control-inner** at 6px (a segment inside a segmented group — concentric radii
+a **control-inner** at 6px (a segment inside a segmented group  -  concentric radii
 step down by the inset, or the inner corner looks squarer than the outer one), a
-**mark frame** at 4px (the grounding mark's reference box — a plate in
-miniature), and a **key** fully round (999px — chips, pills, dots).
+**mark frame** at 4px (the grounding mark's reference box  -  a plate in
+miniature), and a **key** fully round (999px  -  chips, pills, dots).
 
 The plate is *ruled*, not boxed. Three rule weights carry every division:
-**hairline** (1px — the graticule and incidental division), **rule** (1.5px — a
-frame, and the dashed open ring), and **heavy** (3px — the axis mark, and only
+**hairline** (1px  -  the graticule and incidental division), **rule** (1.5px  -  a
+frame, and the dashed open ring), and **heavy** (3px  -  the axis mark, and only
 the axis mark).
 
 Provenance is drawn in four forms, and every one of them is printed alongside
 its value:
 
-- **Framed dot** — grounding strength. A dot in the mark's ink, sized
+- **Framed dot**  -  grounding strength. A dot in the mark's ink, sized
   continuously by the score, centred in a constant 18px frame (1px
   `control-edge`, 4px corners). The frame is the reference: every mark is read
   against the same box, so the judgement is relative rather than absolute.
-- **Open ring** — unsourced: seen and logged, not identified. A 9px dashed
+- **Open ring**  -  unsourced: seen and logged, not identified. A 9px dashed
   circle in unsourced slate, never filled, never the same shape as anything
   grounded.
-- **Struck line** — superseded: replaced, left legible, never erased.
-- **Doubled mark** — conflict: two marks claiming one coordinate. Nothing else
+- **Struck line**  -  superseded: replaced, left legible, never erased.
+- **Doubled mark**  -  conflict: two marks claiming one coordinate. Nothing else
   in the system doubles, so a doubled mark always means exactly one thing.
 
 ### Named Rules
@@ -444,9 +444,9 @@ by the score inside a constant frame, with the score printed beside it in the
 machine face and its plain words beside that where there is room
 (`◉ 0.71  well grounded`). Three things are load-bearing and none may be
 dropped. The **frame** must be constant, because a bare dot asks the eye to
-judge absolute size against nothing — the failure that retired the first
+judge absolute size against nothing  -  the failure that retired the first
 notation here. The diameter must be **continuous**, because quantising a
-continuous score into steps makes 0.51 and 0.74 render alike — the failure that
+continuous score into steps makes 0.51 and 0.74 render alike  -  the failure that
 retired the second. And the **number** must be printed, because nobody should
 have to estimate a value from a drawing. Grounding strength is never a hatch
 density, a bar, a row of pips, or a hue.
@@ -458,19 +458,19 @@ struck and stays readable, at the superseded ink, both before and after.
 
 ### Buttons
 
-- **Shape:** gently rounded (8px), hairline-framed, 44px tall by default — the
+- **Shape:** gently rounded (8px), hairline-framed, 44px tall by default  -  the
   comfortable touch target (WCAG 2.5.5). `sm` (36px) is the one compact escape
   hatch for dense inline rows.
 - **Primary:** the signal fill with white label; the next action in its region.
   Hover deepens the fill toward ink (`color-mix(in srgb, signal 88%, ink)`).
-- **Outline / Subtle / Ghost:** unfilled — a control-edge frame on plate white, a
+- **Outline / Subtle / Ghost:** unfilled  -  a control-edge frame on plate white, a
   cleared step, or a bare mark. The eye finds the action without reading a word.
 - **Ink:** ink-filled with paper label, reserved for a commit that must *not*
   read as the helpful next step.
 - **Danger:** unfilled at rest, framed and lettered in error ink; it fills
   critical only under the pointer, after confirmation has already been typed.
 - **Focus:** a 2px signal outline at 2px offset, from the global rule. The
-  element keeps its own radius — the focus rule sets no radius of its own.
+  element keeps its own radius  -  the focus rule sets no radius of its own.
 
 ### Tabs & Navigation
 
@@ -490,10 +490,10 @@ ink at weight 600 while its siblings stay muted. Segmented controls are a
 ### Inputs / Fields
 
 A ruled cell in the record: 36px tall, control-edge frame, plate ground, 8px
-radius, set in the reading voice — what a researcher types is language. Passing
+radius, set in the reading voice  -  what a researcher types is language. Passing
 `quantity` switches the field to the machine face and right-aligns it so values
 line up down a column; a `unit` prints in its own cell against the right edge in
-the legend voice. Hover darkens the border; focus is the global ring *only* —
+the legend voice. Hover darkens the border; focus is the global ring *only*  -
 turning the border accent as well drew a second blue ring two pixels inside the
 first and read as a rendering fault.
 
@@ -507,7 +507,7 @@ reads as a ring with a fill rather than as a mark on a field, and that
 clearance is what keeps the frame legible *as* the reference at exactly the
 magnitudes that matter most. The frame's
 border is `control-edge` and not the plate's framing rule, because the box is
-what the value is read against — a graphical object required to understand the
+what the value is read against  -  a graphical object required to understand the
 content, which SC 1.4.11 binds at 3:1 (`border-strong` sits at 2:1 on a plate
 and would have failed silently). A source with no score reads `unrated`; an
 unsourced claim takes the open ring instead. The whole notation is one ink and
@@ -532,7 +532,7 @@ pressed look like the one thing to press. `disabled` is mirrored to
 
 The product's one watchable move. Two versions of the protocol alternate in
 identical coordinates on a 900ms beat, so anything unchanged sits perfectly
-still and only what actually changed appears to move — the instrument that found
+still and only what actually changed appears to move  -  the instrument that found
 Pluto, applied to a protocol diff. At rest it is not an animation but the
 readable record: added lines at full ink, replaced lines struck and still
 legible. Under reduced motion it stops alternating on its own; the manual blink
@@ -575,7 +575,7 @@ stops alternating. Skeletons, never spinners; a streaming affordance within 1s.
   `disabled` to `aria-disabled`.
 - **Do** step concentric radii down by their inset (12px plate → 8px control →
   6px inner segment).
-- **Do** measure contrast rather than trusting the word "muted" —
+- **Do** measure contrast rather than trusting the word "muted"  -
   `check-contrast.mjs` runs in `npm run verify`.
 
 ### Don't:
@@ -599,7 +599,7 @@ stops alternating. Skeletons, never spinners; a streaming affordance within 1s.
   mark's cleared ground and a refused control are three different steps.
 - **Don't** set controls in tracked caps, or set prose, labels or headings in the
   machine face.
-- **Don't** let a focus rule mutate a focused element's radius — it rounded the
+- **Don't** let a focus rule mutate a focused element's radius  -  it rounded the
   command palette's full-width input by 8px the moment it took focus.
 - **Don't** nest a plate inside a plate, or a card inside a card inside a card. A
   division within a plate is a ruled band.

@@ -35,7 +35,7 @@ def main() -> int:
         "--gaps",
         action="store_true",
         help="Report methodology phrases the corpus uses that no registry "
-        "template claims, and exit. This is the registry's blind-spot list — "
+        "template claims, and exit. This is the registry's blind-spot list  -  "
         "evidence that a design archetype exists in the literature with no "
         "shape for it here. Authoring the shape is human work; the report "
         "only says where to look.",
@@ -44,7 +44,7 @@ def main() -> int:
         "--write",
         action="store_true",
         help="Write qualifying drafts to templates/drafts/ as YAML. "
-        "Without this flag, only the report is printed — nothing is written.",
+        "Without this flag, only the report is printed  -  nothing is written.",
     )
     parser.add_argument(
         "--min-papers",
@@ -61,7 +61,7 @@ def main() -> int:
         type=int,
         default=2,
         help="Minimum distinct design phrases a cluster must carry (default "
-        "2) — a real methodological signature reads as more than one bare "
+        "2)  -  a real methodological signature reads as more than one bare "
         "keyword ('coding' alone) matching by coincidence.",
     )
     args = parser.parse_args()
@@ -82,7 +82,7 @@ def main() -> int:
             print()
             print(
                 "Each row is evidence a design exists in the literature that the "
-                "repertoire has no shape for — not a template. Read the papers "
+                "repertoire has no shape for  -  not a template. Read the papers "
                 "behind a phrase before authoring one."
             )
             return 0
@@ -104,7 +104,7 @@ def main() -> int:
         )
 
         if not args.write:
-            print("Dry run — nothing written. Pass --write to draft these.")
+            print("Dry run  -  nothing written. Pass --write to draft these.")
             return 0
 
         if not qualifying:

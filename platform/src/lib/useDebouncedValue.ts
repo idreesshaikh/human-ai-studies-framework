@@ -8,7 +8,7 @@ export const DEBOUNCE_MS = 300;
 /** The value, settled: it only updates once `value` has stopped changing
  * for `delay` ms.
  *
- * Use it wherever a keystroke would otherwise drive a request — corpus
+ * Use it wherever a keystroke would otherwise drive a request  -  corpus
  * search, the recommender refresh, an id lookup. The input stays fully
  * controlled and instant; only the *effect* of typing is debounced. */
 export function useDebouncedValue<T>(value: T, delay = DEBOUNCE_MS): T {

@@ -26,6 +26,7 @@ import { CreateStudyFrom } from "@/components/templates/CreateStudyFrom";
 import {
   templatesApi,
   type RepertoireEntry,
+  type CorpusStatus,
   type MergeResult,
   type CorpusHit,
 } from "@/lib/templatesApi";
@@ -35,8 +36,9 @@ import { useAuth } from "@/lib/auth.tsx";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { signInHref } from "@/lib/returnTo";
+import { publicPaperReference } from "@/lib/paperReference";
 
-/* The protocol repertoire (FR-TPL) — the literature read as *design shapes*
+/* The protocol repertoire (FR-TPL)  -  the literature read as *design shapes*
  * rather than as thirteen studies to replicate. Each shape is ranked by how
  * widely the corpus actually uses it (common → rare), the papers that used it
  * hang off it as ranked references, and picking two or more merges them into
@@ -69,12 +71,19 @@ const BAND_COPY: Record<RepertoireEntry["band"], string> = {
   rare: "Rarely used, novel territory",
 };
 
+function humanizeDesignType(value: string): string {
+  return value
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export function Templates() {
   const [entries, setEntries] = useState<RepertoireEntry[] | null>(null);
+  const [corpus, setCorpus] = useState<CorpusStatus | null>(null);
   /* The selection lives in the URL, not in component state.
    *
-   * It is genuinely addressable information — which design shapes a
-   * researcher is holding side by side — and treating it as component state
+   * It is genuinely addressable information  -  which design shapes a
+   * researcher is holding side by side  -  and treating it as component state
    * meant it could not survive the one thing this page routinely does to it:
    * sending someone to sign in. Signing in ends in `location.reload()`, so a
    * visitor who merged two shapes, was told to sign in to keep the result,
@@ -111,8 +120,8 @@ export function Templates() {
   const api = useApi();
   const { refresh } = useSession();
   const { hasCredential } = useAuth();
-  /* The repertoire is public to READ. Everything on this page that writes —
-   * starting a conversation, turning a shape into a study — still needs an
+  /* The repertoire is public to READ. Everything on this page that writes  -
+   * starting a conversation, turning a shape into a study  -  still needs an
    * identity, and says so where it is. */
   const signedOut = !hasCredential;
   const navigate = useNavigate();
@@ -122,16 +131,33 @@ export function Templates() {
   const [describeError, setDescribeError] = useState("");
 
   useEffect(() => {
-    templatesApi
-      .repertoire()
-      .then((d) => setEntries(d.repertoire))
-      .catch((e) =>
-        setError(
-          e instanceof OfflineError
-            ? "Start the middleware to browse the repertoire."
-            : "Couldn't load the repertoire.",
-        ),
-      );
+    let active = true;
+    let timer: number | undefined;
+    const load = () => {
+      templatesApi
+        .repertoire()
+        .then((d) => {
+          if (!active) return;
+          setEntries(d.repertoire);
+          setCorpus(d.corpus);
+          if (d.corpus.state === "loading" || d.corpus.state === "partial") {
+            timer = window.setTimeout(load, 1200);
+          }
+        })
+        .catch((e) => {
+          if (!active) return;
+          setError(
+            e instanceof OfflineError
+              ? "Start the middleware to browse the repertoire."
+              : "Couldn't load the repertoire.",
+          );
+        });
+    };
+    load();
+    return () => {
+      active = false;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
   }, []);
 
   const admitted = useMemo(
@@ -142,6 +168,7 @@ export function Templates() {
     () => (entries ?? []).filter((e) => !e.admitted),
     [entries],
   );
+  const corpusReady = corpus?.state === "ready";
 
   /* Writing the selection back to the address.
    *
@@ -149,7 +176,7 @@ export function Templates() {
    * pushing each one would bury the page the researcher arrived from under
    * eight history entries they have to click back through.
    *
-   * Changing the selection always drops `merged` — a merged protocol names
+   * Changing the selection always drops `merged`  -  a merged protocol names
    * the exact shapes it came from, so leaving the flag set while the
    * selection moves under it would restore a result for a different set than
    * the one now ticked. */
@@ -163,8 +190,8 @@ export function Templates() {
           const params = new URLSearchParams(prev);
           /* The next selection is derived from `prev` INSIDE the updater, not
            * from the `selected` this render closed over. Two toggles in one
-           * tick — a double click, a keyboard repeat, a test driving two
-           * checkboxes back to back — both read the same stale render and the
+           * tick  -  a double click, a keyboard repeat, a test driving two
+           * checkboxes back to back  -  both read the same stale render and the
            * second silently discarded the first: ticking two shapes left one
            * in the address. */
           const ids = update(parseShapes(params.get("shapes"))).slice(
@@ -220,7 +247,7 @@ export function Templates() {
    *
    * The merge endpoint composes templates at request time and writes nothing,
    * so recomputing it on arrival is safe and is the only way to bring the
-   * result back — the protocol itself is far too large to carry in a URL.
+   * result back  -  the protocol itself is far too large to carry in a URL.
    *
    * `restoredRef` keys the attempt on the exact selection, so a failure is
    * reported once rather than retried on every render, and re-ticking a
@@ -281,7 +308,7 @@ export function Templates() {
           pick two or more and merge them into one novel protocol grounded in
           every paper it draws from. No project needed to browse.
         </p>
-        {entries && (
+        {entries && corpusReady && (
           <p className="mt-2 type-caption text-text-muted">
             <span className="type-quantity text-text">{admitted.length}</span> design shape
             {admitted.length === 1 ? "" : "s"} ready to use
@@ -299,7 +326,15 @@ export function Templates() {
         <Notice kind="problem">{error}</Notice>
       )}
 
-      {entries && entries.length > 0 && (
+      {corpus && corpus.state !== "ready" && (
+        <Notice kind={corpus.state === "error" ? "problem" : "note"}>
+          {corpus.state === "error"
+            ? `The literature index could not finish loading. ${corpus.error}`
+            : `Loading the literature index (${corpus.papers.toLocaleString()} of ${corpus.expected.toLocaleString()} papers). Design evidence will appear as soon as it is ready.`}
+        </Notice>
+      )}
+
+      {entries && entries.length > 0 && corpusReady && (
         <DeriveFromPaper templates={entries} seed={seed} />
       )}
 
@@ -309,7 +344,7 @@ export function Templates() {
         * have already selected are handed over as an explicit merge request,
         * so the assistant proposes the pairing rather than asking them to
         * re-articulate it. */}
-      {entries && entries.length > 0 && (
+      {entries && entries.length > 0 && corpusReady && (
         <section className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4">
           <h2 className="type-subhead flex items-center gap-2 text-text">
             <MessageSquareText className="size-4" aria-hidden />
@@ -331,8 +366,8 @@ export function Templates() {
             />
             {/* Starting a conversation creates a project and a study, so this
               * is the one control in the panel that needs an identity. The
-              * field stays usable either way — a visitor can still frame the
-              * question they came with — but the button says what it will
+              * field stays usable either way  -  a visitor can still frame the
+              * question they came with  -  but the button says what it will
               * actually do rather than failing after the click. */}
             {signedOut ? (
               <Button asChild size="sm">
@@ -365,18 +400,18 @@ export function Templates() {
           <Loader2 className="size-4 animate-spin" aria-hidden /> Ranking the
           repertoire against the corpus…
         </p>
-      ) : entries && entries.length === 0 ? (
+      ) : entries && !corpusReady ? null : entries && entries.length === 0 ? (
         <EmptyState line="No design shapes in the registry yet." />
       ) : (
         /* A grid, not a stack. These are alternatives to choose between, and
            a column forces a reader to hold each one in memory to compare it
            with the next; side by side, the titles, design types and support
            badges line up as columns you can read across.
-           
+
            Cards STRETCH to their row. `items-start` used to be right: a card
            expanded in place to show its references, and stretching dragged its
            row-mates up to match, leaving them framing empty plate. That is no
-           longer how details open — they are a dialog now — so nothing ever
+           longer how details open  -  they are a dialog now  -  so nothing ever
            grows in place, and all `items-start` still did was let every card
            sit at its own height. It does not hold them level the way the old
            comment claimed: a one-line title next to a two-line one differs by
@@ -384,7 +419,7 @@ export function Templates() {
            broken rather than as a set of alternatives. */
         <section className="flex flex-col gap-2">
           {/* The page's primary shelf had no heading at all, while the lesser
-            * "Held back" shelf below it did — so the grid simply began, and
+            * "Held back" shelf below it did  -  so the grid simply began, and
             * the tick box on every card was an affordance whose purpose was
             * explained only in a paragraph three panels up. The heading names
             * the shelf and says what selecting is for, where the selecting
@@ -409,7 +444,7 @@ export function Templates() {
         </section>
       )}
 
-      {held.length > 0 && (
+      {corpusReady && held.length > 0 && (
         <section className="flex flex-col gap-2">
           <h2 className="type-subhead flex items-center gap-1.5 text-text-muted">
             <Info className="size-4" aria-hidden /> Held back
@@ -434,7 +469,7 @@ export function Templates() {
         </section>
       )}
 
-      {/* Compose bar — merging is the point of the page. */}
+      {/* Compose bar  -  merging is the point of the page. */}
       {selected.size > 0 && (
         <div className="sticky bottom-4 flex items-center gap-3 rounded-card border border-border-strong bg-surface-raised p-3 shadow-sheet">
           <span className="type-body text-text">
@@ -530,7 +565,7 @@ function ShapeCard({
           * The box itself is drawn, not the OS default: every other control
           * on the plate (Button, Input, Select) is restyled to the same
           * instrument, and a bare native checkbox was the one control left
-          * to render however the browser felt like — an unbordered square in
+          * to render however the browser felt like  -  an unbordered square in
           * one engine, a solid block in another. The real input still sits
           * over the drawn box, sized to match, so focus, click and keyboard
           * toggling stay native; only its own appearance is hidden. */}
@@ -578,7 +613,7 @@ function ShapeCard({
 
         <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">
           <SupportBadge entry={entry} />
-          <Badge variant="outline">{entry.designType}</Badge>
+          <Badge variant="outline">{humanizeDesignType(entry.designType)}</Badge>
         </div>
       </CardContent>
     </Card>
@@ -590,7 +625,7 @@ function ShapeCard({
  * "How much evidence stands behind this" is the same question grounding
  * answers everywhere else in the app, so it is answered the same way: the
  * count is PRINTED, in the machine face, and the dot that used to sit beside
- * it is gone. The dot was a second encoding of a number already on the line —
+ * it is gone. The dot was a second encoding of a number already on the line  -
  * and a size ramp nobody could rank without the two marks side by side (see
  * DESIGN.md, The Printed-Magnitude Rule). The band's own words stay in the
  * title, where they explain what the count means. */
@@ -610,7 +645,7 @@ function SupportBadge({ entry }: { entry: RepertoireEntry }) {
   );
 }
 
-/* One paper behind a design shape — and a way to act on it.
+/* One paper behind a design shape  -  and a way to act on it.
  *
  * These rows were display-only, sitting a few centimetres above a corpus
  * search that looked like it should reach them and did not. "Use this paper"
@@ -636,7 +671,7 @@ function ShapeDetailPanel({
       <DialogContent className="max-w-work max-h-[80vh] flex flex-col">
         {/* `pr-9` reserves the corner the Close button occupies. `DialogContent`
           * positions it `absolute right-4 top-4`, so it floats OVER whatever
-          * the header puts there — and this header ends in an interactive
+          * the header puts there  -  and this header ends in an interactive
           * label, which overlapped it by 12px: the right end of "Include in
           * merge" was painted under the X, and clicking those pixels hit the
           * close button instead of the checkbox they appeared to belong to. */}
@@ -664,7 +699,7 @@ function ShapeDetailPanel({
 
           <div>
             <h3 className="type-label text-text">Design type</h3>
-            <p className="mt-2 type-body text-text">{entry.designType}</p>
+            <p className="mt-2 type-body text-text">{humanizeDesignType(entry.designType)}</p>
           </div>
 
           <div>
@@ -713,7 +748,9 @@ function ShapeDetailPanel({
             </ul>
             {entry.unresolvedSources.length > 0 && (
               <p className="mt-2 type-caption text-text-muted">
-                Cited but not in the corpus: {entry.unresolvedSources.join(", ")}
+                Additional source: {entry.unresolvedSources
+                  .map((source) => publicPaperReference(source) ?? "Source record")
+                  .join(", ")}
               </p>
             )}
           </div>
@@ -782,7 +819,7 @@ function MergedResult({
        * from there in the conversation. */}
       <CreateStudyFrom
         protocol={result.protocol}
-        label="Turn this into a study — the merged protocol seeds its draft"
+        label="Turn this into a study  -  the merged protocol seeds its draft"
       />
     </div>
   );

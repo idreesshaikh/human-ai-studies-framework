@@ -69,7 +69,7 @@ def test_export_returns_a_downloadable_zip_with_both_artifacts(client):
 
 def test_the_exported_notebook_actually_validates(client):
     """
-    The route's output, not just the library function, has to open in Jupyter — an empty
+    The route's output, not just the library function, has to open in Jupyter  -  an empty
     dataset (no sessions run yet) is the common case for a study that has only just been
     set up.
     """

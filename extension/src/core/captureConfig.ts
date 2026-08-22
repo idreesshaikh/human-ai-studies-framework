@@ -1,12 +1,12 @@
 /**
  * The versioned, protocol-derived capture config the IDE receives on pair and
  * re-pulls at each session start. Portable core: this module only shapes the
- * data — WHEN it is applied (a session boundary, never mid-run: wall #6) is
+ * data  -  WHEN it is applied (a session boundary, never mid-run: wall #6) is
  * the adapter's job.
  */
 
 /** What this session was assigned: a task, under a condition, at a known
- *  position in the participant's sequence. Display only — the join keys the
+ *  position in the participant's sequence. Display only  -  the join keys the
  *  editor actually stamps come from `settings`. Optional because an older
  *  middleware won't send it and a study need not declare tasks. */
 export interface SessionBlock {
@@ -30,7 +30,7 @@ export interface CaptureConfig {
   /**
    * The four legs and their state, for display only (FR-INST-22). Served
    * alongside `settings` by the middleware's `leg_summary`. Optional and
-   * untyped here because an older middleware won't send it — `readLegs`
+   * untyped here because an older middleware won't send it  -  `readLegs`
    * in `legs.ts` validates the shape and degrades rather than trusting it.
    * Never applied: only `settings` configures capture.
    */
@@ -61,7 +61,7 @@ export function configChanged(
  * only when no session is currently active, and only when its version
  * differs from what's already applied. A version bump discovered while a
  * session is running must be deferred to the next session start, never
- * applied mid-run — this is what the adapter's `refreshConfigAtSessionStart`
+ * applied mid-run  -  this is what the adapter's `refreshConfigAtSessionStart`
  * consults before calling `applyConfig`, so a future call-site mistake (e.g.
  * a mid-session poll) fails closed instead of silently violating the wall.
  */
@@ -78,8 +78,8 @@ export function shouldApplyCaptureConfig(
  * something unusable.
  *
  * Never throws and never partially trusts: a malformed block means the
- * session runs without one — the settings still configure capture exactly as
- * before — rather than the editor rendering half a task or crashing at
+ * session runs without one  -  the settings still configure capture exactly as
+ * before  -  rather than the editor rendering half a task or crashing at
  * session start over a display field.
  */
 export function readBlock(cfg: CaptureConfig): SessionBlock | undefined {

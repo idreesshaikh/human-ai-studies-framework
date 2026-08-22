@@ -23,9 +23,9 @@ from middleware.db import (
 #: The demo study's own protocol, kept beside the sample sessions it describes.
 #: Without it the demo can never resolve a protocol at all: ``_resolve_study_
 #: protocol`` looks for an approved snapshot, then a compiled draft, then the
-#: boot protocol — and the boot protocol (when one is loaded) is ``pilot-2026``,
+#: boot protocol  -  and the boot protocol (when one is loaded) is ``pilot-2026``,
 #: a different study id. So every panel that gates on "has a compiled protocol"
-#: — the whole Data tab, Planning, the status endpoint — returned 404 on the one
+#:  -  the whole Data tab, Planning, the status endpoint  -  returned 404 on the one
 #: study that exists to show them populated.
 DEMO_PROTOCOL_PATH = (
     Path(__file__).resolve().parents[2] / "sample-data" / "demo-protocol.yaml"
@@ -36,7 +36,7 @@ DEMO_PROJECT_SLUG = "demo"
 DEMO_PROJECT_NAME = "Demo project"
 DEMO_STUDY_ID = "demo-study"
 
-# Kept in step with ``middleware/sample-data/*.jsonl`` — a session id here that the
+# Kept in step with ``middleware/sample-data/*.jsonl``  -  a session id here that the
 # seeder never posts is simply an empty mapping, which is harmless.
 DEMO_SESSION_IDS = (
     "S-sample-001",

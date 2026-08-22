@@ -1,11 +1,11 @@
 /* The study-data client. Talks to the ingestion middleware for the study
- * operational + knowledge endpoints — papers, the citation graph, the grounded
+ * operational + knowledge endpoints  -  papers, the citation graph, the grounded
  * session status, and the dataset.
  *
  * Same-origin by default: in production the middleware serves this SPA (NFR-7),
  * so `''` resolves to :8000. Set VITE_API_BASE for a separate origin (needs
  * MIDDLEWARE_CORS_ORIGINS, FR-OPS-6). The bearer token comes from `api.ts`'s
- * shared `getAuthToken()` — the pasted-token fallback (`middleware.token` in
+ * shared `getAuthToken()`  -  the pasted-token fallback (`middleware.token` in
  * localStorage, matching MIDDLEWARE_TOKEN) or, in Clerk mode, the live Clerk
  * session JWT `AuthProvider` installs via `setTokenProvider`.
  *
@@ -83,7 +83,7 @@ export interface DryRunResult {
   title: string;
   rqs: string[];
   answers: string[];
-  /** The recipe's own human-readable result — test, p-value, effect size, and
+  /** The recipe's own human-readable result  -  test, p-value, effect size, and
    *  its own caveats. Rendered verbatim: the honesty is in the wording. */
   summary: string;
 }
@@ -124,7 +124,7 @@ export interface LiveSession {
   lastEventType: string;
   lastReceivedAt: string;
   lastSeq: number;
-  /** Events received per bucket, oldest first — the sparkline. */
+  /** Events received per bucket, oldest first  -  the sparkline. */
   rate: number[];
   gapCount: number;
   missingEvents: number;
@@ -176,7 +176,7 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
       credentials: "include",
     });
   } catch {
-    // Network down / no server — the offline branch decides what to do.
+    // Network down / no server  -  the offline branch decides what to do.
     throw new OfflineError();
   }
   if (!res.ok) {
@@ -194,7 +194,7 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
     return (await res.json()) as T;
   } catch {
     // A 200 that isn't real JSON (dev-server SPA fallback, misconfigured
-    // proxy) means there's no real API behind this origin — same offline
+    // proxy) means there's no real API behind this origin  -  same offline
     // posture as an unreachable server.
     throw new OfflineError();
   }
@@ -212,7 +212,7 @@ function post<T>(path: string, body: unknown): Promise<T> {
  * surface still renders (the constellation and charts are worth showing even
  * with nothing on :8000). Non-offline errors propagate. */
 // When the middleware is unreachable, reads fall back to built-in sample data
-// so the UI stays explorable — but that must never be mistaken for a live
+// so the UI stays explorable  -  but that must never be mistaken for a live
 // study's real data. Anything that falls back fires this signal so surfaces
 // (the Data tab) can say so honestly.
 type SeededListener = () => void;
@@ -241,7 +241,7 @@ async function liveOrSeed<T>(run: () => Promise<T>, seed: T): Promise<T> {
 
 /** Study-scoped reads: only the seeded demo study shows sample data when
  * offline. Every real study falls back to an honest *empty* value (it starts
- * from scratch), and — unlike the demo — does NOT raise the "seeded sample
+ * from scratch), and  -  unlike the demo  -  does NOT raise the "seeded sample
  * data" banner, because empty is the truth, not a stand-in. */
 async function liveOrSeedStudy<T>(
   study: string,
@@ -315,7 +315,7 @@ export const studyApi = {
       { studyId: study, nodes: [], edges: [] },
     ),
   ingestPaper: (study: string, id: { arxivId?: string; doi?: string }) =>
-    post<{ paperRef: string; title: string; edges: number }>(
+    post<{ paperRef: string; title: string; edges: number; edgesPending?: boolean }>(
       `/studies/${enc(study)}/papers`,
       id,
     ),
@@ -323,7 +323,7 @@ export const studyApi = {
     req<{ deleted: string }>(`/studies/${enc(study)}/papers/${enc(ref)}`, {
       method: "DELETE",
     }),
-  /** Corpus recommendations for a free-text query (FR-LIT-9) — drives the
+  /** Corpus recommendations for a free-text query (FR-LIT-9)  -  drives the
    * conversation's live recommender box. */
   matchPapers: (study: string, query: string, limit = 5) =>
     post<{ studyId: string; recommendations: Recommendation[] }>(
@@ -370,7 +370,7 @@ export const studyApi = {
     }
   },
   /** The byte-reproducible replication kit (FR-PROT-7), saved to disk.
-   *  Streamed straight to a blob — the archive is binary and can be large,
+   *  Streamed straight to a blob  -  the archive is binary and can be large,
    *  so it never goes through the JSON `req` path. */
   downloadReplicationKit: async (study: string) => {
     await saveAs(
@@ -379,8 +379,8 @@ export const studyApi = {
     );
   },
   /** The starter notebook + data dictionary, zipped: the curated handoff.
-   *  A loaded, documented dataframe with every planned recipe imported —
-   *  never run — so a researcher's own analysis starts from a known point
+   *  A loaded, documented dataframe with every planned recipe imported  -
+   *  never run  -  so a researcher's own analysis starts from a known point
    *  rather than a bare dataset export. */
   downloadNotebook: async (study: string) => {
     await saveAs(`/studies/${enc(study)}/notebook`, `${study}-notebook.zip`);
@@ -433,7 +433,7 @@ export const studyApi = {
   /** The power/sensitivity curve (P2-2): exact two-sample t-test power
    * (non-central t, equal per-group n, two-sided) across per-group n, plus
    * the first n reaching the target power, per effect size. Planning math
-   * over the study's planned comparison — the payload carries its own model
+   * over the study's planned comparison  -  the payload carries its own model
    * and assumptions, so the panel renders them without hardcoding. Offline:
    * the demo study gets a normal-approximation stand-in of the same formula
    * (the seeded-data banner says so); real studies get an honest empty doc. */
@@ -460,8 +460,8 @@ export const studyApi = {
       emptyPowerDoc(),
     ),
   /** Synthetic dry run (FR-DRY-1): N simulated participants through the
-   * real ingest path — tokens minted, session blocks recorded, events and
-   * metrics stored exactly as a live capture would — and then the study's
+   * real ingest path  -  tokens minted, session blocks recorded, events and
+   * metrics stored exactly as a live capture would  -  and then the study's
    * own analysis plan run over what landed. `plan` is the half that answers
    * the researcher's real question: whether the statistics this design
    * prescribes can actually be computed, before anyone sits down.
@@ -496,7 +496,7 @@ export const studyApi = {
   /** The study's compiled protocol, read-only.
    *
    *  The conversation gets its protocol back from `/conversation/compile`,
-   *  which needs a contribute-level capability — so a viewer (and every
+   *  which needs a contribute-level capability  -  so a viewer (and every
    *  visitor to the read-only demo) got a 403 there and saw an empty
    *  "no design shape yet" rail over a fully compiled protocol. This is the
    *  view-capability twin of that call: no compilation, no write, just the
@@ -524,7 +524,7 @@ export const studyApi = {
 //
 // A curated, corpus-consistent seed (the same landmark papers the design
 // conversation cites) so the constellation, library, and charts are
-// beautiful with no server — the platform's offline-explorable posture.
+// beautiful with no server  -  the platform's offline-explorable posture.
 
 const SEED_PAPERS: Paper[] = [
   seedPaper("corpus:trust-in-ai-code-generation", "Investigating and Designing for Trust in AI-powered Code Generation", 2024, 141, ["RQ-1", "measure:review-latency"]),
@@ -745,7 +745,7 @@ const SEED_SESSIONS: SessionStatus[] = Array.from({ length: 12 }, (_, i) => ({
 
 
 // Offline fallback for the prescription table (the live values come from the
-// analysis engine at /analysis/prescriptions). Kept short — the two shapes a
+// analysis engine at /analysis/prescriptions). Kept short  -  the two shapes a
 // small-N developer study most often lands on.
 const SEED_PRESCRIPTIONS: Prescription[] = [
   {
@@ -772,7 +772,7 @@ function normCdf(x: number): number {
   return 0.5 * (1 + erf(x / Math.SQRT2));
 }
 
-// Abramowitz & Stegun 7.1.26 — good to ~1.5e-7, plenty for a stand-in.
+// Abramowitz & Stegun 7.1.26  -  good to ~1.5e-7, plenty for a stand-in.
 function erf(x: number): number {
   const t = 1 / (1 + 0.3275911 * Math.abs(x));
   const y =

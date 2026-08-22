@@ -8,7 +8,7 @@ make sense, so you can tune them for your study instead of guessing.
 The one thing to keep in mind: **every setting can come from the study
 protocol**. When a participant connects to a study, their identity,
 condition, and capture settings are derived from the protocol and pushed to
-the IDE automatically — nothing is configured by hand in the field. The
+the IDE automatically  -  nothing is configured by hand in the field. The
 settings below are what those derived values map onto, and what you edit
 directly when you're testing locally or overriding a default.
 
@@ -40,7 +40,7 @@ real session's configuration.
 | Setting | Default | What it decides |
 | --- | --- | --- |
 | `tern.participantId` | `""` | The participant this IDE records as. Can be set when you start a session, so leaving it blank is fine. |
-| `tern.condition` | `unspecified` | The study arm: `ai-assisted` or `unassisted`. This is on every event row — get it right. |
+| `tern.condition` | `unspecified` | The study arm: `ai-assisted` or `unassisted`. This is on every event row  -  get it right. |
 | `tern.session.durationMinutes` | `60` | Session length. When the clock runs out the end-of-study survey opens on its own. |
 
 The clock is wall-clock based and survives a laptop sleeping or the window
@@ -62,7 +62,7 @@ settings shape when it appears.
 
 The jitter is deliberate, not cosmetic. A probe that lands on a fixed
 15-minute clock is one participants learn to expect, and anticipated probes
-change behavior — a known problem with experience sampling. The random
+change behavior  -  a known problem with experience sampling. The random
 offset breaks the pattern. Set `jitterPercent` to `0` only if you have a
 reason to want strictly periodic sampling.
 
@@ -72,9 +72,9 @@ It waits for a real pause; if the participant never pauses it gives up after
 
 ## Stuck detection
 
-TERN watches for two patterns that suggest the participant is stuck —
+TERN watches for two patterns that suggest the participant is stuck  -
 dwelling on the same lines without editing while still active, or scrolling
-back and forth over the same region — and draws a soft prompt around the
+back and forth over the same region  -  and draws a soft prompt around the
 code when it sees one.
 
 | Setting | Default | What it decides |
@@ -91,13 +91,13 @@ and leave the cursor in a file without typing.
 One thing worth understanding: the detector requires the participant to be
 *visibly active* before it calls anything stuck. Without eye tracking there
 is no way to tell someone reading intently from someone who walked away, so
-faint activity — a cursor move, a scroll, focus on the window — has to be
+faint activity  -  a cursor move, a scroll, focus on the window  -  has to be
 present. No activity means idle, not stuck.
 
 ## What the behavioral leg captures
 
 `tern.behavior.enabled` (default `true`) is the master switch for the second
-leg — the one that records how the participant works rather than what they
+leg  -  the one that records how the participant works rather than what they
 say. Under it, each stream can be turned off independently:
 
 | Setting | Records |
@@ -113,14 +113,14 @@ say. Under it, each stream can be turned off independently:
 
 Two settings scope all of this:
 
-- `tern.behavior.languages` (default `["python"]`) — only files in these
+- `tern.behavior.languages` (default `["python"]`)  -  only files in these
   languages are captured. The pilot is Python-only; widen it when your study
   does.
-- `tern.behavior.workspaceInternalOnly` (default `true`) — files outside the
+- `tern.behavior.workspaceInternalOnly` (default `true`)  -  files outside the
   workspace are never captured, only noted as `external` in focus events.
 
 None of these streams record content. They record sizes, line counts,
-timings, and salted hashes — never code text, keystrokes, or clipboard text.
+timings, and salted hashes  -  never code text, keystrokes, or clipboard text.
 That is a property of the instrument, not a setting you can accidentally turn
 off, and it's covered in more detail under [Privacy](#privacy) below.
 
@@ -136,15 +136,15 @@ snapshot at session start.
 | `tern.session.agentTool` | `claude-code` | The AI tool used in the ai-assisted arm. |
 | `tern.session.agentModelId` | `claude-fable-5` | The exact model behind that tool. |
 
-If you skip these, the data is still valid — you just lose the ability to say
+If you skip these, the data is still valid  -  you just lose the ability to say
 precisely which tool and model a session used, which matters when you write
 the study up.
 
 ## The tuning knobs you usually leave alone
 
-The `tern.behavior.*` timing settings — `burstGapMs`, `aiCorrelationMs`,
+The `tern.behavior.*` timing settings  -  `burstGapMs`, `aiCorrelationMs`,
 `aiBlockCharThreshold`, `aiBlockMaxDurationMs`, `pasteCorrelationMs`,
-`idleWindowSeconds`, the debounce and attention-radius values — control the
+`idleWindowSeconds`, the debounce and attention-radius values  -  control the
 internals of the classifiers. The defaults are deliberate and hold across
 studies, so treat these as advanced.
 
@@ -159,7 +159,7 @@ The two worth knowing about, because they decide how an edit gets labeled
   are the windows for tying an edit to an accepted AI suggestion or a paste.
 
 If your study uses an AI tool that streams its output character by character
-rather than dropping it in as a block, the size heuristic won't catch it —
+rather than dropping it in as a block, the size heuristic won't catch it  -
 you'll be relying on the accept-correlation instead. That's a real blind
 spot, documented alongside the others in
 [`adaptation-notes.md`](adaptation-notes.md).
@@ -174,7 +174,7 @@ spot, documented alongside the others in
 
 The JSONL file is always the source of truth. If you set an HTTP endpoint,
 events are also batched to the middleware every few seconds, but that is
-best-effort mirroring — a middleware that's down or slow never blocks the
+best-effort mirroring  -  a middleware that's down or slow never blocks the
 session and never loses data, because the file already has it. Missing
 events show up as gaps in the sequence numbers, so loss is always
 detectable even when it can't be prevented.
@@ -207,8 +207,8 @@ Everything else stays at its default. For the other arm, the only change is
 
 The instruments capture aggregates, shapes, timings, and salted hashes.
 They do not capture code content, keystrokes, or clipboard text. Two narrow
-exceptions exist for the agent leg — the content of an AI conversation and
-workspace snapshots — and both are governed by the protocol's content
+exceptions exist for the agent leg  -  the content of an AI conversation and
+workspace snapshots  -  and both are governed by the protocol's content
 policy, so they only ever happen when a study has consented to them
 explicitly.
 

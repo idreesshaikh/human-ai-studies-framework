@@ -10,7 +10,7 @@ import { useApi, useSession } from "@/lib/session";
 import { ApiError } from "@/lib/api";
 
 /* Quick-start flow: describe a study and create it in an implicit personal
- * workspace project. No project naming step — it's created silently. */
+ * workspace project. No project naming step  -  it's created silently. */
 export function QuickStart() {
   const api = useApi();
   const { refresh } = useSession();

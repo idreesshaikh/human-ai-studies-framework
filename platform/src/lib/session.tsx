@@ -58,7 +58,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
       setMe(await api.me());
     } catch {
-      // Not signed in (401) — the auth layer's `onUnauthorized` listener
+      // Not signed in (401)  -  the auth layer's `onUnauthorized` listener
       // shows the sign-in surface; this just avoids an unhandled rejection.
       setMe(null);
     } finally {
@@ -78,12 +78,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async (theme: Preferences["theme"]) => {
       // Local change first so the chrome reacts instantly; persist is
       // best-effort and doesn't block the UI. A legacy "system" preference
-      // resolves to light — the app no longer auto-follows the OS.
+      // resolves to light  -  the app no longer auto-follows the OS.
       if (theme) applyTheme(theme === "dark" ? "dark" : "light");
       try {
         await updatePreferences({ theme });
       } catch {
-        /* offline / unauthenticated — local theme still applies */
+        /* offline / unauthenticated  -  local theme still applies */
       }
     },
     [updatePreferences],
@@ -94,7 +94,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   // When the auth layer establishes a live credential (e.g. after a Clerk
-  // sign-in reload), the session's first /me may have 401'd — re-fetch now
+  // sign-in reload), the session's first /me may have 401'd  -  re-fetch now
   // that a token is available.
   useEffect(() => {
     const onReady = () => {
