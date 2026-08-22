@@ -18,6 +18,7 @@ STUDY = "edge-study"
 SEED = "corpus:trust-in-ai-code-generation"
 NEW = "arxiv:2510.20703"
 OTHER = "arxiv:2211.03622"
+ORPHAN = "corpus:orphan-source"
 
 
 @pytest.fixture()
@@ -46,6 +47,7 @@ def client(tmp_path, monkeypatch):
             (SEED, "Investigating and Designing for Trust"),
             (NEW, "Trust, But Verify"),
             (OTHER, "Security Weaknesses of Generated Code"),
+            (ORPHAN, "A source paper not yet in this study"),
         ):
             s.add(
                 Paper(
@@ -66,6 +68,15 @@ def client(tmp_path, monkeypatch):
                     dst_title="harvested neighbour",
                 )
             )
+        s.add(
+            PaperEdge(
+                study_id=CORPUS_STUDY_ID,
+                src_ref=ORPHAN,
+                dst_ref=NEW,
+                kind=VIA_EDGE_KIND,
+                dst_title="harvested neighbour",
+            )
+        )
         for ref, title in ((SEED, "Investigating and Designing for Trust"),
                            (OTHER, "Security Weaknesses of Generated Code")):
             s.add(
@@ -91,6 +102,19 @@ def test_added_paper_arrives_with_edges(client):
     graph = client.get(f"/studies/{STUDY}/papers/graph").json()
     touching = [e for e in graph["edges"] if NEW in (e["src"], e["dst"])]
     assert touching, "the added paper is still an isolated node"
+
+
+def test_graph_includes_both_endpoints_when_source_is_not_ingested(client):
+    _add_from_match(client, NEW)
+    graph = client.get(f"/studies/{STUDY}/papers/graph").json()
+    by_ref = {n["paperRef"]: n for n in graph["nodes"]}
+
+    assert by_ref[ORPHAN]["ingested"] is False
+    assert {ORPHAN, NEW} <= by_ref.keys()
+    assert all(
+        edge["src"] in by_ref and edge["dst"] in by_ref
+        for edge in graph["edges"]
+    )
 
 
 def test_the_edge_is_shared_with_a_paper_the_study_already_holds(client):

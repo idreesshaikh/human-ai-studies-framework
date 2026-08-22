@@ -68,7 +68,10 @@ export interface GraphNode {
 export interface GraphEdge {
   src: string;
   dst: string;
-  kind: "references" | "citations" | "recommendations";
+  /** ``harvested-via`` is the corpus provenance kind. The constellation maps
+   * it to the researcher-facing recommendations series at its presentation
+   * boundary, but the API type should still describe the wire response. */
+  kind: "references" | "citations" | "recommendations" | "harvested-via";
 }
 
 export interface PaperGraph {
@@ -338,6 +341,8 @@ export const studyApi = {
       paperRef: string;
       title: string;
       addedVia: string;
+      edges: number;
+      edgesPending: boolean;
     }>(`/studies/${enc(study)}/papers/from-match`, { ref, matchReason }),
   setPaperLinks: (study: string, ref: string, targets: string[]) =>
     req<{ paperRef: string; links: string[] }>(

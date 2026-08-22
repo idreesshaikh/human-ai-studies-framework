@@ -84,10 +84,10 @@ def test_checks_drops_proposals_but_never_drops_a_caution():
     assert [m.kind for m in kept] == ["caution"]
 
 
-def test_a_talkative_level_keeps_every_move():
+def test_every_level_keeps_one_decision_at_a_time():
     moves = (_Move("choose-template"), _Move("add-measure"), _Move("caution"))
     kept = _permitted_moves(moves, _stance(steer="leads"))
-    assert [m.kind for m in kept] == ["choose-template", "add-measure", "caution"]
+    assert [m.kind for m in kept] == ["choose-template", "caution"]
 
 
 def test_assists_only_keeps_one_move_for_an_empty_section():

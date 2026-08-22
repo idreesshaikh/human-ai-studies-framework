@@ -69,7 +69,7 @@ export function ConversationView({
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
   const [showFinish, setShowFinish] = useState(false);
-  const draftFolded = usePanel("draft");
+  const draftFolded = usePanel("draft", studyId);
   const [rail, setRail] = useState<RailId>(() => readRail(studyId));
   /* The one move the caret goes to, set only when a reply lands in answer
    * to something this researcher just sent. Never on a page they merely
@@ -592,7 +592,7 @@ export function ConversationView({
               size="icon"
               aria-label="Show protocol draft"
               aria-expanded={false}
-              onClick={() => togglePanel("draft")}
+              onClick={() => togglePanel("draft", studyId)}
             >
               <PanelRight className="size-4" aria-hidden />
             </Button>
@@ -623,7 +623,7 @@ export function ConversationView({
               className="shrink-0"
               aria-label="Hide protocol draft"
               aria-expanded
-              onClick={() => togglePanel("draft")}
+              onClick={() => togglePanel("draft", studyId)}
             >
               <PanelRightClose className="size-4" aria-hidden />
             </Button>

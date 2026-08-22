@@ -116,7 +116,7 @@ def test_over_trust_moves_are_grounded_only_in_retrieved(client):
     assert grounded, "at least one move must be grounded"
     refs = {g["ref"] for g in grounded if g["ref"] != "none"}
     assert "corpus:trust-in-ai-code-generation" in refs
-    assert "corpus:insecure-code-with-ai-assistants" in refs
+    assert len(reply["moves"]) == 1
 
 
 def test_recommendations_surface_the_two_demo_papers(client):
@@ -643,14 +643,17 @@ def test_design_state_reaches_the_llm(client, monkeypatch):
     The second turn's request carries the structured design state: the accepted and
     rejected moves by name, and the still-empty sections.
     """
-    reply = {
-        "text": "Two moves.",
-        "moves": [_LATENCY_MOVE, _CONDITIONS_MOVE],
-    }
+    reply = {"text": "One measure.", "moves": [_LATENCY_MOVE]}
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
     turn = _ask(client, "junior developers over-trust AI code")
     _accept(client, turn["moves"][0]["moveId"])
-    _accept(client, turn["moves"][1]["moveId"], status="rejected")
+
+    comparison_reply = {"text": "One condition choice.", "moves": [_CONDITIONS_MOVE]}
+    monkeypatch.setattr(
+        assistant, "make_client", lambda *a, **k: _fake_llm(comparison_reply)
+    )
+    comparison = _ask(client, "what should we compare?")
+    _accept(client, comparison["moves"][0]["moveId"], status="rejected")
 
     captured: list = []
     monkeypatch.setattr(
@@ -817,10 +820,10 @@ def _read_move_order(client: TestClient) -> list[str]:
 
 
 def test_moves_keep_proposal_order_across_decisions(client, tmp_path):
-    """Accepting or undoing a card must not reorder the turn's cards."""
+    """The one surfaced card keeps its sequence across decisions."""
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
     proposed = [m["moveId"] for m in reply["moves"]]
-    assert len(proposed) >= 2
+    assert len(proposed) == 1
 
     middle = proposed[len(proposed) // 2]
     _accept(client, middle, status="accepted")

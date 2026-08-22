@@ -528,9 +528,15 @@ def _move_section(move: ProposedMove) -> str:
 def _permitted_moves(
     moves: tuple[ProposedMove, ...], stance: dict, state: dict | None = None
 ) -> tuple[ProposedMove, ...]:
-    """Apply the stance to a script's moves  -  the enforcement half."""
-    kept = []
-    assist_move_seen = False
+    """Apply the stance to a script's moves  -  the enforcement half.
+
+    The model is instructed to make one proposal at a time, but that rule must
+    also hold when a provider returns a verbose turn or an older prompt is in
+    use. Keep the first permitted actionable move and at most one caution, so
+    a single researcher answer cannot fan out into a stack of decisions while
+    a validity warning is still visible beside the one move it qualifies.
+    """
+    candidates = []
     for move in moves:
         if not stance["mayProposeMoves"] and move.kind != "caution":
             log.info(
@@ -548,20 +554,38 @@ def _permitted_moves(
                 "held back %s: the study isn't understood yet", move.kind
             )
             continue
-        if stance.get("steer") == "assists" and move.kind != "caution":
-            # Assists is the structural-gap stop: it may fill one section the
-            # draft has not covered, but it should not keep pitching choices the
-            # researcher has already settled. The model is still responsible
-            # for selecting the best move; this is the server-side boundary.
-            if _move_section(move) in set((state or {}).get("filled") or []):
-                log.info("held back %s: assists only fills an empty section", move.kind)
-                continue
-            if assist_move_seen:
-                log.info("held back %s: assists offers one move at a time", move.kind)
-                continue
-            assist_move_seen = True
-        kept.append(move)
-    return tuple(kept)
+        if (
+            stance.get("steer") == "assists"
+            and move.kind != "caution"
+            and _move_section(move) in set((state or {}).get("filled") or [])
+        ):
+            # Assists is the structural-gap stop: it may fill a section the
+            # draft has not covered, but it should not keep pitching choices
+            # the researcher has already settled.
+            log.info("held back %s: assists only fills an empty section", move.kind)
+            continue
+        candidates.append(move)
+
+    if not candidates:
+        return ()
+    chosen_action = next(
+        (move for move in candidates if move.kind != "caution"), None
+    )
+    chosen_caution = next(
+        (move for move in candidates if move.kind == "caution"), None
+    )
+    chosen = tuple(
+        move
+        for move in candidates
+        if move is chosen_action or (chosen_action is None and move is chosen_caution)
+        or (chosen_action is not None and move is chosen_caution)
+    )
+    if len(candidates) > len(chosen):
+        log.info(
+            "held back %d move(s): the conversation offers one decision at a time",
+            len(candidates) - len(chosen),
+        )
+    return chosen
 
 
 def _move_key_text(proposal: str, patch: dict | None) -> str:

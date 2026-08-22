@@ -1256,6 +1256,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             select(PaperEdge.id).where(
                 PaperEdge.study_id == study_id,
                 PaperEdge.src_ref == paper_ref,
+                PaperEdge.kind.in_(
+                    ("references", "citations", "recommendations")
+                ),
             )
         ) is not None:
             return 0
@@ -1334,6 +1337,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         except semantic_scholar.SemanticScholarError as exc:
             raise HTTPException(502, f"Semantic Scholar: {exc}") from exc
         upsert_paper(s, study_id, record, source="id")
+        adopted = _adopt_corpus_edges(s, study_id, record["paperRef"])
         # Release the request transaction before the background session opens its
         # enrichment transaction. This matters for SQLite, where a response that is
         # already ready can still hold the writer lock until dependency cleanup.
@@ -1347,7 +1351,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return {
             "paperRef": record["paperRef"],
             "title": record["title"],
-            "edges": 0,
+            "edges": adopted,
             "edgesPending": True,
         }
 
@@ -1453,6 +1457,38 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "citationCount": p.citation_count,
                 "ingested": True,
             }
+
+        # A harvested edge may point back to a corpus paper that has not been
+        # ingested into this study. The old response only materialised the
+        # destination stub, leaving that edge's source without a node. The
+        # client quite correctly refused to paint a path between a node and
+        # nothing, which made references, citations, and recommendations all
+        # appear to have vanished. Materialise both endpoints, preferring
+        # study metadata and then the shared corpus metadata when available.
+        endpoint_refs = {e.src_ref for e in edges} | {e.dst_ref for e in edges}
+        missing_refs = endpoint_refs - nodes.keys()
+        paper_metadata: dict[str, Paper] = {}
+        if missing_refs:
+            for p in s.scalars(
+                select(Paper).where(
+                    Paper.paper_ref.in_(missing_refs),
+                    Paper.study_id.in_([study_id, CORPUS_STUDY_ID]),
+                )
+            ):
+                if p.paper_ref not in paper_metadata or p.study_id == study_id:
+                    paper_metadata[p.paper_ref] = p
+
+        for ref in missing_refs:
+            p = paper_metadata.get(ref)
+            nodes[ref] = {
+                "paperRef": ref,
+                "title": p.title if p else "",
+                "authors": (p.authors if p else None) or [],
+                "year": p.year if p else None,
+                "citationCount": p.citation_count if p else None,
+                "ingested": False,
+            }
+
         for e in edges:
             if e.dst_ref not in nodes:
                 nodes[e.dst_ref] = {
@@ -1560,7 +1596,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         dependencies=[Depends(require_project_for_study("contribute"))],
     )
     def add_paper_from_match(
-        study_id: str, body: FromMatchIn, s: Session = Depends(db)
+        study_id: str,
+        body: FromMatchIn,
+        background_tasks: BackgroundTasks,
+        s: Session = Depends(db),
     ) -> dict:
         """
         One-click ingest of a recommendation card (FR-LIT-9.3): the corpus row joins the
@@ -1619,6 +1658,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.execute(stmt)
         _seed_links(s, study_id, corpus_row.paper_ref)
         adopted = _adopt_corpus_edges(s, study_id, corpus_row.paper_ref)
+        # A corpus recommendation may carry provenance edges but not the full
+        # Semantic Scholar neighbourhood. Start the same enrichment used by
+        # direct ingest so accepting a recommendation grows the graph too.
+        s.commit()
+        background_tasks.add_task(
+            harvest_edges_in_background, study_id, corpus_row.paper_ref
+        )
         return {
             "studyId": study_id,
             "paperRef": corpus_row.paper_ref,
@@ -1626,6 +1672,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "tier": corpus_row.tier,
             "addedVia": "match",
             "edges": adopted,
+            "edgesPending": True,
         }
 
     @app.get(
