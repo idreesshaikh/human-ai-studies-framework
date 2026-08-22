@@ -211,12 +211,17 @@ const FORMATTERS: Record<(typeof SECTION_ORDER)[number], (value: unknown) => Pro
  * reads). */
 const SKIP_KEYS = new Set(["protocolVersion"]);
 
-export function summarizeProtocol(protocol: Record<string, unknown>): ProtocolSection[] {
+export function summarizeProtocol(
+  protocol: Record<string, unknown>,
+  options: { includeEmpty?: boolean } = {},
+): ProtocolSection[] {
+  const includeEmpty = options.includeEmpty === true;
   const sections: ProtocolSection[] = [];
   for (const key of SECTION_ORDER) {
-    if (!(key in protocol)) continue;
     const section = FORMATTERS[key](protocol[key]);
-    if (section.lines.some((l) => l.trim())) sections.push(section);
+    if (includeEmpty || section.lines.some((l) => l.trim())) {
+      sections.push(section);
+    }
   }
   for (const [key, value] of Object.entries(protocol)) {
     if ((SECTION_ORDER as readonly string[]).includes(key) || SKIP_KEYS.has(key)) continue;

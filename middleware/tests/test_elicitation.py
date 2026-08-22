@@ -54,6 +54,28 @@ def test_questions_about_prior_turns_are_recognised(text):
 @pytest.mark.parametrize(
     "text",
     [
+        "I don't know",
+        "I dont know you help me",
+        "not sure",
+        "what?",
+        "can you help me",
+        "okay",
+        "exactly",
+    ],
+)
+def test_low_information_replies_request_scaffolding(text):
+    assert elicitation.needs_scaffolding(text)
+    assert elicitation.classify_turn(text) == "needs-scaffolding"
+
+
+def test_a_question_about_a_prior_move_is_not_misclassified_as_stuck():
+    assert not elicitation.needs_scaffolding("I don't know why you proposed that")
+    assert elicitation.classify_turn("I don't know why you proposed that") == "followup-question"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
         "what design and statistics should I use?",
         "which template do you recommend?",
         "just give me the design",
@@ -164,6 +186,18 @@ def test_understanding_accumulates_across_turns(client):
     later = _ask(client, "they refactor a legacy module, and I'll time them")
     known = later["understanding"]["known"]
     assert "population" in known and "task" in known
+
+
+def test_stuck_researcher_gets_explanation_and_actionable_measure_card(client):
+    _ask(
+        client,
+        "I want junior engineers to debug code with AI and without AI in a 45-minute lab session.",
+    )
+    reply = _ask(client, "I don't know you help me")
+    assert reply["turnIntent"] == "needs-scaffolding"
+    assert "task time" in reply["text"]
+    assert "correctness" in reply["text"]
+    assert [m["kind"] for m in reply["moves"]] == ["add-measure"]
 
 
 def test_every_profile_has_distinct_guidance():

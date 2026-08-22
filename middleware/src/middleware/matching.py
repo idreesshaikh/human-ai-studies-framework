@@ -137,7 +137,10 @@ def rerank_with_llm(query: str, candidates: list[dict]) -> list[dict] | None:
     """Reorder ``candidates`` and phrase one-line reasons via Mistral."""
     from middleware import assistant
 
-    client = assistant.make_client()
+    # Paper ranking is part of the assistant's visible reasoning trail. Use the
+    # strongest configured Mistral tier here as well as for the design turn so
+    # recommendations do not quietly come from a weaker model.
+    client = assistant.make_client(assistant.MISTRAL_BEST_MODEL)
     if client is None or not candidates:
         return None
     menu = "\n".join(f"- {c['ref']}: {c.get('title', '')}" for c in candidates)
@@ -196,7 +199,7 @@ def expand_query(query: str) -> str:
         return _EXPANSION_CACHE[q]
     from middleware import assistant
 
-    client = assistant.make_client()
+    client = assistant.make_client(assistant.MISTRAL_BEST_MODEL)
     if client is None:
         return q
     prompt = (

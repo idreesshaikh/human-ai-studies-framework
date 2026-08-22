@@ -444,7 +444,16 @@ def _directive(stance: dict, state: dict | None = None) -> str:
         elicitation.steer_guidance(stance.get("steer")),
     ]
 
-    if stance["intent"] == "followup-question":
+    if stance["intent"] == "needs-scaffolding":
+        lines.append(
+            "THE RESEARCHER IS STUCK. Explain the first missing facet in plain "
+            "language with two or three concrete examples tied to this study. "
+            "Do not repeat the generic question verbatim. Offer one clear next "
+            "choice and, when a safe concrete measure or task can help, propose "
+            "one actionable move card for them to accept or reject. Do not invent "
+            "a value they have not supplied."
+        )
+    elif stance["intent"] == "followup-question":
         lines.append(
             "THIS TURN IS A QUESTION ABOUT WHAT YOU ALREADY SAID. Answer it "
             "directly in `text`, naming the specific move you proposed and the "
@@ -466,6 +475,11 @@ def _directive(stance: dict, state: dict | None = None) -> str:
             lines.append(
                 "Answer the question before doing anything else. Do not attach "
                 "a new design move to this explanation."
+            )
+        elif stance["intent"] == "needs-scaffolding":
+            lines.append(
+                "Use an explanation plus concrete options, not another open-ended "
+                "request for the same missing facet."
             )
         else:
             lines.append(
@@ -510,6 +524,98 @@ def _directive(stance: dict, state: dict | None = None) -> str:
         )
         lines.append(_slot_directive(state))
     return "\n\n".join(lines)
+
+
+def _scaffolding_turn(stance: dict, papers: list[dict]) -> Turn:
+    """Give a stuck researcher a useful explanation and one visible next move.
+
+    This is intentionally deterministic. A low-information reply is the one place
+    where asking the model to improvise is least reliable: it can mirror the same
+    unanswered question forever. The card remains a proposal, so the researcher is
+    still the person who decides what enters the protocol.
+    """
+    understanding = stance.get("understanding") or {}
+    if not understanding.get("known"):
+        return Turn(
+            text=(
+                "Start with the question you want to answer, in plain language. "
+                "For example: does AI assistance change how junior developers debug "
+                "code? What do you want to find out?"
+            ),
+            moves=(),
+        )
+    facet = understanding.get("missing", ["outcome"])[0]
+    copy: dict[str, tuple[str, ProposedMove | None]] = {
+        "population": (
+            "That is okay. We first need a practical description of who can take part, "
+            "not a perfect population. For example, this could be junior engineers "
+            "who already use AI coding tools. Is that close to the people you can reach?",
+            ProposedMove(
+                "set-parameter",
+                "participants[]",
+                "Recruit junior engineers who regularly use AI coding tools.",
+                {
+                    "section": "participants",
+                    "op": "append",
+                    "value": "junior engineers who regularly use AI coding tools",
+                },
+                (),
+            ),
+        ),
+        "task": (
+            "That is okay. A task is the concrete work everyone performs, such as "
+            "fixing a bug, implementing a small feature, or reviewing generated code. "
+            "Which is closest to your study?",
+            ProposedMove(
+                "declare-task",
+                "tasks[]",
+                "Have participants complete a small bug-fixing task on a shared project.",
+                {
+                    "title": "Complete a small bug-fixing task on a shared project",
+                    "description": "Participants diagnose and fix the same kind of project issue.",
+                },
+                (),
+            ),
+        ),
+        "comparison": (
+            "That is okay. A comparison is what you put side by side: for example, "
+            "AI-assisted work versus unassisted work, or the same people before and "
+            "after using AI. Which comparison matches your aim?",
+            None,
+        ),
+        "outcome": (
+            "That is okay. A result is something you can record consistently. For this "
+            "study, you could measure task time, solution correctness, or a short "
+            "comprehension check. I suggest starting with correctness because it shows "
+            "whether the work is actually right. Should I add that measure?",
+            ProposedMove(
+                "add-measure",
+                "measures[]",
+                "Measure solution correctness by counting passed test cases and substantive defects.",
+                {
+                    "section": "measures",
+                    "op": "append",
+                    "value": "solution correctness: passed test cases and substantive defects",
+                },
+                tuple(p["ref"] for p in papers[:1] if p.get("ref")),
+            ),
+        ),
+        "constraints": (
+            "That is okay. Practical constraints are the limits that make the study "
+            "real, such as session length, setting, or data you can access. Which "
+            "limit should we plan around first?",
+            None,
+        ),
+    }
+    text, move = copy.get(
+        facet,
+        (
+            "That is okay. I can break the study into one decision at a time. "
+            "Which part should we settle next: who takes part, what they do, or what we measure?",
+            None,
+        ),
+    )
+    return Turn(text=text, moves=(move,) if move else ())
 
 
 def _move_section(move: ProposedMove) -> str:
@@ -768,13 +874,25 @@ def respond(
     steer: str | None = None,
 ) -> dict:
     """One platform turn responding to researcher ``text``."""
-    if client is None:
-        raise ModelUnavailable(NO_MODEL)
     stance = turn_stance(
         s, text, study_id=study_id, profile=profile, steer=steer
     )
     state = _load_design_state(s, study_id)
     papers, templates, history = _retrieve(s, text, study_id, history)
+    if stance["intent"] == "needs-scaffolding":
+        return _assemble(
+            s,
+            text,
+            _scaffolding_turn(stance, papers),
+            llm_recommendations=papers,
+            seq=seq,
+            study_id=study_id,
+            client=client,
+            stance=stance,
+            state=state,
+        )
+    if client is None:
+        raise ModelUnavailable(NO_MODEL)
     from middleware import design_llm
 
     directive = _directive(stance, state)
@@ -833,13 +951,28 @@ def respond_streaming(
     steer: str | None = None,
 ):
     """:func:`respond`, yielding the reply's prose as the model writes it."""
-    if client is None:
-        raise ModelUnavailable(NO_MODEL)
     stance = turn_stance(
         s, text, study_id=study_id, profile=profile, steer=steer
     )
     state = _load_design_state(s, study_id)
     papers, templates, history = _retrieve(s, text, study_id, history)
+    if stance["intent"] == "needs-scaffolding":
+        turn = _scaffolding_turn(stance, papers)
+        if turn.text:
+            yield turn.text
+        return _assemble(
+            s,
+            text,
+            turn,
+            llm_recommendations=papers,
+            seq=seq,
+            study_id=study_id,
+            client=client,
+            stance=stance,
+            state=state,
+        )
+    if client is None:
+        raise ModelUnavailable(NO_MODEL)
     from middleware import design_llm
 
     directive = _directive(stance, state)

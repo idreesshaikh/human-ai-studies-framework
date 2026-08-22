@@ -105,6 +105,20 @@ def _compile(client: TestClient) -> dict:
     return r.json()
 
 
+def test_design_turn_uses_the_strongest_mistral_tier(client, monkeypatch):
+    """Protocol-shaping replies use the quality tier, not the medium default."""
+    requested: list[str | None] = []
+
+    def capture_model(model=None):
+        requested.append(model)
+        return model_double.plausible()
+
+    monkeypatch.setattr(assistant, "make_client", capture_model)
+    _ask(client, "I want to study how developers review AI-generated code")
+    assert requested
+    assert all(model == assistant.MISTRAL_BEST_MODEL for model in requested)
+
+
 def test_over_trust_moves_are_grounded_only_in_retrieved(client):
     """F2.1: every move's grounding ref was retrieved this exchange."""
     reply = _ask(client, "I think junior developers over-trust AI-generated code")

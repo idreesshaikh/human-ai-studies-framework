@@ -1,6 +1,6 @@
 import { useNavigate, Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Loader2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
@@ -112,6 +112,13 @@ export function ProjectHome() {
   return (
     <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
       <div>
+        <Link
+          to="/home"
+          className="type-caption mb-2 inline-flex min-h-11 items-center gap-1 rounded-control pr-2 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
+        >
+          <ChevronLeft className="size-4" aria-hidden />
+          Back to projects
+        </Link>
         <h1 className="type-title text-text">{data.name}</h1>
         <p className="type-body text-text-muted">/{data.slug}</p>
       </div>
@@ -261,17 +268,23 @@ export function ProjectHome() {
             Manage members
           </Link>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {data.members.map((m) => (
-            <span
-              key={m.identitySub}
-              className="type-caption flex items-center gap-2 rounded-chip border border-border bg-surface px-2 py-1 text-text"
-            >
-              <Avatar name={memberLabel(m, user)} className="size-5" />
-              {memberLabel(m, user)}
-            </span>
-          ))}
-        </div>
+        {data.members.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {data.members.map((m) => (
+              <span
+                key={m.identitySub}
+                className="type-caption flex items-center gap-2 rounded-chip border border-border bg-surface px-2 py-1 text-text"
+              >
+                <Avatar name={memberLabel(m, user)} className="size-5" />
+                {memberLabel(m, user)}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="type-caption text-text-muted">
+            This read-only demo has no project members to manage.
+          </p>
+        )}
       </section>
     </div>
   );

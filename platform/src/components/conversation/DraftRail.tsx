@@ -49,21 +49,29 @@ export function DraftRail({
     unresolved !== undefined
       ? unresolved.length === 0
       : MANDATORY_SLOTS.every((s) => draft[s].length > 0);
+  const conversationStarted = MANDATORY_SLOTS.some((s) => draft[s].length > 0);
+  const protocolStudy = protocol?.study;
+  const isFreshDraft = Boolean(
+    !conversationStarted &&
+      protocolStudy &&
+      typeof protocolStudy === "object" &&
+      !Array.isArray(protocolStudy) &&
+      (protocolStudy as Record<string, unknown>).id === "draft",
+  );
   const sections: ProtocolSection[] | null = protocol
-    ? summarizeProtocol(protocol)
+    ? summarizeProtocol(protocol, { includeEmpty: Boolean(isFreshDraft) })
     : null;
 
-  /* This rail carries two different things: how far the CONVERSATION has got
-   * (the step path, the "no design shape yet" caution) and what the PROTOCOL
-   * currently says. A study can hold a complete protocol without a
-   * conversation ever having happened  -  seeded from a template, a merged
-   * pair, or a derived paper, and every study anyone is only reading. In that
-   * case the conversation half claimed "0/13 steps · Not covered yet:
-   * Research questions…" directly above the research questions it was
-   * listing. The progress half is simply not about this study, so it is not
-   * shown; the protocol still is. */
-  const conversationStarted = MANDATORY_SLOTS.some((s) => draft[s].length > 0);
-  const showConversationProgress = conversationStarted || !sections?.length;
+  /* A fresh study has a real protocol scaffold (`study` + `phases`) before
+   * the first accepted move. It still needs the full outline and progress
+   * meter, otherwise the researcher sees only two implementation defaults.
+   * A genuinely seeded or read-only protocol keeps its compact document view. */
+  const showConversationProgress = conversationStarted || !sections?.length || isFreshDraft;
+  const draftCaption = conversationStarted
+    ? "Compiled from the moves you've accepted."
+    : isFreshDraft
+      ? "Your answers will fill this outline."
+      : "The study's protocol as it currently stands.";
 
   return (
     <aside
@@ -75,14 +83,7 @@ export function DraftRail({
           <h2 className="type-subhead text-text">
             Protocol draft
           </h2>
-          <p className="type-caption text-text-muted">
-            {showConversationProgress
-              ? "Compiled from the moves you've accepted."
-              : // No moves were accepted here  -  this protocol arrived with the
-                // study (a template, a merge, a derived paper) or belongs to
-                // someone else's study you are reading.
-                "The study's protocol as it currently stands."}
-          </p>
+          <p className="type-caption text-text-muted">{draftCaption}</p>
         </div>
         <ProtocolGuide />
       </div>
@@ -97,18 +98,6 @@ export function DraftRail({
         {sections ? (
           sections.length > 0 ? (
             <div className="flex flex-col gap-2.5">
-              {/* A freshly created study compiles to a protocol that is not
-                * empty  -  it carries scaffolding the researcher never wrote
-                * ("Study: led by Researcher", "Phases: design")  -  so
-                * `sections.length > 0` was true from the first paint even
-                * when no move had ever been accepted. Showing the unfilled
-                * `SlotPlate` here too meant every slot it lists as "not yet
-                * resolved" sat directly above the real, filled-in section
-                * saying the opposite  -  a study whose protocol arrived
-                * pre-built (template, merge, derived paper) contradicted
-                * itself before a reader got past the first screen. The plate
-                * only belongs where there is truly nothing else to show,
-                * which is the `sections.length === 0` branch below. */}
               {sections.map((section) => (
                 <SectionBlock
                   key={section.heading}

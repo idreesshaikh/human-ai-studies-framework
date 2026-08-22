@@ -3170,11 +3170,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     def _design_turn_client():
         """
-        The medium tier, not `mistral-large-latest`: the design turn is a single JSON
-        completion (no tool loop), so the large model's latency was the whole cost of a
-        slow reply.
+        Use Mistral's strongest available model for the design conversation. These
+        turns shape the researcher's protocol, so response quality and reasoning take
+        priority over the small latency saving of the medium tier. The explicit model
+        argument also keeps the choice visible in one place for deployments using the
+        Mistral provider (an OpenAI-compatible override still honours its own model).
         """
-        return assistant.make_client(assistant.MISTRAL_MODEL)
+        return assistant.make_client(assistant.MISTRAL_BEST_MODEL)
 
     def _persist_platform_turn(
         s: Session, study_id: str, researcher: ConversationTurn, reply: dict

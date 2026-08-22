@@ -281,6 +281,14 @@ class HttpBackend implements Api {
       throw new OfflineError();
     }
     if (!res.ok) {
+      const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+      // Vite's SPA fallback answers an API-shaped request with an HTML 404 when
+      // the middleware is not running. That is an offline shell condition, not a
+      // real server-side "study not found" response. FastAPI's genuine 404s are
+      // JSON, so they still surface as ApiError below and are never masked.
+      if (res.status === 404 && !contentType.includes("application/json")) {
+        throw new OfflineError();
+      }
       // `res.statusText` is blank over HTTP/2 (no reason phrase on the
       // wire), so a non-JSON error body  -  an edge/proxy rate-limit page,
       // not our own JSON errors  -  used to leave `detail` as "", which

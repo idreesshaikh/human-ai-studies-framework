@@ -10,7 +10,7 @@ import type { Turn } from "./types.ts";
 export function openingTurn(opening = ""): Turn {
   const text = opening.trim()
     ? `I have your starting idea: “${opening.trim()}” Let’s make it testable. Who should take part, and what will they do?`
-    : "Let’s turn your idea into a study. Who should take part, and what will they do?";
+    : "What do you want to find out? Describe the idea in plain language, and I’ll help you turn it into a study one decision at a time.";
   return {
     turnId: "opening",
     role: "platform",

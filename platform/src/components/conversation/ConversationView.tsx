@@ -188,8 +188,16 @@ export function ConversationView({
    * and what they got instead was a single unanswered bubble above half a
    * screen of bare ground. A question you asked and nothing has answered is
    * still a blank plate. */
+  /* `opening` is a client-side prompt, not an answered turn. Treating it as
+   * conversation content made the durable first-run guide disappear before a
+   * researcher had written anything, especially on a newly created study. */
   const threadEmpty =
-    !turns.some((t) => t.role === "platform") && allMoves.length === 0;
+    !turns.some(
+      (t) => t.role === "platform" && t.turnId !== "opening",
+    ) && allMoves.length === 0;
+  const openingKey = `${studyId}:${opening.trim()}`;
+  const openingPending =
+    Boolean(opening.trim()) && openingSubmitted.current === openingKey;
   const clientDraft = useMemo(() => compileAll(allMoves), [allMoves]);
 
   // The literature the conversation has surfaced, de-duplicated by ref, newest
@@ -310,10 +318,21 @@ export function ConversationView({
         );
         setStreamingText(null);
         setUnderstanding(appended.understanding);
-        setTurns((prev) => [
-          ...prev.filter((t) => t.turnId !== pendingId),
-          ...appended.turns,
-        ]);
+        setTurns((prev) => {
+          /* The first platform prompt is a real part of the user's reading
+           * path even though it is not stored as a researcher turn. Keep it
+           * in front of the first server response; replacing the optimistic
+           * pair wholesale made the user's first message appear to be the
+           * conversation opener, and made the opening prompt flash and vanish. */
+          const openingPrompt = prev.find((t) => t.turnId === "opening");
+          return [
+            ...(openingPrompt ? [openingPrompt] : []),
+            ...prev.filter(
+              (t) => t.turnId !== pendingId && t.turnId !== "opening",
+            ),
+            ...appended.turns,
+          ];
+        });
         setFocusMoveId(firstProposed(appended.turns));
       }
       scrollDown();
@@ -460,7 +479,9 @@ export function ConversationView({
               * researcher who arrived with an opening question already asked
               * should read it before their own unanswered line, not under
               * it. */}
-            {threadEmpty && <ConversationStart onUse={takeOpening} />}
+            {threadEmpty && !openingPending && (
+              <ConversationStart onUse={takeOpening} />
+            )}
             {turns.map((t) => (
               <StreamingTurn
                 key={t.turnId}

@@ -32,6 +32,46 @@ _FOLLOWUP_CUES = (
     "how do you know",
 )
 
+# A low-information reply is a request for scaffolding, not another turn of the
+# same elicitation question. Keep this deliberately narrow: a researcher saying
+# "I don't know why" is still asking about the preceding proposal, while "I don't
+# know" or "what?" needs the platform to explain the choice in plain language.
+_STUCK_EXACT = frozenset(
+    {
+        "what",
+        "huh",
+        "i don't know",
+        "i dont know",
+        "not sure",
+        "im not sure",
+        "i'm not sure",
+        "no idea",
+        "i'm lost",
+        "im lost",
+        "ok",
+        "okay",
+        "sure",
+        "yes",
+        "exactly",
+    }
+)
+_STUCK_PHRASES = (
+    "help me",
+    "can you help",
+    "i don't understand",
+    "i dont understand",
+    "i'm confused",
+    "im confused",
+)
+
+
+def needs_scaffolding(text: str) -> bool:
+    """Whether the researcher has asked for help instead of adding study detail."""
+    q = re.sub(r"\s+", " ", (text or "").strip().lower()).strip(" .!?…")
+    if not q or any(cue in q for cue in _FOLLOWUP_CUES):
+        return False
+    return q in _STUCK_EXACT or any(phrase in q for phrase in _STUCK_PHRASES)
+
 _DESIGN_REQUEST_PATTERNS = (
     re.compile(
         r"\b(what|which|recommend|suggest|propose|pick|choose|give me)\b"
@@ -57,10 +97,12 @@ def names_a_design(text: str, signatures: list[list[str]]) -> bool:
 
 
 def classify_turn(text: str) -> str:
-    """``"followup-question"`` | ``"design-request"`` | ``"describe"``."""
+    """Classify a turn as follow-up, stuck, design request, or description."""
     q = (text or "").strip().lower()
     if not q:
         return "describe"
+    if needs_scaffolding(q):
+        return "needs-scaffolding"
     if any(cue in q for cue in _FOLLOWUP_CUES):
         return "followup-question"
     if any(pattern.search(q) for pattern in _DESIGN_REQUEST_PATTERNS):
