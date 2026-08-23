@@ -53,19 +53,6 @@ const INSTRUMENT_DISPLAY_NAMES: Record<string, string> = {
   taskHarness: "Task harness",
 };
 
-function formatStudy(study: Record<string, unknown>): ProtocolSection {
-  const lines: string[] = [];
-  const title = asString(study.title);
-  if (title) lines.push(title);
-  const bits: string[] = [];
-  const researchers = asArray(study.researchers).map(asString).filter(Boolean);
-  if (researchers.length) bits.push(`led by ${researchers.join(", ")}`);
-  const ethicsRef = asString(study.ethicsRef);
-  if (ethicsRef) bits.push(`ethics: ${ethicsRef}`);
-  if (bits.length) lines.push(bits.join(" · "));
-  return { heading: "Study", lines };
-}
-
 function formatResearchQuestions(rqs: unknown[]): ProtocolSection {
   const lines = rqs
     .map((rq) => {
@@ -169,19 +156,7 @@ function formatLiterature(lit: unknown[]): ProtocolSection {
   return { heading: "Literature", lines };
 }
 
-function formatPhases(phases: unknown[]): ProtocolSection {
-  const records = phases.map(asRecord);
-  const names = records.map((r) => asString(r.name)).filter(Boolean);
-  const lines = names.length ? [names.join(" → ")] : [];
-  const gated = records
-    .filter((r) => asArray(r.gates).length > 0)
-    .map((r) => `${asString(r.name)} (${asArray(r.gates).map(asString).join(", ")})`);
-  if (gated.length) lines.push(`Gated: ${gated.join(" · ")}`);
-  return { heading: "Phases", lines };
-}
-
 const SECTION_ORDER = [
-  "study",
   "researchQuestions",
   "participants",
   "conditions",
@@ -190,11 +165,9 @@ const SECTION_ORDER = [
   "instruments",
   "analysisPlan",
   "literature",
-  "phases",
 ] as const;
 
 const FORMATTERS: Record<(typeof SECTION_ORDER)[number], (value: unknown) => ProtocolSection> = {
-  study: (v) => formatStudy(asRecord(v)),
   researchQuestions: (v) => formatResearchQuestions(asArray(v)),
   participants: (v) => formatParticipants(asRecord(v)),
   conditions: (v) => formatConditions(asArray(v)),
@@ -203,13 +176,13 @@ const FORMATTERS: Record<(typeof SECTION_ORDER)[number], (value: unknown) => Pro
   instruments: (v) => formatInstruments(asRecord(v)),
   analysisPlan: (v) => formatAnalysisPlan(asArray(v)),
   literature: (v) => formatLiterature(asArray(v)),
-  phases: (v) => formatPhases(asArray(v)),
 };
 
-/** Keys with no dedicated formatter that also aren't worth a section of
- * their own (internal bookkeeping, not part of the story a researcher
- * reads). */
-const SKIP_KEYS = new Set(["protocolVersion"]);
+/** Implementation metadata stays in the protocol object for schema/runtime
+ * compatibility, but it is not a researcher-facing draft decision. Study
+ * identity belongs in the workspace header; lifecycle phases are runtime
+ * metadata rather than a choice the conversation is eliciting. */
+const HIDDEN_KEYS = new Set(["protocolVersion", "study", "phases"]);
 
 export function summarizeProtocol(
   protocol: Record<string, unknown>,
@@ -224,7 +197,7 @@ export function summarizeProtocol(
     }
   }
   for (const [key, value] of Object.entries(protocol)) {
-    if ((SECTION_ORDER as readonly string[]).includes(key) || SKIP_KEYS.has(key)) continue;
+    if ((SECTION_ORDER as readonly string[]).includes(key) || HIDDEN_KEYS.has(key)) continue;
     const section = { heading: humanizeKey(key), lines: [describeValue(value)] };
     if (section.lines.some((l) => l.trim())) sections.push(section);
   }

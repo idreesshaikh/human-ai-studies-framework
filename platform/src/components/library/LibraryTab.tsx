@@ -221,7 +221,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             never sends the graph out of view before its action is reachable. */}
         <div
           className={cn(
-            "items-start gap-4",
+            "items-stretch gap-4",
             selectedNode && "grid lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]",
           )}
         >
@@ -238,7 +238,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
 
           {/* Selected-paper detail. */}
           {selectedNode && (
-            <aside className="relative max-h-[var(--constellation-h)] min-h-0 overflow-y-auto rounded-card border border-border bg-surface-raised p-4 lg:sticky lg:top-4">
+            <aside className="relative flex min-h-0 flex-col overflow-hidden rounded-card border border-border bg-surface-raised p-4 lg:sticky lg:top-4 lg:h-full">
               <button
                 className="absolute right-3 top-3 text-text-muted hover:text-text"
                 onClick={() => setSelected(null)}
@@ -246,24 +246,32 @@ export function LibraryTab({ studyId }: { studyId: string }) {
               >
                 <X className="size-4" aria-hidden />
               </button>
-              <h4 className="pr-6 font-medium text-text">
-                {selectedNode.title || selected}
-              </h4>
-              <p className="mt-0.5 type-caption text-text-muted">
-                {paperIdentifier(selectedPaper ?? { paperRef: selected ?? "" }) ?? "Library paper"}
-                {selectedNode.year ? ` · ${selectedNode.year}` : ""}
-                {selectedNode.citationCount != null
-                  ? ` · ${selectedNode.citationCount} citations`
-                  : ""}
-              </p>
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                <h4 className="pr-6 font-medium text-text">
+                  {selectedNode.title || selected}
+                </h4>
+                <p className="mt-0.5 type-caption text-text-muted">
+                  {paperIdentifier(selectedPaper ?? { paperRef: selected ?? "" }) ?? "Library paper"}
+                  {selectedNode.year ? ` · ${selectedNode.year}` : ""}
+                  {selectedNode.citationCount != null
+                    ? ` · ${selectedNode.citationCount} citations`
+                    : ""}
+                </p>
+                {selectedPaper?.abstract && (
+                  <p className="mt-2 type-body leading-relaxed text-text-muted">
+                    {selectedPaper.abstract}
+                  </p>
+                )}
+                {!selectedPaper && (
+                  <p className="mt-2 type-body text-text-muted">
+                    Suggested paper, not yet in the study.
+                  </p>
+                )}
+              </div>
+
               {selectedPaper ? (
-                <>
-                  {selectedPaper.abstract && (
-                    <p className="mt-2 type-body leading-relaxed text-text-muted">
-                      {selectedPaper.abstract}
-                    </p>
-                  )}
-                  <label className="mt-3 block type-body text-text">
+                <div className="mt-3 shrink-0 border-t border-border pt-3">
+                  <label className="block type-body text-text">
                     Protocol links
                     <Input
                       value={linkDraft}
@@ -300,16 +308,12 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                       </a>
                     )}
                   </div>
-                </>
+                </div>
               ) : (
-                <div className="mt-2">
-                  <p className="type-body text-text-muted">
-                    Suggested paper, not yet in the study.
-                  </p>
+                <div className="mt-3 shrink-0 border-t border-border pt-3">
                   <Button
                     size="sm"
                     variant="subtle"
-                    className="mt-2"
                     disabled={busy}
                     onClick={() => {
                       const id = ingestIdForRef(selected!);
