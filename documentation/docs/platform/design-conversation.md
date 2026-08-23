@@ -4,6 +4,11 @@ The design conversation is the platform’s methodologist at the edge of the
 desk. You describe what you want to learn; PHOENIX asks what must be true for
 the answer to be interpretable, then proposes one decision at a time.
 
+The live assistant uses Mistral Large (`mistral-large-latest`) through Mistral's
+EU service. Configure `MISTRAL_API_KEY` on the middleware; there are no
+alternate gateway or model routes. If the key is unavailable, PHOENIX shows an
+honest offline state instead of presenting scripted replies as live reasoning.
+
 <figure markdown="span">
   ![A current Phoenix design conversation](../assets/screens/phoenix-demo-conversation-current.png){ width="900" }
   <figcaption>Every move is reviewable, reversible, and connected to the protocol draft.</figcaption>

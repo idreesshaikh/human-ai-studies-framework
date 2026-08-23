@@ -54,6 +54,7 @@ the complete loop. If you are a participant, start with [Installing TERN](extens
 
 Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22, and a
 [Mistral API key](https://console.mistral.ai/) for the design conversation.
+PHOENIX uses Mistral Large (`mistral-large-latest`) as its only model route.
 
 ```bash
 git clone https://github.com/idreesshaikh/human-ai-studies-framework.git

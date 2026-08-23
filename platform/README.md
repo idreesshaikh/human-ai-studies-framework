@@ -26,9 +26,10 @@ shadcn/ui (vendored, owned in-repo). The middleware serves the built app at
 - **Projects, roles, hero, members**.
 
 The study surfaces are explorable with **no backend**: they fall back to a
-curated offline seed. The design conversation is the exception  -  it needs a
-language model and says so when it has none, rather than answering from a
-script that reads like the real thing. Live actions wire to the
+curated offline seed. The design conversation is the exception  -  it uses only
+Mistral Large (`mistral-large-latest`) through the EU Mistral route and says so
+when it has no `MISTRAL_API_KEY`, rather than answering from a script that reads
+like the real thing. Live actions wire to the
 middleware where it's running; the backend swaps in behind the same shapes.
 
 ## Commands

@@ -8,6 +8,8 @@ demo study, and the TERN lab in the repository.
 
 Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22, and a
 [Mistral API key](https://console.mistral.ai/) for the design conversation.
+The platform uses only Mistral Large (`mistral-large-latest`) through Mistral's
+EU service; no gateway or model selection is needed.
 
 ```bash
 git clone https://github.com/idreesshaikh/human-ai-studies-framework.git
