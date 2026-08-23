@@ -66,6 +66,9 @@ TERN in VS Code ── local JSONL first ──► middleware ──► PHOENIX 
 See [Participants](participants.md) for pairing and [TERN’s captured data](../extension/captured-data.md)
 for the event contract.
 
+See [Planning](planning.md) for the power curve, sample-size assumptions, and
+how to read the recruitment boundary before inviting anyone.
+
 ## Local setup
 
 The platform uses Clerk in production. Locally, leave `MIDDLEWARE_AUTH` unset

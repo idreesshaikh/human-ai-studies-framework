@@ -83,7 +83,7 @@ Open **Participants** and install the release artifact before minting links:
    condition already configured.
 
 <figure markdown="span">
-  ![Current Phoenix participant hand-off](../assets/screens/phoenix-demo-participants-current.png){ width="900" }
+  ![Current Phoenix participant hand-off](../assets/screens/study-participants.png){ width="900" }
   <figcaption>The platform makes the sideloaded TERN release and the participant path explicit before a session starts.</figcaption>
 </figure>
 

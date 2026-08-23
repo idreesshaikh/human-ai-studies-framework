@@ -5,7 +5,7 @@ VS Code. It makes the install, consent, assignment, and capture boundary
 visible before anyone starts a real session.
 
 <figure markdown="span">
-  ![The current Phoenix Participants tab](../assets/screens/phoenix-demo-participants-current.png){ width="900" }
+  ![The current Phoenix Participants tab](../assets/screens/study-participants.png){ width="900" }
   <figcaption>Install the exact TERN release first, then mint a one-use link for each participant.</figcaption>
 </figure>
 
