@@ -31,7 +31,10 @@ The protocol rail is intentionally compact: it shows the eight researcher-
 controlled decisions and leaves workspace identity and schema compatibility to
 the header/raw YAML. The Library keeps the selected-paper panel and graph at a
 stable height, pins protocol links to the panel footer, and caps balanced
-suggestions so citations, recommendations, and newer work remain legible.
+suggestions so citations, recommendations, and newer work remain legible. Graph
+neighbours carry warm title/abstract metadata, so adding a visible suggestion
+does not make another rate-limited provider request; removing a study copy only
+removes its touching edges and never de-indexes a shared corpus/library copy.
 
 The study surfaces are explorable with **no backend**: they fall back to a
 curated offline seed. The design conversation is the exception  -  it uses only

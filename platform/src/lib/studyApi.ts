@@ -61,6 +61,7 @@ export interface GraphNode {
   title: string;
   authors?: string[];
   year: number | null;
+  abstract?: string;
   citationCount: number | null;
   ingested: boolean;
 }
@@ -361,6 +362,16 @@ export const studyApi = {
       };
     }
   },
+  /** Add a graph suggestion from its already-harvested metadata. This avoids
+   * repeating a Semantic Scholar lookup when the provider is rate-limiting. */
+  addPaperFromGraph: (study: string, ref: string) =>
+    post<{
+      studyId: string;
+      paperRef: string;
+      title: string;
+      edges: number;
+      edgesPending: boolean;
+    }>(`/studies/${enc(study)}/papers/from-graph`, { ref }),
   setPaperLinks: (study: string, ref: string, targets: string[]) =>
     req<{ paperRef: string; links: string[] }>(
       `/studies/${enc(study)}/papers/${enc(ref)}/links`,

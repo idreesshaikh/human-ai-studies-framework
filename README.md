@@ -46,6 +46,10 @@ The Library uses ingested papers as readable anchors, admits a capped mix of
 related, recommended, and fresh low-citation work, and treats publication year
 as a soft cue rather than a wall. This keeps citations useful without letting a
 large reference list bury the papers the researcher actually chose.
+Harvested graph metadata is the warm preview cache: selecting a suggestion shows
+the stored title and abstract, adding it does not repeat a rate-limited provider
+fetch, and removing it only removes edges touching that study copy. Shared corpus
+and library records remain intact.
 
 Before collecting anything you can run a **synthetic dry run**: simulated
 participants through the real capture path, so the analysis plan is proven

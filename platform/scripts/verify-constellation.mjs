@@ -269,6 +269,43 @@ ok("graph curation drops unrelated internal edge kinds",
     edges: [{ src: "own", dst: "via", kind: "internal-only" }],
   }).edges.length === 0);
 
+const topicalAnchor = {
+  paperRef: "topical-anchor",
+  title: "AI code review by junior developers",
+  abstract: "How developers review generated code and understand software projects.",
+  ingested: true,
+  citationCount: 12,
+  year: 2024,
+};
+const famousButOffTopic = {
+  paperRef: "famous-language-paper",
+  title: "Attention Is All You Need",
+  abstract: "A transformer architecture for machine translation and language modeling.",
+  ingested: false,
+  citationCount: 100000,
+  year: 2017,
+};
+const topicalFreshPaper = {
+  paperRef: "fresh-code-review-paper",
+  title: "Reviewing AI-generated code with junior developers",
+  abstract: "A study of developer comprehension and software code review.",
+  ingested: false,
+  citationCount: 3,
+  year: 2026,
+};
+const topicalGraph = curateGraph({
+  nodes: [topicalAnchor, famousButOffTopic, topicalFreshPaper],
+  edges: [
+    { src: topicalAnchor.paperRef, dst: famousButOffTopic.paperRef, kind: "citations" },
+    { src: topicalAnchor.paperRef, dst: topicalFreshPaper.paperRef, kind: "citations" },
+  ],
+});
+ok(
+  "topical relevance beats a famous but off-topic citation",
+  topicalGraph.nodes.some((n) => n.paperRef === topicalFreshPaper.paperRef) &&
+    !topicalGraph.nodes.some((n) => n.paperRef === famousButOffTopic.paperRef),
+);
+
 console.log(
   failures === 0 ? "\n✓ all checks pass" : `\n✗ ${failures} check(s) failed`,
 );

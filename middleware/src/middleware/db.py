@@ -154,6 +154,7 @@ class PaperEdge(Base):
     dst_title: Mapped[str] = mapped_column(String, default="")
     dst_authors: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     dst_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    dst_abstract: Mapped[str] = mapped_column(Text, default="")
     dst_citation_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
@@ -516,6 +517,7 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _migrate_event_task_id(engine)
     _migrate_invitation_created_at(engine)
     _migrate_enrollment_capture_overrides(engine)
+    _migrate_paper_edge_abstract(engine)
 
     if is_pg:
         _setup_pg_fts(engine)
@@ -668,6 +670,15 @@ def _migrate_paper_edge_authors(engine) -> None:
         if "dst_authors" not in cols:
             conn.execute(text("ALTER TABLE paper_edges ADD COLUMN dst_authors JSON"))
             log.info("Added dst_authors column to paper_edges (graph node labels)")
+
+
+def _migrate_paper_edge_abstract(engine) -> None:
+    """Add ``paper_edges.dst_abstract`` for warm suggested-paper previews."""
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("paper_edges")}
+        if "dst_abstract" not in cols:
+            conn.execute(text("ALTER TABLE paper_edges ADD COLUMN dst_abstract TEXT"))
+            log.info("Added dst_abstract column to paper_edges (paper previews)")
 
 
 def _migrate_conversation_recommendations(engine) -> None:

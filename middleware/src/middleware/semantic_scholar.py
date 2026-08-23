@@ -50,7 +50,10 @@ def _lock_for(host: str) -> threading.Lock:
         return lock
 
 PAPER_FIELDS = "title,authors,year,venue,abstract,externalIds,citationCount"
-EDGE_FIELDS = "title,authors,year,externalIds,citationCount"
+# Edge neighbours are also the Library's warm preview cache. Keep the abstract in
+# the same response so opening a suggested node does not trigger a second request,
+# especially when the provider is rate-limiting a busy study.
+EDGE_FIELDS = "title,authors,year,venue,abstract,externalIds,citationCount"
 
 BATCH_MAX_IDS = 500
 

@@ -222,6 +222,8 @@ const CORPUS_DISCOVERY_KIND = "harvested-via";
 type CuratableNode = {
   paperRef: string;
   ingested: boolean;
+  title?: string;
+  abstract?: string;
   citationCount?: number | null;
   year?: number | null;
 };
@@ -256,6 +258,44 @@ export function curateGraph<
     ...graph.nodes.map((node) => node.citationCount ?? 0),
     1,
   );
+  const topicStopwords = new Set([
+    "all",
+    "and",
+    "about",
+    "also",
+    "are",
+    "been",
+    "but",
+    "between",
+    "can",
+    "does",
+    "from",
+    "into",
+    "is",
+    "need",
+    "not",
+    "paper",
+    "papers",
+    "study",
+    "that",
+    "their",
+    "these",
+    "those",
+    "through",
+    "using",
+    "with",
+    "you",
+  ]);
+  const topicTokens = (node: CuratableNode): Set<string> =>
+    new Set(
+      `${node.title ?? ""} ${node.abstract ?? ""}`
+        .toLowerCase()
+        .match(/[a-z0-9][a-z0-9-]{2,}/g)
+        ?.filter((term) => !topicStopwords.has(term)) ?? [],
+    );
+  const topicsByRef = new Map(
+    graph.nodes.map((node) => [node.paperRef, topicTokens(node)]),
+  );
   const supportedEdges = graph.edges.flatMap((edge) => {
     if (RELATION_ORDER.includes(edge.kind as (typeof RELATION_ORDER)[number])) {
       return [edge];
@@ -278,14 +318,33 @@ export function curateGraph<
   const relationRank = new Map<string, number>(
     RELATION_ORDER.map((kind, index) => [kind, RELATION_ORDER.length - index]),
   );
-  const candidateScore = (candidate: Candidate | { suggestion: string; edge: E }) => {
+  const topicRelevance = (candidate: Candidate): number => {
+    const anchorTerms = topicsByRef.get(candidate.anchor) ?? new Set<string>();
+    const suggestionTerms =
+      topicsByRef.get(candidate.suggestion) ?? new Set<string>();
+    if (anchorTerms.size === 0 || suggestionTerms.size === 0) return 0.25;
+    let overlap = 0;
+    for (const term of suggestionTerms) {
+      if (anchorTerms.has(term)) overlap += 1;
+    }
+    // A few shared content terms are enough to make a paper worth a look, but
+    // citation count cannot rescue a node with no topical connection when a
+    // relevant alternative exists in the same relation lane.
+    return Math.min(1, overlap / Math.max(2, Math.min(anchorTerms.size, 8)));
+  };
+  const candidateScore = (candidate: Candidate) => {
     const node = nodesByRef.get(candidate.suggestion);
     const citations = Math.log1p(Math.max(0, node?.citationCount ?? 0));
     const citationSignal = citations / Math.log1p(maxCitations);
     const freshnessSignal =
       node?.year == null ? 0.35 : (node.year - minYear) / yearSpan;
     const relationSignal = (relationRank.get(candidate.edge.kind) ?? 0) / 3;
-    return citationSignal * 0.55 + freshnessSignal * 0.35 + relationSignal * 0.1;
+    return (
+      topicRelevance(candidate) * 0.55 +
+      citationSignal * 0.15 +
+      freshnessSignal * 0.2 +
+      relationSignal * 0.1
+    );
   };
   const candidatesByPair = new Map<string, Candidate>();
   for (const edge of supportedEdges) {
@@ -297,7 +356,7 @@ export function curateGraph<
     if (ingestedRefs.has(suggestion)) continue;
     const key = `${anchor}\u0000${suggestion}`;
     const current = candidatesByPair.get(key);
-    const nextScore = candidateScore({ edge, suggestion });
+    const nextScore = candidateScore({ edge, anchor, suggestion });
     const currentScore = current ? candidateScore(current) : null;
     if (
       current === undefined ||
@@ -316,11 +375,25 @@ export function curateGraph<
         const scoreDelta = candidateScore(b) - candidateScore(a);
         return scoreDelta || a.suggestion.localeCompare(b.suggestion);
       });
+    const topicalCandidates = candidates.filter(
+      (candidate) => topicRelevance(candidate) >= 0.12,
+    );
+    const fallbackByKind = new Map<string, number>();
+    const curatedCandidates = topicalCandidates.length
+      ? topicalCandidates
+      : candidates.filter((candidate) => {
+          // If this anchor has no topical neighbours at all, keep a tiny
+          // discovery tail, but never let a famous generic hub flood the map.
+          const used = fallbackByKind.get(candidate.edge.kind) ?? 0;
+          if (used >= 2) return false;
+          fallbackByKind.set(candidate.edge.kind, used + 1);
+          return true;
+        });
     const buckets = new Map<string, Candidate[]>();
     for (const kind of RELATION_ORDER) {
       buckets.set(
         kind,
-        candidates.filter((candidate) => candidate.edge.kind === kind),
+        curatedCandidates.filter((candidate) => candidate.edge.kind === kind),
       );
     }
     const chosen: Candidate[] = [];

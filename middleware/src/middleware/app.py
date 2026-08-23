@@ -173,6 +173,12 @@ class FromMatchIn(BaseModel):
     matchReason: str = ""
 
 
+class FromGraphIn(BaseModel):
+    """Add a paper whose metadata is already warm in the study's graph."""
+
+    ref: str
+
+
 class DecisionTriggerIn(BaseModel):
     """The card action that caused an automatic assistant follow-up."""
 
@@ -1237,6 +1243,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "dst_title": edge.dst_title,
                 "dst_authors": edge.dst_authors,
                 "dst_year": edge.dst_year,
+                "dst_abstract": edge.dst_abstract,
                 "dst_citation_count": edge.dst_citation_count,
             }
             if _engine.dialect.name == "postgresql":
@@ -1291,6 +1298,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "dst_title": nb.get("title", ""),
                     "dst_authors": nb.get("authors") or None,
                     "dst_year": nb.get("year"),
+                    "dst_abstract": nb.get("abstract", ""),
                     "dst_citation_count": nb.get("citationCount"),
                 }
                 if _engine.dialect.name == "postgresql":
@@ -1437,7 +1445,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
         ):
             s.delete(link)
-        paper_index.deindex_paper(s, paper_ref)
+        # The FTS table is intentionally shared by the corpus and every study. A
+        # graph suggestion is only warm edge metadata until it is explicitly added;
+        # once added, deleting it from one study must not erase the same paper from
+        # another study or from the corpus search index.
+        has_another_copy = s.scalar(
+            select(Paper.id).where(
+                Paper.paper_ref == paper_ref,
+                Paper.id != deleted.id,
+            )
+        )
+        if has_another_copy is None:
+            paper_index.deindex_paper(s, paper_ref)
         return {"deleted": paper_ref}
 
     @app.get(
@@ -1463,6 +1482,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "title": p.title,
                 "authors": p.authors,
                 "year": p.year,
+                "abstract": p.abstract,
                 "citationCount": p.citation_count,
                 "ingested": True,
             }
@@ -1489,12 +1509,44 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         for ref in missing_refs:
             p = paper_metadata.get(ref)
+            edge_metadata = next(
+                (
+                    edge
+                    for edge in reversed(edges)
+                    if edge.dst_ref == ref and edge.dst_title
+                ),
+                None,
+            )
+            title = (p.title if p else "") or (
+                edge_metadata.dst_title if edge_metadata else ""
+            )
+            authors = (p.authors if p else None) or (
+                edge_metadata.dst_authors if edge_metadata else None
+            ) or []
+            year = (
+                p.year
+                if p and p.year is not None
+                else (edge_metadata.dst_year if edge_metadata else None)
+            )
+            abstract = (p.abstract if p else "") or (
+                edge_metadata.dst_abstract if edge_metadata else ""
+            )
+            citation_count = (
+                p.citation_count
+                if p and p.citation_count is not None
+                else (
+                    edge_metadata.dst_citation_count
+                    if edge_metadata
+                    else None
+                )
+            )
             nodes[ref] = {
                 "paperRef": ref,
-                "title": p.title if p else "",
-                "authors": (p.authors if p else None) or [],
-                "year": p.year if p else None,
-                "citationCount": p.citation_count if p else None,
+                "title": title,
+                "authors": authors,
+                "year": year,
+                "abstract": abstract,
+                "citationCount": citation_count,
                 "ingested": False,
             }
 
@@ -1505,6 +1557,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "title": e.dst_title,
                     "authors": e.dst_authors or [],
                     "year": e.dst_year,
+                    "abstract": e.dst_abstract,
                     "citationCount": e.dst_citation_count,
                     "ingested": False,
                 }
@@ -1600,6 +1653,50 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         _adopt_corpus_edges(s, study_id, corpus_row.paper_ref)
         return corpus_row.paper_ref
 
+    def _warmed_graph_record(s: Session, study_id: str, paper_ref: str) -> dict | None:
+        """Build an ingest record from metadata already stored on a graph edge.
+
+        A graph suggestion is not an invitation to make another rate-limited metadata
+        request. The edge harvest already paid that cost and stores the preview fields
+        needed to make the node useful. This is also the graceful path when Semantic
+        Scholar is temporarily returning 429s.
+        """
+        edge = s.scalar(
+            select(PaperEdge)
+            .where(
+                PaperEdge.study_id == study_id,
+                PaperEdge.dst_ref == paper_ref,
+                PaperEdge.dst_title != "",
+            )
+            .order_by(PaperEdge.id.desc())
+        )
+        if edge is None:
+            return None
+        record = {
+            "paperRef": paper_ref,
+            "title": edge.dst_title,
+            "authors": edge.dst_authors or [],
+            "year": edge.dst_year,
+            "venue": "",
+            "abstract": edge.dst_abstract or "",
+            "doi": paper_ref.removeprefix("doi:"),
+            "arxivId": paper_ref.removeprefix("arxiv:"),
+            "url": "",
+            "citationCount": edge.dst_citation_count,
+            "itemType": "paper",
+            "source": "graph",
+        }
+        if paper_ref.startswith("arxiv:"):
+            record["url"] = f"https://arxiv.org/abs/{record['arxivId']}"
+        elif paper_ref.startswith("doi:"):
+            record["url"] = f"https://doi.org/{record['doi']}"
+        elif paper_ref.startswith("s2:"):
+            record["url"] = (
+                "https://www.semanticscholar.org/paper/"
+                f"{paper_ref.removeprefix('s2:')}"
+            )
+        return record
+
     @app.post(
         "/studies/{study_id}/papers/from-match",
         dependencies=[Depends(require_project_for_study("contribute"))],
@@ -1682,6 +1779,97 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "addedVia": "match",
             "edges": adopted,
             "edgesPending": True,
+        }
+
+    @app.post(
+        "/studies/{study_id}/papers/from-graph",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def add_paper_from_graph(
+        study_id: str,
+        body: FromGraphIn,
+        background_tasks: BackgroundTasks,
+        s: Session = Depends(db),
+    ) -> dict:
+        """Add a visible graph suggestion without repeating its upstream fetch.
+
+        The Library detail panel is backed by the same graph a researcher is reading.
+        If the node is already warm there, it must be actionable even when the remote
+        provider is rate-limited. Only a genuinely cold node falls back to a fresh S2
+        metadata request.
+        """
+        paper_ref = body.ref.strip()
+        if not paper_ref:
+            raise HTTPException(400, "paper ref is required")
+
+        existing = s.scalar(
+            select(Paper).where(
+                Paper.study_id == study_id, Paper.paper_ref == paper_ref
+            )
+        )
+        if existing is not None:
+            return {
+                "studyId": study_id,
+                "paperRef": paper_ref,
+                "title": existing.title,
+                "edges": 0,
+                "edgesPending": False,
+            }
+
+        adopted = _adopt_corpus_paper(
+            s, study_id, paper_ref, added_via="graph", match_reason=""
+        )
+        if adopted is not None:
+            has_edges = s.scalar(
+                select(PaperEdge.id).where(
+                    PaperEdge.study_id == study_id,
+                    (PaperEdge.src_ref == paper_ref) | (PaperEdge.dst_ref == paper_ref),
+                )
+            ) is not None
+            s.commit()
+            if not has_edges:
+                background_tasks.add_task(
+                    harvest_edges_in_background, study_id, paper_ref
+                )
+            title = s.scalar(
+                select(Paper.title).where(
+                    Paper.study_id == study_id, Paper.paper_ref == paper_ref
+                )
+            ) or paper_ref
+            return {
+                "studyId": study_id,
+                "paperRef": paper_ref,
+                "title": title,
+                "edges": 0,
+                "edgesPending": not has_edges,
+            }
+
+        record = _warmed_graph_record(s, study_id, paper_ref)
+        edges_pending = record is None
+        if record is None:
+            try:
+                record = semantic_scholar.fetch_paper(
+                    paper_ref, fetch=cached_fetch(s)
+                )
+            except semantic_scholar.SemanticScholarError as exc:
+                raise HTTPException(502, f"Semantic Scholar: {exc}") from exc
+
+        upsert_paper(s, study_id, record, source="graph")
+        adopted_edges = _adopt_corpus_edges(s, study_id, paper_ref)
+        s.commit()
+        # A warm graph node already has the neighbourhood edge that made it
+        # actionable. Do not turn a successful click into another rate-limited
+        # provider request; only genuinely cold metadata needs enrichment.
+        if edges_pending:
+            background_tasks.add_task(
+                harvest_edges_in_background, study_id, paper_ref
+            )
+        return {
+            "studyId": study_id,
+            "paperRef": paper_ref,
+            "title": record.get("title", paper_ref),
+            "edges": adopted_edges,
+            "edgesPending": edges_pending,
         }
 
     @app.get(

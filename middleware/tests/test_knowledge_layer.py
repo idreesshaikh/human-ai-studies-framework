@@ -9,9 +9,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from middleware.app import create_app
+from middleware.db import CORPUS_STUDY_ID, Paper, make_session_factory
 from middleware.settings import Settings
+from sqlalchemy import select
 
-from middleware import assistant, semantic_scholar
+from middleware import assistant, paper_index, semantic_scholar
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PILOT = REPO_ROOT / "protocol" / "examples" / "pilot-study.yaml"
@@ -110,6 +112,7 @@ def test_graph_has_ingested_and_suggested_stub_nodes(client):
     assert by_ref["arxiv:2302.06590"]["ingested"] is True
     assert by_ref["arxiv:2205.06537"]["ingested"] is False
     assert by_ref["doi:10.1000/neighbour"]["ingested"] is False
+    assert by_ref["arxiv:2205.06537"]["abstract"] == ZIEGLER["abstract"]
     kinds = {e["kind"] for e in graph["edges"]}
     assert {"references", "citations", "recommendations"} <= kinds
 
@@ -120,6 +123,90 @@ def test_adding_a_suggested_node_regrows_the_graph(client):
     graph = client.get("/studies/pilot-2026/papers/graph").json()
     ziegler = next(n for n in graph["nodes"] if n["paperRef"] == "arxiv:2205.06537")
     assert ziegler["ingested"] is True
+
+
+def test_adding_a_warmed_suggested_node_does_not_repeat_metadata_fetch(
+    client, monkeypatch
+):
+    client.post("/studies/pilot-2026/papers", json={"arxivId": "2302.06590"})
+    monkeypatch.setattr(
+        semantic_scholar,
+        "fetch_paper",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            semantic_scholar.SemanticScholarError("metadata fetch should not repeat")
+        ),
+    )
+    added = client.post(
+        "/studies/pilot-2026/papers/from-graph",
+        json={"ref": "arxiv:2205.06537"},
+    )
+    assert added.status_code == 200, added.text
+    paper = next(
+        p
+        for p in client.get("/studies/pilot-2026/papers").json()
+        if p["paperRef"] == "arxiv:2205.06537"
+    )
+    assert paper["title"] == ZIEGLER["title"]
+    assert paper["abstract"] == ZIEGLER["abstract"]
+
+
+def test_deleting_a_graph_added_paper_removes_only_its_touching_edges(client):
+    client.post("/studies/pilot-2026/papers", json={"arxivId": "2302.06590"})
+    client.post(
+        "/studies/pilot-2026/papers/from-graph",
+        json={"ref": "arxiv:2205.06537"},
+    )
+    removed = client.delete("/studies/pilot-2026/papers/arxiv:2205.06537")
+    assert removed.status_code == 200, removed.text
+    graph = client.get("/studies/pilot-2026/papers/graph").json()
+    assert all(
+        "arxiv:2205.06537" not in (edge["src"], edge["dst"])
+        for edge in graph["edges"]
+    )
+    assert any(
+        node["paperRef"] == "arxiv:2302.06590" and node["ingested"]
+        for node in graph["nodes"]
+    )
+
+
+def test_deleting_a_study_copy_preserves_the_shared_corpus_paper(client, monkeypatch):
+    client.post("/studies/pilot-2026/papers", json={"arxivId": "2302.06590"})
+    factory = make_session_factory(client.db_path)
+    with factory() as s:
+        s.add(
+            Paper(
+                study_id=CORPUS_STUDY_ID,
+                paper_ref="arxiv:2205.06537",
+                title=ZIEGLER["title"],
+                abstract=ZIEGLER["abstract"],
+                added_at=FROZEN.isoformat(),
+            )
+        )
+        s.commit()
+
+    deindexed: list[str] = []
+    monkeypatch.setattr(
+        paper_index,
+        "deindex_paper",
+        lambda _session, paper_ref: deindexed.append(paper_ref),
+    )
+    added = client.post(
+        "/studies/pilot-2026/papers/from-graph",
+        json={"ref": "arxiv:2205.06537"},
+    )
+    assert added.status_code == 200, added.text
+    removed = client.delete("/studies/pilot-2026/papers/arxiv:2205.06537")
+    assert removed.status_code == 200, removed.text
+    assert deindexed == []
+
+    with factory() as s:
+        corpus_copy = s.scalar(
+            select(Paper).where(
+                Paper.study_id == CORPUS_STUDY_ID,
+                Paper.paper_ref == "arxiv:2205.06537",
+            )
+        )
+        assert corpus_copy is not None
 
 
 def test_delete_paper_removes_it_and_its_edges(client):

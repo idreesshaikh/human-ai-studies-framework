@@ -10,7 +10,6 @@ import {
   type Paper,
   type PaperGraph,
 } from "@/lib/studyApi";
-import { ingestIdForRef } from "@/lib/forceLayout";
 import { cn } from "@/lib/cn";
 import { paperIdentifier } from "@/lib/paperReference";
 
@@ -288,14 +287,19 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                     ? ` · ${selectedNode.citationCount} citations`
                     : ""}
                 </p>
-                {selectedPaper?.abstract && (
+                {(selectedPaper?.abstract || selectedNode.abstract) ? (
                   <p className="mt-2 type-body leading-relaxed text-text-muted">
-                    {selectedPaper.abstract}
+                    {selectedPaper?.abstract || selectedNode.abstract}
+                  </p>
+                ) : (
+                  <p className="mt-2 type-body text-text-muted">
+                    No abstract is available from the source yet.
                   </p>
                 )}
                 {!selectedPaper && (
-                  <p className="mt-2 type-body text-text-muted">
-                    Suggested paper, not yet in the study.
+                  <p className="mt-2 type-caption text-text-muted">
+                    Suggested paper, not yet in the study. Its preview is already warm
+                    and can be added without another provider request.
                   </p>
                 )}
               </div>
@@ -346,10 +350,16 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                     size="sm"
                     variant="subtle"
                     disabled={busy}
-                    onClick={() => {
-                      const id = ingestIdForRef(selected!);
-                      if (id) run(() => studyApi.ingestPaper(studyId, id));
-                    }}
+                    onClick={() =>
+                      run(async () => {
+                        const result = await studyApi.addPaperFromGraph(
+                          studyId,
+                          selected!,
+                        );
+                        setEdgesPending(Boolean(result.edgesPending));
+                        return result;
+                      })
+                    }
                   >
                     <Plus aria-hidden /> Add to study
                   </Button>
