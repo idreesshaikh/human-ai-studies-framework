@@ -21,6 +21,9 @@ SECTIONS: tuple[str, ...] = (
 )
 
 MANDATORY_SLOTS: tuple[str, ...] = SECTIONS
+VALID_INSTRUMENTS: frozenset[str] = frozenset(
+    {"tern", "metrics", "agentCapture", "taskHarness"}
+)
 
 
 @dataclass(frozen=True)
@@ -401,11 +404,12 @@ def _scaffold_from_sections(sections: dict[str, list]) -> dict:
     return draft
 
 
-def _apply_instrument_moves(draft: dict, moves: list[dict]) -> None:
+def _apply_instrument_moves(draft: dict, moves: list[dict]) -> list[str]:
     """
     Apply accepted instrument moves onto the draft in place  -  the FR-CONV-4.4
     "instrument evolution rides the same path" contract.
     """
+    warnings: list[str] = []
     instruments = draft.get("instruments")
     if not isinstance(instruments, dict):
         instruments = None
@@ -422,8 +426,37 @@ def _apply_instrument_moves(draft: dict, moves: list[dict]) -> None:
         if instruments is None:
             instruments = draft["instruments"] = {}
         if op in ("add-instrument", "set-instrument"):
-            instruments[name] = patch.get("config") or {}
+            config = patch.get("config") or {}
+            # Older model turns called the timestamp helper `taskTimer`, but
+            # that is not a protocol instrument. Letting that name through
+            # produced an accepted move and an invalid protocol, which made
+            # the draft look full while Apply stayed impossible. Task timing
+            # is captured by the real TERN instrument; repair the legacy shape
+            # at compile time and keep the warning visible to the caller.
+            if name == "taskTimer":
+                name = "tern"
+                config = default_capture_instrument(
+                    _session_minutes_from_config(config)
+                )
+                warnings.append(
+                    "mapped the legacy taskTimer move to the valid TERN capture instrument"
+                )
+            elif name not in VALID_INSTRUMENTS:
+                warnings.append(
+                    f"ignored unsupported instrument {name!r}; use tern, metrics, "
+                    "agentCapture, or taskHarness"
+                )
+                continue
+            instruments[name] = config
         elif op == "reconfigure":
+            if name == "taskTimer":
+                name = "tern"
+                warnings.append(
+                    "mapped the legacy taskTimer setting to the valid TERN capture instrument"
+                )
+            elif name not in VALID_INSTRUMENTS:
+                warnings.append(f"ignored unsupported instrument setting {name!r}")
+                continue
             target = instruments.setdefault(name, {})
             path = list(patch.get("path") or [])
             for key in path[:-1]:
@@ -434,6 +467,16 @@ def _apply_instrument_moves(draft: dict, moves: list[dict]) -> None:
                 target = nxt
             if path:
                 target[path[-1]] = patch.get("value")
+    return warnings
+
+
+def _session_minutes_from_config(config: object) -> int:
+    """Read a legacy timer duration without trusting its invalid shape."""
+    if isinstance(config, dict):
+        value = config.get("minutes") or config.get("durationMinutes")
+        if isinstance(value, int) and value >= 1:
+            return value
+    return 45
 
 
 # A move naming anything else is refused: the conversation may fill the protocol's
@@ -569,29 +612,73 @@ def _slugify(text: str) -> str:
     return slug[:48]
 
 
-def _apply_analysis_moves(draft: dict, moves: list[dict]) -> None:
-    """Compile accepted ``prescribe-statistics`` moves into ``analysisPlan``."""
+def _legacy_recipe(value: object) -> str | None:
+    """Translate pre-v5 free-text statistical moves to a runnable recipe.
+
+    Early conversation records used ``set-field statisticalPlan`` and displayed a
+    method sentence, but the protocol has always needed executable recipe ids. Keep
+    those records recoverable when a researcher reopens an old study. New turns use
+    ``prescribe-statistics`` and never take this compatibility path.
+    """
+    text = str(value or "").lower()
+    if any(
+        term in text
+        for term in ("paired", "within-subject", "wilcoxon", "signed-rank", "repeated")
+    ):
+        return "paired-nonparametric"
+    return None
+
+
+def _apply_analysis_moves(draft: dict, moves: list[dict]) -> list[str]:
+    """Compile executable and legacy statistical moves into ``analysisPlan``."""
     plan = draft.get("analysisPlan") or []
     plan_by_rq: dict[str, dict] = {}
     for entry in plan:
         plan_by_rq.setdefault(entry["rq"], entry)
+    warnings: list[str] = []
+    declared_rqs = [
+        str(rq.get("id"))
+        for rq in draft.get("researchQuestions") or []
+        if rq.get("id")
+    ]
+    fallback_rq = declared_rqs[0] if declared_rqs else "RQ-1"
 
     for move in moves:
-        if move.get("status") != "accepted" or move.get("kind") != (
-            "prescribe-statistics"
-        ):
+        if move.get("status") != "accepted":
             continue
         patch = move.get("patch") or {}
-        recipe_id = patch.get("recipeId")
+        recipe_id = (
+            patch.get("recipeId")
+            if move.get("kind") == "prescribe-statistics"
+            else None
+        )
+        legacy = False
+        if recipe_id is None:
+            path = patch.get("path") or []
+            section = patch.get("section")
+            if (
+                move.get("kind") in ("set-field", "set-parameter", "add-measure")
+                and (path == ["statisticalPlan"] or section == "statisticalPlan")
+            ):
+                recipe_id = _legacy_recipe(patch.get("value"))
+                legacy = recipe_id is not None
         if not recipe_id:
+            if not legacy and move.get("kind") == "prescribe-statistics":
+                warnings.append("ignored a statistics move without a recipe id")
             continue
-        rq = patch.get("rq") or "RQ-1"
+        rq = patch.get("rq") or fallback_rq
         entry = plan_by_rq.setdefault(rq, {"rq": rq, "recipes": []})
         if recipe_id not in entry["recipes"]:
             entry["recipes"].append(recipe_id)
+        if legacy:
+            warnings.append(
+                "mapped a legacy statistical-plan sentence to the runnable "
+                f"{recipe_id} analysis recipe"
+            )
 
     if plan_by_rq:
         draft["analysisPlan"] = list(plan_by_rq.values())
+    return warnings
 
 
 _REQUIRED_PROPERTY = re.compile(r"^'([^']+)' is a required property$")
@@ -674,9 +761,9 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
             else _scaffold_from_sections(sections)
         )
 
-    _apply_instrument_moves(draft, moves)
+    warnings.extend(_apply_instrument_moves(draft, moves))
 
-    _apply_analysis_moves(draft, moves)
+    warnings.extend(_apply_analysis_moves(draft, moves))
 
     warnings.extend(_apply_task_moves(draft, moves))
 

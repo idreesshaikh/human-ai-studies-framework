@@ -4,10 +4,13 @@ The design conversation is the platform’s methodologist at the edge of the
 desk. You describe what you want to learn; PHOENIX asks what must be true for
 the answer to be interpretable, then proposes one decision at a time.
 
-The live assistant uses Mistral Large (`mistral-large-latest`) through Mistral's
-EU service. Configure `MISTRAL_API_KEY` on the middleware; there are no
-alternate gateway or model routes. If the key is unavailable, PHOENIX shows an
-honest offline state instead of presenting scripted replies as live reasoning.
+The live design loop uses Mistral Medium (`mistral-medium-latest`) through
+Mistral's EU service because its output is short, structured, and latency
+sensitive. Citation-heavy knowledge answers continue to use Mistral Large.
+Configure `MISTRAL_API_KEY` on the middleware; `MISTRAL_DESIGN_MODEL` can
+override the design model when needed. If the key is unavailable, PHOENIX
+shows an honest offline state instead of presenting scripted replies as live
+reasoning.
 
 <figure markdown="span">
   ![A current Phoenix design conversation](../assets/screens/phoenix-demo-conversation-current.png){ width="900" }
@@ -28,6 +31,39 @@ honest offline state instead of presenting scripted replies as live reasoning.
 
 The point is not to outsource judgement. The point is to make judgement
 explicit, evidenced, and easy to audit later.
+
+## The interaction contract
+
+The conversation is a design session, not an infinite transcript.
+
+- One focused question is visible at a time.
+- At most one decision card is offered for that question. A grounded caution
+  takes priority over a new protocol choice when both arrive together.
+- Accepting, rejecting, or noting a card records the decision and advances the
+  session. The synthetic acknowledgement is not treated as a new research idea.
+- Earlier decisions fold into a compact history. The active answer and its next
+  decision stay in view; the researcher does not have to reread the whole
+  conversation to continue.
+- The draft rail is a live summary, not a second transcript. It shows the eight
+  researcher-controlled sections, the next missing decision, and any compiler
+  error that blocks application.
+
+The assistant keeps a short conversational window and relies on the structured
+move ledger plus compiled draft for durable state. This prevents old prose from
+making replies slower or causing accepted decisions to be proposed again.
+
+## Move and response rules
+
+The design model returns schema-checked JSON. Its response is deliberately
+small: two short sentences at most, one question, and one move. A move is either
+a protocol patch, an executable analysis recipe, or a caution. Analysis moves
+must name a runnable recipe such as `paired-nonparametric`; free-form prose is
+not an analysis plan. Instrument moves must use a registered instrument name.
+
+The compiler remains the authority. The browser preview updates immediately from
+accepted moves, then the server compiles and validates the protocol before the
+researcher can apply it. Invalid or legacy moves are surfaced as warnings or
+errors rather than being silently shown as completed protocol sections.
 
 ## Grounding is a type, not a tone
 

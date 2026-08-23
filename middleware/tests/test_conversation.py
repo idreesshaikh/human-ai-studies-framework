@@ -284,6 +284,8 @@ def test_study_created_with_seeded_protocol_draft(client):
     export = client.get("/studies/seeded/conversation/export").json()
     assert "Seeded" in export["currentDraft"]
     assert "RQ-1" in export["currentDraft"]
+    assert "id: seeded" in export["currentDraft"]
+    assert "title: Seeded" in export["currentDraft"]
 
 
 def test_study_rejects_non_protocol_seed(client):

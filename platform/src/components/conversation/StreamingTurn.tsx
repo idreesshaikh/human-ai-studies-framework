@@ -13,12 +13,16 @@ export function StreamingTurn({
   turn,
   onDecide,
   focusMoveId = null,
+  active = false,
 }: {
   turn: Turn;
   onDecide: (moveId: string, status: MoveStatus, move?: Turn["moves"][number]) => void;
   /** The one move the thread is handing the caret to, if any  -  set only when
    *  a reply lands in answer to something the researcher just sent. */
   focusMoveId?: string | null;
+  /** Only the active reply gets full prose treatment. Older turns are compact
+   * history rows so the workspace remains a decision surface. */
+  active?: boolean;
 }) {
   const isPlatform = turn.role === "platform";
   const isUnavailable = turn.source === "unavailable";
@@ -61,7 +65,11 @@ export function StreamingTurn({
             )}
           </span>
         )}
-        <p className="whitespace-pre-wrap">{turn.text}</p>
+        {isPlatform && active ? (
+          <ReplyParagraphs text={turn.text} />
+        ) : (
+          <p className="whitespace-pre-wrap">{turn.text}</p>
+        )}
       </div>
 
       {turn.moves.length > 0 && (
@@ -80,6 +88,29 @@ export function StreamingTurn({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function ReplyParagraphs({ text }: { text: string }) {
+  const blocks = text
+    .split(/\n{2,}/)
+    .flatMap((block) => {
+      const sentences = block.trim().split(/(?<=[.!?])\s+(?=[A-Z0-9“])/);
+      if (sentences.length < 4) return [block.trim()];
+      const chunks: string[] = [];
+      for (let i = 0; i < sentences.length; i += 2) {
+        chunks.push(sentences.slice(i, i + 2).join(" "));
+      }
+      return chunks;
+    })
+    .filter(Boolean);
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {blocks.map((block, index) => (
+        <p key={`${index}-${block.slice(0, 12)}`}>{block}</p>
+      ))}
     </div>
   );
 }

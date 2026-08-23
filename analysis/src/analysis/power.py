@@ -79,6 +79,7 @@ def two_sample_power_curve(
 
     return {
         "model": ("two-sample t-test, independent means, equal per-group n, two-sided"),
+        "assumption": "Cohen's d is an exploration input, not an observed result.",
         "alpha": alpha,
         "powerTarget": power_target,
         "maxTotalN": max_total_n,
@@ -142,6 +143,7 @@ def paired_power_curve(
 
     return {
         "model": "paired t-test, within-subjects differences, two-sided",
+        "assumption": "Cohen's d is an exploration input, not an observed result.",
         "alpha": alpha,
         "powerTarget": power_target,
         "maxTotalN": max_total_n,

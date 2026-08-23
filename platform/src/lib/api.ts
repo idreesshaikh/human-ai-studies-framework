@@ -3,10 +3,9 @@ import { hasRole, type Role } from "./capabilities.ts";
 /* The shell's data layer. One typed interface, two implementations:
  *
  *  - HttpBackend talks to the middleware (used when VITE_API_BASE is set);
- *  - InMemoryBackend is a self-contained fake that seeds a couple of
- *    projects and the demo, so the whole shell is explorable  -  and
- *    testable  -  with no server running. It also powers the hero's offline
- *    demo, mirroring how the conversation runs on a deterministic stub.
+ *  - InMemoryBackend is a self-contained offline adapter. It exposes only the
+ *    explicitly labelled demo and otherwise starts empty, so a disconnected
+ *    browser cannot mistake fixture projects for a researcher's workspace.
  *
  * Both enforce nothing: authorization is the server's job. The fake mimics
  * the server's *shape* (roles, single-use invitations, last-owner refusal)
@@ -416,23 +415,8 @@ export class InMemoryBackend implements Api {
   }
 
   private seed() {
-    // A project the signed-in person owns, so the shell isn't empty offline.
-    this.projects.set("sample-lab", {
-      id: "p-sample",
-      slug: "sample-lab",
-      name: "Sample Lab",
-      createdAt: "2026-07-10T09:00:00.000Z",
-      studies: [
-        { id: "over-trust-2026" },
-        { id: "sample-study-2026" },
-      ],
-      members: [
-        { identitySub: "you", role: "owner", joinedAt: "2026-07-10T09:00:00.000Z" },
-        { identitySub: "dana@lab.test", role: "member", joinedAt: "2026-07-11T09:00:00.000Z" },
-      ],
-      invitations: [],
-    });
-    // The shared, read-only demo project.
+    // The shared, read-only demo project is the only pre-populated workspace.
+    // Real/offline projects are created empty by the researcher.
     this.projects.set("demo", {
       id: "p-demo",
       slug: "demo",
@@ -456,7 +440,7 @@ export class InMemoryBackend implements Api {
         ideHealth: { enabled: false, debounceSeconds: 5 },
       },
     };
-    for (const sid of ["sample-study-2026", "demo-study"]) {
+    for (const sid of ["demo-study"]) {
       this.protocols.set(sid, { instruments: structuredClone(demoInstruments) });
     }
   }
@@ -556,7 +540,14 @@ export class InMemoryBackend implements Api {
     // this template") lands as the study's draft immediately, offline the
     // same as live  -  a demo session starting a study from a template must
     // see the same design the live path would give it, not a blank one.
-    if (protocol) this.protocols.set(id, protocol);
+    if (protocol) {
+      const seeded = structuredClone(protocol);
+      const study = (seeded.study ?? {}) as Record<string, unknown>;
+      study.id = id;
+      study.title = name.trim();
+      seeded.study = study;
+      this.protocols.set(id, seeded);
+    }
     return { id };
   }
 

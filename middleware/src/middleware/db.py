@@ -310,6 +310,9 @@ class ConversationTurn(Base):
     __tablename__ = "conversation_turns"
     __table_args__ = (
         UniqueConstraint("study_id", "seq", name="uq_conversation_turn_seq"),
+        UniqueConstraint(
+            "study_id", "request_id", name="uq_conversation_turn_request"
+        ),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -323,6 +326,10 @@ class ConversationTurn(Base):
     redacted: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[str] = mapped_column(String)
     source: Mapped[str] = mapped_column(String, default="")
+    # Client-generated idempotency key. A streamed request can be persisted by
+    # the server just before a proxy/browser notices the connection failed; the
+    # blocking retry must then resolve to this row instead of appending again.
+    request_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
 
 
 class DesignMoveRow(Base):
@@ -511,6 +518,7 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _migrate_stored_file_study_id(engine)
     _migrate_paper_curator_note(engine)
     _migrate_conversation_recommendations(engine)
+    _migrate_conversation_request_id(engine)
     _migrate_paper_edge_authors(engine)
     _migrate_design_move_seq(engine)
     _migrate_enrollment_participant_index(engine)
@@ -695,6 +703,28 @@ def _migrate_conversation_recommendations(engine) -> None:
                 "Added recommendations column to conversation_turns "
                 "(literature rail survives a reload)"
             )
+
+
+def _migrate_conversation_request_id(engine) -> None:
+    """Add the nullable streaming idempotency key to conversation turns."""
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("conversation_turns")}
+        if "request_id" not in cols:
+            conn.execute(
+                text("ALTER TABLE conversation_turns ADD COLUMN request_id VARCHAR")
+            )
+            log.info(
+                "Added request_id to conversation_turns "
+                "(stream retries are idempotent)"
+            )
+        # Existing rows have NULL, so this unique index does not collide with
+        # the historical record while making all new request ids study-scoped.
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_conversation_turn_request "
+                "ON conversation_turns (study_id, request_id)"
+            )
+        )
 
 
 def _migrate_design_move_seq(engine) -> None:

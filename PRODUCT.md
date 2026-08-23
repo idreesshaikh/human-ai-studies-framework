@@ -29,20 +29,20 @@ never use this app  -  they meet the study inside TERN, the VS Code extension.
 
 ## Product Purpose
 
-PHOENIX is a platform you talk to about the study you want to run, and it talks
-back with the literature. You describe what you want to find out; it asks the
-questions a research methodologist would, proposes design moves that each cite
-a real paper or say they do not, and compiles the moves you accept into a study
-protocol that validates.
+PHOENIX is not a general research chatbot. It is the methodologist and protocol
+compiler for human–AI studies: you describe what you want to find out, it asks
+the questions a methodologist would, proposes design moves that each cite a real
+paper or say they do not, and compiles the moves you accept into one validated,
+runnable study protocol.
 
 That protocol then configures TERN on each participant's machine, so the study
 that was designed is the study that runs.
 
-Success: a researcher describes an idea in plain language and leaves with a
-validated, versioned protocol whose every design decision is either cited into
-the corpus or honestly labelled unsourced  -  plus the statistical plan that
-design requires, the instrumentation to collect it, and a curated dataset they
-can analyse in the notebook they already use.
+Success: a researcher describes an idea in plain language and leaves with one
+validated, versioned protocol whose design decisions are either cited into the
+corpus or honestly labelled unsourced. The protocol carries the statistical
+plan, the instrumentation, and the curated handoff; everything else is support
+for that path.
 
 **The boundary is recorded in [`SCOPE.md`](SCOPE.md)**, which lists what was
 built and deliberately removed  -  the ethics workflow, study phases, mid-study
@@ -54,9 +54,11 @@ who the product is for and what it does inside it.
 ## Positioning
 
 The mechanism a neighbouring product could not truthfully copy: **accepted
-design moves compile deterministically into a versioned protocol.** The
-conversation is not a chat skin over a document  -  it is how the document comes
-to exist, and the document stays the single record of the study. Three further
+design moves compile deterministically into a versioned protocol.** A general
+chat tool can suggest ideas; PHOENIX turns the choices a researcher keeps into
+the document that can actually configure and run a study. The conversation is
+not a chat skin over a document  -  it is how the document comes to exist, and
+the document stays the single record of the study. Three further
 claims are structural, not marketing:
 
 - **Grounding is a type, not a tone.** Every proposal is either cited into the

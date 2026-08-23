@@ -16,7 +16,9 @@ from middleware.template_registry import list_templates
 
 log = logging.getLogger(__name__)
 
-_LLM_HISTORY_TURNS = 20
+# The accepted/rejected move ledger and compiled draft carry the durable state. Keep
+# only a short conversational window so old prose cannot make every reply slower.
+_LLM_HISTORY_TURNS = 12
 
 _STATE_MOVE_CAP = 30
 
@@ -299,6 +301,14 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
             continue
         moves = moves_by_turn.get(row.id, [])
         content = row.text or ""
+        # Card decisions are already represented structurally by the move status and
+        # the current request's ``decision`` payload. Replaying the synthetic
+        # “I accepted …” researcher echo wastes context and encourages the model to
+        # echo it back as if it were a new research idea.
+        if row.role == "researcher" and content.lower().startswith(
+            ("i accepted:", "i rejected the proposed", "i noted the caution")
+        ):
+            continue
         if moves:
             lines = [
                 f"- [{mv.kind}] {mv.proposal}"
@@ -699,9 +709,9 @@ def _permitted_moves(
 
     The model is instructed to make one proposal at a time, but that rule must
     also hold when a provider returns a verbose turn or an older prompt is in
-    use. Keep the first permitted actionable move and at most one caution, so
-    a single researcher answer cannot fan out into a stack of decisions while
-    a validity warning is still visible beside the one move it qualifies.
+    use. Keep one permitted move, with a grounded caution taking priority over
+    an action when both are present. A risk is the decision the researcher
+    needs to see before accepting a new protocol choice.
     """
     if stance.get("decisionAction"):
         return ()
@@ -737,18 +747,11 @@ def _permitted_moves(
 
     if not candidates:
         return ()
-    chosen_action = next(
-        (move for move in candidates if move.kind != "caution"), None
+    chosen = next(
+        (move for move in candidates if move.kind == "caution"),
+        candidates[0],
     )
-    chosen_caution = next(
-        (move for move in candidates if move.kind == "caution"), None
-    )
-    chosen = tuple(
-        move
-        for move in candidates
-        if move is chosen_action or (chosen_action is None and move is chosen_caution)
-        or (chosen_action is not None and move is chosen_caution)
-    )
+    chosen = (chosen,) if chosen is not None else ()
     if len(candidates) > len(chosen):
         log.info(
             "held back %d move(s): the conversation offers one decision at a time",
@@ -947,7 +950,9 @@ def respond(
         decision=decision,
     )
     state = _load_design_state(s, study_id)
-    papers, templates, history = _retrieve(s, text, study_id, history)
+    papers, templates, history = _retrieve(
+        s, text, study_id, history, decision=decision
+    )
     if stance["intent"] == "needs-scaffolding":
         return _assemble(
             s,
@@ -992,19 +997,46 @@ def respond(
 
 
 def _retrieve(
-    s: Session, text: str, study_id: str | None, history: list[dict] | None
+    s: Session,
+    text: str,
+    study_id: str | None,
+    history: list[dict] | None,
+    *,
+    decision: dict | None = None,
 ) -> tuple[list[dict], list[dict], list[dict]]:
     """
     The deterministic retrieval every LLM turn is constrained to cite (papers,
     templates, history)  -  run *before* the model is asked anything, so the model can
     only select from what was actually retrieved.
     """
-    papers = matching.match_papers(s, text, study_id=study_id, limit=8, use_llm=False)
-    templates = recommend_templates(text, support=corpus_support(s))
     # An explicit history (the stateless demo passes the visitor's own prior turns)
     # wins; otherwise load it from the study's stored turns.
     if history is None:
         history = _load_history(s, study_id)
+    if decision is not None:
+        # Accept/reject text is an audit event, not a new research idea. Searching
+        # it was how tiny fragments such as "let" displaced the study's useful
+        # literature with accidental papers in the recommender rail.
+        return [], [], history
+    researcher_context = [
+        item["content"]
+        for item in history
+        if item.get("role") == "user" and item.get("content")
+    ]
+    retrieval_query = " ".join((*researcher_context[-4:], text)).strip()
+    papers = matching.match_papers(
+        s,
+        retrieval_query,
+        study_id=study_id,
+        limit=8,
+        use_llm=False,
+        # Query expansion is itself an LLM request. Running it immediately
+        # before the design response doubled conversation latency, while the
+        # deterministic FTS ladder already gives the response a grounded menu.
+        # The standalone corpus search can still opt into expansion.
+        expand=False,
+    )
+    templates = recommend_templates(text, support=corpus_support(s))
     return papers, templates, history
 
 
@@ -1030,7 +1062,9 @@ def respond_streaming(
         decision=decision,
     )
     state = _load_design_state(s, study_id)
-    papers, templates, history = _retrieve(s, text, study_id, history)
+    papers, templates, history = _retrieve(
+        s, text, study_id, history, decision=decision
+    )
     if stance["intent"] == "needs-scaffolding":
         turn = _scaffolding_turn(stance, papers, state)
         if turn.text:

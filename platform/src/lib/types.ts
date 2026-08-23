@@ -19,8 +19,9 @@ export interface Grounding {
 // complete by construction as long as the two stay in sync. It used to
 // carry "set-threshold", a kind the server has never sent, and was missing
 // three it does: "set-field" and "declare-task" (the direct protocol-slot
-// fills the conversation gained this session) and "reconfigure-instrument"
-// (instrument tuning, e.g. the stuck-detector threshold). A card for any of
+// fills the conversation gained this session), "reconfigure-instrument"
+// (instrument tuning, e.g. the stuck-detector threshold), and
+// "prescribe-statistics" (an executable analysis recipe). A card for any of
 // the missing three rendered with no kind label at all  -  KIND_LABEL[kind]
 // is undefined for a key TypeScript never knew to require.
 export type MoveKind =
@@ -33,6 +34,7 @@ export type MoveKind =
   | "reconfigure-instrument"
   | "add-measure"
   | "merge-templates"
+  | "prescribe-statistics"
   | "caution"; // a challenge to a choice  -  no draft change, just advice
 
 export type MoveStatus = "proposed" | "accepted" | "rejected";
@@ -101,6 +103,8 @@ export interface Understanding {
 export interface Recommendation {
   ref: string;
   confidence?: number; // 0..1 continuous quality signal
+  matchKind?: "direct" | "adjacent";
+  matchedTerms?: string[];
   inStudy?: boolean; // already in the researcher's library
   title: string;
   year: number;
@@ -140,6 +144,12 @@ export interface InstrumentPatch {
   value?: unknown;
 }
 
+/** A ``prescribe-statistics`` move's executable analysis recipe. */
+export interface StatisticsPatch {
+  recipeId: string;
+  rq?: string;
+}
+
 /** A ``set-field`` move's patch (server: compiler.FILLABLE_SLOTS)  -  fills one
  * scalar protocol field directly (a sample size, a session length, the study
  * title...), restricted server-side to the protocol's declared fillable
@@ -150,7 +160,12 @@ export interface FieldPatch {
   value: unknown;
 }
 
-export type DraftPatch = SectionPatch | TemplatePatch | InstrumentPatch | FieldPatch;
+export type DraftPatch =
+  | SectionPatch
+  | TemplatePatch
+  | InstrumentPatch
+  | StatisticsPatch
+  | FieldPatch;
 
 export function isSectionPatch(p: DraftPatch): p is SectionPatch {
   return "op" in p && (p.op === "append" || p.op === "set");
@@ -162,6 +177,10 @@ export function isTemplatePatch(p: DraftPatch): p is TemplatePatch {
 
 export function isInstrumentPatch(p: DraftPatch): p is InstrumentPatch {
   return "op" in p && (p.op === "add-instrument" || p.op === "set-instrument" || p.op === "reconfigure");
+}
+
+export function isStatisticsPatch(p: DraftPatch): p is StatisticsPatch {
+  return "recipeId" in p;
 }
 
 export function isFieldPatch(p: DraftPatch): p is FieldPatch {
@@ -294,6 +313,9 @@ export interface PowerRequirement {
 /** GET /studies/{id}/power: the planning payload, assumptions included. */
 export interface PowerDoc {
   model: string;
+  assumption?: string;
+  plannedParticipants?: number | null;
+  design?: string;
   alpha: number;
   powerTarget: number;
   maxTotalN: number;

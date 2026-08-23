@@ -37,23 +37,32 @@ does not make another rate-limited provider request; removing a study copy only
 removes its touching edges and never de-indexes a shared corpus/library copy.
 
 The study surfaces are explorable with **no backend**: they fall back to a
-curated offline seed. The design conversation is the exception  -  it uses only
-Mistral Large (`mistral-large-latest`) through the EU Mistral route and says so
-when it has no `MISTRAL_API_KEY`, rather than answering from a script that reads
-like the real thing. Live actions wire to the
+curated offline seed. The design conversation is the exception: it uses the
+fast Mistral Medium default (`mistral-medium-latest`) through the EU Mistral
+route and says so when it has no `MISTRAL_API_KEY`, rather than answering from
+a script that reads like the real thing. Live actions wire to the
 middleware where it's running; the backend swaps in behind the same shapes.
+
+The conversation is intentionally a focused design session. It keeps one
+question and one decision card in view, folds earlier decisions into a compact
+history, and lets the draft rail carry the durable protocol state. The browser
+preview and server compiler both understand executable analysis recipes and
+registered instruments; an invalid server compile blocks application instead of
+pretending that a section is complete.
 
 ## Commands
 
 ```bash
 npm install
 npm run dev        # dev server at localhost:5173
-npm run check      # typecheck + lint + verify + build (the gate)
+npm run check      # lint first, then typecheck + verify + build (the gate)
 npm run verify     # runs the verify-*.mjs harnesses
 npm run build      # production build (served by the middleware)
 ```
 
-Keep `npm run check` green before committing.
+Keep `npm run check` green before committing. The check intentionally runs
+`npm run lint` first, so visual, accessibility, and agent-contract regressions
+fail before the slower verification and production build steps.
 
 ## Conventions
 

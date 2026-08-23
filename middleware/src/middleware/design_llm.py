@@ -18,6 +18,7 @@ _ALLOWED_KINDS = frozenset(
         "set-parameter",
         "set-field",
         "declare-task",
+        "prescribe-statistics",
         "choose-template",
         "merge-templates",
         "add-instrument",
@@ -89,17 +90,25 @@ SYSTEM_PROMPT = (
     "filled ones. The typical order once design and measures are set: "
     "participants (population, sample size), then statisticalPlan. Even with "
     "an accepted template the statisticalPlan section still needs its own "
-    "entries, propose moves that record or refine the template's prescribed "
-    "statistics, never ones that contradict them.\n\n"
+    "entry. Use a `prescribe-statistics` move with a runnable recipe id, "
+    "never a free-text field that the compiler cannot execute. The standard "
+    "within-subjects recipe is `paired-nonparametric`; record or refine the "
+    "template's prescribed statistics, never contradict them.\n\n"
     "A `caution` is advisory and never fills a section (it carries no "
     "patch). The ethics section is filled only by a `set-parameter` move "
     'with `patch.section` "ethics" (consent, data handling, privacy/'
-    "withdrawal posture), when the researcher wants ethics covered, pair "
-    "any caution with such a move. NEVER use `add-instrument` for this: "
+    "withdrawal posture), when the researcher wants ethics covered. Raise a "
+    "caution first when needed, then ask for the posture in the next turn. "
+    "NEVER use `add-instrument` for this: "
     "that kind is reserved for an actual capture instrument (e.g. "
     "agentCapture) and its patch always needs `section: \"instruments\"`, "
     "so an ethics posture sent as `add-instrument` never reaches the "
     "draft.\n\n"
+    "INSTRUMENT NAMES. Use only real protocol instruments: `tern`, `metrics`, "
+    "`agentCapture`, or `taskHarness`. `taskTimer`, `screenRecorder`, and "
+    "similar labels are measures or implementation ideas, not instrument keys; "
+    "never invent them. For ordinary live coding sessions, add `tern` with the "
+    "standard capture config supplied by the study runtime.\n\n"
     "REPETITION: NEVER re-propose a move the design state lists as accepted, "
     "rejected, or awaiting decision, nor a near-duplicate or rewording of "
     "one. An accepted move is already in the draft; a rejected one was "
@@ -166,7 +175,7 @@ SYSTEM_PROMPT = (
     '"moves": [{"kind": "...", "target": "researchQuestions[]", "proposal": '
     '"one sentence", "patch": {...} or null, "refs": ["..."]}]}\n\n'
     "Valid kinds: add-rq, add-measure, set-parameter, set-field, "
-    "declare-task, choose-template, merge-templates, add-instrument, "
+    "declare-task, prescribe-statistics, choose-template, merge-templates, add-instrument, "
     "reconfigure-instrument, caution. "
     "`refs` entries must come from the candidate menu only (a paper's ref or "
     "a template's id).\n\n"
@@ -187,6 +196,8 @@ SYSTEM_PROMPT = (
     "task. Only `title` is required; `conditions` restricts a task to some "
     "of the study's arms and should be left out unless the researcher means "
     "it, since a task tied to one condition confounds the two.\n"
+    '- prescribe-statistics: {"recipeId": "paired-nonparametric", "rq": "RQ-1"}. '
+    "Use a recipe from the platform catalogue and point it at a declared research question.\n"
     '- choose-template: {"templateId": "...", "parameters": {...}}\n'
     '- merge-templates: {"templateIds": ["...", "..."], "reason": "..."} - '
     "two or more candidate template ids plus why this pairing works (what "
@@ -312,6 +323,17 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
         title = patch.get("title")
         if isinstance(title, str) and title.strip():
             return patch
+        return None
+    if kind == "prescribe-statistics":
+        recipe_id = patch.get("recipeId")
+        rq = patch.get("rq", "RQ-1")
+        if (
+            isinstance(recipe_id, str)
+            and recipe_id.strip()
+            and isinstance(rq, str)
+            and rq.strip()
+        ):
+            return {"recipeId": recipe_id.strip(), "rq": rq.strip()}
         return None
     if patch.get("op") == "set-field":
         # Which slots exist, and whether the value can be the slot's type, is the
@@ -525,7 +547,7 @@ def propose_turn_streaming(
                 "model": client.model,
                 "messages": messages,
                 "response_format": {"type": "json_object"},
-                "max_tokens": 1536,
+                "max_tokens": 768,
             },
             {"Authorization": f"Bearer {client.api_key}"},
         ):
@@ -576,7 +598,7 @@ def propose_turn(
                 "model": client.model,
                 "messages": messages,
                 "response_format": {"type": "json_object"},
-                "max_tokens": 1536,
+                "max_tokens": 768,
             },
             {"Authorization": f"Bearer {client.api_key}"},
         )

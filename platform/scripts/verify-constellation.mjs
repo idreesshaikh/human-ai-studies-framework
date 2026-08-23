@@ -301,9 +301,11 @@ const topicalGraph = curateGraph({
   ],
 });
 ok(
-  "topical relevance beats a famous but off-topic citation",
+  "topical relevance leads the exploratory citation lane",
   topicalGraph.nodes.some((n) => n.paperRef === topicalFreshPaper.paperRef) &&
-    !topicalGraph.nodes.some((n) => n.paperRef === famousButOffTopic.paperRef),
+    topicalGraph.nodes.some((n) => n.paperRef === famousButOffTopic.paperRef) &&
+    topicalGraph.edges.findIndex((e) => e.dst === topicalFreshPaper.paperRef) <
+      topicalGraph.edges.findIndex((e) => e.dst === famousButOffTopic.paperRef),
 );
 
 console.log(

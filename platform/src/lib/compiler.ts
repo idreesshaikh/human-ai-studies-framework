@@ -2,6 +2,7 @@ import {
   emptyDraft,
   isFieldPatch,
   isInstrumentPatch,
+  isStatisticsPatch,
   isSectionPatch,
   isTemplatePatch,
   type DesignMove,
@@ -45,6 +46,10 @@ export function compile(
       // `reconfigure` tweaks an already-added instrument's config  -  it
       // never fills the slot on its own (matches the server: an add/set
       // move is what makes the instrument exist at all).
+      continue;
+    }
+    if (isStatisticsPatch(move.patch)) {
+      draft.statisticalPlan = [move.patch.recipeId];
       continue;
     }
     if (isFieldPatch(move.patch)) {

@@ -35,6 +35,11 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function newRequestId(): string {
+  return globalThis.crypto?.randomUUID?.() ??
+    `conversation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
@@ -339,6 +344,7 @@ export const conversationApi = {
      * falls back to the account's declared profile. */
     steer?: SteerLevel,
     decision?: DecisionTrigger,
+    requestId?: string,
   ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
     let reply: ConversationReply;
     try {
@@ -349,6 +355,7 @@ export const conversationApi = {
           author,
           ...(steer == null ? {} : { steer: steerStop(steer).id }),
           ...(decision ? { decision } : {}),
+          ...(requestId ? { requestId } : {}),
         },
       );
     } catch (error) {
@@ -393,6 +400,7 @@ export const conversationApi = {
     onToken?: (fragment: string) => void,
     steer?: SteerLevel,
     decision?: DecisionTrigger,
+    requestId = newRequestId(),
   ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
     let done: {
       researcherTurnId: string;
@@ -419,6 +427,7 @@ export const conversationApi = {
             author,
             ...(steer == null ? {} : { steer: steerStop(steer).id }),
             ...(decision ? { decision } : {}),
+            requestId,
           }),
         },
       );
@@ -447,7 +456,7 @@ export const conversationApi = {
       }
       if (!done) throw new Error("stream ended without a turn");
     } catch {
-      return this.sendTurn(studyId, text, author, steer, decision);
+      return this.sendTurn(studyId, text, author, steer, decision, requestId);
     }
 
     const researcher: Turn = {

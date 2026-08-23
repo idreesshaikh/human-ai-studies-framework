@@ -307,10 +307,14 @@ export function DeriveFromPaper({
       )}
 
       {paper && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <span className="type-caption text-text-muted">Run</span>
-          <span className="max-w-56 truncate type-caption font-medium text-text">{paper.title}</span>
-          <span className="type-caption text-text-muted">through</span>
+        <div className="grid gap-2 border-t border-border pt-3 sm:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)_auto] sm:items-center">
+          <div className="flex min-w-0 items-center gap-2 type-caption">
+            <span className="shrink-0 text-text-muted">Run</span>
+            <span className="min-w-0 truncate font-medium text-text" title={paper.title}>
+              {paper.title}
+            </span>
+            <span className="shrink-0 text-text-muted">through</span>
+          </div>
           <Select
             value={baseId}
             onValueChange={pickBase}
@@ -319,12 +323,13 @@ export function DeriveFromPaper({
               label: `${t.designType}: ${t.title}`,
             }))}
             placeholder="Choose an archetype…"
-            className="w-auto"
+            className="min-w-0 w-full"
           />
           <Button
             size="sm"
             onClick={() => void derive(paper.ref, baseId)}
             disabled={!baseId || busy}
+            className="w-full whitespace-nowrap sm:w-auto"
           >
             {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
             Derive template

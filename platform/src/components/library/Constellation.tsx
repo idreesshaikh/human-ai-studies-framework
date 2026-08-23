@@ -14,6 +14,7 @@ import {
   LENSES,
   lensEdges,
   lensNodes,
+  lensCounts,
   curateGraph,
   type Lens,
 } from "@/lib/constellationView";
@@ -152,7 +153,7 @@ export function Constellation({
       Object.fromEntries(
         LENSES.map((entry) => [
           entry.id,
-          lensNodes(curatedGraph.nodes, curatedGraph.edges, entry.id).length,
+          lensCounts(curatedGraph.nodes, curatedGraph.edges)[entry.id],
         ]),
       ) as Record<Lens, number>,
     [curatedGraph],
@@ -172,7 +173,6 @@ export function Constellation({
         width: W,
         height: H,
         spread: true,
-        timeline: true,
       }),
     [nodes, edges],
   );
@@ -212,21 +212,32 @@ export function Constellation({
     () => Math.max(...nodes.map((n) => n.citationCount ?? 0), 0),
     [nodes],
   );
-  const yearMarks = useMemo(() => {
-    const byYear = new Map<number, number[]>();
-    for (const n of positioned) {
-      if (n.year == null) continue;
-      const values = byYear.get(n.year) ?? [];
-      values.push(n.x);
-      byYear.set(n.year, values);
+  const yearScale = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const node of nodes) {
+      if (node.year != null) counts.set(node.year, (counts.get(node.year) ?? 0) + 1);
     }
-    return [...byYear.entries()]
-      .sort(([a], [b]) => a - b)
-      .map(([year, xs]) => ({
-        year,
-        x: xs.reduce((sum, value) => sum + value, 0) / xs.length,
-      }));
-  }, [positioned]);
+    const years = [...counts.keys()].sort((a, b) => a - b);
+    if (years.length === 0) return null;
+    const first = years[0];
+    const last = years[years.length - 1];
+    const span = Math.max(last - first, 1);
+    const tickIndexes =
+      years.length <= 6
+        ? years.map((_, index) => index)
+        : [...new Set([0, 1, Math.round((years.length - 1) / 2), years.length - 2, years.length - 1])];
+    return {
+      first,
+      last,
+      ticks: tickIndexes
+        .sort((a, b) => a - b)
+        .map((index) => ({
+          year: years[index],
+          count: counts.get(years[index]) ?? 0,
+          position: ((years[index] - first) / span) * 100,
+        })),
+    };
+  }, [nodes]);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
@@ -413,22 +424,6 @@ export function Constellation({
           }}
         >
           <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
-            <g aria-hidden className="pointer-events-none">
-              {yearMarks.map(({ year, x }) => (
-                <g key={year}>
-                  <line
-                    x1={x}
-                    y1={38}
-                    x2={x}
-                    y2={H - 46}
-                    stroke="var(--viz-grid)"
-                    strokeDasharray="2 7"
-                    strokeWidth={1}
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </g>
-              ))}
-            </g>
             {edges.map((e, edgeIndex) => {
               const a = posByRef.get(e.src);
               const b = posByRef.get(e.dst);
@@ -548,19 +543,6 @@ export function Constellation({
               );
             })}
           </g>
-          <g aria-hidden className="pointer-events-none">
-            {yearMarks.map(({ year, x }) => (
-              <text
-                key={year}
-                x={(x + view.x) * view.k}
-                y={H - 18}
-                textAnchor="middle"
-                className="fill-text-muted text-legend-svg"
-              >
-                {year}
-              </text>
-            ))}
-          </g>
         </svg>
         <button
           type="button"
@@ -573,7 +555,29 @@ export function Constellation({
       </div>
 
       <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 type-caption text-text-muted">
-        <span className="text-text-muted/80">Older ← publication year → newer · circle size = citation count · drag to pan · scroll to zoom</span>
+        <span className="text-text-muted/80">Drag to pan · scroll to zoom · select a paper to inspect it</span>
+        {yearScale && (
+          <span
+            className="flex min-w-0 items-center gap-2"
+            aria-label={`Publication year distribution from ${yearScale.first} to ${yearScale.last}`}
+          >
+            <span className="type-legend shrink-0 text-text-muted">Years</span>
+            <span className="relative inline-flex h-7 w-44 items-start" aria-hidden>
+              <span className="absolute left-1 right-1 top-2 h-px bg-border-strong" />
+              {yearScale.ticks.map((tick) => (
+                <span
+                  key={tick.year}
+                  className="absolute top-0 -translate-x-1/2"
+                  style={{ left: `${tick.position}%` }}
+                  title={`${tick.year}: ${tick.count} paper${tick.count === 1 ? "" : "s"}`}
+                >
+                  <span className="mx-auto block size-1.5 rounded-full bg-accent ring-2 ring-bg" />
+                  <span className="mt-0.5 block type-legend text-text-muted">{tick.year}</span>
+                </span>
+              ))}
+            </span>
+          </span>
+        )}
         <LegendDot filled label="ingested" />
         <LegendDot color="var(--series-3)" label="suggested, click to add" />
         {Object.entries(EDGE).map(([kind, { color, label }]) => (

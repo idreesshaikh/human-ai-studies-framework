@@ -150,10 +150,12 @@ does **not** currently check client/server agreement.
 client-side scripted assistant (`designStub.ts`) that answered from a keyword
 script whenever the server was unreachable. It was removed deliberately: a
 script that reads on screen exactly like the real conversation is an
-impersonation of it. The live conversation uses Mistral Large
-(`mistral-large-latest`) through the EU Mistral route and needs
-`MISTRAL_API_KEY`; without them it shows an honest offline notice rather than
-faking a reply. The only remnant is `conversationOpening.ts`  -  the opening prompt,
+impersonation of it. The live conversation uses Mistral Medium
+(`mistral-medium-latest`) through the EU Mistral route and needs
+`MISTRAL_API_KEY`; citation-heavy knowledge answers keep Mistral Large. Set
+`MISTRAL_DESIGN_MODEL` to override the design default. Without a key it shows
+an honest offline notice rather than faking a reply. The only remnant is
+`conversationOpening.ts`  -  the opening prompt,
 which asks a question and claims nothing. So the shell and study surfaces
 degrade to seeded/offline data, but the conversation degrades to honesty, not
 to a stub.

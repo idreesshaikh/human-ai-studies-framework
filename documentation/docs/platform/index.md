@@ -81,7 +81,8 @@ uv run python -m middleware corpus-import
 uv run python -m middleware serve
 ```
 
-The design conversation needs `MISTRAL_API_KEY` and uses only Mistral Large
-(`mistral-large-latest`) through Mistral's EU service. There is no alternate
-gateway or model setting. The compiled protocol, dry run, pairing, and analysis
-paths do not need a model key.
+The design conversation needs `MISTRAL_API_KEY` and uses Mistral Medium
+(`mistral-medium-latest`) through Mistral's EU service. Citation-heavy
+knowledge answers use Mistral Large. Set `MISTRAL_DESIGN_MODEL` to override the
+design model. The compiled protocol, dry run, pairing, and analysis paths do
+not need a model key.

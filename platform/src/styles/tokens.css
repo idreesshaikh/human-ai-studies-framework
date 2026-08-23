@@ -187,6 +187,10 @@
    * zooming, floored so a short window still gets a graph rather than a
    * letterbox, and capped so it never outgrows a tall display. */
   --constellation-h: clamp(24rem, 54vh, 42rem);
+  /* The map and its paper preview share one working frame. The graph owns the
+   * larger interior field; the remaining space covers its lens strip, title,
+   * and legend without letting a long abstract stretch the map card. */
+  --library-pane-h: calc(var(--constellation-h) + 11rem);
 
   /* The coordinate grid's pitch. Wide enough that the ruling reads as a
    * coordinate field rather than as graph paper: at 1.5rem the lines were

@@ -26,7 +26,7 @@ export function RecommenderRail({
           Literature
         </h2>
         <p className="type-caption text-text-muted">
-          Papers the conversation surfaces, ranked by confidence. Add any to your library.
+          Papers matched to the current study thread. Direct matches lead; adjacent work stays in the map.
         </p>
       </div>
 

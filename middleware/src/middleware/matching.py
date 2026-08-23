@@ -21,11 +21,21 @@ _STOPWORDS = frozenset(
         "that", "this", "with", "from", "what", "were", "they", "have",
         "been", "does", "their", "study", "using", "about", "would",
         "could", "paper", "papers", "research", "the", "and", "for", "are",
+        "is", "to", "in", "of", "on", "or", "as", "an", "be", "do",
+        "how", "can", "you", "my", "we", "it", "will", "want", "think",
+        "which", "should", "use", "make", "more", "less", "than", "whether",
+        "people", "person", "participants", "participant", "session", "sessions",
+        "task", "tasks", "condition", "conditions", "compare", "comparison",
+        "design", "method", "methods", "measure", "measures", "measuring",
+        "result", "results", "effect", "effects",
     ]
 )
 
 WEIGHT_MATCHED_TERM = 1.5
-WEIGHT_CONFIDENCE = 2.0
+# Source quality is a tie-breaker, never a substitute for relevance. A highly
+# cited survey should not outrank a direct match just because its corpus score
+# is strong.
+WEIGHT_CONFIDENCE = 0.35
 # A paper with no score reads as "unrated" (None), never a fabricated number.
 _CONF_MIDPOINT = 10.6
 _CONF_SCALE = 2.0
@@ -49,15 +59,29 @@ GRAPH_SEED_MIN_TERMS = 2
 def _terms(text: str) -> list[str]:
     """Content-bearing query terms, order-stable, de-duplicated."""
     seen: dict[str, None] = {}
-    for t in re.findall(r"[A-Za-z0-9][A-Za-z0-9-]{2,}", text.lower()):
+    for t in re.findall(r"[A-Za-z0-9][A-Za-z0-9-]{1,}", text.lower()):
         if t not in _STOPWORDS:
             seen.setdefault(t, None)
     return list(seen)
 
 
 def _matched_terms(query_terms: list[str], text: str) -> list[str]:
-    low = (text or "").lower()
-    return [t for t in query_terms if t in low]
+    """Return query terms present as words, not arbitrary substrings.
+
+    Substring evidence made a short conversational fragment such as ``let``
+    match the ``let`` inside ``completion``. That was both a ranking signal and
+    the explanation printed to researchers, so unrelated papers could look
+    confidently matched. Keep a small plural tolerance while preserving word
+    boundaries.
+    """
+    tokens = set(re.findall(r"[A-Za-z0-9][A-Za-z0-9-]{1,}", (text or "").lower()))
+    matched: list[str] = []
+    for term in query_terms:
+        if term in tokens or (
+            term.endswith("s") and len(term) > 3 and term[:-1] in tokens
+        ):
+            matched.append(term)
+    return matched
 
 
 def search_by_fts(s: Session, query: str, *, limit: int = 10) -> list[dict]:
@@ -66,7 +90,13 @@ def search_by_fts(s: Session, query: str, *, limit: int = 10) -> list[dict]:
     window - so a long PDF surfacing many chunks can't crowd single-chunk papers out of
     the candidate set.
     """
-    hits = paper_index.search(s, query, limit=max(50, limit * 10))
+    # Search the same content-bearing vocabulary used for ranking. Passing the
+    # raw conversational sentence lets filler words and accidental fragments
+    # decide which papers enter the candidate pool in the first place.
+    search_terms = _terms(query)
+    if not search_terms:
+        return []
+    hits = paper_index.search(s, " ".join(search_terms), limit=max(50, limit * 10))
     by_ref: dict[str, dict] = {}
     for rank, hit in enumerate(hits):
         ref = hit["paperRef"]
@@ -138,7 +168,8 @@ def rerank_with_llm(query: str, candidates: list[dict]) -> list[dict] | None:
     from middleware import assistant
 
     # Paper ranking is part of the assistant's visible reasoning trail. Use the
-    # same sole Mistral Large route as the design turn.
+    # the same EU Mistral route as the design turn, with the knowledge model's
+    # larger context budget for citation-heavy reranking.
     client = assistant.make_client()
     if client is None or not candidates:
         return None
@@ -283,16 +314,39 @@ def match_papers(
             confidence=conf,
         )
         matched = _matched_terms(query_terms, f"{row.title} {row.abstract}")
+        title_matches = _matched_terms(query_terms, row.title)
+        expanded_matches = _matched_terms(
+            _terms(search_query), f"{row.title} {row.abstract}"
+        )
+        evidence_terms = list(dict.fromkeys([*matched, *expanded_matches]))
+        direct = bool(evidence_terms)
         candidate["score"] = (
             candidate.get("score", 0.0)
-            + WEIGHT_MATCHED_TERM * len(matched)
+            # Direct language evidence is deliberately separated from source
+            # quality. This makes ranking explainable and prevents a famous,
+            # generic paper from crowding out a less-cited but on-topic one.
+            + (8.0 if direct else 0.0)
+            + WEIGHT_MATCHED_TERM * len(evidence_terms)
+            + len(title_matches)
             + WEIGHT_CONFIDENCE * (conf if conf is not None else 0.0)
         )
+        candidate["matchKind"] = "direct" if direct else "adjacent"
+        candidate["matchedTerms"] = evidence_terms[:5]
         if "matchReason" not in candidate:
-            candidate["matchReason"] = _reason_for(s, query_terms, candidate, row)
+            candidate["matchReason"] = _reason_for(
+                s, query_terms, candidate, row, matched_terms=evidence_terms
+            )
         enriched.append(candidate)
 
-    enriched.sort(key=lambda c: -c.get("score", 0.0))
+    # Graph-only results are useful adjacent reading, but the recommendation
+    # rail must always prefer papers whose title or abstract answers the query.
+    enriched.sort(
+        key=lambda c: (
+            c.get("matchKind") != "direct",
+            -c.get("score", 0.0),
+            c["ref"],
+        )
+    )
     if use_llm:
         reranked = rerank_with_llm(query, enriched)
         if reranked is not None:
@@ -307,6 +361,8 @@ def match_papers(
             "identifier": c.get("identifier", ""),
             "inStudy": c.get("inStudy", False),
             "confidence": c.get("confidence"),
+            "matchKind": c.get("matchKind", "adjacent"),
+            "matchedTerms": c.get("matchedTerms", []),
             "matchReason": c.get("matchReason", ""),
         }
         for c in results
@@ -332,16 +388,25 @@ def _public_identifier(row: Paper) -> str:
     return ""
 
 
-def _reason_for(s: Session, query_terms: list[str], candidate: dict, row: Paper) -> str:
+def _reason_for(
+    s: Session,
+    query_terms: list[str],
+    candidate: dict,
+    row: Paper,
+    *,
+    matched_terms: list[str] | None = None,
+) -> str:
     """
     A deterministic, honest reason: the matched terms (F9.2), or the vouching seeds for
     a graph-only match.
     """
-    matched = _matched_terms(
+    matched = matched_terms or _matched_terms(
         query_terms, f"{row.title} {row.abstract} {candidate.get('snippet', '')}"
     )
     if matched:
-        return f"Matches your terms: {', '.join(matched[:4])}."
+        title_terms = _matched_terms(query_terms, row.title)
+        location = "its title" if title_terms else "its abstract"
+        return f"Direct match in {location}: {', '.join(matched[:4])}."
     via = sorted(set(candidate.get("via", [])))
     if via:
         titles = list(
@@ -355,8 +420,8 @@ def _reason_for(s: Session, query_terms: list[str], candidate: dict, row: Paper)
         if titles:
             shown = ", ".join(titles[:2])
             suffix = " and another paper" if len(titles) > 2 else ""
-            return f"Related to {shown}{suffix} in your library."
-    return "Related to papers in your library."
+            return f"Adjacent to {shown}{suffix} through the library graph."
+    return "Adjacent work surfaced through the library graph."
 
 
 def get_paper_metadata(s: Session, paper_ref: str) -> dict | None:

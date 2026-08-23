@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
@@ -14,7 +14,7 @@ import { LibraryTab } from "@/components/library/LibraryTab";
 import { DataTab } from "@/components/charts/DataTab";
 import { PowerPanel } from "@/components/charts/PowerPanel";
 import { EnrollmentPanel } from "@/components/enrollment/EnrollmentPanel";
-import { StudyTour, tourSeen, markTourSeen } from "@/components/shell/StudyTour";
+import { StudyTour, markTourSeen } from "@/components/shell/StudyTour";
 import { ExportStudy } from "@/components/shell/ExportStudy";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
@@ -26,9 +26,10 @@ import { humanSlug } from "@/lib/slug";
 
 /* A study's workspace, and the whole arc the platform supports: design the
  * study in conversation, then set it up. The design conversation is the
- * primary surface; the Library (live paper ingest, citation constellation,
- * grounded assistant), Data (honest metric shapes) and Participants ride
- * alongside it as tabs.
+ * primary surface. The workspace tabs follow the actual researcher path:
+ * Design → Evidence → Plan → Run → Data. The route ids stay stable for deep
+ * links and the tour, while the visible labels explain why each surface exists
+ * instead of exposing five unrelated product nouns.
  *
  * There is deliberately no lifecycle board. Tracking a study across seven
  * phases was ceremony no researcher worked through, and its ethics gate
@@ -41,11 +42,11 @@ import { humanSlug } from "@/lib/slug";
 type Tab = "conversation" | "library" | "data" | "planning" | "enrollment";
 
 const TABS: { id: Tab; label: string; icon: typeof Library }[] = [
-  { id: "conversation", label: "Conversation", icon: MessagesSquare },
-  { id: "library", label: "Library", icon: Library },
+  { id: "conversation", label: "Design", icon: MessagesSquare },
+  { id: "library", label: "Evidence", icon: Library },
+  { id: "planning", label: "Plan", icon: Target },
+  { id: "enrollment", label: "Run", icon: UserPlus },
   { id: "data", label: "Data", icon: BarChart3 },
-  { id: "planning", label: "Planning", icon: Target },
-  { id: "enrollment", label: "Participants", icon: UserPlus },
 ];
 
 export function StudyHome() {
@@ -100,15 +101,9 @@ export function StudyHome() {
     setShowTour(true);
   };
 
-  // First study: run the walkthrough once (persisted). Re-openable via "?".
-  useEffect(() => {
-    if (!tourSeen()) {
-      tabBeforeTour.current = tab;
-      setShowTour(true);
-    }
-    // Deliberately mount-only: this is the "first study ever" trigger, not a
-    // reaction to the tab changing (which the tour itself does, six times).
-  }, []);
+  // The workspace is self-explanatory enough to start without a blocking tour.
+  // Keep the walkthrough available from the help button for researchers who ask
+  // for it, but never put a first-time modal in front of their study.
 
   const closeTour = () => {
     markTourSeen();

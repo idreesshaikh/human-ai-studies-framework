@@ -212,9 +212,12 @@ export const LENSES: { id: Lens; label: string; hint: string }[] = [
 /** A readable map is a curated view of the graph, not a dump of every API
  * neighbour. Keep the data in storage, but give the canvas a bounded number of
  * high-signal suggestions around the papers the researcher actually ingested. */
-export const MAX_SUGGESTED_NODES = 48;
-export const MAX_SUGGESTIONS_PER_ANCHOR = 12;
-export const MAX_SUGGESTIONS_PER_RELATION = 6;
+// The map is an exploration surface. Keep it bounded for rendering, but wide
+// enough that a researcher can actually browse a neighbourhood instead of
+// seeing a tiny hand-picked cluster.
+export const MAX_SUGGESTED_NODES = 120;
+export const MAX_SUGGESTIONS_PER_ANCHOR = 30;
+export const MAX_SUGGESTIONS_PER_RELATION = 12;
 
 const RELATION_ORDER = ["references", "citations", "recommendations"] as const;
 const CORPUS_DISCOVERY_KIND = "harvested-via";
@@ -375,20 +378,12 @@ export function curateGraph<
         const scoreDelta = candidateScore(b) - candidateScore(a);
         return scoreDelta || a.suggestion.localeCompare(b.suggestion);
       });
-    const topicalCandidates = candidates.filter(
-      (candidate) => topicRelevance(candidate) >= 0.12,
-    );
-    const fallbackByKind = new Map<string, number>();
-    const curatedCandidates = topicalCandidates.length
-      ? topicalCandidates
-      : candidates.filter((candidate) => {
-          // If this anchor has no topical neighbours at all, keep a tiny
-          // discovery tail, but never let a famous generic hub flood the map.
-          const used = fallbackByKind.get(candidate.edge.kind) ?? 0;
-          if (used >= 2) return false;
-          fallbackByKind.set(candidate.edge.kind, used + 1);
-          return true;
-        });
+    // Topic relevance is a ranking signal, not a hard gate. A graph is useful
+    // precisely because it lets a researcher inspect adjacent work that the
+    // initial query did not predict. The old gate dropped an entire relation
+    // lane when its vocabulary differed, making “similar” and citation views
+    // look empty even when the API had harvested real neighbours.
+    const curatedCandidates = candidates;
     const buckets = new Map<string, Candidate[]>();
     for (const kind of RELATION_ORDER) {
       buckets.set(
@@ -420,10 +415,8 @@ export function curateGraph<
     for (const anchor of ingested.map((node) => node.paperRef)) {
       const candidate = selectedByAnchor.get(anchor)?.[round];
       if (!candidate) continue;
-      if (
-        selectedSuggestions.size >= MAX_SUGGESTED_NODES &&
-        !selectedSuggestions.has(candidate.suggestion)
-      ) {
+      if (selectedSuggestions.has(candidate.suggestion)) continue;
+      if (selectedSuggestions.size >= MAX_SUGGESTED_NODES) {
         continue;
       }
       selected.push(candidate);

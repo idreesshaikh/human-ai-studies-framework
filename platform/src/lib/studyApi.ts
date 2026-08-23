@@ -219,7 +219,7 @@ function post<T>(path: string, body: unknown): Promise<T> {
 // so the UI stays explorable  -  but that must never be mistaken for a live
 // study's real data. Anything that falls back fires this signal so surfaces
 // (the Data tab) can say so honestly.
-type SeededListener = () => void;
+type SeededListener = (study?: string) => void;
 const seededListeners = new Set<SeededListener>();
 
 export function onSeededData(listener: SeededListener): () => void {
@@ -227,8 +227,8 @@ export function onSeededData(listener: SeededListener): () => void {
   return () => seededListeners.delete(listener);
 }
 
-function notifySeeded(): void {
-  for (const l of seededListeners) l();
+function notifySeeded(study?: string): void {
+  for (const l of seededListeners) l(study);
 }
 
 async function liveOrSeed<T>(run: () => Promise<T>, seed: T): Promise<T> {
@@ -258,7 +258,7 @@ async function liveOrSeedStudy<T>(
   } catch (e) {
     if (e instanceof OfflineError) {
       if (isDemoStudy(study)) {
-        notifySeeded();
+        notifySeeded(study);
         return demoSeed;
       }
       return empty;
@@ -455,14 +455,20 @@ export const studyApi = {
    * test, effect size, correction, sample-size guidance. Pass a `study`
    * to scope it to that study's own compiled analysis plan; omit it for
    * the full browsable catalogue of every shape PHOENIX can prescribe. */
-  prescriptions: (study?: string) =>
-    liveOrSeed(
-      () =>
-        req<{ prescriptions: Prescription[] }>(
-          `/analysis/prescriptions${study ? `?study_id=${enc(study)}` : ""}`,
-        ).then((d) => d.prescriptions),
-      SEED_PRESCRIPTIONS,
-    ),
+  prescriptions: (study?: string) => {
+    const run = () =>
+      req<{ prescriptions: Prescription[] }>(
+        `/analysis/prescriptions${study ? `?study_id=${enc(study)}` : ""}`,
+      ).then((d) => d.prescriptions);
+    // The unscoped catalogue is allowed to be useful offline. A study-scoped
+    // read is different: showing the catalogue's paired/two-group examples in
+    // a real study makes an empty design look as if it already has an analysis
+    // plan. Keep sample rows behind the demo boundary, just like dataset and
+    // status.
+    return study
+      ? liveOrSeedStudy(study, run, SEED_PRESCRIPTIONS, [])
+      : liveOrSeed(run, SEED_PRESCRIPTIONS);
+  },
   /** The power/sensitivity curve (P2-2): exact two-sample t-test power
    * (non-central t, equal per-group n, two-sided) across per-group n, plus
    * the first n reaching the target power, per effect size. Planning math
@@ -867,6 +873,7 @@ function seedPowerDoc(opts: {
 function emptyPowerDoc(): PowerDoc {
   return {
     model: "two-sample t-test, independent means, equal per-group n, two-sided",
+    assumption: "Cohen's d is an exploration input, not an observed result.",
     alpha: 0.05,
     powerTarget: 0.8,
     maxTotalN: 120,

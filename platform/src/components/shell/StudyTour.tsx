@@ -24,33 +24,23 @@ interface Step {
 const STEPS: Step[] = [
   {
     tab: "conversation",
-    title: "Talk your study into existence",
-    body: "Start here. Describe a research idea in plain language and the assistant asks the questions a methodologist would. Its answers arrive as “moves”: one proposed decision each  -  a sample size, a condition to compare, a measure to take  -  which you accept or reject one at a time. Type “finish” when you're ready to compile the ones you kept into a protocol.",
-  },
-  {
-    tab: "conversation",
-    title: "Every move is grounded, or honest that it isn't",
-    body: "Each proposed move cites real papers from the corpus, with a confidence score. Moves that are genuinely your judgment say so, rather than pretending to be cited.",
+    title: "Design the study",
+    body: "Describe the study in plain language. The assistant asks one focused question, then offers one reversible decision. The protocol map keeps only what you accept.",
   },
   {
     tab: "library",
-    title: "Your literature, as a living map",
-    body: "The papers behind your study: add any by arXiv id, DOI, or PDF. Each one pulls in the papers it cites, the papers citing it, and related work  -  drag the constellation to explore that neighbourhood, and click a suggested paper to add it.",
+    title: "Keep evidence close",
+    body: "Evidence is where you inspect the papers behind a choice. The design surface stays focused on the next decision instead of repeating the whole literature record.",
   },
   {
     tab: "data",
-    title: "Honest data, and the stats your design calls for",
-    body: "Your collected data as plain shapes, never a bare p-value. The prescription panel tells you the exact test, effect size, and correction your design needs, with the reasoning.",
-  },
-  {
-    tab: "planning",
-    title: "Recruit enough  -  before anyone runs",
-    body: "The power curve for the study's planned comparison: how power moves with sample size, and the total n each plausible effect size needs to reach your target. Planning math, with its assumptions stated.",
+    title: "Run only a valid plan",
+    body: "Review the compiled protocol before collection. If a required slot or instrument is invalid, the draft names the problem and keeps Apply disabled.",
   },
   {
     tab: "enrollment",
-    title: "Bring participants in",
-    body: "Mint a link for each participant. Open it in VS Code, or have them paste it once with “TERN: Connect to Study”. Either way their editor joins the study already configured the way you designed it.",
+    title: "Then recruit",
+    body: "Once the protocol is valid, create participant links from Run. Data and analysis follow the same protocol record.",
   },
 ];
 
@@ -192,12 +182,6 @@ export function StudyTour({
 }
 
 const TOUR_KEY = "phoenix.studyTourSeen";
-
-/** Whether the first-study tour has been dismissed before (persisted so it
- * shows once, then only on explicit request). */
-export function tourSeen(): boolean {
-  return localStorage.getItem(TOUR_KEY) === "1";
-}
 
 export function markTourSeen() {
   localStorage.setItem(TOUR_KEY, "1");

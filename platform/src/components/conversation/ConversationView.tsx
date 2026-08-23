@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PanelRight, PanelRightClose, Send } from "lucide-react";
+import { Check, PanelRight, PanelRightClose, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { StreamingTurn } from "./StreamingTurn";
@@ -22,7 +22,12 @@ import { ApiError } from "@/lib/api";
 import { studyApi } from "@/lib/studyApi";
 import type { Understanding } from "@/lib/types";
 import { cn } from "@/lib/cn";
-import type { DesignMove, MoveStatus, Turn } from "@/lib/types";
+import {
+  MANDATORY_SLOTS,
+  type DesignMove,
+  type MoveStatus,
+  type Turn,
+} from "@/lib/types";
 import {
   DEFAULT_STEER,
   readSteer,
@@ -38,6 +43,62 @@ function firstProposed(turns: Turn[]): string | null {
     for (const m of t.moves) if (m.status === "proposed") return m.moveId;
   }
   return null;
+}
+
+function compactText(text: string, max = 104): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
+}
+
+function isDecisionEcho(text: string): boolean {
+  return /^(I )?(accepted|rejected|noted)\b/i.test(text.trim());
+}
+
+function HistoryRow({ turn }: { turn: Turn }) {
+  const decisions = turn.moves.filter((move) => move.status !== "proposed");
+  const label = turn.role === "researcher"
+    ? isDecisionEcho(turn.text)
+      ? "Decision recorded"
+      : "Your note"
+    : "Platform guidance";
+
+  return (
+    <li className="flex items-start gap-3 border-t border-border py-3 first:border-t-0">
+      <span
+        aria-hidden
+        className={cn(
+          "mt-1.5 size-1.5 shrink-0 rounded-dot",
+          turn.role === "researcher" ? "bg-accent" : "bg-border-strong",
+        )}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="type-caption font-medium text-text">{label}</span>
+          {decisions.length > 0 && (
+            <span className="type-legend text-text-muted">
+              {decisions.length} {decisions.length === 1 ? "choice" : "choices"}
+            </span>
+          )}
+        </div>
+        {decisions.length > 0 ? (
+          <ul className="mt-1 flex flex-col gap-1">
+            {decisions.map((move) => (
+              <li key={move.moveId} className="flex min-w-0 items-start gap-1.5 type-caption text-text-muted">
+                {move.status === "accepted" ? (
+                  <Check className="mt-0.5 size-3 shrink-0 text-accent" aria-hidden />
+                ) : (
+                  <span aria-hidden className="mt-1 size-2 shrink-0 rounded-dot border border-border-strong" />
+                )}
+                <span className="min-w-0">{compactText(move.proposal, 116)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-0.5 type-caption text-text-muted">{compactText(turn.text)}</p>
+        )}
+      </div>
+    </li>
+  );
 }
 
 export function ConversationView({
@@ -509,83 +570,119 @@ export function ConversationView({
     }
   }
 
+  const activePlatformIndex = [...turns]
+    .map((turn, index) => ({ turn, index }))
+    .reverse()
+    .find(({ turn }) => turn.role === "platform" && turn.turnId !== "opening")?.index ?? -1;
+  const latestResearcherIndex = [...turns]
+    .map((turn, index) => ({ turn, index }))
+    .reverse()
+    .find(({ turn }) => turn.role === "researcher")?.index ?? -1;
+  const activeResearcherIndex = latestResearcherIndex > activePlatformIndex
+    ? latestResearcherIndex
+    : [...turns]
+        .map((turn, index) => ({ turn, index }))
+        .reverse()
+        .find(({ turn, index }) => turn.role === "researcher" && index < activePlatformIndex)?.index ?? -1;
+  const activePlatform = activePlatformIndex >= 0 ? turns[activePlatformIndex] : null;
+  const activeResearcherTurn = activeResearcherIndex >= 0 ? turns[activeResearcherIndex] : null;
+  // Accept/reject follow-ups are transport events for the assistant, not new ideas
+  // the researcher should have to read back as a speech bubble. They remain in the
+  // compact history as “Decision recorded” so the audit trail is intact.
+  const activeResearcher = activeResearcherTurn && !isDecisionEcho(activeResearcherTurn.text)
+    ? activeResearcherTurn
+    : null;
+  const historyTurns = turns
+    .filter((turn) => turn.turnId !== "opening")
+    .filter((turn) => turn !== activePlatform && turn !== activeResearcher);
+  const filledSections = MANDATORY_SLOTS.filter((slot) => clientDraft[slot].length > 0).length;
+  // This number describes the visible study map, not schema validity. The server's
+  // unresolved list contains nested operational slots, so subtracting it from the
+  // eight human-facing sections produced impossible values such as “-3 / 8”.
+  const progressDone = filledSections;
+
   return (
     <div
       data-agent="conversation"
       className={cn("split-rail h-full", draftFolded && "rail-folded")}
     >
       <section className="flex h-full min-h-0 min-w-0 flex-col">
-        <div className="flex min-h-0 flex-1 flex-col overflow-auto scroll-smooth p-4 sm:p-6">
-          {/* The rail only looked slim because this column was unbounded  -
-           * centring the thread at the reading measure is what actually
-           * fixed it, not the rail's own width.
-           *
-           * `mt-auto` anchors the thread to the BOTTOM of the scroller while
-           * it is shorter than the viewport, and does nothing once it is
-           * taller. A record grows downward toward the hand writing it, so a
-           * two-line conversation belongs against the composer, not pinned to
-           * the top of 500px of bare ground  -  which is what a study opened
-           * from "Start a project" showed: one seeded turn floating alone
-           * above half a screen of empty grid. */}
-          <div className="mx-auto mt-auto flex w-full max-w-reading flex-col space-y-4">
-            {/* Above the turns, not after them. It is what is printed on the
-              * blank plate, so it belongs where the record starts  -  a
-              * researcher who arrived with an opening question already asked
-              * should read it before their own unanswered line, not under
-              * it. */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto scroll-smooth">
+          <header className="border-b border-border bg-surface px-4 py-4 sm:px-8 sm:py-5">
+            <div className="mx-auto flex w-full max-w-reading items-start justify-between gap-4">
+              <div>
+                <p className="type-legend text-accent">DESIGN SESSION</p>
+                <h2 className="mt-1 type-section text-text">One decision at a time</h2>
+                <p className="mt-1 max-w-[52ch] type-caption text-text-muted">
+                  Answer the prompt, then accept or reject the next change to your study.
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <span className="type-quantity-lg text-text">{progressDone}</span>
+                <span className="type-caption text-text-muted"> / {MANDATORY_SLOTS.length}</span>
+                <p className="type-legend mt-1 text-text-muted">sections drafted</p>
+              </div>
+            </div>
+          </header>
+
+          <div className="mx-auto flex w-full max-w-reading flex-col gap-5 px-4 py-5 sm:px-8 sm:py-8">
             {conversationLoading ? (
-              <div
-                className="space-y-3 px-1 py-2"
-                aria-busy="true"
-                aria-label="Loading conversation"
-              >
+              <div className="space-y-3 py-2" aria-busy="true" aria-label="Loading conversation">
                 <div className="h-3 w-24 animate-pulse rounded-full bg-border" />
                 <div className="h-4 w-4/5 animate-pulse rounded-full bg-border" />
                 <div className="h-4 w-3/5 animate-pulse rounded-full bg-border" />
               </div>
-            ) : threadEmpty && !openingPending && (
+            ) : threadEmpty && !openingPending && !activeResearcher ? (
               <ConversationStart onUse={takeOpening} />
-            )}
-            {!conversationLoading && turns.map((t) => (
-              <StreamingTurn
-                key={t.turnId}
-                turn={t}
-                onDecide={decide}
-                focusMoveId={focusMoveId}
-              />
-            ))}
-            {busy && live && (
-              <div className="flex flex-col items-start gap-3" data-agent="conversation-thinking">
-                {streamingText && (
-                  <div className="max-w-[62ch] animate-in fade-in px-1 py-1 type-body duration-entrance">
-                    <span className="mb-1 block type-caption text-text-muted opacity-70">
-                      Platform
-                    </span>
-                    {/* The reply as it is being written. Live for a screen
-                     * reader too, but polite  -  it must not interrupt. */}
-                    <span
-                      className="whitespace-pre-wrap text-text"
-                      aria-live="polite"
-                      data-agent="conversation-streaming"
-                    >
-                      {streamingText}
-                    </span>
+            ) : (
+              <div data-agent="conversation-active" className="flex flex-col gap-5">
+                {activeResearcher && (
+                  <div className="ml-auto max-w-[48ch] rounded-card border border-border bg-zone-9 px-3.5 py-2.5">
+                    <p className="type-caption text-text-muted">You</p>
+                    <p className="mt-0.5 type-body text-text">{compactText(activeResearcher.text, 240)}</p>
                   </div>
                 )}
-                {/* The model streams `text` before `moves` in the same
-                 * completion, so the prose can finish well before the move
-                 * cards are ready  -  this stays its own card, separate from
-                 * the reply bubble above, through that whole gap instead of
-                 * disappearing the moment text appears (which read as the
-                 * reply being done when it wasn't). */}
-                <div className="max-w-[62ch] animate-in fade-in px-1 py-1 type-body duration-entrance">
-                  <span className="inline-flex items-center gap-1 animate-pulse text-text-muted">
-                    <span className="size-1.5 rounded-full bg-text-muted" />
-                    <span className="size-1.5 rounded-full bg-text-muted" />
-                    <span className="size-1.5 rounded-full bg-text-muted" />
-                  </span>
-                </div>
+
+                {activePlatform && (
+                  <StreamingTurn
+                    turn={activePlatform}
+                    onDecide={decide}
+                    focusMoveId={focusMoveId}
+                    active
+                  />
+                )}
+
+                {busy && live && (
+                  <div className="flex flex-col items-start gap-3" data-agent="conversation-thinking">
+                    {streamingText && (
+                      <div className="max-w-bubble animate-in fade-in px-1 py-1 type-body duration-entrance">
+                        <span className="mb-1 block type-caption text-text-muted">Platform</span>
+                        <span className="whitespace-pre-wrap text-text" aria-live="polite" data-agent="conversation-streaming">
+                          {streamingText}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1 px-1 py-1 type-caption text-text-muted" aria-label="Platform is thinking">
+                      <span className="size-1.5 animate-pulse rounded-full bg-text-muted" />
+                      <span className="size-1.5 animate-pulse rounded-full bg-text-muted [animation-delay:var(--motion-fast)]" />
+                      <span className="size-1.5 animate-pulse rounded-full bg-text-muted [animation-delay:var(--motion-standard)]" />
+                      <span className="ml-1">Preparing the next decision</span>
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
+
+            {historyTurns.length > 0 && (
+              <details className="border-t border-border pt-4" data-agent="conversation-history">
+                <summary className="type-control flex cursor-pointer items-center justify-between text-text-muted hover:text-text">
+                  <span>Earlier decisions</span>
+                  <span className="type-caption">{historyTurns.length} turns</span>
+                </summary>
+                <ol className="mt-2 border-b border-border">
+                  {historyTurns.map((turn) => <HistoryRow key={turn.turnId} turn={turn} />)}
+                </ol>
+              </details>
             )}
             <div ref={threadEnd} />
           </div>
@@ -607,16 +704,11 @@ export function ConversationView({
             send();
           }}
         >
-          {/* One command bar: the message is primary, the conversation mode is
-            * adjacent and compact, and send closes the row. The mode picker
-            * opens above its button, so the composer never grows a second
-            * permanent band or makes the input compete with a full-width
-            * slider. */}
-          <div className="mx-auto flex w-full max-w-reading items-end gap-1.5 rounded-card border border-control-edge bg-surface px-2 focus-within:border-accent">
+          <div className="mx-auto flex w-full max-w-reading items-end gap-1.5 rounded-card border border-control-edge bg-surface px-2.5 py-1.5 focus-within:border-accent">
             <textarea
               ref={composer}
               className="type-body min-h-7 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-0 py-0.5 text-text placeholder:text-text-muted"
-              placeholder="What do you want to find out?"
+              placeholder="Answer the prompt or add a detail…"
               value={input}
               rows={1}
               onChange={(e) => setInput(e.target.value)}
@@ -640,6 +732,9 @@ export function ConversationView({
               <Send aria-hidden />
             </Button>
           </div>
+          <p className="mx-auto mt-1.5 hidden w-full max-w-reading px-1 type-legend text-text-muted sm:block">
+            Enter to send · Shift + Enter for a new line
+          </p>
         </form>
       </section>
 
@@ -734,6 +829,8 @@ export function ConversationView({
               }
               compileValid={compileResult?.valid}
               unresolved={compileResult?.unresolved}
+              compileErrors={compileResult?.errors}
+              compileWarnings={compileResult?.warnings}
               /* A reader can see the record; only a contributor can change it,
                * so the actions stay off when the compile came back 403. */
               onApply={live && compileResult ? applyDraft : undefined}

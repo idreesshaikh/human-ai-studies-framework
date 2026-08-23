@@ -78,8 +78,11 @@ export function PowerPanel({ studyId }: { studyId: string }) {
 
   useEffect(() => {
     // If the read falls back to the built-in stand-in, say so honestly.
-    const off = onSeededData(() => setSeeded(true));
+    const off = onSeededData((seededStudy) => {
+      if (seededStudy === studyId) setSeeded(true);
+    });
     let live = true;
+    setSeeded(false);
     load(live);
     return () => {
       live = false;
@@ -98,9 +101,9 @@ export function PowerPanel({ studyId }: { studyId: string }) {
         <div className="flex flex-col gap-1">
           <h2 className="type-section text-text">Recruitment planning</h2>
           <p className="type-body text-text-muted">
-            Power for the planned comparison, before any participant. The
-            curve is planning math, not a result  -  the model and its
-            assumptions are stated with the numbers.
+            Size the planned comparison before anyone participates. These are
+            assumption curves, never findings; the study's design and current
+            plan stay visible beside the math.
           </p>
         </div>
 
@@ -211,6 +214,15 @@ export function PowerPanel({ studyId }: { studyId: string }) {
             Middleware unreachable  -  showing the built-in stand-in curve
             (normal approximation of the same formula), not a live study
             plan.
+          </p>
+        )}
+
+        {doc && (doc.plannedParticipants != null || doc.assumption) && (
+          <p className="type-caption text-text-muted">
+            {doc.plannedParticipants != null && (
+              <>Current draft: <span className="tabular text-text">{doc.plannedParticipants}</span> planned participants. </>
+            )}
+            {doc.assumption ?? "Effect size is an exploration assumption, not collected data."}
           </p>
         )}
 

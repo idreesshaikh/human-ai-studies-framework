@@ -69,7 +69,9 @@ export function DataTab({ studyId }: { studyId: string }) {
 
   useEffect(() => {
     // If any read falls back to built-in sample data, say so honestly.
-    const off = onSeededData(() => setSeeded(true));
+    const off = onSeededData((seededStudy) => {
+      if (seededStudy === studyId) setSeeded(true);
+    });
     let live = true;
     // Re-arm the loading gate on every study switch, not just first mount  -
     // `StudyHome` doesn't remount `DataTab` on a route change between two
@@ -80,6 +82,7 @@ export function DataTab({ studyId }: { studyId: string }) {
     // other than "no protocol", the old study's sessions would otherwise
     // still be sitting in state and render right alongside that error.
     setLoading(true);
+    setSeeded(false);
     setSessions([]);
     setConditions([]);
     setRows([]);

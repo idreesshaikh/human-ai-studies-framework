@@ -52,35 +52,41 @@ const created = await api.createProject("Fresh Project");
 ok("create project makes creator an owner", created.role === "owner", created.slug);
 const mine = await api.listProjects();
 ok("new project appears in my list", mine.some((p) => p.slug === created.slug));
+ok("offline shell has no fixture research projects", !mine.some((p) => p.slug === "sample-lab"));
 ok("the shared demo remains view-only", mine.some((p) => p.slug === "demo" && p.role === "viewer"));
 await throws("read-only demo refuses study creation", 403, () =>
   api.createStudy("demo", "Should not be created"));
 
 // Invitations are reusable (Phase 7b: email-less share links).
-const inv = await api.createInvitation("sample-lab", "member");
+const inv = await api.createInvitation(created.slug, "member");
+// The in-memory adapter has one local identity. Switch it only for this
+// permission check so the test can exercise a real invited member without
+// shipping a fixture collaborator in the offline UI.
+api.sub = "dana@lab.test";
 const accepted = await api.acceptInvitation(inv.token);
-// Existing member keeps their role; invitations don't downgrade.
-ok("accepting a link as existing member keeps role", accepted.role === "owner");
+ok("accepting an invitation grants its role", accepted.role === "member");
 const reaccepted = await api.acceptInvitation(inv.token);
-ok("re-accepting the same link is allowed (reusable)", reaccepted.role === "owner");
+ok("re-accepting the same link is allowed (reusable)", reaccepted.role === "member");
+api.sub = "you";
 
 // Role change sticks.
-await api.changeRole("sample-lab", "dana@lab.test", "owner");
-const members = await api.members("sample-lab");
+await api.changeRole(created.slug, "dana@lab.test", "owner");
+const members = await api.members(created.slug);
 ok("role change sticks",
   members.find((m) => m.identitySub === "dana@lab.test")?.role === "owner");
 
 // Last owner can't be removed (on the fresh project, "you" is sole owner).
+await api.changeRole(created.slug, "dana@lab.test", "member");
 await throws("last owner can't be removed", 409, () =>
   api.removeMember(created.slug, "you"));
 
 // Delete needs DELETE typed.
 await throws("delete refuses a wrong confirmation", 400, () =>
-  api.deleteProject("sample-lab", "nope"));
-await api.deleteProject("sample-lab", "DELETE");
+  api.deleteProject(created.slug, "nope"));
+await api.deleteProject(created.slug, "DELETE");
 const after = await api.listProjects();
 ok("delete with correct confirmation removes the project",
-  !after.some((p) => p.slug === "sample-lab"));
+  !after.some((p) => p.slug === created.slug));
 
 // --------------------------------------------------------- role resolution
 //

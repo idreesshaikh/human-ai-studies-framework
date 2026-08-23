@@ -42,6 +42,8 @@ retrofitted.
 | `conversation-send` | `ConversationView` | send the researcher's message |
 | `conversation-thinking` | `ConversationView` | the platform is composing a reply (LLM or scripted), a transient landmark |
 | `conversation-streaming` | `ConversationView` | the reply's prose as it streams in (transient; replaced by the real turn) |
+| `conversation-active` | `ConversationView` | the current researcher/platform exchange and its active decision |
+| `conversation-history` | `ConversationView` | earlier conversation turns, collapsed until the researcher needs them |
 | `slot-meter` | `SlotMeter` | compact protocol coverage and the next question |
 | `protocol-readiness` | `SlotMeter` | whether the protocol is ready to review |
 | `move-card` | `MoveCard` | one proposed design move (decision point); `data-agent-kind`, `data-agent-status` refine it |

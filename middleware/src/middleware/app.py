@@ -1,5 +1,6 @@
 """FastAPI ingestion service (FR-ING-1..6)."""
 
+import copy
 import csv
 import io
 import itertools
@@ -193,6 +194,10 @@ class ConversationTurnIn(BaseModel):
     author: str = "Researcher"
     steer: str | None = None
     decision: DecisionTriggerIn | None = None
+    # The browser reuses this key if it has to fall back from the streamed
+    # endpoint to the blocking endpoint. Without it, a committed stream can be
+    # followed by a second persisted copy of the same researcher turn.
+    requestId: str | None = None
 
 
 class MoveDecisionIn(BaseModel):
@@ -1583,7 +1588,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             body.query,
             study_id=study_id,
             limit=body.limit,
-            use_llm=assistant.configured(),
+            # Keep the interaction responsive and deterministic. The design
+            # conversation has its own model call; adding a second reranker and
+            # query-expansion call here made a paper recommendation block the
+            # next turn without improving the evidence trail reliably.
+            use_llm=False,
+            expand=False,
         )
         return {"studyId": study_id, "recommendations": recommendations}
 
@@ -2335,6 +2345,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
         )
         if seed is not None:
+            # A template carries an archetype's example id/title so it can be
+            # instantiated on its own. Once it becomes this study's draft those
+            # values must belong to the study the researcher just named. Leaving
+            # them untouched made a study called “Junior vs senior” calculate
+            # against a generic template identity and exposed its defaults as
+            # though they were this study's plan.
+            seed = copy.deepcopy(seed)
+            seed.setdefault("study", {})["id"] = study_id
+            seed["study"]["title"] = name
             s.add(
                 ProtocolDraftRow(
                     study_id=study_id,
@@ -3042,6 +3061,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 power_target=powerTarget,
                 max_total_n=maxN,
             )
+            if isinstance(participants, dict):
+                result["plannedParticipants"] = participants.get("planned")
+                result["design"] = design or None
             if not design:
                 result["note"] = (
                     "No planned comparison yet. Describe the conditions and study "
@@ -3202,7 +3224,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if not query:
             return {"results": []}
         results = matching.match_papers(
-            s, query, study_id=None, limit=max(1, min(limit, 25))
+            s,
+            query,
+            study_id=None,
+            limit=max(1, min(limit, 25)),
+            use_llm=False,
+            expand=False,
         )
         return {"results": results}
 
@@ -3330,6 +3357,64 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 detail="Only a caution card can be noted.",
             )
 
+    def _turn_for_request(
+        s: Session, study_id: str, request_id: str | None
+    ) -> ConversationTurn | None:
+        """Find a previously committed turn for a retried browser request."""
+        if not request_id:
+            return None
+        return s.scalar(
+            select(ConversationTurn).where(
+                ConversationTurn.study_id == study_id,
+                ConversationTurn.request_id == request_id,
+            )
+        )
+
+    def _stored_turn_payload(
+        s: Session, study_id: str, researcher: ConversationTurn
+    ) -> dict | None:
+        """Return the same wire shape as a fresh reply for an idempotent retry."""
+        platform = s.scalar(
+            select(ConversationTurn).where(
+                ConversationTurn.study_id == study_id,
+                ConversationTurn.role == "platform",
+                ConversationTurn.seq == researcher.seq + 1,
+            )
+        )
+        if platform is None:
+            return None
+        moves = []
+        for move in s.scalars(
+            select(DesignMoveRow)
+            .where(DesignMoveRow.turn_id == platform.id)
+            .order_by(DesignMoveRow.seq)
+        ):
+            item = {
+                "moveId": move.id,
+                "kind": move.kind,
+                "target": move.target,
+                "proposal": move.proposal,
+                "patch": move.patch,
+                "grounding": move.grounding,
+                "status": move.status,
+            }
+            if move.kind == "merge-templates" and move.patch:
+                item["mergeData"] = {
+                    "templateIds": list(move.patch.get("templateIds") or []),
+                    "reason": str(move.patch.get("reason") or ""),
+                }
+            moves.append(item)
+        return {
+            "researcherTurnId": researcher.id,
+            "platformTurnId": platform.id,
+            "text": platform.text,
+            "moves": moves,
+            "recommendations": platform.recommendations or [],
+            "source": platform.source,
+            "understanding": None,
+            "turnIntent": "",
+        }
+
     @app.post(
         "/studies/{study_id}/conversation/turns",
         dependencies=[Depends(require_project_for_study("contribute"))],
@@ -3344,6 +3429,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         Append a researcher turn and generate the platform's grounded reply (FR-CONV-1).
         """
         _validate_decision_followup(s, study_id, body.decision)
+        existing = _turn_for_request(s, study_id, body.requestId)
+        if existing is not None:
+            replay = _stored_turn_payload(s, study_id, existing)
+            if replay is not None:
+                return replay
         researcher = _append_researcher_turn(s, study_id, body)
         try:
             reply = design_assistant.respond(
@@ -3383,6 +3473,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             text=body.text,
             retrieved_refs=[],
             created_at=now(),
+            request_id=body.requestId or None,
         )
         s.add(researcher)
         s.flush()
@@ -3391,10 +3482,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     def _design_turn_client():
         """
-        Use the platform's sole Mistral Large model for the design conversation. These
-        turns shape the researcher's protocol, so the model boundary stays explicit.
+        Use the fast, schema-constrained design model for protocol-shaping turns. The
+        knowledge assistant retains its larger model for citation-heavy answers.
         """
-        return assistant.make_client()
+        return assistant.make_design_client()
 
     def _persist_platform_turn(
         s: Session, study_id: str, researcher: ConversationTurn, reply: dict
@@ -3479,6 +3570,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         def frames():
             try:
                 _validate_decision_followup(s, study_id, body.decision)
+                existing = _turn_for_request(s, study_id, body.requestId)
+                if existing is not None:
+                    replay = _stored_turn_payload(s, study_id, existing)
+                    if replay is not None:
+                        yield _sse("done", replay)
+                        return
                 researcher = _append_researcher_turn(s, study_id, body)
                 stream = design_assistant.respond_streaming(
                     s,

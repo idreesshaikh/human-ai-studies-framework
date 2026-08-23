@@ -206,3 +206,21 @@ def test_the_analysis_plan_compiles_to_the_shape_the_schema_accepts():
         {"rq": "RQ-1", "recipes": ["paired-nonparametric"]}
     ]
     assert result.valid, result.errors
+
+
+def test_legacy_statistical_plan_sentence_is_recovered_as_a_runnable_recipe():
+    """Old accepted cards must not leave the reopened draft permanently invalid."""
+    moves = [move for move in _complete_moves() if move["moveId"] != "p1"]
+    moves.append(
+        _field(
+            "legacy-statistics",
+            ("statisticalPlan",),
+            "Use a paired t-test after checking normality.",
+        )
+    )
+    result = compiler.compile_moves(moves)
+    assert result.valid, (result.errors, result.unresolved, result.warnings)
+    assert result.draft["analysisPlan"] == [
+        {"rq": "RQ-1", "recipes": ["paired-nonparametric"]}
+    ]
+    assert any("legacy statistical-plan" in warning for warning in result.warnings)

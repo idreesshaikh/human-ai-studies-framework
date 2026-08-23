@@ -248,27 +248,30 @@ export function LibraryTab({ studyId }: { studyId: string }) {
         <div
           className={cn(
             "items-stretch gap-4",
-            selectedNode && "grid lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]",
+            selectedNode &&
+              "grid min-h-0 lg:h-[var(--library-pane-h)] lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]",
           )}
         >
-          <div className="rounded-card border border-border bg-surface p-4">
+          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface p-4">
             <h3 className="type-subhead text-text">Literature map</h3>
-            <p className="mt-0.5 type-caption text-text-muted">
-              Publication year gently runs left to right; node size shows citation weight;
-              edge colour shows how papers are related.
+            <p className="mt-0.5 shrink-0 type-caption text-text-muted">
+              Relationships determine the constellation; year gives temporal context, node
+              size shows citation weight, and edge colour shows how papers are related.
             </p>
             {loading ? (
               <div className="flex h-[var(--constellation-h)] items-center justify-center rounded-card bg-bg type-body text-text-muted" role="status">
                 Mapping your literature…
               </div>
             ) : graph ? (
-              <Constellation graph={graph} selected={selected} onSelect={select} />
+              <div className="min-h-0 flex-1">
+                <Constellation graph={graph} selected={selected} onSelect={select} />
+              </div>
             ) : null}
           </div>
 
           {/* Selected-paper detail. */}
           {selectedNode && (
-            <aside className="relative flex min-h-0 flex-col overflow-hidden rounded-card border border-border bg-surface-raised p-4 lg:sticky lg:top-4 lg:h-full">
+            <aside className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface-raised p-4 lg:h-full">
               <button
                 className="absolute right-3 top-3 text-text-muted hover:text-text"
                 onClick={() => setSelected(null)}
@@ -276,7 +279,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
               >
                 <X className="size-4" aria-hidden />
               </button>
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2">
                 <h4 className="pr-6 font-medium text-text">
                   {selectedNode.title || selected}
                 </h4>

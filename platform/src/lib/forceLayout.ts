@@ -54,12 +54,15 @@ export function layoutGraph(
   // Each iteration is O(n²); harvested neighbourhoods reach hundreds of nodes,
   // so scale iterations down as n grows to keep a relayout under a frame budget
   // (still deterministic  -  n is data).
+  const spread = opts.spread ?? false;
   const iterations =
     opts.iterations ??
     (nodes.length > 200 ? 80 : nodes.length > 100 ? 150 : 300);
-  const charge = opts.charge ?? 2200;
-  const spring = opts.spring ?? 0.02;
-  const spread = opts.spread ?? false;
+  // Exploration needs more air than the compact fixture layout. Keep the
+  // edges readable without allowing a harvested neighbourhood to collapse
+  // into one centre knot.
+  const charge = opts.charge ?? (spread ? 4200 : 2200);
+  const spring = opts.spring ?? (spread ? 0.012 : 0.02);
   const cx = width / 2;
   const cy = height / 2;
 

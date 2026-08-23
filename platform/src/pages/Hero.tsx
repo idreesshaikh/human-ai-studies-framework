@@ -49,7 +49,7 @@ export function Hero() {
           </div>
 
           <h1 className="type-display max-w-[18ch] animate-in fade-in slide-in-from-bottom-2 text-text duration-entrance ease-out">
-            Talk your <span className="italic">study</span> into existence
+            Turn an idea into a <span className="italic">defensible</span> study
           </h1>
 
         {/* `text-balance`: centred and left to wrap, this set four lines with
@@ -59,17 +59,15 @@ export function Hero() {
           * able to name it. Balanced, the four lines come out even and
           * nothing is stranded. */}
           <p className="type-body-lg max-w-[52ch] animate-in text-balance fade-in text-text-muted delay-100 duration-entrance ease-out">
-            Describe a research idea, in plain language. Phoenix proposes
-            design moves{" "}
-            <span className="font-semibold text-text">grounded</span> in the
-            published literature, each one cited or plainly marked unsourced, and
-            compiles the ones you keep into a protocol.
+            Phoenix is the methodologist and protocol compiler for human–AI
+            studies. Keep grounded design decisions, a validated capture plan,
+            and the exact analysis your design calls for.
           </p>
 
           <div className="flex animate-in flex-col items-center gap-2 fade-in delay-150 duration-entrance ease-out sm:flex-row">
             <Button asChild>
               <Link to="/start">
-                Start a project <ArrowRight aria-hidden />
+                Start with a research question <ArrowRight aria-hidden />
               </Link>
             </Button>
           </div>

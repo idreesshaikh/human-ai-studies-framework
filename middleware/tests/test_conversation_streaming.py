@@ -129,6 +129,27 @@ def test_streamed_turn_is_stored_like_a_blocking_one(client):
     assert len(platform["moves"]) == len(done["moves"])
 
 
+def test_retried_stream_replays_without_duplicate_turns(client):
+    """A stream that committed before disconnecting is safe to retry."""
+    body = {"text": "rct", "requestId": "request-once"}
+    with client.stream(
+        "POST", f"/studies/{STUDY}/conversation/turns/stream", json=body
+    ) as res:
+        first = _events("".join(res.iter_text()))[-1][1]
+
+    with client.stream(
+        "POST", f"/studies/{STUDY}/conversation/turns/stream", json=body
+    ) as res:
+        replay_events = _events("".join(res.iter_text()))
+
+    assert [kind for kind, _ in replay_events] == ["done"]
+    replay = replay_events[0][1]
+    assert replay["researcherTurnId"] == first["researcherTurnId"]
+    assert replay["platformTurnId"] == first["platformTurnId"]
+    turns = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
+    assert [turn["role"] for turn in turns] == ["researcher", "platform"]
+
+
 def test_a_broken_stream_falls_back_to_the_blocking_call(client, monkeypatch):
     """
     A stream that dies mid-reply must still produce the turn  -  the fallback is the

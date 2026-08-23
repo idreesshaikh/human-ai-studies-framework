@@ -12,8 +12,11 @@ import urllib.request
 from collections.abc import Callable
 from typing import Protocol
 
-# The platform intentionally uses one sovereign, EU-based model route.
+# The platform intentionally uses one sovereign, EU-based model route. The knowledge
+# layer keeps the larger model for citation-heavy answers; the design loop has a
+# separate, faster default because its output is short, schema-constrained JSON.
 MISTRAL_MODEL = "mistral-large-latest"
+MISTRAL_DESIGN_MODEL = os.environ.get("MISTRAL_DESIGN_MODEL", "mistral-medium-latest")
 MAX_TOKENS = 2048
 MAX_TOOL_ROUNDS = 6
 
@@ -229,12 +232,26 @@ def configured() -> bool:
 
 def make_client() -> LLMClient | None:
     """
-    Resolve the sole configured Mistral Large client, or ``None`` when no key exists.
+    Resolve the configured Mistral Large knowledge client, or ``None`` when no key exists.
     """
     key = os.environ.get("MISTRAL_API_KEY")
     if not key:
         return None
     return MistralProvider(key)
+
+
+def make_design_client() -> LLMClient | None:
+    """Return the low-latency client used for short protocol-shaping turns.
+
+    This delegates to ``make_client`` first so tests and local providers keep the same
+    injection seam. Only the model name changes for the real Mistral provider.
+    """
+    client = make_client()
+    if client is None:
+        return None
+    if hasattr(client, "model"):
+        client.model = MISTRAL_DESIGN_MODEL
+    return client
 
 
 def protocol_literature_targets(protocol: dict | None) -> dict[str, list[str]]:

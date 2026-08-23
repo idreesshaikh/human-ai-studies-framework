@@ -17,6 +17,7 @@ const KIND_LABEL: Record<DesignMove["kind"], string> = {
   "reconfigure-instrument": "Instrument setting",
   "add-measure": "Measure",
   "merge-templates": "Design merge",
+  "prescribe-statistics": "Analysis plan",
   caution: "Caution",
 };
 

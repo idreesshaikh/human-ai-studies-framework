@@ -24,8 +24,11 @@ export function RecommendationCard({
     >
       <CardContent className="flex flex-col gap-2 p-3">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Confidence value={rec.confidence} />
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="type-legend shrink-0 text-text-muted">
+              {rec.matchKind === "direct" ? "Direct match" : "Adjacent work"}
+            </span>
+            <Confidence value={rec.confidence} words={false} />
             {rec.inStudy && (
               <span className="flex items-center gap-1 type-caption text-grounded">
                 <Check className="size-3" aria-hidden /> in library
@@ -40,7 +43,10 @@ export function RecommendationCard({
             {[rec.venue, rec.identifier].filter(Boolean).join(" · ")}
           </p>
         )}
-        <p className="type-body text-text">{rec.matchReason}</p>
+        <div className="border-t border-border pt-2">
+          <p className="type-legend text-text-muted">Why it surfaced</p>
+          <p className="mt-1 type-body text-text">{rec.matchReason}</p>
+        </div>
         <Button
           size="sm"
           variant={added ? "ghost" : "outline"}

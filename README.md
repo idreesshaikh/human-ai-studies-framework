@@ -58,8 +58,9 @@ against data before a single real session happens.
 ## Quick start
 
 Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22, and a Mistral API key
-for the design conversation. PHOENIX uses Mistral Large only, keeping model
-processing on the EU Mistral route. Everything else works without a model key.
+for the design conversation. PHOENIX uses Mistral Medium for short protocol-shaping
+turns and keeps Mistral Large for citation-heavy knowledge answers, all on the EU
+Mistral route. Everything else works without a model key.
 
 ```bash
 git clone https://github.com/idreesshaikh/human-ai-studies-framework.git
@@ -77,11 +78,15 @@ uv run python -m middleware serve           # web app on :8000
 Open <http://localhost:8000> and describe your idea. Or use Docker, which
 brings its own Postgres: `docker compose up`.
 
-The design conversation has one provider and one model: Mistral Large
-(`mistral-large-latest`) through Mistral's EU service. There are no alternate
-gateway or model routes to configure. The conversation still enforces the
-platform contract itself: one question, one reversible move, valid grounding,
-and compiler-checked protocol patches.
+The design conversation uses the fast Mistral Medium default
+(`mistral-medium-latest`) through Mistral's EU service. Set
+`MISTRAL_DESIGN_MODEL` to override it when needed. Knowledge answers continue to use
+Mistral Large. There are no alternate gateway routes to configure. The conversation still enforces the
+platform contract itself: one question, one decision card, valid grounding,
+and compiler-checked protocol patches. See the [design conversation
+contract](documentation/docs/platform/design-conversation.md) and [protocol
+draft contract](documentation/docs/platform/protocol-draft.md) for the
+interaction and compiler rules.
 
 ### Running a session
 

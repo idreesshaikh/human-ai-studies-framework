@@ -98,12 +98,17 @@ def search(s: Session, query: str, *, limit: int = 6) -> list[dict]:
             {"q": match, "n": limit},
         ).all()
         return [{"paperRef": r[0], "chunkIdx": r[1], "snippet": r[2]} for r in rows]
-    terms = re.findall(r"[A-Za-z0-9]+", query.lower())
+    terms = re.findall(r"[A-Za-z0-9][A-Za-z0-9-]{1,}", query.lower())
     rows = s.execute(text("SELECT paper_ref, chunk_idx, body FROM paper_chunks")).all()
     scored = []
     for ref, idx, body in rows:
         low = (body or "").lower()
-        hits = sum(1 for t in set(terms) if t in low)
+        tokens = set(re.findall(r"[A-Za-z0-9][A-Za-z0-9-]{1,}", low))
+        hits = sum(
+            1
+            for t in set(terms)
+            if t in tokens or (t.endswith("s") and len(t) > 3 and t[:-1] in tokens)
+        )
         if hits:
             scored.append((hits, ref, idx, body))
     scored.sort(key=lambda x: x[0], reverse=True)

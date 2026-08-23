@@ -8,8 +8,9 @@ demo study, and the TERN lab in the repository.
 
 Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22, and a
 [Mistral API key](https://console.mistral.ai/) for the design conversation.
-The platform uses only Mistral Large (`mistral-large-latest`) through Mistral's
-EU service; no gateway or model selection is needed.
+Short design turns use Mistral Medium (`mistral-medium-latest`) through
+Mistral's EU service; citation-heavy knowledge answers use Mistral Large.
+Set `MISTRAL_DESIGN_MODEL` only when you need to override the design default.
 
 ```bash
 git clone https://github.com/idreesshaikh/human-ai-studies-framework.git
@@ -36,8 +37,9 @@ the containerized stack.
 1. Choose **Start a project**, or open a proven design from **Templates**.
 2. Create a study and open **Conversation**.
 3. Describe the question, population, task, and comparison in plain language.
-4. Accept or reject design moves one at a time. A citation chip means the move
-   is grounded; an explicit unsourced label means it is not.
+4. Answer one focused question at a time. Accept, reject, or note one decision
+   card before moving on. A citation chip means the move is grounded; an
+   explicit unsourced label means it is not.
 
 <figure markdown="span">
   ![Current Phoenix design conversation](../assets/screens/phoenix-demo-conversation-current.png){ width="900" }

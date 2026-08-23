@@ -91,12 +91,12 @@ export function DataProvenance({
         <div className="flex flex-col gap-1.5 border-b border-border p-4 sm:border-b-0 sm:border-r">
           <h3 className="type-label text-text">Collect it live</h3>
           <p className="type-caption flex-1 text-text-muted">
-            Mint enrollment links in the Participants tab. Each participant
+            Mint enrollment links in the Run tab. Each participant
             pastes one into their editor and their real coding sessions stream
             in.
           </p>
           <span className="type-caption text-text-muted">
-            Next: the Participants tab
+            Next: the Run tab
           </span>
         </div>
 
