@@ -3131,7 +3131,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if move is None or move.study_id != study_id or move.status != expected:
             raise HTTPException(
                 status_code=409,
-                detail="This card decision is no longer current. Refresh the conversation and try again.",
+                detail=(
+                    "This card decision is no longer current. "
+                    "Refresh the conversation and try again."
+                ),
             )
         if decision.action == "noted" and move.kind != "caution":
             raise HTTPException(
