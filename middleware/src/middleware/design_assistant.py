@@ -360,6 +360,7 @@ def turn_stance(
     study_id: str | None = None,
     profile: str | None = None,
     steer: str | None = None,
+    decision: dict | None = None,
 ) -> dict:
     """What this turn is, how much is understood, and what may be proposed."""
     prior = researcher_texts(s, study_id)
@@ -378,6 +379,7 @@ def turn_stance(
     # A profile the caller declared is an account fact and outranks the dial; the dial's
     # implied register only fills in for someone who never set one.
     declared = profile if profile in elicitation.PROFILES else None
+    decision_action = (decision or {}).get("action")
     return {
         "intent": intent,
         "steer": steer if steer in elicitation.STEER_LEVELS else None,
@@ -385,13 +387,15 @@ def turn_stance(
         "understanding": elicitation.understanding_summary(understanding),
         "nextQuestion": elicitation.next_question(understanding),
         "namedDesign": named_design,
+        "decisionAction": decision_action,
         # An explicit ask lowers the gate but never removes it; a follow-up question
         # never opens it, because "why did you pick that?" is not "pick one".
         "mayProposeDesign": named_design
         or elicitation.ready_for_design(
             understanding, requested=intent == "design-request"
         ),
-        "mayProposeMoves": intent != "followup-question"
+        "mayProposeMoves": not decision_action
+        and intent != "followup-question"
         and elicitation.proposals_permitted(steer),
     }
 
@@ -443,6 +447,23 @@ def _directive(stance: dict, state: dict | None = None) -> str:
         elicitation.profile_guidance(stance["profile"]),
         elicitation.steer_guidance(stance.get("steer")),
     ]
+
+    if stance.get("decisionAction"):
+        action = stance["decisionAction"]
+        lines.append(
+            "THIS IS AN AUTOMATIC FOLLOW-UP TO A CARD DECISION. The researcher "
+            f"just {action} the move identified in the design state. Do not "
+            "propose any move in this response. Return an empty `moves` array. "
+            "For accepted or noted, acknowledge the choice briefly and ask "
+            "exactly one next protocol question, choosing the first genuinely "
+            "outstanding decision from the design state. For rejected, explain "
+            "what the proposal was trying to solve in one short sentence, then "
+            "ask one focused question that will let you offer a better fit. Do "
+            "not re-propose or restate the rejected move. The response must be "
+            "useful even if the researcher only answers that one question."
+        )
+        lines.append(_slot_directive(state))
+        return "\n\n".join(lines)
 
     if stance["intent"] == "needs-scaffolding":
         lines.append(
@@ -558,10 +579,9 @@ def _scaffolding_turn(
     facet = missing[0]
     copy: dict[str, tuple[str, ProposedMove | None]] = {
         "population": (
-            "That is okay. We first need a practical description of who can take part, "
-            "not a perfect population. For example, this could be junior engineers "
-            "who already use AI coding tools. Is that close to the people you can "
-            "reach?",
+            "A practical starting population is junior engineers who already use AI "
+            "coding tools. This records who the study is about without guessing a "
+            "sample size.",
             ProposedMove(
                 "set-parameter",
                 "participants[]",
@@ -575,9 +595,8 @@ def _scaffolding_turn(
             ),
         ),
         "task": (
-            "That is okay. A task is the concrete work everyone performs, such as "
-            "fixing a bug, implementing a small feature, or reviewing generated code. "
-            "Which is closest to your study?",
+            "A concrete task keeps the study reproducible: have participants complete "
+            "a small bug-fixing task on a shared project.",
             ProposedMove(
                 "declare-task",
                 "tasks[]",
@@ -599,10 +618,9 @@ def _scaffolding_turn(
             None,
         ),
         "outcome": (
-            "That is okay. A result is something you can record consistently. For this "
-            "study, you could measure task time, solution correctness, or a short "
-            "comprehension check. I suggest starting with correctness because it shows "
-            "whether the work is actually right. Should I add that measure?",
+            "Measure correctness alongside task time because it "
+            "shows whether the completed work is actually right, using passed tests "
+            "and substantive defects.",
             ProposedMove(
                 "add-measure",
                 "measures[]",
@@ -685,6 +703,8 @@ def _permitted_moves(
     a single researcher answer cannot fan out into a stack of decisions while
     a validity warning is still visible beside the one move it qualifies.
     """
+    if stance.get("decisionAction"):
+        return ()
     candidates = []
     for move in moves:
         if not stance["mayProposeMoves"] and move.kind != "caution":
@@ -915,10 +935,16 @@ def respond(
     history: list[dict] | None = None,
     profile: str | None = None,
     steer: str | None = None,
+    decision: dict | None = None,
 ) -> dict:
     """One platform turn responding to researcher ``text``."""
     stance = turn_stance(
-        s, text, study_id=study_id, profile=profile, steer=steer
+        s,
+        text,
+        study_id=study_id,
+        profile=profile,
+        steer=steer,
+        decision=decision,
     )
     state = _load_design_state(s, study_id)
     papers, templates, history = _retrieve(s, text, study_id, history)
@@ -992,10 +1018,16 @@ def respond_streaming(
     history: list[dict] | None = None,
     profile: str | None = None,
     steer: str | None = None,
+    decision: dict | None = None,
 ):
     """:func:`respond`, yielding the reply's prose as the model writes it."""
     stance = turn_stance(
-        s, text, study_id=study_id, profile=profile, steer=steer
+        s,
+        text,
+        study_id=study_id,
+        profile=profile,
+        steer=steer,
+        decision=decision,
     )
     state = _load_design_state(s, study_id)
     papers, templates, history = _retrieve(s, text, study_id, history)

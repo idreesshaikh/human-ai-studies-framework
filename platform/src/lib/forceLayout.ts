@@ -159,11 +159,11 @@ export function layoutGraph(
 }
 
 /**
- * A semantic layer over the same deterministic physics used by the classic
- * constellation. ResearchRabbit's timeline view makes publication year the
- * horizontal reading direction and citation count the vertical signal; this
- * keeps that intuition while retaining Obsidian-like space, repulsion, and
- * citation gravity from the base solve.
+ * A soft semantic layer over the same deterministic physics used by the classic
+ * constellation. Publication year remains a quiet reading cue from left to
+ * right, but it does not pin every paper to a date column. The graph's
+ * relationships and the anchors' breathing room stay more important than a
+ * perfectly straight timeline, especially for fresh papers with sparse metadata.
  *
  * Missing years stay in a small discovery lane at the right edge. They are
  * visibly unknown rather than being assigned a fake year, which matters in a
@@ -221,8 +221,8 @@ function layoutTimelineGraph(
       bottom - (cited[i] / maxCited) * (bottom - top);
     return {
       ...n,
-      x: mix(yearX, n.x, 0.82),
-      y: mix(citationY, n.y, 0.62),
+      x: mix(yearX, n.x, 0.58),
+      y: mix(citationY, n.y, 0.38),
     };
   });
 

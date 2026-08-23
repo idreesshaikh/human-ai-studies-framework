@@ -33,7 +33,7 @@ export function MoveCard({
   autoFocus = false,
 }: {
   move: DesignMove;
-  onDecide: (moveId: string, status: MoveStatus) => void;
+  onDecide: (moveId: string, status: MoveStatus, move?: DesignMove) => void;
   /** True only for the first undecided move of a reply the researcher just
    *  asked for (see ConversationView)  -  never on a page they merely opened. */
   autoFocus?: boolean;
@@ -56,8 +56,8 @@ export function MoveCard({
   const onKey = useCallback(
     (e: React.KeyboardEvent) => {
       if (decided) return;
-      if (e.key === "a") onDecide(move.moveId, "accepted");
-      if (e.key === "r") onDecide(move.moveId, "rejected");
+      if (e.key === "a") onDecide(move.moveId, "accepted", move);
+      if (e.key === "r") onDecide(move.moveId, "rejected", move);
     },
     [decided, move.moveId, onDecide],
   );
@@ -120,10 +120,14 @@ export function MoveCard({
               <span
                 className={cn(
                   "type-legend",
-                  move.kind === "merge-templates" || compiled ? "text-grounded" : "text-text-muted",
+                  move.kind === "merge-templates" || isCaution ? "text-grounded" : "text-text-muted",
                 )}
               >
-                {move.kind === "merge-templates" || compiled ? "merged" : "noted"}
+                {move.kind === "merge-templates"
+                  ? "merged"
+                  : isCaution
+                    ? "noted"
+                    : "accepted"}
               </span>
             )}
             {move.status === "rejected" && (
@@ -172,7 +176,7 @@ export function MoveCard({
                 variant="subtle"
                 data-agent="move-accept"
                 className="!h-8 !px-2.5"
-                onClick={() => onDecide(move.moveId, "accepted")}
+                onClick={() => onDecide(move.moveId, "accepted", move)}
               >
                 <Check aria-hidden />
                 {isCaution ? "Note it" : "Accept"}
@@ -187,7 +191,7 @@ export function MoveCard({
                 variant="ghost"
                 data-agent="move-reject"
                 className="!h-8 !px-2.5"
-                onClick={() => onDecide(move.moveId, "rejected")}
+                onClick={() => onDecide(move.moveId, "rejected", move)}
               >
                 <X aria-hidden />
                 Reject<kbd className="type-legend ml-1 hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">r</kbd>
@@ -202,7 +206,7 @@ export function MoveCard({
                 variant="ghost"
                 data-agent="move-undo"
                 className="!h-8 !px-2.5"
-                onClick={() => onDecide(move.moveId, "proposed")}
+                onClick={() => onDecide(move.moveId, "proposed", move)}
               >
                 <Undo2 aria-hidden />
                 Undo

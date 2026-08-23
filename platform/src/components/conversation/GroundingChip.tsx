@@ -76,6 +76,7 @@ export function GroundingChip({ g }: { g: Grounding }) {
       <button
         type="button"
         className="cursor-help min-h-9 max-w-full"
+        aria-label={`Grounded citation: ${g.title}${g.confidence != null ? `, confidence ${g.confidence.toFixed(2)}` : ""}`}
         aria-expanded={open}
         aria-describedby={open ? cardId : undefined}
         onFocus={() => setOpen(true)}
@@ -105,6 +106,7 @@ export function GroundingChip({ g }: { g: Grounding }) {
               <ConfidenceValue value={g.confidence} />
             </span>
           )}
+          <span className="type-legend shrink-0 text-grounded">grounded</span>
           {/* Two lines of title, not one clamped line: a citation cut to
               "MORE CODE, LESS UNDERSTANDING…" identifies nothing, and two of
               them read as the same source. The flex chain above this now has

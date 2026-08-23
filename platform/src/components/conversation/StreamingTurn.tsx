@@ -15,7 +15,7 @@ export function StreamingTurn({
   focusMoveId = null,
 }: {
   turn: Turn;
-  onDecide: (moveId: string, status: MoveStatus) => void;
+  onDecide: (moveId: string, status: MoveStatus, move?: Turn["moves"][number]) => void;
   /** The one move the thread is handing the caret to, if any  -  set only when
    *  a reply lands in answer to something the researcher just sent. */
   focusMoveId?: string | null;

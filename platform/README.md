@@ -15,7 +15,9 @@ shadcn/ui (vendored, owned in-repo). The middleware serves the built app at
 - **The design conversation**: type an idea; the platform replies with
   grounded design-move cards (accept/reject, keyboard `a`/`r`) and paper
   recommendations; accepted moves compile into a live protocol-draft rail
-  with a completeness meter. **Steer** (head of the thread) sets how much the
+  with a completeness meter. Each card decision triggers one explicit
+  follow-up turn, so the conversation advances from the researcher's action
+  instead of repeating the same proposal. **Steer** (head of the thread) sets how much the
   assistant drives: register and initiative both move with it, enforced
   server-side, never the rigor of the method itself.
 - **The study workspace** (tabs): **Library**: live paper ingest
@@ -24,6 +26,12 @@ shadcn/ui (vendored, owned in-repo). The middleware serves the built app at
   **Participants**: mint pairing links, watch who is streaming, and toggle
   what each instrument captures.
 - **Projects, roles, hero, members**.
+
+The protocol rail is intentionally compact: it shows the eight researcher-
+controlled decisions and leaves workspace identity and schema compatibility to
+the header/raw YAML. The Library keeps the selected-paper panel and graph at a
+stable height, pins protocol links to the panel footer, and caps balanced
+suggestions so citations, recommendations, and newer work remain legible.
 
 The study surfaces are explorable with **no backend**: they fall back to a
 curated offline seed. The design conversation is the exception  -  it uses only

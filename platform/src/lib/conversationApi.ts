@@ -13,6 +13,21 @@ import { OfflineError } from "./studyApi.ts";
 import { openingTurn } from "./conversationOpening.ts";
 import { isDemoStudy } from "./demo.ts";
 
+export type DecisionTrigger = {
+  moveId: string;
+  action: "accepted" | "rejected" | "noted";
+};
+
+type ConversationReply = {
+  researcherTurnId: string;
+  platformTurnId: string;
+  text: string;
+  moves: Record<string, unknown>[];
+  recommendations: Recommendation[];
+  source?: "llm" | "scripted" | "unavailable";
+  understanding?: Understanding;
+};
+
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -168,6 +183,25 @@ function mapTurn(raw: Record<string, unknown>): Turn {
   };
 }
 
+function demoDecisionReply(
+  decision: DecisionTrigger,
+): ConversationReply {
+  const actionText =
+    decision.action === "rejected"
+      ? "Understood. That proposal stays out of the draft. What should be different: the participants, the task, or the comparison?"
+      : decision.action === "noted"
+        ? "I’ve noted that caution beside the draft. What will each participant actually do during the session?"
+        : "That choice is now part of the draft. What will each participant actually do during the session?";
+  return {
+    researcherTurnId: `demo-decision-${decision.moveId}-${Date.now()}`,
+    platformTurnId: `demo-followup-${decision.moveId}-${Date.now()}`,
+    text: actionText,
+    moves: [],
+    recommendations: [],
+    source: "scripted",
+  };
+}
+
 const DEMO_CONVERSATION: Turn[] = [
   {
     turnId: "demo-turn-researcher",
@@ -182,7 +216,7 @@ const DEMO_CONVERSATION: Turn[] = [
     role: "platform",
     author: "Platform",
     source: "llm",
-    text: "Your idea points to a within-subjects comparison: each developer completes matched maintenance tasks with and without AI assistance. First, who will take part, and roughly how many people can you realistically recruit?",
+    text: "A within-subjects comparison fits this question because the same developer can be compared across matched maintenance tasks with and without AI assistance.",
     moves: [
       {
         moveId: "demo-move-design",
@@ -304,20 +338,27 @@ export const conversationApi = {
      * agent-facing API, both still post a valid turn without it; the server
      * falls back to the account's declared profile. */
     steer?: SteerLevel,
+    decision?: DecisionTrigger,
   ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
-    const reply = await post<{
-      researcherTurnId: string;
-      platformTurnId: string;
-      text: string;
-      moves: Record<string, unknown>[];
-      recommendations: Recommendation[];
-      source?: "llm" | "scripted" | "unavailable";
-      understanding?: Understanding;
-    }>(`/studies/${encodeURIComponent(studyId)}/conversation/turns`, {
-      text,
-      author,
-      ...(steer == null ? {} : { steer: steerStop(steer).id }),
-    });
+    let reply: ConversationReply;
+    try {
+      reply = await post<ConversationReply>(
+        `/studies/${encodeURIComponent(studyId)}/conversation/turns`,
+        {
+          text,
+          author,
+          ...(steer == null ? {} : { steer: steerStop(steer).id }),
+          ...(decision ? { decision } : {}),
+        },
+      );
+    } catch (error) {
+      /* The demo is intentionally useful without a middleware process. Its
+       * decision cards still need to demonstrate the same interaction as a
+       * live study, but normal demo messages must remain honest about offline
+       * model access. */
+      if (!(isDemoStudy(studyId) && decision)) throw error;
+      reply = demoDecisionReply(decision);
+    }
     const researcher: Turn = {
       turnId: reply.researcherTurnId,
       role: "researcher",
@@ -351,6 +392,7 @@ export const conversationApi = {
     author = "You",
     onToken?: (fragment: string) => void,
     steer?: SteerLevel,
+    decision?: DecisionTrigger,
   ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
     let done: {
       researcherTurnId: string;
@@ -376,6 +418,7 @@ export const conversationApi = {
             text,
             author,
             ...(steer == null ? {} : { steer: steerStop(steer).id }),
+            ...(decision ? { decision } : {}),
           }),
         },
       );
@@ -404,7 +447,7 @@ export const conversationApi = {
       }
       if (!done) throw new Error("stream ended without a turn");
     } catch {
-      return this.sendTurn(studyId, text, author, steer);
+      return this.sendTurn(studyId, text, author, steer, decision);
     }
 
     const researcher: Turn = {
@@ -427,11 +470,16 @@ export const conversationApi = {
     return { turns: [researcher, platform], understanding: done.understanding };
   },
 
-  decide(studyId: string, moveId: string, status: MoveStatus) {
-    return post<{ moveId: string; status: string }>(
-      `/studies/${encodeURIComponent(studyId)}/conversation/moves/${encodeURIComponent(moveId)}/decision`,
-      { status, decidedBy: "Researcher" },
-    );
+  async decide(studyId: string, moveId: string, status: MoveStatus) {
+    try {
+      return await post<{ moveId: string; status: string }>(
+        `/studies/${encodeURIComponent(studyId)}/conversation/moves/${encodeURIComponent(moveId)}/decision`,
+        { status, decidedBy: "Researcher" },
+      );
+    } catch (error) {
+      if (isDemoStudy(studyId)) return { moveId, status };
+      throw error;
+    }
   },
 
   compile(studyId: string, baseYaml?: string | null): Promise<CompileResult> {

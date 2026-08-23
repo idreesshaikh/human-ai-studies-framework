@@ -223,6 +223,7 @@ type CuratableNode = {
   paperRef: string;
   ingested: boolean;
   citationCount?: number | null;
+  year?: number | null;
 };
 
 type CuratableEdge = {
@@ -232,10 +233,11 @@ type CuratableEdge = {
 };
 
 /** Keep ingested papers and direct study-to-study links, then select a small,
- * balanced neighbourhood around each ingested paper. Suggestions are ranked
- * by citation weight, de-duplicated when several relations point to the same
- * paper, and capped globally so four ingested papers cannot paint hundreds of
- * circles over the anchors. */
+ * balanced neighbourhood around each ingested paper. Suggestions use a
+ * blended signal: citation weight remains useful, but recency and relation
+ * type have a real vote so a fresh, relevant paper with few citations is not
+ * silently pushed out by an established hub. The caps keep four anchors from
+ * painting hundreds of circles over the study. */
 export function curateGraph<
   N extends CuratableNode,
   E extends CuratableEdge,
@@ -244,6 +246,16 @@ export function curateGraph<
   const ingested = graph.nodes.filter((node) => node.ingested);
   const ingestedRefs = new Set(ingested.map((node) => node.paperRef));
   const nodesByRef = new Map(graph.nodes.map((node) => [node.paperRef, node]));
+  const years = graph.nodes.flatMap((node) =>
+    node.year == null ? [] : [node.year],
+  );
+  const minYear = years.length ? Math.min(...years) : 0;
+  const maxYear = years.length ? Math.max(...years) : 0;
+  const yearSpan = Math.max(maxYear - minYear, 1);
+  const maxCitations = Math.max(
+    ...graph.nodes.map((node) => node.citationCount ?? 0),
+    1,
+  );
   const supportedEdges = graph.edges.flatMap((edge) => {
     if (RELATION_ORDER.includes(edge.kind as (typeof RELATION_ORDER)[number])) {
       return [edge];
@@ -266,6 +278,15 @@ export function curateGraph<
   const relationRank = new Map<string, number>(
     RELATION_ORDER.map((kind, index) => [kind, RELATION_ORDER.length - index]),
   );
+  const candidateScore = (candidate: Candidate | { suggestion: string; edge: E }) => {
+    const node = nodesByRef.get(candidate.suggestion);
+    const citations = Math.log1p(Math.max(0, node?.citationCount ?? 0));
+    const citationSignal = citations / Math.log1p(maxCitations);
+    const freshnessSignal =
+      node?.year == null ? 0.35 : (node.year - minYear) / yearSpan;
+    const relationSignal = (relationRank.get(candidate.edge.kind) ?? 0) / 3;
+    return citationSignal * 0.55 + freshnessSignal * 0.35 + relationSignal * 0.1;
+  };
   const candidatesByPair = new Map<string, Candidate>();
   for (const edge of supportedEdges) {
     const srcIsAnchor = ingestedRefs.has(edge.src);
@@ -276,20 +297,12 @@ export function curateGraph<
     if (ingestedRefs.has(suggestion)) continue;
     const key = `${anchor}\u0000${suggestion}`;
     const current = candidatesByPair.get(key);
-    const nextScore = [
-      nodesByRef.get(suggestion)?.citationCount ?? 0,
-      relationRank.get(edge.kind) ?? 0,
-    ];
-    const currentScore = current
-      ? [
-          nodesByRef.get(current.suggestion)?.citationCount ?? 0,
-          relationRank.get(current.edge.kind) ?? 0,
-        ]
-      : null;
+    const nextScore = candidateScore({ edge, suggestion });
+    const currentScore = current ? candidateScore(current) : null;
     if (
       current === undefined ||
-      nextScore[0] > currentScore![0] ||
-      (nextScore[0] === currentScore![0] && nextScore[1] > currentScore![1])
+      nextScore > currentScore! ||
+      (nextScore === currentScore! && suggestion.localeCompare(current.suggestion) < 0)
     ) {
       candidatesByPair.set(key, { edge, anchor, suggestion });
     }
@@ -297,17 +310,11 @@ export function curateGraph<
 
   const selectedByAnchor = new Map<string, Candidate[]>();
   for (const anchor of ingested.map((node) => node.paperRef)) {
-    const candidates = [...candidatesByPair.values()]
-      .filter((candidate) => candidate.anchor === anchor)
-      .sort((a, b) => {
-        const citationDelta =
-          (nodesByRef.get(b.suggestion)?.citationCount ?? 0) -
-          (nodesByRef.get(a.suggestion)?.citationCount ?? 0);
-        if (citationDelta !== 0) return citationDelta;
-        const relationDelta =
-          (relationRank.get(b.edge.kind) ?? 0) -
-          (relationRank.get(a.edge.kind) ?? 0);
-        return relationDelta || a.suggestion.localeCompare(b.suggestion);
+      const candidates = [...candidatesByPair.values()]
+        .filter((candidate) => candidate.anchor === anchor)
+        .sort((a, b) => {
+        const scoreDelta = candidateScore(b) - candidateScore(a);
+        return scoreDelta || a.suggestion.localeCompare(b.suggestion);
       });
     const buckets = new Map<string, Candidate[]>();
     for (const kind of RELATION_ORDER) {

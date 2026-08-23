@@ -15,6 +15,7 @@ from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
+from typing import Literal
 from urllib.parse import quote as _urlquote
 
 import yaml
@@ -172,12 +173,20 @@ class FromMatchIn(BaseModel):
     matchReason: str = ""
 
 
+class DecisionTriggerIn(BaseModel):
+    """The card action that caused an automatic assistant follow-up."""
+
+    moveId: str
+    action: Literal["accepted", "rejected", "noted"]
+
+
 class ConversationTurnIn(BaseModel):
     """One researcher turn (FR-CONV-1)."""
 
     text: str
     author: str = "Researcher"
     steer: str | None = None
+    decision: DecisionTriggerIn | None = None
 
 
 class MoveDecisionIn(BaseModel):
@@ -3111,6 +3120,25 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         )
         return (last or 0) + 1
 
+    def _validate_decision_followup(
+        s: Session, study_id: str, decision: DecisionTriggerIn | None
+    ) -> None:
+        """Keep a follow-up tied to the decision the server just recorded."""
+        if decision is None:
+            return
+        move = s.get(DesignMoveRow, decision.moveId)
+        expected = "rejected" if decision.action == "rejected" else "accepted"
+        if move is None or move.study_id != study_id or move.status != expected:
+            raise HTTPException(
+                status_code=409,
+                detail="This card decision is no longer current. Refresh the conversation and try again.",
+            )
+        if decision.action == "noted" and move.kind != "caution":
+            raise HTTPException(
+                status_code=409,
+                detail="Only a caution card can be noted.",
+            )
+
     @app.post(
         "/studies/{study_id}/conversation/turns",
         dependencies=[Depends(require_project_for_study("contribute"))],
@@ -3124,6 +3152,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         """
         Append a researcher turn and generate the platform's grounded reply (FR-CONV-1).
         """
+        _validate_decision_followup(s, study_id, body.decision)
         researcher = _append_researcher_turn(s, study_id, body)
         try:
             reply = design_assistant.respond(
@@ -3133,6 +3162,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 study_id=study_id,
                 client=_design_turn_client(),
                 steer=body.steer,
+                decision=body.decision.model_dump() if body.decision else None,
             )
         except design_assistant.ModelUnavailable as exc:
             log.info("design turn unanswered: %s", exc)
@@ -3257,6 +3287,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         def frames():
             try:
+                _validate_decision_followup(s, study_id, body.decision)
                 researcher = _append_researcher_turn(s, study_id, body)
                 stream = design_assistant.respond_streaming(
                     s,
@@ -3265,6 +3296,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     study_id=study_id,
                     client=_design_turn_client(),
                     steer=body.steer,
+                    decision=body.decision.model_dump() if body.decision else None,
                 )
                 reply = None
                 while True:

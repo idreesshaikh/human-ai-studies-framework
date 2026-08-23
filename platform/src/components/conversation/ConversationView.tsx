@@ -16,6 +16,7 @@ import {
   conversationApi,
   loadConversation,
   type CompileResult,
+  type DecisionTrigger,
 } from "@/lib/conversationApi";
 import { ApiError } from "@/lib/api";
 import { studyApi } from "@/lib/studyApi";
@@ -54,6 +55,7 @@ export function ConversationView({
   const [addedRefs, setAddedRefs] = useState<Set<string>>(new Set());
   const [live, setLive] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [conversationLoading, setConversationLoading] = useState(true);
   /* The reply's prose while it streams; null once the real turn lands. */
   const [streamingText, setStreamingText] = useState<string | null>(null);
   /* What the platform understands about the study so far (FR-CONV-10)  -  used
@@ -159,11 +161,13 @@ export function ConversationView({
         }
         setUnderstanding(u);
         setLive(true);
+        setConversationLoading(false);
       }
     }).catch(() => {
       if (!cancelled) {
         setTurns([openingTurn()]);
         setLive(false);
+        setConversationLoading(false);
       }
     });
     return () => {
@@ -217,7 +221,12 @@ export function ConversationView({
   }, [turns]);
 
   const refreshCompile = useCallback(async () => {
-    if (!live) return;
+    /* Do not let the protocol fallback race the conversation load. On a tab
+     * switch the seeded read-only document can arrive before the conversation
+     * does, which briefly paints a different rail and makes the workspace
+     * look like it blinked into another state. The first compile runs after
+     * the conversation settles, so both panes have one coherent hand-off. */
+    if (!live || conversationLoading) return;
     try {
       const result = await conversationApi.compile(studyId);
       setCompileResult(result);
@@ -236,7 +245,7 @@ export function ConversationView({
         setReadOnlyProtocol(null);
       }
     }
-  }, [live, studyId]);
+  }, [conversationLoading, live, studyId]);
 
   useEffect(() => {
     if (live) void refreshCompile();
@@ -263,7 +272,7 @@ export function ConversationView({
    * line the researcher already typed  -  in the "what do you want to find
    * out?" field on project creation  -  can be sent on arrival without being
    * round-tripped through the composer's state first. */
-  async function sendText(text: string) {
+  async function sendText(text: string, decision?: DecisionTrigger) {
     if (!text || busy) return;
 
     // "finish" / "wrap up" / "done" opens the protocol-review moment rather
@@ -315,6 +324,7 @@ export function ConversationView({
           "You",
           (fragment) => setStreamingText((prev) => prev + fragment),
           steer,
+          decision,
         );
         setStreamingText(null);
         setUnderstanding(appended.understanding);
@@ -355,27 +365,34 @@ export function ConversationView({
     }
   }
 
-  function decide(moveId: string, status: MoveStatus) {
-    let previousStatus: MoveStatus | undefined;
-    const move = turns.flatMap((t) => t.moves).find((m) => m.moveId === moveId);
+  async function decide(
+    moveId: string,
+    status: MoveStatus,
+    renderedMove?: DesignMove,
+  ) {
+    const move =
+      renderedMove ?? turns.flatMap((t) => t.moves).find((m) => m.moveId === moveId);
+    if (!move || busy) return;
+    const previousStatus = move.status;
     setTurns((prev) =>
       prev.map((t) => ({
         ...t,
         moves: t.moves.map((m) => {
           if (m.moveId !== moveId) return m;
-          previousStatus = m.status;
           return { ...m, status };
         }),
       })),
     );
-    if (live) {
+    if (live && status !== "proposed") {
       // A rejected decision used to be swallowed, so the card showed a
       // decision the draft never received  -  the researcher would compile and
       // find the move missing with no explanation. Rolling back only this
       // one move (not the whole thread) matters once Undo exists: another
       // request can be in flight when this one fails, and a whole-thread
       // snapshot would wipe that unrelated activity too.
-      conversationApi.decide(studyId, moveId, status).catch(() => {
+      try {
+        await conversationApi.decide(studyId, moveId, status);
+      } catch {
         setTurns((prev) =>
           prev.map((t) => ({
             ...t,
@@ -387,7 +404,8 @@ export function ConversationView({
           })),
         );
         setNote("This decision is still local. It didn't reach the server, so nothing was changed. Try again.");
-      });
+        return;
+      }
 
       // Accepting a move that cites papers is the researcher endorsing that
       // evidence, not just the move's text  -  the grounding chips already
@@ -413,6 +431,42 @@ export function ConversationView({
             );
           });
         }
+      }
+
+      /* A card is a hand-off, not a dead-end. Once the researcher resolves it,
+       * ask the assistant for exactly the next decision. The action is sent as
+       * structured context as well as readable history, so the model cannot
+       * mistake an acceptance for a new study idea or re-propose the card. */
+      const action: DecisionTrigger["action"] =
+        status === "rejected"
+          ? "rejected"
+          : move.kind === "caution"
+            ? "noted"
+            : "accepted";
+      const actionText =
+        action === "rejected"
+          ? `I rejected the proposed ${move.kind.replaceAll("-", " ")} move.`
+          : action === "noted"
+            ? `I noted the caution about ${move.proposal}`
+            : `I accepted: ${move.proposal}`;
+      try {
+        await sendText(actionText, { moveId, action });
+      } catch {
+        setNote("The decision was saved, but the next question could not be generated. Try sending a short reply to continue.");
+      }
+    } else if (live && status === "proposed") {
+      try {
+        await conversationApi.decide(studyId, moveId, status);
+      } catch {
+        setTurns((prev) =>
+          prev.map((t) => ({
+            ...t,
+            moves: t.moves.map((m) =>
+              m.moveId === moveId ? { ...m, status: previousStatus } : m,
+            ),
+          })),
+        );
+        setNote("This decision is still local. It didn't reach the server, so nothing was changed. Try again.");
       }
     }
   }
@@ -479,10 +533,20 @@ export function ConversationView({
               * researcher who arrived with an opening question already asked
               * should read it before their own unanswered line, not under
               * it. */}
-            {threadEmpty && !openingPending && (
+            {conversationLoading ? (
+              <div
+                className="space-y-3 px-1 py-2"
+                aria-busy="true"
+                aria-label="Loading conversation"
+              >
+                <div className="h-3 w-24 animate-pulse rounded-full bg-border" />
+                <div className="h-4 w-4/5 animate-pulse rounded-full bg-border" />
+                <div className="h-4 w-3/5 animate-pulse rounded-full bg-border" />
+              </div>
+            ) : threadEmpty && !openingPending && (
               <ConversationStart onUse={takeOpening} />
             )}
-            {turns.map((t) => (
+            {!conversationLoading && turns.map((t) => (
               <StreamingTurn
                 key={t.turnId}
                 turn={t}
@@ -660,9 +724,14 @@ export function ConversationView({
           ) : (
             <DraftRail
               understanding={understanding}
+              loading={conversationLoading}
               draft={clientDraft}
-              serverYaml={compileResult?.yaml}
-              protocol={compileResult?.protocol ?? readOnlyProtocol ?? undefined}
+              serverYaml={conversationLoading ? undefined : compileResult?.yaml}
+              protocol={
+                conversationLoading
+                  ? undefined
+                  : compileResult?.protocol ?? readOnlyProtocol ?? undefined
+              }
               compileValid={compileResult?.valid}
               unresolved={compileResult?.unresolved}
               /* A reader can see the record; only a contributor can change it,

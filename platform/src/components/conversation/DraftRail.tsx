@@ -23,6 +23,7 @@ export function DraftRail({
   applying,
   onFinish,
   understanding,
+  loading,
 }: {
   draft: ProtocolDraft;
   serverYaml?: string;
@@ -40,6 +41,9 @@ export function DraftRail({
    * conversation, and it says the same thing on every turn until the answer
    * changes, which is exactly what chat is bad at carrying. */
   understanding?: Understanding;
+  /** Keeps a seeded/read-only protocol from flashing while the conversation
+   * itself is being restored after a tab switch. */
+  loading?: boolean;
 }) {
   /* Readiness is the server's answer, not a count of lit dots  -  the eight
    * conversation sections and the protocol's requirements are different
@@ -62,7 +66,7 @@ export function DraftRail({
    * contains implementation sections such as phases before the researcher has
    * made a single decision. Start with the human eight-slot outline; switch to
    * the richer compiled document once there is something real to read. */
-  const sections: ProtocolSection[] | null = protocol && !isFreshDraft
+  const sections: ProtocolSection[] | null = protocol && !isFreshDraft && !conversationStarted
     ? summarizeProtocol(protocol)
     : null;
 
@@ -73,6 +77,8 @@ export function DraftRail({
   const showConversationProgress = conversationStarted || !sections?.length || isFreshDraft;
   const draftCaption = conversationStarted
     ? "Compiled from the moves you've accepted."
+    : loading
+      ? "Preparing your study decisions."
     : isFreshDraft
       ? "Your answers will fill these eight sections."
       : "The study's protocol as it currently stands.";
@@ -117,7 +123,7 @@ export function DraftRail({
           ) : (
             <SlotPlate draft={draft} />
           )
-        ) : isFreshDraft ? (
+        ) : conversationStarted || isFreshDraft ? (
           <SlotPlate draft={draft} />
         ) : serverYaml?.trim() ? (
           <pre className="tabular type-caption whitespace-pre-wrap type-quantity leading-relaxed text-text">

@@ -335,15 +335,32 @@ export const studyApi = {
     ),
   /** One-click accept of a recommendation into the study's Library, keeping
    * the match reason as elicitation evidence (FR-LIT-9.3). */
-  addPaperFromMatch: (study: string, ref: string, matchReason = "") =>
-    post<{
-      studyId: string;
-      paperRef: string;
-      title: string;
-      addedVia: string;
-      edges: number;
-      edgesPending: boolean;
-    }>(`/studies/${enc(study)}/papers/from-match`, { ref, matchReason }),
+  addPaperFromMatch: async (study: string, ref: string, matchReason = "") => {
+    try {
+      return await post<{
+        studyId: string;
+        paperRef: string;
+        title: string;
+        addedVia: string;
+        edges: number;
+        edgesPending: boolean;
+      }>(`/studies/${enc(study)}/papers/from-match`, { ref, matchReason });
+    } catch (error) {
+      /* A demo card is allowed to demonstrate the evidence hand-off without a
+       * middleware process. Keep the visible Library coherent with the seeded
+       * paper set, while real studies still surface every failed write. */
+      if (!isDemoStudy(study)) throw error;
+      const paper = SEED_PAPERS.find((candidate) => candidate.paperRef === ref);
+      return {
+        studyId: study,
+        paperRef: ref,
+        title: paper?.title ?? ref,
+        addedVia: "demo",
+        edges: 0,
+        edgesPending: false,
+      };
+    }
+  },
   setPaperLinks: (study: string, ref: string, targets: string[]) =>
     req<{ paperRef: string; links: string[] }>(
       `/studies/${enc(study)}/papers/${enc(ref)}/links`,

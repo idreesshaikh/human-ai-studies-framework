@@ -30,6 +30,23 @@ dictionary, and an analysis plan, ready for your own notebook.
    dictionary, and a starter notebook with the exact test to run  -  curated by
    PHOENIX, analysed in whatever notebook you already use.
 
+### The design contract
+
+PHOENIX keeps the researcher in the loop without turning the conversation into
+an empty chat stream. The assistant opens the study conversation, asks one
+focused question at a time, and presents consequential suggestions as cards.
+Accept, reject, or note a card and the next turn explains what changed before
+moving to the next decision. Accepted cards compile deterministically into the
+protocol rail; the visible rail contains only decisions the researcher can
+change (research questions, design, participants, conditions, measures,
+instruments, analysis, and ethics). Workspace identity and schema-required
+fields remain available in the header and raw YAML.
+
+The Library uses ingested papers as readable anchors, admits a capped mix of
+related, recommended, and fresh low-citation work, and treats publication year
+as a soft cue rather than a wall. This keeps citations useful without letting a
+large reference list bury the papers the researcher actually chose.
+
 Before collecting anything you can run a **synthetic dry run**: simulated
 participants through the real capture path, so the analysis plan is proven
 against data before a single real session happens.

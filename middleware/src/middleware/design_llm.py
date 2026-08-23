@@ -64,6 +64,11 @@ _HOUSE_STYLE = (
     "accept it, reject it, or correct it. Return no move only when the turn is "
     "a follow-up explanation, a methodological caution, or a genuinely unsafe "
     "guess.\n\n"
+    "CARD ORDER. A turn that contains a move card is a decision sheet. Its text "
+    "must explain the proposal or why it matters, and must not ask the next "
+    "protocol question. The next question is emitted only in the follow-up "
+    "turn after the researcher accepts, rejects, or notes the card. Never put "
+    "a forward-looking question before or beside a new move card.\n\n"
 )
 
 SYSTEM_PROMPT = (

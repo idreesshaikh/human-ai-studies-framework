@@ -25,21 +25,36 @@ export function LibraryTab({ studyId }: { studyId: string }) {
   const [idInput, setIdInput] = useState("");
   const [linkDraft, setLinkDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [edgesPending, setEdgesPending] = useState(false);
 
   const load = useCallback(async () => {
-    const [ps, g] = await Promise.all([
-      studyApi.papers(studyId),
-      studyApi.papersGraph(studyId),
-    ]);
-    setPapers(ps);
-    setGraph(g);
-    return g;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [ps, g] = await Promise.all([
+        studyApi.papers(studyId),
+        studyApi.papersGraph(studyId),
+      ]);
+      setPapers(ps);
+      setGraph(g);
+      return g;
+    } catch (error) {
+      setLoadError(
+        error instanceof OfflineError
+          ? error.message
+          : "The library could not be loaded. Try again.",
+      );
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   }, [studyId]);
 
   useEffect(() => {
-    load();
+    void load().catch(() => undefined);
   }, [load]);
 
   useEffect(() => {
@@ -170,6 +185,14 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             {note}
           </p>
         )}
+        {loadError && (
+          <div className="flex items-center justify-between gap-3 rounded-input border border-border bg-surface p-3">
+            <p className="type-body text-text-muted">{loadError}</p>
+            <Button size="sm" variant="subtle" onClick={() => void load()}>
+              Try again
+            </Button>
+          </div>
+        )}
 
         {/* Library list  -  the study's primary paper set. Papers accepted from
             the design conversation's recommendations land here too. */}
@@ -181,7 +204,11 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             </span>
           </div>
           <ul className="max-h-64 overflow-y-auto">
-            {papers.map((p) => (
+            {loading ? (
+              <li className="px-4 py-3 type-body text-text-muted" role="status">
+                Loading papers…
+              </li>
+            ) : papers.map((p) => (
               <li
                 key={p.paperRef}
                 className={cn(
@@ -209,7 +236,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                 </button>
               </li>
             ))}
-            {papers.length === 0 && (
+            {!loading && papers.length === 0 && (
               <li className="px-4 py-3 type-body text-text-muted">
                 No papers yet: add one above.
               </li>
@@ -228,12 +255,16 @@ export function LibraryTab({ studyId }: { studyId: string }) {
           <div className="rounded-card border border-border bg-surface p-4">
             <h3 className="type-subhead text-text">Literature map</h3>
             <p className="mt-0.5 type-caption text-text-muted">
-              Publication year runs left to right; node size shows citation weight;
+              Publication year gently runs left to right; node size shows citation weight;
               edge colour shows how papers are related.
             </p>
-            {graph && (
+            {loading ? (
+              <div className="flex h-[var(--constellation-h)] items-center justify-center rounded-card bg-bg type-body text-text-muted" role="status">
+                Mapping your literature…
+              </div>
+            ) : graph ? (
               <Constellation graph={graph} selected={selected} onSelect={select} />
-            )}
+            ) : null}
           </div>
 
           {/* Selected-paper detail. */}

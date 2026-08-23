@@ -14,7 +14,6 @@ import {
   LENSES,
   lensEdges,
   lensNodes,
-  lensCounts,
   curateGraph,
   type Lens,
 } from "@/lib/constellationView";
@@ -148,8 +147,14 @@ export function Constellation({
    * or a node would sit at a position solved for edges nobody can see. */
   const [lens, setLens] = useState<Lens>("all");
   const curatedGraph = useMemo(() => curateGraph(graph), [graph]);
-  const counts = useMemo(
-    () => lensCounts(curatedGraph.nodes, curatedGraph.edges),
+  const visibleCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        LENSES.map((entry) => [
+          entry.id,
+          lensNodes(curatedGraph.nodes, curatedGraph.edges, entry.id).length,
+        ]),
+      ) as Record<Lens, number>,
     [curatedGraph],
   );
   const edges = useMemo(
@@ -368,7 +373,10 @@ export function Constellation({
           aria-label="Which citation relation to show"
           options={LENSES.map((l) => ({
             value: l.id,
-            label: counts[l.id] > 0 ? `${l.label} (${counts[l.id]})` : l.label,
+            label:
+              visibleCounts[l.id] > 0
+                ? `${l.label} (${visibleCounts[l.id]})`
+                : l.label,
             hint: l.hint,
           }))}
         />

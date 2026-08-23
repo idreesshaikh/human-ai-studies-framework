@@ -521,6 +521,37 @@ def test_rejected_guided_card_turns_into_a_concrete_choice(client, monkeypatch):
     assert move["proposal"] not in next_turn["text"]
 
 
+def test_card_decision_can_trigger_one_empty_move_followup(client, monkeypatch):
+    """The card action is explicit context, not a fresh idea the model can misread."""
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: model_double.always(
+            {
+                "text": "The next decision is ready.",
+                "moves": [
+                    model_double.move(
+                        "add-measure", "measures", "A move that must be suppressed."
+                    )
+                ],
+            }
+        ),
+    )
+    first = _ask(client, "I want to research how junior engineers use AI")
+    move = first["moves"][0]
+    _accept(client, move["moveId"])
+
+    followup = client.post(
+        f"/studies/{STUDY}/conversation/turns",
+        json={
+            "text": f"I accepted: {move['proposal']}",
+            "decision": {"moveId": move["moveId"], "action": "accepted"},
+        },
+    )
+    assert followup.status_code == 200, followup.text
+    assert followup.json()["moves"] == []
+
+
 def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(
     client, monkeypatch
 ):
