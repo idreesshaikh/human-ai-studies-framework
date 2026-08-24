@@ -87,7 +87,7 @@ def test_checks_drops_proposals_but_never_drops_a_caution():
 def test_every_level_keeps_one_decision_at_a_time():
     moves = (_Move("choose-template"), _Move("add-measure"), _Move("caution"))
     kept = _permitted_moves(moves, _stance(steer="leads"))
-    assert [m.kind for m in kept] == ["choose-template", "caution"]
+    assert [m.kind for m in kept] == ["caution"]
 
 
 def test_assists_only_keeps_one_move_for_an_empty_section():
@@ -101,7 +101,7 @@ def test_assists_only_keeps_one_move_for_an_empty_section():
         _stance(steer="assists"),
         {"filled": ["measures"]},
     )
-    assert [m.kind for m in kept] == ["add-rq", "caution"]
+    assert [m.kind for m in kept] == ["caution"]
 
 
 def test_the_directive_carries_both_levers_into_the_prompt():

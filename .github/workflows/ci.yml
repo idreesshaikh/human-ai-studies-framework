@@ -66,7 +66,7 @@ jobs:
         run: npm run check
 
   platform:
-    name: Platform - tsc + lint + verify + build
+    name: Platform - lint + tsc + verify + build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -86,7 +86,7 @@ jobs:
       - name: Audit (no known high-severity advisories)
         run: npm audit --audit-level=high
 
-      - name: Check (tsc + lint + verify + build)
+      - name: Check (lint + tsc + verify + build)
         run: npm run check
 
       - name: Install Chromium for accessibility smoke test

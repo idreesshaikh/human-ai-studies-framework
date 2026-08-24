@@ -232,7 +232,8 @@ def configured() -> bool:
 
 def make_client() -> LLMClient | None:
     """
-    Resolve the configured Mistral Large knowledge client, or ``None`` when no key exists.
+    Resolve the configured Mistral Large knowledge client, or ``None`` when no
+    key exists.
     """
     key = os.environ.get("MISTRAL_API_KEY")
     if not key:

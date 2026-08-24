@@ -175,7 +175,8 @@ SYSTEM_PROMPT = (
     '"moves": [{"kind": "...", "target": "researchQuestions[]", "proposal": '
     '"one sentence", "patch": {...} or null, "refs": ["..."]}]}\n\n'
     "Valid kinds: add-rq, add-measure, set-parameter, set-field, "
-    "declare-task, prescribe-statistics, choose-template, merge-templates, add-instrument, "
+    "declare-task, prescribe-statistics, choose-template, merge-templates, "
+    "add-instrument, "
     "reconfigure-instrument, caution. "
     "`refs` entries must come from the candidate menu only (a paper's ref or "
     "a template's id).\n\n"
@@ -197,7 +198,8 @@ SYSTEM_PROMPT = (
     "of the study's arms and should be left out unless the researcher means "
     "it, since a task tied to one condition confounds the two.\n"
     '- prescribe-statistics: {"recipeId": "paired-nonparametric", "rq": "RQ-1"}. '
-    "Use a recipe from the platform catalogue and point it at a declared research question.\n"
+    "Use a recipe from the platform catalogue and point it at a declared research "
+    "question.\n"
     '- choose-template: {"templateId": "...", "parameters": {...}}\n'
     '- merge-templates: {"templateIds": ["...", "..."], "reason": "..."} - '
     "two or more candidate template ids plus why this pairing works (what "

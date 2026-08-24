@@ -439,7 +439,8 @@ def _apply_instrument_moves(draft: dict, moves: list[dict]) -> list[str]:
                     _session_minutes_from_config(config)
                 )
                 warnings.append(
-                    "mapped the legacy taskTimer move to the valid TERN capture instrument"
+                    "mapped the legacy taskTimer move to the valid TERN capture "
+                    "instrument"
                 )
             elif name not in VALID_INSTRUMENTS:
                 warnings.append(
@@ -452,7 +453,8 @@ def _apply_instrument_moves(draft: dict, moves: list[dict]) -> list[str]:
             if name == "taskTimer":
                 name = "tern"
                 warnings.append(
-                    "mapped the legacy taskTimer setting to the valid TERN capture instrument"
+                    "mapped the legacy taskTimer setting to the valid TERN capture "
+                    "instrument"
                 )
             elif name not in VALID_INSTRUMENTS:
                 warnings.append(f"ignored unsupported instrument setting {name!r}")
