@@ -144,7 +144,7 @@ def test_the_dial_never_changes_the_method():
 def test_a_conversation_nobody_has_tuned_drives_itself():
     """The untouched default asks one question at a time and names the move."""
     assert elicitation.DEFAULT_STEER == "leads"
-    assert "ONE question per turn" in elicitation.steer_guidance(None)
+    assert "Ask one question only" in elicitation.steer_guidance(None)
 
 
 def test_the_default_still_proposes():
