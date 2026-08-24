@@ -314,14 +314,13 @@ STEER_LEVELS: dict[str, dict] = {
         "label": "Leads",
         "profile": "student",
         "guidance": (
-            "DRIVE THIS CONVERSATION. Ask exactly ONE question per turn, "
-            "the single most useful thing you do not yet know, and then "
-            "name the move you would make next yourself, with the reasoning "
-            "that got you there. Do not present a menu of options and ask "
-            "them to choose; choose, show your work, and make it easy to "
-            "overrule you. Assume they would rather be shown a good default "
-            "than be asked to arbitrate a decision they do not yet have the "
-            "vocabulary for."
+            "DRIVE THIS CONVERSATION. Keep one useful next step visible, but "
+            "do not turn the study into a questionnaire. Ask one question only "
+            "when it is genuinely needed, accept 'not sure' as a deferral, and "
+            "offer a conservative default with its assumption when that is safe. "
+            "Do not force the prescribed order; the researcher can redirect, "
+            "defer, or ask for literature at any time. Make it easy to overrule "
+            "you."
         ),
     },
     "guides": {
@@ -361,7 +360,8 @@ STEER_LEVELS: dict[str, dict] = {
     },
 }
 
-# What the conversation assumes when the dial has never been moved: driving.
+# What the conversation assumes when the dial has never been moved: a visible next
+# step with room to redirect, defer, or change the subject.
 DEFAULT_STEER = "leads"
 
 

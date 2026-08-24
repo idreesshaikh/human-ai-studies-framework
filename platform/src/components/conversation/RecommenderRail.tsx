@@ -26,12 +26,12 @@ export function RecommenderRail({
           Literature
         </h2>
         <p className="type-caption text-text-muted">
-          Papers matched to the current study thread. Direct matches lead; adjacent work stays in the map.
+          Study-specific matches appear first. A paper is evidence for a design move only when its relevance is clear.
         </p>
       </div>
 
       {recommendations.length === 0 ? (
-        <EmptyState line="As you describe your study, relevant papers appear here, grounded in the corpus." />
+        <EmptyState line="No close study-specific matches yet. Describe the participants, task, comparison, or outcome and the corpus will look for papers with that vocabulary." />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
           {recommendations.map((r) => (

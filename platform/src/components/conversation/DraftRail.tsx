@@ -1,5 +1,6 @@
 import {
   MANDATORY_SLOTS,
+  OPTIONAL_SLOTS,
   SLOT_LABELS,
   type ProtocolDraft,
   type Understanding,
@@ -132,12 +133,15 @@ export function DraftRail({
 
         {unresolved && unresolved.length > 0 && (
           <details className="mt-3">
-            <summary className="type-caption cursor-pointer text-text-muted">Needs input</summary>
+            <summary className="type-caption cursor-pointer text-text-muted">Open choices</summary>
             <ul className="mt-1 flex flex-col gap-1 type-caption text-text-muted">
               {unresolved.map((slot) => (
                 <li key={slot}>{SLOT_LABELS[slot as keyof typeof SLOT_LABELS] ?? slot}</li>
               ))}
             </ul>
+            <p className="mt-2 type-caption text-text-muted">
+              These stay in the draft while you work. They only matter when you review a runnable protocol.
+            </p>
           </details>
         )}
         {compileErrors && compileErrors.length > 0 && (
@@ -214,6 +218,18 @@ function SlotPlate({ draft }: { draft: ProtocolDraft }) {
             </ul>
           ) : (
             <span className="mt-1.5 size-2 shrink-0 rounded-dot border border-border-strong" role="img" aria-label="not yet resolved" />
+          )}
+        </li>
+      ))}
+      {OPTIONAL_SLOTS.map((slot) => (
+        <li key={slot} className="flex items-start gap-3 border-t border-border py-3">
+          <span className="type-label min-w-0 flex-1 text-text">{SLOT_LABELS[slot]}</span>
+          {draft[slot].length > 0 ? (
+            <ul className="flex min-w-0 flex-[1.4] flex-col gap-0.5 type-caption text-text">
+              {draft[slot].map((value, index) => <li key={index}>{value}</li>)}
+            </ul>
+          ) : (
+            <span className="type-caption text-text-muted">Optional for now</span>
           )}
         </li>
       ))}

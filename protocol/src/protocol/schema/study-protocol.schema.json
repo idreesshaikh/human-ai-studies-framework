@@ -33,8 +33,7 @@
       "required": [
         "id",
         "title",
-        "researchers",
-        "ethicsRef"
+        "researchers"
       ],
       "additionalProperties": false,
       "properties": {

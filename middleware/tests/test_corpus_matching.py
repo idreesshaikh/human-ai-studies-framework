@@ -112,6 +112,16 @@ def test_match_never_invents_a_paper(session):
     assert {r["ref"] for r in results} <= held
 
 
+def test_generic_code_overlap_is_adjacent_not_direct(session):
+    """A broad coding query must not masquerade as study-specific evidence."""
+    results = matching.match_papers(
+        session, "AI code", study_id="s", limit=5, use_llm=False
+    )
+    assert results
+    assert all(r["matchKind"] == "adjacent" for r in results)
+    assert all("Direct match" not in r["matchReason"] for r in results)
+
+
 def test_grounding_lookup_resolves_corpus_seed(session):
     """
     FR-CONV-2.2: grounding resolves against the corpus for any study, and carries

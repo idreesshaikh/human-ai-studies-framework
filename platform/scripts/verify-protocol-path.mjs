@@ -12,7 +12,7 @@
  *   - once the idea is understood, the current step is the first unfilled
  *     protocol section
  *   - the focus row is orientation, not a sixth protocol requirement
- *   - the count stays at eight protocol sections, so it cannot become a
+ *   - the count stays at seven core protocol sections, so it cannot become a
  *     misleading 13-step checklist
  *   - the next question is passed through from the server, never composed
  *   - the path still builds before the first turn returns, when there is no
@@ -78,7 +78,7 @@ ok(
 
 ok(
   "counts span both phases",
-  fresh.total === 8 && fresh.done === 0,
+  fresh.total === 7 && fresh.done === 0,
   `${fresh.done} / ${fresh.total}`,
 );
 
@@ -136,7 +136,7 @@ ok("counts include filled sections", partly.done === 2, `${partly.done} / ${part
 const noUnderstanding = buildProtocolPath(EMPTY_DRAFT, undefined);
 ok(
   "the path still builds with no understanding yet",
-  noUnderstanding.phases.length === 1 && noUnderstanding.total === 8,
+  noUnderstanding.phases.length === 1 && noUnderstanding.total === 7,
   `${noUnderstanding.phases.length} phase(s), ${noUnderstanding.total} steps`,
 );
 ok(

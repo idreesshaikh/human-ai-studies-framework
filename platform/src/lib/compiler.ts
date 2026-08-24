@@ -53,7 +53,7 @@ export function compile(
       continue;
     }
     if (isFieldPatch(move.patch)) {
-      // Only participants.* maps onto one of the eight sections here  -  the
+      // Only participants.* maps onto one of the core sections here  -  the
       // other fillable slots (session.*, study.*) are administrative detail
       // this client-side preview does not track. This used to match none of
       // the type guards at all, so an accepted set-field move silently did

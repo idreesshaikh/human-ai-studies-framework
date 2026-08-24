@@ -79,6 +79,17 @@ def test_a_conversation_reaches_a_valid_protocol_without_a_template():
     assert result.draft["session"]["durationMinutes"] == 45
 
 
+def test_ethics_reference_is_optional_for_protocol_readiness():
+    moves = [
+        move
+        for move in _complete_moves()
+        if move["patch"].get("path") != ["study", "ethicsRef"]
+    ]
+    result = compiler.compile_moves(moves)
+    assert result.valid, (result.errors, result.unresolved)
+    assert "ethics status or reference" not in result.unresolved
+
+
 def test_filling_every_section_is_not_the_same_as_a_protocol():
     """The exact false-completeness bug, kept nailed down."""
     moves = [

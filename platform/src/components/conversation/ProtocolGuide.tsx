@@ -7,10 +7,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { MANDATORY_SLOTS, SLOT_LABELS, SLOT_DESCRIPTIONS } from "@/lib/types";
+import {
+  MANDATORY_SLOTS,
+  OPTIONAL_SLOTS,
+  SLOT_LABELS,
+  SLOT_DESCRIPTIONS,
+} from "@/lib/types";
 
-/* A short reference for the 8 mandatory sections of the protocol draft:
- * what each one means, right where the draft rail shows them being filled. */
+/* A short reference for the core sections of the protocol draft, plus the
+ * optional ethics posture that should never become an approval gate. */
 export function ProtocolGuide() {
   return (
     <Dialog>
@@ -25,10 +30,11 @@ export function ProtocolGuide() {
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
-        <DialogTitle>The 8 sections of a protocol draft</DialogTitle>
+        <DialogTitle>The sections of a protocol draft</DialogTitle>
         <DialogDescription>
-          Every study protocol needs all 8 filled before it can compile and
-          validate. Each design move you accept fills one of these.
+          These sections help you shape a runnable study. Open choices can stay
+          open while you draft. Ethics status is recorded when you have it; the
+          platform does not issue or verify approval.
         </DialogDescription>
         <dl className="mt-3 flex max-h-96 flex-col gap-3 overflow-auto">
           {MANDATORY_SLOTS.map((slot) => (
@@ -41,17 +47,22 @@ export function ProtocolGuide() {
               </dd>
             </div>
           ))}
+          {OPTIONAL_SLOTS.map((slot) => (
+            <div key={slot} className="border-t border-border pt-3">
+              <dt className="type-body font-medium text-text">
+                {SLOT_LABELS[slot]} <span className="type-caption text-text-muted">(optional)</span>
+              </dt>
+              <dd className="type-caption text-text-muted">{SLOT_DESCRIPTIONS[slot]}</dd>
+            </div>
+          ))}
         </dl>
 
         {/* Where the list comes from, because "the app says so" is not a
-          * citable answer and a reviewer asked for one outright. Deliberately
-          * careful about the distinction SlotMeter documents: these eight are
-          * how the CONVERSATION is organised, while what a protocol must
-          * carry to validate is the schema's own `required` list. They
-          * overlap but are not the same list, and claiming otherwise here is
-          * what made the old "8/8 = ready to compile" readout untrue. */}
+          * citable answer. The core sections organise the conversation, while
+          * the schema's `required` list is the authority for validation. Ethics
+          * status is intentionally outside that required list. */}
         <p className="type-caption mt-4 border-t border-border pt-3 text-text-muted">
-          These eight are the sections the design conversation works through.
+          These are the core sections the design conversation works through.
           What a protocol must contain in order to validate is defined by the
           study protocol schema, which you can read at{" "}
           <a

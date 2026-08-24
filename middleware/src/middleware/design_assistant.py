@@ -427,8 +427,8 @@ def _slot_directive(state: dict | None) -> str:
         return f"{complete}\n\n{advice}" if advice else complete
     fillable = [s for s in outstanding if s["valueType"] != "derived"]
     lines = [
-        "PROTOCOL SLOTS STILL OUTSTANDING (the draft cannot compile until "
-        "each is filled): " + ", ".join(s["label"] for s in outstanding) + "."
+        "PROTOCOL SLOTS STILL OPEN (the draft can be saved and reviewed while "
+        "these are unresolved): " + ", ".join(s["label"] for s in outstanding) + "."
     ]
     if fillable:
         described = "; ".join(
@@ -442,8 +442,9 @@ def _slot_directive(state: dict | None) -> str:
             + ". Propose a fill only when the researcher has actually told "
             "you the value, or when you are proposing a sensible default and "
             "say so plainly in the reply text. Never invent a sample size or "
-            "a session length and present it as theirs. Otherwise ask for the "
-            "first one, in your own words: " + fillable[0]["question"]
+            "a session length and present it as theirs. Offer the first one only "
+            "if the researcher has not redirected or deferred. If they defer, "
+            "leave it open and help with another useful choice."
         )
     if advice:
         lines.append(advice)
@@ -464,11 +465,12 @@ def _directive(stance: dict, state: dict | None = None) -> str:
             "THIS IS AN AUTOMATIC FOLLOW-UP TO A CARD DECISION. The researcher "
             f"just {action} the move identified in the design state. Do not "
             "propose any move in this response. Return an empty `moves` array. "
-            "For accepted or noted, acknowledge the choice briefly and ask "
-            "exactly one next protocol question, choosing the first genuinely "
-            "outstanding decision from the design state. For rejected, explain "
-            "what the proposal was trying to solve in one short sentence, then "
-            "ask one focused question that will let you offer a better fit. Do "
+            "For accepted or noted, acknowledge the choice briefly and ask at "
+            "most one useful next question only if the researcher has not "
+            "redirected or deferred. Do not force the first outstanding decision "
+            "or a prescribed order. For rejected, explain what the proposal was "
+            "trying to solve in one short sentence, then ask one focused question "
+            "only when it will let you offer a better fit. Do "
             "not re-propose or restate the rejected move. The response must be "
             "useful even if the researcher only answers that one question."
         )
@@ -497,9 +499,9 @@ def _directive(stance: dict, state: dict | None = None) -> str:
         lines.append(
             "STILL UNKNOWN about this study: "
             + ", ".join(understanding["missingLabels"])
-            + ". Ask about the first of those. One question, in your own "
-            "words, informed by what they have already told you. A good "
-            "next question is: "
+            + ". Offer one of these as the next focus only if it is useful. "
+            "Ask one question in your own words, informed by what they have "
+            "already told you. A good next question is: "
             + (stance["nextQuestion"] or "(none)")
         )
         if stance["intent"] == "followup-question":
@@ -514,9 +516,10 @@ def _directive(stance: dict, state: dict | None = None) -> str:
             )
         else:
             lines.append(
-                "ONE STEP ONLY. Help the researcher answer the first missing "
-                "facet. Reflect their idea briefly, then ask that one question. "
-                "If their latest message contains one concrete task, measure, "
+                "ONE STEP ONLY. Help the researcher with one useful facet, not "
+                "necessarily the first missing facet. Reflect their idea briefly, "
+                "then ask one question only when needed. If their latest message "
+                "contains one concrete task, measure, "
                 "research question, or protocol value, record only that safe "
                 "fact as one move. Do not propose a design shape yet."
             )
@@ -657,9 +660,9 @@ def _scaffolding_turn(
     text, move = copy.get(
         facet,
         (
-            "That is okay. I can break the study into one decision at a time. "
-            "Which part should we settle next: who takes part, what they do, or "
-            "what we measure?",
+            "That is okay. We can leave that choice open and work on whichever "
+            "thread is useful next: who takes part, what they do, what is compared, "
+            "or what we measure.",
             None,
         ),
     )
@@ -853,9 +856,15 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
     has_merged = any(
         m["kind"] == "merge-templates" and m["status"] == "accepted" for m in moves
     )
+    # Ethics posture is useful when the researcher wants to record it, but it is
+    # optional metadata rather than a gap the assistant should chase as part of the
+    # core design path.
+    conversation_sections = tuple(
+        section for section in compiler.SECTIONS if section != "ethics"
+    )
     filled = [
         sec
-        for sec in compiler.SECTIONS
+        for sec in conversation_sections
         if sections[sec]
         or (
             sec == "design"
@@ -863,7 +872,7 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         )
         or (sec == "instruments" and has_instrument)
     ]
-    empty = [sec for sec in compiler.SECTIONS if sec not in filled]
+    empty = [sec for sec in conversation_sections if sec not in filled]
     buckets: dict[str, list[dict]] = {"accepted": [], "rejected": [], "proposed": []}
     key_texts: list[str] = []
     advisory_texts: list[str] = []
@@ -1023,7 +1032,15 @@ def _retrieve(
         for item in history
         if item.get("role") == "user" and item.get("content")
     ]
-    retrieval_query = " ".join((*researcher_context[-4:], text)).strip()
+    # Recommendations belong to the study, not only to the latest answer. Keeping
+    # just four recent turns meant that a long design conversation eventually forgot
+    # "novice developers", "bug fixing", or "NASA-TLX" and fell back to generic
+    # papers whose titles merely contained "code". Keep the opening idea as an anchor
+    # and a bounded recent window so retrieval stays topical without growing forever.
+    anchors = researcher_context[:2]
+    recent = researcher_context[-8:]
+    retrieval_parts = list(dict.fromkeys((*anchors, *recent, text)))
+    retrieval_query = " ".join(retrieval_parts).strip()[:6000]
     papers = matching.match_papers(
         s,
         retrieval_query,

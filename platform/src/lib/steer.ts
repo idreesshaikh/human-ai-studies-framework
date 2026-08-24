@@ -64,20 +64,16 @@ export const STEER_STOPS: readonly SteerStop[] = [
     level: 3,
     id: "leads",
     label: "Leads",
-    summary: "Asks one question at a time and names the next move itself.",
+    summary: "Keeps one useful next step visible. You can redirect or defer.",
     profile: "student",
   },
 ] as const;
 
-/** Where a researcher who has never touched the dial starts: driving.
+/** Where a researcher who has never touched the dial starts: a light hand.
  *
- * This was `guides` (2), which follows the researcher's own order rather than
- * steering. That suits someone who knows what they want next and strands
- * someone meeting the tool for the first time  -  two reviewers described the
- * result identically, as a conversation with no visible order and no sense of
- * how much was left. `leads` asks one question per turn and names the move it
- * would make, which is the systematic walk they asked for. Matches
- * `elicitation.DEFAULT_STEER` on the server. */
+ * The default keeps a useful next step visible without turning the opening into
+ * an intake form. A researcher can move toward quieter checking or more active
+ * guidance at any time. Matches `elicitation.DEFAULT_STEER` on the server. */
 export const DEFAULT_STEER: SteerLevel = 3;
 
 /** The starting stop for a given researcher profile.

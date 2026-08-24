@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 
 /* Protocol completeness, as the *protocol* sees it.
  *
- * This was a row of eight dots. The dots were honest about how far along the
+ * This was a row of core-section dots. The dots were honest about how far along the
  * draft was and silent about everything else: what the order is, what is
  * being asked next, and how much is left. Two reviewers said the same thing
  * from opposite directions  -  one wanted the steps walked "in a more guided
@@ -52,7 +52,7 @@ export function SlotMeter({
       </div>
 
       {/* The full path is useful when someone wants orientation, but it is
-        * deliberately collapsed. The visible focus plus the eight protocol
+        * deliberately collapsed. The visible focus plus the core protocol
         * sections are enough for a calm glance; the detail is one click away. */}
       {current && (
         <p

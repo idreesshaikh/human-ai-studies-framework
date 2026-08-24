@@ -32,9 +32,9 @@ import { humanSlug } from "@/lib/slug";
  * instead of exposing five unrelated product nouns.
  *
  * There is deliberately no lifecycle board. Tracking a study across seven
- * phases was ceremony no researcher worked through, and its ethics gate
- * blocked the one thing this workspace exists to do - it made a designed,
- * compiled study impossible to actually set up. Approval is the
+ * phases was ceremony no researcher worked through, and treating ethics approval
+ * as an app gate blocked the one thing this workspace exists to do: it made a
+ * designed, compiled study impossible to actually set up. Approval is the
  * university's to grant; what the platform owes a participant is an
  * unmissable account of what will be captured, which the consent statement
  * at pairing gives them. */

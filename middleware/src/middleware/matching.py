@@ -23,12 +23,25 @@ _STOPWORDS = frozenset(
         "could", "paper", "papers", "research", "the", "and", "for", "are",
         "is", "to", "in", "of", "on", "or", "as", "an", "be", "do",
         "how", "can", "you", "my", "we", "it", "will", "want", "think",
+        "one", "know", "not", "sure", "dont", "don", "t", "maybe", "just",
         "which", "should", "use", "make", "more", "less", "than", "whether",
         "people", "person", "participants", "participant", "session", "sessions",
         "task", "tasks", "condition", "conditions", "compare", "comparison",
         "design", "method", "methods", "measure", "measures", "measuring",
         "result", "results", "effect", "effects",
     ]
+)
+
+# These words describe the broad application area, but are too common to justify
+# calling a paper a direct match for a particular study. A recommendation titled
+# "code" is not evidence about novice developers, productivity, workload, or bug
+# fixing merely because the query also contains the word "code".
+_GENERIC_MATCH_TERMS = frozenset(
+    {
+        "ai", "artificial", "intelligence", "code", "coding", "program",
+        "programming", "software", "developer", "developers", "tool", "tools",
+        "llm", "llms", "model", "models", "generative", "computer",
+    }
 )
 
 WEIGHT_MATCHED_TERM = 1.5
@@ -307,9 +320,11 @@ def match_papers(
         conf = paper_confidence(row.score)
         candidate.update(
             title=row.title,
+            authors=row.authors or [],
             year=row.year,
             venue=_display_venue(row.venue),
             identifier=_public_identifier(row),
+            abstract=(row.abstract or "").strip()[:480],
             inStudy=candidate["ref"] in study_refs,
             confidence=conf,
         )
@@ -319,7 +334,13 @@ def match_papers(
             _terms(search_query), f"{row.title} {row.abstract}"
         )
         evidence_terms = list(dict.fromkeys([*matched, *expanded_matches]))
-        direct = bool(evidence_terms)
+        specific_terms = [
+            term for term in evidence_terms if term not in _GENERIC_MATCH_TERMS
+        ]
+        # A paper that matches only broad coding vocabulary is never a direct match.
+        # It may still be useful as adjacent reading, but it must not be presented as
+        # evidence for a study just because the query contains the word "code".
+        direct = bool(specific_terms)
         candidate["score"] = (
             candidate.get("score", 0.0)
             # Direct language evidence is deliberately separated from source
@@ -331,10 +352,19 @@ def match_papers(
             + WEIGHT_CONFIDENCE * (conf if conf is not None else 0.0)
         )
         candidate["matchKind"] = "direct" if direct else "adjacent"
-        candidate["matchedTerms"] = evidence_terms[:5]
-        if "matchReason" not in candidate:
+        candidate["matchedTerms"] = (specific_terms or evidence_terms)[:5]
+        if "matchReason" not in candidate and direct:
             candidate["matchReason"] = _reason_for(
-                s, query_terms, candidate, row, matched_terms=evidence_terms
+                s,
+                query_terms,
+                candidate,
+                row,
+                matched_terms=specific_terms or evidence_terms,
+            )
+        elif "matchReason" not in candidate:
+            broad_terms = ", ".join((evidence_terms or ["the coding topic"])[:4])
+            candidate["matchReason"] = (
+                f"Adjacent work shares broad terms: {broad_terms}."
             )
         enriched.append(candidate)
 
@@ -356,9 +386,11 @@ def match_papers(
         {
             "ref": c["ref"],
             "title": c.get("title", ""),
+            "authors": c.get("authors", []),
             "year": c.get("year"),
             "venue": c.get("venue", ""),
             "identifier": c.get("identifier", ""),
+            "abstract": c.get("abstract", ""),
             "inStudy": c.get("inStudy", False),
             "confidence": c.get("confidence"),
             "matchKind": c.get("matchKind", "adjacent"),
@@ -406,7 +438,10 @@ def _reason_for(
     if matched:
         title_terms = _matched_terms(query_terms, row.title)
         location = "its title" if title_terms else "its abstract"
-        return f"Direct match in {location}: {', '.join(matched[:4])}."
+        return (
+            f"Matches your study vocabulary in {location}: "
+            f"{', '.join(matched[:4])}."
+        )
     via = sorted(set(candidate.get("via", [])))
     if via:
         titles = list(

@@ -405,7 +405,7 @@ def test_propose_turn_threads_design_state_into_the_request():
     assert "Design state so far:" in user
     assert "Measure review latency." in user
     assert "Run a three-arm condition split." in user
-    assert "The protocol still needs: how many participants" in user
+    assert "The protocol still has open required fields: how many participants" in user
     system = captured[0]["messages"][0]["content"]
     assert "NEVER re-propose" in system
 

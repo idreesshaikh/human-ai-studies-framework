@@ -596,9 +596,9 @@ export function ConversationView({
     .filter((turn) => turn.turnId !== "opening")
     .filter((turn) => turn !== activePlatform && turn !== activeResearcher);
   const filledSections = MANDATORY_SLOTS.filter((slot) => clientDraft[slot].length > 0).length;
-  // This number describes the visible study map, not schema validity. The server's
-  // unresolved list contains nested operational slots, so subtracting it from the
-  // eight human-facing sections produced impossible values such as “-3 / 8”.
+  // This number describes the visible core study map, not schema validity. The
+  // server's unresolved list contains nested operational slots, so subtracting it
+  // from the human-facing sections produced impossible values such as “-3 / 7”.
   const progressDone = filledSections;
 
   return (
@@ -612,15 +612,15 @@ export function ConversationView({
             <div className="mx-auto flex w-full max-w-reading items-start justify-between gap-4">
               <div>
                 <p className="type-legend text-accent">DESIGN SESSION</p>
-                <h2 className="mt-1 type-section text-text">One decision at a time</h2>
+                <h2 className="mt-1 type-section text-text">Shape the study at your pace</h2>
                 <p className="mt-1 max-w-[52ch] type-caption text-text-muted">
-                  Answer the prompt, then accept or reject the next change to your study.
+                  Answer the prompt, accept a useful suggestion, or leave a choice open and come back to it later.
                 </p>
               </div>
               <div className="shrink-0 text-right">
                 <span className="type-quantity-lg text-text">{progressDone}</span>
                 <span className="type-caption text-text-muted"> / {MANDATORY_SLOTS.length}</span>
-                <p className="type-legend mt-1 text-text-muted">sections drafted</p>
+                <p className="type-legend mt-1 text-text-muted">core sections drafted</p>
               </div>
             </div>
           </header>

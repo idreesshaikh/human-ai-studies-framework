@@ -52,8 +52,11 @@ class Slot:
         return ".".join(self.path)
 
 
-# Derived from the schema's own ``required`` lists - a slot here exists because the
-# protocol genuinely cannot validate without it.
+# Derived from the schema's own ``required`` lists. A slot here exists because the
+# protocol genuinely cannot validate without it. Ethics approval is deliberately not
+# in this list: the platform can record an ethics status or posture, but it does not
+# grant approval and must not make an approval reference a prerequisite for drafting
+# or applying a protocol.
 PROTOCOL_SLOTS: tuple[Slot, ...] = (
     Slot(
         ("researchQuestions",),
@@ -113,10 +116,17 @@ PROTOCOL_SLOTS: tuple[Slot, ...] = (
         "What should this study be called?",
         value_type="text",
     ),
+)
+
+# Optional metadata can be recorded when the researcher has it, without turning an
+# external administrative decision into a conversational gate. Keeping this in the
+# fillable catalogue preserves old ethics-reference moves and existing protocol
+# exports while leaving the required-slot calculation honest.
+OPTIONAL_SLOTS: tuple[Slot, ...] = (
     Slot(
         ("study", "ethicsRef"),
-        "your ethics reference",
-        "What's your ethics approval reference?",
+        "ethics status or reference",
+        "Do you have an ethics status or reference to record?",
         value_type="text",
     ),
 )
@@ -484,7 +494,9 @@ def _session_minutes_from_config(config: object) -> int:
 # A move naming anything else is refused: the conversation may fill the protocol's
 # declared gaps and nothing more, so a model cannot invent structure by writing a path
 # the schema never had.
-FILLABLE_SLOTS: dict[str, Slot] = {s.key: s for s in PROTOCOL_SLOTS if s.fillable}
+FILLABLE_SLOTS: dict[str, Slot] = {
+    s.key: s for s in (*PROTOCOL_SLOTS, *OPTIONAL_SLOTS) if s.fillable
+}
 
 
 def _coerce(slot: Slot, value: object) -> object | None:

@@ -107,9 +107,11 @@ export interface Recommendation {
   matchedTerms?: string[];
   inStudy?: boolean; // already in the researcher's library
   title: string;
+  authors?: string[];
   year: number;
   venue: string;
   identifier?: string;
+  abstract?: string;
   matchReason: string; // one sentence, always visible, never truncated
 }
 
@@ -198,8 +200,8 @@ export interface ProtocolDraft {
   ethics: string[];
 }
 
-/** The sections a protocol must fill  -  drives the slot meter and the
- * "here's what's still unresolved" prompts. */
+/** The core sections the conversation guides through. Ethics remains a visible,
+ * optional posture in the draft, not an approval gate. */
 export const MANDATORY_SLOTS: (keyof ProtocolDraft)[] = [
   "researchQuestions",
   "design",
@@ -208,8 +210,9 @@ export const MANDATORY_SLOTS: (keyof ProtocolDraft)[] = [
   "measures",
   "instruments",
   "statisticalPlan",
-  "ethics",
 ];
+
+export const OPTIONAL_SLOTS: (keyof ProtocolDraft)[] = ["ethics"];
 
 /** camelCase -> "Camel case": the plain-words fallback for any identifier
  * this map doesn't recognise by name. Never used for a known slot  -  those
@@ -229,7 +232,7 @@ function sentenceCase(segment: string): string {
  * "protocol.path" example the model echoed as a real "protocol." prefix  -
  * this strips that defensively so an older persisted move still reads
  * cleanly. Each dotted segment is looked up against SLOT_LABELS where it
- * matches one of the eight mandatory sections; anything else falls back to
+ * matches one of the core sections; anything else falls back to
  * sentence case rather than showing camelCase or a raw path. */
 export function targetLabel(target: string): string {
   const cleaned = target

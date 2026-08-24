@@ -2,10 +2,10 @@
  *
  * The conversation already walks a fixed order  -  the elicitation facets
  * first (a design shape is withheld until enough of the idea is understood),
- * then the protocol's own sections. The rail should make that order legible
+ * then the protocol's own core sections. The rail should make that order legible
  * without turning the researcher into a 13-step form. The current facet is
  * therefore shown as a single focus row; progress belongs to the eight
- * protocol sections that the draft actually records.
+ * core protocol sections that the draft actually records.
  *
  * Two reviewers asked for the same thing in different words: one for the
  * steps in a "more guided fashion... so that all the information needed for
@@ -82,7 +82,7 @@ export function buildProtocolPath(
     cursorTaken = Boolean(missing);
   }
 
-  /* Phase two: the eight sections the conversation fills. Deliberately NOT
+  /* Phase two: the core sections the conversation fills. Deliberately NOT
    * described as the protocol's requirements  -  SlotMeter documents why those
    * are a different list, and the server's compile stays the authority on
    * readiness. These are steps to walk, not a validity claim. */
