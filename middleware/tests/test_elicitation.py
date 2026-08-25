@@ -61,6 +61,12 @@ def test_questions_about_prior_turns_are_recognised(text):
         "can you help me",
         "okay",
         "exactly",
+        "same thing",
+        "exactly the same thing",
+        "yes indeed",
+        "yes absolutely",
+        "I've a sample example",
+        "what else do you need",
     ],
 )
 def test_low_information_replies_request_scaffolding(text):

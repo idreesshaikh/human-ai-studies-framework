@@ -108,6 +108,12 @@ function mapPatch(raw: unknown): DesignMove["patch"] {
           : undefined,
     };
   }
+  if (typeof patch.recipeId === "string" && patch.recipeId) {
+    return {
+      recipeId: patch.recipeId,
+      rq: typeof patch.rq === "string" ? patch.rq : undefined,
+    };
+  }
   if (
     patch.section === "instruments" &&
     typeof patch.op === "string" &&

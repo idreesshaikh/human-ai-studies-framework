@@ -44,6 +44,15 @@ _PATCHABLE_SECTIONS = frozenset(
 # the compiled draft).
 _SECTION_LIST = ", ".join(sorted(_PATCHABLE_SECTIONS))
 
+_PATCH_SHAPE_RULE = (
+    "PATCH SHAPES. Conditions are a section patch with `section: \"conditions\"` "
+    "and `op: \"append\"`; never use a `set-field` path named `comparison`. "
+    "Counterbalancing is a `set-field` at `participants.counterbalanced`; never "
+    "use `design.conditionOrder`. A statistics move must target a declared RQ id "
+    "such as `RQ-1`, not the full question text. A TERN instrument uses the "
+    "standard `session`, `fatigue`, `stuck`, and `output` sections.\n\n"
+)
+
 _HOUSE_STYLE = (
     "VOICE. Write like a methodologist talking to a colleague: plain, direct, "
     "unhedged. Short sentences. Say what is grounded and what is not. Never "
@@ -80,6 +89,7 @@ _HOUSE_STYLE = (
 
 SYSTEM_PROMPT = (
     _HOUSE_STYLE
+    + _PATCH_SHAPE_RULE
     + "You are the design-conversation partner for a human-AI developer study "
     "platform. A researcher describes a study idea in plain language. Help "
     "them DERIVE a good, methodologically sound protocol, ask a clarifying "

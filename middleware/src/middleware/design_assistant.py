@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import difflib
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -418,6 +419,15 @@ def _slot_directive(state: dict | None) -> str:
     advice = (state or {}).get("taskAdvice") or ""
     outstanding = (state or {}).get("outstandingSlots") or []
     if not outstanding:
+        if state and state.get("compileValid") is False:
+            errors = state.get("compileErrors") or [
+                "the compiled draft needs correction"
+            ]
+            correction = "; ".join(str(error) for error in errors[:2])
+            return (
+                "The draft has all named choices, but it is not valid yet. "
+                f"Fix this before applying it: {correction}."
+            )
         complete = (
             "The protocol has every slot it needs. Do not invent more work: "
             "if the researcher is happy, tell them it is ready to compile."
@@ -580,8 +590,37 @@ def _scaffolding_turn(
             ),
             moves=(),
         )
-    missing = understanding.get("missing") or []
+    missing = [
+        facet
+        for facet in (understanding.get("missing") or [])
+        if not _facet_settled_in_state(facet, state)
+    ]
     if not missing:
+        if state and not state.get("outstandingSlots"):
+            if state.get("compileValid") is False:
+                return Turn(
+                    text=(
+                        "The choices are recorded, but the draft still needs a "
+                        "compiler correction before it can run."
+                    ),
+                    moves=(),
+                )
+            return Turn(
+                text=(
+                    "The protocol is complete and valid. I will not invent another "
+                    "question. Review the draft when you are ready."
+                ),
+                moves=(),
+            )
+        if state and state.get("outstandingSlots"):
+            next_slot = state["outstandingSlots"][0]["label"]
+            return Turn(
+                text=(
+                    "I already have the decisions you confirmed, so I will not ask "
+                    f"you to repeat them. The next open protocol choice is {next_slot}."
+                ),
+                moves=(),
+            )
         return Turn(
             text=(
                 "The study is understood enough to make a design choice. "
@@ -690,6 +729,29 @@ def _scaffolding_turn(
             )
         move = None
     return Turn(text=text, moves=(move,) if move else ())
+
+
+def _facet_settled_in_state(facet: str, state: dict | None) -> bool:
+    """Whether the compiled design already answers a conversational facet."""
+    if not state:
+        return False
+    filled = set(state.get("filled") or [])
+    outstanding = {slot.get("key") for slot in state.get("outstandingSlots") or []}
+    if facet == "population":
+        return "participants" in filled
+    if facet == "task":
+        return bool(state.get("taskDescription")) or (
+            "session.taskDescription" not in outstanding
+        )
+    if facet == "comparison":
+        return "conditions" in filled or "conditions" not in outstanding
+    if facet == "outcome":
+        return "measures" in filled
+    if facet == "constraints":
+        return bool(state.get("sessionMinutes")) or (
+            "session.durationMinutes" not in outstanding
+        )
+    return False
 
 
 def _move_section(move: ProposedMove) -> str:
@@ -862,15 +924,24 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
     conversation_sections = tuple(
         section for section in compiler.SECTIONS if section != "ethics"
     )
+    draft_values = {
+        "researchQuestions": result.draft.get("researchQuestions"),
+        "design": result.draft.get("design")
+        or result.template_id is not None
+        or has_merged,
+        "participants": result.draft.get("participants"),
+        "conditions": result.draft.get("conditions"),
+        "measures": result.draft.get("measures"),
+        "instruments": result.draft.get("instruments") or has_instrument,
+        # The protocol schema calls this analysisPlan; the conversation rail calls
+        # it statisticalPlan. Use the compiled document as the authority for both.
+        "statisticalPlan": result.draft.get("analysisPlan")
+        or result.draft.get("statisticalPlan"),
+    }
     filled = [
         sec
         for sec in conversation_sections
-        if sections[sec]
-        or (
-            sec == "design"
-            and (result.template_id is not None or has_merged)
-        )
-        or (sec == "instruments" and has_instrument)
+        if sections[sec] or bool(draft_values.get(sec))
     ]
     empty = [sec for sec in conversation_sections if sec not in filled]
     buckets: dict[str, list[dict]] = {"accepted": [], "rejected": [], "proposed": []}
@@ -922,7 +993,11 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         "filled": filled,
         "empty": empty,
         "outstandingSlots": outstanding,
+        "compileValid": result.valid,
+        "compileErrors": result.errors,
+        "compileWarnings": result.warnings,
         "sessionMinutes": session.get("durationMinutes"),
+        "taskDescription": bool(session.get("taskDescription")),
         "taskCount": len(tasks),
         "taskIds": [t.get("id") for t in tasks if t.get("id")],
         # Not a gap the protocol can name - tasks are optional - but the one thing most
@@ -1221,7 +1296,7 @@ def _assemble(
     figure_suggestions = suggest_figures(result_shape) if result_shape else []
 
     return {
-        "text": turn.text,
+        "text": _guard_completion_claim(turn.text, state),
         "moves": moves,
         "recommendations": recommendations,
         "templateRecommendations": template_recommendations,
@@ -1232,3 +1307,28 @@ def _assemble(
         "retrievedRefs": sorted(retrieved),
         "source": "llm",
     }
+
+
+def _guard_completion_claim(text: str, state: dict | None) -> str:
+    """Keep model prose consistent with the authoritative compile state."""
+    if not state or not text:
+        return text
+    claim = re.search(
+        r"\b(?:protocol|draft|study)\b.{0,36}"
+        r"\b(?:complete|ready to (?:compile|apply))\b"
+        r"|\bconditions?\s+(?:are|is)\s+(?:now\s+)?set\b"
+        r"|\bstatistical plan\s+(?:is|has been)\s+(?:already\s+)?set\b",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if not claim:
+        return text
+    outstanding = state.get("outstandingSlots") or []
+    if outstanding:
+        labels = ", ".join(str(slot.get("label")) for slot in outstanding[:3])
+        suffix = " and more" if len(outstanding) > 3 else ""
+        return f"The draft is not complete yet. Still open: {labels}{suffix}."
+    if state.get("compileValid") is False:
+        errors = state.get("compileErrors") or ["the compiled draft needs correction"]
+        return f"The draft still needs a compiler correction: {errors[0]}."
+    return text

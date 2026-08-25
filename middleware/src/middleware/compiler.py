@@ -452,6 +452,9 @@ def _apply_instrument_moves(draft: dict, moves: list[dict]) -> list[str]:
                     "mapped the legacy taskTimer move to the valid TERN capture "
                     "instrument"
                 )
+            elif name == "tern":
+                config, config_warnings = _normalise_tern_config(config)
+                warnings.extend(config_warnings)
             elif name not in VALID_INSTRUMENTS:
                 warnings.append(
                     f"ignored unsupported instrument {name!r}; use tern, metrics, "
@@ -486,9 +489,55 @@ def _session_minutes_from_config(config: object) -> int:
     """Read a legacy timer duration without trusting its invalid shape."""
     if isinstance(config, dict):
         value = config.get("minutes") or config.get("durationMinutes")
-        if isinstance(value, int) and value >= 1:
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 1:
             return value
+        for nested_key in ("capture", "session"):
+            nested = config.get(nested_key)
+            if isinstance(nested, dict):
+                nested_minutes = _session_minutes_from_config(nested)
+                if nested_minutes != 45:
+                    return nested_minutes
     return 45
+
+
+def _normalise_tern_config(config: object) -> tuple[dict, list[str]]:
+    """Repair legacy/incomplete TERN add moves into the schema's capture shape."""
+    source = config if isinstance(config, dict) else {}
+    warnings: list[str] = []
+    if isinstance(source.get("capture"), dict):
+        source = source["capture"]
+        warnings.append(
+            "mapped the legacy tern.capture wrapper to the standard TERN config"
+        )
+
+    normalized = default_capture_instrument(_session_minutes_from_config(config))
+    required = ("session", "fatigue", "stuck", "output")
+    if any(not isinstance(source.get(section), dict) for section in required):
+        warnings.append(
+            "filled incomplete TERN config with standard capture defaults"
+        )
+
+    optional_sections = {"ideHealth", "behavior", "comprehensionProbe"}
+    unknown: list[str] = []
+    for section, value in source.items():
+        if section in normalized:
+            if not isinstance(value, dict):
+                unknown.append(section)
+                continue
+            for key, item in value.items():
+                if key in normalized[section]:
+                    normalized[section][key] = item
+                else:
+                    unknown.append(f"{section}.{key}")
+        elif section in optional_sections and isinstance(value, dict):
+            normalized[section] = value
+        else:
+            unknown.append(section)
+    if unknown:
+        warnings.append(
+            "ignored unsupported TERN config field(s): " + ", ".join(sorted(unknown))
+        )
+    return normalized, warnings
 
 
 # A move naming anything else is refused: the conversation may fill the protocol's
@@ -535,6 +584,35 @@ def _apply_field_moves(draft: dict, moves: list[dict]) -> list[str]:
         if patch.get("op") != "set-field":
             continue
         key = ".".join(str(p) for p in patch.get("path") or [])
+        if key == "comparison":
+            values = _legacy_comparison_values(patch.get("value"))
+            if values:
+                conditions = draft.setdefault("conditions", [])
+                for value in values:
+                    if value not in conditions:
+                        conditions.append(value)
+                warnings.append(
+                    "mapped the legacy comparison field to protocol conditions"
+                )
+            else:
+                warnings.append("ignored an empty legacy comparison field")
+            continue
+        if key == "design.conditionOrder":
+            counterbalanced = _legacy_counterbalanced_value(patch.get("value"))
+            if counterbalanced is None:
+                warnings.append(
+                    f"ignored condition order {patch.get('value')!r}: "
+                    "expected counterbalanced or fixed"
+                )
+            else:
+                draft.setdefault("participants", {})[
+                    "counterbalanced"
+                ] = counterbalanced
+                warnings.append(
+                    "mapped the legacy design.conditionOrder field to "
+                    "participants.counterbalanced"
+                )
+            continue
         slot = FILLABLE_SLOTS.get(key)
         if slot is None:
             warnings.append(
@@ -560,6 +638,30 @@ def _apply_field_moves(draft: dict, moves: list[dict]) -> list[str]:
             node = nxt
         node[slot.path[-1]] = value
     return warnings
+
+
+def _legacy_comparison_values(value: object) -> list[str]:
+    """Turn an old comparison sentence into named condition values."""
+    raw = value if isinstance(value, list) else [value]
+    values: list[str] = []
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        values.extend(re.split(r"\s+(?:vs\.?|versus)\s+|\r?\n", item, flags=re.I))
+    return [item.strip(" ,;") for item in values if item.strip(" ,;")]
+
+
+def _legacy_counterbalanced_value(value: object) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    text = str(value or "").strip().lower()
+    if text in {"fixed", "ordered", "not counterbalanced", "false", "no"}:
+        return False
+    if "not counter" in text or text in {"unbalanced", "unrandomized", "unrandomised"}:
+        return False
+    if "counter" in text or text in {"balanced", "randomized", "randomised"}:
+        return True
+    return None
 
 
 def _refine(protocol: dict, sections: dict[str, list]) -> dict:
@@ -645,10 +747,6 @@ def _legacy_recipe(value: object) -> str | None:
 
 def _apply_analysis_moves(draft: dict, moves: list[dict]) -> list[str]:
     """Compile executable and legacy statistical moves into ``analysisPlan``."""
-    plan = draft.get("analysisPlan") or []
-    plan_by_rq: dict[str, dict] = {}
-    for entry in plan:
-        plan_by_rq.setdefault(entry["rq"], entry)
     warnings: list[str] = []
     declared_rqs = [
         str(rq.get("id"))
@@ -656,6 +754,16 @@ def _apply_analysis_moves(draft: dict, moves: list[dict]) -> list[str]:
         if rq.get("id")
     ]
     fallback_rq = declared_rqs[0] if declared_rqs else "RQ-1"
+    plan = draft.get("analysisPlan") or []
+    plan_by_rq: dict[str, dict] = {}
+    for entry in plan:
+        if not isinstance(entry, dict):
+            continue
+        rq = _resolve_analysis_rq(draft, entry.get("rq"), None, warnings)
+        if rq:
+            normalized = dict(entry)
+            normalized["rq"] = rq
+            plan_by_rq.setdefault(rq, normalized)
 
     for move in moves:
         if move.get("status") != "accepted":
@@ -666,6 +774,8 @@ def _apply_analysis_moves(draft: dict, moves: list[dict]) -> list[str]:
             if move.get("kind") == "prescribe-statistics"
             else None
         )
+        if recipe_id is not None and not isinstance(recipe_id, str):
+            recipe_id = None
         legacy = False
         if recipe_id is None:
             path = patch.get("path") or []
@@ -680,7 +790,9 @@ def _apply_analysis_moves(draft: dict, moves: list[dict]) -> list[str]:
             if not legacy and move.get("kind") == "prescribe-statistics":
                 warnings.append("ignored a statistics move without a recipe id")
             continue
-        rq = patch.get("rq") or fallback_rq
+        rq = _resolve_analysis_rq(draft, patch.get("rq"), fallback_rq, warnings)
+        if rq is None:
+            continue
         entry = plan_by_rq.setdefault(rq, {"rq": rq, "recipes": []})
         if recipe_id not in entry["recipes"]:
             entry["recipes"].append(recipe_id)
@@ -693,6 +805,34 @@ def _apply_analysis_moves(draft: dict, moves: list[dict]) -> list[str]:
     if plan_by_rq:
         draft["analysisPlan"] = list(plan_by_rq.values())
     return warnings
+
+
+def _resolve_analysis_rq(
+    draft: dict,
+    requested: object,
+    fallback: str | None,
+    warnings: list[str],
+) -> str | None:
+    """Keep analysis entries keyed by declared RQ ids, even for old moves."""
+    if requested is None or not str(requested).strip():
+        return fallback
+    value = str(requested).strip()
+    declared = draft.get("researchQuestions") or []
+    for rq in declared:
+        if not isinstance(rq, dict) or not rq.get("id"):
+            continue
+        rq_id = str(rq["id"])
+        if value == rq_id:
+            return rq_id
+        if str(rq.get("text") or "").strip().casefold() == value.casefold():
+            warnings.append(
+                f"mapped statistics target text to declared research question {rq_id}"
+            )
+            return rq_id
+    warnings.append(
+        f"ignored statistics target {value!r}: it is not a declared research question"
+    )
+    return None
 
 
 _REQUIRED_PROPERTY = re.compile(r"^'([^']+)' is a required property$")

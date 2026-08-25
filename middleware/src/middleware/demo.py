@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from middleware.db import (
     CORPUS_STUDY_ID,
+    IMPLICIT_IDENTITY_SUB,
+    IMPLICIT_PROJECT_ID,
+    ApprovalEvent,
+    Compilation,
     ConversationTurn,
     DesignMoveRow,
     Paper,
@@ -54,6 +59,12 @@ DEMO_SESSION_IDS = (
 )
 
 DEMO_OWNER_SUB = "demo"
+
+# A writable local fallback for rehearsals. The shared ``demo-study`` remains
+# viewer-only; this study belongs to the implicit local project so the researcher
+# can mint a TERN link and run the extension without designing anything live.
+BACKUP_STUDY_ID = "ai-cognitive-load-demo"
+BACKUP_STUDY_TITLE = "AI cognitive load demo backup"
 
 DEMO_LIBRARY_REFS = (
     "corpus:trust-in-ai-code-generation",
@@ -157,6 +168,375 @@ def seed_demo(db_url: str, *, now: str = "") -> dict:
         created = _seed(s, now)
         s.commit()
     return created
+
+
+def seed_backup(db_url: str, *, now: str = "") -> dict:
+    """Create or repair the writable, fully compiled local demo study."""
+    factory = make_session_factory(db_url)
+    with factory() as s:
+        created = _seed_backup(s, now)
+        s.commit()
+    return created
+
+
+def _backup_protocol() -> dict:
+    """Load the complete demo protocol under the writable backup's identity."""
+    protocol = yaml.safe_load(DEMO_PROTOCOL_PATH.read_text()) or {}
+    study = protocol.setdefault("study", {})
+    study["id"] = BACKUP_STUDY_ID
+    study["title"] = BACKUP_STUDY_TITLE
+    study["researchers"] = ["Local demo researcher"]
+    protocol["researchQuestions"] = [
+        {
+            "id": "RQ-1",
+            "text": (
+                "Does AI assistance change developer cognitive load and working "
+                "behaviour?"
+            ),
+        },
+        {
+            "id": "RQ-2",
+            "text": (
+                "How do developers review and verify code during AI-assisted "
+                "debugging?"
+            ),
+        },
+    ]
+    protocol["participants"] = {
+        "planned": 12,
+        "design": "within-subjects",
+        "counterbalanced": True,
+    }
+    protocol["session"] = {
+        "durationMinutes": 45,
+        "taskDescription": (
+            "Participants debug and fix a complex Python codebase in a 45-minute "
+            "session, once with AI assistance and once without it."
+        ),
+    }
+    protocol["instruments"]["tern"]["session"]["durationMinutes"] = 45
+    protocol["analysisPlan"] = [
+        {"rq": "RQ-1", "recipes": ["paired-nonparametric", "tlx-debrief"]},
+        {"rq": "RQ-2", "recipes": ["ai-review-behavior", "ziegler-acceptance-rate"]},
+    ]
+    protocol["measures"] = [
+        "task time and behaviour",
+        "NASA-TLX perceived effort",
+        "lightweight fatigue probes",
+        "review quality and acceptance behaviour",
+    ]
+    return protocol
+
+
+def _backup_moves(now: str, turn_id: str) -> list[DesignMoveRow]:
+    """The compact, accepted design record shown by the seven-slot rail."""
+    grounding = []
+    rows = [
+        (
+            "backup-move-design",
+            "choose-template",
+            "design",
+            (
+                "Use a counterbalanced within-subjects design so each developer "
+                "completes both conditions."
+            ),
+            {
+                "templateId": "within-subjects-crossover-v1",
+                "parameters": {
+                    "studyId": BACKUP_STUDY_ID,
+                    "title": BACKUP_STUDY_TITLE,
+                    "conditions": ["ai-assisted", "unassisted"],
+                    "participantPlan": 12,
+                    "sessionMinutes": 45,
+                    "taskDescription": (
+                        "Participants debug and fix a complex Python codebase "
+                        "with and without AI assistance."
+                    ),
+                    "researchers": ["Local demo researcher"],
+                    "ethicsRef": (
+                        "Local rehearsal only; replace before real data collection."
+                    ),
+                    "outputEndpoint": "http://127.0.0.1:8000/ingest/events",
+                },
+            },
+        ),
+        (
+            "backup-move-question",
+            "set-question",
+            "researchQuestions",
+            (
+                "Compare developer cognitive load and working behaviour across "
+                "AI-assisted and unassisted debugging."
+            ),
+            {
+                "section": "researchQuestions",
+                "op": "append",
+                "value": (
+                    "Does AI assistance change developer cognitive load and "
+                    "working behaviour?"
+                ),
+            },
+        ),
+        (
+            "backup-move-participants",
+            "set-field",
+            "participants.design",
+            "Each developer completes both the AI-assisted and unassisted conditions.",
+            {
+                "op": "set-field",
+                "path": ["participants", "design"],
+                "value": "within-subjects",
+            },
+        ),
+        (
+            "backup-move-conditions",
+            "set-conditions",
+            "conditions[]",
+            "Compare AI-assisted debugging with debugging without AI.",
+            {
+                "section": "conditions",
+                "op": "append",
+                "value": ["ai-assisted", "unassisted"],
+            },
+        ),
+        (
+            "backup-move-measures",
+            "add-measure",
+            "measures[]",
+            (
+                "Capture task time and behaviour, perceived effort, and lightweight "
+                "fatigue probes."
+            ),
+            {
+                "section": "measures",
+                "op": "append",
+                "value": (
+                    "task time and behaviour, NASA-TLX perceived effort, and "
+                    "fatigue"
+                ),
+            },
+        ),
+        (
+            "backup-move-instrument",
+            "add-instrument",
+            "instruments.tern",
+            (
+                "Capture privacy-preserving editor behaviour, fatigue probes, and "
+                "stuck episodes with TERN."
+            ),
+            {
+                "section": "instruments",
+                "name": "tern",
+                "op": "add-instrument",
+                "config": {"session": {"durationMinutes": 45}},
+            },
+        ),
+        (
+            "backup-move-statistics",
+            "prescribe-statistics",
+            "analysisPlan",
+            (
+                "Use paired nonparametric tests for NASA-TLX and fatigue scores "
+                "between conditions."
+            ),
+            {"recipeId": "paired-nonparametric", "rq": "RQ-1"},
+        ),
+        (
+            "backup-move-counterbalance",
+            "set-field",
+            "participants.counterbalanced",
+            "Counterbalance condition order across participants.",
+            {
+                "op": "set-field",
+                "path": ["participants", "counterbalanced"],
+                "value": True,
+            },
+        ),
+        (
+            "backup-move-planned",
+            "set-field",
+            "participants.planned",
+            "Plan for 12 participants.",
+            {"op": "set-field", "path": ["participants", "planned"], "value": 12},
+        ),
+        (
+            "backup-move-task",
+            "set-field",
+            "session.taskDescription",
+            (
+                "Participants debug and fix a complex Python codebase in a "
+                "45-minute session."
+            ),
+            {
+                "op": "set-field",
+                "path": ["session", "taskDescription"],
+                "value": (
+                    "Participants debug and fix a complex Python codebase in a "
+                    "45-minute session."
+                ),
+            },
+        ),
+        (
+            "backup-move-duration",
+            "set-field",
+            "session.durationMinutes",
+            "Set each session to 45 minutes.",
+            {"op": "set-field", "path": ["session", "durationMinutes"], "value": 45},
+        ),
+        (
+            "backup-move-title",
+            "set-field",
+            "study.title",
+            BACKUP_STUDY_TITLE,
+            {
+                "op": "set-field",
+                "path": ["study", "title"],
+                "value": BACKUP_STUDY_TITLE,
+            },
+        ),
+    ]
+    return [
+        DesignMoveRow(
+            id=move_id,
+            study_id=BACKUP_STUDY_ID,
+            turn_id=turn_id,
+            seq=seq,
+            kind=kind,
+            target=target,
+            proposal=proposal,
+            patch=patch,
+            grounding=grounding,
+            status="accepted",
+            decided_by=IMPLICIT_IDENTITY_SUB,
+            decided_at=now,
+        )
+        for seq, (move_id, kind, target, proposal, patch) in enumerate(rows, 1)
+    ]
+
+
+def _seed_backup(s: Session, now: str) -> dict:
+    """Seed the owned local fallback without deleting any unrelated study."""
+    made = {
+        "study": False,
+        "protocol": False,
+        "conversation": False,
+        "compilation": False,
+    }
+    study = s.get(Study, BACKUP_STUDY_ID)
+    if study is None:
+        study = Study(
+            id=BACKUP_STUDY_ID,
+            project_id=IMPLICIT_PROJECT_ID,
+            protocol_version="4",
+            data_path="",
+        )
+        s.add(study)
+        s.flush()
+        made["study"] = True
+    else:
+        study.project_id = IMPLICIT_PROJECT_ID
+        study.protocol_version = "4"
+
+    protocol = _backup_protocol()
+    protocol_yaml = yaml.safe_dump(protocol, sort_keys=False, default_flow_style=False)
+    draft = s.get(ProtocolDraftRow, BACKUP_STUDY_ID)
+    if draft is None:
+        draft = ProtocolDraftRow(study_id=BACKUP_STUDY_ID)
+        s.add(draft)
+    if draft.yaml != protocol_yaml:
+        draft.yaml = protocol_yaml
+        draft.updated_at = now
+        made["protocol"] = True
+
+    turn_id = "backup-turn-platform"
+    if s.scalar(
+        select(ConversationTurn.id).where(
+            ConversationTurn.study_id == BACKUP_STUDY_ID
+        )
+    ) is None:
+        s.add(
+            ConversationTurn(
+                id="backup-turn-researcher",
+                study_id=BACKUP_STUDY_ID,
+                seq=1,
+                role="researcher",
+                author="Local researcher",
+                text=(
+                    "I want a complete rehearsal study comparing developer cognitive "
+                    "load and working behaviour with AI assistance versus without it."
+                ),
+                retrieved_refs=[],
+                recommendations=[],
+                created_at=now,
+                source="backup",
+            )
+        )
+        s.add(
+            ConversationTurn(
+                id=turn_id,
+                study_id=BACKUP_STUDY_ID,
+                seq=2,
+                role="platform",
+                author="Platform",
+                text=(
+                    "The backup protocol is complete: a counterbalanced "
+                    "within-subjects Python debugging study with TERN capture, "
+                    "cognitive-load measures, "
+                    "and a paired nonparametric analysis plan."
+                ),
+                retrieved_refs=[],
+                recommendations=[],
+                created_at=now,
+                source="backup",
+            )
+        )
+        for move in _backup_moves(now, turn_id):
+            s.add(move)
+        made["conversation"] = True
+
+    compilation_id = "backup-compilation-v1"
+    compilation = s.get(Compilation, compilation_id)
+    if compilation is None:
+        s.add(
+            Compilation(
+                id=compilation_id,
+                study_id=BACKUP_STUDY_ID,
+                base_sha256="",
+                draft_yaml=protocol_yaml,
+                diff="",
+                hunk_trace=[],
+                move_ids=[move.id for move in _backup_moves(now, turn_id)],
+                errors=[],
+                unresolved=[],
+                valid=1,
+                created_at=now,
+                applied_at=now,
+            )
+        )
+        made["compilation"] = True
+    else:
+        compilation.draft_yaml = protocol_yaml
+        compilation.valid = 1
+        compilation.errors = []
+        compilation.unresolved = []
+        compilation.move_ids = [move.id for move in _backup_moves(now, turn_id)]
+    draft.compilation_id = compilation_id
+    if s.scalar(
+        select(ApprovalEvent.id).where(
+            ApprovalEvent.study_id == BACKUP_STUDY_ID,
+            ApprovalEvent.compilation_id == compilation_id,
+        )
+    ) is None:
+        s.add(
+            ApprovalEvent(
+                study_id=BACKUP_STUDY_ID,
+                compilation_id=compilation_id,
+                approved_by=IMPLICIT_IDENTITY_SUB,
+                role="owner",
+                at=now,
+            )
+        )
+    return made
 
 
 def _seed(s: Session, now: str) -> dict:

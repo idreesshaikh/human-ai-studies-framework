@@ -784,3 +784,43 @@ def test_the_demo_study_owns_the_sample_sessions(client):
         f"/studies/{study}/sessions", headers=bearer("newcomer")
     ).json()
     assert mine_rows == []
+
+
+def test_the_writable_backup_is_complete_and_owner_accessible(client):
+    """The local fallback is ready for the platform and TERN without live design."""
+    from middleware.demo import BACKUP_STUDY_ID, seed_backup
+
+    seed_backup(f"sqlite:///{client.db_path}")
+
+    projects = client.get("/projects", headers=bearer("local")).json()
+    implicit = next(project for project in projects if project["slug"] == "implicit")
+    assert implicit["role"] == "owner"
+    assert implicit["studyCount"] == 1
+
+    protocol = client.get(
+        f"/studies/{BACKUP_STUDY_ID}/protocol", headers=bearer("local")
+    )
+    assert protocol.status_code == 200, protocol.text
+    assert protocol.json()["participants"]["counterbalanced"] is True
+
+    conversation = client.get(
+        f"/studies/{BACKUP_STUDY_ID}/conversation", headers=bearer("local")
+    ).json()
+    moves = [move for turn in conversation["turns"] for move in turn["moves"]]
+    assert len([move for move in moves if move["status"] == "accepted"]) == 12
+
+    compiled = client.post(
+        f"/studies/{BACKUP_STUDY_ID}/conversation/compile",
+        json={},
+        headers=bearer("local"),
+    )
+    assert compiled.status_code == 200, compiled.text
+    assert compiled.json()["valid"] is True, compiled.text
+
+    minted = client.post(
+        f"/studies/{BACKUP_STUDY_ID}/enrollment/tokens",
+        json={"count": 1, "grain": "participant"},
+        headers=bearer("local"),
+    )
+    assert minted.status_code == 200, minted.text
+    assert minted.json()[0]["condition"] == "ai-assisted"

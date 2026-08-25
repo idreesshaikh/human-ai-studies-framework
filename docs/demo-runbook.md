@@ -26,6 +26,8 @@ npm --prefix extension run compile
 DEMO_DB=/tmp/phoenix-demo.sqlite3
 MIDDLEWARE_DB="$DEMO_DB" uv run python -m middleware demo-seed
 MIDDLEWARE_DB="$DEMO_DB" uv run python -m middleware corpus-import
+# Optional writable fallback: complete protocol + accepted design record.
+MIDDLEWARE_DB="$DEMO_DB" uv run python -m middleware backup-seed
 
 # Terminal 1: local middleware + built platform UI
 MIDDLEWARE_PORT=8001 \
@@ -40,6 +42,12 @@ Open [http://127.0.0.1:8001](http://127.0.0.1:8001). Use an owned Personal study
 for the live walkthrough and dry run. The seeded demo project is intentionally
 viewer-only, so it is not the right place to mint participant links or run
 simulations. If you need a clean rehearsal, use a new `DEMO_DB` path.
+
+For a guaranteed local fallback, open the owned **My project** and the study
+`ai-cognitive-load-demo`. `backup-seed` gives it a complete 7/7 design and an
+approved protocol, so you can go straight to **Run → Enrollment**, mint a link,
+and connect TERN. If port 8001 is already occupied, use another local port and
+the minted connection link will carry that endpoint through to the extension.
 
 If the design conversation says that no model is configured, continue with the
 deterministic Repertoire path below. A model-backed conversation requires

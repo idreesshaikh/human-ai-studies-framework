@@ -53,6 +53,17 @@ _STUCK_EXACT = frozenset(
         "sure",
         "yes",
         "exactly",
+        "same thing",
+        "exactly the same thing",
+        "yes indeed",
+        "yes absolutely",
+        "what else",
+        "what else do you need",
+        "i've a sample example",
+        "ive a sample example",
+        "i have a sample example",
+        "that shouldn't matter to you",
+        "that shouldnt matter to you",
     }
 )
 _STUCK_PHRASES = (
@@ -62,6 +73,7 @@ _STUCK_PHRASES = (
     "i dont understand",
     "i'm confused",
     "im confused",
+    "sample example",
 )
 
 

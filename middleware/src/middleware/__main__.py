@@ -99,6 +99,7 @@ def main() -> None:
             "corpus-verify",
             "corpus-enrich",
             "demo-seed",
+            "backup-seed",
             "templates",
             "simulate",
         ],
@@ -190,6 +191,20 @@ def main() -> None:
             f"demo: project {'created' if made['project'] else 'present'}, "
             f"study {'created' if made['study'] else 'present'}, "
             f"{made['sessions']} session mapping(s) added"
+        )
+
+    elif args.command == "backup-seed":
+        from middleware.demo import seed_backup
+        from middleware.settings import Settings
+
+        settings = Settings()
+        made = seed_backup(settings.db_url, now=datetime.now(UTC).isoformat())
+        print(
+            "backup: study ai-cognitive-load-demo is ready "
+            f"(study {'created' if made['study'] else 'present'}, "
+            f"protocol {'updated' if made['protocol'] else 'present'}, "
+            f"conversation {'created' if made['conversation'] else 'present'}, "
+            f"compilation {'created' if made['compilation'] else 'present'})"
         )
 
     elif args.command == "corpus-verify":

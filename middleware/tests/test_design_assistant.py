@@ -5,7 +5,9 @@ move guard (``_filter_repeated_moves``).
 
 from middleware.design_assistant import (
     ProposedMove,
+    _facet_settled_in_state,
     _filter_repeated_moves,
+    _guard_completion_claim,
     _is_near_duplicate,
     recommend_templates,
 )
@@ -118,6 +120,32 @@ def test_filter_is_a_no_op_without_state():
     """The stateless demo path (no study, no stored moves) is untouched."""
     moves = (_mv("add-measure", "Measure review latency."),)
     assert _filter_repeated_moves(moves, None) is moves
+
+
+def test_completion_claim_is_reconciled_with_open_protocol_slots():
+    state = {
+        "outstandingSlots": [{"label": "the conditions"}],
+        "compileValid": False,
+        "compileErrors": [],
+    }
+    text = _guard_completion_claim(
+        "The protocol is complete. It will compile as-is.", state
+    )
+    assert text == "The draft is not complete yet. Still open: the conditions."
+
+
+def test_settled_compiled_facets_are_not_asked_again():
+    state = {
+        "filled": ["participants", "conditions", "measures"],
+        "outstandingSlots": [],
+        "taskDescription": True,
+        "sessionMinutes": 45,
+    }
+    assert _facet_settled_in_state("population", state)
+    assert _facet_settled_in_state("task", state)
+    assert _facet_settled_in_state("comparison", state)
+    assert _facet_settled_in_state("outcome", state)
+    assert _facet_settled_in_state("constraints", state)
 
 
 def test_caution_never_blocks_the_section_move_that_addresses_it():

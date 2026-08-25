@@ -60,7 +60,15 @@ export function compile(
       // not move the dot it should have: the server's own compile (the
       // authoritative unresolved list) already reflected it, but the
       // optimistic preview a researcher watches while deciding did not.
-      if (move.patch.path[0] === "participants") {
+      const path = move.patch.path.join(".");
+      if (path === "comparison") {
+        const values = legacyComparisonValues(move.patch.value);
+        for (const value of values) {
+          if (!draft.conditions.includes(value)) draft.conditions.push(value);
+        }
+      } else if (path === "design.conditionOrder") {
+        draft.participants = ["set"];
+      } else if (move.patch.path[0] === "participants") {
         draft.participants = ["set"];
       }
       continue;
@@ -76,6 +84,18 @@ export function compile(
     }
   }
   return draft;
+}
+
+function legacyComparisonValues(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value : [value];
+  return raw
+    .flatMap((item) =>
+      typeof item === "string"
+        ? item.split(/\s+(?:vs\.?|versus)\s+|\r?\n/i)
+        : [],
+    )
+    .map((item) => item.trim().replace(/^[,;]+|[,;]+$/g, ""))
+    .filter(Boolean);
 }
 
 /** Compile from scratch over the full move history  -  the draft rail's
