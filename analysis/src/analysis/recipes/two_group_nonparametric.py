@@ -48,10 +48,10 @@ METHOD_TEMPLATE = (
     title="Two-group nonparametric comparison (Mann-Whitney U + Cliff's delta)",
 )
 def run(dataset: Dataset) -> RecipeResult:
-    value = dataset.meta.get("value_column", "value")
+    value = dataset.meta.get("value_column", "firstGreenMs")
     figure_form = dataset.meta.get("figure", _DEFAULT_FIGURE)
 
-    df = dataset.data if dataset.data is not None else pd.DataFrame()
+    df = dataset.of_type("task_outcome")
     if df.empty:
         return RecipeResult(summary="No data available for two-group comparison.")
 

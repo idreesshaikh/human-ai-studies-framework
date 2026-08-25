@@ -1,4 +1,4 @@
-# TERN 1.0.0 - Developer Study Companion
+# TERN 1.0.1 - Developer Study Companion
 
 A zero-distraction VS Code extension for developer studies. While a participant
 works on a task (with or without AI assistance), TERN quietly turns the session
@@ -72,7 +72,7 @@ window opens with the extension loaded. In that window:
    opens and the data file is finalized.
 
 To install for real participants: `npm run package` produces a `.vsix`, then
-`code --install-extension tern-1.0.0.vsix`.
+`code --install-extension tern-1.0.1.vsix`.
 
 ### Try it without a study server
 
@@ -105,6 +105,11 @@ from the study protocol - no manual configuration, no side-channel.
    the study will capture.
 5. Run **_TERN: Start Study Session_** when ready - the session uses the
    configuration that arrived from the study.
+
+When a prepared manifest supplies `tern.session.id`, TERN consumes it once and
+then returns to random IDs for ordinary standalone testing. The preflight
+shows the session ID, task, privacy policy, and any external producer that
+TERN cannot execute itself.
 
 The middleware refuses to pair a study with no compiled, validated protocol -
 there is no separate ethics-approval gate; that approval is the university's

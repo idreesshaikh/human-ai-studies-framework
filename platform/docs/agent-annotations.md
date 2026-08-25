@@ -98,4 +98,5 @@ retrofitted.
 | `toggle-popover` | `TogglePopover` | per-metric capture-toggle popover showing label, grounding, and apply button (FR-DASH-11) |
 | `live-sessions` | `LiveSessions` | the live-session monitor: who is running right now (landmark, FR-DASH-10) |
 | `live-session` | `LiveSessions` | one running session, with its event rate, task, condition and gap count; `data-agent-ref` carries the session id |
+| `producer-status` | `DataTab` | the capture-producer status summary: configured scope, observed events, and producer health |
 | `swimlane-timeline` | `SwimlaneTimeline` | the per-session swimlane chart (landmark, FR-DASH-4) |

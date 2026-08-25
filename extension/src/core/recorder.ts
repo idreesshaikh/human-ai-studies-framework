@@ -4,6 +4,7 @@ export interface SessionMeta {
   sessionId: string;
   participantId: string;
   condition: StudyCondition;
+  taskId?: string;
 }
 
 /**
@@ -57,6 +58,7 @@ export class Recorder {
       sessionId: this.meta.sessionId,
       participantId: this.meta.participantId,
       condition: this.meta.condition,
+      taskId: this.meta.taskId ?? '',
       seq: this.seq++,
       type,
       payload,

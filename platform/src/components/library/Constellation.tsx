@@ -212,33 +212,6 @@ export function Constellation({
     () => Math.max(...nodes.map((n) => n.citationCount ?? 0), 0),
     [nodes],
   );
-  const yearScale = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const node of nodes) {
-      if (node.year != null) counts.set(node.year, (counts.get(node.year) ?? 0) + 1);
-    }
-    const years = [...counts.keys()].sort((a, b) => a - b);
-    if (years.length === 0) return null;
-    const first = years[0];
-    const last = years[years.length - 1];
-    const span = Math.max(last - first, 1);
-    const tickIndexes =
-      years.length <= 6
-        ? years.map((_, index) => index)
-        : [...new Set([0, 1, Math.round((years.length - 1) / 2), years.length - 2, years.length - 1])];
-    return {
-      first,
-      last,
-      ticks: tickIndexes
-        .sort((a, b) => a - b)
-        .map((index) => ({
-          year: years[index],
-          count: counts.get(years[index]) ?? 0,
-          position: ((years[index] - first) / span) * 100,
-        })),
-    };
-  }, [nodes]);
-
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
   // Who has the focus/hover right now  -  drives the neighbourhood highlight.
@@ -364,6 +337,7 @@ export function Constellation({
   // large harvested neighbourhoods degrade to zoom-gated labels so they stay
   // legible instead of painting over each other.
   const alwaysLabels = labelMode(nodes.length) === "always";
+  const sparse = nodes.length <= 5;
 
   return (
     <figure className="m-0 flex flex-col gap-2">
@@ -393,7 +367,12 @@ export function Constellation({
         />
       </div>
 
-      <div className="relative h-[var(--constellation-h)] w-full overflow-hidden rounded-card bg-bg">
+      <div
+        className={cn(
+          "relative w-full overflow-hidden rounded-card bg-bg",
+          sparse ? "h-[var(--constellation-h-sparse)]" : "h-[var(--constellation-h)]",
+        )}
+      >
         {/* A calm field, not a boxed chart: a faint vignette instead of a
          * hard edge, so the graph reads as a space rather than a panel. */}
         <div
@@ -554,42 +533,22 @@ export function Constellation({
         </button>
       </div>
 
-      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 type-caption text-text-muted">
+      <figcaption className="flex flex-col gap-3 type-caption text-text-muted">
         <span className="text-text-muted/80">Drag to pan · scroll to zoom · select a paper to inspect it</span>
-        {yearScale && (
-          <span
-            className="flex min-w-0 items-center gap-2"
-            aria-label={`Publication year distribution from ${yearScale.first} to ${yearScale.last}`}
-          >
-            <span className="type-legend shrink-0 text-text-muted">Years</span>
-            <span className="relative inline-flex h-7 w-44 items-start" aria-hidden>
-              <span className="absolute left-1 right-1 top-2 h-px bg-border-strong" />
-              {yearScale.ticks.map((tick) => (
-                <span
-                  key={tick.year}
-                  className="absolute top-0 -translate-x-1/2"
-                  style={{ left: `${tick.position}%` }}
-                  title={`${tick.year}: ${tick.count} paper${tick.count === 1 ? "" : "s"}`}
-                >
-                  <span className="mx-auto block size-1.5 rounded-full bg-accent ring-2 ring-bg" />
-                  <span className="mt-0.5 block type-legend text-text-muted">{tick.year}</span>
-                </span>
-              ))}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <LegendDot filled label="ingested" />
+          <LegendDot color="var(--series-3)" label="suggested, click to add" />
+          {Object.entries(EDGE).map(([kind, { color, label }]) => (
+            <span key={kind} className="flex items-center gap-1">
+              <span
+                aria-hidden
+                className="inline-block h-0.5 w-4 rounded-chip"
+                style={{ background: color }}
+              />
+              {label}
             </span>
-          </span>
-        )}
-        <LegendDot filled label="ingested" />
-        <LegendDot color="var(--series-3)" label="suggested, click to add" />
-        {Object.entries(EDGE).map(([kind, { color, label }]) => (
-          <span key={kind} className="flex items-center gap-1">
-            <span
-              aria-hidden
-              className="inline-block h-0.5 w-4 rounded-chip"
-              style={{ background: color }}
-            />
-            {label}
-          </span>
-        ))}
+          ))}
+        </div>
       </figcaption>
     </figure>
   );

@@ -35,6 +35,10 @@ export interface CaptureConfig {
    * Never applied: only `settings` configures capture.
    */
   legs?: unknown;
+  /** Producer capability state; configuration is not receipt. */
+  producers?: unknown;
+  /** Shared session contract consumed by TERN and external producers. */
+  sessionManifest?: unknown;
 }
 
 const PREFIX = 'tern.';

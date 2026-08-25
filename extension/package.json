@@ -2,7 +2,7 @@
   "name": "tern",
   "displayName": "TERN: Telemetry for Engineering & Reasoning Norms",
   "description": "Zero-distraction in-IDE overlay for developer studies: fatigue Likert sampling, stuck detection with inline code prompts, and session telemetry.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "idreesrazak",
   "repository": {
     "type": "git",
@@ -21,7 +21,7 @@
     "cognitive-load"
   ],
   "engines": {
-    "vscode": "^1.85.0",
+    "vscode": "^1.134.0",
     "node": ">=22"
   },
   "galleryBanner": {
@@ -154,6 +154,11 @@
           "type": "number",
           "default": 60,
           "description": "Study session length in minutes. The end-of-study survey opens automatically when time is up."
+        },
+        "tern.session.id": {
+          "type": "string",
+          "default": "",
+          "description": "Optional session ID supplied by a manifest. Cleared after it is consumed; empty uses a random standalone ID."
         },
         "tern.fatigue.intervalMinutes": {
           "type": "number",

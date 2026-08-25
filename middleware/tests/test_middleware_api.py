@@ -176,6 +176,25 @@ def test_metrics_ingest_is_idempotent(client):
     assert replay["duplicates"] == 2
 
 
+def test_metrics_identity_deduplicates_a_replay_with_new_run_metadata(client):
+    row = metric_row()
+    row.update(
+        {
+            "metricId": "stable-metric-1",
+            "metricRunId": "run-1",
+            "metricRunTimestamp": "2026-07-11T10:01:00+00:00",
+        }
+    )
+    first = client.post("/ingest/metrics", json=[row]).json()
+    row["metricRunId"] = "run-2"
+    row["metricRunTimestamp"] = "2026-07-11T10:02:00+00:00"
+    replay = client.post("/ingest/metrics", json=[row]).json()
+
+    assert first["inserted"] == 1
+    assert replay["inserted"] == 0
+    assert replay["duplicates"] == 1
+
+
 def test_dataset_joins_legs_on_one_timeline(client):
     client.post(
         "/ingest/events",

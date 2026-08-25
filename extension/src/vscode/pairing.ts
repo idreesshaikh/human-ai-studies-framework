@@ -24,6 +24,8 @@ export const STATE_PENDING = 'tern.pendingConfigVersion';
 /** The task block this session was assigned  -  what the sidebar shows the
  *  participant so they know what they have been asked to do. */
 export const STATE_BLOCK = 'tern.sessionBlock';
+/** The full manifest for facilitator-visible producer state and external runners. */
+export const STATE_MANIFEST = 'tern.sessionManifest';
 
 interface RedeemResult {
   studyId: string;
@@ -98,6 +100,7 @@ export async function refreshConfigAtSessionStart(
       // stored whatever wall #6 decides about the settings, because what the
       // participant is asked to do this session is true either way.
       await context.workspaceState.update(STATE_BLOCK, readBlock(cfg));
+      await context.workspaceState.update(STATE_MANIFEST, cfg.sessionManifest);
       const applied = context.workspaceState.get<string>(STATE_VERSION);
       if (
         shouldApplyCaptureConfig(
@@ -138,6 +141,7 @@ export async function refreshConfigAtSessionStart(
 export async function pairFromConnectionString(
   context: vscode.ExtensionContext,
   raw: string,
+  onPaired?: () => void,
 ): Promise<void> {
   let conn;
   try {
@@ -185,6 +189,10 @@ export async function pairFromConnectionString(
     result.captureConfig.captureConfigVersion,
   );
   await context.workspaceState.update(STATE_LEGS, result.captureConfig.legs);
+  await context.workspaceState.update(
+    STATE_MANIFEST,
+    result.captureConfig.sessionManifest,
+  );
   await context.workspaceState.update(STATE_PENDING, undefined);
   const conf = vscode.workspace.getConfiguration('tern');
   await conf.update(
@@ -208,6 +216,7 @@ export async function pairFromConnectionString(
     vscode.ConfigurationTarget.Workspace,
   );
   await applyConfig(result.captureConfig);
+  onPaired?.();
 
   // Pre-flight summary (before any session starts).
   const items = preflightSummary(overlayFlags(result.captureConfig));
@@ -223,6 +232,7 @@ export async function pairFromConnectionString(
 
 export function registerPairing(
   context: vscode.ExtensionContext,
+  onPaired?: () => void,
 ): vscode.Disposable {
   return vscode.commands.registerCommand('tern.connectToStudy', async () => {
     const raw = await vscode.window.showInputBox({
@@ -231,6 +241,11 @@ export function registerPairing(
       ignoreFocusOut: true,
     });
     if (!raw) return;
-    await pairFromConnectionString(context, raw);
+    await pairFromConnectionString(context, raw, onPaired);
+    // Keep the command boundary explicit as well as the shared redeem path:
+    // TreeViews can be mounted after the async consent flow returns, so a
+    // refresh at the command boundary guarantees the participant sees the
+    // newly applied capture scope immediately.
+    onPaired?.();
   });
 }

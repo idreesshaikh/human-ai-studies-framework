@@ -247,9 +247,9 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             never sends the graph out of view before its action is reachable. */}
         <div
           className={cn(
-            "items-stretch gap-4",
+            "items-start gap-4",
             selectedNode &&
-              "grid min-h-0 lg:h-[var(--library-pane-h)] lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]",
+              "grid min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]",
           )}
         >
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface p-4">
@@ -271,7 +271,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
 
           {/* Selected-paper detail. */}
           {selectedNode && (
-            <aside className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface-raised p-4 lg:h-full">
+            <aside className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface-raised p-4 lg:h-fit">
               <button
                 className="absolute right-3 top-3 text-text-muted hover:text-text"
                 onClick={() => setSelected(null)}

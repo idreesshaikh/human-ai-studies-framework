@@ -103,6 +103,8 @@ export interface ProjectHome {
 export interface EnrollmentTokenCaptureConfig {
   captureConfigVersion: string;
   enabledInstruments: { name: string; enabled: boolean }[];
+  producerStates?: Record<string, string>;
+  privacyPolicy?: Record<string, unknown>;
 }
 
 export interface ToggleCatalogEntry {

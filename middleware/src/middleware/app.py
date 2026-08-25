@@ -38,6 +38,10 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 from protocol.assignment import assign, tasks_of
+from protocol.capture import (
+    producer_capabilities,
+    required_producers,
+)
 from protocol.errors import ProtocolError
 from protocol.export import build_kit
 from pydantic import BaseModel, Field
@@ -124,6 +128,7 @@ class StudyEventIn(BaseModel):
     mono: float = -1
     participantId: str = ""
     condition: str = ""
+    taskId: str = ""
     type: str = ""
     payload: dict = Field(default_factory=dict)
     source: str = ""
@@ -134,7 +139,6 @@ class EventBatch(BaseModel):
 
     source: str = ""
     events: list[StudyEventIn]
-
 
 
 class RecipeRunIn(BaseModel):
@@ -157,7 +161,6 @@ class PaperLinksIn(BaseModel):
     """Replace a paper's protocol-element links (FR-LIT-3)."""
 
     targets: list[str] = Field(default_factory=list)
-
 
 
 class MatchIn(BaseModel):
@@ -236,7 +239,6 @@ class TemplateInstantiateIn(BaseModel):
     parameters: dict = Field(default_factory=dict)
     studyId: str = ""
     title: str = ""
-
 
 
 class MintTokensIn(BaseModel):
@@ -387,7 +389,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def now() -> str:
         return clock().isoformat(timespec="milliseconds")
 
-
     def check_study_id(study_id: str) -> None:
         if check.study_id is not None and study_id != check.study_id:
             raise HTTPException(
@@ -413,7 +414,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if protocol_doc is None:
             raise HTTPException(404, "no protocol loaded; set MIDDLEWARE_PROTOCOL")
         return protocol_doc
-
 
     @app.post("/ingest/events")
     def ingest_events(
@@ -450,6 +450,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             elif bearer_present:
                 extra_flags.append("unauthenticated")
             flags = check.flags_for(pid, cond, e.v) + extra_flags
+            if block and e.taskId != block.task_id:
+                flags.append("task-mismatch")
             flagged += bool(flags)
             rows.append(
                 {
@@ -498,9 +500,31 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         flagged = 0
         flags_by_row: list[list[str]] = []
         for row in rows:
-            flags = check.flags_for(
-                str(row.get("participantId", "")), str(row.get("condition", "")), None
-            )
+            participant_id = str(row.get("participantId", ""))
+            condition = str(row.get("condition", ""))
+            session_id = str(row.get("sessionId", ""))
+            task_id = str(row.get("taskId", ""))
+            flags = check.flags_for(participant_id, condition, None)
+            if not session_id:
+                flags.append("missing-session")
+            if not row.get("metricId"):
+                flags.append("missing-metric-identity")
+            if not row.get("schemaVersion"):
+                flags.append("missing-schema-version")
+            if not row.get("timestamp"):
+                flags.append("missing-timestamp")
+            if row.get("source", "metrics") != "metrics":
+                flags.append("source-mismatch")
+            block = s.get(SessionBlock, session_id) if session_id else None
+            if block:
+                if participant_id and participant_id != block.participant_id:
+                    flags.append("credential-mismatch")
+                if condition and condition != block.condition:
+                    flags.append("condition-mismatch")
+                if task_id != block.task_id:
+                    flags.append("task-mismatch")
+            elif session_id:
+                flags.append("unknown-session")
             flagged += bool(flags)
             flags_by_row.append(flags)
         inserted = store_metric_rows(s, rows, received, flags_by_row)
@@ -552,7 +576,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()
         return {"id": record.id, "sha256": digest, "duplicate": False}
 
-
     def _session_scope(study_id: str):
         """
         A predicate for "this session_id belongs to this study".
@@ -592,18 +615,25 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 Event.session_id,
                 Event.participant_id,
                 Event.condition,
+                Event.task_id,
                 func.count(),
                 func.min(Event.ts),
                 func.max(Event.ts),
             )
             .where(in_this_study(Event.session_id))
-            .group_by(Event.session_id, Event.participant_id, Event.condition)
+            .group_by(
+                Event.session_id,
+                Event.participant_id,
+                Event.condition,
+                Event.task_id,
+            )
         ).all()
-        for sid, pid, cond, n, first, last in event_rows:
+        for sid, pid, cond, task_id, n, first, last in event_rows:
             out[sid] = {
                 "sessionId": sid,
                 "participantId": pid,
                 "condition": cond,
+                "taskId": task_id,
                 "events": n,
                 "metricRows": 0,
                 "firstTs": first,
@@ -614,20 +644,25 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 MetricRow.session_id,
                 MetricRow.participant_id,
                 MetricRow.condition,
+                MetricRow.task_id,
                 func.count(),
             )
             .where(in_this_study(MetricRow.session_id))
             .group_by(
-                MetricRow.session_id, MetricRow.participant_id, MetricRow.condition
+                MetricRow.session_id,
+                MetricRow.participant_id,
+                MetricRow.condition,
+                MetricRow.task_id,
             )
         ).all()
-        for sid, pid, cond, n in metric_rows:
+        for sid, pid, cond, task_id, n in metric_rows:
             entry = out.setdefault(
                 sid,
                 {
                     "sessionId": sid,
                     "participantId": pid,
                     "condition": cond,
+                    "taskId": task_id,
                     "events": 0,
                     "metricRows": 0,
                     "firstTs": None,
@@ -635,6 +670,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 },
             )
             entry["metricRows"] = n
+            entry["taskId"] = entry.get("taskId") or task_id
         return sorted(out.values(), key=lambda e: e["sessionId"])
 
     @app.get(
@@ -694,6 +730,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "sessionId": e.session_id,
                 "participantId": e.participant_id,
                 "condition": e.condition,
+                "taskId": e.task_id,
+                "schemaVersion": e.v,
                 "type": e.type,
                 "seq": e.seq,
                 "flags": e.flags,
@@ -707,6 +745,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "sessionId": m.session_id,
                 "participantId": m.participant_id,
                 "condition": m.condition,
+                "taskId": m.task_id,
+                "schemaVersion": m.schema_version,
                 "type": m.table,
                 "seq": None,
                 "flags": m.flags,
@@ -750,7 +790,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
             return PlainTextResponse(buf.getvalue(), media_type="text/csv")
         raise HTTPException(400, "format must be 'json' or 'csv'")
-
 
     @app.get(
         "/studies/{study_id}/protocol",
@@ -818,12 +857,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         seqs_by_session: dict[str, dict[str, list[int]]] = defaultdict(
             lambda: defaultdict(list)
         )
+        source_counts_by_session: dict[str, dict[str, int]] = defaultdict(
+            lambda: defaultdict(int)
+        )
         for sid, src, seq in s.execute(
             select(Event.session_id, Event.source, Event.seq).where(
                 in_this_study(Event.session_id)
             )
         ):
             seqs_by_session[sid][src].append(seq)
+            source_counts_by_session[sid][src] += 1
 
         flag_kinds: dict[str, set[str]] = defaultdict(set)
         flagged_events: dict[str, int] = defaultdict(int)
@@ -837,24 +880,32 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             flag_kinds[sid].update(flags)
 
         sessions = {}
-        for sid, pid, cond, n, last_recv in s.execute(
+        for sid, pid, cond, task_id, n, last_recv in s.execute(
             select(
                 Event.session_id,
                 Event.participant_id,
                 Event.condition,
+                Event.task_id,
                 func.count(),
                 func.max(Event.received_at),
             )
             .where(in_this_study(Event.session_id))
-            .group_by(Event.session_id, Event.participant_id, Event.condition)
+            .group_by(
+                Event.session_id,
+                Event.participant_id,
+                Event.condition,
+                Event.task_id,
+            )
         ):
             agg = _session_gap_facts(seqs_by_session[sid])
             sessions[sid] = {
                 "sessionId": sid,
                 "participantId": pid,
                 "condition": cond,
+                "taskId": task_id,
                 "events": n,
                 "metricRows": 0,
+                "sourceCounts": dict(source_counts_by_session[sid]),
                 "flaggedEvents": flagged_events.get(sid, 0),
                 "flagKinds": sorted(flag_kinds.get(sid, ())),
                 "gapCount": agg["gapCount"],
@@ -862,16 +913,20 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "complete": agg["complete"],
                 "lastReceivedAt": last_recv,
             }
-        for sid, pid, cond, n in s.execute(
+        for sid, pid, cond, task_id, n in s.execute(
             select(
                 MetricRow.session_id,
                 MetricRow.participant_id,
                 MetricRow.condition,
+                MetricRow.task_id,
                 func.count(),
             )
             .where(in_this_study(MetricRow.session_id))
             .group_by(
-                MetricRow.session_id, MetricRow.participant_id, MetricRow.condition
+                MetricRow.session_id,
+                MetricRow.participant_id,
+                MetricRow.condition,
+                MetricRow.task_id,
             )
         ):
             entry = sessions.setdefault(
@@ -882,6 +937,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "condition": cond,
                     "events": 0,
                     "metricRows": 0,
+                    "sourceCounts": {},
                     "flaggedEvents": 0,
                     "flagKinds": [],
                     "gapCount": 0,
@@ -891,6 +947,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 },
             )
             entry["metricRows"] = n
+            entry["taskId"] = entry.get("taskId") or task_id
+            entry["sourceCounts"]["metrics"] = n
 
         participants = proto.get("participants", {})
         within = participants.get("design") == "within-subjects"
@@ -922,6 +980,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 }
                 for rq in proto.get("researchQuestions", [])
             ],
+            "producers": producer_capabilities(proto),
+            "requiredProducers": required_producers(proto),
         }
 
     @app.get(
@@ -1080,7 +1140,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             for f in s.scalars(select(StoredFile).order_by(StoredFile.id))
         ]
 
-
     @app.get(
         "/studies/{study_id}/papers",
         dependencies=[Depends(require_project_for_study("view"))],
@@ -1123,7 +1182,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 select(Paper).where(Paper.study_id == study_id).order_by(Paper.id)
             )
         ]
-
 
     def cached_fetch(s: Session):
         """
@@ -1273,15 +1331,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         # Adding the same paper again should be a local idempotent read, not another
         # three remote calls. The persistent response cache handles individual URLs;
         # this guard handles the more common whole-paper repeat.
-        if s.scalar(
-            select(PaperEdge.id).where(
-                PaperEdge.study_id == study_id,
-                PaperEdge.src_ref == paper_ref,
-                PaperEdge.kind.in_(
-                    ("references", "citations", "recommendations")
-                ),
+        if (
+            s.scalar(
+                select(PaperEdge.id).where(
+                    PaperEdge.study_id == study_id,
+                    PaperEdge.src_ref == paper_ref,
+                    PaperEdge.kind.in_(("references", "citations", "recommendations")),
+                )
             )
-        ) is not None:
+            is not None
+        ):
             return 0
         try:
             edges = semantic_scholar.fetch_edges(paper_ref, fetch=cached_fetch(s))
@@ -1525,9 +1584,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             title = (p.title if p else "") or (
                 edge_metadata.dst_title if edge_metadata else ""
             )
-            authors = (p.authors if p else None) or (
-                edge_metadata.dst_authors if edge_metadata else None
-            ) or []
+            authors = (
+                (p.authors if p else None)
+                or (edge_metadata.dst_authors if edge_metadata else None)
+                or []
+            )
             year = (
                 p.year
                 if p and p.year is not None
@@ -1539,11 +1600,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             citation_count = (
                 p.citation_count
                 if p and p.citation_count is not None
-                else (
-                    edge_metadata.dst_citation_count
-                    if edge_metadata
-                    else None
-                )
+                else (edge_metadata.dst_citation_count if edge_metadata else None)
             )
             nodes[ref] = {
                 "paperRef": ref,
@@ -1573,7 +1630,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 {"src": e.src_ref, "dst": e.dst_ref, "kind": e.kind} for e in edges
             ],
         }
-
 
     @app.post(
         "/studies/{study_id}/papers/match",
@@ -1702,8 +1758,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             record["url"] = f"https://doi.org/{record['doi']}"
         elif paper_ref.startswith("s2:"):
             record["url"] = (
-                "https://www.semanticscholar.org/paper/"
-                f"{paper_ref.removeprefix('s2:')}"
+                f"https://www.semanticscholar.org/paper/{paper_ref.removeprefix('s2:')}"
             )
         return record
 
@@ -1830,22 +1885,29 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             s, study_id, paper_ref, added_via="graph", match_reason=""
         )
         if adopted is not None:
-            has_edges = s.scalar(
-                select(PaperEdge.id).where(
-                    PaperEdge.study_id == study_id,
-                    (PaperEdge.src_ref == paper_ref) | (PaperEdge.dst_ref == paper_ref),
+            has_edges = (
+                s.scalar(
+                    select(PaperEdge.id).where(
+                        PaperEdge.study_id == study_id,
+                        (PaperEdge.src_ref == paper_ref)
+                        | (PaperEdge.dst_ref == paper_ref),
+                    )
                 )
-            ) is not None
+                is not None
+            )
             s.commit()
             if not has_edges:
                 background_tasks.add_task(
                     harvest_edges_in_background, study_id, paper_ref
                 )
-            title = s.scalar(
-                select(Paper.title).where(
-                    Paper.study_id == study_id, Paper.paper_ref == paper_ref
+            title = (
+                s.scalar(
+                    select(Paper.title).where(
+                        Paper.study_id == study_id, Paper.paper_ref == paper_ref
+                    )
                 )
-            ) or paper_ref
+                or paper_ref
+            )
             return {
                 "studyId": study_id,
                 "paperRef": paper_ref,
@@ -1858,9 +1920,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         edges_pending = record is None
         if record is None:
             try:
-                record = semantic_scholar.fetch_paper(
-                    paper_ref, fetch=cached_fetch(s)
-                )
+                record = semantic_scholar.fetch_paper(paper_ref, fetch=cached_fetch(s))
             except semantic_scholar.SemanticScholarError as exc:
                 raise HTTPException(502, f"Semantic Scholar: {exc}") from exc
 
@@ -1871,9 +1931,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         # actionable. Do not turn a successful click into another rate-limited
         # provider request; only genuinely cold metadata needs enrichment.
         if edges_pending:
-            background_tasks.add_task(
-                harvest_edges_in_background, study_id, paper_ref
-            )
+            background_tasks.add_task(harvest_edges_in_background, study_id, paper_ref)
         return {
             "studyId": study_id,
             "paperRef": paper_ref,
@@ -2078,7 +2136,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "properties": {"templateVersion": {"type": "integer", "minimum": 1}},
         }
 
-
     @app.get("/templates")
     def template_index() -> dict:
         """Template registry index for agent consumption (FR-AGF-1)."""
@@ -2118,7 +2175,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "default": elicitation.DEFAULT_PROFILE,
         }
 
-
     @app.get("/papers/index")
     def corpus_index() -> dict:
         """Corpus index for agent consumption (FR-AGF-1)."""
@@ -2138,7 +2194,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "scoringVersion": 0,
         }
 
-
     @app.post("/projects", dependencies=[Depends(resolve_identity)])
     def create_project(
         body: dict,
@@ -2154,18 +2209,23 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         # "Personal", check if they already have one  -  if so, return it (reusable).
         if name == "Personal":
             existing = s.scalar(
-                select(Project).join(Membership).where(
+                select(Project)
+                .join(Membership)
+                .where(
                     (Project.name == "Personal")
                     & (Membership.identity_sub == identity.sub)
                     & (Membership.role == "owner")
                 )
             )
             if existing:
-                study_count = s.scalar(
-                    select(func.count())
-                    .select_from(Study)
-                    .where(Study.project_id == existing.id)
-                ) or 0
+                study_count = (
+                    s.scalar(
+                        select(func.count())
+                        .select_from(Study)
+                        .where(Study.project_id == existing.id)
+                    )
+                    or 0
+                )
                 return {
                     "id": existing.id,
                     "slug": existing.slug,
@@ -2633,7 +2693,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "role": existing.role if existing else inv.role,
         }
 
-
     @app.post(
         "/studies/{study_id}/enrollment/tokens",
         dependencies=[Depends(require_project_for_study("mint_token"))],
@@ -2745,12 +2804,23 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                         protocol,
                         r.participant_id,
                         r.condition,
+                        study_id=study_id,
                         overrides=r.capture_overrides,
                     )
                     capture_config = {
                         "captureConfigVersion": cfg["captureConfigVersion"],
                         "enabledInstruments": enrollment.enabled_instruments(
                             cfg["settings"]
+                        ),
+                        "producerStates": {
+                            key: value.get("state")
+                            for key, value in (cfg.get("sessionManifest") or {})
+                            .get("producers", {})
+                            .items()
+                            if isinstance(value, dict)
+                        },
+                        "privacyPolicy": (cfg.get("sessionManifest") or {}).get(
+                            "privacyPolicy", {}
                         ),
                     }
                 except ProtocolError:
@@ -2784,7 +2854,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         row.revoked_at = now()
         s.commit()
         return {"revoked": token_id}
-
 
     @app.get(
         "/studies/{study_id}/enrollment/toggles/catalog",
@@ -2893,7 +2962,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 protocol,
                 row.participant_id,
                 row.condition,
+                study_id=row.study_id,
                 overrides=row.capture_overrides,
+                endpoints={
+                    "events": f"{base}/ingest/events",
+                    "metrics": f"{base}/ingest/metrics",
+                },
             ),
             "consentStatement": enrollment.consent_statement(protocol, row.condition),
             "contentPolicy": enrollment.content_policy(protocol),
@@ -2992,6 +3066,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     @app.get("/studies/{study_id}/capture-config")
     def get_capture_config(
         study_id: str,
+        request: Request,
         sessionId: str | None = None,
         authorization: str = Header(default=""),
         s: Session = Depends(db),
@@ -3008,13 +3083,20 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if protocol is None:
             raise HTTPException(404, "no protocol for this study")
         task, block = _block_for_session(s, protocol, row, sessionId)
+        base = str(request.base_url).rstrip("/")
         return enrollment.build_capture_config(
             protocol,
             row.participant_id,
             (block or {}).get("condition") or row.condition,
+            study_id=study_id,
             task=task,
             block=block,
             overrides=row.capture_overrides,
+            session_id=sessionId,
+            endpoints={
+                "events": f"{base}/ingest/events",
+                "metrics": f"{base}/ingest/metrics",
+            },
         )
 
     @app.get(
@@ -3046,9 +3128,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             protocol = _resolve_study_protocol(s, study_id)
             participants = (protocol or {}).get("participants", {})
             design = (
-                participants.get("design", "")
-                if isinstance(participants, dict)
-                else ""
+                participants.get("design", "") if isinstance(participants, dict) else ""
             )
             calculator = (
                 paired_power_curve
@@ -3104,9 +3184,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         finally:
             s.close()
 
-    KNOWN_PREF_KEYS = frozenset(
-        {"theme", "savedViews"}
-    )
+    KNOWN_PREF_KEYS = frozenset({"theme", "savedViews"})
 
     @app.put(
         "/me/preferences",
@@ -3309,9 +3387,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         matched_shapes = shapes_from_recipe_ids(recipe_ids)
         participants = (protocol or {}).get("participants", {})
         participant_design = (
-            participants.get("design", "")
-            if isinstance(participants, dict)
-            else ""
+            participants.get("design", "") if isinstance(participants, dict) else ""
         )
         # Domain-specific recipes answer the study's operational questions, while
         # the prescription catalogue is keyed by statistical design shape. The
@@ -3325,7 +3401,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             if shape in matched_shapes
         ]
         return {"prescriptions": [r for r in rows if r is not None]}
-
 
     def _conversation_seq(s: Session, study_id: str) -> int:
         last = s.scalar(
@@ -3479,7 +3554,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()
         return researcher
 
-
     def _design_turn_client():
         """
         Use the fast, schema-constrained design model for protocol-shaping turns. The
@@ -3542,8 +3616,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "status": "proposed",
                     **(
                         {"mergeData": m["mergeData"]}
-                        if m["kind"] == "merge-templates"
-                        and m.get("mergeData")
+                        if m["kind"] == "merge-templates" and m.get("mergeData")
                         else {}
                     ),
                 }
@@ -3965,7 +4038,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             },
         )
 
-
     @app.post(
         "/studies/{study_id}/simulate",
         dependencies=[Depends(require_project_for_study("contribute"))],
@@ -4012,7 +4084,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()
         outcome["plan"] = run_plan_summary(proto, _joined_rows(s), study_id)
         return outcome
-
 
     @app.post(
         "/studies/{study_id}/sessions/start",
@@ -4067,7 +4138,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def auth_config() -> dict:
         """Which sign-in surface the platform should render (FR-OPS-5)."""
         return auth.public_config(settings)
-
 
     dist = settings.spa_dist
     index_html = dist / "index.html"
@@ -4163,7 +4233,6 @@ def _session_gap_facts(seqs_by_source: dict[str, list[int]]) -> dict:
         "missingEvents": missing,
         "complete": bool(completes) and all(completes),
     }
-
 
 
 def _event_json(e: Event) -> dict:

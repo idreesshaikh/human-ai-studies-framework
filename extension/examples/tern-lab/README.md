@@ -14,13 +14,11 @@ code --extensionDevelopmentPath=extension extension/examples/tern-lab
 ```
 
 Or open the folder in VS Code after installing the `.vsix` from the release.
-The included workspace settings are intentionally short for a demo:
-
-- 10-minute session
-- fatigue probe every 2 minutes
-- 1-second pause before a fatigue probe can appear
-- stuck prompt after 15 seconds of active, unedited focus
-- local JSONL only; no network endpoint
+The workspace settings are a standalone local-only preset. A PHOENIX-linked
+session can replace its duration, task, condition, endpoint, and capture scope
+at pairing/session start, so inspect the pre-flight rather than assuming these
+local defaults apply. The feature-rich linked rehearsal is documented in the
+[local PHOENIX + TERN demo runbook](../../../docs/demo-runbook.md).
 
 ## Try the extension
 

@@ -92,6 +92,15 @@ report (FR-ING-3) and the one-timeline dataset summary (FR-ING-4).
 | `POST/GET/PATCH /tasks` | manual task-board cards (MP-06) |
 | `GET /health` | liveness + loaded protocol |
 
+### Shared session identity
+
+The capture config returned by pairing includes a small versioned manifest with
+the participant, condition, task, session, producer states, endpoints, and
+privacy policy. External metrics or agent commands may derive the same shape
+with `protocol derive session-manifest`. It is a coordination contract, not a
+bearer credential: keep it free of source code, conversation text, clipboard
+text, and long-lived secrets.
+
 With `MIDDLEWARE_WEB` pointing at a built SPA (default `platform/dist`,
 baked into the Docker image), the middleware also serves the React platform
 app at `/` and re-serves the shell for its `/p/*` and `/invitations/*` deep

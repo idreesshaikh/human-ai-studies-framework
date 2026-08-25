@@ -9,6 +9,7 @@ from protocol.derive import (
     AGENT_HOOK_ENV_VARS,
     derive_agent_hooks,
     derive_overlay_settings,
+    derive_session_manifest,
 )
 from protocol.errors import ProtocolError
 from protocol.export import build_kit, fetch_dataset
@@ -85,6 +86,20 @@ def _cmd_derive_agent_hooks(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_derive_manifest(args: argparse.Namespace) -> int:
+    protocol = load_protocol(args.file)
+    manifest = derive_session_manifest(
+        protocol,
+        participant_id=args.participant,
+        condition=args.condition,
+        session_id=args.session,
+        task_id=args.task,
+        endpoints={"events": args.events, "metrics": args.metrics},
+    )
+    print(json.dumps(manifest, indent=2))
+    return 0
+
+
 def _cmd_export_kit(args: argparse.Namespace) -> int:
     protocol = load_protocol(args.file)
     study_id = args.study or protocol["study"]["id"]
@@ -156,6 +171,19 @@ def _build_parser() -> argparse.ArgumentParser:
         help="hook command on the task workspace's PATH (default: agent-capture-hook)",
     )
     agent_hooks.set_defaults(func=_cmd_derive_agent_hooks)
+
+    manifest = derive_sub.add_parser(
+        "session-manifest",
+        help="emit the shared versioned session manifest for one participant",
+    )
+    manifest.add_argument("file")
+    manifest.add_argument("--participant", required=True)
+    manifest.add_argument("--condition", required=True)
+    manifest.add_argument("--session")
+    manifest.add_argument("--task")
+    manifest.add_argument("--events", default="")
+    manifest.add_argument("--metrics", default="")
+    manifest.set_defaults(func=_cmd_derive_manifest)
 
     export = sub.add_parser(
         "export", help="export study artifacts derived from the protocol"

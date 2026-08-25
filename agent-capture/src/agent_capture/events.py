@@ -32,6 +32,7 @@ class Keys:
     participant_id: str = ""
     condition: str = ""
     session_id: str = ""
+    task_id: str = ""
 
     @classmethod
     def from_env(cls, environ: dict | None = None) -> Keys:
@@ -40,6 +41,17 @@ class Keys:
             participant_id=env.get("STUDY_PARTICIPANT", ""),
             condition=env.get("STUDY_CONDITION", ""),
             session_id=env.get("STUDY_SESSION", ""),
+            task_id=env.get("STUDY_TASK", ""),
+        )
+
+    @classmethod
+    def from_manifest(cls, manifest: dict) -> Keys:
+        """Resolve all join keys from a prepared manifest."""
+        return cls(
+            participant_id=str(manifest.get("participantId", "")),
+            condition=str(manifest.get("condition", "")),
+            session_id=str(manifest.get("sessionId", "")),
+            task_id=str(manifest.get("taskId", "")),
         )
 
 
@@ -66,6 +78,7 @@ def study_event(
         "source": source,
         "participantId": keys.participant_id,
         "condition": keys.condition,
+        "taskId": keys.task_id,
         "seq": seq,
         "type": type,
         "payload": payload,

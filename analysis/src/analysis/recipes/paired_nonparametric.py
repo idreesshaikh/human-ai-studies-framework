@@ -49,11 +49,15 @@ METHOD_TEMPLATE = (
     title="Paired nonparametric comparison (Wilcoxon + rank-biserial r)",
 )
 def run(dataset: Dataset) -> RecipeResult:
-    value = dataset.meta.get("value_column", "value")
+    # ``task_outcome`` is the protocol-level source for objective completion
+    # time. Older versions of the recipe reached for ``Dataset.data``, a
+    # dataframe attribute that the current event-first Dataset never exposed;
+    # that made every within-subjects dry run fail before the statistic ran.
+    value = dataset.meta.get("value_column", "firstGreenMs")
     figure_form = dataset.meta.get("figure", _DEFAULT_FIGURE)
     conds = dataset.conditions[:2] if len(dataset.conditions) >= 2 else []
 
-    df = dataset.data if dataset.data is not None else pd.DataFrame()
+    df = dataset.of_type("task_outcome")
     if df.empty:
         return RecipeResult(summary="No data available for paired comparison.")
 

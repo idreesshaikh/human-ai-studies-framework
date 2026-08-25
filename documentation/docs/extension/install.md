@@ -1,4 +1,4 @@
-# Installing TERN 1.0.0
+# Installing TERN 1.0.1
 
 TERN is distributed as a VSIX because participants install it into VS Code,
 not into the PHOENIX web app. The participant path is intentionally small:
@@ -30,7 +30,7 @@ npm run package            # produces tern-<version>.vsix
 code --install-extension tern-<version>.vsix
 ```
 
-For the 1.0.0 release, the artifact is named `tern-1.0.0.vsix`.
+For the 1.0.1 release, the artifact is named `tern-1.0.1.vsix`.
 
 ### A five-minute local demo
 

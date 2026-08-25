@@ -11,6 +11,13 @@ participant's machine  -  so the study you designed is the study that runs.
 It handles design, setup, and curation, then stops: you get the data, a data
 dictionary, and an analysis plan, ready for your own notebook.
 
+[![CI](https://github.com/idreesshaikh/human-ai-studies-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/idreesshaikh/human-ai-studies-framework/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+The [demo runbook](docs/demo-runbook.md) covers the local researcher and
+participant flow. Provider limits are recorded in the protocol's capture
+configuration; unsupported transcript sources are reported instead of guessed.
+
 ## How it works
 
 1. **Talk it through.** Describe your idea; accept or reject suggestions one at
@@ -127,12 +134,17 @@ uv run python -m analysis.cli paper protocol/examples/pilot-study.yaml
 | --- | --- | --- |
 | How participants feel | TERN probes | Fatigue Likert, end-of-session TLX survey |
 | What participants do | TERN telemetry | Focus switches, edit bursts, pastes (sizes only), stuck episodes |
-| What the AI does | agent-capture | Tool calls, transcripts, suggestion lifecycle (shown/accepted/dismissed) |
+| What the AI does | agent-capture | Claude tool-call/transcript metadata; provider fallback is explicit |
 | What the code looks like | metrics | Complexity profile of the code produced |
 
 Every leg is configured per study from the protocol and disclosed in the
 participant's consent statement; a capture config the researcher has not
 approved never runs.
+
+External producers can consume the same manifest with
+`protocol derive session-manifest`; TERN remains the participant-facing capture
+boundary. The platform reports what was configured and what data actually
+arrived.
 
 ## Repository layout
 
@@ -149,6 +161,10 @@ approved never runs.
 | `curated/` | Dataset curation and authorship checks |
 
 ## Worked example
+
+For the complete local PHOENIX + TERN walkthrough, including participant
+rehearsal, screenshots, recovery notes, and the researcher notebook handoff,
+see the [demo runbook](docs/demo-runbook.md).
 
 Follow one study from idea to notebook with the real generated artifacts in
 [`docs/examples/`](docs/examples/): the protocol, a dry-run report, the data

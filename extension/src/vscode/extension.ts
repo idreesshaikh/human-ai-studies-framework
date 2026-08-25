@@ -30,6 +30,8 @@ import {
   pairFromConnectionString,
   registerPairing,
   refreshConfigAtSessionStart,
+  STATE_BLOCK,
+  STATE_MANIFEST,
 } from './pairing';
 import { preflightSummary } from '../core/preflight';
 import { confirmPreflight } from './preflightPrompt';
@@ -146,13 +148,13 @@ export function activate(context: vscode.ExtensionContext): void {
     // active (see the sessionActive context); always delegate to the
     // built-in command even when no study is running.
     registerBehaviorCommands(() => study?.behavior),
-    registerPairing(context),
+    registerPairing(context, () => sidebar.refresh()),
     vscode.window.registerUriHandler({
       handleUri(uri: vscode.Uri) {
         const params = new URLSearchParams(uri.query);
         const c = params.get('c');
         if (uri.path === '/pair' && c)
-          void pairFromConnectionString(context, c);
+          void pairFromConnectionString(context, c, () => sidebar.refresh());
       },
     }),
   );
@@ -231,7 +233,15 @@ async function startSession(): Promise<void> {
   // task block against it, which makes the assignment idempotent  -  a re-pull
   // for a session already under way returns the same block instead of
   // advancing the participant past one.
-  const plannedSessionId = newSessionId();
+  const preparedSessionId = cfg('session.id', '').trim();
+  const plannedSessionId = preparedSessionId || newSessionId();
+  if (preparedSessionId) {
+    // A prepared id is single-use. Clear the setting after consuming it so a
+    // later ordinary standalone session gets a fresh fallback id.
+    await vscode.workspace
+      .getConfiguration('tern')
+      .update('session.id', '', vscode.ConfigurationTarget.Workspace);
+  }
 
   // A session boundary is the only point capture config may change (wall
   // #6)  -  re-pull it now, before the clock arms, and get this IDE's paired
@@ -261,7 +271,9 @@ async function startSession(): Promise<void> {
     flags[key] =
       val?.workspaceValue ?? val?.globalValue ?? val?.defaultValue ?? false;
   }
-  const items = preflightSummary(flags);
+  const manifest =
+    extContext.workspaceState.get<Record<string, unknown>>(STATE_MANIFEST);
+  const items = preflightSummary(flags, manifest?.producers);
   const accepted = await confirmPreflight({
     participantId: participantId.trim(),
     condition: conditionPick.label,
@@ -279,6 +291,8 @@ async function startSession(): Promise<void> {
     fatigueIntervalMs: cfg('fatigue.intervalMinutes', 15) * 60_000,
     credential,
     plannedSessionId,
+    taskId: extContext.workspaceState.get<{ taskId?: string }>(STATE_BLOCK)
+      ?.taskId,
   });
 
   study!.recorder.record('session_start', {
@@ -321,6 +335,7 @@ interface BootConfig {
    *  re-pull so the server can assign this session's task block against it.
    *  Absent on a crash recovery, which keeps the id it is restoring. */
   plannedSessionId?: string;
+  taskId?: string;
   restore?: {
     sessionId: string;
     startedAtEpochMs: number;
@@ -450,6 +465,7 @@ function bootSession(boot: BootConfig): void {
       sessionId: session.id,
       participantId: boot.participantId,
       condition: boot.condition,
+      taskId: boot.taskId ?? cfg('session.taskId', ''),
     },
     {
       startSeq: boot.restore ? boot.restore.startSeq : 0,

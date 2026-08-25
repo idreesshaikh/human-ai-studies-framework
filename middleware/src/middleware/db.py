@@ -70,6 +70,7 @@ class MetricRow(Base):
     session_id: Mapped[str] = mapped_column(String, index=True)
     participant_id: Mapped[str] = mapped_column(String, index=True)
     condition: Mapped[str] = mapped_column(String)
+    task_id: Mapped[str] = mapped_column(String, default="", index=True)
     timestamp: Mapped[str] = mapped_column(String, index=True)
     schema_version: Mapped[int] = mapped_column(Integer)
     row: Mapped[dict] = mapped_column(JSON)
@@ -79,7 +80,12 @@ class MetricRow(Base):
 
     @staticmethod
     def hash_row(table: str, row: dict) -> str:
-        canonical = json.dumps(row, sort_keys=True, separators=(",", ":"))
+        metric_id = row.get("metricId")
+        canonical = (
+            f"metricId:{metric_id}"
+            if metric_id
+            else json.dumps(row, sort_keys=True, separators=(",", ":"))
+        )
         return sha256(f"{table}\n{canonical}".encode()).hexdigest()
 
 
@@ -183,7 +189,6 @@ class S2Cache(Base):
     fetched_at: Mapped[str] = mapped_column(String)
 
 
-
 class RecipeRun(Base):
     """One recorded analysis-recipe run."""
 
@@ -257,9 +262,7 @@ class EnrollmentToken(Base):
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
-    study_id: Mapped[str] = mapped_column(
-        String, ForeignKey("studies.id"), index=True
-    )
+    study_id: Mapped[str] = mapped_column(String, ForeignKey("studies.id"), index=True)
     participant_id: Mapped[str] = mapped_column(String)
     participant_index: Mapped[int] = mapped_column(Integer, default=0)
     condition: Mapped[str] = mapped_column(String)
@@ -310,9 +313,7 @@ class ConversationTurn(Base):
     __tablename__ = "conversation_turns"
     __table_args__ = (
         UniqueConstraint("study_id", "seq", name="uq_conversation_turn_seq"),
-        UniqueConstraint(
-            "study_id", "request_id", name="uq_conversation_turn_request"
-        ),
+        UniqueConstraint("study_id", "request_id", name="uq_conversation_turn_request"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -419,8 +420,8 @@ class UserProfile(Base):
     updated_at: Mapped[str] = mapped_column(String, default="")
 
 
-
 # app.py imports and calls them; it never imports ``sqlite_insert`` directly any more.
+
 
 def _is_postgres(engine) -> bool:
     return engine.dialect.name == "postgresql"
@@ -435,9 +436,11 @@ def upsert_do_nothing(engine, model, rows: list[dict]) -> int:
     with _Session(engine) as s:
         if _is_postgres(engine):
             from sqlalchemy.dialects.postgresql import insert as pg_insert
+
             stmt = pg_insert(model).values(rows).on_conflict_do_nothing()
         else:
             from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
             stmt = sqlite_insert(model).values(rows).on_conflict_do_nothing()
         pk = model.__mapper__.primary_key[0]
         inserted = len(s.execute(stmt.returning(pk)).fetchall())
@@ -460,6 +463,7 @@ def upsert_do_update(
     with _Session(engine) as s:
         if _is_postgres(engine):
             from sqlalchemy.dialects.postgresql import insert as pg_insert
+
             stmt = (
                 pg_insert(model)
                 .values(rows)
@@ -467,6 +471,7 @@ def upsert_do_update(
             )
         else:
             from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
             stmt = (
                 sqlite_insert(model)
                 .values(rows)
@@ -492,8 +497,7 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     global _engine, FTS5_AVAILABLE, PG_FTS_AVAILABLE
 
     if isinstance(db_url, Path) or (
-        isinstance(db_url, str)
-        and not db_url.startswith(("sqlite://", "postgresql"))
+        isinstance(db_url, str) and not db_url.startswith(("sqlite://", "postgresql"))
     ):
         db_url = f"sqlite:///{db_url}"
 
@@ -523,6 +527,7 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _migrate_design_move_seq(engine)
     _migrate_enrollment_participant_index(engine)
     _migrate_event_task_id(engine)
+    _migrate_metric_task_id(engine)
     _migrate_invitation_created_at(engine)
     _migrate_enrollment_capture_overrides(engine)
     _migrate_paper_edge_abstract(engine)
@@ -641,6 +646,17 @@ def _migrate_event_task_id(engine) -> None:
             log.info("Added task_id column to events (per-task attribution)")
 
 
+def _migrate_metric_task_id(engine) -> None:
+    """Add ``metric_rows.task_id`` for the shared session/task join contract."""
+    with engine.begin() as conn:
+        cols = {c["name"] for c in inspect(engine).get_columns("metric_rows")}
+        if "task_id" not in cols:
+            conn.execute(
+                text("ALTER TABLE metric_rows ADD COLUMN task_id VARCHAR DEFAULT ''")
+            )
+            log.info("Added task_id column to metric_rows (per-task attribution)")
+
+
 def _migrate_enrollment_capture_overrides(engine) -> None:
     """Add ``enrollment_tokens.capture_overrides`` if missing (idempotent)."""
     with engine.begin() as conn:
@@ -714,8 +730,7 @@ def _migrate_conversation_request_id(engine) -> None:
                 text("ALTER TABLE conversation_turns ADD COLUMN request_id VARCHAR")
             )
             log.info(
-                "Added request_id to conversation_turns "
-                "(stream retries are idempotent)"
+                "Added request_id to conversation_turns (stream retries are idempotent)"
             )
         # Existing rows have NULL, so this unique index does not collide with
         # the historical record while making all new request ids study-scoped.
@@ -770,6 +785,7 @@ def _safe_host(db_url: str) -> str:
     """Return the host part of a DB URL without credentials."""
     try:
         from urllib.parse import urlparse
+
         parsed = urlparse(db_url)
         return parsed.hostname or db_url[:40]
     except Exception:  # noqa: BLE001 - host is diagnostics only; fall back to a prefix
@@ -784,18 +800,22 @@ def _setup_pg_fts(engine) -> None:
     with engine.begin() as conn:
         cols = {c["name"] for c in inspect(engine).get_columns("papers")}
         if "search_vector" not in cols:
-            conn.execute(text(
-                "ALTER TABLE papers ADD COLUMN search_vector tsvector "
-                "GENERATED ALWAYS AS ("
-                "  to_tsvector('english', "
-                "coalesce(title,'') || ' ' || coalesce(abstract,''))"
-                ") STORED"
-            ))
+            conn.execute(
+                text(
+                    "ALTER TABLE papers ADD COLUMN search_vector tsvector "
+                    "GENERATED ALWAYS AS ("
+                    "  to_tsvector('english', "
+                    "coalesce(title,'') || ' ' || coalesce(abstract,''))"
+                    ") STORED"
+                )
+            )
             log.info("Added search_vector column to papers (PostgreSQL FTS)")
-        conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS idx_papers_fts "
-            "ON papers USING gin(search_vector)"
-        ))
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_papers_fts "
+                "ON papers USING gin(search_vector)"
+            )
+        )
 
 
 def _create_fts(engine) -> None:
@@ -803,17 +823,21 @@ def _create_fts(engine) -> None:
     global FTS5_AVAILABLE
     with engine.begin() as conn:
         try:
-            conn.execute(text(
-                "CREATE VIRTUAL TABLE IF NOT EXISTS paper_fts "
-                "USING fts5(paper_ref, chunk_idx UNINDEXED, body)"
-            ))
+            conn.execute(
+                text(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS paper_fts "
+                    "USING fts5(paper_ref, chunk_idx UNINDEXED, body)"
+                )
+            )
             FTS5_AVAILABLE = True
         except Exception:  # noqa: BLE001  -  minimal SQLite without FTS5
             FTS5_AVAILABLE = False
-            conn.execute(text(
-                "CREATE TABLE IF NOT EXISTS paper_chunks ("
-                "paper_ref TEXT, chunk_idx INTEGER, body TEXT)"
-            ))
+            conn.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS paper_chunks ("
+                    "paper_ref TEXT, chunk_idx INTEGER, body TEXT)"
+                )
+            )
 
 
 def _check_schema(engine, db_url: str) -> None:

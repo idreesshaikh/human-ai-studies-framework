@@ -7,6 +7,7 @@ import contextlib
 import json
 import os
 import sys
+from pathlib import Path
 
 from agent_capture.events import SOURCE_AGENT, Keys
 from agent_capture.ingest import DEFAULT_ENDPOINT, post_events
@@ -22,6 +23,7 @@ def run(stdin_json: str, argv: list[str], environ: dict) -> dict:
     parser = argparse.ArgumentParser(prog="agent-capture-hook")
     parser.add_argument("--content-policy", default=None)
     parser.add_argument("--endpoint", default=None)
+    parser.add_argument("--manifest", type=Path, default=None)
     args, _ = parser.parse_known_args(argv)
 
     try:
@@ -32,11 +34,28 @@ def run(stdin_json: str, argv: list[str], environ: dict) -> dict:
     if not transcript_path or not os.path.isfile(transcript_path):
         return {"posted": 0, "error": "no transcript"}
 
-    keys = Keys.from_env(environ)
+    manifest = None
+    if args.manifest:
+        try:
+            manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {"posted": 0, "error": "invalid manifest"}
+    keys = Keys.from_manifest(manifest) if manifest else Keys.from_env(environ)
     policy = normalize_policy(
-        args.content_policy or environ.get("STUDY_CONTENT_POLICY")
+        args.content_policy
+        or (
+            (manifest.get("privacyPolicy") or {}).get("agentContentPolicy")
+            if manifest
+            else None
+        )
+        or environ.get("STUDY_CONTENT_POLICY")
     )
-    endpoint = args.endpoint or environ.get("STUDY_INGEST_ENDPOINT") or DEFAULT_ENDPOINT
+    endpoint = (
+        args.endpoint
+        or ((manifest.get("endpoints") or {}).get("events") if manifest else None)
+        or environ.get("STUDY_INGEST_ENDPOINT")
+        or DEFAULT_ENDPOINT
+    )
     events = normalize_transcript(transcript_path, keys, policy)
     return post_events(events, source=SOURCE_AGENT, endpoint=endpoint)
 

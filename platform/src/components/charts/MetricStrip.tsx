@@ -155,10 +155,10 @@ export function MetricStrip({
       </div>
       <p className="type-caption text-text-muted">{metric.definition}</p>
 
-      {/* A stable min-height keeps the section from jumping when the selected
-          metric has no rows (short notice) vs. a full chart/table  -  the
-          layout-shift the researcher saw when switching metric/condition. */}
-      <div className="min-h-[19rem]">
+      {/* Full chart/table states keep a stable working height, while an empty
+          metric stays content-sized. Reserving plotting height for an absence
+          turned a short explanation into a large blank gulf before analysis. */}
+      <div className={points.length === 0 ? "" : "min-h-[19rem]"}>
       {points.length === 0 ? (
         <EmptyState
           line={

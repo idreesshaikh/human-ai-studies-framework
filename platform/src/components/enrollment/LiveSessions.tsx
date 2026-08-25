@@ -109,7 +109,12 @@ export function LiveSessions({ studyId }: { studyId: string }) {
                 data-agent="live-session"
                 data-agent-ref={s.sessionId}
               >
-                <span className="font-mono text-text">{s.participantId}</span>
+                <span className="flex shrink-0 items-baseline gap-1.5">
+                  <span className="font-mono text-text">{s.participantId}</span>
+                  <span className="font-mono type-legend text-text-muted" title="Session ID">
+                    {s.sessionId}
+                  </span>
+                </span>
                 <span className="min-w-0 flex-1 truncate text-text-muted">
                   {s.taskTitle || s.taskId ? (
                     <>

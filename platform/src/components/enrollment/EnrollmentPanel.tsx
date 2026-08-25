@@ -262,28 +262,37 @@ export function EnrollmentPanel({
         />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-3xl type-body">
+          <table className="w-full min-w-[var(--enrollment-table-min-width)] table-fixed type-body">
+            <colgroup>
+              <col className="w-28" />
+              <col className="w-36" />
+              <col className="w-32" />
+              <col className="w-36" />
+              <col className="w-44" />
+              <col className="w-96" />
+              <col className="w-20" />
+            </colgroup>
             <thead>
               <tr className="text-left text-text-muted">
-                <th className="py-1 font-medium">Participant</th>
-                <th className="py-1 font-medium">Condition</th>
-                <th className="py-1 font-medium">Grain</th>
-                <th className="py-1 font-medium">Status</th>
-                <th className="py-1 font-medium">Link</th>
-                <th className="py-1 font-medium">Will capture</th>
+                <th className="whitespace-nowrap px-3 py-2 font-medium">Participant</th>
+                <th className="whitespace-nowrap px-3 py-2 font-medium">Condition</th>
+                <th className="whitespace-nowrap px-3 py-2 font-medium">Grain</th>
+                <th className="whitespace-nowrap px-3 py-2 font-medium">Status</th>
+                <th className="whitespace-nowrap px-3 py-2 font-medium">Link</th>
+                <th className="whitespace-nowrap px-3 py-2 font-medium">Will capture</th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {rows.map((t) => (
                 <tr key={t.id} className="border-t border-border">
-                  <td className="py-1.5 type-quantity">{t.participantId}</td>
-                  <td className="py-1.5">{t.condition}</td>
-                  <td className="py-1.5">{t.grain}</td>
-                  <td className={cn("py-1.5", STATUS_STYLE[t.status])}>
+                  <td className="whitespace-nowrap px-3 py-2 align-top type-quantity">{t.participantId}</td>
+                  <td className="whitespace-nowrap px-3 py-2 align-top">{t.condition}</td>
+                  <td className="whitespace-nowrap px-3 py-2 align-top">{t.grain}</td>
+                  <td className={cn("whitespace-nowrap px-3 py-2 align-top", STATUS_STYLE[t.status])}>
                     {t.status}
                   </td>
-                  <td className="py-1.5">
+                  <td className="whitespace-nowrap px-3 py-2 align-top">
                     {t.status === "unredeemed" && t.connectionString ? (
                       <div className="flex items-center gap-1">
                         <Button
@@ -321,10 +330,10 @@ export function EnrollmentPanel({
                       <span className="type-caption text-text-muted">-</span>
                     )}
                   </td>
-                  <td className="py-1.5">
+                  <td className="px-3 py-2 align-top">
                     {t.captureConfig ? (
                       <div
-                        className="flex flex-wrap gap-1"
+                        className="flex min-w-0 flex-wrap gap-1 break-words"
                         title={`captureConfigVersion ${t.captureConfig.captureConfigVersion}`}
                       >
                         {t.captureConfig.enabledInstruments.map((i) => {
@@ -365,12 +374,20 @@ export function EnrollmentPanel({
                           );
                           return chip;
                         })}
+                        {t.captureConfig.producerStates && (
+                            <span className="basis-full break-words type-caption text-text-muted">
+                            {Object.entries(t.captureConfig.producerStates)
+                              .filter(([id]) => id !== "tern")
+                              .map(([id, state]) => `${id}: ${state}`)
+                              .join("; ")}
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <span className="text-text-muted">-</span>
                     )}
                   </td>
-                  <td className="py-1.5 text-right">
+                  <td className="whitespace-nowrap px-3 py-2 text-right align-top">
                     {canMint && t.status !== "revoked" && (
                       <Button
                         size="sm"

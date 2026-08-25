@@ -171,7 +171,7 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
             </div>
 
             {switches.length > 0 && (
-              <div className="flex flex-col gap-2 rounded-input border border-border bg-bg p-3">
+              <div className="flex max-h-[min(32rem,50dvh)] flex-col gap-2 overflow-y-auto overscroll-contain rounded-input border border-border bg-bg p-3">
                 <p className="type-caption text-text-muted">
                   Capture config for these links, defaulted to the protocol. Any
                   switch you change here applies to all {count} link

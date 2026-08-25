@@ -64,6 +64,7 @@ a decision rather than an omission.
 | **A third role, and freezing** | Owner and member. `viewer` survives only as the demo project's internal read-only grant and is not invitable. |
 | **A second chat surface** | The Library had its own grounded Q&A assistant, separate from the design conversation. Two chat boxes in one product, in two vocabularies, both apparently "the assistant". The design conversation is the one conversational surface; the Library is for reading and exploring, not asking. |
 | **Ambient hero artwork** | A 579-line canvas animation behind the front page. It defended nothing and was the largest component in the app. |
+| **A session-orchestration product** | PHOENIX derives the capture contract and exposes what arrived; it does not become a facilitator's command center for launching, verifying, and finalizing every external runner. Metrics, agent capture, and harness tools remain explicit optional commands. |
 
 ## Standing constraints
 
@@ -77,6 +78,9 @@ a decision rather than an omission.
   anyway was removed on purpose: a reply that reads as designed without being
   designed is exactly the third state the grounding rule refuses.
 - **The demo study's data is synthetic** and is never presented as a finding.
+- **TERN is the live-session boundary.** The protocol-derived manifest keeps
+  TERN, optional external producers, and the dataset on the same join keys, but
+  PHOENIX does not own a second lifecycle for those external processes.
 - **Stack is fixed.** React 19 + Vite + Tailwind v4 + vendored shadcn/ui on
   Radix, TypeScript. Tokens are the sole source of raw values; the layout
   contract and the `data-agent` names are asserted by `platform/scripts/`,

@@ -23,6 +23,7 @@ import {
   onSeededData,
   type DatasetRow,
   type SessionStatus,
+  type StudyStatusDoc,
 } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
@@ -32,6 +33,7 @@ import { cn } from "@/lib/cn";
  * by condition. Nothing here animates  -  data is the celebration. */
 export function DataTab({ studyId }: { studyId: string }) {
   const [sessions, setSessions] = useState<SessionStatus[]>([]);
+  const [statusDoc, setStatusDoc] = useState<StudyStatusDoc | null>(null);
   const [conditions, setConditions] = useState<string[]>([]);
   const [rows, setRows] = useState<DatasetRow[]>([]);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
@@ -50,6 +52,7 @@ export function DataTab({ studyId }: { studyId: string }) {
         if (!live) return;
         setLoadError(null);
         setSessions(s.sessions);
+        setStatusDoc(s);
         setConditions(s.conditions);
         setRows(d.rows.filter((r) => r.source === "metrics"));
       })
@@ -84,6 +87,7 @@ export function DataTab({ studyId }: { studyId: string }) {
     setLoading(true);
     setSeeded(false);
     setSessions([]);
+    setStatusDoc(null);
     setConditions([]);
     setRows([]);
     setLoadError(null);
@@ -179,6 +183,28 @@ export function DataTab({ studyId }: { studyId: string }) {
         </Notice>
       )}
 
+      {statusDoc && Object.keys(statusDoc.producers).length > 0 && (
+        <section className="flex flex-col gap-2 border-b border-border pb-5" data-agent="producer-status">
+          <div>
+            <h2 className="type-subhead text-text">Configured producers</h2>
+            <p className="mt-1 max-w-reading type-caption text-text-muted">
+              Configuration is not receipt. A source is counted below only after its events or metric rows arrive.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {Object.entries(statusDoc.producers).map(([id, producer]) => (
+              <div key={id} className="rounded-input border border-border px-3 py-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="type-label text-text">{id}</span>
+                  <span className="type-caption text-text-muted">{producer.state}</span>
+                </div>
+                <p className="mt-0.5 type-caption text-text-muted">{producer.reason}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Before any data exists, the provenance decision comes first: collect
           it live or rehearse with synthetic data. */}
       {!loadError && sessions.length === 0 && (
@@ -224,6 +250,12 @@ export function DataTab({ studyId }: { studyId: string }) {
           <div className="flex flex-col gap-3">
             {sessions.map((s) => {
               const isOpen = expandedSession === s.sessionId;
+              const missingProducers = statusDoc
+                ? statusDoc.requiredProducers.filter((id) => {
+                    const source = statusDoc.producers[id]?.source ?? id;
+                    return (s.sourceCounts?.[source] ?? 0) === 0;
+                  })
+                : [];
               return (
                 <div
                   key={s.sessionId}
@@ -242,10 +274,15 @@ export function DataTab({ studyId }: { studyId: string }) {
                       ) : (
                         <ChevronRight className="size-4 text-text-muted" aria-hidden />
                       )}
-                      <div>
-                        <span className="font-medium text-text">{s.participantId}</span>
-                        <span className="ml-2 rounded-chip bg-zone-9 px-2 py-0.5 type-legend text-text">
-                          {s.condition}
+                      <div className="min-w-0">
+                        <div>
+                          <span className="font-medium text-text">{s.participantId}</span>
+                          <span className="ml-2 rounded-chip bg-zone-9 px-2 py-0.5 type-legend text-text">
+                            {s.condition}
+                          </span>
+                        </div>
+                        <span className="mt-1 block truncate font-mono type-legend text-text-muted" title="Session ID">
+                          {s.sessionId}
                         </span>
                       </div>
                     </div>
@@ -277,6 +314,19 @@ export function DataTab({ studyId }: { studyId: string }) {
                   </button>
                   {isOpen && (
                     <div className="border-t border-border px-4 pb-4 pt-3">
+                      <div className="mb-3 flex flex-wrap items-center gap-2 type-caption text-text-muted">
+                        <span>task: {s.taskId || "not stamped"}</span>
+                        {Object.entries(s.sourceCounts ?? {}).map(([source, count]) => (
+                          <span key={source} className="rounded-chip bg-well px-2 py-0.5">
+                            {source}: {count}
+                          </span>
+                        ))}
+                        {missingProducers.length > 0 && (
+                          <span className="text-critical">
+                            missing required: {missingProducers.join(", ")}
+                          </span>
+                        )}
+                      </div>
                       <SwimlaneTimeline
                         sessionId={s.sessionId}
                         studyId={studyId}

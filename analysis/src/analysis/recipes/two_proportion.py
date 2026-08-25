@@ -44,7 +44,7 @@ def run(dataset: Dataset) -> RecipeResult:
     figure_form = dataset.meta.get("figure", _DEFAULT_FIGURE)
     conds = dataset.conditions[:2] if len(dataset.conditions) >= 2 else []
 
-    df = dataset.data if dataset.data is not None else pd.DataFrame()
+    df = dataset.of_type("task_outcome")
     if df.empty:
         return RecipeResult(summary="No data available for proportion comparison.")
 

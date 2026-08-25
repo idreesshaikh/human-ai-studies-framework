@@ -36,6 +36,7 @@ export interface StudyEvent {
   sessionId: string;
   participantId: string;
   condition: StudyCondition;
+  taskId?: string;
   /** Monotonic per-session sequence number, for ordering & gap detection. */
   seq: number;
   /** Event type, e.g. 'session_start', 'fatigue_response', 'stuck_response'. */

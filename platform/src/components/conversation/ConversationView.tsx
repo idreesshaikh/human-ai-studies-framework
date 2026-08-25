@@ -264,6 +264,10 @@ export function ConversationView({
   const openingPending =
     Boolean(opening.trim()) && openingSubmitted.current === openingKey;
   const clientDraft = useMemo(() => compileAll(allMoves), [allMoves]);
+  const missingCoreSlots = useMemo(
+    () => MANDATORY_SLOTS.filter((slot) => clientDraft[slot].length === 0),
+    [clientDraft],
+  );
 
   // The literature the conversation has surfaced, de-duplicated by ref, newest
   // turns first  -  the recommender rail's source. Refreshes as turns arrive.
@@ -556,7 +560,7 @@ export function ConversationView({
   }
 
   async function applyDraft() {
-    if (!compileResult?.valid || applying) return;
+    if (!compileResult?.valid || missingCoreSlots.length > 0 || applying) return;
     setApplying(true);
     try {
       await conversationApi.approve(studyId, compileResult.compilationId);
@@ -595,19 +599,33 @@ export function ConversationView({
   const historyTurns = turns
     .filter((turn) => turn.turnId !== "opening")
     .filter((turn) => turn !== activePlatform && turn !== activeResearcher);
-  const filledSections = MANDATORY_SLOTS.filter((slot) => clientDraft[slot].length > 0).length;
+  const filledSections = MANDATORY_SLOTS.length - missingCoreSlots.length;
   // This number describes the visible core study map, not schema validity. The
   // server's unresolved list contains nested operational slots, so subtracting it
   // from the human-facing sections produced impossible values such as “-3 / 7”.
   const progressDone = filledSections;
+  const visibleCompile = compileResult && missingCoreSlots.length > 0
+    ? {
+        ...compileResult,
+        valid: false,
+        unresolved: [...new Set([...compileResult.unresolved, ...missingCoreSlots])],
+      }
+    : compileResult;
+  const displayedPlatform = activePlatform && missingCoreSlots.length > 0 &&
+      /protocol is complete.*ready to (?:compile|apply)/i.test(activePlatform.text)
+    ? {
+        ...activePlatform,
+        text: "The draft still needs a few sections before it can be reviewed and applied. Follow the next question in the study map to continue.",
+      }
+    : activePlatform;
 
   return (
     <div
       data-agent="conversation"
       className={cn("split-rail h-full", draftFolded && "rail-folded")}
     >
-      <section className="flex h-full min-h-0 min-w-0 flex-col">
-        <div className="flex min-h-0 flex-1 flex-col overflow-auto scroll-smooth">
+      <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto scroll-smooth">
           <header className="border-b border-border bg-surface px-4 py-4 sm:px-8 sm:py-5">
             <div className="mx-auto flex w-full max-w-reading items-start justify-between gap-4">
               <div>
@@ -643,9 +661,9 @@ export function ConversationView({
                   </div>
                 )}
 
-                {activePlatform && (
+                {displayedPlatform && (
                   <StreamingTurn
-                    turn={activePlatform}
+                    turn={displayedPlatform}
                     onDecide={decide}
                     focusMoveId={focusMoveId}
                     active
@@ -750,7 +768,7 @@ export function ConversationView({
           real icon strip that says what it is and reopens itself. */}
       <div
         className={cn(
-          "hidden min-h-0 flex-col border-l border-border-strong bg-surface transition-all duration-fast lg:flex",
+          "hidden min-h-0 min-w-0 flex-col border-l border-border-strong bg-surface transition-all duration-fast lg:flex",
           /* Expanded, the rail fills the track the grid gave it  -  it must not
            * name its own width. `.split-rail` sizes this column as
            * `clamp(--rail-min, --rail-share, --rail-max)`, and `--rail-share`
@@ -809,7 +827,7 @@ export function ConversationView({
             </Button>
           </div>
         )}
-        <div className={cn("min-h-0 flex-1 overflow-hidden", draftFolded && "hidden")}>
+        <div className={cn("min-h-0 min-w-0 flex-1 overflow-hidden", draftFolded && "hidden")}>
           {rail === "papers" ? (
             <RecommenderRail
               recommendations={recommendations}
@@ -827,8 +845,8 @@ export function ConversationView({
                   ? undefined
                   : compileResult?.protocol ?? readOnlyProtocol ?? undefined
               }
-              compileValid={compileResult?.valid}
-              unresolved={compileResult?.unresolved}
+              compileValid={visibleCompile?.valid}
+              unresolved={visibleCompile?.unresolved}
               compileErrors={compileResult?.errors}
               compileWarnings={compileResult?.warnings}
               /* A reader can see the record; only a contributor can change it,
@@ -852,7 +870,7 @@ export function ConversationView({
         open={showFinish}
         onOpenChange={setShowFinish}
         moves={allMoves}
-        compile={compileResult}
+        compile={visibleCompile}
         applying={applying}
         applied={applied}
         onApply={applyDraft}

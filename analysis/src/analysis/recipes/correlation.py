@@ -49,7 +49,7 @@ def run(dataset: Dataset) -> RecipeResult:
     figure_form = dataset.meta.get("figure", _DEFAULT_FIGURE)
     label = dataset.meta.get("label", "variables")
 
-    df = dataset.data if dataset.data is not None else pd.DataFrame()
+    df = dataset.of_type("task_outcome")
     if df.empty:
         return RecipeResult(summary="No data available for correlation analysis.")
 

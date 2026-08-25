@@ -45,7 +45,11 @@ export function DraftRail({
   const complete = unresolved !== undefined
     ? unresolved.length === 0
     : MANDATORY_SLOTS.every((slot) => draft[slot].length > 0);
-  const ready = complete && compileValid === true;
+  /* The compiler can validate a partial scaffold while the conversation is
+   * still walking the researcher through its core sections. Readiness in this
+   * rail is a researcher-facing hand-off, so the visible path must also be
+   * complete before the draft can read as runnable. */
+  const ready = complete && path.done === path.total && compileValid === true;
   const conversationStarted = MANDATORY_SLOTS.some((slot) => draft[slot].length > 0);
   const protocolStudy = protocol?.study;
   const isFreshDraft = Boolean(
@@ -67,8 +71,8 @@ export function DraftRail({
       : "Updates as you settle each choice.";
 
   return (
-    <aside data-agent="draft-rail" className="flex h-full flex-col bg-surface">
-      <div className="border-b border-border px-5 py-5">
+    <aside data-agent="draft-rail" className="flex h-full min-w-0 flex-col bg-surface">
+      <div className="shrink-0 border-b border-border px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="type-legend text-accent">STUDY MAP</p>
@@ -104,7 +108,10 @@ export function DraftRail({
           )}
         </div>
 
-        <details className="mt-4" data-agent="protocol-path">
+      </div>
+
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 py-4">
+        <details className="mb-4" data-agent="protocol-path">
           <summary className="type-control cursor-pointer text-text-muted hover:text-text">Show the path</summary>
           <div className="mt-3 flex flex-col gap-3 border-l border-border pl-3">
             {path.phases.map((phase) => (
@@ -132,7 +139,7 @@ export function DraftRail({
         </details>
 
         {unresolved && unresolved.length > 0 && (
-          <details className="mt-3">
+          <details className="mb-4">
             <summary className="type-caption cursor-pointer text-text-muted">Open choices</summary>
             <ul className="mt-1 flex flex-col gap-1 type-caption text-text-muted">
               {unresolved.map((slot) => (
@@ -145,7 +152,7 @@ export function DraftRail({
           </details>
         )}
         {compileErrors && compileErrors.length > 0 && (
-          <details className="mt-3 rounded-input border border-critical bg-surface p-3" open>
+          <details className="mb-4 rounded-input border border-critical bg-surface p-3" open>
             <summary className="type-caption cursor-pointer font-medium text-critical">Draft needs correction</summary>
             <ul className="mt-1 flex flex-col gap-1 type-caption text-text">
               {compileErrors.slice(0, 2).map((error) => <li key={error}>{error}</li>)}
@@ -153,16 +160,13 @@ export function DraftRail({
           </details>
         )}
         {compileWarnings && compileWarnings.length > 0 && (
-          <details className="mt-3">
+          <details className="mb-4">
             <summary className="type-caption cursor-pointer text-text-muted">Compiler notes ({compileWarnings.length})</summary>
             <ul className="mt-1 flex flex-col gap-1 type-caption text-text-muted">
               {compileWarnings.map((warning) => <li key={warning}>{warning}</li>)}
             </ul>
           </details>
         )}
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
         {sections && sections.length > 0 ? (
           <div className="flex flex-col gap-3">
             {sections.map((section) => (
@@ -191,11 +195,11 @@ export function DraftRail({
             <Button
               size="sm"
               variant="outline"
-              disabled={!compileValid || applying}
+              disabled={!ready || applying}
               data-agent="draft-apply"
               onClick={onApply}
               className="flex-1"
-              title={compileValid ? undefined : "Finish the required sections before applying this draft."}
+              title={ready ? undefined : "Finish the required sections before applying this draft."}
             >
               {applying ? "Applying…" : "Apply protocol"}
             </Button>
@@ -208,7 +212,7 @@ export function DraftRail({
 
 function SlotPlate({ draft }: { draft: ProtocolDraft }) {
   return (
-    <ul className="divide-y divide-border" data-agent="draft-slot-plate">
+    <ul className="min-w-0 divide-y divide-border" data-agent="draft-slot-plate">
       {MANDATORY_SLOTS.map((slot) => (
         <li key={slot} className="flex items-start gap-3 py-3">
           <span className="type-label min-w-0 flex-1 text-text">{SLOT_LABELS[slot]}</span>
@@ -242,7 +246,7 @@ function SectionBlock({ section, collapsible }: { section: ProtocolSection; coll
     <details open={!collapsible} className="border-t border-border pt-3 first:border-0 first:pt-0">
       <summary className="type-control cursor-pointer text-text-muted hover:text-text">{section.heading}</summary>
       <ul className="mt-1 flex flex-col gap-1">
-        {section.lines.map((line, index) => <li key={index} className="type-caption text-text">{line}</li>)}
+        {section.lines.map((line, index) => <li key={index} className="break-words type-caption text-text">{line}</li>)}
       </ul>
     </details>
   );

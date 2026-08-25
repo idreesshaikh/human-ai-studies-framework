@@ -78,7 +78,7 @@ labelled as such; they are a plumbing test, not evidence.
 
 Open **Participants** and install the release artifact before minting links:
 
-1. Download `tern-1.0.0.vsix` from the [GitHub release](https://github.com/idreesshaikh/human-ai-studies-framework/releases/tag/v1.0.0).
+1. Download `tern-1.0.1.vsix` from the [GitHub release](https://github.com/idreesshaikh/human-ai-studies-framework/releases/tag/v1.0.1).
 2. In VS Code, run **Extensions: Install from VSIX…**.
 3. Mint one link for each participant and send it to the matching person.
 4. The participant opens the link, reads consent, and starts with the assigned

@@ -11,7 +11,7 @@ visible before anyone starts a real session.
 
 ## The hand-off contract
 
-1. The researcher installs the [TERN 1.0.0 release](https://github.com/idreesshaikh/human-ai-studies-framework/releases/tag/v1.0.0)
+1. The researcher installs the [TERN 1.0.1 release](https://github.com/idreesshaikh/human-ai-studies-framework/releases/tag/v1.0.1)
    into VS Code with **Extensions: Install from VSIX…**.
 2. PHOENIX mints a participant-specific, one-use enrollment token.
 3. The participant opens the link (`vscode://…/pair`) in VS Code.

@@ -1,8 +1,8 @@
 # Release pipeline (FR-OPS-2).
 #
 # Push a tag to cut a release:
-#   v0.3.0-rc.1  → gates → GHCR image → GitHub pre-release; deploys demo.
-#   v0.3.0       → the same, as a full release.
+#   v1.0.1-rc.1  → gates → GHCR image → GitHub pre-release; deploys demo.
+#   v1.0.1       → the same, as a full release.
 #
 # A manual run can repair or refresh an existing release without moving its
 # tag. This keeps the artifact hand-off idempotent after a partial run.
@@ -99,6 +99,12 @@ jobs:
           cache: npm
           cache-dependency-path: extension/package-lock.json
 
+      - name: Check extension version matches release tag
+        run: |
+          TAG="${{ inputs.release_tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          test "$(node -p "require('./extension/package.json').version")" = "$VERSION"
+
       - name: Package extension (.vsix)
         working-directory: extension
         run: |
@@ -120,7 +126,8 @@ jobs:
           else
             gh release create "$TAG" --repo "${{ github.repository }}" --verify-tag --title "$TAG" $FLAGS --notes "$NOTES"
           fi
-          gh release upload "$TAG" --repo "${{ github.repository }}" --clobber extension/*.vsix
+          VERSION="${TAG#v}"
+          gh release upload "$TAG" --repo "${{ github.repository }}" --clobber "extension/tern-$VERSION.vsix"
 
   deploy-demo:
     name: Deploy demo to Railway (all tags)

@@ -13,12 +13,22 @@ from analysis.prescribe import design_shapes, prescribe, shape_to_recipe_id
 
 _COLUMN_MEANINGS: dict[str, str] = {
     "sessionId": "the session this row belongs to; joins the timeline",
+    "taskId": "the protocol task assigned to this session",
     "participantId": "anonymized participant id (P01, P02, ...)",
     "condition": "the condition this session ran under",
+    "schemaVersion": "producer row schema version",
     "ts": "UTC timestamp (ISO-8601, millisecond precision)",
     "type": "event type  -  what the row records",
     "seq": "per-session sequence number on the producer's stream",
     "source": "producer stream (tern, agent-capture, task-harness, metrics, ...)",
+    "metricId": "stable metric-row identity used for idempotent replay",
+    "metricRunId": "one end-of-session metrics execution",
+    "metricRunStatus": (
+        "metrics execution status; degraded-sonar means SonarQube was unavailable"
+    ),
+    "metricRunTimestamp": "time the metrics execution was started",
+    "metricSet": "protocol-selected static metric set",
+    "sonarStatus": "whether the SonarQube-derived metric was available",
     "flags": "integrity flags the middleware stamped on ingest (empty = clean)",
     "score": "fatigue response on a 1-5 Likert scale",
     "latencyMs": "response latency in milliseconds",
@@ -161,6 +171,11 @@ def _provenance_markdown(protocol: dict, dataset: Dataset, study_id: str) -> str
         f"({len(dataset.events)} events, "
         f"{len(dataset.metrics)} metric rows)  ",
         f"- Planned recipes: {', '.join(recipe_ids) or 'none'}",
+        (
+            "- Capture policy: metadata-only by default; raw code, conversation "
+            "content, and clipboard text are not part of the dataset unless the "
+            "approved protocol explicitly changes the policy."
+        ),
         "",
     ]
     return "\n".join(lines)

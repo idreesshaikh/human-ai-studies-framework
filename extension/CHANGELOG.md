@@ -4,6 +4,26 @@ All notable changes to the TERN extension are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+## [1.0.1] - 2026-08-25
+
+This patch release makes prepared studies easier to inspect and safer to run.
+
+### Added
+
+- Prepared session manifests can supply a task and one-use session ID.
+- Preflight shows external producer availability and explains when a producer
+  must be run separately.
+- Pairing refreshes the participant sidebar immediately after consent.
+
+### Changed
+
+- Session records carry the assigned task ID so live and analysed sessions can
+  be distinguished without relying on participant and condition alone.
+- Capture configuration keeps producer capability state separate from receipt
+  of actual events.
+
 ## [1.0.0] - 2026-08-22
 
 TERN is ready for its first public release. This release packages the complete

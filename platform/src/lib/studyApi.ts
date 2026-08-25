@@ -109,6 +109,8 @@ export interface DatasetRow {
   sessionId: string;
   participantId: string;
   condition: string;
+  taskId?: string;
+  schemaVersion?: number;
   type: string;
   seq: number | null;
   flags: string[];
@@ -154,14 +156,38 @@ export interface SessionStatus {
   sessionId: string;
   participantId: string;
   condition: string;
+  taskId?: string;
   events: number;
   metricRows: number;
+  sourceCounts?: Record<string, number>;
   flaggedEvents: number;
   flagKinds: string[];
   gapCount: number;
   missingEvents: number;
   complete: boolean;
   lastReceivedAt: string | null;
+}
+
+export interface ProducerStatus {
+  source: string;
+  state: "enabled" | "disabled" | "external-required" | "unsupported" | "unavailable";
+  configured: boolean;
+  reason: string;
+  executor: string;
+  capabilities: Record<string, { state: string; available: boolean; reason: string }>;
+  adapter?: string;
+}
+
+export interface StudyStatusDoc {
+  studyId: string;
+  generatedAt: string;
+  conditions: string[];
+  plannedParticipants: number;
+  plannedSessionsPerParticipant: number;
+  sessions: SessionStatus[];
+  researchQuestions: { id: string; recipes: string[]; recipeRuns: string[] }[];
+  producers: Record<string, ProducerStatus>;
+  requiredProducers: string[];
 }
 
 // ------------------------------------------------------------------- transport
@@ -526,11 +552,31 @@ export const studyApi = {
     liveOrSeedStudy(
       study,
       () =>
-        req<{ sessions: SessionStatus[]; conditions: string[] }>(
+        req<StudyStatusDoc>(
           `/studies/${enc(study)}/status`,
         ),
-      { sessions: SEED_SESSIONS, conditions: SEED_CONDITIONS },
-      { sessions: [], conditions: [] },
+      {
+        studyId: study,
+        generatedAt: "",
+        conditions: SEED_CONDITIONS,
+        plannedParticipants: 0,
+        plannedSessionsPerParticipant: 1,
+        sessions: SEED_SESSIONS,
+        researchQuestions: [],
+        producers: {},
+        requiredProducers: [],
+      },
+      {
+        studyId: study,
+        generatedAt: "",
+        conditions: [],
+        plannedParticipants: 0,
+        plannedSessionsPerParticipant: 1,
+        sessions: [],
+        researchQuestions: [],
+        producers: {},
+        requiredProducers: [],
+      },
     ),
   /** The study's compiled protocol, read-only.
    *

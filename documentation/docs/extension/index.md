@@ -1,4 +1,4 @@
-# TERN 1.0.0 · Developer Study Companion
+# TERN 1.0.1 · Developer Study Companion
 
 TERN is the VS Code extension participants run during a study. It hosts two of
 the framework's instrument legs  -  the **cognitive/self-report** leg and the

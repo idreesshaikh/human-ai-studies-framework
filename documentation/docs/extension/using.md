@@ -1,4 +1,4 @@
-# Using TERN 1.0.0
+# Using TERN 1.0.1
 
 A study session is a focused work interval, from the moment a participant
 starts it to the debrief. Everything in between is captured as events.

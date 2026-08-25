@@ -181,6 +181,28 @@ ALL_FOUR = {
 }
 
 
+def test_build_capture_config_leg_summary_reflects_mint_overrides():
+    cfg = enrollment.build_capture_config(
+        ALL_FOUR,
+        "P03",
+        "ai-assisted",
+        overrides={
+            "toggles": [
+                {"instrument": "tern", "path": ["behavior", "enabled"], "value": True},
+                {"instrument": "metrics", "path": ["enabled"], "value": True},
+            ]
+        },
+    )
+    by_leg = {entry["leg"]: entry for entry in cfg["legs"]}
+    assert by_leg[enrollment.LEG_BEHAVIORAL]["state"] == "enabled"
+    assert by_leg[enrollment.LEG_METRICS]["state"] == "enabled"
+    assert next(
+        t
+        for t in by_leg[enrollment.LEG_BEHAVIORAL]["toggles"]
+        if t["path"] == ["behavior", "enabled"]
+    )["currentValue"] is True
+
+
 def test_toggle_catalog_covers_four_legs_when_protocol_enables_them():
     legs = {e["leg"] for e in enrollment.toggle_catalog(ALL_FOUR)}
     assert legs == set(enrollment.LEG_ORDER)

@@ -17,10 +17,14 @@ from agent_capture.snapshot import Snapshotter
 
 
 def _keys(args: argparse.Namespace) -> Keys:
+    if getattr(args, "manifest", None):
+        manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+        return Keys.from_manifest(manifest)
     return Keys(
         participant_id=args.participant,
         condition=args.condition,
         session_id=args.session,
+        task_id=args.task_id,
     )
 
 
@@ -29,7 +33,9 @@ def _add_keys(p: argparse.ArgumentParser) -> None:
     p.add_argument("--participant", default=env.participant_id)
     p.add_argument("--condition", default=env.condition)
     p.add_argument("--session", default=env.session_id)
-    p.add_argument("--endpoint", default=DEFAULT_ENDPOINT)
+    p.add_argument("--task-id", default=env.task_id)
+    p.add_argument("--manifest", type=Path, help="prepared session manifest")
+    p.add_argument("--endpoint", default=None)
     p.add_argument("--print", action="store_true", help="print events, do not POST")
 
 
@@ -42,8 +48,13 @@ def _emit(events: list[dict], args) -> int:
     for e in events:
         grouped.setdefault(e["source"], []).append(e)
     total = 0
+    endpoint = args.endpoint
+    if not endpoint and getattr(args, "manifest", None):
+        manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+        endpoint = (manifest.get("endpoints") or {}).get("events") or DEFAULT_ENDPOINT
+    endpoint = endpoint or DEFAULT_ENDPOINT
     for source, batch in grouped.items():
-        res = post_events(batch, source=source, endpoint=args.endpoint)
+        res = post_events(batch, source=source, endpoint=endpoint)
         if res.get("error"):
             print(f"warn: POST {source} failed: {res['error']}", file=sys.stderr)
         total += res.get("inserted", 0)
@@ -73,10 +84,12 @@ def _cmd_import(args) -> int:
             args.condition,
             "--session",
             args.session,
+            "--task-id",
+            args.task_id,
+            *(["--manifest", str(args.manifest)] if args.manifest else []),
             "--content-policy",
             args.content_policy,
-            "--endpoint",
-            args.endpoint,
+            *(["--endpoint", args.endpoint] if args.endpoint else []),
             *(["--print"] if args.print else []),
         ]
     )
@@ -88,12 +101,26 @@ def _fetch_dataset(server: str, study_id: str) -> list[dict]:
         return json.loads(res.read()).get("rows", [])
 
 
+def _fetch_dataset_from_manifest(manifest: dict) -> list[dict] | None:
+    events_endpoint = (manifest.get("endpoints") or {}).get("events", "")
+    marker = "/ingest/events"
+    if not events_endpoint or marker not in events_endpoint:
+        return None
+    server = events_endpoint.split(marker, 1)[0]
+    return _fetch_dataset(server, str(manifest.get("studyId", "")))
+
+
 def _cmd_correlate(args) -> int:
-    rows = (
-        json.loads(Path(args.dataset).read_text())["rows"]
-        if args.dataset
-        else _fetch_dataset(args.server, args.study)
+    manifest = (
+        json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+        if args.manifest
+        else None
     )
+    if args.dataset:
+        rows = json.loads(Path(args.dataset).read_text())["rows"]
+    else:
+        rows = _fetch_dataset_from_manifest(manifest) if manifest else None
+        rows = rows if rows is not None else _fetch_dataset(args.server, args.study)
     by_session: dict[str, list[dict]] = {}
     for r in rows:
         by_session.setdefault(r.get("sessionId", ""), []).append(r)
@@ -107,6 +134,7 @@ def _cmd_correlate(args) -> int:
             participant_id=first.get("participantId", ""),
             condition=first.get("condition", ""),
             session_id=sid,
+            task_id=first.get("taskId", ""),
         )
         derived.extend(correlate_session(events, keys, window_s=args.window))
         evo = derive_evolution(events, keys)
@@ -119,7 +147,10 @@ def _cmd_correlate(args) -> int:
     if not derived:
         print("correlate: no derivable cross-leg events in this dataset")
         return 0
-    res = post_events(derived, source=SOURCE_DERIVED, endpoint=args.endpoint)
+    endpoint = args.endpoint
+    if manifest:
+        endpoint = (manifest.get("endpoints") or {}).get("events") or endpoint
+    res = post_events(derived, source=SOURCE_DERIVED, endpoint=endpoint)
     loops = sum(1 for e in derived if e["type"] == "reliance_loop")
     print(
         f"correlate: {len(derived)} derived events "
@@ -160,6 +191,7 @@ def _build_parser() -> argparse.ArgumentParser:
     corr.add_argument("--server", default="http://127.0.0.1:8000")
     corr.add_argument("--dataset", help="dataset JSON file (instead of fetching)")
     corr.add_argument("--endpoint", default=DEFAULT_ENDPOINT)
+    corr.add_argument("--manifest", type=Path, help="prepared session manifest")
     corr.add_argument("--window", type=float, default=120.0, help="window seconds")
     corr.add_argument("--print", action="store_true")
     corr.set_defaults(func=_cmd_correlate)

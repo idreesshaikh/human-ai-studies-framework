@@ -27,10 +27,36 @@ const TRACKED: { key: string; label: string }[] = [
 
 export function preflightSummary(
   flags: Record<string, unknown>,
+  producers?: unknown,
 ): PreflightItem[] {
-  return TRACKED.map(({ key, label }) => ({
+  const items = TRACKED.map(({ key, label }) => ({
     key,
     label,
     on: flags[key] === true,
   }));
+  if (!producers || typeof producers !== 'object' || Array.isArray(producers)) {
+    return items;
+  }
+  for (const [id, raw] of Object.entries(
+    producers as Record<string, unknown>,
+  )) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    const producer = raw as Record<string, unknown>;
+    const state =
+      typeof producer.state === 'string' ? producer.state : 'unavailable';
+    const reason = typeof producer.reason === 'string' ? producer.reason : '';
+    items.push({
+      key: `producer.${id}`,
+      label: `Producer: ${id}`,
+      on: state === 'enabled',
+    });
+    if (state !== 'enabled') {
+      items.push({
+        key: `producer.${id}.detail`,
+        label: `${id}: ${state}${reason ? ` (${reason})` : ''}`,
+        on: false,
+      });
+    }
+  }
+  return items;
 }

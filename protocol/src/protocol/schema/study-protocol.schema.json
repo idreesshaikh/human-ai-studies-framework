@@ -450,6 +450,76 @@
               }
             }
           }
+        },
+        "metrics": {
+          "description": "Static metrics are an external producer and are never implied by TERN settings.",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "required": {
+              "type": "boolean"
+            },
+            "cadence": {
+              "type": "string",
+              "enum": [
+                "end-of-session",
+                "snapshot"
+              ]
+            },
+            "metricSet": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "agentCapture": {
+          "description": "Provider adapter declaration. Private provider monkey-patching is not supported.",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "required": {
+              "type": "boolean"
+            },
+            "adapter": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A provider adapter name. Known adapters are claude-code, copilot, and generic-json; unknown names are retained and reported as unsupported."
+            },
+            "contentPolicy": {
+              "type": "string",
+              "enum": [
+                "metadata-only",
+                "redacted",
+                "full"
+              ]
+            }
+          }
+        },
+        "taskHarness": {
+          "description": "External task acceptance test runner.",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "required": {
+              "type": "boolean"
+            }
+          }
         }
       },
       "additionalProperties": {
@@ -511,6 +581,107 @@
             "items": {
               "type": "string",
               "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "capture": {
+      "description": "Optional capture orchestration contract. It derives the session manifest and records which external producers are required.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requiredProducers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "tern",
+              "metrics",
+              "agent-capture",
+              "workspace-snapshot",
+              "participant-git",
+              "task-harness",
+              "agent-derived"
+            ]
+          }
+        },
+        "privacy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentContentPolicy": {
+              "type": "string",
+              "enum": [
+                "metadata-only",
+                "redacted",
+                "full"
+              ]
+            },
+            "rawCode": {
+              "type": "boolean"
+            }
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "cadence": {
+              "type": "string",
+              "enum": [
+                "end-of-session",
+                "snapshot"
+              ]
+            },
+            "metricSet": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "snapshots": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "intervalMinutes": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "vcs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "taskHarness": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
             }
           }
         }

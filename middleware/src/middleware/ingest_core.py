@@ -17,8 +17,10 @@ def store_events(s, rows: list[dict], received: str) -> int:
     else:
         from sqlalchemy.dialects.sqlite import insert as _sq_insert
 
-        stmt = _sq_insert(Event).values(rows).on_conflict_do_nothing(
-            index_elements=["session_id", "source", "seq"]
+        stmt = (
+            _sq_insert(Event)
+            .values(rows)
+            .on_conflict_do_nothing(index_elements=["session_id", "source", "seq"])
         )
     return len(s.execute(stmt.returning(Event.id)).fetchall())
 
@@ -36,6 +38,7 @@ def store_metric_rows(
             "session_id": str(row.get("sessionId", "")),
             "participant_id": str(row.get("participantId", "")),
             "condition": str(row.get("condition", "")),
+            "task_id": str(row.get("taskId", "")),
             "timestamp": str(row.get("timestamp", "")),
             "schema_version": int(row.get("schemaVersion", -1)),
             "row": row,
@@ -50,8 +53,10 @@ def store_metric_rows(
         else:
             from sqlalchemy.dialects.sqlite import insert as _sq_insert
 
-            stmt = _sq_insert(MetricRow).values([_row_vals]).on_conflict_do_nothing(
-                index_elements=["row_hash"]
+            stmt = (
+                _sq_insert(MetricRow)
+                .values([_row_vals])
+                .on_conflict_do_nothing(index_elements=["row_hash"])
             )
         inserted += len(s.execute(stmt.returning(MetricRow.id)).fetchall())
     return inserted

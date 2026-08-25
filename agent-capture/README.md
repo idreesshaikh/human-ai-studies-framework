@@ -5,8 +5,8 @@ same timeline and join keys as every other leg. Primary source is **Claude
 Code in the VS Code integrated terminal** (decision D13) - the only
 mainstream agent tool with lossless, machine-readable capture.
 
-This is the fourth capture leg, and the only one whose data is a
-*conversation* rather than a signal  -  so the content policy
+This is the fourth capture leg, and the only one that may receive
+provider-transcript metadata rather than an editor signal  -  so the content policy
 (`instruments.agentCapture.contentPolicy`: metadata-only, redacted, or full)
 is stated verbatim in the participant's consent statement, and baked into the
 hook command from the protocol rather than configured on the side.
@@ -62,20 +62,22 @@ is separately checkable (see `middleware/db.py`):
 ## Commands
 
 ```bash
-# Generate the hook pack for a task workspace (content policy from protocol):
-uv run protocol derive agent-hooks protocol/examples/pilot-study.yaml \
-    > <task-workspace>/.claude/settings.json
+# Derive the same manifest used by TERN and save it locally for external tools:
+uv run protocol derive session-manifest protocol/examples/pilot-study.yaml \
+    --participant P01 --condition ai-assisted --session s-example \
+    > .phoenix/session-manifest.json
 
-# Facilitator runbook exports the join keys:
-export STUDY_PARTICIPANT=P01 STUDY_CONDITION=ai-assisted STUDY_SESSION=S1
+# Every external producer consumes the same contract:
+uv run agent-capture snapshot --manifest .phoenix/session-manifest.json \
+    --workspace <task-workspace> --git-dir .study-data/shadow.git
 
 # Session-runner instruments (run on save / timer / session end):
 uv run agent-capture snapshot --workspace <ws> --git-dir .study-data/shadow.git
 uv run agent-capture harness  --tests-dir <ws>/task-tests
-uv run agent-capture import   <transcript.jsonl> --content-policy metadata-only
+uv run agent-capture import   <transcript.jsonl> --manifest .phoenix/session-manifest.json
 
 # Post-ingest cross-leg correlation + code evolution:
-uv run agent-capture correlate --study pilot-2026 --server http://127.0.0.1:8000
+uv run agent-capture correlate --manifest .phoenix/session-manifest.json
 ```
 
 Feeds the platform's agent views and the `agent-interaction-dynamics` +

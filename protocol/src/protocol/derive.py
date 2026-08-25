@@ -85,7 +85,10 @@ def derive_agent_hooks(protocol: dict, *, command: str = "agent-capture-hook") -
             "is supported here (others are behind the FR-AGENT-4 extension "
             "point)"
         )
-    policy = agent.get("contentPolicy", "metadata-only")
+    capture_policy = ((protocol.get("capture") or {}).get("privacy") or {}).get(
+        "agentContentPolicy"
+    )
+    policy = capture_policy or agent.get("contentPolicy", "metadata-only")
     hook_command = f"{command} --content-policy {policy}"
     hook_entry = {
         "hooks": [
@@ -97,3 +100,29 @@ def derive_agent_hooks(protocol: dict, *, command: str = "agent-capture-hook") -
         ]
     }
     return {"hooks": {event: [dict(hook_entry)] for event in _AGENT_HOOK_EVENTS}}
+
+
+def derive_session_manifest(
+    protocol: dict,
+    *,
+    study_id: str | None = None,
+    participant_id: str,
+    condition: str,
+    session_id: str | None = None,
+    task: dict | None = None,
+    task_id: str | None = None,
+    endpoints: dict[str, str] | None = None,
+) -> dict:
+    """Compatibility entry point for all protocol derivation helpers."""
+    from protocol.capture import session_manifest
+
+    return session_manifest(
+        protocol,
+        study_id=study_id,
+        participant_id=participant_id,
+        condition=condition,
+        session_id=session_id,
+        task=task,
+        task_id=task_id,
+        endpoints=endpoints,
+    )

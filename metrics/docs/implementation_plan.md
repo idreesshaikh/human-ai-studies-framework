@@ -111,6 +111,13 @@ suite in `tests/` replaced manual-only verification.
   (bump on any row-shape change, NFR-4) so metrics rows join the other legs
   on one timeline (FR-INST-6). `--format jsonl` mirrors the CSV rows as
   JSON Lines (NaN → `null`) for middleware ingestion.
+- A prepared session should instead use `--manifest
+  .phoenix/session-manifest.json`; the manifest supplies the assigned
+  workspace, participant, condition, task, session, and metrics endpoint.
+  `--post` mirrors rows after writing the local CSV/JSONL recovery files.
+  Replays are idempotent on stable metric identity, and a missing SonarQube
+  service is recorded as `sonarStatus=degraded` and
+  `metricRunStatus=degraded-sonar` rather than hidden.
 
 ## Verification (all run green 2026-07-11)
 

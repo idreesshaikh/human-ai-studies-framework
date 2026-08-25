@@ -1,13 +1,22 @@
 {
-  "tern.participantId": "DEMO-01",
-  "tern.condition": "unassisted",
-  "tern.session.durationMinutes": 10,
-  "tern.fatigue.intervalMinutes": 2,
-  "tern.fatigue.waitForPauseSeconds": 1,
-  "tern.fatigue.jitterPercent": 0,
-  "tern.fatigue.quietTailMinutes": 0,
-  "tern.stuck.thresholdSeconds": 15,
-  "tern.stuck.cooldownMinutes": 1,
+  "tern.participantId": "P03",
+  "tern.condition": "ai-assisted",
+  "tern.session.durationMinutes": 45,
+  "tern.fatigue.intervalMinutes": 15,
+  "tern.fatigue.waitForPauseSeconds": 4,
+  "tern.fatigue.jitterPercent": 20,
+  "tern.fatigue.quietTailMinutes": 5,
+  "tern.stuck.thresholdSeconds": 90,
+  "tern.stuck.cooldownMinutes": 5,
   "tern.behavior.languages": ["python"],
-  "tern.output.httpEndpoint": ""
+  "tern.output.httpEndpoint": "http://127.0.0.1:8001/ingest/events",
+  "tern.studyId": "ai-cognitive-load-rehearsal",
+  "tern.stuck.enabled": true,
+  "tern.stuck.languages": [
+    "python"
+  ],
+  "tern.behavior.enabled": true,
+  "tern.behavior.captureAiLifecycle": true,
+  "tern.behavior.captureVisibleRanges": true,
+  "tern.behavior.captureClipboard": true
 }

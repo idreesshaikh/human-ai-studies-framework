@@ -229,8 +229,12 @@ def test_toggle_catalog_current_value_matches_protocol(client_designed):
 
 
 def test_toggle_needs_a_protocol(client_no_protocol):
-    body = {"instrument": "tern", "path": ["stuck", "enabled"],
-            "value": False, "rationale": "test"}
+    body = {
+        "instrument": "tern",
+        "path": ["stuck", "enabled"],
+        "value": False,
+        "rationale": "test",
+    }
     r = client_no_protocol.post("/studies/pilot/enrollment/toggles", json=body)
     assert r.status_code == 404
 
@@ -241,8 +245,12 @@ def test_toggle_works_on_a_designed_study(client_designed):
     assert catalog.status_code == 200, catalog.text
     assert catalog.json(), "a designed study has instruments to toggle"
 
-    body = {"instrument": "tern", "path": ["stuck", "enabled"],
-            "value": False, "rationale": "quieter pilot"}
+    body = {
+        "instrument": "tern",
+        "path": ["stuck", "enabled"],
+        "value": False,
+        "rationale": "quieter pilot",
+    }
     r = client_designed.post("/studies/pilot/enrollment/toggles", json=body)
     assert r.status_code == 200, r.text
     assert r.json()["applied"] is True
@@ -250,8 +258,12 @@ def test_toggle_works_on_a_designed_study(client_designed):
 
 def test_toggle_nested_enabled_applies(client_designed):
     """Toggling a nested 'enabled' field applies to the protocol."""
-    body = {"instrument": "tern", "path": ["stuck", "enabled"],
-            "value": False, "rationale": "quieter pilot"}
+    body = {
+        "instrument": "tern",
+        "path": ["stuck", "enabled"],
+        "value": False,
+        "rationale": "quieter pilot",
+    }
     r = client_designed.post("/studies/pilot/enrollment/toggles", json=body)
     assert r.status_code == 200, r.text
     assert r.json()["applied"] is True
@@ -259,8 +271,12 @@ def test_toggle_nested_enabled_applies(client_designed):
 
 def test_toggle_threshold_change_applies(client_designed):
     """A threshold change applies the same way."""
-    body = {"instrument": "tern", "path": ["stuck", "thresholdSeconds"],
-            "value": 120, "rationale": "fine-tune"}
+    body = {
+        "instrument": "tern",
+        "path": ["stuck", "thresholdSeconds"],
+        "value": 120,
+        "rationale": "fine-tune",
+    }
     r = client_designed.post("/studies/pilot/enrollment/toggles", json=body)
     assert r.status_code == 200, r.text
     assert r.json()["applied"] is True
@@ -268,8 +284,12 @@ def test_toggle_threshold_change_applies(client_designed):
 
 def test_toggle_catalog_reflects_changed_protocol(client_designed):
     """After a toggle, the catalog returns the new currentValue."""
-    body = {"instrument": "tern", "path": ["stuck", "enabled"],
-            "value": False, "rationale": "turn off stuck"}
+    body = {
+        "instrument": "tern",
+        "path": ["stuck", "enabled"],
+        "value": False,
+        "rationale": "turn off stuck",
+    }
     client_designed.post("/studies/pilot/enrollment/toggles", json=body)
     r = client_designed.get("/studies/pilot/enrollment/toggles/catalog")
     stuck = [e for e in r.json() if e["path"] == ["stuck", "enabled"]]
@@ -277,8 +297,12 @@ def test_toggle_catalog_reflects_changed_protocol(client_designed):
 
 
 def test_toggle_invalid_path_returns_400(client_designed):
-    body = {"instrument": "tern", "path": ["nonexistent", "value"],
-            "value": True, "rationale": "bad"}
+    body = {
+        "instrument": "tern",
+        "path": ["nonexistent", "value"],
+        "value": True,
+        "rationale": "bad",
+    }
     r = client_designed.post("/studies/pilot/enrollment/toggles", json=body)
     assert r.status_code == 422
 

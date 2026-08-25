@@ -186,11 +186,21 @@
    * on a laptop to read a harvested neighbourhood without immediately
    * zooming, floored so a short window still gets a graph rather than a
    * letterbox, and capped so it never outgrows a tall display. */
-  --constellation-h: clamp(24rem, 54vh, 42rem);
+  --constellation-h: clamp(20rem, 46vh, 36rem);
+  /* A relation lens can legitimately contain only the study anchors. A full
+   * plotting field in that state turns absence of suggestions into a page of
+   * empty blue ground, so sparse views use a shorter working field. */
+  --constellation-h-sparse: clamp(16rem, 32vh, 22rem);
   /* The map and its paper preview share one working frame. The graph owns the
    * larger interior field; the remaining space covers its lens strip, title,
    * and legend without letting a long abstract stretch the map card. */
   --library-pane-h: calc(var(--constellation-h) + 11rem);
+
+  /* The participant roster has one deliberately wide evidence column. Keep
+   * its table readable on a desktop and let the wrapper provide the honest
+   * horizontal scroll on smaller windows instead of squeezing labels into
+   * one another. */
+  --enrollment-table-min-width: 74rem;
 
   /* The coordinate grid's pitch. Wide enough that the ruling reads as a
    * coordinate field rather than as graph paper: at 1.5rem the lines were

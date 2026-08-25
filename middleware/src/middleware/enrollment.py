@@ -1,9 +1,12 @@
 """Pure helpers for the live capture link (FR-INST-20/21, FR-ING-7)."""
 
-import json
-from hashlib import sha256
-
 from agent_capture.redact import POLICY_DESCRIPTIONS as _POLICY_DESCRIPTIONS
+from protocol.capture import (
+    capture_config_version as _manifest_capture_config_version,
+)
+from protocol.capture import (
+    session_manifest,
+)
 from protocol.derive import derive_overlay_settings
 
 
@@ -13,11 +16,8 @@ def connection_string(base_url: str, token: str) -> str:
 
 
 def capture_config_version(protocol: dict) -> str:
-    """A 12-char content hash of the protocol's instruments block."""
-    blob = json.dumps(
-        protocol.get("instruments", {}), sort_keys=True, separators=(",", ":")
-    )
-    return sha256(blob.encode()).hexdigest()[:12]
+    """A 12-char hash shared by TERN and every external producer."""
+    return _manifest_capture_config_version(protocol)
 
 
 def build_capture_config(
@@ -28,6 +28,9 @@ def build_capture_config(
     task: dict | None = None,
     block: dict | None = None,
     overrides: dict | None = None,
+    session_id: str | None = None,
+    endpoints: dict[str, str] | None = None,
+    study_id: str | None = None,
 ) -> dict:
     """The versioned, protocol-derived capture config for one producer."""
     if producer != "overlay":
@@ -35,11 +38,27 @@ def build_capture_config(
     settings = derive_overlay_settings(protocol, participant_id, condition, task)
     if overrides:
         settings = apply_capture_overrides(settings, overrides)
+    manifest = session_manifest(
+        protocol,
+        study_id=study_id,
+        participant_id=participant_id,
+        condition=(block or {}).get("condition") or condition,
+        session_id=session_id,
+        task=task,
+        task_id=(block or {}).get("taskId"),
+        endpoints=endpoints,
+    )
     config = {
         "captureConfigVersion": capture_config_version(protocol),
         "producer": producer,
         "settings": settings,
-        "legs": leg_summary(protocol),
+        # Mint-time switches are part of the participant's effective config.
+        # Summarising the protocol alone made the extension sidebar say that
+        # overridden behavioral/metrics legs were off even while their flat
+        # settings were on.
+        "legs": leg_summary(protocol, settings),
+        "producers": manifest["producers"],
+        "sessionManifest": manifest,
     }
     if block is not None:
         config["block"] = block
@@ -115,7 +134,10 @@ def enabled_instruments(settings: dict) -> list[dict]:
 def content_policy(protocol: dict) -> str:
     """The study's agent content policy (default metadata-only, the safest)."""
     agent = protocol.get("instruments", {}).get("agentCapture", {})
-    return agent.get("contentPolicy", "metadata-only")
+    capture_policy = ((protocol.get("capture") or {}).get("privacy") or {}).get(
+        "agentContentPolicy"
+    )
+    return capture_policy or agent.get("contentPolicy", "metadata-only")
 
 
 LEG_METRICS = "metrics"
@@ -171,8 +193,7 @@ _TOGGLE_CATALOG: list[dict] = [
         "path": ["ideHealth", "debounceSeconds"],
         "label": "IDE health debounce window",
         "description": (
-            "Debounce window in seconds before flushing diagnostic counts "
-            "as an event."
+            "Debounce window in seconds before flushing diagnostic counts as an event."
         ),
         "grounding": {"unsourced": True},
     },
@@ -193,8 +214,7 @@ _TOGGLE_CATALOG: list[dict] = [
         "path": ["session", "durationMinutes"],
         "label": "Session duration",
         "description": (
-            "Maximum session length in minutes. Affects scheduling, not "
-            "capture scope."
+            "Maximum session length in minutes. Affects scheduling, not capture scope."
         ),
         "grounding": {"unsourced": True},
     },
@@ -334,7 +354,7 @@ _TOGGLE_CATALOG: list[dict] = [
 ]
 
 
-def toggle_catalog(protocol: dict) -> list[dict]:
+def toggle_catalog(protocol: dict, settings: dict | None = None) -> list[dict]:
     """Return the list of togglable metrics for a protocol's instrument shape."""
     instruments = protocol.get("instruments") or {}
     out = []
@@ -352,15 +372,21 @@ def toggle_catalog(protocol: dict) -> list[dict]:
             else:
                 current_value = None
                 break
-        out.append({
-            "instrument": entry["instrument"],
-            "leg": entry["leg"],
-            "path": entry["path"],
-            "label": entry["label"],
-            "description": entry["description"],
-            "grounding": entry["grounding"],
-            "currentValue": current_value,
-        })
+        if settings is not None:
+            flat_key = f"{instr}.{'.'.join(entry['path'])}"
+            if flat_key in settings:
+                current_value = settings[flat_key]
+        out.append(
+            {
+                "instrument": entry["instrument"],
+                "leg": entry["leg"],
+                "path": entry["path"],
+                "label": entry["label"],
+                "description": entry["description"],
+                "grounding": entry["grounding"],
+                "currentValue": current_value,
+            }
+        )
     return out
 
 
@@ -388,9 +414,9 @@ _LEG_SUMMARIES = {
 LEG_ORDER = (LEG_METRICS, LEG_BEHAVIORAL, LEG_COGNITIVE, LEG_AGENT)
 
 
-def leg_summary(protocol: dict) -> list[dict]:
+def leg_summary(protocol: dict, settings: dict | None = None) -> list[dict]:
     """All four legs with their state under this protocol (FR-INST-22)."""
-    entries = toggle_catalog(protocol)
+    entries = toggle_catalog(protocol, settings)
     out = []
     for leg in LEG_ORDER:
         label, description = _LEG_SUMMARIES[leg]
@@ -402,13 +428,15 @@ def leg_summary(protocol: dict) -> list[dict]:
                 t["currentValue"] for t in toggles if t["path"][-1] == "enabled"
             ]
             state = "disabled" if switches and not any(switches) else "enabled"
-        out.append({
-            "leg": leg,
-            "label": label,
-            "description": description,
-            "state": state,
-            "toggles": toggles,
-        })
+        out.append(
+            {
+                "leg": leg,
+                "label": label,
+                "description": description,
+                "state": state,
+                "toggles": toggles,
+            }
+        )
     return out
 
 

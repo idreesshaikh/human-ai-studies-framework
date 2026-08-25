@@ -83,6 +83,24 @@ def _referential_errors(data: dict) -> list[str]:
     names = [p["name"] for p in data["phases"]]
     for name in sorted({n for n in names if names.count(n) > 1}):
         errors.append(f"phases: phase {name!r} is declared more than once")
+    capture = data.get("capture") or {}
+    from protocol.capture import producer_capabilities, required_producers
+
+    producers = producer_capabilities(data)
+    required = required_producers(data, producers)
+    for producer in required:
+        entry = producers.get(producer)
+        if entry is None:
+            errors.append(f"capture.requiredProducers: unknown producer {producer!r}")
+        elif entry["state"] in {"unavailable", "unsupported", "disabled"}:
+            errors.append(
+                f"capture.requiredProducers: {producer!r} is {entry['state']}"
+            )
+    policy = (capture.get("privacy") or {}).get("agentContentPolicy")
+    if policy == "full" and not (data.get("instruments", {}).get("agentCapture")):
+        errors.append(
+            "capture.privacy.agentContentPolicy: full requires instruments.agentCapture"
+        )
     return errors
 
 
