@@ -11,10 +11,10 @@ const OPENINGS = [
 export function ConversationStart({ onUse }: { onUse: (text: string) => void }) {
   return (
     <section data-agent="conversation-start" aria-label="Start the developer study setup" className="max-w-reading">
-      <p className="type-legend text-accent">DEVELOPER STUDY SETUP</p>
-      <h2 className="mt-2 type-section text-text">What do you want to run?</h2>
+      <h2 className="type-section text-text">Describe the study in your own words</h2>
       <p className="mt-2 max-w-[52ch] type-body text-text-muted">
-        PHOENIX configures task-based human–AI studies in VS Code. Give me the coding task, the AI comparison, and the outcome. I’ll turn it into a runnable protocol.
+        Give me a complete brief if you have one, or start with the part you know. I’ll teach the
+        design choices as we go and turn the decisions we keep into a runnable protocol.
       </p>
 
       <p

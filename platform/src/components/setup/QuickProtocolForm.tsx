@@ -105,13 +105,11 @@ export function QuickProtocolForm({
   studyId,
   initialTitle = "",
   initialResearchQuestion = "",
-  onBackToChat,
   onApplied,
 }: {
   studyId: string;
   initialTitle?: string;
   initialResearchQuestion?: string;
-  onBackToChat: () => void;
   onApplied?: () => void;
 }) {
   const [form, setForm] = useState<FormState>(() => ({
@@ -209,38 +207,28 @@ export function QuickProtocolForm({
   return (
     <div className="h-full overflow-y-auto bg-well">
       <div className="mx-auto flex w-full max-w-wide flex-col gap-5 p-4 sm:p-6">
-        <div className="flex flex-col gap-2">
-          <p className="type-eyebrow text-accent">QUICK PROTOCOL</p>
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="type-heading text-text">Know the plan? Build it here.</h2>
-              <p className="type-body mt-1 max-w-reading text-text-muted">
-                Fill in the choices you already have. PHOENIX instantiates a supported
-                design, validates the protocol, and leaves the chat available when you want
-                an explanation.
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={onBackToChat}>
-              <span aria-hidden>←</span>
-              Use chat designer
-            </Button>
+        <header className="border-b border-border pb-5">
+          <div>
+            <h2 className="type-section text-text">Fill the choices you already know</h2>
+            <p className="type-body mt-1 max-w-reading text-text-muted">
+              Use fields for facts that are easy to choose or validate. Both paths write to
+              the same protocol draft, so you can switch whenever a choice needs explanation.
+            </p>
           </div>
-        </div>
+        </header>
 
         <Notice kind="note">
-          <strong>Supported here:</strong> task-based human–AI software-development studies
-          in VS Code—AI-assisted versus unassisted comparisons, with either a
-          within-subjects or between-subjects design. This path does not run exams,
-          classroom learning studies, clinical research, marketing studies, or general
-          surveys.
+          <strong>Supported lane:</strong> a coding task in VS Code with AI-assisted work
+          compared with an unassisted condition. Choose within- or between-subjects; the
+          compiler rejects anything outside this lane before it can be applied.
         </Notice>
 
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
-          <Card>
+          <Card className="min-w-0">
             <CardContent className="flex flex-col gap-6 p-4 sm:p-6">
               <section className="flex flex-col gap-4" aria-labelledby="study-details-heading">
                 <div>
-                  <p className="type-eyebrow text-text-muted">01 / STUDY BRIEF</p>
+                  <p className="type-label font-medium text-text-muted">Study brief</p>
                   <h3 id="study-details-heading" className="type-subheading mt-1 text-text">
                     What are you trying to learn?
                   </h3>
@@ -261,7 +249,7 @@ export function QuickProtocolForm({
 
               <section className="flex flex-col gap-4 border-t border-border pt-5" aria-labelledby="design-heading">
                 <div>
-                  <p className="type-eyebrow text-text-muted">02 / COMPARISON</p>
+                  <p className="type-label font-medium text-text-muted">Comparison</p>
                   <h3 id="design-heading" className="type-subheading mt-1 text-text">
                     What will you compare?
                   </h3>
@@ -298,7 +286,7 @@ export function QuickProtocolForm({
 
               <section className="flex flex-col gap-4 border-t border-border pt-5" aria-labelledby="session-heading">
                 <div>
-                  <p className="type-eyebrow text-text-muted">03 / SESSION</p>
+                  <p className="type-label font-medium text-text-muted">Session</p>
                   <h3 id="session-heading" className="type-subheading mt-1 text-text">
                     Who will do what, and for how long?
                   </h3>
@@ -329,7 +317,7 @@ export function QuickProtocolForm({
 
               <section className="flex flex-col gap-4 border-t border-border pt-5" aria-labelledby="outcomes-heading">
                 <div>
-                  <p className="type-eyebrow text-text-muted">04 / OUTCOMES</p>
+                  <p className="type-label font-medium text-text-muted">Outcomes</p>
                   <h3 id="outcomes-heading" className="type-subheading mt-1 text-text">
                     What should the study capture?
                   </h3>
@@ -374,7 +362,7 @@ export function QuickProtocolForm({
             </CardContent>
           </Card>
 
-          <aside className="flex flex-col gap-4 xl:sticky xl:top-5" aria-label="Quick setup guidance">
+          <aside className="flex flex-col gap-4 border-l border-border pl-4 xl:sticky xl:top-5" aria-label="Checklist guidance">
             {result && summary ? (
               <Card className="border-accent/50">
                 <CardContent className="flex flex-col gap-4 p-4">
@@ -421,9 +409,8 @@ export function QuickProtocolForm({
                 </CardContent>
               </Card>
             ) : (
-              <Card>
-                <CardContent className="flex flex-col gap-3 p-4">
-                  <p className="type-eyebrow text-text-muted">HOW THIS WORKS</p>
+              <div className="flex flex-col gap-3">
+                  <p className="type-label font-medium text-text">How this works</p>
                   <ol className="flex flex-col gap-3">
                     {[
                       ["Fill the essentials", "Use the plain-language fields; no protocol vocabulary required."],
@@ -436,8 +423,7 @@ export function QuickProtocolForm({
                       </li>
                     ))}
                   </ol>
-                </CardContent>
-              </Card>
+              </div>
             )}
           </aside>
         </div>

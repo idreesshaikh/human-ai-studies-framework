@@ -307,13 +307,16 @@ def is_complete_brief(text: str) -> bool:
 
     The normal conversation can still teach one choice at a time. A researcher
     who pastes a proper brief should not be forced back through that sequence,
-    though. Four of the five setup facets is enough to extract the explicit
-    facts in one response while leaving genuinely missing details open.
+    though. A substantial note with three of the five setup facets is enough to
+    extract the explicit facts in one response while leaving genuinely missing
+    details open. The length guard keeps a short answer such as "developers use
+    AI" from being mistaken for a complete brief.
     """
     if not text or len(text.strip()) < 40:
         return False
     understanding = assess_understanding([text])
-    return sum(understanding.values()) >= 4
+    known = sum(understanding.values())
+    return known >= 4 or (known >= 3 and len(text.strip()) >= 80)
 
 
 def missing_facets(understanding: dict[str, bool]) -> list[str]:

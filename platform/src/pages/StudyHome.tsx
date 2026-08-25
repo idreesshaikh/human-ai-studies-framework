@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   HelpCircle,
   MessagesSquare,
-  ClipboardCheck,
   Library,
   BarChart3,
   Target,
@@ -20,6 +19,7 @@ import { StudyTour, markTourSeen } from "@/components/shell/StudyTour";
 import { ExportStudy } from "@/components/shell/ExportStudy";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
 import { resolveRole, roleOrNull } from "@/lib/role";
@@ -270,52 +270,31 @@ export function StudyHome() {
       </header>
 
       {tab === "conversation" && (
-        <div className="border-b border-border bg-well px-3 py-2 sm:px-4">
-          <div
-            className="mx-auto flex max-w-wide flex-wrap items-center gap-1"
-            role="tablist"
-            aria-label="Study setup paths"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={setupMode === "chat"}
-              onClick={() => setSetupMode("chat")}
-              className={cn(
-                "flex items-center gap-2 rounded-control px-3 py-2 text-left transition-colors duration-fast",
-                setupMode === "chat"
-                  ? "bg-surface text-text shadow-mark"
-                  : "text-text-muted hover:bg-surface hover:text-text",
-              )}
-            >
-              <MessagesSquare className="size-4" aria-hidden />
-              <span>
-                <span className="type-control block">Chat designer</span>
-                <span className="type-caption hidden text-text-muted sm:block">
-                  Learn by working through the choices
-                </span>
-              </span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={setupMode === "quick"}
-              onClick={() => setSetupMode("quick")}
-              className={cn(
-                "flex items-center gap-2 rounded-control px-3 py-2 text-left transition-colors duration-fast",
-                setupMode === "quick"
-                  ? "bg-surface text-text shadow-mark"
-                  : "text-text-muted hover:bg-surface hover:text-text",
-              )}
-            >
-              <ClipboardCheck className="size-4" aria-hidden />
-              <span>
-                <span className="type-control block">Quick protocol</span>
-                <span className="type-caption hidden text-text-muted sm:block">
-                  Form, validation, and a ready-to-review draft
-                </span>
-              </span>
-            </button>
+        <div className="border-b border-border bg-surface px-4 py-1.5">
+          <div className="mx-auto flex max-w-wide items-center justify-between gap-3">
+            <p className="hidden type-caption text-text-muted sm:block">
+              <span className="font-medium text-text">Setup</span>
+              <span aria-hidden className="mx-1.5 text-border-strong">/</span>
+              {setupMode === "chat" ? "Talk it through" : "Fill the checklist"}
+            </p>
+            <SegmentedControl
+              value={setupMode}
+              onChange={setSetupMode}
+              aria-label="Choose how to set up the study"
+              className="ml-auto"
+              options={[
+                {
+                  value: "chat",
+                  label: "Talk it through",
+                  hint: "Describe the study freely and learn the reasoning as the assistant builds the draft.",
+                },
+                {
+                  value: "quick",
+                  label: "Fill the checklist",
+                  hint: "Choose or enter known values, validate them, and review the resulting draft.",
+                },
+              ]}
+            />
           </div>
         </div>
       )}
@@ -339,7 +318,6 @@ export function StudyHome() {
               studyId={id}
               initialTitle={humanSlug(id)}
               initialResearchQuestion={opening}
-              onBackToChat={() => setSetupMode("chat")}
             />
           </div>
         )}

@@ -718,10 +718,11 @@ export function ConversationView({
           <header className="border-b border-border bg-surface px-4 py-4 sm:px-8 sm:py-5">
             <div className="mx-auto flex w-full max-w-reading items-start justify-between gap-4">
               <div>
-                <p className="type-legend text-accent">DEVELOPER STUDY SETUP</p>
-                <h2 className="mt-1 type-section text-text">Configure the study you want to run</h2>
+                <h2 className="type-section text-text">Build a runnable study</h2>
                 <p className="mt-1 max-w-[52ch] type-caption text-text-muted">
-                  Start with a coding task and an AI comparison. The protocol beside you is what TERN will use to run the session and shape the data.
+                  Paste the whole brief or work through one choice at a time. I’ll explain the
+                  trade-offs, keep the checklist beside you current, and stop when the compiler
+                  has what it needs.
                 </p>
               </div>
               <div className="shrink-0 text-right">
