@@ -306,24 +306,6 @@ export interface CompileResult {
   templateId: string | null;
 }
 
-export interface QuickProtocolInput {
-  title: string;
-  researchQuestion: string;
-  design: "within-subjects" | "between-subjects";
-  conditions: [string, string];
-  participantDescription: string;
-  plannedParticipants: number;
-  taskDescription: string;
-  sessionMinutes: number;
-  measures: string[];
-  counterbalanced: boolean;
-}
-
-export interface QuickProtocolResult extends CompileResult {
-  selectedMeasures: string[];
-  participantDescription: string;
-}
-
 export const conversationApi = {
   async get(
     studyId: string,
@@ -519,16 +501,6 @@ export const conversationApi = {
     return post<CompileResult>(
       `/studies/${encodeURIComponent(studyId)}/conversation/compile`,
       { baseYaml: baseYaml ?? null },
-    );
-  },
-
-  quickProtocol(
-    studyId: string,
-    input: QuickProtocolInput,
-  ): Promise<QuickProtocolResult> {
-    return post<QuickProtocolResult>(
-      `/studies/${encodeURIComponent(studyId)}/quick-protocol`,
-      input,
     );
   },
 

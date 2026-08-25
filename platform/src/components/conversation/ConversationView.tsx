@@ -720,9 +720,9 @@ export function ConversationView({
               <div>
                 <h2 className="type-section text-text">Build a runnable study</h2>
                 <p className="mt-1 max-w-[52ch] type-caption text-text-muted">
-                  Paste the whole brief or work through one choice at a time. I’ll explain the
-                  trade-offs, keep the checklist beside you current, and stop when the compiler
-                  has what it needs.
+                  Paste the whole brief or set the concrete details below. I’ll handle the
+                  methodological reasoning, teach the trade-offs, and turn settled decisions
+                  into a validated protocol.
                 </p>
               </div>
               <div className="shrink-0 text-right">

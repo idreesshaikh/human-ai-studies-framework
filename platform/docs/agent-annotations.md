@@ -40,7 +40,6 @@ retrofitted.
 | `conversation-composer` | `ConversationView` | the message form |
 | `conversation-start` | `ConversationStart` | the blank record: how the conversation works, and the openings that load into the composer (shown only before the first researcher turn) |
 | `study-scope` | `ConversationStart` | the supported study boundary shown before setup begins |
-| `study-overview` | `ConversationStart` | the three-stage configure, review, and run overview |
 | `conversation-send` | `ConversationView` | send the researcher's message |
 | `conversation-thinking` | `ConversationView` | the platform is composing a reply (LLM or scripted), a transient landmark |
 | `conversation-streaming` | `ConversationView` | the reply's prose as it streams in (transient; replaced by the real turn) |

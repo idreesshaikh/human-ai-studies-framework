@@ -10,7 +10,6 @@ import {
   UserPlus,
 } from "lucide-react";
 import { ConversationView } from "@/components/conversation/ConversationView";
-import { QuickProtocolForm } from "@/components/setup/QuickProtocolForm";
 import { LibraryTab } from "@/components/library/LibraryTab";
 import { DataTab } from "@/components/charts/DataTab";
 import { PowerPanel } from "@/components/charts/PowerPanel";
@@ -19,7 +18,6 @@ import { StudyTour, markTourSeen } from "@/components/shell/StudyTour";
 import { ExportStudy } from "@/components/shell/ExportStudy";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
 import { resolveRole, roleOrNull } from "@/lib/role";
@@ -75,24 +73,6 @@ export function StudyHome() {
    * before this workspace existed. Router state, not a query param: it is a
    * one-time hand-off, not part of the study's address. */
   const location = useLocation();
-  const setupModeParam = searchParams.get("mode");
-  const setupMode =
-    setupModeParam === "quick" ||
-    (setupModeParam !== "chat" &&
-      (location.state as { setupMode?: unknown } | null)?.setupMode === "quick")
-      ? "quick"
-      : "chat";
-  const setSetupMode = (next: "chat" | "quick") =>
-    setSearchParams(
-      (prev) => {
-        const params = new URLSearchParams(prev);
-        params.set("tab", "conversation");
-        if (next === "quick") params.set("mode", "quick");
-        else params.set("mode", "chat");
-        return params;
-      },
-      { replace: true },
-    );
   const opening =
     typeof (location.state as { opening?: unknown } | null)?.opening === "string"
       ? ((location.state as { opening: string }).opening)
@@ -269,56 +249,17 @@ export function StudyHome() {
         </nav>
       </header>
 
-      {tab === "conversation" && (
-        <div className="border-b border-border bg-surface px-4 py-1.5">
-          <div className="mx-auto flex max-w-wide items-center justify-between gap-3">
-            <p className="hidden type-caption text-text-muted sm:block">
-              <span className="font-medium text-text">Setup</span>
-              <span aria-hidden className="mx-1.5 text-border-strong">/</span>
-              {setupMode === "chat" ? "Talk it through" : "Fill the checklist"}
-            </p>
-            <SegmentedControl
-              value={setupMode}
-              onChange={setSetupMode}
-              aria-label="Choose how to set up the study"
-              className="ml-auto"
-              options={[
-                {
-                  value: "chat",
-                  label: "Talk it through",
-                  hint: "Describe the study freely and learn the reasoning as the assistant builds the draft.",
-                },
-                {
-                  value: "quick",
-                  label: "Fill the checklist",
-                  hint: "Choose or enter known values, validate them, and review the resulting draft.",
-                },
-              ]}
-            />
-          </div>
-        </div>
-      )}
-
       {/* This row clips; it never scrolls itself. Each tab owns its one
        * scroller (a Surface body, or  -  for Library  -  its own split-rail
        * columns), so the workspace never ends up with two scrollbars. */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {tab === "conversation" && setupMode === "chat" && (
+        {tab === "conversation" && (
           /* min-w-0: without it this flex item takes its width from its widest
            * unshrinkable descendant, so one long citation title pushed the
            * whole workspace column off the side of a phone. A definite width
            * here is also what lets the citation wrap instead of clamp. */
           <div className="min-h-0 min-w-0 flex-1">
             <ConversationView studyId={id} opening={opening} />
-          </div>
-        )}
-        {tab === "conversation" && setupMode === "quick" && (
-          <div className="min-h-0 min-w-0 flex-1">
-            <QuickProtocolForm
-              studyId={id}
-              initialTitle={humanSlug(id)}
-              initialResearchQuestion={opening}
-            />
           </div>
         )}
         {tab === "library" && (
