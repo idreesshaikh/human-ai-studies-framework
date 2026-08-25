@@ -49,7 +49,7 @@ export function Hero() {
           </div>
 
           <h1 className="type-display max-w-[18ch] animate-in fade-in slide-in-from-bottom-2 text-text duration-entrance ease-out">
-            Turn an idea into a <span className="italic">defensible</span> study
+            Run a <span className="italic">defensible</span> developer study
           </h1>
 
         {/* `text-balance`: centred and left to wrap, this set four lines with
@@ -59,15 +59,15 @@ export function Hero() {
           * able to name it. Balanced, the four lines come out even and
           * nothing is stranded. */}
           <p className="type-body-lg max-w-[52ch] animate-in text-balance fade-in text-text-muted delay-100 duration-entrance ease-out">
-            Phoenix is the methodologist and protocol compiler for human–AI
-            studies. Keep grounded design decisions, a validated capture plan,
-            and the exact analysis your design calls for.
+            Phoenix configures task-based human–AI studies in VS Code. Describe
+            the coding task, comparison, and outcome, then review a protocol
+            before optionally collecting the developer session data.
           </p>
 
           <div className="flex animate-in flex-col items-center gap-2 fade-in delay-150 duration-entrance ease-out sm:flex-row">
             <Button asChild>
               <Link to="/start">
-                Start with a research question <ArrowRight aria-hidden />
+                Configure a developer study <ArrowRight aria-hidden />
               </Link>
             </Button>
           </div>

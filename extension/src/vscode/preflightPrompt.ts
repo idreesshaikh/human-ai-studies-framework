@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 
 export interface PreflightPromptOptions {
   participantId: string;
-  condition: string;
   durationMinutes: number;
   capture: string[];
   notCaptured: string[];
@@ -29,7 +28,7 @@ export function confirmPreflight(
     quickPick.items = [
       {
         label: '$(play)  Begin session',
-        description: `${options.participantId} · ${options.condition} · ${options.durationMinutes} min`,
+        description: `${options.participantId} · ${options.durationMinutes} min`,
         detail: [
           'Captured during this session',
           ...(options.capture.length > 0

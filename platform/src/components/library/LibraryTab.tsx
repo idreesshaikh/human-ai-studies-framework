@@ -249,10 +249,10 @@ export function LibraryTab({ studyId }: { studyId: string }) {
           className={cn(
             "items-stretch gap-4",
             selectedNode &&
-              "grid min-h-0 lg:h-[var(--library-pane-h)] lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]",
+              "grid min-h-0 lg:min-h-[var(--library-pane-h)] lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]",
           )}
         >
-          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface p-4">
+          <div className="flex min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface p-4">
             <h3 className="type-subhead text-text">Literature map</h3>
             <p className="mt-0.5 shrink-0 type-caption text-text-muted">
               Relationships determine the constellation; year gives temporal context, node

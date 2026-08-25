@@ -93,7 +93,9 @@ def _capture_config(client, credential: str, session_id: str) -> dict:
 def test_a_session_is_assigned_a_task_and_the_editor_receives_it(client):
     _designed_study(client)
     token = _mint(client, 1)[0]
-    cred = _pair(client, token["connectionString"].rsplit("#", 1)[1])[
+    redeemed = _pair(client, token["connectionString"].rsplit("#", 1)[1])
+    assert redeemed["captureConfig"]["block"]["taskId"]
+    cred = redeemed[
         "sessionCredential"
     ]
 

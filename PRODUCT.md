@@ -9,16 +9,14 @@ web
 ## Users
 
 **Primary  -  the adopting researcher** (industry or academia), who is not the
-maintainer. They arrive with a research idea, not a protocol, and need to run
-their own study on human–AI software development. They are competent in their
-domain and afraid of getting the statistics wrong. Their job: turn an idea into
-a grounded, statistically prescribed, ethics-ready protocol without reading a
-methods thesis first  -  by choosing a published, citable design rather than
-reinventing methodology.
+maintainer. They arrive with a human–AI software-development study to run, not
+with a capture configuration or analyzable dataset. They are competent in their
+domain and need a reliable way to configure task-based coding sessions, collect
+the human, AI, and code signals that match the study, and hand off data they
+can actually analyze.
 
 This researcher is the tiebreaker for every product decision. They stay only if
-the platform demonstrably encodes real methodological knowledge, and they leave
-the moment it reads as a task board in disguise.
+the platform makes a real study easier to run and produces data they can trust.
 
 Secondary audiences, inside a project's role model (mirrored from
 `middleware/authz.py` into `platform/src/lib/capabilities.ts`): project owners
@@ -29,11 +27,10 @@ never use this app  -  they meet the study inside TERN, the VS Code extension.
 
 ## Product Purpose
 
-PHOENIX is not a general research chatbot. It is the methodologist and protocol
-compiler for human–AI studies: you describe what you want to find out, it asks
-the questions a methodologist would, proposes design moves that each cite a real
-paper or say they do not, and compiles the moves you accept into one validated,
-runnable study protocol.
+PHOENIX is not a general research chatbot. It is the setup and data spine for
+task-based human–AI software-development studies: you describe the coding task,
+AI comparison, and outcome, then it compiles the choices into one validated
+protocol that configures TERN and shapes the collected dataset.
 
 That protocol then configures TERN on each participant's machine, so the study
 that was designed is the study that runs.

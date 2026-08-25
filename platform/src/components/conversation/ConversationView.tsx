@@ -226,8 +226,27 @@ export function ConversationView({
       }
     }).catch(() => {
       if (!cancelled) {
-        setTurns([openingTurn()]);
+        const openingText = opening.trim();
+        setTurns(
+          openingText
+            ? [
+                {
+                  turnId: `offline-opening-${studyId}`,
+                  role: "researcher",
+                  author: "You",
+                  text: openingText,
+                  moves: [],
+                  recommendations: [],
+                },
+              ]
+            : [openingTurn()],
+        );
         setLive(false);
+        if (openingText) {
+          setNote(
+            "Your brief is still here, but the assistant needs the running middleware before it can configure the protocol.",
+          );
+        }
         setConversationLoading(false);
       }
     });
@@ -536,6 +555,75 @@ export function ConversationView({
     }
   }
 
+  async function acceptBatch(moves: DesignMove[]) {
+    const pending = moves.filter(
+      (move) => move.status === "proposed" && move.kind !== "caution",
+    );
+    if (pending.length < 2 || busy) return;
+    setBusy(true);
+    setTurns((prev) =>
+      prev.map((turn) => ({
+        ...turn,
+        moves: turn.moves.map((move) =>
+          pending.some((candidate) => candidate.moveId === move.moveId)
+            ? { ...move, status: "accepted" as const }
+            : move,
+        ),
+      })),
+    );
+    const saved: DesignMove[] = [];
+    try {
+      if (live) {
+        // Save in order so a transient failure cannot leave the UI claiming the
+        // whole batch was persisted when the API has only accepted part of it.
+        for (const move of pending) {
+          await conversationApi.decide(studyId, move.moveId, "accepted");
+          saved.push(move);
+        }
+      } else {
+        saved.push(...pending);
+      }
+      if (live) {
+        for (const grounding of pending.flatMap((move) => move.grounding)) {
+          if (addedRefs.has(grounding.ref)) continue;
+          setAddedRefs((prev) => new Set(prev).add(grounding.ref));
+          studyApi
+            .addPaperFromMatch(studyId, grounding.ref, grounding.why)
+            .catch(() => {
+              setAddedRefs((prev) => {
+                const next = new Set(prev);
+                next.delete(grounding.ref);
+                return next;
+              });
+              setNote("Some cited papers could not be added to the library. Try again from Literature.");
+            });
+        }
+      }
+      setNote(`${saved.length} choices from your brief were accepted together. Review the draft, then continue with any open detail.`);
+    } catch {
+      setTurns((prev) =>
+        prev.map((turn) => ({
+          ...turn,
+          moves: turn.moves.map((move) =>
+            pending.some((candidate) => candidate.moveId === move.moveId)
+              ? {
+                  ...move,
+                  status: saved.some(
+                    (candidate) => candidate.moveId === move.moveId,
+                  )
+                    ? ("accepted" as const)
+                    : ("proposed" as const),
+                }
+              : move,
+          ),
+        })),
+      );
+      setNote(`${saved.length} choices were saved; the rest remain open. Try the batch again when the connection is stable.`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function addPaper(ref: string) {
     // Optimistic: mark it added immediately so the card settles.
     setAddedRefs((prev) => new Set(prev).add(ref));
@@ -618,6 +706,7 @@ export function ConversationView({
         text: "The draft still needs a few sections before it can be reviewed and applied. Follow the next question in the study map to continue.",
       }
     : activePlatform;
+  const scopeBlocked = activePlatform?.source === "scope";
 
   return (
     <div
@@ -629,10 +718,10 @@ export function ConversationView({
           <header className="border-b border-border bg-surface px-4 py-4 sm:px-8 sm:py-5">
             <div className="mx-auto flex w-full max-w-reading items-start justify-between gap-4">
               <div>
-                <p className="type-legend text-accent">DESIGN SESSION</p>
-                <h2 className="mt-1 type-section text-text">Shape the study at your pace</h2>
+                <p className="type-legend text-accent">DEVELOPER STUDY SETUP</p>
+                <h2 className="mt-1 type-section text-text">Configure the study you want to run</h2>
                 <p className="mt-1 max-w-[52ch] type-caption text-text-muted">
-                  Answer the prompt, accept a useful suggestion, or leave a choice open and come back to it later.
+                  Start with a coding task and an AI comparison. The protocol beside you is what TERN will use to run the session and shape the data.
                 </p>
               </div>
               <div className="shrink-0 text-right">
@@ -665,6 +754,7 @@ export function ConversationView({
                   <StreamingTurn
                     turn={displayedPlatform}
                     onDecide={decide}
+                    onAcceptBatch={acceptBatch}
                     focusMoveId={focusMoveId}
                     active
                   />
@@ -837,6 +927,7 @@ export function ConversationView({
           ) : (
             <DraftRail
               understanding={understanding}
+              scopeBlocked={scopeBlocked}
               loading={conversationLoading}
               draft={clientDraft}
               serverYaml={conversationLoading ? undefined : compileResult?.yaml}

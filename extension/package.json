@@ -138,7 +138,7 @@
         "tern.participantId": {
           "type": "string",
           "default": "",
-          "description": "Default participant ID (can be overridden when starting a session)."
+          "description": "Managed by study pairing. Participant changes are ignored while connected to a study."
         },
         "tern.condition": {
           "type": "string",
@@ -148,17 +148,17 @@
             "unspecified"
           ],
           "default": "unspecified",
-          "description": "A/B study condition for this session."
+          "description": "Study assignment, managed by pairing and not editable by participants."
         },
         "tern.session.durationMinutes": {
           "type": "number",
           "default": 60,
-          "description": "Study session length in minutes. The end-of-study survey opens automatically when time is up."
+          "description": "Study session length in minutes. When paired, the researcher-issued protocol controls this value."
         },
         "tern.session.id": {
           "type": "string",
           "default": "",
-          "description": "Optional session ID supplied by a manifest. Cleared after it is consumed; empty uses a random standalone ID."
+          "description": "Optional session ID supplied by a manifest. Paired participants always use a server-safe session ID."
         },
         "tern.fatigue.intervalMinutes": {
           "type": "number",
@@ -382,17 +382,17 @@
         "tern.output.directory": {
           "type": "string",
           "default": "",
-          "description": "Directory for JSONL study data. Empty = <workspace>/.study-data (or extension global storage if no workspace)."
+          "description": "Directory for JSONL study data. Paired participants use the extension-managed local mirror."
         },
         "tern.output.httpEndpoint": {
           "type": "string",
           "default": "",
-          "description": "Optional middleware endpoint to POST event batches to (e.g. http://localhost:8000/cognitive). Empty = disabled."
+          "description": "Middleware endpoint for event batches. Managed by study pairing while connected."
         },
         "tern.studyId": {
           "type": "string",
           "default": "",
-          "description": "The study this IDE is paired to (set automatically when you connect)."
+          "description": "The study this IDE is paired to. Managed by the connection link."
         }
       }
     },

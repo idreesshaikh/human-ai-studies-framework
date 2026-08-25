@@ -73,9 +73,11 @@ export interface Turn {
    *   reload; the researcher's own turn stays.
    * - `"scripted"`  -  turns stored before the keyword fallback was removed.
    *   Kept readable, never produced.
+   * - `"scope"`  -  a deterministic boundary response. The idea is outside
+   *   PHOENIX's human–AI developer-study lane, so it never reaches the model.
    *
    * Absent for researcher turns. */
-  source?: "llm" | "scripted" | "unavailable";
+  source?: "llm" | "scripted" | "unavailable" | "scope";
 }
 
 /** What the platform understands about the study so far (FR-CONV-10), and

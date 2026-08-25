@@ -99,12 +99,15 @@ from the study protocol - no manual configuration, no side-channel.
    deep link runs the same flow.)
 3. The extension shows the study's **consent statement**; capture begins only
    after the participant explicitly accepts.
-4. On accept, the extension fills in the participant ID, condition, study ID,
-   and the middleware endpoint automatically, and stores a session credential
-   securely (VS Code SecretStorage). A one-line summary confirms exactly what
-   the study will capture.
-5. Run **_TERN: Start Study Session_** when ready - the session uses the
-   configuration that arrived from the study.
+4. On accept, the extension locks the participant ID and assignment from the
+   link, fills in the study ID and middleware endpoint, and stores a session
+   credential securely (VS Code SecretStorage). The assignment is used
+   internally for event attribution but is not shown to the participant. A
+   one-line summary confirms the capture scope.
+5. If the task declares a local materials folder, TERN opens that folder in
+   VS Code after pairing. Run **_TERN: Start Study Session_** when ready - the
+   session uses the researcher-issued configuration that arrived from the
+   study.
 
 When a prepared manifest supplies `tern.session.id`, TERN consumes it once and
 then returns to random IDs for ordinary standalone testing. The preflight

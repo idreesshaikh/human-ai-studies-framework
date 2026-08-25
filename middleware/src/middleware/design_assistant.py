@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 _LLM_HISTORY_TURNS = 12
 
 _STATE_MOVE_CAP = 30
+_BATCH_MOVE_CAP = 12
 
 # Near-duplicate thresholds (tunable): two moves are the same move when their content
 # terms overlap this much (denominator: the smaller term set, so a short prior move
@@ -53,6 +54,22 @@ def holding_turn(reason: str, stance: dict | None = None) -> dict:
         "retrievedRefs": [],
         "source": "unavailable",
     }
+
+
+SCOPE_REDIRECT = (
+    "PHOENIX is for task-based human–AI software-development studies. It can "
+    "configure TERN sessions in VS Code, capture what developers do and what "
+    "the AI does, and prepare the resulting dataset. This idea is outside that "
+    "lane, so I will not keep asking protocol questions. Use a coding task with "
+    "an AI-assisted versus unassisted comparison if that is the study you want "
+    "to run."
+)
+
+SCOPE_CLARIFICATION = (
+    "PHOENIX is built for task-based studies of people using AI while developing "
+    "software in VS Code. Is your study about a coding task and an AI-assisted "
+    "versus unassisted comparison? Other study types are outside this workspace."
+)
 
 
 NO_MODEL = (
@@ -375,7 +392,9 @@ def turn_stance(
 ) -> dict:
     """What this turn is, how much is understood, and what may be proposed."""
     prior = researcher_texts(s, study_id)
+    scope = elicitation.classify_scope([*prior, text])
     understanding = elicitation.assess_understanding([*prior, text])
+    batch_intake = elicitation.is_complete_brief(text)
     intent = elicitation.classify_turn(text)
     templates = list_templates()
     # A follow-up question never counts, or "why the crossover?" would re-propose the
@@ -392,6 +411,8 @@ def turn_stance(
     declared = profile if profile in elicitation.PROFILES else None
     decision_action = (decision or {}).get("action")
     return {
+        "scope": scope,
+        "batchIntake": batch_intake,
         "intent": intent,
         "steer": steer if steer in elicitation.STEER_LEVELS else None,
         "profile": declared or elicitation.steer_profile(steer),
@@ -409,6 +430,14 @@ def turn_stance(
         and intent != "followup-question"
         and elicitation.proposals_permitted(steer),
     }
+
+
+def _scope_turn(scope: str) -> Turn:
+    """Keep non-developer ideas out of the protocol elicitation loop."""
+    return Turn(
+        text=SCOPE_REDIRECT if scope == "out-of-scope" else SCOPE_CLARIFICATION,
+        moves=(),
+    )
 
 
 def _slot_directive(state: dict | None) -> str:
@@ -468,6 +497,19 @@ def _directive(stance: dict, state: dict | None = None) -> str:
         elicitation.profile_guidance(stance["profile"]),
         elicitation.steer_guidance(stance.get("steer")),
     ]
+
+    if stance.get("batchIntake"):
+        lines.append(
+            "BATCH INTAKE. The researcher supplied a complete brief in one message. "
+            "Extract every explicit protocol fact from it now. Return one move for "
+            "each distinct section or value you can safely record, including the "
+            "task, population, comparison, measures, constraints, research question, "
+            "and matching design when the brief supports them. Return the batch in "
+            "this response instead of asking for those facts one by one. Do not "
+            "invent values for details they did not state. You may leave a genuinely "
+            "missing slot open and name it briefly after the batch. This instruction "
+            "overrides the normal one-move pace for this turn only."
+        )
 
     if stance.get("decisionAction"):
         action = stance["decisionAction"]
@@ -772,11 +814,13 @@ def _permitted_moves(
 ) -> tuple[ProposedMove, ...]:
     """Apply the stance to a script's moves  -  the enforcement half.
 
-    The model is instructed to make one proposal at a time, but that rule must
-    also hold when a provider returns a verbose turn or an older prompt is in
-    use. Keep one permitted move, with a grounded caution taking priority over
-    an action when both are present. A risk is the decision the researcher
-    needs to see before accepting a new protocol choice.
+    The model is normally instructed to make one proposal at a time, but that
+    rule must also hold when a provider returns a verbose turn or an older prompt
+    is in use. A complete brief is the deliberate exception: keep the full safe
+    batch together so the researcher can review it in one pass. Otherwise keep
+    one permitted move, with a grounded caution taking priority over an action
+    when both are present. A risk is the decision the researcher needs to see
+    before accepting a new protocol choice.
     """
     if stance.get("decisionAction"):
         return ()
@@ -812,6 +856,12 @@ def _permitted_moves(
 
     if not candidates:
         return ()
+    if stance.get("batchIntake"):
+        # A complete brief is the explicit exception to the one-card teaching
+        # rhythm. Keep every distinct, validated proposal together so the
+        # researcher can review the complete setup in one pass.
+        return tuple(candidates[:_BATCH_MOVE_CAP])
+
     chosen = next(
         (move for move in candidates if move.kind == "caution"),
         candidates[0],
@@ -1034,6 +1084,20 @@ def respond(
         decision=decision,
     )
     state = _load_design_state(s, study_id)
+    if stance["scope"] == "out-of-scope":
+        return _assemble(
+            s,
+            text,
+            _scope_turn(stance["scope"]),
+            llm_recommendations=[],
+            seq=seq,
+            study_id=study_id,
+            client=client,
+            stance=stance,
+            state=state,
+            source="scope",
+            suppress_recommendations=True,
+        )
     papers, templates, history = _retrieve(
         s, text, study_id, history, decision=decision
     )
@@ -1154,6 +1218,23 @@ def respond_streaming(
         decision=decision,
     )
     state = _load_design_state(s, study_id)
+    if stance["scope"] == "out-of-scope":
+        turn = _scope_turn(stance["scope"])
+        if turn.text:
+            yield turn.text
+        return _assemble(
+            s,
+            text,
+            turn,
+            llm_recommendations=[],
+            seq=seq,
+            study_id=study_id,
+            client=client,
+            stance=stance,
+            state=state,
+            source="scope",
+            suppress_recommendations=True,
+        )
     papers, templates, history = _retrieve(
         s, text, study_id, history, decision=decision
     )
@@ -1213,6 +1294,8 @@ def _assemble(
     client,
     stance: dict,
     state: dict | None = None,
+    source: str = "llm",
+    suppress_recommendations: bool = False,
 ) -> dict:
     """
     Turn the model's reply into the platform turn's result dict: grounding resolved
@@ -1229,6 +1312,7 @@ def _assemble(
         and not had_model_moves
         and stance.get("mayProposeMoves")
         and stance.get("intent") != "followup-question"
+        and not suppress_recommendations
     ):
         # The model's prose is still valuable, but a prose-only turn leaves the
         # researcher with nothing to decide. Use the same constrained
@@ -1273,17 +1357,25 @@ def _assemble(
 
     # Reuse the retrieval already made for the candidate menu  -  never a second
     # match_papers call for the same turn.
-    recommendations = llm_recommendations or []
+    recommendations = [] if suppress_recommendations else (llm_recommendations or [])
     retrieved.update(r["ref"] for r in recommendations)
 
-    template_recommendations = recommend_templates(text, support=corpus_support(s))
+    template_recommendations = (
+        []
+        if suppress_recommendations
+        else recommend_templates(text, support=corpus_support(s))
+    )
     design_shape = None
     for tr in template_recommendations:
         ds = tr.get("designShape")
         if ds:
             design_shape = ds
             break
-    prescription = recommend_prescription(design_shape) if design_shape else None
+    prescription = (
+        recommend_prescription(design_shape)
+        if design_shape and not suppress_recommendations
+        else None
+    )
     result_shape = None
     if design_shape == "two-group":
         result_shape = "two-group-comparison"
@@ -1293,7 +1385,11 @@ def _assemble(
         result_shape = "proportion"
     elif design_shape == "correlation":
         result_shape = "correlation"
-    figure_suggestions = suggest_figures(result_shape) if result_shape else []
+    figure_suggestions = (
+        suggest_figures(result_shape)
+        if result_shape and not suppress_recommendations
+        else []
+    )
 
     return {
         "text": _guard_completion_claim(turn.text, state),
@@ -1305,7 +1401,7 @@ def _assemble(
         "understanding": stance["understanding"],
         "turnIntent": stance["intent"],
         "retrievedRefs": sorted(retrieved),
-        "source": "llm",
+        "source": source,
     }
 
 

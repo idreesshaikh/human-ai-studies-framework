@@ -24,7 +24,7 @@ type ConversationReply = {
   text: string;
   moves: Record<string, unknown>[];
   recommendations: Recommendation[];
-  source?: "llm" | "scripted" | "unavailable";
+  source?: "llm" | "scripted" | "unavailable" | "scope";
   understanding?: Understanding;
 };
 
@@ -188,7 +188,7 @@ function mapTurn(raw: Record<string, unknown>): Turn {
     moves: ((raw.moves as Record<string, unknown>[]) ?? []).map(mapMove),
     recommendations: ((raw.recommendations as Recommendation[]) ?? []),
     source:
-      raw.source === "llm" || raw.source === "scripted" || raw.source === "unavailable"
+      raw.source === "llm" || raw.source === "scripted" || raw.source === "unavailable" || raw.source === "scope"
         ? raw.source
         : undefined,
   };
@@ -414,7 +414,7 @@ export const conversationApi = {
       text: string;
       moves: Record<string, unknown>[];
       recommendations: Recommendation[];
-      source?: "llm" | "scripted" | "unavailable";
+      source?: "llm" | "scripted" | "unavailable" | "scope";
       understanding?: Understanding;
     } | null = null;
     try {

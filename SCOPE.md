@@ -7,11 +7,13 @@ line here first, in a commit of its own.
 
 ## The spine
 
-PHOENIX handles **design, setup, and curation, then stops.** Five steps:
+PHOENIX handles **developer-study setup, running, collection, and handoff.**
+Five steps:
 
-1. **Talk it through.** The researcher describes an idea; the assistant
-   proposes design moves one at a time. Every move carries a real citation or
-   an explicit "no source found" label  -  there is no third state.
+1. **Configure the study.** The researcher describes a coding task, the
+   AI-assisted versus unassisted comparison, and the outcome. The setup
+   conversation keeps those choices explicit without pretending to support
+   every research domain.
 2. **Compile.** Accepted moves fold deterministically into a protocol. The
    same answers always produce the same protocol, with no model involved.
 3. **Run.** The protocol configures TERN on each participant's machine and

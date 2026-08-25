@@ -1,10 +1,5 @@
 import * as vscode from 'vscode';
-import {
-  AI_CONDITION_ITEM,
-  END_SURVEY_ITEMS,
-  LikertItem,
-} from '../core/surveys';
-import { StudyCondition } from '../core/types';
+import { END_SURVEY_ITEMS, LikertItem } from '../core/surveys';
 
 export interface EndSurveyResult {
   responses: Record<string, number>;
@@ -17,11 +12,8 @@ export interface EndSurveyResult {
  * taking screen space is fine. Styled as a frosted-glass card over the
  * editor theme colors.
  */
-export function showEndSurvey(
-  condition: StudyCondition,
-): Promise<EndSurveyResult | undefined> {
+export function showEndSurvey(): Promise<EndSurveyResult | undefined> {
   const items: LikertItem[] = [...END_SURVEY_ITEMS];
-  if (condition === 'ai-assisted') items.push(AI_CONDITION_ITEM);
 
   const panel = vscode.window.createWebviewPanel(
     'tern.endSurvey',

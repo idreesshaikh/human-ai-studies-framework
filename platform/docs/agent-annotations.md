@@ -39,6 +39,8 @@ retrofitted.
 | `conversation` | `ConversationView` | the design-conversation surface (landmark) |
 | `conversation-composer` | `ConversationView` | the message form |
 | `conversation-start` | `ConversationStart` | the blank record: how the conversation works, and the openings that load into the composer (shown only before the first researcher turn) |
+| `study-scope` | `ConversationStart` | the supported study boundary shown before setup begins |
+| `study-overview` | `ConversationStart` | the three-stage configure, review, and run overview |
 | `conversation-send` | `ConversationView` | send the researcher's message |
 | `conversation-thinking` | `ConversationView` | the platform is composing a reply (LLM or scripted), a transient landmark |
 | `conversation-streaming` | `ConversationView` | the reply's prose as it streams in (transient; replaced by the real turn) |
@@ -50,6 +52,7 @@ retrofitted.
 | `move-accept` | `MoveCard` | accept the move |
 | `move-reject` | `MoveCard` | reject the move |
 | `move-undo` | `MoveCard` | reopen a decided move back to `proposed` |
+| `accept-batch` | `StreamingTurn` | accept the explicit choices extracted from one complete brief together |
 | `recommendation-card` | `RecommendationCard` | a matched paper; `data-agent-ref` carries its corpus ref |
 | `add-paper` | `RecommendationCard` | add the paper to the study set |
 | `recommender-rail` | `RecommenderRail` | the persistent literature-recommender panel beside the conversation (landmark) |

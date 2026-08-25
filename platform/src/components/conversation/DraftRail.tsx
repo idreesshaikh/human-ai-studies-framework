@@ -27,6 +27,7 @@ export function DraftRail({
   onFinish,
   understanding,
   loading,
+  scopeBlocked,
 }: {
   draft: ProtocolDraft;
   serverYaml?: string;
@@ -40,8 +41,12 @@ export function DraftRail({
   onFinish?: () => void;
   understanding?: Understanding;
   loading?: boolean;
+  /** The last idea was outside PHOENIX's supported lane. Keep the draft
+   *  visible, but stop the rail from asking a developer-study question that
+   *  contradicts the boundary message in the conversation. */
+  scopeBlocked?: boolean;
 }) {
-  const path = buildProtocolPath(draft, understanding);
+  const path = buildProtocolPath(draft, scopeBlocked ? undefined : understanding);
   const complete = unresolved !== undefined
     ? unresolved.length === 0
     : MANDATORY_SLOTS.every((slot) => draft[slot].length > 0);
@@ -100,12 +105,17 @@ export function DraftRail({
               style={{ width: `${path.total ? (path.done / path.total) * 100 : 0}%` }}
             />
           </div>
-          {path.upNext && (
+          {scopeBlocked ? (
+            <p className="mt-3 rounded-input border border-accent/30 bg-accent-wash px-3 py-2 type-caption text-text">
+              <span className="type-legend text-accent">SETUP PAUSED</span>
+              <span className="ml-2">Use a supported coding-study brief to continue.</span>
+            </p>
+          ) : path.upNext ? (
             <p className="mt-3 rounded-input bg-accent-wash px-3 py-2 type-caption text-text" data-agent="protocol-path-current">
               <span className="type-legend text-accent">NEXT</span>
               <span className="ml-2">{path.upNext}</span>
             </p>
-          )}
+          ) : null}
         </div>
 
       </div>

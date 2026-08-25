@@ -27,6 +27,9 @@ import { LikertPromptHandle, showLikertQuickPick } from './fatiguePrompt';
 import { VscodeIdeHealthAdapter } from './ideHealth';
 import {
   getStoredCredential,
+  getPairedIdentity,
+  enforcePairedSettings,
+  pairingState,
   pairFromConnectionString,
   registerPairing,
   refreshConfigAtSessionStart,
@@ -82,16 +85,17 @@ let sinkErrorShown = false;
  *  session can never be held open by the views. */
 function sidebarSession(): SidebarSession {
   const s = study;
-  const conf = vscode.workspace.getConfiguration('tern');
   if (!s) {
     return { active: false, paused: false };
   }
+  const paired = getPairedIdentity(extContext);
   return {
     active: true,
     ending: s.ending,
     paused: s.session.paused,
-    participantId: conf.get<string>('participantId'),
-    condition: conf.get<string>('condition'),
+    participantId:
+      paired?.participantId ??
+      vscode.workspace.getConfiguration('tern').get<string>('participantId'),
     dataFile: s.dataFile,
     written: s.recorder.nextSeq,
     mirrored: s.httpSink ? s.httpSink.deliveredCount : s.recorder.nextSeq,
@@ -106,6 +110,8 @@ export function activate(context: vscode.ExtensionContext): void {
   // the compact session indicator beside it.
   sidebar = registerSidebar(context, sidebarSession);
   context.subscriptions.push({ dispose: () => sidebar.dispose() });
+  const pairedOnActivation = getPairedIdentity(context);
+  if (pairedOnActivation) void enforcePairedSettings(pairedOnActivation);
 
   context.subscriptions.push(
     vscode.commands.registerCommand('tern.startSession', () => startSession()),
@@ -176,6 +182,12 @@ function cfg<T>(key: string, fallback: T): T {
 }
 
 function dataDirectory(): string {
+  if (getPairedIdentity(extContext)) {
+    // A paired participant cannot redirect the local evidence path through a
+    // user-editable setting. Researchers can collect the authoritative stream
+    // from the server; this is only the crash-safe local mirror.
+    return path.join(extContext.globalStorageUri.fsPath, 'study-data');
+  }
   const configured = cfg('output.directory', '');
   if (configured) return configured;
   const ws = vscode.workspace.workspaceFolders?.[0];
@@ -195,35 +207,48 @@ async function startSession(): Promise<void> {
     return;
   }
 
-  const participantId = await vscode.window.showInputBox({
-    title: 'Participant ID',
-    prompt: 'Identifier for this participant (e.g. P07)',
-    value: cfg('participantId', ''),
-    ignoreFocusOut: true,
-    validateInput: (v) => (v.trim() ? undefined : 'Participant ID is required'),
-  });
-  if (!participantId) return;
+  const paired = getPairedIdentity(extContext);
+  let participantId: string;
+  let condition: StudyCondition;
+  if (paired) {
+    // These values come from the redeemed token. Never ask a participant to
+    // re-enter an identity or choose an arm from the command palette.
+    participantId = paired.participantId;
+    condition = paired.condition as StudyCondition;
+  } else {
+    const enteredId = await vscode.window.showInputBox({
+      title: 'Participant ID',
+      prompt: 'Identifier for this participant (e.g. P07)',
+      value: cfg('participantId', ''),
+      ignoreFocusOut: true,
+      validateInput: (v) =>
+        v.trim() ? undefined : 'Participant ID is required',
+    });
+    if (!enteredId) return;
+    participantId = enteredId.trim();
 
-  const conditionPick = await vscode.window.showQuickPick(
-    [
-      {
-        label: 'AI-assisted',
-        description: 'Participant works with the AI agent/LLM',
-        value: 'ai-assisted' as StudyCondition,
-      },
-      {
-        label: 'Unassisted',
-        description: 'Participant works without AI',
-        value: 'unassisted' as StudyCondition,
-      },
-      { label: 'Unspecified', value: 'unspecified' as StudyCondition },
-    ],
-    { title: 'Study condition (A/B arm)', ignoreFocusOut: true },
-  );
-  if (!conditionPick) return;
+    const conditionPick = await vscode.window.showQuickPick(
+      [
+        {
+          label: 'AI-assisted',
+          description: 'Participant works with the AI agent/LLM',
+          value: 'ai-assisted' as StudyCondition,
+        },
+        {
+          label: 'Unassisted',
+          description: 'Participant works without AI',
+          value: 'unassisted' as StudyCondition,
+        },
+        { label: 'Unspecified', value: 'unspecified' as StudyCondition },
+      ],
+      { title: 'Study condition (A/B arm)', ignoreFocusOut: true },
+    );
+    if (!conditionPick) return;
+    condition = conditionPick.value;
+  }
 
   const durationMin = cfg('session.durationMinutes', 60);
-  const sessionTag = `${participantId.trim()}_${new Date()
+  const sessionTag = `${participantId}_${new Date()
     .toISOString()
     .replace(/[:.]/g, '-')}`;
   const dataFile = path.join(dataDirectory(), `${sessionTag}.jsonl`);
@@ -233,7 +258,7 @@ async function startSession(): Promise<void> {
   // task block against it, which makes the assignment idempotent  -  a re-pull
   // for a session already under way returns the same block instead of
   // advancing the participant past one.
-  const preparedSessionId = cfg('session.id', '').trim();
+  const preparedSessionId = paired ? '' : cfg('session.id', '').trim();
   const plannedSessionId = preparedSessionId || newSessionId();
   if (preparedSessionId) {
     // A prepared id is single-use. Clear the setting after consuming it so a
@@ -271,12 +296,13 @@ async function startSession(): Promise<void> {
     flags[key] =
       val?.workspaceValue ?? val?.globalValue ?? val?.defaultValue ?? false;
   }
-  const manifest =
-    extContext.workspaceState.get<Record<string, unknown>>(STATE_MANIFEST);
+  const manifest = pairingState<Record<string, unknown>>(
+    extContext,
+    STATE_MANIFEST,
+  );
   const items = preflightSummary(flags, manifest?.producers);
   const accepted = await confirmPreflight({
-    participantId: participantId.trim(),
-    condition: conditionPick.label,
+    participantId,
     durationMinutes: durationMin,
     capture: items.filter((i) => i.on).map((i) => i.label),
     notCaptured: items.filter((i) => !i.on).map((i) => i.label),
@@ -284,15 +310,14 @@ async function startSession(): Promise<void> {
   if (!accepted) return;
 
   bootSession({
-    participantId: participantId.trim(),
-    condition: conditionPick.value,
+    participantId,
+    condition,
     dataFile,
     durationMs: durationMin * 60_000,
     fatigueIntervalMs: cfg('fatigue.intervalMinutes', 15) * 60_000,
     credential,
     plannedSessionId,
-    taskId: extContext.workspaceState.get<{ taskId?: string }>(STATE_BLOCK)
-      ?.taskId,
+    taskId: pairingState<{ taskId?: string }>(extContext, STATE_BLOCK)?.taskId,
   });
 
   study!.recorder.record('session_start', {
@@ -313,12 +338,12 @@ async function startSession(): Promise<void> {
     // Stamped so a live study is replicable down to exactly which metrics
     // were on for this session (fixed for the whole session, never mutated).
     captureConfigVersion:
-      extContext.workspaceState.get<string>('tern.captureConfigVersion') ?? '',
+      pairingState<string>(extContext, 'tern.captureConfigVersion') ?? '',
   });
   persistSnapshot();
 
   void vscode.window.showInformationMessage(
-    `Study session started for ${participantId.trim()} (${conditionPick.label}, ${durationMin} min). ` +
+    `Study session started for ${durationMin} minutes. ` +
       'You can forget about it now - the timer lives in the status bar.',
   );
 }
@@ -587,7 +612,7 @@ async function finishStudy(reason: 'elapsed' | 'manual'): Promise<void> {
     pausedMs: s.session.pausedMsAccumulated,
   });
 
-  const survey = await showEndSurvey(s.session.cfg.condition);
+  const survey = await showEndSurvey();
   if (survey) {
     s.recorder.record('end_survey_response', { ...survey });
   } else {
@@ -915,20 +940,25 @@ async function statusMenu(): Promise<void> {
     return;
   }
   const paused = study.session.paused;
-  const pick = await vscode.window.showQuickPick(
-    [
-      paused
-        ? {
-            label: '$(debug-start) Resume session (break over)',
-            action: 'resume',
-          }
-        : { label: '$(debug-pause) Pause session (break)', action: 'pause' },
-      { label: '$(pulse) Log fatigue now', action: 'fatigue' },
-      { label: '$(folder-opened) Open data folder', action: 'data' },
-      { label: '$(debug-stop) End study session', action: 'end' },
-    ],
-    { title: 'TERN - session menu' },
-  );
+  const items = [
+    paused
+      ? {
+          label: '$(debug-start) Resume session (break over)',
+          action: 'resume',
+        }
+      : { label: '$(debug-pause) Pause session (break)', action: 'pause' },
+    { label: '$(pulse) Log fatigue now', action: 'fatigue' },
+    { label: '$(debug-stop) End study session', action: 'end' },
+  ];
+  if (!getPairedIdentity(extContext)) {
+    items.splice(2, 0, {
+      label: '$(folder-opened) Open data folder',
+      action: 'data',
+    });
+  }
+  const pick = await vscode.window.showQuickPick(items, {
+    title: 'TERN - session menu',
+  });
   if (pick?.action === 'pause') pauseSession();
   if (pick?.action === 'resume') resumeSession();
   if (pick?.action === 'fatigue') void runFatiguePrompt('manual');
@@ -937,6 +967,12 @@ async function statusMenu(): Promise<void> {
 }
 
 async function openDataFolder(): Promise<void> {
+  if (getPairedIdentity(extContext)) {
+    void vscode.window.showInformationMessage(
+      'Study data is managed by the researcher and the study server.',
+    );
+    return;
+  }
   await vscode.env.openExternal(vscode.Uri.file(dataDirectory()));
 }
 

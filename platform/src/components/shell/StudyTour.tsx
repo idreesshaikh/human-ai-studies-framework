@@ -24,8 +24,8 @@ interface Step {
 const STEPS: Step[] = [
   {
     tab: "conversation",
-    title: "Design the study",
-    body: "Describe the study in plain language. The assistant asks one focused question, then offers one reversible decision. The protocol map keeps only what you accept.",
+    title: "Configure the study",
+    body: "Describe a coding task and the AI comparison. The assistant turns that brief into a protocol TERN can run, while the map keeps only what you accept.",
   },
   {
     tab: "library",

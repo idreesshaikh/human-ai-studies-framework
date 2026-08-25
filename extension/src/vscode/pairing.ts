@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { decodeConnectionString } from '../core/connectionString';
 import {
   CaptureConfig,
+  SessionBlock,
   overlayFlags,
   readBlock,
   shouldApplyCaptureConfig,
@@ -11,6 +13,11 @@ import { ConsentGate } from '../core/consentGate';
 
 const SECRET_CRED = 'tern.sessionCredential';
 const STATE_SERVER = 'tern.serverUrl';
+export const STATE_STUDY_ID = 'tern.pairedStudyId';
+export const STATE_PARTICIPANT_ID = 'tern.pairedParticipantId';
+export const STATE_CONDITION = 'tern.pairedCondition';
+export const STATE_INGEST_ENDPOINT = 'tern.pairedIngestEndpoint';
+export const STATE_PAIRED = 'tern.paired';
 const STATE_VERSION = 'tern.captureConfigVersion';
 /** The leg summary from the config currently *in force*  -  what the sidebar
  *  (FR-INST-22) renders. Written only where the config is actually applied,
@@ -26,6 +33,34 @@ export const STATE_PENDING = 'tern.pendingConfigVersion';
 export const STATE_BLOCK = 'tern.sessionBlock';
 /** The full manifest for facilitator-visible producer state and external runners. */
 export const STATE_MANIFEST = 'tern.sessionManifest';
+
+export interface PairedIdentity {
+  studyId: string;
+  participantId: string;
+  condition: string;
+  ingestEndpoint: string;
+}
+
+/** Pairing survives the deliberate workspace switch to the assigned task.
+ * Workspace state is retained as a local mirror for older sessions, while
+ * global state carries the link across `vscode.openFolder`. */
+export function pairingState<T>(
+  context: vscode.ExtensionContext,
+  key: string,
+): T | undefined {
+  return context.globalState.get<T>(key) ?? context.workspaceState.get<T>(key);
+}
+
+async function persistPairingState(
+  context: vscode.ExtensionContext,
+  key: string,
+  value: unknown,
+): Promise<void> {
+  await Promise.all([
+    context.globalState.update(key, value),
+    context.workspaceState.update(key, value),
+  ]);
+}
 
 interface RedeemResult {
   studyId: string;
@@ -66,6 +101,22 @@ export async function getStoredCredential(
   return context.secrets.get(SECRET_CRED);
 }
 
+/** The server-issued identity for a paired participant. Never read these
+ * values back from editable VS Code settings. */
+export function getPairedIdentity(
+  context: vscode.ExtensionContext,
+): PairedIdentity | undefined {
+  if (!pairingState<boolean>(context, STATE_PAIRED)) return undefined;
+  const studyId = pairingState<string>(context, STATE_STUDY_ID) ?? '';
+  const participantId =
+    pairingState<string>(context, STATE_PARTICIPANT_ID) ?? '';
+  const condition = pairingState<string>(context, STATE_CONDITION) ?? '';
+  const ingestEndpoint =
+    pairingState<string>(context, STATE_INGEST_ENDPOINT) ?? '';
+  if (!studyId || !participantId || !condition) return undefined;
+  return { studyId, participantId, condition, ingestEndpoint };
+}
+
 /** Re-pull the study's capture config at a session boundary and apply it if
  * the version changed AND no session is active (wall #6  -  see
  * `shouldApplyCaptureConfig`). `sessionActive` is the caller's own liveness
@@ -79,10 +130,11 @@ export async function refreshConfigAtSessionStart(
   sessionId?: string,
 ): Promise<string | undefined> {
   const cred = await context.secrets.get(SECRET_CRED);
-  const server = context.workspaceState.get<string>(STATE_SERVER);
-  const studyId = vscode.workspace
-    .getConfiguration('tern')
-    .get<string>('studyId');
+  const server = pairingState<string>(context, STATE_SERVER);
+  const paired = getPairedIdentity(context);
+  const studyId =
+    paired?.studyId ??
+    vscode.workspace.getConfiguration('tern').get<string>('studyId');
   if (!cred || !server || !studyId) return cred ?? undefined;
   try {
     // The session id lets the server assign (and remember) this session's
@@ -99,28 +151,35 @@ export async function refreshConfigAtSessionStart(
       // The assigned block is display state, not capture config: it is
       // stored whatever wall #6 decides about the settings, because what the
       // participant is asked to do this session is true either way.
-      await context.workspaceState.update(STATE_BLOCK, readBlock(cfg));
-      await context.workspaceState.update(STATE_MANIFEST, cfg.sessionManifest);
-      const applied = context.workspaceState.get<string>(STATE_VERSION);
+      await persistPairingState(context, STATE_BLOCK, readBlock(cfg));
+      await persistPairingState(context, STATE_MANIFEST, cfg.sessionManifest);
+      const applied = pairingState<string>(context, STATE_VERSION);
       if (
-        shouldApplyCaptureConfig(
-          sessionActive,
-          applied,
-          cfg.captureConfigVersion,
-        )
+        !sessionActive &&
+        (Boolean(paired) ||
+          shouldApplyCaptureConfig(
+            sessionActive,
+            applied,
+            cfg.captureConfigVersion,
+          ))
       ) {
         await applyConfig(cfg);
-        await context.workspaceState.update(
+        if (paired) {
+          await enforcePairedSettings(paired);
+        }
+        await persistPairingState(
+          context,
           STATE_VERSION,
           cfg.captureConfigVersion,
         );
-        await context.workspaceState.update(STATE_LEGS, cfg.legs);
-        await context.workspaceState.update(STATE_PENDING, undefined);
+        await persistPairingState(context, STATE_LEGS, cfg.legs);
+        await persistPairingState(context, STATE_PENDING, undefined);
       } else {
         // Not applied. Either nothing changed, or a change arrived mid-session
         // and wall #6 holds it until the next start  -  record which, so the
         // sidebar can say so instead of showing stale state as current.
-        await context.workspaceState.update(
+        await persistPairingState(
+          context,
           STATE_PENDING,
           cfg.captureConfigVersion === applied
             ? undefined
@@ -183,17 +242,37 @@ export async function pairFromConnectionString(
 
   // Persist identity + credential (SecretStorage for the secret) and apply config.
   await context.secrets.store(SECRET_CRED, result.sessionCredential);
-  await context.workspaceState.update(STATE_SERVER, conn.serverUrl);
-  await context.workspaceState.update(
+  await persistPairingState(context, STATE_SERVER, conn.serverUrl);
+  await persistPairingState(context, STATE_STUDY_ID, result.studyId);
+  await persistPairingState(
+    context,
+    STATE_PARTICIPANT_ID,
+    result.participantId,
+  );
+  await persistPairingState(context, STATE_CONDITION, result.condition);
+  await persistPairingState(
+    context,
+    STATE_INGEST_ENDPOINT,
+    result.ingestEndpoint,
+  );
+  await persistPairingState(context, STATE_PAIRED, true);
+  await persistPairingState(
+    context,
     STATE_VERSION,
     result.captureConfig.captureConfigVersion,
   );
-  await context.workspaceState.update(STATE_LEGS, result.captureConfig.legs);
-  await context.workspaceState.update(
+  await persistPairingState(context, STATE_LEGS, result.captureConfig.legs);
+  await persistPairingState(
+    context,
     STATE_MANIFEST,
     result.captureConfig.sessionManifest,
   );
-  await context.workspaceState.update(STATE_PENDING, undefined);
+  await persistPairingState(
+    context,
+    STATE_BLOCK,
+    readBlock(result.captureConfig),
+  );
+  await persistPairingState(context, STATE_PENDING, undefined);
   const conf = vscode.workspace.getConfiguration('tern');
   await conf.update(
     'studyId',
@@ -206,16 +285,28 @@ export async function pairFromConnectionString(
     vscode.ConfigurationTarget.Workspace,
   );
   await conf.update(
-    'condition',
-    result.condition,
-    vscode.ConfigurationTarget.Workspace,
-  );
-  await conf.update(
     'output.httpEndpoint',
     result.ingestEndpoint,
     vscode.ConfigurationTarget.Workspace,
   );
   await applyConfig(result.captureConfig);
+  await enforcePairedSettings({
+    studyId: result.studyId,
+    participantId: result.participantId,
+    condition: result.condition,
+    ingestEndpoint: result.ingestEndpoint,
+  });
+
+  // The redeem payload includes the first assigned task when the protocol
+  // declares one. Open a local task workspace before the participant starts;
+  // repository URLs remain informational and are never executed or cloned.
+  const initialBlock = readBlock(result.captureConfig);
+  if (initialBlock) await openAssignedWorkspace(initialBlock);
+  else {
+    await refreshConfigAtSessionStart(context, false);
+    const refreshedBlock = pairingState<SessionBlock>(context, STATE_BLOCK);
+    if (refreshedBlock) await openAssignedWorkspace(refreshedBlock);
+  }
   onPaired?.();
 
   // Pre-flight summary (before any session starts).
@@ -226,8 +317,50 @@ export async function pairFromConnectionString(
       .map((i) => i.label)
       .join(', ') || 'nothing';
   void vscode.window.showInformationMessage(
-    `Connected as ${result.participantId} (${result.condition}). This study will capture: ${on}. Run “TERN: Start session” when you're ready.`,
+    `Study connected for ${result.participantId}. This study will capture: ${on}. Run “TERN: Start session” when you're ready.`,
   );
+}
+
+export async function enforcePairedSettings(
+  identity: PairedIdentity,
+): Promise<void> {
+  const conf = vscode.workspace.getConfiguration('tern');
+  const target = vscode.ConfigurationTarget.Workspace;
+  await conf.update('studyId', identity.studyId, target);
+  await conf.update('participantId', identity.participantId, target);
+  // Do not write the assigned arm into editable workspace settings. The
+  // recorder receives it from the pairing lock, while leaving it here would
+  // let participants discover the blind through Settings or settings.json.
+  await conf.update('condition', undefined, target);
+  if (identity.ingestEndpoint) {
+    await conf.update('output.httpEndpoint', identity.ingestEndpoint, target);
+  }
+}
+
+/** Open only an explicit local folder supplied as task materials. */
+async function openAssignedWorkspace(block: SessionBlock): Promise<void> {
+  const raw = block.materials.trim();
+  if (!raw) return;
+  let folder: vscode.Uri | undefined;
+  if (raw.startsWith('file://')) {
+    try {
+      folder = vscode.Uri.parse(raw);
+    } catch {
+      return;
+    }
+  } else if (path.isAbsolute(raw)) {
+    folder = vscode.Uri.file(raw);
+  }
+  if (!folder) return;
+  const current = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (current && path.resolve(current) === path.resolve(folder.fsPath)) return;
+  try {
+    await vscode.commands.executeCommand('vscode.openFolder', folder, false);
+  } catch {
+    void vscode.window.showWarningMessage(
+      'Study connected, but the assigned workspace could not be opened automatically.',
+    );
+  }
 }
 
 export function registerPairing(
@@ -235,6 +368,12 @@ export function registerPairing(
   onPaired?: () => void,
 ): vscode.Disposable {
   return vscode.commands.registerCommand('tern.connectToStudy', async () => {
+    if (getPairedIdentity(context)) {
+      void vscode.window.showInformationMessage(
+        'This editor is already connected to a study. Ask the researcher before changing study access.',
+      );
+      return;
+    }
     const raw = await vscode.window.showInputBox({
       title: 'Connect to study',
       prompt: 'Paste the connection string your researcher gave you',

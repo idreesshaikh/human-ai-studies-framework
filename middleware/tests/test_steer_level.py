@@ -90,6 +90,16 @@ def test_every_level_keeps_one_decision_at_a_time():
     assert [m.kind for m in kept] == ["caution"]
 
 
+def test_a_complete_brief_can_return_the_whole_safe_batch():
+    moves = (_Move("choose-template"), _Move("add-measure"), _Move("caution"))
+    kept = _permitted_moves(moves, _stance(steer="leads", batchIntake=True))
+    assert [m.kind for m in kept] == [
+        "choose-template",
+        "add-measure",
+        "caution",
+    ]
+
+
 def test_assists_only_keeps_one_move_for_an_empty_section():
     moves = (
         _SectionMove("add-measure", "measures"),
@@ -109,6 +119,12 @@ def test_the_directive_carries_both_levers_into_the_prompt():
     directive = _directive(_stance(steer="checks", profile="experienced"))
     assert elicitation.PROFILES["experienced"]["guidance"] in directive
     assert elicitation.STEER_LEVELS["checks"]["guidance"] in directive
+
+
+def test_batch_briefs_override_the_one_move_pace():
+    directive = _directive(_stance(batchIntake=True))
+    assert "BATCH INTAKE" in directive
+    assert "one by one" in directive
 
 
 def test_missing_facets_still_allow_one_safe_concrete_move():

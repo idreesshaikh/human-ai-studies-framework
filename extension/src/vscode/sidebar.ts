@@ -7,7 +7,13 @@ import {
   LegState,
 } from '../core/legs';
 import { SessionBlock } from '../core/captureConfig';
-import { STATE_BLOCK, STATE_LEGS, STATE_PENDING } from './pairing';
+import {
+  pairingState,
+  STATE_BLOCK,
+  STATE_LEGS,
+  STATE_PAIRED,
+  STATE_PENDING,
+} from './pairing';
 
 /**
  * The study, in the sidebar (FR-INST-22).
@@ -36,7 +42,6 @@ export interface SidebarSession {
   ending?: boolean;
   paused: boolean;
   participantId?: string;
-  condition?: string;
   dataFile?: string;
   /** Events written locally vs. mirrored upstream  -  a `seq` gap here is how
    *  loss stays detectable (NFR-2), so it belongs on the participant's
@@ -114,7 +119,7 @@ export class SessionView extends BaseProvider {
 
   /** The task this session was assigned, if the study declares tasks. */
   private block(): SessionBlock | undefined {
-    return this.context.workspaceState.get<SessionBlock>(STATE_BLOCK);
+    return pairingState<SessionBlock>(this.context, STATE_BLOCK);
   }
 
   protected roots(): Row[] {
@@ -136,13 +141,7 @@ export class SessionView extends BaseProvider {
           'comment-discussion',
         ),
         ...(s.participantId
-          ? [
-              new Row(
-                'You are',
-                `${s.participantId} · ${s.condition ?? ''}`.trim(),
-                'account',
-              ),
-            ]
+          ? [new Row('Participant', s.participantId, 'account')]
           : []),
       ];
     }
@@ -154,17 +153,10 @@ export class SessionView extends BaseProvider {
       ),
     ];
     if (s.participantId) {
-      rows.push(
-        new Row(
-          'You are',
-          `${s.participantId} · ${s.condition ?? ''}`.trim(),
-          'account',
-        ),
-      );
+      rows.push(new Row('Participant', s.participantId, 'account'));
     }
-    /* What this session is actually for. A participant who is told only
-     * their condition has to guess at the work; the researcher chose the
-     * task and counterbalanced its order, so it belongs on screen. */
+    /* What this session is actually for. The task belongs on screen, while
+     * the server-assigned study arm remains deliberately hidden. */
     const block = this.block();
     if (block) {
       rows.push(
@@ -192,12 +184,13 @@ export class CaptureView extends BaseProvider {
   }
 
   private legs(): Leg[] {
-    return readLegs({ legs: this.context.workspaceState.get(STATE_LEGS) });
+    return readLegs({ legs: pairingState(this.context, STATE_LEGS) });
   }
 
   protected roots(): Row[] {
     const legs = this.legs();
-    const pending = this.context.workspaceState.get<string>(STATE_PENDING);
+    const pending = pairingState<string>(this.context, STATE_PENDING);
+    const paired = pairingState<boolean>(this.context, STATE_PAIRED);
     const rows: Row[] = [];
 
     if (legs.every((l) => l.state === 'unavailable')) {
@@ -234,6 +227,16 @@ export class CaptureView extends BaseProvider {
           'history',
         ),
       );
+    }
+
+    if (paired) {
+      rows.push(
+        new Row('Study capture', 'Configured by the researcher', 'shield'),
+      );
+      for (const leg of legs.filter((leg) => leg.state === 'enabled')) {
+        rows.push(new Row(leg.label, 'Active for this study', 'check'));
+      }
+      return rows;
     }
 
     for (const leg of legs) {
@@ -275,12 +278,34 @@ export class CaptureView extends BaseProvider {
 
 /** View 3  -  Data. Where it goes, and whether any of it went missing. */
 export class DataView extends BaseProvider {
-  constructor(private readonly probe: SessionProbe) {
+  constructor(
+    private readonly probe: SessionProbe,
+    private readonly context: vscode.ExtensionContext,
+  ) {
     super();
   }
 
   protected roots(): Row[] {
     const s = this.probe();
+    if (pairingState<boolean>(this.context, STATE_PAIRED)) {
+      const rows: Row[] = [
+        new Row('Study data', 'Managed by the researcher', 'shield'),
+        new Row('Sent to study server', 'Connected', 'cloud-upload'),
+      ];
+      if (s.active && s.written !== undefined) {
+        const missing = s.written - (s.mirrored ?? 0);
+        rows.push(
+          new Row(
+            'Events this session',
+            missing > 0
+              ? `${s.written} recorded, ${missing} not yet sent`
+              : `${s.written} recorded`,
+            missing > 0 ? 'warning' : 'check',
+          ),
+        );
+      }
+      return rows;
+    }
     const conf = vscode.workspace.getConfiguration('tern');
     const endpoint = conf.get<string>('output.httpEndpoint');
     const rows: Row[] = [
@@ -325,7 +350,7 @@ export function registerSidebar(
 ): { refresh: () => void; dispose: () => void } {
   const session = new SessionView(probe, context);
   const capture = new CaptureView(context);
-  const data = new DataView(probe);
+  const data = new DataView(probe, context);
 
   const trees = [
     vscode.window.createTreeView('tern.session', { treeDataProvider: session }),

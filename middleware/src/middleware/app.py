@@ -2946,6 +2946,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         protocol = _resolve_study_protocol(s, row.study_id)
         if protocol is None:
             raise HTTPException(404, "no protocol for this study")
+        # Resolve the first task block at pairing time as display/config state,
+        # without consuming a session. This lets the participant editor open
+        # the assigned local workspace immediately after the link is redeemed.
+        task, block = _block_for_session(s, protocol, row, None)
         if not row.credential:
             row.credential = secrets.token_urlsafe(32)
         if row.grain == "session" or not row.redeemed_at:
@@ -2963,6 +2967,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 row.participant_id,
                 row.condition,
                 study_id=row.study_id,
+                task=task,
+                block=block,
                 overrides=row.capture_overrides,
                 endpoints={
                     "events": f"{base}/ingest/events",
@@ -4025,8 +4031,19 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("notebook.ipynb", notebook_json)
-            zf.writestr("data-dictionary.md", dictionary_md)
+            # `writestr(name, data)` stamps each member with the current clock,
+            # which made two exports of the same study differ byte-for-byte.
+            # A replication artifact should be stable: fix the DOS timestamp and
+            # permissions while retaining normal deflate compression.
+            epoch = (1980, 1, 1, 0, 0, 0)
+            for name, content in (
+                ("notebook.ipynb", notebook_json),
+                ("data-dictionary.md", dictionary_md),
+            ):
+                info = zipfile.ZipInfo(name, date_time=epoch)
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = 0o644 << 16
+                zf.writestr(info, content)
         return Response(
             content=buf.getvalue(),
             media_type="application/zip",

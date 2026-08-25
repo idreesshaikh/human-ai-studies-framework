@@ -24,10 +24,10 @@ import { resolveRole, roleOrNull } from "@/lib/role";
 import { cn } from "@/lib/cn";
 import { humanSlug } from "@/lib/slug";
 
-/* A study's workspace, and the whole arc the platform supports: design the
- * study in conversation, then set it up. The design conversation is the
+/* A study's workspace, and the whole arc the platform supports: configure a
+ * developer study, run it, and inspect the data. The setup conversation is the
  * primary surface. The workspace tabs follow the actual researcher path:
- * Design → Evidence → Plan → Run → Data. The route ids stay stable for deep
+ * Setup → Evidence → Plan → Run → Data. The route ids stay stable for deep
  * links and the tour, while the visible labels explain why each surface exists
  * instead of exposing five unrelated product nouns.
  *
@@ -42,7 +42,7 @@ import { humanSlug } from "@/lib/slug";
 type Tab = "conversation" | "library" | "data" | "planning" | "enrollment";
 
 const TABS: { id: Tab; label: string; icon: typeof Library }[] = [
-  { id: "conversation", label: "Design", icon: MessagesSquare },
+  { id: "conversation", label: "Setup", icon: MessagesSquare },
   { id: "library", label: "Evidence", icon: Library },
   { id: "planning", label: "Plan", icon: Target },
   { id: "enrollment", label: "Run", icon: UserPlus },

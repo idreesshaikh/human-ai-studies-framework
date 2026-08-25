@@ -27,7 +27,7 @@ const QUESTION = "Do developers over-trust AI-written code?";
 const PROPOSAL =
   "Randomise AI-authorship disclosure; measure trust calibration against the actual defect rate.";
 const A11Y_LABEL =
-  "A design session: from the question “Do developers over-trust AI-written code?”, " +
+  "A developer study setup: from the question “Do developers over-trust AI-written code?”, " +
   "Phoenix proposes a between-subjects design move, grounded in the METR 2025 and " +
   "Ziegler 2022 studies. Accepted, it lands in the protocol draft as the design section.";
 
@@ -108,7 +108,7 @@ export function HeroShowcase() {
       >
         <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-grounded" />
         <span className="type-legend text-text-muted">
-          Design session
+          Developer study setup
         </span>
         <span className="ml-auto type-legend text-text-muted">
           every move cited

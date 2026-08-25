@@ -76,6 +76,99 @@ _STUCK_PHRASES = (
     "sample example",
 )
 
+# PHOENIX is intentionally a study-instrumentation product, not a general
+# research-methods assistant. Keep the boundary narrow enough to be useful: a
+# student who is programming is a valid participant, while a study outside
+# software development is not. This check runs before retrieval or the model so
+# an unsupported idea cannot fall into the normal elicitation loop.
+_OUT_OF_SCOPE_CUES = (
+    "exam",
+    "exams",
+    "midterm",
+    "midterms",
+    "final exam",
+    "coursework",
+    "course work",
+    "classroom",
+    "lecture",
+    "lectures",
+    "grading",
+    "grade",
+    "grades",
+    "academic performance",
+    "learning outcome",
+    "learning outcomes",
+    "patient",
+    "patients",
+    "clinical",
+    "healthcare",
+    "medical",
+    "treatment",
+    "therapy",
+    "customer satisfaction",
+    "customer journey",
+    "support journey",
+    "marketing",
+    "sales",
+    "election",
+    "political campaign",
+    "social media",
+    "consumer behavior",
+)
+
+_SUPPORTED_STUDY_CUES = (
+    "code",
+    "coding",
+    "software",
+    "developer",
+    "developers",
+    "engineer",
+    "engineers",
+    "engineering",
+    "programmer",
+    "programmers",
+    "debug",
+    "debugging",
+    "bug",
+    "bugs",
+    "repository",
+    "repo",
+    "github",
+    "pull request",
+    "code review",
+    "ai coding",
+    "coding assistant",
+    "copilot",
+    "vs code",
+    "vscode",
+    "workspace snapshot",
+    "workspace snapshots",
+    "telemetry",
+    "instrument",
+    "capture",
+    "review latency",
+    "ai-generated code",
+    "ai assistant",
+)
+
+
+def classify_scope(researcher_texts: list[str]) -> str:
+    """Classify whether an idea belongs to PHOENIX's supported study family.
+
+    ``student`` is deliberately not an out-of-scope cue on its own. Students
+    can participate in a developer study. The education cues only block when
+    the idea contains no software-development signal, which leaves room for a
+    programming course study to stay in the supported lane.
+    """
+    corpus = " ".join(t.lower() for t in researcher_texts if t)
+    outside = any(cue in corpus for cue in _OUT_OF_SCOPE_CUES)
+    supported = any(cue in corpus for cue in _SUPPORTED_STUDY_CUES)
+    if supported:
+        return "supported"
+    if outside:
+        return "out-of-scope"
+    return "unknown"
+
 
 def needs_scaffolding(text: str) -> bool:
     """Whether the researcher has asked for help instead of adding study detail."""
@@ -207,6 +300,20 @@ def assess_understanding(researcher_texts: list[str]) -> dict[str, bool]:
         )
         for facet, spec in FACETS.items()
     }
+
+
+def is_complete_brief(text: str) -> bool:
+    """Whether one message contains enough detail for a batch protocol pass.
+
+    The normal conversation can still teach one choice at a time. A researcher
+    who pastes a proper brief should not be forced back through that sequence,
+    though. Four of the five setup facets is enough to extract the explicit
+    facts in one response while leaving genuinely missing details open.
+    """
+    if not text or len(text.strip()) < 40:
+        return False
+    understanding = assess_understanding([text])
+    return sum(understanding.values()) >= 4
 
 
 def missing_facets(understanding: dict[str, bool]) -> list[str]:

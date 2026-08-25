@@ -109,6 +109,11 @@ def test_a_real_description_covers_several_facets():
     assert elicitation.ready_for_design(understanding)
 
 
+def test_a_complete_brief_uses_batch_intake():
+    assert elicitation.is_complete_brief(SKETCH)
+    assert not elicitation.is_complete_brief("I want to study developers")
+
+
 def test_a_vague_opener_understands_nothing():
     understanding = elicitation.assess_understanding(["help me design a study"])
     assert not elicitation.ready_for_design(understanding)
@@ -145,6 +150,28 @@ def test_a_vague_opener_gets_a_question_not_a_design(client):
     assert "?" in reply["text"], "the platform should be asking something"
     assert reply["understanding"]["readyForDesign"] is False
     assert reply["understanding"]["missing"]
+
+
+def test_scope_gate_allows_students_when_they_are_programming():
+    assert elicitation.classify_scope(
+        ["Students debug a shared repository with and without an AI coding assistant."]
+    ) == "supported"
+
+
+def test_scope_gate_blocks_exam_and_other_non_developer_studies(client):
+    exam = _ask(client, "Students complete a course exam with and without an AI tool.")
+    assert exam["source"] == "scope"
+    assert exam["moves"] == []
+    assert "outside" in exam["text"].lower()
+
+    other = _ask(
+        client,
+        "I want to compare customer satisfaction after two different support journeys "
+        "in a service organisation.",
+        study="other-scope-study",
+    )
+    assert other["source"] == "scope"
+    assert other["moves"] == []
 
 
 def test_asking_for_a_design_from_nothing_does_not_produce_one(client):

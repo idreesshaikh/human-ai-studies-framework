@@ -4,6 +4,7 @@ import { ChevronRight, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
@@ -224,24 +225,19 @@ export function Projects() {
           </div>
 
           <label htmlFor="new-project-question" className="type-label text-text">
-            What do you want to find out?
+            What do you want to run?
           </label>
-          <Input
+          <Textarea
             id="new-project-question"
-            placeholder="Do developers review AI-written code as carefully as their own?"
+            placeholder="Paste the coding task, AI comparison, and outcome you want to capture."
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") create();
-              if (e.key === "Escape") closeComposer();
-            }}
             aria-describedby="new-project-question-hint"
           />
           <p id="new-project-question-hint" className="type-caption text-text-muted">
-            Optional. Either way you land straight in the design conversation
-            for the project's first study; answer it here and the
-            conversation opens already talking it through instead of waiting
-            for you to type it there.
+            Optional. Describe a coding task, the AI comparison, and the outcome
+            you want to capture. You will land in the setup conversation for the
+            project's first study.
           </p>
 
           <div className="flex flex-wrap gap-2">

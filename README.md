@@ -1,15 +1,15 @@
-# PHOENIX: a conversational designer for Human–AI studies
+# PHOENIX: run reproducible Human–AI developer studies
 
-Design a Human–AI study by talking it through, then set it up in one click.
+Configure and run a task-based Human–AI developer study from VS Code.
 
-You describe what you want to find out in plain English. PHOENIX asks the
-questions a research methodologist would, suggests design choices backed by a
-15,000-paper corpus, and compiles your answers into a study protocol that
-validates. That protocol configures **TERN**, a VS Code extension, on each
-participant's machine  -  so the study you designed is the study that runs.
+You describe the coding task, the AI comparison, and the outcome you want to
+capture. PHOENIX turns that brief into a validated study protocol, configures
+**TERN** on each participant's machine, and keeps the collected human, AI, and
+code signals on the same study timeline.
 
-It handles design, setup, and curation, then stops: you get the data, a data
-dictionary, and an analysis plan, ready for your own notebook.
+It is deliberately narrow: human–AI software-development studies. It is not a
+general research-methods assistant for exams, classroom studies, healthcare,
+marketing, or other study families.
 
 [![CI](https://github.com/idreesshaikh/human-ai-studies-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/idreesshaikh/human-ai-studies-framework/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -20,8 +20,8 @@ configuration; unsupported transcript sources are reported instead of guessed.
 
 ## How it works
 
-1. **Talk it through.** Describe your idea; accept or reject suggestions one at
-   a time. Every suggestion cites a real paper, or says it doesn't.
+1. **Configure.** Describe the coding task, AI-assisted versus unassisted
+   condition, and outcome. PHOENIX keeps the protocol explicit and reviewable.
 2. **Compile.** Your accepted choices become a protocol, deterministically  -
    the same answers always produce the same protocol, no AI involved. If
    something is missing, it tells you what.

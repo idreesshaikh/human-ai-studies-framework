@@ -28,6 +28,8 @@ shadow.git/
 .DS_Store
 .idea/
 .vscode/*
+# Workspace-local settings inside packages/examples are machine-specific too.
+**/.vscode/*
 !.vscode/extensions.json
 !.vscode/launch.json
 !.vscode/tasks.json

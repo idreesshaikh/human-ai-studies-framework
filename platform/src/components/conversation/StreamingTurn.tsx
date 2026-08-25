@@ -1,4 +1,5 @@
-import { CloudOff, Sparkles } from "lucide-react";
+import { Check, CloudOff, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { MoveCard } from "./MoveCard";
 import { cn } from "@/lib/cn";
 import type { MoveStatus, Turn } from "@/lib/types";
@@ -12,11 +13,13 @@ import type { MoveStatus, Turn } from "@/lib/types";
 export function StreamingTurn({
   turn,
   onDecide,
+  onAcceptBatch,
   focusMoveId = null,
   active = false,
 }: {
   turn: Turn;
   onDecide: (moveId: string, status: MoveStatus, move?: Turn["moves"][number]) => void;
+  onAcceptBatch?: (moves: Turn["moves"]) => void;
   /** The one move the thread is handing the caret to, if any  -  set only when
    *  a reply lands in answer to something the researcher just sent. */
   focusMoveId?: string | null;
@@ -26,6 +29,7 @@ export function StreamingTurn({
 }) {
   const isPlatform = turn.role === "platform";
   const isUnavailable = turn.source === "unavailable";
+  const isScope = turn.source === "scope";
   return (
     <div
       className={cn(
@@ -46,7 +50,7 @@ export function StreamingTurn({
       >
         {isPlatform && (
           <span className="mb-1 flex items-center gap-1 type-caption text-text-muted">
-            {isUnavailable ? "Not answered" : turn.author}
+            {isUnavailable ? "Not answered" : isScope ? "Supported scope" : turn.author}
             {turn.source === "llm" && (
               <span
                 className="inline-flex items-center gap-0.5"
@@ -74,6 +78,23 @@ export function StreamingTurn({
 
       {turn.moves.length > 0 && (
         <div className="flex w-full min-w-0 max-w-decision flex-col gap-1.5">
+          {onAcceptBatch && turn.moves.filter((m) => m.status === "proposed" && m.kind !== "caution").length > 1 && (
+            <div className="flex items-center justify-between gap-3 rounded-card border border-accent/30 bg-accent/5 px-3 py-2">
+              <p className="type-caption text-text-muted">
+                These choices came from your brief. Review them individually or apply the setup together.
+              </p>
+              <Button
+                size="sm"
+                variant="subtle"
+                className="shrink-0 !h-8 !px-2.5"
+                data-agent="accept-batch"
+                onClick={() => onAcceptBatch(turn.moves.filter((m) => m.status === "proposed" && m.kind !== "caution"))}
+              >
+                <Check aria-hidden />
+                Accept all
+              </Button>
+            </div>
+          )}
           {turn.moves.map((m) => (
             <MoveCard
               key={m.moveId}
