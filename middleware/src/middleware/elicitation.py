@@ -335,6 +335,268 @@ def next_question(understanding: dict[str, bool]) -> str:
     return FACETS[missing[0]]["question"] if missing else ""
 
 
+def _fact_move(
+    kind: str,
+    target: str,
+    proposal: str,
+    patch: dict,
+) -> dict:
+    """Describe a fact the researcher stated plainly enough to record safely.
+
+    This deliberately returns the wire-independent move shape rather than importing
+    ``design_assistant.ProposedMove``. Elicitation is the lower-level listener and
+    must stay free of the assistant module's types.
+    """
+    return {
+        "kind": kind,
+        "target": target,
+        "proposal": proposal,
+        "patch": patch,
+        "refs": (),
+    }
+
+
+def _condition_pair(text: str) -> list[str] | None:
+    """Recognise the common AI-vs-unassisted comparison without asking the model."""
+    q = re.sub(r"\s+", " ", text.lower()).strip()
+    assisted = bool(
+        re.search(
+            r"\b(?:ai[- ]assisted|with ai|using ai|ai assistance|with an ai|copilot)\b",
+            q,
+        )
+    )
+    unassisted = bool(
+        re.search(
+            r"\b(?:unassisted|non[- ]ai|unaided|without ai|without an ai|"
+            r"with no ai|no ai|not using ai|without one)\b",
+            q,
+        )
+    )
+    # "only AI" is a single-condition statement, not evidence of the comparison
+    # the product supports. Do not manufacture the missing control arm.
+    only_assisted = bool(re.search(r"\bonly\s+(?:use\s+)?ai\b", q))
+    if assisted and unassisted and not only_assisted:
+        return ["ai-assisted", "unassisted"]
+
+    if (
+        re.search(r"\b(?:control|experimental)\s+(?:condition|group|arm)", q)
+        and re.search(r"\bcontrol\b", q)
+        and re.search(r"\bexperimental\b", q)
+    ):
+        return ["experimental", "control"]
+    return None
+
+
+def _task_fact(text: str) -> tuple[str, str] | None:
+    """Extract a concrete coding task, keeping the capture conservative."""
+    q = re.sub(r"\s+", " ", text.strip()).strip(" .!?;,")
+    patterns = (
+        re.compile(
+            r"\b(?:fix|debug|repair)(?:ing)?\s+(?:a|an|the|one|their|this)?\s*"
+            r"((?:[a-z0-9+#.-]+\s+){0,5}(?:bug|defect|issue|error|function|module|"
+            r"code|codebase|repository))\b",
+            re.I,
+        ),
+        re.compile(
+            r"\b((?:small\s+)?bug[- ]fixing\s+task|code[- ]review\s+task|"
+            r"refactor(?:ing)?\s+(?:a|an|the)?\s*[^,.!?;]{2,60})\b",
+            re.I,
+        ),
+    )
+    match = next((pattern.search(q) for pattern in patterns if pattern.search(q)), None)
+    if not match:
+        return None
+    detail = re.sub(r"\s+", " ", match.group(1)).strip(" .!?;,")
+    detail = re.split(
+        r"\s+(?:with|without|using|during|while|and\s+(?:measure|time|record))\b",
+        detail,
+        maxsplit=1,
+        flags=re.I,
+    )[0].strip(" .!?;,")
+    if len(detail) < 3:
+        return None
+    verb = "Debug" if re.match(r"debug", q, re.I) else "Fix"
+    if detail.lower().startswith(("bug-fixing", "code-review", "refactor")):
+        title = detail
+    else:
+        title = f"{verb} {detail}"
+    return title, q
+
+
+def explicit_protocol_facts(text: str) -> list[dict]:
+    """Turn unambiguous researcher statements into reviewable protocol moves.
+
+    The model remains responsible for methodological judgement. This listener only
+    records facts the researcher already supplied, so a prose-only model response
+    cannot make the conversation forget a task, comparison, design, or measure.
+    """
+    if not text or not text.strip():
+        return []
+    q = re.sub(r"\s+", " ", text.strip()).strip()
+    lower = q.lower()
+    moves: list[dict] = []
+
+    conditions = _condition_pair(q)
+    if conditions:
+        moves.append(
+            _fact_move(
+                "set-parameter",
+                "conditions[]",
+                "Compare AI-assisted work with unassisted work.",
+                {"section": "conditions", "op": "append", "value": conditions},
+            )
+        )
+
+    if re.search(
+        r"\bwithin[- ]subjects?\b|\bwithin subject\b|\bcross[- ]over\b|\bcrossover\b",
+        lower,
+    ):
+        moves.append(
+            _fact_move(
+                "set-field",
+                "participants.design",
+                (
+                    "Use a within-subjects design where each participant "
+                    "completes both conditions."
+                ),
+                {
+                    "op": "set-field",
+                    "path": ["participants", "design"],
+                    "value": "within-subjects",
+                },
+            )
+        )
+    elif re.search(r"\bbetween[- ]subjects?\b|\bbetween subject\b", lower):
+        moves.append(
+            _fact_move(
+                "set-field",
+                "participants.design",
+                (
+                    "Use a between-subjects design where each participant "
+                    "completes one condition."
+                ),
+                {
+                    "op": "set-field",
+                    "path": ["participants", "design"],
+                    "value": "between-subjects",
+                },
+            )
+        )
+
+    if re.search(r"\bcounter[- ]?balanc", lower):
+        moves.append(
+            _fact_move(
+                "set-field",
+                "participants.counterbalanced",
+                "Counterbalance the order of conditions across participants.",
+                {
+                    "op": "set-field",
+                    "path": ["participants", "counterbalanced"],
+                    "value": True,
+                },
+            )
+        )
+
+    duration = re.search(r"\b(\d{1,3})\s*[- ]?minutes?\b", lower)
+    if duration and re.search(r"\b(?:session|lab|study|experiment)\b", lower):
+        minutes = int(duration.group(1))
+        if 1 <= minutes <= 480:
+            moves.append(
+                _fact_move(
+                    "set-field",
+                    "session.durationMinutes",
+                    f"Run each session for {minutes} minutes.",
+                    {
+                        "op": "set-field",
+                        "path": ["session", "durationMinutes"],
+                        "value": minutes,
+                    },
+                )
+            )
+
+    participant_count = re.search(
+        r"\b(\d{1,4})\s+(?:participants?|developers?|engineers?|people|subjects?)\b",
+        lower,
+    )
+    if participant_count:
+        moves.append(
+            _fact_move(
+                "set-field",
+                "participants.planned",
+                f"Plan for {participant_count.group(1)} participants.",
+                {
+                    "op": "set-field",
+                    "path": ["participants", "planned"],
+                    "value": int(participant_count.group(1)),
+                },
+            )
+        )
+
+    task = _task_fact(q)
+    if task:
+        title, description = task
+        moves.append(
+            _fact_move(
+                "declare-task",
+                "tasks[]",
+                f"Record the coding task as {title}.",
+                {
+                    "title": title,
+                    "description": f"Researcher-described task: {description}.",
+                },
+            )
+        )
+
+    population = re.search(
+        r"\b((?:novice|junior|senior|professional|student|experienced)\s+"
+        r"(?:developers?|engineers?|programmers?))\b",
+        lower,
+    )
+    if population:
+        value = population.group(1)
+        moves.append(
+            _fact_move(
+                "set-parameter",
+                "participants[]",
+                f"Recruit {value} as the study population.",
+                {"section": "participants", "op": "append", "value": value},
+            )
+        )
+
+    measure_terms = (
+        ("cognitive load", "cognitive load"),
+        ("mental workload", "mental workload"),
+        ("code comprehension", "code comprehension"),
+        ("task completion time", "task completion time"),
+        ("task time", "task time"),
+        ("correctness", "solution correctness"),
+        ("substantive defects", "substantive defects"),
+        ("review quality", "review quality"),
+    )
+    measures = [label for cue, label in measure_terms if cue in lower]
+    if measures:
+        moves.append(
+            _fact_move(
+                "add-measure",
+                "measures[]",
+                "Measure " + ", ".join(measures) + ".",
+                {"section": "measures", "op": "append", "value": measures},
+            )
+        )
+
+    # Keep one deterministic card per protocol target. A brief often says "within
+    # subjects" and "crossover" together, which should not create two identical cards.
+    unique: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    for move in moves:
+        patch = move["patch"]
+        key = (move["kind"], repr(patch))
+        if key not in seen:
+            seen.add(key)
+            unique.append(move)
+    return unique
+
+
 def understanding_summary(understanding: dict[str, bool]) -> dict:
     """
     The wire shape the UI and the turn payload carry: honest about what the platform

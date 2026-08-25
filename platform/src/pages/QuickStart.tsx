@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
@@ -19,6 +19,7 @@ export function QuickStart() {
 
   const [title, setTitle] = useState("");
   const [question, setQuestion] = useState("");
+  const [setupMode, setSetupMode] = useState<"chat" | "quick">("chat");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -36,7 +37,9 @@ export function QuickStart() {
       await refresh();
 
       const opening = question.trim();
-      navigate(`/p/${project.slug}/studies/${study.id}`, { state: { opening } });
+      navigate(`/p/${project.slug}/studies/${study.id}`, {
+        state: { opening, setupMode },
+      });
     } catch (e) {
       setError(
         e instanceof ApiError && e.fromServer
@@ -55,6 +58,11 @@ export function QuickStart() {
           <h1 className="type-title text-text">Start a developer study</h1>
           <p className="type-body mt-1 text-text-muted">
             Configure a task-based human–AI study, then run it in VS Code.
+          </p>
+          <p className="type-caption mt-3 text-text-muted">
+            PHOENIX supports coding-task comparisons with AI-assisted and unassisted
+            conditions. It is not an exam, classroom, clinical, marketing, or general survey
+            tool.
           </p>
         </div>
 
@@ -87,6 +95,37 @@ export function QuickStart() {
               <p id="study-brief-hint" className="type-caption text-text-muted">
                 You can write it in one message. PHOENIX will extract the explicit choices and leave only genuinely missing details open.
               </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label>How do you want to set it up?</Label>
+              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Setup path">
+                {[
+                  ["chat", "Chat designer", "Get guidance as you make each choice."],
+                  ["quick", "Quick protocol", "Fill the checklist and validate it in one pass."],
+                ].map(([value, label, hint]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={setupMode === value}
+                    onClick={() => setSetupMode(value as "chat" | "quick")}
+                    className={`flex items-start gap-2 rounded-control border px-3 py-2.5 text-left transition-colors duration-fast ${
+                      setupMode === value
+                        ? "border-accent bg-well text-text"
+                        : "border-border bg-surface text-text-muted hover:border-control-edge"
+                    }`}
+                  >
+                    <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-dot border border-control-edge">
+                      {setupMode === value && <Check className="size-3 text-accent" aria-hidden />}
+                    </span>
+                    <span>
+                      <span className="type-control block">{label}</span>
+                      <span className="type-caption block">{hint}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {error && <Notice kind="problem">{error}</Notice>}

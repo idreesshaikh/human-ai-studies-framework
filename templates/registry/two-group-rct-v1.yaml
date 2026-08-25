@@ -25,6 +25,9 @@ parameters:
   title:
     type: string
     default: "Two-group between-subjects RCT"
+  researchQuestion:
+    type: string
+    default: How does the treatment affect the primary outcome compared to control?
   conditions:
     type: conditions
     default: [control, treatment]
@@ -76,7 +79,7 @@ protocolSkeleton:
     ethicsRef: "{{ ethicsRef }}"
   researchQuestions:
     - id: RQ-1
-      text: How does the treatment affect the primary outcome compared to control?
+      text: "{{ researchQuestion }}"
   conditions: "{{ conditions }}"
   participants:
     planned: "{{ participantPlan }}"

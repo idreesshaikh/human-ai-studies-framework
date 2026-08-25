@@ -224,6 +224,21 @@ class ApproveIn(BaseModel):
     rationale: str = ""
 
 
+class QuickProtocolIn(BaseModel):
+    """The bounded, no-chat path for a supported developer study."""
+
+    title: str = Field(min_length=3, max_length=160)
+    researchQuestion: str = Field(min_length=10, max_length=500)
+    design: Literal["within-subjects", "between-subjects"]
+    conditions: list[str] = Field(min_length=2, max_length=2)
+    participantDescription: str = Field(min_length=2, max_length=240)
+    plannedParticipants: int = Field(ge=4, le=1000)
+    taskDescription: str = Field(min_length=8, max_length=500)
+    sessionMinutes: int = Field(ge=15, le=180)
+    measures: list[str] = Field(min_length=1, max_length=6)
+    counterbalanced: bool = True
+
+
 class SessionStartIn(BaseModel):
     """
     Open a data-collection session under the study's current protocol revision
@@ -3823,6 +3838,216 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     adopted.append(got)
         s.commit()
         return {"moveId": move_id, "status": mv.status, "papersAdded": adopted}
+
+    @app.post(
+        "/studies/{study_id}/quick-protocol",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def create_quick_protocol(
+        study_id: str, body: QuickProtocolIn, s: Session = Depends(db)
+    ) -> dict:
+        """Validate a bounded developer-study checklist and compile it in one pass."""
+        if any(
+            not value.strip()
+            for value in (
+                body.title,
+                body.researchQuestion,
+                body.participantDescription,
+                body.taskDescription,
+            )
+        ):
+            raise HTTPException(422, "the study brief fields cannot be blank")
+        conditions = [condition.strip() for condition in body.conditions]
+        if any(not condition or len(condition) > 80 for condition in conditions):
+            raise HTTPException(
+                422, "each condition needs a short, non-empty name (80 characters max)"
+            )
+        if len({condition.casefold() for condition in conditions}) != 2:
+            raise HTTPException(422, "the two conditions must be different")
+        if body.design == "within-subjects" and not body.counterbalanced:
+            raise HTTPException(
+                422,
+                "within-subjects studies in this quick path must counterbalance "
+                "condition order",
+            )
+        if body.design == "between-subjects" and body.plannedParticipants < 6:
+            raise HTTPException(
+                422,
+                "between-subjects studies need at least 6 planned participants",
+            )
+
+        scope = elicitation.classify_scope(
+            [body.researchQuestion, body.taskDescription, body.participantDescription]
+        )
+        if scope != "supported":
+            raise HTTPException(
+                422,
+                "Quick protocol is limited to task-based human–AI software-development "
+                "studies that run in VS Code. Use the chat for a supported idea that "
+                "needs shaping, or choose a different tool for exams, classroom, "
+                "clinical, marketing, or general survey studies.",
+            )
+
+        measures = [measure.strip() for measure in body.measures]
+        if any(not measure or len(measure) > 100 for measure in measures):
+            raise HTTPException(
+                422,
+                "each outcome needs a short, non-empty description "
+                "(100 characters max)",
+            )
+        if len({measure.casefold() for measure in measures}) != len(measures):
+            raise HTTPException(422, "selected outcomes must be different")
+
+        template_id = (
+            "within-subjects-crossover-v1"
+            if body.design == "within-subjects"
+            else "two-group-rct-v1"
+        )
+        parameters = {
+            "studyId": study_id,
+            "title": body.title.strip(),
+            "researchQuestion": body.researchQuestion.strip(),
+            "conditions": conditions,
+            "participantPlan": body.plannedParticipants,
+            "sessionMinutes": body.sessionMinutes,
+            "taskDescription": body.taskDescription.strip(),
+        }
+        move_specs = [
+            {
+                "kind": "choose-template",
+                "target": "design",
+                "proposal": (
+                    "Use a counterbalanced within-subjects comparison."
+                    if body.design == "within-subjects"
+                    else "Use a two-group between-subjects comparison."
+                ),
+                "patch": {"templateId": template_id, "parameters": parameters},
+            },
+            {
+                "kind": "set-field",
+                "target": "participants.description",
+                "proposal": f"Recruit {body.participantDescription.strip()}.",
+                "patch": {
+                    "op": "set-field",
+                    "path": ["participants", "description"],
+                    "value": body.participantDescription.strip(),
+                },
+            },
+            {
+                "kind": "add-measure",
+                "target": "measures[]",
+                "proposal": "Measure " + ", ".join(measures) + ".",
+                "patch": {"section": "measures", "op": "append", "value": measures},
+            },
+            {
+                "kind": "declare-task",
+                "target": "tasks[]",
+                "proposal": f"Declare the task: {body.taskDescription.strip()}.",
+                "patch": {
+                    "id": "primary-task",
+                    "title": body.taskDescription.strip()[:80],
+                    "description": body.taskDescription.strip(),
+                    "minutes": body.sessionMinutes,
+                    "conditions": conditions,
+                },
+            },
+        ]
+
+        researcher = ConversationTurn(
+            id=secrets.token_hex(8),
+            study_id=study_id,
+            seq=_conversation_seq(s, study_id),
+            role="researcher",
+            author="Researcher",
+            text=(
+                "Quick protocol checklist submitted: "
+                f"{body.researchQuestion.strip()}"
+            ),
+            retrieved_refs=[],
+            created_at=now(),
+        )
+        s.add(researcher)
+        s.flush()
+        platform = ConversationTurn(
+            id=secrets.token_hex(8),
+            study_id=study_id,
+            seq=researcher.seq + 1,
+            role="platform",
+            author="Platform",
+            text=(
+                "The checklist is complete. I instantiated the matching study "
+                "template and ran the protocol compiler. Review the verified draft "
+                "before applying it."
+            ),
+            retrieved_refs=[],
+            recommendations=[],
+            created_at=now(),
+            source="scripted",
+        )
+        s.add(platform)
+        s.flush()
+        moves = []
+        for index, spec in enumerate(move_specs, start=1):
+            move_id = f"{platform.id}:quick-{index}"
+            move = {
+                "moveId": move_id,
+                **spec,
+                "grounding": [],
+                "status": "accepted",
+            }
+            moves.append(move)
+            s.add(
+                DesignMoveRow(
+                    id=move_id,
+                    study_id=study_id,
+                    turn_id=platform.id,
+                    seq=index,
+                    kind=spec["kind"],
+                    target=spec["target"],
+                    proposal=spec["proposal"],
+                    patch=spec["patch"],
+                    grounding=[],
+                    status="accepted",
+                    decided_by="Researcher",
+                    decided_at=now(),
+                )
+            )
+
+        existing = s.get(ProtocolDraftRow, study_id)
+        base_yaml = existing.yaml if existing else ""
+        result = compiler.compile_moves(moves, base_yaml=base_yaml)
+        comp = Compilation(
+            id=secrets.token_hex(8),
+            study_id=study_id,
+            base_sha256=sha256(base_yaml.encode()).hexdigest(),
+            draft_yaml=result.yaml,
+            diff=result.diff,
+            move_ids=[move["moveId"] for move in moves],
+            errors=result.errors,
+            unresolved=result.unresolved,
+            valid=int(result.valid),
+            created_at=now(),
+        )
+        s.add(comp)
+        platform.text = (
+            "The checklist is complete and the compiler "
+            + ("verified the draft." if result.valid else "found issues to resolve.")
+            + " Review the result before applying it."
+        )
+        s.commit()
+        return {
+            "compilationId": comp.id,
+            "valid": result.valid,
+            "errors": result.errors,
+            "unresolved": result.unresolved,
+            "warnings": result.warnings,
+            "diff": result.diff,
+            "yaml": result.yaml,
+            "protocol": result.draft,
+            "templateId": result.template_id,
+            "selectedMeasures": measures,
+            "participantDescription": body.participantDescription.strip(),
+        }
 
     @app.post(
         "/studies/{study_id}/conversation/compile",

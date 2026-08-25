@@ -231,6 +231,20 @@ class Turn:
     match_query: str | None = None
 
 
+def _explicit_moves(text: str) -> tuple[ProposedMove, ...]:
+    """Convert facts the researcher stated plainly into reviewable moves."""
+    return tuple(
+        ProposedMove(
+            kind=item["kind"],
+            target=item["target"],
+            proposal=item["proposal"],
+            patch=item["patch"],
+            refs=tuple(item.get("refs") or ()),
+        )
+        for item in elicitation.explicit_protocol_facts(text)
+    )
+
+
 def _template_source_refs(template_id: str | None) -> tuple[str, ...]:
     """
     The paper refs a template cites as its design's sources (FR-TPL)  -  used to ground
@@ -394,7 +408,8 @@ def turn_stance(
     prior = researcher_texts(s, study_id)
     scope = elicitation.classify_scope([*prior, text])
     understanding = elicitation.assess_understanding([*prior, text])
-    batch_intake = elicitation.is_complete_brief(text)
+    explicit_moves = _explicit_moves(text)
+    batch_intake = elicitation.is_complete_brief(text) or len(explicit_moves) > 1
     intent = elicitation.classify_turn(text)
     templates = list_templates()
     # A follow-up question never counts, or "why the crossover?" would re-propose the
@@ -413,6 +428,7 @@ def turn_stance(
     return {
         "scope": scope,
         "batchIntake": batch_intake,
+        "explicitMoves": explicit_moves,
         "intent": intent,
         "steer": steer if steer in elicitation.STEER_LEVELS else None,
         "profile": declared or elicitation.steer_profile(steer),
@@ -438,6 +454,52 @@ def _scope_turn(scope: str) -> Turn:
         text=SCOPE_REDIRECT if scope == "out-of-scope" else SCOPE_CLARIFICATION,
         moves=(),
     )
+
+
+def _explicit_turn(stance: dict, state: dict | None = None) -> Turn | None:
+    """Handle an explicit answer without making the model reinterpret it."""
+    moves = tuple(stance.get("explicitMoves") or ())
+    if (
+        not moves
+        or stance.get("decisionAction")
+        or stance.get("intent") == "followup-question"
+    ):
+        return None
+    # A population phrase is useful context, but it is not yet a compiler-backed
+    # protocol choice. Let the model use it as context so a short opener such as
+    # "junior developers over-trust AI code" still gets grounded recommendations;
+    # only intercept facts that can actually move the protocol forward.
+    protocol_moves = tuple(
+        move
+        for move in moves
+        if not (move.kind == "set-parameter" and move.target == "participants[]")
+    )
+    if not protocol_moves:
+        return None
+    moves = protocol_moves
+    kept = _filter_repeated_moves(moves, state)
+    if not kept:
+        return Turn(
+            text=(
+                "I already have those details recorded, so I will not ask you to "
+                "repeat them. I will use them to move to the next open protocol "
+                "choice."
+            ),
+            moves=(),
+        )
+    count = len(kept)
+    if count == 1:
+        text = (
+            "I captured that explicit detail from your note. Review the card and "
+            "accept it if it matches your plan."
+        )
+    else:
+        text = (
+            f"I captured {count} explicit details from your note. These are your "
+            "stated facts, not defaults. Review them together or accept them all "
+            "if they match your plan."
+        )
+    return Turn(text=text, moves=kept)
 
 
 def _slot_directive(state: dict | None) -> str:
@@ -1098,6 +1160,20 @@ def respond(
             source="scope",
             suppress_recommendations=True,
         )
+    explicit = _explicit_turn(stance, state)
+    if explicit is not None and not stance.get("namedDesign"):
+        return _assemble(
+            s,
+            text,
+            explicit,
+            llm_recommendations=[],
+            seq=seq,
+            study_id=study_id,
+            client=client,
+            stance=stance,
+            state=state,
+            source="scripted",
+        )
     papers, templates, history = _retrieve(
         s, text, study_id, history, decision=decision
     )
@@ -1131,6 +1207,16 @@ def respond(
         )
     if turn is None:
         raise ModelUnavailable(MODEL_SILENT)
+    if len(stance.get("explicitMoves") or ()) > 1:
+        explicit_moves = _filter_repeated_moves(
+            tuple(stance["explicitMoves"]), state
+        )
+        if explicit_moves:
+            turn = Turn(
+                text=turn.text,
+                moves=tuple(explicit_moves) + tuple(turn.moves),
+                match_query=turn.match_query,
+            )
     return _assemble(
         s,
         text,
@@ -1235,6 +1321,22 @@ def respond_streaming(
             source="scope",
             suppress_recommendations=True,
         )
+    explicit = _explicit_turn(stance, state)
+    if explicit is not None and not stance.get("namedDesign"):
+        if explicit.text:
+            yield explicit.text
+        return _assemble(
+            s,
+            text,
+            explicit,
+            llm_recommendations=[],
+            seq=seq,
+            study_id=study_id,
+            client=client,
+            stance=stance,
+            state=state,
+            source="scripted",
+        )
     papers, templates, history = _retrieve(
         s, text, study_id, history, decision=decision
     )
@@ -1270,6 +1372,16 @@ def respond_streaming(
         )
     if turn is None:
         raise ModelUnavailable(MODEL_SILENT)
+    if len(stance.get("explicitMoves") or ()) > 1:
+        explicit_moves = _filter_repeated_moves(
+            tuple(stance["explicitMoves"]), state
+        )
+        if explicit_moves:
+            turn = Turn(
+                text=turn.text,
+                moves=tuple(explicit_moves) + tuple(turn.moves),
+                match_query=turn.match_query,
+            )
     return _assemble(
         s,
         text,

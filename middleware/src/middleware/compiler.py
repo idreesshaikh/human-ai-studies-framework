@@ -124,6 +124,12 @@ PROTOCOL_SLOTS: tuple[Slot, ...] = (
 # exports while leaving the required-slot calculation honest.
 OPTIONAL_SLOTS: tuple[Slot, ...] = (
     Slot(
+        ("participants", "description"),
+        "the participant profile",
+        "Who are you recruiting for this study?",
+        value_type="text",
+    ),
+    Slot(
         ("study", "ethicsRef"),
         "ethics status or reference",
         "Do you have an ethics status or reference to record?",
@@ -678,6 +684,11 @@ def _refine(protocol: dict, sections: dict[str, list]) -> dict:
     for c in sections["conditions"]:
         if c not in out.get("conditions", []):
             out.setdefault("conditions", []).append(c)
+    existing_measures = set(out.get("measures") or [])
+    for measure in sections["measures"]:
+        if measure not in existing_measures:
+            out.setdefault("measures", []).append(measure)
+            existing_measures.add(measure)
     return out
 
 

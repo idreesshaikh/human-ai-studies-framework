@@ -4,12 +4,14 @@ import {
   ChevronLeft,
   HelpCircle,
   MessagesSquare,
+  ClipboardCheck,
   Library,
   BarChart3,
   Target,
   UserPlus,
 } from "lucide-react";
 import { ConversationView } from "@/components/conversation/ConversationView";
+import { QuickProtocolForm } from "@/components/setup/QuickProtocolForm";
 import { LibraryTab } from "@/components/library/LibraryTab";
 import { DataTab } from "@/components/charts/DataTab";
 import { PowerPanel } from "@/components/charts/PowerPanel";
@@ -73,6 +75,24 @@ export function StudyHome() {
    * before this workspace existed. Router state, not a query param: it is a
    * one-time hand-off, not part of the study's address. */
   const location = useLocation();
+  const setupModeParam = searchParams.get("mode");
+  const setupMode =
+    setupModeParam === "quick" ||
+    (setupModeParam !== "chat" &&
+      (location.state as { setupMode?: unknown } | null)?.setupMode === "quick")
+      ? "quick"
+      : "chat";
+  const setSetupMode = (next: "chat" | "quick") =>
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        params.set("tab", "conversation");
+        if (next === "quick") params.set("mode", "quick");
+        else params.set("mode", "chat");
+        return params;
+      },
+      { replace: true },
+    );
   const opening =
     typeof (location.state as { opening?: unknown } | null)?.opening === "string"
       ? ((location.state as { opening: string }).opening)
@@ -249,17 +269,78 @@ export function StudyHome() {
         </nav>
       </header>
 
+      {tab === "conversation" && (
+        <div className="border-b border-border bg-well px-3 py-2 sm:px-4">
+          <div
+            className="mx-auto flex max-w-wide flex-wrap items-center gap-1"
+            role="tablist"
+            aria-label="Study setup paths"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={setupMode === "chat"}
+              onClick={() => setSetupMode("chat")}
+              className={cn(
+                "flex items-center gap-2 rounded-control px-3 py-2 text-left transition-colors duration-fast",
+                setupMode === "chat"
+                  ? "bg-surface text-text shadow-mark"
+                  : "text-text-muted hover:bg-surface hover:text-text",
+              )}
+            >
+              <MessagesSquare className="size-4" aria-hidden />
+              <span>
+                <span className="type-control block">Chat designer</span>
+                <span className="type-caption hidden text-text-muted sm:block">
+                  Learn by working through the choices
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={setupMode === "quick"}
+              onClick={() => setSetupMode("quick")}
+              className={cn(
+                "flex items-center gap-2 rounded-control px-3 py-2 text-left transition-colors duration-fast",
+                setupMode === "quick"
+                  ? "bg-surface text-text shadow-mark"
+                  : "text-text-muted hover:bg-surface hover:text-text",
+              )}
+            >
+              <ClipboardCheck className="size-4" aria-hidden />
+              <span>
+                <span className="type-control block">Quick protocol</span>
+                <span className="type-caption hidden text-text-muted sm:block">
+                  Form, validation, and a ready-to-review draft
+                </span>
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* This row clips; it never scrolls itself. Each tab owns its one
        * scroller (a Surface body, or  -  for Library  -  its own split-rail
        * columns), so the workspace never ends up with two scrollbars. */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {tab === "conversation" && (
+        {tab === "conversation" && setupMode === "chat" && (
           /* min-w-0: without it this flex item takes its width from its widest
            * unshrinkable descendant, so one long citation title pushed the
            * whole workspace column off the side of a phone. A definite width
            * here is also what lets the citation wrap instead of clamp. */
           <div className="min-h-0 min-w-0 flex-1">
             <ConversationView studyId={id} opening={opening} />
+          </div>
+        )}
+        {tab === "conversation" && setupMode === "quick" && (
+          <div className="min-h-0 min-w-0 flex-1">
+            <QuickProtocolForm
+              studyId={id}
+              initialTitle={humanSlug(id)}
+              initialResearchQuestion={opening}
+              onBackToChat={() => setSetupMode("chat")}
+            />
           </div>
         )}
         {tab === "library" && (

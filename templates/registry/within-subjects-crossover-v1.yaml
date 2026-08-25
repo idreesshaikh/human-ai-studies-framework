@@ -27,6 +27,9 @@ parameters:
   title:
     type: string
     default: "Within-subjects crossover: AI vs unassisted"
+  researchQuestion:
+    type: string
+    default: Does AI assistance affect objective task time compared to unassisted work?
   conditions:
     type: conditions
     default: [ai-assisted, unassisted]
@@ -87,7 +90,7 @@ protocolSkeleton:
     ethicsRef: "{{ ethicsRef }}"
   researchQuestions:
     - id: RQ-1
-      text: Does AI assistance affect objective task time compared to unassisted work?
+      text: "{{ researchQuestion }}"
     - id: RQ-2
       text: How do participants perceive the AI-assisted vs unassisted experience?
   conditions: "{{ conditions }}"

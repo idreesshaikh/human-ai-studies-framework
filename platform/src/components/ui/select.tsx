@@ -15,6 +15,9 @@ export interface SelectOption {
 }
 
 interface SelectProps {
+  id?: string;
+  "aria-label"?: string;
+  "aria-describedby"?: string;
   value?: string;
   onValueChange?: (value: string) => void;
   options: SelectOption[];
@@ -25,7 +28,17 @@ interface SelectProps {
 
 export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
   (
-    { value, onValueChange, options, disabled, placeholder = "Select…", className },
+    {
+      id,
+      "aria-label": ariaLabel,
+      "aria-describedby": ariaDescribedBy,
+      value,
+      onValueChange,
+      options,
+      disabled,
+      placeholder = "Select…",
+      className,
+    },
     ref
   ) => {
     const selected = options.find((opt) => opt.value === value);
@@ -34,6 +47,9 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
       <DropdownMenu>
         <DropdownMenuTrigger ref={ref} asChild>
           <button
+            id={id}
+            aria-label={ariaLabel}
+            aria-describedby={ariaDescribedBy}
             className={cn(
               "h-10 w-full rounded-input border border-border bg-surface-raised px-3 py-2 type-body text-text shadow-mark transition-colors duration-fast hover:border-control-edge disabled:cursor-not-allowed disabled:border-border disabled:bg-well disabled:text-text-muted",
               "relative flex items-center justify-between",

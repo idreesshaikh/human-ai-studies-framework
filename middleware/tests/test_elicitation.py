@@ -114,6 +114,49 @@ def test_a_complete_brief_uses_batch_intake():
     assert not elicitation.is_complete_brief("I want to study developers")
 
 
+def test_explicit_coding_facts_become_reviewable_moves_without_the_model():
+    facts = elicitation.explicit_protocol_facts(
+        "Novice developers will fix a Python bug in 45-minute lab sessions, "
+        "within subjects, with AI and without AI, measuring cognitive load "
+        "and code comprehension."
+    )
+    assert {fact["kind"] for fact in facts} == {
+        "set-parameter",
+        "set-field",
+        "declare-task",
+        "add-measure",
+    }
+    conditions = next(f for f in facts if f["patch"].get("section") == "conditions")
+    assert conditions["patch"]["value"] == ["ai-assisted", "unassisted"]
+    task = next(f for f in facts if f["kind"] == "declare-task")
+    assert task["patch"]["title"] == "Fix Python bug"
+    assert any(
+        f["patch"].get("path") == ["session", "durationMinutes"]
+        and f["patch"]["value"] == 45
+        for f in facts
+    )
+
+
+def test_only_ai_does_not_invent_a_control_condition():
+    facts = elicitation.explicit_protocol_facts(
+        "Participants will fix a Python bug using only AI assistance."
+    )
+    assert not any(f["patch"].get("section") == "conditions" for f in facts)
+
+
+def test_explicit_answer_is_recorded_before_a_model_can_loop(client, monkeypatch):
+    from middleware import design_llm
+
+    def should_not_run(*_args, **_kwargs):
+        raise AssertionError("a plain task answer should not need an LLM turn")
+
+    monkeypatch.setattr(design_llm, "propose_turn", should_not_run)
+    reply = _ask(client, "Yes, they will fix a Python bug.")
+    assert reply["source"] == "scripted"
+    assert [move["kind"] for move in reply["moves"]] == ["declare-task"]
+    assert reply["moves"][0]["patch"]["title"] == "Fix Python bug"
+
+
 def test_a_vague_opener_understands_nothing():
     understanding = elicitation.assess_understanding(["help me design a study"])
     assert not elicitation.ready_for_design(understanding)
