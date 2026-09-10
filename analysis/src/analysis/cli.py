@@ -64,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
     p_notebook = sub.add_parser(
         "notebook",
         help="generate the starter notebook + data dictionary "
-        "(the curated handoff; recipes imported, never run)",
+        "(recipes imported, never run)",
     )
     add_data_args(p_notebook)
     p_notebook.add_argument(

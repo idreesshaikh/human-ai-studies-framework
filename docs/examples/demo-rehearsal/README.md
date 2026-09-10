@@ -4,7 +4,7 @@ This folder is a small, open-source handoff generated from the local
 `AI cognitive load rehearsal` study after a real TERN participant rehearsal and
 synthetic dry run.
 
-- [`notebook.ipynb`](notebook.ipynb) is the curated starter notebook. It loads
+- [`notebook.ipynb`](notebook.ipynb) is the starter notebook. It loads
   the dataset export, documents provenance, and imports the protocol-prescribed
   recipes without presenting synthetic output as a finding.
 - [`data-dictionary.md`](data-dictionary.md) describes the event-first dataset

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import re
 
+from protocol.capture import POLICY_DESCRIPTIONS
+
 METADATA_ONLY = "metadata-only"
 REDACTED = "redacted"
 FULL = "full"
@@ -14,27 +16,6 @@ POLICIES = (METADATA_ONLY, REDACTED, FULL)
 
 DEFAULT_POLICY = METADATA_ONLY
 DEFAULT_MIN_TOKEN_LEN = 4
-
-POLICY_DESCRIPTIONS = {
-    METADATA_ONLY: (
-        "Only the shape of your conversation with the AI assistant is "
-        "recorded: how many messages, how long they were, when they were "
-        "sent, and which tools the assistant used. The words of the "
-        "conversation - your prompts and the assistant's replies - are "
-        "never stored."
-    ),
-    REDACTED: (
-        "The text of your conversation with the AI assistant is recorded "
-        "with identifiers, string literals, and long words masked, so the "
-        "structure of the exchange is kept but code content and any secrets "
-        "you typed are removed before storage."
-    ),
-    FULL: (
-        "The full text of your conversation with the AI assistant - your "
-        "prompts and the assistant's replies - is recorded and stored for "
-        "analysis."
-    ),
-}
 
 _STRING_LITERAL = re.compile(r"""(['"]).*?\1""", re.DOTALL)
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")

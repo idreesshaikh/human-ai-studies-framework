@@ -779,7 +779,7 @@ def profile_guidance(profile: str | None) -> str:
 
 
 def profile_catalog() -> list[dict]:
-    """The pickable profiles, for the UI and for agents (FR-AGF)."""
+    """Return the profiles exposed by the conversation settings UI."""
     return [
         {"id": key, "label": spec["label"], "description": spec["description"]}
         for key, spec in PROFILES.items()

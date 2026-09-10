@@ -1,4 +1,4 @@
-"""CLI wiring for the `notebook` subcommand (curated handoff)."""
+"""CLI wiring for the `analysis notebook` subcommand."""
 
 from __future__ import annotations
 

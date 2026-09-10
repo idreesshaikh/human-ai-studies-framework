@@ -1,16 +1,7 @@
-"""
-Corpus-mining pipeline: cluster the paper corpus by recurring design vocabulary,
-draft a template YAML for each cluster with real support, and write the ones that
-validate into templates/drafts/ for review.
+"""Find candidate study-template drafts from recurring literature vocabulary.
 
-Mining never writes into templates/registry/ directly. A mined draft is a
-proposal; promoting one is a human decision made by reading the YAML and
-committing it, the same way every other change to the repertoire is made.
-
-Usage:
-    uv run python scripts/mine_templates.py                 # report only
-    uv run python scripts/mine_templates.py --write         # also write drafts
-    uv run python scripts/mine_templates.py --min-papers 15 --min-phrases 2
+The command reports or writes drafts only. It never changes the supported
+template registry; registry changes remain a reviewed, manual decision.
 """
 
 from __future__ import annotations
@@ -35,34 +26,26 @@ def main() -> int:
         "--gaps",
         action="store_true",
         help="Report methodology phrases the corpus uses that no registry "
-        "template claims, and exit. This is the registry's blind-spot list  -  "
-        "evidence that a design archetype exists in the literature with no "
-        "shape for it here. Authoring the shape is human work; the report "
-        "only says where to look.",
+        "template claims, then exit. The report identifies gaps; it does not "
+        "author a template.",
     )
     parser.add_argument(
         "--write",
         action="store_true",
         help="Write qualifying drafts to templates/drafts/ as YAML. "
-        "Without this flag, only the report is printed  -  nothing is written.",
+        "Without this flag, nothing is written.",
     )
     parser.add_argument(
         "--min-papers",
         type=int,
         default=8,
-        help="Minimum corpus support to even consider a cluster (default 8). "
-        "The single-generic-word clusters (\"coding\", \"measuring\") clear the "
-        "mining script's own min_papers=3 floor easily on volume alone; this "
-        "second, stricter gate is what keeps templates/drafts/ from filling "
-        "with clusters no reviewer would find worth a decision.",
+        help="Minimum corpus support for a cluster (default 8).",
     )
     parser.add_argument(
         "--min-phrases",
         type=int,
         default=2,
-        help="Minimum distinct design phrases a cluster must carry (default "
-        "2)  -  a real methodological signature reads as more than one bare "
-        "keyword ('coding' alone) matching by coincidence.",
+        help="Minimum distinct design phrases for a cluster (default 2).",
     )
     args = parser.parse_args()
 
@@ -81,9 +64,8 @@ def main() -> int:
                 print(f"{g['papers']:>7}  {g['phrase']}")
             print()
             print(
-                "Each row is evidence a design exists in the literature that the "
-                "repertoire has no shape for  -  not a template. Read the papers "
-                "behind a phrase before authoring one."
+                "Each row is a gap, not a template. Read the source papers before "
+                "drafting a design."
             )
             return 0
 
@@ -104,7 +86,7 @@ def main() -> int:
         )
 
         if not args.write:
-            print("Dry run  -  nothing written. Pass --write to draft these.")
+            print("Dry run; nothing written. Pass --write to save drafts.")
             return 0
 
         if not qualifying:
@@ -115,7 +97,7 @@ def main() -> int:
         print(f"Wrote {len(paths)} draft(s) to templates/drafts/:")
         for path in paths:
             print(f"  {path.name}")
-        print("Read them, then commit the ones worth keeping into templates/registry/.")
+        print("Review the drafts before adding any supported template.")
         return 0
     finally:
         s.close()

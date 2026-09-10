@@ -1,17 +1,19 @@
 # Curated-dataset demo study (MP-16, FR-CUR)  -  the "dataset already exists"
 # branch made real. Instead of running live sessions, this study mines merged
-# pull requests from GitHub, comparing agent-authored and human-authored work,
-# and lands the mined activity in the same one-timeline event shape a live
-# study produces  -  so the same recipes, report, and paper-draft mechanisms run
-# unchanged (F1.1).
+# pull requests from GitHub, comparing agent-authored and human-authored work.
+# It records an experimental observational-study shape; the current release
+# does not ship a source adapter or mining job for this protocol.
 #
 # The `curated:` section is the sampling frame: the mined equivalent of "the
 # approved protocol is the executed protocol" (FR-ETH-1). The mining adapter
 # refuses to run without it (F2.2). `protocolVersion` is 4 (kite -> tern
 # rename, 2026-07-21; the additive `curated:` section from v2 stays valid).
 #
-# The instruments block below is declared but unused by the mined path (the
-# schema requires tern); mining never consults it.
+# The live instruments block below is retained only so this example validates
+# against the current live-study schema.  The experimental mining package does
+# not consume it. Mining-only studies are outside the current schema and
+# release boundary, so this file is a design reference rather than a runnable
+# study.
 
 protocolVersion: 4
 

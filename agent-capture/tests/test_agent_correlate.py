@@ -117,3 +117,28 @@ def test_derive_evolution_none_without_inputs():
         [ev(0, "workspace_snapshot", {"insertions": 1, "deletions": 0})], KEYS
     )
     assert evt["type"] == "code_evolution"
+
+
+def test_correlate_dataset_read_accepts_optional_bearer_token(monkeypatch):
+    from agent_capture import cli
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self):
+            return b'{"rows": [{"sessionId": "S1"}]}'
+
+    def fake_urlopen(request, timeout):
+        assert request.get_header("Authorization") == "Bearer secret"
+        assert timeout == 30
+        return Response()
+
+    monkeypatch.setattr(cli.urllib.request, "urlopen", fake_urlopen)
+
+    assert cli._fetch_dataset("https://example.test", "study", "secret") == [
+        {"sessionId": "S1"}
+    ]

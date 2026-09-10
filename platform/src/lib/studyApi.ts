@@ -423,7 +423,7 @@ export const studyApi = {
       `${study}-replication-kit.tar.gz`,
     );
   },
-  /** The starter notebook + data dictionary, zipped: the curated handoff.
+  /** The starter notebook + data dictionary, zipped: the analysis handoff.
    *  A loaded, documented dataframe with every planned recipe imported  -
    *  never run  -  so a researcher's own analysis starts from a known point
    *  rather than a bare dataset export. */

@@ -167,3 +167,8 @@ def test_recipes_consume_the_agent_contract(middleware, transcript_path, tmp_pat
 
     out = REGISTRY["task-outcome-by-condition"].run(dataset)
     assert not out.tables["per_session"].empty
+    import matplotlib.pyplot as plt
+
+    for result in (dyn, out):
+        for figure in result.figures.values():
+            plt.close(figure)

@@ -39,7 +39,7 @@ shadow.git/
 !.vscode/launch.json
 !.vscode/tasks.json
 
-# AI assistant state (local only)
+# Local tooling state (never commit)
 .claude/
 .codex/
 .agents/

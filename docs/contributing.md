@@ -21,6 +21,27 @@ Read the [architecture guide](architecture.md) to find the relevant package.
 For frontend work, see [platform development](../platform/docs/development.md);
 for TERN, see [extension development](../extension/docs/development.md).
 
+## Architecture rules
+
+Keep the dependency direction visible:
+
+- `protocol/` owns versioned schemas and deterministic derivations; it does not
+  import the server, browser, or optional producers.
+- `analysis/` consumes protocol data and produces reports; it does not reach
+  into middleware storage.
+- `middleware/` is the API composition root. Keep request models in
+  `middleware/schemas.py`, keep new route handlers thin, and put reusable
+  persistence/provider rules in service modules.
+- `platform/` is the view layer. It calls the API and renders state; study
+  rules belong on the server.
+- `agent-capture/` and `metrics/` are optional producers. `curated/` is an
+  isolated experimental archive package. Neither belongs in the live server's
+  dependency path unless a complete, tested integration is added.
+
+Prefer small pure functions at package boundaries and explicit side effects at
+the edges. A change to an event, manifest, or protocol field needs a focused
+contract test and a documentation update.
+
 ## Check your changes
 
 Run checks for the code you touched. CI checks the whole workspace:

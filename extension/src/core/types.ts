@@ -1,7 +1,7 @@
 /**
  * Portable core types - no IDE imports allowed anywhere under src/core.
- * An IDE adapter (src/vscode, later src/jetbrains, ...) maps its native
- * editor events onto these types and renders the prompts the core requests.
+ * The VS Code adapter maps native editor events onto these types and renders
+ * the prompts the core requests.
  */
 
 export type StudyCondition = 'ai-assisted' | 'unassisted' | 'unspecified';

@@ -1,7 +1,8 @@
-"""
-Curated-dataset leg (FR-CUR): mine external sources into the same one-timeline event
-shape live instruments produce, so every downstream recipe/report/paper mechanism works
-on mined data unchanged.
+"""Experimental external-data mining contracts.
+
+The package reads local archive fixtures and is deliberately outside the live
+PHOENIX runtime. It is retained as a bounded research artifact, not another
+product surface.
 """
 
 from curated.contract import (

@@ -1,7 +1,7 @@
 [project]
 name = "curated"
 version = "0.1.0"
-description = "Curated-dataset leg: mining adapters, normalizer, heuristics, validity-threats record (FR-CUR-*)"
+description = "Experimental external-data mining contracts and archive adapter"
 requires-python = ">=3.12"
 dependencies = []
 

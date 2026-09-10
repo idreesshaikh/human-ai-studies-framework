@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { studyApi, OfflineError } from "@/lib/studyApi";
 
-/* Getting the study *out* (FR-PROT-7, FR-CONV-6, FR-AGENT-5, FR-ANA-6). Four
+/* Getting the study *out* (FR-PROT-7, FR-CONV-6, FR-AGENT-5). Three
  * things a researcher actually needs to hand to someone else, or to
  * themselves at the platform's own boundary:
  *

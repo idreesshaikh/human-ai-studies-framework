@@ -14,8 +14,8 @@ import {
  * the same moves against the same base always yields the same draft. The
  * conversation proposes moves; only this deterministic step builds the draft.
  *
- * For now it compiles to the client-side draft model; the same logic moves
- * server-side later to emit real protocol YAML and a diff. */
+ * It compiles the client-side preview; the server's compiler remains
+ * authoritative for protocol YAML and the audited diff. */
 export function compile(
   base: ProtocolDraft,
   moves: DesignMove[],

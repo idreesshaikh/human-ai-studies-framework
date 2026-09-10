@@ -109,7 +109,7 @@ RunItem = NormalizedEvent | CursorCheckpoint
 
 @runtime_checkable
 class MiningAdapter(Protocol):
-    """One source adapter (GitHub, later others)."""
+    """One source adapter; the current release provides a local archive adapter."""
 
     source: str
 

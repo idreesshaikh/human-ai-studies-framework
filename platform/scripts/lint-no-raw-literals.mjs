@@ -36,8 +36,8 @@ const PATTERNS = [
 /* The layout contract's four measures (`src/lib/layout.ts`) plus the named
  * conversation measures (`bubble` and `decision`) are the only named
  * max-w-* a Surface root may use. Enforced only in files that have actually
- * adopted the contract  -  the list grows as the rest of the app migrates
- * (docs/roadmap "experience overhaul", phase A). Applying it repo-wide today
+ * adopted the contract  -  the list grows as the rest of the app migrates.
+ * Applying it repo-wide today
  * would also flag incidental widths that were never part of the contract (a
  * dialog's content width, a tooltip's max-w-sm, a paragraph's wrap width)  -
  * nine type roles and four measures are deliberately the full vocabulary;

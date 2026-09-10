@@ -32,7 +32,7 @@ source:
 # Stol & Fitzgerald ABC: field study (observational)
 designType: field-study
 
-# This template supports the curated data path
+# This template describes the experimental archive path
 dataPath: curated
 
 parameters:

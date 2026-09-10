@@ -3,6 +3,10 @@
 The protocol connects the researcher's intended study to capture and analysis.
 The web app helps build it; the remaining tools consume it.
 
+The supported product is a live, protocol-driven study. Optional producers
+send measurements to the same ingest contract, while `curated/` is an isolated
+external-data experiment outside the release path.
+
 Python packages use a `src/` layout. For example, `middleware/app.py` below
 means [middleware/src/middleware/app.py](../middleware/src/middleware/app.py).
 
@@ -28,6 +32,40 @@ flowchart TB
 ```
 
 ## Design
+
+### Boundaries
+
+The code follows a small MVC-style split rather than a framework-specific
+layering rule:
+
+- **Models** are the protocol objects in `protocol/`, SQLAlchemy persistence
+  models in `middleware/src/middleware/db.py`, and HTTP wire models in
+  `middleware/src/middleware/schemas.py`.
+- **Controllers** are the FastAPI endpoints in `middleware/src/middleware/app.py`.
+  They authenticate requests, validate input, orchestrate a transaction, and
+  shape the response. Some existing handlers still contain their small database
+  transaction because `app.py` is the composition root; reusable domain rules
+  belong in the service modules.
+- **Views** are the React components in `platform/src/`; they consume API
+  responses and do not own study or database rules.
+- **Services and adapters** are the focused modules beside the controller:
+  `compiler`, `enrollment`, `matching`, `template_registry`, `simulation`,
+  `analysis`, `agent-capture`, and `metrics`.  They can be tested without a
+  browser.
+
+```mermaid
+flowchart LR
+    View[React views<br/>platform/] -->|HTTP JSON| Controller[FastAPI controllers<br/>middleware/app.py]
+    Controller --> Services[Services and adapters]
+    Services --> Models[Protocol and database models]
+    Protocol[protocol/] --> Models
+    Optional[Optional producers<br/>agent-capture · metrics] -->|events| Controller
+```
+
+`app.py` remains the composition root for now, so its route groups are easy to
+run and test together.  New work should extract a complete feature group into
+an `APIRouter` only when the group has a clear service boundary; splitting a
+function merely to reduce a line count would hide, rather than remove, coupling.
 
 `platform/src/components/conversation/` renders turns, proposals, and the draft.
 `middleware/design_assistant.py` combines study state and retrieved literature;
@@ -92,14 +130,17 @@ response lists `sessionIds`. Each dry-run report uses only that run's sessions.
 Synthetic rows remain in the selected study, so use a separate rehearsal study
 or filter them explicitly before participant analysis.
 
-`curated/` is a library for local archive import, pseudonymization, and
-validity-threat records. It is not a complete browser import workflow.
+`curated/` is an experimental library for local archive import,
+pseudonymisation, and validity-threat records. It is not imported by the live
+server, does not provide a mining command or API adapter, and must not be
+described as a finished observational-study workflow.
 
 ## Where maintenance is needed
 
 The API is still concentrated in a large module. Extract routes by feature when
-working on that feature, with access-control tests. Protocol `phases` remains
-for schema compatibility; there is no phase-transition service.
+working on that feature, with access-control tests. Keep optional producers out
+of the server's hard dependencies. Protocol `phases` remains for schema
+compatibility; there is no phase-transition service.
 
 The model and paper services are tested with fixtures. Tests do not establish
 live-provider availability or methodological validity. See

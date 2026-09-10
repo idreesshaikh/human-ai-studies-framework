@@ -1,4 +1,4 @@
-"""Starter notebook + data dictionary (the curated handoff)."""
+"""Starter notebook and data dictionary generation."""
 
 from __future__ import annotations
 
@@ -140,9 +140,9 @@ def test_notebook_never_runs_a_recipe():
 
 def test_notebook_carries_the_session_timeline_cell():
     """
-    P2-1: the curated handoff leads with the one-glance session picture  -  the timeline
-    figure  -  before any recipe, so the researcher sees the shape of the data (and any
-    integrity flags) first.
+    P2-1: the starter notebook leads with the one-glance session picture  -  the
+    timeline figure  -  before any recipe, so the researcher sees the shape of the
+    data (and any integrity flags) first.
     """
     doc = build_notebook(_protocol(), _dataset(), "pilot-2026")
     source = "\n".join(c.get("source", "") for c in doc["cells"])

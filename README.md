@@ -10,11 +10,13 @@ identifiers needed to compare conditions.
 PHOENIX connects them through a versioned YAML protocol. Researchers review the
 design in a web workspace; TERN runs the configured session in VS Code; the
 server joins editor events, surveys, and optional external measurements for
-export to a notebook.
+export to a notebook. The live workflow is the supported product; external
+data mining is kept as a separate experimental package.
 
-This is a master's research project under active development. It supports
-task-based human–AI software-development studies. Researchers remain responsible
-for methodological choices, ethics approval, and interpretation.
+This is a feature-complete master's research project for task-based human–AI
+software-development studies. Future changes are refinements to correctness,
+security, accessibility, reproducibility, and documentation; researchers remain
+responsible for methodological choices, ethics approval, and interpretation.
 
 ## How it fits together
 
@@ -23,6 +25,7 @@ flowchart LR
     R["Researcher<br/>design and review"] --> P["Study protocol<br/>tasks · conditions · measures"]
     P --> T["TERN in VS Code<br/>consent and capture"]
     T --> D["Study dataset<br/>events · surveys · metrics"]
+    A["Optional producers<br/>agent-capture · metrics"] -.-> D
     P --> N["Analysis handoff<br/>notebook and replication kit"]
     D --> N
 ```
@@ -31,9 +34,10 @@ Start from a template or describe a question to the design assistant. Review the
 proposals, compile the accepted decisions, and approve the protocol. Rehearse
 with synthetic data, then issue participant links and collect the real sessions.
 
-The design conversation uses Mistral. Templates, validation, assignment, capture,
-and exports work without a model key. Local corpus search also works without a
-key; model-assisted matching and external paper lookup are optional.
+The design conversation can use Mistral for suggestions. Templates, validation,
+assignment, capture, and exports work without a model key. Local corpus search
+also works without a key; model-assisted matching and external paper lookup are
+optional.
 
 ## Run locally
 
@@ -120,10 +124,15 @@ improvements, documentation, and research-method contributions are welcome.
 | `protocol/` | Schema, validation, assignment, capture configuration, replication kits |
 | `extension/` | TERN participant interface and editor capture |
 | `analysis/` | Datasets, analysis recipes, notebooks and reports |
-| `agent-capture/` | Optional transcripts, snapshots, task harness |
-| `metrics/` | Static code measurements |
-| `curated/` | Local archive import and validity-threat records |
+| `agent-capture/` | Optional provider transcripts, snapshots, and task harness |
+| `metrics/` | Optional static code measurements |
+| `curated/` | Experimental local-archive mining contracts (not part of the live path) |
 | `templates/` | Study designs with references and analysis plans |
+
+The repository also carries research inputs and reproducible fixtures: the paper
+index, notebooks, sample events, and lockfile are data or documentation, not
+application modules. Keep them versioned, but do not mistake their line count
+for live code.
 
 Report sensitive issues through the [security policy](docs/security.md).
 Released under the [MIT License](LICENSE).

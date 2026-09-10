@@ -1,7 +1,4 @@
-"""
-Corpus harvest pipeline (FR-LIT-8): grow the paper corpus by citation snowballing from
-the hand-curated seed set.
-"""
+"""Refresh the paper index by citation snowballing from the seed list."""
 
 from __future__ import annotations
 
@@ -233,12 +230,7 @@ def score(p: dict, edges: int, this_year: int) -> float:
 
 
 def propose_tier_a(n: int) -> int:
-    """
-    Emit a promotion shortlist: the top-scored Tier B rows with their quality metrics,
-    for hand-curation into Tier A (the human writes or approves every 'why'; generic
-    LLM-infrastructure papers are skipped by the curator, not the script  -  judgment
-    stays human).
-    """
+    """Print a review shortlist with quality metrics for the seed list."""
     index = json.loads((PAPERS_DIR / "corpus-index.json").read_text())
     rows = sorted(index["tierB"], key=lambda r: -r["score"])[:n]
     print("| Ref | Title | Year | Venue | Cites | Infl | OA | Score | Via |")
@@ -261,8 +253,8 @@ def main() -> int:
         "--target",
         type=int,
         default=0,
-        help="0 (default,) = uncapped: ship every gate-passing, seed-woven "
-        "candidate (FR-LIT-8 rev 2); N = capped top-N legacy behavior",
+        help="0 (default) = include every gate-passing, seed-woven candidate; "
+        "N = cap the result at the top N candidates",
     )
     ap.add_argument("--cache-dir", type=Path)
     ap.add_argument(
@@ -274,7 +266,7 @@ def main() -> int:
         "--propose-tier-a",
         type=int,
         metavar="N",
-        help="print the top-N Tier B rows as a hand-curation shortlist",
+        help="print the top-N index rows as a review shortlist",
     )
     args = ap.parse_args()
     if args.verify:
@@ -349,8 +341,8 @@ def main() -> int:
         f"seeds resolved {resolved}/{len(seeds)}; candidates {len(candidates)}; "
         f"passed gate {len(passed)}; picked {len(picked)}"
     )
-    if len(picked) + tier_a_count < 1000:
-        log("WARNING: corpus below the 1,000-paper floor (FR-LIT-8)")
+    if not picked:
+        log("no new candidates passed the quality and weave gates")
 
     def ref_of(p: dict) -> str:
         ext = p.get("externalIds") or {}

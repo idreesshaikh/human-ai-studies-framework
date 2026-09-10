@@ -154,5 +154,3 @@ def test_clerk_sub_resolves_project_membership(tmp_path, rsa_key):
     # A different Clerk identity is not a member and must not see it.
     other = client.get(f"/projects/{slug}", headers=auth(rsa_key, sub="stranger"))
     assert other.status_code in (403, 404)
-
-
