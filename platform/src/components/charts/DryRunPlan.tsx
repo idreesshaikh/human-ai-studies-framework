@@ -2,25 +2,11 @@ import { CheckCircle2, AlertTriangle, FlaskConical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { DryRunPlan as Plan } from "@/lib/studyApi";
 
-/* What the dry run found out.
- *
- * Storing synthetic events only proves the capture path works. This is the
- * other half: the study's own analysis plan, run over that synthetic data, so
- * a researcher learns whether the statistics their design prescribes can
- * actually be computed  -  before a single real participant sits down. It is the
- * one thing no amount of reading the protocol will tell them, and the step
- * they are most afraid of getting wrong.
- *
- * Each recipe's `summary` is rendered verbatim, never reformatted or trimmed.
- * The honesty lives in its exact wording: recipes state their own caveats
- * ("small n: hypothesis-generating only, not confirmatory"), their own schema
- * gaps, and when a comparison could not be made at all. Paraphrasing that into
- * a tidier sentence, or reducing it to a green tick, would strip precisely the
- * part a researcher has to read. Nothing here animates  -  this is a result. */
+/* Show which planned recipes ran, their results, and any missing data. */
 export function DryRunPlan({ plan }: { plan: Plan }) {
   if (plan.note) {
     return (
-      <p className="type-caption text-text-muted" data-agent="dry-run-plan">
+      <p className="type-caption text-text-muted">
         {plan.note}
       </p>
     );
@@ -34,7 +20,7 @@ export function DryRunPlan({ plan }: { plan: Plan }) {
   const complete = ran === plan.planned && plan.blocked.length === 0 && !failures.length;
 
   return (
-    <section className="flex flex-col gap-3" data-agent="dry-run-plan">
+    <section className="flex flex-col gap-3">
       <div>
         <h3 className="type-subhead flex items-center gap-2 text-text">
           <FlaskConical className="size-4 text-text-muted" aria-hidden />
@@ -65,8 +51,6 @@ export function DryRunPlan({ plan }: { plan: Plan }) {
           {plan.results.map((r) => (
             <li
               key={r.recipeId}
-              data-agent="dry-run-recipe"
-              data-agent-ref={r.recipeId}
               className="rounded-plate border border-border bg-surface p-3"
             >
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

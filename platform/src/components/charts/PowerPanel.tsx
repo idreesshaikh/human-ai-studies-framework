@@ -295,7 +295,6 @@ function PowerChart({ doc }: { doc: PowerDoc }) {
         aria-label={`Power curve: power vs total n for effect sizes ${doc.curves
           .map((c) => c.effectSize)
           .join(", ")}`}
-        data-agent="power-curve"
       >
         {/* Reference line at the target power */}
         <line
@@ -464,7 +463,7 @@ function RequiredTable({
 }) {
   return (
     <div className="overflow-x-auto rounded-card border border-border bg-surface">
-      <table className="w-full border-collapse type-body" data-agent="power-required">
+      <table className="w-full border-collapse type-body">
         <thead>
           <tr className="border-b border-border text-left type-caption text-text-muted">
             <th className="px-4 py-2 font-normal">effect size</th>

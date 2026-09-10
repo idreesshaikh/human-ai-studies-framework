@@ -1,7 +1,7 @@
 [project]
 name = "analysis"
 version = "0.1.0"
-description = "Recipe-based analysis, per-RQ report, paper draft export (FR-ANA-*)"
+description = "Study datasets, analysis recipes, notebooks, and reproducible reports"
 requires-python = ">=3.12"
 dependencies = [
     "matplotlib>=3.11.0",

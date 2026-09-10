@@ -589,7 +589,7 @@ body::before {
  * answers the second: 0.51 and 0.74 never render alike. The number is printed
  * beside it either way, so nothing rests on the drawing alone.
  *
- * See DESIGN.md, The Framed-Magnitude Rule.
+ * See docs/design.md.
  */
 
 /* Grounding strength. The frame is drawn in `--control-edge`, not in the

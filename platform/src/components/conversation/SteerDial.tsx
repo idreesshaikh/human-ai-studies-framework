@@ -44,7 +44,6 @@ export function SteerDial({
 
   return (
     <div
-      data-agent="steer-dial"
       ref={rootRef}
       className={cn("relative shrink-0", className)}
     >

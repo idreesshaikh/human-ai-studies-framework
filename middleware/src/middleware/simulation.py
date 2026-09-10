@@ -10,7 +10,7 @@ from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from middleware.db import EnrollmentToken, SessionBlock
+from middleware.db import SessionBlock
 
 log = logging.getLogger(__name__)
 
@@ -97,10 +97,6 @@ def requires_metrics(protocol: dict) -> bool:
         for entry in protocol.get("analysisPlan", [])
         for rid in entry.get("recipes", [])
     )
-
-
-def _clamp(value: int, lo: int, hi: int) -> int:
-    return max(lo, min(hi, value))
 
 
 def _payload(
@@ -358,7 +354,7 @@ def simulate_into(
     start: datetime | None = None,
 ) -> dict:
     """
-    In-process dry run: mint tokens + record blocks + store events, all through the
+    In-process dry run: record blocks and labelled events through the
     production code paths (the ``db`` dependency commits).
     """
     from middleware.ingest_core import store_events, store_metric_rows
@@ -367,36 +363,19 @@ def simulate_into(
     received = now()
     run = secrets.token_hex(3)
     participants = simulate(protocol, count, profile, seed, start=start)
-    token_rows = []
     session_blocks = []
     event_rows = []
     metric_rows = []
-    for i, p in enumerate(participants):
-        token = secrets.token_urlsafe(32)
-        token_rows.append(
-            EnrollmentToken(
-                id=secrets.token_hex(8),
-                study_id=study_id,
-                participant_id=p["participantId"],
-                participant_index=i,
-                condition=p["condition"],
-                grain="participant",
-                token=token,
-                credential=token,
-                expires_at=(
-                    datetime.now(UTC) + timedelta(days=30)
-                ).isoformat(timespec="milliseconds"),
-                redeemed_at=now(),
-                created_at=received,
-            )
-        )
+    for p in participants:
         for session in p["sessions"]:
             sid = f"{session['sessionId']}-{run}"
             for e in session["events"]:
                 e["session_id"] = sid
+                e["payload"]["synthetic"] = True
             for m in p["metricRows"]:
                 if m.get("sessionId") == session["sessionId"]:
                     m["sessionId"] = sid
+                    m["synthetic"] = True
             session_blocks.append(
                 SessionBlock(
                     session_id=sid,
@@ -410,7 +389,6 @@ def simulate_into(
             )
             event_rows.extend(session["events"])
         metric_rows.extend(p["metricRows"])
-    s.add_all(token_rows)
     s.add_all(session_blocks)
     inserted_events = store_events(s, event_rows, received)
     inserted_metrics = store_metric_rows(s, metric_rows, received) if metric_rows else 0
@@ -422,7 +400,7 @@ def simulate_into(
         "sessions": len(session_blocks),
         "events": inserted_events,
         "metricRows": inserted_metrics,
-        "tokensMinted": len(token_rows),
+        "sessionIds": [block.session_id for block in session_blocks],
     }
 
 
@@ -483,27 +461,13 @@ def run_plan_summary(protocol: dict, rows: list[dict], study_id: str) -> dict:
         if not c.ok
     ]
 
-    # Per-recipe params ride on the plan entry, exactly as `run_plan` reads them.
-    params: dict[str, dict] = {}
-    for entry in plan:
-        for rid in entry.get("recipes", []):
-            if isinstance(rid, dict):
-                params[rid["id"]] = rid.get("params", {})
-            elif rid not in params:
-                params[rid] = {}
-
     results: list[dict] = []
     ran: list[str] = []
     errors: dict[str, str] = {}
     for recipe_id in dict.fromkeys(c.recipe_id for c in checks if c.ok):
         recipe = REGISTRY[recipe_id]
         try:
-            # Fresh per recipe, not merged onto whatever the previous recipe
-            # left behind  -  `dataset` is one object reused across every
-            # iteration of this loop, so an accumulating merge would leak a
-            # param key set for an earlier recipe into a later one that never
-            # specified it.
-            dataset.meta = dict(params.get(recipe_id, {}))
+            dataset.meta = {}
             result = recipe.run(dataset)
         except Exception as exc:  # noqa: BLE001 - reported, never raised at the caller
             errors[recipe_id] = f"{type(exc).__name__}: {exc}"

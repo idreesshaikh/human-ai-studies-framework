@@ -710,7 +710,6 @@ export function ConversationView({
 
   return (
     <div
-      data-agent="conversation"
       className={cn("split-rail h-full", draftFolded && "rail-folded")}
     >
       <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
@@ -743,7 +742,7 @@ export function ConversationView({
             ) : threadEmpty && !openingPending && !activeResearcher ? (
               <ConversationStart onUse={takeOpening} />
             ) : (
-              <div data-agent="conversation-active" className="flex flex-col gap-5">
+              <div className="flex flex-col gap-5">
                 {activeResearcher && (
                   <div className="ml-auto max-w-[48ch] rounded-card border border-border bg-zone-9 px-3.5 py-2.5">
                     <p className="type-caption text-text-muted">You</p>
@@ -762,11 +761,11 @@ export function ConversationView({
                 )}
 
                 {busy && live && (
-                  <div className="flex flex-col items-start gap-3" data-agent="conversation-thinking">
+                  <div className="flex flex-col items-start gap-3">
                     {streamingText && (
                       <div className="max-w-bubble animate-in fade-in px-1 py-1 type-body duration-entrance">
                         <span className="mb-1 block type-caption text-text-muted">Platform</span>
-                        <span className="whitespace-pre-wrap text-text" aria-live="polite" data-agent="conversation-streaming">
+                        <span className="whitespace-pre-wrap text-text" aria-live="polite">
                           {streamingText}
                         </span>
                       </div>
@@ -783,7 +782,7 @@ export function ConversationView({
             )}
 
             {historyTurns.length > 0 && (
-              <details className="border-t border-border pt-4" data-agent="conversation-history">
+              <details className="border-t border-border pt-4">
                 <summary className="type-control flex cursor-pointer items-center justify-between text-text-muted hover:text-text">
                   <span>Earlier decisions</span>
                   <span className="type-caption">{historyTurns.length} turns</span>
@@ -806,7 +805,6 @@ export function ConversationView({
         )}
 
         <form
-          data-agent="conversation-composer"
           className="border-t border-border bg-surface px-4 py-2 sm:px-6"
           onSubmit={(e) => {
             e.preventDefault();
@@ -834,7 +832,6 @@ export function ConversationView({
               type="submit"
               size="sm"
               className="!size-8 !px-0"
-              data-agent="conversation-send"
               aria-label="Send"
               disabled={busy}
             >

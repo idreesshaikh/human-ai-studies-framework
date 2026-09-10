@@ -11,6 +11,7 @@ import io
 import matplotlib.pyplot as plt
 from analysis.dataset import Dataset
 from analysis.figures import session_timeline
+from matplotlib import rc_context
 from tests_support import synthetic_rows
 
 plt.close("all")
@@ -24,7 +25,8 @@ def _flagged_rows() -> list[dict]:
 
 def _svg(fig) -> bytes:
     buf = io.BytesIO()
-    fig.savefig(buf, format="svg")
+    with rc_context({"svg.hashsalt": "phoenix-analysis"}):
+        fig.savefig(buf, format="svg", metadata={"Date": None})
     return buf.getvalue()
 
 

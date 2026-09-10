@@ -730,14 +730,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "sources": [{"source": src, **summaries[src]} for src in sorted(summaries)],
         }
 
-    def _joined_rows(s: Session) -> list[dict]:
-        """
-        The joined one-timeline rows (FR-ING-4), in-process.
-
-        Shared by the dataset export and the dry run's plan validation, so the
-        statistics a dry run reports are computed over exactly the rows a
-        researcher would download  -  not a second, drifting join.
-        """
+    def _joined_rows(s: Session, study_id: str) -> list[dict]:
+        """Join events and metrics belonging to this study, for every export."""
+        in_this_study = _session_scope(study_id)
         rows = [
             {
                 "source": e.source,
@@ -752,7 +747,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "flags": e.flags,
                 "payload": e.payload,
             }
-            for e in s.scalars(select(Event))
+            for e in s.scalars(select(Event).where(in_this_study(Event.session_id)))
         ] + [
             {
                 "source": "metrics",
@@ -767,7 +762,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "flags": m.flags,
                 "payload": m.row,
             }
-            for m in s.scalars(select(MetricRow))
+            for m in s.scalars(
+                select(MetricRow).where(in_this_study(MetricRow.session_id))
+            )
         ]
         rows.sort(key=lambda r: (r["ts"], r["source"], r["seq"] or 0))
         return rows
@@ -778,7 +775,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     )
     def dataset(study_id: str, format: str = "json", s: Session = Depends(db)):
         """The joined one-timeline export all legs share (FR-ING-4)."""
-        rows = _joined_rows(s)
+        rows = _joined_rows(s, study_id)
         if format == "json":
             return {"studyId": study_id, "rows": rows}
         if format == "csv":
@@ -790,6 +787,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "sessionId",
                 "participantId",
                 "condition",
+                "taskId",
+                "schemaVersion",
                 "type",
                 "seq",
                 "flags",
@@ -3960,8 +3959,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             role="researcher",
             author="Researcher",
             text=(
-                "Quick protocol checklist submitted: "
-                f"{body.researchQuestion.strip()}"
+                f"Quick protocol checklist submitted: {body.researchQuestion.strip()}"
             ),
             retrieved_refs=[],
             created_at=now(),
@@ -4319,12 +4317,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             start=clock(),
         )
         outcome["studyId"] = study_id
-        # The half that answers the researcher's real question. `simulate_into`
-        # committed through the `db` dependency, so the rows are already there
-        # to analyse  -  and they are the same joined rows the dataset export
-        # hands back, not a parallel construction.
         s.flush()
-        outcome["plan"] = run_plan_summary(proto, _joined_rows(s), study_id)
+        session_ids = set(outcome["sessionIds"])
+        rows = [
+            row for row in _joined_rows(s, study_id) if row["sessionId"] in session_ids
+        ]
+        outcome["plan"] = run_plan_summary(proto, rows, study_id)
         return outcome
 
     @app.post(

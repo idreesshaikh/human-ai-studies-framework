@@ -92,6 +92,26 @@ def test_dictionary_documents_only_real_columns():
         assert f"`{column}`" in md
 
 
+def test_dictionary_distinguishes_synthetic_labels_from_measurements():
+    rows = synthetic_rows()
+    rows.append(
+        {
+            **rows[0],
+            "source": "metrics",
+            "type": "file_metrics",
+            "payload": {"lines": 12},
+        }
+    )
+    for row in rows:
+        row.setdefault("payload", {})["synthetic"] = True
+    dictionary = data_dictionary_markdown(Dataset(rows))
+    assert "`payload.synthetic` | bool | simulated" in dictionary
+    assert (
+        "`synthetic` | bool | simulated metric row; not participant data" in dictionary
+    )
+    assert "`synthetic` | numeric" not in dictionary
+
+
 def test_every_planned_recipe_has_a_resolvable_import_cell():
     protocol = _protocol()
     doc = build_notebook(protocol, _dataset(), "pilot-2026")

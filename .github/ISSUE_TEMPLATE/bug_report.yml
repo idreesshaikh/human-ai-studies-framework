@@ -8,7 +8,7 @@ body:
         **Before you start:** if this involves participant data leaking, an
         auth bypass, or the knowledge assistant seeing row-level data, stop
         and report it privately instead — see
-        [SECURITY.md](../blob/main/SECURITY.md).
+        [security policy](https://github.com/idreesshaikh/human-ai-studies-framework/blob/main/docs/security.md).
 
 
         **Never paste real participant data into this form**, even redacted.
@@ -92,5 +92,5 @@ body:
           required: true
         - label: >-
             This is not a security or privacy vulnerability (those go through
-            SECURITY.md).
+            the security policy).
           required: true

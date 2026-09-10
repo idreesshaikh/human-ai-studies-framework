@@ -1,21 +1,4 @@
-/* The road from "an idea" to "a protocol", as an ordered list.
- *
- * The conversation already walks a fixed order  -  the elicitation facets
- * first (a design shape is withheld until enough of the idea is understood),
- * then the protocol's own core sections. The rail should make that order legible
- * without turning the researcher into a 13-step form. The current facet is
- * therefore shown as a single focus row; progress belongs to the eight
- * core protocol sections that the draft actually records.
- *
- * Two reviewers asked for the same thing in different words: one for the
- * steps in a "more guided fashion... so that all the information needed for
- * the protocol is asked for in a more systematic way", the other for "an
- * overview somewhere (like a chatlist) of what the user needs to provide" so
- * it is "easier to estimate how long the chat will be".
- *
- * This is that list, derived  -  never invented. Every step comes from state
- * the server already computes; nothing here decides what is required.
- */
+/* Map the elicitation sequence and unresolved slots to protocol-review steps. */
 import { MANDATORY_SLOTS, SLOT_LABELS } from "./types.ts";
 import type { ProtocolDraft, Understanding } from "./types.ts";
 

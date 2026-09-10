@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
-# Full-stack smoke test (NFR-9, roadmap/08-pilot-study.md deliverable 3).
-#
-#   bash scripts/smoke.sh                 # compose up --build, then verify
-#   SMOKE_NO_COMPOSE=1 bash scripts/smoke.sh   # verify an already-running stack
-#
-# Proves, from a clean checkout: bring-up -> health -> platform served ->
-# replay ingest (idempotent) -> gap detection -> one-timeline dataset export
-# -> per-RQ analysis report. Exits nonzero on the first failure.
+# Exercise a development instance with an isolated synthetic study.
+# Run normally to start Docker, or set SMOKE_NO_COMPOSE=1 and SMOKE_SERVER.
 set -euo pipefail
 
 SERVER="${SMOKE_SERVER:-http://127.0.0.1:8000}"
@@ -14,74 +8,101 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$(mktemp -d)"
 cd "$ROOT"
 
-step() { printf '\n== %s\n' "$*"; }
-fail() { printf 'SMOKE FAIL: %s\n' "$*" >&2; exit 1; }
-
-# -- 1. bring-up ------------------------------------------------------------
 if [ -z "${SMOKE_NO_COMPOSE:-}" ]; then
-  step "docker compose up -d --build middleware"
   docker compose up -d --build middleware
 fi
 
-# -- 2. health --------------------------------------------------------------
-step "waiting for $SERVER/health"
-for _ in $(seq 1 60); do
-  if health="$(curl -sf "$SERVER/health" 2>/dev/null)"; then break; fi
-  sleep 2
-done
-[ -n "${health:-}" ] || fail "middleware never became healthy at $SERVER"
-echo "$health"
-echo "$health" | grep -q '"studyId":"pilot-2026"' \
-  || fail "protocol not loaded (expected studyId pilot-2026)"
+uv run python - "$SERVER" "$OUT" <<'PY'
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+import uuid
+from pathlib import Path
 
-step "platform SPA served at / (NFR-7: one process serves the stack)"
-curl -sf "$SERVER/" | grep -qi "<!doctype html" || fail "platform not served at /"
+import yaml
+from protocol.loader import load_protocol
 
-step "requirements of record served (FR-DASH-9 tooltips)"
-curl -sf "$SERVER/requirements" | grep -q '"FR-DASH-9"' \
-  || fail "/requirements missing FR-DASH-9 (srs.md not shipped or parser broken)"
+server, output = sys.argv[1].rstrip("/"), Path(sys.argv[2])
+token = os.environ.get("MIDDLEWARE_TOKEN")
+headers = {"Authorization": f"Bearer {token}"} if token else {}
 
-# -- 3. replay ingest (idempotent demo seed) ---------------------------------
-step "replay ingest (middleware/scripts/replay_session.py)"
-uv run python middleware/scripts/replay_session.py --server "$SERVER" \
-  || fail "replay ingest failed"
+def request(path, body=None):
+    req = urllib.request.Request(
+        server + path,
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={**headers, "Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=60) as response:
+        return response.read()
 
-# -- 4. dataset export -------------------------------------------------------
-step "one-timeline dataset export (JSON + CSV)"
-uv run python - "$SERVER" <<'PY' || fail "dataset export check failed"
-import json, sys, urllib.request
-server = sys.argv[1]
-doc = json.loads(urllib.request.urlopen(f"{server}/studies/pilot-2026/dataset", timeout=30).read())
-rows = doc["rows"]
-assert rows, "dataset has no rows"
-missing = [k for k in ("sessionId", "participantId", "condition", "ts") if k not in rows[0]]
-assert not missing, f"join keys missing from dataset rows: {missing}"
-csv_head = urllib.request.urlopen(f"{server}/studies/pilot-2026/dataset?format=csv", timeout=30).read(200)
-assert b"sessionId" in csv_head, "CSV export missing header"
-print(f"   {len(rows)} rows, join keys present, CSV header ok")
+for attempt in range(60):
+    try:
+        health = json.loads(request("/health"))
+        assert health["status"] == "ok", health
+        break
+    except (OSError, AssertionError):
+        if attempt == 59:
+            raise
+        time.sleep(1)
+
+assert b"<!doctype html" in request("/").lower(), "built frontend is missing"
+print("Server and frontend are available.", flush=True)
+
+protocol = load_protocol(Path("protocol/examples/pilot-study.yaml"))
+name = "smoke-" + uuid.uuid4().hex[:10]
+project = json.loads(request("/projects", {"name": name}))
+study = json.loads(request(
+    f"/projects/{project['slug']}/studies",
+    {"name": name, "protocol": protocol},
+))["id"]
+protocol["study"]["id"] = study
+
+outcome = json.loads(request(
+    f"/studies/{study}/simulate", {"count": 4, "seed": 42},
+))
+assert outcome["events"] > 0
+assert not outcome["plan"].get("errors"), outcome["plan"]
+dataset = json.loads(request(f"/studies/{study}/dataset"))
+rows = dataset["rows"]
+assert {row["sessionId"] for row in rows} == set(outcome["sessionIds"])
+assert all(row["payload"].get("synthetic") is True for row in rows)
+print(f"Created {study}: {len(rows)} scoped synthetic rows.", flush=True)
+
+# Replay one stored event, then leave a deliberate gap in its producer stream.
+row = next(row for row in rows if row["source"] != "metrics")
+event = {key: row[key] for key in (
+    "sessionId", "participantId", "condition", "taskId", "ts", "seq", "type", "payload"
+)}
+event["v"] = row["schemaVersion"]
+batch = {"source": row["source"], "events": [event]}
+replay = json.loads(request("/ingest/events", batch))
+assert replay["inserted"] == 0 and replay["duplicates"] == 1, replay
+event["seq"] = max(r["seq"] for r in rows
+    if r["sessionId"] == row["sessionId"] and r["source"] == row["source"]) + 2
+event["type"] = "editor_focus"
+json.loads(request("/ingest/events", batch))
+gaps = json.loads(request(f"/sessions/{row['sessionId']}/gaps"))
+assert gaps["gaps"], gaps
+csv_header = request(f"/studies/{study}/dataset?format=csv").splitlines()[0]
+assert b"taskId" in csv_header and b"schemaVersion" in csv_header
+print("Replay is idempotent; sequence gaps and CSV join keys are present.", flush=True)
+
+# Analyze the original rehearsal, before the deliberately incomplete event.
+protocol_path, dataset_path = output / "protocol.yaml", output / "dataset.json"
+protocol_path.write_text(yaml.safe_dump(protocol, sort_keys=False))
+dataset_path.write_text(json.dumps(dataset))
+for command in ("run", "notebook"):
+    subprocess.run([
+        sys.executable, "-m", "analysis.cli", command, str(protocol_path),
+        "--dataset", str(dataset_path), "--out", str(output),
+    ], check=True)
+
+assert (output / study / "report.md").is_file()
+assert (output / study / "notebook.ipynb").is_file()
+print(f"SMOKE OK: {output / study}")
+print(f"Synthetic test study retained on the development server: {study}")
 PY
-
-# -- 5. per-RQ analysis report ------------------------------------------------
-step "analysis run -> per-RQ report ($OUT)"
-set +e
-uv run analysis run protocol/examples/pilot-study.yaml \
-  --server "$SERVER" --out "$OUT"
-rc=$?
-set -e
-[ "$rc" -eq 0 ] || [ "$rc" -eq 2 ] || fail "analysis run hard-failed (exit $rc)"
-
-report="$OUT/pilot-2026/report.md"
-[ -f "$report" ] || fail "report.md not written"
-for rq in RQ-P1 RQ-P2 RQ-P3 RQ-P4 RQ-P5; do
-  grep -q "^## $rq" "$report" || fail "report has no section for $rq"
-done
-# Validation failures are loud by design; only the two event types that
-# arrive with's instruments are tolerated here.
-if [ "$rc" -eq 2 ]; then
-  unexpected="$(grep "MISSING DATA" "$report" \
-    | grep -v "'agent_turn'" | grep -v "'task_outcome'" || true)"
-  [ -z "$unexpected" ] || fail "unexpected validation failures: $unexpected"
-  echo "   exit 2 accepted: only the known requires-failures (agent_turn, task_outcome)"
-fi
-
-printf '\nSMOKE OK  (report: %s)\n' "$report"

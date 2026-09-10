@@ -1,22 +1,4 @@
-/* The blink comparator's plate arithmetic.
- *
- * A comparator alternates two versions of one document in identical
- * coordinates so that anything unchanged sits perfectly still and only what
- * moved appears to move. That promise rests entirely on how the two plates are
- * built, which is why the arithmetic lives here as a pure function rather than
- * inside the component: it is the part that can be wrong in a way a screenshot
- * cannot show, and `scripts/verify-comparator.mjs` exercises it.
- *
- * Two rules the instrument cannot work without:
- *
- * 1. The `+` / `-` marker is STRIPPED. A unified diff needs it because both
- *    versions share one column; a comparator does not. Kept, it made every
- *    changed line one character wider than its counterpart, so the whole plate
- *    shifted on each blink and *everything* appeared to move.
- * 2. A first compile has no earlier version. Every line is an addition, so the
- *    "before" plate is empty and there is nothing to alternate against;
- *    blinking there flipped the panel to blank and back, which reads as a
- *    broken component rather than as "this document did not exist yet". */
+/* Align protocol versions so unchanged lines stay in place during comparison. */
 
 export interface DiffLine {
   line: string;

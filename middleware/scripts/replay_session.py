@@ -6,7 +6,6 @@ import os
 import sys
 import urllib.error
 import urllib.request
-import uuid
 from pathlib import Path
 
 SAMPLE_DIR = Path(__file__).resolve().parents[1] / "sample-data"
@@ -21,17 +20,6 @@ _AUTH_HEADERS = (
     else {}
 )
 
-DESIGN_ARTIFACTS = {
-    "protocol-validated.txt": (
-        b"pilot-2026 validated by `protocol validate` (demo artifact)\n"
-    ),
-    "task-definitions.md": (
-        b"# Task definitions\n\nTwo matched Python maintenance tasks "
-        b"(demo artifact).\n"
-    ),
-}
-
-
 def _call(method: str, url: str, body: object | None = None) -> dict | list:
     data = json.dumps(body).encode() if body is not None else None
     headers = {"content-type": "application/json", **_AUTH_HEADERS}
@@ -42,31 +30,6 @@ def _call(method: str, url: str, body: object | None = None) -> dict | list:
 
 def _read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines() if line]
-
-
-def _upload(server: str, filename: str, content: bytes) -> dict:
-    """multipart/form-data upload with stdlib only."""
-    boundary = uuid.uuid4().hex
-    body = (
-        (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
-            "Content-Type: application/octet-stream\r\n\r\n"
-        ).encode()
-        + content
-        + f"\r\n--{boundary}--\r\n".encode()
-    )
-    req = urllib.request.Request(
-        f"{server}/ingest/files",
-        data=body,
-        method="POST",
-        headers={
-            "content-type": f"multipart/form-data; boundary={boundary}",
-            **_AUTH_HEADERS,
-        },
-    )
-    with urllib.request.urlopen(req, timeout=10) as res:
-        return json.loads(res.read())
 
 
 def main() -> int:
@@ -163,22 +126,6 @@ def main() -> int:
     rows = _read_jsonl(args.metrics)
     m = _call("POST", f"{args.server}/ingest/metrics", rows)
     print(f"metrics: {m['inserted']} inserted, {m['duplicates']} duplicates")
-
-    for filename, content in DESIGN_ARTIFACTS.items():
-        res = _upload(args.server, filename, content)
-        dup = " (already present)" if res.get("duplicate") else ""
-        print(f"artifact: {filename} uploaded{dup}")
-    try:
-        lifecycle = _call("GET", f"{args.server}/studies/{study_id}/lifecycle")
-        print(
-            f"lifecycle: current phase {lifecycle['currentPhase']!r} "
-            "(computed from artifacts)"
-        )
-    except urllib.error.HTTPError as exc:
-        if exc.code == 401:
-            print("lifecycle: skipped (401 - no service credential for this auth mode)")
-        else:
-            pass
 
     try:
         gaps = _call("GET", f"{args.server}/sessions/{session_id}/gaps")

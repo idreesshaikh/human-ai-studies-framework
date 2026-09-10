@@ -199,7 +199,6 @@ export function FinishReview({
           * so the next step is named here, where the question is asked. */}
         {applied && (
           <div
-            data-agent="applied-next-step"
             className="mt-3 rounded-card border border-border bg-well p-3"
           >
             <p className="type-body text-text">

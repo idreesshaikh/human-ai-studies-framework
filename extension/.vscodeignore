@@ -1,9 +1,8 @@
-# What stays out of the .vsix (FR-OPS-8). The package ships the compiled
-# `out/` tree, the manifest, the media, and the three listing documents —
-# nothing else. Sources and tests are on GitHub; shipping them only makes the
-# download bigger and the listing noisier.
+# Ship compiled code, media, and the extension's listing documents.
 .vscode/**
 .vscode-test/**
+.gitignore
+.prettierignore
 src/**
 test/**
 out-tests/**
@@ -19,5 +18,4 @@ node_modules/**
 docs/**
 examples/**
 **/.study-data/**
-PROJECT_GUIDE.md
 media/icon.svg

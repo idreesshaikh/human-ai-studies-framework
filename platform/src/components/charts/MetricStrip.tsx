@@ -214,7 +214,6 @@ export function MetricStrip({
             className="h-auto w-full"
             role="img"
             aria-label={`${metric.label} by condition, every point drawn`}
-            data-agent="metric-strip"
           >
             <g transform={`translate(${M.left},${M.top})`}>
               {ticks.map((t) => (

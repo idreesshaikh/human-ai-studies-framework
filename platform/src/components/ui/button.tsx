@@ -3,24 +3,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/cn";
 
-/* Button  -  a control on the plate. Rounded, hairline-framed, and set in the
- * product's own sentence-case voice: mono is reserved for measured
- * quantities, and tracked caps made every control shout its label in a tool
- * whose job is to be quiet enough to think in.
- *
- * The hierarchy is one decision, not a palette. `default` is the accent fill:
- * the next action in its region, and a second one in the same region means one
- * of the two is wrong (the budget is per region, not per viewport: see
- * tokens.css). Everything else is unfilled, an outline or a cleared step or a
- * bare mark, so the eye finds the action without reading a word. `ink` exists
- * for a commit that must not read as the helpful next step, and `danger` for
- * one that removes something.
- *
- * A disabled control drops OUT of its variant rather than fading inside it.
- * A washed-out accent fill still reads as "the blue button", so a primary
- * action waiting on an empty field looked like a broken button rather than
- * an inert one; dropping to the well and muted ink is unmistakable, and it
- * keeps its label legible, which fading below 50% does not. */
+/* Shared button variants and disabled states, using the design tokens. */
 const buttonVariants = cva(
   "type-control inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-control px-4 text-center transition-all duration-fast disabled:pointer-events-none disabled:border-border disabled:bg-well disabled:text-text-muted disabled:shadow-none [&_svg]:size-4 [&_svg]:shrink-0",
   {

@@ -77,9 +77,6 @@ export function MoveCard({
     <Card
       ref={ref}
       askew
-      data-agent="move-card"
-      data-agent-kind={move.kind}
-      data-agent-status={move.status}
       tabIndex={decided ? -1 : 0}
       onKeyDown={onKey}
       aria-label={`${KIND_LABEL[move.kind]} move: ${move.proposal}`}
@@ -175,7 +172,6 @@ export function MoveCard({
               <Button
                 size="sm"
                 variant="subtle"
-                data-agent="move-accept"
                 className="!h-8 !px-2.5"
                 onClick={() => onDecide(move.moveId, "accepted", move)}
               >
@@ -190,7 +186,6 @@ export function MoveCard({
               <Button
                 size="sm"
                 variant="ghost"
-                data-agent="move-reject"
                 className="!h-8 !px-2.5"
                 onClick={() => onDecide(move.moveId, "rejected", move)}
               >
@@ -205,7 +200,6 @@ export function MoveCard({
               <Button
                 size="sm"
                 variant="ghost"
-                data-agent="move-undo"
                 className="!h-8 !px-2.5"
                 onClick={() => onDecide(move.moveId, "proposed", move)}
               >

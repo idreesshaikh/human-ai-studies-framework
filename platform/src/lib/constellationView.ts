@@ -1,6 +1,6 @@
 /* Pure decision logic for the Obsidian-style constellation view  -  kept out
  * of the component so `verify-library.mjs` can assert every branch without
- * a DOM (the project has no component test tooling; see PROJECT_GUIDE /
+ * a DOM (the project has no component test tooling; see docs/development.md /
  * docs/roadmap). `Constellation.tsx` is thin glue over these functions:
  * state wiring, SVG markup, and the pointer/keyboard event plumbing. */
 

@@ -5,11 +5,8 @@
 # tools run through uv so the versions are the workspace-pinned ones -
 # hooks and CI can never disagree.
 
-# metrics/corpus holds deliberately imperfect specimen files whose exact
-# bytes anchor recorded metric values, and analysis/tests/fixtures holds the
-# byte-exact golden paper drafts (FR-ANA-6 determinism) - no fixer may touch
-# either.
-exclude: ^(metrics/corpus/|analysis/tests/fixtures/)
+# Preserve the deliberately imperfect metric specimens used by tests.
+exclude: ^metrics/corpus/
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

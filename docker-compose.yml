@@ -1,16 +1,6 @@
-# Local dev environment mirroring Railway production (NFR-7/9).
-#
-# PostgreSQL is the default  -  the same backend Railway uses. SQLite is no
-# longer the primary path; this compose file always boots with Postgres so
-# you reproduce the Railway environment locally before deploying.
-#
-#   docker compose up                        # middleware + postgres + demo seed
-#   docker compose --profile sonar up        # ... plus SonarQube for cognitive
-#                                            # complexity metric (FR-INST-4, D5)
-#   docker compose up -d                     # detached
-#
-# All data lives in named volumes  -  they persist across restarts.
-# Wipe with: docker compose down -v
+# Local PostgreSQL stack. Add --profile sonar for optional SonarQube metrics.
+# Named volumes preserve data across restarts; this configuration is not hardened
+# for a public deployment. The Python CLI uses SQLite by default.
 
 services:
   postgres:
@@ -37,6 +27,8 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgres://middleware:middleware@postgres:5432/middleware
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      MISTRAL_DESIGN_MODEL: ${MISTRAL_DESIGN_MODEL:-mistral-medium-latest}
     volumes:
       - study-data:/data
     depends_on:
@@ -44,6 +36,8 @@ services:
         condition: service_healthy
 
   demo-seed:
+    environment:
+      DATABASE_URL: postgres://middleware:middleware@postgres:5432/middleware
     build:
       context: .
       dockerfile: middleware/Dockerfile

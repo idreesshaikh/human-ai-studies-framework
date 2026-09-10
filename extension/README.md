@@ -48,7 +48,7 @@ metrics pipeline (`../metrics/` in this repository - see the
 [root README](../README.md)). All legs share one timeline via the join keys
 and the middleware.
 
-> Working on the extension itself? See `PROJECT_GUIDE.md` for architecture, the
+> Working on the extension itself? See [development guide](docs/development.md) for architecture, the
 > dev workflow, the event schema, and porting notes.
 
 ---

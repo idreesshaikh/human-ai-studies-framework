@@ -138,7 +138,7 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setMinted([]); }}>
       <DialogTrigger asChild>
-        <Button size="sm" data-agent="mint-tokens">Mint links</Button>
+        <Button size="sm">Mint links</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogTitle>Mint enrollment links</DialogTitle>
@@ -226,7 +226,7 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
                 <span className="w-16 shrink-0 type-quantity text-text">{t.participantId}</span>
                 <span className="truncate type-quantity text-text-muted">{t.connectionString}</span>
                 <Button asChild size="sm" variant="ghost" className="ml-auto shrink-0">
-                  <a href={vscodeDeepLink(t.connectionString ?? "")} data-agent="open-in-vscode">
+                  <a href={vscodeDeepLink(t.connectionString ?? "")}>
                     <ExternalLink aria-hidden />
                     Open in VS Code
                   </a>

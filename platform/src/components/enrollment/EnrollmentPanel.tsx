@@ -130,7 +130,7 @@ export function EnrollmentPanel({
 
   if (noProtocol) {
     return (
-      <Surface measure="work" label="Participants" data-agent="enrollment-panel">
+      <Surface measure="work" label="Participants">
         <EmptyState
           line="Nobody can be enrolled yet: this study has no compiled protocol. Participants join by pasting a link that carries the protocol, so it has to exist before a link can be minted."
           action={
@@ -155,7 +155,7 @@ export function EnrollmentPanel({
      * hatch  -  does not hold: the table is `min-w-3xl` (768px) inside
      * `overflow-x-auto`, and `work` leaves 896px of column, so it fits with
      * room to spare and still scrolls on its own if a window gets tighter. */
-    <Surface measure="work" label="Participants" data-agent="enrollment-panel">
+    <Surface measure="work" label="Participants">
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1">
           {/* Counts enrollment links, so it says "enrolled" only about
@@ -198,7 +198,6 @@ export function EnrollmentPanel({
               target="_blank"
               rel="noreferrer"
               className="inline-block py-1 -my-1 underline underline-offset-2 hover:text-text"
-              data-agent="extension-install-link"
             >
               Download the .vsix
             </a>
@@ -317,7 +316,6 @@ export function EnrollmentPanel({
                         >
                           <a
                             href={vscodeDeepLink(t.connectionString)}
-                            data-agent="open-in-vscode"
                             title={`Open in VS Code (requires the ${EXTENSION_NAME} extension)`}
                           >
                             <ExternalLink className="h-3.5 w-3.5" aria-hidden />

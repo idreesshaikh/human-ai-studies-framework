@@ -6,33 +6,7 @@ import { buildPlates, type DiffLine } from "@/lib/comparator";
 
 export type { DiffLine };
 
-/* The blink comparator.
- *
- * A blink comparator is the instrument that alternates two photographic plates
- * of the same field so anything which moved between them jumps out at the eye;
- * it is how Pluto was found. It is also, exactly, what a protocol diff asks a
- * reader to do: hold two versions of one document in mind and spot what is
- * different.
- *
- * There are two states, and the resting one is a document, not a machine:
- *
- *   AT REST  the whole record, in reading order, with added lines at full ink
- *            and replaced lines struck through and left legible. This is the
- *            world's own rule ("nothing is ever erased") applied to a diff,
- *            and it is what a researcher approving an amendment must be able
- *            to read in words. Showing one of the two plates here instead
- *            meant the panel titled "What this changes" opened on a version
- *            that did not show the change at all.
- *
- *   BLINKING the two plates alternate in the SAME coordinates, so change is
- *            carried by motion rather than by position. Anything unchanged
- *            sits perfectly still; anything that moved flickers, and the eye
- *            finds it without reading a word.
- *
- * The motion never replaces the reading. Under `prefers-reduced-motion` the
- * control becomes a manual swap between the two plates rather than vanishing:
- * this is a tool for reading a document, and taking it away from someone who
- * cannot tolerate animation would remove the reading aid, not the decoration. */
+/* Compare protocol versions in place. Reduced motion disables automatic alternation. */
 export function BlinkComparator({
   lines,
   className,

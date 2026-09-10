@@ -76,7 +76,7 @@ export function DraftRail({
       : "Updates as you settle each choice.";
 
   return (
-    <aside data-agent="draft-rail" className="flex h-full min-w-0 flex-col bg-surface">
+    <aside className="flex h-full min-w-0 flex-col bg-surface">
       <div className="shrink-0 border-b border-border px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -87,7 +87,7 @@ export function DraftRail({
           <ProtocolGuide />
         </div>
 
-        <div className="mt-5" data-agent="slot-meter">
+        <div className="mt-5">
           <div className="flex items-baseline justify-between gap-2">
             <span className="type-caption text-text-muted">Draft progress</span>
             <span className="type-quantity text-text">{path.done}/{path.total}</span>
@@ -111,7 +111,7 @@ export function DraftRail({
               <span className="ml-2">Use a supported coding-study brief to continue.</span>
             </p>
           ) : path.upNext ? (
-            <p className="mt-3 rounded-input bg-accent-wash px-3 py-2 type-caption text-text" data-agent="protocol-path-current">
+            <p className="mt-3 rounded-input bg-accent-wash px-3 py-2 type-caption text-text">
               <span className="type-legend text-accent">NEXT</span>
               <span className="ml-2">{path.upNext}</span>
             </p>
@@ -121,7 +121,7 @@ export function DraftRail({
       </div>
 
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 py-4">
-        <details className="mb-4" data-agent="protocol-path">
+        <details className="mb-4">
           <summary className="type-control cursor-pointer text-text-muted hover:text-text">Show the path</summary>
           <div className="mt-3 flex flex-col gap-3 border-l border-border pl-3">
             {path.phases.map((phase) => (
@@ -197,7 +197,7 @@ export function DraftRail({
       {(onFinish || onApply) && (
         <div className="flex gap-2 border-t border-border bg-surface p-4">
           {onFinish && (
-            <Button size="sm" data-agent="draft-finish" onClick={onFinish} className="flex-1">
+            <Button size="sm" onClick={onFinish} className="flex-1">
               {ready ? "Review draft" : "Review status"}
             </Button>
           )}
@@ -206,7 +206,6 @@ export function DraftRail({
               size="sm"
               variant="outline"
               disabled={!ready || applying}
-              data-agent="draft-apply"
               onClick={onApply}
               className="flex-1"
               title={ready ? undefined : "Finish the required sections before applying this draft."}
@@ -222,7 +221,7 @@ export function DraftRail({
 
 function SlotPlate({ draft }: { draft: ProtocolDraft }) {
   return (
-    <ul className="min-w-0 divide-y divide-border" data-agent="draft-slot-plate">
+    <ul className="min-w-0 divide-y divide-border">
       {MANDATORY_SLOTS.map((slot) => (
         <li key={slot} className="flex items-start gap-3 py-3">
           <span className="type-label min-w-0 flex-1 text-text">{SLOT_LABELS[slot]}</span>

@@ -12,6 +12,6 @@ dependencies = [
 ]
 
 # Flat script layout (src/parsers/, src/analyzers/, src/main.py) per
-# docs/implementation_plan.md - not an installable package yet.
+# README.md - not an installable package yet.
 [tool.uv]
 package = false

@@ -1,18 +1,6 @@
-/* Exercises the shell's pure logic without a browser: the permission matrix
- * and the in-memory backend that powers offline dev, the hero demo, and the
- * UI's optimistic flows. Run:
- *   node --experimental-strip-types scripts/verify-shell.mjs
- *
- * Checks that:
- *   - hasRole matches the matrix for every role × capability
- *   - creating a project makes the creator an owner
- *   - an invitation is single-use
- *   - a role change sticks; the last owner can't be removed
- *   - deleting needs DELETE typed to confirm
- *   - resolveRole keeps "still loading" distinct from "viewer"
- */
+/* Checks shell permissions, role resolution, and the HTTP client boundary. */
 import { MATRIX, ROLE_RANK, hasRole } from "../src/lib/capabilities.ts";
-import { ApiError, InMemoryBackend } from "../src/lib/api.ts";
+import { ApiError, OfflineError, createApi, setTokenProvider, onUnauthorized } from "../src/lib/api.ts";
 import { resolveRole, roleOrNull } from "../src/lib/role.ts";
 
 let failures = 0;
@@ -45,48 +33,64 @@ ok("member can contribute but not manage members",
   hasRole("member", "contribute") && !hasRole("member", "manage_members"));
 ok("owner can do everything", Object.keys(MATRIX).every((c) => hasRole("owner", c)));
 
-// The in-memory backend behaves like the server's shape.
-const api = new InMemoryBackend();
+// A failed server write must never succeed in a temporary local backend.
+const api = createApi();
+const originalFetch = globalThis.fetch;
+setTokenProvider(async () => "test-token");
+try {
+  let request;
+  globalThis.fetch = async (url, init) => {
+    request = { url, ...init };
+    return Response.json({ slug: "saved-study", role: "owner" });
+  };
+  const created = await api.createProject("Saved study");
+  ok("create returns the server response", created.slug === "saved-study");
+  ok("create sends its payload and credential",
+    request.url === "/projects" && request.method === "POST" &&
+    JSON.parse(request.body).name === "Saved study" &&
+    request.headers.Authorization === "Bearer test-token");
 
-const created = await api.createProject("Fresh Project");
-ok("create project makes creator an owner", created.role === "owner", created.slug);
-const mine = await api.listProjects();
-ok("new project appears in my list", mine.some((p) => p.slug === created.slug));
-ok("offline shell has no fixture research projects", !mine.some((p) => p.slug === "sample-lab"));
-ok("the shared demo remains view-only", mine.some((p) => p.slug === "demo" && p.role === "viewer"));
-await throws("read-only demo refuses study creation", 403, () =>
-  api.createStudy("demo", "Should not be created"));
+  globalThis.fetch = async () => { throw new TypeError("network unavailable"); };
+  for (const [name, call] of [
+    ["project creation", () => api.createProject("Unsaved")],
+    ["invitations", () => api.createInvitation("lab", "member")],
+    ["participant links", () => api.mintEnrollmentTokens("study", 1, "participant")],
+    ["project listing", () => api.listProjects()],
+  ]) {
+    try {
+      await call();
+      ok(name + " fails when offline", false);
+    } catch (error) {
+      ok(name + " fails when offline", error instanceof OfflineError);
+    }
+  }
 
-// Invitations are reusable (Phase 7b: email-less share links).
-const inv = await api.createInvitation(created.slug, "member");
-// The in-memory adapter has one local identity. Switch it only for this
-// permission check so the test can exercise a real invited member without
-// shipping a fixture collaborator in the offline UI.
-api.sub = "dana@lab.test";
-const accepted = await api.acceptInvitation(inv.token);
-ok("accepting an invitation grants its role", accepted.role === "member");
-const reaccepted = await api.acceptInvitation(inv.token);
-ok("re-accepting the same link is allowed (reusable)", reaccepted.role === "member");
-api.sub = "you";
+  globalThis.fetch = async () => new Response("<html>SPA</html>", {
+    headers: { "content-type": "text/html" },
+  });
+  try {
+    await api.createProject("Unsaved");
+    ok("an HTML response cannot confirm a save", false);
+  } catch (error) {
+    ok("an HTML response cannot confirm a save", error instanceof OfflineError);
+  }
 
-// Role change sticks.
-await api.changeRole(created.slug, "dana@lab.test", "owner");
-const members = await api.members(created.slug);
-ok("role change sticks",
-  members.find((m) => m.identitySub === "dana@lab.test")?.role === "owner");
+  let unauthorized = false;
+  const unsubscribe = onUnauthorized(() => { unauthorized = true; });
+  globalThis.fetch = async () => Response.json(
+    { detail: "Sign in required" }, { status: 401 },
+  );
+  await throws("authentication errors are preserved", 401, () => api.listProjects());
+  ok("401 notifies the sign-in layer", unauthorized);
+  unsubscribe();
 
-// Last owner can't be removed (on the fresh project, "you" is sole owner).
-await api.changeRole(created.slug, "dana@lab.test", "member");
-await throws("last owner can't be removed", 409, () =>
-  api.removeMember(created.slug, "you"));
-
-// Delete needs DELETE typed.
-await throws("delete refuses a wrong confirmation", 400, () =>
-  api.deleteProject(created.slug, "nope"));
-await api.deleteProject(created.slug, "DELETE");
-const after = await api.listProjects();
-ok("delete with correct confirmation removes the project",
-  !after.some((p) => p.slug === created.slug));
+  globalThis.fetch = async () => Response.json(
+    { detail: "Study not found" }, { status: 404 },
+  );
+  await throws("real 404 responses are preserved", 404, () => api.projectHome("missing"));
+} finally {
+  globalThis.fetch = originalFetch;
+}
 
 // --------------------------------------------------------- role resolution
 //

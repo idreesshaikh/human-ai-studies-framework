@@ -1,8 +1,9 @@
-"""The unified study dataset a recipe consumes (FR-ING-4 -> FR-ANA-1)."""
+"""The exported study dataset consumed by analysis recipes."""
 
 from __future__ import annotations
 
 import json
+import os
 import urllib.request
 from functools import cached_property
 from pathlib import Path
@@ -20,7 +21,6 @@ class Dataset:
         self.rows = rows
         self.meta = meta or {}
 
-
     @classmethod
     def from_json(cls, path: str | Path) -> Dataset:
         doc = json.loads(Path(path).read_text())
@@ -29,10 +29,13 @@ class Dataset:
     @classmethod
     def fetch(cls, server: str, study_id: str) -> Dataset:
         url = f"{server.rstrip('/')}/studies/{study_id}/dataset?format=json"
-        with urllib.request.urlopen(url, timeout=30) as res:
+        token = os.environ.get("MIDDLEWARE_TOKEN")
+        request = urllib.request.Request(
+            url, headers={"Authorization": f"Bearer {token}"} if token else {}
+        )
+        with urllib.request.urlopen(request, timeout=30) as res:
             doc = json.loads(res.read())
         return cls(rows=doc["rows"], study_id=doc.get("studyId", study_id))
-
 
     @cached_property
     def events(self) -> pd.DataFrame:
@@ -46,7 +49,7 @@ class Dataset:
             return pd.DataFrame(
                 columns=[*JOIN_KEYS, "ts", "type", "seq", "flags", "payload"]
             )
-        df = pd.DataFrame(rows)[[*JOIN_KEYS, "ts", "type", "seq", "flags", "payload"]]
+        df = pd.DataFrame(rows)
         df["ts"] = pd.to_datetime(df["ts"], utc=True, format="mixed")
         return df.sort_values(["sessionId", "seq"]).reset_index(drop=True)
 
@@ -65,15 +68,15 @@ class Dataset:
                     **{
                         k: v
                         for k, v in r.get("payload", {}).items()
-                        if k not in JOIN_KEYS and k not in ("timestamp")
+                        if k not in JOIN_KEYS and k != "timestamp"
                     },
+                    **{k: r[k] for k in ("taskId", "schemaVersion") if k in r},
                 }
                 for r in rows
             ]
         )
         base["ts"] = pd.to_datetime(base["ts"], utc=True, format="mixed")
         return base
-
 
     @cached_property
     def event_types(self) -> set[str]:
@@ -82,7 +85,16 @@ class Dataset:
     @cached_property
     def metric_columns(self) -> set[str]:
         """Metric columns that exist AND carry at least one numeric value."""
-        skip = {*JOIN_KEYS, "ts", "level", "file", "function", "schemaVersion"}
+        skip = {
+            *JOIN_KEYS,
+            "ts",
+            "level",
+            "file",
+            "function",
+            "taskId",
+            "schemaVersion",
+            "synthetic",
+        }
         cols = set()
         for col in self.metrics.columns:
             if col in skip:
@@ -102,7 +114,6 @@ class Dataset:
                     if c:
                         seen.setdefault(c, None)
         return list(seen)
-
 
     def of_type(self, *types: str) -> pd.DataFrame:
         """Events of the given type(s) with payload keys expanded to columns."""

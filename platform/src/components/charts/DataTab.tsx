@@ -184,7 +184,7 @@ export function DataTab({ studyId }: { studyId: string }) {
       )}
 
       {statusDoc && Object.keys(statusDoc.producers).length > 0 && (
-        <section className="flex flex-col gap-2 border-b border-border pb-5" data-agent="producer-status">
+        <section className="flex flex-col gap-2 border-b border-border pb-5">
           <div>
             <h2 className="type-subhead text-text">Configured producers</h2>
             <p className="mt-1 max-w-reading type-caption text-text-muted">
@@ -230,8 +230,8 @@ export function DataTab({ studyId }: { studyId: string }) {
             <br />
             {dryRun.report.sessions} sessions, {dryRun.report.events} events
             stored through the real capture path. These sessions are simulated;
-            minted tokens are marked synthetic, and the dataset labels them
-            by run id. They are for rehearsal, never results.
+            the exported rows are marked synthetic. Keep them separate from
+            participant data when analysing your study.
           </p>
         </div>
       )}

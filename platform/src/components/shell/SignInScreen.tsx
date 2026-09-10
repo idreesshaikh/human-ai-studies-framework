@@ -70,7 +70,6 @@ export function SignInScreen() {
      * it hung in open space a third of the way across the screen instead of
      * sitting in the corner it was written for. */
     <div
-      data-agent="sign-in"
       className="relative flex min-h-screen flex-col justify-center p-6"
     >
       <div className="absolute right-4 top-4 flex items-center gap-1">

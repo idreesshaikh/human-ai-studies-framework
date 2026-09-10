@@ -112,7 +112,18 @@ def _dictionary_rows(dataset: Dataset) -> list[tuple[str, str, str]]:
         rows.append((column, dtype, meaning))
     for type_, keys in _event_payload_keys(dataset).items():
         for key in keys:
-            rows.append((f"payload.{key}", "any", f"payload key on {type_} events"))
+            if key == "synthetic":
+                rows.append(
+                    (
+                        f"payload.{key}",
+                        "bool",
+                        f"simulated {type_} event; not participant data",
+                    )
+                )
+            else:
+                rows.append((f"payload.{key}", "any", f"payload key on {type_} events"))
+    if "synthetic" in dataset.metrics.columns:
+        rows.append(("synthetic", "bool", "simulated metric row; not participant data"))
     # Sorted, never the set's raw iteration order: metric_columns is a set, and set
     # iteration order is per-process hash-randomized  -  an unsorted pass would make the
     # dictionary (and with it every cell id, which is content-derived) drift between

@@ -3,23 +3,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-/* Modal dialog built on Radix (focus trap, ARIA, Escape, scroll lock come
- * from the primitive).
- *
- * The content is capped at the viewport and scrolls INSIDE itself. Without
- * that cap a tall dialog (the finish review, with a compiled protocol and a
- * diff in it) grew past the top and bottom of the window: because it is
- * centred with a -50% translate, the overflow went off BOTH edges, the page
- * behind it was scroll-locked by the primitive, and the clipped content was
- * unreachable by pointer, wheel, or keyboard. The close button sits outside
- * the scrolling region so it never scrolls away from the reader.
- *
- * Radix returns focus to the trigger on close, but only when the dialog was
- * opened BY a trigger it owns. Every dialog in this app is opened from state
- * (a button elsewhere flips `open`), so there is nothing for Radix to return
- * to and focus fell to `<body>`: a keyboard user who closed the finish review
- * restarted from tab stop 1 of 30. `DialogContent` therefore remembers what
- * had focus when it mounted and restores it on unmount. */
+/* Radix supplies focus trapping and Escape handling; content scrolls within the viewport. */
 /* The last element focused OUTSIDE any dialog. Tracked once, for the whole
  * app, because a dialog opened from state has no trigger for Radix to restore
  * focus to and a keyboard user who closes one should not restart from tab stop

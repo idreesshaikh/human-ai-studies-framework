@@ -204,7 +204,6 @@ export function StudyHome() {
               variant="ghost"
               size="icon"
               aria-label="How this workspace works"
-              data-agent="tour-open"
               onClick={openTour}
             >
               <HelpCircle className="size-4" aria-hidden />
@@ -215,7 +214,6 @@ export function StudyHome() {
         <nav
           className="flex items-center gap-0.5 overflow-x-auto px-3 sm:gap-1"
           aria-label="Study sections"
-          data-agent="study-tabs"
         >
           {TABS.map((t) => (
             <button

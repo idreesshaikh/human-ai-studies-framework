@@ -69,7 +69,7 @@ export function ConversationStart({ onUse }: { onUse: (text: string) => void }) 
   };
 
   return (
-    <section data-agent="conversation-start" aria-label="Start the developer study setup" className="max-w-reading">
+    <section aria-label="Start the developer study setup" className="max-w-reading">
       <h2 className="type-section text-text">Describe the study in your own words</h2>
       <p className="mt-2 max-w-[52ch] type-body text-text-muted">
         Give me a complete brief if you have one, or start with the part you know. I’ll teach the
@@ -77,7 +77,6 @@ export function ConversationStart({ onUse }: { onUse: (text: string) => void }) 
       </p>
 
       <p
-        data-agent="study-scope"
         className="mt-4 max-w-[58ch] border-l-2 border-accent pl-3 type-caption text-text-muted"
       >
         Students are supported when they are programming. Other study types belong outside this workspace.

@@ -17,27 +17,7 @@ def _model(monkeypatch):
     double = model_double.plausible()
     monkeypatch.setenv("MISTRAL_API_KEY", "test-key")
     monkeypatch.setattr(assistant, "_post_json", double.post)
-    monkeypatch.setattr(
-        assistant.MistralProvider, "__init__", _provider_init(double.post)
-    )
 
-
-def _provider_init(default_post):
-    """A ``MistralProvider.__init__`` whose default transport is the double."""
-
-    def __init__(self, api_key, post=None, stream=None):
-        from middleware import assistant
-
-        assistant._ChatCompletionsProvider.__init__(
-            self,
-            "https://api.mistral.ai/v1/chat/completions",
-            api_key,
-            assistant.MISTRAL_MODEL,
-            post or default_post,
-            stream or assistant._post_stream,
-        )
-
-    return __init__
 
 _STUDY_SKETCH = (
     "I want to see whether developers finish maintenance tasks faster with "
@@ -91,11 +71,15 @@ def _reach_approved_protocol(client, study=STUDY):
     researcher reaches by designing, and the only pre-condition enrollment now has.
     """
     _ask(client, _STUDY_SKETCH, study)
-    reply = _ask(client, (
-        "what design and statistics should I use? I was thinking "
-        "within-subjects, with each developer doing both conditions "
-        "counterbalanced"
-    ), study)
+    reply = _ask(
+        client,
+        (
+            "what design and statistics should I use? I was thinking "
+            "within-subjects, with each developer doing both conditions "
+            "counterbalanced"
+        ),
+        study,
+    )
     template_moves = [m for m in reply["moves"] if m["kind"] == "choose-template"]
     assert template_moves, "no design was proposed after describing the study"
     for m in template_moves:

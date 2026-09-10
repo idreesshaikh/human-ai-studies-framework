@@ -10,3 +10,13 @@ shadow.git
 platform/dist
 extension/out
 extension/out-tests
+.env
+.env.*
+.claude
+.codex
+.agents
+.impeccable
+.design-sync
+.corpus-cache
+.playwright-cli
+.playwright-mcp

@@ -1,27 +1,4 @@
-/* Steer  -  how much the design assistant drives the conversation.
- *
- * One control, two real levers, both of which already exist in the
- * middleware and neither of which is cosmetic:
- *
- *   REGISTER   which researcher profile the assistant speaks to
- *              (elicitation.PROFILES): how much is explained, which
- *              trade-offs are worth surfacing, whether a term gets defined.
- *   INITIATIVE how much it proposes unprompted (design_assistant's stance):
- *              a turn that leads with the next move, versus one that answers
- *              what was asked and flags only what is methodologically wrong.
- *
- * The METHOD never changes with this control. The same designs, the same
- * statistics, the same honesty about what is grounded and what is not  -  a
- * researcher who turns steer down gets a quieter colleague, never a less
- * rigorous one, and one who turns it up is not given easier science. That
- * invariant is the reason this is a comfort setting and not a quality
- * setting, and it is enforced on the server: the stance machinery filters
- * what may be proposed, so a model that ignores the instruction still cannot
- * flood a low-steer conversation with proposals.
- *
- * The profile in Settings (FR-OPS-7) is the account-wide default this starts
- * from; this dial is the per-study override, because how much help you want
- * is a property of the study you are in the middle of, not of who you are. */
+/* Steer maps conversational initiative to the server's researcher profiles. */
 
 export type SteerLevel = 0 | 1 | 2 | 3;
 

@@ -211,7 +211,6 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           * mostly refuse is worse than no nav: the public page keeps the
           * header (mark, theme, Sign in) and gets its whole width. */}
         <nav
-          data-agent="project-nav"
           aria-label="Main"
           hidden={signedOut}
           className={cn(

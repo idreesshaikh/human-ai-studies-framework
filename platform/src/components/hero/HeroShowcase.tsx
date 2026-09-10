@@ -2,26 +2,7 @@ import { useEffect, useState } from "react";
 import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
 import { Confidence } from "@/components/conversation/Confidence";
 
-/* The hero's thesis, running by itself: the platform's core loop played out as
- * a deterministic, no-LLM showcase. A researcher's question types itself, a
- * grounded design-move card folds in, its citation chips light, and the move
- * lands in the protocol draft, the exact gesture the real design conversation
- * makes, but scripted, so it never breaks (the old hero embedded a live demo
- * endpoint that did). Everything visible is fixed copy, real corpus
- * references, not a live retrieval, so nothing here makes a network call.
- *
- * The sequence used to stop at "Accept" and loop, which proved only half of
- * the paragraph above it: "Phoenix proposes design moves grounded... AND
- * compiles the ones you keep into a protocol." A visitor who watched the whole
- * loop never saw the second half happen. The `compiled` stage closes that: the
- * same dot meter and "in draft" wording the real DraftRail and MoveCard use,
- * so the promise the copy makes is the promise the demo keeps, in the
- * product's own vocabulary rather than a marketing paraphrase of it.
- *
- * Motion is JS-timed, so it opts out of animation under reduced motion by
- * rendering its final resting frame (see usePrefersReducedMotion). The whole
- * thing is one `role="img"` with a plain-language label, so assistive tech
- * gets a single clear description instead of the animating fragments. */
+/* A scripted, illustrative preview of review and protocol compilation. */
 
 const QUESTION = "Do developers over-trust AI-written code?";
 const PROPOSAL =

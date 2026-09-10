@@ -130,7 +130,7 @@ export function ProjectHome() {
         <div className="flex items-end justify-between gap-3">
           <h2 className="type-section text-text">Studies</h2>
           {!composing && (
-            <Button size="sm" onClick={() => setComposing(true)} data-agent="new-study-open">
+            <Button size="sm" onClick={() => setComposing(true)}>
               <Plus className="size-4" aria-hidden />
               New study
             </Button>
@@ -161,7 +161,6 @@ export function ProjectHome() {
               <Button
                 onClick={newStudy}
                 disabled={!studyName.trim() || creating}
-                data-agent="new-study"
               >
                 {creating ? "Creating…" : "Create"}
               </Button>
