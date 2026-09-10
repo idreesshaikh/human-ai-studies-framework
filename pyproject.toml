@@ -67,7 +67,6 @@ ignore = [
 "middleware/scripts/replay_session.py" = ["S310"]
 "analysis/src/analysis/runner.py" = ["S310"]
 "analysis/src/analysis/retrospective.py" = ["S310"]
-"analysis/src/analysis/paper_cli.py" = ["S310"]
 "analysis/src/analysis/dataset.py" = ["S310"]
 "agent-capture/src/agent_capture/ingest.py" = ["S310"]
 "agent-capture/src/agent_capture/cli.py" = ["S310"]

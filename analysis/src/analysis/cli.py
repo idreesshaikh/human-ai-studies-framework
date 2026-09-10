@@ -61,15 +61,6 @@ def main(argv: list[str] | None = None) -> int:
     p_val = sub.add_parser("validate", help="check recipe requirements only (FR-ANA-2)")
     add_data_args(p_val)
 
-    p_paper = sub.add_parser(
-        "paper",
-        help="generate a paper draft (MD + LaTeX) from protocol + recipes (FR-ANA-6)",
-    )
-    add_data_args(p_paper)
-    p_paper.add_argument(
-        "--out", default="results", type=Path, help="output root (default results/)"
-    )
-
     p_notebook = sub.add_parser(
         "notebook",
         help="generate the starter notebook + data dictionary "
@@ -137,11 +128,6 @@ def main(argv: list[str] | None = None) -> int:
         from analysis.notebook_cli import cmd_notebook
 
         return cmd_notebook(protocol, dataset, study_id, args)
-
-    if args.command == "paper":
-        from analysis.paper_cli import cmd_paper
-
-        return cmd_paper(protocol, dataset, study_id, args)
 
     outcome = run_plan(
         protocol,

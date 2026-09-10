@@ -83,7 +83,7 @@ export function buildProtocolPath(
   }
 
   /* Phase two: the core sections the conversation fills. Deliberately NOT
-   * described as the protocol's requirements  -  SlotMeter documents why those
+   * described as the protocol's requirements  -  DraftRail documents why those
    * are a different list, and the server's compile stays the authority on
    * readiness. These are steps to walk, not a validity claim. */
   const slotSteps: PathStep[] = MANDATORY_SLOTS.map((slot) => ({

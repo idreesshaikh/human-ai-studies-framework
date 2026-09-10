@@ -32,7 +32,7 @@ const A11Y_LABEL =
   "Ziegler 2022 studies. Accepted, it lands in the protocol draft as the design section.";
 
 /** The eight protocol sections, in the same order and the same square-dot
- * language SlotMeter draws in the real workspace. Only the first ever lights
+ * language DraftRail draws in the real workspace. Only the first ever lights
  * here: this is a demo of the mechanism landing once, not a finished draft. */
 const DRAFT_SLOTS = 8;
 
@@ -194,7 +194,7 @@ export function HeroShowcase() {
             </div>
 
             {/* The second half of the promise: an accepted move is not just
-              * decided, it is COMPILED. Same dot meter SlotMeter draws in the
+              * decided, it is COMPILED. Same dot meter DraftRail draws in the
               * real draft rail (a square per protocol section, filled or not)
               * and the same "in draft" wording MoveCard uses for a move whose
               * patch has landed  -  so a returning researcher recognises this

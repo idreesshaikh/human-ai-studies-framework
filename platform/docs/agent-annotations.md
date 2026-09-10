@@ -45,8 +45,7 @@ retrofitted.
 | `conversation-streaming` | `ConversationView` | the reply's prose as it streams in (transient; replaced by the real turn) |
 | `conversation-active` | `ConversationView` | the current researcher/platform exchange and its active decision |
 | `conversation-history` | `ConversationView` | earlier conversation turns, collapsed until the researcher needs them |
-| `slot-meter` | `SlotMeter` | compact protocol coverage and the next question |
-| `protocol-readiness` | `SlotMeter` | whether the protocol is ready to review |
+| `slot-meter` | `DraftRail` | compact protocol coverage and the next question |
 | `move-card` | `MoveCard` | one proposed design move (decision point); `data-agent-kind`, `data-agent-status` refine it |
 | `move-accept` | `MoveCard` | accept the move |
 | `move-reject` | `MoveCard` | reject the move |
@@ -60,9 +59,8 @@ retrofitted.
 | `draft-slot-plate` | `DraftRail` | every mandatory protocol slot as an address, filled or still an open ring (landmark) |
 | `draft-apply` | `DraftRail` | apply the server-validated compiled draft to the protocol (decision point) |
 | `draft-finish` | `DraftRail` | open the finish-and-review moment that prepares the protocol draft (decision point) |
-| `protocol-path-current` | `SlotMeter` | the current step, shown even while the full phased checklist is collapsed |
-| `protocol-path` | `SlotMeter` | the phased checklist of protocol steps covered so far (landmark), collapsed by default behind a disclosure |
-| `path-up-next` | `SlotMeter` | what would move the researcher next, named under the path |
+| `protocol-path-current` | `DraftRail` | the current step, shown even while the full phased checklist is collapsed |
+| `protocol-path` | `DraftRail` | the phased checklist of protocol steps covered so far (landmark), collapsed by default behind a disclosure |
 | `applied-next-step` | `FinishReview` | the callout shown after the draft is applied: what to do next (bring participants in) |
 | `protocol-guide-open` | `ProtocolGuide` | open the reference explaining the 8 mandatory protocol-draft sections (help) |
 | `tour-open` | `StudyHome` | open the first-study guided walkthrough (help) |

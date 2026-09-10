@@ -6,8 +6,7 @@
 #
 # Proves, from a clean checkout: bring-up -> health -> platform served ->
 # replay ingest (idempotent) -> gap detection -> one-timeline dataset export
-# -> per-RQ analysis report -> paper draft (FR-ANA-6; compiled to PDF when a
-# TeX engine is on PATH). Exits nonzero on the first failure.
+# -> per-RQ analysis report. Exits nonzero on the first failure.
 set -euo pipefail
 
 SERVER="${SMOKE_SERVER:-http://127.0.0.1:8000}"
@@ -85,24 +84,4 @@ if [ "$rc" -eq 2 ]; then
   echo "   exit 2 accepted: only the known requires-failures (agent_turn, task_outcome)"
 fi
 
-# -- 6. paper draft (FR-ANA-6) -----------------------------------------
-step "analysis paper -> draft.md + draft.tex + references.bib"
-uv run analysis paper protocol/examples/pilot-study.yaml \
-  --server "$SERVER" --out "$OUT" || fail "analysis paper failed"
-paper_dir="$OUT/pilot-2026/paper"
-for f in draft.md draft.tex references.bib; do
-  [ -f "$paper_dir/$f" ] || fail "paper export missing $f"
-done
-grep -q '%% trace:' "$paper_dir/draft.tex" || fail "draft.tex has no trace tags"
-
-if command -v tectonic >/dev/null 2>&1; then
-  step "compiling draft.tex with tectonic"
-  (cd "$paper_dir" && tectonic draft.tex >/dev/null 2>&1) \
-    || fail "draft.tex did not compile"
-  [ -s "$paper_dir/draft.pdf" ] || fail "draft.pdf empty"
-  echo "   draft.pdf compiled"
-else
-  echo "   (no tectonic on PATH - compile check skipped; structural test covers it)"
-fi
-
-printf '\nSMOKE OK  (report: %s, paper: %s)\n' "$report" "$paper_dir"
+printf '\nSMOKE OK  (report: %s)\n' "$report"
