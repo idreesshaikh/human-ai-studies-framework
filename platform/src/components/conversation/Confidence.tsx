@@ -1,25 +1,7 @@
 import type { CSSProperties } from "react";
 import { cn } from "@/lib/cn";
 
-/* A paper's continuous quality confidence (0..1)  -  the signal that replaces
- * the binary Tier A/B hierarchy.
- *
- * A MAGNITUDE DOT IN A FIXED FRAME, WITH THE SCORE PRINTED BESIDE IT. Two
- * notations competed for this job before it and each shipped documented as
- * the replacement for the other: a bare dot carrying magnitude in its
- * diameter, and a row of four pips. The dot failed because it asked the eye
- * to judge absolute circle size against nothing; the pips failed because they
- * quantised a continuous score into four steps and still needed a key.
- *
- * The frame answers the first  -  every mark is read against the same box, so
- * the comparison is relative, which is the judgement the eye is actually good
- * at  -  and the continuous diameter answers the second: 0.51 and 0.74 never
- * render alike. The number is printed alongside either way, so a reader who
- * needs the exact value never has to estimate it from a drawing, and a
- * greyscale print or a colour-blind reader loses nothing: the whole notation
- * is one ink and a size. See DESIGN.md, The Framed-Magnitude Rule.
- *
- * A source with no score reads honestly as "unrated", never a faked number. */
+/* Display a source score as a number and a mark in a fixed frame; missing scores are unrated. */
 
 /** The four plain-word bands. The mark is never the only carrier: the words
  * ship beside the score wherever there is room for them. */

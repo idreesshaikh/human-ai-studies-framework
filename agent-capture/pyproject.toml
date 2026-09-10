@@ -1,9 +1,11 @@
 [project]
 name = "agent-capture"
 version = "0.1.0"
-description = "Agent interaction leg: Claude Code hooks + transcript import, snapshots, task harness (FR-AGENT-*)"
+description = "Optional provider transcript, snapshot, and task-harness producer"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "protocol",
+]
 
 [project.scripts]
 agent-capture = "agent_capture.cli:main"
@@ -15,3 +17,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_capture"]
+
+[tool.uv.sources]
+protocol = { workspace = true }

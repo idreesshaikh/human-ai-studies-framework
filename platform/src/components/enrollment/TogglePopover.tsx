@@ -63,8 +63,7 @@ export function TogglePopover({
   };
 
   return (
-    <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-card border border-border bg-surface p-3 shadow-lifted"
-      data-agent="toggle-popover">
+    <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-card border border-border bg-surface p-3 shadow-lifted">
       <div className="mb-2 flex items-center justify-between">
         <span className="type-body text-text">{entry.label}</span>
         <button onClick={onClose}
@@ -82,7 +81,7 @@ export function TogglePopover({
       {entry.grounding && (
         <div className="mb-3">
           {"unsourced" in entry.grounding && entry.grounding.unsourced ? (
-            <Badge variant="unsourced" data-agent-status="unsourced">
+            <Badge variant="unsourced">
               Uncited: researcher's judgment
             </Badge>
           ) : (

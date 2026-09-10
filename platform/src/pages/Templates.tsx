@@ -544,8 +544,6 @@ function ShapeCard({
 }) {
   return (
     <Card
-      data-agent="design-shape"
-      data-agent-ref={entry.id}
       className={cn(
         "flex flex-col transition-colors duration-fast",
         selected
@@ -627,7 +625,7 @@ function ShapeCard({
  * count is PRINTED, in the machine face, and the dot that used to sit beside
  * it is gone. The dot was a second encoding of a number already on the line  -
  * and a size ramp nobody could rank without the two marks side by side (see
- * DESIGN.md, The Printed-Magnitude Rule). The band's own words stay in the
+ * docs/design.md). The band's own words stay in the
  * title, where they explain what the count means. */
 function SupportBadge({ entry }: { entry: RepertoireEntry }) {
   return (

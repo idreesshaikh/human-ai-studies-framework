@@ -1,6 +1,6 @@
 {
-  "tern.participantId": "P03",
-  "tern.condition": "ai-assisted",
+  "tern.participantId": "P24",
+  "tern.condition": "unassisted",
   "tern.session.durationMinutes": 45,
   "tern.fatigue.intervalMinutes": 15,
   "tern.fatigue.waitForPauseSeconds": 4,
@@ -9,7 +9,7 @@
   "tern.stuck.thresholdSeconds": 90,
   "tern.stuck.cooldownMinutes": 5,
   "tern.behavior.languages": ["python"],
-  "tern.output.httpEndpoint": "http://127.0.0.1:8001/ingest/events",
+  "tern.output.httpEndpoint": "http://127.0.0.1:8004/ingest/events",
   "tern.studyId": "ai-cognitive-load-rehearsal",
   "tern.stuck.enabled": true,
   "tern.stuck.languages": [

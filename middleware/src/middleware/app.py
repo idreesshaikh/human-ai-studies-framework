@@ -16,7 +16,6 @@ from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
-from typing import Literal
 from urllib.parse import quote as _urlquote
 
 import yaml
@@ -44,7 +43,6 @@ from protocol.capture import (
 )
 from protocol.errors import ProtocolError
 from protocol.export import build_kit
-from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select, union
 from sqlalchemy import text as sqltext
 from sqlalchemy.orm import Session
@@ -94,6 +92,28 @@ from middleware.db import (
     get_engine,
     make_session_factory,
 )
+from middleware.schemas import (
+    ApproveIn,
+    CompileIn,
+    ConversationTurnIn,
+    DecisionTriggerIn,
+    EventBatch,
+    FromGraphIn,
+    FromMatchIn,
+    MatchIn,
+    MintTokensIn,
+    MoveDecisionIn,
+    PaperIngestIn,
+    PaperLinksIn,
+    QuickProtocolIn,
+    RecipeRunIn,
+    RedeemIn,
+    SessionStartIn,
+    SimulateIn,
+    StudyEventIn,
+    TemplateInstantiateIn,
+    ToggleIn,
+)
 from middleware.settings import Settings
 
 # Event schema versions this service is written against; other versions are stored and
@@ -116,171 +136,6 @@ def canonical_source(source: str) -> str:
 
 
 Clock = Callable[[], datetime]
-
-
-class StudyEventIn(BaseModel):
-    """Extension StudyEvent (schema v2)."""
-
-    sessionId: str
-    seq: int
-    v: int = -1
-    ts: str = ""
-    mono: float = -1
-    participantId: str = ""
-    condition: str = ""
-    taskId: str = ""
-    type: str = ""
-    payload: dict = Field(default_factory=dict)
-    source: str = ""
-
-
-class EventBatch(BaseModel):
-    """The HttpSink wire format; a bare event array is also accepted."""
-
-    source: str = ""
-    events: list[StudyEventIn]
-
-
-class RecipeRunIn(BaseModel):
-    """One recipe run recorded by the analysis runner."""
-
-    recipeId: str
-    status: str = "ok"
-    answers: list[str] = Field(default_factory=list)
-    note: str = ""
-
-
-class PaperIngestIn(BaseModel):
-    """Ingest one paper by identifier (FR-LIT-1 id path)."""
-
-    arxivId: str = ""
-    doi: str = ""
-
-
-class PaperLinksIn(BaseModel):
-    """Replace a paper's protocol-element links (FR-LIT-3)."""
-
-    targets: list[str] = Field(default_factory=list)
-
-
-class MatchIn(BaseModel):
-    """One idea → papers match request (FR-LIT-9)."""
-
-    query: str
-    limit: int = 5
-
-
-class FromMatchIn(BaseModel):
-    """Accept a recommendation card into the study's paper set (FR-LIT-9.3)."""
-
-    ref: str
-    matchReason: str = ""
-
-
-class FromGraphIn(BaseModel):
-    """Add a paper whose metadata is already warm in the study's graph."""
-
-    ref: str
-
-
-class DecisionTriggerIn(BaseModel):
-    """The card action that caused an automatic assistant follow-up."""
-
-    moveId: str
-    action: Literal["accepted", "rejected", "noted"]
-
-
-class ConversationTurnIn(BaseModel):
-    """One researcher turn (FR-CONV-1)."""
-
-    text: str
-    author: str = "Researcher"
-    steer: str | None = None
-    decision: DecisionTriggerIn | None = None
-    # The browser reuses this key if it has to fall back from the streamed
-    # endpoint to the blocking endpoint. Without it, a committed stream can be
-    # followed by a second persisted copy of the same researcher turn.
-    requestId: str | None = None
-
-
-class MoveDecisionIn(BaseModel):
-    """Accept, reject, or reopen ("proposed") one design move (FR-CONV-1.2)."""
-
-    status: str
-    decidedBy: str = "Researcher"
-
-
-class CompileIn(BaseModel):
-    """Compile the study's accepted moves into a draft diff (FR-CONV-3)."""
-
-    baseYaml: str | None = None
-
-
-class ApproveIn(BaseModel):
-    """Apply one compiled diff (FR-CONV-3.4) - the audited step."""
-
-    compilationId: str
-    approvedBy: str = "Researcher"
-    rationale: str = ""
-
-
-class QuickProtocolIn(BaseModel):
-    """The bounded, no-chat path for a supported developer study."""
-
-    title: str = Field(min_length=3, max_length=160)
-    researchQuestion: str = Field(min_length=10, max_length=500)
-    design: Literal["within-subjects", "between-subjects"]
-    conditions: list[str] = Field(min_length=2, max_length=2)
-    participantDescription: str = Field(min_length=2, max_length=240)
-    plannedParticipants: int = Field(ge=4, le=1000)
-    taskDescription: str = Field(min_length=8, max_length=500)
-    sessionMinutes: int = Field(ge=15, le=180)
-    measures: list[str] = Field(min_length=1, max_length=6)
-    counterbalanced: bool = True
-
-
-class SessionStartIn(BaseModel):
-    """
-    Open a data-collection session under the study's current protocol revision
-    (FR-CONV-4, F4.2/F4.3).
-    """
-
-    sessionId: str
-
-
-class TemplateInstantiateIn(BaseModel):
-    """Instantiate a template with parameter values (FR-TPL-1.4)."""
-
-    parameters: dict = Field(default_factory=dict)
-    studyId: str = ""
-    title: str = ""
-
-
-class MintTokensIn(BaseModel):
-    """Mint a batch of enrollment (pairing) tokens for a study (FR-INST-20)."""
-
-    count: int = 1
-    grain: str = "participant"
-    # Per-mint capture-config overrides, layered on the protocol-derived defaults for
-    # every token in the batch. ``{"toggles": [{"instrument", "path", "value"}, ...]}``.
-    overrides: dict | None = None
-
-
-class RedeemIn(BaseModel):
-    """
-    The raw token half of a connection string, POSTed by the extension to pair a
-    live-capture session (FR-INST-20/21).
-    """
-
-    token: str
-
-
-class SimulateIn(BaseModel):
-    """Synthetic dry-run settings (POST /studies/{study_id}/simulate)."""
-
-    count: int = 5
-    profile: str = "mixed"
-    seed: int | None = None
 
 
 class _ProtocolCheck:
@@ -730,14 +585,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "sources": [{"source": src, **summaries[src]} for src in sorted(summaries)],
         }
 
-    def _joined_rows(s: Session) -> list[dict]:
-        """
-        The joined one-timeline rows (FR-ING-4), in-process.
-
-        Shared by the dataset export and the dry run's plan validation, so the
-        statistics a dry run reports are computed over exactly the rows a
-        researcher would download  -  not a second, drifting join.
-        """
+    def _joined_rows(s: Session, study_id: str) -> list[dict]:
+        """Join events and metrics belonging to this study, for every export."""
+        in_this_study = _session_scope(study_id)
         rows = [
             {
                 "source": e.source,
@@ -752,7 +602,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "flags": e.flags,
                 "payload": e.payload,
             }
-            for e in s.scalars(select(Event))
+            for e in s.scalars(select(Event).where(in_this_study(Event.session_id)))
         ] + [
             {
                 "source": "metrics",
@@ -767,7 +617,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "flags": m.flags,
                 "payload": m.row,
             }
-            for m in s.scalars(select(MetricRow))
+            for m in s.scalars(
+                select(MetricRow).where(in_this_study(MetricRow.session_id))
+            )
         ]
         rows.sort(key=lambda r: (r["ts"], r["source"], r["seq"] or 0))
         return rows
@@ -778,7 +630,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     )
     def dataset(study_id: str, format: str = "json", s: Session = Depends(db)):
         """The joined one-timeline export all legs share (FR-ING-4)."""
-        rows = _joined_rows(s)
+        rows = _joined_rows(s, study_id)
         if format == "json":
             return {"studyId": study_id, "rows": rows}
         if format == "csv":
@@ -790,6 +642,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "sessionId",
                 "participantId",
                 "condition",
+                "taskId",
+                "schemaVersion",
                 "type",
                 "seq",
                 "flags",
@@ -1995,7 +1849,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.get("/schemas/event")
     def event_schema() -> dict:
-        """Event schema for agent consumption (FR-AGF-1)."""
+        """Return the machine-readable event contract for integrations."""
         return {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$id": "https://masters-project.local/schemas/event.schema.json",
@@ -2017,12 +1871,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "properties": {
                 "v": {
                     "description": (
-                        "Event schema version. Current: 3 (behavioral telemetry leg, "
-                        "). v4 reserved for agent-interaction leg."
+                        "Event schema version. Versions 2-4 cover live capture; "
+                        "version 5 covers the isolated archive vocabulary."
                     ),
                     "type": "integer",
                     "minimum": 2,
-                    "maximum": 4,
+                    "maximum": 5,
                 },
                 "ts": {
                     "description": "ISO-8601 wall-clock timestamp with ms precision.",
@@ -2086,7 +1940,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.get("/schemas/protocol")
     def protocol_schema() -> dict:
-        """Protocol schema for agent consumption (FR-AGF-1)."""
+        """Return the machine-readable study protocol contract."""
         protocol_schema_path = (
             Path(__file__).resolve().parent.parent.parent.parent
             / "protocol"
@@ -2120,7 +1974,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.get("/schemas/template")
     def template_schema() -> dict:
-        """Template schema for agent consumption (FR-AGF-1)."""
+        """Return the machine-readable study-template contract."""
         template_schema_path = (
             Path(__file__).resolve().parent.parent.parent.parent
             / "templates"
@@ -2153,7 +2007,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.get("/templates")
     def template_index() -> dict:
-        """Template registry index for agent consumption (FR-AGF-1)."""
+        """Return the machine-readable template registry index."""
         repo = Path(__file__).resolve().parent.parent.parent.parent
         templates_dir = repo / "templates" / "registry"
 
@@ -2192,7 +2046,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @app.get("/papers/index")
     def corpus_index() -> dict:
-        """Corpus index for agent consumption (FR-AGF-1)."""
+        """Return the machine-readable literature index."""
         repo = Path(__file__).resolve().parent.parent.parent.parent
         corpus_index_path = repo / "docs" / "papers" / "corpus-index.json"
 
@@ -2880,12 +2734,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         if protocol is None:
             raise HTTPException(404, "study not found")
         return enrollment.toggle_catalog(protocol)
-
-    class ToggleIn(BaseModel):
-        instrument: str
-        path: list[str]
-        value: object
-        rationale: str = ""
 
     @app.post(
         "/studies/{study_id}/enrollment/toggles",
@@ -3960,8 +3808,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             role="researcher",
             author="Researcher",
             text=(
-                "Quick protocol checklist submitted: "
-                f"{body.researchQuestion.strip()}"
+                f"Quick protocol checklist submitted: {body.researchQuestion.strip()}"
             ),
             retrieved_refs=[],
             created_at=now(),
@@ -4319,12 +4166,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             start=clock(),
         )
         outcome["studyId"] = study_id
-        # The half that answers the researcher's real question. `simulate_into`
-        # committed through the `db` dependency, so the rows are already there
-        # to analyse  -  and they are the same joined rows the dataset export
-        # hands back, not a parallel construction.
         s.flush()
-        outcome["plan"] = run_plan_summary(proto, _joined_rows(s), study_id)
+        session_ids = set(outcome["sessionIds"])
+        rows = [
+            row for row in _joined_rows(s, study_id) if row["sessionId"] in session_ids
+        ]
+        outcome["plan"] = run_plan_summary(proto, rows, study_id)
         return outcome
 
     @app.post(

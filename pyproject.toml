@@ -63,17 +63,14 @@ ignore = [
 # Outbound HTTP to fixed https roots or operator-set endpoints.
 "middleware/src/middleware/semantic_scholar.py" = ["S310"]
 "middleware/src/middleware/assistant.py" = ["S310"]
-"middleware/src/middleware/mailer.py" = ["S310"]
 "middleware/scripts/replay_session.py" = ["S310"]
 "analysis/src/analysis/runner.py" = ["S310"]
-"analysis/src/analysis/retrospective.py" = ["S310"]
-"analysis/src/analysis/paper_cli.py" = ["S310"]
 "analysis/src/analysis/dataset.py" = ["S310"]
 "agent-capture/src/agent_capture/ingest.py" = ["S310"]
 "agent-capture/src/agent_capture/cli.py" = ["S310"]
 "scripts/*.py" = ["S310", "S603"]
 
-# Shell out with fixed argument lists (git, latexmk, the repo's own CLIs).
+# Shell out with fixed argument lists (git and the repository CLIs).
 "protocol/src/protocol/export.py" = ["S310", "S603"]
 "agent-capture/src/agent_capture/harness.py" = ["S603"]
 "agent-capture/src/agent_capture/gitutil.py" = ["S603", "S607"]

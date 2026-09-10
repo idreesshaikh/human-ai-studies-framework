@@ -71,13 +71,17 @@ def cmd_simulate(
     print(
         f"simulated {outcome['participants']} participants "
         f"({outcome['profile']}): {outcome['sessions']} sessions, "
-        f"{outcome['events']} events, {outcome['metricRows']} metric rows, "
-        f"{outcome['tokensMinted']} tokens minted"
+        f"{outcome['events']} events, {outcome['metricRows']} metric rows"
     )
-    dataset = Dataset.fetch(server, study_id)
+    fetched = Dataset.fetch(server, study_id)
+    session_ids = set(outcome["sessionIds"])
+    dataset = Dataset(
+        rows=[row for row in fetched.rows if row["sessionId"] in session_ids],
+        study_id=study_id,
+    )
     print(f"dataset: {len(dataset.rows)} joined rows")
     outcome_run = run_plan(protocol, dataset, study_id, out_root=Path("results"))
-    failed = len(outcome_run.failed_validation)
+    failed = len(outcome_run.failed_validation) + len(outcome_run.errors)
     print(
         f"plan validation: {len(outcome_run.executed)} recipe(s) ran, "
         f"{failed} check(s) failed; report under results/{study_id}/"
@@ -87,7 +91,7 @@ def cmd_simulate(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Middleware server and CLI (FR-ING-1, FR-LIT-8/9, FR-TPL-1)"
+        description="Study server, corpus tools, and synthetic rehearsals"
     )
     parser.add_argument(
         "command",

@@ -203,7 +203,6 @@ function ChartTimeline({
         className="h-auto w-full"
         role="img"
         aria-label={`Session timeline: ${lanes.length} lanes, ${displayData.length} events`}
-        data-agent="swimlane-timeline"
       >
         {/* Time axis */}
         <line

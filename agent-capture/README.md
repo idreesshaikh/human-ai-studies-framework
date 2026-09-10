@@ -1,26 +1,26 @@
-# agent-capture - the agent interaction leg
+# agent-capture - an optional producer
 
-The fourth instrument leg: the AI's side of an `ai-assisted` session, on the
-same timeline and join keys as every other leg. Primary source is **Claude
-Code in the VS Code integrated terminal** (decision D13) - the only
-mainstream agent tool with lossless, machine-readable capture.
+`agent-capture` records provider-side interaction for studies that need it. It
+uses the same session, source, and sequence contract as TERN, but it is never
+required for a basic live study. A Claude Code hook, a generic JSON transcript,
+or another adapter can supply the raw stream; the package does not depend on a
+specific model or provider for its event contract.
 
-This is the fourth capture leg, and the only one that may receive
-provider-transcript metadata rather than an editor signal  -  so the content policy
-(`instruments.agentCapture.contentPolicy`: metadata-only, redacted, or full)
-is stated verbatim in the participant's consent statement, and baked into the
-hook command from the protocol rather than configured on the side.
+Provider transcript content is the only capture surface that can contain
+conversation text. Its policy (`instruments.agentCapture.contentPolicy`:
+metadata-only, redacted, or full) is stated in consent and derived from the
+protocol rather than configured on the side.
 
 ## How capture works
 
 ```
-Claude Code session
-  ├─ .claude/settings.json hooks ──(live)──▶ agent-capture-hook ─┐
+Provider session (Claude Code example)
+  ├─ provider hooks ──(live)──▶ agent-capture-hook ─┐
   │   (SessionStart/PostToolUse/Stop/SessionEnd)                 │  POST /ingest/events
-  └─ ~/.claude/projects/.../<id>.jsonl ──(backstop)──▶ import ───┘  (source: agent-capture)
+  └─ provider transcript ──(backstop)──▶ import ─────┘  (source: agent-capture)
 ```
 
-Both paths call the **same** `transcript.normalize_transcript()`. Because the
+Both paths call the same `transcript.normalize_transcript()`. Because the
 normalized `seq` is the transcript's append-only position, a live hook and
 the post-session import of the same session produce identical
 `(session, source, seq)` keys, so ingestion **reconciles** them (FR-ING-2)
@@ -39,10 +39,10 @@ Every conversation string passes one choke point, `redact.py`:
 | `redacted` | string literals + identifiers ≥ N chars masked |
 | `full` | passthrough (explicit consent clause only) |
 
-The policy is **protocol-declared** (`instruments.agentCapture.contentPolicy`)
+The policy is protocol-declared (`instruments.agentCapture.contentPolicy`)
 and baked into the hook command by `protocol derive agent-hooks` - no side
-channel (FR-PROT-4). `redact.POLICY_DESCRIPTIONS` are the plain-language
-sentences the consent form interpolates verbatim.
+channel (FR-PROT-4). The policy descriptions live in `protocol.capture` so the
+consent layer and the producer use one shared contract.
 
 ## Producer streams
 
@@ -67,7 +67,7 @@ uv run protocol derive session-manifest protocol/examples/pilot-study.yaml \
     --participant P01 --condition ai-assisted --session s-example \
     > .phoenix/session-manifest.json
 
-# Every external producer consumes the same contract:
+# Optional producer commands consume the same manifest:
 uv run agent-capture snapshot --manifest .phoenix/session-manifest.json \
     --workspace <task-workspace> --git-dir .study-data/shadow.git
 
@@ -80,5 +80,10 @@ uv run agent-capture import   <transcript.jsonl> --manifest .phoenix/session-man
 uv run agent-capture correlate --manifest .phoenix/session-manifest.json
 ```
 
-Feeds the platform's agent views and the `agent-interaction-dynamics` +
-`task-outcome-by-condition` analysis recipes.
+For a protected server, set `MIDDLEWARE_TOKEN` or pass `--token` to
+`correlate`; the token is used only for the dataset read.
+
+The raw stream feeds the platform's agent view and the
+`agent-interaction-dynamics` and `task-outcome-by-condition` recipes. The
+`correlate` and `evolution` commands are post-ingest derivations; they do not
+replace the raw event stream.

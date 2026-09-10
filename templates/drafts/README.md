@@ -1,35 +1,24 @@
-# Draft templates (not in the active registry)
+# Draft templates
 
-These templates encode real study designs but reference recipes or
-instruments the platform does not yet run, so they would fail the
-registry's F2.3 validation ("a template cannot promise an analysis the
-platform can't run"). They are kept here as design drafts until their
-dependencies exist:
+These designs are kept as research notes, not as supported templates. They
+refer to instruments or analysis units that the feature-frozen live workflow
+does not provide, so the platform does not show them in the registry.
 
-- **cursor-mining-v1**: the *recipe ids* it names (`task-outcome-by-condition`,
-  `code-quality-by-condition`, `meyer-fragmentation`) now exist in the
-  analysis catalogue, but at the wrong measurement unit: those recipes read
-  live-session events (`task_outcome`, `editor_focus`) or per-participant
-  workspace-snapshot metrics, none of which a curated archive import
-  produces. `validate_registry()`'s recipe-existence check would pass on a
-  name match alone; promoting on that basis would be F2.3 in letter only,
-  not in spirit. Needs real **repository-trend recipes** (velocity-trend,
-  complexity-trend, or PR-size/review) built in `analysis/`, scoped to
-  `unit: repository`. The protocol-schema side is solved (see
-  `protocol/examples/cursor-mining-2026.yaml`'s nominal-`tern` +
-  `planned: 1` + `durationMinutes: 1` convention, now mirrored in this
-  draft's `protocolSkeleton`); only the recipes are the remaining gap.
+## `cursor-mining-v1`
 
-`hai-eval-synergy-v1` (formerly listed here) has been promoted to
-`templates/registry/`: its recipes (`task-outcome-by-condition`,
-`code-quality-by-condition`, `agent-interaction-dynamics`) are live-session
-recipes, matching this template's live, within-subjects lab-experiment
-design.
+This draft describes repository-level trends around coding-agent adoption. Its
+recipes need repository observations (velocity, pull-request size, review
+activity, and code trends), while the current analysis catalogue consumes live
+session events or per-session snapshots. The local archive adapter in
+`curated/` is intentionally not an end-to-end mining pipeline.
 
-A template enters `templates/registry/` only once `validate_registry()`
-passes for it (schema, mandatory citations, every recipe exists, and every
-skeleton placeholder is a declared parameter, so it instantiates into a
-valid protocol with zero hand edits) **and** the recipes it names are
-actually scoped to fit the design's measurement unit and data path;
-`validate_registry()` checks the name exists, not that it fits; that
-second check is a human judgment call each promotion must still make.
+`protocol/examples/cursor-mining-2026.yaml` is the corresponding protocol
+shape. It validates as a schema example, but it is not a runnable study.
+
+## Promotion rule
+
+A draft can move into `templates/registry/` only when its schema, citations,
+placeholders, instruments, data path, and analysis recipes form one complete
+tested vertical slice. A name match in the recipe registry is not enough.
+Until then, keep the draft isolated and do not describe it as supported
+functionality.

@@ -1,6 +1,8 @@
 """Pure helpers for the live capture link (FR-INST-20/21, FR-ING-7)."""
 
-from agent_capture.redact import POLICY_DESCRIPTIONS as _POLICY_DESCRIPTIONS
+from protocol.capture import (
+    POLICY_DESCRIPTIONS as _POLICY_DESCRIPTIONS,
+)
 from protocol.capture import (
     capture_config_version as _manifest_capture_config_version,
 )

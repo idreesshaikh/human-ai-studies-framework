@@ -420,65 +420,8 @@ class UserProfile(Base):
     updated_at: Mapped[str] = mapped_column(String, default="")
 
 
-# app.py imports and calls them; it never imports ``sqlite_insert`` directly any more.
-
-
 def _is_postgres(engine) -> bool:
     return engine.dialect.name == "postgresql"
-
-
-def upsert_do_nothing(engine, model, rows: list[dict]) -> int:
-    """INSERT … ON CONFLICT DO NOTHING for the given model rows."""
-    if not rows:
-        return 0
-    from sqlalchemy.orm import Session as _Session
-
-    with _Session(engine) as s:
-        if _is_postgres(engine):
-            from sqlalchemy.dialects.postgresql import insert as pg_insert
-
-            stmt = pg_insert(model).values(rows).on_conflict_do_nothing()
-        else:
-            from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-
-            stmt = sqlite_insert(model).values(rows).on_conflict_do_nothing()
-        pk = model.__mapper__.primary_key[0]
-        inserted = len(s.execute(stmt.returning(pk)).fetchall())
-        s.commit()
-        return inserted
-
-
-def upsert_do_update(
-    engine,
-    model,
-    rows: list[dict],
-    conflict_cols: list[str],
-    update_cols: dict,
-) -> None:
-    """INSERT … ON CONFLICT (conflict_cols) DO UPDATE SET update_cols."""
-    if not rows:
-        return
-    from sqlalchemy.orm import Session as _Session
-
-    with _Session(engine) as s:
-        if _is_postgres(engine):
-            from sqlalchemy.dialects.postgresql import insert as pg_insert
-
-            stmt = (
-                pg_insert(model)
-                .values(rows)
-                .on_conflict_do_update(index_elements=conflict_cols, set_=update_cols)
-            )
-        else:
-            from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-
-            stmt = (
-                sqlite_insert(model)
-                .values(rows)
-                .on_conflict_do_update(index_elements=conflict_cols, set_=update_cols)
-            )
-        s.execute(stmt)
-        s.commit()
 
 
 FTS5_AVAILABLE: bool = False

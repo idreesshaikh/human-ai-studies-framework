@@ -1,3 +1,3 @@
-"""Recipe-based analysis: runner, built-in recipes, report + paper draft."""
+"""Study datasets, analysis recipes, and reproducible handoffs."""
 
 __version__ = "0.1.0"

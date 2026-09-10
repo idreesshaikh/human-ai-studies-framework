@@ -1,4 +1,4 @@
-"""P1-3 CI hygiene: the worked example regenerates byte-identically."""
+"""The worked example regenerates byte-identically."""
 
 from __future__ import annotations
 

@@ -1,19 +1,5 @@
-/* The study-data client. Talks to the ingestion middleware for the study
- * operational + knowledge endpoints  -  papers, the citation graph, the grounded
- * session status, and the dataset.
- *
- * Same-origin by default: in production the middleware serves this SPA (NFR-7),
- * so `''` resolves to :8000. Set VITE_API_BASE for a separate origin (needs
- * MIDDLEWARE_CORS_ORIGINS, FR-OPS-6). The bearer token comes from `api.ts`'s
- * shared `getAuthToken()`  -  the pasted-token fallback (`middleware.token` in
- * localStorage, matching MIDDLEWARE_TOKEN) or, in Clerk mode, the live Clerk
- * session JWT `AuthProvider` installs via `setTokenProvider`.
- *
- * Offline posture: the platform is explorable with no server (the hero demo,
- * `npm run dev` with nothing on :8000). Read endpoints fall back to a curated
- * seed so the constellation and charts still render beautifully; live actions
- * (ingest) raise `OfflineError`, which the UI shows as a calm
- * "needs the running middleware" notice. Nothing load-bearing is cloud-owned. */
+/* Study data and literature requests. Read-only demo examples are labelled;
+ * mutations require a server response. Credentials come from api.ts. */
 
 import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
 import { isDemoStudy } from "./demo.ts";
@@ -437,7 +423,7 @@ export const studyApi = {
       `${study}-replication-kit.tar.gz`,
     );
   },
-  /** The starter notebook + data dictionary, zipped: the curated handoff.
+  /** The starter notebook + data dictionary, zipped: the analysis handoff.
    *  A loaded, documented dataframe with every planned recipe imported  -
    *  never run  -  so a researcher's own analysis starts from a known point
    *  rather than a bare dataset export. */
@@ -525,7 +511,7 @@ export const studyApi = {
       emptyPowerDoc(),
     ),
   /** Synthetic dry run (FR-DRY-1): N simulated participants through the
-   * real ingest path  -  tokens minted, session blocks recorded, events and
+   * real ingest path  -  session blocks recorded, events and
    * metrics stored exactly as a live capture would  -  and then the study's
    * own analysis plan run over what landed. `plan` is the half that answers
    * the researcher's real question: whether the statistics this design
@@ -540,7 +526,7 @@ export const studyApi = {
       sessions: number;
       events: number;
       metricRows: number;
-      tokensMinted: number;
+      sessionIds: string[];
       studyId: string;
       plan: DryRunPlan;
     }>(`/studies/${enc(study)}/simulate`, {

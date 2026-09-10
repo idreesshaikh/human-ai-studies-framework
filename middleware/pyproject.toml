@@ -5,9 +5,7 @@ description = "Ingestion middleware on :8000 - idempotent ingest, gap detection,
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.139.0",
-    "agent-capture",
     "analysis",
-    "curated",
     "protocol",
     "psycopg[binary]>=3.1.0",
     "pyjwt[crypto]>=2.13.0",
@@ -22,7 +20,5 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
-agent-capture = { workspace = true }
 analysis = { workspace = true }
-curated = { workspace = true }
 protocol = { workspace = true }

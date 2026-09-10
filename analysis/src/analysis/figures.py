@@ -5,27 +5,12 @@ from __future__ import annotations
 import matplotlib
 
 matplotlib.use("Agg")
-# Deterministic SVG element ids (default is a per-process uuid4 salt, which breaks the
-# replication kit's byte-stable regeneration - NFR-6).
-matplotlib.rcParams["svg.hashsalt"] = "masters-project-analysis"
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib.figure import Figure
 
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-from matplotlib.figure import Figure  # noqa: E402
-
-from analysis.dataset import Dataset  # noqa: E402
-
-_FIXED_SVG_DATE = {"Date": "2026-01-01T00:00:00"}
-_orig_savefig = Figure.savefig
-
-
-def _savefig_deterministic(self, fname, **kwargs):
-    kwargs.setdefault("metadata", _FIXED_SVG_DATE)
-    return _orig_savefig(self, fname, **kwargs)
-
-
-Figure.savefig = _savefig_deterministic
+from analysis.dataset import Dataset
 
 PALETTE = [
     "#2a78d6",

@@ -1,6 +1,6 @@
 """
 Tests for the metrics analyzers and the orchestrator (flat-script layout: metrics/src is
-put on sys.path, per metrics/docs/implementation_plan.md).
+put on sys.path, per metrics/README.md).
 """
 
 import json

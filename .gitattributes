@@ -1,0 +1,4 @@
+# Generated research data is not application source.
+docs/papers/corpus-index.json linguist-generated=true
+docs/examples/**/*.ipynb linguist-generated=true
+middleware/sample-data/*.jsonl linguist-generated=true

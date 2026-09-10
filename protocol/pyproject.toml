@@ -1,7 +1,7 @@
 [project]
 name = "protocol"
 version = "0.1.0"
-description = "Study-as-code: protocol schema, validator, lifecycle state machine (FR-PROT-*)"
+description = "Study protocol schema, validation, capture configuration, and replication export"
 requires-python = ">=3.12"
 dependencies = [
     "jsonschema>=4.26.0",

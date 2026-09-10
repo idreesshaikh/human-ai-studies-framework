@@ -172,4 +172,4 @@ If a problem isn't covered here, the JSONL file plus the browser view of the
 middleware (`/sessions/{sessionId}/events` and `/sessions/{sessionId}/gaps`)
 together show exactly what was and wasn't captured, which is usually enough
 to tell a capture problem from a mirroring problem. For how the pieces fit
-together, see [`PROJECT_GUIDE.md`](../PROJECT_GUIDE.md).
+together, see [development guide](development.md).

@@ -24,7 +24,6 @@ export function ProtocolGuide() {
           variant="ghost"
           size="icon"
           aria-label="What are these sections?"
-          data-agent="protocol-guide-open"
         >
           <HelpCircle className="size-4" aria-hidden />
         </Button>

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import urllib.request
 from pathlib import Path
@@ -95,19 +96,25 @@ def _cmd_import(args) -> int:
     )
 
 
-def _fetch_dataset(server: str, study_id: str) -> list[dict]:
+def _fetch_dataset(server: str, study_id: str, token: str | None = None) -> list[dict]:
     url = f"{server.rstrip('/')}/studies/{study_id}/dataset?format=json"
-    with urllib.request.urlopen(url, timeout=30) as res:
+    request = urllib.request.Request(
+        url,
+        headers={"Authorization": f"Bearer {token}"} if token else {},
+    )
+    with urllib.request.urlopen(request, timeout=30) as res:
         return json.loads(res.read()).get("rows", [])
 
 
-def _fetch_dataset_from_manifest(manifest: dict) -> list[dict] | None:
+def _fetch_dataset_from_manifest(
+    manifest: dict, token: str | None = None
+) -> list[dict] | None:
     events_endpoint = (manifest.get("endpoints") or {}).get("events", "")
     marker = "/ingest/events"
     if not events_endpoint or marker not in events_endpoint:
         return None
     server = events_endpoint.split(marker, 1)[0]
-    return _fetch_dataset(server, str(manifest.get("studyId", "")))
+    return _fetch_dataset(server, str(manifest.get("studyId", "")), token)
 
 
 def _cmd_correlate(args) -> int:
@@ -119,8 +126,13 @@ def _cmd_correlate(args) -> int:
     if args.dataset:
         rows = json.loads(Path(args.dataset).read_text())["rows"]
     else:
-        rows = _fetch_dataset_from_manifest(manifest) if manifest else None
-        rows = rows if rows is not None else _fetch_dataset(args.server, args.study)
+        token = args.token or os.environ.get("MIDDLEWARE_TOKEN")
+        rows = _fetch_dataset_from_manifest(manifest, token) if manifest else None
+        rows = (
+            rows
+            if rows is not None
+            else _fetch_dataset(args.server, args.study, token)
+        )
     by_session: dict[str, list[dict]] = {}
     for r in rows:
         by_session.setdefault(r.get("sessionId", ""), []).append(r)
@@ -192,6 +204,11 @@ def _build_parser() -> argparse.ArgumentParser:
     corr.add_argument("--dataset", help="dataset JSON file (instead of fetching)")
     corr.add_argument("--endpoint", default=DEFAULT_ENDPOINT)
     corr.add_argument("--manifest", type=Path, help="prepared session manifest")
+    corr.add_argument(
+        "--token",
+        default=None,
+        help="bearer token for protected dataset reads (or MIDDLEWARE_TOKEN)",
+    )
     corr.add_argument("--window", type=float, default=120.0, help="window seconds")
     corr.add_argument("--print", action="store_true")
     corr.set_defaults(func=_cmd_correlate)

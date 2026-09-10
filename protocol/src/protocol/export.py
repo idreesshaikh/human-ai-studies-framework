@@ -55,8 +55,12 @@ generator) for the full layout, and `versions.json` for provenance.
 def fetch_dataset(server: str, study_id: str) -> dict:
     """Pull the one-timeline dataset export from a running middleware."""
     url = f"{server.rstrip('/')}/studies/{study_id}/dataset?format=json"
+    token = os.environ.get("MIDDLEWARE_TOKEN")
+    request = urllib.request.Request(
+        url, headers={"Authorization": f"Bearer {token}"} if token else {}
+    )
     try:
-        with urllib.request.urlopen(url, timeout=30) as res:
+        with urllib.request.urlopen(request, timeout=30) as res:
             return json.loads(res.read())
     except OSError as exc:
         raise ProtocolError(

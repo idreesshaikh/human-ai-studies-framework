@@ -135,9 +135,7 @@ def test_slug_from_text_backs_off_to_a_word_boundary():
     long = "Does AI pair programming change debugging time, comparing telemetry?"
     assert _slug_from_text(long, 40) == "does-ai-pair-programming-change"
     # No boundary within the limit at all: the hard cut is the only option.
-    assert _slug_from_text("supercalifragilisticexpialidocious", 10) == (
-        "supercalif"
-    )
+    assert _slug_from_text("supercalifragilisticexpialidocious", 10) == ("supercalif")
     # Short text well under the limit is untouched.
     assert _slug_from_text("Hello World", 40) == "hello-world"
 
@@ -527,6 +525,50 @@ def test_session_list_is_scoped_to_its_own_study(client):
 
     assert [row["sessionId"] for row in listed] == ["bob-s1"]
     assert "A01" not in {row["participantId"] for row in listed}
+
+
+@pytest.mark.parametrize("format_", ["json", "csv"])
+def test_dataset_exports_only_the_requested_studys_events_and_metrics(client, format_):
+    import csv
+    import io
+
+    alice = make_project(client, "alice", "Alice's lab")
+    bob = make_project(client, "bob", "Bob's lab")
+    _study_with_session(client, alice, "alice", "alice study", "alice-s1", "A01")
+    study = _study_with_session(client, bob, "bob", "bob study", "bob-s1", "B01")
+    client.post("/ingest/events", json=[_event(0, "unattributed", "X01")])
+    for session, participant in [("alice-s1", "A01"), ("bob-s1", "B01")]:
+        response = client.post(
+            "/ingest/metrics",
+            json=[
+                {
+                    "sessionId": session,
+                    "participantId": participant,
+                    "condition": "ai-assisted",
+                    "taskId": "task-a",
+                    "schemaVersion": 1,
+                    "timestamp": "2026-07-18T10:00:00+00:00",
+                    "file": "task.py",
+                    "parameter_count": 2,
+                }
+            ],
+        )
+        assert response.status_code == 200, response.text
+
+    response = client.get(
+        f"/studies/{study}/dataset?format={format_}", headers=bearer("bob")
+    )
+    assert response.status_code == 200, response.text
+    rows = (
+        response.json()["rows"]
+        if format_ == "json"
+        else list(csv.DictReader(io.StringIO(response.text)))
+    )
+    assert len(rows) == 2
+    assert {row["source"] for row in rows} == {"tern", "metrics"}
+    assert {row["sessionId"] for row in rows} == {"bob-s1"}
+    assert {row["participantId"] for row in rows} == {"B01"}
+    assert all("taskId" in row and "schemaVersion" in row for row in rows)
 
 
 def test_session_list_includes_sessions_mapped_by_their_block(client):

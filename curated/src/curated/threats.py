@@ -20,8 +20,8 @@ class Bias:
     accepted: str = ""
 
 
-# Bias starter entries the miner is prompted to confirm or revise - so the known
-# provenance pitfalls of GitHub mining are never silently omitted.
+# Bias starter entries the miner is prompted to confirm or revise, so known
+# provenance pitfalls of public archive mining are never silently omitted.
 STARTER_BIASES: tuple[Bias, ...] = (
     Bias(
         description=(

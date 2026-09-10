@@ -1,6 +1,5 @@
 """
-Knowledge layer: paper ingest, graph assembly, FTS, protocol links, and the assistant's
-aggregates-only tool boundary (FR-LIT-1..4, FR-ETH-4).
+Paper ingest, graph assembly, full-text search, and protocol links.
 """
 
 from datetime import UTC, datetime
@@ -256,51 +255,6 @@ def test_full_text_search_finds_ingested_paper(client):
         hits = paper_index.search(s, "completion time developers")
     assert hits and hits[0]["paperRef"] == "arxiv:2302.06590"
     assert "developers" in hits[0]["snippet"].lower() or hits[0]["snippet"]
-
-
-def _seed_events_and_metrics(client):
-    client.post(
-        "/ingest/events",
-        json={
-            "source": "tern",
-            "events": [
-                {
-                    "v": 3,
-                    "ts": "2026-07-11T10:00:00.000Z",
-                    "sessionId": "S1",
-                    "seq": 0,
-                    "participantId": "P01",
-                    "condition": "ai-assisted",
-                    "type": "fatigue_response",
-                    "payload": {"score": 3},
-                },
-                {
-                    "v": 3,
-                    "ts": "2026-07-11T10:00:10.000Z",
-                    "sessionId": "S1",
-                    "seq": 1,
-                    "participantId": "P01",
-                    "condition": "ai-assisted",
-                    "type": "clipboard_paste",
-                    "payload": {"charCount": 212},
-                },
-            ],
-        },
-    )
-    client.post(
-        "/ingest/metrics",
-        json=[
-            {
-                "file": "d.py",
-                "cognitive_complexity": 9,
-                "participantId": "P01",
-                "condition": "ai-assisted",
-                "sessionId": "S1",
-                "timestamp": "2026-07-11T10:00:05+00:00",
-                "schemaVersion": 1,
-            }
-        ],
-    )
 
 
 def test_make_client_uses_mistral_large(monkeypatch):

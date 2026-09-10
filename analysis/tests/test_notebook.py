@@ -1,4 +1,4 @@
-"""Starter notebook + data dictionary (the curated handoff)."""
+"""Starter notebook and data dictionary generation."""
 
 from __future__ import annotations
 
@@ -92,6 +92,26 @@ def test_dictionary_documents_only_real_columns():
         assert f"`{column}`" in md
 
 
+def test_dictionary_distinguishes_synthetic_labels_from_measurements():
+    rows = synthetic_rows()
+    rows.append(
+        {
+            **rows[0],
+            "source": "metrics",
+            "type": "file_metrics",
+            "payload": {"lines": 12},
+        }
+    )
+    for row in rows:
+        row.setdefault("payload", {})["synthetic"] = True
+    dictionary = data_dictionary_markdown(Dataset(rows))
+    assert "`payload.synthetic` | bool | simulated" in dictionary
+    assert (
+        "`synthetic` | bool | simulated metric row; not participant data" in dictionary
+    )
+    assert "`synthetic` | numeric" not in dictionary
+
+
 def test_every_planned_recipe_has_a_resolvable_import_cell():
     protocol = _protocol()
     doc = build_notebook(protocol, _dataset(), "pilot-2026")
@@ -120,9 +140,9 @@ def test_notebook_never_runs_a_recipe():
 
 def test_notebook_carries_the_session_timeline_cell():
     """
-    P2-1: the curated handoff leads with the one-glance session picture  -  the timeline
-    figure  -  before any recipe, so the researcher sees the shape of the data (and any
-    integrity flags) first.
+    P2-1: the starter notebook leads with the one-glance session picture  -  the
+    timeline figure  -  before any recipe, so the researcher sees the shape of the
+    data (and any integrity flags) first.
     """
     doc = build_notebook(_protocol(), _dataset(), "pilot-2026")
     source = "\n".join(c.get("source", "") for c in doc["cells"])

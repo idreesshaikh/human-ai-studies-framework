@@ -769,13 +769,6 @@ def proposals_permitted(steer: str | None) -> bool:
     return (steer if steer in STEER_LEVELS else DEFAULT_STEER) != "checks"
 
 
-def steer_catalog() -> list[dict]:
-    """The pickable steer levels, for the UI and for agents (FR-AGF)."""
-    return [
-        {"id": key, "label": spec["label"]} for key, spec in STEER_LEVELS.items()
-    ]
-
-
 def profile_guidance(profile: str | None) -> str:
     """
     The prompt block for a researcher profile (falls back to the default for an unknown
@@ -786,7 +779,7 @@ def profile_guidance(profile: str | None) -> str:
 
 
 def profile_catalog() -> list[dict]:
-    """The pickable profiles, for the UI and for agents (FR-AGF)."""
+    """Return the profiles exposed by the conversation settings UI."""
     return [
         {"id": key, "label": spec["label"], "description": spec["description"]}
         for key, spec in PROFILES.items()

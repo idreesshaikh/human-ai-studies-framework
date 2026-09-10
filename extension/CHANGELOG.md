@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- Remove the unused pairing reducer and its isolated tests. Live pairing and
+  consent continue through the VS Code adapter.
+- Clear generated output before compilation so deleted modules and tests do not
+  remain in builds.
+- Update packaging dependencies (`fast-uri`, `js-yaml`, and `qs`) to resolve
+  reported security advisories.
+
 ## [1.0.1] - 2026-08-25
 
 This patch release makes prepared studies easier to inspect and safer to run.

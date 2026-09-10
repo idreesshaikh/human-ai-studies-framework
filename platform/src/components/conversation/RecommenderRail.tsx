@@ -18,7 +18,6 @@ export function RecommenderRail({
 }) {
   return (
     <aside
-      data-agent="recommender-rail"
       className="flex h-full min-h-0 flex-col gap-stack bg-surface p-gutter"
     >
       <div>

@@ -345,9 +345,9 @@ export const conversationApi = {
     text: string,
     author = "You",
     /* How much the researcher wants the assistant to drive this
-     * conversation (see lib/steer.ts). Optional so an older client, and the
-     * agent-facing API, both still post a valid turn without it; the server
-     * falls back to the account's declared profile. */
+     * conversation (see lib/steer.ts). Optional so older clients can still
+     * post a valid turn without it; the server falls back to the account's
+     * declared profile. */
     steer?: SteerLevel,
     decision?: DecisionTrigger,
     requestId?: string,

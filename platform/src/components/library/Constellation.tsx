@@ -21,29 +21,7 @@ import {
 import type { PaperGraph } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
-/* The citation constellation (FR-LIT-2, FR-LIT-10)  -  a study's papers grow a
- * graph around themselves: seed → neighbourhood → grow, Obsidian-graph-view
- * styled: degree-sized dots, near-invisible edges that light up in the
- * hovered/focused neighbourhood, always-on author+year labels for a
- * study-sized graph (degrading to zoom-gated labels above 150 nodes), and a
- * gentle idle drift. Deterministic
- * force layout underneath it all (no d3-force, D17)  -  see forceLayout.ts and
- * constellationView.ts for the pure logic this is glue over.
- *
- * Three motion layers, deliberately separate:
- *   1. `layoutGraph`'s own deterministic solve  -  the seed, and the only
- *      thing rendered under reduced motion.
- *   2. A bounded rAF "settle" (`relaxStep`, decaying alpha, <1s, skipped
- *      above 150 nodes) that lets the seed visibly relax into place.
- *   3. The graph stays still at rest. A previous render-only sinusoidal drift
- *      updated React state every animation frame and made a large literature
- *      graph spend its idle time re-rendering; a research instrument should
- *      keep that budget for interaction and reading.
- *
- * Interaction (hand-rolled on the SVG transform, still no d3): drag the
- * background to pan, scroll to zoom toward the cursor, drag a node to nudge
- * it (a manually-placed node opts out of settle/drift  -  it stays where it
- * was put), and "Fit" resets the view. */
+/* Study papers and their citation neighborhood, filtered by relation. */
 
 /* The layout's coordinate space. `layoutGraph` normalises into it, so these
  * are the graph's room to breathe rather than a pixel size  -  the SVG scales
@@ -348,8 +326,6 @@ export function Constellation({
         * is an answer, and a control that reshuffles itself as papers arrive
         * is harder to learn than one that holds still. */}
       <div
-        data-agent="constellation-lens"
-        data-agent-kind={lens}
         className="flex flex-wrap items-center gap-2"
       >
         <SegmentedControl
@@ -393,7 +369,6 @@ export function Constellation({
           )}
           role="group"
           aria-label="Citation constellation of the study's papers. Drag to pan, scroll to zoom."
-          data-agent="constellation"
           onPointerDown={beginPan}
           onPointerMove={onMove}
           onPointerUp={onUp}

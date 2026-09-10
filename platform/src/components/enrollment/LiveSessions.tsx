@@ -3,21 +3,7 @@ import { Radio } from "lucide-react";
 import { studyApi, type LiveSession } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
-/* Who is running right now, and what they are doing.
- *
- * This is the payoff of the whole design → setup chain, and until now it had
- * nowhere to appear: the middleware has computed per-session event rates,
- * last-event types and gap counts all along (`GET /studies/{id}/live`), and
- * nothing rendered them. A researcher could mint a link and then had no way to
- * tell whether the editor on the other end was actually working.
- *
- * Three things are shown per session, because they are the three questions a
- * facilitator actually asks mid-study: is data arriving (the sparkline), what
- * are they working on (task and condition), and is anything being lost (gaps).
- *
- * Nothing here is seeded when the server is unreachable. An empty monitor is
- * the honest answer to "is anyone running?"; a fabricated one would be the
- * single worst place in the product to show invented data. */
+/* Sessions with recent ingests. Server receipt is evidence of activity, not process health. */
 
 const POLL_MS = 5_000;
 /** Beyond this a session has gone quiet  -  the extension batches every 5s. */
@@ -78,7 +64,7 @@ export function LiveSessions({ studyId }: { studyId: string }) {
   if (sessions === null) return null;
 
   return (
-    <div className="flex flex-col gap-2" data-agent="live-sessions">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <Radio
           className={cn(
@@ -106,8 +92,6 @@ export function LiveSessions({ studyId }: { studyId: string }) {
               <li
                 key={s.sessionId}
                 className="type-body flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2"
-                data-agent="live-session"
-                data-agent-ref={s.sessionId}
               >
                 <span className="flex shrink-0 items-baseline gap-1.5">
                   <span className="font-mono text-text">{s.participantId}</span>

@@ -61,6 +61,50 @@ def test_run_plan_end_to_end(tmp_path, dataset):
     assert "**Not run**" in report
 
 
+def test_recipe_metadata_changes_do_not_leak_into_the_next_recipe(
+    tmp_path, monkeypatch
+):
+    from analysis.core import REGISTRY, Recipe, RecipeResult, Requires
+
+    seen = []
+
+    def record(dataset):
+        seen.append(dict(dataset.meta))
+        dataset.meta["temporary"] = "recipe-local"
+        return RecipeResult(summary="Checked", methods="Synthetic test")
+
+    for recipe_id in ("first", "second"):
+        monkeypatch.setitem(
+            REGISTRY,
+            recipe_id,
+            Recipe(
+                id=recipe_id,
+                answers=("RQ-1",),
+                requires=Requires(),
+                run=record,
+            ),
+        )
+    protocol = {
+        "analysisPlan": [
+            {
+                "rq": "RQ-1",
+                "recipes": [
+                    "first",
+                    "second",
+                ],
+            }
+        ]
+    }
+    dataset = Dataset(rows=[], meta={"label": "original"})
+    outcome = run_plan(protocol, dataset, "test", out_root=tmp_path)
+    assert outcome.ok
+    assert seen == [
+        {"label": "original"},
+        {"label": "original"},
+    ]
+    assert dataset.meta == {"label": "original"}
+
+
 def test_fatigue_recipe_recovers_the_constructed_effect(dataset):
     from analysis.core import REGISTRY
 

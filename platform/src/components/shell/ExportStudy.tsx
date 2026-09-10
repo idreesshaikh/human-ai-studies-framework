@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { studyApi, OfflineError } from "@/lib/studyApi";
 
-/* Getting the study *out* (FR-PROT-7, FR-CONV-6, FR-AGENT-5, FR-ANA-6). Four
+/* Getting the study *out* (FR-PROT-7, FR-CONV-6, FR-AGENT-5). Three
  * things a researcher actually needs to hand to someone else, or to
  * themselves at the platform's own boundary:
  *
@@ -51,7 +51,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
     <div className="flex items-center gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" aria-label="Share and export" data-agent="study-export">
+          <Button variant="ghost" size="sm" aria-label="Share and export">
             {busy ? (
               <Loader2 className="size-4 animate-spin" aria-hidden />
             ) : done ? (
@@ -64,7 +64,6 @@ export function ExportStudy({ studyId }: { studyId: string }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="max-w-72">
           <DropdownMenuItem
-            data-agent="export-replication-kit"
             onSelect={() =>
               void run("kit", () => studyApi.downloadReplicationKit(studyId))
             }
@@ -78,7 +77,6 @@ export function ExportStudy({ studyId }: { studyId: string }) {
             </div>
           </DropdownMenuItem>
           <DropdownMenuItem
-            data-agent="export-elicitation-record"
             onSelect={() =>
               void run("record", () => studyApi.downloadElicitationRecord(studyId))
             }
@@ -92,7 +90,6 @@ export function ExportStudy({ studyId }: { studyId: string }) {
             </div>
           </DropdownMenuItem>
           <DropdownMenuItem
-            data-agent="export-notebook"
             onSelect={() =>
               void run("notebook", () => studyApi.downloadNotebook(studyId))
             }

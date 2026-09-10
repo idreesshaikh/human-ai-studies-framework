@@ -279,7 +279,7 @@ export function DeriveFromPaper({
         <div className="rounded-input border border-border bg-bg p-3">
           <p className="type-body text-text-muted">No corpus papers match "{q}".</p>
           <p className="mt-1 type-caption text-text-muted">
-            Try different keywords or browse proven designs on the repertoire page.
+            Try different keywords or browse study templates on the repertoire page.
           </p>
         </div>
       )}

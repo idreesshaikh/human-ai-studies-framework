@@ -138,7 +138,6 @@ export function CreateStudyFrom({
             size="sm"
             disabled={!slug || !name.trim() || creating}
             onClick={create}
-            data-agent="seed-study"
           >
             {creating ? (
               <Loader2 className="size-4 animate-spin" aria-hidden />

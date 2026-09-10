@@ -145,7 +145,7 @@ def test_seeded_run_is_reproducible(tmp_path):
         assert r.json()["participants"] == 6
         assert r.json()["sessions"] >= 6
         assert r.json()["events"] > 0
-        assert r.json()["tokensMinted"] == 6
+        assert len(r.json()["sessionIds"]) == r.json()["sessions"]
         doc = client.get("/studies/pilot/dataset?format=json")
         assert doc.status_code == 200, doc.text
         return Counter(_normalize(row) for row in doc.json()["rows"])
@@ -160,6 +160,39 @@ def test_count_must_be_sane(client_designed: TestClient):
     assert r.status_code == 400
     r = client_designed.post("/studies/pilot/simulate", json={"count": 101})
     assert r.status_code == 400
+
+
+def test_dry_run_labels_rows_without_issuing_participant_credentials(client_designed):
+    before = client_designed.get("/studies/pilot/enrollment/tokens").json()
+    response = client_designed.post(
+        "/studies/pilot/simulate", json={"count": 2, "seed": 42}
+    )
+    assert response.status_code == 200, response.text
+    rows = client_designed.get("/studies/pilot/dataset").json()["rows"]
+    assert {row["sessionId"] for row in rows} == set(response.json()["sessionIds"])
+    assert all(row["payload"].get("synthetic") is True for row in rows)
+    assert client_designed.get("/studies/pilot/enrollment/tokens").json() == before
+
+
+def test_dry_run_plan_uses_only_its_own_run(client_designed, monkeypatch):
+    from middleware import simulation
+
+    observed = []
+
+    def capture_plan(protocol, rows, study_id):
+        observed.append({row["sessionId"] for row in rows})
+        return {"planned": 0, "ran": [], "blocked": [], "results": []}
+
+    monkeypatch.setattr(simulation, "run_plan_summary", capture_plan)
+    runs = []
+    for _ in range(2):
+        response = client_designed.post(
+            "/studies/pilot/simulate", json={"count": 2, "seed": 42}
+        )
+        assert response.status_code == 200, response.text
+        runs.append(set(response.json()["sessionIds"]))
+    assert observed == runs
+    assert runs[0].isdisjoint(runs[1])
 
 
 def test_unknown_profile_rejected(client_designed: TestClient):

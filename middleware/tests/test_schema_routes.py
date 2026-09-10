@@ -24,3 +24,12 @@ def test_schema_endpoint_serves_the_real_schema(tmp_path):
     c = _client(tmp_path)
     schema = c.get("/schemas/protocol").json()
     assert schema["properties"]["protocolVersion"]["enum"] == [1, 2, 3, 4, 5]
+
+
+def test_event_schema_includes_the_archive_version(tmp_path):
+    c = _client(tmp_path)
+    schema = c.get("/schemas/event").json()
+    version = schema["properties"]["v"]
+    assert version["minimum"] == 2
+    assert version["maximum"] == 5
+    assert "archive vocabulary" in version["description"]

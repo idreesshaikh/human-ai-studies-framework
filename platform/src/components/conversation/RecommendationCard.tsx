@@ -31,8 +31,6 @@ export function RecommendationCard({
 
   return (
     <Card
-      data-agent="recommendation-card"
-      data-agent-ref={rec.ref}
       className="animate-in fade-in slide-in-from-bottom-2 duration-entrance"
     >
       <CardContent className="flex flex-col gap-2 p-3">
@@ -78,7 +76,6 @@ export function RecommendationCard({
           size="sm"
           variant={added ? "ghost" : "outline"}
           disabled={added}
-          data-agent="add-paper"
           onClick={() => onAdd(rec.ref)}
           className="self-start"
         >

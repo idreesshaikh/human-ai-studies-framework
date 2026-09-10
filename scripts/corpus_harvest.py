@@ -1,7 +1,4 @@
-"""
-Corpus harvest pipeline (FR-LIT-8): grow the paper corpus by citation snowballing from
-the hand-curated seed set.
-"""
+"""Refresh the paper index by citation snowballing from the seed list."""
 
 from __future__ import annotations
 
@@ -233,12 +230,7 @@ def score(p: dict, edges: int, this_year: int) -> float:
 
 
 def propose_tier_a(n: int) -> int:
-    """
-    Emit a promotion shortlist: the top-scored Tier B rows with their quality metrics,
-    for hand-curation into Tier A (the human writes or approves every 'why'; generic
-    LLM-infrastructure papers are skipped by the curator, not the script  -  judgment
-    stays human).
-    """
+    """Print a review shortlist with quality metrics for the seed list."""
     index = json.loads((PAPERS_DIR / "corpus-index.json").read_text())
     rows = sorted(index["tierB"], key=lambda r: -r["score"])[:n]
     print("| Ref | Title | Year | Venue | Cites | Infl | OA | Score | Via |")
@@ -261,8 +253,8 @@ def main() -> int:
         "--target",
         type=int,
         default=0,
-        help="0 (default,) = uncapped: ship every gate-passing, seed-woven "
-        "candidate (FR-LIT-8 rev 2); N = capped top-N legacy behavior",
+        help="0 (default) = include every gate-passing, seed-woven candidate; "
+        "N = cap the result at the top N candidates",
     )
     ap.add_argument("--cache-dir", type=Path)
     ap.add_argument(
@@ -274,7 +266,7 @@ def main() -> int:
         "--propose-tier-a",
         type=int,
         metavar="N",
-        help="print the top-N Tier B rows as a hand-curation shortlist",
+        help="print the top-N index rows as a review shortlist",
     )
     args = ap.parse_args()
     if args.verify:
@@ -349,8 +341,8 @@ def main() -> int:
         f"seeds resolved {resolved}/{len(seeds)}; candidates {len(candidates)}; "
         f"passed gate {len(passed)}; picked {len(picked)}"
     )
-    if len(picked) + tier_a_count < 1000:
-        log("WARNING: corpus below the 1,000-paper floor (FR-LIT-8)")
+    if not picked:
+        log("no new candidates passed the quality and weave gates")
 
     def ref_of(p: dict) -> str:
         ext = p.get("externalIds") or {}
@@ -385,40 +377,18 @@ def main() -> int:
             for s, pid, p in picked
         ],
     }
-    (PAPERS_DIR / "corpus-index.json").write_text(
-        json.dumps(index, indent=1, ensure_ascii=False)
+    # Keep metadata readable and each paper on one line for reviewable data diffs.
+    metadata = {key: value for key, value in index.items() if key != "tierB"}
+    header = json.dumps(metadata, indent=2, ensure_ascii=False)
+    records = ",\n".join(
+        "    " + json.dumps(paper, ensure_ascii=False, separators=(",", ":"))
+        for paper in index["tierB"]
     )
-
-    lines = [
-        "# Corpus Tier B  -  harvested index (generated, do not hand-edit)",
-        "",
-        f"Generated {index['generatedAt']} by `scripts/corpus_harvest.py` "
-        "(FR-LIT-8). Tier A = the hand-curated seeds in `README.md`. Every row "
-        "below was returned by the Semantic Scholar Graph API via citation "
-        "snowballing from the seeds  -  quality-gated, recency-weighted, "
-        "connectivity-ranked. Tier A seeds without an arXiv id count toward "
-        "the corpus total but cannot seed the walk. "
-        "`via` = seed arXiv ids that discovered it. "
-        "Verify any row at `https://api.semanticscholar.org/graph/v1/paper/"
-        "<ref>`.",
-        "",
-        f"**{len(picked)} papers** (+ {tier_a_count} Tier A seeds = "
-        f"{len(picked) + tier_a_count} total).",
-        "",
-        "| Ref | Title | Year | Venue | Cites | Infl | OA | Score | Via seeds |",
-        "| --- | ----- | ---- | ----- | ----- | ---- | -- | ----- | --------- |",
-    ]
-    for s, pid, p in picked:
-        title = p["title"].replace("|", "\\|")
-        venue = ((p.get("venue") or "").strip() or " - ").replace("|", "\\|")
-        infl = p.get("influentialCitationCount") or 0
-        lines.append(
-            f"| `{ref_of(p)}` | {title} | {p['year']} | {venue} | "
-            f"{p.get('citationCount') or 0} | {infl} | "
-            f"{'✓' if p.get('openAccessPdf') else ' - '} | {s} | {len(edges[pid])} |"
-        )
-    (PAPERS_DIR / "CORPUS.md").write_text("\n".join(lines) + "\n")
-    log(f"wrote corpus-index.json + CORPUS.md ({len(picked) + tier_a_count} papers)")
+    (PAPERS_DIR / "corpus-index.json").write_text(
+        header[:-2] + ',\n  "tierB": [\n' + records + "\n  ]\n}\n",
+        encoding="utf-8",
+    )
+    log(f"wrote corpus-index.json ({len(picked) + tier_a_count} papers)")
     return 0
 
 

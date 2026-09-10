@@ -18,18 +18,16 @@ export function Surface({
   className,
   bodyClassName,
   children,
-  "data-agent": dataAgent,
 }: {
   measure: Measure;
   label: string;
   className?: string;
   bodyClassName?: string;
   children: ReactNode;
-  "data-agent"?: string;
 }) {
   const c = surfaceClasses(measure);
   return (
-    <div className={cn(c.root, className)} data-agent={dataAgent}>
+    <div className={cn(c.root, className)}>
       <div
         className={cn(c.body, bodyClassName)}
         tabIndex={0}

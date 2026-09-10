@@ -37,7 +37,6 @@ export function ProjectSwitcher({ memberships }: { memberships: Membership[] }) 
     <>
       <button
         type="button"
-        data-agent="project-switcher"
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 rounded-input border border-border px-2 py-2 type-caption text-text-muted transition-colors duration-fast hover:bg-zone-9"
       >

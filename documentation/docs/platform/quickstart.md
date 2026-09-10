@@ -9,7 +9,7 @@ demo study, and the TERN lab in the repository.
 Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22, and a
 [Mistral API key](https://console.mistral.ai/) for the design conversation.
 Short design turns use Mistral Medium (`mistral-medium-latest`) through
-Mistral's EU service; citation-heavy knowledge answers use Mistral Large.
+Mistral's EU service; optional corpus matching uses Mistral Large.
 Set `MISTRAL_DESIGN_MODEL` only when you need to override the design default.
 
 ```bash
@@ -18,9 +18,9 @@ cd human-ai-studies-framework
 
 uv sync --all-packages
 (cd platform && npm ci && npm run build)
-echo "MISTRAL_API_KEY=sk-..." >> .env
+cp .env.example .env  # set MISTRAL_API_KEY if using the conversation
 uv run python -m middleware corpus-import
-uv run python -m middleware serve
+uv run --env-file .env python -m middleware serve
 ```
 
 Open <http://localhost:8000>. Without `MIDDLEWARE_AUTH`, local mode serves the
@@ -62,10 +62,11 @@ belongs to rather than hidden in a later notebook.
 From **Data**, run a synthetic dry run before a real participant arrives:
 
 ```bash
-uv run python -m middleware simulate pilot-2026 --count 10 --seed 42
+uv run python -m middleware simulate YOUR_REHEARSAL_STUDY_ID --count 10 --seed 42
 ```
 
-The command drives the capture path and validates every planned analysis recipe.
+Replace the study ID with a compiled rehearsal study. The command records
+synthetic rows in that study and validates its planned analysis recipes.
 It exits successfully only when the plan is satisfied. Synthetic rows are
 labelled as such; they are a plumbing test, not evidence.
 
@@ -91,11 +92,11 @@ Open **Participants** and install the release artifact before minting links:
 
 ## 6. Produce the analysis hand-off
 
-The same protocol drives the data dictionary, recipes, and notebook scaffold:
+Export the protocol as `study.yaml` and the dataset as `dataset.json` from your
+study. They drive the data dictionary, recipes, and notebook scaffold:
 
 ```bash
-uv run python -m analysis.cli notebook protocol/examples/pilot-study.yaml --server http://127.0.0.1:8000
-uv run python -m analysis.cli paper protocol/examples/pilot-study.yaml
+uv run analysis notebook study.yaml --dataset dataset.json
 ```
 
 Use `run`, `validate`, and `list` to execute, verify, and catalogue recipes.

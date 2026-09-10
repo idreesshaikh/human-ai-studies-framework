@@ -15,7 +15,9 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 WORKDIR /app
 
 # Workspace metadata first for layer caching.
-COPY pyproject.toml uv.lock ./
+# .python-version travels with uv.lock: protocol/export.py refuses to build a
+# replication kit without both pins (they are what makes the kit reproducible).
+COPY pyproject.toml uv.lock .python-version ./
 COPY middleware/ middleware/
 COPY protocol/ protocol/
 COPY curated/ curated/

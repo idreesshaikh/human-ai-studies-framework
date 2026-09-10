@@ -141,3 +141,31 @@ def test_dataset_separates_legs_and_discovers_requirements():
     assert "file" not in ds.metric_columns
     assert ds.conditions == ["ai-assisted"]
     assert len(ds.session_spans) == 1
+
+
+def test_synthetic_label_is_not_a_static_metric():
+    dataset = Dataset(rows=[metric_row({"lines": 12, "synthetic": True})])
+    assert dataset.metric_columns == {"lines"}
+    assert dataset.metrics["synthetic"].all()
+
+
+def test_dataset_preserves_exported_event_and_metric_identity():
+    recorded_event = {
+        **event(0, "task_outcome", {"passed": True, "taskId": "wrong"}),
+        "source": "task-harness",
+        "taskId": "42",
+        "schemaVersion": 2,
+    }
+    recorded_metric = {
+        **metric_row({"lines": 12, "taskId": "wrong", "schemaVersion": 1}),
+        "taskId": "42",
+        "schemaVersion": 2,
+    }
+    dataset = Dataset(rows=[recorded_event, recorded_metric])
+    outcome = dataset.of_type("task_outcome").iloc[0]
+    assert outcome["source"] == "task-harness"
+    assert outcome["taskId"] == "42"
+    assert outcome["schemaVersion"] == 2
+    assert dataset.metrics.iloc[0]["taskId"] == "42"
+    assert dataset.metrics.iloc[0]["schemaVersion"] == 2
+    assert dataset.metric_columns == {"lines"}

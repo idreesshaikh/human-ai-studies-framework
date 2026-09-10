@@ -1,110 +1,76 @@
-# Ingestion middleware (`:8000`)
+# Study server
 
-The service every leg reports to (FR-ING-1..6): idempotent ingest of
-extension StudyEvents and static-metrics rows, artifact uploads, seq-gap
-integrity reports, and the joined one-timeline dataset export that theplatform and analysis recipes consume. Storage is a single SQLite file
-under `.study-data/` (gitignored - participant data never enters git).
+FastAPI service for study design, participant pairing, event and metric ingest,
+literature retrieval, and exports. It serves the built web app at the same origin.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant O as TERN (HttpSink)
-    participant X as Metrics orchestrator
-    participant M as Middleware :8000
-    participant R as Researcher
+## Run
 
-    O->>M: POST /ingest/events - {source, events[]}
-    M-->>O: {inserted, duplicates, flagged}
-    Note over M: UNIQUE(sessionId, seq) → replays never duplicate<br/>unknown condition/participant → stored + flagged, never dropped
-    X->>M: POST /ingest/metrics - JSONL rows
-    M-->>X: {inserted, duplicates, flagged}
-    R->>M: GET /sessions/:id/gaps
-    M-->>R: seq-gap integrity report
-    R->>M: GET /studies/:id/dataset?format=csv
-    M-->>R: one-timeline export, all legs
-```
-
-## Run locally
+From the repository root:
 
 ```bash
-uv run python -m middleware                       # port 8000
-MIDDLEWARE_PROTOCOL=protocol/examples/pilot-study.yaml \
-  uv run python -m middleware                     # protocol-aware (FR-ING-6)
+uv sync --all-packages --frozen
+uv run python -m middleware serve
 ```
 
-Config (env): `MIDDLEWARE_PORT`, `MIDDLEWARE_DB`, `MIDDLEWARE_DATA_DIR`,
-`MIDDLEWARE_PROTOCOL`. With a protocol loaded, ingested rows whose
-condition isn't declared - or whose participant is outside the plan
-(convention `P1..P<planned>`) - are stored **and flagged**, never dropped.
-The ingest response carries the flagged count, and each flagged batch is
-logged as a server warning.
+Storage defaults to SQLite at `.study-data/middleware.sqlite3`. Set
+`DATABASE_URL` to use PostgreSQL. `docker compose up --build` starts PostgreSQL,
+the app, and a synthetic demo in shared storage.
 
-## Run in Docker
+To load a protocol directly:
 
 ```bash
-docker compose up                  # middleware + demo-seed (sample session)
-docker compose --profile sonar up  # ... plus SonarQube on :9000
+MIDDLEWARE_PROTOCOL=protocol/examples/pilot-study.yaml uv run python -m middleware
 ```
 
-## Point the TERN at it
+The [.env.example](../.env.example) lists common options. Pass an environment file
+explicitly with `uv run --env-file .env python -m middleware`; it is not loaded
+automatically.
 
-Set (or derive from the protocol - they are the same thing):
+## Configuration
 
-```bash
-uv run protocol derive overlay-settings protocol/examples/pilot-study.yaml \
-    --participant P01 --condition ai-assisted
-```
+| Variable | Use |
+| --- | --- |
+| `MIDDLEWARE_PORT` | Listen port; defaults to `PORT`, then 8000 |
+| `MIDDLEWARE_DB` | SQLite path |
+| `DATABASE_URL` | PostgreSQL URL; takes precedence over the SQLite path |
+| `MIDDLEWARE_DATA_DIR` | Uploaded files and local study artifacts |
+| `MIDDLEWARE_PROTOCOL` | Optional boot-protocol YAML |
+| `MIDDLEWARE_WEB` | Built frontend directory; defaults to `platform/dist` |
+| `MIDDLEWARE_AUTH` | `none`, `token`, or `clerk` |
+| `MIDDLEWARE_TOKEN` | Shared bearer token for token mode |
+| `MIDDLEWARE_PUBLIC_URL` | Public base URL used in participant links |
+| `MIDDLEWARE_CORS_ORIGINS` | Comma-separated origins for a separate frontend |
+| `MISTRAL_API_KEY` | Enables the design conversation and model-assisted matching |
+| `MISTRAL_DESIGN_MODEL` | Design model override |
+| `MIDDLEWARE_CORPUS_BOOTSTRAP` | Set to 0 to disable background corpus import |
 
-The relevant setting is
-`"tern.output.httpEndpoint": "http://127.0.0.1:8000/ingest/events"`.
-The extension needs **zero code changes**: its HttpSink already POSTs
-`{"source": "tern", "events": [...]}` batches. An older editor still sending
-the pre-rename `cognitive-overlay` source is normalised on ingest, so a
-session spanning the rename stays one stream rather than splitting in two.
+The default is local single-user access. In Clerk mode, configure
+`MIDDLEWARE_CLERK_JWKS_URL`, `MIDDLEWARE_CLERK_ISSUER`, and
+`MIDDLEWARE_CLERK_PUBLISHABLE_KEY`. See the [security policy](../docs/security.md)
+and [Clerk appearance notes](docs/clerk-appearance.md).
 
-## Smoke test
+## Data flow
 
-With the server running:
+`POST /ingest/events` accepts event batches. Events are idempotent on
+`(sessionId, source, seq)`; metrics are idempotent by content hash. Unknown
+schema versions and protocol mismatches are stored with integrity flags.
+Pairing credentials stamp session identity at ingest.
 
-```bash
-uv run python middleware/scripts/replay_session.py
-```
+Use `GET /sessions/{id}/gaps` to inspect sequence gaps and
+`GET /studies/{id}/dataset?format=json|csv` for an export. Dataset, notebook, and
+replication-kit reads are scoped through the study's session mappings.
+The running service's `/docs` page lists the complete API.
 
-Replays the bundled sample session (containing a deliberate seq gap) twice
-- the second pass reports only duplicates (FR-ING-2) - then prints the gap
-report (FR-ING-3) and the one-timeline dataset summary (FR-ING-4).
+Optional producers share TERN's protocol-derived manifest; see
+[agent capture](../agent-capture/README.md). The capture contract describes
+capabilities and privacy policy; it is not a bearer credential.
 
-## Endpoints
+## Development
 
-| Method & path | Purpose |
-| ------------- | ------- |
-| `POST /ingest/events` | StudyEvent batches (HttpSink wire format or bare array); idempotent on `(sessionId, seq)` |
-| `POST /ingest/metrics` | static-metrics JSONL rows; idempotent on content hash |
-| `POST /ingest/files` | artifact upload (session JSONL, consent PDFs); content-addressed |
-| `GET /studies/{id}/sessions` | sessions with per-leg row counts |
-| `GET /sessions/{id}/events` | events, filterable by `type`/`since`/`until` |
-| `GET /sessions/{id}/gaps` | seq-gap integrity report |
-| `GET /studies/{id}/dataset` | one-timeline export, `?format=json\|csv` |
-| `GET /studies/{id}/protocol` | protocol summary for the platform overview + trace chips (MP-06) |
-| `GET /studies/{id}/status` | factual per-study status: sessions, ingests, and what the protocol still needs |
-| `GET /studies/{id}/live` | sessions with ingests in the last 5 min + rate buckets (FR-DASH-3) |
-| `GET /files` | uploaded artifact index |
-| `POST/GET/PATCH /tasks` | manual task-board cards (MP-06) |
-| `GET /health` | liveness + loaded protocol |
+Run `uv run pytest middleware`. Use the repository
+[smoke check](../scripts/smoke.sh) only against a development instance: it creates
+a synthetic study and writes test events.
 
-### Shared session identity
-
-The capture config returned by pairing includes a small versioned manifest with
-the participant, condition, task, session, producer states, endpoints, and
-privacy policy. External metrics or agent commands may derive the same shape
-with `protocol derive session-manifest`. It is a coordination contract, not a
-bearer credential: keep it free of source code, conversation text, clipboard
-text, and long-lived secrets.
-
-With `MIDDLEWARE_WEB` pointing at a built SPA (default `platform/dist`,
-baked into the Docker image), the middleware also serves the React platform
-app at `/` and re-serves the shell for its `/p/*` and `/invitations/*` deep
-links - one process is the whole stack (NFR-7). `MIDDLEWARE_TOKEN` optionally
-bearer-gates the query/task endpoints; ingest stays open by design
-(sensors are fire-and-forget, NFR-1). In `clerk` mode (FR-OPS-5), theme the
-hosted sign-in per [`docs/clerk-appearance.md`](docs/clerk-appearance.md).
+`middleware/scripts/replay_session.py` replays the bundled demo recordings.
+`demo-seed` creates their study mappings; both must target the same database.
+See [template review](docs/templates.md) for the corpus-to-template workflow.

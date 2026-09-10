@@ -16,6 +16,27 @@ from protocol.assignment import assign, tasks_of
 from protocol.errors import ProtocolError
 
 MANIFEST_VERSION = "1"
+CONTENT_POLICIES = ("metadata-only", "redacted", "full")
+POLICY_DESCRIPTIONS = {
+    "metadata-only": (
+        "Only the shape of your conversation with the AI assistant is "
+        "recorded: how many messages, how long they were, when they were "
+        "sent, and which tools the assistant used. The words of the "
+        "conversation - your prompts and the assistant's replies - are "
+        "never stored."
+    ),
+    "redacted": (
+        "The text of your conversation with the AI assistant is recorded "
+        "with identifiers, string literals, and long words masked, so the "
+        "structure of the exchange is kept but code content and any secrets "
+        "you typed are removed before storage."
+    ),
+    "full": (
+        "The full text of your conversation with the AI assistant - your "
+        "prompts and the assistant's replies - is recorded and stored for "
+        "analysis."
+    ),
+}
 PRODUCER_STATES = (
     "enabled",
     "disabled",
@@ -87,7 +108,7 @@ def privacy_policy(protocol: dict) -> dict:
     policy = configured.get("agentContentPolicy") or agent.get(
         "contentPolicy", "metadata-only"
     )
-    if policy not in {"metadata-only", "redacted", "full"}:
+    if policy not in CONTENT_POLICIES:
         policy = "metadata-only"
     return {
         "agentContentPolicy": policy,

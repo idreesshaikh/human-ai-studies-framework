@@ -2,26 +2,7 @@ import { useEffect, useState } from "react";
 import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
 import { Confidence } from "@/components/conversation/Confidence";
 
-/* The hero's thesis, running by itself: the platform's core loop played out as
- * a deterministic, no-LLM showcase. A researcher's question types itself, a
- * grounded design-move card folds in, its citation chips light, and the move
- * lands in the protocol draft, the exact gesture the real design conversation
- * makes, but scripted, so it never breaks (the old hero embedded a live demo
- * endpoint that did). Everything visible is fixed copy, real corpus
- * references, not a live retrieval, so nothing here makes a network call.
- *
- * The sequence used to stop at "Accept" and loop, which proved only half of
- * the paragraph above it: "Phoenix proposes design moves grounded... AND
- * compiles the ones you keep into a protocol." A visitor who watched the whole
- * loop never saw the second half happen. The `compiled` stage closes that: the
- * same dot meter and "in draft" wording the real DraftRail and MoveCard use,
- * so the promise the copy makes is the promise the demo keeps, in the
- * product's own vocabulary rather than a marketing paraphrase of it.
- *
- * Motion is JS-timed, so it opts out of animation under reduced motion by
- * rendering its final resting frame (see usePrefersReducedMotion). The whole
- * thing is one `role="img"` with a plain-language label, so assistive tech
- * gets a single clear description instead of the animating fragments. */
+/* A scripted, illustrative preview of review and protocol compilation. */
 
 const QUESTION = "Do developers over-trust AI-written code?";
 const PROPOSAL =
@@ -32,7 +13,7 @@ const A11Y_LABEL =
   "Ziegler 2022 studies. Accepted, it lands in the protocol draft as the design section.";
 
 /** The eight protocol sections, in the same order and the same square-dot
- * language SlotMeter draws in the real workspace. Only the first ever lights
+ * language DraftRail draws in the real workspace. Only the first ever lights
  * here: this is a demo of the mechanism landing once, not a finished draft. */
 const DRAFT_SLOTS = 8;
 
@@ -194,7 +175,7 @@ export function HeroShowcase() {
             </div>
 
             {/* The second half of the promise: an accepted move is not just
-              * decided, it is COMPILED. Same dot meter SlotMeter draws in the
+              * decided, it is COMPILED. Same dot meter DraftRail draws in the
               * real draft rail (a square per protocol section, filled or not)
               * and the same "in draft" wording MoveCard uses for a move whose
               * patch has landed  -  so a returning researcher recognises this

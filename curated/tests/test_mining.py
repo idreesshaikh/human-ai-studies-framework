@@ -1,5 +1,6 @@
-"""The curated-dataset leg: normalizer, adapter, heuristics, frame, threats."""
+"""The experimental mining contracts and local archive adapter."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -160,6 +161,43 @@ def test_archive_adapter_events_respect_content_free_contract():
     for e in events:
         assert "rawAuthor" not in e.payload
         assert "rawType" in e.payload
+
+
+def test_archive_adapter_uses_structured_authorship_and_named_arms(tmp_path):
+    from curated.archive_adapter import ArchiveAdapter
+
+    path = tmp_path / "archive.json"
+    path.write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "type": "PullRequest",
+                        "actor": {"login": "cursor[bot]", "type": "Bot"},
+                        "repo": "org/repo",
+                    },
+                    {
+                        "type": "PullRequest",
+                        "actor": "alice",
+                        "repo": "org/repo",
+                    },
+                ]
+            }
+        )
+    )
+    frame = SamplingFrame(
+        query=str(tmp_path / "query-is-ignored"),
+        window_start="2025-01-01",
+        window_end="2025-06-30",
+        conditions=["agent-pr", "human-pr"],
+    )
+
+    events, _ = run_all(ArchiveAdapter(path=path, salt="test-salt"), frame)
+
+    assert [event.condition for event in events] == ["agent-pr", "human-pr"]
+    assert events[0].payload["authorIsAgent"] is True
+    assert "bot-suffix@1" in events[0].payload["firedHeuristics"]
+    assert events[1].payload["authorIsAgent"] is False
 
 
 def test_archive_adapter_resume_from_cursor():

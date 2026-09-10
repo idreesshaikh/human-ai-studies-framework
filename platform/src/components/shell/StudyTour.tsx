@@ -166,11 +166,11 @@ export function StudyTour({
               </Button>
             )}
             {last ? (
-              <Button size="sm" onClick={onClose} data-agent="tour-done">
+              <Button size="sm" onClick={onClose}>
                 Start
               </Button>
             ) : (
-              <Button size="sm" onClick={() => go(i + 1)} data-agent="tour-next">
+              <Button size="sm" onClick={() => go(i + 1)}>
                 Next <ArrowRight aria-hidden />
               </Button>
             )}

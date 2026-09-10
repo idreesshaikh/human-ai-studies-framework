@@ -4,7 +4,7 @@
 
 PHOENIX is the researcher-facing half of the framework: a grounded design
 conversation, a deterministic protocol compiler, a participant hand-off, and a
-curated analysis path in one place. **TERN** is the participant-facing half: a
+reproducible analysis path in one place. **TERN** is the participant-facing half: a
 small VS Code extension that runs the approved study and records only the
 signals the protocol permits.
 
@@ -22,7 +22,7 @@ signals the protocol permits.
 | Rehearse the study | Synthetic participants through the real ingest and analysis path | — |
 | Invite a participant | A one-use pairing link and counterbalanced task assignment | Installs the study into VS Code after consent |
 | Run the session | Live session and integrity visibility | Timer, probes, behaviour signals, local JSONL, optional HTTP mirror |
-| Make the result portable | Curated data, dictionary, analysis recipes, notebook and paper hand-off | — |
+| Make the result portable | Dataset, dictionary, analysis recipes, notebook, and replication kit | — |
 
 That separation is the thesis in product form: the platform makes the method
 explicit and reproducible; the extension makes the participant experience

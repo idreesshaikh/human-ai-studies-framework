@@ -13,7 +13,6 @@ from protocol.derive import (
 )
 from protocol.errors import ProtocolError
 from protocol.export import build_kit, fetch_dataset
-from protocol.lifecycle import current_phase, missing_artifacts
 from protocol.loader import load_protocol, uncovered_rqs
 
 
@@ -31,39 +30,6 @@ def _cmd_validate(args: argparse.Namespace) -> int:
         )
     else:
         print("All research questions are covered by the analysis plan.")
-    return 0
-
-
-def _collect_artifacts(args: argparse.Namespace) -> set[str]:
-    """
-    Artifacts produced so far: ``--artifact`` names plus, for ``--artifacts-dir``, every
-    file's path relative to that directory.
-    """
-    artifacts = set(args.artifact)
-    if args.artifacts_dir:
-        root = Path(args.artifacts_dir)
-        if not root.is_dir():
-            raise ProtocolError(f"--artifacts-dir {root} is not a directory")
-        artifacts |= {
-            p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()
-        }
-    return artifacts
-
-
-def _cmd_status(args: argparse.Namespace) -> int:
-    protocol = load_protocol(args.file)
-    artifacts = _collect_artifacts(args)
-    print(f"Current phase: {current_phase(protocol, artifacts)}")
-    missing = missing_artifacts(protocol, artifacts)
-    if missing:
-        print("Missing gate artifacts (requirements-validation checkpoints):")
-        for phase, gates in missing.items():
-            print(f"  {phase}: {', '.join(gates)}")
-    else:
-        print("All gates satisfied.")
-    uncovered = uncovered_rqs(protocol)
-    if uncovered:
-        print("Uncovered research questions: " + ", ".join(uncovered))
     return 0
 
 
@@ -127,24 +93,6 @@ def _build_parser() -> argparse.ArgumentParser:
     validate = sub.add_parser("validate", help="validate a protocol file")
     validate.add_argument("file")
     validate.set_defaults(func=_cmd_validate)
-
-    status = sub.add_parser(
-        "status", help="show lifecycle phase and missing gate artifacts"
-    )
-    status.add_argument("file")
-    status.add_argument(
-        "--artifact",
-        action="append",
-        default=[],
-        metavar="NAME",
-        help="a gate artifact that exists (repeatable)",
-    )
-    status.add_argument(
-        "--artifacts-dir",
-        metavar="DIR",
-        help="directory whose files (relative paths) count as artifacts",
-    )
-    status.set_defaults(func=_cmd_status)
 
     derive = sub.add_parser(
         "derive", help="derive instrument configuration from the protocol"
