@@ -5,12 +5,36 @@ captures and how it behaves. It assumes you already know what the extension
 is (see the [README](../README.md)); the goal here is to make the settings
 make sense, so you can tune them for your study instead of guessing.
 
-The one thing to keep in mind: **every setting can come from the study
-protocol**. When a participant connects to a study, their identity,
-condition, and capture settings are derived from the protocol and pushed to
-the IDE automatically  -  nothing is configured by hand in the field. The
-settings below are what those derived values map onto, and what you edit
-directly when you're testing locally or overriding a default.
+The one thing to keep in mind: **while a session is paired, capture settings
+come from the study protocol, not from the field**. When a participant
+connects to a study, TERN resolves the effective `tern.*` capture
+configuration once, at session start, from the protocol and the extension's
+own defaults, and freezes it for the session  -  every capture decision reads
+that frozen configuration, never live settings. A participant can still open
+Settings and change a `tern.*` value (VS Code has no way to make a setting
+read-only), but the edit has no effect on capture: it is recorded as a
+`settings_override_attempt` event and the locked value is written back over
+it. The settings below are what a protocol's values, and the extension's own
+defaults, map onto  -  and what you edit directly when you're testing locally
+or previewing a protocol's effect.
+
+A handful of keys are the exception: `tern.participantId`, `tern.condition`,
+`tern.studyId`, `tern.output.httpEndpoint`, `tern.output.directory`, and
+`tern.session.id` are identity and transport values, not capture
+configuration. They are never taken from the protocol overlay  -  a protocol's
+example values would otherwise clobber the real pairing-issued ones  -  and
+instead come from the pairing redeem directly. The outcome for a participant
+is the same: editing them while connected has no effect.
+
+**The boundary.** TERN's lock covers only its own `tern.*` settings. It has
+no reach into the rest of the editor: a participant in the `unassisted`
+condition can still enable GitHub Copilot, and one in `ai-assisted` can still
+turn off `editor.inlineSuggest.enabled`. Keeping a condition as assigned is
+facilitator procedure, not something this extension enforces.
+
+None of this applies outside a paired session. Testing locally, or in the
+[`examples/tern-lab`](../examples/tern-lab) sample workspace, nothing is
+locked and every setting below behaves exactly as its description says.
 
 ## Where settings come from
 
@@ -18,11 +42,14 @@ There are two ways a setting gets its value, and they don't fight:
 
 - **From the protocol (enrollment).** The researcher generates a connection
   string; the participant runs _TERN: Connect to Study_ and the settings
-  arrive with it. This is how real sessions run. See the README's
-  "Connecting to a study" section.
+  arrive with it, resolved once and frozen for the session as described
+  above. This is how real sessions run. See the README's "Connecting to a
+  study" section.
 - **By hand (local testing).** You open VS Code settings and set `tern.*`
   keys yourself, or paste a settings block into `.vscode/settings.json`.
   Useful when you're trying things out without a middleware in the loop.
+  Once a session is paired for real, hand edits to capture settings no
+  longer take effect.
 
 You can also derive a settings block straight from a protocol without pairing:
 
@@ -170,7 +197,7 @@ spot, documented alongside the others in
 | --- | --- | --- |
 | `tern.output.directory` | `""` → `<workspace>/.study-data` | The folder for the JSONL session files. |
 | `tern.output.httpEndpoint` | `""` (off) | A middleware endpoint to mirror events to, e.g. `http://127.0.0.1:8000/ingest/events`. |
-| `tern.studyId` | `""` | The study this IDE is paired to. Set for you when you connect; you don't edit it by hand. |
+| `tern.studyId` | `""` | The study this IDE is paired to. Set for you when you connect; edits while connected are ignored. |
 
 The JSONL file is always the source of truth. If you set an HTTP endpoint,
 events are also batched to the middleware every few seconds, but that is

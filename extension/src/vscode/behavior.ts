@@ -13,6 +13,7 @@ import {
 import { CaptureFilterConfig, shouldCapture } from '../core/captureFilter';
 import { FirstLastDebouncer, TrailingDebouncer } from '../core/debounce';
 import { DEFAULT_IDLE_CONFIG, IdleDetector } from '../core/idle';
+import { captureSetting } from './configLock';
 
 /**
  * Behavioral telemetry adapter: maps native VS Code events onto the
@@ -42,10 +43,11 @@ const SUGGESTION_SESSION_GAP_MS = 2_000;
 const COPY_HASH_TTL_MS = 30 * 60_000;
 const MAX_COPY_HASHES = 8;
 
+/** These flags gate individual handlers, so reading them live let a paired
+ *  participant switch a sensor off mid-session. Under the lock they are fixed
+ *  at the session boundary like every other capture setting (issue #38). */
 function cfg<T>(key: string, fallback: T): T {
-  return vscode.workspace
-    .getConfiguration('tern.behavior')
-    .get<T>(key, fallback);
+  return captureSetting(`behavior.${key}`, fallback);
 }
 
 interface FileMeta {
@@ -655,15 +657,16 @@ export function environmentSnapshotPayload(
       extensionVersions[ext.id] = String(ext.packageJSON?.version ?? 'unknown');
     }
   }
-  const session = vscode.workspace.getConfiguration('tern.session');
-  const agentTool = session.get<string>('agentTool', '');
-  const agentModelId = session.get<string>('agentModelId', '');
+  // Provenance the replication record depends on, so it follows the same lock
+  // as the capture flags rather than whatever the participant last typed.
+  const agentTool = captureSetting('session.agentTool', '');
+  const agentModelId = captureSetting('session.agentModelId', '');
   return {
     vscodeVersion: vscode.version,
     extensionVersions,
     os: platform,
     ...(agentTool ? { agentTool } : {}),
     ...(agentModelId ? { agentModelId } : {}),
-    taskId: session.get<string>('taskId', ''),
+    taskId: captureSetting('session.taskId', ''),
   };
 }

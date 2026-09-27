@@ -99,15 +99,44 @@ from the study protocol - no manual configuration, no side-channel.
    deep link runs the same flow.)
 3. The extension shows the study's **consent statement**; capture begins only
    after the participant explicitly accepts.
-4. On accept, the extension locks the participant ID and assignment from the
-   link, fills in the study ID and middleware endpoint, and stores a session
-   credential securely (VS Code SecretStorage). The assignment is used
-   internally for event attribution but is not shown to the participant. A
-   one-line summary confirms the capture scope.
+4. On accept, the extension sets the participant ID, study ID, and middleware
+   endpoint from the link, and stores a session credential securely (VS Code
+   SecretStorage). The assignment (`ai-assisted` / `unassisted`) is used
+   internally for event attribution but is not written back into editable
+   settings, so it is not shown to the participant. A one-line summary
+   confirms the capture scope.
 5. If the task declares a local materials folder, TERN opens that folder in
    VS Code after pairing. Run **_TERN: Start Study Session_** when ready - the
    session uses the researcher-issued configuration that arrived from the
    study.
+
+**What pairing locks, and what it does not.** While connected to a study,
+TERN resolves the effective `tern.*` capture configuration once at session
+start, from the study's protocol and the extension's own defaults, and
+freezes it for the session; every capture decision reads that frozen
+configuration, never live VS Code settings. A participant can still open
+Settings and change any `tern.*` value - VS Code has no API to make a
+setting read-only, and nothing here blocks the edit - but the edit has no
+effect on capture. TERN writes the locked value back over the edit, so
+Settings visually matches what is actually being captured, and records a
+content-free `settings_override_attempt` event (key, locked value, attempted
+value) in the same stream as every other measurement. Identity and transport
+keys - `tern.participantId`, `tern.condition`, `tern.studyId`,
+`tern.output.httpEndpoint`, `tern.output.directory`, `tern.session.id` - are
+not locked from the protocol, since the protocol's example values would
+otherwise overwrite the real pairing-issued ones; they come from the pairing
+redeem directly instead, with the same outcome: participant edits to them
+are ignored while connected.
+
+This lock reaches only TERN's own `tern.*` settings. It has no control over
+the rest of the editor: a participant in the `unassisted` condition can
+still enable GitHub Copilot, and one in `ai-assisted` can still turn off
+`editor.inlineSuggest.enabled`. Keeping a condition as assigned is
+facilitator procedure, not something this extension enforces.
+
+Outside a paired session - local testing, or the
+[`examples/tern-lab`](examples/tern-lab) sample workspace - nothing is
+locked and `tern.*` settings behave exactly as documented below.
 
 When a prepared manifest supplies `tern.session.id`, TERN consumes it once and
 then returns to random IDs for ordinary standalone testing. The preflight
@@ -117,9 +146,10 @@ TERN cannot execute itself.
 The middleware refuses to pair a study with no compiled, validated protocol -
 there is no separate ethics-approval gate; that approval is the university's
 to grant, and what the platform owes the participant is the consent statement
-above, shown before capture begins. Capture settings are re-checked at the
-start of each session, so a researcher can update the protocol between
-sessions and paired participants pick up the change on their next start.
+above, shown before capture begins. The capture configuration is resolved
+fresh at the start of each session, never mid-session, so a researcher can
+update the protocol between sessions and paired participants pick up the
+change on their next start.
 
 ### Development
 
@@ -183,17 +213,18 @@ keystrokes, clipboard text, or off-workspace paths. Capture is filtered to
 protocol-declared languages (`tern.behavior.languages`, pilot:
 Python) and workspace-internal files.
 
-| Event type             | When                                                                           | Key payload fields                                                                                                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `editor_focus`         | Active editor changed (debounced 250 ms: first + last) or window focus changed | file (workspace-relative or `external`), languageId, groupCount - or state (`focused`/`blurred`)                                                                           |
-| `visible_range`        | Scroll/resize settled (500 ms per editor)                                      | file, topLine, bottomLine, totalLines - feeds scroll coverage (FR-INST-9)                                                                                                  |
-| `edit_burst`           | 2 s without edits, or file switch                                              | file, charsAdded, charsDeleted, linesTouched, durationMs, origin (`human`/`ai`/`paste`/`undo-redo`, FR-INST-10)                                                            |
-| `clipboard_paste`      | Paste landed in a captured file                                                | charCount, lineCount, msSinceInternalCopy (present only when the copy happened in-workspace this session), targetFile - content is never read from the clipboard           |
-| `ai_suggestion`        | Inline suggestion decision                                                     | suggestionId, action (`shown`/`accepted`/`rejected`/`dismissed`), visibleMs (review latency, FR-INST-8), charCount, lineCount                                              |
-| `file_save`            | Captured file saved                                                            | file, charCount, lineCount                                                                                                                                                 |
-| `heartbeat`            | Active/idle transition only (never periodic)                                   | state (`active`/`idle`) - active = interaction within a rolling 120 s window (FR-INST-11)                                                                                  |
-| `attention`            | Caret/hover left a line-region band, or file switch                            | file, startLine, endLine, focusMs, cursorMs, hoverMs, edited, mode (`reading`/`editing`/`mixed`), exitReason - region-level time-on-code, present-gated (idle/blur paused) |
-| `environment_snapshot` | Once at session start                                                          | vscodeVersion, extensionVersions, os, agentTool, agentModelId, taskId (FR-INST-14 replication provenance)                                                                  |
+| Event type                  | When                                                                           | Key payload fields                                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `editor_focus`              | Active editor changed (debounced 250 ms: first + last) or window focus changed | file (workspace-relative or `external`), languageId, groupCount - or state (`focused`/`blurred`)                                                                           |
+| `visible_range`             | Scroll/resize settled (500 ms per editor)                                      | file, topLine, bottomLine, totalLines - feeds scroll coverage (FR-INST-9)                                                                                                  |
+| `edit_burst`                | 2 s without edits, or file switch                                              | file, charsAdded, charsDeleted, linesTouched, durationMs, origin (`human`/`ai`/`paste`/`undo-redo`, FR-INST-10)                                                            |
+| `clipboard_paste`           | Paste landed in a captured file                                                | charCount, lineCount, msSinceInternalCopy (present only when the copy happened in-workspace this session), targetFile - content is never read from the clipboard           |
+| `ai_suggestion`             | Inline suggestion decision                                                     | suggestionId, action (`shown`/`accepted`/`rejected`/`dismissed`), visibleMs (review latency, FR-INST-8), charCount, lineCount                                              |
+| `file_save`                 | Captured file saved                                                            | file, charCount, lineCount                                                                                                                                                 |
+| `heartbeat`                 | Active/idle transition only (never periodic)                                   | state (`active`/`idle`) - active = interaction within a rolling 120 s window (FR-INST-11)                                                                                  |
+| `attention`                 | Caret/hover left a line-region band, or file switch                            | file, startLine, endLine, focusMs, cursorMs, hoverMs, edited, mode (`reading`/`editing`/`mixed`), exitReason - region-level time-on-code, present-gated (idle/blur paused) |
+| `environment_snapshot`      | Once at session start                                                          | vscodeVersion, extensionVersions, os, agentTool, agentModelId, taskId (FR-INST-14 replication provenance)                                                                  |
+| `settings_override_attempt` | A locked `tern.*` setting is edited while paired                               | key, lockedValue, attemptedValue - content-free, protocol-domain scalars only                                                                                              |
 
 Set `tern.output.httpEndpoint` (e.g.
 `http://127.0.0.1:8000/ingest/events`) to also stream batched events to the

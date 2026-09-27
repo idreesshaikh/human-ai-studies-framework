@@ -48,6 +48,10 @@ export interface SidebarSession {
    *  surface, not only in a log file. */
   written?: number;
   mirrored?: number;
+  /** Setting edits this session that were ignored and recorded (issue #38).
+   *  Shown so the participant is not misled into thinking a change took, and
+   *  the facilitator can see it without reading the event stream. */
+  settingsOverrides?: number;
 }
 
 export type SessionProbe = () => SidebarSession;
@@ -301,6 +305,15 @@ export class DataView extends BaseProvider {
               ? `${s.written} recorded, ${missing} not yet sent`
               : `${s.written} recorded`,
             missing > 0 ? 'warning' : 'check',
+          ),
+        );
+      }
+      if (s.active && s.settingsOverrides) {
+        rows.push(
+          new Row(
+            'Settings changes ignored',
+            `${s.settingsOverrides} recorded  -  this study's capture settings are fixed`,
+            'lock',
           ),
         );
       }

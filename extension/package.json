@@ -148,55 +148,55 @@
             "unspecified"
           ],
           "default": "unspecified",
-          "description": "Study assignment, managed by pairing and not editable by participants."
+          "description": "Study assignment, managed by pairing. Participant changes are ignored while connected to a study."
         },
         "tern.session.durationMinutes": {
           "type": "number",
           "default": 60,
-          "description": "Study session length in minutes. When paired, the researcher-issued protocol controls this value."
+          "description": "Study session length in minutes. When paired, this is fixed for the session from the study protocol; participant edits are ignored and recorded."
         },
         "tern.session.id": {
           "type": "string",
           "default": "",
-          "description": "Optional session ID supplied by a manifest. Paired participants always use a server-safe session ID."
+          "description": "Optional session ID for local testing. While connected to a study, the session ID always comes from the server and this setting has no effect."
         },
         "tern.fatigue.intervalMinutes": {
           "type": "number",
           "default": 15,
-          "description": "How often the fatigue Likert prompt appears during a session."
+          "description": "How often the fatigue Likert prompt appears during a session. When paired, this comes from the study protocol; participant edits are ignored and recorded."
         },
         "tern.fatigue.waitForPauseSeconds": {
           "type": "number",
           "default": 4,
-          "description": "The fatigue prompt waits for a typing pause of at least this many seconds before appearing (zero-distraction). It gives up waiting after 60s and shows anyway."
+          "description": "The fatigue prompt waits for a typing pause of at least this many seconds before appearing (zero-distraction). It gives up waiting after 60s and shows anyway; when paired, this value comes from the study protocol and edits are ignored and recorded."
         },
         "tern.fatigue.jitterPercent": {
           "type": "number",
           "default": 20,
           "minimum": 0,
           "maximum": 90,
-          "description": "Randomize each fatigue probe interval by ±this percent so participants can't anticipate probes (reduces experience-sampling reactivity). 0 = strictly periodic."
+          "description": "Randomize each fatigue probe interval by ±this percent so participants can't anticipate probes (reduces experience-sampling reactivity). 0 = strictly periodic; when paired, this value comes from the study protocol and edits are ignored and recorded."
         },
         "tern.fatigue.quietTailMinutes": {
           "type": "number",
           "default": 5,
           "minimum": 0,
-          "description": "Suppress fatigue probes during the final minutes of the session - a probe answered just before the debrief is redundant and annoying."
+          "description": "Suppress fatigue probes during the final minutes of the session - a probe answered just before the debrief is redundant and annoying. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.stuck.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Detect when the participant appears stuck and show an inline prompt on the code."
+          "description": "Detect when the participant appears stuck and show an inline prompt on the code. When paired, this comes from the study protocol; participant edits are ignored and recorded."
         },
         "tern.stuck.thresholdSeconds": {
           "type": "number",
           "default": 90,
-          "description": "Seconds of dwelling on the same code region without edits (while still active) before the stuck prompt appears."
+          "description": "Seconds of dwelling on the same code region without edits (while still active) before the stuck prompt appears. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.stuck.cooldownMinutes": {
           "type": "number",
           "default": 5,
-          "description": "Minimum minutes between stuck prompts."
+          "description": "Minimum minutes between stuck prompts. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.stuck.languages": {
           "type": "array",
@@ -204,22 +204,22 @@
             "type": "string"
           },
           "default": [],
-          "description": "Language IDs to watch for stuck detection (e.g. [\"python\"]). Empty = all languages."
+          "description": "Language IDs to watch for stuck detection (e.g. [\"python\"]). Empty = all languages; when paired, this list comes from the study protocol and edits are ignored and recorded."
         },
         "tern.ideHealth.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Capture aggregate IDE diagnostic and build/test counts (content-free; FR-INST-18)."
+          "description": "Capture aggregate IDE diagnostic and build/test counts (content-free; FR-INST-18). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.ideHealth.debounceSeconds": {
           "type": "number",
           "default": 10,
-          "description": "Debounce window in seconds before flushing a diagnostics-count event."
+          "description": "Debounce window in seconds before flushing a diagnostics-count event. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.comprehensionProbe.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Show comprehension probes when the participant accepts an AI-produced chunk (predict-output / locate-change; FR-INST-19)."
+          "description": "Show comprehension probes when the participant accepts an AI-produced chunk (predict-output / locate-change; FR-INST-19). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.comprehensionProbe.cadence": {
           "type": "string",
@@ -228,14 +228,14 @@
             "every-chunk",
             "sampled"
           ],
-          "description": "How often to probe: every accepted AI chunk, or a sampled subset."
+          "description": "How often to probe: every accepted AI chunk, or a sampled subset. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.comprehensionProbe.sampleRate": {
           "type": "number",
           "default": 1,
           "minimum": 0,
           "maximum": 1,
-          "description": "Fraction of accepted chunks to probe (0–1). Only meaningful when cadence is 'sampled'."
+          "description": "Fraction of accepted chunks to probe (0–1). Only meaningful when cadence is 'sampled'; when paired, this value comes from the study protocol and edits are ignored and recorded."
         },
         "tern.comprehensionProbe.probeTypes": {
           "type": "array",
@@ -250,67 +250,67 @@
             "predict-output",
             "locate-change"
           ],
-          "description": "Which probe types may appear. If empty, no probes are shown."
+          "description": "Which probe types may appear. If empty, no probes are shown; when paired, this list comes from the study protocol and edits are ignored and recorded."
         },
         "tern.session.taskId": {
           "type": "string",
           "default": "",
-          "description": "Protocol task ID recorded in the environment snapshot (replication provenance)."
+          "description": "Protocol task ID recorded in the environment snapshot (replication provenance). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.session.agentTool": {
           "type": "string",
           "default": "",
-          "description": "AI agent tool used in the ai-assisted condition (e.g. claude-code), recorded in the environment snapshot."
+          "description": "AI agent tool used in the ai-assisted condition (e.g. claude-code), recorded in the environment snapshot. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.session.agentModelId": {
           "type": "string",
           "default": "",
-          "description": "Model identifier of the AI agent (e.g. claude-fable-5), recorded in the environment snapshot."
+          "description": "Model identifier of the AI agent (e.g. claude-fable-5), recorded in the environment snapshot. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Master switch for the behavioral telemetry leg (focus, scroll, edit bursts, clipboard, AI lifecycle, saves, heartbeats)."
+          "description": "Master switch for the behavioral telemetry leg (focus, scroll, edit bursts, clipboard, AI lifecycle, saves, heartbeats). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.captureFocus": {
           "type": "boolean",
           "default": true,
-          "description": "Record editor/tab focus switches and window focus state (editor_focus events)."
+          "description": "Record editor/tab focus switches and window focus state (editor_focus events). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.captureVisibleRanges": {
           "type": "boolean",
           "default": true,
-          "description": "Record debounced visible line ranges for scroll-coverage analysis (visible_range events)."
+          "description": "Record debounced visible line ranges for scroll-coverage analysis (visible_range events). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.captureEditBursts": {
           "type": "boolean",
           "default": true,
-          "description": "Record aggregated edit bursts with origin classification (edit_burst events). Sizes and shapes only - never text content."
+          "description": "Record aggregated edit bursts with origin classification (edit_burst events). Sizes and shapes only - never text content; when paired, this toggle comes from the study protocol and edits are ignored and recorded."
         },
         "tern.behavior.captureClipboard": {
           "type": "boolean",
           "default": true,
-          "description": "Record clipboard paste sizes and internal-copy latency (clipboard_paste events). Clipboard text is never read or stored."
+          "description": "Record clipboard paste sizes and internal-copy latency (clipboard_paste events). Clipboard text is never read or stored; when paired, this toggle comes from the study protocol and edits are ignored and recorded."
         },
         "tern.behavior.captureAiLifecycle": {
           "type": "boolean",
           "default": true,
-          "description": "Record the AI-completion lifecycle: shown/accepted/rejected/dismissed with review latency (ai_suggestion events)."
+          "description": "Record the AI-completion lifecycle: shown/accepted/rejected/dismissed with review latency (ai_suggestion events). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.captureSaves": {
           "type": "boolean",
           "default": true,
-          "description": "Record file save sizes (file_save events)."
+          "description": "Record file save sizes (file_save events). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.captureHeartbeat": {
           "type": "boolean",
           "default": true,
-          "description": "Record active/idle state transitions (heartbeat events)."
+          "description": "Record active/idle state transitions (heartbeat events). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.captureAttention": {
           "type": "boolean",
           "default": true,
-          "description": "Record region-level time-on-code from caret + mouse-hover dwell (attention events). Line numbers and durations only - never code content."
+          "description": "Record region-level time-on-code from caret + mouse-hover dwell (attention events). Line numbers and durations only - never code content; when paired, this toggle comes from the study protocol and edits are ignored and recorded."
         },
         "tern.behavior.languages": {
           "type": "array",
@@ -320,79 +320,79 @@
           "default": [
             "python"
           ],
-          "description": "Language IDs captured by the behavioral leg (pilot: python only). Empty = all languages."
+          "description": "Language IDs captured by the behavioral leg (pilot: python only). Empty = all languages; when paired, this list comes from the study protocol and edits are ignored and recorded."
         },
         "tern.behavior.workspaceInternalOnly": {
           "type": "boolean",
           "default": true,
-          "description": "Capture only files inside the workspace. Files outside are recorded as 'external' in focus events and otherwise ignored."
+          "description": "Capture only files inside the workspace. Files outside are recorded as 'external' in focus events and are otherwise not captured; when paired, this comes from the study protocol and participant edits are ignored and recorded."
         },
         "tern.behavior.burstGapMs": {
           "type": "number",
           "default": 2000,
-          "description": "An edit burst closes after this many milliseconds without further edits."
+          "description": "An edit burst closes after this many milliseconds without further edits. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.aiCorrelationMs": {
           "type": "number",
           "default": 500,
-          "description": "An edit burst within this window of an accepted AI suggestion is classified origin=ai."
+          "description": "An edit burst within this window of an accepted AI suggestion is classified origin=ai. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.aiBlockCharThreshold": {
           "type": "number",
           "default": 80,
-          "description": "A block of at least this many characters landing within aiBlockMaxDurationMs is classified origin=ai (injected, not typed)."
+          "description": "A block of at least this many characters landing within aiBlockMaxDurationMs is classified origin=ai (injected, not typed). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.aiBlockMaxDurationMs": {
           "type": "number",
           "default": 50,
-          "description": "Window for the AI block-injection heuristic - humans do not type aiBlockCharThreshold characters this fast."
+          "description": "Window for the AI block-injection heuristic - humans do not type aiBlockCharThreshold characters this fast. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.pasteCorrelationMs": {
           "type": "number",
           "default": 100,
-          "description": "An edit burst within this window of a clipboard paste is classified origin=paste."
+          "description": "An edit burst within this window of a clipboard paste is classified origin=paste. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.idleWindowSeconds": {
           "type": "number",
           "default": 120,
-          "description": "No interaction for this long marks the participant idle (heartbeat state transition)."
+          "description": "No interaction for this long marks the participant idle (heartbeat state transition). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.focusDebounceMs": {
           "type": "number",
           "default": 250,
-          "description": "Debounce for editor focus switches - rapid tab-cycling records first + last."
+          "description": "Debounce for editor focus switches - rapid tab-cycling records first + last. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.visibleRangeDebounceMs": {
           "type": "number",
           "default": 500,
-          "description": "Per-editor debounce for visible-range (scroll) events."
+          "description": "Per-editor debounce for visible-range (scroll) events. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.attentionRegionRadiusLines": {
           "type": "integer",
           "minimum": 0,
           "default": 3,
-          "description": "Caret/hover may wander +/- this many lines and still count as the same attention region."
+          "description": "Caret/hover may wander +/- this many lines and still count as the same attention region. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.attentionMinDwellMs": {
           "type": "number",
           "minimum": 0,
           "default": 1500,
-          "description": "Attention regions with less present-and-active time than this are dropped as pass-through glances."
+          "description": "Attention regions with less present-and-active time than this are dropped as pass-through glances. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.output.directory": {
           "type": "string",
           "default": "",
-          "description": "Directory for JSONL study data. Paired participants use the extension-managed local mirror."
+          "description": "Directory for JSONL study data. While connected to a study, this is set to the extension-managed local mirror and participant changes are ignored."
         },
         "tern.output.httpEndpoint": {
           "type": "string",
           "default": "",
-          "description": "Middleware endpoint for event batches. Managed by study pairing while connected."
+          "description": "Middleware endpoint for event batches. Managed by study pairing; participant changes are ignored while connected to a study."
         },
         "tern.studyId": {
           "type": "string",
           "default": "",
-          "description": "The study this IDE is paired to. Managed by the connection link."
+          "description": "The study this IDE is paired to. Managed by pairing; participant changes are ignored while connected to a study."
         }
       }
     },
