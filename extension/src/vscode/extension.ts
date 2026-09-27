@@ -164,6 +164,24 @@ export function activate(context: vscode.ExtensionContext): void {
     registerPairing(context, () => sidebar.refresh()),
     registerSettingsGuard({
       lock: () => activeLock(),
+      // Only the identity keys that are actually written into settings.
+      // `condition` is excluded on purpose: it is never written, so comparing
+      // it would report drift forever and writing it back would reveal the arm.
+      identity: () => {
+        const paired = getPairedIdentity(context);
+        if (!paired) return undefined;
+        return {
+          participantId: paired.participantId,
+          studyId: paired.studyId,
+          ...(paired.ingestEndpoint
+            ? { 'output.httpEndpoint': paired.ingestEndpoint }
+            : {}),
+        };
+      },
+      reassertIdentity: async () => {
+        const paired = getPairedIdentity(context);
+        if (paired) await enforcePairedSettings(paired);
+      },
       record: (type, payload) => {
         // Recorded even while paused: an edit made during a break is still an
         // edit made during the session.
@@ -423,7 +441,14 @@ function bootSession(boot: BootConfig): void {
   const sinks: EventSink[] = [
     new JsonlSink(boot.dataFile, (err) => reportSinkError(err)),
   ];
-  const endpoint = cfg('output.httpEndpoint', '');
+  // Transport comes from the redeem, never through the lock: the lock holds no
+  // identity or transport key (the protocol only carries example values for
+  // them), so reading this through it would resolve to empty and silently drop
+  // the upload for every paired participant.
+  const pairedForSink = getPairedIdentity(extContext);
+  const endpoint = pairedForSink
+    ? pairedForSink.ingestEndpoint
+    : cfg('output.httpEndpoint', '');
   if (endpoint) sinks.push(new HttpSink(endpoint, undefined, boot.credential));
   const sink = new CompositeSink(sinks);
 

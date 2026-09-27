@@ -42,11 +42,27 @@ export function detectDrift(
   current: Record<string, unknown>,
 ): DriftReport[] {
   if (!lock.locked) return [];
+  const expected: Record<string, unknown> = {};
+  for (const key of lock.keys()) expected[key] = lock.lockedValue(key);
+  return detectDriftAgainst(expected, current);
+}
 
+/**
+ * The same comparison against an explicit expected map.
+ *
+ * Identity and transport are authoritative but deliberately absent from the
+ * lock  -  they come from the pairing redeem, because the protocol carries only
+ * example values for them  -  so `detectDrift` alone can never notice them being
+ * edited. The caller supplies what those keys should be.
+ */
+export function detectDriftAgainst(
+  expected: Record<string, unknown>,
+  current: Record<string, unknown>,
+): DriftReport[] {
   const out: DriftReport[] = [];
   for (const [key, attemptedValue] of Object.entries(current)) {
-    if (!lock.has(key)) continue;
-    const lockedValue = lock.lockedValue(key);
+    if (!Object.hasOwn(expected, key)) continue;
+    const lockedValue = expected[key];
     if (differs(lockedValue, attemptedValue)) {
       out.push({ key, lockedValue, attemptedValue });
     }

@@ -24,7 +24,11 @@ A handful of keys are the exception: `tern.participantId`, `tern.condition`,
 configuration. They are never taken from the protocol overlay  -  a protocol's
 example values would otherwise clobber the real pairing-issued ones  -  and
 instead come from the pairing redeem directly. The outcome for a participant
-is the same: editing them while connected has no effect.
+is the same: editing them while connected has no effect. An edit to one of
+the three that are written into settings  -  `tern.participantId`,
+`tern.studyId`, `tern.output.httpEndpoint`  -  is recorded and restored like
+any other. `tern.condition` is never written into settings at all, so it is
+neither compared nor restored: doing so would disclose the assigned arm.
 
 **The boundary.** TERN's lock covers only its own `tern.*` settings. It has
 no reach into the rest of the editor: a participant in the `unassisted`

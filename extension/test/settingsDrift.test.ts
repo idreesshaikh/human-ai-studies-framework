@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { detectDrift } from '../src/core/settingsDrift';
+import { detectDrift, detectDriftAgainst } from '../src/core/settingsDrift';
 import { LockedConfig } from '../src/core/lockedConfig';
 
-// Local stub  -  independent of the real builder, which another agent owns.
+// Local stub, so these cases test the comparison and not the builder.
 function stubLock(
   locked: boolean,
   values: Record<string, unknown>,
@@ -116,4 +116,50 @@ test('a changed number and a changed string are each reported', () => {
   const str = drift.find((d) => d.key === 'participantId');
   assert.equal(str?.lockedValue, 'P01');
   assert.equal(str?.attemptedValue, 'P02');
+});
+
+// detectDriftAgainst: identity and transport are authoritative but absent from
+// the lock, so they are compared against the values the redeem issued.
+
+test('detectDriftAgainst reports an edited identity key', () => {
+  const drift = detectDriftAgainst(
+    { participantId: 'P01', studyId: 'study-a' },
+    { participantId: 'P99', studyId: 'study-a' },
+  );
+  assert.deepEqual(drift, [
+    { key: 'participantId', lockedValue: 'P01', attemptedValue: 'P99' },
+  ]);
+});
+
+test('detectDriftAgainst reports a redirected ingest endpoint', () => {
+  const drift = detectDriftAgainst(
+    { 'output.httpEndpoint': 'https://study.example/ingest/events' },
+    { 'output.httpEndpoint': 'http://127.0.0.1:1/ingest/events' },
+  );
+  assert.equal(drift.length, 1);
+  assert.equal(drift[0].key, 'output.httpEndpoint');
+});
+
+test('detectDriftAgainst ignores a key the caller did not declare', () => {
+  // `condition` is never written into settings, so the caller leaves it out;
+  // it must not be reported just because settings hold the schema default.
+  const drift = detectDriftAgainst(
+    { participantId: 'P01' },
+    { participantId: 'P01', condition: 'unspecified' },
+  );
+  assert.deepEqual(drift, []);
+});
+
+test('detectDriftAgainst returns nothing when everything matches', () => {
+  assert.deepEqual(
+    detectDriftAgainst({ studyId: 's1' }, { studyId: 's1' }),
+    [],
+  );
+});
+
+test('detectDrift still delegates to the same comparison', () => {
+  const lock = stubLock(true, { 'stuck.enabled': true });
+  assert.deepEqual(detectDrift(lock, { 'stuck.enabled': false }), [
+    { key: 'stuck.enabled', lockedValue: true, attemptedValue: false },
+  ]);
 });

@@ -126,7 +126,12 @@ keys - `tern.participantId`, `tern.condition`, `tern.studyId`,
 not locked from the protocol, since the protocol's example values would
 otherwise overwrite the real pairing-issued ones; they come from the pairing
 redeem directly instead, with the same outcome: participant edits to them
-are ignored while connected.
+are ignored while connected. Edits to the three that are written into
+settings - `tern.participantId`, `tern.studyId`, `tern.output.httpEndpoint` -
+are recorded and restored the same way. `tern.condition` is the one
+exception: it is never written into settings at all, so there is nothing to
+compare it against and restoring it would disclose the arm the participant is
+blind to.
 
 This lock reaches only TERN's own `tern.*` settings. It has no control over
 the rest of the editor: a participant in the `unassisted` condition can

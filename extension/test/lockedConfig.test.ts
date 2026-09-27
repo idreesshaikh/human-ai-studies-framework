@@ -146,3 +146,24 @@ test('IDENTITY_KEYS contains exactly the six protocol-excluded keys', () => {
     ].sort(),
   );
 });
+
+test('hazard: an identity key resolves to the caller fallback, never to a value', () => {
+  // Why this matters, and it cost a regression once: reading an identity key
+  // through the lock does not return the protocol value and does not return the
+  // participant's value  -  it returns whatever fallback the call site passed.
+  // For the ingest endpoint that fallback is '', and an empty endpoint means
+  // bootSession builds no HttpSink at all, so a paired session would record
+  // locally and silently send nothing. Callers must take these from the pairing
+  // redeem (getPairedIdentity), not from cfg()/captureSetting().
+  const cfg = buildLockedConfig({
+    defaults: { 'output.httpEndpoint': 'http://from-extension-default' },
+    overlay: { 'output.httpEndpoint': 'http://from-protocol-example' },
+    paired: true,
+  });
+  assert.equal(cfg.has('output.httpEndpoint'), false);
+  assert.equal(cfg.get('output.httpEndpoint', ''), '');
+  assert.equal(cfg.get('output.httpEndpoint', 'FALLBACK'), 'FALLBACK');
+  for (const key of IDENTITY_KEYS) {
+    assert.equal(cfg.get(key, 'FALLBACK'), 'FALLBACK', key);
+  }
+});
