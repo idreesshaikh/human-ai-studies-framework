@@ -11,8 +11,10 @@ Three arrows:
 
 1. **platform design to extension.** A study compiles into a machine-readable
    capture configuration. The participant gets a one-use pairing link; the extension
-   redeems it (`POST /pair/redeem`) after consent and receives its capture config, a
-   session credential, and the ingest endpoint.
+   redeems it (`POST /pair/redeem`), which consumes the link and returns the capture
+   config, a session credential, and the ingest endpoint. The extension then shows the
+   returned consent statement and only persists and applies those values after the
+   participant accepts.
 2. **extension to platform.** The extension mirrors captured events to
    `/ingest/events` with the bearer credential (its `HttpSink`).
 3. **platform complements the data.** Events join into one timeline, export as JSON
@@ -29,11 +31,12 @@ built so the UI serves:
 ```bash
 export MIDDLEWARE_DB=.study-data/mw-verify.sqlite3
 export MIDDLEWARE_PROTOCOL=protocol/examples/pilot-study.yaml
-export MIDDLEWARE_DEV_MODE=1
-uv run python -m middleware serve
 
-cd platform && npm install && npm run build
-SMOKE_NO_COMPOSE=1 bash scripts/smoke.sh      # SMOKE OK
+(cd platform && npm install && npm run build)   # build the SPA so / serves
+uv run python -m middleware serve &             # background it; smoke runs from root
+server=$!; trap 'kill "$server" 2>/dev/null' EXIT
+
+SMOKE_NO_COMPOSE=1 bash scripts/smoke.sh        # SMOKE OK
 ```
 
 Alongside the smoke run I exercised the pieces directly, and compared what the real
@@ -78,11 +81,18 @@ against the type strings every recipe consumes.
 (`analysis/src/analysis/recipes/tlx_debrief.py:28,32`). `of_type` filters with pandas
 `.isin()` (`analysis/src/analysis/dataset.py:120`), an exact match, and nothing
 renames the type in between, so real extension data yields zero debrief rows and the
-TLX / cognitive-load measure silently gets nothing. Running the recipe's filter
-against a real `end_survey_response` event returns 0 rows; against
-`end_survey_response` it returns 1. The `tlx-debrief` recipe still shows green in the
-smoke run only because the fixtures use the old `end_survey` name. Tracked as a
-separate bug.
+TLX / cognitive-load measure silently gets nothing. On a dataset holding a real
+`end_survey_response` event, the recipe's `of_type("end_survey")` returns 0 rows,
+while `of_type("end_survey_response")` returns 1. The `tlx-debrief` recipe still shows
+green in the smoke run only because the fixtures use the old `end_survey` name.
+
+The name is not the only drift. The real payload is nested,
+`{responses, comments, msToComplete}` (`extension/src/vscode/endSurvey.ts:4`), whereas
+the fixtures carry flat numeric fields (`{mentalDemand, effort, frustration}`). The
+recipe treats every numeric column as a TLX subscale
+(`analysis/src/analysis/recipes/tlx_debrief.py:34`), so on real data it would miss the
+nested `responses.*` ratings and wrongly count `msToComplete` as a subscale. Fixing
+the event name alone does not close the loop. Tracked as a separate bug.
 
 **Stale fixtures.** The sample data is schema v2/v3; the extension is at v4
 (`extension/src/core/types.ts:22`) and uses the newer names. No v4 event traverses
@@ -117,9 +127,10 @@ privacy model, the extension itself, and the platform's ingest and analysis inte
 are all solid and covered. What is not yet true is that the real extension's output
 flows correctly into the analysis: the `end_survey` name drift is a live break in the
 debrief measure, and the stale fixtures were masking it well enough that the smoke run
-stays green. For a verify task that is the right outcome. The one thing between here
-and a complete round trip is aligning the extension's event names with what the
-analysis consumes and refreshing the fixtures to the current schema.
+stays green. For a verify task that is the right outcome. Closing the round trip takes
+more than renaming the event: the recipe also has to unwrap the real nested payload
+(read `responses.*`, exclude `msToComplete`) rather than treat every numeric column as
+a subscale, and the fixtures need regenerating to the real v4 shape.
 
 ---
 *Verified by @1122Louis, 2026-10-01, against origin/main, branch
