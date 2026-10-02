@@ -174,9 +174,6 @@ def _admission(support: int, references: list[dict]) -> tuple[bool, str]:
     )
 
 
-# The repertoire is a pure function of (registry, corpus), and both change rarely  -
-# memoize on the corpus row count so a fresh import or an abstract backfill invalidates
-# it, but repeated page loads don't re-rank 13 shapes.
 _CACHE: dict[tuple, list[dict]] = {}
 
 
@@ -195,9 +192,7 @@ def rank_repertoire(
         meta["templateId"]: template_registry.load_template(meta["templateId"])
         for meta in template_registry.list_templates()
     }
-    scanned = scan_corpus(
-        s, {tid: design_signature(t) for tid, t in templates.items()}
-    )
+    scanned = scan_corpus(s, {tid: design_signature(t) for tid, t in templates.items()})
 
     entries: list[dict] = []
     for meta in template_registry.list_templates():

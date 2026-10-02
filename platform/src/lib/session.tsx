@@ -12,10 +12,6 @@ import { createApi, type Api, type Me, type Preferences } from "./api.ts";
 import { applyTheme } from "./theme";
 import { CREDENTIAL_READY_EVENT } from "./auth.tsx";
 
-/* Provides the API client and the signed-in identity to the tree. In
- * none/token auth modes `me.mode` tells the shell to hide project UI
- * (single-facilitator continuity); in clerk mode the full shell shows. */
-
 const ApiContext = createContext<Api | null>(null);
 
 export function ApiProvider({
@@ -25,7 +21,7 @@ export function ApiProvider({
   api?: Api;
   children: ReactNode;
 }) {
-  // One client for the app's lifetime (or an injected one, for tests).
+
   const value = useMemo(() => api ?? createApi(), [api]);
   return <ApiContext.Provider value={value}>{children}</ApiContext.Provider>;
 }
@@ -40,9 +36,9 @@ interface SessionState {
   me: Me | null;
   loading: boolean;
   refresh: () => Promise<void>;
-  /** Persist part of this identity's profile (FR-OPS-7) and refresh `me`. */
+
   updatePreferences: (prefs: Partial<Preferences>) => Promise<void>;
-  /** Apply a theme preference locally and persist it to the profile. */
+
   setThemePreference: (theme: Preferences["theme"]) => Promise<void>;
 }
 
@@ -58,8 +54,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
       setMe(await api.me());
     } catch {
-      // Not signed in (401)  -  the auth layer's `onUnauthorized` listener
-      // shows the sign-in surface; this just avoids an unhandled rejection.
+
       setMe(null);
     } finally {
       setLoading(false);
@@ -76,9 +71,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const setThemePreference = useCallback(
     async (theme: Preferences["theme"]) => {
-      // Local change first so the chrome reacts instantly; persist is
-      // best-effort and doesn't block the UI. A legacy "system" preference
-      // resolves to light  -  the app no longer auto-follows the OS.
+
       if (theme) applyTheme(theme === "dark" ? "dark" : "light");
       try {
         await updatePreferences({ theme });
@@ -93,9 +86,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  // When the auth layer establishes a live credential (e.g. after a Clerk
-  // sign-in reload), the session's first /me may have 401'd  -  re-fetch now
-  // that a token is available.
   useEffect(() => {
     const onReady = () => {
       void refresh();
@@ -104,8 +94,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(CREDENTIAL_READY_EVENT, onReady);
   }, [refresh]);
 
-  // Server profile is authoritative for the initial theme (FR-OPS-7): when a
-  // signed-in identity has a saved theme, honour it over the local default.
   const appliedTheme = useRef(false);
   useEffect(() => {
     if (appliedTheme.current) return;

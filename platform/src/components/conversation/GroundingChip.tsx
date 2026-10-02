@@ -5,9 +5,6 @@ import { Confidence, ConfidenceValue, GroundingMark } from "./Confidence";
 import type { Grounding } from "@/lib/types";
 import { publicPaperReference } from "@/lib/paperReference";
 
-/* A citation chip: the paper title (quality shown as a confidence meter in the
- * hover card). Hover (or click/focus for keyboard and touch) reveals title,
- * year, venue, confidence, and why it's cited. */
 export function GroundingChip({ g }: { g: Grounding }) {
   const [open, setOpen] = useState(false);
   const cardId = useId();
@@ -16,14 +13,6 @@ export function GroundingChip({ g }: { g: Grounding }) {
   const [placement, setPlacement] = useState({ left: 0, top: 0 });
   const citation = publicPaperReference(g.ref);
 
-  /* The card renders into <body> and is placed from the chip's own box. As an
-   * absolutely-positioned sibling it was clipped by the conversation's
-   * scroller  -  a citation opened near the foot of the thread was sheared
-   * mid-ref against the scroller's edge  -  and position:fixed does not escape
-   * it either, because the move card itself establishes a containing block.
-   * Out in the body it can also flip above the chip when there is no room
-   * below. Hover still works across the gap: React routes mouseenter/leave
-   * through its own tree, so the portal counts as inside this wrapper. */
   const place = useCallback(() => {
     const a = anchor.current;
     const c = card.current;
@@ -45,8 +34,7 @@ export function GroundingChip({ g }: { g: Grounding }) {
   useLayoutEffect(() => {
     if (!open) return;
     place();
-    // The thread scrolls under an open card; follow the chip rather than
-    // leaving the citation stranded where it was opened.
+
     window.addEventListener("scroll", place, true);
     window.addEventListener("resize", place);
     return () => {
@@ -56,17 +44,14 @@ export function GroundingChip({ g }: { g: Grounding }) {
   }, [open, place]);
 
   return (
-    /* Hover state lives on the wrapper, not the button: WCAG 2.2 SC 1.4.13
-     * requires the revealed content to be hoverable, and closing on the
-     * button's own mouseleave made the gap between chip and card uncrossable,
-     * so a pointer user could never reach the full title the chip clamps. */
+
     <span
       ref={anchor}
       className="relative inline-block max-w-full"
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       onKeyDown={(e) => {
-        // Dismissible without moving the pointer or the focus (same SC).
+
         if (e.key === "Escape" && open) {
           e.stopPropagation();
           setOpen(false);
@@ -83,19 +68,7 @@ export function GroundingChip({ g }: { g: Grounding }) {
         onBlur={() => setOpen(false)}
         onClick={() => setOpen((v) => !v)}
       >
-        {/* The chip is clean; the citation's own confidence is the framed
-          * mark and its printed score at the left. A wall of citations reads
-          * as a field of magnitudes against identical frames  -  the strong
-          * support is visible before a single title is read  -  without marking
-          * up the whole chip. The words stay in the hover card, where there is
-          * room for them. */}
-        {/* `normal-case` and the caption voice: the Badge's own role is
-          * `type-legend`, which uppercases and tracks its label. That is right
-          * for a key ("OWNER", "DESIGN") and wrong for a citation, which is
-          * somebody's PAPER TITLE: it shipped as
-          * "INVESTIGATING AND DESIGNING FOR TRUST IN AI-POWERED CODE
-          * GENERATION TOOLS", which is not what the paper is called and is
-          * markedly harder to read at two lines. */}
+
         <Badge
           variant="grounded"
           className="type-caption max-w-full gap-1.5 normal-case tracking-normal"
@@ -107,10 +80,7 @@ export function GroundingChip({ g }: { g: Grounding }) {
             </span>
           )}
           <span className="type-legend shrink-0 text-grounded">grounded</span>
-          {/* Two lines of title, not one clamped line: a citation cut to
-              "MORE CODE, LESS UNDERSTANDING…" identifies nothing, and two of
-              them read as the same source. The flex chain above this now has
-              a definite width to wrap into (see StudyHome's tab body). */}
+
           <span className="line-clamp-2 min-w-0 text-left">{g.title}</span>
         </Badge>
       </button>

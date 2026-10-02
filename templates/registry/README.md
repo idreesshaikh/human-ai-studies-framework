@@ -1,6 +1,6 @@
 # Study templates
 
-The registry contains the feature-frozen set of generic study designs. A
+The registry contains the supported set of generic study designs. A
 template describes a design shape, its required instruments, its analysis
 recipes, and the papers that support it. Instantiation produces a valid
 protocol without hand-editing.

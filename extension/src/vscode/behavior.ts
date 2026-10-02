@@ -14,31 +14,14 @@ import { CaptureFilterConfig, shouldCapture } from '../core/captureFilter';
 import { FirstLastDebouncer, TrailingDebouncer } from '../core/debounce';
 import { DEFAULT_IDLE_CONFIG, IdleDetector } from '../core/idle';
 
-/**
- * Behavioral telemetry adapter: maps native VS Code events onto the
- * core aggregators and records the behavioral event types. Mechanisms and
- * their blind spots are documented in `docs/adaptation-notes.md` (NFR-10).
- *
- * Privacy stance (FR-ETH-2): every payload is sizes/shapes/timings. Text
- * content is touched in exactly two transient, in-memory ways - hashing a
- * copied selection for the internal-copy correlation, and reading
- * `contentChanges` lengths - and is never stored or forwarded.
- *
- * Failure stance (NFR-1): every native handler swallows its own errors,
- * counts them, and reports once per source as a `behavior_sensor_error`
- * event; a broken sensor never interrupts the participant.
- */
-
 export interface BehaviorPort {
-  /** Recorded only while the session runs and is not paused. */
   record(type: string, payload: Record<string, unknown>): void;
 }
 
-/** How long a wrapped paste/accept command waits for its document change. */
 const PENDING_MATCH_WINDOW_MS = 1_500;
-/** Inline-suggestion queries further apart than this start a new ghost session. */
+
 const SUGGESTION_SESSION_GAP_MS = 2_000;
-/** Internal-copy hashes are kept for at most this long (and never written). */
+
 const COPY_HASH_TTL_MS = 30 * 60_000;
 const MAX_COPY_HASHES = 8;
 
@@ -78,7 +61,6 @@ export class BehaviorCapture implements vscode.Disposable {
   private readonly filterCfg: CaptureFilterConfig;
   private readonly visibleRangeDebounceMs: number;
 
-  /** Session-local salt: hashes cannot be joined across sessions. */
   private readonly copySalt = crypto.randomBytes(16).toString('hex');
   private recentCopies: { hash: string; at: number }[] = [];
   private pendingPaste?: { at: number };
@@ -129,7 +111,6 @@ export class BehaviorCapture implements vscode.Disposable {
         windowMs: cfg('idleWindowSeconds', 120) * 1000,
       },
       (state) => {
-        // Idle gates the attention clock so away-time is never counted.
         this.attention.setPresent(state === 'active', Date.now());
         if (cfg('captureHeartbeat', true)) {
           this.port.record('heartbeat', { state });
@@ -150,16 +131,10 @@ export class BehaviorCapture implements vscode.Disposable {
     this.idle.start();
   }
 
-  /**
-   * Freeze the state machines and emit any open region. Called for both a
-   * manual break and the real session end (see extension.ts), so the caller
-   * passes the exit reason it means - a break must not look like an end in the
-   * attention stream.
-   */
   pause(reason: AttentionExit = 'session-pause'): void {
     this.aggregator.flush();
     this.aggregator.stop();
-    this.attention.flush(Date.now(), reason); // emit any open region
+    this.attention.flush(Date.now(), reason);
     this.idle.stop();
   }
 
@@ -170,8 +145,8 @@ export class BehaviorCapture implements vscode.Disposable {
   }
 
   dispose(): void {
-    this.aggregator.dispose(); // flushes the open burst
-    this.attention.dispose(); // flushes the open region
+    this.aggregator.dispose();
+    this.attention.dispose();
     this.idle.dispose();
     this.focusDebouncer.dispose();
     for (const d of this.rangeDebouncers.values()) d.dispose();
@@ -179,10 +154,6 @@ export class BehaviorCapture implements vscode.Disposable {
     for (const s of this.subs) s.dispose();
     this.recentCopies = [];
   }
-
-  // -------------------------------------------------------------------------
-  // Native event wiring
-  // -------------------------------------------------------------------------
 
   private wireListeners(): void {
     this.subs.push(
@@ -207,9 +178,6 @@ export class BehaviorCapture implements vscode.Disposable {
     );
 
     if (cfg('captureAiLifecycle', true)) {
-      // Passive provider: never contributes items, only observes when the
-      // editor computes inline completions. This is the public-API stand-in
-      // for "a suggestion is being shown" (blind spots in adaptation-notes).
       this.subs.push(
         vscode.languages.registerInlineCompletionItemProvider(
           { pattern: '**' },
@@ -224,9 +192,6 @@ export class BehaviorCapture implements vscode.Disposable {
     }
 
     if (cfg('captureAttention', true)) {
-      // Passive hover provider: never contributes a hover, only observes WHERE
-      // the mouse rests, so reading-by-pointing (no caret move) counts toward
-      // time-on-code. Blind spots documented in docs/adaptation-notes.md.
       this.subs.push(
         vscode.languages.registerHoverProvider(
           { pattern: '**' },
@@ -244,10 +209,7 @@ export class BehaviorCapture implements vscode.Disposable {
   private onActiveEditor(editor: vscode.TextEditor | undefined): void {
     const now = Date.now();
     this.idle.activity(now);
-    // Switching to a non-captured editor (or none: a webview, settings UI...)
-    // emits no selection event, so close the open region here or its clock
-    // keeps running and later attributes that time to the file we just left.
-    // A captured -> captured switch is closed by the selection handler's look().
+
     if (cfg('captureAttention', true)) {
       const captured =
         editor !== undefined &&
@@ -265,7 +227,7 @@ export class BehaviorCapture implements vscode.Disposable {
 
   private onWindowState(state: vscode.WindowState): void {
     if (state.focused) this.idle.activity(Date.now());
-    // Losing OS focus pauses the attention clock; regaining it resumes.
+
     this.attention.setPresent(state.focused, Date.now());
     if (!cfg('captureFocus', true)) return;
     this.port.record('editor_focus', {
@@ -279,7 +241,7 @@ export class BehaviorCapture implements vscode.Disposable {
     if (!cfg('captureAttention', true)) return;
     const meta = fileMeta(e.textEditor.document);
     if (!shouldCapture(this.filterCfg, meta)) {
-      this.attention.flush(now, 'file-switch'); // left the captured region
+      this.attention.flush(now, 'file-switch');
       return;
     }
     this.attention.look(
@@ -296,7 +258,7 @@ export class BehaviorCapture implements vscode.Disposable {
     if (!cfg('captureAttention', true)) return;
     const meta = fileMeta(doc);
     if (!shouldCapture(this.filterCfg, meta)) {
-      this.attention.flush(now, 'file-switch'); // left the captured region
+      this.attention.flush(now, 'file-switch');
       return;
     }
     this.attention.look(
@@ -324,8 +286,6 @@ export class BehaviorCapture implements vscode.Disposable {
       this.rangeDebouncers.set(key, debouncer);
     }
     debouncer.push({
-      // FR-ETH-2: an off-workspace path is never recorded, even when the
-      // filter is configured to admit external files.
       file: meta.workspaceRelativePath ?? 'external',
       topLine: r.start.line,
       bottomLine: r.end.line,
@@ -358,8 +318,6 @@ export class BehaviorCapture implements vscode.Disposable {
       insertedText += c.text;
     }
 
-    // An edit marks the region as edited (mode=editing) and keeps its caret
-    // presence, using the first change's line as the region anchor.
     if (cfg('captureAttention', true) && charsAdded + charsDeleted > 0) {
       this.attention.edit(
         meta.workspaceRelativePath ?? 'external',
@@ -368,8 +326,6 @@ export class BehaviorCapture implements vscode.Disposable {
       );
     }
 
-    // Wrapped-command correlation must precede the aggregator feed so the
-    // burst classifier sees the paste/accept timestamps.
     this.matchPendingPaste(now, meta, charsAdded, insertedText);
     this.matchPendingAiAccept(now, charsAdded, insertedText);
 
@@ -404,21 +360,12 @@ export class BehaviorCapture implements vscode.Disposable {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Wrapped clipboard commands (called by registerBehaviorCommands)
-  // -------------------------------------------------------------------------
-
-  /**
-   * Copy/cut inside the workspace: remember WHEN and a salted hash of WHAT
-   * (in-memory only) so a later paste can report `msSinceInternalCopy`.
-   * The clipboard itself is never read.
-   */
   noteCopy(): void {
     this.guard('copy', () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor || !cfg('captureClipboard', true)) return;
       if (fileMeta(editor.document).workspaceRelativePath === undefined) {
-        return; // copies from outside the workspace are "external" by design
+        return;
       }
       const text = editor.selections
         .map((sel) =>
@@ -435,7 +382,6 @@ export class BehaviorCapture implements vscode.Disposable {
     });
   }
 
-  /** Arm the paste correlation; the document change carries the sizes. */
   notePaste(): void {
     this.guard('paste', () => {
       if (!cfg('captureClipboard', true)) return;
@@ -443,7 +389,6 @@ export class BehaviorCapture implements vscode.Disposable {
     });
   }
 
-  /** Tab on a visible inline suggestion - arm the accept correlation. */
   noteInlineAccept(): void {
     this.guard('inline-accept', () => {
       if (!cfg('captureAiLifecycle', true)) return;
@@ -454,7 +399,6 @@ export class BehaviorCapture implements vscode.Disposable {
     });
   }
 
-  /** Esc on a visible inline suggestion. */
   noteInlineDismiss(): void {
     this.guard('inline-dismiss', () => {
       if (!cfg('captureAiLifecycle', true)) return;
@@ -467,15 +411,10 @@ export class BehaviorCapture implements vscode.Disposable {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // AI suggestion lifecycle
-  // -------------------------------------------------------------------------
-
   private onInlineQuery(): void {
     if (!cfg('captureAiLifecycle', true)) return;
     const now = Date.now();
     if (now - this.lastInlineQueryAt > SUGGESTION_SESSION_GAP_MS) {
-      // A fresh ghost-text session after a quiet spell: one `shown` event.
       const suggestionId = this.newSuggestionId();
       this.suggestionShownAt = now;
       this.port.record('ai_suggestion', { suggestionId, action: 'shown' });
@@ -507,10 +446,6 @@ export class BehaviorCapture implements vscode.Disposable {
     this.currentSuggestionId = undefined;
   }
 
-  // -------------------------------------------------------------------------
-  // Clipboard paste
-  // -------------------------------------------------------------------------
-
   private matchPendingPaste(
     now: number,
     meta: FileMeta,
@@ -540,10 +475,6 @@ export class BehaviorCapture implements vscode.Disposable {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Helpers
-  // -------------------------------------------------------------------------
-
   private hash(text: string): string {
     return crypto
       .createHash('sha256')
@@ -556,7 +487,6 @@ export class BehaviorCapture implements vscode.Disposable {
     return this.currentSuggestionId;
   }
 
-  /** NFR-1: swallow, count, report once per source - never interrupt. */
   private guard(source: string, fn: () => void): void {
     try {
       fn();
@@ -575,18 +505,6 @@ export class BehaviorCapture implements vscode.Disposable {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Wrapper commands (bound via contributed keybindings)
-// ---------------------------------------------------------------------------
-
-/**
- * The clipboard and inline-suggestion wrapper commands exist for the whole
- * extension lifetime (their keybindings do), but only measure while a
- * session is running. They ALWAYS delegate to the built-in command in a
- * `finally` - a telemetry bug must never break copy/paste (NFR-1). We wrap
- * via scoped keybindings instead of shadowing the built-in command ids;
- * see docs/adaptation-notes.md for why (Tako's approach was rejected).
- */
 export function registerBehaviorCommands(
   capture: () => BehaviorCapture | undefined,
 ): vscode.Disposable {
@@ -633,14 +551,9 @@ export function registerBehaviorCommands(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Environment snapshot (FR-INST-14)
-// ---------------------------------------------------------------------------
-
 const AI_EXTENSION_PATTERN =
   /copilot|claude|codeium|cursor|tabnine|continue|cody|supermaven|windsurf/i;
 
-/** Replication provenance, recorded once at session start. */
 export function environmentSnapshotPayload(
   context: vscode.ExtensionContext,
   platform: string,

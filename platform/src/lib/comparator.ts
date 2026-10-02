@@ -1,4 +1,4 @@
-/* Align protocol versions so unchanged lines stay in place during comparison. */
+
 
 export interface DiffLine {
   line: string;
@@ -6,19 +6,15 @@ export interface DiffLine {
 }
 
 export interface Plates {
-  /** The whole record in reading order: additions at full ink, removals struck
-   * and left legible. This is the resting state, and it is a document rather
-   * than an animation. */
+
   record: DiffLine[];
-  /** The document without the additions. Empty on a first compile. */
+
   before: DiffLine[];
-  /** The document without the removals. */
+
   after: DiffLine[];
-  /** Nothing existed before this compile, so the instrument has one plate. */
+
   firstVersion: boolean;
-  /** Rows the container must reserve so a shorter plate's turn cannot collapse
-   * the layout  -  which would be the one motion the comparator must never
-   * make. */
+
   rows: number;
 }
 
@@ -41,9 +37,6 @@ export function buildPlates(lines: DiffLine[]): Plates {
   };
 }
 
-/** Whether an earlier version of the document exists to compare against. A
- * diff of pure additions is a first version, and showing the comparator there
- * would print the same document the compiled-protocol block already shows. */
 export function hasEarlierVersion(lines: DiffLine[]): boolean {
   return lines.some((d) => d.kind === "remove" || d.kind === "context");
 }

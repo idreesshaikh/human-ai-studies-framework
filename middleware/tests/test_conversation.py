@@ -199,11 +199,14 @@ def _drive_to_valid_draft(client) -> dict:
     protocol draft, all in-conversation (F1.1).
     """
     _ask(client, _STUDY_SKETCH)
-    reply = _ask(client, (
-        "what design and statistics should I use? I was thinking "
-        "within-subjects, with each developer doing both conditions "
-        "counterbalanced"
-    ))
+    reply = _ask(
+        client,
+        (
+            "what design and statistics should I use? I was thinking "
+            "within-subjects, with each developer doing both conditions "
+            "counterbalanced"
+        ),
+    )
     template_moves = [m for m in reply["moves"] if m["kind"] == "choose-template"]
     assert template_moves, "the design script must propose a template"
     for m in template_moves:
@@ -554,9 +557,7 @@ def test_card_decision_can_trigger_one_empty_move_followup(client, monkeypatch):
     assert followup.json()["moves"] == []
 
 
-def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(
-    client, monkeypatch
-):
+def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(client, monkeypatch):
     """A failing provider ends the turn honestly, without ending the session."""
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())
     r = client.post(
@@ -650,9 +651,7 @@ def test_a_flaky_provider_is_retried_before_giving_up(client, monkeypatch):
     next call, so one retry saves the turn.
     """
     calls = {"n": 0}
-    good = model_double.always(
-        {"text": "Second time lucky.", "moves": []}
-    )
+    good = model_double.always({"text": "Second time lucky.", "moves": []})
 
     def flaky(url, body, headers):
         calls["n"] += 1
@@ -1072,3 +1071,50 @@ def test_merge_templates_move_flows_end_to_end(client, tmp_path, monkeypatch):
     assert compiled["protocol"]["study"]["title"].startswith("Merged design")
     refs = {lit["paperRef"] for lit in compiled["protocol"]["literature"]}
     assert "arxiv:2507.09089" in refs  # the METR paper the merge drew from
+
+
+def test_a_long_conversation_keeps_the_researchers_opening_framing(tmp_path):
+    """
+    The opening turn says what the study is about. A turn-count cap drops it first,
+    leaving the model to reason from the tail of the conversation - so selection is
+    budgeted, and the framing is anchored rather than aged out.
+    """
+    from middleware import design_assistant as da
+
+    settings = Settings(
+        db_path=tmp_path / "long.sqlite3",
+        data_dir=tmp_path / "data",
+        port=8000,
+        spa_dist=tmp_path / "no-dist",
+    )
+    factory = make_session_factory(f"sqlite:///{settings.db_path}")
+    create_app(settings)
+
+    with factory() as s:
+        for i in range(120):
+            s.add(
+                ConversationTurn(
+                    id=f"t{i:03d}",
+                    study_id=STUDY,
+                    seq=i,
+                    role="researcher" if i % 2 == 0 else "platform",
+                    text=(
+                        "I want to study how AI assistance changes cognitive load "
+                        if i == 0
+                        else f"turn {i} " + "filler words " * 40
+                    ),
+                    created_at="2026-09-11T10:00:00Z",
+                    source="model" if i % 2 else "",
+                )
+            )
+        s.commit()
+        history = da._load_history(s, STUDY)
+
+    assert "cognitive load" in history[0]["content"], (
+        "the opening framing must survive however long the conversation runs"
+    )
+    assert any("elided" in h["content"] for h in history), (
+        "the model must be told turns were dropped, not left to assume continuity"
+    )
+    assert "turn 119" in history[-1]["content"]
+    assert len(history) < 120

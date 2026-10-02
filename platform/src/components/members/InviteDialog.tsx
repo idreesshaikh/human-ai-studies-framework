@@ -12,8 +12,6 @@ import { Notice } from "@/components/ui/notice";
 import { useApi } from "@/lib/session";
 import { ApiError, type Invitation } from "@/lib/api.ts";
 
-/* Invite a colleague with a reusable share link. Anyone who opens it joins
- * as a member; links are revocable. */
 export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () => void }) {
   const api = useApi();
   const [open, setOpen] = useState(false);

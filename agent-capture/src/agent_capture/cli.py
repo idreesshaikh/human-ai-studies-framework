@@ -129,9 +129,7 @@ def _cmd_correlate(args) -> int:
         token = args.token or os.environ.get("MIDDLEWARE_TOKEN")
         rows = _fetch_dataset_from_manifest(manifest, token) if manifest else None
         rows = (
-            rows
-            if rows is not None
-            else _fetch_dataset(args.server, args.study, token)
+            rows if rows is not None else _fetch_dataset(args.server, args.study, token)
         )
     by_session: dict[str, list[dict]] = {}
     for r in rows:

@@ -18,38 +18,117 @@ log = logging.getLogger(__name__)
 
 _STOPWORDS = frozenset(
     [
-        "that", "this", "with", "from", "what", "were", "they", "have",
-        "been", "does", "their", "study", "using", "about", "would",
-        "could", "paper", "papers", "research", "the", "and", "for", "are",
-        "is", "to", "in", "of", "on", "or", "as", "an", "be", "do",
-        "how", "can", "you", "my", "we", "it", "will", "want", "think",
-        "one", "know", "not", "sure", "dont", "don", "t", "maybe", "just",
-        "which", "should", "use", "make", "more", "less", "than", "whether",
-        "people", "person", "participants", "participant", "session", "sessions",
-        "task", "tasks", "condition", "conditions", "compare", "comparison",
-        "design", "method", "methods", "measure", "measures", "measuring",
-        "result", "results", "effect", "effects",
+        "that",
+        "this",
+        "with",
+        "from",
+        "what",
+        "were",
+        "they",
+        "have",
+        "been",
+        "does",
+        "their",
+        "study",
+        "using",
+        "about",
+        "would",
+        "could",
+        "paper",
+        "papers",
+        "research",
+        "the",
+        "and",
+        "for",
+        "are",
+        "is",
+        "to",
+        "in",
+        "of",
+        "on",
+        "or",
+        "as",
+        "an",
+        "be",
+        "do",
+        "how",
+        "can",
+        "you",
+        "my",
+        "we",
+        "it",
+        "will",
+        "want",
+        "think",
+        "one",
+        "know",
+        "not",
+        "sure",
+        "dont",
+        "don",
+        "t",
+        "maybe",
+        "just",
+        "which",
+        "should",
+        "use",
+        "make",
+        "more",
+        "less",
+        "than",
+        "whether",
+        "people",
+        "person",
+        "participants",
+        "participant",
+        "session",
+        "sessions",
+        "task",
+        "tasks",
+        "condition",
+        "conditions",
+        "compare",
+        "comparison",
+        "design",
+        "method",
+        "methods",
+        "measure",
+        "measures",
+        "measuring",
+        "result",
+        "results",
+        "effect",
+        "effects",
     ]
 )
 
-# These words describe the broad application area, but are too common to justify
-# calling a paper a direct match for a particular study. A recommendation titled
-# "code" is not evidence about novice developers, productivity, workload, or bug
-# fixing merely because the query also contains the word "code".
 _GENERIC_MATCH_TERMS = frozenset(
     {
-        "ai", "artificial", "intelligence", "code", "coding", "program",
-        "programming", "software", "developer", "developers", "tool", "tools",
-        "llm", "llms", "model", "models", "generative", "computer",
+        "ai",
+        "artificial",
+        "intelligence",
+        "code",
+        "coding",
+        "program",
+        "programming",
+        "software",
+        "developer",
+        "developers",
+        "tool",
+        "tools",
+        "llm",
+        "llms",
+        "model",
+        "models",
+        "generative",
+        "computer",
     }
 )
 
 WEIGHT_MATCHED_TERM = 1.5
-# Source quality is a tie-breaker, never a substitute for relevance. A highly
-# cited survey should not outrank a direct match just because its corpus score
-# is strong.
+
 WEIGHT_CONFIDENCE = 0.35
-# A paper with no score reads as "unrated" (None), never a fabricated number.
+
 _CONF_MIDPOINT = 10.6
 _CONF_SCALE = 2.0
 
@@ -62,8 +141,8 @@ def paper_confidence(score: float | None) -> float | None:
     if score is None:
         return None
     return round(1.0 / (1.0 + math.exp(-(score - _CONF_MIDPOINT) / _CONF_SCALE)), 3)
-# The graph rung is the *floor* of the ladder - it must never outrank text evidence, so
-# its votes are capped and scaled well under one FTS hit.
+
+
 WEIGHT_GRAPH_VOTE = 0.15
 GRAPH_VOTE_CAP = 5
 GRAPH_SEED_MIN_TERMS = 2
@@ -103,9 +182,7 @@ def search_by_fts(s: Session, query: str, *, limit: int = 10) -> list[dict]:
     window - so a long PDF surfacing many chunks can't crowd single-chunk papers out of
     the candidate set.
     """
-    # Search the same content-bearing vocabulary used for ranking. Passing the
-    # raw conversational sentence lets filler words and accidental fragments
-    # decide which papers enter the candidate pool in the first place.
+
     search_terms = _terms(query)
     if not search_terms:
         return []
@@ -180,9 +257,6 @@ def rerank_with_llm(query: str, candidates: list[dict]) -> list[dict] | None:
     """Reorder ``candidates`` and phrase one-line reasons via Mistral."""
     from middleware import assistant
 
-    # Paper ranking is part of the assistant's visible reasoning trail. Use the
-    # the same EU Mistral route as the design turn, with the knowledge model's
-    # larger context budget for citation-heavy reranking.
     client = assistant.make_client()
     if client is None or not candidates:
         return None
@@ -337,15 +411,10 @@ def match_papers(
         specific_terms = [
             term for term in evidence_terms if term not in _GENERIC_MATCH_TERMS
         ]
-        # A paper that matches only broad coding vocabulary is never a direct match.
-        # It may still be useful as adjacent reading, but it must not be presented as
-        # evidence for a study just because the query contains the word "code".
+
         direct = bool(specific_terms)
         candidate["score"] = (
             candidate.get("score", 0.0)
-            # Direct language evidence is deliberately separated from source
-            # quality. This makes ranking explainable and prevents a famous,
-            # generic paper from crowding out a less-cited but on-topic one.
             + (8.0 if direct else 0.0)
             + WEIGHT_MATCHED_TERM * len(evidence_terms)
             + len(title_matches)
@@ -368,8 +437,6 @@ def match_papers(
             )
         enriched.append(candidate)
 
-    # Graph-only results are useful adjacent reading, but the recommendation
-    # rail must always prefer papers whose title or abstract answers the query.
     enriched.sort(
         key=lambda c: (
             c.get("matchKind") != "direct",
@@ -438,10 +505,7 @@ def _reason_for(
     if matched:
         title_terms = _matched_terms(query_terms, row.title)
         location = "its title" if title_terms else "its abstract"
-        return (
-            f"Matches your study vocabulary in {location}: "
-            f"{', '.join(matched[:4])}."
-        )
+        return f"Matches your study vocabulary in {location}: {', '.join(matched[:4])}."
     via = sorted(set(candidate.get("via", [])))
     if via:
         titles = list(

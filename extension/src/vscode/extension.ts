@@ -45,17 +45,16 @@ import { registerSidebar, SidebarSession } from './sidebar';
 import { StuckPromptController } from './stuckPrompt';
 
 const SNAPSHOT_KEY = 'tern.activeSession';
-/** How often (in 1 s ticks) the crash-recovery snapshot is refreshed. */
+
 const SNAPSHOT_EVERY_TICKS = 15;
-/** Resumption lag beyond this is not attributable to the prompt anymore. */
+
 const RESUMPTION_LAG_MAX_MS = 5 * 60_000;
 
 interface RunningStudy {
   session: StudySession;
   recorder: Recorder;
   sink: EventSink;
-  /** Set only when an HTTP endpoint is configured  -  the Data view's "not yet
-   *  sent" count has no meaning for a local-only session. */
+
   httpSink?: HttpSink;
   detector: StuckDetector;
   stuckPrompt: StuckPromptController;
@@ -69,7 +68,7 @@ interface RunningStudy {
   activeFatiguePrompt?: LikertPromptHandle;
   ending: boolean;
   ticksSinceSnapshot: number;
-  /** Set when a prompt closes; cleared by the first subsequent edit. */
+
   awaitingResumption?: { promptType: string; closedAt: number };
   lastBlurAt?: number;
 }
@@ -80,9 +79,6 @@ let study: RunningStudy | undefined;
 let extContext: vscode.ExtensionContext;
 let sinkErrorShown = false;
 
-/** What the sidebar is allowed to know about the running session. Reads the
- *  module's live state each call rather than capturing it, so a finished
- *  session can never be held open by the views. */
 function sidebarSession(): SidebarSession {
   const s = study;
   if (!s) {
@@ -106,8 +102,7 @@ export function activate(context: vscode.ExtensionContext): void {
   extContext = context;
   statusBar = new SessionStatusBar();
   context.subscriptions.push(statusBar);
-  // The sidebar is the primary surface (FR-INST-22); the status bar stays as
-  // the compact session indicator beside it.
+
   sidebar = registerSidebar(context, sidebarSession);
   context.subscriptions.push({ dispose: () => sidebar.dispose() });
   const pairedOnActivation = getPairedIdentity(context);
@@ -150,9 +145,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand('tern.statusMenu', statusMenu),
     vscode.commands.registerCommand('tern.openDataFolder', openDataFolder),
-    // Clipboard / inline-suggestion wrappers: bound only while a session is
-    // active (see the sessionActive context); always delegate to the
-    // built-in command even when no study is running.
+
     registerBehaviorCommands(() => study?.behavior),
     registerPairing(context, () => sidebar.refresh()),
     vscode.window.registerUriHandler({
@@ -170,8 +163,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {
   if (study) {
-    // Leave the snapshot in place: an unexpected shutdown mid-session should
-    // offer recovery on next launch. Clean ends clear it themselves.
     study.session.dispose();
     teardownStudy(false);
   }
@@ -183,9 +174,6 @@ function cfg<T>(key: string, fallback: T): T {
 
 function dataDirectory(): string {
   if (getPairedIdentity(extContext)) {
-    // A paired participant cannot redirect the local evidence path through a
-    // user-editable setting. Researchers can collect the authoritative stream
-    // from the server; this is only the crash-safe local mirror.
     return path.join(extContext.globalStorageUri.fsPath, 'study-data');
   }
   const configured = cfg('output.directory', '');
@@ -194,10 +182,6 @@ function dataDirectory(): string {
   if (ws) return path.join(ws.uri.fsPath, '.study-data');
   return path.join(extContext.globalStorageUri.fsPath, 'study-data');
 }
-
-// ---------------------------------------------------------------------------
-// Session lifecycle
-// ---------------------------------------------------------------------------
 
 async function startSession(): Promise<void> {
   if (study) {
@@ -211,8 +195,6 @@ async function startSession(): Promise<void> {
   let participantId: string;
   let condition: StudyCondition;
   if (paired) {
-    // These values come from the redeemed token. Never ask a participant to
-    // re-enter an identity or choose an arm from the command palette.
     participantId = paired.participantId;
     condition = paired.condition as StudyCondition;
   } else {
@@ -253,32 +235,20 @@ async function startSession(): Promise<void> {
     .replace(/[:.]/g, '-')}`;
   const dataFile = path.join(dataDirectory(), `${sessionTag}.jsonl`);
 
-  // The session id is minted here rather than inside StudySession so it can
-  // be sent with the config re-pull below: the server assigns this session's
-  // task block against it, which makes the assignment idempotent  -  a re-pull
-  // for a session already under way returns the same block instead of
-  // advancing the participant past one.
   const preparedSessionId = paired ? '' : cfg('session.id', '').trim();
   const plannedSessionId = preparedSessionId || newSessionId();
   if (preparedSessionId) {
-    // A prepared id is single-use. Clear the setting after consuming it so a
-    // later ordinary standalone session gets a fresh fallback id.
     await vscode.workspace
       .getConfiguration('tern')
       .update('session.id', '', vscode.ConfigurationTarget.Workspace);
   }
 
-  // A session boundary is the only point capture config may change (wall
-  // #6)  -  re-pull it now, before the clock arms, and get this IDE's paired
-  // credential (if any) for the HttpSink.
   const credential = await refreshConfigAtSessionStart(
     extContext,
     Boolean(study),
     plannedSessionId,
   );
 
-  // Show the pre-flight summary (FR-INST-21): what will and will not be
-  // captured this session. The participant can abort before the clock arms.
   const wsCfg = vscode.workspace.getConfiguration('tern');
   const knownPreflightKeys = [
     'stuck.enabled',
@@ -335,8 +305,7 @@ async function startSession(): Promise<void> {
       extContext,
       `${os.platform()} ${os.release()}`,
     ),
-    // Stamped so a live study is replicable down to exactly which metrics
-    // were on for this session (fixed for the whole session, never mutated).
+
     captureConfigVersion:
       pairingState<string>(extContext, 'tern.captureConfigVersion') ?? '',
   });
@@ -354,11 +323,9 @@ interface BootConfig {
   dataFile: string;
   durationMs: number;
   fatigueIntervalMs: number;
-  /** The session credential to send with ingest, if this IDE is paired. */
+
   credential?: string;
-  /** The id a fresh session must use  -  minted before the capture-config
-   *  re-pull so the server can assign this session's task block against it.
-   *  Absent on a crash recovery, which keeps the id it is restoring. */
+
   plannedSessionId?: string;
   taskId?: string;
   restore?: {
@@ -369,7 +336,6 @@ interface BootConfig {
   };
 }
 
-/** Shared constructor for fresh starts and crash recoveries. */
 function bootSession(boot: BootConfig): void {
   const sinks: EventSink[] = [
     new JsonlSink(boot.dataFile, (err) => reportSinkError(err)),
@@ -396,9 +362,6 @@ function bootSession(boot: BootConfig): void {
     onStuckResolved(res.answer, res.msToAnswer, res.region),
   );
 
-  // Comprehension probe controller (Phase 21, FR-INST-19, FR-DASH-12).
-  // Gated by the effective comprehensionProbe.enabled flag, read at session
-  // start only (wall #6).
   const comprehensionProbeEnabled = cfg('comprehensionProbe.enabled', false);
   let comprehensionProbe: ComprehensionProbeMachine | undefined;
   let comprehensionPrompt: ComprehensionPromptController | undefined;
@@ -446,8 +409,6 @@ function bootSession(boot: BootConfig): void {
     });
   }
 
-  // IDE health/diagnostics stream (Phase 20, FR-INST-18). Gated by the
-  // effective ideHealth.enabled flag, read at session start only (wall #6).
   let ideHealth: VscodeIdeHealthAdapter | undefined;
   if (cfg('ideHealth.enabled', false)) {
     ideHealth = new VscodeIdeHealthAdapter(
@@ -479,8 +440,7 @@ function bootSession(boot: BootConfig): void {
       onTick: (remaining) => onTick(remaining),
     },
     boot.restore,
-    // A resumed session keeps its own id; a fresh one uses the id the block
-    // was assigned against, so the two never disagree.
+
     boot.plannedSessionId,
   );
 
@@ -521,18 +481,13 @@ function bootSession(boot: BootConfig): void {
 
   if (cfg('stuck.enabled', true)) detector.start();
 
-  // Behavioral telemetry leg. The port re-checks session state on
-  // every record so debouncer tails and burst flushes can never leak events
-  // into a paused or ended session.
   if (cfg('behavior.enabled', true)) {
     const behavior = new BehaviorCapture({
       record: (type, payload) => {
         const cur = study;
         if (!cur || cur.ending || cur.session.paused) return;
         cur.recorder.record(type, payload);
-        // Feed accepted AI chunks to the comprehension probe machine (Phase
-        // 21, FR-INST-19). An ai-origin burst that survived the undo window
-        // is an "accepted chunk"  -  fire the state machine.
+
         if (
           type === 'edit_burst' &&
           payload.origin === 'ai' &&
@@ -580,11 +535,7 @@ function onTick(remaining: number): void {
   } else {
     statusBar.tick(remaining);
   }
-  // The status bar is the live second-by-second clock. Rebuilding all three
-  // tree providers here made the sidebar visibly flicker every second and
-  // caused an avoidable burst of accessibility work. The sidebar is refreshed
-  // at session start, pause/resume, and end instead; its countdown is
-  // intentionally secondary to the status bar.
+
   if (++s.ticksSinceSnapshot >= SNAPSHOT_EVERY_TICKS) {
     s.ticksSinceSnapshot = 0;
     persistSnapshot();
@@ -594,14 +545,12 @@ function onTick(remaining: number): void {
 async function finishStudy(reason: 'elapsed' | 'manual'): Promise<void> {
   const s = study;
   if (!s || s.ending) return;
-  // Close the open edit burst while events can still be recorded. This is the
-  // real end, not a break, so the attention stream is flushed as 'session-end'.
+
   s.behavior?.pause('session-end');
   s.ending = true;
   statusBar.debrief();
   sidebar.refresh();
 
-  // Freeze sensors so nothing fires during the debrief.
   s.detector.stop();
   s.stuckPrompt.resolve('dismissed');
   s.activeFatiguePrompt?.cancel();
@@ -647,8 +596,7 @@ function endSession(reason: 'manual'): void {
 function pauseSession(): void {
   const s = study;
   if (!s || s.ending || s.session.paused) return;
-  // Flush the open edit burst BEFORE the clock pauses, so it still records.
-  // This is a break, not the end - the attention region closes as 'session-pause'.
+
   s.behavior?.pause('session-pause');
   s.session.pause();
   s.detector.stop();
@@ -701,10 +649,6 @@ function teardownStudy(resetStatusBar: boolean): void {
   sidebar.refresh();
 }
 
-// ---------------------------------------------------------------------------
-// Crash recovery
-// ---------------------------------------------------------------------------
-
 function persistSnapshot(): void {
   const s = study;
   if (!s || s.ending) return;
@@ -727,16 +671,10 @@ async function clearSnapshot(): Promise<void> {
   await extContext.workspaceState.update(SNAPSHOT_KEY, undefined);
 }
 
-/**
- * If the previous window died mid-session (crash, reload, power loss), offer
- * to continue it. The downtime gap is counted as PAUSED time - the
- * participant was not working - and is recorded so the analysis can see it.
- */
-/** Structural + version validation for a persisted crash-recovery snapshot. */
 function isRestorableSnapshot(
   snap: SessionSnapshot & { savedAtEpochMs: number },
 ): boolean {
-  if (snap.schemaVersion > SCHEMA_VERSION) return false; // written by a newer build
+  if (snap.schemaVersion > SCHEMA_VERSION) return false;
   return (
     typeof snap.sessionId === 'string' &&
     snap.sessionId.length > 0 &&
@@ -756,9 +694,6 @@ async function offerCrashRecovery(): Promise<void> {
   >(SNAPSHOT_KEY);
   if (!snap) return;
 
-  // Defend against a corrupt or forward-incompatible snapshot (e.g. left by a
-  // newer build after a downgrade): we cannot safely interpret it, so drop it
-  // rather than restore a session from fields we may misread.
   if (!isRestorableSnapshot(snap)) {
     await clearSnapshot();
     return;
@@ -779,9 +714,6 @@ async function offerCrashRecovery(): Promise<void> {
   const gapMs = Math.max(0, Date.now() - snap.savedAtEpochMs);
   const startSeq = JsonlSink.lastSeqIn(snap.dataFile) + 1;
 
-  // A crash-recovery resume continues the interrupted session, it does not
-  // start a new one  -  reuse the paired credential as-is, never re-pull
-  // config here (wall #6: a running/resuming session is never reconfigured).
   const credential = await getStoredCredential(extContext);
 
   bootSession({
@@ -794,7 +726,7 @@ async function offerCrashRecovery(): Promise<void> {
     restore: {
       sessionId: snap.sessionId,
       startedAtEpochMs: snap.startedAtEpochMs,
-      // Downtime is treated as a pause, not as study time.
+
       pausedMsAccumulated: snap.pausedMsAccumulated + gapMs,
       startSeq,
     },
@@ -807,10 +739,6 @@ async function offerCrashRecovery(): Promise<void> {
   });
   persistSnapshot();
 }
-
-// ---------------------------------------------------------------------------
-// Signals → recorded attention events & resumption lag
-// ---------------------------------------------------------------------------
 
 function onEditorSignal(signal: EditorSignal): void {
   const s = study;
@@ -852,10 +780,6 @@ function armResumptionLag(promptType: string): void {
   study.awaitingResumption = { promptType, closedAt: Date.now() };
 }
 
-// ---------------------------------------------------------------------------
-// Prompts
-// ---------------------------------------------------------------------------
-
 function onStuckResolved(
   answer: StuckAnswer,
   msToAnswer: number,
@@ -873,13 +797,6 @@ function onStuckResolved(
   }
 }
 
-/**
- * Experience-sampling probes never interrupt typing: when one is due we mark
- * the status bar and wait for a natural pause (no edits for N seconds)
- * before showing the QuickPick. If no pause happens within 60 s, it shows
- * anyway - and the actual deferral is recorded, because "how long we had to
- * wait to interrupt politely" is itself methodologically relevant.
- */
 async function runFatiguePrompt(
   trigger: 'scheduled' | 'manual',
 ): Promise<void> {
@@ -900,7 +817,6 @@ async function runFatiguePrompt(
         if (!study || study.ending || study.session.paused) return;
       }
     } else {
-      // A manual probe replaces the next scheduled one instead of doubling up.
       s.session.deferNextFatigue();
     }
 
@@ -929,10 +845,6 @@ async function runFatiguePrompt(
     statusBar.attention(false);
   }
 }
-
-// ---------------------------------------------------------------------------
-// Menus & helpers
-// ---------------------------------------------------------------------------
 
 async function statusMenu(): Promise<void> {
   if (!study) {

@@ -66,7 +66,9 @@ outcome = json.loads(request(
 ))
 assert outcome["events"] > 0
 assert not outcome["plan"].get("errors"), outcome["plan"]
-dataset = json.loads(request(f"/studies/{study}/dataset"))
+assert json.loads(request(f"/studies/{study}/dataset"))["rows"] == []
+assert json.loads(request(f"/studies/{study}/live"))["sessions"] == []
+dataset = json.loads(request(f"/studies/{study}/dataset?includeSynthetic=true"))
 rows = dataset["rows"]
 assert {row["sessionId"] for row in rows} == set(outcome["sessionIds"])
 assert all(row["payload"].get("synthetic") is True for row in rows)

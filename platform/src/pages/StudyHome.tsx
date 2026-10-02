@@ -24,21 +24,6 @@ import { resolveRole, roleOrNull } from "@/lib/role";
 import { cn } from "@/lib/cn";
 import { humanSlug } from "@/lib/slug";
 
-/* A study's workspace, and the whole arc the platform supports: configure a
- * developer study, run it, and inspect the data. The setup conversation is the
- * primary surface. The workspace tabs follow the actual researcher path:
- * Setup → Evidence → Plan → Run → Data. The route ids stay stable for deep
- * links and the tour, while the visible labels explain why each surface exists
- * instead of exposing five unrelated product nouns.
- *
- * There is deliberately no lifecycle board. Tracking a study across seven
- * phases was ceremony no researcher worked through, and treating ethics approval
- * as an app gate blocked the one thing this workspace exists to do: it made a
- * designed, compiled study impossible to actually set up. Approval is the
- * university's to grant; what the platform owes a participant is an
- * unmissable account of what will be captured, which the consent statement
- * at pairing gives them. */
-
 type Tab = "conversation" | "library" | "data" | "planning" | "enrollment";
 
 const TABS: { id: Tab; label: string; icon: typeof Library }[] = [
@@ -53,9 +38,7 @@ export function StudyHome() {
   const { slug = "", id = "" } = useParams();
   const api = useApi();
   const { me, loading: meLoading } = useSession();
-  // The active tab lives in the URL (not local state) so a refresh, a
-  // shared link, or the browser's back button lands on the same tab
-  // instead of always bouncing back to the conversation.
+
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const tab: Tab = TABS.some((t) => t.id === tabParam) ? (tabParam as Tab) : "conversation";
@@ -68,10 +51,7 @@ export function StudyHome() {
       },
       { replace: true },
     );
-  /* A study reached straight from project creation carries the researcher's
-   * answer to "what do you want to find out?"  -  their first turn, typed
-   * before this workspace existed. Router state, not a query param: it is a
-   * one-time hand-off, not part of the study's address. */
+
   const location = useLocation();
   const opening =
     typeof (location.state as { opening?: unknown } | null)?.opening === "string"
@@ -79,21 +59,7 @@ export function StudyHome() {
       : "";
 
   const [showTour, setShowTour] = useState(false);
-  /* The tab the researcher was on when the tour opened.
-   *
-   * The tour BORROWS the workspace to demonstrate it  -  each step switches the
-   * tab to whatever it is describing  -  and it has to give it back. It did
-   * not: the last step is about Participants, so every first-run walkthrough
-   * ended by abandoning the researcher on the Participants tab of a study
-   * with no protocol, looking at "Nobody can be enrolled yet". The one screen
-   * whose whole job is to get someone started left them on the only tab where
-   * nothing can be done yet, and the first tab it had just spent two steps
-   * explaining was two clicks away again.
-   *
-   * Restoring the remembered tab is right in both directions: a first run
-   * opens on Conversation and returns there, and a researcher who reopens the
-   * tour with "?" from Planning is put back on Planning rather than being
-   * dumped somewhere they never chose. */
+
   const tabBeforeTour = useRef<Tab>(tab);
 
   const openTour = () => {
@@ -101,33 +67,17 @@ export function StudyHome() {
     setShowTour(true);
   };
 
-  // The workspace is self-explanatory enough to start without a blocking tour.
-  // Keep the walkthrough available from the help button for researchers who ask
-  // for it, but never put a first-time modal in front of their study.
-
   const closeTour = () => {
     markTourSeen();
     setShowTour(false);
     setTab(tabBeforeTour.current);
   };
 
-  // My role in this study's project. The project payload is the fresh source
-  // (the session's memberships can be a session old, which is what made the
-  // Revoke control on Participants come and go); "still loading" stays
-  // distinct from "member"  -  see lib/role.ts.
   const { data: project, loading: projectLoading } = useAsync(
     () => api.projectHome(slug),
     [api, slug],
   );
-  /* In local (non-Clerk) dev mode, the server's per-study authorization
-   * check waves through any unknown study id  -  deliberately, since local
-   * mode has no real accounts to check against  -  so a stale bookmark, a
-   * typo'd id, or a deleted study all render a fully interactive, empty
-   * workspace with no sign anything is wrong (verified live: every
-   * conversation/compile call the page fires returns 200 for a study that
-   * was never created). `project.studies` is the same list the sidebar
-   * and Studies tab already read from, so cross-checking against it here
-   * is a real "does this study exist in THIS project" answer, not a guess. */
+
   const studyExists =
     projectLoading || !project ? null : project.studies.some((st) => st.id === id);
   const roleState = resolveRole({
@@ -155,18 +105,7 @@ export function StudyHome() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* TWO ruled tiers, not one row that wraps. The identity of the study
-       * (where it lives, what it is called, what you can do to the whole of
-       * it) is one kind of thing; which part of it you are looking at is
-       * another. Packed into a single row these four groups could not fit a
-       * 1440px window, so `flex-wrap` silently dropped the actions onto a
-       * second line under the title  -  a two-tier header by accident, aligned
-       * to nothing.
-       *
-       * Tiering it deliberately also puts the tab strip on the workspace's
-       * real spine: the axis mark under the active section now lands on the
-       * rule that divides chrome from work, instead of floating 20px above
-       * an unrelated border. */}
+
       <header className="border-b border-border bg-surface">
         <div className="flex items-center gap-3 px-4 pb-1.5 pt-2">
           <div className="flex min-w-0 items-baseline gap-2">
@@ -176,13 +115,7 @@ export function StudyHome() {
               className="type-label flex shrink-0 items-center gap-1 self-center rounded-control px-1.5 py-1 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
             >
               <ChevronLeft className="size-4" aria-hidden />
-              {/* A project's slug is its address, not its name. The name is
-               * already on the payload this page loads for the role check.
-               *
-               * Below `sm` the name gives its width back to the study's own
-               * title, which is the thing this screen is about  -  carrying
-               * both truncated a 390px header to "Trust cali…". The chevron
-               * still goes back, and the link keeps its name above. */}
+
               <span className="hidden max-w-40 truncate sm:inline">
                 {project?.name ?? slug}
               </span>
@@ -190,16 +123,14 @@ export function StudyHome() {
             <span className="hidden shrink-0 text-border-strong sm:inline" aria-hidden>
               /
             </span>
-            {/* A study id IS its slug in the schema, so the header was
-             * printing `trust-calibration-in-ai-code-review` at 28px as the
-             * study's name. Same string, read as words. */}
+
             <h1 className="type-title truncate text-text" title={humanSlug(id)}>
               {humanSlug(id)}
             </h1>
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <ExportStudy studyId={id} />
+            <ExportStudy key={id} studyId={id} />
             <Button
               variant="ghost"
               size="icon"
@@ -222,24 +153,16 @@ export function StudyHome() {
               onClick={() => setTab(t.id)}
               aria-label={t.label}
               aria-current={tab === t.id ? "page" : undefined}
-              /* The active section carries the axis mark  -  a rule on the
-               * edge the strip is ruled against, plus a cleared ground. It is
-               * the same "you are here" form the project sidebar uses, and it
-               * is deliberately not a fill: a fill in this app means "an
-               * action you can take", and a tab you are already on is a
-               * position, not an action. */
+
               className={cn(
-                "type-control relative flex shrink-0 items-center gap-1.5 rounded-control rounded-b-none border border-b-0 px-2 py-2 transition-all duration-standard sm:px-2.5",
+                "type-control relative flex min-h-11 sm:min-h-0 shrink-0 items-center gap-1.5 rounded-control rounded-b-none border border-b-0 px-2 py-2 transition-all duration-standard sm:px-2.5",
                 tab === t.id
                   ? "control-axis axis-under"
                   : "border-transparent text-text-muted hover:bg-zone-9 hover:text-text")}
             >
-              <t.icon className="size-4" aria-hidden />
-              {/* Narrow screens can't carry five labels, but five bare glyphs
-                * tell a stranger nothing and a phone has no hover to fall back
-                * on. The section you are in says its name; the rest are marks
-                * you can reach  -  which is also what the struck mark means. */}
-              <span className={cn(tab === t.id ? "inline" : "hidden sm:inline")}>
+              <t.icon className="hidden size-4 sm:block" aria-hidden />
+
+              <span>
                 {t.label}
               </span>
             </button>
@@ -247,37 +170,31 @@ export function StudyHome() {
         </nav>
       </header>
 
-      {/* This row clips; it never scrolls itself. Each tab owns its one
-       * scroller (a Surface body, or  -  for Library  -  its own split-rail
-       * columns), so the workspace never ends up with two scrollbars. */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {tab === "conversation" && (
-          /* min-w-0: without it this flex item takes its width from its widest
-           * unshrinkable descendant, so one long citation title pushed the
-           * whole workspace column off the side of a phone. A definite width
-           * here is also what lets the citation wrap instead of clamp. */
+
           <div className="min-h-0 min-w-0 flex-1">
-            <ConversationView studyId={id} opening={opening} />
+            <ConversationView key={id} studyId={id} opening={opening} />
           </div>
         )}
         {tab === "library" && (
           <div className="min-h-0 min-w-0 flex-1">
-            <LibraryTab studyId={id} />
+            <LibraryTab key={id} studyId={id} role={role} />
           </div>
         )}
         {tab === "data" && (
           <div className="min-h-0 min-w-0 flex-1">
-            <DataTab studyId={id} />
+            <DataTab key={id} studyId={id} />
           </div>
         )}
         {tab === "planning" && (
           <div className="min-h-0 min-w-0 flex-1">
-            <PowerPanel studyId={id} />
+            <PowerPanel key={id} studyId={id} />
           </div>
         )}
         {tab === "enrollment" && (
           <div className="min-h-0 min-w-0 flex-1">
-            <EnrollmentPanel studyId={id} role={role} />
+            <EnrollmentPanel key={id} studyId={id} role={role} />
           </div>
         )}
       </div>

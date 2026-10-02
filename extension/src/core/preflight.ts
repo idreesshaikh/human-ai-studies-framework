@@ -1,19 +1,10 @@
-/**
- * The "will capture / will not capture" summary shown before a session's clock
- * arms (FR-INST-21). A forgotten toggle is caught here, before any task data is
- * recorded  -  the hard-wall alternative to mid-session reconfiguration (wall #6).
- */
-
 export interface PreflightItem {
-  /** The `tern.`-stripped flag key. */
   key: string;
-  /** Plain-language name for the participant/researcher. */
+
   label: string;
   on: boolean;
 }
 
-/** The capture toggles worth surfacing, in display order. Extend as instruments
- * are added; unknown flags in the config are ignored, missing ones read off. */
 const TRACKED: { key: string; label: string }[] = [
   { key: 'stuck.enabled', label: 'Stuck detection' },
   { key: 'behavior.captureEditBursts', label: 'Edit bursts' },

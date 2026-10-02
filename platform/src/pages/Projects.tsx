@@ -11,9 +11,6 @@ import { useAsync } from "@/lib/useAsync";
 import { ROLE_LABELS } from "@/lib/capabilities.ts";
 import { ApiError, type ProjectSummary } from "@/lib/api.ts";
 
-/* Project list and creation form. Study counts come from the list response. */
-
-/** Show a filter when the list has more than six projects. */
 const FILTER_THRESHOLD = 6;
 
 function studySummary(count: number): string {
@@ -81,12 +78,13 @@ export function Projects() {
   const { data, loading, error, reload } = useAsync(() => api.listProjects(), [api]);
   const [composing, setComposing] = useState(false);
   const [name, setName] = useState("");
-  // Optional opening question for the project's first study.
+
   const [question, setQuestion] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [filter, setFilter] = useState("");
   const nameRef = useRef<HTMLInputElement>(null);
+  const createdProject = useRef<{ name: string; slug: string } | null>(null);
 
   useEffect(() => {
     if (composing) nameRef.current?.focus();
@@ -110,23 +108,18 @@ export function Projects() {
     setCreating(true);
     setCreateError("");
     try {
-      const project = await api.createProject(name);
-      setName("");
-      setQuestion("");
-      setComposing(false);
-      // Refresh both the project list and `me` so the creator's owner
-      // membership on the new project resolves right away (role-gated controls
-      // depend on it).
-      reload();
+      const trimmedName = name.trim();
+      const project = createdProject.current?.name === trimmedName
+        ? createdProject.current
+        : await api.createProject(trimmedName);
+      createdProject.current = { name: trimmedName, slug: project.slug };
+      const study = await api.createStudy(project.slug, trimmedName);
       await refresh();
-
-      // Start with one study so a new project opens directly into setup.
       const opening = question.trim();
-      const study = await api.createStudy(project.slug, name);
+      createdProject.current = null;
       navigate(`/p/${project.slug}/studies/${study.id}`, { state: { opening } });
     } catch (e) {
-      // Only the API's own wording reaches the researcher; a bare HTTP status
-      // ("Not Found") names no problem and suggests no recovery.
+
       setCreateError(
         e instanceof ApiError && e.fromServer
           ? e.message
@@ -159,7 +152,7 @@ export function Projects() {
           <h1 className="type-title text-text">Projects</h1>
           <p className="type-body text-text-muted">Organize studies and collaborators.</p>
         </div>
-        {/* The empty state has its own create button. */}
+
         {!composing && data && data.length > 0 && (
           <Button onClick={openComposer}>
             <Plus aria-hidden /> New project
@@ -255,7 +248,10 @@ export function Projects() {
       )}
 
       {error && (
-        <Notice kind="problem">{error}</Notice>
+        <Notice kind="problem">
+          {error}
+          <Button variant="subtle" size="sm" onClick={reload}>Try again</Button>
+        </Notice>
       )}
 
       {data && data.length === 0 && (

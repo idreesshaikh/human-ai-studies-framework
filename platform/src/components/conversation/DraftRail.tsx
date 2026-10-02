@@ -11,9 +11,6 @@ import { Button } from "@/components/ui/button";
 import { ProtocolGuide } from "./ProtocolGuide";
 import { cn } from "@/lib/cn";
 
-/* The rail is the study's working memory, not a second transcript. It answers
- * three things at a glance: what has been decided, what is next, and whether
- * the draft can be reviewed. Full protocol prose stays below the fold. */
 export function DraftRail({
   draft,
   serverYaml,
@@ -41,19 +38,14 @@ export function DraftRail({
   onFinish?: () => void;
   understanding?: Understanding;
   loading?: boolean;
-  /** The last idea was outside PHOENIX's supported lane. Keep the draft
-   *  visible, but stop the rail from asking a developer-study question that
-   *  contradicts the boundary message in the conversation. */
+
   scopeBlocked?: boolean;
 }) {
   const path = buildProtocolPath(draft, scopeBlocked ? undefined : understanding);
   const complete = unresolved !== undefined
     ? unresolved.length === 0
     : MANDATORY_SLOTS.every((slot) => draft[slot].length > 0);
-  /* The compiler can validate a partial scaffold while the conversation is
-   * still walking the researcher through its core sections. Readiness in this
-   * rail is a researcher-facing hand-off, so the visible path must also be
-   * complete before the draft can read as runnable. */
+
   const ready = complete && path.done === path.total && compileValid === true;
   const conversationStarted = MANDATORY_SLOTS.some((slot) => draft[slot].length > 0);
   const protocolStudy = protocol?.study;

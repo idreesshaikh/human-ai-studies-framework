@@ -11,8 +11,6 @@ import { useAsync } from "@/lib/useAsync";
 import { ApiError } from "@/lib/api.ts";
 import { resolveRole, roleOrNull } from "@/lib/role";
 
-/* Project settings: rename, and an owner-only danger zone whose delete
- * requires typing DELETE to confirm. */
 export function ProjectSettings() {
   const api = useApi();
   const { me, loading: meLoading, refresh } = useSession();
@@ -25,9 +23,6 @@ export function ProjectSettings() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
-  // My role here, with "not known yet" kept distinct from "viewer"  -  see
-  // lib/role.ts. Defaulting to viewer while the session loaded is what made
-  // the owner-only danger zone flicker in and out.
   const roleState = resolveRole({
     projectMembers: data?.members,
     meSub: me?.sub,
@@ -58,9 +53,7 @@ export function ProjectSettings() {
       setErr(e instanceof ApiError ? e.message : "Could not delete.");
       return;
     }
-    // The project is gone. Refreshing the session is housekeeping after the
-    // fact  -  if it fails, that must not be reported as a failed delete, which
-    // is what happened while this sat inside the try above.
+
     await refresh().catch(() => {});
     navigate("/home");
   };
@@ -90,10 +83,7 @@ export function ProjectSettings() {
                 Save
               </Button>
             </div>
-            {/* The slug is set once at creation and never follows a rename  -
-             * intentional, so bookmarks and shared invite links never break.
-             * Called out here so that stays a design decision, not a bug
-             * report. */}
+
             <p className="type-caption text-text-muted">
               The URL (<span className="type-quantity identifier">/{data?.slug}</span>) stays the
               same so existing links keep working. Only the display name changes.
@@ -103,16 +93,11 @@ export function ProjectSettings() {
         </Card>
 
         <RoleGate role={mine} capability="delete" pending={rolePending}>
-          {/* Framed in critical, not in `--unsourced`. Unsourced is this
-            * world's mark for "logged, your call, not wrong"; wearing it on a
-            * destructive control said the opposite of what deleting a project
-            * means, and spent a provenance signal on something that carries no
-            * provenance. */}
+
           <Card className="border-critical/40">
             <CardContent className="flex flex-col gap-3 p-4">
               <div>
-                {/* Named for what it does. "Danger zone" is borrowed copy that
-                  * describes the box rather than the action inside it. */}
+
                 <h2 className="type-subhead text-text">Delete this project</h2>
                 <p className="type-body text-text-muted">
                   This removes the project, its memberships and its

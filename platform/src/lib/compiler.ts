@@ -9,13 +9,6 @@ import {
   type ProtocolDraft,
 } from "./types.ts";
 
-/* Turns accepted design moves into a protocol draft. A pure function of
- * (base draft, accepted moves): no LLM, no clock, no randomness  -  replaying
- * the same moves against the same base always yields the same draft. The
- * conversation proposes moves; only this deterministic step builds the draft.
- *
- * It compiles the client-side preview; the server's compiler remains
- * authoritative for protocol YAML and the audited diff. */
 export function compile(
   base: ProtocolDraft,
   moves: DesignMove[],
@@ -24,14 +17,13 @@ export function compile(
   for (const move of moves) {
     if (move.status !== "accepted") continue;
     if (move.kind === "merge-templates") {
-      // A merged protocol is a real design  -  the slot reads as filled with
-      // the shapes being combined (the server's merge is authoritative).
+
       draft.design = move.mergeData?.templateIds ?? [];
       continue;
     }
-    if (!move.patch) continue; // cautions have no patch
+    if (!move.patch) continue;
     if (isTemplatePatch(move.patch)) {
-      // The only move kind that can ever fill the mandatory `design` slot.
+
       draft.design = [move.patch.templateId];
       continue;
     }
@@ -43,9 +35,7 @@ export function compile(
       ) {
         draft.instruments.push(name);
       }
-      // `reconfigure` tweaks an already-added instrument's config  -  it
-      // never fills the slot on its own (matches the server: an add/set
-      // move is what makes the instrument exist at all).
+
       continue;
     }
     if (isStatisticsPatch(move.patch)) {
@@ -53,13 +43,7 @@ export function compile(
       continue;
     }
     if (isFieldPatch(move.patch)) {
-      // Only participants.* maps onto one of the core sections here  -  the
-      // other fillable slots (session.*, study.*) are administrative detail
-      // this client-side preview does not track. This used to match none of
-      // the type guards at all, so an accepted set-field move silently did
-      // not move the dot it should have: the server's own compile (the
-      // authoritative unresolved list) already reflected it, but the
-      // optimistic preview a researcher watches while deciding did not.
+
       const path = move.patch.path.join(".");
       if (path === "comparison") {
         const values = legacyComparisonValues(move.patch.value);
@@ -79,7 +63,7 @@ export function compile(
       const list = draft[section];
       if (!list.includes(value)) list.push(value);
     } else {
-      // `set` replaces the section's single line (scalar-ish slots)
+
       draft[section] = [value];
     }
   }
@@ -98,9 +82,6 @@ function legacyComparisonValues(value: unknown): string[] {
     .filter(Boolean);
 }
 
-/** Compile from scratch over the full move history  -  the draft rail's
- * source of truth. Folding over every move (rather than mutating in place)
- * is what lets rejecting a move cleanly remove its effect. */
 export function compileAll(moves: DesignMove[]): ProtocolDraft {
   return compile(emptyDraft(), moves);
 }

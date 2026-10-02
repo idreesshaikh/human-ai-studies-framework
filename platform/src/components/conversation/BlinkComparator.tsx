@@ -6,7 +6,6 @@ import { buildPlates, type DiffLine } from "@/lib/comparator";
 
 export type { DiffLine };
 
-/* Compare protocol versions in place. Reduced motion disables automatic alternation. */
 export function BlinkComparator({
   lines,
   className,
@@ -24,10 +23,6 @@ export function BlinkComparator({
     return () => window.clearInterval(id);
   }, [running, reducedMotion]);
 
-  /* The plate arithmetic lives in `lib/comparator.ts` and is exercised by
-   * `scripts/verify-comparator.mjs`: the marker stripping and the
-   * first-version case are the two things that can be wrong in a way no
-   * screenshot would show. */
   const { record, before, after, firstVersion, rows } = buildPlates(lines);
 
   const blinking = firstVersion ? null : running || reducedMotion ? phase : null;
@@ -77,7 +72,7 @@ export function BlinkComparator({
         style={{ minHeight: `${rows * 1.15 + 1.5}em` }}
       >
         {[record, before, after].map((plate, i) => {
-          // 0 is the resting record; 1 and 2 are the two alternating plates.
+
           const visible = blinking === null ? i === 0 : blinking === i - 1;
           return (
             <pre
@@ -85,8 +80,7 @@ export function BlinkComparator({
               aria-hidden={!visible}
               className={cn(
                 "type-quantity m-0 whitespace-pre leading-relaxed",
-                // Stacked so every state occupies identical coordinates. Only
-                // the visible one is painted.
+
                 i > 0 && "absolute inset-0 p-3",
                 visible ? "opacity-100" : "opacity-0",
               )}
@@ -108,11 +102,6 @@ export function BlinkComparator({
   );
 }
 
-/* A removed line is struck and left readable, which is the same mark an
- * amendment uses everywhere else in this product. Nothing is tinted green or
- * red: while the plates alternate, a colour difference between "the before
- * plate's removal" and "the after plate's context" would make unchanged text
- * appear to move, which is the one thing a comparator must never do. */
 const LINE_CLASS: Record<string, string> = {
   add: "text-text",
   remove: "superseded",

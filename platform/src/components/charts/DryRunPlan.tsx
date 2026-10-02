@@ -2,7 +2,6 @@ import { CheckCircle2, AlertTriangle, FlaskConical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { DryRunPlan as Plan } from "@/lib/studyApi";
 
-/* Show which planned recipes ran, their results, and any missing data. */
 export function DryRunPlan({ plan }: { plan: Plan }) {
   if (plan.note) {
     return (
@@ -14,9 +13,7 @@ export function DryRunPlan({ plan }: { plan: Plan }) {
 
   const ran = plan.ran.length;
   const failures = Object.entries(plan.errors ?? {});
-  /* "Every prescribed test computed" is the claim worth making plainly, and
-   * only when it is true of the whole plan  -  a blocked recipe or a raised
-   * error both make it false, so both must clear before the calm wording. */
+
   const complete = ran === plan.planned && plan.blocked.length === 0 && !failures.length;
 
   return (
@@ -65,8 +62,7 @@ export function DryRunPlan({ plan }: { plan: Plan }) {
                   </Badge>
                 ))}
               </div>
-              {/* Verbatim, and wrapped rather than clipped: the caveats live
-                * at the end of these sentences. */}
+
               <p className="mt-1.5 type-caption leading-relaxed text-text-muted">
                 {r.summary}
               </p>

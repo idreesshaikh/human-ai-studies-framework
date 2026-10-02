@@ -29,19 +29,8 @@ export interface IdeHealthEvent {
 export type DiagnosticKind = 'error' | 'warning';
 export type InvocationKind = 'build' | 'test';
 
-/** The event sink for emitted health snapshots. */
 export type HealthEventSink = (event: IdeHealthEvent) => void;
 
-/**
- * Pure debounced counter for IDE health/diagnostics (FR-INST-18).
- *
- * Accepts raw counts via `record()`, flushes after a quiet window via
- * `flush()`, and can be driven by a VS Code adapter that subscribes to
- * `onDidChangeDiagnostics`.
- *
- * Content-free by construction: only counts, never diagnostic messages,
- * file paths, or code content (FR-ETH-2 grep-test target).
- */
 export class IdeHealthCollector implements Disposable {
   private _errorCount = 0;
   private _warningCount = 0;
@@ -59,21 +48,18 @@ export class IdeHealthCollector implements Disposable {
     this._onFlush = onFlush;
   }
 
-  /** Record a diagnostic count change (additive). */
   recordDiagnostics(errors: number, warnings: number): void {
     this._errorCount += errors;
     this._warningCount += warnings;
     this._scheduleFlush();
   }
 
-  /** Record a build or test invocation. */
   recordInvocation(kind: InvocationKind): void {
     if (kind === 'build') this._buildInvocations += 1;
     else this._testInvocations += 1;
     this._scheduleFlush();
   }
 
-  /** Reset all counters (e.g. on session start). */
   reset(): void {
     this._errorCount = 0;
     this._warningCount = 0;
@@ -83,7 +69,6 @@ export class IdeHealthCollector implements Disposable {
     this._debounceTimer = undefined;
   }
 
-  /** Current snapshot (non-destructive). */
   snapshot(): IdeHealthSnapshot {
     return {
       errorCount: this._errorCount,
@@ -93,7 +78,6 @@ export class IdeHealthCollector implements Disposable {
     };
   }
 
-  /** Force-flush and emit the current counters, then reset. */
   flush(): void {
     if (this._debounceTimer) {
       clearTimeout(this._debounceTimer);

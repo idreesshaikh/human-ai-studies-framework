@@ -196,9 +196,15 @@ def test_a_vague_opener_gets_a_question_not_a_design(client):
 
 
 def test_scope_gate_allows_students_when_they_are_programming():
-    assert elicitation.classify_scope(
-        ["Students debug a shared repository with and without an AI coding assistant."]
-    ) == "supported"
+    assert (
+        elicitation.classify_scope(
+            [
+                "Students debug a shared repository with and without an "
+                "AI coding assistant."
+            ]
+        )
+        == "supported"
+    )
 
 
 def test_scope_gate_blocks_exam_and_other_non_developer_studies(client):

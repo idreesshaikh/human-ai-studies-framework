@@ -19,19 +19,13 @@ export const STATE_CONDITION = 'tern.pairedCondition';
 export const STATE_INGEST_ENDPOINT = 'tern.pairedIngestEndpoint';
 export const STATE_PAIRED = 'tern.paired';
 const STATE_VERSION = 'tern.captureConfigVersion';
-/** The leg summary from the config currently *in force*  -  what the sidebar
- *  (FR-INST-22) renders. Written only where the config is actually applied,
- *  so the surface can never claim a leg is running before it is. */
+
 export const STATE_LEGS = 'tern.legs';
-/** Set when the server has a newer config than the one in force  -  i.e. a
- *  researcher amended the study mid-session. Wall #6 says it lands at the
- *  next session start, so the sidebar shows it as pending rather than
- *  silently implying the change already took effect. */
+
 export const STATE_PENDING = 'tern.pendingConfigVersion';
-/** The task block this session was assigned  -  what the sidebar shows the
- *  participant so they know what they have been asked to do. */
+
 export const STATE_BLOCK = 'tern.sessionBlock';
-/** The full manifest for facilitator-visible producer state and external runners. */
+
 export const STATE_MANIFEST = 'tern.sessionManifest';
 
 export interface PairedIdentity {
@@ -41,9 +35,6 @@ export interface PairedIdentity {
   ingestEndpoint: string;
 }
 
-/** Pairing survives the deliberate workspace switch to the assigned task.
- * Workspace state is retained as a local mirror for older sessions, while
- * global state carries the link across `vscode.openFolder`. */
 export function pairingState<T>(
   context: vscode.ExtensionContext,
   key: string,
@@ -73,36 +64,27 @@ interface RedeemResult {
   contentPolicy: string;
 }
 
-/** Identity/transport keys resolved from the redeem, NOT from the protocol  -
- * applyConfig must never clobber them (else a session-start refresh would
- * reset the paired endpoint to the protocol's example value). */
 const IDENTITY_KEYS = new Set([
   'participantId',
   'condition',
   'output.httpEndpoint',
 ]);
 
-/** Apply a capture config's overlay flags into `tern.*` settings
- * (workspace scope). Called only at a session boundary (wall #6). */
 async function applyConfig(cfg: CaptureConfig): Promise<void> {
   const flags = overlayFlags(cfg);
   const conf = vscode.workspace.getConfiguration('tern');
   for (const [key, value] of Object.entries(flags)) {
-    if (IDENTITY_KEYS.has(key)) continue; // identity/endpoint come from the redeem
+    if (IDENTITY_KEYS.has(key)) continue;
     await conf.update(key, value, vscode.ConfigurationTarget.Workspace);
   }
 }
 
-/** The credential last stored by a successful pairing, or undefined if this
- * IDE has never paired. Read-only  -  does not touch the network. */
 export async function getStoredCredential(
   context: vscode.ExtensionContext,
 ): Promise<string | undefined> {
   return context.secrets.get(SECRET_CRED);
 }
 
-/** The server-issued identity for a paired participant. Never read these
- * values back from editable VS Code settings. */
 export function getPairedIdentity(
   context: vscode.ExtensionContext,
 ): PairedIdentity | undefined {
@@ -117,13 +99,6 @@ export function getPairedIdentity(
   return { studyId, participantId, condition, ingestEndpoint };
 }
 
-/** Re-pull the study's capture config at a session boundary and apply it if
- * the version changed AND no session is active (wall #6  -  see
- * `shouldApplyCaptureConfig`). `sessionActive` is the caller's own liveness
- * flag (e.g. `Boolean(study)`); the only real call site passes `false`
- * because it runs before the clock arms, but the guard fails closed even if
- * a future call site got that wrong. No-op when unpaired. Returns the
- * credential to use for the session's HttpSink, or undefined when unpaired. */
 export async function refreshConfigAtSessionStart(
   context: vscode.ExtensionContext,
   sessionActive: boolean,
@@ -137,10 +112,6 @@ export async function refreshConfigAtSessionStart(
     vscode.workspace.getConfiguration('tern').get<string>('studyId');
   if (!cred || !server || !studyId) return cred ?? undefined;
   try {
-    // The session id lets the server assign (and remember) this session's
-    // task block. Sending it is what makes the assignment idempotent: a
-    // re-pull for a session already under way returns the same block rather
-    // than advancing the participant to the next one.
     const url = new URL(`${server}/studies/${studyId}/capture-config`);
     if (sessionId) url.searchParams.set('sessionId', sessionId);
     const res = await fetch(url, {
@@ -148,9 +119,7 @@ export async function refreshConfigAtSessionStart(
     });
     if (res.ok) {
       const cfg = (await res.json()) as CaptureConfig;
-      // The assigned block is display state, not capture config: it is
-      // stored whatever wall #6 decides about the settings, because what the
-      // participant is asked to do this session is true either way.
+
       await persistPairingState(context, STATE_BLOCK, readBlock(cfg));
       await persistPairingState(context, STATE_MANIFEST, cfg.sessionManifest);
       const applied = pairingState<string>(context, STATE_VERSION);
@@ -175,9 +144,6 @@ export async function refreshConfigAtSessionStart(
         await persistPairingState(context, STATE_LEGS, cfg.legs);
         await persistPairingState(context, STATE_PENDING, undefined);
       } else {
-        // Not applied. Either nothing changed, or a change arrived mid-session
-        // and wall #6 holds it until the next start  -  record which, so the
-        // sidebar can say so instead of showing stale state as current.
         await persistPairingState(
           context,
           STATE_PENDING,
@@ -193,10 +159,6 @@ export async function refreshConfigAtSessionStart(
   return cred;
 }
 
-/** Redeem a connection string, gate on consent, persist identity + the
- * credential, apply the initial capture config, and show the pre-flight
- * summary. Shared by the `connectToStudy` command and the `vscode://…/pair`
- * URI handler  -  one redeem path, no second mechanism. */
 export async function pairFromConnectionString(
   context: vscode.ExtensionContext,
   raw: string,
@@ -230,7 +192,6 @@ export async function pairFromConnectionString(
     return;
   }
 
-  // Consent gate  -  show the statement + policy, require explicit acceptance.
   const gate = new ConsentGate(result.consentStatement, result.contentPolicy);
   const choice = await vscode.window.showInformationMessage(
     result.consentStatement,
@@ -240,7 +201,6 @@ export async function pairFromConnectionString(
   if (choice !== 'I consent') return;
   gate.acknowledge();
 
-  // Persist identity + credential (SecretStorage for the secret) and apply config.
   await context.secrets.store(SECRET_CRED, result.sessionCredential);
   await persistPairingState(context, STATE_SERVER, conn.serverUrl);
   await persistPairingState(context, STATE_STUDY_ID, result.studyId);
@@ -297,9 +257,6 @@ export async function pairFromConnectionString(
     ingestEndpoint: result.ingestEndpoint,
   });
 
-  // The redeem payload includes the first assigned task when the protocol
-  // declares one. Open a local task workspace before the participant starts;
-  // repository URLs remain informational and are never executed or cloned.
   const initialBlock = readBlock(result.captureConfig);
   if (initialBlock) await openAssignedWorkspace(initialBlock);
   else {
@@ -309,7 +266,6 @@ export async function pairFromConnectionString(
   }
   onPaired?.();
 
-  // Pre-flight summary (before any session starts).
   const items = preflightSummary(overlayFlags(result.captureConfig));
   const on =
     items
@@ -328,16 +284,13 @@ export async function enforcePairedSettings(
   const target = vscode.ConfigurationTarget.Workspace;
   await conf.update('studyId', identity.studyId, target);
   await conf.update('participantId', identity.participantId, target);
-  // Do not write the assigned arm into editable workspace settings. The
-  // recorder receives it from the pairing lock, while leaving it here would
-  // let participants discover the blind through Settings or settings.json.
+
   await conf.update('condition', undefined, target);
   if (identity.ingestEndpoint) {
     await conf.update('output.httpEndpoint', identity.ingestEndpoint, target);
   }
 }
 
-/** Open only an explicit local folder supplied as task materials. */
 async function openAssignedWorkspace(block: SessionBlock): Promise<void> {
   const raw = block.materials.trim();
   if (!raw) return;
@@ -381,10 +334,7 @@ export function registerPairing(
     });
     if (!raw) return;
     await pairFromConnectionString(context, raw, onPaired);
-    // Keep the command boundary explicit as well as the shared redeem path:
-    // TreeViews can be mounted after the async consent flow returns, so a
-    // refresh at the command boundary guarantees the participant sees the
-    // newly applied capture scope immediately.
+
     onPaired?.();
   });
 }

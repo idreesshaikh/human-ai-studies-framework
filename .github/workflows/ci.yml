@@ -24,8 +24,9 @@ jobs:
 
 
       # No workspace member may be missing from testpaths or the coverage
-      # source list - that is how `curated`'s 11 tests went unrun.
-      - name: Workspace package lists agree
+      # source list - a member absent from both has its tests silently skipped,
+      # which is how a package once sat in the workspace with 11 tests unrun.
+      - name: Workspace consistency and size budget
         run: uv run python scripts/check_workspace_config.py
 
       # `--cov` with no value takes its source list from
@@ -33,8 +34,8 @@ jobs:
       # shipped src/, not one package's. The floor sits just under the
       # measured total so it is a ratchet - raise it as coverage climbs,
       # never lower it to make a red build green.
-      - name: Tests + coverage (whole workspace, floor 79%)
-        run: uv run pytest --cov --cov-report=term-missing --cov-fail-under=79
+      - name: Tests + coverage (whole workspace, floor 82%)
+        run: uv run pytest --cov --cov-report=term-missing --cov-fail-under=82
 
       # The static-metrics leg keeps the stricter bar it already met; the
       # workspace floor must never be a licence to let it slip.

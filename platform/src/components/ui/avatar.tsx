@@ -1,8 +1,5 @@
 import { cn } from "@/lib/cn";
 
-/* A small identity circle. When an image is supplied (e.g. a Clerk-hosted
- * avatar in hosted mode) it renders that; otherwise it falls back to the
- * first letter of a name or email. */
 export function Avatar({
   name,
   src,

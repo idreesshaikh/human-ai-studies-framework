@@ -53,9 +53,7 @@ def _designed_study(client) -> dict:
             "counterbalanced",
         ),
     )
-    result = client.post(
-        f"/studies/{STUDY}/conversation/compile", json={}
-    ).json()
+    result = client.post(f"/studies/{STUDY}/conversation/compile", json={}).json()
     assert result["valid"], (result["errors"], result["unresolved"])
     r = client.post(
         f"/studies/{STUDY}/conversation/approve",
@@ -95,9 +93,7 @@ def test_a_session_is_assigned_a_task_and_the_editor_receives_it(client):
     token = _mint(client, 1)[0]
     redeemed = _pair(client, token["connectionString"].rsplit("#", 1)[1])
     assert redeemed["captureConfig"]["block"]["taskId"]
-    cred = redeemed[
-        "sessionCredential"
-    ]
+    cred = redeemed["sessionCredential"]
 
     config = _capture_config(client, cred, "s-1")
     block = config["block"]

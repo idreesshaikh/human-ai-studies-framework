@@ -60,9 +60,7 @@ def test_near_duplicate_catches_exact_and_paraphrase():
         "before accept/reject."
     )
     assert _is_near_duplicate(prior, prior)
-    assert _is_near_duplicate(
-        "Measure review latency (time before accept).", prior
-    )
+    assert _is_near_duplicate("Measure review latency (time before accept).", prior)
     moves = (_mv("add-measure", "Measure review latency (time before accept)."),)
     assert _filter_repeated_moves(moves, _state(key_texts=[prior])) == ()
 

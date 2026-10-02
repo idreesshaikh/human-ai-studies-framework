@@ -1,10 +1,6 @@
 import * as vscode from 'vscode';
 import { formatRemaining } from '../core/clock';
 
-/**
- * The only permanently visible UI: a small countdown in the status bar.
- * Clicking it opens the session menu (log fatigue now / end session).
- */
 export class SessionStatusBar implements vscode.Disposable {
   private readonly item: vscode.StatusBarItem;
 
@@ -30,7 +26,6 @@ export class SessionStatusBar implements vscode.Disposable {
       'Study session running - click for options (log fatigue, end session)';
   }
 
-  /** Session running but paused: freeze the countdown and flag it. */
   paused(remainingMs: number): void {
     this.item.text = `$(debug-pause) ${formatRemaining(remainingMs)} paused`;
     this.item.tooltip =
@@ -38,7 +33,6 @@ export class SessionStatusBar implements vscode.Disposable {
     this.item.backgroundColor = undefined;
   }
 
-  /** The timer is intentionally replaced while the end-of-session survey is open. */
   debrief(): void {
     this.item.text = '$(comment-discussion) Study: debrief';
     this.item.tooltip =
@@ -46,7 +40,6 @@ export class SessionStatusBar implements vscode.Disposable {
     this.item.backgroundColor = undefined;
   }
 
-  /** Brief highlight used to softly announce a due fatigue prompt. */
   attention(on: boolean): void {
     this.item.backgroundColor = on
       ? new vscode.ThemeColor('statusBarItem.warningBackground')

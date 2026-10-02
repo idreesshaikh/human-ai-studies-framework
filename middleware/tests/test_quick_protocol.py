@@ -28,20 +28,20 @@ def test_checklist_creates_a_compiler_verified_draft(client_no_protocol: TestCli
     assert result["templateId"] == "within-subjects-crossover-v1"
     assert result["selectedMeasures"] == BODY["measures"]
     assert result["protocol"]["study"]["title"] == BODY["title"]
-    assert result["protocol"]["researchQuestions"][0]["text"] == BODY[
-        "researchQuestion"
-    ]
-    assert result["protocol"]["participants"]["description"] == BODY[
-        "participantDescription"
-    ]
+    assert (
+        result["protocol"]["researchQuestions"][0]["text"] == BODY["researchQuestion"]
+    )
+    assert (
+        result["protocol"]["participants"]["description"]
+        == BODY["participantDescription"]
+    )
     assert result["protocol"]["measures"] == BODY["measures"]
     assert result["protocol"]["tasks"][0]["description"] == BODY["taskDescription"]
 
     conversation = client_no_protocol.get("/studies/pilot/conversation").json()
     assert conversation["turns"][-1]["source"] == "scripted"
     assert all(
-        move["status"] == "accepted"
-        for move in conversation["turns"][-1]["moves"]
+        move["status"] == "accepted" for move in conversation["turns"][-1]["moves"]
     )
 
 
