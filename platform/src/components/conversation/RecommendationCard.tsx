@@ -15,9 +15,6 @@ function sourceUrl(identifier?: string): string | null {
   return null;
 }
 
-/* A recommended paper. Arrives with a small rise as if dealt onto the
- * table. The match reason is one sentence, always shown in full. Adding it
- * joins the paper to the study set (local-only for now). */
 export function RecommendationCard({
   rec,
   added,

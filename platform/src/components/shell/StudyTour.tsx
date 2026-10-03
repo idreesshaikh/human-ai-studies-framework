@@ -2,12 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ArrowLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-/* A focused, first-study walkthrough. It doesn't just describe the workspace  -
- * it drives it: advancing switches the active tab (via onTab), so each step is
- * read against the surface it's about. Deliberately in-house (no tour library):
- * full keyboard + reduced-motion control, and nothing new to pull in. Shown
- * once (localStorage), and re-openable from the "?" in the workspace. */
-
 export type TourTab =
   | "conversation"
   | "library"
@@ -61,24 +55,6 @@ export function StudyTour({
     onTab(STEPS[clamped].tab);
   };
 
-  /* Focus has to move INTO the dialog when it opens.
-   *
-   * This is what makes the rest of the component work at all. The key handler
-   * below hangs off this div, and React delivers keydown by bubbling from
-   * whatever is focused  -  with focus left on `body`, nothing bubbled through
-   * here, so Escape did not close the tour and the arrow keys did not step it.
-   * Every keyboard affordance this dialog claims to have was inert.
-   *
-   * It is also what `aria-modal="true"` promises and did not deliver: with
-   * focus outside, Tab walked the app chrome *behind* the scrim (the first
-   * stop was the "Phoenix, home" link), so a keyboard or screen-reader user
-   * met an obscured page instead of the walkthrough  -  on the very first
-   * screen a new researcher sees.
-   *
-   * The panel takes focus rather than the "Next" button, so a screen reader
-   * reads the dialog from its own top instead of starting at the last
-   * control; and the element that was focused before is restored on close,
-   * so dismissing the tour returns the researcher where they were. */
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -86,9 +62,6 @@ export function StudyTour({
     return () => previous?.focus?.();
   }, []);
 
-  /* Tab stays inside while it is open. Without this the trap is only
-   * advisory: `aria-modal` tells assistive tech to ignore the background, but
-   * it does not stop the Tab key from reaching it. */
   const trapTab = (e: React.KeyboardEvent) => {
     if (e.key !== "Tab") return;
     const focusable = panel.current?.querySelectorAll<HTMLElement>(
@@ -119,12 +92,7 @@ export function StudyTour({
         trapTab(e);
       }}
     >
-      {/* `tabIndex={-1}`: focusable by script, never a stop in the Tab order
-        * itself. No outline suppression is needed and none is written  -  a
-        * programmatic `.focus()` does not match `:focus-visible` (verified in
-        * the browser), so the global focus ring in index.css correctly stays
-        * off for this hand-off and still fires for every real control inside
-        * when the researcher tabs to it. */}
+
       <div
         ref={panel}
         tabIndex={-1}

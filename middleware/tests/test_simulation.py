@@ -146,11 +146,12 @@ def test_seeded_run_is_reproducible(tmp_path):
         assert r.json()["sessions"] >= 6
         assert r.json()["events"] > 0
         assert len(r.json()["sessionIds"]) == r.json()["sessions"]
-        doc = client.get("/studies/pilot/dataset?format=json")
+        doc = client.get("/studies/pilot/dataset?format=json&includeSynthetic=true")
         assert doc.status_code == 200, doc.text
         return Counter(_normalize(row) for row in doc.json()["rows"])
 
     first = run_and_rows()
+    assert first
     second = run_and_rows()
     assert second == first + first
 
@@ -168,7 +169,13 @@ def test_dry_run_labels_rows_without_issuing_participant_credentials(client_desi
         "/studies/pilot/simulate", json={"count": 2, "seed": 42}
     )
     assert response.status_code == 200, response.text
-    rows = client_designed.get("/studies/pilot/dataset").json()["rows"]
+    assert client_designed.get("/studies/pilot/dataset").json()["rows"] == []
+    assert client_designed.get("/studies/pilot/live").json()["sessions"] == []
+    assert client_designed.get("/studies/pilot/status").json()["sessions"] == []
+    assert client_designed.get("/studies/pilot/sessions").json() == []
+    rows = client_designed.get("/studies/pilot/dataset?includeSynthetic=true").json()[
+        "rows"
+    ]
     assert {row["sessionId"] for row in rows} == set(response.json()["sessionIds"])
     assert all(row["payload"].get("synthetic") is True for row in rows)
     assert client_designed.get("/studies/pilot/enrollment/tokens").json() == before
@@ -212,7 +219,9 @@ def test_simulated_data_drives_the_analysis_plan(client_designed: TestClient):
         "/studies/pilot/simulate", json={"count": 8, "profile": "mixed", "seed": 3}
     )
     assert r.status_code == 200, r.text
-    doc = client_designed.get("/studies/pilot/dataset?format=json")
+    doc = client_designed.get(
+        "/studies/pilot/dataset?format=json&includeSynthetic=true"
+    )
     assert doc.status_code == 200, doc.text
     dataset = Dataset(rows=doc.json()["rows"], study_id="pilot")
     plan = protocol.get("analysisPlan", [])
@@ -399,9 +408,11 @@ def test_cli_command_runs_over_http(client_designed: TestClient, tmp_path, monke
                     "/studies/pilot/simulate", json=_json.loads(req.data)
                 ).json()
             )
-        if url == f"{server}/studies/pilot/dataset?format=json":
+        if url == f"{server}/studies/pilot/dataset?format=json&includeSynthetic=true":
             return _Resp(
-                client_designed.get("/studies/pilot/dataset?format=json").json()
+                client_designed.get(
+                    "/studies/pilot/dataset?format=json&includeSynthetic=true"
+                ).json()
             )
         raise AssertionError(f"unexpected URL {url}")
 

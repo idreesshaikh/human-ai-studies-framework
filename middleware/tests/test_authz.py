@@ -737,6 +737,11 @@ def test_status_only_reports_this_study_s_sessions(client):
     mine_status = client.get(f"/studies/{mine}/status", headers=bearer("alice")).json()
     assert [s["sessionId"] for s in mine_status["sessions"]] == ["S-mine-001"]
 
+    for endpoint, key in [("live", "sessions"), ("dataset", "rows")]:
+        response = client.get(f"/studies/{mine}/{endpoint}", headers=bearer("alice"))
+        assert response.status_code == 200, response.text
+        assert {r["sessionId"] for r in response.json()[key]} == {"S-mine-001"}
+
     demo_status = client.get(
         f"/studies/{DEMO_STUDY_ID}/status", headers=bearer("alice")
     ).json()
@@ -813,8 +818,15 @@ def test_the_demo_study_owns_the_sample_sessions(client):
     seed_demo(f"sqlite:///{client.db_path}")
     client.post("/ingest/events", json=[_event(0, "S-sample-001", "P01")])
 
+    assert (
+        client.get(
+            f"/studies/{DEMO_STUDY_ID}/sessions", headers=bearer("newcomer")
+        ).json()
+        == []
+    )
     rows = client.get(
-        f"/studies/{DEMO_STUDY_ID}/sessions", headers=bearer("newcomer")
+        f"/studies/{DEMO_STUDY_ID}/sessions?includeSynthetic=true",
+        headers=bearer("newcomer"),
     ).json()
     assert [r["sessionId"] for r in rows] == ["S-sample-001"]
 

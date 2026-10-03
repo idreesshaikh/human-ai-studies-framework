@@ -1,10 +1,4 @@
-/* Deterministic force layout for the citation constellation (FR-LIT-2).
- *
- * Hand-rolled rather than pulling in d3-force / react-force-graph: the graph is
- * small (a study cites dozens of papers), and the charting discipline is to
- * build the marks ourselves (D17). A fixed number of iterations with seeded
- * start positions makes the layout deterministic  -  the same graph always
- * renders the same way, and it is unit-testable with no DOM. */
+
 
 export interface GraphNodeIn {
   paperRef: string;
@@ -30,19 +24,15 @@ export interface LayoutOptions {
   width?: number;
   height?: number;
   iterations?: number;
-  /** Charge (node repulsion) and spring (edge attraction) strengths. */
+
   charge?: number;
   spring?: number;
-  /** Spread nodes through the available canvas instead of a centre ring. */
+
   spread?: boolean;
-  /** Keep the physics, but reserve the x-axis for publication year and the
-   * y-axis for citation weight so a researcher can read time and influence
-   * without needing to decode a cloud of dots. */
+
   timeline?: boolean;
 }
 
-/** Position every node in `[0,width] × [0,height]`. Ingested nodes anchor the
- * layout (they seed near the centre); suggestions drift to the periphery. */
 export function layoutGraph(
   nodes: GraphNodeIn[],
   edges: GraphEdgeIn[],
@@ -51,16 +41,12 @@ export function layoutGraph(
   if (opts.timeline) return layoutTimelineGraph(nodes, edges, opts);
   const width = opts.width ?? 640;
   const height = opts.height ?? 440;
-  // Each iteration is O(n²); harvested neighbourhoods reach hundreds of nodes,
-  // so scale iterations down as n grows to keep a relayout under a frame budget
-  // (still deterministic  -  n is data).
+
   const spread = opts.spread ?? false;
   const iterations =
     opts.iterations ??
     (nodes.length > 200 ? 80 : nodes.length > 100 ? 150 : 300);
-  // Exploration needs more air than the compact fixture layout. Keep the
-  // edges readable without allowing a harvested neighbourhood to collapse
-  // into one centre knot.
+
   const charge = opts.charge ?? (spread ? 4200 : 2200);
   const spring = opts.spring ?? (spread ? 0.012 : 0.02);
   const cx = width / 2;
@@ -68,13 +54,6 @@ export function layoutGraph(
 
   if (nodes.length === 0) return [];
 
-  // Seeded start positions are deterministic, with two deliberately different
-  // modes. The compact ring remains the stable primitive-layout default used
-  // by the pure fixture; the rendered constellation opts into a phyllotaxis
-  // seed so a real graph starts across the canvas rather than in a central
-  // knot. The inner/outer ellipses preserve the useful visual distinction
-  // between papers in the study and suggested neighbours without wasting the
-  // pane's width.
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
   const ingestedCount = nodes.filter((n) => n.ingested).length;
   const ingestedSeen = new Map<string, number>();
@@ -106,13 +85,12 @@ export function layoutGraph(
     const fx = new Array(nodes.length).fill(0);
     const fy = new Array(nodes.length).fill(0);
 
-    // Repulsion between every pair (Coulomb-like).
     for (let a = 0; a < nodes.length; a++) {
       for (let b = a + 1; b < nodes.length; b++) {
         let dx = pos[a].x - pos[b].x;
         let dy = pos[a].y - pos[b].y;
         let d2 = dx * dx + dy * dy || 0.01;
-        // Deterministic nudge for exactly-coincident points.
+
         if (d2 < 0.02) {
           dx = (a - b) * 0.1;
           dy = 0.1;
@@ -127,7 +105,6 @@ export function layoutGraph(
       }
     }
 
-    // Spring attraction along edges.
     for (const [a, b] of links) {
       const dx = pos[b].x - pos[a].x;
       const dy = pos[b].y - pos[a].y;
@@ -137,15 +114,12 @@ export function layoutGraph(
       fy[b] -= dy * spring;
     }
 
-    // Gentle pull to centre so disconnected nodes don't drift off-canvas;
-    // ingested nodes are pulled harder so they stay central.
     for (let i = 0; i < nodes.length; i++) {
       const pull = spread ? (nodes[i].ingested ? 0.004 : 0.002) : nodes[i].ingested ? 0.012 : 0.006;
       fx[i] += (cx - pos[i].x) * pull;
       fy[i] += (cy - pos[i].y) * pull;
       if (spread) {
-        // Keep the semantic seed visible. Without an anchor, edge springs
-        // turn a well-spread constellation into a compact citation knot.
+
         fx[i] += (anchors[i].x - pos[i].x) * 0.018;
         fy[i] += (anchors[i].y - pos[i].y) * 0.018;
       }
@@ -161,17 +135,6 @@ export function layoutGraph(
   return nodes.map((n, i) => ({ ...n, x: pos[i].x, y: pos[i].y }));
 }
 
-/**
- * A soft semantic layer over the same deterministic physics used by the classic
- * constellation. Publication year remains a quiet reading cue from left to
- * right, but it does not pin every paper to a date column. The graph's
- * relationships and the anchors' breathing room stay more important than a
- * perfectly straight timeline, especially for fresh papers with sparse metadata.
- *
- * Missing years stay in a small discovery lane at the right edge. They are
- * visibly unknown rather than being assigned a fake year, which matters in a
- * literature map where “new” and “not dated” are different claims.
- */
 function layoutTimelineGraph(
   nodes: GraphNodeIn[],
   edges: GraphEdgeIn[],
@@ -209,9 +172,7 @@ function layoutTimelineGraph(
   const semantic = base.map((n, i) => {
     const sameYear = n.year == null ? [] : byYear.get(n.year) ?? [];
     const yearIndex = sameYear.indexOf(i);
-    /* Keep the year axis honest while giving same-year papers a small orbit.
-     * Without this, a harvested batch from one publication year forms a
-     * vertical stack and its labels collapse into one another. */
+
     const sameYearOffset =
       sameYear.length > 1
         ? (yearIndex - (sameYear.length - 1) / 2) * Math.min(52, (right - left) / (sameYear.length + 1))
@@ -229,12 +190,6 @@ function layoutTimelineGraph(
     };
   });
 
-  // The semantic projection is intentionally strong, but it can put a large
-  // ingested hub and many same-year suggestions on the same coordinate. A
-  // normal force solve would separate them, yet it would also erase the year
-  // axis. Resolve only the visual collisions here: suggestions yield first,
-  // ingested papers stay close to their semantic anchors, and a light return
-  // pull keeps the publication scale readable.
   return separateTimelineNodes(nodes, edges, semantic, width, height);
 }
 
@@ -278,9 +233,7 @@ function separateTimelineNodes(
         const amount = (minimum - distance) / distance;
         const ux = dx * amount;
         const uy = dy * amount;
-        // A study paper is an anchor. Let its suggested neighbours move away
-        // from it, instead of letting a crowded harvest drag the anchor into
-        // an unreadable knot.
+
         const aWeight = nodes[a].ingested ? 0.14 : 1;
         const bWeight = nodes[b].ingested ? 0.14 : 1;
         const total = aWeight + bWeight;
@@ -303,8 +256,7 @@ function separateTimelineNodes(
       out[i].y = clamp(out[i].y, margin, height - margin);
     }
   }
-  // A short collision-only tail prevents the semantic return pull from
-  // reintroducing a final one-pixel overlap after the main solve.
+
   for (let pass = 0; pass < 4; pass++) pushApart();
 
   return out.map((p) => ({ ...p, x: clamp(p.x, 0, width), y: clamp(p.y, 0, height) }));
@@ -314,11 +266,6 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
-/** How many edges touch each node (in + out). Additive  -  the Obsidian-style
- * constellation sizes a node by degree (`3.5 + 2.6*sqrt(deg)`: hubs obvious,
- * leaves dust) rather than by raw citation count, which conflates "central
- * to this study" with "generally well-cited". Computed straight from the
- * same edges `layoutGraph` already takes; has no effect on the layout. */
 export function degreeMap(
   nodes: GraphNodeIn[],
   edges: GraphEdgeIn[],
@@ -339,15 +286,6 @@ export interface RelaxOptions {
   spread?: boolean;
 }
 
-/** One frame of a *live* settle animation, separate from `layoutGraph`'s own
- * fixed-iteration solve  -  which stays untouched by this addition, so its
- * golden-snapshot output (`verify-library.mjs`) can never drift underneath
- * it. Same physics shape as one pass of that loop (repulsion + spring +
- * centre-pull), but driven by a decaying `alpha` rather than a fixed
- * iteration count, since a `requestAnimationFrame` loop doesn't know in
- * advance how many frames it will get: the caller seeds `nodes` from
- * `layoutGraph`'s own output, then calls this once per frame with `alpha`
- * multiplied by ~0.94 each time, stopping once the motion is imperceptible. */
 export function relaxStep(
   nodes: PositionedNode[],
   edges: GraphEdgeIn[],
@@ -413,7 +351,6 @@ export function relaxStep(
   }));
 }
 
-/** The paper-ref → {arxivId|doi} an "add to study" click ingests with. */
 export function ingestIdForRef(
   ref: string,
 ): { arxivId?: string; doi?: string } | null {

@@ -26,13 +26,6 @@ from middleware.db import (
     make_session_factory,
 )
 
-#: The demo study's own protocol, kept beside the sample sessions it describes.
-#: Without it the demo can never resolve a protocol at all: ``_resolve_study_
-#: protocol`` looks for an approved snapshot, then a compiled draft, then the
-#: boot protocol  -  and the boot protocol (when one is loaded) is ``pilot-2026``,
-#: a different study id. So every panel that gates on "has a compiled protocol"
-#:  -  the whole Data tab, Planning, the status endpoint  -  returned 404 on the one
-#: study that exists to show them populated.
 DEMO_PROTOCOL_PATH = (
     Path(__file__).resolve().parents[2] / "sample-data" / "demo-protocol.yaml"
 )
@@ -42,8 +35,6 @@ DEMO_PROJECT_SLUG = "demo"
 DEMO_PROJECT_NAME = "Demo project"
 DEMO_STUDY_ID = "demo-study"
 
-# Kept in step with ``middleware/sample-data/*.jsonl``  -  a session id here that the
-# seeder never posts is simply an empty mapping, which is harmless.
 DEMO_SESSION_IDS = (
     "S-sample-001",
     "S-sample-002",
@@ -60,9 +51,6 @@ DEMO_SESSION_IDS = (
 
 DEMO_OWNER_SUB = "demo"
 
-# A writable local fallback for rehearsals. The shared ``demo-study`` remains
-# viewer-only; this study belongs to the implicit local project so the researcher
-# can mint a TERN link and run the extension without designing anything live.
 BACKUP_STUDY_ID = "ai-cognitive-load-demo"
 BACKUP_STUDY_TITLE = "AI cognitive load demo backup"
 
@@ -108,9 +96,6 @@ DEMO_PLATFORM_TEXT = (
     "take part, and roughly how many people can you realistically recruit?"
 )
 
-# The demo is deliberately small and illustrative. It gives the live study the
-# same readable constellation as the offline fixture without copying the corpus
-# import's hundreds of internal ``harvested-via`` edges into a public study.
 DEMO_GRAPH_EDGES = (
     {
         "src": "corpus:trust-in-ai-code-generation",
@@ -197,8 +182,7 @@ def _backup_protocol() -> dict:
         {
             "id": "RQ-2",
             "text": (
-                "How do developers review and verify code during AI-assisted "
-                "debugging?"
+                "How do developers review and verify code during AI-assisted debugging?"
             ),
         },
     ]
@@ -311,8 +295,7 @@ def _backup_moves(now: str, turn_id: str) -> list[DesignMoveRow]:
                 "section": "measures",
                 "op": "append",
                 "value": (
-                    "task time and behaviour, NASA-TLX perceived effort, and "
-                    "fatigue"
+                    "task time and behaviour, NASA-TLX perceived effort, and fatigue"
                 ),
             },
         ),
@@ -449,11 +432,14 @@ def _seed_backup(s: Session, now: str) -> dict:
         made["protocol"] = True
 
     turn_id = "backup-turn-platform"
-    if s.scalar(
-        select(ConversationTurn.id).where(
-            ConversationTurn.study_id == BACKUP_STUDY_ID
+    if (
+        s.scalar(
+            select(ConversationTurn.id).where(
+                ConversationTurn.study_id == BACKUP_STUDY_ID
+            )
         )
-    ) is None:
+        is None
+    ):
         s.add(
             ConversationTurn(
                 id="backup-turn-researcher",
@@ -521,12 +507,15 @@ def _seed_backup(s: Session, now: str) -> dict:
         compilation.unresolved = []
         compilation.move_ids = [move.id for move in _backup_moves(now, turn_id)]
     draft.compilation_id = compilation_id
-    if s.scalar(
-        select(ApprovalEvent.id).where(
-            ApprovalEvent.study_id == BACKUP_STUDY_ID,
-            ApprovalEvent.compilation_id == compilation_id,
+    if (
+        s.scalar(
+            select(ApprovalEvent.id).where(
+                ApprovalEvent.study_id == BACKUP_STUDY_ID,
+                ApprovalEvent.compilation_id == compilation_id,
+            )
         )
-    ) is None:
+        is None
+    ):
         s.add(
             ApprovalEvent(
                 study_id=BACKUP_STUDY_ID,
@@ -565,9 +554,6 @@ def _seed(s: Session, now: str) -> dict:
         s.flush()
         made["project"] = True
 
-    # Read access is granted to every authenticated identity in authz, so the demo needs
-    # no provisioning and can never be written to.
-
     study = s.get(Study, DEMO_STUDY_ID)
     if study is None:
         s.add(
@@ -581,11 +567,6 @@ def _seed(s: Session, now: str) -> dict:
         s.flush()
         made["study"] = True
 
-    # The protocol is what makes the demo "one fully-built study anybody can
-    # look at" rather than a study whose data exists but can never surface.
-    # Written as a compiled draft, the same row the design conversation's own
-    # approve step writes, so the demo reaches the UI through the ordinary path
-    # rather than a special case.
     if DEMO_PROTOCOL_PATH.is_file():
         demo_yaml = DEMO_PROTOCOL_PATH.read_text()
         draft = s.get(ProtocolDraftRow, DEMO_STUDY_ID)
@@ -677,9 +658,14 @@ def _seed(s: Session, now: str) -> dict:
         )
         made["edges"] += 1
 
-    if s.scalar(
-        select(ConversationTurn.id).where(ConversationTurn.study_id == DEMO_STUDY_ID)
-    ) is None:
+    if (
+        s.scalar(
+            select(ConversationTurn.id).where(
+                ConversationTurn.study_id == DEMO_STUDY_ID
+            )
+        )
+        is None
+    ):
         researcher_id = "demo-turn-researcher"
         platform_id = "demo-turn-platform"
         s.add(

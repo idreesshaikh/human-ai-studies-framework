@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   CheckCircle2,
@@ -7,7 +7,6 @@ import {
   ChevronRight,
   FlaskConical,
 } from "lucide-react";
-import { Info } from "lucide-react";
 import { MetricStrip } from "./MetricStrip";
 import { SwimlaneTimeline } from "./SwimlaneTimeline";
 import { PrescriptionPanel } from "./PrescriptionPanel";
@@ -19,25 +18,18 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import {
   studyApi,
-  OfflineError,
-  onSeededData,
   type DatasetRow,
   type SessionStatus,
   type StudyStatusDoc,
 } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
-/* The Data surface  -  the study's collected data as honest shapes (NFR-8).
- * Per-session
- * integrity (completeness, seq gaps, flags) and the metric distribution split
- * by condition. Nothing here animates  -  data is the celebration. */
-export function DataTab({ studyId }: { studyId: string }) {
+export function DataTab({ studyId }: { studyId: string; }) {
   const [sessions, setSessions] = useState<SessionStatus[]>([]);
   const [statusDoc, setStatusDoc] = useState<StudyStatusDoc | null>(null);
   const [conditions, setConditions] = useState<string[]>([]);
   const [rows, setRows] = useState<DatasetRow[]>([]);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
-  const [seeded, setSeeded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dryRun, setDryRun] = useState<{
@@ -46,10 +38,12 @@ export function DataTab({ studyId }: { studyId: string }) {
     busy: boolean;
   }>({ report: null, error: null, busy: false });
 
-  const refresh = (live: boolean, initial = false) => {
+  const currentStudy = useRef<string | null>(studyId);
+
+  const refresh = (isCurrent: () => boolean, initial = false) => {
     Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)])
       .then(([s, d]) => {
-        if (!live) return;
+        if (!isCurrent()) return;
         setLoadError(null);
         setSessions(s.sessions);
         setStatusDoc(s);
@@ -57,44 +51,31 @@ export function DataTab({ studyId }: { studyId: string }) {
         setRows(d.rows.filter((r) => r.source === "metrics"));
       })
       .catch((e: unknown) => {
-        if (!live) return;
-        // A study that hasn't compiled a protocol yet has no data  -  that's a
-        // real, reachable state, not a fault. Surface it calmly instead of
-        // letting the rejection blank the tab.
+        if (!isCurrent()) return;
         setLoadError(
           e instanceof Error ? e.message : "Could not load this study's data.",
         );
       })
       .finally(() => {
-        if (live && initial) setLoading(false);
+        if (isCurrent() && initial) setLoading(false);
       });
   };
 
   useEffect(() => {
-    // If any read falls back to built-in sample data, say so honestly.
-    const off = onSeededData((seededStudy) => {
-      if (seededStudy === studyId) setSeeded(true);
-    });
     let live = true;
-    // Re-arm the loading gate on every study switch, not just first mount  -
-    // `StudyHome` doesn't remount `DataTab` on a route change between two
-    // studies, so without this the stale `loading: false` from the previous
-    // study let its sessions/rows flash under the new study's tab for the
-    // gap between navigation and this fetch resolving. Clearing the arrays
-    // too, not just the flag: if the new study's fetch fails with anything
-    // other than "no protocol", the old study's sessions would otherwise
-    // still be sitting in state and render right alongside that error.
     setLoading(true);
-    setSeeded(false);
     setSessions([]);
     setStatusDoc(null);
     setConditions([]);
     setRows([]);
     setLoadError(null);
-    refresh(live, true);
+    currentStudy.current = studyId;
+    setDryRun({ report: null, error: null, busy: false });
+    setExpandedSession(null);
+    refresh(() => live, true);
     return () => {
       live = false;
-      off();
+      currentStudy.current = null;
     };
   }, [studyId]);
 
@@ -102,16 +83,11 @@ export function DataTab({ studyId }: { studyId: string }) {
     setDryRun({ report: null, error: null, busy: true });
     try {
       const report = await studyApi.simulate(studyId, 10);
+      if (currentStudy.current !== studyId) return;
       setDryRun({ report, error: null, busy: false });
-      refresh(true);
+      refresh(() => currentStudy.current === studyId);
     } catch (e) {
-      if (e instanceof OfflineError) {
-        // No middleware: the rehearsal falls back to the honest client-side
-        // rows DataProvenance already knows how to draw.
-        setDryRun({ report: null, error: null, busy: false });
-        setShowClientRehearsal(true);
-        return;
-      }
+      if (currentStudy.current !== studyId) return;
       setDryRun({
         report: null,
         error: e instanceof Error ? e.message : "dry run failed",
@@ -119,19 +95,9 @@ export function DataTab({ studyId }: { studyId: string }) {
       });
     }
   };
-  const [showClientRehearsal, setShowClientRehearsal] = useState(false);
 
   const metricRows = rows;
 
-  /* A study whose protocol has never compiled has no data by definition  -  not
-   * three separate absences. The tab used to say so three times, in three
-   * dashed boxes of equal weight stacked down five hundred pixels: "no
-   * compiled protocol", then "no sessions", then "no metric rows carry
-   * cognitive_complexity"  -  the last two being consequences of the first, and
-   * the metric picker above them offering a choice that could not change
-   * anything. Three statements of one fact read as three faults.
-   *
-   * One precondition, said once, with the move that resolves it. */
   const noProtocol =
     !!loadError && loadError.toLowerCase().includes("no protocol");
 
@@ -151,8 +117,7 @@ export function DataTab({ studyId }: { studyId: string }) {
           }
           action={
             <Button asChild size="sm">
-              {/* The tab lives in the URL, so this is a real link: it is
-                * back-navigable and shareable, not a state poke. */}
+
               <Link to={{ search: "?tab=conversation" }}>
                 Open the design conversation
               </Link>
@@ -165,18 +130,7 @@ export function DataTab({ studyId }: { studyId: string }) {
 
   return (
     <Surface measure="work" label="Data">
-      {seeded && (
-        <p
-          className="flex items-center gap-2 rounded-control border border-border bg-well px-3 py-2 type-caption text-text"
-          role="status"
-        >
-          <Info className="size-4 shrink-0 text-text-muted" aria-hidden />
-          Showing built-in sample data, not connected to a live study. Start the
-          middleware to see this study's real sessions and metrics.
-        </p>
-      )}
-      {/* The no-protocol case returned above; anything reaching here is a
-        * genuine fault, so it is reported as one rather than as an absence. */}
+
       {loadError && (
         <Notice kind="problem">
           Couldn&apos;t load this study&apos;s data. {loadError}
@@ -205,14 +159,10 @@ export function DataTab({ studyId }: { studyId: string }) {
         </section>
       )}
 
-      {/* Before any data exists, the provenance decision comes first: collect
-          it live or rehearse with synthetic data. */}
       {!loadError && sessions.length === 0 && (
         <DataProvenance
-          conditions={conditions}
           onDryRun={runDryRun}
           dryRunBusy={dryRun.busy}
-          showClientRehearsal={showClientRehearsal}
         />
       )}
 
@@ -230,8 +180,7 @@ export function DataTab({ studyId }: { studyId: string }) {
             <br />
             {dryRun.report.sessions} sessions, {dryRun.report.events} events
             stored through the real capture path. These sessions are simulated;
-            the exported rows are marked synthetic. Keep them separate from
-            participant data when analysing your study.
+            they are excluded from live results and default exports.
           </p>
         </div>
       )}
@@ -252,9 +201,9 @@ export function DataTab({ studyId }: { studyId: string }) {
               const isOpen = expandedSession === s.sessionId;
               const missingProducers = statusDoc
                 ? statusDoc.requiredProducers.filter((id) => {
-                    const source = statusDoc.producers[id]?.source ?? id;
-                    return (s.sourceCounts?.[source] ?? 0) === 0;
-                  })
+                  const source = statusDoc.producers[id]?.source ?? id;
+                  return (s.sourceCounts?.[source] ?? 0) === 0;
+                })
                 : [];
               return (
                 <div
@@ -341,8 +290,6 @@ export function DataTab({ studyId }: { studyId: string }) {
         )}
       </section>
 
-      {/* Metrics and the prescription that reads them sit close together  -
-          they're one analytical unit, tighter than the section gap. */}
       <div className="flex flex-col gap-stack">
         <section className="flex flex-col gap-stack">
           <h2 className="type-section text-text">Metrics by condition</h2>
@@ -358,7 +305,7 @@ export function DataTab({ studyId }: { studyId: string }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value }: { label: string; value: number; }) {
   return (
     <div className="flex flex-col items-center">
       <dd className="tabular type-body-lg text-text">{value}</dd>

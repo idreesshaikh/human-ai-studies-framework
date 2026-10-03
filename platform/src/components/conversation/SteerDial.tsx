@@ -3,16 +3,6 @@ import { Check, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { STEER_STOPS, steerStop, type SteerLevel } from "@/lib/steer";
 
-/* The steer mode  -  how much the assistant drives this conversation.
- *
- * It belongs in the composer command bar because it changes how the assistant
- * responds to the next message. The bar exposes the current mode as a compact
- * button; the four choices live in a small picker so the input stays the main
- * thing to look at and the mode remains one click away.
- *
- * The four options are real modes, not decorative labels: selecting one keeps
- * the existing server profile and initiative levers, and the active mode is
- * announced with aria-pressed. */
 export function SteerDial({
   value,
   onChange,

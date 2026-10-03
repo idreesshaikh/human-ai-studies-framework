@@ -19,14 +19,9 @@ import {
   type EnrollmentTokenView,
   type ToggleCatalogEntry,
 } from "@/lib/api";
-/* A participant who already has the extension installed can skip the paste
- * entirely. The link is built in one place: this file used to carry its own
- * copy of the authority string, and that second copy is how the identity
- * drifted out of sync with the extension manifest. */
+
 import { vscodeDeepLink } from "@/lib/extension";
 
-/* The four capture legs, for the grouped config panel. The catalog carries a
- * `leg` key; the demo backend omits it, so instrument is the fallback group. */
 const LEG_LABELS: Record<string, string> = {
   metrics: "Static metrics",
   behavioral: "Behavioral",
@@ -34,7 +29,6 @@ const LEG_LABELS: Record<string, string> = {
   agent: "Agent interaction",
 };
 
-/** A toggle the mint dialog can render as a checkbox: an on/off switch. */
 function isSwitch(e: ToggleCatalogEntry): boolean {
   const leaf = e.path[e.path.length - 1];
   return (
@@ -44,7 +38,6 @@ function isSwitch(e: ToggleCatalogEntry): boolean {
   );
 }
 
-/** The protocol-derived default for a switch: on only when it is set true. */
 function defaultOn(e: ToggleCatalogEntry): boolean {
   return e.currentValue === true;
 }
@@ -53,19 +46,11 @@ function toggleKey(e: ToggleCatalogEntry): string {
   return `${e.instrument}.${e.path.join(".")}`;
 }
 
-/* Mint pairing tokens for a study. Copy-link (here: copy connection string) is
- * the primary affordance  -  the participant pastes it into their IDE once. The
- * dialog also carries the per-mint capture config: every switch the protocol
- * declares can be tuned for the whole batch before minting (AI lifecycle,
- * behavioral streams, metric toggles), layered on the protocol-derived defaults
- * rather than re-derived. Condition assignment is never touched here  -  that
- * stays the assignment engine's job. */
 export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: () => void }) {
   const api = useApi();
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(1);
-  // The field holds raw text so it can be cleared and retyped; `count` is the
-  // validated whole number in [1, 100] the mint call actually uses.
+
   const [countText, setCountText] = useState("1");
   const onCountChange = (raw: string) => {
     setCountText(raw);
@@ -79,8 +64,7 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
   };
   const [grain, setGrain] = useState<"participant" | "session">("participant");
   const [catalog, setCatalog] = useState<ToggleCatalogEntry[] | null>(null);
-  // Only the switches the researcher actually changed, keyed by instrument.path,
-  // so the payload carries a diff rather than a full re-declaration.
+
   const [changed, setChanged] = useState<Record<string, { instrument: string; path: string[]; value: unknown }>>({});
   const [minted, setMinted] = useState<EnrollmentTokenView[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
@@ -115,8 +99,7 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
       setMinted(rows);
       onMinted();
     } catch (e) {
-      // Surface the server's reason instead of a silent no-op. Ethics approval is
-      // external to PHOENIX and must never be presented as an app gate.
+
       setError(e instanceof ApiError ? e.message : "Could not mint links. Check your connection and try again.");
     } finally {
       setMinting(false);

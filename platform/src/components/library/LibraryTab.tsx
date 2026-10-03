@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Upload, X, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,11 +13,11 @@ import {
 import { cn } from "@/lib/cn";
 import { paperIdentifier } from "@/lib/paperReference";
 
-/* The Library  -  the knowledge layer (FR-LIT-1/2/3). Live paper ingest
- * (arXiv/DOI/PDF), the citation constellation, and protocol-element links.
- * The corpus is the product's knowledge, not background reading  -  so this is a
- * first-class study surface, not a side panel. */
-export function LibraryTab({ studyId }: { studyId: string }) {
+import { hasRole, type Role } from "@/lib/capabilities";
+
+export function LibraryTab({ studyId, role }: { studyId: string; role: Role | null }) {
+  const canEdit = hasRole(role, "contribute");
+  const fileInput = useRef<HTMLInputElement>(null);
   const [papers, setPapers] = useState<Paper[]>([]);
   const [graph, setGraph] = useState<PaperGraph | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -62,10 +62,6 @@ export function LibraryTab({ studyId }: { studyId: string }) {
     let timer: number | undefined;
     let attempts = 0;
 
-    /* Edge harvesting runs after the add response and paces its three upstream
-     * requests. One retry was shorter than that work, so the map could stay at
-     * its two ingested nodes forever. Keep the loading state alive for a small,
-     * bounded window and stop early as soon as a real edge lands. */
     const poll = async () => {
       try {
         const next = await load();
@@ -89,13 +85,16 @@ export function LibraryTab({ studyId }: { studyId: string }) {
   }, [edgesPending, load]);
 
   async function run(fn: () => Promise<unknown>) {
+    if (busy || !canEdit) return false;
     setBusy(true);
     setNote(null);
     try {
       await fn();
       await load();
+      return true;
     } catch (e) {
-      setNote(e instanceof OfflineError ? e.message : String(e));
+      setNote(e instanceof Error ? e.message : "Could not update the library. Try again.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -113,7 +112,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
       const result = await studyApi.ingestPaper(studyId, id);
       setEdgesPending(Boolean(result.edgesPending));
       return result;
-    }).then(() => setIdInput(""));
+    }).then((saved) => { if (saved) setIdInput(""); });
   }
 
   function uploadPdf(ev: React.ChangeEvent<HTMLInputElement>) {
@@ -130,21 +129,10 @@ export function LibraryTab({ studyId }: { studyId: string }) {
   const selectedNode = graph?.nodes.find((n) => n.paperRef === selected) ?? null;
 
   return (
-    /* A Surface, like every other screen. This tab hand-rolled its own root,
-     * scroller, gutter and (absent) measure, which put it outside the layout
-     * contract entirely: it ran the full width of the window while Data and
-     * Planning sat centred at `work`, so moving between the four tabs of one
-     * workspace moved the content column under the researcher. `Surface`
-     * owns the clip, the scroll, the gutter, the rhythm and the measure  -
-     * and the keyboard-reachable region this markup was duplicating by hand.
-     *
-     * The escape from the contract was easy to miss while this tab still had
-     * a second panel beside it; with that gone the single column stretched to
-     * the whole window and the mismatch became the most visible thing about
-     * the workspace. */
+
     <Surface measure="work" label="Library">
-        {/* Ingest bar  -  the live-fetch moment. */}
-        <div className="flex flex-wrap items-center gap-2">
+
+        {canEdit && <div className="flex flex-wrap items-center gap-2">
           <Input
             value={idInput}
             onChange={(e) => setIdInput(e.target.value)}
@@ -153,25 +141,20 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             aria-label="arXiv id or DOI"
             className="flex-1"
           />
-          <Button size="sm" variant="subtle" onClick={ingest} disabled={busy}>
+          <Button size="sm" variant="subtle" onClick={ingest} disabled={busy || !idInput.trim()}>
             <Plus aria-hidden /> Add
           </Button>
-          {/* A solid edge, not a dashed one. Dashed is this world's mark for
-            * "logged, nothing identified yet" (an unsourced claim, an unfilled
-            * slot, an empty region); on a working control it said the button
-            * itself was provisional. It matches the Add button beside it now,
-            * because they are two ways to do one thing. */}
-          <label className="flex cursor-pointer items-center gap-1.5 rounded-control border border-control-edge bg-surface px-3 py-2 type-control text-text transition-colors duration-fast hover:bg-zone-9">
-            <Upload className="size-4" aria-hidden /> PDF
-            <input type="file" accept="application/pdf" hidden onChange={uploadPdf} />
-          </label>
-        </div>
+
+          <Button size="sm" variant="subtle" disabled={busy || !canEdit} onClick={() => fileInput.current?.click()}>
+            <Upload aria-hidden /> PDF
+          </Button>
+          <input ref={fileInput} type="file" accept="application/pdf" hidden onChange={uploadPdf} />
+        </div>}
 
         {busy && (
           <p className="flex items-center gap-2 type-caption text-text-muted" role="status">
             <Loader2 className="size-3 animate-spin" aria-hidden />
-            Fetching metadata and the citation neighbourhood (the citation
-            service allows one request per second)…
+            Updating the library…
           </p>
         )}
         {edgesPending && !busy && (
@@ -180,21 +163,19 @@ export function LibraryTab({ studyId }: { studyId: string }) {
           </p>
         )}
         {note && (
-          <p className="rounded-input border border-border bg-surface p-3 type-body text-text-muted">
+          <p role="alert" className="rounded-input border border-border bg-surface p-3 type-body text-text-muted">
             {note}
           </p>
         )}
         {loadError && (
           <div className="flex items-center justify-between gap-3 rounded-input border border-border bg-surface p-3">
             <p className="type-body text-text-muted">{loadError}</p>
-            <Button size="sm" variant="subtle" onClick={() => void load()}>
+            <Button size="sm" variant="subtle" onClick={() => void load().catch(() => undefined)}>
               Try again
             </Button>
           </div>
         )}
 
-        {/* Library list  -  the study's primary paper set. Papers accepted from
-            the design conversation's recommendations land here too. */}
         <div className="rounded-card border border-border bg-surface">
           <div className="flex items-center justify-between border-b border-border px-4 py-2">
             <h3 className="type-subhead text-text">Library</h3>
@@ -229,7 +210,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                   className="text-text-muted hover:text-status-critical"
                   aria-label={`Remove ${p.title || p.paperRef}`}
                   onClick={() => run(() => studyApi.deletePaper(studyId, p.paperRef))}
-                  disabled={busy}
+                  disabled={busy || !canEdit}
                 >
                   <X className="size-4" aria-hidden />
                 </button>
@@ -237,14 +218,12 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             ))}
             {!loading && papers.length === 0 && (
               <li className="px-4 py-3 type-body text-text-muted">
-                No papers yet: add one above.
+                {canEdit ? "No papers yet: add one above." : "No papers have been added to this study."}
               </li>
             )}
           </ul>
         </div>
 
-        {/* Keep the selected paper paired with the graph so selecting a node
-            never sends the graph out of view before its action is reachable. */}
         <div
           className={cn(
             "items-stretch gap-4",
@@ -269,7 +248,6 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             ) : null}
           </div>
 
-          {/* Selected-paper detail. */}
           {selectedNode && (
             <aside className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface-raised p-4 lg:h-full">
               <button
@@ -312,6 +290,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                   <label className="block type-body text-text">
                     Protocol links
                     <Input
+                      disabled={!canEdit || busy}
                       value={linkDraft}
                       onChange={(e) => setLinkDraft(e.target.value)}
                       placeholder="RQ-1, metric:parameter_count, recipe:…"
@@ -322,7 +301,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                     <Button
                       size="sm"
                       variant="subtle"
-                      disabled={busy}
+                      disabled={busy || !canEdit}
                       onClick={() =>
                         run(() =>
                           studyApi.setPaperLinks(
@@ -352,7 +331,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                   <Button
                     size="sm"
                     variant="subtle"
-                    disabled={busy}
+                    disabled={busy || !canEdit}
                     onClick={() =>
                       run(async () => {
                         const result = await studyApi.addPaperFromGraph(

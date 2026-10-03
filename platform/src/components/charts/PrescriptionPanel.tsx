@@ -3,14 +3,6 @@ import { ChevronDown, ChevronRight, FlaskConical, Loader2 } from "lucide-react";
 import { studyApi, type Prescription } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
-/* The prescription table (FR-TPL-6, NFR-8): for each design shape, the exact
- * test, effect size, correction, and sample-size guidance  -  each with its
- * plain-language rationale, never a bare test name. This is the reassurance a
- * researcher needs before collecting data: the statistical formulation they
- * most fear getting wrong, made explicit and honest. Deterministic, LLM-free.
- *
- * Nice-to-read labels for the design shapes; the server is the source of the
- * rows themselves. */
 const SHAPE_LABEL: Record<string, string> = {
   "two-group": "Two independent groups",
   paired: "Paired / within-subjects",
@@ -25,11 +17,15 @@ const SHAPE_LABEL: Record<string, string> = {
 export function PrescriptionPanel({ studyId }: { studyId: string }) {
   const [rows, setRows] = useState<Prescription[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
     setRows(null);
-    studyApi.prescriptions(studyId).then((r) => live && setRows(r));
+    setError(null);
+    studyApi.prescriptions(studyId).then((r) => live && setRows(r)).catch(() => {
+      if (live) setError("Could not load the analysis plan. Reload to try again.");
+    });
     return () => {
       live = false;
     };
@@ -49,7 +45,9 @@ export function PrescriptionPanel({ studyId }: { studyId: string }) {
         </p>
       </div>
 
-      {rows === null ? (
+      {error ? (
+        <p role="status" className="type-body text-text-muted">{error}</p>
+      ) : rows === null ? (
         <p className="flex items-center gap-2 type-body text-text-muted">
           <Loader2 className="size-4 animate-spin" aria-hidden /> Loading…
         </p>

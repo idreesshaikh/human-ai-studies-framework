@@ -10,8 +10,6 @@ import { Label } from "@/components/ui/label";
 import { useApi, useSession } from "@/lib/session";
 import { ApiError } from "@/lib/api";
 
-/* Quick-start flow: describe a study and create it in an implicit personal
- * workspace project. No project naming step  -  it's created silently. */
 export function QuickStart() {
   const api = useApi();
   const { refresh } = useSession();
@@ -28,10 +26,11 @@ export function QuickStart() {
     setError("");
 
     try {
-      /* Create in personal project. The API should handle creating the
-       * implicit personal project if it doesn't exist. */
-      const project = await api.createProject("Personal");
-      const study = await api.createStudy(project.slug, title);
+
+      const projects = await api.listProjects();
+      const project = projects.find((p) => p.slug === "personal" && p.role !== "viewer")
+        ?? await api.createProject("Personal");
+      const study = await api.createStudy(project.slug, title.trim());
 
       await refresh();
 

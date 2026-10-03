@@ -82,9 +82,10 @@ def test_shapes_from_recipe_ids_resolves_a_studys_own_plan():
     knows, regardless of that study's actual design (the previous bug).
     """
     assert shapes_from_recipe_ids({"paired-nonparametric"}) == {"paired"}
-    assert shapes_from_recipe_ids(
-        {"two-group-nonparametric", "correlation"}
-    ) == {"two-group", "correlation"}
+    assert shapes_from_recipe_ids({"two-group-nonparametric", "correlation"}) == {
+        "two-group",
+        "correlation",
+    }
 
 
 def test_shapes_from_recipe_ids_ignores_unknown_recipes():

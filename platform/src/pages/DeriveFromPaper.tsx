@@ -18,31 +18,15 @@ import { OfflineError } from "@/lib/studyApi";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { CreateStudyFrom } from "@/components/templates/CreateStudyFrom";
 
-/* Turn any corpus paper into an executable template (FR-TPL-4). Search the
- * 15,000-paper corpus, pick a paper, pick a base archetype, and the platform
- * binds them: the paper becomes the design's primary source and the archetype
- * supplies the runnable structure. This is how the whole corpus becomes a set
- * of executable starting points, not just the hand-authored templates. */
 export function DeriveFromPaper({
   templates,
   seed = null,
 }: {
   templates: TemplateSummary[];
-  /** A paper chosen from a design shape's own reference list, with that
-   *  shape as its archetype. Fills this panel in rather than making the
-   *  researcher re-find a paper they were already looking at. */
+
   seed?: { paper: CorpusHit; baseId: string } | null;
 }) {
-  /* Addressable state, same contract as the shape selection above it: what
-   * the researcher has searched for, which paper they picked, and which
-   * archetype they are running it through all live in the URL, so the panel
-   * survives the reload that signing in performs. Its own key names, since it
-   * shares an address with the repertoire's `shapes`/`merged`.
-   *
-   * The derived template is recomputed rather than carried  -  `/templates/
-   * from-paper` binds a paper to an archetype at request time and writes
-   * nothing, and the protocol it returns is far too large for a query
-   * string. */
+
   const [searchParams, setSearchParams] = useSearchParams();
   const paperRef = searchParams.get("paper") ?? "";
   const baseId = searchParams.get("base") ?? "";
@@ -55,20 +39,13 @@ export function DeriveFromPaper({
           mutate(params);
           return params;
         },
-        // Replace, not push: refining a search term is one act of looking,
-        // and this panel shares its address with the shape selection, whose
-        // writes are replaces for the same reason.
+
         { replace: true },
       );
     },
     [setSearchParams],
   );
 
-  /* The field itself stays local so typing is instant; only the settled
-   * query reaches the address (see the debounce below), which is also the
-   * only value worth restoring. Seeded from the URL once, on mount  -  with
-   * every write a `replace`, there are no history entries for a back button
-   * to walk, so there is nothing to sync back the other way. */
   const [q, setQ] = useState(() => searchParams.get("paperq") ?? "");
   const [hits, setHits] = useState<CorpusHit[] | null>(null);
   const [paper, setPaper] = useState<CorpusHit | null>(null);
@@ -96,10 +73,6 @@ export function DeriveFromPaper({
     });
   };
 
-  /* Search as you type, one request per pause rather than per keystroke
-   * (the input itself stays instant  -  only its effect is debounced). A
-   * reply that arrives after a newer query is dropped, so results can't
-   * arrive out of order. */
   const debouncedQ = useDebouncedValue(q);
   const latestQuery = useRef("");
 
@@ -112,12 +85,7 @@ export function DeriveFromPaper({
     }
     setSearching(true);
     setError(null);
-    /* Deliberately NOT clearing `derived` here. Restoring a derivation from
-     * the address and re-running the stored query happen together on a cold
-     * load, and the debounced search settles LAST  -  so clearing it inside the
-     * search wiped the very card the URL had just asked to be restored. What
-     * invalidates a derivation is the researcher typing a new query, which is
-     * handled at the field itself. */
+
     try {
       const results = await templatesApi.searchCorpus(query);
       if (latestQuery.current === query) setHits(results);
@@ -137,10 +105,6 @@ export function DeriveFromPaper({
     void search(debouncedQ);
   }, [debouncedQ, search]);
 
-  /* The settled query, published to the address. Writing per keystroke would
-   * churn the URL for every letter; this fires on the same pause the search
-   * itself does. Re-running after the write is harmless  -  the value now
-   * matches and it returns. */
   useEffect(() => {
     const term = debouncedQ.trim();
     if (term === (searchParams.get("paperq") ?? "")) return;
@@ -150,19 +114,12 @@ export function DeriveFromPaper({
     });
   }, [debouncedQ, searchParams, writeParams]);
 
-  /* Adopt the paper the address names, once the search that contains it comes
-   * back. The URL can only carry the ref; the row that says "Run <title>
-   * through" needs the whole hit, and re-running the stored query is what
-   * produces it. */
   useEffect(() => {
     if (!paperRef || paper?.ref === paperRef) return;
     const found = hits?.find((h) => h.ref === paperRef);
     if (found) setPaper(found);
   }, [hits, paperRef, paper]);
 
-  /* A paper handed over from a shape's reference list. Scrolled to, because
-   * this panel sits below a page of cards and filling it silently off-screen
-   * looks like the click did nothing. */
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!seed) return;
@@ -185,9 +142,7 @@ export function DeriveFromPaper({
       try {
         const result = await templatesApi.fromPaper(ref, base);
         setDerived(result);
-        // A paper reached by a seeded hand-off, or restored from a cold URL,
-        // may never have appeared in a search on this visit  -  the derived
-        // payload carries enough to name it in the row above.
+
         setPaper((current) =>
           current?.ref === result.paper.ref
             ? current
@@ -210,9 +165,6 @@ export function DeriveFromPaper({
     [writeParams],
   );
 
-  /* Restore a derivation the address says was showing. Keyed on the exact
-   * pair, so a failure is reported once instead of retried every render, and
-   * choosing a different archetype is still allowed to try. */
   const restoredRef = useRef<string | null>(null);
   useEffect(() => {
     if (searchParams.get("derived") !== "1") return;
@@ -246,7 +198,7 @@ export function DeriveFromPaper({
             value={q}
             onChange={(e) => {
               setQ(e.target.value);
-              // A new question makes the previous answer stale.
+
               setDerived(null);
             }}
             onKeyDown={(e) => e.key === "Enter" && void search(q)}
@@ -266,14 +218,6 @@ export function DeriveFromPaper({
       </div>
 
       {error && <Notice kind="problem">{error}</Notice>}
-
-      {/* No "waiting to be searched" box. This panel already says what it is
-        * for in its own description, and the field says it again in its
-        * placeholder; a dashed rectangle underneath repeating "search the
-        * corpus by keywords, author, or topic" was the third statement of one
-        * instruction inside a hundred and fifty pixels, and it reserved a
-        * results-shaped hole for results nobody had asked for yet. An empty
-        * region that has not been asked a question is correctly empty. */}
 
       {q.trim() && hits && hits.length === 0 && (
         <div className="rounded-input border border-border bg-bg p-3">
@@ -350,9 +294,6 @@ export function DeriveFromPaper({
             <span className="font-mono text-text">{derived.template.source[0]?.paperRef}</span>
           </p>
 
-          {/* The point of deriving. Without this the panel produced a card
-            * describing a design and no way to use it, which is exactly the
-            * dead end a reviewer walked into. */}
           <CreateStudyFrom
             protocol={derived.protocol}
             label="Turn this into a study  -  this design seeds its draft, citing the paper"

@@ -90,8 +90,6 @@ def enrich_abstracts(
                     post=post,
                 )
             except semantic_scholar.SemanticScholarError as exc:
-                # One bad batch must not lose the run's earlier progress - it is already
-                # committed; report and carry on.
                 log.warning("batch at %d failed (%s) - skipping", start, exc)
                 continue
             summary["requested"] += len(chunk)
@@ -122,17 +120,14 @@ def enrich_abstracts(
 def enrichment_status_for_session(s: Session) -> dict:
     """How much of the corpus carries a real abstract (the honest counter)."""
     total = s.scalar(
-        select(func.count())
-        .select_from(Paper)
-        .where(Paper.study_id == CORPUS_STUDY_ID)
+        select(func.count()).select_from(Paper).where(Paper.study_id == CORPUS_STUDY_ID)
     )
     with_abstract = s.scalar(
         select(func.count())
         .select_from(Paper)
         .where(
             Paper.study_id == CORPUS_STUDY_ID,
-            func.length(func.coalesce(Paper.abstract, ""))
-            >= MIN_REAL_ABSTRACT_CHARS,
+            func.length(func.coalesce(Paper.abstract, "")) >= MIN_REAL_ABSTRACT_CHARS,
         )
     )
     return {

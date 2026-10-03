@@ -13,7 +13,8 @@ import matplotlib.pyplot as plt
 from matplotlib import rc_context
 
 from analysis.core import REGISTRY, PlanCheck, RecipeResult, validate_plan
-from analysis.dataset import Dataset
+from analysis.dataset import Dataset, Provenance
+from analysis.figures import watermark_synthetic
 
 
 @dataclass
@@ -25,6 +26,7 @@ class RunOutcome:
     executed: list[str] = field(default_factory=list)
     failed_validation: list[PlanCheck] = field(default_factory=list)
     errors: dict[str, str] = field(default_factory=dict)
+    provenance: Provenance = field(default_factory=lambda: Provenance(0, 0))
 
     @property
     def ok(self) -> bool:
@@ -32,7 +34,11 @@ class RunOutcome:
 
 
 def _write_recipe_output(
-    out: Path, rid: str, result: RecipeResult
+    out: Path,
+    rid: str,
+    result: RecipeResult,
+    banner: str | None = None,
+    kind: str = "participant",
 ) -> tuple[list[str], list[str]]:
     """Write one recipe's tables/figures/summary; returns their filenames."""
     rdir = out / rid
@@ -43,6 +49,7 @@ def _write_recipe_output(
         tables.append(f"{name}.csv")
     figures = []
     for name, fig in result.figures.items():
+        watermark_synthetic(fig, kind)
         for ext in ("png", "svg"):
             with rc_context({"svg.hashsalt": "phoenix-analysis"}):
                 fig.savefig(
@@ -55,7 +62,9 @@ def _write_recipe_output(
         figures.append(f"{name}.png")
         plt.close(fig)
     (rdir / "summary.md").write_text(
-        f"# {rid}\n\n{result.summary}\n\n## Methods\n\n{result.methods}\n\n"
+        f"# {rid}\n\n"
+        + (f"{banner}\n\n" if banner else "")
+        + f"{result.summary}\n\n## Methods\n\n{result.methods}\n\n"
         "## Files\n\n"
         + "".join(f"- `{t}`\n" for t in tables)
         + "".join(f"- `{f}` (+ .svg)\n" for f in figures)
@@ -120,6 +129,10 @@ def run_plan(
             seen.add(c.recipe_id)
             runnable.append(REGISTRY[c.recipe_id])
 
+    banner = dataset.provenance.banner
+    if banner:
+        print(f"provenance: {dataset.provenance.kind} - artefacts will be bannered")
+
     results: dict[str, RecipeResult] = {}
     outputs: dict[str, tuple[list[str], list[str]]] = {}
     base_meta = dict(dataset.meta)
@@ -133,11 +146,14 @@ def run_plan(
             print(f"  ERROR {rec.id}: {outcome.errors[rec.id]}", file=sys.stderr)
             continue
         results[rec.id] = result
-        outputs[rec.id] = _write_recipe_output(outcome.out_dir, rec.id, result)
+        outputs[rec.id] = _write_recipe_output(
+            outcome.out_dir, rec.id, result, banner, dataset.provenance.kind
+        )
         outcome.executed.append(rec.id)
 
     dataset.meta = base_meta
-    _write_report(outcome, plan, rq_text, results, outputs)
+    outcome.provenance = dataset.provenance
+    _write_report(outcome, plan, rq_text, results, outputs, banner)
 
     if server:
         runs = [
@@ -164,6 +180,7 @@ def _write_report(
     rq_text: dict[str, str],
     results: dict[str, RecipeResult],
     outputs: dict[str, tuple[list[str], list[str]]],
+    banner: str | None = None,
 ) -> None:
     """report.md: one section per research question (FR-ANA-4)."""
     lines = [
@@ -173,6 +190,8 @@ def _write_report(
         "question it answers.",
         "",
     ]
+    if banner:
+        lines += [banner, ""]
     if outcome.failed_validation or outcome.errors:
         lines += ["## Plan validation failures", ""]
         for c in outcome.failed_validation:

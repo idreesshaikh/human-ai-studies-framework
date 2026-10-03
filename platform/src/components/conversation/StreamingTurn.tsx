@@ -4,12 +4,6 @@ import { MoveCard } from "./MoveCard";
 import { cn } from "@/lib/cn";
 import type { MoveStatus, Turn } from "@/lib/types";
 
-/* A single conversation turn: the prose, then any design moves it carries.
- * Paper recommendations live in the persistent recommender rail (one mental
- * model), not inline here. Platform prose stays lightweight and conversational;
- * only an actual design decision earns a framed working sheet. The reply's
- * prose streams in above this (see ConversationView); a turn's own entrance is
- * one settle, gone under reduce-motion with nothing lost. */
 export function StreamingTurn({
   turn,
   onDecide,
@@ -20,11 +14,9 @@ export function StreamingTurn({
   turn: Turn;
   onDecide: (moveId: string, status: MoveStatus, move?: Turn["moves"][number]) => void;
   onAcceptBatch?: (moves: Turn["moves"]) => void;
-  /** The one move the thread is handing the caret to, if any  -  set only when
-   *  a reply lands in answer to something the researcher just sent. */
+
   focusMoveId?: string | null;
-  /** Only the active reply gets full prose treatment. Older turns are compact
-   * history rows so the workspace remains a decision surface. */
+
   active?: boolean;
 }) {
   const isPlatform = turn.role === "platform";
@@ -42,10 +34,7 @@ export function StreamingTurn({
           isPlatform
             ? "max-w-bubble px-1 py-1 text-text"
             : "max-w-[52ch] rounded-card border border-border bg-zone-9 px-3.5 py-2.5 text-text",
-          /* A holding turn is not the conversation  -  the model could not be
-           * reached, so it proposes nothing and cites nothing. It reads as a
-           * notice rather than a reply, because mistaking one for the other
-           * is the whole failure the keyword assistant used to cause. */
+
           isUnavailable && "border-dashed bg-transparent text-text-muted")}
       >
         {isPlatform && (
@@ -97,10 +86,7 @@ export function StreamingTurn({
               key={m.moveId}
               move={m}
               onDecide={onDecide}
-              /* At most one card takes focus, and only for a reply the
-               * researcher asked for. Every card claiming it meant the last
-               * one won, so a page load scrolled past the proposals it was
-               * meant to show and armed a / r on an unread card. */
+
               autoFocus={m.moveId === focusMoveId}
             />
           ))}

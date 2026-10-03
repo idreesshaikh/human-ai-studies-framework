@@ -273,8 +273,7 @@ def simulate(
     """Generate ``count`` synthetic participants' sessions as plain dicts."""
     if profile not in PROFILES and profile != "mixed":
         raise ValueError(f"unknown profile {profile!r}; pick from {PROFILES}")
-    # S311: determinism beats cryptographic strength here  -  a seeded dry run must be
-    # reproducible; this generator is never used for secrets.
+
     rng = random.Random(seed)  # noqa: S311
     from protocol.assignment import assign
 
@@ -442,7 +441,6 @@ def run_plan_summary(protocol: dict, rows: list[dict], study_id: str) -> dict:
     dataset = Dataset(rows=rows, study_id=study_id)
     checks = validate_plan(plan, dataset)
 
-    # One entry per (RQ, recipe) pair; a recipe named by two RQs runs once.
     rq_by_recipe: dict[str, list[str]] = {}
     for c in checks:
         rq_by_recipe.setdefault(c.recipe_id, []).append(c.rq)

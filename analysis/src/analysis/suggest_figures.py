@@ -54,8 +54,7 @@ _TABLE: dict[str, list[FigureSuggestion]] = {
         FigureSuggestion(
             rank=4,
             figure_type="boxplot + points",
-            description="Boxplot (median, IQR, whiskers) with observations "
-            "overlaid",
+            description="Boxplot (median, IQR, whiskers) with observations overlaid",
             rationale="Compact summary across many cells. Risk of hiding "
             "small-n multimodality. Acceptable only when comparing many "
             "groups (>4) where violins become visually crowded.",
@@ -84,8 +83,7 @@ _TABLE: dict[str, list[FigureSuggestion]] = {
             rationale="Combines distribution view with paired structure. "
             "Lines between violins show the within-subject pairs. "
             "More informative than separate violins when n is modest.",
-            when_to_use="When distribution shape is also of interest "
-            "and n < 30",
+            when_to_use="When distribution shape is also of interest and n < 30",
         ),
         FigureSuggestion(
             rank=3,
@@ -96,8 +94,7 @@ _TABLE: dict[str, list[FigureSuggestion]] = {
             "distribution of (after - before) values. Wilcoxon on "
             "differences is the test; the histogram visualises it. "
             "Good for methods sections.",
-            when_to_use="Methods-section figure showing the effect "
-            "distribution",
+            when_to_use="Methods-section figure showing the effect distribution",
         ),
     ],
     "multi-group-comparison": [
@@ -156,8 +153,7 @@ _TABLE: dict[str, list[FigureSuggestion]] = {
         FigureSuggestion(
             rank=3,
             figure_type="mosaic plot",
-            description="Mosaic plot of the 2x2 table: cell area "
-            "proportional to count",
+            description="Mosaic plot of the 2x2 table: cell area proportional to count",
             rationale="Shows both the joint distribution and the marginal "
             "proportions. Good for presenting the raw 2x2 table "
             "visually. Less common in SE publications.",
@@ -195,9 +191,8 @@ _TABLE: dict[str, list[FigureSuggestion]] = {
             rationale="Directly visualises Spearman correlation: the "
             "test operates on ranks. Shows what the test actually "
             'sees. Educational for methods sections ("this is '
-            "what the rank correlation looks like\").",
-            when_to_use="Methods-section figure explaining Spearman "
-            "correlation",
+            'what the rank correlation looks like").',
+            when_to_use="Methods-section figure explaining Spearman correlation",
         ),
     ],
     "single-arm-descriptive": [

@@ -1,16 +1,17 @@
 # Draft templates
 
 These designs are kept as research notes, not as supported templates. They
-refer to instruments or analysis units that the feature-frozen live workflow
-does not provide, so the platform does not show them in the registry.
+refer to instruments or analysis units that the live workflow does not
+provide, so the platform does not show them in the registry.
 
 ## `cursor-mining-v1`
 
 This draft describes repository-level trends around coding-agent adoption. Its
 recipes need repository observations (velocity, pull-request size, review
 activity, and code trends), while the current analysis catalogue consumes live
-session events or per-session snapshots. The local archive adapter in
-`curated/` is intentionally not an end-to-end mining pipeline.
+session events or per-session snapshots. Nothing in the repository mines those
+observations: the experimental adapter that once explored it was removed, so
+this draft has no data path at all.
 
 `protocol/examples/cursor-mining-2026.yaml` is the corresponding protocol
 shape. It validates as a schema example, but it is not a runnable study.

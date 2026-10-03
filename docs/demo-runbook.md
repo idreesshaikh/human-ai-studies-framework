@@ -54,10 +54,11 @@ the protocol, JSON dataset, and starter notebook. The notebook describes the
 data and the registered analyses; it is not a completed confirmatory analysis.
 
 A **synthetic dry run** exercises the ingest and analysis path without TERN.
-New simulated rows carry `synthetic: true` in their payload. They remain in the
-study's exports, so run simulations only in a separate rehearsal study or
-exclude them explicitly before analysing participant data. The dry-run summary
-uses only the sessions created by that run.
+Simulated rows carry `synthetic: true` in their payload. Participant datasets,
+exports, session lists, and live activity exclude synthetic sessions by default.
+Use `includeSynthetic=true` on dataset, notebook, or replication-kit requests
+only when inspecting rehearsal data. The dry-run summary uses only the sessions
+created by that run. Use a separate rehearsal study for manual experiments.
 
 The [worked example](examples/pilot-2026/notebook.ipynb) is a checked-in,
 reproducible starting point. To exercise the API-to-analysis path automatically:

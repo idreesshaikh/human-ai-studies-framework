@@ -25,7 +25,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 log = logging.getLogger("middleware.db")
 
-
 IMPLICIT_PROJECT_SLUG = "implicit"
 IMPLICIT_PROJECT_ID = "implicit"
 IMPLICIT_IDENTITY_SUB = "local"
@@ -267,8 +266,7 @@ class EnrollmentToken(Base):
     participant_index: Mapped[int] = mapped_column(Integer, default=0)
     condition: Mapped[str] = mapped_column(String)
     grain: Mapped[str] = mapped_column(String)
-    # Per-mint capture-config overrides, layered on the protocol-derived defaults at
-    # redeem time (FR-INST-20). ``{"toggles": [{"instrument", "path", "value"}, ...]}``.
+
     capture_overrides: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     token: Mapped[str] = mapped_column(String, unique=True, index=True)
     credential: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
@@ -327,9 +325,7 @@ class ConversationTurn(Base):
     redacted: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[str] = mapped_column(String)
     source: Mapped[str] = mapped_column(String, default="")
-    # Client-generated idempotency key. A streamed request can be persisted by
-    # the server just before a proxy/browser notices the connection failed; the
-    # blocking retry must then resolve to this row instead of appending again.
+
     request_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
 
 
@@ -487,10 +483,6 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     return sessionmaker(bind=engine, expire_on_commit=False)
 
 
-# A persistent misconfiguration (wrong host, wrong project/network) still surfaces the
-# same fatal error once attempts are exhausted - this never silently swallows a real
-# problem, it only gives a transient one time to heal within a single container lifetime
-# instead of crash-looping on the very first hiccup.
 _SCHEMA_CONNECT_ATTEMPTS = 5
 _SCHEMA_CONNECT_BASE_DELAY_SECONDS = 2.0
 
@@ -524,7 +516,6 @@ def _create_schema(engine, db_url_str: str) -> None:
             )
             time.sleep(delay)
         except (IntegrityError, ProgrammingError) as exc:
-            # Not retried - a second attempt can't change whether the tables now exist.
             if _is_concurrent_create_race(exc) and _all_tables_present(engine):
                 log.warning(
                     "Schema creation raced with a concurrent process on %s "
@@ -675,8 +666,7 @@ def _migrate_conversation_request_id(engine) -> None:
             log.info(
                 "Added request_id to conversation_turns (stream retries are idempotent)"
             )
-        # Existing rows have NULL, so this unique index does not collide with
-        # the historical record while making all new request ids study-scoped.
+
         conn.execute(
             text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_conversation_turn_request "

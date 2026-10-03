@@ -102,7 +102,6 @@ def run(dataset: Dataset) -> RecipeResult:
     else:
         sentences.append("Time-to-first-green: no passing sessions yet.")
 
-    # Outcome-conditioned splits (descriptive only, deliberately).
     verdicts = last.set_index("sessionId")["passed"]
     for measure, events, column in [
         ("fatigue", dataset.of_type("fatigue_response"), "score"),

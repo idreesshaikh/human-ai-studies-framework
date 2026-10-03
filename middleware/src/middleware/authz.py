@@ -23,8 +23,7 @@ class Role(StrEnum):
 
     OWNER = "owner"
     MEMBER = "member"
-    # Read-only, internal only: the demo project grants it so a signed-in
-    # visitor can look but never write. Not assignable via invitations.
+
     VIEWER = "viewer"
 
 
@@ -34,11 +33,7 @@ ROLE_RANK: dict[Role, int] = {
     Role.OWNER: 2,
 }
 
-
-# The roles a human can actually hold or be invited as. "viewer" is a
-# demo-only grant, never a row in the members table.
 ROLES: frozenset[str] = frozenset({"owner", "member"})
-
 
 CAPABILITIES: dict[str, Role] = {
     "view": Role.VIEWER,

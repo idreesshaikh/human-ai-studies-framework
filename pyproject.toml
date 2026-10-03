@@ -8,7 +8,7 @@ requires-python = ">=3.12"
 package = false
 
 [tool.uv.workspace]
-members = ["metrics", "protocol", "middleware", "analysis", "agent-capture", "curated"]
+members = ["metrics", "protocol", "middleware", "analysis", "agent-capture"]
 
 [dependency-groups]
 dev = [
@@ -27,7 +27,10 @@ docs = [
 [tool.ruff]
 line-length = 88
 target-version = "py312"
-extend-exclude = ["metrics/corpus"]
+extend-exclude = [
+    "metrics/corpus",
+    "docs/examples/*/notebook.ipynb",
+]
 
 [tool.ruff.lint]
 select = [
@@ -86,7 +89,6 @@ testpaths = [
     "middleware",
     "analysis",
     "agent-capture",
-    "curated",
 ]
 
 [tool.coverage.run]
@@ -96,7 +98,6 @@ source = [
     "middleware/src",
     "analysis/src",
     "agent-capture/src",
-    "curated/src",
 ]
 
 [tool.coverage.report]

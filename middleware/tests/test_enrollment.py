@@ -196,11 +196,14 @@ def test_build_capture_config_leg_summary_reflects_mint_overrides():
     by_leg = {entry["leg"]: entry for entry in cfg["legs"]}
     assert by_leg[enrollment.LEG_BEHAVIORAL]["state"] == "enabled"
     assert by_leg[enrollment.LEG_METRICS]["state"] == "enabled"
-    assert next(
-        t
-        for t in by_leg[enrollment.LEG_BEHAVIORAL]["toggles"]
-        if t["path"] == ["behavior", "enabled"]
-    )["currentValue"] is True
+    assert (
+        next(
+            t
+            for t in by_leg[enrollment.LEG_BEHAVIORAL]["toggles"]
+            if t["path"] == ["behavior", "enabled"]
+        )["currentValue"]
+        is True
+    )
 
 
 def test_toggle_catalog_covers_four_legs_when_protocol_enables_them():

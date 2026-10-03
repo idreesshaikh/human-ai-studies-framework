@@ -89,8 +89,7 @@ class ConversationTurnIn(BaseModel):
     author: str = "Researcher"
     steer: str | None = None
     decision: DecisionTriggerIn | None = None
-    # A streamed request can be retried through the blocking endpoint.  Reusing
-    # this key keeps that retry idempotent.
+
     requestId: str | None = None
 
 

@@ -49,8 +49,6 @@ _COLUMN_MEANINGS: dict[str, str] = {
     "frustration": "NASA-TLX subscale rating",
 }
 
-# The reverse of ``prescribe.shape_to_recipe_id``; built from the public API so the two
-# cannot drift apart.
 _SHAPE_BY_RECIPE: dict[str, str] = {
     rid: shape
     for shape in design_shapes()
@@ -78,8 +76,6 @@ def _code_cell(source: str, index: int) -> dict:
         "cell_type": "code",
         "id": _cell_id("code", source, index),
         "metadata": {},
-        # None, not omitted: a code cell that has never run reports no execution count,
-        # and nbformat requires the key to be present even when its value is null.
         "execution_count": None,
         "source": source,
         "outputs": [],
@@ -124,10 +120,7 @@ def _dictionary_rows(dataset: Dataset) -> list[tuple[str, str, str]]:
                 rows.append((f"payload.{key}", "any", f"payload key on {type_} events"))
     if "synthetic" in dataset.metrics.columns:
         rows.append(("synthetic", "bool", "simulated metric row; not participant data"))
-    # Sorted, never the set's raw iteration order: metric_columns is a set, and set
-    # iteration order is per-process hash-randomized  -  an unsorted pass would make the
-    # dictionary (and with it every cell id, which is content-derived) drift between
-    # runs of the same pipeline.
+
     for column in sorted(dataset.metric_columns):
         rows.append(
             (

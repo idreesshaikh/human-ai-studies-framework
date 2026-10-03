@@ -1,7 +1,5 @@
-/* Phoenix constellation mark. Coordinates are normalized to the SVG viewBox. */
 
-/** The figure: wings spread, head up, one long tail. `m` is the magnitude
- * radius, `lead` marks the single accent star. */
+
 const STARS: { x: number; y: number; m: number; lead?: boolean }[] = [
   { x: 16, y: 6.5, m: 1.9 }, // head
   { x: 4.8, y: 11.6, m: 2.1 }, // left wingtip
@@ -12,8 +10,6 @@ const STARS: { x: number; y: number; m: number; lead?: boolean }[] = [
   { x: 16, y: 25.2, m: 1.7 }, // tail
 ];
 
-/** The tethers, as index pairs into STARS. Head to heart, heart down the
- * tail, and one line out along each wing. */
 const LINES: [number, number][] = [
   [0, 3],
   [3, 6],
@@ -38,9 +34,7 @@ export function PhoenixMark({
       aria-hidden
       className={className}
     >
-      {/* The tethers sit under the stars, in the same thread tone the
-        * literature constellation uses, so the two fields read as one
-        * notation rather than as a logo and a chart. */}
+
       <g
         stroke="var(--thread)"
         strokeWidth="1"

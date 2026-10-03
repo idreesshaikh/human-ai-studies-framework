@@ -374,3 +374,29 @@ def paired_dots(
     ax.set_ylim(min(0, lo), hi)
     fig.tight_layout()
     return fig
+
+
+def watermark_synthetic(fig: Figure, kind: str) -> None:
+    """
+    Stamp a dry-run figure so it cannot be lifted into a paper unlabelled.
+
+    Figures travel: they get pasted into slides and drafts long after the report
+    that framed them. The banner in ``report.md`` protects the reader who opens the
+    report; this protects the one who only ever sees the PNG.
+    """
+    if kind not in ("synthetic", "mixed"):
+        return
+    fig.text(
+        0.5,
+        0.5,
+        "SYNTHETIC" if kind == "synthetic" else "SYNTHETIC (MIXED)",
+        transform=fig.transFigure,
+        fontsize=28,
+        color="#e34948",
+        alpha=0.16,
+        ha="center",
+        va="center",
+        rotation=24,
+        zorder=1000,
+        fontweight="bold",
+    )

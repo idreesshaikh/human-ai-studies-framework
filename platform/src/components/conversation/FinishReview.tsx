@@ -13,20 +13,8 @@ import type { CompileResult } from "@/lib/conversationApi";
 import { BlinkComparator } from "./BlinkComparator";
 import { hasEarlierVersion } from "@/lib/comparator";
 
-/* A YAML-scalar line whose entire value is an empty collection, e.g.
- * "instruments: {}" or "  gates: []"  -  a still-unresolved slot rendered as
- * flow-style by the YAML dumper (empty mappings/sequences have no block
- * form). It carries no information the "Still unresolved" line below
- * doesn't already say in plain words, so it's dropped rather than shown
- * as bare braces. */
 const EMPTY_COLLECTION = /^\s*[\w.]+:\s*(\{\}|\[\])\s*$/;
 
-/* Turns the server's unified diff (`---`/`+++`/`@@`/`+`/`-` lines) into
- * per-line pieces so each can be colored on its own  -  a flat <pre> string
- * can't do that. File-header lines are dropped ("draft-before"/"draft-after"
- * mean nothing to a researcher), as are empty-collection placeholder lines;
- * hunk headers become a plain divider instead of raw `@@ -0,0 +1,3 @@` diff
- * jargon. */
 function parseDiffLines(diff: string) {
   return diff
     .split("\n")
@@ -44,11 +32,6 @@ function parseDiffLines(diff: string) {
     });
 }
 
-/* The "finish the conversation → here's your protocol" moment. When the
- * researcher wraps up, this gathers everything the conversation produced  -
- * the design moves they accepted, how many are grounded in the literature,
- * and the compiled protocol  -  into one calm review before it becomes the
- * document of record. It's the payoff: talk became a study. */
 export function FinishReview({
   open,
   onOpenChange,
@@ -78,10 +61,7 @@ export function FinishReview({
     [compile?.diff],
   );
   const hasDiff = diffLines.some((d) => d.kind === "add" || d.kind === "remove");
-  /* Something existed before this compile, so the two plates genuinely differ.
-   * Shared with the comparator itself (lib/comparator.ts) so the dialog's
-   * decision to show it and the component's own first-version branch can never
-   * disagree; `verify-comparator.mjs` exercises both. */
+
   const earlier = hasEarlierVersion(diffLines);
 
   return (
@@ -93,11 +73,6 @@ export function FinishReview({
           protocol: the study's document of record.
         </DialogDescription>
 
-        {/* One line, not three cells. Three big numbers over three small
-          * labels is the hero-metric template, and it was the loudest thing in
-          * a dialog whose actual subject is the protocol below it. The counts
-          * still align and still compare, in the measurement voice, at the
-          * weight a summary deserves. */}
         <p className="mt-3 type-body text-text-muted">
           <span className="type-quantity text-text">{accepted.length}</span>{" "}
           {accepted.length === 1 ? "move" : "moves"} accepted:{" "}
@@ -114,15 +89,7 @@ export function FinishReview({
                 className="flex items-start gap-2 border-b border-border px-3 py-2 type-body last:border-0"
               >
                 <span className="mt-0.5 w-32 shrink-0 type-caption text-text-muted">
-                  {/* The plain-words label, never the raw dotted path (see
-                    * targetLabel: an earlier prompt version had the model
-                    * literally echoing "protocol.design" as a real target,
-                    * and even a well-formed path like "researchQuestions[]"
-                    * is still code, not a name a researcher reads). A fixed
-                    * width here  -  not just shrink-0  -  is what makes every
-                    * row's proposal text start at the same x position;
-                    * without it "Design" and "Research questions" left each
-                    * row's second column starting somewhere different. */}
+
                   {targetLabel(m.target)}
                 </span>
                 <span className="min-w-0 flex-1 text-text">{m.proposal}</span>
@@ -150,11 +117,7 @@ export function FinishReview({
                 ? "The server couldn't compile this draft. Check your connection, then reopen this review."
                 : "The draft is still empty. Accept a few design moves first.")}
           </pre>
-          {/* On a first compile the comparator's at-rest record is the same
-            * document as the block above, line for line, so showing both
-            * stacked two ~200-line monospace slabs in one dialog and marked
-            * nothing as changed. The comparator earns its place only once
-            * there is an earlier version to alternate against. */}
+
           {hasDiff && earlier && (
             <BlinkComparator lines={diffLines} className="mt-3" />
           )}
@@ -188,15 +151,6 @@ export function FinishReview({
           )}
         </div>
 
-        {/* Pinned to the foot of the dialog's scroller. Measured at 1440x900
-          * this dialog is taller than the viewport, and the action row sat
-          * ~370px below the fold: the one thing the review exists to let the
-          * researcher do was invisible when it opened. */}
-        {/* Applying used to be the end of the road: the button read "Applied"
-          * and the dialog just sat there, which had a reviewer asking "when
-          * the proposal is complete, how do I continue?". The protocol is
-          * only half the job  -  it still has to reach participants' editors  -
-          * so the next step is named here, where the question is asked. */}
         {applied && (
           <div
             className="mt-3 rounded-card border border-border bg-well p-3"

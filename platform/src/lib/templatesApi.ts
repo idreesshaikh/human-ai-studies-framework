@@ -1,9 +1,6 @@
 import { getAuthToken, notifyUnauthorized } from "./api.ts";
 import { OfflineError } from "./studyApi";
 
-/* The template registry (FR-TPL): published, citable study designs that
- * instantiate into protocols. Not study-scoped, so its own tiny client. */
-
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 export interface TemplateSource {
@@ -21,9 +18,6 @@ export interface TemplateSummary {
   source: TemplateSource[];
 }
 
-/* One paper attached to a design shape: either a paper the template cites as
- * its source, or a corpus paper that describes itself with the shape's design
- * vocabulary. Ranked by confidence, never by provenance. */
 export interface DesignReference {
   ref: string;
   title: string;
@@ -34,7 +28,6 @@ export interface DesignReference {
   matchReason: string;
 }
 
-/* A design shape in the repertoire, with how widely the corpus uses it. */
 export interface RepertoireEntry extends TemplateSummary {
   support: number;
   signature: string[];
@@ -77,9 +70,7 @@ export interface DerivedTemplate {
     source: TemplateSource[];
   };
   paper: { ref: string; title: string; confidence: number | null };
-  /** The derived template already filled with its defaults  -  what a new
-   *  study's draft is seeded from. The template itself is never registered,
-   *  so there is no id anything else could instantiate it by. */
+
   protocol: Record<string, unknown>;
 }
 

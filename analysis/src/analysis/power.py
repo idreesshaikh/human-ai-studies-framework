@@ -94,8 +94,7 @@ def _paired_power_at(n: int, d: float, alpha: float) -> float:
     noncentrality = d * n**0.5
     t_crit = sps.t.ppf(1.0 - alpha / 2.0, df)
     return float(
-        sps.nct.sf(t_crit, df, noncentrality)
-        + sps.nct.cdf(-t_crit, df, noncentrality)
+        sps.nct.sf(t_crit, df, noncentrality) + sps.nct.cdf(-t_crit, df, noncentrality)
     )
 
 

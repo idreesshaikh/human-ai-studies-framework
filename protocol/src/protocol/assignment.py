@@ -54,20 +54,15 @@ def assign(protocol: dict, participant_index: int) -> list[Block]:
     tasks = tasks_of(protocol)
     participants = protocol.get("participants") or {}
     within = participants.get("design") == "within-subjects"
-    # Counterbalancing is what rotation is *for*; without it every participant gets the
-    # identical order, which is a defensible choice only when the researcher made it
-    # deliberately.
+
     rotate = participant_index if participants.get("counterbalanced") else 0
 
     if not within:
         condition = conditions[participant_index % len(conditions)]
         eligible = [t for t in tasks if _eligible(t, condition)] or tasks
         ordered = _rotated(eligible, rotate)
-        return [
-            Block(i, task["id"], condition) for i, task in enumerate(ordered)
-        ]
+        return [Block(i, task["id"], condition) for i, task in enumerate(ordered)]
 
-    # The two rotations must be independent.
     ordered_conditions = _rotated(conditions, rotate)
     blocks: list[Block] = []
     for position, condition in enumerate(ordered_conditions):

@@ -55,6 +55,7 @@ _PRODUCER_SOURCES = {
     "agent-derived": "agent-derived",
 }
 
+
 def new_session_id() -> str:
     """Create a non-secret, facilitator-friendly session identifier."""
     return f"s-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{secrets.token_hex(4)}"
@@ -258,7 +259,7 @@ def producer_capabilities(protocol: dict) -> dict[str, dict]:
         "source": "task-harness",
         **_status(
             harness_state,
-                "run by an external harness command against task tests",
+            "run by an external harness command against task tests",
             configured=harness is not None,
         ),
         "executor": "task harness",
@@ -337,8 +338,7 @@ def required_producers(
     if isinstance(explicit, list):
         return [str(p) for p in explicit if str(p) in _PRODUCER_SOURCES]
     producers = producers or producer_capabilities(protocol)
-    # TERN is the live participant boundary when it is configured. All other
-    # producers remain optional until the researcher marks them required.
+
     required = ["tern"] if producers["tern"]["configured"] else []
     instruments = protocol.get("instruments") or {}
     for producer, config_key in (

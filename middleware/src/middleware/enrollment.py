@@ -54,10 +54,6 @@ def build_capture_config(
         "captureConfigVersion": capture_config_version(protocol),
         "producer": producer,
         "settings": settings,
-        # Mint-time switches are part of the participant's effective config.
-        # Summarising the protocol alone made the extension sidebar say that
-        # overridden behavioral/metrics legs were off even while their flat
-        # settings were on.
         "legs": leg_summary(protocol, settings),
         "producers": manifest["producers"],
         "sessionManifest": manifest,
@@ -147,7 +143,6 @@ LEG_BEHAVIORAL = "behavioral"
 LEG_COGNITIVE = "cognitive"
 LEG_AGENT = "agent"
 
-# Only cites sources already in the corpus  -  never invents one.
 _TOGGLE_CATALOG: list[dict] = [
     {
         "instrument": "tern",
@@ -392,8 +387,6 @@ def toggle_catalog(protocol: dict, settings: dict | None = None) -> list[dict]:
     return out
 
 
-# Written once here so the extension never grows a second, divergent account of what a
-# leg does.
 _LEG_SUMMARIES = {
     LEG_METRICS: (
         "Static metrics",
