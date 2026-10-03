@@ -57,7 +57,7 @@ parameters:
 measures:
   - id: self-report-workload
     leg: cognitive
-    elements: [end_survey]
+    elements: [end_survey_response]
     description: TLX-style subscales (mental demand, effort, frustration) at end of session
     caution: Self-report may diverge from objective measures; no behavioral or outcome data is collected in this design
 statisticalPlan:
