@@ -26,7 +26,7 @@ PROFILE_PARAMS: dict[str, dict[str, Any]] = {
         "first_green_ms": (8_000, 60_000),
         "agent_turns": 2,
         "focus_files": 1,
-        "tlx": (1, 6),
+        "tlx": (1, 3),
     },
     "struggling": {
         "fatigue": (3, 5),
@@ -37,7 +37,7 @@ PROFILE_PARAMS: dict[str, dict[str, Any]] = {
         "first_green_ms": (60_000, 300_000),
         "agent_turns": 9,
         "focus_files": 3,
-        "tlx": (10, 20),
+        "tlx": (5, 7),
     },
     "novice": {
         "fatigue": (2, 4),
@@ -48,7 +48,7 @@ PROFILE_PARAMS: dict[str, dict[str, Any]] = {
         "first_green_ms": (30_000, 120_000),
         "agent_turns": 5,
         "focus_files": 2,
-        "tlx": (6, 12),
+        "tlx": (3, 6),
     },
     "expert": {
         "fatigue": (1, 3),
@@ -59,7 +59,7 @@ PROFILE_PARAMS: dict[str, dict[str, Any]] = {
         "first_green_ms": (5_000, 45_000),
         "agent_turns": 3,
         "focus_files": 2,
-        "tlx": (2, 8),
+        "tlx": (2, 4),
     },
 }
 
