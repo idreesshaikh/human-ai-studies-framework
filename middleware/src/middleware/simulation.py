@@ -108,12 +108,16 @@ def _payload(
         return {"score": rng.randint(lo, hi)}
     if event_type == "stuck_response":
         return {"evidenceMs": rng.randint(30_000, 4 * 60_000)}
-    if event_type == "end_survey":
+    if event_type == "end_survey_response":
         lo, hi = params["tlx"]
         return {
-            "mentalDemand": rng.randint(lo, hi),
-            "effort": rng.randint(lo, hi),
-            "frustration": rng.randint(lo, hi),
+            "responses": {
+                "mental_demand": rng.randint(lo, hi),
+                "effort": rng.randint(lo, hi),
+                "frustration": rng.randint(lo, hi),
+            },
+            "comments": "",
+            "msToComplete": rng.randint(20_000, 90_000),
         }
     if event_type == "clipboard_paste":
         return {"charCount": rng.randint(5, 500)}
@@ -230,8 +234,12 @@ def _session_events(
         emit(t, "task_outcome", _payload(rng, "task_outcome", params, task_id, file))
         t += timedelta(seconds=rng.randint(15, 60))
 
-    if "end_survey" in types:
-        emit(t, "end_survey", _payload(rng, "end_survey", params, task_id, file))
+    if "end_survey_response" in types:
+        emit(
+            t,
+            "end_survey_response",
+            _payload(rng, "end_survey_response", params, task_id, file),
+        )
 
     return session_events
 
