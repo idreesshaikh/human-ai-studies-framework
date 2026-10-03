@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+# Deliberately about interrogating the platform's own last move, not general curiosity.
 _FOLLOWUP_CUES = (
     "why did you",
     "why do you",
@@ -31,6 +32,10 @@ _FOLLOWUP_CUES = (
     "how do you know",
 )
 
+# A low-information reply is a request for scaffolding, not another turn of the
+# same elicitation question. Keep this deliberately narrow: a researcher saying
+# "I don't know why" is still asking about the preceding proposal, while "I don't
+# know" or "what?" needs the platform to explain the choice in plain language.
 _STUCK_EXACT = frozenset(
     {
         "what",
@@ -71,6 +76,11 @@ _STUCK_PHRASES = (
     "sample example",
 )
 
+# PHOENIX is intentionally a study-instrumentation product, not a general
+# research-methods assistant. Keep the boundary narrow enough to be useful: a
+# student who is programming is a valid participant, while a study outside
+# software development is not. This check runs before retrieval or the model so
+# an unsupported idea cannot fall into the normal elicitation loop.
 _OUT_OF_SCOPE_CUES = (
     "exam",
     "exams",
@@ -167,7 +177,6 @@ def needs_scaffolding(text: str) -> bool:
         return False
     return q in _STUCK_EXACT or any(phrase in q for phrase in _STUCK_PHRASES)
 
-
 _DESIGN_REQUEST_PATTERNS = (
     re.compile(
         r"\b(what|which|recommend|suggest|propose|pick|choose|give me)\b"
@@ -210,92 +219,33 @@ FACETS: dict[str, dict] = {
     "population": {
         "label": "who takes part",
         "cues": (
-            "developer",
-            "developers",
-            "engineer",
-            "engineers",
-            "student",
-            "students",
-            "participant",
-            "participants",
-            "professional",
-            "practitioner",
-            "practitioners",
-            "junior",
-            "senior",
-            "novice",
-            "expert",
-            "team",
-            "teams",
-            "colleague",
-            "colleagues",
-            "volunteer",
-            "programmer",
-            "programmers",
-            "intern",
-            "interns",
-            "employee",
-            "employees",
-            "people who",
-            "n=",
-            "recruit",
+            "developer", "developers", "engineer", "engineers", "student",
+            "students", "participant", "participants", "professional",
+            "practitioner", "practitioners", "junior", "senior", "novice",
+            "expert", "team", "teams", "colleague", "colleagues", "volunteer",
+            "programmer", "programmers", "intern", "interns", "employee",
+            "employees", "people who", "n=", "recruit",
         ),
         "question": "Who takes part, and roughly how many can you realistically get?",
     },
     "task": {
         "label": "what they do",
         "cues": (
-            "task",
-            "tasks",
-            "write",
-            "writing",
-            "implement",
-            "refactor",
-            "debug",
-            "review",
-            "maintenance",
-            "feature",
-            "bug",
-            "exercise",
-            "assignment",
-            "problem",
-            "codebase",
-            "repository",
-            "repo",
-            "pull request",
-            "issue",
-            "ticket",
-            "work on",
-            "build",
-            "fix",
+            "task", "tasks", "write", "writing", "implement", "refactor",
+            "debug", "review", "maintenance", "feature", "bug", "exercise",
+            "assignment", "problem", "codebase", "repository", "repo",
+            "pull request", "issue", "ticket", "work on", "build", "fix",
         ),
         "question": "Which task will they actually be doing, and on whose code?",
     },
     "comparison": {
         "label": "what is compared",
         "cues": (
-            "compare",
-            "compared",
-            "comparison",
-            "versus",
-            " vs ",
-            "with and without",
-            "without",
-            "condition",
-            "conditions",
-            "control",
-            "baseline",
-            "arm",
-            "arms",
-            "group",
-            "groups",
-            "before and after",
-            "treatment",
-            "intervention",
-            "between",
-            "within",
-            "instead of",
-            "against",
+            "compare", "compared", "comparison", "versus", " vs ",
+            "with and without", "without",
+            "condition", "conditions", "control", "baseline", "arm", "arms",
+            "group", "groups", "before and after", "treatment",
+            "intervention", "between", "within", "instead of", "against",
         ),
         "question": (
             "What are you comparing: two ways of working, before and after, "
@@ -305,76 +255,24 @@ FACETS: dict[str, dict] = {
     "outcome": {
         "label": "what is measured",
         "cues": (
-            "measure",
-            "measures",
-            "measuring",
-            "outcome",
-            "time",
-            "speed",
-            "duration",
-            "quality",
-            "correctness",
-            "defect",
-            "defects",
-            "bug",
-            "error",
-            "errors",
-            "accuracy",
-            "productivity",
-            "effort",
-            "workload",
-            "satisfaction",
-            "trust",
-            "confidence",
-            "perception",
-            "complexity",
-            "readability",
-            "acceptance",
-            "rate",
-            "how long",
-            "how many",
-            "how well",
-            "score",
+            "measure", "measures", "measuring", "outcome", "time", "speed",
+            "duration", "quality", "correctness", "defect", "defects", "bug",
+            "error", "errors", "accuracy", "productivity", "effort",
+            "workload", "satisfaction", "trust", "confidence", "perception",
+            "complexity", "readability", "acceptance", "rate", "how long",
+            "how many", "how well", "score",
         ),
         "question": "What would count as a result, and what do you want to measure?",
     },
     "constraints": {
         "label": "what is possible",
         "cues": (
-            "lab",
-            "field",
-            "remote",
-            "in person",
-            "in-person",
-            "session",
-            "sessions",
-            "minutes",
-            "hour",
-            "hours",
-            "week",
-            "weeks",
-            "month",
-            "months",
-            "telemetry",
-            "logs",
-            "log data",
-            "existing data",
-            "github",
-            "mining",
-            "dataset",
-            "archive",
-            "ethics",
-            "consent",
-            "irb",
-            "approval",
-            "company",
-            "internal",
-            "production",
-            "customer",
-            "cannot",
-            "can't",
-            "constraint",
-            "limited",
+            "lab", "field", "remote", "in person", "in-person", "session",
+            "sessions", "minutes", "hour", "hours", "week", "weeks", "month",
+            "months", "telemetry", "logs", "log data", "existing data",
+            "github", "mining", "dataset", "archive", "ethics", "consent",
+            "irb", "approval", "company", "internal", "production",
+            "customer", "cannot", "can't", "constraint", "limited",
             "available",
         ),
         "question": (
@@ -384,6 +282,7 @@ FACETS: dict[str, dict] = {
     },
 }
 
+# How many facets must be on the table before the platform *volunteers* a design shape.
 READY_FOR_DESIGN_FACETS = 3
 
 DESIGN_ON_REQUEST_FACETS = 2
@@ -476,7 +375,8 @@ def _condition_pair(text: str) -> list[str] | None:
             q,
         )
     )
-
+    # "only AI" is a single-condition statement, not evidence of the comparison
+    # the product supports. Do not manufacture the missing control arm.
     only_assisted = bool(re.search(r"\bonly\s+(?:use\s+)?ai\b", q))
     if assisted and unassisted and not only_assisted:
         return ["ai-assisted", "unassisted"]
@@ -687,6 +587,8 @@ def explicit_protocol_facts(text: str) -> list[dict]:
             )
         )
 
+    # Keep one deterministic card per protocol target. A brief often says "within
+    # subjects" and "crossover" together, which should not create two identical cards.
     unique: list[dict] = []
     seen: set[tuple[str, str]] = set()
     for move in moves:
@@ -712,10 +614,15 @@ def understanding_summary(understanding: dict[str, bool]) -> dict:
         "facetLabels": {f: FACETS[f]["label"] for f in FACETS},
         "readyForDesign": ready_for_design(understanding),
         "facetsNeeded": READY_FOR_DESIGN_FACETS,
+        # Naming what is missing without naming what will be asked is what made the
+        # conversation feel open-ended: two reviewers asked, in different words, for a
+        # list of what they still had to provide.
         "nextQuestion": next_question(understanding),
     }
 
 
+# The *method* never changes with the profile  -  the same designs, the same statistics,
+# the same honesty about threats.
 PROFILES: dict[str, dict] = {
     "student": {
         "label": "Student",
@@ -784,6 +691,8 @@ PROFILES: dict[str, dict] = {
 
 DEFAULT_PROFILE = "new-researcher"
 
+
+# The METHOD never changes with this level.
 STEER_LEVELS: dict[str, dict] = {
     "leads": {
         "label": "Leads",
@@ -835,6 +744,8 @@ STEER_LEVELS: dict[str, dict] = {
     },
 }
 
+# What the conversation assumes when the dial has never been moved: a visible next
+# step with room to redirect, defer, or change the subject.
 DEFAULT_STEER = "leads"
 
 

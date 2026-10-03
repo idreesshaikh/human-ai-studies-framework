@@ -3,6 +3,7 @@ import * as Menu from "@radix-ui/react-dropdown-menu";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 
+/* Dropdown menu built on Radix (keyboard nav, typeahead, ARIA). */
 export const DropdownMenu = Menu.Root;
 export const DropdownMenuTrigger = Menu.Trigger;
 

@@ -2,6 +2,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { EventSink, StudyEvent } from '../core/types';
 
+/**
+ * Append-only JSON Lines file - the local source of truth for a session.
+ *
+ * Robustness properties:
+ *  - Stream 'error' events are captured instead of crashing the extension
+ *    host (an unhandled 'error' on a WriteStream is a process-level throw).
+ *  - Writes after a stream failure fall back to synchronous appends, so a
+ *    transient stream error does not lose the rest of the session.
+ *  - `flush()` resolves when the OS has accepted all buffered writes.
+ */
 export class JsonlSink implements EventSink {
   private stream?: fs.WriteStream;
   private streamBroken = false;
@@ -31,7 +41,8 @@ export class JsonlSink implements EventSink {
       this.stream.write(line);
       return;
     }
-
+    // Degraded mode: the stream died - append synchronously so the study
+    // data survives even if performance suffers slightly.
     try {
       fs.appendFileSync(this.filePath, line);
     } catch (err) {
@@ -49,6 +60,11 @@ export class JsonlSink implements EventSink {
     this.stream = undefined;
   }
 
+  /**
+   * Read the last event's `seq` from an existing JSONL file, for continuing
+   * a crash-interrupted session without renumbering. Returns -1 for a
+   * missing/empty/corrupt file (caller starts at 0).
+   */
   static lastSeqIn(filePath: string): number {
     try {
       const text = fs.readFileSync(filePath, 'utf8');
@@ -68,12 +84,26 @@ export class JsonlSink implements EventSink {
   }
 }
 
+/**
+ * Fire-and-forget batching POST to the team's Python middleware
+ * (ActivityWatch-style decoupling: the IDE stays lag-free; the daemon
+ * aggregates). The JSONL file is always the source of truth - this sink is
+ * best-effort mirroring, so its failure policy is "never disturb, never
+ * grow unbounded":
+ *  - requests time out (a hung server cannot pile up pending promises),
+ *  - non-2xx responses count as failures and the batch is retried,
+ *  - the retry buffer is capped, dropping the OLDEST events beyond the cap
+ *    (the newest events are the ones a live platform cares about; the old
+ *    ones are already safe in the JSONL file).
+ */
 export class HttpSink implements EventSink {
   private buffer: StudyEvent[] = [];
   private timer: ReturnType<typeof setInterval>;
   private inFlight = false;
   private consecutiveFailures = 0;
-
+  /** Events confirmed delivered by a successful POST  -  the sidebar's Data
+   *  view reads this to say how much of what was written has actually left
+   *  the machine (NFR-2: loss must be detectable, not just written-to-disk). */
   private delivered = 0;
   private static readonly MAX_BUFFER = 2000;
   private static readonly REQUEST_TIMEOUT_MS = 4_000;
@@ -95,7 +125,7 @@ export class HttpSink implements EventSink {
 
   async flush(): Promise<void> {
     if (!this.buffer.length || this.inFlight) return;
-
+    // Simple backoff: after repeated failures, only try every 4th interval.
     if (this.consecutiveFailures >= 3 && this.consecutiveFailures % 4 !== 3) {
       this.consecutiveFailures++;
       return;
@@ -128,7 +158,7 @@ export class HttpSink implements EventSink {
       }
     } catch {
       this.consecutiveFailures++;
-
+      // Put the batch back (in front of anything written meanwhile).
       this.buffer.unshift(...batch);
       if (this.buffer.length > HttpSink.MAX_BUFFER) {
         this.buffer.splice(0, this.buffer.length - HttpSink.MAX_BUFFER);
@@ -143,11 +173,14 @@ export class HttpSink implements EventSink {
     void this.flush();
   }
 
+  /** Events confirmed delivered so far, for the Data view's queue-depth row. */
   get deliveredCount(): number {
     return this.delivered;
   }
 }
 
+/** Fans writes out to several sinks (JSONL + HTTP). One sink failing never
+ *  affects the others. */
 export class CompositeSink implements EventSink {
   constructor(private readonly sinks: EventSink[]) {}
 

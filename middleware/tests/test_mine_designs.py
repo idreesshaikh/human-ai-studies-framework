@@ -90,15 +90,9 @@ def test_infer_design_type_only_returns_real_schema_values(phrases, expected):
     read for its actual content.
     """
     schema_enum = {
-        "lab-experiment",
-        "field-study",
-        "survey",
-        "rct-within-subjects",
-        "rct-between-subjects",
-        "quasi-experiment",
-        "observational",
-        "case-study",
-        "simulation",
+        "lab-experiment", "field-study", "survey", "rct-within-subjects",
+        "rct-between-subjects", "quasi-experiment", "observational",
+        "case-study", "simulation",
     }
     result = mine_designs.infer_design_type(phrases)
     assert result in schema_enum

@@ -38,8 +38,22 @@ import { cn } from "@/lib/cn";
 import { signInHref } from "@/lib/returnTo";
 import { publicPaperReference } from "@/lib/paperReference";
 
+/* The protocol repertoire (FR-TPL)  -  the literature read as *design shapes*
+ * rather than as thirteen studies to replicate. Each shape is ranked by how
+ * widely the corpus actually uses it (common → rare), the papers that used it
+ * hang off it as ranked references, and picking two or more merges them into
+ * one novel protocol that stays grounded in every paper it draws from. Merging
+ * is the hero action, not a footnote. */
+
+/** How many shapes one URL may select. A merge is a comparison a person
+ * makes, not a batch job, and an unbounded list from a hand-edited address
+ * would be posted to the merge endpoint verbatim. */
 const MAX_SHAPES = 12;
 
+/** The `shapes` parameter as a list of ids: trimmed, de-duplicated, capped.
+ * One reader for the address, used by both the component that renders the
+ * selection and the updater that writes it, so the two can never disagree
+ * about what the URL currently says. */
 function parseShapes(raw: string | null): string[] {
   return [
     ...new Set(
@@ -66,7 +80,20 @@ function humanizeDesignType(value: string): string {
 export function Templates() {
   const [entries, setEntries] = useState<RepertoireEntry[] | null>(null);
   const [corpus, setCorpus] = useState<CorpusStatus | null>(null);
-
+  /* The selection lives in the URL, not in component state.
+   *
+   * It is genuinely addressable information  -  which design shapes a
+   * researcher is holding side by side  -  and treating it as component state
+   * meant it could not survive the one thing this page routinely does to it:
+   * sending someone to sign in. Signing in ends in `location.reload()`, so a
+   * visitor who merged two shapes, was told to sign in to keep the result,
+   * and did, came back to an empty page and had to find and re-tick both
+   * shapes from memory.
+   *
+   * In the query string it survives that reload for free (the return-to
+   * `next` carries `pathname + search`, so it is already being handed back),
+   * and it becomes shareable and back-buttonable as a side effect: a merge
+   * is now a link you can paste to a collaborator. */
   const [searchParams, setSearchParams] = useSearchParams();
 
   const selected = useMemo(
@@ -78,16 +105,24 @@ export function Templates() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
-
+  /* A paper handed over from a shape's reference list ("Use this paper").
+   * Carries the paper into the derive panel with that shape pre-selected as
+   * the archetype, so the researcher never re-finds a paper they were already
+   * looking at. */
   const [seed, setSeed] = useState<{
     paper: CorpusHit;
     baseId: string;
   } | null>(null);
 
+  /* The conversational alternative to checkbox-merging: describe the study in
+   * plain language and the assistant works the design (and, when shapes are
+   * selected, the merge) out in a design conversation. */
   const api = useApi();
   const { refresh } = useSession();
   const { hasCredential } = useAuth();
-
+  /* The repertoire is public to READ. Everything on this page that writes  -
+   * starting a conversation, turning a shape into a study  -  still needs an
+   * identity, and says so where it is. */
   const signedOut = !hasCredential;
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
@@ -135,6 +170,16 @@ export function Templates() {
   );
   const corpusReady = corpus?.state === "ready";
 
+  /* Writing the selection back to the address.
+   *
+   * `replace`, not push: ticking eight boxes is one act of choosing, and
+   * pushing each one would bury the page the researcher arrived from under
+   * eight history entries they have to click back through.
+   *
+   * Changing the selection always drops `merged`  -  a merged protocol names
+   * the exact shapes it came from, so leaving the flag set while the
+   * selection moves under it would restore a result for a different set than
+   * the one now ticked. */
   const updateSelection = useCallback(
     (
       update: (current: string[]) => string[],
@@ -143,7 +188,12 @@ export function Templates() {
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);
-
+          /* The next selection is derived from `prev` INSIDE the updater, not
+           * from the `selected` this render closed over. Two toggles in one
+           * tick  -  a double click, a keyboard repeat, a test driving two
+           * checkboxes back to back  -  both read the same stale render and the
+           * second silently discarded the first: ticking two shapes left one
+           * in the address. */
           const ids = update(parseShapes(params.get("shapes"))).slice(
             0,
             MAX_SHAPES,
@@ -181,7 +231,8 @@ export function Templates() {
       try {
         const result = await templatesApi.merge(ids);
         setMerged(result);
-
+        // Record in the address that a merge is showing, so a reload (a
+        // sign-in, a shared link) restores the result and not just the ticks.
         updateSelection(() => ids, { merged: true });
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't merge those designs.");
@@ -192,6 +243,15 @@ export function Templates() {
     [updateSelection],
   );
 
+  /* Restore a merge the address says was showing.
+   *
+   * The merge endpoint composes templates at request time and writes nothing,
+   * so recomputing it on arrival is safe and is the only way to bring the
+   * result back  -  the protocol itself is far too large to carry in a URL.
+   *
+   * `restoredRef` keys the attempt on the exact selection, so a failure is
+   * reported once rather than retried on every render, and re-ticking a
+   * different pair is still allowed to try. */
   const restoredRef = useRef<string | null>(null);
   useEffect(() => {
     if (searchParams.get("merged") !== "1") return;
@@ -208,11 +268,14 @@ export function Templates() {
     setDescribeBusy(true);
     setDescribeError("");
     try {
-
+      // Same implicit-personal-project path as QuickStart: no naming friction,
+      // the researcher lands straight in the conversation.
       const project = await api.createProject("Personal");
       const title =
         text.length > 60 ? `${text.slice(0, 57).trimEnd()}…` : text;
-
+      // With shapes already selected, name them in the opening so the
+      // assistant proposes that merge immediately instead of asking which
+      // shapes the researcher means.
       const opening =
         selected.size >= 2
           ? `Merge these design shapes: ${[...selected].join(", ")}. ${text}`
@@ -234,7 +297,10 @@ export function Templates() {
   return (
     <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
       <div>
-
+        {/* No icon beside the heading. A page title carries its own weight,
+          * and an accent-tinted glyph next to it spends the screen's one
+          * accent on decoration instead of on the action the researcher is
+          * meant to find. */}
         <h1 className="type-title text-text">Protocol repertoire</h1>
         <p className="type-body mt-1 max-w-reading text-text-muted">
           Proven design shapes from a 15,000-paper corpus, ranked by how widely
@@ -272,6 +338,12 @@ export function Templates() {
         <DeriveFromPaper templates={entries} seed={seed} />
       )}
 
+      {/* The conversational alternative to browsing and checking boxes. A
+        * researcher who can describe their problem but not name the shapes it
+        * needs gets a path straight into a design conversation; shapes they
+        * have already selected are handed over as an explicit merge request,
+        * so the assistant proposes the pairing rather than asking them to
+        * re-articulate it. */}
       {entries && entries.length > 0 && corpusReady && (
         <section className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4">
           <h2 className="type-subhead flex items-center gap-2 text-text">
@@ -292,7 +364,11 @@ export function Templates() {
               aria-label="Describe your study"
               className="min-w-0 flex-1 basis-56"
             />
-
+            {/* Starting a conversation creates a project and a study, so this
+              * is the one control in the panel that needs an identity. The
+              * field stays usable either way  -  a visitor can still frame the
+              * question they came with  -  but the button says what it will
+              * actually do rather than failing after the click. */}
             {signedOut ? (
               <Button asChild size="sm">
                 <Link to={signInHref(pathname + search)}>Sign in to start</Link>
@@ -327,9 +403,27 @@ export function Templates() {
       ) : entries && !corpusReady ? null : entries && entries.length === 0 ? (
         <EmptyState line="No design shapes in the registry yet." />
       ) : (
+        /* A grid, not a stack. These are alternatives to choose between, and
+           a column forces a reader to hold each one in memory to compare it
+           with the next; side by side, the titles, design types and support
+           badges line up as columns you can read across.
 
+           Cards STRETCH to their row. `items-start` used to be right: a card
+           expanded in place to show its references, and stretching dragged its
+           row-mates up to match, leaving them framing empty plate. That is no
+           longer how details open  -  they are a dialog now  -  so nothing ever
+           grows in place, and all `items-start` still did was let every card
+           sit at its own height. It does not hold them level the way the old
+           comment claimed: a one-line title next to a two-line one differs by
+           21px, so each row ended on a ragged edge and the shelf read as
+           broken rather than as a set of alternatives. */
         <section className="flex flex-col gap-2">
-
+          {/* The page's primary shelf had no heading at all, while the lesser
+            * "Held back" shelf below it did  -  so the grid simply began, and
+            * the tick box on every card was an affordance whose purpose was
+            * explained only in a paragraph three panels up. The heading names
+            * the shelf and says what selecting is for, where the selecting
+            * happens. */}
           <h2 className="type-subhead text-text">Design shapes</h2>
           <p className="type-caption text-text-muted">
             Tick two or more to merge them into one protocol grounded in every
@@ -375,6 +469,7 @@ export function Templates() {
         </section>
       )}
 
+      {/* Compose bar  -  merging is the point of the page. */}
       {selected.size > 0 && (
         <div className="sticky bottom-4 flex items-center gap-3 rounded-card border border-border-strong bg-surface-raised p-3 shadow-sheet">
           <span className="type-body text-text">
@@ -407,6 +502,8 @@ export function Templates() {
         </div>
       )}
 
+      {/* Dismissing has to clear the flag too, or the next reload would
+          dutifully restore the very card the researcher just closed. */}
       {merged && (
         <MergedResult
           result={merged}
@@ -454,9 +551,22 @@ function ShapeCard({
           : "hover:border-control-edge",
       )}
     >
-
+      {/* Built to stack, not to span. The old row put the title, the
+        * description and a shrink-0 badge column side by side, which worked
+        * at full page width and collapsed the title to one word per line the
+        * moment these became columns in a grid. In a card, the things that
+        * vary in length go down the page and only the fixed-size marks sit
+        * across it. */}
       <CardContent className="flex flex-1 flex-col gap-3 p-4">
-
+        {/* A real label, so the title is part of the checkbox's hit area and
+          * its accessible name, instead of a button wrapping a paragraph.
+          * The box itself is drawn, not the OS default: every other control
+          * on the plate (Button, Input, Select) is restyled to the same
+          * instrument, and a bare native checkbox was the one control left
+          * to render however the browser felt like  -  an unbordered square in
+          * one engine, a solid block in another. The real input still sits
+          * over the drawn box, sized to match, so focus, click and keyboard
+          * toggling stay native; only its own appearance is hidden. */}
         <label className="flex cursor-pointer items-start gap-2.5">
           <span className="relative mt-0.5 flex size-4 shrink-0">
             <input
@@ -484,6 +594,10 @@ function ShapeCard({
           </span>
         </label>
 
+        {/* Clamped, so a shelf of cards stays comparable down the row: one
+          * card with a five-line description and another with fifteen is a
+          * ragged shelf you cannot scan across. The full text is a click
+          * away in the detail panel. */}
         <button
           type="button"
           onClick={onDetail}
@@ -504,6 +618,15 @@ function ShapeCard({
   );
 }
 
+/** How widely the corpus uses this shape.
+ *
+ * "How much evidence stands behind this" is the same question grounding
+ * answers everywhere else in the app, so it is answered the same way: the
+ * count is PRINTED, in the machine face, and the dot that used to sit beside
+ * it is gone. The dot was a second encoding of a number already on the line  -
+ * and a size ramp nobody could rank without the two marks side by side (see
+ * docs/design.md). The band's own words stay in the
+ * title, where they explain what the count means. */
 function SupportBadge({ entry }: { entry: RepertoireEntry }) {
   return (
     <span
@@ -520,6 +643,14 @@ function SupportBadge({ entry }: { entry: RepertoireEntry }) {
   );
 }
 
+/* One paper behind a design shape  -  and a way to act on it.
+ *
+ * These rows were display-only, sitting a few centimetres above a corpus
+ * search that looked like it should reach them and did not. "Use this paper"
+ * closes that gap: it carries the paper into the derive panel with this
+ * shape already selected as the archetype, which is the route from "a paper
+ * I recognise" to "a study I can run" the page always implied and never
+ * offered. */
 function ShapeDetailPanel({
   entry,
   selected,
@@ -536,7 +667,12 @@ function ShapeDetailPanel({
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-work max-h-[80vh] flex flex-col">
-
+        {/* `pr-9` reserves the corner the Close button occupies. `DialogContent`
+          * positions it `absolute right-4 top-4`, so it floats OVER whatever
+          * the header puts there  -  and this header ends in an interactive
+          * label, which overlapped it by 12px: the right end of "Include in
+          * merge" was painted under the X, and clicking those pixels hit the
+          * close button instead of the checkbox they appeared to belong to. */}
         <div className="flex items-start justify-between gap-4 pr-9">
           <div className="flex-1">
             <DialogTitle className="type-display">{entry.title}</DialogTitle>
@@ -676,6 +812,9 @@ function MergedResult({
         </ul>
       </div>
 
+      {/* The merge is not a dead end: land it in a project as a study whose
+       * protocol draft is already the merged protocol, and keep designing
+       * from there in the conversation. */}
       <CreateStudyFrom
         protocol={result.protocol}
         label="Turn this into a study  -  the merged protocol seeds its draft"

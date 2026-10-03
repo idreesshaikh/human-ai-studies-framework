@@ -25,6 +25,7 @@ body:
         - protocol (schema, validator, lifecycle)
         - analysis (recipes, runner, paper draft)
         - agent-capture (agent leg)
+        - curated (curated-dataset leg)
         - metrics (static-metrics leg)
         - docs / requirements
         - build, CI, or deployment

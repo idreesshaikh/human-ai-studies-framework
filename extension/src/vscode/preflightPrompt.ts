@@ -7,6 +7,15 @@ export interface PreflightPromptOptions {
   notCaptured: string[];
 }
 
+/**
+ * Show the capture-consent gate as a QuickPick rather than a modal message.
+ *
+ * VS Code adds its own dismissal affordance to modal message dialogs. Mixing
+ * that affordance with an explicit Cancel item is easy to get wrong and can
+ * render duplicate Cancel buttons in older hosts. A QuickPick gives the
+ * participant exactly two visible actions: begin or cancel (Esc also cancels)
+ * while keeping the capture scope readable and keyboard accessible.
+ */
 export function confirmPreflight(
   options: PreflightPromptOptions,
 ): Promise<boolean> {

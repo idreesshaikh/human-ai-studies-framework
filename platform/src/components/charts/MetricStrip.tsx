@@ -5,6 +5,14 @@ import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/shell/EmptyState";
 import type { DatasetRow } from "@/lib/studyApi";
 
+/* Metric distribution split by condition (FR-DASH-5), small-n honest (NFR-8):
+ * every observation is drawn (deterministic jitter), per-cell n is always
+ * shown, the quartile box only appears at n ≥ 5, and the table view carries
+ * exact summaries. Follows the dataviz skill  -  thin marks, recessive grid,
+ * color follows the entity in fixed slot order, a hover tooltip, and a table
+ * alternative so identity is never color-alone. No charting dependency: one
+ * linear scale and a quantile helper, hand-built (D17). */
+
 const METRICS: { key: string; label: string; definition: string }[] = [
   {
     key: "cognitive_complexity",
@@ -48,6 +56,7 @@ function summary(values: number[]): Stats | null {
   return { n: v.length, min: v[0], q1: q(0.25), median: q(0.5), q3: q(0.75), max: v[v.length - 1] };
 }
 
+/** Deterministic jitter  -  stable across renders, no Math.random. */
 function jitter(i: number): number {
   const f = Math.sin((i + 1) * 12.9898) * 43758.5453;
   return (f - Math.floor(f) - 0.5) * 0.55;
@@ -60,11 +69,19 @@ export function MetricStrip({
   rows: DatasetRow[];
   conditions: string[];
 }) {
-
+  // `null` means "nobody has chosen yet"  -  not "no metric". An explicit
+  // choice always wins; until there is one, the strip opens on a metric that
+  // actually has rows.
   const [chosen, setChosen] = useState<string | null>(null);
   const [asTable, setAsTable] = useState(false);
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
 
+  /* Which metrics this dataset actually carries. `cognitive_complexity` is
+   * first in METRICS and comes from SonarQube, so it is null for every row a
+   * study captured without a Sonar server wired up (the bundled sample data
+   * included). Opening on it showed "no metric rows carry cognitive_complexity"
+   * over a dataset holding six populated metrics  -  the panel read as broken
+   * when it was merely pointed at the one column nobody had filled. */
   const populated = useMemo(() => {
     const has = (key: string) =>
       rows.some((r) => {
@@ -138,6 +155,9 @@ export function MetricStrip({
       </div>
       <p className="type-caption text-text-muted">{metric.definition}</p>
 
+      {/* Full chart/table states keep a stable working height, while an empty
+          metric stays content-sized. Reserving plotting height for an absence
+          turned a short explanation into a large blank gulf before analysis. */}
       <div className={points.length === 0 ? "" : "min-h-[19rem]"}>
       {points.length === 0 ? (
         <EmptyState

@@ -29,7 +29,10 @@ def test_instrument_config_flows_through(pilot):
     assert settings["tern.fatigue.intervalMinutes"] == 15
     assert settings["tern.stuck.languages"] == ["python"]
     assert settings["tern.session.durationMinutes"] == 45
-    assert settings["tern.output.httpEndpoint"] == "http://127.0.0.1:8000/ingest/events"
+    assert (
+        settings["tern.output.httpEndpoint"]
+        == "http://127.0.0.1:8000/ingest/events"
+    )
 
 
 def test_ide_health_flows_through_when_declared(pilot):

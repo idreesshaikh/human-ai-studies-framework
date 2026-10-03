@@ -48,7 +48,8 @@ _TABLE: dict[str, Prescription] = {
         design_shape="multi-group",
         test="Kruskal-Wallis H (exact where available, else asymptotic)",
         effect_size="Epsilon-squared (ε²) or rank-eta-squared",
-        correction="Holm-Bonferroni for post-hoc pairwise comparisons via Dunn's test",
+        correction="Holm-Bonferroni for post-hoc pairwise comparisons "
+        "via Dunn's test",
         sample_size_guidance="≥3 per group; ≥5 per group recommended; "
         "post-hoc comparisons follow the paired/two-group guidance",
         rationale="Multi-group (3+) independent comparison. Kruskal-Wallis "

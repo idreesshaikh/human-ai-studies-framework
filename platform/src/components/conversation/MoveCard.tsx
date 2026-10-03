@@ -21,6 +21,13 @@ const KIND_LABEL: Record<DesignMove["kind"], string> = {
   caution: "Caution",
 };
 
+/* A proposed design move with accept/reject, and an Undo once decided  -
+ * reopens the card to "proposed" rather than flipping straight to the
+ * opposite decision. Keyboard-first: a / r when the card is focused (undo
+ * is click-only; a long-since-decided card isn't the one holding focus).
+ * Accepted moves fold toward the draft rail; rejected ones fade out. A
+ * caution has no patch, so accepting it just marks it noted  -  it never
+ * changes the draft. */
 export function MoveCard({
   move,
   onDecide,
@@ -28,17 +35,23 @@ export function MoveCard({
 }: {
   move: DesignMove;
   onDecide: (moveId: string, status: MoveStatus, move?: DesignMove) => void;
-
+  /** True only for the first undecided move of a reply the researcher just
+   *  asked for (see ConversationView)  -  never on a page they merely opened. */
   autoFocus?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const isCaution = move.kind === "caution";
-
+  // A non-caution move can still land here with no patch (e.g. the LLM
+  // proposed a section the compiler doesn't recognize and it got dropped
+  // at validation)  -  "in draft" would be a lie in that case, since neither
+  // compiler folds a patch-less move into the draft.
   const compiled = Boolean(move.patch);
   const decided = move.status !== "proposed";
   const isMergedResearchQuestion =
     move.kind === "add-rq" && move.status === "accepted" && compiled;
-
+  /* Whether ANY citation stands behind this move. How strongly each one does
+   * is carried by that citation's own printed score on its chip, so the card
+   * needs the boolean and not the maximum. */
   const grounded = move.grounding.length > 0;
 
   const onKey = useCallback(
@@ -50,6 +63,12 @@ export function MoveCard({
     [decided, move.moveId, onDecide],
   );
 
+  /* The caret goes to this card only when it answers something the researcher
+   * just sent. `a` and `r` decide a design move from one unmodified keystroke,
+   * so a card that takes focus on a page they merely opened arms a decision on
+   * a proposal they have not read  -  the human decides, and they cannot decide
+   * what they have not been shown. The thread's own scroll-to-end brings a new
+   * reply into view either way. */
   useEffect(() => {
     if (autoFocus && !decided) ref.current?.focus();
   }, [autoFocus, decided]);
@@ -63,21 +82,32 @@ export function MoveCard({
       aria-label={`${KIND_LABEL[move.kind]} move: ${move.proposal}`}
       className={cn(
         "relative transition-all",
-
+      /* A proposed move is a compact decision sheet: it has enough framing to
+         * separate a protocol choice from the conversation, without becoming a
+         * second giant assistant message. Accepted and rejected moves remain
+         * readable because nothing here is ever erased. */
         move.status === "proposed" && "sheet-land",
         move.status === "accepted" && "duration-settle ease-sheet",
         move.status === "rejected" && "duration-standard",
         isMergedResearchQuestion && "move-card-merged",
-
+        /* No citation, no score: an undecided unsourced move wears the
+         * open ring's dashed outline until the researcher rules on it. */
         !grounded && !decided && "held-back",
       )}
     >
-
+      {/* No card-level score. Its strength IS the strength of the citation
+        * behind it, and the grounding chip below already prints that
+        * citation's own score: the card was stating the same value twice,
+        * once floating in the top-right corner where it read as a
+        * notification dot rather than as evidence. The score belongs beside
+        * the source it measures. */}
       <CardContent className="flex flex-col gap-1.5 p-2">
         <div className="min-w-0">
           <div
             className={cn(
               "flex flex-col gap-1.5",
+              move.status === "accepted" && "opacity-70",
+              move.status === "rejected" && "opacity-60",
             )}
           >
           <div className="flex items-center gap-2">
@@ -120,6 +150,12 @@ export function MoveCard({
           )}
         </div>
 
+        {/* Outside the faded wrapper above, deliberately: CSS opacity always
+         * applies to every descendant, including a popover positioned
+         * absolutely outside its parent's box  -  a citation's hover card would
+         * inherit the card's 40/60% fade and render see-through, which is
+         * worse than not fading it. Citations stay fully legible regardless
+         * of the card's decided state, same reasoning as the Undo button. */}
         <div className="mt-1 flex min-w-0 flex-wrap items-start gap-1 border-t border-border pt-1">
           {move.grounding.length > 0 ? (
             move.grounding.map((g) => <GroundingChip key={g.ref} g={g} />)
@@ -141,7 +177,10 @@ export function MoveCard({
               >
                 <Check aria-hidden />
                 {isCaution ? "Note it" : "Accept"}
-
+                {/* Drawn as a key cap, the same one the command hint in
+                  * ProjectSwitcher wears. As a bare dimmed letter butted
+                  * against the label it read as part of the sentence  -
+                  * "Note it a…" had a reviewer asking "note it as what?" */}
                 <kbd className="type-legend ml-1 hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">a</kbd>
               </Button>
               <Button

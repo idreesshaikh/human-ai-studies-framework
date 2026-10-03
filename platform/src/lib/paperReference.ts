@@ -1,5 +1,5 @@
-
-
+/** Only scholarly identifiers belong in reader-facing provenance. Internal
+ * corpus keys and requirement references are implementation details. */
 export function publicPaperReference(ref: string): string | null {
   const value = ref.trim();
   if (!value || value.startsWith("corpus:") || /^(FR|NFR|D)[-_]/i.test(value)) {

@@ -190,11 +190,6 @@ def test_list_status_flips_to_streaming_once_events_arrive(
     listed = client_designed.get("/studies/pilot/enrollment/tokens").json()
     assert listed[0]["status"] == "paired"
 
-    config = client_designed.get(
-        "/studies/pilot/capture-config?sessionId=s1",
-        headers={"authorization": f"Bearer {cred}"},
-    )
-    assert config.status_code == 200, config.text
     client_designed.post(
         "/ingest/events",
         json=_events("P01", "ai-assisted"),

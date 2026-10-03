@@ -18,6 +18,7 @@ def _sqlite_path(raw: str) -> Path:
 class Settings:
     """Runtime configuration; every field has a ``MIDDLEWARE_*`` env var."""
 
+
     database_url: str | None = field(
         default_factory=lambda: os.environ.get("DATABASE_URL") or None
     )
@@ -36,9 +37,9 @@ class Settings:
         if self.database_url:
             url = self.database_url
             if url.startswith("postgres://"):
-                url = "postgresql+psycopg://" + url[len("postgres://") :]
+                url = "postgresql+psycopg://" + url[len("postgres://"):]
             elif url.startswith("postgresql://"):
-                url = "postgresql+psycopg://" + url[len("postgresql://") :]
+                url = "postgresql+psycopg://" + url[len("postgresql://"):]
             return url
         return f"sqlite:///{self.db_path}"
 
@@ -52,7 +53,11 @@ class Settings:
             Path(p) if (p := os.environ.get("MIDDLEWARE_PROTOCOL")) else None
         )
     )
-
+    # Priority: MIDDLEWARE_PORT (explicit operator override) > PORT (Railway dynamically
+    # assigns this per-service and routes/healthchecks against it  -  the app must
+    # actually bind here or every external probe reads "service unavailable" even though
+    # the app is healthy internally) > 8000 (the FR-ING-1 default every instrument leg's
+    # 127.0.0.1 endpoint assumes for local/self-hosted use, where PORT is never set).
     port: int = field(
         default_factory=lambda: int(
             os.environ.get("MIDDLEWARE_PORT") or os.environ.get("PORT") or "8000"

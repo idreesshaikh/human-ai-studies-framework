@@ -20,7 +20,6 @@ _AUTH_HEADERS = (
     else {}
 )
 
-
 def _call(method: str, url: str, body: object | None = None) -> dict | list:
     data = json.dumps(body).encode() if body is not None else None
     headers = {"content-type": "application/json", **_AUTH_HEADERS}
@@ -149,10 +148,8 @@ def main() -> int:
     except urllib.error.HTTPError as exc:
         if exc.code != 401:
             raise
-        print(
-            "\ndataset summary: skipped (401 - no service credential for this auth "
-            "mode; data was still ingested - MIDDLEWARE_AUTH never gates /ingest/*)"
-        )
+        print("\ndataset summary: skipped (401 - no service credential for this auth "
+              "mode; data was still ingested - MIDDLEWARE_AUTH never gates /ingest/*)")
         return 0
     rows = dataset["rows"]
     by_source: dict[str, int] = {}

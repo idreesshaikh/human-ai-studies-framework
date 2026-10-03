@@ -10,6 +10,11 @@ import {
   type Lane,
 } from "@/lib/timeline";
 
+/* Per-session swimlane timeline (FR-DASH-4): one lane per leg, events as marks
+ * positioned by ts on a shared time axis. Pure rendering  -  no new backend
+ * contract, no new privacy surface: every row is already join-keyed by wall #4.
+ * Table-view twin ships from day one (wall #10, NFR-12). */
+
 const SVG_W = 800;
 const M = { left: 60, right: 20, top: 12, bottom: 32 };
 const LANE_H = 28;
@@ -86,6 +91,7 @@ export function SwimlaneTimeline({
 
   const totalH = M.top + M.bottom + lanes.length * (LANE_H + LANE_GAP);
 
+  // Collect flags across all events
   const allFlagKinds = useMemo(() => {
     const kinds = new Set<string>();
     for (const ev of events) {
@@ -173,6 +179,7 @@ function ChartTimeline({
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
   const plotW = SVG_W - M.left - M.right;
 
+  // Compute time axis ticks
   const allTs = displayData.map((d) => parseTs(d.row.ts));
   const minTs = allTs.length ? Math.min(...allTs) : 0;
   const maxTs = allTs.length ? Math.max(...allTs) : 1;
@@ -197,7 +204,7 @@ function ChartTimeline({
         role="img"
         aria-label={`Session timeline: ${lanes.length} lanes, ${displayData.length} events`}
       >
-
+        {/* Time axis */}
         <line
           x1={M.left}
           y1={totalH - M.bottom}
@@ -228,13 +235,14 @@ function ChartTimeline({
           </g>
         ))}
 
+        {/* Lanes */}
         {lanes.map((lane, li) => {
           const y = M.top + li * (LANE_H + LANE_GAP);
           const color = LANE_COLORS[li % LANE_COLORS.length];
 
           return (
             <g key={lane.source}>
-
+              {/* Lane label */}
               <text
                 x={M.left - 8}
                 y={y + LANE_H / 2}
@@ -245,6 +253,7 @@ function ChartTimeline({
                 {lane.label}
               </text>
 
+              {/* Lane background */}
               <rect
                 x={M.left}
                 y={y}
@@ -254,7 +263,7 @@ function ChartTimeline({
                 opacity={0.04}
                 rx={3}
               />
-
+              {/* Lane bottom line */}
               <line
                 x1={M.left}
                 y1={y + LANE_H}
@@ -265,6 +274,7 @@ function ChartTimeline({
                 opacity={0.2}
               />
 
+              {/* Events */}
               {displayData
                 .filter((d) => d.laneIndex === li)
                 .map((d, pi) => {
@@ -336,7 +346,7 @@ function TableTimeline({
         });
       }
     }
-
+    // Sort by ts, then seq
     rows.sort((a, b) => a.ts.localeCompare(b.ts) || a.seq - b.seq);
     return rows;
   }, [lanes]);

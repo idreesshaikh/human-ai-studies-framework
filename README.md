@@ -10,16 +10,12 @@ identifiers needed to compare conditions.
 PHOENIX connects them through a versioned YAML protocol. Researchers review the
 design in a web workspace; TERN runs the configured session in VS Code; the
 server joins editor events, surveys, and optional external measurements for
-export to a notebook.
+export to a notebook. The live workflow is the supported product; external
+data mining is kept as a separate experimental package.
 
-Because capture configuration and the analysis plan are derived from the same
-protocol, a planned measure cannot go unrecorded, and an analysis cannot be
-planned over data the study never collects.
-
-**No study has yet been run with this framework.** It is exercised by its test
-suite and by labelled synthetic dry runs, which demonstrate that the pipeline
-connects end to end. They are not findings about how developers work, and the
-tool banners them so they cannot be presented as any. Researchers remain
+This is a feature-complete master's research project for task-based human–AI
+software-development studies. Future changes are refinements to correctness,
+security, accessibility, reproducibility, and documentation; researchers remain
 responsible for methodological choices, ethics approval, and interpretation.
 
 ## How it fits together
@@ -42,14 +38,6 @@ The design conversation can use Mistral for suggestions. Templates, validation,
 assignment, capture, and exports work without a model key. Local corpus search
 also works without a key; model-assisted matching and external paper lookup are
 optional.
-
-## For artifact reviewers
-
-[INSTALL.md](INSTALL.md) has two install routes and a five-step smoke test.
-[REQUIREMENTS.md](REQUIREMENTS.md) states what the artifact needs — no
-credentials, no network after install, no participant data.
-[STATUS.md](STATUS.md) names the badges we apply for and, more importantly,
-the one we do not.
 
 ## Run locally
 
@@ -138,6 +126,7 @@ improvements, documentation, and research-method contributions are welcome.
 | `analysis/` | Datasets, analysis recipes, notebooks and reports |
 | `agent-capture/` | Optional provider transcripts, snapshots, and task harness |
 | `metrics/` | Optional static code measurements |
+| `curated/` | Experimental local-archive mining contracts (not part of the live path) |
 | `templates/` | Study designs with references and analysis plans |
 
 The repository also carries research inputs and reproducible fixtures: the paper

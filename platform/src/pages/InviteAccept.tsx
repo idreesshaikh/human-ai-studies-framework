@@ -8,6 +8,10 @@ import { useApi, useSession } from "@/lib/session";
 import { ApiError } from "@/lib/api.ts";
 import { ROLE_LABELS, type Role } from "@/lib/capabilities.ts";
 
+/* The landing route for an invitation link. Accepting joins the project and
+ * drops the newcomer straight into it  -  the one celebratory moment in the
+ * shell. Expired/revoked links fail with a human explanation; a live link
+ * works for every person who clicks it. */
 export function InviteAccept() {
   const api = useApi();
   const { refresh } = useSession();

@@ -14,7 +14,9 @@ def _provider(handler: Callable[[dict], Reply], captured: list | None = None):
     def post(url, body, headers):
         if captured is not None:
             captured.append(body)
-        return {"choices": [{"message": {"content": json.dumps(handler(body))}}]}
+        return {
+            "choices": [{"message": {"content": json.dumps(handler(body))}}]
+        }
 
     return assistant.MistralProvider("test-key", post=post)
 
@@ -232,7 +234,6 @@ def plausible(captured: list | None = None, prefer: str | None = "metr-rct-v1"):
         invited = (
             "explicitly asked you to name a design" in directive
             or "named a design themselves" in directive
-            or "The researcher named a design." in directive
         )
         if not invited:
             return {

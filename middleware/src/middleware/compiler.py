@@ -36,7 +36,9 @@ class Slot:
     path: tuple[str, ...]
     label: str
     question: str
-
+    # ``"text"``/``"integer"``/``"enum"`` slots take a single value and can be written
+    # by a ``set-field`` move; ``"derived"`` ones are built by other move kinds (a
+    # template, an instrument move, a prescription) and must never be poked at directly.
     value_type: str = "derived"
     choices: tuple[str, ...] = ()
 
@@ -50,6 +52,11 @@ class Slot:
         return ".".join(self.path)
 
 
+# Derived from the schema's own ``required`` lists. A slot here exists because the
+# protocol genuinely cannot validate without it. Ethics approval is deliberately not
+# in this list: the platform can record an ethics status or posture, but it does not
+# grant approval and must not make an approval reference a prerequisite for drafting
+# or applying a protocol.
 PROTOCOL_SLOTS: tuple[Slot, ...] = (
     Slot(
         ("researchQuestions",),
@@ -86,6 +93,7 @@ PROTOCOL_SLOTS: tuple[Slot, ...] = (
         "What will participants actually be doing in a session?",
         value_type="text",
     ),
+
     Slot(
         ("session", "durationMinutes"),
         "how long a session runs",
@@ -110,6 +118,10 @@ PROTOCOL_SLOTS: tuple[Slot, ...] = (
     ),
 )
 
+# Optional metadata can be recorded when the researcher has it, without turning an
+# external administrative decision into a conversational gate. Keeping this in the
+# fillable catalogue preserves old ethics-reference moves and existing protocol
+# exports while leaving the required-slot calculation honest.
 OPTIONAL_SLOTS: tuple[Slot, ...] = (
     Slot(
         ("participants", "description"),
@@ -128,6 +140,8 @@ OPTIONAL_SLOTS: tuple[Slot, ...] = (
 SECTIONS_WITHOUT_A_PROTOCOL_FIELD: tuple[str, ...] = ("measures",)
 
 
+# ``instruments`` is the one mandatory slot a researcher cannot answer in a sentence:
+# the schema wants four nested objects with required numeric fields.
 def default_capture_instrument(session_minutes: int = 45) -> dict:
     """The standard TERN capture config, sized to the session."""
     return {
@@ -147,6 +161,9 @@ def default_capture_instrument(session_minutes: int = 45) -> dict:
     }
 
 
+# Deliberately generic maintenance work on the researcher's own repository: the *shape*
+# is what a study needs  -  one task per condition, comparable in kind, neither tied to
+# a condition  -  and the content is meant to be replaced.
 def _read_path(draft: dict, path: tuple[str, ...]) -> object:
     node: object = draft
     for key in path:
@@ -229,7 +246,7 @@ class CompileResult:
     valid: bool
     errors: list[str] = field(default_factory=list)
     unresolved: list[str] = field(default_factory=list)
-
+    # Never silent (F1.3).
     warnings: list[str] = field(default_factory=list)
     template_id: str | None = None
     template_version: int | None = None
@@ -324,14 +341,6 @@ def _instantiate_leniently(patch: dict) -> tuple[dict, list[str]]:
     instantiated = template_registry.instantiate_template(
         template_id, parameters, version=version
     )
-    if "selectedMeasures" in patch:
-        from middleware.measurements import configure_measures
-        from middleware.template_registry import TemplateError
-
-        try:
-            configure_measures(instantiated["protocol"], patch["selectedMeasures"])
-        except (ValueError, TypeError) as exc:
-            raise TemplateError(str(exc)) from exc
     return instantiated, notes
 
 
@@ -395,7 +404,12 @@ def _apply_instrument_moves(draft: dict, moves: list[dict]) -> list[str]:
             instruments = draft["instruments"] = {}
         if op in ("add-instrument", "set-instrument"):
             config = patch.get("config") or {}
-
+            # Older model turns called the timestamp helper `taskTimer`, but
+            # that is not a protocol instrument. Letting that name through
+            # produced an accepted move and an invalid protocol, which made
+            # the draft look full while Apply stayed impossible. Task timing
+            # is captured by the real TERN instrument; repair the legacy shape
+            # at compile time and keep the warning visible to the caller.
             if name == "taskTimer":
                 name = "tern"
                 config = default_capture_instrument(
@@ -466,7 +480,9 @@ def _normalise_tern_config(config: object) -> tuple[dict, list[str]]:
     normalized = default_capture_instrument(_session_minutes_from_config(config))
     required = ("session", "fatigue", "stuck", "output")
     if any(not isinstance(source.get(section), dict) for section in required):
-        warnings.append("filled incomplete TERN config with standard capture defaults")
+        warnings.append(
+            "filled incomplete TERN config with standard capture defaults"
+        )
 
     optional_sections = {"ideHealth", "behavior", "comprehensionProbe"}
     unknown: list[str] = []
@@ -491,6 +507,9 @@ def _normalise_tern_config(config: object) -> tuple[dict, list[str]]:
     return normalized, warnings
 
 
+# A move naming anything else is refused: the conversation may fill the protocol's
+# declared gaps and nothing more, so a model cannot invent structure by writing a path
+# the schema never had.
 FILLABLE_SLOTS: dict[str, Slot] = {
     s.key: s for s in (*PROTOCOL_SLOTS, *OPTIONAL_SLOTS) if s.fillable
 }
@@ -553,9 +572,9 @@ def _apply_field_moves(draft: dict, moves: list[dict]) -> list[str]:
                     "expected counterbalanced or fixed"
                 )
             else:
-                draft.setdefault("participants", {})["counterbalanced"] = (
-                    counterbalanced
-                )
+                draft.setdefault("participants", {})[
+                    "counterbalanced"
+                ] = counterbalanced
                 warnings.append(
                     "mapped the legacy design.conditionOrder field to "
                     "participants.counterbalanced"
@@ -569,7 +588,8 @@ def _apply_field_moves(draft: dict, moves: list[dict]) -> list[str]:
             )
             continue
         value = _coerce(slot, patch.get("value"))
-
+        # ``False`` is a perfectly good answer to "counterbalanced?", so the refusal
+        # signal is `None` specifically, never falsiness.
         if value is None:
             warnings.append(
                 f"ignored {slot.label} = {patch.get('value')!r}: "
@@ -701,7 +721,9 @@ def _apply_analysis_moves(draft: dict, moves: list[dict]) -> list[str]:
     """Compile executable and legacy statistical moves into ``analysisPlan``."""
     warnings: list[str] = []
     declared_rqs = [
-        str(rq.get("id")) for rq in draft.get("researchQuestions") or [] if rq.get("id")
+        str(rq.get("id"))
+        for rq in draft.get("researchQuestions") or []
+        if rq.get("id")
     ]
     fallback_rq = declared_rqs[0] if declared_rqs else "RQ-1"
     plan = draft.get("analysisPlan") or []
@@ -730,8 +752,9 @@ def _apply_analysis_moves(draft: dict, moves: list[dict]) -> list[str]:
         if recipe_id is None:
             path = patch.get("path") or []
             section = patch.get("section")
-            if move.get("kind") in ("set-field", "set-parameter", "add-measure") and (
-                path == ["statisticalPlan"] or section == "statisticalPlan"
+            if (
+                move.get("kind") in ("set-field", "set-parameter", "add-measure")
+                and (path == ["statisticalPlan"] or section == "statisticalPlan")
             ):
                 recipe_id = _legacy_recipe(patch.get("value"))
                 legacy = recipe_id is not None
@@ -792,7 +815,9 @@ def _error_target(error: str) -> tuple[str, ...] | None:
     head, _, message = error.partition(": ")
     if not message:
         return None
-    parts: tuple[str, ...] = () if head == "(document root)" else tuple(head.split("."))
+    parts: tuple[str, ...] = (
+        () if head == "(document root)" else tuple(head.split("."))
+    )
     named = _REQUIRED_PROPERTY.match(message)
     return (*parts, named.group(1)) if named else parts
 
@@ -812,6 +837,9 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
     """Compile accepted moves into a validated protocol draft."""
     sections = compile_sections(moves)
 
+    # A move whose template(s) can't instantiate (hallucinated id, missing required
+    # parameter, an invalid merge) is recorded and skipped rather than raised: a 500
+    # here would leave the conversation with no draft and no error.
     from middleware import template_registry
     from middleware.template_registry import TemplateError
 
@@ -847,7 +875,8 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
         template_id = instantiated.get("templateId")
         template_version = instantiated.get("templateVersion")
         draft = _refine(instantiated["protocol"], sections)
-
+        # Later accepted design moves that failed were skipped in favour of this one  -
+        # say so, but don't block a valid draft on them.
         warnings.extend(failed)
         failed = []
     else:
@@ -889,6 +918,8 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
         draft=draft,
         yaml=new_yaml,
         diff=diff,
+        # An outstanding slot is a reason the draft cannot be applied, exactly as a
+        # schema error is.
         valid=not errors and not unresolved,
         errors=errors,
         unresolved=unresolved,

@@ -20,6 +20,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock .python-version ./
 COPY middleware/ middleware/
 COPY protocol/ protocol/
+COPY curated/ curated/
 COPY analysis/ analysis/
 COPY agent-capture/ agent-capture/
 # The template registry (FR-TPL): read from templates/registry at runtime by

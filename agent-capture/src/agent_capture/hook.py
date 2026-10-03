@@ -62,7 +62,8 @@ def run(stdin_json: str, argv: list[str], environ: dict) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     stdin_json = sys.stdin.read() if not sys.stdin.isatty() else ""
-
+    # Never surface an error to the agent: a hook must not block the participant
+    # (NFR-1).
     with contextlib.suppress(Exception):
         run(stdin_json, argv or sys.argv[1:], dict(os.environ))
     return 0

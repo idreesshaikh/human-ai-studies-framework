@@ -40,7 +40,7 @@ def _regenerate(tmp_path: Path) -> tuple[str, str]:
             json={"count": COUNT, "profile": "mixed", "seed": SEED},
         )
         assert r.status_code == 200, r.text
-        r = client.get("/studies/pilot-2026/dataset?format=json&includeSynthetic=true")
+        r = client.get("/studies/pilot-2026/dataset?format=json")
         assert r.status_code == 200, r.text
         ds_path = tmp_path / "dataset.json"
         ds_path.write_text(json.dumps(r.json()))

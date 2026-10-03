@@ -18,6 +18,12 @@ interface ActivePrompt {
 
 const AUTO_DISMISS_MS = 60_000;
 
+/**
+ * The inline "overlay on the code": a soft rectangular border drawn around
+ * the region the participant appears stuck on, with clickable CodeLens
+ * actions rendered directly above it. No modal, no focus steal - the
+ * participant can keep typing and the prompt quietly times out if ignored.
+ */
 export class StuckPromptController
   implements vscode.CodeLensProvider, vscode.Disposable
 {
@@ -41,7 +47,7 @@ export class StuckPromptController
   constructor(private readonly onResolved: (r: StuckResolution) => void) {
     this.disposables.push(
       vscode.languages.registerCodeLensProvider({ scheme: 'file' }, this),
-
+      // Re-paint the border when the participant switches editors.
       vscode.window.onDidChangeVisibleTextEditors(() => this.paint()),
     );
   }
@@ -51,6 +57,7 @@ export class StuckPromptController
   }
 
   show(region: StuckRegion): void {
+    // One prompt at a time; a new detection while one is visible is dropped.
     if (this.active) return;
 
     const uri = vscode.Uri.file(region.file);

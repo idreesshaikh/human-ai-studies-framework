@@ -5,6 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
+/* Empty state for a new developer study. The supported lane is stated before
+ * anyone commits to a long conversation, while the small known-facts intake
+ * lets deterministic details jump straight into the same assistant thread. */
+
 const OPENINGS = [
   "Does an AI assistant change how much code developers rewrite before they ship?",
   "Compare how long debugging takes with and without an AI pair.",

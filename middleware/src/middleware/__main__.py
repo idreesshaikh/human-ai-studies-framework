@@ -33,6 +33,7 @@ def _get(server: str, path: str) -> dict:
         return json.loads(res.read())
 
 
+
 def cmd_simulate(
     study_id: str,
     server: str,
@@ -72,7 +73,7 @@ def cmd_simulate(
         f"({outcome['profile']}): {outcome['sessions']} sessions, "
         f"{outcome['events']} events, {outcome['metricRows']} metric rows"
     )
-    fetched = Dataset.fetch(server, study_id, include_synthetic=True)
+    fetched = Dataset.fetch(server, study_id)
     session_ids = set(outcome["sessionIds"])
     dataset = Dataset(
         rows=[row for row in fetched.rows if row["sessionId"] in session_ids],
@@ -268,6 +269,7 @@ def main() -> None:
                 protocol_path=args.protocol,
             )
         )
+
 
 
 if __name__ == "__main__":

@@ -1,6 +1,14 @@
-export interface Connection {
-  serverUrl: string;
+/**
+ * The connection string a participant pastes to enroll their IDE: the copy-
+ * safe `serverUrl#token`. Portable core (no vscode). The middleware mints it;
+ * we split on the last `#` (base URLs never contain `#`; tokens are URL-safe
+ * base64).
+ */
 
+export interface Connection {
+  /** Middleware base URL, trailing slash stripped. */
+  serverUrl: string;
+  /** The raw pairing token (what /pair/redeem expects). */
   token: string;
 }
 

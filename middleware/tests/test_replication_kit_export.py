@@ -11,7 +11,6 @@ from middleware.settings import Settings
 
 STUDY = "kit-study"
 
-
 def _protocol_yaml() -> str:
     """
     A real, valid protocol  -  instantiated from the registry rather than hand-written,
@@ -59,9 +58,8 @@ def test_export_returns_a_downloadable_kit(client):
     res = client.get(f"/studies/{STUDY}/replication-kit")
     assert res.status_code == 200, res.text
     assert res.headers["content-type"] == "application/gzip"
-    assert (
-        f'filename="{STUDY}-replication-kit.tar.gz"'
-        in (res.headers["content-disposition"])
+    assert f'filename="{STUDY}-replication-kit.tar.gz"' in (
+        res.headers["content-disposition"]
     )
 
     with tarfile.open(fileobj=io.BytesIO(gzip.decompress(res.content))) as tar:

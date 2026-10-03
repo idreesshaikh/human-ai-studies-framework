@@ -454,7 +454,7 @@ def test_cautions_render_as_advisory_and_the_prompt_says_they_fill_nothing():
     )
     user = captured[0]["messages"][-1]["content"]
     assert "caution [ethics] (advisory, fills no section):" in user
-    assert "set-parameter` move" in design_llm.SYSTEM_PROMPT
+    assert 'set-parameter` move' in design_llm.SYSTEM_PROMPT
     assert 'patch.section` "ethics"' in design_llm.SYSTEM_PROMPT
 
 

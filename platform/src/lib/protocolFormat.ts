@@ -1,4 +1,11 @@
-
+/* Turns the compiled protocol dict (CompileResult.protocol  -  the same
+ * structured draft the compiler yaml.safe_dump()s) into short prose lines
+ * for the draft rail, instead of dumping the raw YAML. Pure and
+ * schema-tolerant: known top-level keys (per
+ * protocol/src/protocol/schema/study-protocol.schema.json) get a
+ * hand-written formatter; anything else falls back to a generic
+ * humanized-label + flattened-value line so a future schema addition never
+ * silently disappears. */
 
 export interface ProtocolSection {
   heading: string;
@@ -26,6 +33,8 @@ function humanizeKey(key: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
+/** Recursively renders any JSON value into one readable line  -  used for
+ * instrument configs and any section this module doesn't know about yet. */
 function describeValue(v: unknown): string {
   if (v == null) return "";
   if (Array.isArray(v)) return v.map(describeValue).filter(Boolean).join(", ");
@@ -93,6 +102,10 @@ function formatSession(session: Record<string, unknown>): ProtocolSection {
   return { heading: "Session", lines };
 }
 
+/* The declared tasks (protocol v5)  -  what each session actually runs, as
+ * opposed to `session.taskDescription`, which is the study's prose summary.
+ * Reads as a numbered list because the count matters: a within-subjects
+ * study wants at least one task per condition. */
 function formatTasks(tasks: unknown[]): ProtocolSection {
   const lines = tasks.map((entry) => {
     const task = asRecord(entry);
@@ -165,6 +178,10 @@ const FORMATTERS: Record<(typeof SECTION_ORDER)[number], (value: unknown) => Pro
   literature: (v) => formatLiterature(asArray(v)),
 };
 
+/** Implementation metadata stays in the protocol object for schema/runtime
+ * compatibility, but it is not a researcher-facing draft decision. Study
+ * identity belongs in the workspace header; lifecycle phases are runtime
+ * metadata rather than a choice the conversation is eliciting. */
 const HIDDEN_KEYS = new Set(["protocolVersion", "study", "phases"]);
 
 export function summarizeProtocol(

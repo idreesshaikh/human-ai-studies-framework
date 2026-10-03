@@ -10,13 +10,26 @@ import { ApiError } from "@/lib/api.ts";
 import { hasRole } from "@/lib/capabilities";
 import { signInHref } from "@/lib/returnTo";
 
+/* "Turn this into a study"  -  the one way off the templates page.
+ *
+ * A compiled protocol arrived at here (by merging design shapes, or by
+ * running a corpus paper through an archetype) is a starting point and
+ * nothing else until it lands somewhere. The merge path had this; the
+ * paper path did not, so deriving a template from a paper produced a card
+ * that could be read and not used. A reviewer asked the question that gap
+ * creates outright  -  "how do I get the study design of a paper that I select
+ * into my project/study that I want to create?"  -  and the honest answer was
+ * that they could not.
+ *
+ * One component so the two paths cannot drift apart again.
+ */
 export function CreateStudyFrom({
   protocol,
   label,
 }: {
-
+  /** A compiled protocol to seed the new study's draft with. */
   protocol: Record<string, unknown>;
-
+  /** The line above the controls, naming what is about to become a study. */
   label: string;
 }) {
   const api = useApi();
@@ -34,12 +47,13 @@ export function CreateStudyFrom({
   const [createError, setCreateError] = useState("");
 
   useEffect(() => {
-
+    // Nothing to list without an identity, and asking would only 401.
     if (signedOut) return;
     api
       .listProjects()
       .then((ps) => {
-
+        // A viewer can browse the shared demo, but cannot create a study in
+        // it. Keep read-only destinations out of this write control entirely.
         const writable = ps.filter((p) => hasRole(p.role, "contribute"));
         setProjects(writable.map((p) => ({ slug: p.slug, name: p.name })));
         setSlug((cur) => cur || writable[0]?.slug || "");
@@ -53,7 +67,7 @@ export function CreateStudyFrom({
     setCreateError("");
     try {
       const study = await api.createStudy(slug, name.trim(), protocol);
-
+      // Refresh `me` so the new study's membership resolves immediately.
       await refresh();
       navigate(`/p/${slug}/studies/${study.id}`);
     } catch (e) {
@@ -68,9 +82,17 @@ export function CreateStudyFrom({
 
   return (
     <div className="mt-4 border-t border-border pt-3">
-
+      {/* `type-body`, not `type-legend`. Both call sites pass a full sentence
+        * ("Turn this into a study. The merged protocol seeds its draft"), and
+        * the legend role is 11px uppercase tracked to 0.1em  -  a label on a
+        * field. The sentence rendered as two shouted lines ending in a full
+        * stop. */}
       <p className="type-body text-text-muted">{label}</p>
-
+      {/* Browsing the repertoire needs no account; keeping something out of it
+        * does. Signed out, the project read 401s and the catch below turned
+        * that into "No project to put it in yet  -  create one first", which
+        * names the wrong obstacle and prescribes something equally
+        * impossible. State the real one, with the move that clears it. */}
       {signedOut ? (
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <p className="type-caption text-text-muted">

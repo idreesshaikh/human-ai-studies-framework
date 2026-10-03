@@ -2,6 +2,17 @@ import * as vscode from 'vscode';
 import { StuckDetector } from '../core/stuckDetector';
 import { EditorSignal } from '../core/types';
 
+/**
+ * Maps native VS Code editor events onto the core's normalized EditorSignal
+ * stream. This file is the entire "sensor" surface of the adapter - the
+ * JetBrains port re-implements exactly this mapping and nothing else.
+ *
+ * Every signal is fed to the stuck detector AND to an optional `tap`, which
+ * the extension uses to record attention events (focus/blur) and to measure
+ * resumption lag after prompts. The heavy behavioral telemetry (per-edit
+ * logging, tab switches, clipboard) is deliberately NOT recorded here - that
+ * is the behavior-capture leg's job; duplicating it would bloat this dataset.
+ */
 export function wireEditorSignals(
   detector: StuckDetector,
   languages: string[],

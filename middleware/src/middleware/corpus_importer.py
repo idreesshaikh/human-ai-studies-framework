@@ -101,14 +101,11 @@ def expected_corpus_rows() -> int:
 
 def corpus_status_for_session(s: Session) -> dict[str, object]:
     """Return an honest readiness status for the corpus-backed UI."""
-    total = (
-        s.scalar(
-            select(func.count())
-            .select_from(Paper)
-            .where(Paper.study_id == CORPUS_STUDY_ID)
-        )
-        or 0
-    )
+    total = s.scalar(
+        select(func.count())
+        .select_from(Paper)
+        .where(Paper.study_id == CORPUS_STUDY_ID)
+    ) or 0
     expected = expected_corpus_rows()
     with _BOOTSTRAP_LOCK:
         state = dict(_BOOTSTRAP_STATE)
@@ -160,11 +157,9 @@ def _upsert_corpus_paper(s: Session, values: dict) -> None:
     row = dict(study_id=CORPUS_STUDY_ID, added_at="", **values)
     if engine and engine.dialect.name == "postgresql":
         from sqlalchemy.dialects.postgresql import insert as _pg_insert
-
         stmt = _pg_insert(Paper).values([row])
     else:
         from sqlalchemy.dialects.sqlite import insert as _sq_insert
-
         stmt = _sq_insert(Paper).values([row])
     update_set = {k: v for k, v in values.items() if k != "paper_ref"}
     if "abstract" in update_set:
@@ -256,27 +251,21 @@ def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
             _engine = get_engine()
             if _engine and _engine.dialect.name == "postgresql":
                 from sqlalchemy.dialects.postgresql import insert as _pg_insert
-
                 edge_stmt = (
                     _pg_insert(PaperEdge)
-                    .values(
-                        [
-                            {
-                                "study_id": CORPUS_STUDY_ID,
-                                "src_ref": src,
-                                "dst_ref": ref,
-                                "kind": VIA_EDGE_KIND,
-                                "dst_title": entry.get("title", ""),
-                                "dst_year": entry.get("year"),
-                                "dst_citation_count": entry.get("citationCount"),
-                            }
-                        ]
-                    )
+                    .values([{
+                        "study_id": CORPUS_STUDY_ID,
+                        "src_ref": src,
+                        "dst_ref": ref,
+                        "kind": VIA_EDGE_KIND,
+                        "dst_title": entry.get("title", ""),
+                        "dst_year": entry.get("year"),
+                        "dst_citation_count": entry.get("citationCount"),
+                    }])
                     .on_conflict_do_nothing()
                 )
             else:
                 from sqlalchemy.dialects.sqlite import insert as _sq_insert
-
                 edge_stmt = (
                     _sq_insert(PaperEdge)
                     .values(
@@ -321,14 +310,11 @@ def start_background_import(db_url: str, session_factory) -> dict[str, object]:
             return dict(_BOOTSTRAP_STATE)
 
         with session_factory() as s:
-            current = (
-                s.scalar(
-                    select(func.count())
-                    .select_from(Paper)
-                    .where(Paper.study_id == CORPUS_STUDY_ID)
-                )
-                or 0
-            )
+            current = s.scalar(
+                select(func.count())
+                .select_from(Paper)
+                .where(Paper.study_id == CORPUS_STUDY_ID)
+            ) or 0
         expected = expected_corpus_rows()
         if current >= expected > 0:
             _BOOTSTRAP_STATE.update(
@@ -345,14 +331,11 @@ def start_background_import(db_url: str, session_factory) -> dict[str, object]:
             try:
                 import_corpus(db_url, session_factory=session_factory)
                 with session_factory() as s:
-                    total = (
-                        s.scalar(
-                            select(func.count())
-                            .select_from(Paper)
-                            .where(Paper.study_id == CORPUS_STUDY_ID)
-                        )
-                        or 0
-                    )
+                    total = s.scalar(
+                        select(func.count())
+                        .select_from(Paper)
+                        .where(Paper.study_id == CORPUS_STUDY_ID)
+                    ) or 0
                 with _BOOTSTRAP_LOCK:
                     _BOOTSTRAP_STATE.update(
                         state="ready" if total >= expected else "partial",

@@ -19,6 +19,8 @@ class Identity:
     mode: str
 
 
+# A verifier takes the raw ``Authorization`` header value, raises ``HTTPException`` when
+# the request must not pass, and otherwise returns the resolved :class:`Identity`.
 Verifier = Callable[[str], Identity]
 
 

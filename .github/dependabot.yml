@@ -1,0 +1,59 @@
+# Dependency updates. Grouped and batched weekly so the signal is a small
+# number of reviewable PRs rather than a stream of single-package bumps -
+# security advisories still arrive immediately, ungrouped, by design.
+#
+# The three ecosystems mirror the three CI jobs (.github/workflows/ci.yml):
+# uv for the Python workspace, npm for platform/ and extension/, and
+# github-actions for the workflows themselves.
+version: 2
+
+updates:
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      # Matches the repository convention: subjects start with Update.
+      prefix: Update
+    groups:
+      python-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /platform
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: Update
+    groups:
+      platform-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /extension
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: Update
+    groups:
+      extension-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: Update
+    groups:
+      actions:
+        patterns: ["*"]

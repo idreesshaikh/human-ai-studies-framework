@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/command";
 import type { Membership } from "@/lib/api.ts";
 
+/* ⌘K project switcher: fuzzy over project names; the empty state's action
+ * is "create a project". Opening is global (⌘K / Ctrl-K). */
 export function ProjectSwitcher({ memberships }: { memberships: Membership[] }) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();

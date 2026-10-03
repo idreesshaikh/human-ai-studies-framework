@@ -1,6 +1,7 @@
 import { AlertTriangle, CloudOff, Info } from "lucide-react";
 import { cn } from "@/lib/cn";
 
+/* Shared notices: failed actions, offline state, and contextual information. */
 const KINDS = {
   problem: {
     icon: AlertTriangle,
@@ -32,7 +33,9 @@ export function Notice({
   const { icon: Icon, rule, ink } = KINDS[kind];
   return (
     <div
-
+      /* A problem is announced; a note is not. `alert` interrupts a screen
+       * reader mid-sentence, which is right for "your work did not happen"
+       * and wrong for "here is some context". */
       role={kind === "problem" ? "alert" : undefined}
       className={cn(
         "flex items-start gap-2.5 rounded-plate border border-border bg-surface px-3 py-2.5",
