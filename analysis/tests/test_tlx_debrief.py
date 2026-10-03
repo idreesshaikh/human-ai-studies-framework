@@ -47,35 +47,34 @@ def _skipped(session, participant, condition):
     }
 
 
-# The full NASA-TLX item set the extension can emit (extension/src/core/surveys.ts):
-# six base subscales, plus ai_reliance which only appears in the AI-assisted condition.
-_BASE = ("mental_demand", "effort", "frustration", "time_pressure",
-         "perceived_performance", "comprehension")
+# The exact NASA-TLX item set the extension's end survey emits
+# (extension/src/core/surveys.ts END_SURVEY_ITEMS). showEndSurvey renders these six
+# in every condition; the declared `ai_reliance` item is not wired into the survey, so
+# it is deliberately not represented here.
+_SUBSCALES = ("mental_demand", "effort", "frustration", "time_pressure",
+              "perceived_performance", "comprehension")
 
 
-def _full(seed: int, *, ai: bool) -> dict:
-    r = {k: 1 + (seed + i) % 7 for i, k in enumerate(_BASE)}
-    if ai:  # ai_reliance is condition-gated to the AI-assisted arm
-        r["ai_reliance"] = 1 + seed % 7
-    return r
+def _responses(seed: int) -> dict:
+    return {k: 1 + (seed + i) % 7 for i, k in enumerate(_SUBSCALES)}
 
 
 def _dataset():
     rows = [
-        _response("S1", "P01", "ai-assisted", _full(1, ai=True), 41000),
-        _response("S2", "P02", "unassisted", _full(2, ai=False), 53000),
-        _response("S3", "P03", "ai-assisted", _full(3, ai=True), 38000),
-        _response("S4", "P04", "unassisted", _full(4, ai=False), 61000),
+        _response("S1", "P01", "ai-assisted", _responses(1), 41000),
+        _response("S2", "P02", "unassisted", _responses(2), 53000),
+        _response("S3", "P03", "ai-assisted", _responses(3), 38000),
+        _response("S4", "P04", "unassisted", _responses(4), 61000),
         _skipped("S5", "P05", "ai-assisted"),
     ]
     return Dataset(rows=rows, study_id="synthetic")
 
 
 def test_real_debrief_response_produces_subscales():
-    """The full nested response set becomes subscales, including the AI-only item."""
+    """All six nested response items become subscales on real debrief data."""
     result = REGISTRY["tlx-debrief"].run(_dataset())
     subscales = set(result.tables["per_condition"]["subscale"])
-    assert subscales == {*_BASE, "ai_reliance"}
+    assert subscales == set(_SUBSCALES)
 
 
 def test_completion_time_and_comments_are_not_rated():
