@@ -51,8 +51,14 @@ def _skipped(session, participant, condition):
 # (extension/src/core/surveys.ts END_SURVEY_ITEMS). showEndSurvey renders these six
 # in every condition; the declared `ai_reliance` item is not wired into the survey, so
 # it is deliberately not represented here.
-_SUBSCALES = ("mental_demand", "effort", "frustration", "time_pressure",
-              "perceived_performance", "comprehension")
+_SUBSCALES = (
+    "mental_demand",
+    "effort",
+    "frustration",
+    "time_pressure",
+    "perceived_performance",
+    "comprehension",
+)
 
 
 def _responses(seed: int) -> dict:

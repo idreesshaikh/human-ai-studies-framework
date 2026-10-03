@@ -26,8 +26,13 @@ PROTOCOL = REPO_ROOT / "protocol" / "examples" / "pilot-study.yaml"
 # The TLX items the extension can emit (extension/src/core/surveys.ts); nothing else
 # in a debrief payload is a rating.
 _VALID_SUBSCALES = {
-    "mental_demand", "effort", "frustration", "time_pressure",
-    "perceived_performance", "comprehension", "ai_reliance",
+    "mental_demand",
+    "effort",
+    "frustration",
+    "time_pressure",
+    "perceived_performance",
+    "comprehension",
+    "ai_reliance",
 }
 
 
