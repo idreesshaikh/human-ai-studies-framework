@@ -18,8 +18,10 @@ from middleware.template_registry import list_templates
 log = logging.getLogger(__name__)
 
 # The accepted/rejected move ledger and compiled draft carry the durable state. Keep
-# only a short conversational window so old prose cannot make every reply slower.
-_LLM_HISTORY_TURNS = 12
+# the opening brief plus a short recent window, so old prose cannot make every reply
+# slower or crowd out the study's original aim.
+_LLM_HISTORY_TURNS = 8
+_LLM_HISTORY_TEXT_CHARS = 1_200
 
 _STATE_MOVE_CAP = 30
 _BATCH_MOVE_CAP = 12
@@ -285,44 +287,35 @@ def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
 
 def _load_history(s: Session, study_id: str | None) -> list[dict]:
     """
-    Prior turns as ``{"role", "content"}`` dicts, oldest first, capped to
-    ``_LLM_HISTORY_TURNS`` (a token-budget cap, not a correctness requirement) - the
-    shape an LLM chat-completions call expects.
+    A compact prompt history: the opening researcher brief plus a recent window.
+
+    Design moves are deliberately absent. Their complete, authoritative state is sent
+    separately in ``design_state``; replaying it in prose wastes context and becomes
+    especially noisy in long conversations.
     """
     if study_id is None:
         return []
-    rows = s.execute(
+    recent = s.execute(
         select(ConversationTurn)
         .where(ConversationTurn.study_id == study_id)
         .order_by(ConversationTurn.seq.desc())
         .limit(_LLM_HISTORY_TURNS)
     ).scalars().all()
-    turn_ids = [
-        row.id
-        for row in rows
-        # `source == "unavailable"` is excluded from the id list gathering
-        # moves below and, more importantly, from the loop that builds
-        # `history` itself (the `continue` below)  -  a holding turn carries no
-        # moves regardless, but it must never enter the transcript replayed
-        # back to the model: it is not part of the study's design record,
-        # and feeding "I couldn't reach the model" back in as a fabricated
-        # assistant turn is exactly the contamination this exclusion exists
-        # to prevent.
-        if row.role == "platform" and row.source != "unavailable"
-    ]
-    moves_by_turn: dict[str, list[DesignMoveRow]] = {}
-    if turn_ids:
-        for mv in s.scalars(
-            select(DesignMoveRow)
-            .where(DesignMoveRow.turn_id.in_(turn_ids))
-            # Bucketed per turn, so only in-turn order matters  -  seq is the proposal
-            # order (id would put e.g. m10 before m2).
-            .order_by(DesignMoveRow.seq)
-        ):
-            moves_by_turn.setdefault(mv.turn_id, []).append(mv)
+    opening = s.scalar(
+        select(ConversationTurn)
+        .where(
+            ConversationTurn.study_id == study_id,
+            ConversationTurn.role == "researcher",
+        )
+        .order_by(ConversationTurn.seq)
+        .limit(1)
+    )
+    rows = list(reversed(recent))
+    if opening is not None and all(row.id != opening.id for row in rows):
+        rows.insert(0, opening)
 
     history: list[dict] = []
-    for row in reversed(rows):
+    for row in rows:
         # A holding turn ("no model configured", "the provider is down") is
         # persisted now so the UI can show it again after a reload
         # (app.py's ModelUnavailable branches), but it is not a real answer
@@ -331,7 +324,6 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
         # below.
         if row.role == "platform" and row.source == "unavailable":
             continue
-        moves = moves_by_turn.get(row.id, [])
         content = row.text or ""
         # Card decisions are already represented structurally by the move status and
         # the current request's ``decision`` payload. Replaying the synthetic
@@ -341,21 +333,10 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
             ("i accepted:", "i rejected the proposed", "i noted the caution")
         ):
             continue
-        if moves:
-            lines = [
-                f"- [{mv.kind}] {mv.proposal}"
-                + (
-                    f" (grounded in {', '.join(g['ref'] for g in mv.grounding)})"
-                    if mv.grounding
-                    else " (unsourced)"
-                )
-                + f" (researcher {mv.status} this)"
-                for mv in moves
-            ]
-            content = (content + "\n\nMoves I proposed in that turn:\n" +
-                       "\n".join(lines)).strip()
         if not content:
             continue
+        if len(content) > _LLM_HISTORY_TEXT_CHARS:
+            content = content[: _LLM_HISTORY_TEXT_CHARS - 1].rstrip() + "…"
         history.append(
             {
                 "role": "user" if row.role == "researcher" else "assistant",

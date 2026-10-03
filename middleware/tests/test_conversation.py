@@ -619,6 +619,47 @@ def test_a_holding_turn_is_never_replayed_to_the_model(tmp_path, monkeypatch):
     )
 
 
+def test_history_keeps_the_opening_brief_and_bounds_long_conversations(tmp_path):
+    """Prompt context keeps the study aim without replaying an entire transcript."""
+    from middleware import design_assistant as da
+
+    factory = make_session_factory(f"sqlite:///{tmp_path / 'history.sqlite3'}")
+    with factory() as s:
+        for seq in range(1, 31):
+            role = "researcher" if seq % 2 else "platform"
+            text = "opening study brief" if seq == 1 else f"turn {seq}"
+            if seq == 29:
+                text = "recent detail " + "x" * 1_300
+            s.add(
+                ConversationTurn(
+                    id=f"history-{seq}",
+                    study_id=STUDY,
+                    seq=seq,
+                    role=role,
+                    author="Researcher" if role == "researcher" else "Platform",
+                    text=text,
+                    retrieved_refs=[],
+                    recommendations=[],
+                    created_at="",
+                    source="llm" if role == "platform" else "",
+                )
+            )
+        s.commit()
+    with factory() as s:
+        history = da._load_history(s, STUDY)
+
+    assert len(history) == 9
+    assert history[0]["content"] == "opening study brief"
+    contents = {item["content"] for item in history}
+    assert "turn 3" not in contents
+    assert "turn 23" in contents
+    clipped = next(
+        item["content"] for item in history if "recent detail" in item["content"]
+    )
+    assert len(clipped) == da._LLM_HISTORY_TEXT_CHARS
+    assert clipped.endswith("…")
+
+
 def test_the_researchers_own_turn_survives_a_model_outage(client, monkeypatch):
     """They should never have to retype what they said because the model was down."""
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())

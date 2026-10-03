@@ -248,6 +248,7 @@ SYSTEM_PROMPT = (
 
 
 _STATE_PROPOSAL_CHARS = 140
+_STATE_PROMPT_MOVES_PER_BUCKET = 8
 
 
 def _clip(text: str) -> str:
@@ -274,7 +275,13 @@ def _design_state_block(state: dict | None) -> str:
         lines.append(title)
         if not entries:
             lines.append("- (none)")
-        for e in entries:
+        omitted = max(0, len(entries) - _STATE_PROMPT_MOVES_PER_BUCKET)
+        if omitted:
+            lines.append(
+                f"- ({omitted} earlier move(s) omitted; the server still "
+                "prevents repeats)"
+            )
+        for e in entries[-_STATE_PROMPT_MOVES_PER_BUCKET:]:
             caution = e["kind"] == "caution"
             advisory = " (advisory, fills no section)" if caution else ""
             lines.append(
