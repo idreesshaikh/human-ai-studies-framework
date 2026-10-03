@@ -4,7 +4,7 @@ title: Self-report-only survey of AI-assistance experience
 description: |
   A within-subjects design with no objective performance measure at all.
   Every research question is answered from the end-of-session self-report
-  (TLX-style subscales: mental demand, effort, frustration). Fills the
+  (the six NASA-TLX subscales). Fills the
   "survey/self-report only" design shape (Phase 22 Wave-1 spread item never
   actually built): a researcher whose idea is purely about developer-
   reported experience, not measured outcomes, maps here instead of being
@@ -58,7 +58,7 @@ measures:
   - id: self-report-workload
     leg: cognitive
     elements: [end_survey_response]
-    description: TLX-style subscales (mental demand, effort, frustration) at end of session
+    description: Six NASA-TLX subscales (mental demand, effort, frustration, time pressure, perceived performance, comprehension) at end of session
     caution: Self-report may diverge from objective measures; no behavioral or outcome data is collected in this design
 statisticalPlan:
   unit: participant
@@ -83,7 +83,7 @@ protocolSkeleton:
     ethicsRef: "{{ ethicsRef }}"
   researchQuestions:
     - id: RQ-1
-      text: How do developers self-report their workload (mental demand, effort, frustration) with vs without AI assistance?
+      text: How do developers self-report their workload across six NASA-TLX subscales (mental demand, effort, frustration, time pressure, perceived performance, comprehension) with vs without AI assistance?
   conditions: "{{ conditions }}"
   participants:
     planned: "{{ participantPlan }}"
