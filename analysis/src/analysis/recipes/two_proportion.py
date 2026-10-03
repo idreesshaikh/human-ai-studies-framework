@@ -54,7 +54,9 @@ def run(dataset: Dataset) -> RecipeResult:
         )
 
     rate = (
-        df.groupby("condition")[outcome_col].agg(n="count", passed="sum").reset_index()
+        df.groupby("condition")[outcome_col]
+        .agg(n="count", passed="sum")
+        .reset_index()
     )
     rate["proportion"] = rate["passed"] / rate["n"]
     tables = {"proportions": rate}
@@ -77,9 +79,7 @@ def run(dataset: Dataset) -> RecipeResult:
         fig_fn = FIGURE_FORMS.get(figure_form)
         if fig_fn:
             fig = fig_fn(
-                df,
-                outcome_col,
-                conds,
+                df, outcome_col, conds,
                 title="Proportion comparison",
                 ylabel="proportion",
             )
@@ -93,10 +93,8 @@ def run(dataset: Dataset) -> RecipeResult:
         summary_parts.append("Single condition  -  proportions only.")
 
     summary_parts.append(
-        "; ".join(
-            f"{r.condition}: {int(r.passed)}/{int(r.n)} ({r.proportion:.0%})"
-            for r in rate.itertuples()
-        )
+        "; ".join(f"{r.condition}: {int(r.passed)}/{int(r.n)} ({r.proportion:.0%})"
+                   for r in rate.itertuples())
     )
 
     return RecipeResult(

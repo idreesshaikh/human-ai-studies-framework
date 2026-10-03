@@ -8,11 +8,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 TEST_DIRS = (
-    "metrics",
-    "protocol",
-    "middleware",
-    "analysis",
-    "agent-capture",
+    "metrics", "protocol", "middleware", "analysis", "agent-capture", "curated",
 )
 
 _BARE_CONFTEST_IMPORT = re.compile(

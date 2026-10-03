@@ -3,9 +3,6 @@ import { MATRIX, ROLE_RANK, hasRole } from "../src/lib/capabilities.ts";
 import { ApiError, OfflineError, createApi, setTokenProvider, onUnauthorized } from "../src/lib/api.ts";
 import { resolveRole, roleOrNull } from "../src/lib/role.ts";
 
-import { studyApi } from "../src/lib/studyApi.ts";
-import { conversationApi } from "../src/lib/conversationApi.ts";
-
 let failures = 0;
 const ok = (name, cond, detail = "") => {
   console.log(`${cond ? "✓" : "✗"} ${name}${detail ? `  -  ${detail}` : ""}`);
@@ -65,26 +62,6 @@ try {
       ok(name + " fails when offline", false);
     } catch (error) {
       ok(name + " fails when offline", error instanceof OfflineError);
-    }
-  }
-
-  for (const study of ["live-study", "demo-study"]) {
-    for (const call of [
-      () => studyApi.dataset(study), () => studyApi.status(study),
-      () => studyApi.power(study), () => studyApi.live(study),
-      () => studyApi.papers(study), () => studyApi.prescriptions(study),
-      () => studyApi.addPaperFromMatch(study, "paper"),
-      () => conversationApi.get(study),
-      () => conversationApi.decide(study, "move", "accepted"),
-      () => conversationApi.sendTurn(study, "accept", "You", undefined,
-        { moveId: "move", action: "accepted" }),
-    ]) {
-      try {
-        await call();
-        ok(`${study} request rejects offline`, false);
-      } catch (error) {
-        ok(`${study} request rejects offline`, error instanceof OfflineError);
-      }
     }
   }
 

@@ -16,6 +16,7 @@ import { resolveRole, roleOrNull } from "@/lib/role";
 import { cn } from "@/lib/cn";
 import { humanSlug } from "@/lib/slug";
 
+/* Project home: its studies, and a preview of who's on the team. */
 export function ProjectHome() {
   const api = useApi();
   const { me, loading: meLoading, refresh } = useSession();
@@ -23,22 +24,29 @@ export function ProjectHome() {
   const navigate = useNavigate();
   const { slug = "" } = useParams();
   const { data, loading, error, reload } = useAsync(() => api.projectHome(slug), [api, slug]);
-
+  /* The naming field is revealed by "New study" rather than parked open, so
+   * the page reads as a roster you return to instead of a form. */
   const [composing, setComposing] = useState(false);
   const [studyName, setStudyName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
-
+  // Two-step confirm for study deletion: first click arms, second deletes.
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState("");
-
+  // The list the page renders. Held locally so a delete can be applied
+  // optimistically and *rolled back* if the server refuses  -  the same shape
+  // MembersTable uses. The previous version swallowed every error, so a 403,
+  // a 404, or being offline all looked identical to nothing happening.
   type Study = NonNullable<typeof data>["studies"][number];
   const [studies, setStudies] = useState<Study[]>([]);
   useEffect(() => {
     if (data) setStudies(data.studies);
   }, [data]);
 
+  // My role here  -  and whether that is known yet. Treating "still loading" as
+  // "viewer" is what made the delete control appear a beat late, or seem to
+  // be missing altogether.
   const roleState = resolveRole({
     projectMembers: data?.members,
     meSub: me?.sub,
@@ -53,7 +61,7 @@ export function ProjectHome() {
     const before = studies;
     setDeleting(studyId);
     setDeleteError("");
-
+    // Optimistic: the row goes now, and comes back if the server disagrees.
     setStudies((list) => list.filter((s) => s.id !== studyId));
     setConfirmDelete(null);
     try {
@@ -75,7 +83,9 @@ export function ProjectHome() {
     setCreateError("");
     try {
       const study = await api.createStudy(slug, studyName);
-
+      // Refresh `me` so the new study's membership/role resolves immediately  -
+      // otherwise role-gated controls (e.g. Mint links) stay hidden until an
+      // unrelated refresh fires.
       await refresh();
       navigate(`/p/${slug}/studies/${study.id}`);
     } catch (e) {
@@ -84,6 +94,9 @@ export function ProjectHome() {
     }
   };
 
+  // Only the *first* load blanks the page; a post-delete `reload()` refetch
+  // shouldn't unmount the whole tree while `studies` already reflects the
+  // optimistic update  -  that remount was the delete-study flicker.
   if (loading && !data) {
     return (
       <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
@@ -111,7 +124,9 @@ export function ProjectHome() {
       </div>
 
       <section className="flex flex-col gap-3">
-
+        {/* No icon beside the heading: a section title carries its own
+          * weight, and a glyph next to every one of them is chrome the
+          * reader has to skip past on the way to the content. */}
         <div className="flex items-end justify-between gap-3">
           <h2 className="type-section text-text">Studies</h2>
           {!composing && (
@@ -122,6 +137,10 @@ export function ProjectHome() {
           )}
         </div>
 
+        {/* The naming field is revealed by the action, not parked on the page.
+          * A form sitting open above the roster made the page look like it
+          * was for creating studies, when what a returning researcher comes
+          * here to do is open one. */}
         {composing && (
           <div className="flex flex-col gap-2">
             <div className="flex gap-2">
@@ -164,7 +183,8 @@ export function ProjectHome() {
         {studies.length === 0 ? (
           <EmptyState line="Research goes better with a study. Start one above." />
         ) : (
-
+          /* A roster, not a shelf. These are not alternatives to compare;
+           * they are places to return to. */
           <ul className="divide-y divide-border overflow-hidden rounded-plate border border-border bg-surface shadow-sheet">
             {studies.map((st) => (
               <li key={st.id} className="relative">
@@ -174,14 +194,17 @@ export function ProjectHome() {
                     className="type-body min-w-0 flex-1 truncate font-semibold text-text after:absolute after:inset-0"
                     title={humanSlug(st.id)}
                   >
-
+                    {/* A study has no title column  -  its id is its slug  -  so
+                      * this roster was listing raw addresses where a reader
+                      * expects names. The URL still carries the slug. */}
                     {humanSlug(st.id)}
                   </Link>
                   <RoleGate
                     role={mine}
                     capability="delete"
                     pending={rolePending}
-
+                    /* Hold the space while the role loads, so the row doesn't
+                     * reflow when the answer arrives. */
                     pendingFallback={<span aria-hidden className="min-h-11 min-w-11 shrink-0" />}
                   >
                     <button
@@ -228,7 +251,15 @@ export function ProjectHome() {
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="type-section text-text">Team</h2>
-
+          {/* Not accent-coloured. The one accent on a screen belongs to the
+            * action that screen is for; a secondary link tinted the same
+            * blue makes the researcher check two things to find one. */}
+          {/* `inline-block py-1 -my-1`: the same trick the extension-install
+            * link uses. At 12px caption type this sat 18px tall as a
+            * standalone navigation control, under the 24px target minimum,
+            * and it is not inside a sentence so the inline exception does not
+            * cover it. The padding buys the height back without moving
+            * anything, since the negative margin gives it straight back. */}
           <Link
             to={`/p/${slug}/members`}
             className="type-caption -my-1 inline-block py-1 text-text-muted underline decoration-border underline-offset-4 transition-colors duration-fast hover:text-text hover:decoration-control-edge"

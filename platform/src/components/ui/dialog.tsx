@@ -3,6 +3,13 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
 
+/* Radix supplies focus trapping and Escape handling; content scrolls within the viewport. */
+/* The last element focused OUTSIDE any dialog. Tracked once, for the whole
+ * app, because a dialog opened from state has no trigger for Radix to restore
+ * focus to and a keyboard user who closes one should not restart from tab stop
+ * one. Listening on `focusin` catches the value while it is still true; reading
+ * `document.activeElement` inside the dialog's own mount effect does not,
+ * because focus has already moved in by then. */
 let lastFocusOutsideDialog: HTMLElement | null = null;
 if (typeof document !== "undefined") {
   document.addEventListener(
@@ -26,11 +33,16 @@ export const DialogContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => {
   return (
   <DialogPrimitive.Portal>
-
+    {/* The scrim is the record's own ink, not a generic black: over the
+      * atlas's cool ground a neutral black reads as a grey wash. */}
     <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-ink/45 data-[state=open]:animate-in data-[state=open]:fade-in" />
     <DialogPrimitive.Content
       ref={ref}
-
+      /* Radix returns focus to the trigger it owns; every dialog here is
+       * opened from state instead, so there was nothing for it to return to and
+       * focus fell to <body>. `lastFocusOutsideDialog` is tracked continuously
+       * at the document level, which is the only place that still knows what
+       * the researcher was on BEFORE the dialog stole focus. */
       onCloseAutoFocus={(e) => {
         const back = lastFocusOutsideDialog;
         if (back && back.isConnected) {
@@ -47,7 +59,8 @@ export const DialogContent = React.forwardRef<
       )}
       {...props}
     >
-
+      {/* `-mr-1 pr-1` keeps the scrollbar off the text without shifting the
+        * content when the dialog is short enough not to need one. */}
       <div className="-mr-1 min-h-0 flex-1 overflow-y-auto pr-1">{children}</div>
       <DialogPrimitive.Close
         className="absolute right-4 top-4 rounded-control bg-surface-raised text-text-muted transition-colors duration-fast hover:text-text"

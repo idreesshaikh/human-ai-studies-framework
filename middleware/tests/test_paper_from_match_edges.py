@@ -77,11 +77,11 @@ def client(tmp_path, monkeypatch):
                 dst_title="harvested neighbour",
             )
         )
-        for ref, title in (
-            (SEED, "Investigating and Designing for Trust"),
-            (OTHER, "Security Weaknesses of Generated Code"),
-        ):
-            s.add(Paper(study_id=STUDY, paper_ref=ref, title=title, added_at=""))
+        for ref, title in ((SEED, "Investigating and Designing for Trust"),
+                           (OTHER, "Security Weaknesses of Generated Code")):
+            s.add(
+                Paper(study_id=STUDY, paper_ref=ref, title=title, added_at="")
+            )
         s.commit()
     return tc
 
@@ -112,7 +112,8 @@ def test_graph_includes_both_endpoints_when_source_is_not_ingested(client):
     assert by_ref[ORPHAN]["ingested"] is False
     assert {ORPHAN, NEW} <= by_ref.keys()
     assert all(
-        edge["src"] in by_ref and edge["dst"] in by_ref for edge in graph["edges"]
+        edge["src"] in by_ref and edge["dst"] in by_ref
+        for edge in graph["edges"]
     )
 
 
@@ -127,7 +128,8 @@ def test_the_edge_is_shared_with_a_paper_the_study_already_holds(client):
     shared = [
         e
         for e in graph["edges"]
-        if NEW in (e["src"], e["dst"]) and {e["src"], e["dst"]} <= ingested
+        if NEW in (e["src"], e["dst"])
+        and {e["src"], e["dst"]} <= ingested
     ]
     assert shared, "no edge connects the new paper to a paper already in the study"
     assert {e["kind"] for e in shared} == {VIA_EDGE_KIND}
@@ -145,7 +147,9 @@ def test_no_edge_is_invented_when_the_corpus_has_none(client):
     )
     assert res.status_code == 200
     graph = client.get(f"/studies/{STUDY}/papers/graph").json()
-    assert all(e["kind"] == VIA_EDGE_KIND for e in graph["edges"] if e["src"] == SEED)
+    assert all(
+        e["kind"] == VIA_EDGE_KIND for e in graph["edges"] if e["src"] == SEED
+    )
 
 
 def test_adding_twice_does_not_duplicate_edges(client):

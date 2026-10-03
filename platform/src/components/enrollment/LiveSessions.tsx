@@ -3,8 +3,10 @@ import { Radio } from "lucide-react";
 import { studyApi, type LiveSession } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 
-const POLL_MS = 5_000;
+/* Sessions with recent ingests. Server receipt is evidence of activity, not process health. */
 
+const POLL_MS = 5_000;
+/** Beyond this a session has gone quiet  -  the extension batches every 5s. */
 const QUIET_MS = 30_000;
 
 function quietFor(iso: string, now: number): number {
@@ -12,7 +14,8 @@ function quietFor(iso: string, now: number): number {
   return Number.isFinite(t) ? now - t : 0;
 }
 
-function Rate({ rate }: { rate: number[]; }) {
+/** The event-rate sparkline: one bar per bucket, oldest at the left. */
+function Rate({ rate }: { rate: number[] }) {
   const peak = Math.max(1, ...rate);
   return (
     <span
@@ -34,27 +37,18 @@ function Rate({ rate }: { rate: number[]; }) {
   );
 }
 
-export function LiveSessions({ studyId }: { studyId: string; }) {
+export function LiveSessions({ studyId }: { studyId: string }) {
   const [sessions, setSessions] = useState<LiveSession[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
-    setSessions(null);
-    setError(null);
     const poll = () =>
       void studyApi.live(studyId).then((doc) => {
         if (!cancelled) {
-          setError(null);
           setSessions(doc.sessions);
           setNow(Date.now());
-        }
-      }).catch((cause: unknown) => {
-        if (!cancelled) {
-          setSessions(null);
-          setError(cause instanceof Error ? cause.message : "Could not load live sessions.");
         }
       });
     poll();
@@ -65,7 +59,8 @@ export function LiveSessions({ studyId }: { studyId: string; }) {
     };
   }, [studyId]);
 
-  if (error) return <p role="status" className="type-caption text-text-muted">{error} Retrying automatically.</p>;
+  // Before the first reply, say nothing rather than "no one is running"  -
+  // the two are different answers and only one of them is known yet.
   if (sessions === null) return null;
 
   return (
@@ -129,7 +124,9 @@ export function LiveSessions({ studyId }: { studyId: string; }) {
                   {quiet ? "quiet" : `${s.eventsInWindow} events`}
                 </span>
                 {s.gapCount > 0 && (
-
+                  /* Never silent about loss: a gap means events the editor
+                   * sent never arrived, and the researcher has to know while
+                   * the session is still running, not at analysis. */
                   <span className="type-caption text-status-critical">
                     {s.missingEvents} missing
                   </span>

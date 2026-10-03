@@ -67,9 +67,7 @@ def run(dataset: Dataset) -> RecipeResult:
         summary = test.line()
         fig_fn = _pick_figure(figure_form)
         fig = fig_fn(
-            df,
-            value,
-            dataset.conditions,
+            df, value, dataset.conditions,
             title="Two-group comparison",
             ylabel=value,
         )

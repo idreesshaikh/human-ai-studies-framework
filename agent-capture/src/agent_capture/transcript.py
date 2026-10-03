@@ -265,6 +265,7 @@ def normalize_transcript(
         if ts:
             prev_ts = ts
 
+    # Tool calls whose result never arrived (turn cut off) - success unknown.
     for info in pending.values():
         logical.append(
             (

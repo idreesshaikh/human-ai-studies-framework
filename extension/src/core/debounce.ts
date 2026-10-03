@@ -1,5 +1,16 @@
 import { Disposable } from './types';
 
+/**
+ * Debouncers for high-frequency editor signals. Core so the emit semantics
+ * (what the dataset actually contains) are unit-testable (NFR-3).
+ */
+
+/**
+ * Leading + trailing debounce for `editor_focus` (250 ms per): the
+ * FIRST value in a quiet period emits immediately; rapid follow-ups are
+ * coalesced and the LAST one emits when the window goes quiet. Rapid
+ * tab-cycling therefore emits first + last, never the tabs in between.
+ */
 export class FirstLastDebouncer<T> implements Disposable {
   private timer?: ReturnType<typeof setTimeout>;
   private pending?: { value: T };
@@ -34,6 +45,10 @@ export class FirstLastDebouncer<T> implements Disposable {
   }
 }
 
+/**
+ * Trailing-only debounce for `visible_range` (500 ms per editor): while the
+ * participant scrolls, only the resting range emits.
+ */
 export class TrailingDebouncer<T> implements Disposable {
   private timer?: ReturnType<typeof setTimeout>;
   private pending?: { value: T };

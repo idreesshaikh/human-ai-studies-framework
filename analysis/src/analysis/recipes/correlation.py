@@ -75,12 +75,9 @@ def run(dataset: Dataset) -> RecipeResult:
     if fig_fn:
         fig = fig_fn(
             pd.DataFrame({x_col: x, y_col: y}),
-            x_col,
-            y_col,
-            label,
+            x_col, y_col, label,
             title="Correlation",
-            xlabel=x_col,
-            ylabel=y_col,
+            xlabel=x_col, ylabel=y_col,
         )
 
     return RecipeResult(

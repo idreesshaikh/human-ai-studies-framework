@@ -37,7 +37,7 @@ uv run python -m middleware simulate pilot-2026 \
 
 # 3. generate the starter notebook + data dictionary
 uv run python -m analysis.cli notebook protocol/examples/pilot-study.yaml \
-  --server http://127.0.0.1:8000 --include-synthetic --out .
+  --server http://127.0.0.1:8000 --out .
 
 ```
 

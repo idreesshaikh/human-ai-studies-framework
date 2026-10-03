@@ -1,5 +1,15 @@
 import { useSyncExternalStore } from "react";
 
+/* Which panels the researcher has folded away, remembered per device.
+ *
+ * A per-device ergonomic, not an identity preference: how much chrome you
+ * want around the work depends on the screen you are sitting at, so this
+ * follows the machine rather than the account. The navigation fold is global,
+ * while the protocol draft fold belongs to a study. A new study therefore
+ * opens its draft for orientation, and a return to that study remembers the
+ * last choice made there.
+ */
+
 export type PanelId = "nav" | "draft";
 export type RailId = "papers" | "draft";
 
@@ -27,6 +37,9 @@ export function writeRail(studyId: string, rail: RailId): void {
   }
 }
 
+/** Cached so `getSnapshot` returns a stable primitive for each panel; the
+ * external store still updates every mounted conversation when another
+ * control changes the preference. */
 const cache: Record<string, boolean> = {};
 
 function read(): Record<PanelId, boolean> {
@@ -35,7 +48,7 @@ function read(): Record<PanelId, boolean> {
     const parsed = raw ? JSON.parse(raw) : {};
     return { nav: parsed.nav === true, draft: false };
   } catch {
-
+    // Storage denied: the panels still fold, they just forget across reloads.
     return { nav: false, draft: false };
   }
 }
@@ -89,6 +102,7 @@ export function subscribePanels(fn: () => void): () => void {
   return () => listeners.delete(fn);
 }
 
+/** The collapsed state of one panel, live. */
 export function usePanel(id: PanelId, studyId?: string): boolean {
   return useSyncExternalStore(
     subscribePanels,

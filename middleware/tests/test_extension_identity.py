@@ -18,7 +18,9 @@ def _manifest() -> dict:
 def _constant(name: str) -> str:
     """The value of an exported string const in the platform module."""
     source = PLATFORM_CONSTANTS.read_text()
-    match = re.search(rf'export const {name}\s*=\s*\n?\s*"([^"]+)"', source)
+    match = re.search(
+        rf'export const {name}\s*=\s*\n?\s*"([^"]+)"', source
+    )
     assert match, f"{name} is not exported from {PLATFORM_CONSTANTS.name}"
     return match.group(1)
 

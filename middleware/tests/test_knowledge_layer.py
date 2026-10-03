@@ -159,7 +159,8 @@ def test_deleting_a_graph_added_paper_removes_only_its_touching_edges(client):
     assert removed.status_code == 200, removed.text
     graph = client.get("/studies/pilot-2026/papers/graph").json()
     assert all(
-        "arxiv:2205.06537" not in (edge["src"], edge["dst"]) for edge in graph["edges"]
+        "arxiv:2205.06537" not in (edge["src"], edge["dst"])
+        for edge in graph["edges"]
     )
     assert any(
         node["paperRef"] == "arxiv:2302.06590" and node["ingested"]

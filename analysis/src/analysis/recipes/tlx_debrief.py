@@ -30,24 +30,12 @@ METHODS = (
 )
 def run(dataset: Dataset) -> RecipeResult:
     surveys = dataset.of_type("end_survey")
-    rating_fields = {
-        "mental_demand",
-        "mentalDemand",
-        "effort",
-        "frustration",
-        "time_pressure",
-        "perceived_performance",
-        "comprehension",
-        "ai_reliance",
-    }
+    meta = {"sessionId", "participantId", "condition", "ts", "type", "seq"}
     subscales = [
         c
         for c in surveys.columns
-        if c in rating_fields
-        and pd.to_numeric(surveys[c], errors="coerce").notna().any()
+        if c not in meta and pd.to_numeric(surveys[c], errors="coerce").notna().any()
     ]
-    if not subscales:
-        raise ValueError("No numeric debrief ratings; complete the TERN end survey.")
 
     rows = []
     cells = []

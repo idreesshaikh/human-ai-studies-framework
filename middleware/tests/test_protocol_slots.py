@@ -163,7 +163,9 @@ def test_integer_slots_accept_the_same_answer_in_the_wrong_type_only(value, expe
     and is refused rather than guessed at, because a silently mangled sample size is
     worse than an open slot.
     """
-    result = compiler.compile_moves([_field("f", ("participants", "planned"), value)])
+    result = compiler.compile_moves(
+        [_field("f", ("participants", "planned"), value)]
+    )
     assert result.draft.get("participants", {}).get("planned") == expected
 
 

@@ -7,6 +7,16 @@ export interface SessionMeta {
   taskId?: string;
 }
 
+/**
+ * Stamps every event with session metadata, wall-clock + monotonic
+ * timestamps, and a monotonic sequence number, then hands it to the sink(s).
+ * This is the single choke point through which all study data flows.
+ *
+ * A sink throwing must never break the participant's session - data capture
+ * is subordinate to not disturbing the study. Failures are counted and
+ * reported through `onSinkError` (once), and the event is still returned so
+ * callers can proceed.
+ */
 export class Recorder {
   private seq: number;
   private readonly monoBase: number;
@@ -16,8 +26,9 @@ export class Recorder {
     private readonly sink: EventSink,
     private readonly meta: SessionMeta,
     opts?: {
+      /** Continue numbering after a crash-resume (last persisted seq + 1). */
       startSeq?: number;
-
+      /** Monotonic ms already elapsed before this recorder was (re)created. */
       monoOffsetMs?: number;
       onSinkError?: (error: unknown, totalErrors: number) => void;
     },
@@ -29,7 +40,9 @@ export class Recorder {
 
   private readonly onSinkError?: (error: unknown, totalErrors: number) => void;
 
+  /** High-resolution monotonic clock, independent of the system clock. */
   static monoNow(): number {
+    // globalThis.performance exists in Node >= 16 and in browsers.
     return typeof performance !== 'undefined' ? performance.now() : Date.now();
   }
 

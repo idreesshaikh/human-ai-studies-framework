@@ -3,6 +3,8 @@ import { Command as CommandPrimitive } from "cmdk";
 import { Dialog, DialogContent } from "./dialog.tsx";
 import { cn } from "@/lib/cn";
 
+/* Command palette built on cmdk (fuzzy match + full keyboard nav). Rendered
+ * inside the Radix dialog so focus trapping and Escape come for free. */
 export function CommandDialog({
   open,
   onOpenChange,
@@ -32,7 +34,10 @@ export const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
 >(({ className, ...props }, ref) => (
-
+  /* The row owns the focus, not the field. This input is full-bleed inside a
+    * palette that clips its own corners, so a 2px offset ring around the input
+    * was cropped along the top edge and read as a rendering fault. The row
+    * takes an inset accent rule instead: same signal, nothing to clip. */
   <div className="border-b border-border px-4 focus-within:border-accent">
     <CommandPrimitive.Input
       ref={ref}

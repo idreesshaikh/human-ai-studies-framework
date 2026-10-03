@@ -88,7 +88,9 @@ def validate_template(doc: dict) -> list[str]:
                     f"template cannot promise an analysis the platform "
                     f"can't run)"
                 )
-
+    # Every {{ placeholder }} in the skeleton must be a declared parameter, else the
+    # template passes validation but cannot instantiate (F1.1: a template *instantiates*
+    # into a valid protocol  -  validation must guarantee that, not just schema-shape).
     declared = set(doc.get("parameters", {}))
     used = _skeleton_placeholders(doc.get("protocolSkeleton", {}))
     for name in sorted(used - declared):
@@ -287,6 +289,10 @@ def instantiate_doc(template: dict, parameters: dict) -> dict:
     protocol = _fill(template["protocolSkeleton"], values)
     errors = validate_protocol(protocol)
     if errors:
+        # This only fires when an LLM-supplied parameter value passes its own
+        # type/bounds check yet still leaves the filled protocol schema- invalid (every
+        # registered template's own defaults are checked clean by validate_registry(),
+        # so a bad DEFAULT can't reach here).
         raise TemplateError(
             f"{template_id} could not fill: {_plain_fields(errors)}. "
             "Try a different template, or answer with a value in range."
@@ -368,9 +374,18 @@ def merge_templates(template_ids: list[str], parameters: dict) -> dict:
     return {"protocol": merged, "templateIds": template_ids, "sources": sources}
 
 
+# The bounds a derived template is validated against. A derived template is
+# checked by the same schema as a hand-authored one
+# (templates/schemas/template.schema.json), and every field below is composed
+# from a corpus paper's title  -  text this module does not control and cannot
+# assume is short. `test_derive_from_paper_fields_match_the_schema_bounds`
+# pins these to the schema so they cannot drift apart silently.
 _TITLE_MAX = 120
 _DESCRIPTION_MAX = 500
-
+# 63, not the schema's `maxLength: 64`  -  templateId also carries a pattern,
+# `^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`, which admits at most 1 + 61 + 1
+# characters. The pattern is the tighter of the two constraints, and trimming
+# to `maxLength` alone still produced ids the schema rejected.
 _TEMPLATE_ID_MAX = 63
 
 
@@ -384,7 +399,8 @@ def _fit(text: str, limit: int) -> str:
         return text
     keep = text[: limit - 1].rstrip()
     space = keep.rfind(" ")
-
+    # Only break on a word if that does not throw away most of the budget; for a
+    # single very long token, a hard cut is better than an almost-empty string.
     if space > limit // 2:
         keep = keep[:space].rstrip()
     return keep + "\u2026"
@@ -411,7 +427,8 @@ def derive_template_from_paper(
     """
     base = load_template(base_template_id)
     derived = copy.deepcopy(base)
-
+    # `strip("-")`: the schema's templateId pattern forbids a leading or trailing
+    # hyphen, and a paper ref ending in punctuation slugs to exactly that.
     slug = re.sub(r"[^a-z0-9]+", "-", paper_ref.lower()).strip("-")
     derived["templateId"] = f"{base_template_id}--{slug}"[:_TEMPLATE_ID_MAX].rstrip("-")
     label = title or paper_ref

@@ -7,6 +7,7 @@ import { AuthProvider } from "./lib/auth.tsx";
 import { applyTheme, getTheme } from "./lib/theme.ts";
 import "./styles/index.css";
 
+// Apply the persisted theme before first paint (system default otherwise).
 applyTheme(getTheme());
 
 createRoot(document.getElementById("root")!).render(

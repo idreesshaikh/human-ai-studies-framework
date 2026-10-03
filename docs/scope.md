@@ -4,9 +4,9 @@ PHOENIX supports task-based studies of human–AI software development. It conne
 study design, participant capture, and analysis handoff through an explicit
 protocol.
 
-The project is scoped to that path and deliberately narrow. The most valuable
-next step is not another feature but the first study run with it: the design
-is validated by use, not by surface area.
+The feature set is frozen for this release. Maintenance is limited to fixes,
+security, accessibility, reproducibility, and documentation; new product
+surfaces are out of scope.
 
 ## Supported work
 
@@ -19,10 +19,9 @@ is validated by use, not by surface area.
 - Export datasets, dictionaries, notebooks, CLI reports, and replication kits.
 - Explore literature and inspect planning calculations with stated assumptions.
 
-External-archive mining is not part of this project. An experimental
-`curated` package explored it and was removed before release: its authorship
-signals were hypotheses rather than ground truth, and shipping them beside
-measured capture invited them to be read as equivalent evidence.
+The `curated` package is retained as an experimental mining contract. It only
+supports local archive fixtures today; it is not part of the supported live
+workflow and its authorship signals are hypotheses, not ground truth.
 
 ## Outside this project
 

@@ -6,6 +6,8 @@ _PREFIX = "tern"
 
 _AGENT_HOOK_EVENTS = ("SessionStart", "PostToolUse", "Stop", "SessionEnd")
 
+# Hooks are fire-and-forget with a short timeout - a down middleware must never stall
+# the participant's agent (NFR-1 applies to the agent too).
 _AGENT_HOOK_TIMEOUT_S = 10
 
 AGENT_HOOK_ENV_VARS = (
@@ -45,7 +47,10 @@ def derive_overlay_settings(
         f"{_PREFIX}.participantId": participant_id,
         f"{_PREFIX}.condition": condition,
     }
-
+    # A flat "tern.taskId" here used to look identical at a glance but landed on a
+    # different, undeclared VS Code key that nothing ever read - the server picked a
+    # task and the setting was sent, but the extension's own environment metadata never
+    # saw it.
     if task and task.get("id"):
         settings[f"{_PREFIX}.session.taskId"] = task["id"]
     _flatten(_PREFIX, protocol["instruments"][_PREFIX], settings)

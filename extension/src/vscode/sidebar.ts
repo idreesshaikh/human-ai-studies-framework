@@ -15,14 +15,37 @@ import {
   STATE_PENDING,
 } from './pairing';
 
+/**
+ * The study, in the sidebar (FR-INST-22).
+ *
+ * Three views answer the three questions a participant actually has: *am I in
+ * a session?*, *what is being captured right now?*, and *where is my data
+ * going?* Before this the only permanent surface was a countdown in the status
+ * bar, which cannot answer any of them.
+ *
+ * Tree views rather than a webview, deliberately: they inherit VS Code's
+ * theming, keyboard navigation, and screen-reader behaviour, which is most of
+ * NFR-12's bar met by construction instead of re-implemented in HTML  -  and
+ * they cannot execute anything, which matters on a surface that renders
+ * server-supplied strings.
+ *
+ * Passive by construction (NFR-1): these providers read state and never drive
+ * the recorder. If a provider throws, the session is unaffected.
+ */
+
+/** What the sidebar needs to know about the running session. Supplied by
+ *  `extension.ts` as a getter so this module holds no session state of its
+ *  own and cannot keep a finished session alive. */
 export interface SidebarSession {
   active: boolean;
-
+  /** The session is closed to capture while the end survey is on screen. */
   ending?: boolean;
   paused: boolean;
   participantId?: string;
   dataFile?: string;
-
+  /** Events written locally vs. mirrored upstream  -  a `seq` gap here is how
+   *  loss stays detectable (NFR-2), so it belongs on the participant's
+   *  surface, not only in a log file. */
   written?: number;
   mirrored?: number;
 }
@@ -41,7 +64,11 @@ const STATE_WORDS: Record<LegState, string> = {
   unavailable: 'Not part of this study',
 };
 
+/** One row. `kind` keeps the three providers' node types apart without a
+ *  class hierarchy nobody needs. */
 class Row extends vscode.TreeItem {
+  /** Make this row activate a command when clicked or pressed with Enter.
+   *  Returns `this` so rows stay declarative at the call site. */
   runs(command: string, title: string): Row {
     this.command = { command, title };
     return this;
@@ -80,6 +107,8 @@ abstract class BaseProvider implements vscode.TreeDataProvider<Row> {
   protected abstract roots(): Row[];
 }
 
+/** View 1  -  Session. The start/pause/end actions that were previously only
+ *  reachable through the status-bar quick-pick. */
 export class SessionView extends BaseProvider {
   constructor(
     private readonly probe: SessionProbe,
@@ -88,6 +117,7 @@ export class SessionView extends BaseProvider {
     super();
   }
 
+  /** The task this session was assigned, if the study declares tasks. */
   private block(): SessionBlock | undefined {
     return pairingState<SessionBlock>(this.context, STATE_BLOCK);
   }
@@ -125,7 +155,8 @@ export class SessionView extends BaseProvider {
     if (s.participantId) {
       rows.push(new Row('Participant', s.participantId, 'account'));
     }
-
+    /* What this session is actually for. The task belongs on screen, while
+     * the server-assigned study arm remains deliberately hidden. */
     const block = this.block();
     if (block) {
       rows.push(
@@ -146,6 +177,7 @@ export class SessionView extends BaseProvider {
   }
 }
 
+/** View 2  -  Capture. All four legs, always. */
 export class CaptureView extends BaseProvider {
   constructor(private readonly context: vscode.ExtensionContext) {
     super();
@@ -162,6 +194,8 @@ export class CaptureView extends BaseProvider {
     const rows: Row[] = [];
 
     if (legs.every((l) => l.state === 'unavailable')) {
+      // The empty state is the most-seen screen in the extension: it is what a
+      // participant meets before pairing, so it says what to do next.
       rows.push(
         new Row('Not connected to a study', undefined, 'debug-disconnect'),
         new Row('Connect to a study', undefined, 'link').runs(
@@ -173,6 +207,9 @@ export class CaptureView extends BaseProvider {
     }
 
     if (capturesContent(legs)) {
+      // The standing exception to "no raw code content" (FR-ETH-2). Surfaced
+      // at the top so it is never something a participant has to go digging
+      // through three expanded trees to discover.
       rows.push(
         new Row(
           'This study stores code',
@@ -233,11 +270,13 @@ export class CaptureView extends BaseProvider {
     return rows;
   }
 
+  /** The count the container badge shows: legs actually recording. */
   activeCount(): number {
     return activeLegCount(this.legs());
   }
 }
 
+/** View 3  -  Data. Where it goes, and whether any of it went missing. */
 export class DataView extends BaseProvider {
   constructor(
     private readonly probe: SessionProbe,
@@ -303,6 +342,8 @@ export class DataView extends BaseProvider {
   }
 }
 
+/** Register all three views. Returns a refresh callback the session lifecycle
+ *  calls; the sidebar never polls. */
 export function registerSidebar(
   context: vscode.ExtensionContext,
   probe: SessionProbe,
@@ -322,7 +363,7 @@ export function registerSidebar(
     capture.refresh();
     data.refresh();
     const n = capture.activeCount();
-
+    // The badge answers "is anything recording?" without opening the view.
     trees[1].badge = n
       ? { value: n, tooltip: `${n} of 4 legs recording` }
       : undefined;

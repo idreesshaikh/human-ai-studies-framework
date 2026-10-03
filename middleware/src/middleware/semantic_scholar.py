@@ -14,7 +14,17 @@ GRAPH_API = "https://api.semanticscholar.org/graph/v1"
 REC_API = "https://api.semanticscholar.org/recommendations/v1"
 
 _MIN_INTERVAL = 1.0
-
+# S2 documents the Graph API and the Recommendations API as separate services
+# with their own quotas. Pacing every call through one shared clock (the old
+# `_pace_lock`/`_last_request` pair) served no correctness purpose and cost a
+# real second of latency per paper add: `fetch_edges` fires a Graph API
+# request (references), then citations (same host), then a Recommendations
+# request  -  the third one waited behind the first two's clock for no reason,
+# and any concurrent request from another user queued behind the same single
+# clock regardless of which service it was calling. Pacing per host lets
+# unrelated services (and, moot for a single-process pace, unrelated
+# requests) stop blocking each other while each host still respects its own
+# 1 req/s budget.
 _pace_locks: dict[str, threading.Lock] = {}
 _pace_locks_guard = threading.Lock()
 _last_request: dict[str, float] = {}
@@ -39,9 +49,10 @@ def _lock_for(host: str) -> threading.Lock:
             _pace_locks[host] = lock
         return lock
 
-
 PAPER_FIELDS = "title,authors,year,venue,abstract,externalIds,citationCount"
-
+# Edge neighbours are also the Library's warm preview cache. Keep the abstract in
+# the same response so opening a suggested node does not trigger a second request,
+# especially when the provider is rate-limiting a busy study.
 EDGE_FIELDS = "title,authors,year,venue,abstract,externalIds,citationCount"
 
 BATCH_MAX_IDS = 500

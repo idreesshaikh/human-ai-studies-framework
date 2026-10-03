@@ -1,6 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
+/* Form label. */
 export const Label = React.forwardRef<
   HTMLLabelElement,
   React.LabelHTMLAttributes<HTMLLabelElement>

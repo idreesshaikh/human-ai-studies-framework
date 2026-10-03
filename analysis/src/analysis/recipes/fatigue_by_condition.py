@@ -9,8 +9,7 @@ from analysis.figures import condition_colors, new_axes
 from analysis.recipes._common import compare_or_describe
 
 METHODS = (
-    "TERN fatigue probes use 1-7 ratings (`fatigue_response.score`). "
-    "Historical fixtures used 1-5; do not pool different scales. "
+    "Fatigue probes are 1-5 Likert responses (`fatigue_response.score`). "
     "Scores are aggregated to one mean per (participant, condition) to avoid "
     "pseudo-replication, then compared with the exact two-sided Wilcoxon "
     "signed-rank test on participants observed in both conditions "
@@ -39,7 +38,7 @@ def run(dataset: Dataset) -> RecipeResult:
     fig, ax = new_axes(
         "Fatigue trajectories over the session",
         "minutes into session",
-        "fatigue score (TERN: 1-7)",
+        "fatigue score (1-5)",
     )
     for (sid, cond), g in traj.groupby(["sessionId", "condition"]):
         g = g.sort_values("minute")
@@ -54,7 +53,7 @@ def run(dataset: Dataset) -> RecipeResult:
             color=colors[cond],
             label=f"{sid} ({cond})",
         )
-    ax.set_ylim(0, 7.4)
+    ax.set_ylim(0, 5.4)
     ax.legend(fontsize=7, frameon=False, labelcolor=figures.SECONDARY)
     fig.tight_layout()
 
@@ -63,7 +62,7 @@ def run(dataset: Dataset) -> RecipeResult:
         "score",
         dataset.conditions,
         "Fatigue responses by condition",
-        "fatigue score (TERN: 1-7)",
+        "fatigue score (1-5)",
         unit_label="response",
     )
 

@@ -26,6 +26,10 @@ const STATUS_STYLE: Record<string, string> = {
   revoked: "superseded",
 };
 
+/* The study's enrollment surface (FR-DASH-10): mint pairing links, see who has
+ * paired / is streaming with live polling, revoke, and toggle per-metric
+ * capture (FR-DASH-11). Lives inside the study workspace  -  running a study is
+ * part of the study. */
 export function EnrollmentPanel({
   studyId,
   role,
@@ -42,13 +46,19 @@ export function EnrollmentPanel({
   const [copied, setCopied] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState("");
   const [loadError, setLoadError] = useState("");
-
+  /* Participants this study already holds data for. Enrollment tokens and
+   * collected sessions are different facts: a study can carry sessions that
+   * never came through a minted link (a curated import, a replayed capture,
+   * the bundled demo). Saying "No participants yet" on the strength of an
+   * empty token list made this tab contradict the Data tab, which was listing
+   * those same participants and their completed sessions. */
   const [dataParticipants, setDataParticipants] = useState<string[]>([]);
   const canMint = hasRole(role, "mint_token");
   const canToggle = hasRole(role, "toggle_capture");
 
   const load = useCallback(() => {
-
+    // A study with no compiled protocol has nothing to enroll  -  surface it
+    // calmly instead of letting a rejected read blank the tab.
     void api
       .listEnrollmentTokens(studyId)
       .then(setRows)
@@ -71,6 +81,7 @@ export function EnrollmentPanel({
   }, [studyId, api]);
   useEffect(load, [load]);
 
+  // Live polling: refresh statuses every 15s while the panel is mounted.
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   useEffect(() => {
     pollRef.current = setInterval(load, 15_000);
@@ -79,6 +90,10 @@ export function EnrollmentPanel({
     };
   }, [load]);
 
+  /* Revoking used to be `void api.revoke(...).then(load)`  -  a rejection
+   * became an unhandled promise and the row simply stayed, which reads as
+   * the button doing nothing. Optimistic, with a rollback and a stated
+   * reason. */
   const revoke = async (tokenId: string) => {
     const before = rows;
     setRevokeError("");
@@ -103,6 +118,11 @@ export function EnrollmentPanel({
     });
   };
 
+  /* Same precondition as the Data tab, and the same treatment: a study whose
+   * protocol has never compiled cannot enroll anyone, so that is one fact
+   * with one move that resolves it  -  not a caution stacked above a live
+   * "Mint links" button, a "no sessions running" readout and a dashed box,
+   * each describing a consequence of it. */
   const noProtocol =
     !!loadError &&
     (loadError.toLowerCase().includes("no protocol") ||
@@ -126,11 +146,21 @@ export function EnrollmentPanel({
   }
 
   return (
-
+    /* `work`, the same measure Data and Planning use  -  the four tabs of one
+     * workspace must not move the content column as you switch between them.
+     * This panel was the odd one out at `wide`, so Participants sat 192px
+     * wider than Data and Planning and the page visibly jumped between tabs.
+     *
+     * The old justification  -  seven columns needing the contract's escape
+     * hatch  -  does not hold: the table is `min-w-3xl` (768px) inside
+     * `overflow-x-auto`, and `work` leaves 896px of column, so it fits with
+     * room to spare and still scrolls on its own if a window gets tighter. */
     <Surface measure="work" label="Participants">
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1">
-
+          {/* Counts enrollment links, so it says "enrolled" only about
+            * enrolment  -  a study holding imported or replayed sessions has
+            * participants without ever having minted one. */}
           <h2 className="type-section text-text">
             {rows.length === 0
               ? dataParticipants.length > 0
@@ -138,13 +168,25 @@ export function EnrollmentPanel({
                 : "None enrolled"
               : `${rows.length} enrolled`}
           </h2>
-
+          {/* Prose is held to the reading measure even inside a wider column  -
+            * the layout contract has a measure for running text precisely so
+            * a panel does not set its prose to the width its table needs. */}
           <p className="mt-1 max-w-work type-body text-text-muted">
             One link per participant. They paste it once, their editor joins the
             study, and what each instrument will capture is listed before
             anything is recorded.
           </p>
-
+          {/* The deep link can only reach an editor that already has the
+            * extension: {EXTENSION_NAME} ships as a GitHub release artifact,
+            * not on the Marketplace, so VS Code cannot fetch it on demand the
+            * way a Marketplace link would. Say so once, here, rather than
+            * letting a participant click a link that does nothing. */}
+          {/* Same measure, and it matters more here: this sentence ends in a
+            * mono command chip, so at full width the chip was stranded out at
+            * the right edge on its own. VS Code's command really is named
+            * "Extensions: Install from VSIX…"  -  that ellipsis is part of the
+            * name, not a truncation  -  but marooned at the end of a very long
+            * line it read as a string that had been cut off. */}
           <p className="mt-2 max-w-work type-body text-text-muted">
             Participants need the {EXTENSION_NAME} extension first. It is not
             on the Marketplace.
@@ -160,13 +202,21 @@ export function EnrollmentPanel({
               Download the .vsix
             </a>
             <span>and install it with</span>
-
+            {/* Verbatim, and in the measurement voice. `type-legend`
+              * uppercases and tracks its contents, which is right for a
+              * column head and wrong for a string the participant has to
+              * find in a menu: this rendered as "EXTENSIONS: INSTALL FROM
+              * VSIX…", a command that matches nothing they can search for. */}
             <kbd className="type-quantity whitespace-nowrap rounded-chip border border-border px-1.5 py-0.5 font-mono text-text">
               Extensions: Install from VSIX…
             </kbd>
           </div>
         </div>
-
+        {/* Only while there is a roster to add to. With none, the same control
+          * moves into the empty state below, next to the sentence telling you
+          * to press it  -  it used to sit a thousand pixels away at the far
+          * right of a `wide` surface, so the instruction and its button were
+          * never in one glance. */}
         {canMint && !loadError && rows.length > 0 && (
           <MintDialog studyId={studyId} onMinted={load} />
         )}
@@ -182,9 +232,15 @@ export function EnrollmentPanel({
         </p>
       )}
 
+      {/* What is happening right now, above the roster of who *could* be
+        * running. A facilitator mid-study is asking "is data arriving?", and
+        * the answer belongs before the enrollment table, not after it. */}
       <LiveSessions studyId={studyId} />
       {rows.length === 0 ? (
-
+        /* The one place this absence is stated, and it carries the control
+          * that ends it. The heading above already says "None enrolled"; this
+          * used to repeat it as a sentence in a dashed box with the button
+          * that would fix it parked off at the other end of the row. */
         <EmptyState
           line={
             dataParticipants.length > 0 ? (

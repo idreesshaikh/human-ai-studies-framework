@@ -4,6 +4,8 @@ import { Label } from "@/components/ui/label";
 import { useSession } from "@/lib/session";
 import type { Theme } from "@/lib/theme";
 
+/* Account settings: preferences persisted server-side so they follow the
+ * person across devices, rather than living in one browser's storage. */
 export function AccountSettings() {
   const { me, setThemePreference } = useSession();
 

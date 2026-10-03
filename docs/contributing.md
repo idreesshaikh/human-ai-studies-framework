@@ -34,20 +34,13 @@ Keep the dependency direction visible:
   persistence/provider rules in service modules.
 - `platform/` is the view layer. It calls the API and renders state; study
   rules belong on the server.
-- `agent-capture/` and `metrics/` are optional producers. Neither belongs in
-  the live server's dependency path unless a complete, tested integration is
-  added.
+- `agent-capture/` and `metrics/` are optional producers. `curated/` is an
+  isolated experimental archive package. Neither belongs in the live server's
+  dependency path unless a complete, tested integration is added.
 
 Prefer small pure functions at package boundaries and explicit side effects at
 the edges. A change to an event, manifest, or protocol field needs a focused
 contract test and a documentation update.
-
-Keep the repository below 90,000 lines of maintained text. The workspace check
-counts source, tests, documentation, configuration, and research fixtures, including
-untracked, non-ignored files. It excludes dependency lockfiles, binary files, and
-symlinks. Ignored dependencies and build outputs are not project source. Remove
-duplication rather than minifying code, dropping tests, or ignoring maintained files
-to meet the budget. Railway deployment remains supported.
 
 ## Check your changes
 

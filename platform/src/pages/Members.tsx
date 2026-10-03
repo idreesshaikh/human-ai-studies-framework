@@ -10,6 +10,8 @@ import { useAsync } from "@/lib/useAsync";
 import { ROLE_LABELS, type Role } from "@/lib/capabilities.ts";
 import { Notice } from "@/components/ui/notice";
 
+/* Members + pending invitations. Owners see the invite action and the
+ * per-member role menu; everyone else sees a read-only roster. */
 export function Members() {
   const api = useApi();
   const { me } = useSession();
@@ -19,6 +21,9 @@ export function Members() {
     [api, slug],
   );
 
+  // Only the first load blanks the page  -  a background reload (e.g. after
+  // creating an invitation) must not unmount an open dialog out from under
+  // the researcher mid-action.
   if (loading && !data) {
     return (
       <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
@@ -31,6 +36,8 @@ export function Members() {
   if (error) return <div className="p-gutter"><Notice kind="problem">{error}</Notice></div>;
   if (!data) return null;
 
+  // The caller's role comes from their own memberships (the server enforces
+  // regardless; this only decides which controls to show).
   const mine = (me?.memberships.find((m) => m.projectSlug === slug)?.role ??
     "member") as Role;
 

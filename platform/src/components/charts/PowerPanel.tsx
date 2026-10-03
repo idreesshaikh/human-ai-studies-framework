@@ -3,9 +3,16 @@ import { Crosshair } from "lucide-react";
 import { Surface } from "@/components/shell/Surface";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/cn";
-import { studyApi } from "@/lib/studyApi";
+import { studyApi, onSeededData } from "@/lib/studyApi";
 import type { PowerDoc, PowerRequirement } from "@/lib/types";
 
+/* The Planning surface (P2-2): the power/sensitivity curve for the study's
+ * planned comparison  -  how power moves with total n, and the first n that
+ * reaches the target, per effect size. Planning math only, from the
+ * middleware's /studies/{id}/power: the payload carries its own model and
+ * assumptions, and a target not reached within the explored range is
+ * reported as such, never as a number. Nothing here animates  -  the numbers
+ * are the point. */
 const SVG_W = 840;
 const M = { left: 56, right: 24, top: 16, bottom: 36 };
 const PLOT_H = 300;
@@ -16,6 +23,14 @@ const LINE_COLORS = [
   "var(--series-7)",
 ];
 
+/* A stroke pattern per series, carried everywhere the series appears.
+ *
+ * tokens.css commits this world to it in as many words  -  "every series that
+ * must survive a greyscale print carries a mark as well as a hue"  -  and the
+ * curve was the one place that didn't: three solid 1.6px lines separated by
+ * colour alone, which is also the exactly the reading a red-green viewer, a
+ * greyscale print of a thesis chapter, or a projector with the saturation
+ * crushed does not get. */
 const LINE_DASHES = ["", "7 3", "2 3", "9 3 2 3"];
 
 const ALPHAS = [0.01, 0.05, 0.1];
@@ -23,44 +38,55 @@ const TARGETS = [0.8, 0.9];
 const MAX_NS = [60, 120, 200, 400];
 const SIZES = [0.2, 0.5, 0.8];
 
-function seriesOf(effectSize: number): { color: string; dash: string; } {
+/* A series' identity is its EFFECT SIZE, not its position in the response.
+ * Keyed by position in `doc.curves`, deselecting d=0.2 promoted d=0.5 into
+ * slot 0 and the pink curve silently turned blue  -  the same quantity drawn
+ * in the colour that had meant a different one a moment earlier, which is
+ * the one thing a planning chart must never do. */
+function seriesOf(effectSize: number): { color: string; dash: string } {
   const i = SIZES.indexOf(effectSize);
   const k = i >= 0 ? i : LINE_COLORS.length - 1;
   return { color: LINE_COLORS[k], dash: LINE_DASHES[k] };
 }
 
-export function PowerPanel({ studyId }: { studyId: string; }) {
+export function PowerPanel({ studyId }: { studyId: string }) {
   const [alpha, setAlpha] = useState(0.05);
   const [powerTarget, setPowerTarget] = useState(0.8);
   const [maxN, setMaxN] = useState(120);
   const [sizes, setSizes] = useState<number[]>([0.2, 0.5, 0.8]);
   const [doc, setDoc] = useState<PowerDoc | null>(null);
   const [loading, setLoading] = useState(true);
+  const [seeded, setSeeded] = useState(false);
 
   const load = useCallback(
-    (isCurrent: () => boolean) => {
+    (live: boolean) => {
       setLoading(true);
-      setDoc(null);
       studyApi
         .power(studyId, { alpha, powerTarget, maxN, effectSizes: sizes })
         .then((d) => {
-          if (isCurrent()) setDoc(d);
+          if (live) setDoc(d);
         })
         .catch(() => {
-          if (isCurrent()) setDoc(null);
+          if (live) setDoc(null);
         })
         .finally(() => {
-          if (isCurrent()) setLoading(false);
+          if (live) setLoading(false);
         });
     },
     [studyId, alpha, powerTarget, maxN, sizes],
   );
 
   useEffect(() => {
+    // If the read falls back to the built-in stand-in, say so honestly.
+    const off = onSeededData((seededStudy) => {
+      if (seededStudy === studyId) setSeeded(true);
+    });
     let live = true;
-    load(() => live);
+    setSeeded(false);
+    load(live);
     return () => {
       live = false;
+      off();
     };
   }, [load]);
 
@@ -95,123 +121,146 @@ export function PowerPanel({ studyId }: { studyId: string; }) {
         ) : (
           <>
 
-            <div className="flex flex-wrap items-end gap-4 rounded-card border border-border bg-surface p-4">
-              <label className="flex flex-col gap-1">
-                <span className="type-caption text-text-muted">alpha (two-sided)</span>
-                <Select
-                  value={String(alpha)}
-                  onValueChange={(v) => setAlpha(Number(v))}
-                  options={ALPHAS.map((a) => ({ value: String(a), label: String(a) }))}
-                  className="w-28"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="type-caption text-text-muted">target power</span>
-                <Select
-                  value={String(powerTarget)}
-                  onValueChange={(v) => setPowerTarget(Number(v))}
-                  options={TARGETS.map((t) => ({ value: String(t), label: `${t * 100}%` }))}
-                  className="w-28"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="type-caption text-text-muted">explored range (total n)</span>
-                <Select
-                  value={String(maxN)}
-                  onValueChange={(v) => setMaxN(Number(v))}
-                  options={MAX_NS.map((n) => ({ value: String(n), label: `up to ${n}` }))}
-                  className="w-32"
-                />
-              </label>
-              <div className="flex flex-col gap-1">
-                <span className="type-caption text-text-muted">effect sizes (Cohen's d)</span>
-
-                <div className="flex gap-2">
-                  {SIZES.map((d) => {
-                    const on = sizes.includes(d);
-                    const { color, dash } = seriesOf(d);
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => toggleSize(d)}
-                        className={cn(
-                          "flex h-10 items-center gap-2 rounded-input border px-3 type-body transition-colors duration-fast",
-                          on
-                            ? "border-border-strong bg-surface-raised text-text shadow-mark"
-                            : "border-border bg-surface text-text-muted hover:border-border-strong hover:text-text",
-                        )}
-                      >
-                        <svg
-                          width={16}
-                          height={2}
-                          viewBox="0 0 16 2"
-                          aria-hidden
-                          className="shrink-0 overflow-visible"
-                        >
-                          <line
-                            x1={0}
-                            y1={1}
-                            x2={16}
-                            y2={1}
-                            stroke={on ? color : "var(--border-strong)"}
-                            strokeWidth={1.6}
-                            strokeDasharray={dash || undefined}
-                          />
-                        </svg>
-                        d={d}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+        {/* Controls: alpha, target, explored range, effect sizes. Every
+            change refetches the exact curve from the middleware. */}
+        <div className="flex flex-wrap items-end gap-4 rounded-card border border-border bg-surface p-4">
+          <label className="flex flex-col gap-1">
+            <span className="type-caption text-text-muted">alpha (two-sided)</span>
+            <Select
+              value={String(alpha)}
+              onValueChange={(v) => setAlpha(Number(v))}
+              options={ALPHAS.map((a) => ({ value: String(a), label: String(a) }))}
+              className="w-28"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="type-caption text-text-muted">target power</span>
+            <Select
+              value={String(powerTarget)}
+              onValueChange={(v) => setPowerTarget(Number(v))}
+              options={TARGETS.map((t) => ({ value: String(t), label: `${t * 100}%` }))}
+              className="w-28"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="type-caption text-text-muted">explored range (total n)</span>
+            <Select
+              value={String(maxN)}
+              onValueChange={(v) => setMaxN(Number(v))}
+              options={MAX_NS.map((n) => ({ value: String(n), label: `up to ${n}` }))}
+              className="w-32"
+            />
+          </label>
+          <div className="flex flex-col gap-1">
+            <span className="type-caption text-text-muted">effect sizes (Cohen's d)</span>
+            {/* These are the chart's legend, and they happen to be
+              * switchable  -  so each one carries the stroke its curve is drawn
+              * with, and you can read the key off the control rather than
+              * matching two colours across the panel.
+              *
+              * They are emphatically NOT accent. Selected used to mean
+              * `border-accent`, which put three accent-edged controls in a
+              * row directly above an accent-free chart: in this world a fill
+              * or an edge in the accent means "an action you can take", and
+              * a size you have already switched on is a state, not an action
+              *  -  the exact "two things both meaning primary" failure
+              * tokens.css says this palette exists to end. On is a raised
+              * plate with a strong edge and its own series mark; off is flat
+              * paper with the mark drained out of it. */}
+            <div className="flex gap-2">
+              {SIZES.map((d) => {
+                const on = sizes.includes(d);
+                const { color, dash } = seriesOf(d);
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleSize(d)}
+                    className={cn(
+                      "flex h-10 items-center gap-2 rounded-input border px-3 type-body transition-colors duration-fast",
+                      on
+                        ? "border-border-strong bg-surface-raised text-text shadow-mark"
+                        : "border-border bg-surface text-text-muted hover:border-border-strong hover:text-text",
+                    )}
+                  >
+                    <svg
+                      width={16}
+                      height={2}
+                      viewBox="0 0 16 2"
+                      aria-hidden
+                      className="shrink-0 overflow-visible"
+                    >
+                      <line
+                        x1={0}
+                        y1={1}
+                        x2={16}
+                        y2={1}
+                        stroke={on ? color : "var(--border-strong)"}
+                        strokeWidth={1.6}
+                        strokeDasharray={dash || undefined}
+                      />
+                    </svg>
+                    d={d}
+                  </button>
+                );
+              })}
             </div>
+          </div>
+        </div>
 
-            {doc && (doc.plannedParticipants != null || doc.assumption) && (
-              <p className="type-caption text-text-muted">
-                {doc.plannedParticipants != null && (
-                  <>Current draft: <span className="tabular text-text">{doc.plannedParticipants}</span> planned participants. </>
-                )}
-                {doc.assumption ?? "Effect size is an exploration assumption, not collected data."}
-              </p>
-            )}
+        {seeded && (
+          <p className="type-caption text-text-muted" role="status">
+            Middleware unreachable  -  showing the built-in stand-in curve
+            (normal approximation of the same formula), not a live study
+            plan.
+          </p>
+        )}
 
-            {doc === null ? (
-              <div className="rounded-card border border-border bg-surface p-4">
-                <p className="type-body text-text-muted">
-                  The planning curve is unavailable right now.
-                </p>
-              </div>
-            ) : sizes.length === 0 ? (
-              <div className="rounded-card border border-border bg-surface p-4">
-                <p className="type-body text-text-muted">
-                  Nothing to draw  -  select at least one effect size.
-                </p>
-              </div>
-            ) : doc.curves.length === 0 ? (
-              <div className="rounded-card border border-border bg-surface p-4">
-                <p className="type-body text-text-muted">
-                  The planning curve is unavailable right now.
-                </p>
-              </div>
-            ) : (
-              <>
-                <PowerChart doc={doc} />
-                <RequiredTable
-                  requirements={doc.requiredN}
-                  maxTotalN={doc.maxTotalN}
-                  paired={doc.model.startsWith("paired")}
-                />
-                <p className="type-caption text-text-muted">
-                  Model: {doc.model}. alpha = {doc.alpha}, target ={" "}
-                  {doc.powerTarget * 100}%, range explored up to total n ={" "}
-                  {doc.maxTotalN}. {doc.model.startsWith("paired")
-                    ? "Each participant contributes one observation in each condition."
-                    : "Per-group n is half the total (equal groups)."}
-                </p>
-              </>
+        {doc && (doc.plannedParticipants != null || doc.assumption) && (
+          <p className="type-caption text-text-muted">
+            {doc.plannedParticipants != null && (
+              <>Current draft: <span className="tabular text-text">{doc.plannedParticipants}</span> planned participants. </>
             )}
+            {doc.assumption ?? "Effect size is an exploration assumption, not collected data."}
+          </p>
+        )}
+
+        {doc === null ? (
+          <div className="rounded-card border border-border bg-surface p-4">
+            <p className="type-body text-text-muted">
+              The planning curve is unavailable right now.
+            </p>
+          </div>
+        ) : sizes.length === 0 ? (
+          <div className="rounded-card border border-border bg-surface p-4">
+            <p className="type-body text-text-muted">
+              Nothing to draw  -  select at least one effect size.
+            </p>
+          </div>
+        ) : doc.curves.length === 0 ? (
+          <div className="rounded-card border border-border bg-surface p-4">
+            <p className="type-body text-text-muted">
+              The planning curve is unavailable right now.
+            </p>
+          </div>
+        ) : (
+          <>
+            <PowerChart doc={doc} />
+            <RequiredTable
+              requirements={doc.requiredN}
+              maxTotalN={doc.maxTotalN}
+              paired={doc.model.startsWith("paired")}
+            />
+            <p className="type-caption text-text-muted">
+              Model: {doc.model}. alpha = {doc.alpha}, target ={" "}
+              {doc.powerTarget * 100}%, range explored up to total n ={" "}
+               {doc.maxTotalN}. {doc.model.startsWith("paired")
+                 ? "Each participant contributes one observation in each condition."
+                 : "Per-group n is half the total (equal groups)."}
+            </p>
+          </>
+        )}
 
           </>
         )}
@@ -220,7 +269,7 @@ export function PowerPanel({ studyId }: { studyId: string; }) {
   );
 }
 
-function PowerChart({ doc }: { doc: PowerDoc; }) {
+function PowerChart({ doc }: { doc: PowerDoc }) {
   const plotW = SVG_W - M.left - M.right;
   const paired = doc.model.startsWith("paired");
   const xMax = doc.maxTotalN;
@@ -247,7 +296,7 @@ function PowerChart({ doc }: { doc: PowerDoc; }) {
           .map((c) => c.effectSize)
           .join(", ")}`}
       >
-
+        {/* Reference line at the target power */}
         <line
           x1={M.left}
           y1={y(doc.powerTarget)}
@@ -266,6 +315,7 @@ function PowerChart({ doc }: { doc: PowerDoc; }) {
           {doc.powerTarget * 100}% target
         </text>
 
+        {/* Grid */}
         {yTicks.map((t) => (
           <g key={`y-${t.label}`}>
             <line
@@ -309,6 +359,7 @@ function PowerChart({ doc }: { doc: PowerDoc; }) {
           </g>
         ))}
 
+        {/* Axes */}
         <line
           x1={M.left}
           y1={M.top + PLOT_H}
@@ -343,6 +394,8 @@ function PowerChart({ doc }: { doc: PowerDoc; }) {
           power (%)
         </text>
 
+        {/* One line per effect size; a filled diamond marks the first n at
+            which the target is reached. */}
         {doc.curves.map((curve, i) => {
           const { color, dash } = seriesOf(curve.effectSize);
           const points = curve.points
@@ -374,6 +427,8 @@ function PowerChart({ doc }: { doc: PowerDoc; }) {
           );
         })}
 
+        {/* Legend  -  the same stroke the curve is drawn with, dash included, so
+            the key is readable as a key without reference to colour. */}
         <g transform={`translate(${M.left}, ${M.top - 6})`}>
           {doc.curves.map((curve, i) => (
             <g key={curve.effectSize} transform={`translate(${i * 110}, 0)`}>

@@ -7,6 +7,11 @@ export interface EndSurveyResult {
   msToComplete: number;
 }
 
+/**
+ * End-of-study questionnaire in a webview panel - the one moment where
+ * taking screen space is fine. Styled as a frosted-glass card over the
+ * editor theme colors.
+ */
 export function showEndSurvey(): Promise<EndSurveyResult | undefined> {
   const items: LikertItem[] = [...END_SURVEY_ITEMS];
 

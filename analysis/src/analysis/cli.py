@@ -25,9 +25,7 @@ def _load_dataset(args: argparse.Namespace, study_id: str) -> Dataset:
     if args.dataset:
         return Dataset.from_json(args.dataset)
     try:
-        return Dataset.fetch(
-            args.server, study_id, include_synthetic=args.include_synthetic
-        )
+        return Dataset.fetch(args.server, study_id)
     except OSError as exc:
         raise SystemExit(
             f"error: could not fetch dataset for {study_id!r} from "
@@ -53,22 +51,11 @@ def main(argv: list[str] | None = None) -> int:
             help="one-timeline dataset JSON file "
             "(instead of fetching from the middleware)",
         )
-        p.add_argument(
-            "--include-synthetic",
-            action="store_true",
-            help="include labelled dry-run rows when fetching from the middleware",
-        )
 
     p_run = sub.add_parser("run", help="run the protocol's analysis plan")
     add_data_args(p_run)
     p_run.add_argument(
         "--out", default="results", type=Path, help="output root (default results/)"
-    )
-    p_run.add_argument(
-        "--allow-mixed-provenance",
-        action="store_true",
-        help="run even when the dataset mixes participant and dry-run rows "
-        "(refused by default: the result would be neither a rehearsal nor a finding)",
     )
 
     p_val = sub.add_parser("validate", help="check recipe requirements only (FR-ANA-2)")
@@ -149,16 +136,6 @@ def main(argv: list[str] | None = None) -> int:
         out_root=args.out,
         server=None if args.dataset else args.server,
     )
-    if outcome.provenance.kind == "mixed" and not args.allow_mixed_provenance:
-        print(
-            f"mixed provenance: {outcome.provenance.synthetic} of "
-            f"{outcome.provenance.total} rows are synthetic dry-run rows. "
-            "The output is written and bannered, but it is not reportable - "
-            "re-export excluding dry-run sessions, or pass "
-            "--allow-mixed-provenance to accept it deliberately.",
-            file=sys.stderr,
-        )
-        return 3
     if not outcome.ok:
         print(
             f"completed with {len(outcome.failed_validation)} validation "

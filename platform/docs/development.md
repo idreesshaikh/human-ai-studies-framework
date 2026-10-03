@@ -32,9 +32,7 @@ requests. They share the authentication token provider. A 401 tells the auth
 layer to show sign-in; network failure does not create temporary projects or
 participant links.
 
-The read-only demo is seeded by the server. Study reads and writes propagate
-failures; no browser sample data or successful-write fallback is available.
-Rehearsals are excluded from live results and default exports. The conversation
+Some read-only demo views include labelled bundled examples. The conversation
 requires a model and reports when one is unavailable.
 
 Component state holds drafts and selection. `useAsync` handles loading, errors,

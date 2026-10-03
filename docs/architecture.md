@@ -4,8 +4,8 @@ The protocol connects the researcher's intended study to capture and analysis.
 The web app helps build it; the remaining tools consume it.
 
 The supported product is a live, protocol-driven study. Optional producers
-send measurements to the same ingest contract. Every path in this repository
-leads to the live study; there is no external-data-mining leg.
+send measurements to the same ingest contract, while `curated/` is an isolated
+external-data experiment outside the release path.
 
 Python packages use a `src/` layout. For example, `middleware/app.py` below
 means [middleware/src/middleware/app.py](../middleware/src/middleware/app.py).
@@ -129,6 +129,11 @@ issuing participant credentials. Rows carry `payload.synthetic: true`; the
 response lists `sessionIds`. Each dry-run report uses only that run's sessions.
 Synthetic rows remain in the selected study, so use a separate rehearsal study
 or filter them explicitly before participant analysis.
+
+`curated/` is an experimental library for local archive import,
+pseudonymisation, and validity-threat records. It is not imported by the live
+server, does not provide a mining command or API adapter, and must not be
+described as a finished observational-study workflow.
 
 ## Where maintenance is needed
 

@@ -22,6 +22,9 @@ import { Notice } from "@/components/ui/notice";
 
 const ROLES: Role[] = ["owner", "member"];
 
+/* The members table. Roles are facts, so role chips are static; owners get
+ * an actions menu that edits a role optimistically and reconciles with the
+ * server (reverting on error). */
 export function MembersTable({
   slug,
   myRole,
@@ -46,7 +49,7 @@ export function MembersTable({
       await api.changeRole(slug, sub, role);
       onChanged();
     } catch (e) {
-      setRows(prev);
+      setRows(prev); // reconcile: the server said no
       setError(e instanceof ApiError ? e.message : "Could not change the role.");
     }
   };

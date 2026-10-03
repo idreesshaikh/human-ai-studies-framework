@@ -1,3 +1,10 @@
+/**
+ * The consent acknowledgment gate (FR-ETH-1, FR-AGENT-5). No event may leave
+ * the machine until the participant accepts the protocol-derived consent
+ * statement and its content policy. Portable core: the adapter renders the
+ * statement and calls acknowledge().
+ */
+
 export class ConsentNotGivenError extends Error {}
 
 export class ConsentGate {

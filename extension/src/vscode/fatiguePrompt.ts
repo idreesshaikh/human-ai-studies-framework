@@ -5,16 +5,22 @@ export interface LikertResult {
   value: number | null;
   msToAnswer: number;
   skipped: boolean;
-
+  /** True when the prompt was programmatically cancelled (e.g. session end),
+   *  as opposed to the participant skipping it. */
   cancelled: boolean;
 }
 
 export interface LikertPromptHandle {
   result: Promise<LikertResult>;
-
+  /** Dismiss the prompt without participant input (records cancelled=true). */
   cancel(): void;
 }
 
+/**
+ * A single-item Likert micro-survey, rendered as a QuickPick - VS Code's
+ * native floating overlay (same translucent, centered panel as the command
+ * palette). Keyboard-first: press 1–7 and Enter, or Esc to skip.
+ */
 export function showLikertQuickPick(item: LikertItem): LikertPromptHandle {
   let cancelFn: () => void = () => undefined;
   const result = new Promise<LikertResult>((resolve) => {

@@ -6,6 +6,9 @@ import os
 import subprocess
 from pathlib import Path
 
+# Inheriting them would silently redirect our snapshot/harness git calls at the
+# enclosing repo's index instead of the shadow repo we point at - scrub them so
+# ``--git-dir``/``cwd`` always win.
 _GIT_CONTEXT_VARS = (
     "GIT_DIR",
     "GIT_WORK_TREE",
