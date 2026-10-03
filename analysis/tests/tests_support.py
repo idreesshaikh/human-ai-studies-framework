@@ -85,8 +85,15 @@ def synthetic_rows() -> list[dict]:
                 )
             emit(
                 58,
-                "end_survey",
-                {"mentalDemand": TLX[participant][cond_i], "effort": 10 + cond_i},
+                "end_survey_response",
+                {
+                    "responses": {
+                        "mental_demand": TLX[participant][cond_i],
+                        "effort": 10 + cond_i,
+                    },
+                    "comments": "",
+                    "msToComplete": 42000,
+                },
             )
             emit(60, "session_end", {"reason": "completed"})
 
