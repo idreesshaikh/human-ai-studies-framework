@@ -410,6 +410,27 @@ def test_propose_turn_threads_design_state_into_the_request():
     assert "NEVER re-propose" in system
 
 
+def test_design_state_prompt_keeps_recent_moves_without_growing_unbounded():
+    """Keep recent decisions while the server enforces the full state."""
+    state = {
+        **DESIGN_STATE,
+        "accepted": [
+            {
+                "kind": "add-measure",
+                "section": "measures",
+                "proposal": f"Measure {n}.",
+            }
+            for n in range(12)
+        ],
+    }
+
+    block = design_llm._design_state_block(state)
+
+    assert "4 earlier move(s) omitted" in block
+    assert "Measure 0." not in block
+    assert "Measure 11." in block
+
+
 def test_propose_turn_notes_the_accepted_templates_prescribed_statistics():
     captured: list = []
     client = _capturing_client({"text": "Noted.", "moves": []}, captured)
