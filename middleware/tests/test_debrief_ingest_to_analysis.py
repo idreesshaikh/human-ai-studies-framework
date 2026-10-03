@@ -1,12 +1,10 @@
 """
 Ingest-to-analysis coverage for the debrief (issue #67).
 
-Unlike the analysis-layer regression in analysis/tests/test_tlx_debrief.py, this
-drives the *real* path: the middleware generates and ingests debrief events
-(`end_survey_response`, nested payload) via the simulate route, the dataset export
-returns them, and the tlx-debrief recipe runs on that exported dataset. It is the
-end-to-end proof that a debrief response survives ingest and reaches the analysis
-with its subscales intact and timing/comments excluded.
+Posts real `end_survey_response` events through the HTTP `/ingest/events` boundary,
+exports the study dataset, and runs the tlx-debrief recipe on it: the end-to-end proof
+that a debrief response survives ingest and reaches the analysis with its six subscales
+intact and timing/comments excluded.
 """
 
 from __future__ import annotations
@@ -23,17 +21,32 @@ from middleware.settings import Settings
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROTOCOL = REPO_ROOT / "protocol" / "examples" / "pilot-study.yaml"
 
-# The TLX items the extension can emit (extension/src/core/surveys.ts); nothing else
-# in a debrief payload is a rating.
-_VALID_SUBSCALES = {
+# The exact six items the extension's end survey emits (extension/src/core/surveys.ts).
+_SUBSCALES = (
     "mental_demand",
     "effort",
     "frustration",
     "time_pressure",
     "perceived_performance",
     "comprehension",
-    "ai_reliance",
-}
+)
+
+
+def _responses(seed: int) -> dict:
+    return {k: 1 + (seed + i) % 7 for i, k in enumerate(_SUBSCALES)}
+
+
+def _event(session: str, participant: str, condition: str, responses: dict) -> dict:
+    return {
+        "sessionId": session,
+        "participantId": participant,
+        "condition": condition,
+        "ts": "2026-07-11T10:57:00.000Z",
+        "seq": 0,
+        "v": 4,
+        "type": "end_survey_response",
+        "payload": {"responses": responses, "comments": "ok", "msToComplete": 45000},
+    }
 
 
 def test_debrief_survives_ingest_and_drives_tlx_analysis(tmp_path):
@@ -44,27 +57,30 @@ def test_debrief_survives_ingest_and_drives_tlx_analysis(tmp_path):
         spa_dist=tmp_path / "no-dist",
         protocol_path=PROTOCOL,
     )
+    batch = {
+        "source": "cognitive-overlay",
+        "events": [
+            _event("S1", "P01", "ai-assisted", _responses(1)),
+            _event("S2", "P02", "unassisted", _responses(2)),
+            _event("S3", "P03", "ai-assisted", _responses(3)),
+            _event("S4", "P04", "unassisted", _responses(4)),
+        ],
+    }
     with TestClient(create_app(settings)) as client:
-        r = client.post(
-            "/studies/pilot-2026/simulate",
-            json={"count": 4, "profile": "mixed", "seed": 7},
-        )
+        r = client.post("/ingest/events", json=batch)
         assert r.status_code == 200, r.text
-        # The debrief event reaches the store under the real v4 name.
-        doc = client.get(
-            "/studies/pilot-2026/dataset?format=json&includeSynthetic=true"
-        ).json()
+        assert r.json()["inserted"] == len(batch["events"]), r.json()
+        doc = client.get("/studies/pilot-2026/dataset?format=json").json()
 
     rows = doc["rows"]
     debrief = [r for r in rows if r["type"] == "end_survey_response"]
-    assert debrief, "no end_survey_response events survived ingest"
+    assert debrief, "end_survey_response events did not reach the dataset via ingest"
     assert "responses" in debrief[0]["payload"], "debrief payload lost its nesting"
 
     dataset = Dataset(rows=rows, study_id="pilot-2026")
     result = REGISTRY["tlx-debrief"].run(dataset)
     subscales = set(result.tables["per_condition"]["subscale"])
 
-    assert subscales, "tlx-debrief produced no subscales from ingested data"
-    assert subscales <= _VALID_SUBSCALES, f"unexpected subscale(s): {subscales}"
+    assert subscales == set(_SUBSCALES), f"expected the six subscales, got {subscales}"
     assert "msToComplete" not in subscales and "comments" not in subscales
     assert "responded" in result.summary
