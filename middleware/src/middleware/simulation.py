@@ -179,7 +179,7 @@ def _session_events(
                 "participant_id": participant_id,
                 "condition": condition,
                 "task_id": task_id,
-                "v": 1,
+                "v": 4,
                 "ts": ts.isoformat(timespec="milliseconds"),
                 "mono": 0,
                 "type": type_,
