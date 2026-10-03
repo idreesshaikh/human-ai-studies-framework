@@ -11,8 +11,10 @@ from analysis.figures import condition_colors, new_axes
 from analysis.recipes._common import compare_or_describe
 
 METHODS = (
-    "The end survey (`end_survey`) records TLX-style subscales (e.g. "
-    "mental demand, effort, frustration), one response per session. Each "
+    "The end survey (`end_survey_response`) records TLX-style subscales under "
+    "its `responses` object (e.g. mental demand, effort, frustration), one "
+    "response per session; a dismissed survey (`end_survey_skipped`) is a "
+    "non-response, counted but not rated. Each "
     "subscale is compared independently across conditions with the exact "
     "two-sided Wilcoxon signed-rank on participants observed in both "
     "conditions (rank-biserial correlation), else the exact Mann-Whitney U "
@@ -25,17 +27,27 @@ METHODS = (
 @recipe(
     id="tlx-debrief",
     answers=["RQ-P1"],
-    requires_events=["end_survey"],
+    requires_events=["end_survey_response"],
     title="TLX debrief subscales by condition",
 )
 def run(dataset: Dataset) -> RecipeResult:
-    surveys = dataset.of_type("end_survey")
-    meta = {"sessionId", "participantId", "condition", "ts", "type", "seq"}
-    subscales = [
-        c
+    surveys = dataset.of_type("end_survey_response")
+    # The per-item ratings live in the nested ``responses`` object; ``comments`` and
+    # ``msToComplete`` share the payload but are not ratings. Select the
+    # ``responses.*`` columns explicitly rather than "any numeric column", so free-text
+    # and timing never leak in as a subscale, and strip the prefix for display.
+    prefix = "responses."
+    subscale_cols = {
+        c: c[len(prefix) :]
         for c in surveys.columns
-        if c not in meta and pd.to_numeric(surveys[c], errors="coerce").notna().any()
-    ]
+        if c.startswith(prefix)
+        and pd.to_numeric(surveys[c], errors="coerce").notna().any()
+    }
+    surveys = surveys.rename(columns=subscale_cols)
+    subscales = list(subscale_cols.values())
+    # A dismissed survey counts as a non-response, never as a rating (#67).
+    n_responded = len(surveys)
+    n_skipped = len(dataset.of_type("end_survey_skipped"))
 
     rows = []
     cells = []
@@ -95,6 +107,9 @@ def run(dataset: Dataset) -> RecipeResult:
     return RecipeResult(
         tables=tables,
         figures={"subscales": fig},
-        summary="TLX debrief (RQ-P1). " + " ".join(sentences),
+        summary=(
+            f"TLX debrief (RQ-P1); {n_responded} responded, {n_skipped} skipped. "
+            + " ".join(sentences)
+        ),
         methods=METHODS,
     )

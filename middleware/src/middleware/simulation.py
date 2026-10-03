@@ -26,7 +26,7 @@ PROFILE_PARAMS: dict[str, dict[str, Any]] = {
         "first_green_ms": (8_000, 60_000),
         "agent_turns": 2,
         "focus_files": 1,
-        "tlx": (1, 6),
+        "tlx": (1, 3),
     },
     "struggling": {
         "fatigue": (3, 5),
@@ -37,7 +37,7 @@ PROFILE_PARAMS: dict[str, dict[str, Any]] = {
         "first_green_ms": (60_000, 300_000),
         "agent_turns": 9,
         "focus_files": 3,
-        "tlx": (10, 20),
+        "tlx": (5, 7),
     },
     "novice": {
         "fatigue": (2, 4),
@@ -48,7 +48,7 @@ PROFILE_PARAMS: dict[str, dict[str, Any]] = {
         "first_green_ms": (30_000, 120_000),
         "agent_turns": 5,
         "focus_files": 2,
-        "tlx": (6, 12),
+        "tlx": (3, 6),
     },
     "expert": {
         "fatigue": (1, 3),
@@ -59,7 +59,7 @@ PROFILE_PARAMS: dict[str, dict[str, Any]] = {
         "first_green_ms": (5_000, 45_000),
         "agent_turns": 3,
         "focus_files": 2,
-        "tlx": (2, 8),
+        "tlx": (2, 4),
     },
 }
 
@@ -108,12 +108,21 @@ def _payload(
         return {"score": rng.randint(lo, hi)}
     if event_type == "stuck_response":
         return {"evidenceMs": rng.randint(30_000, 4 * 60_000)}
-    if event_type == "end_survey":
+    if event_type == "end_survey_response":
         lo, hi = params["tlx"]
+        # The six NASA-TLX items the extension's end survey emits
+        # (extension/src/core/surveys.ts END_SURVEY_ITEMS).
         return {
-            "mentalDemand": rng.randint(lo, hi),
-            "effort": rng.randint(lo, hi),
-            "frustration": rng.randint(lo, hi),
+            "responses": {
+                "mental_demand": rng.randint(lo, hi),
+                "effort": rng.randint(lo, hi),
+                "frustration": rng.randint(lo, hi),
+                "time_pressure": rng.randint(lo, hi),
+                "perceived_performance": rng.randint(lo, hi),
+                "comprehension": rng.randint(lo, hi),
+            },
+            "comments": "",
+            "msToComplete": rng.randint(20_000, 90_000),
         }
     if event_type == "clipboard_paste":
         return {"charCount": rng.randint(5, 500)}
@@ -170,7 +179,7 @@ def _session_events(
                 "participant_id": participant_id,
                 "condition": condition,
                 "task_id": task_id,
-                "v": 1,
+                "v": 4,
                 "ts": ts.isoformat(timespec="milliseconds"),
                 "mono": 0,
                 "type": type_,
@@ -230,8 +239,12 @@ def _session_events(
         emit(t, "task_outcome", _payload(rng, "task_outcome", params, task_id, file))
         t += timedelta(seconds=rng.randint(15, 60))
 
-    if "end_survey" in types:
-        emit(t, "end_survey", _payload(rng, "end_survey", params, task_id, file))
+    if "end_survey_response" in types:
+        emit(
+            t,
+            "end_survey_response",
+            _payload(rng, "end_survey_response", params, task_id, file),
+        )
 
     return session_events
 
