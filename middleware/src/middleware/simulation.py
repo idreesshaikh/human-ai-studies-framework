@@ -110,11 +110,16 @@ def _payload(
         return {"evidenceMs": rng.randint(30_000, 4 * 60_000)}
     if event_type == "end_survey_response":
         lo, hi = params["tlx"]
+        # The six NASA-TLX items the extension's end survey emits
+        # (extension/src/core/surveys.ts END_SURVEY_ITEMS).
         return {
             "responses": {
                 "mental_demand": rng.randint(lo, hi),
                 "effort": rng.randint(lo, hi),
                 "frustration": rng.randint(lo, hi),
+                "time_pressure": rng.randint(lo, hi),
+                "perceived_performance": rng.randint(lo, hi),
+                "comprehension": rng.randint(lo, hi),
             },
             "comments": "",
             "msToComplete": rng.randint(20_000, 90_000),
