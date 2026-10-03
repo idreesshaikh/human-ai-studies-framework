@@ -5,6 +5,7 @@ from __future__ import annotations
 import difflib
 import logging
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -38,7 +39,8 @@ _DESIGN_INTENT_WORDS = ("design", "statistic", "test", "how many", "template")
 _NAMED_DESIGN_SCORE = 2
 
 
-TURN_ATTEMPTS = 2
+TURN_ATTEMPTS = 3
+TURN_RETRY_DELAY_SECONDS = 0.25
 
 
 def holding_turn(reason: str, stance: dict | None = None) -> dict:
@@ -87,6 +89,36 @@ MODEL_SILENT = (
 
 class ModelUnavailable(RuntimeError):
     """The design conversation could not reach a language model."""
+
+
+def _propose_with_retry(
+    client,
+    text: str,
+    history: list[dict],
+    papers: list[dict],
+    templates: list[dict],
+    directive: str,
+    state: dict | None,
+) -> Turn | None:
+    """Make bounded, spaced retries for a transient model request failure."""
+    from middleware import design_llm
+
+    for attempt in range(TURN_ATTEMPTS):
+        turn = design_llm.propose_turn(
+            client, text, history, papers, templates, directive, design_state=state
+        )
+        if turn is not None:
+            return turn
+        if attempt + 1 < TURN_ATTEMPTS:
+            delay = TURN_RETRY_DELAY_SECONDS * (2**attempt)
+            log.info(
+                "design turn attempt %d/%d produced nothing; retrying in %.2fs",
+                attempt + 1,
+                TURN_ATTEMPTS,
+                delay,
+            )
+            time.sleep(delay)
+    return None
 
 
 def recommend_templates(
@@ -1272,20 +1304,11 @@ def respond(
         )
     if client is None:
         raise ModelUnavailable(NO_MODEL)
-    from middleware import design_llm
 
     directive = _directive(stance, state)
-    turn = None
-    for attempt in range(TURN_ATTEMPTS):
-        turn = design_llm.propose_turn(
-            client, text, history, papers, templates, directive,
-            design_state=state,
-        )
-        if turn is not None:
-            break
-        log.info(
-            "design turn attempt %d/%d produced nothing", attempt + 1, TURN_ATTEMPTS
-        )
+    turn = _propose_with_retry(
+        client, text, history, papers, templates, directive, state
+    )
     if turn is None:
         raise ModelUnavailable(MODEL_SILENT)
     if len(stance.get("explicitMoves") or ()) > 1:
@@ -1447,9 +1470,8 @@ def respond_streaming(
     )
     if turn is None:
         log.info("streamed design turn produced nothing; retrying blocking")
-        turn = design_llm.propose_turn(
-            client, text, history, papers, templates, directive,
-            design_state=state,
+        turn = _propose_with_retry(
+            client, text, history, papers, templates, directive, state
         )
     if turn is None:
         raise ModelUnavailable(MODEL_SILENT)

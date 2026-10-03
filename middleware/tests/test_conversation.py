@@ -16,7 +16,7 @@ from middleware.db import (
 )
 from middleware.settings import Settings
 
-from middleware import assistant, paper_index
+from middleware import assistant, design_assistant, paper_index
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -664,17 +664,18 @@ def test_no_model_configured_names_the_setting_that_fixes_it(client, monkeypatch
 
 def test_a_flaky_provider_is_retried_before_giving_up(client, monkeypatch):
     """
-    A blip - a 429, a truncated body - is the common failure and is usually gone by the
-    next call, so one retry saves the turn.
+    Short provider outages should recover with bounded exponential backoff before the
+    researcher is shown a holding turn.
     """
     calls = {"n": 0}
+    delays: list[float] = []
     good = model_double.always(
         {"text": "Second time lucky.", "moves": []}
     )
 
     def flaky(url, body, headers):
         calls["n"] += 1
-        if calls["n"] == 1:
+        if calls["n"] < 3:
             raise TimeoutError("one blip")
         return good.post(url, body, headers)
 
@@ -683,10 +684,12 @@ def test_a_flaky_provider_is_retried_before_giving_up(client, monkeypatch):
         "make_client",
         lambda *a, **k: assistant.MistralProvider("test-key", post=flaky),
     )
+    monkeypatch.setattr(design_assistant.time, "sleep", delays.append)
     turn = _ask(client, "does a blip lose my turn?")
     assert turn["source"] == "llm"
     assert turn["text"] == "Second time lucky."
-    assert calls["n"] > 1, "the first attempt must have been retried"
+    assert calls["n"] == 3
+    assert delays == [0.25, 0.5]
 
 
 _LATENCY_MOVE = {
