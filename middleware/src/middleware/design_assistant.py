@@ -30,6 +30,7 @@ _BATCH_MOVE_CAP = 12
 _DUP_TOKEN_OVERLAP = 0.8
 _DUP_SEQ_RATIO = 0.85
 _DUP_MIN_TERMS = 3
+_RECENT_PLATFORM_TURNS = 8
 
 
 _DESIGN_INTENT_WORDS = ("design", "statistic", "test", "how many", "template")
@@ -992,6 +993,86 @@ def _filter_repeated_moves(
     return tuple(kept)
 
 
+def _repeats_platform_reply(
+    s: Session, study_id: str | None, text: str
+) -> bool:
+    """Whether ``text`` would repeat a recent platform response.
+
+    Move de-duplication alone cannot prevent a conversation from stalling: a
+    model can keep asking the same question even after its card was rejected or
+    left pending. Only use this as a last guard when the reply offers no new
+    decision, so a concise acknowledgement shared by two otherwise useful
+    replies is never suppressed.
+    """
+    if study_id is None or not text.strip():
+        return False
+    prior = s.scalars(
+        select(ConversationTurn.text)
+        .where(
+            ConversationTurn.study_id == study_id,
+            ConversationTurn.role == "platform",
+            ConversationTurn.source != "unavailable",
+        )
+        .order_by(ConversationTurn.seq.desc())
+        .limit(_RECENT_PLATFORM_TURNS)
+    )
+    return any(
+        prior_text and _is_near_duplicate(text, prior_text) for prior_text in prior
+    )
+
+
+def _progress_turn(state: dict | None) -> Turn:
+    """Replace a stalled reply with the next actionable protocol step."""
+    if state is None:
+        return Turn(
+            text=(
+                "To turn this into a protocol instead of repeating the same "
+                "question, send a short brief with: who takes part, one coding "
+                "task, what conditions you want to compare, and the outcome you "
+                "will measure. I will turn the details you provide into reviewable "
+                "cards."
+            ),
+            moves=(),
+        )
+    if state.get("compileValid"):
+        return Turn(
+            text=(
+                "The protocol now has every required decision and validates. "
+                "Review the compiled draft when you are ready rather than adding "
+                "another conversation turn."
+            ),
+            moves=(),
+        )
+    proposed = state.get("proposed") or []
+    if proposed:
+        return Turn(
+            text=(
+                "The current proposal is still waiting for your decision. Accept "
+                "it, reject it, or tell me what to change; I will not repeat the "
+                "same question while that choice is open."
+            ),
+            moves=(),
+        )
+    outstanding = state.get("outstandingSlots") or []
+    if outstanding:
+        slot = str(outstanding[0].get("label") or "the next protocol choice")
+        return Turn(
+            text=(
+                f"The next open protocol choice is {slot}. State the value you "
+                "want in one sentence and I will prepare it for review."
+            ),
+            moves=(),
+        )
+    return Turn(
+        text=(
+            "The recorded choices need a compiler correction before the protocol "
+            "can be completed. Review the draft errors and tell me which detail to "
+            "adjust."
+        ),
+        moves=(),
+    )
+
+
 def _load_design_state(s: Session, study_id: str | None) -> dict | None:
     """
     The structured design state the prose history can't carry: every prior move bucketed
@@ -1437,6 +1518,12 @@ def _assemble(
             turn = Turn(turn.text, guided_kept, turn.match_query)
             kept = guided_kept
             permitted = guided_permitted
+    if not permitted and _repeats_platform_reply(s, study_id, turn.text):
+        # The provider has supplied no new decision and has repeated a recent
+        # question. Switch to durable state rather than letting prose history
+        # grow until the researcher abandons the conversation.
+        turn = _progress_turn(state)
+        permitted = ()
     retrieved: set[str] = set()
 
     moves = []

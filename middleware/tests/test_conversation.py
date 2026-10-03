@@ -523,6 +523,24 @@ def test_rejected_guided_card_turns_into_a_concrete_choice(client, monkeypatch):
     assert move["proposal"] not in next_turn["text"]
 
 
+def test_repeated_model_reply_becomes_a_progress_prompt(client, monkeypatch):
+    """A stuck model cannot ask the same question until the session is abandoned."""
+    repeated = "Tell me more - who takes part, and what will they do?"
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: model_double.always({"text": repeated, "moves": []}),
+    )
+
+    first = _ask(client, "I want to research how junior engineers use AI")
+    second = _ask(client, "I want to research how junior engineers use AI")
+
+    assert first["text"] == repeated
+    assert second["text"] != repeated
+    assert "waiting for your decision" in second["text"]
+    assert second["moves"] == []
+
+
 def test_card_decision_can_trigger_one_empty_move_followup(client, monkeypatch):
     """The card action is explicit context, not a fresh idea the model can misread."""
     monkeypatch.setattr(
