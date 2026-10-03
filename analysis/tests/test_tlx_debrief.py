@@ -88,6 +88,6 @@ def test_completion_time_and_comments_are_not_rated():
 
 
 def test_skipped_survey_counts_as_a_non_response():
-    """A dismissed survey is counted, never treated as a rating (4 responded, 1 skipped)."""
+    """A dismissed survey is counted as a non-response, never rated."""
     result = REGISTRY["tlx-debrief"].run(_dataset())
     assert "4 responded, 1 skipped" in result.summary

@@ -17,7 +17,6 @@ import analysis.recipes  # noqa: F401 - register recipes
 from analysis.core import REGISTRY
 from analysis.dataset import Dataset
 from fastapi.testclient import TestClient
-
 from middleware.app import create_app
 from middleware.settings import Settings
 
