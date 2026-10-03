@@ -15,11 +15,13 @@ FATIGUE = {
     "P03": ((3, 3), (4, 5)),
     "P04": ((2, 4), (5, 5)),
 }
+# Per-participant (ai-assisted, unassisted) baseline workload on the real 1-7 scale;
+# unassisted is higher, giving the within-subjects difference the recipe compares.
 TLX = {
-    "P01": (9, 11),
-    "P02": (10, 13),
-    "P03": (11, 12),
-    "P04": (8, 12),
+    "P01": (3, 5),
+    "P02": (2, 6),
+    "P03": (4, 5),
+    "P04": (2, 4),
 }
 
 
@@ -83,13 +85,19 @@ def synthetic_rows() -> list[dict]:
                         "visibleMs": 9000,
                     },
                 )
+            base = TLX[participant][cond_i]
             emit(
                 58,
                 "end_survey_response",
                 {
+                    # All six END_SURVEY_ITEMS, on the real 1-7 scale.
                     "responses": {
-                        "mental_demand": TLX[participant][cond_i],
-                        "effort": 10 + cond_i,
+                        "mental_demand": base,
+                        "effort": min(7, base + 1),
+                        "frustration": max(1, base - 1),
+                        "time_pressure": base,
+                        "perceived_performance": min(7, base + 1),
+                        "comprehension": max(1, base - 1),
                     },
                     "comments": "",
                     "msToComplete": 42000,
