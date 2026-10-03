@@ -3306,6 +3306,26 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         )
         return (last or 0) + 1
 
+    def _conversation_moves(s: Session, study_id: str) -> list[dict]:
+        """Return the ordered move ledger used for compilation and verification."""
+        return [
+            {
+                "moveId": mv.id,
+                "kind": mv.kind,
+                "target": mv.target,
+                "proposal": mv.proposal,
+                "patch": mv.patch,
+                "grounding": mv.grounding,
+                "status": mv.status,
+            }
+            for mv in s.scalars(
+                select(DesignMoveRow)
+                .join(ConversationTurn, DesignMoveRow.turn_id == ConversationTurn.id)
+                .where(DesignMoveRow.study_id == study_id)
+                .order_by(ConversationTurn.seq, DesignMoveRow.seq)
+            )
+        ]
+
     def _validate_decision_followup(
         s: Session, study_id: str, decision: DecisionTriggerIn | None
     ) -> None:
@@ -3931,23 +3951,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         study_id: str, body: CompileIn, s: Session = Depends(db)
     ) -> dict:
         """Compile the study's accepted moves into a protocol draft diff (FR-CONV-3)."""
-        moves = [
-            {
-                "moveId": mv.id,
-                "kind": mv.kind,
-                "target": mv.target,
-                "proposal": mv.proposal,
-                "patch": mv.patch,
-                "grounding": mv.grounding,
-                "status": mv.status,
-            }
-            for mv in s.scalars(
-                select(DesignMoveRow)
-                .join(ConversationTurn, DesignMoveRow.turn_id == ConversationTurn.id)
-                .where(DesignMoveRow.study_id == study_id)
-                .order_by(ConversationTurn.seq, DesignMoveRow.seq)
-            )
-        ]
+        moves = _conversation_moves(s, study_id)
         base_yaml = body.baseYaml
         if base_yaml is None:
             existing = s.get(ProtocolDraftRow, study_id)
@@ -3998,6 +4002,28 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 409,
                 "this draft did not pass validation and cannot be applied. "
                 f"Resolve: {comp.errors or comp.unresolved}",
+            )
+
+        current_draft = s.get(ProtocolDraftRow, study_id)
+        base_yaml = current_draft.yaml if current_draft else ""
+        if sha256(base_yaml.encode()).hexdigest() != comp.base_sha256:
+            raise HTTPException(
+                409,
+                "this compilation is stale because its base draft changed. "
+                "Recompile before applying it.",
+            )
+        moves = _conversation_moves(s, study_id)
+        verified = compiler.compile_moves(moves, base_yaml=base_yaml)
+        accepted_move_ids = [m["moveId"] for m in moves if m["status"] == "accepted"]
+        if (
+            not verified.valid
+            or verified.yaml != comp.draft_yaml
+            or accepted_move_ids != comp.move_ids
+        ):
+            raise HTTPException(
+                409,
+                "this compilation is stale because the accepted moves changed. "
+                "Recompile before applying it.",
             )
 
         s.add(

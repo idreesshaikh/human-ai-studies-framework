@@ -324,6 +324,28 @@ def test_no_draft_applies_without_approval(client):
     assert after["approvals"][0]["role"] in ("owner", "member")
 
 
+def test_approval_rejects_a_compilation_stale_after_a_move_change(client):
+    """Approval verifies the current move ledger rather than trusting an old draft."""
+    result = _drive_to_valid_draft(client)
+    conversation = client.get(f"/studies/{STUDY}/conversation").json()
+    accepted = next(
+        move
+        for turn in conversation["turns"]
+        for move in turn["moves"]
+        if move["status"] == "accepted"
+    )
+    _accept(client, accepted["moveId"], status="rejected")
+
+    r = client.post(
+        f"/studies/{STUDY}/conversation/approve",
+        json={"compilationId": result["compilationId"], "approvedBy": "Owner"},
+    )
+
+    assert r.status_code == 409
+    assert "stale" in r.json()["detail"]
+    assert "Recompile" in r.json()["detail"]
+
+
 def test_rejecting_a_move_keeps_it_out_of_the_draft(client):
     """
     F1.2: moves are individually decidable; a rejected move leaves no trace in the
