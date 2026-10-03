@@ -73,7 +73,7 @@ def cmd_simulate(
         f"({outcome['profile']}): {outcome['sessions']} sessions, "
         f"{outcome['events']} events, {outcome['metricRows']} metric rows"
     )
-    fetched = Dataset.fetch(server, study_id)
+    fetched = Dataset.fetch(server, study_id, include_synthetic=True)
     session_ids = set(outcome["sessionIds"])
     dataset = Dataset(
         rows=[row for row in fetched.rows if row["sessionId"] in session_ids],
