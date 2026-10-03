@@ -35,6 +35,16 @@ body:
     validations:
       required: true
 
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Concrete, testable conditions that define completion.
+      placeholder: |
+        - ...
+    validations:
+      required: true
+
   - type: input
     id: requirement
     attributes:
