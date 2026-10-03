@@ -1,6 +1,6 @@
 # Analysis report - pilot-2026
 
-Created by `analysis run`; every section names the research question it answers (FR-DASH-6/FR-ANA-4 traceability).
+Created by `analysis run`; every section names the research question it answers.
 
 ## RQ-P1
 
@@ -8,7 +8,7 @@ Created by `analysis run`; every section names the research question it answers 
 
 ### `fatigue-by-condition` (answers RQ-P1)
 
-Self-reported fatigue (RQ-P1). Wilcoxon signed-rank (exact, two-sided): statistic=5, exact p=0.156, rank-biserial r=+0.64 (ai-assisted n=10, unassisted n=10); 3 zero difference(s) dropped; paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory.
+Self-reported fatigue (RQ-P1). Wilcoxon signed-rank (exact, two-sided): statistic=16, exact p=0.844, rank-biserial r=-0.11 (ai-assisted n=10, unassisted n=10); 2 zero difference(s) dropped; paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory.
 
 ![fatigue-by-condition trajectories.png](fatigue-by-condition/trajectories.png)
 
@@ -18,7 +18,7 @@ Tables: [`per_condition.csv`](fatigue-by-condition/per_condition.csv), [`respons
 
 ### `stuck-episodes` (answers RQ-P1)
 
-Stuck episodes (RQ-P1). Rate: Wilcoxon signed-rank (exact, two-sided): statistic=6, exact p=0.812, rank-biserial r=+0.20 (ai-assisted n=10, unassisted n=10); 5 zero difference(s) dropped; paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory. Duration: Wilcoxon signed-rank (exact, two-sided): statistic=3, exact p=0.312, rank-biserial r=+0.60 (ai-assisted n=5, unassisted n=5); paired on 5 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory.
+Stuck episodes (RQ-P1). Rate: Wilcoxon signed-rank (exact, two-sided): statistic=7, exact p=1.000, rank-biserial r=-0.07 (ai-assisted n=10, unassisted n=10); 5 zero difference(s) dropped; paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory. Duration: Wilcoxon signed-rank (exact, two-sided): statistic=4, exact p=0.438, rank-biserial r=+0.47 (ai-assisted n=5, unassisted n=5); paired on 5 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory.
 
 ![stuck-episodes rate_by_condition.png](stuck-episodes/rate_by_condition.png)
 
@@ -28,7 +28,7 @@ Tables: [`per_session.csv`](stuck-episodes/per_session.csv), [`rate_per_conditio
 
 ### `tlx-debrief` (answers RQ-P1)
 
-TLX debrief (RQ-P1). mentalDemand: Wilcoxon signed-rank (exact, two-sided): statistic=4, exact p=0.014, rank-biserial r=+0.85 (ai-assisted n=10, unassisted n=10); paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory. effort: Wilcoxon signed-rank (exact, two-sided): statistic=11.5, exact p=0.131, rank-biserial r=-0.58 (ai-assisted n=10, unassisted n=10); paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory. frustration: Wilcoxon signed-rank (exact, two-sided): statistic=19, exact p=0.734, rank-biserial r=-0.16 (ai-assisted n=10, unassisted n=10); 1 zero difference(s) dropped; paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory.
+TLX debrief (RQ-P1); 20 responded, 0 skipped. mental_demand: Wilcoxon signed-rank (exact, two-sided): statistic=15, exact p=0.426, rank-biserial r=+0.33 (ai-assisted n=10, unassisted n=10); 1 zero difference(s) dropped; paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory. effort: Wilcoxon signed-rank (exact, two-sided): statistic=19.5, exact p=0.820, rank-biserial r=+0.13 (ai-assisted n=10, unassisted n=10); 1 zero difference(s) dropped; paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory. frustration: Wilcoxon signed-rank (exact, two-sided): statistic=12, exact p=0.461, rank-biserial r=+0.33 (ai-assisted n=10, unassisted n=10); 2 zero difference(s) dropped; paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory.
 
 ![tlx-debrief subscales.png](tlx-debrief/subscales.png)
 
@@ -40,7 +40,7 @@ Tables: [`per_condition.csv`](tlx-debrief/per_condition.csv), [`responses.csv`](
 
 ### `code-quality-by-condition` (answers RQ-P2)
 
-Static code quality (RQ-P2). Largest effect: nesting_penalty (Cliff's delta -0.10, exact p=0.583, n ai-assisted=20 / unassisted=20). Measurement-level comparison - see methods caveat. Small n: hypothesis-generating.
+Static code quality (RQ-P2). Largest effect: nesting_penalty (Cliff's delta +0.04, exact p=0.862, n ai-assisted=20 / unassisted=20). Measurement-level comparison - see methods caveat. Small n: hypothesis-generating.
 
 ![code-quality-by-condition metrics_by_condition.png](code-quality-by-condition/metrics_by_condition.png)
 
@@ -52,7 +52,7 @@ Tables: [`per_condition_descriptives.csv`](code-quality-by-condition/per_conditi
 
 ### `paste-behavior` (answers RQ-P3)
 
-Paste behavior (RQ-P3). Size: Wilcoxon signed-rank (exact, two-sided): statistic=15, exact p=0.232, rank-biserial r=-0.45 (ai-assisted n=10, unassisted n=10); paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory. Frequency: Wilcoxon signed-rank (exact, two-sided): statistic=13, exact p=0.160, rank-biserial r=-0.53 (ai-assisted n=10, unassisted n=10); paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory.
+Paste behavior (RQ-P3). Size: Wilcoxon signed-rank (exact, two-sided): statistic=9, exact p=0.064, rank-biserial r=-0.67 (ai-assisted n=10, unassisted n=10); paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory. Frequency: Wilcoxon signed-rank (exact, two-sided): statistic=19, exact p=0.432, rank-biserial r=-0.31 (ai-assisted n=10, unassisted n=10); paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory.
 
 ![paste-behavior size_by_condition.png](paste-behavior/size_by_condition.png)
 
@@ -74,7 +74,7 @@ Tables: [`per_session.csv`](meyer-fragmentation/per_session.csv), [`rate_per_con
 
 ### `ai-review-behavior` (answers RQ-P4)
 
-AI review behavior (RQ-P4). Review latency: accepted n=8, not-accepted n=0 - both outcome groups needed for a comparison; descriptives only. Accept rate: 100% of 8 reviewed suggestions (12 shown). Sizes are recorded on accepted suggestions only (schema v3), so accept-rate-by-size-quartile is not computable - schema gap reported, accepted-size quartiles given instead. Scroll coverage: skipped - needs `edit_burst` (with origin) and `visible_range` events alongside `ai_suggestion`. Latency vs latest fatigue: Spearman rank correlation: statistic=0, exact p=1.000, rho=+0.00 (suggestions n=8). Small n: hypothesis-generating only, not confirmatory.
+AI review behavior (RQ-P4). Review latency: accepted n=8, not-accepted n=0 - both outcome groups needed for a comparison; descriptives only. Accept rate: 100% of 8 reviewed suggestions (12 shown). Sizes are recorded on accepted suggestions only (schema v3), so accept-rate-by-size-quartile is not computable - schema gap reported, accepted-size quartiles given instead. Scroll coverage: skipped - needs `edit_burst` (with origin) and `visible_range` events alongside `ai_suggestion`. Latency vs latest fatigue: Spearman rank correlation: statistic=-0.675164, exact p=0.066, rho=-0.68 (suggestions n=8). Small n: hypothesis-generating only, not confirmatory.
 
 ![ai-review-behavior latency_by_outcome.png](ai-review-behavior/latency_by_outcome.png)
 
@@ -84,7 +84,7 @@ Tables: [`suggestions.csv`](ai-review-behavior/suggestions.csv), [`accepted_size
 
 ### `ziegler-acceptance-rate` (answers RQ-P4)
 
-Replication demo (RQ-P4). Acceptance rate (Ziegler et al. 2022 metric): Wilcoxon signed-rank (exact, two-sided): statistic=nan, exact p=1.000, rank-biserial r=+0.00 (ai-assisted n=3, unassisted n=3); all paired differences are zero; paired on 3 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory. Acceptance rate vs mean fatigue (paper's survey stand-in): Spearman rank correlation: statistic=nan, exact p=nan, rho=+nan (sessions n=12); undefined - one input is constant
+Replication demo (RQ-P4). Acceptance rate (Ziegler et al. 2022 metric): Wilcoxon signed-rank (exact, two-sided): statistic=nan, exact p=1.000, rank-biserial r=+0.00 (ai-assisted n=4, unassisted n=4); all paired differences are zero; paired on 4 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory. Acceptance rate vs mean fatigue (paper's survey stand-in): Spearman rank correlation: statistic=nan, exact p=nan, rho=+nan (sessions n=12); undefined - one input is constant
 
 ![ziegler-acceptance-rate acceptance_rate.png](ziegler-acceptance-rate/acceptance_rate.png)
 
@@ -96,7 +96,7 @@ Tables: [`per_session.csv`](ziegler-acceptance-rate/per_session.csv), [`per_cond
 
 ### `agent-interaction-dynamics` (answers RQ-P5)
 
-Agent interaction dynamics (RQ-P5). Turn cadence: Wilcoxon signed-rank (exact, two-sided): statistic=13, exact p=0.160, rank-biserial r=-0.53 (ai-assisted n=10, unassisted n=10); paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory. Reliance loops: none detected in this dataset. Turns/hour vs mean fatigue: Spearman rank correlation: statistic=-0.258325, exact p=0.271, rho=-0.26 (sessions n=20)
+Agent interaction dynamics (RQ-P5). Turn cadence: Wilcoxon signed-rank (exact, two-sided): statistic=21, exact p=0.557, rank-biserial r=-0.24 (ai-assisted n=10, unassisted n=10); paired on 10 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory. Reliance loops: none detected in this dataset. Turns/hour vs mean fatigue: Spearman rank correlation: statistic=-0.104561, exact p=0.661, rho=-0.10 (sessions n=20)
 
 ![agent-interaction-dynamics response_sizes.png](agent-interaction-dynamics/response_sizes.png)
 
@@ -106,7 +106,7 @@ Tables: [`per_session.csv`](agent-interaction-dynamics/per_session.csv), [`caden
 
 ### `task-outcome-by-condition` (answers RQ-P5)
 
-Task outcomes (ground truth). Pass rates: Fisher's exact (two-sided): statistic=nan, exact p=1.000, odds ratio=+1.00 (ai-assisted n=10, unassisted n=10); rows: condition; columns: passed/failed sessions. Small n: hypothesis-generating only, not confirmatory. Time-to-first-green: Wilcoxon signed-rank (exact, two-sided): statistic=9, exact p=0.469, rank-biserial r=+0.36 (ai-assisted n=7, unassisted n=7); paired on 7 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory.
+Task outcomes (ground truth). Pass rates: Fisher's exact (two-sided): statistic=nan, exact p=0.582, odds ratio=+0.26 (ai-assisted n=10, unassisted n=10); rows: condition; columns: passed/failed sessions. Small n: hypothesis-generating only, not confirmatory. Time-to-first-green: Wilcoxon signed-rank (exact, two-sided): statistic=11, exact p=0.688, rank-biserial r=+0.21 (ai-assisted n=7, unassisted n=7); paired on 7 participant(s), per-participant means. Small n: hypothesis-generating only, not confirmatory.
 
 ![task-outcome-by-condition first_green.png](task-outcome-by-condition/first_green.png)
 
