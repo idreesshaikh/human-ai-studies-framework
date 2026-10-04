@@ -144,6 +144,55 @@ def test_only_ai_does_not_invent_a_control_condition():
     assert not any(f["patch"].get("section") == "conditions" for f in facts)
 
 
+LABELLED_BRIEF = """Title: Copilot and bug fixing
+Research question: Does AI assistance change time to fix a bug?
+Participants: novice developers
+Design: within-subjects, counterbalanced
+Duration: 45 minutes
+N = 24
+Ethics: pending committee review
+"""
+
+
+def test_a_labelled_brief_becomes_one_reviewable_move_per_fact():
+    assert elicitation.is_complete_brief(LABELLED_BRIEF)
+    extracted = elicitation.explicit_protocol_facts(LABELLED_BRIEF)
+    facts = {f["target"]: f for f in extracted}
+    assert facts["study.title"]["patch"]["value"] == "Copilot and bug fixing"
+    assert facts["researchQuestions[]"]["kind"] == "add-rq"
+    assert facts["researchQuestions[]"]["patch"]["value"] == [
+        "Does AI assistance change time to fix a bug?"
+    ]
+    assert facts["participants.description"]["patch"]["value"] == "novice developers"
+    assert facts["participants.design"]["patch"]["value"] == "within-subjects"
+    assert facts["participants.counterbalanced"]["patch"]["value"] is True
+    assert facts["session.durationMinutes"]["patch"]["value"] == 45
+    assert facts["participants.planned"]["patch"]["value"] == 24
+    assert facts["study.ethicsRef"]["patch"]["value"] == "pending committee review"
+
+
+def test_a_brief_naming_a_design_keeps_its_cards_when_the_model_is_down(
+    client, monkeypatch
+):
+    from middleware import design_llm
+
+    monkeypatch.setattr(design_llm, "propose_turn", lambda *a, **k: None)
+    reply = _ask(client, LABELLED_BRIEF)
+    targets = {move["target"] for move in reply["moves"]}
+    assert reply["source"] == "scripted"
+    assert {"participants.design", "study.title", "researchQuestions[]"} <= targets
+
+
+def test_a_partial_brief_does_not_invent_missing_values():
+    facts = elicitation.explicit_protocol_facts("Title: Pilot\nDuration: 30 minutes")
+    assert {f["target"] for f in facts} == {"study.title", "session.durationMinutes"}
+    assert not elicitation.is_complete_brief("Title: Pilot\nDuration: 30 minutes")
+
+
+def test_prose_with_a_colon_is_not_a_labelled_field():
+    assert elicitation.labelled_fields("Note: remember to recruit") == {}
+
+
 def test_explicit_answer_is_recorded_before_a_model_can_loop(client, monkeypatch):
     from middleware import design_llm
 
@@ -400,3 +449,34 @@ def test_understanding_summary_labels_every_facet_not_just_missing_ones():
     assert set(summary["facetLabels"]) == set(elicitation.FACETS)
     for facet, spec in elicitation.FACETS.items():
         assert summary["facetLabels"][facet] == spec["label"]
+
+
+def test_a_pasted_brief_keeps_its_cards_with_no_model_configured(client, monkeypatch):
+    from middleware import assistant
+
+    monkeypatch.setattr(assistant, "make_design_client", lambda: None)
+    reply = _ask(client, LABELLED_BRIEF)
+    assert {"study.title", "participants.design"} <= {
+        m["target"] for m in reply["moves"]
+    }
+
+
+def test_a_labelled_population_is_not_also_inferred_from_prose():
+    targets = [
+        f["target"]
+        for f in elicitation.explicit_protocol_facts(
+            LABELLED_BRIEF + "\nNovice developers will fix a Python bug."
+        )
+    ]
+    assert "participants.description" in targets
+    assert "participants[]" not in targets
+
+
+def test_a_brief_keeps_a_design_card_with_no_model_configured(client, monkeypatch):
+    from middleware import assistant
+
+    monkeypatch.setattr(assistant, "make_design_client", lambda: None)
+    reply = _ask(client, LABELLED_BRIEF)
+    design = [m for m in reply["moves"] if m["kind"] == "choose-template"]
+    assert len(design) == 1
+    assert design[0]["patch"]["templateId"] == "within-subjects-crossover-v1"
