@@ -416,6 +416,36 @@ def test_ingest_survives_a_failing_credential_lookup(client_designed: TestClient
         del client_designed.app.dependency_overrides[db_dep]
 
 
+def test_toggles_never_govern_join_keys():
+    """Issue #39 (AC2): required/join-key fields must always be available for
+    analysis, so no capture toggle may govern one. Join keys are stamped from the
+    pairing credential and condition assignment, never from the toggleable
+    instrument settings. This fails if someone adds a toggle over a join key.
+    """
+    from middleware.enrollment import _TOGGLE_CATALOG
+
+    join_keys = {
+        "source",
+        "ts",
+        "mono",
+        "sessionId",
+        "participantId",
+        "condition",
+        "seq",
+        "type",
+        "v",
+        "schemaVersion",
+    }
+    assert _TOGGLE_CATALOG, "the catalog must have entries to guard"
+    for entry in _TOGGLE_CATALOG:
+        segments = {str(p) for p in entry["path"]}
+        assert not (segments & join_keys), (
+            f"toggle {entry['label']!r} governs a join key via path {entry['path']}"
+        )
+        # The governed capture instruments are never a join key namespace either.
+        assert entry["instrument"] not in join_keys
+
+
 def test_credential_never_persists_into_stored_rows(client_designed: TestClient):
     tok = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}

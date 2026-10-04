@@ -224,6 +224,77 @@ def test_dataset_rejects_unknown_study(client):
     assert client.get("/studies/other-study/dataset").status_code == 404
 
 
+def test_dataset_retains_collected_fields_after_toggle_disable(client):
+    """Issue #39: disabling a collection toggle must not retroactively hide or
+    drop telemetry already collected under the disclosed config.
+
+    The toggle changes FUTURE collection (the catalog flips to off), but every
+    row and payload field captured before it stays fully exported for authorized
+    analysis. This fails if the export ever starts filtering by the current
+    capture config / toggle state.
+    """
+    collected = [
+        {
+            **event(0, type_="stuck_response", ts="2026-07-11T10:00:00.000Z"),
+            "payload": {"evidenceMs": 42000, "reason": "dwell"},
+        },
+        {
+            **event(1, type_="stuck_response", ts="2026-07-11T10:00:10.000Z"),
+            "payload": {"evidenceMs": 51000, "reason": "scroll-thrash"},
+        },
+    ]
+    assert client.post("/ingest/events", json=collected).json()["inserted"] == 2
+
+    # The stuck leg is on when the data is collected.
+    catalog = client.get("/studies/pilot-2026/enrollment/toggles/catalog").json()
+    stuck = [e for e in catalog if e["path"] == ["stuck", "enabled"]]
+    assert stuck and stuck[0]["currentValue"] is True
+
+    # The researcher disables it (this stops FUTURE collection).
+    applied = client.post(
+        "/studies/pilot-2026/enrollment/toggles",
+        json={
+            "instrument": "tern",
+            "path": ["stuck", "enabled"],
+            "value": False,
+            "rationale": "quieter remainder of the pilot",
+        },
+    )
+    assert applied.status_code == 200, applied.text
+    assert applied.json()["applied"] is True
+    flipped = client.get("/studies/pilot-2026/enrollment/toggles/catalog").json()
+    now_off = next(e for e in flipped if e["path"] == ["stuck", "enabled"])
+    assert now_off["currentValue"] is False
+
+    # Everything already collected is still exported in full (JSON).
+    rows = client.get("/studies/pilot-2026/dataset").json()["rows"]
+    stuck_rows = [r for r in rows if r["type"] == "stuck_response"]
+    assert len(stuck_rows) == 2
+    assert [r["payload"]["evidenceMs"] for r in stuck_rows] == [42000, 51000]
+    assert all(r["payload"]["reason"] for r in stuck_rows)
+    required = {
+        "source",
+        "ts",
+        "sessionId",
+        "participantId",
+        "condition",
+        "taskId",
+        "schemaVersion",
+        "type",
+        "seq",
+        "flags",
+        "payload",
+    }
+    for r in stuck_rows:
+        assert required <= r.keys()
+        assert r["participantId"] == "P01" and r["condition"] == "ai-assisted"
+
+    # And in the CSV export.
+    csv_text = client.get("/studies/pilot-2026/dataset?format=csv").text
+    assert "evidenceMs" in csv_text
+    assert "42000" in csv_text and "51000" in csv_text
+
+
 def test_session_listing_merges_legs(client):
     client.post("/ingest/events", json=[event(0)])
     client.post("/ingest/metrics", json=[metric_row()])
