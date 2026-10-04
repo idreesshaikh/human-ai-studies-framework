@@ -136,6 +136,8 @@ export interface SectionPatch {
 export interface TemplatePatch {
   templateId: string;
   parameters?: Record<string, unknown>;
+  /** Set on a researcher's manual protocol entry: it replaces earlier moves. */
+  manual?: boolean;
 }
 
 /** An ``add-instrument``/``reconfigure-instrument`` move's patch. */
