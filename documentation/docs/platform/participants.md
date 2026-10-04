@@ -35,7 +35,9 @@ The pairing flow keeps three things aligned:
 
 - **Consent statement** — why the study is running and what it captures.
 - **Capture config** — the protocol-approved instrument legs and endpoint.
-- **Condition/task assignment** — the run that the analysis plan expects.
+- **Task assignment** — the run that the analysis plan expects. The assigned
+  condition is never shown to the participant; it stays in the study's records
+  and is stamped on every event by the server.
 
 TERN’s preflight summary is the last gate. No session file is created until the
 participant confirms **Begin session**.
