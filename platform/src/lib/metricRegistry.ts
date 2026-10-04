@@ -90,7 +90,11 @@ function staticMetric(
     extract(rows) {
       const out: MetricObservation[] = [];
       for (const r of rows) {
-        if (r.source !== "metrics") continue;
+        // Real metric rows are source "metrics"; the in-browser rehearsal
+        // (DataProvenance) emits the same static-metric payload under
+        // source "synthetic", type "metric" — accept both.
+        if (r.source !== "metrics" && !(r.source === "synthetic" && r.type === "metric"))
+          continue;
         const v = num(r.payload[key]);
         if (v === null) continue;
         const fn = str(r.payload.function);
@@ -336,9 +340,9 @@ export const METRIC_REGISTRY: MetricEntry[] = [
   },
   {
     key: "ai_insertion_share",
-    label: "AI insertion share (snapshots)",
+    label: "AI character share (session)",
     definition:
-      "Fraction of inserted lines attributable to the AI, computed server-side from workspace snapshots. One point per session.",
+      "Per session, AI-authored characters divided by all characters added in edit bursts, computed server-side. One point per session.",
     measurementType: "continuous",
     origin: "agent",
     rqId: "RQ-P3",
@@ -369,7 +373,10 @@ export const METRIC_REGISTRY: MetricEntry[] = [
     extract(rows) {
       const out: MetricObservation[] = [];
       for (const r of rows) {
-        if (r.type !== "agent_turn") continue;
+        // Only assistant turns: the transcript normalizer also stamps
+        // latencyMs on user turns, which is the developer's delay, not the
+        // agent's response time.
+        if (r.type !== "agent_turn" || r.payload.role !== "assistant") continue;
         const v = num(r.payload.latencyMs);
         if (v === null) continue;
         out.push({
@@ -397,6 +404,10 @@ export const METRIC_REGISTRY: MetricEntry[] = [
         if (r.type !== "task_outcome") continue;
         const passed = r.payload.passed;
         if (passed !== true && passed !== false) continue;
+        // total === 0 means no tests ran (missing/unrunnable suite); the
+        // harness still stamps passed:false, so skip it rather than score a
+        // failure that no test produced.
+        if (num(r.payload.total) === 0) continue;
         out.push({
           condition: r.condition,
           participantId: r.participantId,

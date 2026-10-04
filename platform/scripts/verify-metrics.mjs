@@ -129,6 +129,25 @@ const taskRows = [true, false, true].map((passed) => row({ type: "task_outcome",
 const taskObs = findMetric("task_pass_rate").extract(taskRows);
 ok("task_pass_rate categorises passed/failed", taskObs.filter((o) => o.category === "passed").length === 2);
 
+// task_pass_rate drops zero-test outcomes (no suite ran: passed:false, total:0)
+const taskZero = [
+  row({ type: "task_outcome", source: "agent-capture", payload: { passed: true, failed: 0, total: 1 } }),
+  row({ type: "task_outcome", source: "agent-capture", payload: { passed: false, failed: 0, total: 0 } }),
+];
+ok("task_pass_rate drops total:0 outcomes", findMetric("task_pass_rate").extract(taskZero).length === 1);
+
+// agent_latency counts assistant turns only (user turns also carry latencyMs)
+const turnRows = [
+  row({ type: "agent_turn", source: "agent-capture", payload: { role: "assistant", latencyMs: 1200 } }),
+  row({ type: "agent_turn", source: "agent-capture", payload: { role: "user", latencyMs: 9000 } }),
+];
+const lat = findMetric("agent_latency").extract(turnRows);
+ok("agent_latency excludes user turns", lat.length === 1 && lat[0].value === 1200, `n=${lat.length}`);
+
+// static metrics accept the in-browser rehearsal shape (source synthetic, type metric)
+const rehearsalRows = [row({ source: "synthetic", type: "metric", payload: { cognitive_complexity: 6 } })];
+ok("static metrics accept synthetic rehearsal rows", findMetric("cognitive_complexity").extract(rehearsalRows).length === 1);
+
 // --- populatedMetrics ---
 const populated = populatedMetrics([
   row({ source: "metrics", type: "function_metrics", payload: { cognitive_complexity: 5 } }),
