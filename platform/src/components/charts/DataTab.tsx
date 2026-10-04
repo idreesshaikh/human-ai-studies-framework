@@ -54,7 +54,11 @@ export function DataTab({ studyId }: { studyId: string }) {
         setSessions(s.sessions);
         setStatusDoc(s);
         setConditions(s.conditions);
-        setRows(d.rows.filter((r) => r.source === "metrics"));
+        // The whole one-timeline export: the metric registry decides what each
+        // measure reads (static-metric rows by payload key, event-derived
+        // measures by event type), so the Data tab no longer discards every
+        // row that isn't a static metric.
+        setRows(d.rows);
       })
       .catch((e: unknown) => {
         if (!live) return;
@@ -121,7 +125,8 @@ export function DataTab({ studyId }: { studyId: string }) {
   };
   const [showClientRehearsal, setShowClientRehearsal] = useState(false);
 
-  const metricRows = rows;
+  // The full one-timeline dataset — the metric registry selects per measure.
+  const datasetRows = rows;
 
   /* A study whose protocol has never compiled has no data by definition  -  not
    * three separate absences. The tab used to say so three times, in three
@@ -347,10 +352,12 @@ export function DataTab({ studyId }: { studyId: string }) {
         <section className="flex flex-col gap-stack">
           <h2 className="type-section text-text">Metrics by condition</h2>
           <p className="-mt-2 max-w-reading type-body text-text-muted">
-            Compare one code measure across study conditions. Each dot is one
-            analyzed function; the line shows the group median.
+            Compare a measure across study conditions. Pick any measure the
+            study collects — static code metrics, editing behaviour, fatigue,
+            comprehension, or agent activity — to see its distribution, drawn
+            with the mark that reads honestly for its type.
           </p>
-          <MetricStrip rows={metricRows} conditions={conditions} />
+          <MetricStrip rows={datasetRows} conditions={conditions} />
         </section>
         <PrescriptionPanel studyId={studyId} />
       </div>
