@@ -16,7 +16,7 @@ from middleware.db import (
 )
 from middleware.settings import Settings
 
-from middleware import assistant, paper_index
+from middleware import assistant, design_assistant, paper_index
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -324,6 +324,28 @@ def test_no_draft_applies_without_approval(client):
     assert after["approvals"][0]["role"] in ("owner", "member")
 
 
+def test_approval_rejects_a_compilation_stale_after_a_move_change(client):
+    """Approval verifies the current move ledger rather than trusting an old draft."""
+    result = _drive_to_valid_draft(client)
+    conversation = client.get(f"/studies/{STUDY}/conversation").json()
+    accepted = next(
+        move
+        for turn in conversation["turns"]
+        for move in turn["moves"]
+        if move["status"] == "accepted"
+    )
+    _accept(client, accepted["moveId"], status="rejected")
+
+    r = client.post(
+        f"/studies/{STUDY}/conversation/approve",
+        json={"compilationId": result["compilationId"], "approvedBy": "Owner"},
+    )
+
+    assert r.status_code == 409
+    assert "stale" in r.json()["detail"]
+    assert "Recompile" in r.json()["detail"]
+
+
 def test_rejecting_a_move_keeps_it_out_of_the_draft(client):
     """
     F1.2: moves are individually decidable; a rejected move leaves no trace in the
@@ -523,6 +545,24 @@ def test_rejected_guided_card_turns_into_a_concrete_choice(client, monkeypatch):
     assert move["proposal"] not in next_turn["text"]
 
 
+def test_repeated_model_reply_becomes_a_progress_prompt(client, monkeypatch):
+    """A stuck model cannot ask the same question until the session is abandoned."""
+    repeated = "Tell me more - who takes part, and what will they do?"
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: model_double.always({"text": repeated, "moves": []}),
+    )
+
+    first = _ask(client, "I want to research how junior engineers use AI")
+    second = _ask(client, "I want to research how junior engineers use AI")
+
+    assert first["text"] == repeated
+    assert second["text"] != repeated
+    assert "waiting for your decision" in second["text"]
+    assert second["moves"] == []
+
+
 def test_card_decision_can_trigger_one_empty_move_followup(client, monkeypatch):
     """The card action is explicit context, not a fresh idea the model can misread."""
     monkeypatch.setattr(
@@ -619,6 +659,47 @@ def test_a_holding_turn_is_never_replayed_to_the_model(tmp_path, monkeypatch):
     )
 
 
+def test_history_keeps_the_opening_brief_and_bounds_long_conversations(tmp_path):
+    """Prompt context keeps the study aim without replaying an entire transcript."""
+    from middleware import design_assistant as da
+
+    factory = make_session_factory(f"sqlite:///{tmp_path / 'history.sqlite3'}")
+    with factory() as s:
+        for seq in range(1, 31):
+            role = "researcher" if seq % 2 else "platform"
+            text = "opening study brief" if seq == 1 else f"turn {seq}"
+            if seq == 29:
+                text = "recent detail " + "x" * 1_300
+            s.add(
+                ConversationTurn(
+                    id=f"history-{seq}",
+                    study_id=STUDY,
+                    seq=seq,
+                    role=role,
+                    author="Researcher" if role == "researcher" else "Platform",
+                    text=text,
+                    retrieved_refs=[],
+                    recommendations=[],
+                    created_at="",
+                    source="llm" if role == "platform" else "",
+                )
+            )
+        s.commit()
+    with factory() as s:
+        history = da._load_history(s, STUDY)
+
+    assert len(history) == 9
+    assert history[0]["content"] == "opening study brief"
+    contents = {item["content"] for item in history}
+    assert "turn 3" not in contents
+    assert "turn 23" in contents
+    clipped = next(
+        item["content"] for item in history if "recent detail" in item["content"]
+    )
+    assert len(clipped) == da._LLM_HISTORY_TEXT_CHARS
+    assert clipped.endswith("…")
+
+
 def test_the_researchers_own_turn_survives_a_model_outage(client, monkeypatch):
     """They should never have to retype what they said because the model was down."""
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())
@@ -646,17 +727,18 @@ def test_no_model_configured_names_the_setting_that_fixes_it(client, monkeypatch
 
 def test_a_flaky_provider_is_retried_before_giving_up(client, monkeypatch):
     """
-    A blip - a 429, a truncated body - is the common failure and is usually gone by the
-    next call, so one retry saves the turn.
+    Short provider outages should recover with bounded exponential backoff before the
+    researcher is shown a holding turn.
     """
     calls = {"n": 0}
+    delays: list[float] = []
     good = model_double.always(
         {"text": "Second time lucky.", "moves": []}
     )
 
     def flaky(url, body, headers):
         calls["n"] += 1
-        if calls["n"] == 1:
+        if calls["n"] < 3:
             raise TimeoutError("one blip")
         return good.post(url, body, headers)
 
@@ -665,10 +747,12 @@ def test_a_flaky_provider_is_retried_before_giving_up(client, monkeypatch):
         "make_client",
         lambda *a, **k: assistant.MistralProvider("test-key", post=flaky),
     )
+    monkeypatch.setattr(design_assistant.time, "sleep", delays.append)
     turn = _ask(client, "does a blip lose my turn?")
     assert turn["source"] == "llm"
     assert turn["text"] == "Second time lucky."
-    assert calls["n"] > 1, "the first attempt must have been retried"
+    assert calls["n"] == 3
+    assert delays == [0.25, 0.5]
 
 
 _LATENCY_MOVE = {

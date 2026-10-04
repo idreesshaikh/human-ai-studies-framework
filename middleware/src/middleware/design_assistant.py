@@ -5,6 +5,7 @@ from __future__ import annotations
 import difflib
 import logging
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,8 +19,10 @@ from middleware.template_registry import list_templates
 log = logging.getLogger(__name__)
 
 # The accepted/rejected move ledger and compiled draft carry the durable state. Keep
-# only a short conversational window so old prose cannot make every reply slower.
-_LLM_HISTORY_TURNS = 12
+# the opening brief plus a short recent window, so old prose cannot make every reply
+# slower or crowd out the study's original aim.
+_LLM_HISTORY_TURNS = 8
+_LLM_HISTORY_TEXT_CHARS = 1_200
 
 _STATE_MOVE_CAP = 30
 _BATCH_MOVE_CAP = 12
@@ -30,6 +33,7 @@ _BATCH_MOVE_CAP = 12
 _DUP_TOKEN_OVERLAP = 0.8
 _DUP_SEQ_RATIO = 0.85
 _DUP_MIN_TERMS = 3
+_RECENT_PLATFORM_TURNS = 8
 
 
 _DESIGN_INTENT_WORDS = ("design", "statistic", "test", "how many", "template")
@@ -37,7 +41,8 @@ _DESIGN_INTENT_WORDS = ("design", "statistic", "test", "how many", "template")
 _NAMED_DESIGN_SCORE = 2
 
 
-TURN_ATTEMPTS = 2
+TURN_ATTEMPTS = 3
+TURN_RETRY_DELAY_SECONDS = 0.25
 
 
 def holding_turn(reason: str, stance: dict | None = None) -> dict:
@@ -86,6 +91,36 @@ MODEL_SILENT = (
 
 class ModelUnavailable(RuntimeError):
     """The design conversation could not reach a language model."""
+
+
+def _propose_with_retry(
+    client,
+    text: str,
+    history: list[dict],
+    papers: list[dict],
+    templates: list[dict],
+    directive: str,
+    state: dict | None,
+) -> Turn | None:
+    """Make bounded, spaced retries for a transient model request failure."""
+    from middleware import design_llm
+
+    for attempt in range(TURN_ATTEMPTS):
+        turn = design_llm.propose_turn(
+            client, text, history, papers, templates, directive, design_state=state
+        )
+        if turn is not None:
+            return turn
+        if attempt + 1 < TURN_ATTEMPTS:
+            delay = TURN_RETRY_DELAY_SECONDS * (2**attempt)
+            log.info(
+                "design turn attempt %d/%d produced nothing; retrying in %.2fs",
+                attempt + 1,
+                TURN_ATTEMPTS,
+                delay,
+            )
+            time.sleep(delay)
+    return None
 
 
 def recommend_templates(
@@ -285,44 +320,35 @@ def _resolve_grounding(s: Session, refs: tuple[str, ...]) -> list[dict]:
 
 def _load_history(s: Session, study_id: str | None) -> list[dict]:
     """
-    Prior turns as ``{"role", "content"}`` dicts, oldest first, capped to
-    ``_LLM_HISTORY_TURNS`` (a token-budget cap, not a correctness requirement) - the
-    shape an LLM chat-completions call expects.
+    A compact prompt history: the opening researcher brief plus a recent window.
+
+    Design moves are deliberately absent. Their complete, authoritative state is sent
+    separately in ``design_state``; replaying it in prose wastes context and becomes
+    especially noisy in long conversations.
     """
     if study_id is None:
         return []
-    rows = s.execute(
+    recent = s.execute(
         select(ConversationTurn)
         .where(ConversationTurn.study_id == study_id)
         .order_by(ConversationTurn.seq.desc())
         .limit(_LLM_HISTORY_TURNS)
     ).scalars().all()
-    turn_ids = [
-        row.id
-        for row in rows
-        # `source == "unavailable"` is excluded from the id list gathering
-        # moves below and, more importantly, from the loop that builds
-        # `history` itself (the `continue` below)  -  a holding turn carries no
-        # moves regardless, but it must never enter the transcript replayed
-        # back to the model: it is not part of the study's design record,
-        # and feeding "I couldn't reach the model" back in as a fabricated
-        # assistant turn is exactly the contamination this exclusion exists
-        # to prevent.
-        if row.role == "platform" and row.source != "unavailable"
-    ]
-    moves_by_turn: dict[str, list[DesignMoveRow]] = {}
-    if turn_ids:
-        for mv in s.scalars(
-            select(DesignMoveRow)
-            .where(DesignMoveRow.turn_id.in_(turn_ids))
-            # Bucketed per turn, so only in-turn order matters  -  seq is the proposal
-            # order (id would put e.g. m10 before m2).
-            .order_by(DesignMoveRow.seq)
-        ):
-            moves_by_turn.setdefault(mv.turn_id, []).append(mv)
+    opening = s.scalar(
+        select(ConversationTurn)
+        .where(
+            ConversationTurn.study_id == study_id,
+            ConversationTurn.role == "researcher",
+        )
+        .order_by(ConversationTurn.seq)
+        .limit(1)
+    )
+    rows = list(reversed(recent))
+    if opening is not None and all(row.id != opening.id for row in rows):
+        rows.insert(0, opening)
 
     history: list[dict] = []
-    for row in reversed(rows):
+    for row in rows:
         # A holding turn ("no model configured", "the provider is down") is
         # persisted now so the UI can show it again after a reload
         # (app.py's ModelUnavailable branches), but it is not a real answer
@@ -331,7 +357,6 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
         # below.
         if row.role == "platform" and row.source == "unavailable":
             continue
-        moves = moves_by_turn.get(row.id, [])
         content = row.text or ""
         # Card decisions are already represented structurally by the move status and
         # the current request's ``decision`` payload. Replaying the synthetic
@@ -341,21 +366,10 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
             ("i accepted:", "i rejected the proposed", "i noted the caution")
         ):
             continue
-        if moves:
-            lines = [
-                f"- [{mv.kind}] {mv.proposal}"
-                + (
-                    f" (grounded in {', '.join(g['ref'] for g in mv.grounding)})"
-                    if mv.grounding
-                    else " (unsourced)"
-                )
-                + f" (researcher {mv.status} this)"
-                for mv in moves
-            ]
-            content = (content + "\n\nMoves I proposed in that turn:\n" +
-                       "\n".join(lines)).strip()
         if not content:
             continue
+        if len(content) > _LLM_HISTORY_TEXT_CHARS:
+            content = content[: _LLM_HISTORY_TEXT_CHARS - 1].rstrip() + "…"
         history.append(
             {
                 "role": "user" if row.role == "researcher" else "assistant",
@@ -992,6 +1006,86 @@ def _filter_repeated_moves(
     return tuple(kept)
 
 
+def _repeats_platform_reply(
+    s: Session, study_id: str | None, text: str
+) -> bool:
+    """Whether ``text`` would repeat a recent platform response.
+
+    Move de-duplication alone cannot prevent a conversation from stalling: a
+    model can keep asking the same question even after its card was rejected or
+    left pending. Only use this as a last guard when the reply offers no new
+    decision, so a concise acknowledgement shared by two otherwise useful
+    replies is never suppressed.
+    """
+    if study_id is None or not text.strip():
+        return False
+    prior = s.scalars(
+        select(ConversationTurn.text)
+        .where(
+            ConversationTurn.study_id == study_id,
+            ConversationTurn.role == "platform",
+            ConversationTurn.source != "unavailable",
+        )
+        .order_by(ConversationTurn.seq.desc())
+        .limit(_RECENT_PLATFORM_TURNS)
+    )
+    return any(
+        prior_text and _is_near_duplicate(text, prior_text) for prior_text in prior
+    )
+
+
+def _progress_turn(state: dict | None) -> Turn:
+    """Replace a stalled reply with the next actionable protocol step."""
+    if state is None:
+        return Turn(
+            text=(
+                "To turn this into a protocol instead of repeating the same "
+                "question, send a short brief with: who takes part, one coding "
+                "task, what conditions you want to compare, and the outcome you "
+                "will measure. I will turn the details you provide into reviewable "
+                "cards."
+            ),
+            moves=(),
+        )
+    if state.get("compileValid"):
+        return Turn(
+            text=(
+                "The protocol now has every required decision and validates. "
+                "Review the compiled draft when you are ready rather than adding "
+                "another conversation turn."
+            ),
+            moves=(),
+        )
+    proposed = state.get("proposed") or []
+    if proposed:
+        return Turn(
+            text=(
+                "The current proposal is still waiting for your decision. Accept "
+                "it, reject it, or tell me what to change; I will not repeat the "
+                "same question while that choice is open."
+            ),
+            moves=(),
+        )
+    outstanding = state.get("outstandingSlots") or []
+    if outstanding:
+        slot = str(outstanding[0].get("label") or "the next protocol choice")
+        return Turn(
+            text=(
+                f"The next open protocol choice is {slot}. State the value you "
+                "want in one sentence and I will prepare it for review."
+            ),
+            moves=(),
+        )
+    return Turn(
+        text=(
+            "The recorded choices need a compiler correction before the protocol "
+            "can be completed. Review the draft errors and tell me which detail to "
+            "adjust."
+        ),
+        moves=(),
+    )
+
+
 def _load_design_state(s: Session, study_id: str | None) -> dict | None:
     """
     The structured design state the prose history can't carry: every prior move bucketed
@@ -1191,20 +1285,11 @@ def respond(
         )
     if client is None:
         raise ModelUnavailable(NO_MODEL)
-    from middleware import design_llm
 
     directive = _directive(stance, state)
-    turn = None
-    for attempt in range(TURN_ATTEMPTS):
-        turn = design_llm.propose_turn(
-            client, text, history, papers, templates, directive,
-            design_state=state,
-        )
-        if turn is not None:
-            break
-        log.info(
-            "design turn attempt %d/%d produced nothing", attempt + 1, TURN_ATTEMPTS
-        )
+    turn = _propose_with_retry(
+        client, text, history, papers, templates, directive, state
+    )
     if turn is None:
         raise ModelUnavailable(MODEL_SILENT)
     if len(stance.get("explicitMoves") or ()) > 1:
@@ -1366,9 +1451,8 @@ def respond_streaming(
     )
     if turn is None:
         log.info("streamed design turn produced nothing; retrying blocking")
-        turn = design_llm.propose_turn(
-            client, text, history, papers, templates, directive,
-            design_state=state,
+        turn = _propose_with_retry(
+            client, text, history, papers, templates, directive, state
         )
     if turn is None:
         raise ModelUnavailable(MODEL_SILENT)
@@ -1437,6 +1521,12 @@ def _assemble(
             turn = Turn(turn.text, guided_kept, turn.match_query)
             kept = guided_kept
             permitted = guided_permitted
+    if not permitted and _repeats_platform_reply(s, study_id, turn.text):
+        # The provider has supplied no new decision and has repeated a recent
+        # question. Switch to durable state rather than letting prose history
+        # grow until the researcher abandons the conversation.
+        turn = _progress_turn(state)
+        permitted = ()
     retrieved: set[str] = set()
 
     moves = []

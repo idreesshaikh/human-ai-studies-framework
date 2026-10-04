@@ -33,6 +33,11 @@ export const STATE_PENDING = 'tern.pendingConfigVersion';
 export const STATE_BLOCK = 'tern.sessionBlock';
 /** The full manifest for facilitator-visible producer state and external runners. */
 export const STATE_MANIFEST = 'tern.sessionManifest';
+/** The `tern.`-stripped settings from the capture config last actually applied.
+ *  A session's locked config is built from these, so what governs capture is
+ *  the researcher's protocol rather than whatever the settings file says once
+ *  the participant has been at it (issue #38). */
+export const STATE_LOCKED_SETTINGS = 'tern.lockedSettings';
 
 export interface PairedIdentity {
   studyId: string;
@@ -84,13 +89,17 @@ const IDENTITY_KEYS = new Set([
 
 /** Apply a capture config's overlay flags into `tern.*` settings
  * (workspace scope). Called only at a session boundary (wall #6). */
-async function applyConfig(cfg: CaptureConfig): Promise<void> {
+async function applyConfig(
+  context: vscode.ExtensionContext,
+  cfg: CaptureConfig,
+): Promise<void> {
   const flags = overlayFlags(cfg);
   const conf = vscode.workspace.getConfiguration('tern');
   for (const [key, value] of Object.entries(flags)) {
     if (IDENTITY_KEYS.has(key)) continue; // identity/endpoint come from the redeem
     await conf.update(key, value, vscode.ConfigurationTarget.Workspace);
   }
+  await persistPairingState(context, STATE_LOCKED_SETTINGS, flags);
 }
 
 /** The credential last stored by a successful pairing, or undefined if this
@@ -163,7 +172,7 @@ export async function refreshConfigAtSessionStart(
             cfg.captureConfigVersion,
           ))
       ) {
-        await applyConfig(cfg);
+        await applyConfig(context, cfg);
         if (paired) {
           await enforcePairedSettings(paired);
         }
@@ -289,7 +298,7 @@ export async function pairFromConnectionString(
     result.ingestEndpoint,
     vscode.ConfigurationTarget.Workspace,
   );
-  await applyConfig(result.captureConfig);
+  await applyConfig(context, result.captureConfig);
   await enforcePairedSettings({
     studyId: result.studyId,
     participantId: result.participantId,

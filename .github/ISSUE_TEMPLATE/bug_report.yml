@@ -42,6 +42,16 @@ body:
       required: true
 
   - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Observable conditions that confirm the fix.
+      placeholder: |
+        - ...
+    validations:
+      required: true
+
+  - type: textarea
     id: reproduction
     attributes:
       label: Steps to reproduce

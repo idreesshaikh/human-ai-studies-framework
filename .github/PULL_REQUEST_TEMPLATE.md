@@ -1,13 +1,21 @@
-## Change
+## Linked issue
 
-Describe the problem and the resulting behavior. Link a related issue if useful.
+Closes #<issue>
+
+## Summary
+
+- Describe the problem and resulting behavior.
+- Keep commits focused and exclude generated or local-only files.
 
 ## Validation
 
-State which checks you ran and any limitations. For capture, access-control, or
-analysis changes, include the regression case.
+List checks run and any limitations. For capture, access-control, or analysis
+changes, include the regression case.
 
 ## Compatibility
 
 Mention changes to protocols, exported data, public commands, dependencies, or
 participant consent. Delete this section if none apply.
+
+Use an imperative title; start it with `#<issue>` when the change resolves an
+issue.

@@ -446,7 +446,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()
         return {"id": record.id, "sha256": digest, "duplicate": False}
 
-    def _session_scope(study_id: str):
+    def _session_scope(study_id: str, include_synthetic: bool = False):
         """
         A predicate for "this session_id belongs to this study".
 
@@ -465,10 +465,22 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         # have come from anyone, which is precisely the leak this scoping closes.
         adopt_unattributed = settings.auth != "clerk" and check.study_id == study_id
         mapped = union(select(SessionOpen.session_id), select(SessionBlock.session_id))
+        synthetic = union(
+            select(Event.session_id).where(Event.payload["synthetic"].as_boolean()),
+            select(MetricRow.session_id).where(MetricRow.row["synthetic"].as_boolean()),
+            select(SessionBlock.session_id).where(
+                SessionBlock.session_id.in_(demo_mod.DEMO_SESSION_IDS)
+            ),
+        )
 
         def in_this_study(column):
             here = column.in_(scoped)
-            return or_(here, column.notin_(mapped)) if adopt_unattributed else here
+            predicate = or_(here, column.notin_(mapped)) if adopt_unattributed else here
+            return (
+                predicate
+                if include_synthetic
+                else predicate & column.notin_(synthetic)
+            )
 
         return in_this_study
 
@@ -476,8 +488,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/sessions",
         dependencies=[Depends(require_project_for_study("view"))],
     )
-    def list_sessions(study_id: str, s: Session = Depends(db)) -> list[dict]:
-        in_this_study = _session_scope(study_id)
+    def list_sessions(
+        study_id: str, includeSynthetic: bool = False, s: Session = Depends(db)
+    ) -> list[dict]:
+        in_this_study = _session_scope(study_id, includeSynthetic)
 
         out = {}
         event_rows = s.execute(
@@ -585,9 +599,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "sources": [{"source": src, **summaries[src]} for src in sorted(summaries)],
         }
 
-    def _joined_rows(s: Session, study_id: str) -> list[dict]:
+    def _joined_rows(
+        s: Session, study_id: str, include_synthetic: bool = False
+    ) -> list[dict]:
         """Join events and metrics belonging to this study, for every export."""
-        in_this_study = _session_scope(study_id)
+        in_this_study = _session_scope(study_id, include_synthetic)
         rows = [
             {
                 "source": e.source,
@@ -628,9 +644,14 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/dataset",
         dependencies=[Depends(require_project_for_study("view"))],
     )
-    def dataset(study_id: str, format: str = "json", s: Session = Depends(db)):
+    def dataset(
+        study_id: str,
+        format: str = "json",
+        includeSynthetic: bool = False,
+        s: Session = Depends(db),
+    ):
         """The joined one-timeline export all legs share (FR-ING-4)."""
-        rows = _joined_rows(s, study_id)
+        rows = _joined_rows(s, study_id, includeSynthetic)
         if format == "json":
             return {"studyId": study_id, "rows": rows}
         if format == "csv":
@@ -771,7 +792,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         "/studies/{study_id}/status",
         dependencies=[Depends(require_project_for_study("view"))],
     )
-    def study_status(study_id: str, s: Session = Depends(db)) -> dict:
+    def study_status(
+        study_id: str, includeSynthetic: bool = False, s: Session = Depends(db)
+    ) -> dict:
         """One factual status document (FR-DASH-7)."""
 
         proto = _resolve_study_protocol(s, study_id)
@@ -780,7 +803,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         # Every read below is scoped to this study's sessions; without it the
         # status document described the whole database (see `_session_scope`).
-        in_this_study = _session_scope(study_id)
+        in_this_study = _session_scope(study_id, includeSynthetic)
 
         seqs_by_session: dict[str, dict[str, list[int]]] = defaultdict(
             lambda: defaultdict(list)
@@ -920,6 +943,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         study_id: str,
         windowSeconds: int = 300,
         bucketSeconds: int = 10,
+        includeSynthetic: bool = False,
         s: Session = Depends(db),
     ) -> dict:
         """
@@ -934,7 +958,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         recent = s.scalars(
             select(Event)
-            .where(Event.received_at >= cutoff_s)
+            .where(
+                Event.received_at >= cutoff_s,
+                _session_scope(study_id, includeSynthetic)(Event.session_id),
+            )
             .order_by(Event.received_at, Event.seq)
         ).all()
         by_session: dict[str, list[Event]] = defaultdict(list)
@@ -3338,6 +3365,26 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         )
         return (last or 0) + 1
 
+    def _conversation_moves(s: Session, study_id: str) -> list[dict]:
+        """Return the ordered move ledger used for compilation and verification."""
+        return [
+            {
+                "moveId": mv.id,
+                "kind": mv.kind,
+                "target": mv.target,
+                "proposal": mv.proposal,
+                "patch": mv.patch,
+                "grounding": mv.grounding,
+                "status": mv.status,
+            }
+            for mv in s.scalars(
+                select(DesignMoveRow)
+                .join(ConversationTurn, DesignMoveRow.turn_id == ConversationTurn.id)
+                .where(DesignMoveRow.study_id == study_id)
+                .order_by(ConversationTurn.seq, DesignMoveRow.seq)
+            )
+        ]
+
     def _validate_decision_followup(
         s: Session, study_id: str, decision: DecisionTriggerIn | None
     ) -> None:
@@ -3963,23 +4010,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         study_id: str, body: CompileIn, s: Session = Depends(db)
     ) -> dict:
         """Compile the study's accepted moves into a protocol draft diff (FR-CONV-3)."""
-        moves = [
-            {
-                "moveId": mv.id,
-                "kind": mv.kind,
-                "target": mv.target,
-                "proposal": mv.proposal,
-                "patch": mv.patch,
-                "grounding": mv.grounding,
-                "status": mv.status,
-            }
-            for mv in s.scalars(
-                select(DesignMoveRow)
-                .join(ConversationTurn, DesignMoveRow.turn_id == ConversationTurn.id)
-                .where(DesignMoveRow.study_id == study_id)
-                .order_by(ConversationTurn.seq, DesignMoveRow.seq)
-            )
-        ]
+        moves = _conversation_moves(s, study_id)
         base_yaml = body.baseYaml
         if base_yaml is None:
             existing = s.get(ProtocolDraftRow, study_id)
@@ -4030,6 +4061,28 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 409,
                 "this draft did not pass validation and cannot be applied. "
                 f"Resolve: {comp.errors or comp.unresolved}",
+            )
+
+        current_draft = s.get(ProtocolDraftRow, study_id)
+        base_yaml = current_draft.yaml if current_draft else ""
+        if sha256(base_yaml.encode()).hexdigest() != comp.base_sha256:
+            raise HTTPException(
+                409,
+                "this compilation is stale because its base draft changed. "
+                "Recompile before applying it.",
+            )
+        moves = _conversation_moves(s, study_id)
+        verified = compiler.compile_moves(moves, base_yaml=base_yaml)
+        accepted_move_ids = [m["moveId"] for m in moves if m["status"] == "accepted"]
+        if (
+            not verified.valid
+            or verified.yaml != comp.draft_yaml
+            or accepted_move_ids != comp.move_ids
+        ):
+            raise HTTPException(
+                409,
+                "this compilation is stale because the accepted moves changed. "
+                "Recompile before applying it.",
             )
 
         s.add(
@@ -4110,7 +4163,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 f"study {study_id!r} has no compiled protocol yet. "
                 "Approve a draft in the design conversation first",
             )
-        payload = dataset(study_id, "json", s)
+        payload = dataset(study_id, "json", s=s)
         repo_root = Path(__file__).resolve().parent.parent.parent.parent
         with tempfile.TemporaryDirectory() as td:
             staging = Path(td)
@@ -4153,7 +4206,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 f"study {study_id!r} has no compiled protocol yet. "
                 "Approve a draft in the design conversation first",
             )
-        payload = dataset(study_id, "json", s)
+        payload = dataset(study_id, "json", s=s)
         ds = Dataset(rows=payload["rows"], study_id=study_id)
         notebook_json = json.dumps(build_notebook(proto, ds, study_id), indent=1)
         dictionary_md = f"# {study_id}: data dictionary\n\n" + data_dictionary_markdown(
@@ -4228,7 +4281,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         s.flush()
         session_ids = set(outcome["sessionIds"])
         rows = [
-            row for row in _joined_rows(s, study_id) if row["sessionId"] in session_ids
+            row
+            for row in _joined_rows(s, study_id, include_synthetic=True)
+            if row["sessionId"] in session_ids
         ]
         outcome["plan"] = run_plan_summary(proto, rows, study_id)
         return outcome

@@ -34,8 +34,12 @@ import {
   registerPairing,
   refreshConfigAtSessionStart,
   STATE_BLOCK,
+  STATE_LOCKED_SETTINGS,
   STATE_MANIFEST,
 } from './pairing';
+import { buildLockedConfig, extensionDefaults } from '../core/lockedConfig';
+import { activeLock, captureSetting, setActiveLock } from './configLock';
+import { registerSettingsGuard } from './settingsGuard';
 import { preflightSummary } from '../core/preflight';
 import { confirmPreflight } from './preflightPrompt';
 import { wireEditorSignals } from './signals';
@@ -69,6 +73,8 @@ interface RunningStudy {
   activeFatiguePrompt?: LikertPromptHandle;
   ending: boolean;
   ticksSinceSnapshot: number;
+  /** Setting edits ignored and recorded this session (issue #38). */
+  settingsOverrides?: number;
   /** Set when a prompt closes; cleared by the first subsequent edit. */
   awaitingResumption?: { promptType: string; closedAt: number };
   lastBlurAt?: number;
@@ -99,6 +105,7 @@ function sidebarSession(): SidebarSession {
     dataFile: s.dataFile,
     written: s.recorder.nextSeq,
     mirrored: s.httpSink ? s.httpSink.deliveredCount : s.recorder.nextSeq,
+    settingsOverrides: s.settingsOverrides,
   };
 }
 
@@ -155,6 +162,37 @@ export function activate(context: vscode.ExtensionContext): void {
     // built-in command even when no study is running.
     registerBehaviorCommands(() => study?.behavior),
     registerPairing(context, () => sidebar.refresh()),
+    registerSettingsGuard({
+      lock: () => activeLock(),
+      // Only the identity keys that are actually written into settings.
+      // `condition` is excluded on purpose: it is never written, so comparing
+      // it would report drift forever and writing it back would reveal the arm.
+      identity: () => {
+        const paired = getPairedIdentity(context);
+        if (!paired) return undefined;
+        return {
+          participantId: paired.participantId,
+          studyId: paired.studyId,
+          ...(paired.ingestEndpoint
+            ? { 'output.httpEndpoint': paired.ingestEndpoint }
+            : {}),
+        };
+      },
+      reassertIdentity: async () => {
+        const paired = getPairedIdentity(context);
+        if (paired) await enforcePairedSettings(paired);
+      },
+      record: (type, payload) => {
+        // Recorded even while paused: an edit made during a break is still an
+        // edit made during the session.
+        if (!study || study.ending) return;
+        study.recorder.record(type, payload);
+      },
+      onDrift: () => {
+        if (study) study.settingsOverrides = (study.settingsOverrides ?? 0) + 1;
+        sidebar.refresh();
+      },
+    }),
     vscode.window.registerUriHandler({
       handleUri(uri: vscode.Uri) {
         const params = new URLSearchParams(uri.query);
@@ -178,7 +216,30 @@ export function deactivate(): void {
 }
 
 function cfg<T>(key: string, fallback: T): T {
-  return vscode.workspace.getConfiguration('tern').get<T>(key, fallback);
+  return captureSetting(key, fallback);
+}
+
+/**
+ * Freeze this session's capture configuration (issue #38).
+ *
+ * The protocol settings last applied by pairing win; anything the protocol did
+ * not declare falls back to this extension's own declared default, never to a
+ * participant-supplied value. Called at both session entry points, including a
+ * crash resume  -  a resumed session must not read live settings either, since
+ * the interruption is exactly when a participant could edit them.
+ */
+function lockSessionConfig(): void {
+  setActiveLock(
+    buildLockedConfig({
+      defaults: extensionDefaults(extContext.extension.packageJSON),
+      overlay:
+        pairingState<Record<string, unknown>>(
+          extContext,
+          STATE_LOCKED_SETTINGS,
+        ) ?? {},
+      paired: Boolean(getPairedIdentity(extContext)),
+    }),
+  );
 }
 
 function dataDirectory(): string {
@@ -247,7 +308,6 @@ async function startSession(): Promise<void> {
     condition = conditionPick.value;
   }
 
-  const durationMin = cfg('session.durationMinutes', 60);
   const sessionTag = `${participantId}_${new Date()
     .toISOString()
     .replace(/[:.]/g, '-')}`;
@@ -277,9 +337,14 @@ async function startSession(): Promise<void> {
     plannedSessionId,
   );
 
+  // Everything below reads capture settings, so freeze them first.
+  lockSessionConfig();
+  const durationMin = cfg('session.durationMinutes', 60);
+
   // Show the pre-flight summary (FR-INST-21): what will and will not be
   // captured this session. The participant can abort before the clock arms.
-  const wsCfg = vscode.workspace.getConfiguration('tern');
+  // Read through the lock, so the summary states what will actually happen
+  // rather than what the settings file currently says.
   const knownPreflightKeys = [
     'stuck.enabled',
     'behavior.captureEditBursts',
@@ -292,9 +357,7 @@ async function startSession(): Promise<void> {
   ];
   const flags: Record<string, unknown> = {};
   for (const key of knownPreflightKeys) {
-    const val = wsCfg.inspect<unknown>(key);
-    flags[key] =
-      val?.workspaceValue ?? val?.globalValue ?? val?.defaultValue ?? false;
+    flags[key] = cfg<unknown>(key, false);
   }
   const manifest = pairingState<Record<string, unknown>>(
     extContext,
@@ -307,7 +370,11 @@ async function startSession(): Promise<void> {
     capture: items.filter((i) => i.on).map((i) => i.label),
     notCaptured: items.filter((i) => !i.on).map((i) => i.label),
   });
-  if (!accepted) return;
+  if (!accepted) {
+    // No session will run, so nothing should still be holding a locked config.
+    setActiveLock(undefined);
+    return;
+  }
 
   bootSession({
     participantId,
@@ -374,7 +441,14 @@ function bootSession(boot: BootConfig): void {
   const sinks: EventSink[] = [
     new JsonlSink(boot.dataFile, (err) => reportSinkError(err)),
   ];
-  const endpoint = cfg('output.httpEndpoint', '');
+  // Transport comes from the redeem, never through the lock: the lock holds no
+  // identity or transport key (the protocol only carries example values for
+  // them), so reading this through it would resolve to empty and silently drop
+  // the upload for every paired participant.
+  const pairedForSink = getPairedIdentity(extContext);
+  const endpoint = pairedForSink
+    ? pairedForSink.ingestEndpoint
+    : cfg('output.httpEndpoint', '');
   if (endpoint) sinks.push(new HttpSink(endpoint, undefined, boot.credential));
   const sink = new CompositeSink(sinks);
 
@@ -692,6 +766,9 @@ function teardownStudy(resetStatusBar: boolean): void {
   study.session.dispose();
   study.sink.dispose();
   study = undefined;
+  // Outside a session there is nothing to protect, and local settings govern
+  // standalone use again.
+  setActiveLock(undefined);
   void vscode.commands.executeCommand(
     'setContext',
     'tern.sessionActive',
@@ -783,6 +860,7 @@ async function offerCrashRecovery(): Promise<void> {
   // start a new one  -  reuse the paired credential as-is, never re-pull
   // config here (wall #6: a running/resuming session is never reconfigured).
   const credential = await getStoredCredential(extContext);
+  lockSessionConfig();
 
   bootSession({
     participantId: snap.participantId,

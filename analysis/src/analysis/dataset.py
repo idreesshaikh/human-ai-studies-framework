@@ -27,8 +27,12 @@ class Dataset:
         return cls(rows=doc["rows"], study_id=doc.get("studyId", ""))
 
     @classmethod
-    def fetch(cls, server: str, study_id: str) -> Dataset:
+    def fetch(
+        cls, server: str, study_id: str, include_synthetic: bool = False
+    ) -> Dataset:
         url = f"{server.rstrip('/')}/studies/{study_id}/dataset?format=json"
+        if include_synthetic:
+            url += "&includeSynthetic=true"
         token = os.environ.get("MIDDLEWARE_TOKEN")
         request = urllib.request.Request(
             url, headers={"Authorization": f"Bearer {token}"} if token else {}
