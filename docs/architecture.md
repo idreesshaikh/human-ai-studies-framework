@@ -124,6 +124,15 @@ events and metrics in `analysis/core.py`. `runner.py` checks the plan and writes
 tables, figures, and reports. `notebook.py` supplies a notebook and dictionary;
 `protocol/export.py` packages a reproducible replication kit.
 
+`GET /studies/{id}/data-bundle` (`middleware/export_bundle.py`) exports collected
+data as a deterministic zip: one UTF-8 CSV per event type, the joined timeline
+(`events/all.json`), `protocol.yaml`, a data dictionary, uploaded files, and
+`manifest.json`. The manifest records the format version, protocol id, version
+and sha256, event schema versions, each participant's condition, whether dry-run
+rows are included (they are not by default), and a sha256 per member. The bundle's own
+`README.md` documents the layout. The platform offers it in the Data tab and the
+Share menu.
+
 `middleware/simulation.py` creates synthetic events and session blocks without
 issuing participant credentials. Rows carry `payload.synthetic: true`; the
 response lists `sessionIds`. Each dry-run report uses only that run's sessions.

@@ -2,6 +2,7 @@
  * mutations require a server response. Credentials come from api.ts. */
 
 import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
+import { dataBundleFilename, dataBundlePath } from "./dataBundle.ts";
 import { isDemoStudy } from "./demo.ts";
 import type {
   PowerCurve,
@@ -429,6 +430,15 @@ export const studyApi = {
    *  rather than a bare dataset export. */
   downloadNotebook: async (study: string) => {
     await saveAs(`/studies/${enc(study)}/notebook`, `${study}-notebook.zip`);
+  },
+  /** The collected data as a zip of tidy CSVs + the joined timeline + data
+   *  dictionary, for the researcher's own postprocessing. Dry-run rows are
+   *  left out unless `includeSynthetic` is set. */
+  downloadDataBundle: async (study: string, includeSynthetic = false) => {
+    await saveAs(
+      dataBundlePath(study, includeSynthetic),
+      dataBundleFilename(study),
+    );
   },
   /** The elicitation record (FR-CONV-6) as a JSON file. */
   downloadElicitationRecord: async (study: string) => {
