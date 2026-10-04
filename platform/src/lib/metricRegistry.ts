@@ -240,7 +240,7 @@ export const METRIC_REGISTRY: MetricEntry[] = [
     key: "fatigue",
     label: "Self-reported fatigue",
     definition:
-      "Fatigue logged on a 1–7 scale during the session. Shown as a distribution across levels; an ordinal scale is never averaged.",
+      "Fatigue logged on a Likert scale during the session. Shown as a distribution across levels; an ordinal scale is never averaged.",
     measurementType: "ordinal",
     origin: "cognitive",
     rqId: "RQ-P1",
@@ -249,7 +249,10 @@ export const METRIC_REGISTRY: MetricEntry[] = [
       const out: MetricObservation[] = [];
       for (const r of rows) {
         if (r.type !== "fatigue_response") continue;
-        const v = num(r.payload.value);
+        // Real TERN capture carries `value`; the simulator and the analysis
+        // recipe use `score`. Read whichever the row carries so the chart is
+        // honest against both live sessions and synthetic dry runs.
+        const v = num(r.payload.value) ?? num(r.payload.score);
         if (v === null) continue;
         out.push({
           condition: r.condition,

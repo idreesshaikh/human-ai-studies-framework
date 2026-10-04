@@ -119,6 +119,11 @@ const counts = ordinalCounts(fObs, fatigue.levels);
 ok("ordinal counts place values on the right levels", counts[0] === 2 && counts[3] === 1 && counts[6] === 1, counts.join(","));
 ok("ordinal count total equals n", counts.reduce((a, b) => a + b, 0) === 4);
 
+// fatigue reads `score` too (simulator / analysis convention), not only `value`
+const scoreRows = [2, 2, 5].map((score) => row({ type: "fatigue_response", payload: { score } }));
+const scoreCounts = ordinalCounts(fatigue.extract(scoreRows), fatigue.levels);
+ok("fatigue reads the simulator's `score` key", scoreCounts[1] === 2 && scoreCounts[4] === 1, scoreCounts.join(","));
+
 // --- task pass-rate categorical ---
 const taskRows = [true, false, true].map((passed) => row({ type: "task_outcome", source: "agent-capture", payload: { passed, failed: passed ? 0 : 1, total: 1 } }));
 const taskObs = findMetric("task_pass_rate").extract(taskRows);
