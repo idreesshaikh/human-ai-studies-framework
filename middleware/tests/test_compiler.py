@@ -235,3 +235,29 @@ def test_merge_supersedes_an_earlier_single_template():
     assert result.valid, result.errors
     assert result.draft["study"]["title"].startswith("Merged design")
     assert result.template_id is None
+
+
+def test_manual_entry_supersedes_earlier_moves_but_not_later_ones():
+    def title(move_id: str, value: str) -> dict:
+        return {
+            "moveId": move_id,
+            "kind": "set-field",
+            "target": "study.title",
+            "proposal": value,
+            "patch": {"op": "set-field", "path": ["study", "title"], "value": value},
+            "grounding": [],
+            "status": "accepted",
+        }
+
+    manual = _template_move("m-manual", "two-group-rct-v1", {"title": "Manual"})
+    manual["patch"]["manual"] = True
+    before = [_rq_move(), title("m-old", "Conversation")]
+
+    result = compiler.compile_moves([*before, manual])
+    assert result.draft["study"]["title"] == "Manual"
+    assert _rq_move()["proposal"] not in [
+        rq["text"] for rq in result.draft["researchQuestions"]
+    ]
+
+    later = compiler.compile_moves([*before, manual, title("m-new", "Refined")])
+    assert later.draft["study"]["title"] == "Refined"

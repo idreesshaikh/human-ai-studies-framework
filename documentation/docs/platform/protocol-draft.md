@@ -65,6 +65,18 @@ warning. Recognizable legacy statistical-plan sentences map to a runnable
 recipe. Unknown values remain warnings or errors and are never presented as a
 valid protocol.
 
+## Entering a design directly
+
+Researchers who already have a design can skip the conversation. **Enter the
+protocol details directly** on a new study, or **Edit details** on the draft
+rail, opens a form for the supported fields: study name, up to six research
+questions, design, two conditions, participants, task, session length, and
+outcomes. It is prefilled from the current draft. Saving records the entry as
+accepted moves that replace the decisions made before it, keeping the analysis
+recipes of research questions it leaves unchanged, so the same compiler
+validates it and **Apply protocol** approves it. The conversation stays
+available, and moves accepted after a manual entry refine it.
+
 ## Consent and responsibility
 
 PHOENIX does not grant ethics approval. It makes the capture decision explicit:
