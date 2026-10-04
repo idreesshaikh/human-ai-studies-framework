@@ -3746,12 +3746,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             not value.strip()
             for value in (
                 body.title,
-                body.researchQuestion,
                 body.participantDescription,
                 body.taskDescription,
             )
         ):
             raise HTTPException(422, "the study brief fields cannot be blank")
+        questions = [question.strip() for question in body.researchQuestions]
+        if any(not 10 <= len(question) <= 500 for question in questions):
+            raise HTTPException(
+                422, "each research question needs 10 to 500 characters"
+            )
+        if len({question.casefold() for question in questions}) != len(questions):
+            raise HTTPException(422, "research questions must be different")
         conditions = [condition.strip() for condition in body.conditions]
         if any(not condition or len(condition) > 80 for condition in conditions):
             raise HTTPException(
@@ -3772,7 +3778,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
 
         scope = elicitation.classify_scope(
-            [body.researchQuestion, body.taskDescription, body.participantDescription]
+            [*questions, body.taskDescription, body.participantDescription]
         )
         if scope != "supported":
             raise HTTPException(
@@ -3801,7 +3807,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         parameters = {
             "studyId": study_id,
             "title": body.title.strip(),
-            "researchQuestion": body.researchQuestion.strip(),
+            "researchQuestion": questions[0],
             "conditions": conditions,
             "participantPlan": body.plannedParticipants,
             "sessionMinutes": body.sessionMinutes,
@@ -3816,8 +3822,25 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     if body.design == "within-subjects"
                     else "Use a two-group between-subjects comparison."
                 ),
-                "patch": {"templateId": template_id, "parameters": parameters},
+                "patch": {
+                    "templateId": template_id,
+                    "parameters": parameters,
+                    "manual": True,
+                },
             },
+            *(
+                {
+                    "kind": "add-rq",
+                    "target": "researchQuestions[]",
+                    "proposal": question,
+                    "patch": {
+                        "section": "researchQuestions",
+                        "op": "append",
+                        "value": question,
+                    },
+                }
+                for question in questions[1:]
+            ),
             {
                 "kind": "set-field",
                 "target": "participants.description",
@@ -3848,6 +3871,32 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             },
         ]
 
+        existing = s.get(ProtocolDraftRow, study_id)
+        base_yaml = existing.yaml if existing else ""
+        current = compiler.compile_moves(
+            _conversation_moves(s, study_id), base_yaml=base_yaml
+        ).draft
+        kept_recipes = {
+            rq.get("text"): entry.get("recipes", [])
+            for rq in current.get("researchQuestions") or []
+            for entry in current.get("analysisPlan") or []
+            if entry.get("rq") == rq.get("id")
+        }
+        preview = compiler.compile_moves(
+            [{**spec, "status": "accepted"} for spec in move_specs]
+        ).draft
+        move_specs += [
+            {
+                "kind": "prescribe-statistics",
+                "target": "analysisPlan",
+                "proposal": f"Keep the {recipe} analysis for {rq['id']}.",
+                "patch": {"recipeId": recipe, "rq": rq["id"]},
+            }
+            for rq in preview.get("researchQuestions") or []
+            if rq.get("text") != questions[0]
+            for recipe in kept_recipes.get(rq.get("text"), [])
+        ]
+
         researcher = ConversationTurn(
             id=secrets.token_hex(8),
             study_id=study_id,
@@ -3855,7 +3904,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             role="researcher",
             author="Researcher",
             text=(
-                f"Quick protocol checklist submitted: {body.researchQuestion.strip()}"
+                f"Protocol details entered manually: {questions[0]}"
             ),
             retrieved_refs=[],
             created_at=now(),
@@ -3907,16 +3956,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
             )
 
-        existing = s.get(ProtocolDraftRow, study_id)
-        base_yaml = existing.yaml if existing else ""
-        result = compiler.compile_moves(moves, base_yaml=base_yaml)
+        s.flush()
+        all_moves = _conversation_moves(s, study_id)
+        result = compiler.compile_moves(all_moves, base_yaml=base_yaml)
         comp = Compilation(
             id=secrets.token_hex(8),
             study_id=study_id,
             base_sha256=sha256(base_yaml.encode()).hexdigest(),
             draft_yaml=result.yaml,
             diff=result.diff,
-            move_ids=[move["moveId"] for move in moves],
+            move_ids=[m["moveId"] for m in all_moves if m["status"] == "accepted"],
             errors=result.errors,
             unresolved=result.unresolved,
             valid=int(result.valid),
