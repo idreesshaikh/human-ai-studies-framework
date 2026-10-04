@@ -1,4 +1,5 @@
 import type { Role } from "./capabilities.ts";
+import type { StudyWorkspace } from "./workspaceSetting.ts";
 
 /** Typed HTTP client for projects, membership, enrollment, and preferences. */
 
@@ -161,6 +162,11 @@ export interface Api {
   listEnrollmentTokens(studyId: string): Promise<EnrollmentTokenView[]>;
   revokeEnrollmentToken(studyId: string, tokenId: string): Promise<void>;
   toggleCatalog(studyId: string): Promise<ToggleCatalogEntry[]>;
+  /** The folder participants' minted links open (issue 36). */
+  getWorkspace(studyId: string): Promise<StudyWorkspace>;
+  setWorkspacePath(studyId: string, path: string): Promise<StudyWorkspace>;
+  uploadWorkspaceZip(studyId: string, file: File): Promise<StudyWorkspace>;
+  clearWorkspace(studyId: string): Promise<StudyWorkspace>;
   applyToggle(studyId: string, body: { instrument: string; path: string[]; value: unknown; rationale: string }): Promise<ToggleResult>;
   /** Persist this identity's profile preferences (FR-OPS-7) and return the
    * server's merged copy. */
@@ -253,10 +259,12 @@ class HttpBackend implements Api {
       res = await fetch(this.base + path, {
         method,
         headers: {
-          ...(body ? { "content-type": "application/json" } : {}),
+          ...(body && !(body instanceof FormData)
+            ? { "content-type": "application/json" }
+            : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: body ? JSON.stringify(body) : undefined,
+        body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
         credentials: "include",
       });
     } catch {
@@ -349,6 +357,20 @@ class HttpBackend implements Api {
     this.call<void>("DELETE", `/studies/${studyId}/enrollment/tokens/${tokenId}`);
   toggleCatalog = (studyId: string) =>
     this.call<ToggleCatalogEntry[]>("GET", `/studies/${studyId}/enrollment/toggles/catalog`);
+  getWorkspace = (studyId: string) =>
+    this.call<StudyWorkspace>("GET", `/studies/${studyId}/workspace`);
+  setWorkspacePath = (studyId: string, path: string) => {
+    const form = new FormData();
+    form.set("path", path);
+    return this.call<StudyWorkspace>("PUT", `/studies/${studyId}/workspace`, form);
+  };
+  uploadWorkspaceZip = (studyId: string, file: File) => {
+    const form = new FormData();
+    form.set("file", file);
+    return this.call<StudyWorkspace>("PUT", `/studies/${studyId}/workspace`, form);
+  };
+  clearWorkspace = (studyId: string) =>
+    this.call<StudyWorkspace>("DELETE", `/studies/${studyId}/workspace`);
   applyToggle = (studyId: string, body: { instrument: string; path: string[]; value: unknown; rationale: string }) =>
     this.call<ToggleResult>("POST", `/studies/${studyId}/enrollment/toggles`, body);
   updatePreferences = (prefs: Partial<Preferences>) =>

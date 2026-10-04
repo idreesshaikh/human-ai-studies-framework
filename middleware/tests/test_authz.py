@@ -372,6 +372,9 @@ def test_every_project_scoped_route_carries_the_choke_point(client):
         # so this one is gated on that credential instead (it 401s without it)  -  see
         # get_capture_config's docstring, FR-INST-21.
         ("GET", "/studies/{study_id}/capture-config"),
+        # The same credential gate, for the uploaded study folder the extension
+        # downloads after pairing (issue 36); see download_workspace_archive.
+        ("GET", "/studies/{study_id}/workspace/archive"),
     }
     offenders = []
     for route in app.routes:

@@ -23,6 +23,38 @@ visible before anyone starts a real session.
 The deep link is intentionally not an installer. TERN is a GitHub-release VSIX,
 not a Marketplace package, so the participant installs it once before pairing.
 
+## Choose the study folder
+
+A minted link can open the task's folder in the participant's VS Code right
+after consent. In **Mint links**, set the **Study folder** once for the study,
+in one of two ways:
+
+- **A path** that already exists on participants' computers, such as
+  `/home/participant/study-task`, `~/study-task`, `C:\study\task` or a
+  `file://` address. Use this when the study kit is delivered separately.
+- **A zip** of the folder (up to 50 MB). TERN downloads it with the
+  participant's own session credential, checks it against the uploaded hash,
+  unpacks it into its own storage and opens it. A zip with one top-level
+  folder opens that folder.
+
+If no folder is set here, TERN falls back to the task's `materials` value in
+the protocol when that is an absolute path. TERN never clones or downloads a
+repository from a URL.
+
+When the folder cannot be opened, pairing and consent still succeed and the
+participant sees a message that names the reason, with **Open Folder…** and
+**Try again** buttons. That happens when the path is relative or a web
+address, the folder does not exist on the computer, the download fails or does
+not match the uploaded zip, or VS Code could not open it, or the participant
+is in VS Code for the web, which has no local file system. In a WSL, SSH or
+container window the path is checked, and a zip is unpacked, on that window's
+own machine, so a path must exist where the participant's VS Code runs (for
+WSL, a Linux path such as `/home/participant/task`; for desktop Windows, a
+`C:\` path).
+
+Supported launch path: the `vscode://…/pair` deep link or **TERN: Connect to
+Study** in desktop VS Code. `vscode-insiders://` links are not generated.
+
 ## Assignment is part of the protocol
 
 Task order is rotated automatically so participants meet every condition in a

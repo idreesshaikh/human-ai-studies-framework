@@ -23,6 +23,7 @@ from fastapi import (
     BackgroundTasks,
     Depends,
     FastAPI,
+    File,
     Form,
     Header,
     HTTPException,
@@ -63,6 +64,7 @@ from middleware import (
     semantic_scholar,
     template_registry,
     template_repertoire,
+    workspace,
 )
 from middleware import demo as demo_mod
 from middleware.db import (
@@ -88,6 +90,7 @@ from middleware.db import (
     SessionOpen,
     StoredFile,
     Study,
+    StudyWorkspace,
     UserProfile,
     get_engine,
     make_session_factory,
@@ -2337,6 +2340,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         Compilation,
         ProtocolDraftRow,
         SessionOpen,
+        StudyWorkspace,
     )
 
     def _delete_study_scoped_rows(s: Session, study_id: str) -> None:
@@ -2957,7 +2961,124 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "title": (task or {}).get("title", ""),
             "description": (task or {}).get("description", ""),
             "materials": (task or {}).get("materials", ""),
+            "workspace": _workspace_for(s, row.study_id, task),
         }
+
+    def _safe_name(value: str) -> str:
+        return re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._") or "study"
+
+    def _workspace_for(s: Session, study_id: str, task: dict | None) -> dict | None:
+        """The folder a minted link opens: the researcher's setting, else the task's."""
+        row = s.get(StudyWorkspace, study_id)
+        if row is not None and row.kind == "path":
+            return {"kind": "path", "path": row.path}
+        if row is not None and row.kind == "archive":
+            return {
+                "kind": "archive",
+                "url": f"/studies/{study_id}/workspace/archive",
+                "sha256": row.sha256,
+                "size": row.size,
+                "filename": row.filename,
+            }
+        materials = ((task or {}).get("materials") or "").strip()
+        return {"kind": "path", "path": materials} if materials else None
+
+    def _workspace_doc(row: StudyWorkspace | None) -> dict:
+        if row is None:
+            return {"kind": None}
+        return {
+            "kind": row.kind,
+            "path": row.path,
+            "filename": row.filename,
+            "sha256": row.sha256,
+            "size": row.size,
+            "updatedAt": row.updated_at,
+        }
+
+    @app.get(
+        "/studies/{study_id}/workspace",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def get_workspace(study_id: str, s: Session = Depends(db)) -> dict:
+        """The folder participants' minted links open, if the researcher set one."""
+        return _workspace_doc(s.get(StudyWorkspace, study_id))
+
+    @app.put(
+        "/studies/{study_id}/workspace",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    async def set_workspace(
+        study_id: str,
+        path: str | None = Form(default=None),
+        file: UploadFile | None = File(default=None),
+        s: Session = Depends(db),
+    ) -> dict:
+        """Name the study folder: a path on participants' machines, or a zip of it."""
+        if (path is None) == (file is None):
+            raise HTTPException(400, "send either a folder path or a zip, not both")
+        row = s.get(StudyWorkspace, study_id) or StudyWorkspace(study_id=study_id)
+        try:
+            if file is not None:
+                content = await file.read(workspace.MAX_ARCHIVE_BYTES + 1)
+                workspace.validate_archive(content)
+                digest = sha256(content).hexdigest()
+                folder = settings.data_dir / "workspaces"
+                folder.mkdir(parents=True, exist_ok=True)
+                stored = folder / f"{_safe_name(study_id)}-{digest[:16]}.zip"
+                stored.write_bytes(content)
+                row.kind = "archive"
+                row.path = None
+                row.filename = file.filename or "workspace.zip"
+                row.stored_path = str(stored)
+                row.sha256 = digest
+                row.size = len(content)
+            else:
+                row.kind = "path"
+                row.path = workspace.validate_path(path or "")
+                row.filename = row.stored_path = row.sha256 = None
+                row.size = None
+        except workspace.WorkspaceError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        row.updated_at = now()
+        s.add(row)
+        s.flush()
+        return _workspace_doc(row)
+
+    @app.delete(
+        "/studies/{study_id}/workspace",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def clear_workspace(study_id: str, s: Session = Depends(db)) -> dict:
+        row = s.get(StudyWorkspace, study_id)
+        if row is not None:
+            s.delete(row)
+        return {"kind": None}
+
+    @app.get("/studies/{study_id}/workspace/archive")
+    def download_workspace_archive(
+        study_id: str,
+        authorization: str = Header(default=""),
+        s: Session = Depends(db),
+    ):
+        """The uploaded study folder, for a paired participant's extension."""
+        cred = resolve_credential(s, authorization)
+        if cred is None or cred.study_id != study_id:
+            raise HTTPException(401, "a valid session credential is required")
+        row = s.get(StudyWorkspace, study_id)
+        path = Path(row.stored_path) if row and row.stored_path else None
+        if row is None or row.kind != "archive" or path is None or not path.is_file():
+            raise HTTPException(404, "this study has no uploaded folder")
+        return Response(
+            content=path.read_bytes(),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="{_safe_name(study_id)}-workspace.zip"'
+                ),
+                "X-Content-SHA256": row.sha256 or "",
+                "Cache-Control": "no-store",
+            },
+        )
 
     @app.get("/studies/{study_id}/capture-config")
     def get_capture_config(

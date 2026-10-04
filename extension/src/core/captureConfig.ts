@@ -17,6 +17,46 @@ export interface SessionBlock {
   title: string;
   description: string;
   materials: string;
+  /** The study folder the link should open, when the server sent one. */
+  workspace?: WorkspaceSpec;
+}
+
+/** Where the study folder is: a path that exists on this machine, or a zip the
+ *  extension downloads from the study server (`url` is relative to it). */
+export type WorkspaceSpec =
+  | { kind: 'path'; path: string }
+  | {
+      kind: 'archive';
+      url: string;
+      sha256: string;
+      size: number;
+      filename: string;
+    };
+
+function readWorkspace(v: unknown): WorkspaceSpec | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const w = v as Record<string, unknown>;
+  if (w.kind === 'path' && typeof w.path === 'string' && w.path.trim()) {
+    return { kind: 'path', path: w.path };
+  }
+  if (
+    w.kind === 'archive' &&
+    typeof w.url === 'string' &&
+    w.url &&
+    typeof w.sha256 === 'string' &&
+    /^[0-9a-f]{64}$/.test(w.sha256) &&
+    typeof w.size === 'number' &&
+    Number.isFinite(w.size)
+  ) {
+    return {
+      kind: 'archive',
+      url: w.url,
+      sha256: w.sha256,
+      size: w.size,
+      filename: typeof w.filename === 'string' ? w.filename : 'workspace.zip',
+    };
+  }
+  return undefined;
 }
 
 export interface CaptureConfig {
@@ -104,5 +144,6 @@ export function readBlock(cfg: CaptureConfig): SessionBlock | undefined {
     title: str(b.title) || taskId,
     description: str(b.description),
     materials: str(b.materials),
+    workspace: readWorkspace(b.workspace),
   };
 }

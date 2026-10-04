@@ -120,3 +120,31 @@ test('a block falls back to its task id when it carries no title', () => {
   const b = readBlock({ ...CFG, block: { ...BLOCK, title: '' } });
   assert.equal(b?.title, 'fix-the-failing-test');
 });
+
+test('readBlock reads a path or archive workspace and ignores a malformed one', () => {
+  const base = { index: 0, of: 1, taskId: 't', condition: 'c', title: 'T' };
+  const read = (workspace: unknown) =>
+    readBlock({ ...CFG, block: { ...base, workspace } })?.workspace;
+  assert.deepEqual(read({ kind: 'path', path: '/x' }), {
+    kind: 'path',
+    path: '/x',
+  });
+  const sha = 'b'.repeat(64);
+  assert.deepEqual(
+    read({
+      kind: 'archive',
+      url: '/u',
+      sha256: sha,
+      size: 3,
+      filename: 'f.zip',
+    }),
+    { kind: 'archive', url: '/u', sha256: sha, size: 3, filename: 'f.zip' },
+  );
+  assert.equal(read({ kind: 'path', path: '  ' }), undefined);
+  assert.equal(
+    read({ kind: 'archive', url: '/u', sha256: 'short', size: 3 }),
+    undefined,
+  );
+  assert.equal(read('nonsense'), undefined);
+  assert.equal(read(undefined), undefined);
+});
