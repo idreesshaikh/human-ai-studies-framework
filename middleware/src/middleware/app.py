@@ -708,7 +708,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
         from middleware.export_bundle import build_bundle, is_synthetic
 
-        rows = _joined_rows(s, study_id)
+        rows = _joined_rows(s, study_id, include_synthetic=includeSynthetic)
         if not includeSynthetic:
             rows = [r for r in rows if not is_synthetic(r)]
         ds = Dataset(rows=rows, study_id=study_id)
