@@ -307,11 +307,11 @@ def test_toggle_invalid_path_returns_400(client_designed):
     assert r.status_code == 422
 
 
-def _events(pid, cond):
+def _events(pid, cond, session_id="s1"):
     return {
         "events": [
             {
-                "sessionId": "s1",
+                "sessionId": session_id,
                 "seq": 0,
                 "v": 3,
                 "participantId": pid,
@@ -340,6 +340,35 @@ def test_credentialed_ingest_server_stamps_join_keys(client_designed: TestClient
     assert row["participantId"] == "P01"
     assert row["condition"] == "ai-assisted"
     assert "credential-mismatch" in row["flags"]
+
+
+def test_participants_are_blind_but_records_keep_the_arm(client_designed: TestClient):
+    toks = client_designed.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 2, "grain": "participant"}
+    ).json()
+    arms = {t["participantId"]: t["condition"] for t in toks}
+    assert set(arms.values()) == {"ai-assisted", "unassisted"}
+
+    consents = set()
+    for i, tok in enumerate(toks):
+        raw = tok["connectionString"].split("#", 1)[1]
+        body = client_designed.post("/pair/redeem", json={"token": raw}).json()
+        consent = body["consentStatement"]
+        assert not any(arm in consent for arm in arms.values())
+        consents.add(consent)
+        r = client_designed.post(
+            "/ingest/events",
+            json=_events("", "", f"b{i}"),
+            headers={"authorization": f"Bearer {body['sessionCredential']}"},
+        )
+        assert r.status_code == 200
+        row = client_designed.get(f"/sessions/b{i}/events").json()[0]
+        assert row["condition"] == arms[tok["participantId"]]
+        assert "credential-mismatch" not in row["flags"]
+
+    assert len(consents) == 1
+    listed = client_designed.get("/studies/pilot/enrollment/tokens").json()
+    assert {t["participantId"]: t["condition"] for t in listed} == arms
 
 
 def test_ingest_without_credential_still_lands_flagged(client_designed: TestClient):
