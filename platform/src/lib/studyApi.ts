@@ -802,7 +802,7 @@ function seedEventRows(): DatasetRow[] {
             responseChars: latencyMs,
             outputTokens: Math.round(latencyMs / 4),
           });
-        // Server-derived AI insertion share from snapshots (0–1).
+        // Server-derived AI character share (ai chars / all added chars), 0–1.
         push("code_evolution", "agent-derived", {
           aiInsertionShare: Math.min(0.9, 0.35 + p * 0.07),
         });

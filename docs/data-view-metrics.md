@@ -38,7 +38,7 @@ colour alone (legend + labels + table).
 Static-code metrics read `payload[key]` from `source == "metrics"` rows.
 Event-derived measures read the event `type` from the one-timeline dataset.
 
-| Measure | Source | Type | Previews |
+| Measure | Source | Type | Related RQ |
 | --- | --- | --- | --- |
 | Cognitive complexity | static (`cognitive_complexity`) | continuous | RQ-P2 |
 | Function inputs | static (`parameter_count`) | count | RQ-P2 |
@@ -51,7 +51,7 @@ Event-derived measures read the event `type` from the one-timeline dataset.
 | Line width (mean / max) | static (`mean_line_width`, `max_line_width`) | continuous / count | RQ-P2 |
 | Code authorship (AI vs human) | `edit_burst.origin` | categorical | RQ-P3 |
 | AI-authored share | `edit_burst` (per participant) | continuous | RQ-P3 |
-| AI insertion share (snapshots) | `code_evolution.aiInsertionShare` | continuous | RQ-P3 |
+| AI character share (session) | `code_evolution.aiInsertionShare` | continuous | RQ-P3 |
 | Lines per edit burst | `edit_burst.linesTouched` | count | RQ-P3 |
 | Self-reported fatigue | `fatigue_response.value` (1–7) | ordinal | RQ-P1 |
 | Comprehension probe correctness | `comprehension_probe_response.correct` | categorical | RQ-P1 |
@@ -60,8 +60,9 @@ Event-derived measures read the event `type` from the one-timeline dataset.
 
 `correct` and `passed` fields that are `null` (ungradable / not applicable) are
 dropped from a rate rather than scored, so a correct-rate reflects only probes
-that were actually gradable. The research questions are those declared in the
-study protocol's analysis plan.
+that were actually gradable. The "Related RQ" column is indicative, taken from
+the pilot study's analysis plan; it is not resolved against each study's own
+plan, so the app does not display it next to the chart.
 
 ## Adding a measure
 
