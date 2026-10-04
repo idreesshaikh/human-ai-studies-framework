@@ -106,10 +106,7 @@ export function MetricStrip({
           {asTable ? "Chart" : "Table"}
         </Button>
       </div>
-      <p className="type-caption text-text-muted">
-        {metric.definition}
-        {metric.rqId && <span className="ml-1"> · previews {metric.rqId}</span>}
-      </p>
+      <p className="type-caption text-text-muted">{metric.definition}</p>
 
       {/* Full chart/table states keep a stable working height, while an empty
           metric stays content-sized. */}
@@ -253,7 +250,7 @@ function PointStrip({
                 textAnchor="end"
                 className="tabular fill-text-muted type-caption"
               >
-                {t.toFixed(0)}
+                {fmtTick(t, yTop - minV)}
               </text>
             </g>
           ))}
@@ -402,7 +399,13 @@ function OrdinalDistribution({
   const groupW = plotW / levels.length;
   const nSeries = Math.max(byCondition.length, 1);
   const barSlot = (groupW * 0.72) / nSeries;
-  const ticks = Array.from({ length: 6 }, (_, i) => (yTop * i) / 5);
+  // Counts are whole numbers, so the axis steps in whole numbers — otherwise a
+  // max of 1 draws gridlines at 0.2, 0.4… all rounded to a misleading 0 or 1.
+  const tickStep = Math.max(1, Math.ceil(yTop / 5));
+  const ticks = Array.from(
+    { length: Math.floor(yTop / tickStep) + 1 },
+    (_, i) => i * tickStep,
+  );
 
   return (
     <div className="flex flex-col gap-2">
@@ -499,10 +502,20 @@ function CategoricalShare({
   const byCondition = conds.map((c) => {
     const cObs = obs.filter((o) => o.condition === c);
     const { total, shares } = categoryShares(cObs, order);
-    return { condition: c, total, shares };
+    // n is the observation count; total is the weighted denominator (e.g.
+    // characters), which is not the same thing for a volume-weighted share.
+    return { condition: c, n: cObs.length, total, shares };
   });
 
-  const slotOf = (category: string) => ((order.indexOf(category) % 8) + 8) % 8 + 1;
+  // Colour slot comes from the full declared category list, not `order` (which
+  // drops absent categories), so a category keeps its colour whether or not the
+  // others are present.
+  const colorOrder = [
+    ...(metric.categories ?? []),
+    ...order.filter((c) => !metric.categories?.includes(c)),
+  ];
+  const slotOf = (category: string) =>
+    (((colorOrder.indexOf(category) % 8) + 8) % 8) + 1;
 
   if (asTable) {
     return (
@@ -528,7 +541,7 @@ function CategoricalShare({
                     {(s.share * 100).toFixed(0)}% ({s.weight})
                   </td>
                 ))}
-                <td className="px-3 py-2 text-text-muted">{c.total}</td>
+                <td className="px-3 py-2 text-text-muted">{c.n}</td>
               </tr>
             ))}
           </tbody>
@@ -545,9 +558,9 @@ function CategoricalShare({
           <div key={c.condition} className="flex flex-col gap-1">
             <div className="flex items-baseline justify-between type-caption">
               <span className="font-semibold text-text">{conditionLabel(c.condition)}</span>
-              <span className="tabular text-text-muted">n = {c.total}</span>
+              <span className="tabular text-text-muted">n = {c.n}</span>
             </div>
-            {c.total === 0 ? (
+            {c.n === 0 ? (
               <p className="type-caption text-text-muted">no data</p>
             ) : (
               <div
@@ -614,6 +627,13 @@ function niceCeil(v: number): number {
   if (v <= 0) return 1;
   const mag = Math.pow(10, Math.floor(Math.log10(v)));
   return Math.ceil(v / mag) * mag;
+}
+
+/** Axis label with enough decimals for the span, so fractional scales (shares,
+ *  ratios) aren't all rounded to 0/1. */
+function fmtTick(value: number, span: number): string {
+  const decimals = span >= 10 ? 0 : span >= 1 ? 1 : 2;
+  return value.toFixed(decimals);
 }
 
 function conditionLabel(value: string): string {
