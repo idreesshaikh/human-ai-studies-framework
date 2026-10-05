@@ -39,8 +39,9 @@ if (!BASE || !["localhost", "127.0.0.1", "[::1]"].includes(new URL(BASE).hostnam
     await page.getByRole('button',{name:'Plan',exact:true}).click();
     await page.getByText('Preview of accepted decisions.',{exact:false}).waitFor();
     await page.getByRole('link',{name:'Review and apply in Setup'}).click();
+    await page.getByRole('button',{name:'Review draft',exact:true}).click();
     const approved = page.waitForResponse(r => r.url().includes('/conversation/approve'));
-    await page.getByRole('button',{name:'Apply protocol',exact:true}).click();
+    await page.getByRole('button',{name:'Apply to protocol',exact:true}).click();
     assert.equal((await approved).status(),200);
     await page.getByRole('button',{name:'Plan',exact:true}).click();
     await page.getByRole('link',{name:'Continue to enrollment'}).waitFor();
