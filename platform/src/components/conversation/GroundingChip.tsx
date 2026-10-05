@@ -83,7 +83,7 @@ export function GroundingChip({ g }: { g: Grounding }) {
         onBlur={() => setOpen(false)}
         onClick={(event) => {
           event.stopPropagation();
-          setOpen((v) => !v);
+          setOpen(true);
         }}
       >
         {/* The chip is clean; the citation's own confidence is the framed

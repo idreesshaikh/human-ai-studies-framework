@@ -83,6 +83,12 @@ try {
     text: `Earlier study decision ${i}. ${"Review the study details carefully. ".repeat(5)}`,
     moves: [], recommendations: [], source: "llm",
   }));
+  history.at(-1).moves = [{
+    moveId: "controlled-citation", kind: "caution", status: "proposed", target: "design",
+    proposal: "Inspect the source before deciding.",
+    grounding: [{ ref: "doi:10.0000/rehearsal", title: "Controlled research citation",
+      year: 2026, confidence: 0.8, why: "Synthetic interaction fixture, not research evidence." }],
+  }];
   await page.route(`**/studies/${study.id}/conversation`, intercepted => intercepted.fulfill({ json: { turns: history } }));
   const requests = [];
   let release;
@@ -100,6 +106,12 @@ try {
   });
   await page.goto(`${route}?tab=setup`);
   const composer = page.getByRole("textbox", { name: "Message the design assistant" });
+  const citation = page.getByRole("button", { name: /^Grounded citation: Controlled research citation/ });
+  await citation.click();
+  await expect(page.getByRole("tooltip")).toContainText("Controlled research citation");
+  await expect(page.getByRole("button", { name: "Noted", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
   await composer.fill("Check this design");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await page.getByRole("button", { name: "Stop reply", exact: true }).waitFor();

@@ -35,3 +35,16 @@ test("explicit keep preserves a synthetic presentation fixture", async () => {
 test("personal projects cannot enter the cleanup workflow", async () => {
   await assert.rejects(createRehearsalProject({ post: () => assert.fail("Must not call API") }, "http://localhost:8011", "Personal", {}));
 });
+
+test("cleanup waits for confirmed absence, not a transient permissions response", async () => {
+  let probes = 0;
+  const reply = (status, body) => ({ status: () => status, json: async () => body });
+  const request = {
+    post: async url => reply(200, url.endsWith("/projects")
+      ? { slug: "synthetic-new", name: "Synthetic new" } : { id: "new-study" }),
+    delete: async () => reply(200, { deleted: "synthetic-new" }),
+    get: async () => reply(++probes < 3 ? 403 : 404, {}),
+  };
+  await (await createRehearsalProject(request, "http://localhost:8011", "Synthetic new", {})).cleanup();
+  assert.equal(probes, 3);
+});

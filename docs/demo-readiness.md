@@ -105,7 +105,10 @@ separate SQLite database; no existing participant projects were deleted.
 - End-to-end smoke: 126 scoped synthetic rows, ingest idempotency, sequence-gap
   detection, joined CSV keys, all ten analysis recipes, report/notebook/dictionary.
 - Strict documentation build passed. Docker daemon was unavailable locally;
-  a physical VS Code session and hosted deployment are **not certified** by these
+  the Docker image build passed in PR CI. The configured Ministral route returned
+  usable structured replies for all three bounded synthetic briefs, without a
+  429; this is compatibility evidence, not a model-quality benchmark.
+  A physical VS Code session and hosted deployment are **not certified** by these
   tests. No claim of exhaustive testing of every possible state or measured
   100/100 researcher usability is made.
 
