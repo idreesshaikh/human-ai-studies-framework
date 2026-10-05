@@ -681,8 +681,67 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                         for k in header
                     ]
                 )
-            return PlainTextResponse(buf.getvalue(), media_type="text/csv")
+            return PlainTextResponse(
+                buf.getvalue(),
+                media_type="text/csv",
+                headers={
+                    "Content-Disposition": (
+                        f'attachment; filename="{study_id}-dataset.csv"'
+                    )
+                },
+            )
         raise HTTPException(400, "format must be 'json' or 'csv'")
+
+    @app.get(
+        "/studies/{study_id}/data-bundle",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def download_data_bundle(
+        study_id: str,
+        includeSynthetic: bool = False,
+        s: Session = Depends(db),
+    ):
+        """
+        The collected data as a zip of tidy CSVs, the joined timeline, a data
+        dictionary and uploaded files, for the researcher's own postprocessing.
+        Dry-run (synthetic) rows are left out unless asked for.
+        """
+        from analysis.dataset import Dataset
+        from analysis.notebook import data_dictionary_markdown
+
+        from middleware.export_bundle import build_bundle, is_synthetic
+
+        rows = _joined_rows(s, study_id, include_synthetic=includeSynthetic)
+        if not includeSynthetic:
+            rows = [r for r in rows if not is_synthetic(r)]
+        ds = Dataset(rows=rows, study_id=study_id)
+        dictionary_md = f"# {study_id}: data dictionary\n\n" + data_dictionary_markdown(
+            ds
+        )
+        files = []
+        for f in s.scalars(
+            select(StoredFile)
+            .where(StoredFile.study_id == study_id)
+            .order_by(StoredFile.id)
+        ):
+            path = Path(f.stored_path)
+            if path.is_file():
+                files.append((f"{f.id}-{f.filename}", path.read_bytes()))
+        return Response(
+            content=build_bundle(
+                study_id,
+                rows,
+                dictionary_md,
+                files,
+                protocol=_resolve_study_protocol(s, study_id),
+                include_synthetic=includeSynthetic,
+            ),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="{study_id}-data.zip"',
+                "Cache-Control": "no-store",
+            },
+        )
 
     @app.get(
         "/studies/{study_id}/protocol",

@@ -7,7 +7,7 @@ import {
   ChevronRight,
   FlaskConical,
 } from "lucide-react";
-import { Info } from "lucide-react";
+import { Download, Info } from "lucide-react";
 import { MetricStrip } from "./MetricStrip";
 import { SwimlaneTimeline } from "./SwimlaneTimeline";
 import { PrescriptionPanel } from "./PrescriptionPanel";
@@ -124,6 +124,25 @@ export function DataTab({ studyId }: { studyId: string }) {
     }
   };
   const [showClientRehearsal, setShowClientRehearsal] = useState(false);
+  const [includeSynthetic, setIncludeSynthetic] = useState(false);
+  const [download, setDownload] = useState<{
+    busy: boolean;
+    error: string | null;
+  }>({ busy: false, error: null });
+
+  const downloadBundle = async () => {
+    setDownload({ busy: true, error: null });
+    try {
+      await studyApi.downloadDataBundle(studyId, includeSynthetic);
+      setDownload({ busy: false, error: null });
+    } catch (e) {
+      setDownload({
+        busy: false,
+        error:
+          e instanceof Error ? e.message : "Couldn't download this study's data.",
+      });
+    }
+  };
 
   // The full one-timeline dataset — the metric registry selects per measure.
   const datasetRows = rows;
@@ -245,6 +264,40 @@ export function DataTab({ studyId }: { studyId: string }) {
         <p className="type-caption text-critical" role="alert">
           {dryRun.error}
         </p>
+      )}
+
+      {sessions.length > 0 && !seeded && (
+        <section className="flex flex-col gap-2 border-b border-border pb-5">
+          <h2 className="type-subhead text-text">Download data</h2>
+          <p className="max-w-reading type-caption text-text-muted">
+            A zip with one tidy CSV per event type, the joined timeline and a
+            data dictionary, for your own postprocessing.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={download.busy}
+              onClick={() => void downloadBundle()}
+            >
+              <Download className="size-4" aria-hidden />
+              Download data (.zip)
+            </Button>
+            <label className="flex items-center gap-2 type-caption text-text-muted">
+              <input
+                type="checkbox"
+                checked={includeSynthetic}
+                onChange={(e) => setIncludeSynthetic(e.target.checked)}
+              />
+              Include dry-run (synthetic) rows
+            </label>
+          </div>
+          {download.error && (
+            <p className="type-caption text-critical" role="alert">
+              {download.error}
+            </p>
+          )}
+        </section>
       )}
 
       <section className="flex flex-col gap-stack">
