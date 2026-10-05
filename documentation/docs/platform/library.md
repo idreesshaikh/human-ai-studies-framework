@@ -12,8 +12,7 @@ reuse a method without treating reuse as a black box.
 ## Protocol templates
 
 Design shapes are ranked by how widely the corpus uses them. Each shape carries
-the statistical plan it requires; merging shapes creates a novel protocol while
-retaining every supporting reference.
+the statistical plan it requires and keeps its supporting references.
 
 Examples include:
 

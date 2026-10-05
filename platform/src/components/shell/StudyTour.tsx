@@ -108,7 +108,7 @@ export function StudyTour({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-scrim p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-label="Getting started"

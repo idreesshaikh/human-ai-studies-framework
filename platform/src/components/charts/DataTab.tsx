@@ -27,6 +27,7 @@ import {
   type StudyStatusDoc,
 } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
+import { captureTokenLabel, producerStateLabel } from "@/lib/uiText";
 
 /* The Data surface  -  the study's collected data as honest shapes (NFR-8).
  * Per-session
@@ -204,7 +205,7 @@ export function DataTab({ studyId }: { studyId: string }) {
     <Surface measure="work" label="Data">
       {!seeded && (
         <div className="flex flex-col gap-2 border-b border-border pb-5">
-          <label className="flex items-center gap-2 type-caption text-text">
+          <label className="flex min-h-7 w-fit cursor-pointer items-center gap-2 type-caption text-text">
             <input
               type="checkbox"
               checked={includeSynthetic}
@@ -248,7 +249,7 @@ export function DataTab({ studyId }: { studyId: string }) {
 
       {statusDoc && Object.keys(statusDoc.producers).length > 0 && (
         <details className="border-b border-border pb-5">
-          <summary className="type-subhead cursor-pointer text-text">Configured producers</summary>
+          <summary className="type-subhead cursor-pointer text-text">Capture sources and their status</summary>
           <div className="mt-2">
             <p className="mt-1 max-w-reading type-caption text-text-muted">
               Configuration is not receipt. A source is counted below only after its events or metric rows arrive.
@@ -258,8 +259,8 @@ export function DataTab({ studyId }: { studyId: string }) {
             {Object.entries(statusDoc.producers).map(([id, producer]) => (
               <div key={id} className="rounded-input border border-border px-3 py-2">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="type-label text-text">{id}</span>
-                  <span className="type-caption text-text-muted">{producer.state}</span>
+                  <span className="type-label text-text">{captureTokenLabel(id)}</span>
+                  <span className="type-caption text-text-muted">{producerStateLabel(producer.state)}</span>
                 </div>
                 <p className="mt-0.5 type-caption text-text-muted">{producer.reason}</p>
               </div>

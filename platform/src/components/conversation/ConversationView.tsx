@@ -1,3 +1,4 @@
+import { compileOnOpenAllowed, type RoleState } from "@/lib/role";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MoreHorizontal, PanelRight, PanelRightClose, Send, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,11 @@ import { EvidencePanel } from "./EvidencePanel";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { compileAll, sinceManualEntry } from "@/lib/compiler";
 import { openingTurn } from "@/lib/conversationOpening";
+import {
+  nextFocusAfterDecision,
+  rejectedMoveText,
+  shouldFollowUpAfterDecision,
+} from "@/lib/uiText";
 import type { Recommendation } from "@/lib/types";
 import {
   conversationApi,
@@ -53,11 +59,16 @@ function isDecisionEcho(text: string): boolean {
   return /^(I )?(accepted|rejected|noted)\b/i.test(text.trim());
 }
 
+const LOADING_ROLE: RoleState = { status: "loading" };
+
 export function ConversationView({
   studyId = "study",
   opening = "",
+  roleState = LOADING_ROLE,
 }: {
   studyId?: string;
+  /** My role in the project; a viewer's open never issues the compile POST. */
+  roleState?: RoleState;
   /** A first line to send on arrival, typed by the researcher elsewhere  -
    *  the "what do you want to find out?" answer given while creating the
    *  project. Sent once, then never again for this study. */
@@ -105,6 +116,13 @@ export function ConversationView({
   /* The last turn that failed or was stopped, so resending the same text reuses
    * its request id and the server can recognise it as the same turn. */
   const failedRequest = useRef<{ text: string; id: string } | null>(null);
+  /* A decision that completed the last pending card while a reply was still
+   * streaming: its follow-up turn waits for that reply instead of being
+   * dropped or racing it. */
+  const queuedFollowUp = useRef<{ text: string; decision: DecisionTrigger } | null>(null);
+  const sendTextRef = useRef<
+    (text: string, decision?: DecisionTrigger, fromQueue?: boolean) => Promise<void>
+  >(async () => {});
   /* How much the assistant drives this conversation (see lib/steer.ts).
    * Per-study and read lazily, so a reload lands back on the setting this
    * study was left at rather than on the default. */
@@ -270,6 +288,10 @@ export function ConversationView({
     return out;
   }, [turns]);
 
+  /* Primitives, so the callback's identity only changes when the answer does. */
+  const roleLoading = roleState.status === "loading";
+  const mayCompile = compileOnOpenAllowed(roleState);
+
   const refreshCompile = useCallback(async () => {
     /* Do not let the protocol fallback race the conversation load. On a tab
      * switch the seeded read-only document can arrive before the conversation
@@ -278,6 +300,19 @@ export function ConversationView({
      * the conversation settles, so both panes have one coherent hand-off. */
     if (!live || conversationLoading) return;
     const request = ++compileRequest.current;
+    if (!mayCompile) {
+      /* Read-only (or role not yet known): never POST. A viewer sees the
+       * study's record from the view-capability document instead. */
+      if (roleLoading) return;
+      setCompileResult(null);
+      try {
+        const protocol = await studyApi.protocol(studyId);
+        if (request === compileRequest.current) setReadOnlyProtocol(protocol);
+      } catch {
+        if (request === compileRequest.current) setReadOnlyProtocol(null);
+      }
+      return;
+    }
     setCompiling(true);
     try {
       const result = await conversationApi.compile(studyId);
@@ -302,7 +337,7 @@ export function ConversationView({
     } finally {
       if (request === compileRequest.current) setCompiling(false);
     }
-  }, [conversationLoading, live, studyId]);
+  }, [conversationLoading, live, studyId, mayCompile, roleLoading]);
 
   useEffect(() => {
     if (live) void refreshCompile();
@@ -312,6 +347,7 @@ export function ConversationView({
     const { turns: t, understanding: u } = await loadConversation(studyId);
     setTurns(t);
     setUnderstanding(u);
+    return t;
   }
 
   /* An opening taken from the blank record: it lands in the composer for the
@@ -335,8 +371,8 @@ export function ConversationView({
    * line the researcher already typed  -  in the "what do you want to find
    * out?" field on project creation  -  can be sent on arrival without being
    * round-tripped through the composer's state first. */
-  async function sendText(text: string, decision?: DecisionTrigger) {
-    if (!text || busy) return;
+  async function sendText(text: string, decision?: DecisionTrigger, fromQueue = false) {
+    if (!text || (busy && !fromQueue)) return;
 
     // "finish" / "wrap up" / "done" opens the protocol-review moment rather
     // than sending a turn  -  the researcher is signalling they're ready to
@@ -421,9 +457,16 @@ export function ConversationView({
             ...appended.turns,
           ];
         });
-        if (followReply.current) setFocusMoveId(firstProposed(appended.turns));
+        /* A reply to a decision never takes the caret: the researcher is
+         * already working through the cards and focus stays where they put it. */
+        if (!decision && followReply.current) setFocusMoveId(firstProposed(appended.turns));
       }
       scrollDown();
+      const queued = queuedFollowUp.current;
+      if (queued) {
+        queuedFollowUp.current = null;
+        queueMicrotask(() => void sendTextRef.current(queued.text, queued.decision, true));
+      }
     } catch (e) {
       if (abortRef.current !== controller) return;
       /* No invented reply. The platform used to answer from a keyword script
@@ -457,9 +500,12 @@ export function ConversationView({
     }
   }
 
+  sendTextRef.current = sendText;
+
   function stopReply() {
     const request = activeRequest.current;
     if (!request) return;
+    queuedFollowUp.current = null;
     abortRef.current?.abort();
     abortRef.current = null;
     activeRequest.current = null;
@@ -471,6 +517,18 @@ export function ConversationView({
     setNote("Stopped. Your message is back in the box. Send it again when you're ready.");
   }
 
+  /* Undo moves a card out of "recorded decisions" and back into the open list,
+   * which remounts it; the caret follows it there instead of dropping to body. */
+  function focusDecidedCard(moveId: string) {
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLElement>(`[data-move-id="${CSS.escape(moveId)}"]`)
+          ?.focus(),
+      ),
+    );
+  }
+
   async function decide(
     moveId: string,
     status: MoveStatus,
@@ -478,8 +536,41 @@ export function ConversationView({
   ) {
     const move =
       renderedMove ?? turns.flatMap((t) => t.moves).find((m) => m.moveId === moveId);
-    if (!move || busy) return;
+    if (!move) return;
     const previousStatus = move.status;
+    /* The reply this decision belongs to: its other cards decide whether the
+     * assistant is asked for another turn at all. */
+    const ownTurnMoves = turns.find((t) => t.moves.some((m) => m.moveId === moveId))?.moves ?? [];
+    const followUp = shouldFollowUpAfterDecision(ownTurnMoves, moveId, status);
+    /* A card that had the caret (a / r, or its buttons) is about to lose its
+     * Accept/Reject controls. Hand focus to the next undecided card, or to this
+     * card's Undo, instead of letting it fall to <body>. */
+    const heldFocus =
+      status !== "proposed" &&
+      document.activeElement?.closest<HTMLElement>("[data-move-id]")?.dataset
+        .moveId === moveId;
+    if (status === "proposed" && document.activeElement?.closest<HTMLElement>("[data-move-undo]")?.dataset.moveUndo === moveId) {
+      focusDecidedCard(moveId);
+    }
+    if (heldFocus) {
+      const target = nextFocusAfterDecision(
+        ownTurnMoves.length ? ownTurnMoves : turns.flatMap((t) => t.moves),
+        moveId,
+      );
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          const el =
+            target.kind === "move"
+              ? document.querySelector<HTMLElement>(
+                  `[data-move-id="${CSS.escape(target.moveId)}"]`,
+                )
+              : document.querySelector<HTMLElement>(
+                  `[data-move-undo="${CSS.escape(target.moveId)}"]`,
+                );
+          el?.focus();
+        }),
+      );
+    }
     setTurns((prev) =>
       prev.map((t) => ({
         ...t,
@@ -556,12 +647,18 @@ export function ConversationView({
             : "accepted";
       const actionText =
         action === "rejected"
-          ? `I rejected the proposed ${move.kind.replaceAll("-", " ")} move.`
+          ? rejectedMoveText(move.kind)
           : action === "noted"
             ? `I noted the caution about ${move.proposal}`
             : `I accepted: ${move.proposal}`;
+      if (!followUp) return;
       try {
-        await sendText(actionText, { moveId, action });
+        if (busy) {
+          queuedFollowUp.current = { text: actionText, decision: { moveId, action } };
+          setNote("Saved. The assistant will answer once its current reply has finished.");
+        } else {
+          await sendText(actionText, { moveId, action });
+        }
       } catch {
         setNote("The decision was saved, but the next question could not be generated. Try sending a short reply to continue.");
       }
@@ -586,8 +683,10 @@ export function ConversationView({
     const pending = moves.filter(
       (move) => move.status === "proposed" && move.kind !== "caution",
     );
-    if (pending.length < 2 || busy) return;
-    setBusy(true);
+    if (pending.length < 2) return;
+    const streaming = busy;
+    if (!streaming) setBusy(true);
+    let batchSaved = false;
     setTurns((prev) =>
       prev.map((turn) => ({
         ...turn,
@@ -627,6 +726,7 @@ export function ConversationView({
         }
       }
       setNote(`${saved.length} choices from your brief were accepted together. Review the draft, then continue with any open detail.`);
+      batchSaved = live;
     } catch {
       setTurns((prev) =>
         prev.map((turn) => ({
@@ -647,7 +747,18 @@ export function ConversationView({
       );
       setNote(`${saved.length} choices were saved; the rest remain open. Try the batch again when the connection is stable.`);
     } finally {
-      setBusy(false);
+      if (!streaming) setBusy(false);
+    }
+    /* One follow-up for the whole batch, not one per card. */
+    if (batchSaved) {
+      const last = pending[pending.length - 1];
+      const text = `I accepted ${saved.length} proposed choices together.`;
+      const decision: DecisionTrigger = { moveId: last.moveId, action: "accepted" };
+      if (streaming) {
+        queuedFollowUp.current = { text, decision };
+      } else {
+        await sendText(text, decision, true);
+      }
     }
   }
 
@@ -779,11 +890,11 @@ export function ConversationView({
             </div>
           </header>
 
-          {evidenceOpen && <EvidencePanel studyId={studyId} onProposed={async () => { await reloadConversation(); setLive(true); setNote(null); setEvidenceOpen(false); }} />}
+          {evidenceOpen && <EvidencePanel studyId={studyId} onClose={() => { setEvidenceOpen(false); queueMicrotask(() => composer.current?.focus()); }} onProposed={async () => { const updated = await reloadConversation(); setLive(true); setNote(null); setEvidenceOpen(false); setFocusMoveId(firstProposed(updated)); }} />}
 
           <div className={cn("mx-auto flex w-full max-w-reading flex-col gap-5 px-4 py-5 sm:px-8 sm:py-8", welcome && "flex-1 justify-center pb-12")}>
             {conversationLoading ? (
-              <div className="space-y-3 py-2" aria-busy="true" aria-label="Loading conversation">
+              <div className="space-y-3 py-2" role="status" aria-busy="true" aria-label="Loading conversation">
                 <div className="h-3 w-24 animate-pulse rounded-full bg-border" />
                 <div className="h-4 w-4/5 animate-pulse rounded-full bg-border" />
                 <div className="h-4 w-3/5 animate-pulse rounded-full bg-border" />
@@ -805,10 +916,20 @@ export function ConversationView({
                       focusMoveId={turn === activePlatform ? focusMoveId : null}
                       active
                     />
-                    {turn !== activePlatform && turn.moves.length > 0 && (
+                    {/* Pending choices stay in the open list wherever a later turn
+                      * has landed; only fully decided turns fold away. */}
+                    {turn !== activePlatform && turn.moves.some(move => move.status === "proposed") && (
+                      <StreamingTurn
+                        turn={{ ...turn, text: "" }}
+                        onDecide={decide}
+                        onAcceptBatch={acceptBatch}
+                        active
+                      />
+                    )}
+                    {turn !== activePlatform && turn.moves.length > 0 && !turn.moves.some(move => move.status === "proposed") && (
                       <details className="mt-2">
                         <summary className="type-caption cursor-pointer text-text-muted">
-                          {turn.moves.filter(move => move.status === "proposed").length > 0 ? "Review open choices" : "View decisions"}
+                          View decisions
                         </summary>
                         <StreamingTurn turn={{ ...turn, text: "" }} onDecide={decide} />
                       </details>
@@ -825,7 +946,7 @@ export function ConversationView({
                         </span>
                       </div>
                     )}
-                    <div className="flex items-center gap-1 px-1 py-1 type-caption text-text-muted" aria-label="Assistant is thinking">
+                    <div className="flex items-center gap-1 px-1 py-1 type-caption text-text-muted" role="status" aria-label="Assistant is thinking">
                       <span className="size-1.5 animate-pulse rounded-full bg-text-muted" />
                       <span className="size-1.5 animate-pulse rounded-full bg-text-muted [animation-delay:var(--motion-fast)]" />
                       <span className="size-1.5 animate-pulse rounded-full bg-text-muted [animation-delay:var(--motion-standard)]" />
@@ -840,14 +961,18 @@ export function ConversationView({
           </div>
         </div>
 
-        {note && !evidenceOpen && (
-          <div className="border-t border-border bg-surface px-4 py-2 sm:px-6">
-            <Notice kind="offline" className="mx-auto w-full max-w-bubble">
-              {note}
-              {!live && compileResult && <Button variant="ghost" size="sm" onClick={() => setManualOpen(true)}>Enter details manually</Button>}
-            </Notice>
-          </div>
-        )}
+        {/* Always mounted so a screen reader announces a note that appears
+          * (Stopped, Saved, failures) rather than missing a new region. */}
+        <div role="status">
+          {note && !evidenceOpen && (
+            <div className="border-t border-border bg-surface px-4 py-2 sm:px-6">
+              <Notice kind="offline" className="mx-auto w-full max-w-bubble">
+                {note}
+                {!live && compileResult && <Button variant="ghost" size="sm" onClick={() => setManualOpen(true)}>Enter details manually</Button>}
+              </Notice>
+            </div>
+          )}
+        </div>
 
         {!welcome && messageComposer}
       </section>
@@ -966,6 +1091,7 @@ export function ConversationView({
         <ManualProtocolDialog
           studyId={studyId}
           protocol={compileResult?.protocol}
+          moves={allMoves}
           onClose={() => setManualOpen(false)}
           onEntered={() => { setLive(true); void reloadConversation(); }}
         />

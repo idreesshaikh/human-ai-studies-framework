@@ -6,12 +6,15 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
+  rejectedMoveText,
   plainErrorMessage,
   isMissingProtocolError,
   describeMintError,
   mintCountProblem,
   GRAIN_OPTIONS,
   captureTokenLabel,
+  producerStateLabel,
+  eventTypeLabel,
   enrollmentHeading,
   shortcutLabel,
   isMacPlatform,
@@ -20,7 +23,15 @@ import {
   nextFocusAfterDecision,
   NEW_PROJECT_PATH,
   paletteProjects,
+  sentenceCase,
+  displayServerMessage,
+  isFatalInviteError,
+  plainMatchReason,
 } from "../src/lib/uiText.ts";
+import { compileOnOpenAllowed } from "../src/lib/role.ts";
+import { documentTitle } from "../src/lib/documentTitle.ts";
+import { themeToggleLabel } from "../src/lib/theme.ts";
+import { humanSlug } from "../src/lib/slug.ts";
 import { resolveStudyTab } from "../src/lib/studyTabs.ts";
 import { rememberStudyName, studyDisplayName } from "../src/lib/studyNames.ts";
 import { summarizeProducerStates } from "../src/components/enrollment/captureSummary.ts";
@@ -80,7 +91,7 @@ ok("count 7 is fine", mintCountProblem("7") === null);
 ok(
   "grain labels are plain words",
   GRAIN_OPTIONS.map((o) => o.label).join("|") ===
-    "One link per participant, reusable|One link per session, single use",
+    "Per participant|Per session",
 );
 ok(
   "grain values stay stable for the API",
@@ -249,8 +260,83 @@ ok("coarse targets use a token", /--touch-target/.test(css));
 /* UI-11 */
 const gc = src("components/conversation/GroundingChip.tsx");
 ok("grounding card avoids the chip's own card actions", /event\.stopPropagation\(\)/.test(gc));
-ok("Data tab leads with the data-source question", src("components/charts/DataTab.tsx").indexOf("<DataProvenance") < src("components/charts/DataTab.tsx").indexOf("Configured producers"));
+ok("Data tab leads with the data-source question", src("components/charts/DataTab.tsx").indexOf("<DataProvenance") < src("components/charts/DataTab.tsx").indexOf("Capture sources"));
 ok("producers sit in a details disclosure", /<details[\s\S]{0,200}Configured producers|<summary[^>]*>[\s\S]{0,80}Configured producers|Capture sources/.test(src("components/charts/DataTab.tsx")));
+
+/* Overlay scrim: a light wash over the dark theme was the defect. */
+const tokens = src("styles/tokens.css");
+const scrimAlpha = (block) => Number((block.match(/--scrim:\s*rgb\([^/]*\/\s*([0-9.]+)\)/) ?? [])[1]);
+const lightBlock = tokens.slice(0, tokens.indexOf("--zone-0: #e9eff8"));
+const darkBlock = tokens.slice(tokens.indexOf("--zone-0: #e9eff8"));
+ok("a scrim token exists in both themes", Number.isFinite(scrimAlpha(lightBlock)) && Number.isFinite(scrimAlpha(darkBlock)));
+ok("the dark scrim dims at least as much as the light one", scrimAlpha(darkBlock) >= scrimAlpha(lightBlock));
+ok("no overlay uses the theme-flipping ink as its scrim",
+  !["components/ui/dialog.tsx", "components/shell/StudyTour.tsx", "components/shell/AppFrame.tsx"]
+    .some((f) => /bg-ink\/\d+/.test(src(f))));
+
+/* Round 3: titles, invite copy, tap targets, labels */
+const T = (pathname, extra = {}) => documentTitle({ pathname, search: "", signedOut: false, ...extra });
+ok("title /home", T("/home") === "Projects · Phoenix", T("/home"));
+ok("title /start", T("/start") === "Start a study · Phoenix");
+ok("title /settings", T("/settings") === "Account settings · Phoenix");
+ok("title /repertoire", T("/repertoire") === "Templates · Phoenix");
+ok("title project falls back", T("/p/lab") === "Project · Phoenix");
+ok("title project uses its name", T("/p/lab", { projectName: "Lab A" }) === "Lab A · Phoenix");
+ok("title members", T("/p/lab/members") === "Members · Phoenix");
+ok("title project settings", T("/p/lab/settings") === "Project settings · Phoenix");
+ok("title invitation", T("/invitations/abc") === "Project invitation · Phoenix");
+ok("title study + default tab", T("/p/lab/studies/s1", { studyName: "Trust study" }) === "Trust study · Setup · Phoenix", T("/p/lab/studies/s1", { studyName: "Trust study" }));
+ok("title study + tab param", documentTitle({ pathname: "/p/lab/studies/s1", search: "?tab=data", studyName: "Trust study" }) === "Trust study · Data · Phoenix");
+ok("title 404", T("/nope/zzz") === "Page not found · Phoenix");
+ok("title landing has no suffix", T("/") === "Phoenix: run a defensible developer study");
+ok("title sign-in", T("/signin") === "Sign in · Phoenix");
+ok("sentenceCase", sentenceCase("invitation not found") === "Invitation not found");
+ok("displayServerMessage capitalises and punctuates",
+  displayServerMessage("invitation not found. It may have expired or been revoked") === "Invitation not found. It may have expired or been revoked.");
+ok("displayServerMessage keeps ? and .", displayServerMessage("Done.") === "Done." && displayServerMessage("Why?") === "Why?");
+ok("displayServerMessage of blank is blank", displayServerMessage("  ") === "");
+ok("404/410 invite errors are fatal", isFatalInviteError({ status: 404 }) && isFatalInviteError({ status: 410 }));
+ok("other invite errors are retryable", !isFatalInviteError({ status: 500 }) && !isFatalInviteError(new Error("x")));
+const inv = src("pages/InviteAccept.tsx");
+ok("invite page hides Accept after a fatal error", /fatal/.test(inv) && /displayServerMessage/.test(inv));
+ok("invite link is a Button", /<Button asChild[^>]*>\s*<Link to="\/home"/.test(inv));
+ok("plainMatchReason rewrites jargon", plainMatchReason("Describes itself with: self-reported, survey.") === "Matches: self-reported, survey.");
+ok("plainMatchReason leaves others", plainMatchReason("Measures X.") === "Measures X.");
+ok("theme toggle names the action", themeToggleLabel("light") === "Switch to dark theme" && themeToggleLabel("dark") === "Switch to light theme");
+ok("emoji gets a space before a word", humanSlug("🚀study") === "🚀 study", humanSlug("🚀study"));
+ok("plain slug unchanged", humanSlug("case-study") === "Case study");
+ok("coarse block also covers narrow viewports", /@media \(pointer: coarse\), \(max-width: 640px\)/.test(css));
+ok("switcher keeps New project reachable", /forceMount/.test(src("components/shell/ProjectSwitcher.tsx")));
+ok("dialog primitive guarantees an accessible name", /DialogPrimitive\.Title/.test(src("components/ui/command.tsx")) || /VisuallyHidden|sr-only/.test(src("components/ui/command.tsx")));
+ok("404 page is branded in the shell", /PhoenixMark/.test(src("App.tsx")) && /Page not found|does not exist/.test(src("App.tsx")));
+ok("shell sets the document title", /useDocumentTitle/.test(src("components/shell/AppFrame.tsx")));
+
+/* Write-on-open: a read-only role must never POST on load. */
+ok("compile-on-open waits while the role is unknown", compileOnOpenAllowed({ status: "loading" }) === false);
+ok("compile-on-open never runs for a viewer", compileOnOpenAllowed({ status: "known", role: "viewer" }) === false);
+ok("compile-on-open runs for member and owner", compileOnOpenAllowed({ status: "known", role: "member" }) && compileOnOpenAllowed({ status: "known", role: "owner" }));
+ok("compile-on-open leaves non-members to the server (local mode)", compileOnOpenAllowed({ status: "known", role: null }) === true);
+ok("ConversationView takes the role and gates compile", /compileOnOpenAllowed/.test(src("components/conversation/ConversationView.tsx")) && /roleState=/.test(src("pages/StudyHome.tsx")));
+
+/* Plain labels for producers, their states and raw event types. */
+ok("workspace-snapshot is plain", captureTokenLabel("workspace-snapshot") === "Workspace snapshots");
+ok("participant-git is plain", captureTokenLabel("participant-git") === "Git history");
+ok("task-harness is plain", captureTokenLabel("task-harness") === "Task outcomes");
+ok("agent-derived is plain", captureTokenLabel("agent-derived") === "Derived AI measures");
+ok("external-required state is plain", producerStateLabel("external-required") === "Separate runner needed");
+ok("unavailable state is plain", producerStateLabel("unavailable") === "Not configured");
+ok("unknown state is humanised", producerStateLabel("some-new-state") === "Some new state");
+ok("event types read as words", eventTypeLabel("agent.prompt_sent") === "Agent prompt sent");
+ok("no raw capture tokens in evidence details", !/\{capture\.availability\}|>\{measure\.id\}:|\{capture\.eventTypes\?\.join/.test(src("components/conversation/EvidenceDetails.tsx")));
+ok("data tab states are labelled", /producerStateLabel\(producer\.state\)/.test(src("components/charts/DataTab.tsx")));
+ok("summary rows have a 24px+ target", /summary \{[^}]*min-height: var\(--target-min\)/.test(css));
+ok("touch links reach 44px on phones", /a\.touch-link \{[^}]*min-width: var\(--touch-target\)/.test(css));
+
+/* Decision echo shown as the researcher's own turn: plain nouns, no code words. */
+ok("a rejected field card is described as a setting", rejectedMoveText("set-field") === "I rejected the proposed setting.");
+ok("a rejected measure card is described as a measure", rejectedMoveText("add-measure") === "I rejected the proposed measure.");
+ok("a rejected design card is described as a design", rejectedMoveText("choose-template") === "I rejected the proposed design.");
+ok("no hyphenated kind name leaks into the echo", !/-/.test(rejectedMoveText("reconfigure-instrument")));
 
 if (failures) {
   console.error(`\n${failures} check(s) failed`);

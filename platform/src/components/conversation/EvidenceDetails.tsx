@@ -1,3 +1,4 @@
+import { captureTokenLabel, eventTypeLabel, producerStateLabel } from "@/lib/uiText";
 import type { EvidenceCandidate } from "@/lib/evidenceApi";
 
 export function EvidenceDetails({ candidate }: { candidate: EvidenceCandidate }) {
@@ -27,10 +28,10 @@ export function EvidenceDetails({ candidate }: { candidate: EvidenceCandidate })
       <section className="space-y-1">
         <h4 className="font-medium text-text">Measurement requirements</h4>
         {candidate.study.measures.map(measure => (
-          <p key={measure.id}>{measure.id}: {measure.instrument ?? "instrument unknown"} → {measure.datasetFields?.join(", ") || "dataset fields unknown"} → {measure.analysisRecipe ?? "analysis not specified"}</p>
+          <p key={measure.id}>{captureTokenLabel(measure.id)}: {measure.instrument ?? "instrument unknown"} → {measure.datasetFields?.join(", ") || "dataset fields unknown"} → {measure.analysisRecipe ?? "analysis not specified"}</p>
         ))}
         {candidate.study.captureRequirements.map((capture, i) => (
-          <p key={i}>{capture.producer ?? "Unknown producer"}: {capture.availability} · {capture.eventTypes?.join(", ") || "events unspecified"}</p>
+          <p key={i}>{capture.producer ? captureTokenLabel(capture.producer) : "Unknown capture source"}: {producerStateLabel(capture.availability)} · {capture.eventTypes?.map(eventTypeLabel).join(", ") || "events unspecified"}</p>
         ))}
         <p>These are requirements, not a claim that capture is configured or data exists.</p>
       </section>

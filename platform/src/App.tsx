@@ -1,5 +1,8 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes, Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { PhoenixMark } from "@/components/brand/PhoenixMark";
+import { useRouteTitle } from "@/lib/useDocumentTitle";
 import { AppFrame } from "@/components/shell/AppFrame";
 import { SignInScreen } from "@/components/shell/SignInScreen";
 import { useAuth } from "@/lib/auth.tsx";
@@ -53,16 +56,14 @@ function PageFallback() {
 
 /* Routes the shell renders to anyone, credential or not.
  *
- * The repertoire is a public browse and the middleware already treats it as
- * one: `/templates/repertoire`, `/templates/merge`, `/templates/from-paper`
- * and `/corpus/search` all carry no auth dependency and answer 200 to an
- * unauthenticated request. The gate was the SPA's own invention, and it made
+ * Templates are a public browse and the middleware already treats them as
+ * one: `/templates/repertoire` carries no auth dependency and answers 200 to
+ * an unauthenticated request. The gate was the SPA's own invention, and it made
  * the page contradict its own first line  -  "No project needed to browse"  -
  * by demanding an account before a visitor saw a single design shape.
  *
  * Public means readable, not writable. Every action that creates something
- * still needs an identity, and each one says so where it is (CreateStudyFrom,
- * the describe-a-study panel). */
+ * still needs an identity, and the describe-a-study panel says so where it is. */
 const PUBLIC_PATHS = new Set(["/repertoire"]);
 
 function Shell() {
@@ -88,17 +89,34 @@ function Shell() {
 }
 
 function NotFound() {
+  const { hasCredential } = useAuth();
+  useRouteTitle();
   return (
-    <main className="mx-auto flex max-w-narrow flex-col items-center gap-3 p-16 text-center">
-      {/* An `h1`, not a styled paragraph. This was the one page in the app
-        * with no heading at all, so the one place a reader is most likely to
-        * be lost  -  a mistyped or dead URL  -  announced nothing to a screen
-        * reader and gave a document-outline reader an empty page. */}
-      <h1 className="type-subhead text-text">Nothing here</h1>
-      <Link to="/" className="text-accent hover:underline">
-        Back to the start
-      </Link>
-    </main>
+    <div className="flex min-h-screen flex-col bg-surface">
+      <header className="flex items-center border-b border-border px-4 py-2">
+        <Link
+          to="/"
+          className="-ml-2 flex items-center gap-2 rounded-control px-2 py-2 transition-colors duration-fast hover:bg-zone-9"
+          aria-label="Phoenix, home"
+        >
+          <PhoenixMark size={22} />
+          <span className="type-subhead tracking-tight text-text">Phoenix</span>
+        </Link>
+      </header>
+      <main className="mx-auto flex w-full max-w-narrow flex-1 flex-col items-center justify-center gap-4 p-gutter text-center">
+        {/* The one h1: a mistyped or dead URL is where a reader is most
+          * likely to be lost, so the page names itself. */}
+        <h1 className="type-title text-text">Page not found</h1>
+        <p className="type-body text-pretty text-text-muted">
+          That page does not exist, or you may not have access to it.
+        </p>
+        <Button asChild>
+          <Link to={hasCredential ? "/home" : "/"}>
+            {hasCredential ? "Go to Projects" : "Back to the start"}
+          </Link>
+        </Button>
+      </main>
+    </div>
   );
 }
 
@@ -123,7 +141,7 @@ export default function App() {
           <Route path="/start" element={<QuickStart />} />
           <Route path="/home" element={<Projects />} />
           <Route path="/settings" element={<AccountSettings />} />
-          {/* The repertoire is project-agnostic (FR-TPL): one global browse,
+          {/* Templates are project-agnostic (FR-TPL): one global browse,
               not one per project. Not "/templates"  -  that's the backend's
               GET /templates API path (app.py), and the same-path collision
               would show raw JSON on a hard navigation. The old project-scoped

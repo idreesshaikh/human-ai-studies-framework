@@ -27,10 +27,12 @@ import { PhoenixMark } from "@/components/brand/PhoenixMark";
 import { ProjectSwitcher } from "./ProjectSwitcher";
 import { useSession } from "@/lib/session";
 import { useAuth } from "@/lib/auth.tsx";
-import { getTheme, nextTheme, subscribeTheme } from "@/lib/theme";
+import { getTheme, nextTheme, subscribeTheme, themeToggleLabel } from "@/lib/theme";
 import { usePanel, togglePanel } from "@/lib/panels";
 import { cn } from "@/lib/cn";
 import { signInHref } from "@/lib/returnTo";
+import { useRouteTitle } from "@/lib/useDocumentTitle";
+import { browserNameStore, studyDisplayName } from "@/lib/studyNames";
 
 const THEME_ICON = { light: Sun, dark: Moon };
 
@@ -69,6 +71,13 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
    * it never folds: full labels, full width, always, while `navOpen` is
    * true. */
   const showFolded = navFolded && !navOpen;
+  const studyId = /^\/p\/[^/]+\/studies\/([^/]+)/.exec(pathname)?.[1];
+  useRouteTitle({
+    projectName: me?.memberships?.find((m) => m.projectSlug === routeSlug)?.projectName,
+    studyName: studyId
+      ? studyDisplayName(browserNameStore(), decodeURIComponent(studyId))
+      : undefined,
+  });
   const Icon = THEME_ICON[theme];
 
   // In hosted (clerk) mode the Clerk session carries the real identity
@@ -121,7 +130,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b border-border bg-surface px-4 py-2">
+      <header className="flex items-center gap-2 border-b border-border bg-surface px-3 py-2 sm:gap-3 sm:px-4">
         {/* Nothing to open when the rail is not rendered. */}
         {!signedOut && (
           <button
@@ -146,7 +155,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         </Link>
         <div className="ml-auto flex items-center gap-2">
           {!signedOut && <ProjectSwitcher memberships={me?.memberships ?? []} />}
-          <Button variant="ghost" size="icon" onClick={cycleTheme} aria-label={`Theme: ${theme}`}>
+          <Button variant="ghost" size="icon" onClick={cycleTheme} aria-label={themeToggleLabel(theme)}>
             <Icon aria-hidden />
           </Button>
           {/* Signed out, there is no account to open a menu about and no
@@ -201,7 +210,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-0 flex-1">
         {navOpen && (
           <div
-            className="fixed inset-0 z-30 bg-ink/45 lg:hidden"
+            className="fixed inset-0 z-30 bg-scrim lg:hidden"
             onClick={() => setNavOpen(false)}
             aria-hidden
           />
@@ -228,6 +237,9 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
               "/home",
               "Projects",
               <FolderOpen className="size-4" aria-hidden />,
+              // /start creates a project's first study, so Projects is where
+              // the researcher is.
+              { forceActive: pathname === "/start" },
             )}
             {navItem("/repertoire", "Templates", <Layers className="size-4" aria-hidden />)}
             {!hasProjectNav &&

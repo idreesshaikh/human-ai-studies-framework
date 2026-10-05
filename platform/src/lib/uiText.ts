@@ -51,8 +51,8 @@ export function mintCountProblem(text: string): string | null {
 }
 
 export const GRAIN_OPTIONS = [
-  { value: "participant", label: "One link per participant, reusable" },
-  { value: "session", label: "One link per session, single use" },
+  { value: "participant", label: "Per participant" },
+  { value: "session", label: "Per session" },
 ] as const;
 
 const TOKEN_LABELS: Record<string, string> = {
@@ -64,7 +64,29 @@ const TOKEN_LABELS: Record<string, string> = {
   metrics: "Code metrics",
   tern: "TERN",
   "agent-capture": "Agent capture",
+  "workspace-snapshot": "Workspace snapshots",
+  "participant-git": "Git history",
+  "task-harness": "Task outcomes",
+  "agent-derived": "Derived AI measures",
 };
+
+const STATE_LABELS: Record<string, string> = {
+  enabled: "Configured",
+  disabled: "Off",
+  "external-required": "Separate runner needed",
+  unsupported: "Not supported",
+  unavailable: "Not configured",
+};
+
+/** A producer's configuration state as words. */
+export function producerStateLabel(state: string): string {
+  return STATE_LABELS[state] ?? captureTokenLabel(state);
+}
+
+/** A raw event type (agent.prompt_sent) as words. */
+export function eventTypeLabel(type: string): string {
+  return captureTokenLabel(type.replace(/\./g, " "));
+}
 
 /** A capture instrument or producer id as words. */
 export function captureTokenLabel(token: string): string {
@@ -125,4 +147,102 @@ export function nextFocusAfterDecision(
   return next
     ? { kind: "move", moveId: next.moveId }
     : { kind: "undo", moveId: decidedId };
+}
+
+/** First letter upper-cased; the rest untouched. */
+export function sentenceCase(text: string): string {
+  const t = text.trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+}
+
+/** A server message made fit to print: capitalised and ended with a full stop
+ * (the API's `detail` strings are often lowercase fragments). */
+export function displayServerMessage(text: string): string {
+  const t = sentenceCase(text);
+  if (!t) return "";
+  return /[.!?…]$/.test(t) ? t : `${t}.`;
+}
+
+/** An invitation that is gone (404) or expired/revoked (410) will not work on a
+ * second try, so the page stops offering to accept it. */
+export function isFatalInviteError(e: unknown): boolean {
+  const status = (e as { status?: unknown } | null | undefined)?.status;
+  return status === 404 || status === 410;
+}
+
+/** The registry's generated match reason, in plain words. */
+export function plainMatchReason(text: string): string {
+  return text.replace(/^Describes itself with:/, "Matches:");
+}
+
+/** After a researcher decides a card, should the assistant be asked for its
+ * next turn? Only when nothing else in that reply is still waiting on them;
+ * deciding one of several pending cards just records the decision. `cards` is
+ * the latest assistant turn's moves as they were BEFORE this decision. */
+export function shouldFollowUpAfterDecision(
+  cards: { moveId: string; status: string }[],
+  decidedId: string,
+  status: string = "accepted",
+): boolean {
+  if (status === "proposed") return false;
+  if (!cards.some((c) => c.moveId === decidedId)) return false;
+  return !cards.some((c) => c.moveId !== decidedId && c.status === "proposed");
+}
+
+/** The word a decided card wears: it matches the button that decided it. */
+export function moveStateLabel(status: string, kind: string): string {
+  if (status === "rejected") return "Rejected";
+  if (status !== "accepted") return "";
+  if (kind === "merge-templates") return "Merged";
+  return kind === "caution" ? "Noted" : "Accepted";
+}
+
+const MOVE_NOUN: Record<string, string> = {
+  "add-rq": "research question",
+  "choose-template": "design",
+  "set-parameter": "setting",
+  "set-field": "setting",
+  "declare-task": "task",
+  "add-instrument": "instrument",
+  "reconfigure-instrument": "instrument setting",
+  "add-measure": "measure",
+  "merge-templates": "design",
+  "prescribe-statistics": "analysis plan",
+};
+
+/** The researcher's own turn when they reject a card. It names the kind of
+ * card, never its text, so it cannot be read back as a new study idea. */
+export function rejectedMoveText(kind: string): string {
+  return `I rejected the proposed ${MOVE_NOUN[kind] ?? "choice"}.`;
+}
+
+/** A proposal as the review prints it: no "Declare the task:" template prefix
+ * and no doubled full stop. */
+export function cleanProposalText(text: string): string {
+  const t = text
+    .replace(/^\s*declare the task\s*:\s*/i, "")
+    .replace(/(?<!\.)\.\.(?!\.)/g, ".")
+    .trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/** Which of the dialog's outcome options the researcher already accepted as
+ * measure cards in chat (by the patch value, else the proposal text). */
+export function measureOptionsFromMoves(
+  moves: {
+    status: string;
+    kind: string;
+    proposal: string;
+    patch?: unknown;
+  }[],
+  options: string[],
+): string[] {
+  const texts = moves
+    .filter((m) => m.status === "accepted" && m.kind === "add-measure")
+    .map((m) => {
+      const patch = m.patch as { section?: string; value?: unknown } | undefined;
+      const value = patch?.section === "measures" && typeof patch.value === "string" ? patch.value : "";
+      return `${value} ${m.proposal}`.toLowerCase();
+    });
+  return options.filter((o) => texts.some((t) => t.includes(o.toLowerCase())));
 }

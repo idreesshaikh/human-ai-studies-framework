@@ -106,8 +106,16 @@ export function ProjectSwitcher({ memberships }: { memberships: Membership[] }) 
                 </span>
               </CommandItem>
             ))}
-            {/* Says where it goes: the Projects page, composer open. */}
-            <CommandItem value="__new project" onSelect={() => go(NEW_PROJECT_PATH)}>
+          </CommandGroup>
+          {/* Says where it goes: the Projects page, composer open. Always
+            * mounted (`forceMount`), so a filter that matches nothing still
+            * leaves the way to make the project being looked for. */}
+          <CommandGroup forceMount>
+            <CommandItem
+              forceMount
+              value="__new project"
+              onSelect={() => go(NEW_PROJECT_PATH)}
+            >
               <Plus className="size-4 shrink-0 text-text-muted" aria-hidden />
               New project…
             </CommandItem>

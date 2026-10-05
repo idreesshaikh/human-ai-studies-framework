@@ -1,6 +1,9 @@
 import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { createRehearsalProject, rehearsalUrl } from "./rehearsal-project.mjs";
 
 const base = rehearsalUrl();
@@ -31,6 +34,63 @@ try {
   await page.getByRole("button", { name: "Create participant links", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Create participant links" });
   const count = dialog.getByLabel("How many", { exact: true });
+  const artifactDir = process.env.REHEARSAL_ARTIFACTS || join(tmpdir(), "phoenix-participant-links");
+  await mkdir(artifactDir, { recursive: true });
+  const settings = dialog.getByRole("region", { name: "Participant link settings" });
+  const grain = dialog.getByRole("radiogroup", { name: "Link type" });
+  await grain.getByRole("radio", { name: "Per participant", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(grain.getByRole("radio", { name: "Per session", exact: true })).toBeFocused();
+  await expect(dialog.getByText("Single use: create a new link for each session.", { exact: true })).toBeVisible();
+  await page.keyboard.press("Home");
+  await expect(grain.getByRole("radio", { name: "Per participant", exact: true })).toHaveAttribute("aria-checked", "true");
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(theme => {
+      localStorage.setItem("platform-theme", theme);
+      document.documentElement.setAttribute("data-theme", theme);
+    }, theme);
+    for (const [width, height] of [[1440, 900], [320, 568], [390, 844], [844, 390]]) {
+      await page.setViewportSize({ width, height });
+      for (const scroll of [0, 10000]) {
+        await settings.evaluate((el, top) => { el.scrollTop = top; }, scroll);
+        for (const chrome of [dialog.getByRole("heading"), dialog.getByRole("button", { name: "Close", exact: true }), dialog.getByRole("button", { name: "Create 1 link", exact: true })]) {
+          const box = await chrome.boundingBox();
+          assert(box && box.y >= 0 && box.y + box.height <= height, `Hidden participant dialog chrome: ${theme}/${width}/${height}`);
+        }
+      }
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.evaluate(async () => {
+        await Promise.all(document.getAnimations().filter(a => a.effect?.getComputedTiming().endTime !== Infinity).map(a => a.finished.catch(() => {})));
+      });
+      assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations.map(v => v.id), []);
+      await page.screenshot({ path: join(artifactDir, `${theme}-${width}-${height}.png`) });
+    }
+  }
+  await page.evaluate(() => {
+    localStorage.setItem("platform-theme", "light");
+    document.documentElement.setAttribute("data-theme", "light");
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // Optional capture settings are discoverable, keyboard-operable and reversible.
+  await dialog.getByText("Capture settings", { exact: true }).click();
+  const switches = dialog.getByRole("checkbox");
+  await switches.first().waitFor();
+  for (const toggle of await switches.all()) {
+    const initial = await toggle.isChecked();
+    await toggle.focus();
+    await page.keyboard.press("Space");
+    assert.equal(await toggle.isChecked(), !initial);
+    await page.keyboard.press("Space");
+    assert.equal(await toggle.isChecked(), initial);
+  }
+  assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations.map(v => v.id), []);
+  await dialog.getByText("Capture settings", { exact: true }).click();
+  const folder = dialog.getByLabel("Study folder", { exact: true });
+  await folder.fill("/home/participant/rehearsal-task");
+  await dialog.getByRole("button", { name: "Save path", exact: true }).click();
+  await expect(dialog.locator("#study-folder-status")).toContainText("/home/participant/rehearsal-task");
+  await dialog.getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(dialog.locator("#study-folder-status")).toContainText("No study folder set");
   for (const value of ["", "0", "101", "2.5"]) {
     await count.fill(value);
     await dialog.getByRole("button", { name: "Create links", exact: true }).click();
@@ -152,8 +212,46 @@ try {
   assert.equal(requests[1].requestId, requests[2].requestId, "Retry must reuse its idempotency key");
   await expect(page.getByText("Stopped.", { exact: false })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Stop reply", exact: true })).toHaveCount(0);
+  // Decisions remain usable during a reply; only the final card asks a follow-up.
+  history.at(-1).moves = ["first", "last"].map((id, index) => ({
+    moveId: `controlled-${id}`, kind: "set-field", status: "proposed", target: "design",
+    proposal: `Controlled decision ${index + 1}.`, grounding: [],
+  }));
+  await page.route("**/conversation/moves/controlled-*/decision", async intercepted => {
+    const id = decodeURIComponent(intercepted.request().url().split("/").at(-2));
+    const { status } = intercepted.request().postDataJSON();
+    history.at(-1).moves.find(move => move.moveId === id).status = status;
+    await intercepted.fulfill({ json: { moveId: id, status } });
+  });
+  await page.goto(`${route}?tab=setup`);
+  const firstChoice = page.locator('[data-move-id="controlled-first"]');
+  const lastChoice = page.locator('[data-move-id="controlled-last"]');
+  await firstChoice.focus();
+  await page.keyboard.press("a");
+  await expect(lastChoice).toBeFocused();
+  assert.equal(requests.length, 3, "Resolving one of several cards must not request a reply");
+  held = new Promise(resolve => { release = resolve; });
+  await composer.fill("Check the remaining choice");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect.poll(() => requests.length).toBe(4);
+  await lastChoice.focus();
+  await page.keyboard.press("r");
+  await expect(page.getByRole("status").filter({ hasText: "Saved. The assistant will answer" })).toBeVisible();
+  assert.equal(requests.length, 4, "A decision follow-up must wait for the active reply");
+  assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations.map(v => v.id), [], "Active reply accessibility");
+  release();
+  await expect.poll(() => requests.length).toBe(5);
+  assert.deepEqual(requests[4].decision, { moveId: "controlled-last", action: "rejected" });
+  await expect(page.getByRole("button", { name: "Stop reply", exact: true })).toHaveCount(0);
+  await firstChoice.locator('xpath=ancestor::details').last().locator(':scope > summary').click();
+  const undo = page.locator('[data-move-undo="controlled-first"]');
+  await undo.focus();
+  await page.keyboard.press("Enter");
+  await expect(firstChoice).toBeFocused();
+  await expect(firstChoice.getByRole("button", { name: "Accept", exact: true })).toBeVisible();
+  assert.equal(requests.length, 5, "Undo must not request another reply");
   assert.deepEqual(errors, []);
-  console.log("PASS: real mint validation, selectable links, denied clipboard, responsive dialogs, 200% text, touch targets, preserved reading position, Stop and idempotent retry.");
+  console.log("PASS: real mint validation, selectable links, denied clipboard, responsive dialogs, 200% text, touch targets, preserved reading position, Stop, idempotent retry, decision focus, queued final follow-up and Undo focus.");
 } finally {
   try { await rehearsal?.cleanup(); } finally { await browser.close(); }
 }

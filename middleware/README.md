@@ -44,6 +44,32 @@ automatically.
 | `MISTRAL_MODEL` | Shared model (default `ministral-14b-latest`) |
 | `MISTRAL_DESIGN_MODEL` | Optional design-only model override |
 | `MIDDLEWARE_CORPUS_BOOTSTRAP` | Set to 0 to disable background corpus import |
+| `MIDDLEWARE_S2_API_KEY` | Optional Semantic Scholar key for higher rate limits (the unprefixed `S2_API_KEY` is not read) |
+| `MIDDLEWARE_SEED_ON_START` | Used by `scripts/start_with_seed.sh`; `1` (default) seeds the synthetic demo, `0` skips it |
+| `MIDDLEWARE_ENRICH_ON_START` | Used by `scripts/start_with_seed.sh`; `0` (default) skips corpus enrichment, a number limits how many papers to enrich |
+
+If `MISTRAL_API_KEY` is missing, the design assistant replies that no language
+model is connected. Templates, the quick checklist and the rest of the app keep
+working. Set the key and restart the server to enable it.
+
+Adding or searching for papers by arXiv id or DOI makes outbound requests to the
+Semantic Scholar API. Results are cached in the database, so repeat lookups of the
+same paper work offline.
+
+## Commands
+
+`uv run python -m middleware <command>`:
+
+| Command | What it does |
+| --- | --- |
+| `serve` | Run the server (default) |
+| `corpus-import` | Import the bundled literature corpus |
+| `corpus-verify` | Check the imported corpus is complete |
+| `corpus-enrich` | Fill in missing abstracts from Semantic Scholar |
+| `demo-seed` | Create the synthetic demo study |
+| `backup-seed` | Create the backup-session study mappings |
+| `templates` | Validate and list the template registry |
+| `simulate` | Dry-run a study over HTTP and check its analysis plan |
 
 The default is local single-user access. In Clerk mode, configure
 `MIDDLEWARE_CLERK_JWKS_URL`, `MIDDLEWARE_CLERK_ISSUER`, and

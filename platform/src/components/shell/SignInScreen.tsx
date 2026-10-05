@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoenixMark } from "@/components/brand/PhoenixMark";
 import { useAuth } from "@/lib/auth.tsx";
-import { getTheme, nextTheme, applyTheme, subscribeTheme } from "@/lib/theme";
+import { getTheme, nextTheme, applyTheme, subscribeTheme, themeToggleLabel } from "@/lib/theme";
 import { safeNext } from "@/lib/returnTo";
 
 const THEME_ICON = { light: Sun, dark: Moon };
@@ -77,7 +77,7 @@ export function SignInScreen() {
           variant="ghost"
           size="icon"
           onClick={() => applyTheme(nextTheme(theme))}
-          aria-label={`Theme: ${theme}`}
+          aria-label={themeToggleLabel(theme)}
         >
           <ThemeIcon aria-hidden />
         </Button>

@@ -181,7 +181,7 @@ export function Projects() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="type-title text-text">Projects</h1>
-          <p className="type-body text-text-muted">Organize studies and collaborators.</p>
+          <p className="type-body text-pretty text-text-muted">Organize studies and collaborators.</p>
         </div>
         {/* The empty state has its own create button. */}
         {!composing && data && data.length > 0 && (
@@ -295,7 +295,7 @@ export function Projects() {
               )}
               <Button asChild variant="outline">
                 <Link to="/repertoire">
-                  Browse study designs <ChevronRight aria-hidden />
+                  Browse templates <ChevronRight aria-hidden />
                 </Link>
               </Button>
             </div>
@@ -330,13 +330,13 @@ export function Projects() {
             Start from a study template
           </h2>
           <p className="type-caption mt-0.5 max-w-reading text-text-muted">
-            Browse designs with supporting references. Choose a template or
-            merge compatible designs, then review the protocol for your study.
+            Browse designs with supporting references, then review the
+            protocol for your study.
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
           <Link to="/repertoire">
-            Browse the repertoire <ChevronRight aria-hidden />
+            Browse templates <ChevronRight aria-hidden />
           </Link>
         </Button>
       </section>

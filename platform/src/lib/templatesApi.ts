@@ -52,37 +52,6 @@ export interface CorpusStatus {
   error: string;
 }
 
-export interface MergeResult {
-  protocol: Record<string, unknown>;
-  templateIds: string[];
-  sources: { templateId: string; papers: string[] }[];
-}
-
-export interface CorpusHit {
-  ref: string;
-  title: string;
-  year: number | null;
-  venue: string;
-  confidence: number | null;
-  inStudy?: boolean;
-  matchReason: string;
-}
-
-export interface DerivedTemplate {
-  template: {
-    templateId: string;
-    title: string;
-    description: string;
-    designType: string;
-    source: TemplateSource[];
-  };
-  paper: { ref: string; title: string; confidence: number | null };
-  /** The derived template already filled with its defaults  -  what a new
-   *  study's draft is seeded from. The template itself is never registered,
-   *  so there is no id anything else could instantiate it by. */
-  protocol: Record<string, unknown>;
-}
-
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
@@ -112,10 +81,6 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const templatesApi = {
-  list: () =>
-    req<{ templates: TemplateSummary[]; count: number }>(`/templates`).then(
-      (d) => d.templates,
-    ),
   repertoire: (limitRefs = 4) =>
     req<{
       repertoire: RepertoireEntry[];
@@ -123,22 +88,4 @@ export const templatesApi = {
       minReferenceConfidence: number;
       corpus: CorpusStatus;
     }>(`/templates/repertoire?limitRefs=${limitRefs}`),
-  plan: (id: string) =>
-    req<{ templateId: string; explanation: string[] }>(
-      `/templates/${encodeURIComponent(id)}/plan`,
-    ),
-  merge: (templateIds: string[]) =>
-    req<MergeResult>(`/templates/merge`, {
-      method: "POST",
-      body: JSON.stringify({ templateIds }),
-    }),
-  searchCorpus: (q: string) =>
-    req<{ results: CorpusHit[] }>(
-      `/corpus/search?q=${encodeURIComponent(q)}&limit=8`,
-    ).then((d) => d.results),
-  fromPaper: (paperRef: string, baseTemplateId: string) =>
-    req<DerivedTemplate>(`/templates/from-paper`, {
-      method: "POST",
-      body: JSON.stringify({ paperRef, baseTemplateId }),
-    }),
 };

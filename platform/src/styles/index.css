@@ -30,6 +30,7 @@
   --color-surface-raised: var(--surface-raised);
   --color-well: var(--well);
   --color-ink: var(--ink);
+  --color-scrim: var(--scrim);
   /* The ink's counterpart: paper, used as a FOREGROUND on ink-filled
    * controls. Named for what it is on the page rather than reusing the
    * background token as a text colour. */
@@ -204,6 +205,11 @@ html::-webkit-scrollbar-thumb:hover,
 summary {
   cursor: pointer;
   list-style: none;
+  /* WCAG 2.2 target size (24px) with room. The row stays a list-item (its
+   * children flow as text), and the padding centres one line in the minimum
+   * height, so a row that is already taller gains nothing. */
+  min-height: var(--target-min);
+  padding-block: max(0px, calc((var(--target-min) - 1lh) / 2));
 }
 summary::-webkit-details-marker {
   display: none;
@@ -1015,17 +1021,33 @@ body::before {
 .steer-range:focus-visible::-moz-range-thumb {
   transform: scale(1.16);
 }
-/* The input's own box is transparent, so the default focus ring would draw
- * around nothing; it goes on the thumb instead, where the eye already is. */
-@media (pointer: coarse) {
-  button, summary, [role="tab"], [role="menuitem"] {
+/* Coarse pointers (touch) and narrow windows (a desktop window dragged to
+ * phone width is still reached by thumb on a tablet-sized touch laptop, and
+ * `pointer` alone reports a mouse there): the sidebar links, header controls,
+ * fields, send, tabs and dialog controls clear 44px. Wide mouse layouts keep
+ * their density. */
+@media (pointer: coarse), (max-width: 640px) {
+  button, summary, nav a, header a, a.type-control, [role="tab"], [role="menuitem"], [role="radio"],
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not(.control-bare),
+  select {
     min-height: var(--touch-target);
   }
   button[aria-label] {
     min-width: var(--touch-target);
   }
+  /* Standalone links that are navigation or a download, not words in a
+   * sentence: a full touch target on phones, no change on desktop. */
+  a.touch-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+  }
 }
 
+/* The input's own box is transparent, so the default focus ring would draw
+ * around nothing; it goes on the thumb instead, where the eye already is. */
 .steer-range:focus-visible {
   outline: none;
 }
@@ -1151,4 +1173,364 @@ body::before {
 }
 .hero-glow-in {
   animation: entry-rise var(--motion-entrance) var(--ease-out) both;
+}
+
+/* ---- Form controls: one spec ------------------------------------------
+ * Input, textarea, select, and the input group all wear `.control`: 40px,
+ * a 1px control-edge border (the 3:1 edge WCAG 1.4.11 binds), input radius,
+ * surface fill, NO shadow. Every state below is shared, so a field never
+ * differs from its neighbour by accident. Tokens live in tokens.css. */
+@layer components {
+  .control {
+    display: block;
+    width: 100%;
+    height: var(--control-height);
+    padding: 0 var(--control-pad-x);
+    border: var(--rule-hair) solid var(--control-edge);
+    border-radius: var(--radius-input);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: none;
+    transition: border-color var(--motion-fast) var(--ease-out);
+  }
+  .control::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+  }
+  .control:hover:not(:disabled) {
+    border-color: var(--text-muted);
+  }
+  .control:read-only:where(input, textarea) {
+    background: var(--well);
+  }
+  .control:disabled,
+  .control-group:has(:disabled) {
+    cursor: not-allowed;
+    border-color: var(--border);
+    background: var(--well);
+    color: var(--text-muted);
+  }
+  .control[aria-invalid="true"],
+  .control-group:has([aria-invalid="true"]) {
+    border-color: var(--critical);
+  }
+  /* Number inputs: no native spinner blocks. Arrow keys still step. */
+  .control[type="number"],
+  .control-bare[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  .control[type="number"]::-webkit-inner-spin-button,
+  .control[type="number"]::-webkit-outer-spin-button,
+  .control-bare[type="number"]::-webkit-inner-spin-button,
+  .control-bare[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  /* Multi-line: same box, grows with content when auto-grow is on. */
+  .control-area {
+    height: auto;
+    min-height: var(--control-height);
+    padding-block: var(--control-pad-y);
+    resize: vertical;
+  }
+  .control-area[data-autogrow] {
+    resize: none;
+    overflow-y: hidden;
+  }
+  /* Field + unit/stepper in ONE border. The inner input is bare. */
+  .control-group {
+    display: flex;
+    align-items: center;
+    min-height: var(--control-height);
+    padding: 0;
+  }
+  .control-bare {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: calc(var(--control-height) - 2 * var(--rule-hair));
+    padding: 0 var(--control-pad-x);
+    border: 0;
+    background: transparent;
+    color: inherit;
+    outline: none;
+  }
+  .control-bare::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+  }
+  .control-suffix {
+    flex: none;
+    padding-right: var(--control-pad-x);
+    color: var(--text-muted);
+    user-select: none;
+  }
+  .control-step {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: var(--target-min);
+    height: var(--target-min);
+    margin-right: 0.125rem;
+    border-radius: var(--radius-control-inner);
+    color: var(--text-muted);
+    transition: background-color var(--motion-fast) var(--ease-out);
+  }
+  .control-step:hover:not(:disabled) {
+    background: var(--zone-9);
+    color: var(--text);
+  }
+  .control-step:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+  .control-step + .control-step {
+    margin-left: 0;
+  }
+
+  /* Field layout: label at control size, 6px to the control, hint/error
+   * slot beneath; fields 20px apart; a grid has equal columns. */
+  .field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--field-label-gap);
+  }
+  .field-slot {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .field-slot:empty {
+    display: none;
+  }
+  .form-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--field-gap);
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--field-gap) 1rem;
+    align-items: start;
+  }
+  .form-grid > .span-2 {
+    grid-column: 1 / -1;
+  }
+  @media (max-width: 40rem) {
+    .form-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .form-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--field-gap);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  /* Checkbox: native input, restyled. Empty bordered box when off, accent
+   * fill and a check when on. The row (box + label) is the hit area. */
+  .checkbox-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    min-height: var(--target-min);
+    cursor: pointer;
+  }
+  .checkbox-row--card {
+    padding: 0.5rem var(--control-pad-x);
+    border: var(--rule-hair) solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    transition: border-color var(--motion-fast) var(--ease-out);
+  }
+  .checkbox-row--card:hover {
+    border-color: var(--control-edge);
+  }
+  .checkbox-row:has(:disabled) {
+    cursor: not-allowed;
+    color: var(--text-muted);
+  }
+  .checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-grid;
+    flex: none;
+    place-content: center;
+    width: var(--checkbox-size);
+    height: var(--checkbox-size);
+    margin: 0.0625rem 0 0;
+    border: var(--rule) solid var(--control-edge);
+    border-radius: var(--radius-mark);
+    background: var(--surface);
+    cursor: inherit;
+    transition:
+      background-color var(--motion-fast) var(--ease-out),
+      border-color var(--motion-fast) var(--ease-out);
+  }
+  .checkbox::before {
+    content: "";
+    width: 100%;
+    height: 100%;
+    background: var(--accent-contrast);
+    -webkit-mask: var(--check-mark) center / 80% no-repeat;
+    mask: var(--check-mark) center / 80% no-repeat;
+    transform: scale(0);
+    transition: transform var(--motion-fast) var(--ease-out);
+  }
+  .checkbox:checked,
+  .checkbox:indeterminate {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .checkbox:checked::before,
+  .checkbox:indeterminate::before {
+    transform: scale(1);
+  }
+  .checkbox:indeterminate::before {
+    -webkit-mask-image: var(--dash-mark);
+    mask-image: var(--dash-mark);
+  }
+  .checkbox:disabled {
+    border-color: var(--border);
+    background: var(--well);
+  }
+  .checkbox:disabled:checked {
+    background: var(--text-muted);
+    border-color: var(--text-muted);
+  }
+
+  /* Dialog: fixed header, one scrolling body, sticky footer. */
+  .dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    width: min(var(--dialog-width, 30rem), calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    translate: -50% -50%;
+    overflow: hidden;
+    border: var(--rule-hair) solid var(--border);
+    border-radius: var(--radius-plate);
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-lifted);
+  }
+  .dialog--wide {
+    --dialog-width: 40rem;
+  }
+  .dialog-header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex: none;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: var(--dialog-pad) var(--dialog-pad) 1rem;
+    background: var(--surface-raised);
+  }
+  .dialog-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.25rem var(--dialog-pad) var(--dialog-pad);
+  }
+  .dialog-footer {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 1rem var(--dialog-pad);
+    border-top: var(--rule-hair) solid var(--border);
+    background: var(--surface-raised);
+  }
+  /* Shade only when the body has more beyond that edge. */
+  .dialog:has(.dialog-body[data-more-above]) .dialog-header {
+    box-shadow: 0 0.5rem 0.5rem -0.5rem var(--scroll-shade);
+  }
+  .dialog:has(.dialog-body[data-more-below]) .dialog-footer {
+    box-shadow: 0 -0.5rem 0.5rem -0.5rem var(--scroll-shade);
+  }
+  @media (max-width: 40rem) {
+    .dialog {
+      inset: 0;
+      width: 100%;
+      height: 100dvh;
+      max-height: 100dvh;
+      translate: none;
+      border: 0;
+      border-radius: 0;
+    }
+    .dialog-header,
+    .dialog-footer {
+      padding-inline: 1rem;
+    }
+    .dialog-body {
+      padding-inline: 1rem;
+    }
+    .dialog-footer {
+      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+  }
+}
+:root {
+  --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --dash-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8h8' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Focus on a control: ONE 2px accent ring, drawn over the 1px border (the
+ * negative offset) with the border in the same colour, so there is no inner
+ * edge and no gap. A group draws it on the wrapper. Unlayered and placed
+ * after the global rule so it wins that rule's 2px offset. */
+.control:focus-visible:not(.focus-ring-owned),
+.control-group:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: calc(-1 * var(--rule-hair));
+  border-color: var(--focus-ring);
+}
+.control-group .control-step {
+  border-radius: var(--radius-control-inner);
+}
+@media (pointer: coarse), (max-width: 640px) {
+  .control-group {
+    min-height: var(--touch-target);
+  }
+  .control-group .control-step {
+    min-width: var(--target-min);
+    min-height: var(--target-min);
+  }
+}
+@media (forced-colors: active) {
+  .control:focus-visible,
+  .control-group:focus-within,
+  .checkbox:focus-visible {
+    outline-color: Highlight;
+    border-color: Highlight;
+  }
+  .checkbox {
+    forced-color-adjust: none;
+    border-color: ButtonText;
+    background: Canvas;
+  }
+  .checkbox:checked,
+  .checkbox:indeterminate {
+    border-color: Highlight;
+    background: Highlight;
+  }
+  .checkbox::before {
+    background: HighlightText;
+  }
 }

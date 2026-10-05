@@ -12,12 +12,32 @@ import { cn } from "@/lib/cn";
  * because focus has already moved in by then. */
 let lastFocusOutsideDialog: HTMLElement | null = null;
 if (typeof document !== "undefined") {
+  // Safari/macOS need not focus a clicked button. Remember the stable opener
+  // before a transient menu replaces it, for state-driven dialogs too.
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (!(event.target instanceof Element)) return;
+      const opener = event.target.closest<HTMLElement>(
+        "button, a[href], input, textarea, select, [tabindex]",
+      );
+      if (opener && !opener.closest('[role="dialog"], [role="menu"]')) {
+        lastFocusOutsideDialog = opener;
+      }
+    },
+    true,
+  );
   document.addEventListener(
     "focusin",
     (e) => {
       const t = e.target;
       if (!(t instanceof HTMLElement)) return;
-      if (t.closest('[role="dialog"]')) return;
+      if (
+        t === document.body ||
+        t.hasAttribute("data-radix-focus-guard") ||
+        t.closest('[role="dialog"], [role="menu"]')
+      )
+        return;
       lastFocusOutsideDialog = t;
     },
     true,
@@ -29,47 +49,56 @@ export const DialogTrigger = DialogPrimitive.Trigger;
 
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    scrollable?: boolean;
+  }
+>(({ className, children, scrollable = true, ...props }, ref) => {
   return (
-  <DialogPrimitive.Portal>
-    {/* The scrim is the record's own ink, not a generic black: over the
-      * atlas's cool ground a neutral black reads as a grey wash. */}
-    <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-ink/45 data-[state=open]:animate-in data-[state=open]:fade-in" />
-    <DialogPrimitive.Content
-      ref={ref}
-      /* Radix returns focus to the trigger it owns; every dialog here is
-       * opened from state instead, so there was nothing for it to return to and
-       * focus fell to <body>. `lastFocusOutsideDialog` is tracked continuously
-       * at the document level, which is the only place that still knows what
-       * the researcher was on BEFORE the dialog stole focus. */
-      onCloseAutoFocus={(e) => {
-        const back = lastFocusOutsideDialog;
-        if (back && back.isConnected) {
-          e.preventDefault();
-          back.focus({ preventScroll: true });
-        }
-      }}
-      className={cn(
-        "fixed left-1/2 top-1/2 z-50 w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2",
-        "flex max-h-[calc(100dvh-2rem)] flex-col",
-        "rounded-plate border border-border bg-surface-raised p-5 shadow-lifted",
-        "duration-entrance data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95",
-        className,
-      )}
-      {...props}
-    >
-      {/* `-mr-1 pr-1` keeps the scrollbar off the text without shifting the
-        * content when the dialog is short enough not to need one. */}
-      <div className="-mr-1 min-h-0 flex-1 overflow-y-auto pr-1">{children}</div>
-      <DialogPrimitive.Close
-        className="absolute right-4 top-4 rounded-control bg-surface-raised text-text-muted transition-colors duration-fast hover:text-text"
-        aria-label="Close"
+    <DialogPrimitive.Portal>
+      {/* The scrim is the record's own ink, not a generic black: over the
+       * atlas's cool ground a neutral black reads as a grey wash. */}
+      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-scrim data-[state=open]:animate-in data-[state=open]:fade-in" />
+      <DialogPrimitive.Content
+        ref={ref}
+        /* Radix returns focus to the trigger it owns; every dialog here is
+         * opened from state instead, so there was nothing for it to return to and
+         * focus fell to <body>. `lastFocusOutsideDialog` is tracked continuously
+         * at the document level, which is the only place that still knows what
+         * the researcher was on BEFORE the dialog stole focus. */
+        onCloseAutoFocus={(e) => {
+          const back = lastFocusOutsideDialog;
+          if (back && back.isConnected) {
+            e.preventDefault();
+            back.focus({ preventScroll: true });
+          }
+        }}
+        className={cn(
+          "fixed left-1/2 top-1/2 z-50 w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2",
+          "flex max-h-[calc(100dvh-2rem)] flex-col",
+          "rounded-plate border border-border bg-surface-raised p-5 shadow-lifted",
+          "duration-entrance data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95",
+          className,
+        )}
+        {...props}
       >
-        <X className="size-4" aria-hidden />
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPrimitive.Portal>
+        {/* `-mr-1 pr-1` keeps the scrollbar off the text without shifting the
+         * content when the dialog is short enough not to need one. */}
+        <div
+          className={cn(
+            "-mr-1 min-h-0 flex-1 pr-1",
+            scrollable ? "overflow-y-auto" : "flex flex-col overflow-hidden",
+          )}
+        >
+          {children}
+        </div>
+        <DialogPrimitive.Close
+          className="absolute right-4 top-4 rounded-control bg-surface-raised text-text-muted transition-colors duration-fast hover:text-text"
+          aria-label="Close"
+        >
+          <X className="size-4" aria-hidden />
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
   );
 });
 DialogContent.displayName = "DialogContent";

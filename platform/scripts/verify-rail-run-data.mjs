@@ -39,13 +39,13 @@ ok(
 );
 ok(
   "design slot shows a humanised template name, not the raw id",
-  formatSlotValue("design", "within-subjects-ab") === "Within subjects ab",
+  formatSlotValue("design", "within-subjects-ab") === "Within-subjects ab",
   formatSlotValue("design", "within-subjects-ab"),
 );
 ok(
   "conditions separated by a comma get a space",
   formatSlotValue("conditions", "ai-assisted,unassisted") ===
-    "ai-assisted, unassisted",
+    "AI-assisted, unassisted",
   formatSlotValue("conditions", "ai-assisted,unassisted"),
 );
 ok(

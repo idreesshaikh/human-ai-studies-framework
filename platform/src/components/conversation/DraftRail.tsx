@@ -173,7 +173,7 @@ export function DraftRail({
           <details className="mb-4">
             <summary className="type-caption cursor-pointer text-text-muted">Compiler notes ({compileWarnings.length})</summary>
             <ul className="mt-1 flex flex-col gap-1 type-caption text-text-muted">
-              {compileWarnings.map((warning) => <li key={warning}>{warning}</li>)}
+              {compileWarnings.map((warning) => <li key={warning} className="break-words leading-snug [overflow-wrap:anywhere]">{warning}</li>)}
             </ul>
           </details>
         )}

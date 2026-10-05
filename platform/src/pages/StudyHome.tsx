@@ -176,7 +176,7 @@ export function StudyHome() {
             <Link
               to={`/p/${slug}`}
               aria-label={`Back to ${project?.name ?? slug}`}
-              className="type-label flex shrink-0 items-center gap-1 self-center rounded-control px-1.5 py-1 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
+              className="touch-link type-label flex shrink-0 items-center gap-1 self-center rounded-control px-1.5 py-1 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
             >
               <ChevronLeft className="size-4" aria-hidden />
               {/* A project's slug is its address, not its name. The name is
@@ -257,7 +257,7 @@ export function StudyHome() {
            * whole workspace column off the side of a phone. A definite width
            * here is also what lets the citation wrap instead of clamp. */
           <div className="min-h-0 min-w-0 flex-1">
-            <ConversationView studyId={id} opening={opening} />
+            <ConversationView studyId={id} opening={opening} roleState={roleState} />
           </div>
         )}
         {tab === "library" && (

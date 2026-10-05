@@ -1,5 +1,39 @@
 # Demo delivery: 6 October 2026
 
+## Latest usability verification, 5 October
+
+Shared fields use the existing control tokens: consistent height, a single focus
+treatment, native numeric keyboard operation and integrated units. Manual protocol
+and participant-link dialogs keep their headings and main actions visible while
+their fields scroll. Link creation has concise type labels, one folder status and
+optional capture settings; configuration and approval requirements are retained.
+
+- Full Python suite: **942 passed, 84.38% coverage**. Ruff, six-package consistency
+  and the root and isolated frontend checks/builds pass.
+- Manual form: ten light/dark, viewport and 200%-text cases; keyboard focus trap
+  and return, question editing, outcome validation, custom outcomes and retained
+  fields after an HTTP 503. Zero Axe violations in these states.
+- Participant links: eight theme/viewport cases including narrow phones and
+  landscape; persistent dialog actions, radio keyboard navigation, numeric
+  validation, real minting and manual copy recovery.
+- Researcher briefs remain batched. Focused choices and richer explanations have
+  separate response budgets; final streamed replies retain paragraph structure.
+  All 64 focused streaming/model regressions pass.
+- Cross-tab, evidence, Plan, replay, sidebar and human-workflow rehearsals pass
+  against the refreshed isolated backend. The 60-case tab/theme/width matrix
+  reports no Axe violations or overflow. Three bounded synthetic briefs returned
+  usable structured output through the configured Ministral route.
+
+Port 8010 was serving an earlier temporary checkout when the screenshots were
+reported. It now serves the tested integrated build with its original database
+and study files, after a database backup. Rehearsals remain on the separate
+synthetic database at port 8015. Never substitute rehearsal data for demo data.
+
+These are technical checks, not a human usability score or a claim to have tested
+every possible interaction. Required pull-request review, deployed-service health,
+hosted authentication and native editor confirmations remain distinct release
+checks. The previous Railway 429 and Render timeout have not been cleared here.
+
 ## The story to demonstrate
 
 One executable specification connects researcher decisions, participant tasks,
@@ -117,6 +151,33 @@ Run the extra regression against an isolated database:
 ```bash
 REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8014 npm --prefix platform run rehearse:human-workflows
 ```
+
+### Latest preserved workspace verification
+
+The later Claude refinements were preserved in a separate snapshot and tested
+against an isolated database on port 8015. The working source was not reset.
+
+- All 60 tab/width/theme cases passed with zero Axe violations or document
+  overflow; the compact composer and collapsed/expanded protocol rail passed
+  at mobile, tablet and desktop widths. Delayed Plan loading stayed stable.
+- Manual setup, evidence review, protocol approval, assignments, replay,
+  enrollment validation, clipboard failure and all four Share downloads passed.
+- Keyboard regression checks cover multi-card decisions, keeping the next card
+  focused, queuing a final decision during a reply, exactly one follow-up, and
+  restoring focus after Undo. Stop, retry, reading position, touch controls and
+  200% text checks passed.
+- Platform checks/build, Ruff and six-package consistency passed. All 227
+  extension tests and the 12 compiled debrief accessibility cases passed.
+- Full Python rerun: 930 passed, 84.33% total coverage. The earlier restricted
+  run's four task-harness failures passed when child processes were permitted;
+  no product fix or skipped tests were needed.
+- The 320px header overflow was fixed without shrinking accessible controls;
+  the conversation loading indicator now has a valid named status role.
+
+Release is still gated by independent review of PR #106. The latest read-only
+hosted checks returned Railway HTTP 429 and a 30-second Render timeout. Neither
+endpoint is certified ready; retain the verified local presentation fallback.
+These checks do not replace a consented researcher usability study.
 
 ### Accessibility follow-up
 

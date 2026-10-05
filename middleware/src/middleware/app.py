@@ -49,6 +49,7 @@ from protocol.export import build_kit
 from sqlalchemy import func, or_, select, union
 from sqlalchemy import text as sqltext
 from sqlalchemy.orm import Session
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from middleware import (
     assistant,
@@ -267,14 +268,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def now() -> str:
         return clock().isoformat(timespec="milliseconds")
 
-    def check_study_id(study_id: str) -> None:
-        if check.study_id is not None and study_id != check.study_id:
-            raise HTTPException(
-                404,
-                f"unknown study {study_id!r}; this deployment serves "
-                f"{check.study_id!r}",
-            )
-
     verify_view_auth = auth.verifier_from_settings(settings)
 
     def view_auth(authorization: str = Header(default="")) -> None:
@@ -287,11 +280,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     require_project_for_study = authz_dep["require_project_for_study"]
     require_project_for_session = authz_dep["require_project_for_session"]
     resolve_identity = authz_dep["resolve_identity"]
-
-    def require_protocol() -> dict:
-        if protocol_doc is None:
-            raise HTTPException(404, "no protocol loaded; set MIDDLEWARE_PROTOCOL")
-        return protocol_doc
 
     @app.post("/ingest/events")
     def ingest_events(
@@ -2135,7 +2123,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def protocol_schema() -> dict:
         """Return the machine-readable study protocol contract."""
         protocol_schema_path = (
-            Path(__file__).resolve().parent.parent.parent.parent
+            template_registry.REPO
             / "protocol"
             / "src"
             / "protocol"
@@ -2169,7 +2157,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     def template_schema() -> dict:
         """Return the machine-readable study-template contract."""
         template_schema_path = (
-            Path(__file__).resolve().parent.parent.parent.parent
+            template_registry.REPO
             / "templates"
             / "schemas"
             / "template.schema.json"
@@ -2201,8 +2189,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     @app.get("/templates")
     def template_index() -> dict:
         """Return the machine-readable template registry index."""
-        repo = Path(__file__).resolve().parent.parent.parent.parent
-        templates_dir = repo / "templates" / "registry"
+        templates_dir = template_registry.REGISTRY_DIR
 
         templates = []
         if templates_dir.exists():
@@ -2240,7 +2227,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     @app.get("/papers/index")
     def corpus_index() -> dict:
         """Return the machine-readable literature index."""
-        repo = Path(__file__).resolve().parent.parent.parent.parent
+        repo = template_registry.REPO
         corpus_index_path = repo / "docs" / "papers" / "corpus-index.json"
 
         if corpus_index_path.exists():
@@ -3494,40 +3481,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "generatedAt": now(),
         }
 
-    @app.post("/templates/merge")
-    def merge_templates_route(body: dict) -> dict:
-        """
-        Compose several templates into one novel, grounded protocol at runtime (FR-TPL):
-        borrow a measure from one published design and an analysis from another.
-        """
-        ids = body.get("templateIds") or []
-        params = body.get("parameters") or {}
-        if not isinstance(ids, list) or len(ids) < 2:
-            raise HTTPException(400, "templateIds must be a list of at least two ids")
-        try:
-            return template_registry.merge_templates(ids, params)
-        except template_registry.TemplateError as exc:
-            raise HTTPException(400, str(exc)) from exc
-
-    @app.get("/corpus/search")
-    def corpus_search(q: str = "", limit: int = 8, s: Session = Depends(db)) -> dict:
-        """
-        Search the corpus for papers (FR-LIT-9), not study-scoped  -  powers the "turn
-        this paper into a template" picker.
-        """
-        query = q.strip()
-        if not query:
-            return {"results": []}
-        results = matching.match_papers(
-            s,
-            query,
-            study_id=None,
-            limit=max(1, min(limit, 25)),
-            use_llm=False,
-            expand=False,
-        )
-        return {"results": results}
-
     @app.get("/corpus/status")
     def corpus_status(s: Session = Depends(db)) -> dict:
         """
@@ -3537,37 +3490,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return {
             **corpus_importer.corpus_status_for_session(s),
             **corpus_enrich.enrichment_status_for_session(s),
-        }
-
-    @app.post("/templates/from-paper")
-    def template_from_paper(body: dict, s: Session = Depends(db)) -> dict:
-        """
-        Turn a corpus paper into an executable template by binding it to a base
-        archetype (FR-TPL-4): the paper becomes the design's primary source, so any of
-        the corpus's thousands of papers is a starting point without hand-authoring a
-        template each.
-        """
-        ref = str(body.get("paperRef", "")).strip()
-        base = str(body.get("baseTemplateId", "")).strip()
-        if not ref or not base:
-            raise HTTPException(400, "paperRef and baseTemplateId are required")
-        meta = matching.get_paper_metadata(s, ref)
-        if meta is None:
-            raise HTTPException(404, f"paper {ref!r} is not in the corpus")
-        try:
-            template = template_registry.derive_template_from_paper(
-                ref, base, title=meta.get("title", ""), year=meta.get("year")
-            )
-        except template_registry.TemplateError as exc:
-            raise HTTPException(400, str(exc)) from exc
-        try:
-            filled = template_registry.instantiate_doc(template, {})
-        except template_registry.TemplateError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        return {
-            "template": template,
-            "paper": meta,
-            "protocol": filled["protocol"],
         }
 
     @app.get("/analysis/prescriptions")
@@ -4185,7 +4107,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             {
                 "kind": "declare-task",
                 "target": "tasks[]",
-                "proposal": f"Declare the task: {body.taskDescription.strip()}.",
+                "proposal": body.taskDescription.strip().rstrip(".") + ".",
                 "patch": {
                     "id": "primary-task",
                     "title": body.taskDescription.strip()[:80],
@@ -4478,7 +4400,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "Approve a draft in the design conversation first",
             )
         payload = dataset(study_id, "json", s=s)
-        repo_root = Path(__file__).resolve().parent.parent.parent.parent
+        repo_root = template_registry.REPO
         with tempfile.TemporaryDirectory() as td:
             staging = Path(td)
             protocol_path = staging / "protocol.yaml"
@@ -4682,35 +4604,47 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         def _shell() -> FileResponse:
             return FileResponse(index_html, headers=_no_store)
 
-        @app.get("/", include_in_schema=False)
-        def spa_index() -> FileResponse:
-            return _shell()
+        # Every route App.tsx renders. A path missing here would 404 on the
+        # server for a refresh or bookmark even though the client router handles
+        # it from a soft navigation.
+        for client_route in (
+            "/",
+            "/home",
+            "/start",
+            "/settings",
+            "/repertoire",
+            "/signin",
+            "/p/{rest:path}",
+            "/invitations/{rest:path}",
+        ):
+            app.get(client_route, include_in_schema=False)(_shell)
 
-        @app.get("/home", include_in_schema=False)
-        def spa_home_route() -> FileResponse:
-            return _shell()
+        class _AppFiles(StaticFiles):
+            """Static files, plus the app shell for an unknown *browser* path.
 
-        @app.get("/p/{rest:path}", include_in_schema=False)
-        def spa_project_route(rest: str) -> FileResponse:
-            return _shell()
+            A page request for a URL the server does not know gets the app, which
+            renders its own "not found" page (status 404), never raw JSON. API
+            clients (no ``text/html`` in Accept) and missing assets (a path with
+            a file extension) still get a plain 404.
+            """
 
-        @app.get("/invitations/{rest:path}", include_in_schema=False)
-        def spa_invite_route(rest: str) -> FileResponse:
-            return _shell()
+            async def get_response(self, path: str, scope):  # type: ignore[override]
+                try:
+                    response = await super().get_response(path, scope)
+                except StarletteHTTPException as exc:
+                    if exc.status_code != 404:
+                        raise
+                    response = None
+                if response is not None and response.status_code != 404:
+                    return response
+                accept = dict(scope["headers"]).get(b"accept", b"").decode()
+                if "text/html" in accept and "." not in path.rsplit("/", 1)[-1]:
+                    return FileResponse(index_html, status_code=404, headers=_no_store)
+                if response is None:
+                    raise StarletteHTTPException(404)
+                return response
 
-        @app.get("/repertoire", include_in_schema=False)
-        def spa_repertoire_route() -> FileResponse:
-            return _shell()
-
-        @app.get("/start", include_in_schema=False)
-        def spa_start_route() -> FileResponse:
-            return _shell()
-
-        @app.get("/settings", include_in_schema=False)
-        def spa_settings_route() -> FileResponse:
-            return _shell()
-
-        app.mount("/", StaticFiles(directory=dist), name="platform")
+        app.mount("/", _AppFiles(directory=dist), name="platform")
 
     return app
 

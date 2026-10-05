@@ -60,6 +60,7 @@ export function SteerDial({
         onClick={() => setOpen((current) => !current)}
       >
         <SlidersHorizontal className="size-4 text-text-muted" aria-hidden />
+        <span className="type-caption">{stop.label}</span>
       </button>
 
       {open && (

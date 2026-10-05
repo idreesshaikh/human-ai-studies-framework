@@ -178,3 +178,15 @@ def test_research_questions_must_be_different(client_no_protocol: TestClient):
 
     assert response.status_code == 422
     assert "research questions must be different" in response.json()["detail"]
+
+
+def test_task_proposal_has_no_template_prefix_or_doubled_full_stop(
+    client_no_protocol: TestClient,
+):
+    response = client_no_protocol.post("/studies/pilot/quick-protocol", json=BODY)
+    assert response.status_code == 200, response.text
+    turn = client_no_protocol.get("/studies/pilot/conversation").json()["turns"][-1]
+    task = next(m for m in turn["moves"] if m["kind"] == "declare-task")
+    assert not task["proposal"].startswith("Declare the task")
+    assert ".." not in task["proposal"]
+    assert task["proposal"] == BODY["taskDescription"]

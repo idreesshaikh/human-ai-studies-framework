@@ -3,10 +3,10 @@
  * A gated route needs none of this: `Shell` renders the sign-in surface in
  * place, at the URL the researcher asked for, so signing in reloads that same
  * URL and they arrive where they were going. The problem is the sign-in links
- * on PUBLIC pages  -  the repertoire's "Sign in to keep this", the frame's
+ * on PUBLIC pages  -  the templates page's "Sign in to start", the frame's
  * header button  -  which have to leave a page that was working fine, and had
  * nowhere to point but `/home`. That dropped the researcher on their project
- * list having just abandoned the merged protocol they were trying to save.
+ * list having just abandoned the page they were on.
  *
  * Sign-in ends in `location.reload()` (auth.tsx: cached failed loads have to
  * restart signed in), so the return path cannot be component state, a ref, or

@@ -11,10 +11,7 @@ export const Textarea = React.forwardRef<
   <textarea
     ref={ref}
     className={cn(
-      "min-h-28 w-full resize-y border border-control-edge bg-surface px-3 py-2 text-text",
-      "rounded-input placeholder:text-text-muted",
-      "type-body leading-relaxed transition-colors duration-fast hover:border-text-muted",
-      "disabled:cursor-not-allowed disabled:border-border disabled:bg-well disabled:text-text-muted",
+      "control control-area min-w-0 type-body leading-relaxed",
       className,
     )}
     {...props}

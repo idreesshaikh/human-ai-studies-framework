@@ -54,14 +54,14 @@ export function QuickStart() {
   };
 
   return (
-    <div className="mx-auto flex min-h-dvh flex-col items-center justify-center gap-6 px-4 py-12">
-      <div className="w-full max-w-96 flex flex-col gap-6">
-        <div className="text-center">
+    <div className="mx-auto flex max-w-reading flex-col gap-6 p-gutter">
+      <div className="flex w-full flex-col gap-6">
+        <div>
           <h1 className="type-title text-text">Start a developer study</h1>
-          <p className="type-body mt-1 text-text-muted">
+          <p className="type-body mt-1 text-pretty text-text-muted">
             Configure a task-based human–AI study, then run it in VS Code.
           </p>
-          <p className="type-caption mt-3 text-text-muted">
+          <p className="type-caption mt-3 text-pretty text-text-muted">
             Phoenix supports coding-task comparisons with AI-assisted and unassisted
             conditions. It is not an exam, classroom, clinical, marketing, or general survey
             tool.

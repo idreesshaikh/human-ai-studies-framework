@@ -370,7 +370,7 @@ def _scaffold_from_sections(sections: dict[str, list]) -> dict:
     """Build a protocol from free-text sections alone (no template)."""
     draft: dict = {
         "protocolVersion": 4,
-        "study": {"id": "draft", "researchers": ["Researcher"]},
+        "study": {"id": "draft", "researchers": [RESEARCHER_PLACEHOLDER]},
         "phases": [{"name": "design", "gates": []}],
     }
     if sections["researchQuestions"]:
@@ -888,27 +888,66 @@ def _template_title(template_id: str | None) -> str:
         return ""
 
 
-def _template_supplied_note(
+RESEARCHER_PLACEHOLDER = "Lead researcher (edit me)"
+
+RECIPE_LABELS: dict[str, str] = {
+    "agent-interaction-dynamics": "agent conversation analysis",
+    "ai-review-behavior": "AI suggestion review analysis",
+    "code-quality-by-condition": "code quality comparison",
+    "correlation": "rank correlation",
+    "fatigue-by-condition": "fatigue comparison",
+    "meyer-fragmentation": "work fragmentation analysis",
+    "paired-nonparametric": "paired nonparametric test",
+    "paste-behavior": "paste behaviour analysis",
+    "stuck-episodes": "stuck episode analysis",
+    "task-outcome-by-condition": "task outcome comparison",
+    "tlx-debrief": "NASA-TLX debrief analysis",
+    "two-group-nonparametric": "two-group nonparametric test",
+    "two-proportion": "two-proportion test",
+    "ziegler-acceptance-rate": "suggestion acceptance rate analysis",
+}
+
+METRIC_SET_LABELS: dict[str, str] = {
+    "cognitive-load-9": "NASA-TLX cognitive-load measure set",
+    "code-quality-5": "code-quality measure set",
+}
+
+
+def _plain_id(ident: object, labels: dict[str, str]) -> str:
+    text = str(ident)
+    return labels.get(text) or text.replace("-", " ")
+
+
+def _template_supplied_notes(
     template_id: str | None,
     skeleton: dict,
     draft: dict,
     sections: dict[str, list],
-) -> str | None:
-    """Name what the template's own skeleton brought beyond the researcher's words."""
+) -> list[str]:
+    """Plain-language notes, one per item the template brought beyond the researcher."""
     stated = set(sections["researchQuestions"])
-    parts: list[str] = []
-    rqs = [
-        f"{rq.get('id')} ({rq.get('text')})"
-        for rq in skeleton.get("researchQuestions") or []
-        if isinstance(rq, dict) and rq.get("text") not in stated
+    title = _template_title(template_id) or str(template_id or "chosen")
+    lead = f"From the {title} template: "
+    notes: list[str] = []
+    for index, rq in enumerate(skeleton.get("researchQuestions") or [], start=1):
+        if not isinstance(rq, dict) or rq.get("text") in stated:
+            continue
+        match = re.search(r"(\d+)\s*$", str(rq.get("id") or ""))
+        number = match.group(1) if match else str(index)
+        notes.append(
+            f'research question {number}, "{rq.get("text")}" '
+            "(you did not state it; remove it if unwanted)."
+        )
+    notes = [lead + n for n in notes[:1]] + [
+        "From the template: " + n for n in notes[1:]
     ]
-    if rqs:
-        parts.append("research questions " + "; ".join(rqs))
     metric_set = ((skeleton.get("instruments") or {}).get("metrics") or {}).get(
         "metricSet"
     )
     if metric_set:
-        parts.append(f"the {metric_set} measure set")
+        notes.append(
+            f"From the template: the {_plain_id(metric_set, METRIC_SET_LABELS)}."
+        )
     final_plan = {
         str(e.get("rq")): e.get("recipes")
         for e in draft.get("analysisPlan") or []
@@ -921,11 +960,9 @@ def _template_supplied_note(
         for r in e.get("recipes") or []
     ]
     if recipes:
-        parts.append("analysis recipes " + ", ".join(dict.fromkeys(recipes)))
-    if not parts:
-        return None
-    title = _template_title(template_id) or str(template_id or "chosen")
-    return f"Added from the {title} template: " + "; ".join(parts)
+        labels = [_plain_id(r, RECIPE_LABELS) for r in dict.fromkeys(recipes)]
+        notes.append("From the template: the " + " and the ".join(labels) + ".")
+    return notes
 
 
 def _apply_task_moves(draft: dict, moves: list[dict]) -> list[str]:
@@ -1184,9 +1221,9 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
     _dedupe_conditions(draft)
     _canonical_task_conditions(draft)
     if instantiated:
-        note = _template_supplied_note(template_id, skeleton, draft, sections)
-        if note:
-            warnings.append(note)
+        warnings.extend(
+            _template_supplied_notes(template_id, skeleton, draft, sections)
+        )
     if text_minutes is not None:
         draft.setdefault("session", {})["durationMinutes"] = text_minutes
     _sync_tern_session_minutes(draft, moves, slot_minutes)
@@ -1199,6 +1236,11 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
             assumed = tern_session.get("durationMinutes")
         if assumed == 45:
             warnings.append("Session length was not stated, so 45 minutes was assumed")
+
+    study = draft.get("study")
+    if isinstance(study, dict) and study.get("researchers") == ["Researcher"]:
+        # The schema needs at least one name; make the placeholder obviously editable.
+        study["researchers"] = [RESEARCHER_PLACEHOLDER]
 
     new_yaml = yaml.safe_dump(draft, sort_keys=False, default_flow_style=False)
     base = base_yaml or ""

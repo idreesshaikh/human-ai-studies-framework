@@ -51,16 +51,15 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             aria-label={ariaLabel}
             aria-describedby={ariaDescribedBy}
             className={cn(
-              "h-10 w-full rounded-input border border-border bg-surface-raised px-3 py-2 type-body text-text shadow-mark transition-colors duration-fast hover:border-control-edge disabled:cursor-not-allowed disabled:border-border disabled:bg-well disabled:text-text-muted",
-              "relative flex items-center justify-between",
+              "control relative flex min-w-0 items-center justify-between gap-2 type-body text-left",
               className
             )}
             disabled={disabled}
           >
-            <span className={!selected ? "text-text-muted" : "text-text"}>
+            <span className={cn("min-w-0 truncate", !selected ? "text-text-muted" : "text-text")}>
               {selected?.label ?? placeholder}
             </span>
-            <ChevronDown className="size-4 text-text-muted" aria-hidden />
+            <ChevronDown className="size-4 shrink-0 text-text-muted" aria-hidden />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-full min-w-56">

@@ -59,3 +59,13 @@ export function resolveRole(input: RoleInputs): RoleState {
 export function roleOrNull(state: RoleState): Role | null {
   return state.status === "known" ? state.role : null;
 }
+
+/** Whether a page may fire the compile call (a contribute-level POST) as it
+ * opens, with no user action. Never while the role is unknown, never for a
+ * viewer (the server would 403 it on every visit). A non-member is left to the
+ * server: local dev mode has no accounts to check, and a real non-member never
+ * reaches the study. */
+export function compileOnOpenAllowed(state: RoleState): boolean {
+  if (state.status === "loading") return false;
+  return state.role !== "viewer";
+}

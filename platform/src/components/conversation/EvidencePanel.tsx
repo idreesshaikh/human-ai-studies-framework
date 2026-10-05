@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +11,8 @@ import { EvidenceDetails } from "./EvidenceDetails";
 const EMPTY: EvidenceContext = { query: "", population: "", task: "", construct: "", producers: [], instruments: [], confirmedRelationIds: [] };
 const STATUS = { compatible: "Compatible", conditional: "Conditional", incompatible: "Incompatible", "insufficient-evidence": "More evidence needed" };
 
-export function EvidencePanel({ studyId, onProposed }: { studyId: string; onProposed: () => Promise<void> }) {
+export function EvidencePanel({ studyId, onProposed, onClose }: { studyId: string; onProposed: () => Promise<void>; onClose?: () => void }) {
+  const fileInput = useRef<HTMLInputElement>(null);
   const map = useAsync(() => evidenceApi.load(studyId), [studyId]);
   const [context, setContext] = useState<EvidenceContext>(EMPTY);
   const [compared, setCompared] = useState<EvidenceContext | null>(null);
@@ -67,14 +69,19 @@ export function EvidencePanel({ studyId, onProposed }: { studyId: string; onProp
 
   return (
     <section aria-label="Evidence-linked methods" className="mx-auto w-full max-w-reading space-y-4 px-4 py-5 sm:px-8">
-      <h3 className="type-subhead text-text">Evidence-linked methods</h3>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="type-subhead text-text">Evidence-linked methods</h3>
+        {onClose && <Button variant="ghost" size="icon" aria-label="Close method comparison" onClick={onClose}><X aria-hidden /></Button>}
+      </div>
       <p className="type-caption text-text-muted">Compare source-backed methods. No choice changes the protocol without your approval.</p>
       {map.loading && <p role="status" className="type-caption text-text-muted">Loading evidence…</p>}
       {map.error && <Notice kind="problem">{map.error} <button className="underline" onClick={map.reload}>Retry</button></Notice>}
       {map.data?.document && <p className="type-caption text-text-muted">{map.data.document.mapId} · {map.data.document.mapVersion}<br />{map.data.document.description}</p>}
       <div className="space-y-2">
-        <Label htmlFor="evidence-file">{map.data?.document ? "Import a new map version" : "Import an evidence map (JSON)"}</Label>
-        <input id="evidence-file" type="file" accept=".json,application/json" disabled={busy} className="block w-full min-w-0 type-caption text-text-muted" onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ""; }} />
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => fileInput.current?.click()}>
+          {map.data?.document ? "Import a new map version" : "Import evidence map"}
+        </Button>
+        <input ref={fileInput} id="evidence-file" aria-label={map.data?.document ? "Import a new map version" : "Import an evidence map (JSON)"} tabIndex={-1} type="file" accept=".json,application/json" disabled={busy} className="sr-only" onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ""; }} />
       </div>
       {map.data?.document && (
         <form className="space-y-4" onSubmit={e => { e.preventDefault(); const next = { ...context, producers: context.producers.map(v => v.trim()).filter(Boolean), instruments: context.instruments.map(v => v.trim()).filter(Boolean) }; setContext(next); setCompared(next); }}>

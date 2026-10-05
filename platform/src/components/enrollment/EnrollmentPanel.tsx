@@ -231,7 +231,7 @@ export function EnrollmentPanel({
               href={EXTENSION_RELEASES_URL}
               target="_blank"
               rel="noreferrer"
-              className="inline-block py-1 -my-1 underline underline-offset-2 hover:text-text"
+              className="touch-link inline-block py-1 -my-1 underline underline-offset-2 hover:text-text"
             >
               Download the .vsix
             </a>

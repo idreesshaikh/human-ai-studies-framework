@@ -301,3 +301,19 @@ def test_change_participants_request_still_yields_a_card_once_the_draft_is_valid
     assert turn is not None and len(turn.moves) == 1
     assert "every required decision" not in turn.text
     assert "already in the draft" not in turn.text
+
+
+def test_decision_followup_flag_reaches_the_model_call(monkeypatch):
+    from middleware import design_assistant, design_llm
+
+    seen = {}
+
+    def fake(*args, **kwargs):
+        seen.update(kwargs)
+
+    monkeypatch.setattr(design_llm, "propose_turn", fake)
+    monkeypatch.setattr(design_assistant.time, "sleep", lambda _s: None)
+    design_assistant._propose_with_retry(
+        None, "t", [], [], [], "d", None, decision_followup=True
+    )
+    assert seen["decision_followup"] is True

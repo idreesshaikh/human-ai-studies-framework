@@ -9,11 +9,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
-import { splitCompileWarnings } from "@/lib/compileNotices";
 import { SLOT_LABELS, targetLabel, type DesignMove } from "@/lib/types";
 import type { CompileResult } from "@/lib/conversationApi";
 import { BlinkComparator } from "./BlinkComparator";
 import { hasEarlierVersion } from "@/lib/comparator";
+import { cleanProposalText } from "@/lib/uiText";
 
 /* A YAML-scalar line whose entire value is an empty collection, e.g.
  * "instruments: {}" or "  gates: []"  -  a still-unresolved slot rendered as
@@ -77,9 +77,7 @@ export function FinishReview({
   const grounded = accepted.filter((m) => m.grounding.length > 0).length;
   const judgment = accepted.length - grounded;
   const valid = compile?.valid ?? false;
-  const { altered, other: quietWarnings } = splitCompileWarnings(
-    compile?.warnings,
-  );
+  const warnings = compile?.warnings ?? [];
   const diffLines = useMemo(
     () => (compile?.diff ? parseDiffLines(compile.diff) : []),
     [compile?.diff],
@@ -132,7 +130,7 @@ export function FinishReview({
                     * row's second column starting somewhere different. */}
                   {targetLabel(m.target)}
                 </span>
-                <span className="min-w-0 flex-1 text-text">{m.proposal}</span>
+                <span className="min-w-0 flex-1 break-words text-text">{cleanProposalText(m.proposal)}</span>
                 {m.grounding.length > 0 ? (
                   <span className="shrink-0 type-caption text-grounded" title="grounded in the corpus">
                     cited
@@ -175,26 +173,17 @@ export function FinishReview({
               ))}
             </ul>
           )}
-          {compile && altered.length > 0 && (
-            <Notice kind="problem" className="mt-1.5">
+          {compile && warnings.length > 0 && (
+            <Notice kind="note" className="mt-1.5">
               <p className="font-medium">
-                The draft differs from what you said in these places:
+                What the compiler added or changed in your draft:
               </p>
-              <ul className="mt-1 flex list-disc flex-col gap-1 pl-4">
-                {altered.map((w, i) => (
-                  <li key={i}>{w}</li>
+              <ul className="mt-1 flex list-disc flex-col gap-1.5 pl-4">
+                {warnings.map((w, i) => (
+                  <li key={i} className="max-w-reading break-words leading-snug [overflow-wrap:anywhere]">{w.charAt(0).toUpperCase() + w.slice(1)}</li>
                 ))}
               </ul>
             </Notice>
-          )}
-          {compile && quietWarnings.length > 0 && (
-            <ul className="mt-1.5 flex flex-col gap-1">
-              {quietWarnings.map((w, i) => (
-                <li key={i} className="type-caption text-text-muted">
-                  {w}
-                </li>
-              ))}
-            </ul>
           )}
           {compile && !valid && compile.unresolved.length > 0 && (
             <p className="mt-1.5 rounded-input border border-border bg-surface p-2 type-caption text-text-muted">

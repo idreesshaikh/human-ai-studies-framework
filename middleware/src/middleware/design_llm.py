@@ -98,13 +98,29 @@ _HOUSE_STYLE = (
     "VOICE. Write like a methodologist talking to a colleague: plain, direct, "
     "unhedged. Short sentences. Say what is grounded and what is not. Never "
     "sell, never congratulate, never open with a compliment.\n"
-    "PACE. Keep the reply text to at most two short sentences, about 35 words. "
-    "Normally ask no more than one question and propose one move per turn. If "
-    "the turn instruction marks BATCH INTAKE, return the complete set of safe "
+    "EXPERT VOICE. The reader is an experienced software-engineering researcher. "
+    "Address a peer. Never define basic research concepts (within-subjects, "
+    "counterbalancing, power) unless asked. Never assume the researcher is a "
+    "student or the study a course project. Never restate the brief or what "
+    "they just said. No preamble, no sign-off, no filler ('Great question', "
+    "'Certainly', 'I understand'), no negative lists of what the template or "
+    "study will NOT include. Lead with the decision-relevant point.\n"
+    "PACE. For a focused choice, reply in about 70 words, two to four short sentences, "
+    "in this priority: (a) what you propose and why, with the specific "
+    "trade-off or threat to validity that matters for THIS design; (b) the "
+    "source in the form (Author Year) when the move is grounded, keeping the "
+    "reference id in the move's refs; (c) exactly one next question that "
+    "unblocks the protocol, phrased specifically (for example 'Counterbalance "
+    "order, or fix AI-first?'), never generic. If the turn instruction marks "
+    "BATCH INTAKE, return the complete set of safe "
     "moves in that response instead of making the researcher walk through them "
-    "one by one. Keep the normal path small, but let the researcher redirect, "
-    "defer, or answer in their own order. Do not turn the normal conversation "
-    "into a checklist.\n"
+    "one by one. For a batch brief or a requested explanation, use up to about "
+    "180 words when the trade-offs need it. Lead with a short synthesis; keep "
+    "individual decisions in their cards rather than repeating them in prose. "
+    "A brief's wording does not mandate a study design: distinguish an option, "
+    "a recommendation and a requirement. Let the researcher redirect, defer, "
+    "or answer in their own "
+    "order. Do not turn the conversation into a checklist.\n"
     "PUNCTUATION: do not use em dashes (the long dash). Use a full stop, a "
     "comma, a colon, or brackets instead. One idea per sentence beats one "
     "sentence with a dash in the middle. Do not use semicolons to join two "
@@ -127,10 +143,16 @@ _HOUSE_STYLE = (
     "correct it. Return no move only when the turn is a follow-up explanation, a "
     "methodological caution, or a genuinely unsafe guess.\n\n"
     "CARD ORDER. A turn that contains a move card is a decision sheet. Its text "
-    "must explain the proposal or why it matters, and must not ask the next "
-    "protocol question. The next question is emitted only in the follow-up "
-    "turn after the researcher accepts, rejects, or notes the card. Never put "
-    "a forward-looking question before or beside a new move card.\n\n"
+    "explains the proposal and its trade-off. Its one question may only be about "
+    "the open choice inside that proposal (for example 'Counterbalance order, or "
+    "fix AI-first?'), never a different protocol topic. The next topic is raised "
+    "in the follow-up turn after the researcher decides the card.\n\n"
+    "NO INVENTED MOTIVES. Never state, guess or imply why the researcher accepted, "
+    "rejected, noted or undid a card. They gave no reason unless they typed one. "
+    "Acknowledge the decision neutrally and continue.\n"
+    "NO UNRECORDED FACTS. In reply text, only restate details that appear as "
+    "accepted moves in the state block or as cards in this turn; otherwise offer "
+    "them as cards instead of claiming the researcher said them.\n\n"
     "UNCERTAINTY. 'I do not know', 'not sure', 'you decide', 'whatever is best', "
     "'later', and 'skip' are valid instructions, not failed answers. Never repeat "
     "the same question because the researcher is uncertain. Choose a conservative "
@@ -147,9 +169,12 @@ SYSTEM_PROMPT = (
     "them DERIVE a good, methodologically sound protocol, ask a clarifying "
     "question when the idea is ambiguous, then propose concrete design moves "
     "they accept or reject.\n\n"
-    "Each move's `proposal` is ONE specific, actionable sentence a researcher "
-    "can accept as-is: name the concrete research question, measure, "
-    "parameter, or design, never a vague gesture ('consider your measures'). "
+    "Each move's `proposal` is one imperative sentence naming the concrete "
+    "value, for example 'Set 12 participants (within-subjects).' not 'Set the "
+    "participant count to 12 professional developers.'. Put no rationale in "
+    "the proposal: the reason belongs in the reply text. Name the concrete "
+    "research question, measure, parameter, or design, never a vague gesture "
+    "('consider your measures'). "
     "Across the conversation aim for a complete protocol: cover the core "
     "sections, pair any self-report with an objective measure, and raise a "
     "`caution` when a choice risks a known validity threat. When the turn "
@@ -248,12 +273,15 @@ SYSTEM_PROMPT = (
     "plain prose: no markdown (no **bold**, no backticks, no bullet "
     "syntax), never write template ids, paper refs (corpus:..., arxiv:...) "
     "or slot keys (like session.durationMinutes) in it. Name a template by "
-    "its title, a paper by its title, and a field in everyday words.\n\n"
+    "its title, cite a paper as (Author Year) from the menu's bracketed author "
+    "and year, or (Short title Year) when no author is given, "
+    "and name a field in everyday words.\n\n"
     "Reply with a single JSON object, no prose outside it:\n"
-    '{"text": "conversational reply, no inline citations - refs live only '
-    'in moves[].refs", '
+    '{"text": "expert-voice reply, (Author Year) citations only; the '
+    'reference ids live in moves[].refs", '
     '"moves": [{"kind": "...", "target": "researchQuestions[]", "proposal": '
-    '"one sentence", "patch": {...} or null, "refs": ["..."]}]}\n\n'
+    '"one imperative sentence, no rationale", "patch": {...} or null, '
+    '"refs": ["..."]}]}\n\n'
     "Valid kinds: add-rq, add-measure, set-parameter, set-field, "
     "declare-task, prescribe-statistics, choose-template, merge-templates, "
     "add-instrument, "
@@ -360,7 +388,16 @@ def _design_state_block(state: dict | None) -> str:
 
 
 def _candidate_menu(papers: list[dict], templates: list[dict]) -> str:
-    paper_lines = [f"- {p['ref']}: {p.get('title', '')}" for p in papers]
+    paper_lines = [
+        f"- {p['ref']}: {p.get('title', '')}"
+        + (
+            f" [{p['authors']} {p['year']}]"
+            if p.get("authors") and p.get("year")
+            else ""
+        )
+        + (f" [{p['year']}]" if not p.get("authors") and p.get("year") else "")
+        for p in papers
+    ]
     template_lines = [
         f"- {t['templateId']}: {t.get('title', '')} "
         f"({t.get('designShape') or 'unspecified shape'})"
@@ -538,13 +575,79 @@ def _parse_moves(
             else ()
         )
         # Display text only: the patch keeps the real ids it needs to compile.
-        proposal = sanitize_reply_text(proposal, titles or {})
+        proposal = tighten_proposal(sanitize_reply_text(proposal, titles or {}))
         out.append(ProposedMove(kind, str(m.get("target", "")), proposal, patch, refs))
     return tuple(out)
 
 
 MAX_TOKENS = 1200
-REPLY_TEXT_MAX_CHARS = 1500
+REPLY_TEXT_MAX_CHARS = 700
+EXTENDED_REPLY_MAX_CHARS = 1800
+DECISION_REPLY_MAX_CHARS = 400
+
+_MOTIVE_SENTENCE = re.compile(
+    r"\bbecause\s+you\b|\byou\s+(?:wanted|preferred|felt|thought|needed|chose)\b"
+    r"|\b(?:was|were)\s+trying\s+to\b|\bto\s+clarify\s+the\s+setup\b",
+    re.I,
+)
+
+
+def strip_attributed_motives(text: str) -> str:
+    """Drop sentences that attribute a reason to the researcher's card decision."""
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    kept = [s for s in sentences if not _MOTIVE_SENTENCE.search(s)]
+    return " ".join(kept).strip()
+
+
+_FILLER_SENTENCE = re.compile(
+    r"^\W*(?:great|good|excellent|interesting)\s+(?:question|point|idea)\b"
+    r"|^\W*(?:certainly|of course|absolutely|sure thing|sure)\b"
+    r"|^\W*i\s+understand\b|^\W*as an ai\b|^\W*hope this helps\b"
+    r"|^\W*let me know if\b|^\W*feel free to\b",
+    re.I,
+)
+_STUDENT_ASSUMPTION = re.compile(
+    r"\b(?:course|class|classroom|student)\s+project\b"
+    r"|\bfor (?:a|your) (?:course|class)\b",
+    re.I,
+)
+_FILLER_MAX_CHARS = 60
+_REAL_SENTENCE_END = re.compile(r"(?<=[.!?])(?<!\be\.g\.)(?<!\bi\.e\.)\s+(?=[A-Z])")
+
+
+def strip_filler(text: str) -> str:
+    """Drop short filler openers/sign-offs and student-assuming sentences."""
+    # Keep line and paragraph breaks: flattening these made the final streamed
+    # turn differ from the visible tokens and erased the reply's hierarchy.
+    parts = re.split(r"(?<=[.!?])(\s+)", text.strip())
+    kept = [
+        s + (parts[i + 1] if i + 1 < len(parts) else "")
+        for i, s in enumerate(parts)
+        if i % 2 == 0
+        if not (
+            (_FILLER_SENTENCE.search(s) and len(s) <= _FILLER_MAX_CHARS)
+            or _STUDENT_ASSUMPTION.search(s)
+        )
+    ]
+    return "".join(kept).strip() or text.strip()
+
+
+_RATIONALE_CUT = re.compile(
+    r",?\s+(?:because|since|so that|given that)\b.*$"
+    r"|,\s*(?:which|to (?:ensure|avoid|reduce|control))\b.*$"
+    r"|\s+[-\u2013\u2014]\s+.*$",
+    re.I | re.S,
+)
+
+
+def tighten_proposal(proposal: str) -> str:
+    """One imperative sentence: keep the first sentence, drop trailing rationale."""
+    first = _REAL_SENTENCE_END.split(proposal.strip(), maxsplit=1)[0]
+    first = _RATIONALE_CUT.sub("", first).rstrip(" ,;:")
+    if first and first[-1] not in ".!?":
+        first += "."
+    return first or proposal.strip()
+
 
 _PARAGRAPH_SPLIT = re.compile(r"\n\s*\n")
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
@@ -635,8 +738,26 @@ def _title_map(papers: list[dict], templates: list[dict]) -> dict[str, str]:
     return titles
 
 
-def _clean_reply(text: str, papers: list[dict], templates: list[dict]) -> str:
-    text = cap_reply_text(trim_repeated_text(text))
+def _clean_reply(
+    text: str,
+    papers: list[dict],
+    templates: list[dict],
+    decision_followup: bool = False,
+    directive: str = "",
+) -> str:
+    text = strip_filler(trim_repeated_text(text))
+    if decision_followup:
+        text = cap_reply_text(
+            strip_attributed_motives(text) or text, DECISION_REPLY_MAX_CHARS
+        )
+    else:
+        extended = (
+            "BATCH INTAKE" in directive
+            or "QUESTION ABOUT WHAT YOU ALREADY SAID" in directive
+        )
+        text = cap_reply_text(
+            text, EXTENDED_REPLY_MAX_CHARS if extended else REPLY_TEXT_MAX_CHARS
+        )
     return sanitize_reply_text(text, _title_map(papers, templates))
 
 
@@ -724,6 +845,7 @@ def propose_turn_streaming(
     directive: str = "",
     *,
     design_state: dict | None = None,
+    decision_followup: bool = False,
 ):
     """:func:`propose_turn`, yielding the reply's prose as it arrives."""
     stream = getattr(client, "stream", None)
@@ -736,6 +858,7 @@ def propose_turn_streaming(
             templates,
             directive,
             design_state=design_state,
+            decision_followup=decision_followup,
         )
 
     candidate_refs = {p["ref"] for p in papers if p.get("ref")}
@@ -750,7 +873,7 @@ def propose_turn_streaming(
                 "model": client.model,
                 "messages": messages,
                 "response_format": {"type": "json_object"},
-                "max_tokens": MAX_TOKENS,
+                "max_tokens": MAX_TOKENS * (2 if "BATCH INTAKE" in directive else 1),
             },
             {"Authorization": f"Bearer {client.api_key}"},
         ):
@@ -763,7 +886,9 @@ def propose_turn_streaming(
         except json.JSONDecodeError:
             # Cut off at the token cap: keep the prose already streamed rather
             # than paying for a second full call that would likely loop again.
-            salvaged = _clean_reply(extractor.text.strip(), papers, templates)
+            salvaged = _clean_reply(
+                extractor.text.strip(), papers, templates, decision_followup, directive
+            )
             if not salvaged:
                 raise
             log.warning("streaming turn truncated; keeping its prose")
@@ -771,7 +896,11 @@ def propose_turn_streaming(
         if not isinstance(parsed, dict):
             raise ValueError("LLM reply was not a JSON object")
         reply_text = _clean_reply(
-            str(parsed.get("text", "")).strip(), papers, templates
+            str(parsed.get("text", "")).strip(),
+            papers,
+            templates,
+            decision_followup,
+            directive,
         )
     except Exception as exc:  # noqa: BLE001 - any provider/parse failure degrades
         log.warning("streaming conversation turn failed, falling back: %s", exc)
@@ -783,6 +912,7 @@ def propose_turn_streaming(
             templates,
             directive,
             design_state=design_state,
+            decision_followup=decision_followup,
         )
     moves = _parse_moves(
         parsed.get("moves"), candidate_refs, _title_map(papers, templates)
@@ -802,6 +932,7 @@ def propose_turn(
     directive: str = "",
     *,
     design_state: dict | None = None,
+    decision_followup: bool = False,
 ) -> Turn | None:
     """
     Ask the configured LLM provider for this turn's prose + proposed moves, constrained
@@ -819,7 +950,7 @@ def propose_turn(
                 "model": client.model,
                 "messages": messages,
                 "response_format": {"type": "json_object"},
-                "max_tokens": MAX_TOKENS,
+                "max_tokens": MAX_TOKENS * (2 if "BATCH INTAKE" in directive else 1),
             },
             {"Authorization": f"Bearer {client.api_key}"},
         )
@@ -828,7 +959,11 @@ def propose_turn(
         if not isinstance(parsed, dict):
             raise ValueError("LLM reply was not a JSON object")
         reply_text = _clean_reply(
-            str(parsed.get("text", "")).strip(), papers, templates
+            str(parsed.get("text", "")).strip(),
+            papers,
+            templates,
+            decision_followup,
+            directive,
         )
     except Exception as exc:  # noqa: BLE001 - any provider/parse failure degrades
         log.warning("LLM conversation turn unavailable: %s", exc)

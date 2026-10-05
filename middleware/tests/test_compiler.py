@@ -170,7 +170,7 @@ def test_broken_template_before_a_working_one_stays_silent():
     assert result.valid
     # The template's own content is announced, but the superseded one stays silent.
     assert not any("hallucinated" in w for w in result.warnings)
-    assert all(w.startswith("Added from the") for w in result.warnings)
+    assert all(w.startswith("From the") for w in result.warnings)
     assert result.errors == []
 
 
@@ -417,14 +417,31 @@ def _measure_move(text: str, move_id: str) -> dict:
     }
 
 
-def test_template_supplied_research_questions_are_named_in_a_warning():
-    moves = [_rq_move(), _crossover()]
-    result = compiler.compile_moves(moves)
-    note = next(w for w in result.warnings if w.startswith("Added from the"))
-    assert "Within-subjects crossover" in note  # the title, not the raw id
-    assert "within-subjects-crossover-v1" not in note
-    assert "RQ-1" in note and "RQ-2" in note
-    assert "cognitive-load-9" in note
+def test_template_supplied_items_get_one_plain_warning_each():
+    result = compiler.compile_moves([_rq_move(), _crossover()])
+    notes = [w for w in result.warnings if w.startswith("From the")]
+    assert (
+        notes[0].startswith("From the Within-subjects crossover template: ")
+        and "research question 1" in notes[0]
+    )
+    rq2 = next(n for n in notes if "research question 2" in n)
+    assert '"' in rq2 and "(you did not state it; remove it if unwanted)" in rq2
+    assert "From the template: the NASA-TLX cognitive-load measure set." in notes
+    assert (
+        "From the template: the paired nonparametric test and the NASA-TLX "
+        "debrief analysis." in notes
+    )
+    joined = " ".join(notes)
+    for leaked in (
+        "within-subjects-crossover-v1",
+        "RQ-1",
+        "RQ-2",
+        "cognitive-load-9",
+        "paired-nonparametric",
+        "tlx-debrief",
+        "Added from",
+    ):
+        assert leaked not in joined
     # Nothing was deleted: the template's content is still in the draft.
     assert [rq["id"] for rq in result.draft["researchQuestions"]][:2] == [
         "RQ-1",
@@ -432,21 +449,31 @@ def test_template_supplied_research_questions_are_named_in_a_warning():
     ]
 
 
+def test_every_registered_recipe_has_a_plain_label():
+    import analysis.recipes  # noqa: F401
+    from analysis.core import REGISTRY
+
+    missing = set(REGISTRY) - set(compiler.RECIPE_LABELS)
+    assert not missing, f"add plain labels for new recipes: {sorted(missing)}"
+    assert all(label != rid for rid, label in compiler.RECIPE_LABELS.items())
+
+
 def test_a_research_question_the_researcher_stated_is_not_credited_to_the_template():
     stated = "How do participants perceive the AI-assisted vs unassisted experience?"
     rq = _rq_move()
     rq["patch"]["value"] = stated
-    note = next(
+    notes = [
         w
         for w in compiler.compile_moves([rq, _crossover()]).warnings
-        if w.startswith("Added from the")
-    )
-    assert "RQ-2" not in note and "RQ-1" in note
+        if w.startswith("From the")
+    ]
+    assert not any("research question 2" in n for n in notes)
+    assert any("research question 1" in n for n in notes)
 
 
 def test_no_template_means_no_added_from_template_warning():
     result = compiler.compile_moves([_rq_move()])
-    assert not any(w.startswith("Added from the") for w in result.warnings)
+    assert not any(w.startswith("From the") for w in result.warnings)
 
 
 def test_measure_that_is_another_plus_a_unit_is_deduplicated_keeping_the_specific_one():
@@ -564,3 +591,24 @@ def test_manual_entry_supersedes_earlier_moves_but_not_later_ones():
 
     later = compiler.compile_moves([*before, manual, title("m-new", "Refined")])
     assert later.draft["study"]["title"] == "Refined"
+
+
+def test_placeholder_researcher_name_is_obviously_editable_and_still_valid():
+    for result in (
+        compiler.compile_moves([_rq_move(), _crossover()]),
+        compiler.compile_moves([_rq_move()]),
+    ):
+        assert result.draft["study"]["researchers"] == ["Lead researcher (edit me)"]
+        assert "- Researcher\n" not in result.yaml
+        assert not any("researchers" in str(e) for e in result.errors)
+
+
+def test_a_researcher_name_that_is_set_is_left_alone():
+    seed = {
+        "protocolVersion": 4,
+        "study": {"id": "draft", "researchers": ["Dr Ada Lovelace"]},
+        "researchQuestions": [{"id": "RQ-1", "text": "Q?"}],
+        "phases": [{"name": "design", "gates": []}],
+    }
+    result = compiler.compile_moves([], base_yaml=yaml.safe_dump(seed))
+    assert result.draft["study"]["researchers"] == ["Dr Ada Lovelace"]

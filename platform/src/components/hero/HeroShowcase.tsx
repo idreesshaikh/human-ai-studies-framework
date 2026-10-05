@@ -91,7 +91,7 @@ export function HeroShowcase() {
         <span className="type-legend text-text-muted">
           Developer study setup
         </span>
-        <span className="ml-auto type-legend text-text-muted">
+        <span className="ml-auto hidden type-legend text-text-muted sm:inline">
           every move cited
         </span>
       </div>
@@ -163,14 +163,7 @@ export function HeroShowcase() {
               {compiled ? (
                 <span className="type-legend text-grounded">in draft</span>
               ) : (
-                <>
-                  <span className="type-control text-text">
-                    Accept
-                  </span>
-                  <span className="type-control text-text-muted">
-                    Reject
-                  </span>
-                </>
+                <span className="type-legend text-text-muted">Choice pending</span>
               )}
             </div>
 

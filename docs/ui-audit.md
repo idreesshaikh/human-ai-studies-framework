@@ -13,7 +13,7 @@ has a fresh automated audit, documented in `demo-readiness.md`.
 | Dimension | Score / 4 | Evidence or limit |
 | --- | --- | --- |
 | Accessibility | 3 | 60 Axe-clean cases; keyboard review, decisions, seek and focus return; no screen-reader certification |
-| Performance | 3 | Lazy route chunks, about 113 kB gzip entry JS and 57 kB study chunk; no field Web Vitals or load-test claim |
+| Performance | 3 | Lazy route chunks, about 116 kB gzip entry JS and 60 kB study chunk; no field Web Vitals or load-test claim |
 | Responsive design | 3 | 320–2048px, two themes, overflow/scroll, 200% text and coarse-pointer 44px button checks; no human usability-study claim |
 | Theming | 4 | Semantic tokens, contrast verifier and both-theme Axe checks passed in tested states |
 | Implementation integrity | 4 | Source/approval truth preserved; stale-response gate and retained Plan state tested |
@@ -39,16 +39,26 @@ errors have route-level regression tests. Claude's existing changes are retained
   `ProjectSwitcher.tsx` with an accessible icon-only narrow-screen control.
 - P2, accessibility: Evidence titles skipped from h1 to h3. Fixed in
   `LibraryTab.tsx` with coherent heading levels.
-- P2, responsive comfort: dense small buttons use 36px height rather than the
-  44px AAA comfort target. They retain the 24px AA floor; touch-device trials
-  should determine whether larger targets are needed before participant rollout.
+- P2, responsive comfort: narrow windows and coarse pointers now use 44px
+  controls, including navigation and fields. The resulting 320px header overflow
+  was measured and fixed by adjusting mobile spacing, not shrinking targets.
+- P2, accessibility: the conversation-loading label lacked a compatible role.
+  Fixed with a named status region; the final 60-case matrix passed.
 
-No reproducible P0/P1 remains in these tested flows. One intermediate layout
-rehearsal reported `aria-prohibited-attr`; its diagnostic rerun passed without a
-code change. Keep this transient observation visible rather than claiming it
-was a diagnosed defect or silently discarding it.
+No reproducible P0/P1 remains in these tested flows. The later loading-state
+regression reproduced `aria-prohibited-attr`, identified its source and verified
+the fix; transient states remain part of the accessibility checks.
 
 ## Positive findings and next verification
+
+Latest form pass: shared input/select/textarea styling now consumes the existing
+control tokens rather than separate heights, shadows and unit borders. The manual
+form and link dialog retain fixed headings/actions with one scrolling body; tested
+states include narrow phones, landscape, both themes, 200% text, validation and
+outages. State-driven dialogs restore focus to their stable opener rather than
+a removed menu item or Radix focus guard. Ten manual and eight link-dialog cases
+passed alongside the 60-case workspace matrix. The score remains technical and
+does not certify screen-reader operation or measured researcher usability.
 
 Accessibility follow-up: the source-confirmation focus loss was reproduced in a
 browser before fixing it. A delayed-response regression now verifies retained
@@ -59,6 +69,11 @@ The compiled participant debrief also passes 12 keyboard/layout/Axe cases across
 light, dark and forced colors. Its previously invisible radio focus and unnamed
 comments field are fixed, and its privacy wording now reflects participant-ID
 linkage. Evidence details expose claim type, unknown quality and review notes.
+
+Multi-card decision testing also verifies focus moves to the next choice, the
+last decision waits for an active reply before requesting exactly one follow-up,
+and Undo restores focus without sending another message. Reopening a completed
+manual draft restores all seven sections and its ready-to-review state.
 
 The named draft rail preserves discovery without crowding chat. Review has one
 visible entry point per layout. Initial Plan loading cannot reveal calculations

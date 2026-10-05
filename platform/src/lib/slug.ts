@@ -34,7 +34,9 @@ const ACRONYMS = new Set([
  * `trust-in-ai-code-review` becomes `Trust in AI code review`.
  */
 export function humanSlug(slug: string): string {
-  const words = slug.replace(/-/g, " ").trim().split(/\s+/);
+  // An emoji or symbol glued to a word ("🚀study") needs a space after it.
+  const spaced = slug.replace(/(\p{Extended_Pictographic}\uFE0F?)(?=[\p{L}\p{N}])/gu, "$1 ");
+  const words = spaced.replace(/-/g, " ").trim().split(/\s+/);
   if (words.length === 0 || words[0] === "") return "";
   return words
     .map((word, i) => {

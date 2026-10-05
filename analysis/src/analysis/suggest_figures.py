@@ -236,11 +236,6 @@ def suggest_figures(result_shape: str) -> list[FigureSuggestion]:
     return list(_TABLE.get(result_shape, []))
 
 
-def figure_types() -> list[str]:
-    """All result shapes that have figure suggestions."""
-    return list(_TABLE.keys())
-
-
 ALL_FIGURE_TYPES = [
     "violin + jitter",
     "strip plot + median",

@@ -83,14 +83,12 @@ SCOPE_CLARIFICATION = (
 
 
 NO_MODEL = (
-    "The design conversation needs a language model, and none is configured. "
-    "Set MISTRAL_API_KEY on the middleware and reload. "
-    "Everything else on the platform works without one."
+    "No language model is connected. Templates and the checklist still work. "
+    "Set MISTRAL_API_KEY on the server to enable replies."
 )
 MODEL_SILENT = (
-    "The model is temporarily unavailable. Your message is saved and no "
-    "proposal was applied. Wait before retrying; repeated requests can prolong "
-    "a rate limit. You can also continue with manual protocol authoring."
+    "The model did not respond. Your message is saved and nothing was applied. "
+    "Retry in a minute, or author the protocol manually."
 )
 
 
@@ -106,13 +104,21 @@ def _propose_with_retry(
     templates: list[dict],
     directive: str,
     state: dict | None,
+    decision_followup: bool = False,
 ) -> Turn | None:
     """Make bounded, spaced retries for a transient model request failure."""
     from middleware import design_llm
 
     for attempt in range(TURN_ATTEMPTS):
         turn = design_llm.propose_turn(
-            client, text, history, papers, templates, directive, design_state=state
+            client,
+            text,
+            history,
+            papers,
+            templates,
+            directive,
+            design_state=state,
+            decision_followup=decision_followup,
         )
         if turn is not None:
             return turn
@@ -728,26 +734,29 @@ def _directive(stance: dict, state: dict | None = None) -> str:
             "THIS IS AN AUTOMATIC FOLLOW-UP TO A CARD DECISION. The researcher "
             f"just {action} the move identified in the design state. Do not "
             "propose any move in this response. Return an empty `moves` array. "
-            "For accepted or noted, acknowledge the choice briefly and ask at "
-            "most one useful next question only if the researcher has not "
+            "Never state, guess or imply why the researcher accepted, rejected, "
+            "noted or undid the card: they gave no reason, so do not invent one "
+            "and do not explain what the proposal was trying to do. Acknowledge "
+            "the decision neutrally (for example 'Noted: you rejected that "
+            "choice.') and continue. Reply in at most three sentences in total, "
+            "ending with one next question only if the researcher has not "
             "redirected or deferred. Do not force the first outstanding decision "
-            "or a prescribed order. For rejected, explain what the proposal was "
-            "trying to solve in one short sentence, then ask one focused question "
-            "only when it will let you offer a better fit. Do "
-            "not re-propose or restate the rejected move. The response must be "
-            "useful even if the researcher only answers that one question."
+            "or a prescribed order. Do not re-propose or restate the decided "
+            "move, and only restate details that appear as accepted moves in the "
+            "state block. The response must be useful even if the researcher "
+            "only answers that one question."
         )
         lines.append(_slot_directive(state))
         return "\n\n".join(lines)
 
     if stance["intent"] == "needs-scaffolding":
         lines.append(
-            "THE RESEARCHER IS STUCK. Explain the first missing facet in plain "
-            "language with two or three concrete examples tied to this study. "
-            "Do not repeat the generic question verbatim. Offer one clear next "
-            "choice and, when a safe concrete measure or task can help, propose "
-            "one actionable move card for them to accept or reject. Do not invent "
-            "a value they have not supplied."
+            "THE RESEARCHER IS STUCK. Give two or three concrete options for the "
+            "first missing facet, tied to this study, with the trade-off of each "
+            "in a clause. Do not define basic research concepts. Do not repeat "
+            "the generic question verbatim. Close with exactly one specific "
+            "question and, when a safe concrete measure or task can help, propose "
+            "one move card. Do not invent a value they have not supplied."
         )
     elif stance["intent"] == "followup-question":
         lines.append(
@@ -777,11 +786,12 @@ def _directive(stance: dict, state: dict | None = None) -> str:
                 "Use an explanation plus concrete options, not another open-ended "
                 "request for the same missing facet."
             )
-        else:
+        elif not stance.get("batchIntake"):
             lines.append(
                 "ONE STEP ONLY. Help the researcher with one useful facet, not "
-                "necessarily the first missing facet. Reflect their idea briefly, "
-                "then ask one question only when needed. If their latest message "
+                "necessarily the first missing facet. Never restate their idea "
+                "back to them. Ask exactly one specific question that unblocks "
+                "the protocol. If their latest message "
                 "contains one concrete task, measure, "
                 "research question, or protocol value, record only that safe "
                 "fact as one move. Do not propose a design shape yet."
@@ -1447,7 +1457,14 @@ def respond(
 
     directive = _directive(stance, state)
     turn = _propose_with_retry(
-        client, text, history, papers, templates, directive, state
+        client,
+        text,
+        history,
+        papers,
+        templates,
+        directive,
+        state,
+        decision_followup=bool(stance.get("decisionAction")),
     )
     if turn is None:
         if explicit is not None:
@@ -1642,11 +1659,19 @@ def respond_streaming(
         templates,
         directive,
         design_state=state,
+        decision_followup=bool(stance.get("decisionAction")),
     )
     if turn is None:
         log.info("streamed design turn produced nothing; retrying blocking")
         turn = _propose_with_retry(
-            client, text, history, papers, templates, directive, state
+            client,
+            text,
+            history,
+            papers,
+            templates,
+            directive,
+            state,
+            decision_followup=bool(stance.get("decisionAction")),
         )
     if turn is None:
         if explicit is not None:

@@ -1,3 +1,5 @@
+import { recipeLabel } from "./recipeLabels.ts";
+
 /* Turns the compiled protocol dict (CompileResult.protocol  -  the same
  * structured draft the compiler yaml.safe_dump()s) into short prose lines
  * for the draft rail, instead of dumping the raw YAML. Pure and
@@ -49,6 +51,7 @@ function describeValue(v: unknown): string {
 
 const INSTRUMENT_DISPLAY_NAMES: Record<string, string> = {
   tern: "TERN",
+  metrics: "Metrics",
   agentCapture: "Agent capture",
   taskHarness: "Task harness",
 };
@@ -70,7 +73,7 @@ function formatParticipants(p: Record<string, unknown>): ProtocolSection {
   if (typeof p.planned === "number") {
     bits.push(`${p.planned} participant${p.planned === 1 ? "" : "s"}`);
   }
-  if (typeof p.design === "string") bits.push(p.design.replace(/-/g, " "));
+  if (typeof p.design === "string") bits.push(designLabel(p.design));
   if (typeof p.counterbalanced === "boolean") {
     bits.push(p.counterbalanced ? "counterbalanced" : "not counterbalanced");
   }
@@ -137,7 +140,7 @@ function formatAnalysisPlan(plan: unknown[]): ProtocolSection {
       const rq = asString(r.rq);
       const recipes = asArray(r.recipes).map(asString).filter(Boolean);
       if (!rq) return "";
-      return recipes.length ? `${rq} → ${recipes.join(", ")}` : rq;
+      return recipes.length ? `${rq} → ${recipes.map(recipeLabel).join(", ")}` : rq;
     })
     .filter(Boolean);
   return { heading: "Analysis plan", lines };
@@ -206,17 +209,66 @@ export function summarizeProtocol(
 
 
 const KEBAB_ID = /^[a-z0-9]+(?:-[a-z0-9]+)+$/;
-const ACRONYMS: Record<string, string> = { tern: "TERN" };
+const ACRONYM_WORDS = new Set(["ai", "tern", "tlx", "llm", "ide"]);
+const INSTRUMENT_LABELS: Record<string, string> = {
+  tern: "TERN",
+  metrics: "Metrics",
+  "agent-capture": "Agent capture",
+  agentcapture: "Agent capture",
+  "task-harness": "Task harness",
+  taskharness: "Task harness",
+};
+
+const upperFirst = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/** Sentence case that keeps acronyms (ai-assisted -> AI-assisted). */
+function sentence(text: string): string {
+  const t = text.trim();
+  const [head, ...rest] = t.split(/(?<=[-\s])/);
+  if (!head) return "";
+  const bare = head.replace(/[-\s]+$/, "");
+  const first = ACRONYM_WORDS.has(bare.toLowerCase())
+    ? head.replace(bare, bare.toUpperCase())
+    : upperFirst(head);
+  return first + rest.join("");
+}
+
+/** A design id as a name: "design: within-subjects" -> "Within-subjects". */
+export function designLabel(value: string): string {
+  const id = value.replace(/^\s*design\s*:\s*/i, "").trim();
+  const m = /^(within|between|mixed)-subjects?(?:[-\s](.+))?$/i.exec(id);
+  if (m) {
+    const head = `${upperFirst(m[1].toLowerCase())}-subjects`;
+    return m[2] ? `${head} ${m[2].replace(/[-_]+/g, " ")}` : head;
+  }
+  return upperFirst(id.replace(/[-_]+/g, " "));
+}
 
 /** How one value in a draft-rail slot reads. Display only: the draft keeps the
- * raw ids. Template ids are humanised (no title lookup exists client-side),
- * comma lists get a space, and instrument acronyms are upper-cased. */
+ * raw ids. No lookup of template titles exists client-side, so ids are
+ * humanised; recipe ids come from the label table; comma lists get a space. */
 export function formatSlotValue(slot: string, value: string): string {
-  if (slot === "design" || (slot === "ethics" && KEBAB_ID.test(value))) {
-    const words = value.replace(/[-_]+/g, " ").trim();
-    return words.charAt(0).toUpperCase() + words.slice(1);
+  const v = value.trim();
+  if (slot === "design") return designLabel(v);
+  if (slot === "participants") {
+    const planned = /^(\d+)\s+(?:planned|participants?)$/i.exec(v);
+    if (planned) return `${planned[1]} participant${planned[1] === "1" ? "" : "s"}`;
+    if (/^design\s*:/i.test(v)) return designLabel(v);
+    return sentence(v.replace(/^([a-z][a-z ]*?):\s*/, (_m, k) => `${upperFirst(k)}: `));
   }
-  if (slot === "conditions") return value.replace(/\s*,\s*/g, ", ");
-  if (slot === "instruments") return ACRONYMS[value.toLowerCase()] ?? value;
-  return value;
+  if (slot === "conditions" || slot === "measures") {
+    return sentence(v.replace(/\s*,\s*/g, ", "));
+  }
+  if (slot === "instruments") {
+    return INSTRUMENT_LABELS[v.toLowerCase()] ?? sentence(v.replace(/[-_]+/g, " "));
+  }
+  if (slot === "statisticalPlan") {
+    return v.split(/\s*,\s*/).map(recipeLabel).join(", ");
+  }
+  if (slot === "ethics") {
+    const pending = /^pending\s*:\s*(.+)$/i.exec(v);
+    if (pending) return upperFirst(pending[1]);
+    if (KEBAB_ID.test(v)) return upperFirst(v.replace(/[-_]+/g, " "));
+  }
+  return v;
 }

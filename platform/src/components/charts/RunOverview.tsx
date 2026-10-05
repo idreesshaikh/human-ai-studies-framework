@@ -2,19 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
+import { EmptyState } from "@/components/shell/EmptyState";
 import { Select } from "@/components/ui/select";
 import { studyApi } from "@/lib/studyApi";
 import { useAsync } from "@/lib/useAsync";
-
-const SOURCE_LABEL: Record<string, string> = {
-  tern: "Editor capture", metrics: "Code metrics", "agent-capture": "AI interaction capture",
-  "workspace-snapshot": "Workspace snapshots", "participant-git": "Git history",
-  "task-harness": "Task outcomes", "agent-derived": "Derived AI measures",
-};
-const STATE_LABEL: Record<string, string> = {
-  enabled: "Configured", disabled: "Off", "external-required": "Separate runner needed",
-  unsupported: "Not supported", unavailable: "Not configured",
-};
+import { captureTokenLabel, producerStateLabel } from "@/lib/uiText";
 
 export function RunOverview({ studyId, preview = true, onReady, active = true }: {
   studyId: string; preview?: boolean; onReady?: (ready: boolean) => void; active?: boolean;
@@ -53,10 +45,10 @@ export function RunOverview({ studyId, preview = true, onReady, active = true }:
           <div className="h-12 w-full animate-pulse rounded-control bg-zone-9" />
         </div>
       ) : empty ? (
-        <div className="flex flex-col items-start gap-4">
-          <p className="type-body text-text-muted">Set a design and task in Setup to preview this study.</p>
-          <Button asChild size="sm"><Link to={{ search: "?tab=conversation" }}>Set up the study</Link></Button>
-        </div>
+        <EmptyState
+          line="Set a design and task in Setup to preview this study."
+          action={<Button asChild size="sm"><Link to={{ search: "?tab=conversation" }}>Set up the study</Link></Button>}
+        />
       ) : plan && (
         <>
           {plan.hasPendingChanges && <Notice>{draft ? "Preview of accepted decisions. Not yet applied to enrollment." : "Setup has unapplied decisions. This is the current enrollment protocol."}</Notice>}
@@ -103,7 +95,7 @@ export function RunOverview({ studyId, preview = true, onReady, active = true }:
             <summary className="cursor-pointer type-control text-text-muted">Capture and privacy</summary>
             {plan.fatigueIntervalMinutes != null && <p className="mt-3 type-body">Fatigue prompts: every {plan.fatigueIntervalMinutes} minutes, subject to pause and quiet-tail settings.</p>}
             <ul className="mt-3 space-y-3">
-              {producers.map(([name, value]) => <li key={name}><span className="font-medium">{SOURCE_LABEL[name] ?? name}</span>: {STATE_LABEL[value.state] ?? value.state}{plan.requiredProducers?.includes(name) && " · Required"}<p className="mt-1 type-caption text-text-muted">{value.reason}</p></li>)}
+              {producers.map(([name, value]) => <li key={name}><span className="font-medium">{captureTokenLabel(name)}</span>: {producerStateLabel(value.state)}{plan.requiredProducers?.includes(name) && " · Required"}<p className="mt-1 type-caption text-text-muted">{value.reason}</p></li>)}
             </ul>
             {plan.privacy && <p className="mt-3 type-caption text-text-muted">AI conversation policy: {plan.privacy.agentContentPolicy}. Raw code: {plan.privacy.rawCode ? "enabled; requires explicit consent" : "not collected"}. Clipboard text and individual keystrokes are not collected.</p>}
           </details>

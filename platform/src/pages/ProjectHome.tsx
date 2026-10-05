@@ -281,7 +281,7 @@ export function ProjectHome() {
             * anything, since the negative margin gives it straight back. */}
           <Link
             to={`/p/${slug}/members`}
-            className="type-caption -my-1 inline-block py-1 text-text-muted underline decoration-border underline-offset-4 transition-colors duration-fast hover:text-text hover:decoration-control-edge"
+            className="touch-link type-caption -my-1 inline-block py-1 text-text-muted underline decoration-border underline-offset-4 transition-colors duration-fast hover:text-text hover:decoration-control-edge"
           >
             Manage members
           </Link>

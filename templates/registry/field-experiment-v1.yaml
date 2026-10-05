@@ -3,12 +3,12 @@ templateId: field-experiment-v1
 title: Field experiment (real deployment, between-subjects)
 description: |
   A between-subjects comparison run inside participants' actual ongoing
-  work rather than an assigned lab task  -  a tool rollout, a team split, or
-  an opt-in period where one group gets the AI assistant and a comparable
-  group does not. Distinct from observational-field-v1 (no manipulation)
-  and two-group-rct-v1 (a controlled lab session): the manipulation here
-  is real, the setting is not controlled. Prescribes Mann-Whitney U with
-  Cliff's delta, same as any independent two-group comparison.
+  work rather than an assigned lab task, such as a tool rollout, a team
+  split, or an opt-in period where one group gets the AI assistant and a
+  comparable group does not. Unlike the observational field study there is
+  a real manipulation; unlike the two-group RCT the setting is not
+  controlled. Prescribes Mann-Whitney U with Cliff's delta, as for any
+  independent two-group comparison.
 designType: field-study
 
 designSignature:

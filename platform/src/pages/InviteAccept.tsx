@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { useApi, useSession } from "@/lib/session";
 import { ApiError } from "@/lib/api.ts";
+import { displayServerMessage, isFatalInviteError } from "@/lib/uiText.ts";
+import { useRouteTitle } from "@/lib/useDocumentTitle.ts";
 import { ROLE_LABELS, type Role } from "@/lib/capabilities.ts";
 
 /* The landing route for an invitation link. Accepting joins the project and
@@ -20,6 +22,9 @@ export function InviteAccept() {
   const [state, setState] = useState<"idle" | "joining" | "joined">("idle");
   const [role, setRole] = useState<Role | null>(null);
   const [error, setError] = useState("");
+  /* A 404/410 will not succeed on a retry: stop offering to accept. */
+  const [fatal, setFatal] = useState(false);
+  useRouteTitle();
 
   const accept = async () => {
     setState("joining");
@@ -32,9 +37,10 @@ export function InviteAccept() {
       setTimeout(() => navigate(`/p/${res.projectSlug}`), 1200);
     } catch (e) {
       setState("idle");
+      setFatal(isFatalInviteError(e));
       setError(
         e instanceof ApiError
-          ? e.message
+          ? displayServerMessage(e.message)
           : "This invitation could not be accepted.",
       );
     }
@@ -63,16 +69,25 @@ export function InviteAccept() {
               </p>
               {error && (
                 <Notice kind="problem" className="text-left">
-                  {error}{" "}
-                  <Link to="/home" className="text-accent underline">
-                    Go to your projects
-                  </Link>
-                  .
+                  {error}
                 </Notice>
               )}
-              <Button onClick={accept} disabled={state === "joining"}>
-                {state === "joining" ? "Joining…" : "Accept invitation"}
-              </Button>
+              {fatal ? (
+                <Button asChild variant="outline">
+                  <Link to="/home">Go to your projects</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={accept} disabled={state === "joining"}>
+                    {state === "joining" ? "Joining…" : "Accept invitation"}
+                  </Button>
+                  {error && (
+                    <Link to="/home" className="type-control text-accent underline">
+                      Go to your projects
+                    </Link>
+                  )}
+                </>
+              )}
             </>
           )}
         </CardContent>

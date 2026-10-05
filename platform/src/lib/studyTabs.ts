@@ -23,3 +23,12 @@ export function resolveStudyTab(param: string | null): StudyTab {
   if ((STUDY_TAB_IDS as string[]).includes(param)) return param as StudyTab;
   return ALIASES[param] ?? "conversation";
 }
+
+/** The labels people see on the tabs (StudyHome), reused in the page title. */
+export const STUDY_TAB_LABELS: Record<StudyTab, string> = {
+  conversation: "Setup",
+  library: "Evidence",
+  planning: "Plan",
+  enrollment: "Run",
+  data: "Data",
+};
