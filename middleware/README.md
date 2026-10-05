@@ -41,7 +41,8 @@ automatically.
 | `MIDDLEWARE_PUBLIC_URL` | Public base URL used in participant links |
 | `MIDDLEWARE_CORS_ORIGINS` | Comma-separated origins for a separate frontend |
 | `MISTRAL_API_KEY` | Enables the design conversation and model-assisted matching |
-| `MISTRAL_DESIGN_MODEL` | Design model override |
+| `MISTRAL_MODEL` | Shared model (default `ministral-14b-latest`) |
+| `MISTRAL_DESIGN_MODEL` | Optional design-only model override |
 | `MIDDLEWARE_CORPUS_BOOTSTRAP` | Set to 0 to disable background corpus import |
 
 The default is local single-user access. In Clerk mode, configure

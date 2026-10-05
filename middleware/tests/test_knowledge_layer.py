@@ -257,17 +257,19 @@ def test_full_text_search_finds_ingested_paper(client):
     assert "developers" in hits[0]["snippet"].lower() or hits[0]["snippet"]
 
 
-def test_make_client_uses_mistral_large(monkeypatch):
+def test_make_client_uses_default_model(monkeypatch):
     monkeypatch.setenv("MISTRAL_API_KEY", "m")
+    monkeypatch.delenv("MISTRAL_MODEL", raising=False)
     assert assistant.make_client().model == assistant.MISTRAL_MODEL
     monkeypatch.delenv("MISTRAL_API_KEY")
     assert assistant.make_client() is None
 
 
-def test_make_client_uses_mistral_large_only(monkeypatch):
+def test_make_client_uses_ministral_default(monkeypatch):
     monkeypatch.setenv("MISTRAL_API_KEY", "m")
+    monkeypatch.delenv("MISTRAL_MODEL", raising=False)
     client = assistant.make_client()
     assert isinstance(client, assistant.MistralProvider)
-    assert client.model == "mistral-large-latest"
+    assert client.model == "ministral-14b-latest"
     monkeypatch.delenv("MISTRAL_API_KEY")
     assert assistant.configured() is False

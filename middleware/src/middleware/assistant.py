@@ -10,9 +10,18 @@ import json
 import os
 import urllib.request
 
-# Corpus matching and short design turns use separate model defaults.
-MISTRAL_MODEL = "mistral-large-latest"
-MISTRAL_DESIGN_MODEL = os.environ.get("MISTRAL_DESIGN_MODEL", "mistral-medium-latest")
+# One default, with independently configurable design and corpus routes. Resolve
+# environment settings when building a client, not when importing this module.
+MISTRAL_MODEL = "ministral-14b-latest"
+MISTRAL_DESIGN_MODEL = MISTRAL_MODEL
+
+
+def model_name(*, design: bool = False) -> str:
+    """Design override > shared override > default; blank settings are unset."""
+    shared = os.environ.get("MISTRAL_MODEL", "").strip() or MISTRAL_MODEL
+    if design:
+        return os.environ.get("MISTRAL_DESIGN_MODEL", "").strip() or shared
+    return shared
 
 
 def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:
@@ -68,7 +77,7 @@ class MistralProvider:
     def __init__(self, api_key: str, post=None, stream=None):
         self.base_url = "https://api.mistral.ai/v1/chat/completions"
         self.api_key = api_key
-        self.model = MISTRAL_MODEL
+        self.model = model_name()
         self.post = post if post is not None else _post_json
         self.stream = stream if stream is not None else _post_stream
 
@@ -101,7 +110,7 @@ def make_design_client() -> MistralProvider | None:
     if client is None:
         return None
     if hasattr(client, "model"):
-        client.model = MISTRAL_DESIGN_MODEL
+        client.model = model_name(design=True)
     return client
 
 
