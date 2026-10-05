@@ -118,6 +118,36 @@ Run the extra regression against an isolated database:
 REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8014 npm --prefix platform run rehearse:human-workflows
 ```
 
+### Accessibility follow-up
+
+The evidence review now preserves keyboard focus while source confirmation
+refreshes a comparison. Choices stay disabled until that response arrives;
+changed constraints still hide obsolete results. Arrow keys, Home and End move
+both focus and selection in segmented controls. Decision shortcuts act only on
+the focused card: Ctrl+A, modified keys and keys inside nested controls cannot
+accept or reject a protocol change.
+
+Imported maps supply population, task and construct suggestions without choosing
+answers for the researcher. Source details distinguish reported findings,
+interpretations and recommendations, and expose evidence quality and review notes.
+
+The participant debrief has visible keyboard focus, 44px answer controls, a named
+comments field, progress announcements and accurate participant-ID wording.
+The compiled webview passed 12 browser cases across both study conditions,
+320/1000px widths and light, dark and forced-colors modes, including keyboard
+answers, complete-only submission, no overflow and zero Axe violations. Run it
+after installing both platform and extension dependencies:
+
+```bash
+npm --prefix platform run rehearse:debrief
+```
+
+An additional isolated VS Code rehearsal redeemed a link, started a timed session,
+paused/resumed, submitted seven debrief answers and returned to idle. Ten events
+reached the correct study, including the survey response and session end. Native
+consent/disconnect confirmation dialogs remain outside the browser automation;
+this rehearsal does not certify every capture channel or the hosted deployment.
+
 Integration retains Claude's disconnect/upload handling, validation harness,
 compiler-default warnings, revisions, readable capture labels, project palette,
 name limits and keyboard helpers, alongside merged evidence, replay, exports,

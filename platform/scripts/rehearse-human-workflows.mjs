@@ -105,6 +105,19 @@ try {
     } catch { /* A stopped request is intentionally cancelled. */ }
   });
   await page.goto(`${route}?tab=setup`);
+  await page.getByRole("button", { name: "Show protocol draft", exact: true }).click();
+  const railChoices = page.getByRole("radiogroup", { name: "Right panel: literature or protocol draft" });
+  await railChoices.getByRole("radio", { name: "Protocol draft", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(railChoices.getByRole("radio", { name: "Literature", exact: true })).toBeFocused();
+  await expect(railChoices.getByRole("radio", { name: "Literature", exact: true })).toHaveAttribute("aria-checked", "true");
+  await page.keyboard.press("Home");
+  await expect(railChoices.getByRole("radio", { name: "Protocol draft", exact: true })).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(railChoices.getByRole("radio", { name: "Literature", exact: true })).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(railChoices.getByRole("radio", { name: "Protocol draft", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Hide protocol draft", exact: true }).click();
   const composer = page.getByRole("textbox", { name: "Message the design assistant" });
   const citation = page.getByRole("button", { name: /^Grounded citation: Controlled research citation/ });
   await citation.click();

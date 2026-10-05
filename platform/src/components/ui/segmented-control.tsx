@@ -29,13 +29,6 @@ export function SegmentedControl<T extends string>({
   className,
   "aria-label": ariaLabel,
 }: SegmentedControlProps<T>) {
-  const move = (dir: -1 | 1) => {
-    const i = options.findIndex((o) => o.value === value);
-    if (i < 0) return;
-    const next = (i + dir + options.length) % options.length;
-    onChange(options[next].value);
-  };
-
   return (
     <div
       role="radiogroup"
@@ -45,7 +38,7 @@ export function SegmentedControl<T extends string>({
         className,
       )}
     >
-      {options.map((o) => {
+      {options.map((o, index) => {
         const selected = o.value === value;
         return (
           <button
@@ -57,13 +50,13 @@ export function SegmentedControl<T extends string>({
             title={o.hint}
             onClick={() => onChange(o.value)}
             onKeyDown={(e) => {
-              if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-                e.preventDefault();
-                move(1);
-              } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-                e.preventDefault();
-                move(-1);
-              }
+              const next = e.key === "Home" ? 0 : e.key === "End" ? options.length - 1 :
+                ["ArrowRight", "ArrowDown"].includes(e.key) ? (index + 1) % options.length :
+                ["ArrowLeft", "ArrowUp"].includes(e.key) ? (index - 1 + options.length) % options.length : null;
+              if (next === null) return;
+              e.preventDefault();
+              e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
+              onChange(options[next].value);
             }}
             className={cn(
               "type-control relative rounded-control-inner px-3 py-2 transition-colors duration-standard",

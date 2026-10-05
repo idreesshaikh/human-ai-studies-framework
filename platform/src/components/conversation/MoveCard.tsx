@@ -56,11 +56,12 @@ export function MoveCard({
 
   const onKey = useCallback(
     (e: React.KeyboardEvent) => {
-      if (decided) return;
-      if (e.key === "a") onDecide(move.moveId, "accepted", move);
-      if (e.key === "r") onDecide(move.moveId, "rejected", move);
+      if (decided || e.target !== e.currentTarget || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat || e.nativeEvent.isComposing) return;
+      if (e.key !== "a" && e.key !== "r") return;
+      e.preventDefault();
+      onDecide(move.moveId, e.key === "a" ? "accepted" : "rejected", move);
     },
-    [decided, move.moveId, onDecide],
+    [decided, move, onDecide],
   );
 
   /* The caret goes to this card only when it answers something the researcher

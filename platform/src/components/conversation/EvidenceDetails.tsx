@@ -12,7 +12,9 @@ export function EvidenceDetails({ candidate }: { candidate: EvidenceCandidate })
       {candidate.sources.map(source => (
         <section key={source.id} className="space-y-1">
           <p className="font-medium text-text">{source.publication.title}</p>
-          <p>{source.kind.replaceAll("-", " ")} · {source.review.status}{source.review.reviewers.length > 0 ? ` by ${source.review.reviewers.join(", ")}` : ""}</p>
+          <p>{source.claimType === "reported-fact" ? "Reported finding" : source.claimType === "interpretation" ? "Reviewer interpretation" : source.claimType === "recommendation" ? "Recommendation" : "Claim type unknown"} · {source.kind.replaceAll("-", " ")}</p>
+          <p>Evidence quality: {source.evidenceQuality ?? "unknown"} · {source.review.status}{source.review.reviewers.length > 0 ? ` by ${source.review.reviewers.join(", ")}` : ""}</p>
+          {source.review.notes && <p>{source.review.notes}</p>}
           <p>{source.claim}</p>
           <blockquote className="whitespace-pre-wrap pl-3">“{source.passage.text}”</blockquote>
           <p>{source.passage.location} · version {source.publication.version ?? "unspecified"}</p>

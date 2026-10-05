@@ -50,6 +50,16 @@ was a diagnosed defect or silently discarding it.
 
 ## Positive findings and next verification
 
+Accessibility follow-up: the source-confirmation focus loss was reproduced in a
+browser before fixing it. A delayed-response regression now verifies retained
+focus and disabled stale proposals. Modified decision shortcuts and keys inside
+nested controls leave the protocol unchanged; radio-group arrows/Home/End move
+focus with selection. These paths pass the evidence and human-workflow rehearsals.
+The compiled participant debrief also passes 12 keyboard/layout/Axe cases across
+light, dark and forced colors. Its previously invisible radio focus and unnamed
+comments field are fixed, and its privacy wording now reflects participant-ID
+linkage. Evidence details expose claim type, unknown quality and review notes.
+
 The named draft rail preserves discovery without crowding chat. Review has one
 visible entry point per layout. Initial Plan loading cannot reveal calculations
 before the run overview. Failures preserve an explicit recovery path; synthetic

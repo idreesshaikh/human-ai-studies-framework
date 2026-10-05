@@ -17,7 +17,8 @@
     "rehearse:session-replay": "node scripts/rehearse-session-replay.mjs",
     "rehearse:workspace-layout": "node scripts/rehearse-workspace-layout.mjs",
     "rehearse:demo-readiness": "node scripts/rehearse-demo-readiness.mjs",
-    "rehearse:human-workflows": "node scripts/rehearse-human-workflows.mjs"
+    "rehearse:human-workflows": "node scripts/rehearse-human-workflows.mjs",
+    "rehearse:debrief": "npm --prefix ../extension run compile && node scripts/rehearse-debrief.cjs"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",

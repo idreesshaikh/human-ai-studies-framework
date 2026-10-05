@@ -14,7 +14,9 @@ export interface EvidenceSource {
   id: string;
   kind: string;
   claim: string;
-  review: { status: string; reviewers: string[] };
+  claimType?: "reported-fact" | "interpretation" | "recommendation";
+  evidenceQuality?: "unknown" | "limited" | "moderate" | "strong";
+  review: { status: string; reviewers: string[]; notes?: string | null };
   applicability: { context: string; status: string };
   passage: { location: string; text: string };
   publication: { title: string; source: string; version: string | null };
@@ -50,7 +52,7 @@ export interface EvidenceSnapshot {
 
 export interface EvidenceMap {
   digest: string | null;
-  document: { mapId: string; mapVersion: string; description: string } | null;
+  document: { mapId: string; mapVersion: string; description: string; studies?: EvidenceCandidate["study"][] } | null;
 }
 
 const path = (id: string) => `/studies/${encodeURIComponent(id)}/evidence-map`;
