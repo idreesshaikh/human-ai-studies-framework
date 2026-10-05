@@ -234,12 +234,9 @@ export function StudyHome() {
                   ? "control-axis axis-under"
                   : "border-transparent text-text-muted hover:bg-zone-9 hover:text-text")}
             >
-              <t.icon className="size-4" aria-hidden />
-              {/* Narrow screens can't carry five labels, but five bare glyphs
-                * tell a stranger nothing and a phone has no hover to fall back
-                * on. The section you are in says its name; the rest are marks
-                * you can reach  -  which is also what the struck mark means. */}
-              <span className={cn(tab === t.id ? "inline" : "hidden sm:inline")}>
+              <t.icon className="hidden size-4 sm:block" aria-hidden />
+              {/* Keep every section named on phones; omit icons to make room. */}
+              <span>
                 {t.label}
               </span>
             </button>
@@ -272,12 +269,12 @@ export function StudyHome() {
         )}
         {tab === "planning" && (
           <div className="min-h-0 min-w-0 flex-1">
-            <PowerPanel studyId={id} />
+            <PowerPanel key={id} studyId={id} />
           </div>
         )}
         {tab === "enrollment" && (
           <div className="min-h-0 min-w-0 flex-1">
-            <EnrollmentPanel studyId={id} role={role} />
+            <EnrollmentPanel key={id} studyId={id} role={role} />
           </div>
         )}
       </div>

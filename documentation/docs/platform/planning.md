@@ -1,5 +1,19 @@
 # Planning
 
+## Preview the participant journey
+
+Open **Plan** before creating participant links. The run overview shows the
+assigned tasks and conditions, minutes per block, capture runners and privacy
+policy. Select a participant number to inspect order; this creates no link.
+
+Accepted decisions appear as an unapplied preview. **Run** continues to show the
+current protocol until you review and apply changes in Setup. **Refresh plan**
+reloads the latest choices without approving them. Warnings identify repeated
+tasks and inconsistent timers. Counterbalancing is not random allocation.
+
+The overview is planned configuration, not participant data. Recruitment
+calculations below remain assumptions, not observed results.
+
 Planning turns the protocol's comparison into a recruitment boundary. It is
 where the researcher explores how many observations may be needed before
 inviting anyone; it is not a report of results from participants.
@@ -28,7 +42,7 @@ range, Planning says so instead of inventing a sample size.
 ## How to use it
 
 1. Finish the comparison, conditions, and primary measure in the conversation.
-2. Open **Planning** and choose assumptions that are defensible for the study,
+2. Open **Plan** and choose assumptions that are defensible for the study,
    not simply the most optimistic effect size.
 3. Compare the recruitment number against the people you can realistically
    reach. A small feasible study can still be useful, but its conclusions may

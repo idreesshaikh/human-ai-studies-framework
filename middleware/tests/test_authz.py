@@ -46,6 +46,19 @@ def bearer(sub: str) -> dict:
     return {"Authorization": f"Bearer {sub}"}
 
 
+def test_run_plan_is_project_scoped(client):
+    project = client.post(
+        "/projects", json={"name": "Run plan privacy"}, headers=bearer("alice")
+    ).json()
+    study = client.post(
+        f"/projects/{project['slug']}/studies",
+        json={"name": "Private plan"}, headers=bearer("alice"),
+    ).json()
+    path = f"/studies/{study['id']}/run-plan"
+    assert client.get(path, headers=bearer("alice")).status_code == 200
+    assert client.get(path, headers=bearer("bob")).status_code == 403
+
+
 def make_project(client: TestClient, owner: str, name: str) -> str:
     """Create a project as ``owner`` (auto owner membership); return slug."""
     res = client.post("/projects", json={"name": name}, headers=bearer(owner))

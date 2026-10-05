@@ -139,6 +139,24 @@ export interface Prescription {
   rationale: string;
 }
 
+export interface RunPlan {
+  allocationNote?: string;
+  source: "accepted-decisions" | "current-protocol";
+  hasProtocol: boolean;
+  hasPendingChanges: boolean;
+  participantIndex: number;
+  participants?: { planned?: number; design?: string; counterbalanced?: boolean };
+  conditions?: string[];
+  durationMinutes?: number;
+  fatigueIntervalMinutes?: number;
+  blocks?: { index: number; taskId: string; title: string; description: string; condition: string }[];
+  producers?: Record<string, ProducerStatus>;
+  requiredProducers?: string[];
+  privacy?: { agentContentPolicy: string; rawCode: boolean; clipboardText: boolean; keystrokes: boolean };
+  errors: string[];
+  warnings?: string[];
+}
+
 export interface SessionStatus {
   sessionId: string;
   participantId: string;
@@ -592,6 +610,8 @@ export const studyApi = {
       SEED_PROTOCOL,
       null,
     ),
+  runPlan: (study: string, participantIndex = 0, preview = true) =>
+    req<RunPlan>(`/studies/${enc(study)}/run-plan?participantIndex=${participantIndex}&preview=${preview}`),
   sessionEvents: (studyId: string, sessionId: string) =>
     liveOrSeedStudy(
       studyId,

@@ -61,6 +61,11 @@ Use `GET /sessions/{id}/gaps` to inspect sequence gaps and
 replication-kit reads are scoped through the study's session mappings.
 The running service's `/docs` page lists the complete API.
 
+`GET /studies/{id}/run-plan?participantIndex=0&preview=true` previews the
+participant journey from accepted decisions. Use `preview=false` for enrollment's
+current protocol. The zero-based index is bounded to 0–9999. Both modes are
+read-only and require project view access; neither creates participant links.
+
 Optional producers share TERN's protocol-derived manifest; see
 [agent capture](../agent-capture/README.md). The capture contract describes
 capabilities and privacy policy; it is not a bearer credential.

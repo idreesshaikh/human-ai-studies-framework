@@ -6,14 +6,14 @@ visible before anyone starts a real session.
 
 <figure markdown="span">
   ![The current Phoenix Participants tab](../assets/screens/study-participants.png){ width="900" }
-  <figcaption>Install the exact TERN release first, then mint a one-use link for each participant.</figcaption>
+  <figcaption>Install the exact TERN release first, then create a one-use link for each participant.</figcaption>
 </figure>
 
 ## The hand-off contract
 
 1. The researcher installs the [TERN 1.0.1 release](https://github.com/idreesshaikh/human-ai-studies-framework/releases/tag/v1.0.1)
    into VS Code with **Extensions: Install from VSIX…**.
-2. PHOENIX mints a participant-specific, one-use enrollment token.
+2. PHOENIX creates a participant-specific, one-use enrollment token.
 3. The participant opens the link (`vscode://…/pair`) in VS Code.
 4. TERN redeems the token, shows the consent statement, stores the approved
    capture configuration, and receives the participant’s assignment.
@@ -25,8 +25,8 @@ not a Marketplace package, so the participant installs it once before pairing.
 
 ## Choose the study folder
 
-A minted link can open the task's folder in the participant's VS Code right
-after consent. In **Mint links**, set the **Study folder** once for the study,
+A participant link can open the task's folder in VS Code right
+after consent. In **Create participant links**, set the **Study folder** once for the study,
 in one of two ways:
 
 - **A path** that already exists on participants' computers, such as
