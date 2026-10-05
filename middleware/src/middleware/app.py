@@ -96,6 +96,8 @@ from middleware.db import (
     get_engine,
     make_session_factory,
 )
+from middleware.evidence_mapping import evidence_export
+from middleware.evidence_routes import register_routes as register_evidence_routes
 from middleware.schemas import (
     ApproveIn,
     CompileIn,
@@ -481,9 +483,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             here = column.in_(scoped)
             predicate = or_(here, column.notin_(mapped)) if adopt_unattributed else here
             return (
-                predicate
-                if include_synthetic
-                else predicate & column.notin_(synthetic)
+                predicate if include_synthetic else predicate & column.notin_(synthetic)
             )
 
         return in_this_study
@@ -728,6 +728,17 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             path = Path(f.stored_path)
             if path.is_file():
                 files.append((f"{f.id}-{f.filename}", path.read_bytes()))
+        evidence = evidence_export(s, study_id)
+        if evidence:
+            files.append(
+                ("evidence-maps.json", json.dumps(evidence, indent=2).encode())
+            )
+            files.append(
+                (
+                    "design-decisions.json",
+                    json.dumps(_conversation_moves(s, study_id), indent=2).encode(),
+                )
+            )
         return Response(
             content=build_bundle(
                 study_id,
@@ -3536,6 +3547,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "patch": mv.patch,
                 "grounding": mv.grounding,
                 "status": mv.status,
+                "decidedBy": mv.decided_by,
+                "decidedAt": mv.decided_at,
             }
             for mv in s.scalars(
                 select(DesignMoveRow)
@@ -3857,6 +3870,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "patch": mv.patch,
                 "grounding": mv.grounding,
                 "status": mv.status,
+                "decidedBy": mv.decided_by,
+                "decidedAt": mv.decided_at,
             }
             if mv.kind == "merge-templates" and isinstance(mv.patch, dict):
                 wire["mergeData"] = {
@@ -4122,9 +4137,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             seq=_conversation_seq(s, study_id),
             role="researcher",
             author="Researcher",
-            text=(
-                f"Protocol details entered manually: {questions[0]}"
-            ),
+            text=(f"Protocol details entered manually: {questions[0]}"),
             retrieved_refs=[],
             created_at=now(),
         )
@@ -4357,6 +4370,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "compilations": compilations,
             "approvals": approvals,
             "currentDraft": draft.yaml if draft else "",
+            "evidenceMaps": evidence_export(s, study_id),
         }
 
     @app.get(
@@ -4382,7 +4396,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
             out = staging / f"{study_id}-replication-kit.tar.gz"
             try:
-                build_kit(protocol_path, payload, out, repo_root=repo_root)
+                build_kit(
+                    protocol_path,
+                    payload,
+                    out,
+                    repo_root=repo_root,
+                    evidence_record=export_elicitation(study_id, s)
+                    if evidence_export(s, study_id)
+                    else None,
+                )
             except ProtocolError as exc:
                 raise HTTPException(422, str(exc)) from exc
             archive = out.read_bytes()
@@ -4551,6 +4573,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         """Which sign-in surface the platform should render (FR-OPS-5)."""
         return auth.public_config(settings)
 
+    def evidence_draft(s, study_id):
+        existing = s.get(ProtocolDraftRow, study_id)
+        return compiler.compile_moves(
+            _conversation_moves(s, study_id),
+            base_yaml=existing.yaml if existing else "",
+        ).draft
+
+    register_evidence_routes(
+        app, db, require_project_for_study, now, _conversation_seq, evidence_draft
+    )
     dist = settings.spa_dist
     index_html = dist / "index.html"
     if index_html.is_file():

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, PanelRight, PanelRightClose, Send } from "lucide-react";
+import { PanelRight, PanelRightClose, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { StreamingTurn } from "./StreamingTurn";
@@ -9,6 +9,7 @@ import { FinishReview } from "./FinishReview";
 import { SteerDial } from "./SteerDial";
 import { ConversationStart } from "./ConversationStart";
 import { ManualProtocolDialog } from "./ManualProtocolDialog";
+import { EvidencePanel } from "./EvidencePanel";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { compileAll, sinceManualEntry } from "@/lib/compiler";
 import { openingTurn } from "@/lib/conversationOpening";
@@ -46,60 +47,8 @@ function firstProposed(turns: Turn[]): string | null {
   return null;
 }
 
-function compactText(text: string, max = 104): string {
-  const clean = text.replace(/\s+/g, " ").trim();
-  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
-}
-
 function isDecisionEcho(text: string): boolean {
   return /^(I )?(accepted|rejected|noted)\b/i.test(text.trim());
-}
-
-function HistoryRow({ turn }: { turn: Turn }) {
-  const decisions = turn.moves.filter((move) => move.status !== "proposed");
-  const label = turn.role === "researcher"
-    ? isDecisionEcho(turn.text)
-      ? "Decision recorded"
-      : "Your note"
-    : "Platform guidance";
-
-  return (
-    <li className="flex items-start gap-3 border-t border-border py-3 first:border-t-0">
-      <span
-        aria-hidden
-        className={cn(
-          "mt-1.5 size-1.5 shrink-0 rounded-dot",
-          turn.role === "researcher" ? "bg-accent" : "bg-border-strong",
-        )}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="type-caption font-medium text-text">{label}</span>
-          {decisions.length > 0 && (
-            <span className="type-legend text-text-muted">
-              {decisions.length} {decisions.length === 1 ? "choice" : "choices"}
-            </span>
-          )}
-        </div>
-        {decisions.length > 0 ? (
-          <ul className="mt-1 flex flex-col gap-1">
-            {decisions.map((move) => (
-              <li key={move.moveId} className="flex min-w-0 items-start gap-1.5 type-caption text-text-muted">
-                {move.status === "accepted" ? (
-                  <Check className="mt-0.5 size-3 shrink-0 text-accent" aria-hidden />
-                ) : (
-                  <span aria-hidden className="mt-1 size-2 shrink-0 rounded-dot border border-border-strong" />
-                )}
-                <span className="min-w-0">{compactText(move.proposal, 116)}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-0.5 type-caption text-text-muted">{compactText(turn.text)}</p>
-        )}
-      </div>
-    </li>
-  );
 }
 
 export function ConversationView({
@@ -134,6 +83,7 @@ export function ConversationView({
   const [applied, setApplied] = useState(false);
   const [showFinish, setShowFinish] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
   const draftFolded = usePanel("draft", studyId);
   const [rail, setRail] = useState<RailId>(() => readRail(studyId));
   /* The one move the caret goes to, set only when a reply lands in answer
@@ -502,6 +452,11 @@ export function ConversationView({
         return;
       }
 
+      if (move.grounding.some(g => g.evidence)) {
+        await refreshCompile();
+        return;
+      }
+
       // Accepting a move that cites papers is the researcher endorsing that
       // evidence, not just the move's text  -  the grounding chips already
       // read as "these papers back this", so leaving them out of the
@@ -595,7 +550,7 @@ export function ConversationView({
         saved.push(...pending);
       }
       if (live) {
-        for (const grounding of pending.flatMap((move) => move.grounding)) {
+        for (const grounding of pending.flatMap((move) => move.grounding).filter(g => !g.evidence)) {
           if (addedRefs.has(grounding.ref)) continue;
           setAddedRefs((prev) => new Set(prev).add(grounding.ref));
           studyApi
@@ -677,27 +632,11 @@ export function ConversationView({
     .map((turn, index) => ({ turn, index }))
     .reverse()
     .find(({ turn }) => turn.role === "platform" && turn.turnId !== "opening")?.index ?? -1;
-  const latestResearcherIndex = [...turns]
-    .map((turn, index) => ({ turn, index }))
-    .reverse()
-    .find(({ turn }) => turn.role === "researcher")?.index ?? -1;
-  const activeResearcherIndex = latestResearcherIndex > activePlatformIndex
-    ? latestResearcherIndex
-    : [...turns]
-        .map((turn, index) => ({ turn, index }))
-        .reverse()
-        .find(({ turn, index }) => turn.role === "researcher" && index < activePlatformIndex)?.index ?? -1;
   const activePlatform = activePlatformIndex >= 0 ? turns[activePlatformIndex] : null;
-  const activeResearcherTurn = activeResearcherIndex >= 0 ? turns[activeResearcherIndex] : null;
   // Accept/reject follow-ups are transport events for the assistant, not new ideas
   // the researcher should have to read back as a speech bubble. They remain in the
   // compact history as “Decision recorded” so the audit trail is intact.
-  const activeResearcher = activeResearcherTurn && !isDecisionEcho(activeResearcherTurn.text)
-    ? activeResearcherTurn
-    : null;
-  const historyTurns = turns
-    .filter((turn) => turn.turnId !== "opening")
-    .filter((turn) => turn !== activePlatform && turn !== activeResearcher);
+  const conversationTurns = turns.filter(turn => turn.turnId !== "opening" && !isDecisionEcho(turn.text));
   const filledSections = MANDATORY_SLOTS.length - missingCoreSlots.length;
   // This number describes the visible core study map, not schema validity. The
   // server's unresolved list contains nested operational slots, so subtracting it
@@ -728,20 +667,25 @@ export function ConversationView({
           <header className="border-b border-border bg-surface px-4 py-4 sm:px-8 sm:py-5">
             <div className="mx-auto flex w-full max-w-reading items-start justify-between gap-4">
               <div>
-                <h2 className="type-section text-text">Build a runnable study</h2>
+                <h2 className="type-section text-text">Study design chat</h2>
                 <p className="mt-1 max-w-[52ch] type-caption text-text-muted">
-                  Paste the whole brief or set the concrete details below. I’ll handle the
-                  methodological reasoning, teach the trade-offs, and turn settled decisions
-                  into a validated protocol.
+                  You decide what becomes part of the protocol.
                 </p>
               </div>
               <div className="shrink-0 text-right">
-                <span className="type-quantity-lg text-text">{progressDone}</span>
-                <span className="type-caption text-text-muted"> / {MANDATORY_SLOTS.length}</span>
-                <p className="type-legend mt-1 text-text-muted">core sections drafted</p>
+                <Button variant="ghost" size="sm" onClick={() => { void refreshCompile(); setShowFinish(true); }}>
+                  Review draft
+                </Button>
+                <p className="type-caption text-text-muted">{progressDone}/{MANDATORY_SLOTS.length} sections</p>
               </div>
             </div>
+            <div className="mx-auto mt-2 flex w-full max-w-reading flex-wrap gap-2">
+              <Button variant="ghost" size="sm" aria-expanded={evidenceOpen} onClick={() => setEvidenceOpen(open => !open)}>Method evidence</Button>
+              <Button variant="ghost" size="sm" className="hidden lg:inline-flex" aria-expanded={!draftFolded} onClick={() => togglePanel("draft", studyId)}>{draftFolded ? "Show details" : "Hide details"}</Button>
+            </div>
           </header>
+
+          {evidenceOpen && <EvidencePanel studyId={studyId} onProposed={async () => { await reloadConversation(); setLive(true); setNote(null); setEvidenceOpen(false); }} />}
 
           <div className="mx-auto flex w-full max-w-reading flex-col gap-5 px-4 py-5 sm:px-8 sm:py-8">
             {conversationLoading ? (
@@ -750,30 +694,32 @@ export function ConversationView({
                 <div className="h-4 w-4/5 animate-pulse rounded-full bg-border" />
                 <div className="h-4 w-3/5 animate-pulse rounded-full bg-border" />
               </div>
-            ) : threadEmpty && !openingPending && !activeResearcher ? (
+            ) : threadEmpty && !openingPending && conversationTurns.length === 0 ? (
               <ConversationStart
                 onUse={takeOpening}
                 onEnterManually={live ? () => setManualOpen(true) : undefined}
               />
             ) : (
               <div className="flex flex-col gap-5">
-                {activeResearcher && (
-                  <div className="ml-auto max-w-[48ch] rounded-card border border-border bg-zone-9 px-3.5 py-2.5">
-                    <p className="type-caption text-text-muted">You</p>
-                    <p className="mt-0.5 type-body text-text">{compactText(activeResearcher.text, 240)}</p>
+                {conversationTurns.map(turn => (
+                  <div key={turn.turnId}>
+                    <StreamingTurn
+                      turn={turn === activePlatform ? displayedPlatform! : { ...turn, moves: [] }}
+                      onDecide={decide}
+                      onAcceptBatch={turn === activePlatform ? acceptBatch : undefined}
+                      focusMoveId={turn === activePlatform ? focusMoveId : null}
+                      active
+                    />
+                    {turn !== activePlatform && turn.moves.length > 0 && (
+                      <details className="mt-2">
+                        <summary className="type-caption cursor-pointer text-text-muted">
+                          {turn.moves.filter(move => move.status === "proposed").length > 0 ? "Review open choices" : "View decisions"}
+                        </summary>
+                        <StreamingTurn turn={{ ...turn, text: "" }} onDecide={decide} />
+                      </details>
+                    )}
                   </div>
-                )}
-
-                {displayedPlatform && (
-                  <StreamingTurn
-                    turn={displayedPlatform}
-                    onDecide={decide}
-                    onAcceptBatch={acceptBatch}
-                    focusMoveId={focusMoveId}
-                    active
-                  />
-                )}
-
+                ))}
                 {busy && live && (
                   <div className="flex flex-col items-start gap-3">
                     {streamingText && (
@@ -788,32 +734,22 @@ export function ConversationView({
                       <span className="size-1.5 animate-pulse rounded-full bg-text-muted" />
                       <span className="size-1.5 animate-pulse rounded-full bg-text-muted [animation-delay:var(--motion-fast)]" />
                       <span className="size-1.5 animate-pulse rounded-full bg-text-muted [animation-delay:var(--motion-standard)]" />
-                      <span className="ml-1">Preparing the next decision</span>
+                      <span className="ml-1">Thinking…</span>
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {historyTurns.length > 0 && (
-              <details className="border-t border-border pt-4">
-                <summary className="type-control flex cursor-pointer items-center justify-between text-text-muted hover:text-text">
-                  <span>Earlier decisions</span>
-                  <span className="type-caption">{historyTurns.length} turns</span>
-                </summary>
-                <ol className="mt-2 border-b border-border">
-                  {historyTurns.map((turn) => <HistoryRow key={turn.turnId} turn={turn} />)}
-                </ol>
-              </details>
-            )}
             <div ref={threadEnd} />
           </div>
         </div>
 
-        {note && (
+        {note && !evidenceOpen && (
           <div className="border-t border-border bg-surface px-4 py-2 sm:px-6">
             <Notice kind="offline" className="mx-auto w-full max-w-bubble">
               {note}
+              {!live && compileResult && <Button variant="ghost" size="sm" onClick={() => setManualOpen(true)}>Enter details manually</Button>}
             </Notice>
           </div>
         )}
@@ -829,12 +765,12 @@ export function ConversationView({
             <textarea
               ref={composer}
               className="type-body min-h-7 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-0 py-0.5 text-text placeholder:text-text-muted"
-              placeholder="Answer the prompt or add a detail…"
+              placeholder="Message the design assistant…"
               value={input}
               rows={1}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault();
                   send();
                 }
@@ -845,11 +781,12 @@ export function ConversationView({
             <Button
               type="submit"
               size="sm"
-              className="!size-8 !px-0"
+              className="!h-9 !px-3"
               aria-label="Send"
-              disabled={busy}
+              disabled={busy || !input.trim() || conversationLoading}
             >
               <Send aria-hidden />
+              <span className="hidden sm:inline">Send</span>
             </Button>
           </div>
           <p className="mx-auto mt-1.5 hidden w-full max-w-reading px-1 type-legend text-text-muted sm:block">
@@ -882,7 +819,7 @@ export function ConversationView({
            *
            * Folded is the reverse case and stays explicit: that track is
            * `auto`, so it takes its width FROM this div. */
-          draftFolded ? "w-11" : "w-full",
+          draftFolded ? "!hidden" : "w-full",
         )}
       >
         {draftFolded ? (
@@ -975,7 +912,7 @@ export function ConversationView({
           studyId={studyId}
           protocol={compileResult?.protocol}
           onClose={() => setManualOpen(false)}
-          onEntered={() => void reloadConversation()}
+          onEntered={() => { setLive(true); void reloadConversation(); }}
         />
       )}
       <FinishReview

@@ -11,6 +11,7 @@ export interface Grounding {
   year?: number;
   venue?: string;
   why: string; // "why this source"  -  shown on hover (GroundingChip)
+  evidence?: import("./evidenceApi").EvidenceSnapshot;
 }
 
 /** One platform-proposed change to the protocol draft. */

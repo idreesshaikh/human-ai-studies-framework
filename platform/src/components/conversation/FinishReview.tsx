@@ -102,7 +102,7 @@ export function FinishReview({
           <span className="type-quantity text-text">{accepted.length}</span>{" "}
           {accepted.length === 1 ? "move" : "moves"} accepted:{" "}
           <span className="type-quantity text-text">{grounded}</span> grounded in
-          papers, <span className="type-quantity text-text">{judgment}</span> on
+          sources, <span className="type-quantity text-text">{judgment}</span> on
           your judgment.
         </p>
 
