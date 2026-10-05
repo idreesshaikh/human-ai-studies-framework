@@ -12,7 +12,7 @@ duplicated by that reviewer.
 | Dimension | Score / 4 | Evidence or limit |
 | --- | --- | --- |
 | Accessibility | 3 | 60 Axe-clean cases; keyboard review, decisions, seek and focus return; no screen-reader certification |
-| Performance | 3 | Lazy route chunks, 113.40 kB gzip entry JS, 57.24 kB study chunk; no field Web Vitals or load-test claim |
+| Performance | 3 | Lazy route chunks, about 113 kB gzip entry JS and 57 kB study chunk; no field Web Vitals or load-test claim |
 | Responsive design | 3 | 320–2048px, two themes, overflow and scroll checks; compact controls are below the 44px comfort target |
 | Theming | 4 | Semantic tokens, contrast verifier and both-theme Axe checks passed in tested states |
 | Implementation integrity | 4 | Source/approval truth preserved; stale-response gate and retained Plan state tested |

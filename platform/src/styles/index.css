@@ -461,6 +461,16 @@ body::before {
       grid-template-columns: minmax(0, 1fr) auto;
     }
   }
+  /* The chat rail also fits smaller desktop windows without changing other
+   * split views. Phones retain the focused review dialog. */
+  @media (min-width: 48rem) {
+    .chat-workspace {
+      grid-template-columns: minmax(0, 1fr) clamp(var(--rail-min), var(--rail-share), var(--rail-max));
+    }
+    .chat-workspace.rail-folded {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+  }
 }
 
 /* ---- ONE EMPHASIS -----------------------------------------------------

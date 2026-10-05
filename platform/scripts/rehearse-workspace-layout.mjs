@@ -61,6 +61,12 @@ try {
   await expect(page.getByRole("dialog", { name: "Prepare your protocol draft" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.setViewportSize({ width: 768, height: 900 });
+  await expect(page.getByRole("button", { name: "Hide protocol draft", exact: true })).toBeVisible();
+  assert((await page.getByRole("complementary").boundingBox()).width >= 300);
+  await page.screenshot({ path: join(artifacts, "setup-expanded-768.png"), fullPage: true });
+  assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations.map(v => v.id), []);
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("button", { name: "Hide protocol draft", exact: true }).click();
   await page.getByRole("button", { name: "Plan", exact: true }).click();
@@ -73,7 +79,10 @@ try {
     for (const tab of ["Plan", "Setup"]) {
       await page.getByRole("button", { name: tab, exact: true }).click();
       if (tab === "Plan") await expect(page.getByRole("button", { name: "Refresh plan" })).toBeEnabled();
-      else await page.getByRole("textbox", { name: "Message the design assistant" }).waitFor();
+      else {
+        await page.getByRole("textbox", { name: "Message the design assistant" }).waitFor();
+        if (width >= 768) await expect(page.getByRole("button", { name: "Show protocol draft", exact: true })).toBeVisible();
+      }
       await page.screenshot({ path: join(artifacts, `${tab.toLowerCase()}-${width}.png`), fullPage: true });
       assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => n.html) })), [], `${tab}/${width}`);
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

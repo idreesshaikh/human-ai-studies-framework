@@ -99,6 +99,8 @@ preference hiding mobile review; inconsistent chat/composer widths; stale Plan
 loading/assignment state; approval offered during an unfinished compile; 320px
 project-switcher overflow; skipped Evidence heading levels. Delayed compilation
 now has a regression test: Apply remains disabled until the current draft arrives.
+The labelled draft rail is available from 768px, including smaller desktop
+windows; its expanded state is checked separately at that breakpoint.
 An independent read-only reviewer approved the focused sidebar and timing fixes.
 
 These are software checks, not a human usability score or a claim that every

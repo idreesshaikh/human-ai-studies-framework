@@ -13,7 +13,7 @@ adding component-specific colors or sizes.
 `Surface` provides the scrollable body and a named content width:
 `narrow` for forms, `reading` for prose, `work` for normal tasks, and `wide`
 for dense views. The study workspace places the protocol beside the main view
-on wide screens. Its labelled, 48px collapsed rail keeps the draft discoverable
+from 768px upward. Its labelled, 48px collapsed rail keeps the draft discoverable
 without taking space from the conversation. On smaller screens, the header's
 Review draft action opens the review dialog regardless of the saved rail state.
 

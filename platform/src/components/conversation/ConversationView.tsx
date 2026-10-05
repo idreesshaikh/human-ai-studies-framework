@@ -693,14 +693,14 @@ export function ConversationView({
 
   return (
     <div
-      className={cn("split-rail h-full bg-surface", draftFolded && "rail-folded")}
+      className={cn("split-rail chat-workspace h-full bg-surface", draftFolded && "rail-folded")}
     >
       <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto scroll-smooth">
           <header className="mx-auto w-full max-w-reading bg-surface px-4 py-1 sm:px-8">
             <h2 className="sr-only">Study design chat</h2>
             <div className="mx-auto flex w-full max-w-reading items-center justify-end gap-1">
-                <Button className={cn(!draftFolded && "lg:hidden")} variant="ghost" size="sm" onClick={() => { void refreshCompile(); setShowFinish(true); }}>
+                <Button className={cn(!draftFolded && "md:hidden")} variant="ghost" size="sm" onClick={() => { void refreshCompile(); setShowFinish(true); }}>
                   Review draft
                 </Button>
                 <DropdownMenu>
@@ -709,7 +709,7 @@ export function ConversationView({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onSelect={() => setEvidenceOpen(open => !open)}>{evidenceOpen ? "Close method evidence" : "Method evidence"}</DropdownMenuItem>
-                    <DropdownMenuItem className="hidden lg:flex" onSelect={() => togglePanel("draft", studyId)}>{draftFolded ? "Show details" : "Hide details"}</DropdownMenuItem>
+                    <DropdownMenuItem className="hidden md:flex" onSelect={() => togglePanel("draft", studyId)}>{draftFolded ? "Show details" : "Hide details"}</DropdownMenuItem>
                     {live && <DropdownMenuItem onSelect={() => setManualOpen(true)}>Enter protocol manually</DropdownMenuItem>}
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -801,7 +801,7 @@ export function ConversationView({
           real icon strip that says what it is and reopens itself. */}
       <div
         className={cn(
-          "hidden min-h-0 min-w-0 flex-col border-l border-border bg-surface lg:flex",
+          "hidden min-h-0 min-w-0 flex-col border-l border-border bg-surface md:flex",
           /* Expanded, the rail fills the track the grid gave it  -  it must not
            * name its own width. `.split-rail` sizes this column as
            * `clamp(--rail-min, --rail-share, --rail-max)`, and `--rail-share`
