@@ -35,7 +35,13 @@ const MEASURE_OPTIONS = [
   ["code comprehension", "Code comprehension"],
 ] as const;
 
-export function ConversationStart({ onUse }: { onUse: (text: string) => void }) {
+export function ConversationStart({
+  onUse,
+  onEnterManually,
+}: {
+  onUse: (text: string) => void;
+  onEnterManually?: () => void;
+}) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [design, setDesign] = useState("within-subjects");
   const [participants, setParticipants] = useState("");
@@ -176,6 +182,15 @@ export function ConversationStart({ onUse }: { onUse: (text: string) => void }) 
           </div>
         )}
       </section>
+
+      {onEnterManually && (
+        <p className="mt-4 type-caption text-text-muted">
+          Already have a design?{" "}
+          <button type="button" className="text-accent underline-offset-2 hover:underline" onClick={onEnterManually}>
+            Enter the protocol details directly
+          </button>
+        </p>
+      )}
 
       <p className="mt-4 max-w-[58ch] type-caption text-text-muted">
         Supported lane: comparative coding-task studies using TERN-captured developer activity. The protocol draft on the right is the record that will be validated before anything runs.

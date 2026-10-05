@@ -98,9 +98,52 @@ function legacyComparisonValues(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function lastManualEntry(moves: DesignMove[]): number {
+  for (let i = moves.length - 1; i >= 0; i--) {
+    const { status, patch } = moves[i];
+    if (status === "accepted" && patch && isTemplatePatch(patch) && patch.manual) return i;
+  }
+  return -1;
+}
+
+/** The moves still in effect: a manual entry replaces those before it. */
+export function sinceManualEntry(moves: DesignMove[]): DesignMove[] {
+  return moves.slice(Math.max(lastManualEntry(moves), 0));
+}
+
+export const asList = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+export const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+export const asText = (value: unknown): string =>
+  typeof value === "string" || typeof value === "number" ? String(value) : "";
+
+/** The draft sections a compiled protocol fills. */
+export function protocolToDraft(protocol: Record<string, unknown>): ProtocolDraft {
+  const participants = asRecord(protocol.participants);
+  const texts = (values: unknown[]) => values.map(asText).filter(Boolean);
+  return {
+    researchQuestions: texts(asList(protocol.researchQuestions).map((rq) => asRecord(rq).text)),
+    design: texts([participants.design]),
+    participants: texts([participants.planned && `${asText(participants.planned)} planned`]),
+    conditions: texts(asList(protocol.conditions)),
+    measures: texts(asList(protocol.measures)),
+    instruments: Object.keys(asRecord(protocol.instruments)),
+    statisticalPlan: texts(asList(protocol.analysisPlan).flatMap((e) => asList(asRecord(e).recipes))),
+    ethics: texts([asRecord(protocol.study).ethicsRef]),
+  };
+}
+
 /** Compile from scratch over the full move history  -  the draft rail's
  * source of truth. Folding over every move (rather than mutating in place)
- * is what lets rejecting a move cleanly remove its effect. */
-export function compileAll(moves: DesignMove[]): ProtocolDraft {
-  return compile(emptyDraft(), moves);
+ * is what lets rejecting a move cleanly remove its effect. A manual entry
+ * replaces the moves before it, and its template content is only known to
+ * the server, so the server's compiled protocol fills the draft. */
+export function compileAll(
+  moves: DesignMove[],
+  compiled?: Record<string, unknown>,
+): ProtocolDraft {
+  if (lastManualEntry(moves) < 0) return compile(emptyDraft(), moves);
+  return compiled ? protocolToDraft(compiled) : compile(emptyDraft(), sinceManualEntry(moves));
 }

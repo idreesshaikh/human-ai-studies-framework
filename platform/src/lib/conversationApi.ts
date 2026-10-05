@@ -106,6 +106,7 @@ function mapPatch(raw: unknown): DesignMove["patch"] {
         patch.parameters && typeof patch.parameters === "object"
           ? (patch.parameters as Record<string, unknown>)
           : undefined,
+      manual: patch.manual === true || undefined,
     };
   }
   if (typeof patch.recipeId === "string" && patch.recipeId) {
@@ -306,6 +307,20 @@ export interface CompileResult {
   templateId: string | null;
 }
 
+/** The protocol fields a researcher can enter directly (server: QuickProtocolIn). */
+export interface ManualProtocolFields {
+  title: string;
+  researchQuestions: string[];
+  design: "within-subjects" | "between-subjects";
+  conditions: string[];
+  participantDescription: string;
+  plannedParticipants: number;
+  taskDescription: string;
+  sessionMinutes: number;
+  measures: string[];
+  counterbalanced: boolean;
+}
+
 export const conversationApi = {
   async get(
     studyId: string,
@@ -501,6 +516,13 @@ export const conversationApi = {
     return post<CompileResult>(
       `/studies/${encodeURIComponent(studyId)}/conversation/compile`,
       { baseYaml: baseYaml ?? null },
+    );
+  },
+
+  enterProtocol(studyId: string, fields: ManualProtocolFields): Promise<CompileResult> {
+    return post<CompileResult>(
+      `/studies/${encodeURIComponent(studyId)}/quick-protocol`,
+      fields,
     );
   },
 

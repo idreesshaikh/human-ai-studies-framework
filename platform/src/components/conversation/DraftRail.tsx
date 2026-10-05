@@ -23,6 +23,7 @@ export function DraftRail({
   compileWarnings,
   unresolved,
   onApply,
+  onEdit,
   applying,
   onFinish,
   understanding,
@@ -37,6 +38,7 @@ export function DraftRail({
   compileWarnings?: string[];
   unresolved?: string[];
   onApply?: () => void;
+  onEdit?: () => void;
   applying?: boolean;
   onFinish?: () => void;
   understanding?: Understanding;
@@ -110,7 +112,7 @@ export function DraftRail({
               <span className="type-legend text-accent">SETUP PAUSED</span>
               <span className="ml-2">Use a supported coding-study brief to continue.</span>
             </p>
-          ) : path.upNext ? (
+          ) : path.upNext && !ready ? (
             <p className="mt-3 rounded-input bg-accent-wash px-3 py-2 type-caption text-text">
               <span className="type-legend text-accent">NEXT</span>
               <span className="ml-2">{path.upNext}</span>
@@ -194,8 +196,13 @@ export function DraftRail({
         )}
       </div>
 
-      {(onFinish || onApply) && (
+      {(onFinish || onApply || onEdit) && (
         <div className="flex gap-2 border-t border-border bg-surface p-4">
+          {onEdit && (
+            <Button size="sm" variant="ghost" onClick={onEdit}>
+              Edit details
+            </Button>
+          )}
           {onFinish && (
             <Button size="sm" onClick={onFinish} className="flex-1">
               {ready ? "Review draft" : "Review status"}
