@@ -160,9 +160,9 @@ def test_content_policy_defaults_to_metadata_only():
 
 
 def test_consent_statement_is_derived_and_names_the_policy():
-    text = enrollment.consent_statement(PROTOCOL, "ai-assisted")
+    text = enrollment.consent_statement(PROTOCOL)
     assert "Pilot" in text
-    assert "ai-assisted" in text
+    assert not any(c in text for c in PROTOCOL["conditions"])
     assert "metadata-only" in text
     assert "raw code" in text.lower()
 

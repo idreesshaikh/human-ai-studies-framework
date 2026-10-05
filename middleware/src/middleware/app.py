@@ -2865,7 +2865,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "metrics": f"{base}/ingest/metrics",
                 },
             ),
-            "consentStatement": enrollment.consent_statement(protocol, row.condition),
+            "consentStatement": enrollment.consent_statement(protocol),
             "contentPolicy": enrollment.content_policy(protocol),
         }
 
