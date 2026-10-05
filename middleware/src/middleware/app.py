@@ -27,6 +27,7 @@ from fastapi import (
     Form,
     Header,
     HTTPException,
+    Query,
     Request,
     UploadFile,
 )
@@ -789,6 +790,44 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             # empty "no design shape yet" rail over a fully compiled protocol.
             # Additive: the summary fields above are unchanged.
             "document": proto,
+        }
+
+    @app.get(
+        "/studies/{study_id}/run-plan",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def study_run_plan(
+        study_id: str,
+        participantIndex: int = Query(0, ge=0, le=9999),
+        preview: bool = True,
+        s: Session = Depends(db),
+    ) -> dict:
+        """Preview accepted decisions without persisting or approving anything."""
+        from middleware.run_plan import describe_run
+
+        current = _resolve_study_protocol(s, study_id)
+        moves = _conversation_moves(s, study_id)
+        compiled = (
+            compiler.compile_moves(
+                moves, base_yaml=yaml.safe_dump(current) if current else ""
+            )
+            if any(move["status"] == "accepted" for move in moves)
+            else None
+        )
+        pending = compiled is not None and compiled.draft != current
+        document = compiled.draft if preview and pending else current
+        return {
+            "studyId": study_id,
+            "source": (
+                "accepted-decisions" if preview and pending else "current-protocol"
+            ),
+            "hasProtocol": current is not None,
+            "hasPendingChanges": pending,
+            "participantIndex": participantIndex,
+            "errors": (
+                compiled.errors + compiled.unresolved if preview and compiled else []
+            ),
+            **(describe_run(document, participantIndex) if document else {}),
         }
 
     @app.get(

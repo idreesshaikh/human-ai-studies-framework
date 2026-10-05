@@ -119,6 +119,12 @@ the design conversation and literature, not participant event rows.
 
 ## Analysis and rehearsal
 
+`GET /studies/{id}/run-plan` derives a participant journey using the existing
+compiler, assignment and capture contracts. Plan previews accepted decisions;
+`preview=false` reads only the current protocol used by enrollment. The endpoint
+checks project view access and creates no compilation, approval or participant
+link. The UI refreshes on entry and offers explicit refresh after decisions change.
+
 `analysis/dataset.py` prepares the joined dataset. Recipes register required
 events and metrics in `analysis/core.py`. `runner.py` checks the plan and writes
 tables, figures, and reports. `notebook.py` supplies a notebook and dictionary;

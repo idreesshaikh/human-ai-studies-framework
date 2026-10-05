@@ -93,6 +93,12 @@ In an approved study, open **Run → Enrollment** and create a participant link.
 the link on the participant's machine, review consent, and start a TERN session.
 The [rehearsal guide](docs/demo-runbook.md) covers the complete flow.
 
+Before enrollment, open **Plan** to preview the participant journey. Tasks,
+block timing and capture scope derive from the actual protocol; pending accepted
+decisions are labelled and do not change enrollment until applied. See
+[demo readiness](docs/demo-readiness.md) for delivery boundaries and
+[methodology notes](docs/methodology-readiness.md) for supporting research guidance.
+
 TERN records measurements such as edit sizes, focus changes, fatigue responses,
 and suggestion timing. Optional transcript and snapshot tools have separate
 content policies; review [agent capture](agent-capture/README.md) before enabling

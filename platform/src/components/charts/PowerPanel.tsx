@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Crosshair } from "lucide-react";
 import { Surface } from "@/components/shell/Surface";
+import { RunOverview } from "./RunOverview";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/cn";
 import { studyApi, onSeededData } from "@/lib/studyApi";
@@ -59,18 +60,18 @@ export function PowerPanel({ studyId }: { studyId: string }) {
   const [seeded, setSeeded] = useState(false);
 
   const load = useCallback(
-    (live: boolean) => {
+    (isLive: () => boolean) => {
       setLoading(true);
       studyApi
         .power(studyId, { alpha, powerTarget, maxN, effectSizes: sizes })
         .then((d) => {
-          if (live) setDoc(d);
+          if (isLive()) setDoc(d);
         })
         .catch(() => {
-          if (live) setDoc(null);
+          if (isLive()) setDoc(null);
         })
         .finally(() => {
-          if (live) setLoading(false);
+          if (isLive()) setLoading(false);
         });
     },
     [studyId, alpha, powerTarget, maxN, sizes],
@@ -83,7 +84,7 @@ export function PowerPanel({ studyId }: { studyId: string }) {
     });
     let live = true;
     setSeeded(false);
-    load(live);
+    load(() => live);
     return () => {
       live = false;
       off();
@@ -98,6 +99,7 @@ export function PowerPanel({ studyId }: { studyId: string }) {
   return (
     <Surface measure="work" label="Planning">
       <section className="flex flex-col gap-stack">
+        <RunOverview key={studyId} studyId={studyId} />
         <div className="flex flex-col gap-1">
           <h2 className="type-section text-text">Recruitment planning</h2>
           <p className="type-body text-text-muted">

@@ -10,6 +10,7 @@ import { Surface } from "@/components/shell/Surface";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { Notice } from "@/components/ui/notice";
 import { LiveSessions } from "./LiveSessions";
+import { RunOverview } from "../charts/RunOverview";
 import { MintDialog } from "./MintDialog";
 import { TogglePopover } from "./TogglePopover";
 import {
@@ -61,7 +62,7 @@ export function EnrollmentPanel({
     // calmly instead of letting a rejected read blank the tab.
     void api
       .listEnrollmentTokens(studyId)
-      .then(setRows)
+      .then((result) => { setRows(result); setLoadError(""); })
       .catch((e: unknown) =>
         setLoadError(
           e instanceof Error ? e.message : "Could not load enrollment.",
@@ -112,10 +113,11 @@ export function EnrollmentPanel({
   };
 
   const copy = (text: string, id: string) => {
+    setRevokeError("");
     void navigator.clipboard.writeText(text).then(() => {
       setCopied(id);
       setTimeout(() => setCopied(null), 2000);
-    });
+    }).catch(() => setRevokeError("Could not copy the link. Select and copy it manually."));
   };
 
   /* Same precondition as the Data tab, and the same treatment: a study whose
@@ -132,7 +134,7 @@ export function EnrollmentPanel({
     return (
       <Surface measure="work" label="Participants">
         <EmptyState
-          line="Nobody can be enrolled yet: this study has no compiled protocol. Participants join by pasting a link that carries the protocol, so it has to exist before a link can be minted."
+          line="Set up and apply a protocol before creating participant links. Each link carries the assigned tasks and capture configuration."
           action={
             <Button asChild size="sm">
               <Link to={{ search: "?tab=conversation" }}>
@@ -156,6 +158,10 @@ export function EnrollmentPanel({
      * `overflow-x-auto`, and `work` leaves 896px of column, so it fits with
      * room to spare and still scrolls on its own if a window gets tighter. */
     <Surface measure="work" label="Participants">
+      <details className="border-b border-border pb-3">
+        <summary className="cursor-pointer type-label text-text">Preview the participant journey</summary>
+        <div className="mt-4"><RunOverview key={studyId} studyId={studyId} preview={false} /></div>
+      </details>
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1">
           {/* Counts enrollment links, so it says "enrolled" only about
@@ -164,9 +170,9 @@ export function EnrollmentPanel({
           <h2 className="type-section text-text">
             {rows.length === 0
               ? dataParticipants.length > 0
-                ? "None enrolled through a link"
-                : "None enrolled"
-              : `${rows.length} enrolled`}
+                ? "No enrollment links; imported data available"
+                : "Enrollment"
+              : `${rows.length} enrollment link${rows.length === 1 ? "" : "s"}`}
           </h2>
           {/* Prose is held to the reading measure even inside a wider column  -
             * the layout contract has a measure for running text precisely so
@@ -217,7 +223,7 @@ export function EnrollmentPanel({
           * to press it  -  it used to sit a thousand pixels away at the far
           * right of a `wide` surface, so the instruction and its button were
           * never in one glance. */}
-        {canMint && !loadError && rows.length > 0 && (
+        {canMint && !loadError && (
           <MintDialog studyId={studyId} onMinted={load} />
         )}
       </div>
@@ -245,18 +251,15 @@ export function EnrollmentPanel({
           line={
             dataParticipants.length > 0 ? (
               <>
-                No enrollment links minted yet. This study already holds data
+                No enrollment links created yet. This study already holds data
                 for {dataParticipants.length} participant
                 {dataParticipants.length === 1 ? "" : "s"} (
                 {dataParticipants.join(", ")}) collected outside the enrollment
-                flow  -  see the Data tab. Mint a link to enroll anyone new.
+                flow. See the Data tab, or create a link for someone new.
               </>
             ) : (
-              "Each participant gets one link. Mint the first one and it appears here with its condition, its capture list, and whether it has been claimed."
+              "Create one link per participant. Each row shows its assignment, capture scope, and whether it has been claimed."
             )
-          }
-          action={
-            canMint ? <MintDialog studyId={studyId} onMinted={load} /> : undefined
           }
         />
       ) : (

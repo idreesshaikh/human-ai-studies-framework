@@ -118,14 +118,19 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
     } catch (e) {
       // Surface the server's reason instead of a silent no-op. Ethics approval is
       // external to PHOENIX and must never be presented as an app gate.
-      setError(e instanceof ApiError ? e.message : "Could not mint links. Check your connection and try again.");
+      setError(e instanceof ApiError ? e.message : "Could not create links. Check your connection and try again.");
     } finally {
       setMinting(false);
     }
   };
   const copy = async (s: string, id: string) => {
-    await navigator.clipboard.writeText(s);
-    setCopied(id);
+    setError("");
+    try {
+      await navigator.clipboard.writeText(s);
+      setCopied(id);
+    } catch {
+      setError("Could not copy the link. Select and copy it manually.");
+    }
   };
 
   const switches = (catalog ?? []).filter(isSwitch);
@@ -139,10 +144,10 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setMinted([]); }}>
       <DialogTrigger asChild>
-        <Button size="sm">Mint links</Button>
+        <Button size="sm">Create participant links</Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogTitle>Mint enrollment links</DialogTitle>
+        <DialogTitle>Create participant links</DialogTitle>
         <DialogDescription>
           Each participant pastes one link into their IDE to join the study. A
           participant link is reusable across their sessions; a session link is
@@ -178,7 +183,7 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
                 <p className="type-caption text-text-muted">
                   Capture config for these links, defaulted to the protocol. Any
                   switch you change here applies to all {count} link
-                  {count > 1 ? "s" : ""} you are about to mint.
+                  {count > 1 ? "s" : ""} you are about to create.
                 </p>
                 {[...groups.entries()].map(([group, entries]) => (
                   <div key={group} className="flex flex-col gap-1">
@@ -216,7 +221,7 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
             )}
 
             <Button onClick={submit} disabled={minting} className="mt-1 self-start">
-              {minting ? "Minting…" : `Mint ${count} link${count > 1 ? "s" : ""}`}
+              {minting ? "Creating…" : `Create ${count} link${count > 1 ? "s" : ""}`}
             </Button>
             {error && (
               <Notice kind="problem">{error}</Notice>

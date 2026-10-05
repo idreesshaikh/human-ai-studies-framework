@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CREDENTIAL_READY_EVENT } from "./auth.tsx";
 
 interface AsyncState<T> {
@@ -14,20 +14,21 @@ export function useAsync<T>(load: () => Promise<T>, deps: unknown[]): AsyncState
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const generation = useRef(0);
 
   // `deps` is the caller's declared dependency list for `load`.
   const run = useCallback(load, deps);
 
   const reload = useCallback(() => {
-    let live = true;
+    const request = ++generation.current;
     setLoading(true);
     setError(null);
     run()
-      .then((d) => live && setData(d))
-      .catch((e) => live && setError(e?.message ?? "Something went wrong."))
-      .finally(() => live && setLoading(false));
+      .then((d) => request === generation.current && setData(d))
+      .catch((e) => request === generation.current && setError(e?.message ?? "Something went wrong."))
+      .finally(() => request === generation.current && setLoading(false));
     return () => {
-      live = false;
+      generation.current++;
     };
   }, [run]);
 

@@ -9,17 +9,21 @@ checks the plumbing; it is not evidence for a research claim.
 1. **Setup:** enter a protocol manually or paste a complete labelled brief.
    Review the resulting decisions, compile, and apply the draft. A template or
    manual entry provides a reliable path when the design model is unavailable.
-2. **Run:** show enrollment and the assigned study folder. Mint a link in the
+2. **Plan:** show the participant journey, tasks, block timing, and capture
+   scope. Change the previewed participant to explain counterbalancing. Pending
+   decisions are labelled and do not change enrollment until applied.
+3. **Run:** select **Create participant links** and show the assigned study folder.
+   Create a link in the
    rehearsal study; keep the credential out of the presentation and recording.
    TERN opens the folder, obtains consent, and locks capture to the assignment.
-3. **Capture:** edit and save the lab file, log fatigue, then end the session.
+4. **Capture:** edit and save the lab file, log fatigue, then end the session.
    The AI-assisted debrief includes AI reliance; the other arm keeps the six
    base questions. Reliance has descriptives only when just one arm has ratings.
-4. **Data:** inspect the recorded session and metrics. For a synthetic rehearsal,
+5. **Data:** inspect the recorded session and metrics. For a synthetic rehearsal,
    explicitly select **Include dry-run (synthetic) rows**. The notice identifies
    simulation, and the same choice controls the views and data-bundle export.
    Reloading or opening another study defaults back to participant data.
-5. **Handoff:** download the data bundle and show its protocol, CSVs, joined
+6. **Handoff:** download the data bundle and show its protocol, CSVs, joined
    timeline, data dictionary, and integrity manifest. Open the starter notebook.
    Synthetic examples demonstrate integration, not empirical findings.
 
@@ -54,7 +58,7 @@ analysis plan, and approve the protocol. Model-assisted conversation needs
 
 ## Run a participant session
 
-1. In the study, open **Run → Enrollment** and mint a participant link.
+1. In the study, open **Run → Create participant links**.
    Review its capture switches. Leave external producers off unless they are
    part of the session you intend to test.
 2. Open `extension/` in VS Code and press **F5**. In the development host,

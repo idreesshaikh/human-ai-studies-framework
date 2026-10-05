@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ChevronDown, ChevronRight, FlaskConical, Loader2 } from "lucide-react";
 import { studyApi, type Prescription } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
+import { useAsync } from "@/lib/useAsync";
+import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 
 /* The prescription table (FR-TPL-6, NFR-8): for each design shape, the exact
  * test, effect size, correction, and sample-size guidance  -  each with its
@@ -23,17 +26,10 @@ const SHAPE_LABEL: Record<string, string> = {
 };
 
 export function PrescriptionPanel({ studyId }: { studyId: string }) {
-  const [rows, setRows] = useState<Prescription[] | null>(null);
+  const { data: rows, error, reload } = useAsync<Prescription[]>(
+    () => studyApi.prescriptions(studyId), [studyId],
+  );
   const [open, setOpen] = useState<string | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    setRows(null);
-    studyApi.prescriptions(studyId).then((r) => live && setRows(r));
-    return () => {
-      live = false;
-    };
-  }, [studyId]);
 
   return (
     <section className="flex flex-col gap-3">
@@ -49,7 +45,9 @@ export function PrescriptionPanel({ studyId }: { studyId: string }) {
         </p>
       </div>
 
-      {rows === null ? (
+      {error ? (
+        <Notice kind="problem">Could not load the analysis plan. {error} <Button size="sm" variant="outline" onClick={reload}>Retry analysis plan</Button></Notice>
+      ) : rows === null ? (
         <p className="flex items-center gap-2 type-body text-text-muted">
           <Loader2 className="size-4 animate-spin" aria-hidden /> Loading…
         </p>
