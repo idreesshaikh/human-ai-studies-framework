@@ -38,10 +38,10 @@ export function StreamingTurn({
     >
       {turn.text && <div
         className={cn(
-          "type-body animate-in fade-in duration-entrance",
+          "type-body-lg",
           isPlatform
-            ? "max-w-bubble px-1 py-1 text-text"
-            : "max-w-[52ch] rounded-card border border-border bg-zone-9 px-3.5 py-2.5 text-text",
+            ? "w-full py-1 text-text"
+            : "max-w-bubble rounded-card bg-zone-9 px-4 py-3 text-text",
           /* A holding turn is not the conversation  -  the model could not be
            * reached, so it proposes nothing and cites nothing. It reads as a
            * notice rather than a reply, because mistaking one for the other
@@ -49,7 +49,7 @@ export function StreamingTurn({
           isUnavailable && "border-dashed bg-transparent text-text-muted")}
       >
         {isPlatform && (
-          <span className="mb-1 flex items-center gap-1 type-caption text-text-muted">
+          <span className="mb-2 flex items-center gap-1 type-caption text-text-muted">
             {isUnavailable ? "Not answered" : isScope ? "Supported scope" : "Assistant"}
             {isUnavailable && (
               <CloudOff
@@ -59,7 +59,7 @@ export function StreamingTurn({
             )}
           </span>
         )}
-        {isPlatform && active ? (
+        {isPlatform ? (
           <ReplyParagraphs text={turn.text} />
         ) : (
           <p className="whitespace-pre-wrap">{turn.text}</p>
@@ -67,7 +67,7 @@ export function StreamingTurn({
       </div>}
 
       {turn.moves.length > 0 && (
-        <div className="flex w-full min-w-0 max-w-decision flex-col gap-1.5">
+        <div className="flex w-full min-w-0 flex-col gap-2">
           {onAcceptBatch && turn.moves.filter((m) => m.status === "proposed" && m.kind !== "caution").length > 1 && (
             <div className="flex items-center justify-between gap-3 rounded-card border border-accent/30 bg-accent/5 px-3 py-2">
               <p className="type-caption text-text-muted">
@@ -131,7 +131,13 @@ function ReplyParagraphs({ text }: { text: string }) {
   return (
     <div className="flex flex-col gap-2.5">
       {blocks.map((block, index) => (
-        <p key={`${index}-${block.slice(0, 12)}`}>{block}</p>
+        <p key={`${index}-${block.slice(0, 12)}`}>
+          {block.split(/(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)/g).map((part, i) =>
+            /^\*\*[^*\n]+\*\*$/.test(part) ? <strong key={i}>{part.slice(2, -2)}</strong> :
+            /^\*[^*\n]+\*$/.test(part) ? <em key={i}>{part.slice(1, -1)}</em> :
+            /^`[^`\n]+`$/.test(part) ? <code key={i}>{part.slice(1, -1)}</code> : part,
+          )}
+        </p>
       ))}
     </div>
   );

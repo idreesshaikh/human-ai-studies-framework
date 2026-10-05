@@ -54,6 +54,7 @@ export function FinishReview({
   onOpenChange,
   moves,
   compile,
+  compiling,
   applying,
   applied,
   onApply,
@@ -62,6 +63,7 @@ export function FinishReview({
   onOpenChange: (o: boolean) => void;
   moves: DesignMove[];
   compile: CompileResult | null;
+  compiling: boolean;
   applying: boolean;
   applied: boolean;
   onApply: () => void;
@@ -142,7 +144,7 @@ export function FinishReview({
 
         <div className="mt-3">
           <p className="mb-1 type-caption font-medium text-text-muted">
-            Compiled protocol {valid ? "· validated" : "· not yet valid"}
+            Compiled protocol {compiling ? "· checking latest draft" : valid ? "· validated" : "· not yet valid"}
           </p>
           <pre className="tabular max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-3 type-quantity text-text">
             {compile?.yaml?.trim() ||
@@ -222,7 +224,7 @@ export function FinishReview({
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={applying}>
             Keep editing
           </Button>
-          <Button onClick={onApply} disabled={!valid || applying || applied}>
+          <Button onClick={onApply} disabled={!valid || compiling || applying || applied}>
             {applied ? (
               <>
                 <Check aria-hidden /> Applied

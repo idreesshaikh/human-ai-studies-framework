@@ -125,11 +125,25 @@ try {
   await page.keyboard.press("a");
   await page.getByText("View recorded decisions (1)", { exact: true }).click();
   await expect(move.getByText("accepted", { exact: true })).toBeVisible();
+  let releaseCompile;
+  let compileStarted;
+  const compileHeld = new Promise(resolve => { releaseCompile = resolve; });
+  const compileRequest = new Promise(resolve => { compileStarted = resolve; });
+  await page.route("**/conversation/compile", async intercepted => {
+    compileStarted();
+    await compileHeld;
+    await intercepted.continue();
+  });
   await page.getByRole("button", { name: "Review draft", exact: true }).click();
+  await compileRequest;
+  await expect(page.getByRole("button", { name: "Apply to protocol", exact: true })).toBeDisabled();
+  releaseCompile();
   await expect(page.getByRole("button", { name: "Apply to protocol", exact: true })).toBeEnabled();
+  await page.unroute("**/conversation/compile");
   const approved = page.waitForResponse(response => response.url().endsWith("/conversation/approve"));
   await page.getByRole("button", { name: "Apply to protocol", exact: true }).click();
-  assert.equal((await approved).status(), 200);
+  const approvalResponse = await approved;
+  assert.equal(approvalResponse.status(), 200, await approvalResponse.text());
   const record = await (await page.request.get(`${BASE}/studies/${study.id}/conversation/export`)).json();
   const evidenceMove = record.turns.flatMap(t => t.moves).find(m => m.grounding.some(g => g.evidence));
   assert.equal(evidenceMove.status, "accepted");

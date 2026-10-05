@@ -53,7 +53,6 @@ export function MoveCard({
   /* Whether ANY citation stands behind this move. How strongly each one does
    * is carried by that citation's own printed score on its chip, so the card
    * needs the boolean and not the maximum. */
-  const grounded = move.grounding.length > 0;
 
   const onKey = useCallback(
     (e: React.KeyboardEvent) => {
@@ -77,7 +76,6 @@ export function MoveCard({
   return (
     <Card
       ref={ref}
-      askew
       tabIndex={decided ? -1 : 0}
       onKeyDown={onKey}
       aria-label={`${KIND_LABEL[move.kind]} move: ${move.proposal}`}
@@ -87,13 +85,11 @@ export function MoveCard({
          * separate a protocol choice from the conversation, without becoming a
          * second giant assistant message. Accepted and rejected moves remain
          * readable because nothing here is ever erased. */
-        move.status === "proposed" && "sheet-land",
         move.status === "accepted" && "duration-settle ease-sheet",
         move.status === "rejected" && "duration-standard",
         isMergedResearchQuestion && "move-card-merged",
         /* No citation, no score: an undecided unsourced move wears the
          * open ring's dashed outline until the researcher rules on it. */
-        !grounded && !decided && "held-back",
       )}
     >
       {/* No card-level score. Its strength IS the strength of the citation
@@ -102,7 +98,7 @@ export function MoveCard({
         * once floating in the top-right corner where it read as a
         * notification dot rather than as evidence. The score belongs beside
         * the source it measures. */}
-      <CardContent className="flex flex-col gap-1.5 p-2">
+      <CardContent className="flex flex-col gap-3 p-4">
         <div className="min-w-0">
           <div
             className={cn(

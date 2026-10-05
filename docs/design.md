@@ -13,11 +13,26 @@ adding component-specific colors or sizes.
 `Surface` provides the scrollable body and a named content width:
 `narrow` for forms, `reading` for prose, `work` for normal tasks, and `wide`
 for dense views. The study workspace places the protocol beside the main view
-on wide screens and stacks them on smaller screens.
+from 768px upward. Its labelled, 48px collapsed rail keeps the draft discoverable
+without taking space from the conversation. On smaller screens, the header's
+Review draft action opens the review dialog regardless of the saved rail state.
 
 Use one heading per view, clear labels, and a primary action for the next step.
 Group comparable items in lists or tables. Keep explanatory copy short and
 put detailed assumptions beside the calculation or measure they explain.
+
+The Setup workspace follows the conversation-first approach of
+[Open WebUI](https://docs.openwebui.com/features/chat-conversations/): chat is
+the main task, with research tools available when needed. The header, messages,
+and compact, growing composer share one reading column. Keep a single visible
+Review draft action; applying a protocol belongs in the review dialog. Do not
+hide pending decisions, source quality, or approval requirements to reduce text.
+
+Plan presents a short summary and participant assignment first. Allocation,
+capture details, validation issues, and sample-size assumptions live in labelled
+disclosures. Preserve the selected participant when switching tabs and refresh
+the plan on return. Initial loading must not briefly show an empty plan or
+sample-size panel before the actual plan arrives.
 
 ## Color and meaning
 

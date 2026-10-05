@@ -197,7 +197,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             the design conversation's recommendations land here too. */}
         <div className="rounded-card border border-border bg-surface">
           <div className="flex items-center justify-between border-b border-border px-4 py-2">
-            <h3 className="type-subhead text-text">Library</h3>
+            <h2 className="type-subhead text-text">Library</h2>
             <span className="type-caption text-text-muted">
               {papers.length} {papers.length === 1 ? "paper" : "papers"}
             </span>
@@ -253,7 +253,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
           )}
         >
           <div className="flex min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface p-4">
-            <h3 className="type-subhead text-text">Literature map</h3>
+            <h2 className="type-subhead text-text">Literature map</h2>
             <p className="mt-0.5 shrink-0 type-caption text-text-muted">
               Relationships determine the constellation; year gives temporal context, node
               size shows citation weight, and edge colour shows how papers are related.
@@ -280,9 +280,9 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                 <X className="size-4" aria-hidden />
               </button>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2">
-                <h4 className="pr-6 font-medium text-text">
+                <h3 className="pr-6 font-medium text-text">
                   {selectedNode.title || selected}
-                </h4>
+                </h3>
                 <p className="mt-0.5 type-caption text-text-muted">
                   {paperIdentifier(selectedPaper ?? { paperRef: selected ?? "" }) ?? "Library paper"}
                   {selectedNode.year ? ` · ${selectedNode.year}` : ""}
