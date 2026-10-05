@@ -480,3 +480,48 @@ def test_a_brief_keeps_a_design_card_with_no_model_configured(client, monkeypatc
     design = [m for m in reply["moves"] if m["kind"] == "choose-template"]
     assert len(design) == 1
     assert design[0]["patch"]["templateId"] == "within-subjects-crossover-v1"
+
+
+FULL_BRIEF = (
+    "I want to compare AI-assisted and unassisted developers fixing three seeded "
+    "bugs in a Python app, within-subjects, 12 professional developers, 30 minutes "
+    "per condition, measuring task completion time and solution correctness, "
+    "using TERN in VS Code."
+)
+
+
+def _facts_by_path(text):
+    return {
+        tuple(m["patch"].get("path") or ()): m
+        for m in elicitation.explicit_protocol_facts(text)
+        if m["patch"].get("op") == "set-field"
+    }
+
+
+def test_full_brief_yields_a_participant_count_card():
+    facts = _facts_by_path(FULL_BRIEF)
+    assert facts[("participants", "planned")]["patch"]["value"] == 12
+
+
+def test_full_brief_yields_a_session_length_card():
+    facts = _facts_by_path(FULL_BRIEF)
+    assert facts[("session", "durationMinutes")]["patch"]["value"] == 30
+
+
+def test_full_brief_yields_a_tern_instrument_card():
+    moves = [
+        m
+        for m in elicitation.explicit_protocol_facts(FULL_BRIEF)
+        if m["patch"].get("op") == "add-instrument"
+    ]
+    assert [m["patch"]["name"] for m in moves] == ["tern"]
+    assert moves[0]["patch"]["section"] == "instruments"
+    assert moves[0]["kind"] == "add-instrument"
+
+
+def test_tern_card_only_when_the_researcher_names_tern():
+    assert not [
+        m
+        for m in elicitation.explicit_protocol_facts("12 developers fixing a bug.")
+        if m["patch"].get("op") == "add-instrument"
+    ]

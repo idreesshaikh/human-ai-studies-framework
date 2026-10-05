@@ -68,6 +68,10 @@ try {
   await page.getByRole("alert").filter({ hasText: "Invalid evidence map" }).waitFor();
   await page.getByLabel("Import an evidence map (JSON)").setInputFiles({ name: "synthetic-map.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(fixture)) });
   await page.getByText("DEMONSTRATION ONLY.", { exact: false }).waitFor();
+  const population = page.getByLabel("Population", { exact: true });
+  await expect(population).toHaveAttribute("list", "evidence-population-options");
+  await expect(page.locator("#evidence-population-options option")).toHaveCount(1);
+  await expect(page.locator("#evidence-population-options option")).toHaveAttribute("value", "Novice Python developers");
   for (const [label, value] of [
     ["Research question", "Does AI assistance change completion time?"],
     ["Population", "Novice Python developers"], ["Task", "Fix a Python bug"],
@@ -80,8 +84,27 @@ try {
   const between = alternatives.locator("li").filter({ has: page.getByRole("heading", { name: "between-subjects", exact: true }) });
   if (!await between.getByRole("checkbox").isVisible()) await between.getByText("Sources, limits and capture requirements", { exact: true }).click();
   await expect(between.getByText("Invented fixture paragraph 1", { exact: false })).toBeVisible();
-  await between.getByRole("checkbox").check();
+  await expect(between.getByText("Recommendation · conditional applicability", { exact: true })).toBeVisible();
+  await expect(between.getByText("Evidence quality: unknown", { exact: false })).toBeVisible();
+  await expect(between.getByText("Simulates a reviewed row", { exact: false })).toBeVisible();
+  let releaseComparison;
+  let comparisonStarted;
+  const comparisonHeld = new Promise(resolve => { releaseComparison = resolve; });
+  const comparisonRequest = new Promise(resolve => { comparisonStarted = resolve; });
+  await page.route("**/evidence-map/candidates", async intercepted => {
+    comparisonStarted();
+    await comparisonHeld;
+    await intercepted.continue();
+  });
+  await between.getByRole("checkbox").focus();
+  await page.keyboard.press("Space");
+  await comparisonRequest;
+  await expect(between.getByRole("checkbox")).toBeFocused();
+  await expect(between.getByRole("button", { name: "Review this choice in chat" })).toBeDisabled();
+  releaseComparison();
   await expect(between.getByText("Conditional", { exact: true })).toBeVisible();
+  await expect(between.getByRole("checkbox")).toBeFocused();
+  await page.unroute("**/evidence-map/candidates");
 
   // A changed constraint invalidates the old results and prevents proposing.
   await page.getByLabel("Available producers (comma-separated)").fill("metrics");
@@ -119,12 +142,21 @@ try {
   await between.getByRole("button", { name: "Review this choice in chat" }).click();
   const move = page.getByLabel("Field move: Use a between-subjects design.", { exact: true });
   await expect(move).toBeVisible();
+  await expect(move).toBeFocused();
   await move.getByText("Evidence and conditions", { exact: false }).click();
   await expect(move.getByText("DEMONSTRATION ONLY.", { exact: false })).toBeVisible();
   await move.focus();
+  for (const key of ["Control+a", "Meta+a", "Alt+r"]) {
+    await page.keyboard.press(key);
+    await expect(move.getByRole("button", { name: "Accept", exact: true })).toBeVisible();
+  }
+  await move.getByRole("button", { name: "Reject", exact: true }).focus();
+  await page.keyboard.press("a");
+  await expect(move.getByRole("button", { name: "Accept", exact: true })).toBeVisible();
+  await move.focus();
   await page.keyboard.press("a");
   await page.getByText("View recorded decisions (1)", { exact: true }).click();
-  await expect(move.getByText("accepted", { exact: true })).toBeVisible();
+  await expect(move.getByText("Accepted", { exact: true })).toBeVisible();
   let releaseCompile;
   let compileStarted;
   const compileHeld = new Promise(resolve => { releaseCompile = resolve; });
@@ -136,12 +168,12 @@ try {
   });
   await page.getByRole("button", { name: "Review draft", exact: true }).click();
   await compileRequest;
-  await expect(page.getByRole("button", { name: "Apply to protocol", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Apply protocol", exact: true })).toBeDisabled();
   releaseCompile();
-  await expect(page.getByRole("button", { name: "Apply to protocol", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Apply protocol", exact: true })).toBeEnabled();
   await page.unroute("**/conversation/compile");
   const approved = page.waitForResponse(response => response.url().endsWith("/conversation/approve"));
-  await page.getByRole("button", { name: "Apply to protocol", exact: true }).click();
+  await page.getByRole("button", { name: "Apply protocol", exact: true }).click();
   const approvalResponse = await approved;
   assert.equal(approvalResponse.status(), 200, await approvalResponse.text());
   const record = await (await page.request.get(`${BASE}/studies/${study.id}/conversation/export`)).json();

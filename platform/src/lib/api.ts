@@ -25,21 +25,6 @@ export type ResearcherProfile =
   | "experienced"
   | "industry";
 
-/** Offline fallback only  -  mirrors `elicitation.PROFILES` on the server,
- * which is the source of truth (`researcherProfiles()` fetches the real
- * catalogue live). Kept here, not re-typed ad hoc at each call site, so
- * there's exactly one place this can drift from the server's copy. */
-export const FALLBACK_RESEARCHER_PROFILES: {
-  id: ResearcherProfile;
-  label: string;
-  description: string;
-}[] = [
-  { id: "student", label: "Student", description: "Learning research methods; this may be a first study." },
-  { id: "new-researcher", label: "New researcher", description: "Research training, first empirical studies in this area." },
-  { id: "experienced", label: "Experienced researcher", description: "Designs and runs empirical studies regularly." },
-  { id: "industry", label: "Industry practitioner", description: "Studying developers inside a company (e.g. a platform team)." },
-];
-
 export interface Preferences {
   theme?: "light" | "dark" | "system";
   savedViews?: string[];

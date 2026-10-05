@@ -1,12 +1,12 @@
-# Curated-dataset demo study (MP-16, FR-CUR)  -  the "dataset already exists"
+# Curated-dataset demo study (experimental)  -  the "dataset already exists"
 # branch made real. Instead of running live sessions, this study mines merged
 # pull requests from GitHub, comparing agent-authored and human-authored work.
 # It records an experimental observational-study shape; the current release
 # does not ship a source adapter or mining job for this protocol.
 #
 # The `curated:` section is the sampling frame: the mined equivalent of "the
-# approved protocol is the executed protocol" (FR-ETH-1). The mining adapter
-# refuses to run without it (F2.2). `protocolVersion` is 4 (kite -> tern
+# approved protocol is the executed protocol". The mining adapter
+# refuses to run without it. `protocolVersion` is 4 (kite -> tern
 # rename, 2026-07-21; the additive `curated:` section from v2 stays valid).
 #
 # The live instruments block below is retained only so this example validates
@@ -54,7 +54,7 @@ session:
     Mined merged pull requests from the sampling frame below; each PR is one
     mined activity unit (sessionId), its author the pseudonymized actor unit.
 
-# The curated-path sampling frame (FR-CUR-1/2). Declared before mining runs.
+# The curated-path sampling frame . Declared before mining runs.
 curated:
   actorUnit: developer
   contentPolicy: metadata-only
@@ -105,7 +105,7 @@ phases:
       - mined-dataset.txt
   - name: analysis
     gates:
-      # The validity-threats record gates analysis (FR-CUR-3 F3.2): no honest
+      # The validity-threats record gates analysis: no honest
       # provenance record → no analysis. Written when the record is finalized.
       - validity-threats.yaml
   - name: write-up

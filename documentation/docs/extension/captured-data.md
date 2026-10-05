@@ -44,7 +44,7 @@ stream and the static-metrics snapshots in pandas.
 ## Behavioral telemetry events (schema v4)
 
 The behavioral leg adds the event types below. All payloads are
-FR-ETH-2-safe: sizes, shapes, and timings only  -  never code content,
+Content-free: sizes, shapes, and timings only  -  never code content,
 keystrokes, clipboard text, or off-workspace paths. Capture is filtered to
 protocol-declared languages (`tern.behavior.languages`, pilot: Python) and
 workspace-internal files.

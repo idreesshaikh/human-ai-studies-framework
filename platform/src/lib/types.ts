@@ -245,8 +245,11 @@ export function targetLabel(target: string): string {
     .replace(/\[\]$/, "")
     .trim();
   if (!cleaned) return "the protocol";
-  return cleaned
-    .split(".")
+  /* "participants.description" is the participants section, not a second
+   * place: a trailing free-text field name adds nothing a reader needs. */
+  const parts = cleaned.split(".");
+  while (parts.length > 1 && /^(description|text|value|name)$/i.test(parts[parts.length - 1])) parts.pop();
+  return parts
     .map((part) => SLOT_LABELS[part as keyof ProtocolDraft] ?? sentenceCase(part))
     .join(" \u2022 ");
 }

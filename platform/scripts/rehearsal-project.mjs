@@ -26,7 +26,14 @@ export async function createRehearsalProject(request, base, name, env = process.
     const deleted = await request.delete(`${base}/projects/${project.slug}`, { data: { confirm: "DELETE" } });
     assert.equal(deleted.status(), 200, `Cleanup failed for synthetic project ${project.slug}`);
     assert.equal((await deleted.json()).deleted, project.slug);
-    assert.equal((await request.get(`${base}/projects/${project.slug}`)).status(), 404);
+    // A response can precede the request-scoped transaction's final commit.
+    // Wait for confirmed absence; never treat a 403 alone as successful cleanup.
+    let probe = await request.get(`${base}/projects/${project.slug}`);
+    for (let attempt = 0; probe.status() !== 404 && attempt < 10; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      probe = await request.get(`${base}/projects/${project.slug}`);
+    }
+    assert.equal(probe.status(), 404, "Synthetic cleanup must confirm absence");
     console.log(`Removed only this rehearsal's synthetic project: ${project.slug}`);
   };
   try {

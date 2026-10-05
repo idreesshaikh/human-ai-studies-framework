@@ -73,14 +73,6 @@ function readValue(id: PanelId, studyId?: string): boolean {
   return cache[key];
 }
 
-export function isCollapsed(id: PanelId, studyId?: string): boolean {
-  return readValue(id, studyId);
-}
-
-export function getPanels(): Record<PanelId, boolean> {
-  return { nav: readValue("nav"), draft: false };
-}
-
 export function togglePanel(id: PanelId, studyId?: string): void {
   const key = storageKey(id, studyId);
   const next = !readValue(id, studyId);

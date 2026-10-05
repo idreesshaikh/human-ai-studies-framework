@@ -7,7 +7,7 @@ transport only; validation and persistence stay in the service modules.
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class StudyEventIn(BaseModel):
@@ -92,6 +92,13 @@ class ConversationTurnIn(BaseModel):
     # A streamed request can be retried through the blocking endpoint.  Reusing
     # this key keeps that retry idempotent.
     requestId: str | None = None
+
+    @field_validator("text")
+    @classmethod
+    def nonblank_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Write a message before sending.")
+        return value
 
 
 class MoveDecisionIn(BaseModel):

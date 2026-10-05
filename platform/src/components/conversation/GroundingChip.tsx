@@ -31,14 +31,20 @@ export function GroundingChip({ g }: { g: Grounding }) {
     const box = a.getBoundingClientRect();
     const size = c.getBoundingClientRect();
     const gutter = 8;
-    const below = box.bottom + gutter;
+    /* Clear of the whole move card, not just the chip: the card's own
+     * Accept / Reject row sits right under its citations, and a card opened
+     * beside the chip used to cover it. Above the card when it fits, else
+     * below it. */
+    const frame = (a.closest("[data-move-id]") ?? a).getBoundingClientRect();
+    const above = frame.top - size.height - gutter;
+    const below = frame.bottom + gutter;
     const fitsBelow = below + size.height <= window.innerHeight - gutter;
     setPlacement({
       left: Math.max(
         gutter,
         Math.min(box.left, window.innerWidth - size.width - gutter),
       ),
-      top: fitsBelow ? below : Math.max(gutter, box.top - size.height - gutter),
+      top: above >= gutter ? above : fitsBelow ? below : gutter,
     });
   }, []);
 
@@ -81,7 +87,10 @@ export function GroundingChip({ g }: { g: Grounding }) {
         aria-describedby={open ? cardId : undefined}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
-        onClick={() => setOpen((v) => !v)}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen(true);
+        }}
       >
         {/* The chip is clean; the citation's own confidence is the framed
           * mark and its printed score at the left. A wall of citations reads
@@ -111,7 +120,7 @@ export function GroundingChip({ g }: { g: Grounding }) {
               "MORE CODE, LESS UNDERSTANDING…" identifies nothing, and two of
               them read as the same source. The flex chain above this now has
               a definite width to wrap into (see StudyHome's tab body). */}
-          <span className="line-clamp-2 min-w-0 text-left">{g.title}</span>
+          <span className="min-w-0 whitespace-normal text-left">{g.title}</span>
         </Badge>
       </button>
       {open &&

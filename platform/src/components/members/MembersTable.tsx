@@ -17,7 +17,8 @@ import { useApi } from "@/lib/session";
 import { useAuth } from "@/lib/auth.tsx";
 import { ROLE_LABELS, type Role } from "@/lib/capabilities.ts";
 import { ApiError, type Member } from "@/lib/api.ts";
-import { memberLabel } from "@/lib/memberLabel";
+import { memberLabel, viewerIdentity } from "@/lib/memberLabel";
+import { useSession } from "@/lib/session";
 import { Notice } from "@/components/ui/notice";
 
 const ROLES: Role[] = ["owner", "member"];
@@ -37,7 +38,9 @@ export function MembersTable({
   onChanged: () => void;
 }) {
   const api = useApi();
-  const { user } = useAuth();
+  const { user: authUser } = useAuth();
+  const { me } = useSession();
+  const user = viewerIdentity(authUser, me);
   const [rows, setRows] = useState(members);
   const [error, setError] = useState("");
 

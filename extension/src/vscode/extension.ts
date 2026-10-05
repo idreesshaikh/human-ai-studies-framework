@@ -39,6 +39,7 @@ import {
   STATE_MANIFEST,
 } from './pairing';
 import { buildLockedConfig, extensionDefaults } from '../core/lockedConfig';
+import type { SendState } from '../core/sendStatus';
 import { activeLock, captureSetting, setActiveLock } from './configLock';
 import { registerSettingsGuard } from './settingsGuard';
 import { preflightSummary } from '../core/preflight';
@@ -86,6 +87,9 @@ let sidebar: { refresh: () => void; dispose: () => void };
 let study: RunningStudy | undefined;
 let extContext: vscode.ExtensionContext;
 let sinkErrorShown = false;
+/** Upload state of the most recent session, so the Data view stays truthful
+ *  between sessions. */
+let lastSend: SendState | undefined;
 
 /** What the sidebar is allowed to know about the running session. Reads the
  *  module's live state each call rather than capturing it, so a finished
@@ -93,7 +97,7 @@ let sinkErrorShown = false;
 function sidebarSession(): SidebarSession {
   const s = study;
   if (!s) {
-    return { active: false, paused: false };
+    return { active: false, paused: false, send: lastSend };
   }
   const paired = getPairedIdentity(extContext);
   return {
@@ -107,6 +111,12 @@ function sidebarSession(): SidebarSession {
     written: s.recorder.nextSeq,
     mirrored: s.httpSink ? s.httpSink.deliveredCount : s.recorder.nextSeq,
     settingsOverrides: s.settingsOverrides,
+    send: s.httpSink
+      ? {
+          lastSuccessAt: s.httpSink.lastSuccessAt,
+          pending: s.httpSink.pendingCount,
+        }
+      : undefined,
   };
 }
 
@@ -162,7 +172,11 @@ export function activate(context: vscode.ExtensionContext): void {
     // active (see the sessionActive context); always delegate to the
     // built-in command even when no study is running.
     registerBehaviorCommands(() => study?.behavior),
-    registerPairing(context, () => sidebar.refresh()),
+    registerPairing(
+      context,
+      () => sidebar.refresh(),
+      () => Boolean(study),
+    ),
     registerSettingsGuard({
       lock: () => activeLock(),
       // Only the identity keys that are actually written into settings.
@@ -765,6 +779,12 @@ function teardownStudy(resetStatusBar: boolean): void {
   study.detector.dispose();
   study.stuckPrompt.dispose();
   study.session.dispose();
+  if (study.httpSink) {
+    lastSend = {
+      lastSuccessAt: study.httpSink.lastSuccessAt,
+      pending: study.httpSink.pendingCount,
+    };
+  }
   study.sink.dispose();
   study = undefined;
   // Outside a session there is nothing to protect, and local settings govern

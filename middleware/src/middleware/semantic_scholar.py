@@ -49,6 +49,7 @@ def _lock_for(host: str) -> threading.Lock:
             _pace_locks[host] = lock
         return lock
 
+
 PAPER_FIELDS = "title,authors,year,venue,abstract,externalIds,citationCount"
 # Edge neighbours are also the Library's warm preview cache. Keep the abstract in
 # the same response so opening a suggested node does not trigger a second request,
@@ -62,6 +63,10 @@ EDGE_CAP = 50
 
 class SemanticScholarError(Exception):
     """S2 could not serve a request (surfaced as a warning; cached graph kept)."""
+
+    def __init__(self, message: str, *, status: int | None = None):
+        super().__init__(message)
+        self.status = status
 
 
 def _headers() -> dict[str, str]:
@@ -99,7 +104,9 @@ def get_json(url: str, *, retries: int = 5) -> object:
                 delay = float(retry_after) if retry_after.isdigit() else 2.0**attempt
                 time.sleep(min(delay, 30.0))
                 continue
-            raise SemanticScholarError(f"GET {url} -> HTTP {exc.code}") from exc
+            raise SemanticScholarError(
+                f"GET {url} -> HTTP {exc.code}", status=exc.code
+            ) from exc
         except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
             raise SemanticScholarError(f"GET {url} failed: {exc}") from exc
     raise SemanticScholarError(f"GET {url} rate-limited after {retries} tries")
@@ -121,7 +128,9 @@ def post_json(url: str, payload: dict, *, retries: int = 5) -> object:
                 delay = float(retry_after) if retry_after.isdigit() else 2.0**attempt
                 time.sleep(min(delay, 30.0))
                 continue
-            raise SemanticScholarError(f"POST {url} -> HTTP {exc.code}") from exc
+            raise SemanticScholarError(
+                f"POST {url} -> HTTP {exc.code}", status=exc.code
+            ) from exc
         except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
             raise SemanticScholarError(f"POST {url} failed: {exc}") from exc
     raise SemanticScholarError(f"POST {url} rate-limited after {retries} tries")

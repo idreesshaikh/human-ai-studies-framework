@@ -37,3 +37,8 @@ export function applyTheme(theme: Theme) {
 export function nextTheme(t: Theme): Theme {
   return t === "light" ? "dark" : "light";
 }
+
+/** The toggle's accessible name says what pressing it does, not what is on. */
+export function themeToggleLabel(t: Theme): string {
+  return `Switch to ${nextTheme(t)} theme`;
+}

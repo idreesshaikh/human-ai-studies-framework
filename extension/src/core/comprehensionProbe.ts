@@ -92,17 +92,6 @@ interface ActiveProbe {
   startedAt: number;
 }
 
-let _nextBurstId = 0;
-
-/** Deterministic burst counter (monotonic, never resets). */
-export function nextBurstId(): number {
-  return ++_nextBurstId;
-}
-
-export function resetBurstId(): void {
-  _nextBurstId = 0;
-}
-
 /**
  * Pure function: produce a predict-output probe descriptor from chunk
  * metadata. Returns null if the chunk is too small for a meaningful probe.

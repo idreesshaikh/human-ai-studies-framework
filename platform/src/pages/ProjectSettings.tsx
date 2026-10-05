@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
+import { NAME_MAX_LENGTH } from "@/lib/uiText";
 import { Label } from "@/components/ui/label";
 import { RoleGate } from "@/components/shell/RoleGate";
 import { useApi, useSession } from "@/lib/session";
@@ -84,6 +85,7 @@ export function ProjectSettings() {
                 placeholder={data?.name ?? "Project name"}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                maxLength={NAME_MAX_LENGTH}
                 className="min-h-11"
               />
               <Button onClick={rename} disabled={!name.trim()} className="min-h-11">

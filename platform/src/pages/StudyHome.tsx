@@ -22,7 +22,8 @@ import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
 import { resolveRole, roleOrNull } from "@/lib/role";
 import { cn } from "@/lib/cn";
-import { humanSlug } from "@/lib/slug";
+import { browserNameStore, studyDisplayName } from "@/lib/studyNames";
+import { resolveStudyTab } from "@/lib/studyTabs";
 
 /* A study's workspace, and the whole arc the platform supports: configure a
  * developer study, run it, and inspect the data. The setup conversation is the
@@ -59,7 +60,7 @@ export function StudyHome() {
   // instead of always bouncing back to the conversation.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const tab: Tab = TABS.some((t) => t.id === tabParam) ? (tabParam as Tab) : "conversation";
+  const tab: Tab = resolveStudyTab(tabParam);
   useEffect(() => { if (tab === "planning") setPlanVisited(id); }, [tab, id]);
   const setTab = (next: Tab) =>
     setSearchParams(
@@ -175,7 +176,7 @@ export function StudyHome() {
             <Link
               to={`/p/${slug}`}
               aria-label={`Back to ${project?.name ?? slug}`}
-              className="type-label flex shrink-0 items-center gap-1 self-center rounded-control px-1.5 py-1 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
+              className="touch-link type-label flex shrink-0 items-center gap-1 self-center rounded-control px-1.5 py-1 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
             >
               <ChevronLeft className="size-4" aria-hidden />
               {/* A project's slug is its address, not its name. The name is
@@ -195,8 +196,8 @@ export function StudyHome() {
             {/* A study id IS its slug in the schema, so the header was
              * printing `trust-calibration-in-ai-code-review` at 28px as the
              * study's name. Same string, read as words. */}
-            <h1 className="type-control truncate text-text" title={humanSlug(id)}>
-              {humanSlug(id)}
+            <h1 className="type-control truncate text-text" title={studyDisplayName(browserNameStore(), id)}>
+              {studyDisplayName(browserNameStore(), id)}
             </h1>
           </div>
 
@@ -256,7 +257,7 @@ export function StudyHome() {
            * whole workspace column off the side of a phone. A definite width
            * here is also what lets the citation wrap instead of clamp. */
           <div className="min-h-0 min-w-0 flex-1">
-            <ConversationView studyId={id} opening={opening} />
+            <ConversationView studyId={id} opening={opening} roleState={roleState} />
           </div>
         )}
         {tab === "library" && (

@@ -165,3 +165,25 @@ class RecordingSink implements EventSink {
     this.disposed = true;
   }
 }
+
+test('HttpSink tracks pending count and last successful send time', async () => {
+  const realFetch = globalThis.fetch;
+  let ok = false;
+  globalThis.fetch = (async () => ({ ok })) as unknown as typeof fetch;
+  const sink = new HttpSink('http://x.test/ingest', 3_600_000);
+  try {
+    sink.write(makeEvent(0));
+    assert.equal(sink.pendingCount, 1);
+    assert.equal(sink.lastSuccessAt, undefined);
+    await sink.flush();
+    assert.equal(sink.pendingCount, 1, 'failed send stays pending');
+    assert.equal(sink.lastSuccessAt, undefined);
+    ok = true;
+    await sink.flush();
+    assert.equal(sink.pendingCount, 0);
+    assert.equal(typeof sink.lastSuccessAt, 'number');
+  } finally {
+    globalThis.fetch = realFetch;
+    sink.dispose();
+  }
+});

@@ -4,10 +4,9 @@ title: Observational field study of AI-assisted development in the wild
 description: |
   A single-condition, no-manipulation field study describing how developers
   actually work with AI assistance in situ: stuck/struggle episodes and
-  paste-provenance patterns, reported descriptively. Fills the
-  "observational/field study" design shape (a Phase 22 Wave-1 gap): unlike
-  single-arm-benchmark-v1 (evaluated against an external standard), this
-  template's posture is naturalistic description, not evaluation.
+  paste-provenance patterns, reported descriptively. Unlike the single-arm
+  benchmark (evaluated against an external standard), its posture is
+  naturalistic description, not evaluation.
 designType: observational
 
 designSignature:

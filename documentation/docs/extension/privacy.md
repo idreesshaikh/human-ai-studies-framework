@@ -1,6 +1,6 @@
 # Privacy
 
-TERN is built to a hard rule  -  **FR-ETH-2-safe by construction**: capture is
+TERN is built to a hard rule  -  **content-free by construction**: capture is
 sizes, shapes, and timings only. Never code content, keystrokes, clipboard
 text, or off-workspace paths.
 

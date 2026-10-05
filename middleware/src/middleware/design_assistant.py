@@ -83,14 +83,12 @@ SCOPE_CLARIFICATION = (
 
 
 NO_MODEL = (
-    "The design conversation needs a language model, and none is configured. "
-    "Set MISTRAL_API_KEY on the middleware and reload. "
-    "Everything else on the platform works without one."
+    "No language model is connected. Templates and the checklist still work. "
+    "Set MISTRAL_API_KEY on the server to enable replies."
 )
 MODEL_SILENT = (
-    "The model is temporarily unavailable. Your message is saved and no "
-    "proposal was applied. Wait before retrying; repeated requests can prolong "
-    "a rate limit. You can also continue with manual protocol authoring."
+    "The model did not respond. Your message is saved and nothing was applied. "
+    "Retry in a minute, or author the protocol manually."
 )
 
 
@@ -106,13 +104,21 @@ def _propose_with_retry(
     templates: list[dict],
     directive: str,
     state: dict | None,
+    decision_followup: bool = False,
 ) -> Turn | None:
     """Make bounded, spaced retries for a transient model request failure."""
     from middleware import design_llm
 
     for attempt in range(TURN_ATTEMPTS):
         turn = design_llm.propose_turn(
-            client, text, history, papers, templates, directive, design_state=state
+            client,
+            text,
+            history,
+            papers,
+            templates,
+            directive,
+            design_state=state,
+            decision_followup=decision_followup,
         )
         if turn is not None:
             return turn
@@ -137,26 +143,71 @@ def recommend_templates(
     scored: list[tuple[int, dict[str, Any]]] = []
 
     keywords = {
-        "two-group-rct": ["between-subjects", "two group", "independent group",
-                          "control group", "random assignment", "rct",
-                          "randomized controlled", "randomised controlled",
-                          "randomized trial", "randomised trial",
-                          "random control", "randomly assign"],
-        "within-subjects-crossover": ["within-subjects", "crossover", "paired",
-                                      "both conditions", "repeated"],
-        "paired-pre-post": ["pre-post", "before after", "pre and post",
-                            "intervention", "training effect"],
-        "multi-arm-rct": ["multi-arm", "multiple groups", "three group",
-                          "several conditions", "multiple treatments"],
-        "factorial-2x2": ["factorial", "two factors", "interaction",
-                          "2x2", "main effect"],
-        "single-group-repeated-measures": ["longitudinal", "over time",
-                                            "time point", "repeated measure",
-                                            "trend", "trajectory"],
-        "two-proportion-mcnemar": ["binary", "pass fail", "proportion",
-                                   "success rate", "completion rate"],
-        "single-arm-benchmark": ["benchmark", "single arm", "descriptive",
-                                 "exploratory", "evaluation", "pilot study"],
+        "two-group-rct": [
+            "between-subjects",
+            "two group",
+            "independent group",
+            "control group",
+            "random assignment",
+            "rct",
+            "randomized controlled",
+            "randomised controlled",
+            "randomized trial",
+            "randomised trial",
+            "random control",
+            "randomly assign",
+        ],
+        "within-subjects-crossover": [
+            "within-subjects",
+            "crossover",
+            "paired",
+            "both conditions",
+            "repeated",
+        ],
+        "paired-pre-post": [
+            "pre-post",
+            "before after",
+            "pre and post",
+            "intervention",
+            "training effect",
+        ],
+        "multi-arm-rct": [
+            "multi-arm",
+            "multiple groups",
+            "three group",
+            "several conditions",
+            "multiple treatments",
+        ],
+        "factorial-2x2": [
+            "factorial",
+            "two factors",
+            "interaction",
+            "2x2",
+            "main effect",
+        ],
+        "single-group-repeated-measures": [
+            "longitudinal",
+            "over time",
+            "time point",
+            "repeated measure",
+            "trend",
+            "trajectory",
+        ],
+        "two-proportion-mcnemar": [
+            "binary",
+            "pass fail",
+            "proportion",
+            "success rate",
+            "completion rate",
+        ],
+        "single-arm-benchmark": [
+            "benchmark",
+            "single arm",
+            "descriptive",
+            "exploratory",
+            "evaluation",
+            "pilot study",
+        ],
     }
 
     for t in templates:
@@ -212,7 +263,7 @@ def corpus_support(s: Session) -> dict[str, int]:
 
 
 def recommend_prescription(design_shape: str) -> dict[str, Any] | None:
-    """Look up the prescription for a design shape (FR-TPL-6)."""
+    """Look up the prescription for a design shape."""
     try:
         from analysis.prescribe import prescribe
 
@@ -232,7 +283,7 @@ def recommend_prescription(design_shape: str) -> dict[str, Any] | None:
 
 
 def suggest_figures(result_shape: str) -> list[dict[str, Any]]:
-    """Get ranked figure suggestions for a result shape (FR-ANA-7)."""
+    """Get ranked figure suggestions for a result shape."""
     try:
         from analysis.suggest_figures import suggest_figures as sf
 
@@ -269,6 +320,45 @@ class Turn:
     text: str
     moves: tuple[ProposedMove, ...]
     match_query: str | None = None
+
+
+_REVISION = re.compile(
+    r"\b(?:change|set|make|update|increase|raise|reduce|lower|bump)\b[^.\d]{0,40}?"
+    r"\b(?P<what>participants?|sessions?|session length|session duration)\b"
+    r"[^.\d]{0,20}?\bto\s+(?P<n>\d{1,4})\b(?P<unit>\s*(?:min(?:ute)?s?)\b)?",
+    re.IGNORECASE,
+)
+
+
+def _revision_moves(text: str) -> tuple[ProposedMove, ...]:
+    """A researcher revising a number already in the draft ("change participants to
+    20"), which the fact listener only recognises when it is phrased as a plan."""
+    match = _REVISION.search(text or "")
+    if not match:
+        return ()
+    number = int(match.group("n"))
+    what = match.group("what").lower()
+    if what.startswith("participant"):
+        path, proposal = (
+            ["participants", "planned"],
+            (f"Plan for {number} participants."),
+        )
+    elif what == "sessions" and not match.group("unit"):
+        return ()
+    else:
+        path, proposal = (
+            ["session", "durationMinutes"],
+            (f"Run each session for {number} minutes."),
+        )
+    return (
+        ProposedMove(
+            kind="set-field",
+            target=".".join(path),
+            proposal=proposal,
+            patch={"op": "set-field", "path": path, "value": number},
+            refs=(),
+        ),
+    )
 
 
 def _with_scripted_design(turn: Turn, text: str) -> Turn:
@@ -308,14 +398,12 @@ def _with_scripted_design(turn: Turn, text: str) -> Turn:
         patch={"templateId": template_id, "parameters": {}},
         refs=(),
     )
-    return Turn(
-        text=turn.text, moves=(*turn.moves, move), match_query=turn.match_query
-    )
+    return Turn(text=turn.text, moves=(*turn.moves, move), match_query=turn.match_query)
 
 
 def _explicit_moves(text: str) -> tuple[ProposedMove, ...]:
     """Convert facts the researcher stated plainly into reviewable moves."""
-    return tuple(
+    moves = tuple(
         ProposedMove(
             kind=item["kind"],
             target=item["target"],
@@ -325,11 +413,15 @@ def _explicit_moves(text: str) -> tuple[ProposedMove, ...]:
         )
         for item in elicitation.explicit_protocol_facts(text)
     )
+    taken = {tuple((m.patch or {}).get("path") or ()) for m in moves}
+    return moves + tuple(
+        m for m in _revision_moves(text) if tuple(m.patch["path"]) not in taken
+    )
 
 
 def _template_source_refs(template_id: str | None) -> tuple[str, ...]:
     """
-    The paper refs a template cites as its design's sources (FR-TPL)  -  used to ground
+    The paper refs a template cites as its design's sources  -  used to ground
     a choose-template move.
     """
     if not template_id:
@@ -375,12 +467,16 @@ def _load_history(s: Session, study_id: str | None) -> list[dict]:
     """
     if study_id is None:
         return []
-    recent = s.execute(
-        select(ConversationTurn)
-        .where(ConversationTurn.study_id == study_id)
-        .order_by(ConversationTurn.seq.desc())
-        .limit(_LLM_HISTORY_TURNS)
-    ).scalars().all()
+    recent = (
+        s.execute(
+            select(ConversationTurn)
+            .where(ConversationTurn.study_id == study_id)
+            .order_by(ConversationTurn.seq.desc())
+            .limit(_LLM_HISTORY_TURNS)
+        )
+        .scalars()
+        .all()
+    )
     opening = s.scalar(
         select(ConversationTurn)
         .where(
@@ -451,9 +547,7 @@ def _names_template_id(text: str, templates: list[dict]) -> bool:
     shapes they mean. Naming an id is naming a design  -  an explicit ask must
     never be overruled by the facet gate."""
     q = (text or "").lower()
-    return any(
-        t.get("templateId") and t["templateId"].lower() in q for t in templates
-    )
+    return any(t.get("templateId") and t["templateId"].lower() in q for t in templates)
 
 
 def turn_stance(
@@ -540,12 +634,12 @@ def _explicit_turn(stance: dict, state: dict | None = None) -> Turn | None:
     moves = protocol_moves
     kept = _filter_repeated_moves(moves, state)
     if not kept:
+        recorded = " ".join(m.proposal.strip() for m in moves[:3] if m.proposal)
+        question = (stance.get("nextQuestion") or "").strip() or (
+            "What would you like to settle next?"
+        )
         return Turn(
-            text=(
-                "I already have those details recorded, so I will not ask you to "
-                "repeat them. I will use them to move to the next open protocol "
-                "choice."
-            ),
+            text=f"Noted, this is already in the draft: {recorded} {question}",
             moves=(),
         )
     count = len(kept)
@@ -640,26 +734,29 @@ def _directive(stance: dict, state: dict | None = None) -> str:
             "THIS IS AN AUTOMATIC FOLLOW-UP TO A CARD DECISION. The researcher "
             f"just {action} the move identified in the design state. Do not "
             "propose any move in this response. Return an empty `moves` array. "
-            "For accepted or noted, acknowledge the choice briefly and ask at "
-            "most one useful next question only if the researcher has not "
+            "Never state, guess or imply why the researcher accepted, rejected, "
+            "noted or undid the card: they gave no reason, so do not invent one "
+            "and do not explain what the proposal was trying to do. Acknowledge "
+            "the decision neutrally (for example 'Noted: you rejected that "
+            "choice.') and continue. Reply in at most three sentences in total, "
+            "ending with one next question only if the researcher has not "
             "redirected or deferred. Do not force the first outstanding decision "
-            "or a prescribed order. For rejected, explain what the proposal was "
-            "trying to solve in one short sentence, then ask one focused question "
-            "only when it will let you offer a better fit. Do "
-            "not re-propose or restate the rejected move. The response must be "
-            "useful even if the researcher only answers that one question."
+            "or a prescribed order. Do not re-propose or restate the decided "
+            "move, and only restate details that appear as accepted moves in the "
+            "state block. The response must be useful even if the researcher "
+            "only answers that one question."
         )
         lines.append(_slot_directive(state))
         return "\n\n".join(lines)
 
     if stance["intent"] == "needs-scaffolding":
         lines.append(
-            "THE RESEARCHER IS STUCK. Explain the first missing facet in plain "
-            "language with two or three concrete examples tied to this study. "
-            "Do not repeat the generic question verbatim. Offer one clear next "
-            "choice and, when a safe concrete measure or task can help, propose "
-            "one actionable move card for them to accept or reject. Do not invent "
-            "a value they have not supplied."
+            "THE RESEARCHER IS STUCK. Give two or three concrete options for the "
+            "first missing facet, tied to this study, with the trade-off of each "
+            "in a clause. Do not define basic research concepts. Do not repeat "
+            "the generic question verbatim. Close with exactly one specific "
+            "question and, when a safe concrete measure or task can help, propose "
+            "one move card. Do not invent a value they have not supplied."
         )
     elif stance["intent"] == "followup-question":
         lines.append(
@@ -689,11 +786,12 @@ def _directive(stance: dict, state: dict | None = None) -> str:
                 "Use an explanation plus concrete options, not another open-ended "
                 "request for the same missing facet."
             )
-        else:
+        elif not stance.get("batchIntake"):
             lines.append(
                 "ONE STEP ONLY. Help the researcher with one useful facet, not "
-                "necessarily the first missing facet. Reflect their idea briefly, "
-                "then ask one question only when needed. If their latest message "
+                "necessarily the first missing facet. Never restate their idea "
+                "back to them. Ask exactly one specific question that unblocks "
+                "the protocol. If their latest message "
                 "contains one concrete task, measure, "
                 "research question, or protocol value, record only that safe "
                 "fact as one move. Do not propose a design shape yet."
@@ -778,12 +876,12 @@ def _scaffolding_turn(
                 moves=(),
             )
         if state and state.get("outstandingSlots"):
-            next_slot = state["outstandingSlots"][0]["label"]
+            slot = state["outstandingSlots"][0]
+            question = (
+                slot.get("question") or f"What is your choice for {slot['label']}?"
+            )
             return Turn(
-                text=(
-                    "I already have the decisions you confirmed, so I will not ask "
-                    f"you to repeat them. The next open protocol choice is {next_slot}."
-                ),
+                text=f"Your confirmed decisions are in the draft. {question}",
                 moves=(),
             )
         return Turn(
@@ -958,12 +1056,11 @@ def _permitted_moves(
                 else "this turn is a question, not a brief",
             )
             continue
-        if move.kind in ("choose-template", "merge-templates") and not stance[
-            "mayProposeDesign"
-        ]:
-            log.info(
-                "held back %s: the study isn't understood yet", move.kind
-            )
+        if (
+            move.kind in ("choose-template", "merge-templates")
+            and not stance["mayProposeDesign"]
+        ):
+            log.info("held back %s: the study isn't understood yet", move.kind)
             continue
         if (
             stance.get("steer") == "assists"
@@ -1010,7 +1107,19 @@ def _move_key_text(proposal: str, patch: dict | None) -> str:
     return f"{proposal} {value}".strip()
 
 
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+
+
+def _numbers(text: str) -> set[str]:
+    return set(_NUMBER.findall(text))
+
+
 def _is_near_duplicate(a: str, b: str) -> bool:
+    # Two moves that state different numbers are a revision, not a repeat: "30
+    # minutes" and "45 minutes" share every word but the one that matters.
+    na, nb = _numbers(a), _numbers(b)
+    if na and nb and na != nb:
+        return False
     ta, tb = set(matching._terms(a)), set(matching._terms(b))
     smaller = min(len(ta), len(tb))
     if smaller >= _DUP_MIN_TERMS and len(ta & tb) / smaller >= _DUP_TOKEN_OVERLAP:
@@ -1024,7 +1133,7 @@ def _filter_repeated_moves(
     moves: tuple[ProposedMove, ...], state: dict | None
 ) -> tuple[ProposedMove, ...]:
     """
-    Drop moves the conversation has already seen (FR-CONV: an accepted move is in the
+    Drop moves the conversation has already seen (an accepted move is in the
     draft, a rejected one was declined, an undecided one is still on the table  -
     re-pitching any of them is repetition).
     """
@@ -1053,9 +1162,7 @@ def _filter_repeated_moves(
     return tuple(kept)
 
 
-def _repeats_platform_reply(
-    s: Session, study_id: str | None, text: str
-) -> bool:
+def _repeats_platform_reply(s: Session, study_id: str | None, text: str) -> bool:
     """Whether ``text`` would repeat a recent platform response.
 
     Move de-duplication alone cannot prevent a conversation from stalling: a
@@ -1350,7 +1457,14 @@ def respond(
 
     directive = _directive(stance, state)
     turn = _propose_with_retry(
-        client, text, history, papers, templates, directive, state
+        client,
+        text,
+        history,
+        papers,
+        templates,
+        directive,
+        state,
+        decision_followup=bool(stance.get("decisionAction")),
     )
     if turn is None:
         if explicit is not None:
@@ -1370,9 +1484,7 @@ def respond(
             )
         raise ModelUnavailable(MODEL_SILENT)
     if len(stance.get("explicitMoves") or ()) > 1:
-        explicit_moves = _filter_repeated_moves(
-            tuple(stance["explicitMoves"]), state
-        )
+        explicit_moves = _filter_repeated_moves(tuple(stance["explicitMoves"]), state)
         if explicit_moves:
             turn = Turn(
                 text=turn.text,
@@ -1540,13 +1652,26 @@ def respond_streaming(
 
     directive = _directive(stance, state)
     turn = yield from design_llm.propose_turn_streaming(
-        client, text, history, papers, templates, directive,
+        client,
+        text,
+        history,
+        papers,
+        templates,
+        directive,
         design_state=state,
+        decision_followup=bool(stance.get("decisionAction")),
     )
     if turn is None:
         log.info("streamed design turn produced nothing; retrying blocking")
         turn = _propose_with_retry(
-            client, text, history, papers, templates, directive, state
+            client,
+            text,
+            history,
+            papers,
+            templates,
+            directive,
+            state,
+            decision_followup=bool(stance.get("decisionAction")),
         )
     if turn is None:
         if explicit is not None:
@@ -1568,9 +1693,7 @@ def respond_streaming(
             )
         raise ModelUnavailable(MODEL_SILENT)
     if len(stance.get("explicitMoves") or ()) > 1:
-        explicit_moves = _filter_repeated_moves(
-            tuple(stance["explicitMoves"]), state
-        )
+        explicit_moves = _filter_repeated_moves(tuple(stance["explicitMoves"]), state)
         if explicit_moves:
             turn = Turn(
                 text=turn.text,

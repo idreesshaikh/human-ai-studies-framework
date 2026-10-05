@@ -1,6 +1,6 @@
 # Analysis report - pilot-2026
 
-Created by `analysis run`; every section names the research question it answers.
+Created by `analysis run`; every section names the research question it answers (traceable to the protocol).
 
 ## RQ-P1
 

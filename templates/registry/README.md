@@ -6,7 +6,7 @@ recipes, and the papers that support it. Instantiation produces a valid
 protocol without hand-editing.
 
 A template is not a paper replica. References provide evidence for the shape;
-the deterministic repertoire ranks shapes by the number of matching papers.
+the deterministic template ranking orders shapes by the number of matching papers.
 Combining templates is supported, but the resulting protocol still needs
 researcher review.
 

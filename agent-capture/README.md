@@ -23,13 +23,12 @@ Provider session (Claude Code example)
 Both paths call the same `transcript.normalize_transcript()`. Because the
 normalized `seq` is the transcript's append-only position, a live hook and
 the post-session import of the same session produce identical
-`(session, source, seq)` keys, so ingestion **reconciles** them (FR-ING-2)
+`(session, source, seq)` keys, so ingestion **reconciles** them
 instead of duplicating - and a middleware that was down mid-session is fully
-recovered by the importer afterwards (NFR-2). Hooks are fire-and-forget with
-a short timeout and always exit 0: a down middleware never stalls the agent
-(NFR-1).
+recovered by the importer afterwards. Hooks are fire-and-forget with
+a short timeout and always exit 0: a down middleware never stalls the agent.
 
-## Content policy (FR-AGENT-5)
+## Content policy
 
 Every conversation string passes one choke point, `redact.py`:
 
@@ -41,7 +40,7 @@ Every conversation string passes one choke point, `redact.py`:
 
 The policy is protocol-declared (`instruments.agentCapture.contentPolicy`)
 and baked into the hook command by `protocol derive agent-hooks` - no side
-channel (FR-PROT-4). The policy descriptions live in `protocol.capture` so the
+channel. The policy descriptions live in `protocol.capture` so the
 consent layer and the producer use one shared contract.
 
 ## Producer streams
@@ -54,7 +53,7 @@ is separately checkable (see `middleware/db.py`):
 | source | events | producer |
 | --- | --- | --- |
 | `agent-capture` | `agent_session_meta`, `agent_turn`, `tool_call` | hooks + importer |
-| `workspace-snapshot` | `workspace_snapshot` | `snapshot.py` (shadow git, D14) |
+| `workspace-snapshot` | `workspace_snapshot` | `snapshot.py` (shadow git) |
 | `participant-git` | `git_commit` (content-free) | `snapshot.py` (observed) |
 | `task-harness` | `task_outcome` | `harness.py` (pytest) |
 | `agent-derived` | `reliance_loop`, `edit_burst_annotation`, `code_evolution` | `correlate.py`, `evolution.py` |

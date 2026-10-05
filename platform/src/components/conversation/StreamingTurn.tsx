@@ -1,4 +1,4 @@
-import { Check, CloudOff } from "lucide-react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MoveCard } from "./MoveCard";
 import { cn } from "@/lib/cn";
@@ -51,12 +51,6 @@ export function StreamingTurn({
         {isPlatform && (
           <span className="mb-2 flex items-center gap-1 type-caption text-text-muted">
             {isUnavailable ? "Not answered" : isScope ? "Supported scope" : "Assistant"}
-            {isUnavailable && (
-              <CloudOff
-                className="size-3"
-                aria-hidden
-              />
-            )}
           </span>
         )}
         {isPlatform ? (

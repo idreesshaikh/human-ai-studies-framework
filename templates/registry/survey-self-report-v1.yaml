@@ -4,11 +4,9 @@ title: Self-report-only survey of AI-assistance experience
 description: |
   A within-subjects design with no objective performance measure at all.
   Every research question is answered from the end-of-session self-report
-  (the six NASA-TLX subscales). Fills the
-  "survey/self-report only" design shape (Phase 22 Wave-1 spread item never
-  actually built): a researcher whose idea is purely about developer-
-  reported experience, not measured outcomes, maps here instead of being
-  forced into a benchmark or outcome-comparison template.
+  (the six NASA-TLX subscales). Use it when the idea is purely about
+  developer-reported experience, not measured outcomes, instead of forcing
+  it into a benchmark or outcome-comparison template.
 designType: survey
 
 designSignature:

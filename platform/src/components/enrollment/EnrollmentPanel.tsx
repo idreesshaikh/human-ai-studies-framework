@@ -13,12 +13,33 @@ import { LiveSessions } from "./LiveSessions";
 import { RunOverview } from "../charts/RunOverview";
 import { MintDialog } from "./MintDialog";
 import { TogglePopover } from "./TogglePopover";
+import { summarizeProducerStates } from "./captureSummary";
 import {
   EXTENSION_NAME,
   EXTENSION_RELEASES_URL,
   vscodeDeepLink,
 } from "@/lib/extension";
 import { cn } from "@/lib/cn";
+import {
+  APPLY_PROTOCOL_FIRST,
+  captureTokenLabel,
+  enrollmentHeading,
+  isMissingProtocolError,
+  plainErrorMessage,
+} from "@/lib/uiText";
+
+/* What the roster says for each link state. The ids stay as recorded. */
+const STATUS_LABEL: Record<string, string> = {
+  unredeemed: "Not used yet",
+  paired: "Paired",
+  streaming: "Sending data",
+  revoked: "Revoked",
+};
+
+const GRAIN_LABEL: Record<string, string> = {
+  participant: "Per participant",
+  session: "Per session",
+};
 
 const STATUS_STYLE: Record<string, string> = {
   unredeemed: "text-text-muted",
@@ -47,6 +68,11 @@ export function EnrollmentPanel({
   const [copied, setCopied] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState("");
   const [loadError, setLoadError] = useState("");
+  /* The protocol-dependent reads answer 404 until a protocol is applied. Once
+   * one has, stop asking: polling a study that cannot answer only fills the
+   * console (and the server log) with the same refusal every few seconds. */
+  const [noProtocol, setNoProtocol] = useState(false);
+  const [ready, setReady] = useState(false);
   /* Participants this study already holds data for. Enrollment tokens and
    * collected sessions are different facts: a study can carry sessions that
    * never came through a minted link (a curated import, a replayed capture,
@@ -58,38 +84,48 @@ export function EnrollmentPanel({
   const canToggle = hasRole(role, "toggle_capture");
 
   const load = useCallback(() => {
-    // A study with no compiled protocol has nothing to enroll  -  surface it
-    // calmly instead of letting a rejected read blank the tab.
+    // Tokens first: a study with no applied protocol refuses them, and that
+    // one answer is enough to know the other two reads would be refused too.
     void api
       .listEnrollmentTokens(studyId)
-      .then((result) => { setRows(result); setLoadError(""); })
-      .catch((e: unknown) =>
-        setLoadError(
-          e instanceof Error ? e.message : "Could not load enrollment.",
-        ),
-      );
-    void api.toggleCatalog(studyId).then(setCatalog).catch(() => {});
-    void studyApi
-      .status(studyId)
-      .then((s) =>
-        setDataParticipants([
-          ...new Set(
-            s.sessions.map((row) => row.participantId).filter(Boolean),
-          ),
-        ]),
-      )
-      .catch(() => setDataParticipants([]));
+      .then((list) => {
+        setRows(list);
+        setLoadError("");
+        setNoProtocol(false);
+        setReady(true);
+        void api.toggleCatalog(studyId).then(setCatalog).catch(() => {});
+        void studyApi
+          .status(studyId)
+          .then((s) =>
+            setDataParticipants([
+              ...new Set(
+                s.sessions.map((row) => row.participantId).filter(Boolean),
+              ),
+            ]),
+          )
+          .catch(() => setDataParticipants([]));
+      })
+      .catch((e: unknown) => {
+        if (isMissingProtocolError(e)) {
+          setReady(false);
+          setNoProtocol(true);
+          setLoadError(APPLY_PROTOCOL_FIRST);
+          return;
+        }
+        setLoadError(plainErrorMessage(e, "Could not load enrollment."));
+      });
   }, [studyId, api]);
   useEffect(load, [load]);
 
-  // Live polling: refresh statuses every 15s while the panel is mounted.
+  // Live polling: refresh statuses every 15s, but only once a protocol exists.
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   useEffect(() => {
+    if (!ready) return;
     pollRef.current = setInterval(load, 15_000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [load]);
+  }, [load, ready]);
 
   /* Revoking used to be `void api.revoke(...).then(load)`  -  a rejection
    * became an unhandled promise and the row simply stayed, which reads as
@@ -120,16 +156,6 @@ export function EnrollmentPanel({
     }).catch(() => setRevokeError("Could not copy the link. Select and copy it manually."));
   };
 
-  /* Same precondition as the Data tab, and the same treatment: a study whose
-   * protocol has never compiled cannot enroll anyone, so that is one fact
-   * with one move that resolves it  -  not a caution stacked above a live
-   * "Mint links" button, a "no sessions running" readout and a dashed box,
-   * each describing a consequence of it. */
-  const noProtocol =
-    !!loadError &&
-    (loadError.toLowerCase().includes("no protocol") ||
-      loadError.toLowerCase().includes("not found"));
-
   if (noProtocol) {
     return (
       <Surface measure="work" label="Participants">
@@ -138,7 +164,7 @@ export function EnrollmentPanel({
           action={
             <Button asChild size="sm">
               <Link to={{ search: "?tab=conversation" }}>
-                Open the design conversation
+                Open Setup
               </Link>
             </Button>
           }
@@ -146,6 +172,11 @@ export function EnrollmentPanel({
       </Surface>
     );
   }
+
+  const redeemed = rows.filter(
+    (r) => r.status === "paired" || r.status === "streaming",
+  ).length;
+  const heading = enrollmentHeading(rows.length, redeemed);
 
   return (
     /* `work`, the same measure Data and Planning use  -  the four tabs of one
@@ -167,13 +198,10 @@ export function EnrollmentPanel({
           {/* Counts enrollment links, so it says "enrolled" only about
             * enrolment  -  a study holding imported or replayed sessions has
             * participants without ever having minted one. */}
-          <h2 className="type-section text-text">
-            {rows.length === 0
-              ? dataParticipants.length > 0
-                ? "No enrollment links; imported data available"
-                : "Enrollment"
-              : `${rows.length} enrollment link${rows.length === 1 ? "" : "s"}`}
-          </h2>
+          <h2 className="type-section text-text">{heading.title}</h2>
+          {heading.detail && (
+            <p className="type-caption text-text-muted">{heading.detail}</p>
+          )}
           {/* Prose is held to the reading measure even inside a wider column  -
             * the layout contract has a measure for running text precisely so
             * a panel does not set its prose to the width its table needs. */}
@@ -203,7 +231,7 @@ export function EnrollmentPanel({
               href={EXTENSION_RELEASES_URL}
               target="_blank"
               rel="noreferrer"
-              className="inline-block py-1 -my-1 underline underline-offset-2 hover:text-text"
+              className="touch-link inline-block py-1 -my-1 underline underline-offset-2 hover:text-text"
             >
               Download the .vsix
             </a>
@@ -241,7 +269,7 @@ export function EnrollmentPanel({
       {/* What is happening right now, above the roster of who *could* be
         * running. A facilitator mid-study is asking "is data arriving?", and
         * the answer belongs before the enrollment table, not after it. */}
-      <LiveSessions studyId={studyId} />
+      {ready && <LiveSessions studyId={studyId} />}
       {rows.length === 0 ? (
         /* The one place this absence is stated, and it carries the control
           * that ends it. The heading above already says "None enrolled"; this
@@ -266,23 +294,23 @@ export function EnrollmentPanel({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[var(--enrollment-table-min-width)] table-fixed type-body">
             <colgroup>
-              <col className="w-28" />
-              <col className="w-36" />
+              <col className="w-24" />
               <col className="w-32" />
-              <col className="w-36" />
+              <col className="w-28" />
+              <col className="w-28" />
               <col className="w-44" />
-              <col className="w-96" />
+              <col />
               <col className="w-20" />
             </colgroup>
             <thead>
               <tr className="text-left text-text-muted">
                 <th className="whitespace-nowrap px-3 py-2 font-medium">Participant</th>
                 <th className="whitespace-nowrap px-3 py-2 font-medium">Condition</th>
-                <th className="whitespace-nowrap px-3 py-2 font-medium">Grain</th>
+                <th className="whitespace-nowrap px-3 py-2 font-medium">Link type</th>
                 <th className="whitespace-nowrap px-3 py-2 font-medium">Status</th>
                 <th className="whitespace-nowrap px-3 py-2 font-medium">Link</th>
                 <th className="whitespace-nowrap px-3 py-2 font-medium">Will capture</th>
-                <th />
+                <th className="sticky right-0 bg-bg" />
               </tr>
             </thead>
             <tbody>
@@ -290,9 +318,9 @@ export function EnrollmentPanel({
                 <tr key={t.id} className="border-t border-border">
                   <td className="whitespace-nowrap px-3 py-2 align-top type-quantity">{t.participantId}</td>
                   <td className="whitespace-nowrap px-3 py-2 align-top">{t.condition}</td>
-                  <td className="whitespace-nowrap px-3 py-2 align-top">{t.grain}</td>
+                  <td className="whitespace-nowrap px-3 py-2 align-top">{GRAIN_LABEL[t.grain] ?? t.grain}</td>
                   <td className={cn("whitespace-nowrap px-3 py-2 align-top", STATUS_STYLE[t.status])}>
-                    {t.status}
+                    {STATUS_LABEL[t.status] ?? t.status}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 align-top">
                     {t.status === "unredeemed" && t.connectionString ? (
@@ -348,6 +376,7 @@ export function EnrollmentPanel({
                             <span
                               key={i.name}
                               role={canToggle ? "button" : undefined}
+                              title={i.name}
                               tabIndex={canToggle ? 0 : undefined}
                               onClick={() => {
                                 if (canToggle && cat) setPopoverEntry(cat);
@@ -370,17 +399,14 @@ export function EnrollmentPanel({
                                   : "border-border text-text-muted line-through",
                               )}
                             >
-                              {i.name}
+                              {captureTokenLabel(i.name)}
                             </span>
                           );
                           return chip;
                         })}
                         {t.captureConfig.producerStates && (
                             <span className="basis-full break-words type-caption text-text-muted">
-                            {Object.entries(t.captureConfig.producerStates)
-                              .filter(([id]) => id !== "tern")
-                              .map(([id, state]) => `${id}: ${state}`)
-                              .join("; ")}
+                            {summarizeProducerStates(t.captureConfig.producerStates)}
                           </span>
                         )}
                       </div>
@@ -388,11 +414,13 @@ export function EnrollmentPanel({
                       <span className="text-text-muted">-</span>
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right align-top">
+                  <td className="sticky right-0 whitespace-nowrap bg-bg px-3 py-2 text-right align-top">
                     {canMint && t.status !== "revoked" && (
                       <Button
                         size="sm"
-                        variant="ghost"
+                        variant="outline"
+                        className="text-critical"
+                        aria-label={`Revoke link for ${t.participantId}`}
                         onClick={() => void revoke(t.id)}
                       >
                         Revoke

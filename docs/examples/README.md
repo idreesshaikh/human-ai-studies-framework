@@ -54,5 +54,5 @@ and are stripped before comparison).
   synthetic data is almost certainly a gap that would also bite real
   captures; every recipe ran clean here (10/10).
 - **The report is the traceability artifact.** Each section names the
-  research question it answers, satisfying the FR-DASH-6 / FR-ANA-4
+  research question it answers, satisfying the
   requirement that analyses be traceable to the protocol.

@@ -65,15 +65,16 @@ export function StudyFolderField({ studyId }: { studyId: string }) {
   };
 
   return (
-    <div className="flex flex-col gap-2 rounded-input border border-border bg-bg p-3">
+    <div className="flex min-w-0 flex-col gap-2 border-t border-border pt-4">
       <Label htmlFor="study-folder">Study folder</Label>
       <p className="type-caption text-text-muted">
-        What each link opens in the participant&apos;s VS Code. Type a path that
-        exists on their computers, or upload a zip of the folder.
+        Open a folder already on participants’ computers, or distribute a zip.
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2 sm:flex-nowrap">
         <Input
           id="study-folder"
+          className="min-w-0 flex-1 basis-40"
+          aria-describedby="study-folder-status"
           placeholder="/home/participant/study-task"
           value={pathText}
           onChange={(e) => setPathText(e.target.value)}
@@ -88,6 +89,7 @@ export function StudyFolderField({ studyId }: { studyId: string }) {
           type="file"
           accept=".zip,application/zip"
           className="sr-only"
+          tabIndex={-1}
           aria-label="Upload a zip of the study folder"
           onChange={(e) => {
             pickFile(e.target.files?.[0]);
@@ -109,15 +111,9 @@ export function StudyFolderField({ studyId }: { studyId: string }) {
         )}
       </div>
       {workspace && (
-        <p className="type-caption text-text-muted" aria-live="polite">
+        <p id="study-folder-status" className="type-caption text-text-muted" aria-live="polite">
           {describeWorkspace(workspace)}
         </p>
-      )}
-      {workspace?.kind === null && (
-        <Notice kind="note">
-          Without a study folder, participants connect but VS Code opens nothing
-          for them.
-        </Notice>
       )}
       {error && <Notice kind="problem">{error}</Notice>}
     </div>

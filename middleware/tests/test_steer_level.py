@@ -54,11 +54,13 @@ def test_an_unknown_or_absent_level_falls_back_rather_than_going_silent():
     An older client, or an agent posting a turn without the field, must still get a full
     instruction  -  never an empty one.
     """
-    assert elicitation.steer_guidance(None) == (
-        elicitation.STEER_LEVELS[elicitation.DEFAULT_STEER]["guidance"]
+    assert (
+        elicitation.steer_guidance(None)
+        == (elicitation.STEER_LEVELS[elicitation.DEFAULT_STEER]["guidance"])
     )
-    assert elicitation.steer_guidance("nonsense") == (
-        elicitation.STEER_LEVELS[elicitation.DEFAULT_STEER]["guidance"]
+    assert (
+        elicitation.steer_guidance("nonsense")
+        == (elicitation.STEER_LEVELS[elicitation.DEFAULT_STEER]["guidance"])
     )
     assert elicitation.steer_profile(None) is None
 
@@ -125,6 +127,19 @@ def test_batch_briefs_override_the_one_move_pace():
     directive = _directive(_stance(batchIntake=True))
     assert "BATCH INTAKE" in directive
     assert "one by one" in directive
+    incomplete = _directive(
+        _stance(
+            batchIntake=True,
+            understanding={
+                "missing": ["task"],
+                "missingLabels": ["task"],
+                "known": [],
+                "facetsNeeded": 5,
+            },
+            nextQuestion="What task?",
+        )
+    )
+    assert "ONE STEP ONLY" not in incomplete
 
 
 def test_missing_facets_still_allow_one_safe_concrete_move():

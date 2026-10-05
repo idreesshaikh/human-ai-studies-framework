@@ -85,13 +85,13 @@ export function HeroShowcase() {
       {/* Label strip  -  a live design session, not a disclaimer. */}
       <div
         aria-hidden
-        className="flex items-center gap-2 border-b border-border bg-surface-raised px-4 py-2.5"
+        className="flex items-center gap-2 whitespace-nowrap border-b border-border bg-surface-raised px-4 py-2.5"
       >
         <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-grounded" />
         <span className="type-legend text-text-muted">
           Developer study setup
         </span>
-        <span className="ml-auto type-legend text-text-muted">
+        <span className="ml-auto hidden type-legend text-text-muted sm:inline">
           every move cited
         </span>
       </div>
@@ -163,14 +163,7 @@ export function HeroShowcase() {
               {compiled ? (
                 <span className="type-legend text-grounded">in draft</span>
               ) : (
-                <>
-                  <span className="type-control rounded-control border border-control-edge px-3 py-1 text-text">
-                    Accept
-                  </span>
-                  <span className="type-control rounded-control border border-transparent px-3 py-1 text-text-muted">
-                    Reject
-                  </span>
-                </>
+                <span className="type-legend text-text-muted">Choice pending</span>
               )}
             </div>
 

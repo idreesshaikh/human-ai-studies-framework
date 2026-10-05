@@ -14,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useApi } from "@/lib/session";
 import {
-  ApiError,
   type CaptureOverrides,
   type EnrollmentTokenView,
   type ToggleCatalogEntry,
@@ -24,6 +23,12 @@ import {
  * copy of the authority string, and that second copy is how the identity
  * drifted out of sync with the extension manifest. */
 import { vscodeDeepLink } from "@/lib/extension";
+import {
+  GRAIN_OPTIONS,
+  captureTokenLabel,
+  describeMintError,
+  mintCountProblem,
+} from "@/lib/uiText";
 import { StudyFolderField } from "./StudyFolderField";
 
 /* The four capture legs, for the grouped config panel. The catalog carries a
@@ -54,35 +59,40 @@ function toggleKey(e: ToggleCatalogEntry): string {
   return `${e.instrument}.${e.path.join(".")}`;
 }
 
-/* Mint pairing tokens for a study. Copy-link (here: copy connection string) is
+/* Create pairing links for a study. Copy-link (here: copy connection string) is
  * the primary affordance  -  the participant pastes it into their IDE once. The
  * dialog also carries the per-mint capture config: every switch the protocol
  * declares can be tuned for the whole batch before minting (AI lifecycle,
  * behavioral streams, metric toggles), layered on the protocol-derived defaults
  * rather than re-derived. Condition assignment is never touched here  -  that
  * stays the assignment engine's job. */
-export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: () => void }) {
+export function MintDialog({
+  studyId,
+  onMinted,
+}: {
+  studyId: string;
+  onMinted: () => void;
+}) {
   const api = useApi();
   const [open, setOpen] = useState(false);
-  const [count, setCount] = useState(1);
-  // The field holds raw text so it can be cleared and retyped; `count` is the
-  // validated whole number in [1, 100] the mint call actually uses.
+  // The field holds raw text so it can be cleared and retyped. `count` is the
+  // whole number in [1, 100] the create call uses; an invalid entry is never
+  // quietly turned into 1, it shows the hint and blocks the button's action.
   const [countText, setCountText] = useState("1");
+  const [countTouched, setCountTouched] = useState(false);
+  const countProblem = mintCountProblem(countText);
+  const count = countProblem ? 0 : Number(countText.trim());
   const onCountChange = (raw: string) => {
     setCountText(raw);
-    const n = parseInt(raw, 10);
-    if (Number.isFinite(n) && n >= 1 && n <= 100) setCount(n);
-  };
-  const onCountBlur = () => {
-    const n = Math.min(100, Math.max(1, parseInt(countText, 10) || 1));
-    setCount(n);
-    setCountText(String(n));
+    setError(null);
   };
   const [grain, setGrain] = useState<"participant" | "session">("participant");
   const [catalog, setCatalog] = useState<ToggleCatalogEntry[] | null>(null);
   // Only the switches the researcher actually changed, keyed by instrument.path,
   // so the payload carries a diff rather than a full re-declaration.
-  const [changed, setChanged] = useState<Record<string, { instrument: string; path: string[]; value: unknown }>>({});
+  const [changed, setChanged] = useState<
+    Record<string, { instrument: string; path: string[]; value: unknown }>
+  >({});
   const [minted, setMinted] = useState<EnrollmentTokenView[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
   const [minting, setMinting] = useState(false);
@@ -90,7 +100,10 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
 
   useEffect(() => {
     if (!open) return;
-    void api.toggleCatalog(studyId).then(setCatalog).catch(() => setCatalog([]));
+    void api
+      .toggleCatalog(studyId)
+      .then(setCatalog)
+      .catch(() => setCatalog([]));
   }, [open, studyId, api]);
 
   const toggle = (e: ToggleCatalogEntry, checked: boolean) => {
@@ -98,13 +111,18 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
       const key = toggleKey(e);
       const next = { ...prev };
       if (checked === defaultOn(e)) delete next[key];
-      else next[key] = { instrument: e.instrument, path: e.path, value: checked };
+      else
+        next[key] = { instrument: e.instrument, path: e.path, value: checked };
       return next;
     });
   };
 
   const submit = async () => {
     if (minting) return;
+    if (countProblem) {
+      setCountTouched(true);
+      return;
+    }
     setMinting(true);
     setError(null);
     try {
@@ -112,13 +130,19 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
         Object.keys(changed).length > 0
           ? { toggles: Object.values(changed) }
           : null;
-      const rows = await api.mintEnrollmentTokens(studyId, count, grain, overrides);
+      const rows = await api.mintEnrollmentTokens(
+        studyId,
+        count,
+        grain,
+        overrides,
+      );
       setMinted(rows);
       onMinted();
     } catch (e) {
-      // Surface the server's reason instead of a silent no-op. Ethics approval is
-      // external to PHOENIX and must never be presented as an app gate.
-      setError(e instanceof ApiError ? e.message : "Could not create links. Check your connection and try again.");
+      // Surface the reason in plain words instead of a silent no-op. Ethics
+      // approval is external to Phoenix and must never be presented as an app
+      // gate. A study with no protocol is told to apply one first.
+      setError(describeMintError(e));
     } finally {
       setMinting(false);
     }
@@ -142,110 +166,180 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setMinted([]); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setMinted([]);
+      }}
+    >
       <DialogTrigger asChild>
         <Button size="sm">Create participant links</Button>
       </DialogTrigger>
-      <DialogContent>
-        <DialogTitle>Create participant links</DialogTitle>
-        <DialogDescription>
-          Each participant pastes one link into their IDE to join the study. A
-          participant link is reusable across their sessions; a session link is
-          single-use.
-        </DialogDescription>
-        {minted.length === 0 ? (
-          <div className="mt-4 flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="count">How many</Label>
-              <Input id="count" type="number" min={1} max={100} inputMode="numeric"
-                value={countText}
-                onChange={(e) => onCountChange(e.target.value)}
-                onBlur={onCountBlur} />
-              <p className="type-caption text-text-muted">A whole number from 1 to 100.</p>
-            </div>
-            <StudyFolderField studyId={studyId} />
-
-            <div className="flex flex-col gap-1">
-              <Label>Grain</Label>
-              <SegmentedControl
-                aria-label="Grain"
-                value={grain}
-                onChange={setGrain}
-                options={[
-                  { value: "participant", label: "Participant (reusable)" },
-                  { value: "session", label: "Session (single-use)" },
-                ]}
-              />
-            </div>
-
-            {switches.length > 0 && (
-              <div className="flex max-h-[min(32rem,50dvh)] flex-col gap-2 overflow-y-auto overscroll-contain rounded-input border border-border bg-bg p-3">
-                <p className="type-caption text-text-muted">
-                  Capture config for these links, defaulted to the protocol. Any
-                  switch you change here applies to all {count} link
-                  {count > 1 ? "s" : ""} you are about to create.
+      <DialogContent scrollable={false}>
+        <div className="shrink-0 border-b border-border pb-4 pr-6">
+          <DialogTitle>Create participant links</DialogTitle>
+          <DialogDescription>
+            Participants use these links to connect in VS Code.
+          </DialogDescription>
+        </div>
+        <div
+          role="region"
+          aria-label="Participant link settings"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4"
+        >
+          {minted.length === 0 ? (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="count">How many</Label>
+                <Input
+                  id="count"
+                  type="number"
+                  min={1}
+                  max={100}
+                  inputMode="numeric"
+                  value={countText}
+                  onChange={(e) => onCountChange(e.target.value)}
+                  onBlur={() => setCountTouched(true)}
+                  aria-invalid={countTouched && !!countProblem}
+                  aria-describedby="count-hint"
+                />
+                <p
+                  id="count-hint"
+                  role={countTouched && countProblem ? "alert" : undefined}
+                  className={
+                    countTouched && countProblem
+                      ? "type-caption text-critical"
+                      : "type-caption text-text-muted"
+                  }
+                >
+                  {countProblem ?? "A whole number from 1 to 100."}
                 </p>
-                {[...groups.entries()].map(([group, entries]) => (
-                  <div key={group} className="flex flex-col gap-1">
-                    <p className="type-legend text-text-muted">
-                      {LEG_LABELS[group] ?? group}
-                    </p>
-                    {entries.map((e) => {
-                      const key = toggleKey(e);
-                      const checked = key in changed
-                        ? (changed[key].value as boolean)
-                        : defaultOn(e);
-                      return (
-                        <label
-                          key={key}
-                          className="flex cursor-pointer items-start gap-2"
-                        >
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 size-4 cursor-pointer"
-                            checked={checked}
-                            onChange={(ev) => toggle(e, ev.target.checked)}
-                          />
-                          <span className="min-w-0">
-                            <span className="type-body text-text">{e.label}</span>
-                            <span className="block type-caption text-text-muted">
-                              {e.description}
-                            </span>
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                ))}
               </div>
-            )}
+              <div className="flex flex-col gap-1">
+                <Label>Link type</Label>
+                <SegmentedControl
+                  aria-label="Link type"
+                  value={grain}
+                  onChange={setGrain}
+                  className="flex-wrap"
+                  options={[...GRAIN_OPTIONS]}
+                />
+                <p className="type-caption text-text-muted">
+                  {grain === "participant"
+                    ? "Reusable across a participant’s sessions."
+                    : "Single use: create a new link for each session."}
+                </p>
+              </div>
+              <StudyFolderField studyId={studyId} />
 
-            <Button onClick={submit} disabled={minting} className="mt-1 self-start">
-              {minting ? "Creating…" : `Create ${count} link${count > 1 ? "s" : ""}`}
+              {switches.length > 0 && (
+                <details className="border-t border-border pt-3">
+                  <summary className="cursor-pointer type-control text-text">
+                    Capture settings
+                  </summary>
+                  <div className="mt-3 flex flex-col gap-3">
+                    <p className="type-caption text-text-muted">
+                      Protocol defaults apply. Changes affect every link in this
+                      batch.
+                    </p>
+                    {[...groups.entries()].map(([group, entries]) => (
+                      <div key={group} className="flex flex-col gap-1">
+                        <p className="type-legend text-text-muted">
+                          {LEG_LABELS[group] ?? captureTokenLabel(group)}
+                        </p>
+                        {entries.map((e) => {
+                          const key = toggleKey(e);
+                          const checked =
+                            key in changed
+                              ? (changed[key].value as boolean)
+                              : defaultOn(e);
+                          return (
+                            <label key={key} className="checkbox-row">
+                              <input
+                                type="checkbox"
+                                className="checkbox"
+                                checked={checked}
+                                onChange={(ev) => toggle(e, ev.target.checked)}
+                              />
+                              <span className="min-w-0">
+                                <span className="type-body text-text">
+                                  {e.label}
+                                </span>
+                                <span className="block type-caption text-text-muted">
+                                  {e.description}
+                                </span>
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {minted.map((t) => (
+                <div
+                  key={t.id}
+                  className="grid grid-cols-[auto_1fr] items-center gap-2 rounded-input border border-border bg-bg p-2"
+                >
+                  <span className="type-quantity text-text">
+                    {t.participantId}
+                  </span>
+                  <Input
+                    aria-label={`Connection link for ${t.participantId}`}
+                    readOnly
+                    value={t.connectionString ?? ""}
+                    className="min-w-0 type-quantity"
+                    onFocus={(event) => event.currentTarget.select()}
+                  />
+                  <div className="col-span-2 flex flex-wrap justify-end gap-2">
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto shrink-0"
+                    >
+                      <a href={vscodeDeepLink(t.connectionString ?? "")}>
+                        <ExternalLink aria-hidden />
+                        Open in VS Code
+                      </a>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="subtle"
+                      className="shrink-0"
+                      onClick={() => copy(t.connectionString ?? "", t.id)}
+                    >
+                      {copied === t.id ? (
+                        <Check aria-hidden />
+                      ) : (
+                        <Copy aria-hidden />
+                      )}
+                      {copied === t.id ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {error && <Notice kind="problem">{error}</Notice>}
+        </div>
+        {minted.length === 0 && (
+          <div
+            className="flex shrink-0 justify-end border-t border-border pt-4"
+            aria-busy={minting}
+          >
+            <Button onClick={submit} disabled={minting}>
+              {minting
+                ? "Creating…"
+                : count > 0
+                  ? `Create ${count} link${count > 1 ? "s" : ""}`
+                  : "Create links"}
             </Button>
-            {error && (
-              <Notice kind="problem">{error}</Notice>
-            )}
-          </div>
-        ) : (
-          <div className="mt-4 flex flex-col gap-2">
-            {minted.map((t) => (
-              <div key={t.id} className="flex items-center gap-2 rounded-input border border-border bg-bg px-2 py-1.5">
-                <span className="w-16 shrink-0 type-quantity text-text">{t.participantId}</span>
-                <span className="truncate type-quantity text-text-muted">{t.connectionString}</span>
-                <Button asChild size="sm" variant="ghost" className="ml-auto shrink-0">
-                  <a href={vscodeDeepLink(t.connectionString ?? "")}>
-                    <ExternalLink aria-hidden />
-                    Open in VS Code
-                  </a>
-                </Button>
-                <Button size="sm" variant="subtle" className="shrink-0"
-                  onClick={() => copy(t.connectionString ?? "", t.id)}>
-                  {copied === t.id ? <Check aria-hidden /> : <Copy aria-hidden />}
-                  {copied === t.id ? "Copied" : "Copy"}
-                </Button>
-              </div>
-            ))}
           </div>
         )}
       </DialogContent>

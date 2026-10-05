@@ -1,4 +1,4 @@
-"""How the design conversation listens before it proposes (FR-CONV-9/10)."""
+"""How the design conversation listens before it proposes."""
 
 from __future__ import annotations
 
@@ -546,7 +546,9 @@ def explicit_protocol_facts(text: str) -> list[dict]:
         )
 
     duration = re.search(r"\b(\d{1,3})\s*[- ]?minutes?\b", lower)
-    if duration and re.search(r"\b(?:session|lab|study|experiment)\b", lower):
+    if duration and re.search(
+        r"\b(?:session|lab|study|experiment|condition|task)\b", lower
+    ):
         minutes = int(duration.group(1))
         if 1 <= minutes <= 480:
             moves.append(
@@ -563,7 +565,8 @@ def explicit_protocol_facts(text: str) -> list[dict]:
             )
 
     participant_count = re.search(
-        r"\b(\d{1,4})\s+(?:participants?|developers?|engineers?|people|subjects?)\b",
+        r"\b(\d{1,4})\s+(?:[a-z-]+\s+){0,2}"
+        r"(?:participants?|developers?|engineers?|programmers?|people|subjects?)\b",
         lower,
     )
     if participant_count:
@@ -576,6 +579,25 @@ def explicit_protocol_facts(text: str) -> list[dict]:
                     "op": "set-field",
                     "path": ["participants", "planned"],
                     "value": int(participant_count.group(1)),
+                },
+            )
+        )
+
+    if re.search(r"\btern\b", lower):
+        from middleware import compiler
+
+        moves.append(
+            _fact_move(
+                "add-instrument",
+                "instruments.tern",
+                "Capture sessions with TERN in VS Code.",
+                {
+                    "section": "instruments",
+                    "op": "add-instrument",
+                    "name": "tern",
+                    "config": compiler.default_capture_instrument(
+                        int(duration.group(1)) if duration else 45
+                    ),
                 },
             )
         )

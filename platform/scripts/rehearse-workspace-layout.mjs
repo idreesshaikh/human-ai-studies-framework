@@ -58,7 +58,7 @@ try {
   await page.screenshot({ path: join(artifacts, "setup-mobile-expanded-pref-390.png"), fullPage: true });
   assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations.map(v => v.id), []);
   await page.getByRole("button", { name: "Review draft", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Prepare your protocol draft" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Review draft" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.setViewportSize({ width: 768, height: 900 });
@@ -87,13 +87,15 @@ try {
       assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => n.html) })), [], `${tab}/${width}`);
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       if (tab === "Setup") {
-        const composer = await page.locator("form").filter({ has: page.getByRole("textbox", { name: "Message the design assistant" }) }).boundingBox();
+        const composer = await page.locator(".composer").boundingBox();
         assert(composer.height < 100, "The composer must not consume the conversation viewport");
       }
     }
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("button", { name: "Show protocol draft", exact: true }).click();
+  await expect(page.getByRole("progressbar", { name: "Protocol draft progress" })).toHaveAttribute("aria-valuenow", "7");
+  await expect(page.getByText("Ready to review and apply.", { exact: true })).toBeVisible();
   await page.screenshot({ path: join(artifacts, "setup-expanded-1440.png"), fullPage: true });
   assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations.map(v => v.id), []);
   assert.deepEqual(errors, []);

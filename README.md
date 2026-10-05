@@ -140,7 +140,9 @@ synthetic example are available now; the reviewed pilot map and recommendation
 workflow remain future work.
 
 Start with [contributing](docs/contributing.md) for setup and checks, and the
-[architecture guide](docs/architecture.md) for the code paths. The
+[architecture guide](docs/architecture.md) for the code paths. `docs/` holds
+developer and architecture documentation; `documentation/` is the user guide,
+built with MkDocs. The
 [scope](docs/scope.md) explains the project boundary. Bug reports, reproducibility
 improvements, documentation, and research-method contributions are welcome.
 

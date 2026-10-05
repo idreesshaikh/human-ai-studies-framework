@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Command as CommandPrimitive } from "cmdk";
-import { Dialog, DialogContent } from "./dialog.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./dialog.tsx";
 import { cn } from "@/lib/cn";
 
 /* Command palette built on cmdk (fuzzy match + full keyboard nav). Rendered
@@ -9,16 +9,25 @@ export function CommandDialog({
   open,
   onOpenChange,
   label,
+  description,
   children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   label: string;
+  /** Spoken after the name; says how to use the list. */
+  description?: string;
   children: React.ReactNode;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-hidden p-0">
+        {/* The dialog's accessible name, not drawn: the search field below is
+          * the visible heading. */}
+        <DialogTitle className="sr-only">{label}</DialogTitle>
+        <DialogDescription className="sr-only">
+          {description ?? "Type to filter, use the arrow keys to move, Enter to choose."}
+        </DialogDescription>
         <CommandPrimitive
           label={label}
           className="flex max-h-[24rem] w-full flex-col rounded-plate"

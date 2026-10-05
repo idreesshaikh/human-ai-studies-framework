@@ -9,11 +9,10 @@ reuse a method without treating reuse as a black box.
   <figcaption>Five papers, their relationships, and the study’s evidence trail in one working view.</figcaption>
 </figure>
 
-## Protocol repertoire
+## Protocol templates
 
 Design shapes are ranked by how widely the corpus uses them. Each shape carries
-the statistical plan it requires; merging shapes creates a novel protocol while
-retaining every supporting reference.
+the statistical plan it requires and keeps its supporting references.
 
 Examples include:
 
@@ -23,7 +22,7 @@ Examples include:
 - **Within-subject human–AI synergy comparison** — matched human-only,
   AI-only, and collaborative conditions with explicit synergy measures.
 
-The repertoire is a starting point. The researcher still decides whether the
+The templates are a starting point. The researcher still decides whether the
 shape fits the question, population, task, and ethics boundary.
 
 ## Literature constellation

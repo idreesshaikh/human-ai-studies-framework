@@ -20,23 +20,8 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <input
         ref={ref}
         className={cn(
-          "h-9 w-full border border-control-edge bg-surface px-3 py-1 text-text",
-          "rounded-input placeholder:text-text-muted",
-          /* The global focus ring (index.css) is the whole focus treatment.
-           * Turning the border accent as well drew a second blue ring two
-           * pixels inside the first, which read as a rendering fault rather
-           * than as focus. The border still answers hover, so the field is
-           * not inert-looking before it is focused. */
-          "transition-colors duration-fast hover:border-text-muted",
-          /* Refused the way every other control refuses: the field drops out
-           * to the recessed well with muted ink, rather than fading. Fading
-           * is the treatment `button.tsx` documents at length as wrong ("a
-           * washed-out accent fill still reads as the blue button"), so a
-           * disabled field and a disabled button in one form were declining
-           * in two different visual languages. */
-          "disabled:cursor-not-allowed disabled:border-border disabled:bg-well disabled:text-text-muted",
+          unit ? "control-bare focus-ring-owned" : "control min-w-0",
           quantity ? "type-quantity text-right" : "type-body",
-          unit && "border-r-0",
           className,
         )}
         {...props}
@@ -46,9 +31,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     if (!unit) return field;
 
     return (
-      <div className="flex w-full items-stretch">
+      <div className="control control-group">
         {field}
-        <span className="type-legend flex items-center rounded-r-input border border-control-edge bg-zone-9 px-2 text-text-muted">
+        <span className="control-suffix type-caption">
           {unit}
         </span>
       </div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Upload, X, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Notice } from "@/components/ui/notice";
 import { Surface } from "@/components/shell/Surface";
 import { Constellation } from "./Constellation";
 import {
@@ -12,6 +13,7 @@ import {
 } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 import { paperIdentifier } from "@/lib/paperReference";
+import { plainErrorMessage } from "@/lib/uiText";
 
 /* The Library  -  the knowledge layer (FR-LIT-1/2/3). Live paper ingest
  * (arXiv/DOI/PDF), the citation constellation, and protocol-element links.
@@ -88,14 +90,22 @@ export function LibraryTab({ studyId }: { studyId: string }) {
     };
   }, [edgesPending, load]);
 
-  async function run(fn: () => Promise<unknown>) {
+  /* Resolves true when the action worked, so a caller can keep what the
+   * researcher typed when it did not. */
+  async function run(fn: () => Promise<unknown>): Promise<boolean> {
     setBusy(true);
     setNote(null);
     try {
       await fn();
       await load();
+      return true;
     } catch (e) {
-      setNote(e instanceof OfflineError ? e.message : String(e));
+      setNote(
+        e instanceof OfflineError
+          ? e.message
+          : plainErrorMessage(e, "That didn't work. Check the id and try again."),
+      );
+      return false;
     } finally {
       setBusy(false);
     }
@@ -113,7 +123,9 @@ export function LibraryTab({ studyId }: { studyId: string }) {
       const result = await studyApi.ingestPaper(studyId, id);
       setEdgesPending(Boolean(result.edgesPending));
       return result;
-    }).then(() => setIdInput(""));
+    }).then((added) => {
+      if (added) setIdInput("");
+    });
   }
 
   function uploadPdf(ev: React.ChangeEvent<HTMLInputElement>) {
@@ -153,7 +165,12 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             aria-label="arXiv id or DOI"
             className="flex-1"
           />
-          <Button size="sm" variant="subtle" onClick={ingest} disabled={busy}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={ingest}
+            disabled={busy || !idInput.trim()}
+          >
             <Plus aria-hidden /> Add
           </Button>
           {/* A solid edge, not a dashed one. Dashed is this world's mark for
@@ -179,11 +196,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             Paper added. Its citation neighbourhood is filling in.
           </p>
         )}
-        {note && (
-          <p className="rounded-input border border-border bg-surface p-3 type-body text-text-muted">
-            {note}
-          </p>
-        )}
+        {note && <Notice kind="problem">{note}</Notice>}
         {loadError && (
           <div className="flex items-center justify-between gap-3 rounded-input border border-border bg-surface p-3">
             <p className="type-body text-text-muted">{loadError}</p>
@@ -204,8 +217,8 @@ export function LibraryTab({ studyId }: { studyId: string }) {
           </div>
           <ul className="max-h-64 overflow-y-auto">
             {loading ? (
-              <li className="px-4 py-3 type-body text-text-muted" role="status">
-                Loading papers…
+              <li className="px-4 py-3 type-body text-text-muted">
+                <span role="status">Loading papers…</span>
               </li>
             ) : papers.map((p) => (
               <li

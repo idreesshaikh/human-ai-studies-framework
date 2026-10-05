@@ -8,9 +8,7 @@ export interface EndSurveyResult {
 }
 
 /**
- * End-of-study questionnaire in a webview panel - the one moment where
- * taking screen space is fine. Styled as a frosted-glass card over the
- * editor theme colors.
+ * End-of-study questionnaire using the editor's colors and native controls.
  */
 export function showEndSurvey(
   condition: string,
@@ -54,14 +52,13 @@ function renderHtml(items: LikertItem[], nonce: string): string {
       (item) => `
       <fieldset class="q" data-id="${item.id}">
         <legend>${escapeHtml(item.question)}</legend>
-        <div class="scale">
-          <span class="edge">${escapeHtml(item.lowLabel)}</span>
+        <div class="scale" aria-describedby="${item.id}-scale">
           ${Array.from({ length: item.points }, (_, i) => {
             const v = i + 1;
-            return `<label><input type="radio" name="${item.id}" value="${v}"><span>${v}</span></label>`;
+            return `<label><input type="radio" name="${item.id}" value="${v}" aria-describedby="${item.id}-scale"><span>${v}</span></label>`;
           }).join('')}
-          <span class="edge">${escapeHtml(item.highLabel)}</span>
         </div>
+        <p class="scale-labels" id="${item.id}-scale"><span>1 — ${escapeHtml(item.lowLabel)}</span><span>${item.points} — ${escapeHtml(item.highLabel)}</span></p>
       </fieldset>`,
     )
     .join('\n');
@@ -70,32 +67,29 @@ function renderHtml(items: LikertItem[], nonce: string): string {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study debrief</title>
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
 <style>
   :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
   body {
     margin: 0; padding: 32px 16px 64px;
     display: flex; justify-content: center;
     font-family: var(--vscode-font-family);
     color: var(--vscode-foreground);
-    background:
-      radial-gradient(1000px 500px at 15% -10%, color-mix(in srgb, var(--vscode-button-background) 22%, transparent), transparent 60%),
-      radial-gradient(800px 500px at 110% 110%, color-mix(in srgb, var(--vscode-charts-purple, #a78bfa) 16%, transparent), transparent 60%),
-      var(--vscode-editor-background);
+    background: var(--vscode-editor-background);
   }
   .card {
     width: min(680px, 100%);
     padding: 28px 32px;
     border-radius: 16px;
     border: 1px solid color-mix(in srgb, var(--vscode-foreground) 14%, transparent);
-    background: color-mix(in srgb, var(--vscode-editor-background) 62%, transparent);
-    backdrop-filter: blur(18px) saturate(1.3);
-    -webkit-backdrop-filter: blur(18px) saturate(1.3);
-    box-shadow: 0 18px 50px rgba(0,0,0,0.28);
+    background: var(--vscode-editor-background);
   }
   h1 { font-size: 1.25em; font-weight: 600; margin: 0 0 4px; }
-  p.sub { margin: 0 0 24px; opacity: 0.7; font-size: 0.9em; }
+  p.sub { margin: 0 0 24px; color: var(--vscode-descriptionForeground); line-height: 1.5; }
   fieldset.q {
     border: none; margin: 0 0 20px; padding: 14px 16px;
     border-radius: 12px;
@@ -103,51 +97,61 @@ function renderHtml(items: LikertItem[], nonce: string): string {
   }
   legend { font-weight: 500; padding: 0 4px; }
   .scale { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-  .scale .edge { font-size: 0.75em; opacity: 0.6; min-width: 70px; }
-  .scale .edge:last-child { text-align: right; }
+  .scale-labels { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; margin: 8px 0 0; font-size: 0.9em; color: var(--vscode-descriptionForeground); }
   .scale label { position: relative; cursor: pointer; }
-  .scale input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+  .scale input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
   .scale label span {
     display: flex; align-items: center; justify-content: center;
-    width: 34px; height: 34px; border-radius: 50%;
+    width: 44px; height: 44px; border-radius: 50%;
     border: 1px solid color-mix(in srgb, var(--vscode-foreground) 25%, transparent);
-    font-size: 0.85em; transition: all 0.12s ease;
+    font-size: 1em;
   }
   .scale label:hover span { border-color: var(--vscode-button-background); }
   .scale input:checked + span {
     background: var(--vscode-button-background);
     color: var(--vscode-button-foreground);
     border-color: transparent;
-    transform: scale(1.08);
+  }
+  .scale input:focus-visible + span, textarea:focus-visible, button:focus-visible {
+    outline: 2px solid var(--vscode-focusBorder); outline-offset: 3px;
+  }
+  @media (forced-colors: active) {
+    .scale input:checked + span { border: 3px solid Highlight; font-weight: bold; }
+    .scale input:focus-visible + span, textarea:focus-visible, button:focus-visible { outline-color: Highlight; }
+  }
+  @media (max-width: 480px) {
+    body { padding: 16px 12px 32px; }
+    .card { padding: 16px 12px; }
+    fieldset.q { padding: 12px 0; }
   }
   textarea {
     width: 100%; box-sizing: border-box; min-height: 80px;
     margin-top: 6px; padding: 10px 12px; border-radius: 10px;
     border: 1px solid color-mix(in srgb, var(--vscode-foreground) 20%, transparent);
     background: color-mix(in srgb, var(--vscode-editor-background) 70%, transparent);
-    color: var(--vscode-foreground); font-family: inherit; resize: vertical;
+    color: var(--vscode-foreground); font-family: inherit; font-size: 1rem; resize: vertical;
   }
   button {
     margin-top: 20px; padding: 10px 26px; border: none; border-radius: 10px;
     background: var(--vscode-button-background); color: var(--vscode-button-foreground);
-    font-size: 1em; cursor: pointer;
+    font: inherit; min-height: 44px; cursor: pointer;
   }
   button:disabled { opacity: 0.45; cursor: default; }
-  .hint { font-size: 0.8em; opacity: 0.6; margin-left: 12px; }
+  .hint { display: block; margin-top: 12px; color: var(--vscode-descriptionForeground); }
 </style>
 </head>
 <body>
-  <div class="card">
+  <main class="card">
     <h1>Thanks - the session is complete</h1>
-    <p class="sub">A few quick questions about how it felt. All answers are anonymous within the study dataset.</p>
+    <p class="sub">A few questions about your experience. Answers are linked to your participant ID and session in the study dataset.</p>
     ${rows}
     <fieldset class="q">
-      <legend>Anything else about the session? (optional)</legend>
-      <textarea id="comments" placeholder="Where you got stuck, what helped, what got in the way…"></textarea>
+      <legend id="comments-label">Anything else about the session? (optional)</legend>
+      <textarea id="comments" aria-labelledby="comments-label" placeholder="Where you got stuck, what helped, what got in the way…"></textarea>
     </fieldset>
     <button id="submit" disabled>Submit &amp; finish</button>
-    <span class="hint" id="progress"></span>
-  </div>
+    <span class="hint" id="progress" role="status"></span>
+  </main>
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
     const ids = ${JSON.stringify(items.map((i) => i.id))};

@@ -10,9 +10,46 @@ column as a subscale, which (a) found nothing on real data and (b) would have co
 ``Dataset`` -> ``tlx-debrief`` and pins the fixed behaviour.
 """
 
+import math
+
 import analysis.recipes  # noqa: F401 - populate the registry
 from analysis.core import REGISTRY
 from analysis.dataset import Dataset
+
+TLX = {"P01": (9, 11), "P02": (10, 13), "P03": (11, 12), "P04": (8, 12)}
+
+
+def _rows():
+    rows = []
+    for ci, cond in enumerate(["ai-assisted", "unassisted"]):
+        for p, vals in TLX.items():
+            rows.append(
+                {
+                    "source": "tern",
+                    "ts": "2026-07-12T10:58:00.000Z",
+                    "sessionId": f"S-{p}-{ci}",
+                    "participantId": p,
+                    "condition": cond,
+                    "type": "end_survey_response",
+                    "seq": 0,
+                    "flags": [],
+                    "schemaVersion": 1,
+                    "synthetic": True,
+                    "payload": {
+                        "responses": {"mentalDemand": vals[ci], "effort": 10 + ci}
+                    },
+                }
+            )
+    return rows
+
+
+def test_metadata_columns_are_not_treated_as_subscales():
+    result = REGISTRY["tlx-debrief"].run(Dataset(_rows()))
+    tests = result.tables["tests"]
+    assert set(tests["subscale"]) == {"mentalDemand", "effort"}
+    assert not tests["statistic"].map(math.isnan).any()
+    assert "schemaVersion" not in result.summary
+    assert "synthetic" not in result.summary
 
 
 def _response(session, participant, condition, responses, ms):

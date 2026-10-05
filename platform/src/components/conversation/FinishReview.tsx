@@ -8,10 +8,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { SLOT_LABELS, targetLabel, type DesignMove } from "@/lib/types";
 import type { CompileResult } from "@/lib/conversationApi";
 import { BlinkComparator } from "./BlinkComparator";
 import { hasEarlierVersion } from "@/lib/comparator";
+import { cleanProposalText } from "@/lib/uiText";
 
 /* A YAML-scalar line whose entire value is an empty collection, e.g.
  * "instruments: {}" or "  gates: []"  -  a still-unresolved slot rendered as
@@ -75,6 +77,7 @@ export function FinishReview({
   const grounded = accepted.filter((m) => m.grounding.length > 0).length;
   const judgment = accepted.length - grounded;
   const valid = compile?.valid ?? false;
+  const warnings = compile?.warnings ?? [];
   const diffLines = useMemo(
     () => (compile?.diff ? parseDiffLines(compile.diff) : []),
     [compile?.diff],
@@ -89,7 +92,7 @@ export function FinishReview({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
-        <DialogTitle>Prepare your protocol draft</DialogTitle>
+        <DialogTitle>Review draft</DialogTitle>
         <DialogDescription>
           This is what your conversation became. Review it, then apply it to the
           protocol: the study's document of record.
@@ -109,7 +112,7 @@ export function FinishReview({
         </p>
 
         {accepted.length > 0 && (
-          <ul className="mt-3 max-h-48 overflow-auto rounded-input border border-border bg-surface">
+          <ul className="mt-3 rounded-input border border-border bg-surface">
             {accepted.map((m) => (
               <li
                 key={m.moveId}
@@ -127,7 +130,7 @@ export function FinishReview({
                     * row's second column starting somewhere different. */}
                   {targetLabel(m.target)}
                 </span>
-                <span className="min-w-0 flex-1 text-text">{m.proposal}</span>
+                <span className="min-w-0 flex-1 break-words text-text">{cleanProposalText(m.proposal)}</span>
                 {m.grounding.length > 0 ? (
                   <span className="shrink-0 type-caption text-grounded" title="grounded in the corpus">
                     cited
@@ -146,7 +149,7 @@ export function FinishReview({
           <p className="mb-1 type-caption font-medium text-text-muted">
             Compiled protocol {compiling ? "· checking latest draft" : valid ? "· validated" : "· not yet valid"}
           </p>
-          <pre className="tabular max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-3 type-quantity text-text">
+          <pre className="tabular whitespace-pre-wrap break-words rounded-input border border-border-strong bg-bg p-3 type-quantity text-text">
             {compile?.yaml?.trim() ||
               (accepted.length > 0
                 ? "The server couldn't compile this draft. Check your connection, then reopen this review."
@@ -170,14 +173,17 @@ export function FinishReview({
               ))}
             </ul>
           )}
-          {compile && (compile.warnings?.length ?? 0) > 0 && (
-            <ul className="mt-1.5 flex flex-col gap-1">
-              {compile.warnings!.map((w, i) => (
-                <li key={i} className="type-caption text-text-muted">
-                  {w}
-                </li>
-              ))}
-            </ul>
+          {compile && warnings.length > 0 && (
+            <Notice kind="note" className="mt-1.5">
+              <p className="font-medium">
+                What the compiler added or changed in your draft:
+              </p>
+              <ul className="mt-1 flex list-disc flex-col gap-1.5 pl-4">
+                {warnings.map((w, i) => (
+                  <li key={i} className="max-w-reading break-words leading-snug [overflow-wrap:anywhere]">{w.charAt(0).toUpperCase() + w.slice(1)}</li>
+                ))}
+              </ul>
+            </Notice>
           )}
           {compile && !valid && compile.unresolved.length > 0 && (
             <p className="mt-1.5 rounded-input border border-border bg-surface p-2 type-caption text-text-muted">
@@ -214,7 +220,7 @@ export function FinishReview({
               onClick={() => onOpenChange(false)}
               className="type-control mt-2 inline-flex items-center gap-1.5 rounded-control text-accent underline decoration-border underline-offset-4 hover:decoration-control-edge"
             >
-              Continue to enrollment
+              Go to Run
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>
@@ -232,7 +238,7 @@ export function FinishReview({
             ) : applying ? (
               "Applying…"
             ) : (
-              "Apply to protocol"
+              "Apply protocol"
             )}
           </Button>
         </div>

@@ -12,6 +12,12 @@ import {
 } from '../core/captureConfig';
 import { preflightSummary } from '../core/preflight';
 import { ConsentGate } from '../core/consentGate';
+import {
+  PAIRED_SETTING_KEYS,
+  PAIRING_STATE_KEYS,
+  disconnectBlockedReason,
+} from '../core/studyLink';
+import { setActiveLock } from './configLock';
 import { openStudyFolder } from '../core/workspaceOpen';
 import { fetchAndUnpack } from '../core/workspaceArchive';
 
@@ -489,28 +495,80 @@ async function offerFolderFallback(
   }
 }
 
+/** Forget the study link: credential, paired identity, locked overlay and the
+ *  settings pairing wrote. Nothing locked survives, so standalone use is
+ *  governed by local settings again. */
+async function clearPairing(context: vscode.ExtensionContext): Promise<void> {
+  const overlay = pairingState<Record<string, unknown>>(
+    context,
+    STATE_LOCKED_SETTINGS,
+  );
+  setActiveLock(undefined);
+  await context.secrets.delete(SECRET_CRED);
+  for (const key of PAIRING_STATE_KEYS) {
+    await persistPairingState(context, key, undefined);
+  }
+  const conf = vscode.workspace.getConfiguration('tern');
+  const target = vscode.ConfigurationTarget.Workspace;
+  const keys = new Set([...PAIRED_SETTING_KEYS, ...Object.keys(overlay ?? {})]);
+  for (const key of keys) {
+    await conf.update(key, undefined, target);
+  }
+}
+
 export function registerPairing(
   context: vscode.ExtensionContext,
-  onPaired?: () => void,
+  onChanged?: () => void,
+  sessionActive: () => boolean = () => false,
 ): vscode.Disposable {
-  return vscode.commands.registerCommand('tern.connectToStudy', async () => {
-    if (getPairedIdentity(context)) {
-      void vscode.window.showInformationMessage(
-        'This editor is already connected to a study. Ask the researcher before changing study access.',
+  const onPaired = onChanged;
+  const connect = vscode.commands.registerCommand(
+    'tern.connectToStudy',
+    async () => {
+      if (getPairedIdentity(context)) {
+        void vscode.window.showInformationMessage(
+          'This editor is already connected to a study. Use “TERN: Disconnect from Study” first if you need to switch.',
+        );
+        return;
+      }
+      const raw = await vscode.window.showInputBox({
+        title: 'Connect to study',
+        prompt: 'Paste the connection string your researcher gave you',
+        ignoreFocusOut: true,
+      });
+      if (!raw) return;
+      await pairFromConnectionString(context, raw, onPaired);
+      // Keep the command boundary explicit as well as the shared redeem path:
+      // TreeViews can be mounted after the async consent flow returns, so a
+      // refresh at the command boundary guarantees the participant sees the
+      // newly applied capture scope immediately.
+      onPaired?.();
+    },
+  );
+  const disconnect = vscode.commands.registerCommand(
+    'tern.disconnectStudy',
+    async () => {
+      const blocked = disconnectBlockedReason(sessionActive());
+      if (blocked) {
+        void vscode.window.showWarningMessage(blocked);
+        return;
+      }
+      if (!getPairedIdentity(context)) {
+        void vscode.window.showInformationMessage(
+          'This editor is not connected to a study.',
+        );
+        return;
+      }
+      const choice = await vscode.window.showWarningMessage(
+        'Disconnect from this study? Capture settings from the study will be removed and you will need a new connection string to rejoin.',
+        { modal: true },
+        'Disconnect',
       );
-      return;
-    }
-    const raw = await vscode.window.showInputBox({
-      title: 'Connect to study',
-      prompt: 'Paste the connection string your researcher gave you',
-      ignoreFocusOut: true,
-    });
-    if (!raw) return;
-    await pairFromConnectionString(context, raw, onPaired);
-    // Keep the command boundary explicit as well as the shared redeem path:
-    // TreeViews can be mounted after the async consent flow returns, so a
-    // refresh at the command boundary guarantees the participant sees the
-    // newly applied capture scope immediately.
-    onPaired?.();
-  });
+      if (choice !== 'Disconnect') return;
+      await clearPairing(context);
+      onChanged?.();
+      void vscode.window.showInformationMessage('Disconnected from the study.');
+    },
+  );
+  return vscode.Disposable.from(connect, disconnect);
 }

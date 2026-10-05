@@ -1,5 +1,39 @@
 # Demo delivery: 6 October 2026
 
+## Latest usability verification, 5 October
+
+Shared fields use the existing control tokens: consistent height, a single focus
+treatment, native numeric keyboard operation and integrated units. Manual protocol
+and participant-link dialogs keep their headings and main actions visible while
+their fields scroll. Link creation has concise type labels, one folder status and
+optional capture settings; configuration and approval requirements are retained.
+
+- Full Python suite: **942 passed, 84.38% coverage**. Ruff, six-package consistency
+  and the root and isolated frontend checks/builds pass.
+- Manual form: ten light/dark, viewport and 200%-text cases; keyboard focus trap
+  and return, question editing, outcome validation, custom outcomes and retained
+  fields after an HTTP 503. Zero Axe violations in these states.
+- Participant links: eight theme/viewport cases including narrow phones and
+  landscape; persistent dialog actions, radio keyboard navigation, numeric
+  validation, real minting and manual copy recovery.
+- Researcher briefs remain batched. Focused choices and richer explanations have
+  separate response budgets; final streamed replies retain paragraph structure.
+  All 64 focused streaming/model regressions pass.
+- Cross-tab, evidence, Plan, replay, sidebar and human-workflow rehearsals pass
+  against the refreshed isolated backend. The 60-case tab/theme/width matrix
+  reports no Axe violations or overflow. Three bounded synthetic briefs returned
+  usable structured output through the configured Ministral route.
+
+Port 8010 was serving an earlier temporary checkout when the screenshots were
+reported. It now serves the tested integrated build with its original database
+and study files, after a database backup. Rehearsals remain on the separate
+synthetic database at port 8015. Never substitute rehearsal data for demo data.
+
+These are technical checks, not a human usability score or a claim to have tested
+every possible interaction. Required pull-request review, deployed-service health,
+hosted authentication and native editor confirmations remain distinct release
+checks. The previous Railway 429 and Render timeout have not been cleared here.
+
 ## The story to demonstrate
 
 One executable specification connects researcher decisions, participant tasks,
@@ -78,6 +112,114 @@ claiming hosted readiness. Also rehearse one physical TERN session in VS Code;
 automated web tests do not verify that editor launch on the presentation machine.
 
 ## Independent verification, 5 October
+
+### Combined Claude + merged-main delivery
+
+The original working folder was preserved in a private local checkpoint before
+integration. The combined copy was independently exercised on port 8014 with a
+separate SQLite database; no existing participant projects were deleted.
+
+- Python: **918 passed**, **84.16%** total coverage, metrics **98.92%**;
+  Ruff and six-package consistency passed.
+- Extension: **227 passed**, typecheck/lint/format passed, both dependency audits
+  reported zero vulnerabilities. VSIX packaging passed (52 files); the scripted
+  classifier harness ran and explicitly reports its known failure cases, not
+  real-world accuracy.
+- Platform: all semantic/UI checks, lint, typecheck, contrast and production
+  build passed; landing and unknown-route accessibility smoke passed.
+- Browser: final **60 cases** (five tabs × six widths × two themes), no Axe
+  violations or document overflow. Setup/approval/enrollment, evidence import,
+  source inspection, stale compile, Plan loading/assignment, replay, outage/retry,
+  keyboard/dialog/wheel scroll and all four download actions passed.
+- Additional human-workflow rehearsal: invalid counts never create links;
+  copy denial remains visible with manually selectable connection strings;
+  link dialogs fit 320–1440px; all tabs fit at 200% text; coarse-pointer buttons
+  have 44px targets; reading older chat stays in place when a reply completes;
+  Stop restores text immediately without resending; retry reuses its request id.
+- End-to-end smoke: 126 scoped synthetic rows, ingest idempotency, sequence-gap
+  detection, joined CSV keys, all ten analysis recipes, report/notebook/dictionary.
+- Strict documentation build passed. Docker daemon was unavailable locally;
+  the Docker image build passed in PR CI. The configured Ministral route returned
+  usable structured replies for all three bounded synthetic briefs, without a
+  429; this is compatibility evidence, not a model-quality benchmark.
+  A physical VS Code session and hosted deployment are **not certified** by these
+  tests. No claim of exhaustive testing of every possible state or measured
+  100/100 researcher usability is made.
+
+Run the extra regression against an isolated database:
+
+```bash
+REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8014 npm --prefix platform run rehearse:human-workflows
+```
+
+### Latest preserved workspace verification
+
+The later Claude refinements were preserved in a separate snapshot and tested
+against an isolated database on port 8015. The working source was not reset.
+
+- All 60 tab/width/theme cases passed with zero Axe violations or document
+  overflow; the compact composer and collapsed/expanded protocol rail passed
+  at mobile, tablet and desktop widths. Delayed Plan loading stayed stable.
+- Manual setup, evidence review, protocol approval, assignments, replay,
+  enrollment validation, clipboard failure and all four Share downloads passed.
+- Keyboard regression checks cover multi-card decisions, keeping the next card
+  focused, queuing a final decision during a reply, exactly one follow-up, and
+  restoring focus after Undo. Stop, retry, reading position, touch controls and
+  200% text checks passed.
+- Platform checks/build, Ruff and six-package consistency passed. All 227
+  extension tests and the 12 compiled debrief accessibility cases passed.
+- Full Python rerun: 930 passed, 84.33% total coverage. The earlier restricted
+  run's four task-harness failures passed when child processes were permitted;
+  no product fix or skipped tests were needed.
+- The 320px header overflow was fixed without shrinking accessible controls;
+  the conversation loading indicator now has a valid named status role.
+
+Release is still gated by independent review of PR #106. The latest read-only
+hosted checks returned Railway HTTP 429 and a 30-second Render timeout. Neither
+endpoint is certified ready; retain the verified local presentation fallback.
+These checks do not replace a consented researcher usability study.
+
+### Accessibility follow-up
+
+The evidence review now preserves keyboard focus while source confirmation
+refreshes a comparison. Choices stay disabled until that response arrives;
+changed constraints still hide obsolete results. Arrow keys, Home and End move
+both focus and selection in segmented controls. Decision shortcuts act only on
+the focused card: Ctrl+A, modified keys and keys inside nested controls cannot
+accept or reject a protocol change.
+
+Imported maps supply population, task and construct suggestions without choosing
+answers for the researcher. Source details distinguish reported findings,
+interpretations and recommendations, and expose evidence quality and review notes.
+
+The participant debrief has visible keyboard focus, 44px answer controls, a named
+comments field, progress announcements and accurate participant-ID wording.
+The compiled webview passed 12 browser cases across both study conditions,
+320/1000px widths and light, dark and forced-colors modes, including keyboard
+answers, complete-only submission, no overflow and zero Axe violations. Run it
+after installing both platform and extension dependencies:
+
+```bash
+npm --prefix platform run rehearse:debrief
+```
+
+An additional isolated VS Code rehearsal redeemed a link, started a timed session,
+paused/resumed, submitted seven debrief answers and returned to idle. Ten events
+reached the correct study, including the survey response and session end. Native
+consent/disconnect confirmation dialogs remain outside the browser automation;
+this rehearsal does not certify every capture channel or the hosted deployment.
+
+Integration retains Claude's disconnect/upload handling, validation harness,
+compiler-default warnings, revisions, readable capture labels, project palette,
+name limits and keyboard helpers, alongside merged evidence, replay, exports,
+study folders and the persistent collapsed draft rail. Contradictory route-removal
+assertions were corrected: Setup still calls quick-protocol, and the public
+schema/artifact/corpus APIs remain supported. Hosted unknown-study checks use
+hosted identity semantics; sensor integrity flags retain the existing nonblocking
+collection contract.
+
+The following records describe the earlier merged-main verification, not a second
+independent review of the combined delivery:
 
 - Full workspace: 841 Python tests passed, 83.28% coverage; metrics retained
   its stricter floor at 98.92%. Ruff and the six-package consistency check passed.

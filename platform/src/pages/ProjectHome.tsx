@@ -10,11 +10,16 @@ import { RoleGate } from "@/components/shell/RoleGate";
 import { useApi, useSession } from "@/lib/session";
 import { useAuth } from "@/lib/auth.tsx";
 import { useAsync } from "@/lib/useAsync";
-import { memberLabel } from "@/lib/memberLabel";
+import { memberLabel, viewerIdentity } from "@/lib/memberLabel";
 import { ApiError } from "@/lib/api.ts";
 import { resolveRole, roleOrNull } from "@/lib/role";
 import { cn } from "@/lib/cn";
-import { humanSlug } from "@/lib/slug";
+import { NAME_MAX_LENGTH } from "@/lib/uiText";
+import {
+  browserNameStore,
+  rememberStudyName,
+  studyDisplayName,
+} from "@/lib/studyNames";
 
 /* Project home: its studies, and a preview of who's on the team. */
 export function ProjectHome() {
@@ -30,6 +35,8 @@ export function ProjectHome() {
   const [studyName, setStudyName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  const names = browserNameStore();
+  const viewer = viewerIdentity(user, me);
   // Two-step confirm for study deletion: first click arms, second deletes.
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -78,11 +85,15 @@ export function ProjectHome() {
   };
 
   const newStudy = async () => {
-    if (!studyName.trim()) return;
+    if (!studyName.trim()) {
+      setCreateError("Give the study a name to create it.");
+      return;
+    }
     setCreating(true);
     setCreateError("");
     try {
       const study = await api.createStudy(slug, studyName);
+      rememberStudyName(names, study.id, studyName);
       // Refresh `me` so the new study's membership/role resolves immediately  -
       // otherwise role-gated controls (e.g. Mint links) stay hidden until an
       // unrelated refresh fires.
@@ -127,7 +138,7 @@ export function ProjectHome() {
         {/* No icon beside the heading: a section title carries its own
           * weight, and a glyph next to every one of them is chrome the
           * reader has to skip past on the way to the content. */}
-        <div className="flex items-end justify-between gap-3">
+        <div className="flex min-h-9 items-center justify-between gap-3">
           <h2 className="type-section text-text">Studies</h2>
           {!composing && (
             <Button size="sm" onClick={() => setComposing(true)}>
@@ -148,7 +159,12 @@ export function ProjectHome() {
                 autoFocus
                 placeholder="Name a new study…"
                 value={studyName}
-                onChange={(e) => setStudyName(e.target.value)}
+                onChange={(e) => {
+                  setStudyName(e.target.value);
+                  setCreateError("");
+                }}
+                maxLength={NAME_MAX_LENGTH}
+                aria-describedby="new-study-hint"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") newStudy();
                   if (e.key === "Escape") {
@@ -160,7 +176,7 @@ export function ProjectHome() {
               />
               <Button
                 onClick={newStudy}
-                disabled={!studyName.trim() || creating}
+                disabled={creating}
               >
                 {creating ? "Creating…" : "Create"}
               </Button>
@@ -174,6 +190,9 @@ export function ProjectHome() {
                 Cancel
               </Button>
             </div>
+            <p id="new-study-hint" className="type-caption text-text-muted">
+              Up to {NAME_MAX_LENGTH} characters.
+            </p>
             {createError && <Notice kind="problem">{createError}</Notice>}
           </div>
         )}
@@ -192,12 +211,12 @@ export function ProjectHome() {
                   <Link
                     to={`/p/${slug}/studies/${st.id}`}
                     className="type-body min-w-0 flex-1 truncate font-semibold text-text after:absolute after:inset-0"
-                    title={humanSlug(st.id)}
+                    title={studyDisplayName(names, st.id)}
                   >
                     {/* A study has no title column  -  its id is its slug  -  so
                       * this roster was listing raw addresses where a reader
                       * expects names. The URL still carries the slug. */}
-                    {humanSlug(st.id)}
+                    {studyDisplayName(names, st.id)}
                   </Link>
                   <RoleGate
                     role={mine}
@@ -262,7 +281,7 @@ export function ProjectHome() {
             * anything, since the negative margin gives it straight back. */}
           <Link
             to={`/p/${slug}/members`}
-            className="type-caption -my-1 inline-block py-1 text-text-muted underline decoration-border underline-offset-4 transition-colors duration-fast hover:text-text hover:decoration-control-edge"
+            className="touch-link type-caption -my-1 inline-block py-1 text-text-muted underline decoration-border underline-offset-4 transition-colors duration-fast hover:text-text hover:decoration-control-edge"
           >
             Manage members
           </Link>
@@ -274,8 +293,8 @@ export function ProjectHome() {
                 key={m.identitySub}
                 className="type-caption flex items-center gap-2 rounded-chip border border-border bg-surface px-2 py-1 text-text"
               >
-                <Avatar name={memberLabel(m, user)} className="size-5" />
-                {memberLabel(m, user)}
+                <Avatar name={memberLabel(m, viewer)} className="size-5" />
+                {memberLabel(m, viewer)}
               </span>
             ))}
           </div>

@@ -1,4 +1,4 @@
-# Release pipeline (FR-OPS-2).
+# Release pipeline.
 #
 # Push a tag to cut a release:
 #   v1.0.1-rc.1  → gates → GHCR image → GitHub pre-release; deploys demo.
@@ -16,7 +16,7 @@
 # extension cannot be installed on demand the way a Marketplace one can
 # (platform/src/lib/extension.ts).
 #
-# Secrets (each step skips cleanly when its secret is unset; see RUNBOOK §9):
+# Secrets (each step skips cleanly when its secret is unset; see docs/demo-runbook.md):
 #   RAILWAY_API_TOKEN      - Railway API token for demo redeploy
 #   RAILWAY_SERVICE_ID     - Railway service ID
 #   RAILWAY_ENVIRONMENT_ID - Railway environment ID (optional)
@@ -141,7 +141,7 @@ jobs:
           RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
         run: |
           if [ -z "$RAILWAY_API_TOKEN" ] || [ -z "$RAILWAY_SERVICE_ID" ]; then
-            echo "RAILWAY_API_TOKEN or RAILWAY_SERVICE_ID not set - skipping Railway deploy (RUNBOOK §9)."
+            echo "RAILWAY_API_TOKEN or RAILWAY_SERVICE_ID not set - skipping Railway deploy (secrets are optional; see docs/demo-runbook.md)."
             exit 0
           fi
           ENV_PART=""

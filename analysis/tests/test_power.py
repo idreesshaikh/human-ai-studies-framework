@@ -82,3 +82,17 @@ def test_paired_curve_uses_participants_not_two_independent_groups():
     assert result["model"].startswith("paired t-test")
     assert curve["points"][0]["totalN"] == curve["points"][0]["nPerGroup"]
     assert result["requiredN"][0]["totalN"] < 52
+
+
+@pytest.mark.parametrize("curve_fn", [two_sample_power_curve, paired_power_curve])
+def test_power_curve_is_finite_monotone_and_bounded_for_large_n(curve_fn):
+    """Regression: scipy's nct returned NaN/plunged near n~110-120 for d=0.8."""
+    import math
+
+    r = curve_fn((0.2, 0.5, 0.8, 1.2), max_total_n=600)
+    for curve in r["curves"]:
+        powers = [p["power"] for p in curve["points"]]
+        assert all(math.isfinite(x) and 0.0 <= x <= 1.0 for x in powers), (
+            curve.get("effectSize", curve)
+        )
+        assert powers == sorted(powers), "power must not decrease with n"

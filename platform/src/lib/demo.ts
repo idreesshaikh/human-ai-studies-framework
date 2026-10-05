@@ -5,7 +5,6 @@
  * (middleware creates a project with this study id, marked is_demo). Keep the
  * id in step with the backend seeder. */
 export const DEMO_STUDY_ID = "demo-study";
-export const DEMO_PROJECT_SLUG = "demo";
 
 export function isDemoStudy(studyId: string): boolean {
   return studyId === DEMO_STUDY_ID;

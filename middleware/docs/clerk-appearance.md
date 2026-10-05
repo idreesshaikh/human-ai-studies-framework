@@ -1,4 +1,4 @@
-# Theming the Clerk hosted sign-in (FR-OPS-5, D29)
+# Theming the Clerk hosted sign-in
 
 Applies only when the middleware runs in **`clerk`** auth mode
 (`MIDDLEWARE_AUTH=clerk`; see `src/middleware/auth.py`). Self-hosted
@@ -19,8 +19,7 @@ match, not character match.** The instrument's signature (the reading serif
 for headings, the soft lifted-card shadow) needs custom CSS and is therefore
 *not achievable* here. Getting the real look means embedding `<SignIn/>` in
 the platform app (`@clerk/clerk-react` + `<ClerkProvider>` + a `/sign-in`
-route), a frontend feature, gated by golden rules 1 & 5 (a requirement
-trace and a build-vs-adopt row) before code.
+route), a frontend feature, not currently planned.
 
 Source of truth for every value below: `platform/src/styles/tokens.css`. If a
 token changes there, re-derive here; these are a hand-copied snapshot, not a

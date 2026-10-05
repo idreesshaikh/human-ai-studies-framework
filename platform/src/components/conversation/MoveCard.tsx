@@ -6,6 +6,7 @@ import { GroundingChip } from "./GroundingChip";
 import { UnsourcedLabel } from "./UnsourcedLabel";
 import { EvidenceDetails } from "./EvidenceDetails";
 import { cn } from "@/lib/cn";
+import { cleanProposalText, moveStateLabel } from "@/lib/uiText";
 import type { DesignMove, MoveStatus } from "@/lib/types";
 
 const KIND_LABEL: Record<DesignMove["kind"], string> = {
@@ -56,11 +57,12 @@ export function MoveCard({
 
   const onKey = useCallback(
     (e: React.KeyboardEvent) => {
-      if (decided) return;
-      if (e.key === "a") onDecide(move.moveId, "accepted", move);
-      if (e.key === "r") onDecide(move.moveId, "rejected", move);
+      if (decided || e.target !== e.currentTarget || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat || e.nativeEvent.isComposing) return;
+      if (e.key !== "a" && e.key !== "r") return;
+      e.preventDefault();
+      onDecide(move.moveId, e.key === "a" ? "accepted" : "rejected", move);
     },
-    [decided, move.moveId, onDecide],
+    [decided, move, onDecide],
   );
 
   /* The caret goes to this card only when it answers something the researcher
@@ -77,6 +79,7 @@ export function MoveCard({
     <Card
       ref={ref}
       tabIndex={decided ? -1 : 0}
+      data-move-id={move.moveId}
       onKeyDown={onKey}
       aria-label={`${KIND_LABEL[move.kind]} move: ${move.proposal}`}
       className={cn(
@@ -111,28 +114,21 @@ export function MoveCard({
             <span className="type-legend text-text-muted">
               {KIND_LABEL[move.kind]}
             </span>
-            {move.status === "accepted" && (
+            {decided && (
               <span
                 className={cn(
                   "type-legend",
                   move.kind === "merge-templates" || isCaution ? "text-grounded" : "text-text-muted",
                 )}
               >
-                {move.kind === "merge-templates"
-                  ? "merged"
-                  : isCaution
-                    ? "noted"
-                    : "accepted"}
+                {moveStateLabel(move.status, move.kind)}
               </span>
-            )}
-            {move.status === "rejected" && (
-              <span className="type-legend superseded">dismissed</span>
             )}
           </div>
 
           {move.kind === "merge-templates" && move.mergeData ? (
             <div className="flex flex-col gap-1.5">
-              <p className="type-body leading-snug text-text">{move.proposal}</p>
+              <p className="type-body leading-snug text-text">{cleanProposalText(move.proposal)}</p>
               <p className="type-caption text-text-muted italic">{move.mergeData.reason}</p>
             </div>
           ) : (
@@ -142,7 +138,7 @@ export function MoveCard({
                 move.status === "rejected" && "superseded",
               )}
             >
-              {move.proposal}
+              {cleanProposalText(move.proposal)}
             </p>
           )}
         </div>
@@ -201,6 +197,7 @@ export function MoveCard({
           {decided && (
             <div className="flex gap-2">
               <Button
+                data-move-undo={move.moveId}
                 size="sm"
                 variant="ghost"
                 className="!h-8 !px-2.5"

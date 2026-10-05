@@ -84,8 +84,8 @@ the participant sees the protocol-derived consent statement, and TERN applies
 the approved configuration for that run. The researcher remains responsible for
 institutional review and for deciding when an amendment requires a new review.
 
-## Proven shapes and novel protocols
+## Proven shapes
 
 The [Library](library.md) ranks proven design shapes by corpus usage. Each shape
-binds the statistical plan it requires. Merging shapes produces a new protocol
-grounded in the papers attached to the chosen moves.
+binds the statistical plan it requires, and the draft stays grounded in the
+papers attached to the chosen moves.

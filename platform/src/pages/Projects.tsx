@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronRight, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
@@ -10,6 +10,8 @@ import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
 import { ROLE_LABELS } from "@/lib/capabilities.ts";
 import { ApiError, type ProjectSummary } from "@/lib/api.ts";
+import { NAME_MAX_LENGTH } from "@/lib/uiText";
+import { rememberStudyName, browserNameStore } from "@/lib/studyNames";
 
 /* Project list and creation form. Study counts come from the list response. */
 
@@ -31,10 +33,15 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
       >
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex min-w-0 items-baseline gap-2">
-            <span className="truncate type-subhead text-text transition-colors duration-fast group-hover:text-accent">
+            <span
+              className="truncate type-subhead text-text transition-colors duration-fast group-hover:text-accent"
+              title={project.name}
+            >
               {project.name}
             </span>
-            <span className="truncate type-caption text-text-muted">
+            {/* The address is the part that tells two long names apart once
+              * the name itself is cut, so it keeps its own room. */}
+            <span className="max-w-[40%] shrink-0 truncate type-caption text-text-muted" title={`/${project.slug}`}>
               /{project.slug}
             </span>
           </div>
@@ -87,6 +94,22 @@ export function Projects() {
   const [createError, setCreateError] = useState("");
   const [filter, setFilter] = useState("");
   const nameRef = useRef<HTMLInputElement>(null);
+  /* `?new=1` is how the command palette's "New project" arrives: the
+   * composer opens, and the flag is consumed so a refresh does not reopen it. */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const wantsComposer = searchParams.get("new") === "1";
+  useEffect(() => {
+    if (!wantsComposer) return;
+    setComposing(true);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("new");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [wantsComposer, setSearchParams]);
 
   useEffect(() => {
     if (composing) nameRef.current?.focus();
@@ -123,6 +146,7 @@ export function Projects() {
       // Start with one study so a new project opens directly into setup.
       const opening = question.trim();
       const study = await api.createStudy(project.slug, name);
+      rememberStudyName(browserNameStore(), study.id, name);
       navigate(`/p/${project.slug}/studies/${study.id}`, { state: { opening } });
     } catch (e) {
       // Only the API's own wording reaches the researcher; a bare HTTP status
@@ -157,7 +181,7 @@ export function Projects() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="type-title text-text">Projects</h1>
-          <p className="type-body text-text-muted">Organize studies and collaborators.</p>
+          <p className="type-body text-pretty text-text-muted">Organize studies and collaborators.</p>
         </div>
         {/* The empty state has its own create button. */}
         {!composing && data && data.length > 0 && (
@@ -180,6 +204,7 @@ export function Projects() {
               placeholder="Pair programming with agents"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              maxLength={NAME_MAX_LENGTH}
               onKeyDown={(e) => {
                 if (e.key === "Enter") create();
                 if (e.key === "Escape") closeComposer();
@@ -214,7 +239,7 @@ export function Projects() {
           </div>
           <p id="new-project-hint" className="type-caption text-text-muted">
             A project owns its studies, the papers behind them, and the people you
-            work with. You can rename it later.
+            work with. Up to {NAME_MAX_LENGTH} characters; you can rename it later.
           </p>
           {createError && (
             <p role="alert" className="type-caption text-critical">
@@ -270,7 +295,7 @@ export function Projects() {
               )}
               <Button asChild variant="outline">
                 <Link to="/repertoire">
-                  Browse study designs <ChevronRight aria-hidden />
+                  Browse templates <ChevronRight aria-hidden />
                 </Link>
               </Button>
             </div>
@@ -305,13 +330,13 @@ export function Projects() {
             Start from a study template
           </h2>
           <p className="type-caption mt-0.5 max-w-reading text-text-muted">
-            Browse designs with supporting references. Choose a template or
-            merge compatible designs, then review the protocol for your study.
+            Browse designs with supporting references, then review the
+            protocol for your study.
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
           <Link to="/repertoire">
-            Browse the repertoire <ChevronRight aria-hidden />
+            Browse templates <ChevronRight aria-hidden />
           </Link>
         </Button>
       </section>

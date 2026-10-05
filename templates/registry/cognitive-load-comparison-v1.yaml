@@ -7,8 +7,8 @@ description: |
   measure. Use when the study's actual claim is about mental effort or
   verification burden under AI assistance ("reviewing AI suggestions is
   more/less taxing than writing code unaided"), not whether the assisted
-  arm finishes faster. Prescribes the paired self-reported-fatigue
-  comparison (`fatigue-by-condition`).
+  arm finishes faster. Prescribes the paired comparison of self-reported
+  fatigue between conditions.
 designType: rct-within-subjects
 
 designSignature:

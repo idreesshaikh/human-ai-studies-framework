@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import difflib
+import logging
 import re
 from dataclasses import dataclass, field
 
 import yaml
 from protocol.loader import validate_protocol
+
+log = logging.getLogger(__name__)
 
 SECTIONS: tuple[str, ...] = (
     "researchQuestions",
@@ -221,7 +224,7 @@ def unresolved_slots(draft: dict) -> list[Slot]:
 @dataclass
 class MoveTrace:
     """
-    One accepted move's contribution to the draft (the FR-CONV-6 chain link: move →
+    One accepted move's contribution to the draft (the chain link: move →
     grounding → the protocol section it touched).
     """
 
@@ -334,8 +337,8 @@ def _instantiate_leniently(patch: dict) -> tuple[dict, list[str]]:
         for name in unknown:
             parameters.pop(name)
         notes.append(
-            f"{template_id}: ignored parameter(s) {', '.join(unknown)} "
-            "the template doesn't declare"
+            f"Skipped setting(s) the {_template_title(template_id)} design "
+            f"doesn't have: {', '.join(unknown)}."
         )
     instantiated = template_registry.instantiate_template(
         template_id, parameters, version=version
@@ -367,7 +370,7 @@ def _scaffold_from_sections(sections: dict[str, list]) -> dict:
     """Build a protocol from free-text sections alone (no template)."""
     draft: dict = {
         "protocolVersion": 4,
-        "study": {"id": "draft", "researchers": ["Researcher"]},
+        "study": {"id": "draft", "researchers": [RESEARCHER_PLACEHOLDER]},
         "phases": [{"name": "design", "gates": []}],
     }
     if sections["researchQuestions"]:
@@ -380,9 +383,80 @@ def _scaffold_from_sections(sections: dict[str, list]) -> dict:
     return draft
 
 
-def _apply_instrument_moves(draft: dict, moves: list[dict]) -> list[str]:
+def _accepted_session_minutes(moves: list[dict]) -> int | None:
+    """The researcher's accepted ``session.durationMinutes`` slot value, if any."""
+    slot = FILLABLE_SLOTS.get("session.durationMinutes")
+    found = None
+    for move in moves:
+        patch = move.get("patch") or {}
+        if (
+            move.get("status") == "accepted"
+            and patch.get("op") == "set-field"
+            and list(patch.get("path") or []) == ["session", "durationMinutes"]
+        ):
+            value = _coerce(slot, patch.get("value")) if slot else None
+            if isinstance(value, int):
+                found = value
+    return found
+
+
+_MINUTES_IN_TEXT = re.compile(r"\b(\d{1,3})\s*-?\s*(?:minutes?|mins?)\b", re.I)
+
+
+def _task_text_session_minutes(moves: list[dict]) -> int | None:
+    """A session length the researcher wrote into an accepted ``declare-task`` move
+    (its fields or its proposal sentence), such as "30 minutes per condition"."""
+    found = None
+    for move in moves:
+        if move.get("status") != "accepted" or move.get("kind") != "declare-task":
+            continue
+        patch = move.get("patch") or {}
+        texts = [patch.get(k) for k in ("description", "title", "materials")]
+        texts.append(move.get("proposal"))
+        for text in texts:
+            match = _MINUTES_IN_TEXT.search(str(text or ""))
+            if match and 1 <= int(match.group(1)) <= 480:
+                found = int(match.group(1))
+                break
+    return found
+
+
+def _stated_tern_minutes(moves: list[dict]) -> bool:
+    return any(
+        move.get("status") == "accepted"
+        and (move.get("patch") or {}).get("name") in ("tern", "taskTimer")
+        and _explicit_minutes((move.get("patch") or {}).get("config")) is not None
+        for move in moves
+    )
+
+
+def _sync_tern_session_minutes(
+    draft: dict, moves: list[dict], slot_minutes: int | None
+) -> None:
+    """An accepted duration slot also sizes a TERN config the researcher left open
+    (for example one a template brought); a duration they stated on the
+    instrument itself is left alone."""
+    if slot_minutes is None:
+        return
+    tern = (draft.get("instruments") or {}).get("tern")
+    if not isinstance(tern, dict) or not isinstance(tern.get("session"), dict):
+        return
+    for move in moves:
+        patch = move.get("patch") or {}
+        if (
+            move.get("status") == "accepted"
+            and patch.get("name") == "tern"
+            and _explicit_minutes(patch.get("config")) is not None
+        ):
+            return
+    tern["session"]["durationMinutes"] = slot_minutes
+
+
+def _apply_instrument_moves(
+    draft: dict, moves: list[dict], session_minutes: int | None = None
+) -> list[str]:
     """
-    Apply accepted instrument moves onto the draft in place  -  the FR-CONV-4.4
+    Apply accepted instrument moves onto the draft in place: the
     "instrument evolution rides the same path" contract.
     """
     warnings: list[str] = []
@@ -412,19 +486,21 @@ def _apply_instrument_moves(draft: dict, moves: list[dict]) -> list[str]:
             if name == "taskTimer":
                 name = "tern"
                 config = default_capture_instrument(
-                    _session_minutes_from_config(config)
+                    _session_minutes_from_config(config, default=session_minutes or 45)
                 )
                 warnings.append(
-                    "mapped the legacy taskTimer move to the valid TERN capture "
-                    "instrument"
+                    "A task timer is not a capture tool, so the standard TERN "
+                    "capture was used instead."
                 )
             elif name == "tern":
-                config, config_warnings = _normalise_tern_config(config)
+                config, config_warnings = _normalise_tern_config(
+                    config, default_minutes=session_minutes or 45
+                )
                 warnings.extend(config_warnings)
             elif name not in VALID_INSTRUMENTS:
                 warnings.append(
-                    f"ignored unsupported instrument {name!r}; use tern, metrics, "
-                    "agentCapture, or taskHarness"
+                    f"Left out {name!r}: it is not a capture tool this platform "
+                    "supports (use tern, metrics, agentCapture, or taskHarness)."
                 )
                 continue
             instruments[name] = config
@@ -432,11 +508,14 @@ def _apply_instrument_moves(draft: dict, moves: list[dict]) -> list[str]:
             if name == "taskTimer":
                 name = "tern"
                 warnings.append(
-                    "mapped the legacy taskTimer setting to the valid TERN capture "
-                    "instrument"
+                    "A task timer is not a capture tool, so its setting was "
+                    "applied to the standard TERN capture."
                 )
             elif name not in VALID_INSTRUMENTS:
-                warnings.append(f"ignored unsupported instrument setting {name!r}")
+                warnings.append(
+                    f"Left out a setting for {name!r}: it is not a capture tool "
+                    "this platform supports."
+                )
                 continue
             target = instruments.setdefault(name, {})
             path = list(patch.get("path") or [])
@@ -451,42 +530,62 @@ def _apply_instrument_moves(draft: dict, moves: list[dict]) -> list[str]:
     return warnings
 
 
-def _session_minutes_from_config(config: object) -> int:
+def _explicit_minutes(config: object) -> int | None:
+    """A session duration the config itself states (any nesting), else None."""
+    if not isinstance(config, dict):
+        return None
+    value = config.get("minutes") or config.get("durationMinutes")
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 1:
+        return value
+    for nested_key in ("capture", "session"):
+        found = _explicit_minutes(config.get(nested_key))
+        if found is not None:
+            return found
+    return None
+
+
+def _session_minutes_from_config(config: object, default: int = 45) -> int:
     """Read a legacy timer duration without trusting its invalid shape."""
-    if isinstance(config, dict):
-        value = config.get("minutes") or config.get("durationMinutes")
-        if isinstance(value, int) and not isinstance(value, bool) and value >= 1:
-            return value
-        for nested_key in ("capture", "session"):
-            nested = config.get(nested_key)
-            if isinstance(nested, dict):
-                nested_minutes = _session_minutes_from_config(nested)
-                if nested_minutes != 45:
-                    return nested_minutes
-    return 45
+    found = _explicit_minutes(config)
+    return found if found is not None else default
 
 
-def _normalise_tern_config(config: object) -> tuple[dict, list[str]]:
-    """Repair legacy/incomplete TERN add moves into the schema's capture shape."""
+def _normalise_tern_config(
+    config: object, default_minutes: int = 45
+) -> tuple[dict, list[str]]:
+    """
+    Repair legacy/incomplete TERN add moves into the schema's capture shape.
+
+    Defaults only ever fill what is missing; every supplied value is kept.
+    """
     source = config if isinstance(config, dict) else {}
     warnings: list[str] = []
     if isinstance(source.get("capture"), dict):
         source = source["capture"]
         warnings.append(
-            "mapped the legacy tern.capture wrapper to the standard TERN config"
+            "The TERN capture settings were tidied into the standard layout."
         )
 
-    normalized = default_capture_instrument(_session_minutes_from_config(config))
+    normalized = default_capture_instrument(
+        _session_minutes_from_config(config, default=default_minutes)
+    )
     required = ("session", "fatigue", "stuck", "output")
-    if any(not isinstance(source.get(section), dict) for section in required):
-        warnings.append("filled incomplete TERN config with standard capture defaults")
+    added = [
+        f"{section}.{key}"
+        for section in required
+        for key in normalized[section]
+        if not isinstance(source.get(section), dict) or key not in source[section]
+    ]
+    if added:
+        warnings.append("Standard TERN capture settings were added.")
 
     optional_sections = {"ideHealth", "behavior", "comprehensionProbe"}
     unknown: list[str] = []
     for section, value in source.items():
         if section in normalized:
             if not isinstance(value, dict):
-                unknown.append(section)
+                # A bare placeholder ("standard", true) means "use the standard
+                # settings for this section", which is already in place.
                 continue
             for key, item in value.items():
                 if key in normalized[section]:
@@ -499,7 +598,8 @@ def _normalise_tern_config(config: object) -> tuple[dict, list[str]]:
             unknown.append(section)
     if unknown:
         warnings.append(
-            "ignored unsupported TERN config field(s): " + ", ".join(sorted(unknown))
+            "Some TERN capture settings are not supported and were left out: "
+            + ", ".join(sorted(unknown))
         )
     return normalized, warnings
 
@@ -509,6 +609,14 @@ def _normalise_tern_config(config: object) -> tuple[dict, list[str]]:
 # the schema never had.
 FILLABLE_SLOTS: dict[str, Slot] = {
     s.key: s for s in (*PROTOCOL_SLOTS, *OPTIONAL_SLOTS) if s.fillable
+}
+
+
+_VALUE_WORDS = {
+    "integer": "a whole number",
+    "boolean": "yes or no",
+    "enum": "one of the listed choices",
+    "text": "text",
 }
 
 
@@ -556,32 +664,31 @@ def _apply_field_moves(draft: dict, moves: list[dict]) -> list[str]:
                     if value not in conditions:
                         conditions.append(value)
                 warnings.append(
-                    "mapped the legacy comparison field to protocol conditions"
+                    "The comparison you described was read as the study's conditions."
                 )
             else:
-                warnings.append("ignored an empty legacy comparison field")
+                warnings.append("Ignored an empty comparison.")
             continue
         if key == "design.conditionOrder":
             counterbalanced = _legacy_counterbalanced_value(patch.get("value"))
             if counterbalanced is None:
                 warnings.append(
-                    f"ignored condition order {patch.get('value')!r}: "
-                    "expected counterbalanced or fixed"
+                    f"Ignored condition order {patch.get('value')!r}: "
+                    "expected counterbalanced or fixed."
                 )
             else:
                 draft.setdefault("participants", {})["counterbalanced"] = (
                     counterbalanced
                 )
                 warnings.append(
-                    "mapped the legacy design.conditionOrder field to "
-                    "participants.counterbalanced"
+                    "The condition order was read as your counterbalancing choice."
                 )
             continue
         slot = FILLABLE_SLOTS.get(key)
         if slot is None:
+            log.info("ignored a set-field move for %r: not a fillable slot", key)
             warnings.append(
-                f"ignored a set-field move for {key or '(no path)'!r}: "
-                "not one of the protocol's fillable slots"
+                "Ignored a suggested value for a setting the protocol does not have."
             )
             continue
         value = _coerce(slot, patch.get("value"))
@@ -589,8 +696,8 @@ def _apply_field_moves(draft: dict, moves: list[dict]) -> list[str]:
         # signal is `None` specifically, never falsiness.
         if value is None:
             warnings.append(
-                f"ignored {slot.label} = {patch.get('value')!r}: "
-                f"not a valid {slot.value_type} for {slot.key}"
+                f"Ignored {slot.label} = {patch.get('value')!r}: "
+                f"expected {_VALUE_WORDS[slot.value_type]}."
             )
             continue
         node = draft
@@ -667,6 +774,197 @@ def _refine(protocol: dict, sections: dict[str, list]) -> dict:
     return out
 
 
+_PAREN = re.compile(r"\s*\([^)]*\)")
+
+
+def _measure_core(measure: str) -> str:
+    return " ".join(_PAREN.sub("", measure).lower().split())
+
+
+def _dedupe_measures(draft: dict) -> list[str]:
+    """Collapse measures that are the same thing written twice (case, or one being
+    the other plus a parenthetical unit), keeping the more specific wording."""
+    measures = draft.get("measures")
+    if not isinstance(measures, list):
+        return []
+    kept: list = []
+    warnings: list[str] = []
+    for measure in measures:
+        if not isinstance(measure, str):
+            kept.append(measure)
+            continue
+        core = _measure_core(measure)
+        twin = next(
+            (
+                i
+                for i, k in enumerate(kept)
+                if isinstance(k, str) and _measure_core(k) == core
+            ),
+            None,
+        )
+        if twin is None:
+            kept.append(measure)
+            continue
+        old = kept[twin]
+        more_specific = len(_PAREN.findall(measure)) > len(_PAREN.findall(old))
+        dropped, keeper = (old, measure) if more_specific else (measure, old)
+        kept[twin] = keeper
+        warnings.append(f"Dropped the duplicate measure '{dropped}'; kept '{keeper}'")
+    kept, combined = _drop_combined_measures(kept)
+    warnings.extend(combined)
+    draft["measures"] = kept
+    return warnings
+
+
+_WORD = re.compile(r"[a-z0-9]+")
+_FILLER_WORDS = frozenset({"and", "or", "the", "of", "a", "an", "&", "plus"})
+
+
+def _measure_words(measure: str) -> set[str]:
+    return set(_WORD.findall(_measure_core(measure))) - _FILLER_WORDS
+
+
+def _drop_combined_measures(measures: list) -> tuple[list, list[str]]:
+    """Drop a measure whose words are all covered by two or more other measures
+    (a conjunction such as "A and B" sitting beside A and B)."""
+    words = {i: _measure_words(m) for i, m in enumerate(measures) if isinstance(m, str)}
+    drop: set[int] = set()
+    for i, mine in words.items():
+        if not mine:
+            continue
+        parts = [
+            j
+            for j, other in words.items()
+            if j != i and j not in drop and other and other < mine
+        ]
+        covered = set().union(*(words[j] for j in parts)) if parts else set()
+        if len(parts) >= 2 and covered >= mine:
+            drop.add(i)
+    warnings = [
+        f"Dropped the duplicate measure '{measures[i]}'; its parts are already "
+        "listed as separate measures"
+        for i in sorted(drop)
+    ]
+    return [m for i, m in enumerate(measures) if i not in drop], warnings
+
+
+def _dedupe_conditions(draft: dict) -> None:
+    """Drop conditions that repeat an earlier one apart from case or spacing."""
+    conditions = draft.get("conditions")
+    if not isinstance(conditions, list):
+        return
+    seen: set[str] = set()
+    kept: list = []
+    for condition in conditions:
+        key = condition.strip().lower() if isinstance(condition, str) else None
+        if key is not None:
+            if key in seen:
+                continue
+            seen.add(key)
+        kept.append(condition)
+    draft["conditions"] = kept
+
+
+def _canonical_task_conditions(draft: dict) -> None:
+    """Tasks name conditions the way the protocol's own condition list spells them."""
+    conditions = [c for c in draft.get("conditions") or [] if isinstance(c, str)]
+    canonical = {c.strip().lower(): c for c in conditions}
+    for task in draft.get("tasks") or []:
+        named = task.get("conditions")
+        if isinstance(named, list):
+            task["conditions"] = [
+                canonical.get(str(c).strip().lower(), c) for c in named
+            ]
+
+
+def _template_title(template_id: str | None) -> str:
+    from middleware import template_registry
+
+    if not template_id:
+        return "chosen"
+    try:
+        return str(template_registry.load_template(template_id).get("title") or "")
+    except Exception:  # noqa: BLE001 - a title is only for display
+        return ""
+
+
+RESEARCHER_PLACEHOLDER = "Lead researcher (edit me)"
+
+RECIPE_LABELS: dict[str, str] = {
+    "agent-interaction-dynamics": "agent conversation analysis",
+    "ai-review-behavior": "AI suggestion review analysis",
+    "code-quality-by-condition": "code quality comparison",
+    "correlation": "rank correlation",
+    "fatigue-by-condition": "fatigue comparison",
+    "meyer-fragmentation": "work fragmentation analysis",
+    "paired-nonparametric": "paired nonparametric test",
+    "paste-behavior": "paste behaviour analysis",
+    "stuck-episodes": "stuck episode analysis",
+    "task-outcome-by-condition": "task outcome comparison",
+    "tlx-debrief": "NASA-TLX debrief analysis",
+    "two-group-nonparametric": "two-group nonparametric test",
+    "two-proportion": "two-proportion test",
+    "ziegler-acceptance-rate": "suggestion acceptance rate analysis",
+}
+
+METRIC_SET_LABELS: dict[str, str] = {
+    "cognitive-load-9": "NASA-TLX cognitive-load measure set",
+    "code-quality-5": "code-quality measure set",
+}
+
+
+def _plain_id(ident: object, labels: dict[str, str]) -> str:
+    text = str(ident)
+    return labels.get(text) or text.replace("-", " ")
+
+
+def _template_supplied_notes(
+    template_id: str | None,
+    skeleton: dict,
+    draft: dict,
+    sections: dict[str, list],
+) -> list[str]:
+    """Plain-language notes, one per item the template brought beyond the researcher."""
+    stated = set(sections["researchQuestions"])
+    title = _template_title(template_id) or str(template_id or "chosen")
+    lead = f"From the {title} template: "
+    notes: list[str] = []
+    for index, rq in enumerate(skeleton.get("researchQuestions") or [], start=1):
+        if not isinstance(rq, dict) or rq.get("text") in stated:
+            continue
+        match = re.search(r"(\d+)\s*$", str(rq.get("id") or ""))
+        number = match.group(1) if match else str(index)
+        notes.append(
+            f'research question {number}, "{rq.get("text")}" '
+            "(you did not state it; remove it if unwanted)."
+        )
+    notes = [lead + n for n in notes[:1]] + [
+        "From the template: " + n for n in notes[1:]
+    ]
+    metric_set = ((skeleton.get("instruments") or {}).get("metrics") or {}).get(
+        "metricSet"
+    )
+    if metric_set:
+        notes.append(
+            f"From the template: the {_plain_id(metric_set, METRIC_SET_LABELS)}."
+        )
+    final_plan = {
+        str(e.get("rq")): e.get("recipes")
+        for e in draft.get("analysisPlan") or []
+        if isinstance(e, dict)
+    }
+    recipes = [
+        r
+        for e in skeleton.get("analysisPlan") or []
+        if isinstance(e, dict) and final_plan.get(str(e.get("rq"))) == e.get("recipes")
+        for r in e.get("recipes") or []
+    ]
+    if recipes:
+        labels = [_plain_id(r, RECIPE_LABELS) for r in dict.fromkeys(recipes)]
+        notes.append("From the template: the " + " and the ".join(labels) + ".")
+    return notes
+
+
 def _apply_task_moves(draft: dict, moves: list[dict]) -> list[str]:
     """Compile accepted ``declare-task`` moves into ``tasks`` (schema v5)."""
     warnings: list[str] = []
@@ -679,8 +977,8 @@ def _apply_task_moves(draft: dict, moves: list[dict]) -> list[str]:
         title = str(patch.get("title") or "").strip()
         if not task_id or not title:
             warnings.append(
-                "ignored a task with no usable id or title: a task has to be "
-                "nameable to be assigned"
+                "Ignored a task with no title: a task needs a name before it "
+                "can be assigned."
             )
             continue
         task: dict = {"id": task_id, "title": title}
@@ -771,7 +1069,10 @@ def _apply_analysis_moves(draft: dict, moves: list[dict]) -> list[str]:
                 legacy = recipe_id is not None
         if not recipe_id:
             if not legacy and move.get("kind") == "prescribe-statistics":
-                warnings.append("ignored a statistics move without a recipe id")
+                warnings.append(
+                    "Ignored an analysis suggestion that did not name "
+                    "an analysis to run."
+                )
             continue
         rq = _resolve_analysis_rq(draft, patch.get("rq"), fallback_rq, warnings)
         if rq is None:
@@ -781,8 +1082,7 @@ def _apply_analysis_moves(draft: dict, moves: list[dict]) -> list[str]:
             entry["recipes"].append(recipe_id)
         if legacy:
             warnings.append(
-                "mapped a legacy statistical-plan sentence to the runnable "
-                f"{recipe_id} analysis recipe"
+                f"The statistical-plan wording was matched to the {recipe_id} analysis."
             )
 
     if plan_by_rq:
@@ -808,12 +1108,11 @@ def _resolve_analysis_rq(
         if value == rq_id:
             return rq_id
         if str(rq.get("text") or "").strip().casefold() == value.casefold():
-            warnings.append(
-                f"mapped statistics target text to declared research question {rq_id}"
-            )
+            warnings.append(f"The analysis was matched to research question {rq_id}.")
             return rq_id
     warnings.append(
-        f"ignored statistics target {value!r}: it is not a declared research question"
+        f"Ignored analysis target {value!r}: it is not one of the study's "
+        "research questions."
     )
     return None
 
@@ -882,15 +1181,14 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
                 or "+".join(patch.get("templateIds") or [])
                 or "?"
             )
-            failed.append(
-                f"{move['kind']} move {move.get('moveId', '?')} "
-                f"({label}) could not be applied: {err}"
-            )
+            failed.append(f"The design '{label}' could not be applied: {err}")
             continue
         warnings.extend(notes)
         break
 
+    skeleton: dict = {}
     if instantiated:
+        skeleton = instantiated["protocol"]
         template_id = instantiated.get("templateId")
         template_version = instantiated.get("templateVersion")
         draft = _refine(instantiated["protocol"], sections)
@@ -906,13 +1204,43 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
             else _scaffold_from_sections(sections)
         )
 
-    warnings.extend(_apply_instrument_moves(draft, moves))
+    slot_minutes = _accepted_session_minutes(moves)
+    text_minutes = (
+        None if slot_minutes is not None else _task_text_session_minutes(moves)
+    )
+    if slot_minutes is None:
+        slot_minutes = text_minutes
+    warnings.extend(_apply_instrument_moves(draft, moves, slot_minutes))
 
     warnings.extend(_apply_analysis_moves(draft, moves))
 
     warnings.extend(_apply_task_moves(draft, moves))
 
     warnings.extend(_apply_field_moves(draft, moves))
+    warnings.extend(_dedupe_measures(draft))
+    _dedupe_conditions(draft)
+    _canonical_task_conditions(draft)
+    if instantiated:
+        warnings.extend(
+            _template_supplied_notes(template_id, skeleton, draft, sections)
+        )
+    if text_minutes is not None:
+        draft.setdefault("session", {})["durationMinutes"] = text_minutes
+    _sync_tern_session_minutes(draft, moves, slot_minutes)
+    if slot_minutes is None and not _stated_tern_minutes(moves):
+        tern_session = ((draft.get("instruments") or {}).get("tern") or {}).get(
+            "session"
+        )
+        assumed = (draft.get("session") or {}).get("durationMinutes")
+        if assumed is None and isinstance(tern_session, dict):
+            assumed = tern_session.get("durationMinutes")
+        if assumed == 45:
+            warnings.append("Session length was not stated, so 45 minutes was assumed")
+
+    study = draft.get("study")
+    if isinstance(study, dict) and study.get("researchers") == ["Researcher"]:
+        # The schema needs at least one name; make the placeholder obviously editable.
+        study["researchers"] = [RESEARCHER_PLACEHOLDER]
 
     new_yaml = yaml.safe_dump(draft, sort_keys=False, default_flow_style=False)
     base = base_yaml or ""

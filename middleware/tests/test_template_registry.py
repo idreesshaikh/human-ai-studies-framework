@@ -92,3 +92,23 @@ def test_a_filled_protocol_that_still_fails_validation_reports_plain_field_names
         assert jargon not in message, message
     for field in ("analysisPlan", "instruments", "study.ethicsRef"):
         assert field in message, message
+
+
+def test_template_text_shown_to_researchers_has_no_internal_wording():
+    """Titles and descriptions are read by researchers: no build phases, no raw
+    template ids, no broken hyphenation."""
+    import re
+
+    bad = []
+    for path, doc in tr._read_all():
+        for field in ("title", "description"):
+            text = " ".join(str(doc.get(field, "")).split())
+            if re.search(r"\b(phase|wave)\s*\d", text, re.I):
+                bad.append(f"{path.name} {field}: names a build phase")
+            if re.search(r"\b[a-z0-9]+(?:-[a-z0-9]+)*-v\d+\b", text):
+                bad.append(f"{path.name} {field}: shows a raw template id")
+            if re.search(r"\w- \w", text):
+                bad.append(f"{path.name} {field}: stray hyphen break")
+            if "`" in text or "**" in text:
+                bad.append(f"{path.name} {field}: shows raw markdown")
+    assert not bad, bad

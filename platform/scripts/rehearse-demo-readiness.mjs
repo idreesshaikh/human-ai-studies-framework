@@ -37,7 +37,7 @@ try {
 
   // Real tabs, both themes, touch/desktop breakpoints, and actual tab-owned scroll containers.
   for (const theme of ["light", "dark"]) {
-    if (theme === "dark") await page.getByRole("button", { name: "Theme: light", exact: true }).click();
+    if (theme === "dark") await page.getByRole("button", { name: "Switch to dark theme", exact: true }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     for (const width of [320, 390, 768, 1024, 1440, 2048]) {
       await page.setViewportSize({ width, height: width <= 390 ? 844 : 900 });
@@ -67,7 +67,7 @@ try {
     }
   }
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.getByRole("button", { name: "Theme: dark", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to light theme", exact: true }).click();
   await page.getByRole("button", { name: "Setup", exact: true }).click();
   const headerBox = await page.getByRole("heading", { name: "Study design chat" }).locator("..").boundingBox();
   const formBox = await page.locator("form").filter({ has: composer }).boundingBox();
@@ -80,7 +80,7 @@ try {
   const review = page.getByRole("button", { name: "Review draft", exact: true });
   await review.focus();
   await page.keyboard.press("Enter");
-  const dialog = page.getByRole("dialog", { name: "Prepare your protocol draft" });
+  const dialog = page.getByRole("dialog", { name: "Review draft" });
   await expect(dialog).toBeVisible();
   await page.keyboard.press("Tab");
   assert(await page.evaluate(() => Boolean(document.activeElement.closest('[role="dialog"]'))));

@@ -510,10 +510,38 @@ def test_spa_is_served_when_built(tmp_path):
     # a route missing from this allowlist is invisible to the SPA fallback and a
     # direct navigation, refresh, or bookmark 404s on the *server*, even though
     # the client-side router would have handled it fine from a soft navigation.
-    for route in ("/home", "/start", "/settings", "/repertoire"):
+    for route in ("/home", "/start", "/settings", "/repertoire", "/signin"):
         res = client.get(route)
         assert res.status_code == 200, f"{route} should serve the SPA shell"
         assert "mission control" in res.text, route
+
+
+def test_unknown_browser_paths_get_the_app_but_api_clients_still_get_json(tmp_path):
+    """A refreshed or bookmarked URL the server does not know must still load the
+    app (its own 'not found' page), never raw JSON; a mistyped API path must stay
+    a JSON 404 so clients notice."""
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<html>mission control</html>")
+    settings = Settings(
+        db_path=tmp_path / "t.sqlite3",
+        data_dir=tmp_path,
+        protocol_path=PILOT,
+        spa_dist=dist,
+    )
+    client = TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
+    page = client.get("/no/such/page", headers={"Accept": "text/html,*/*;q=0.8"})
+    assert page.status_code == 404
+    assert "mission control" in page.text
+    api = client.get("/studies/x/not-a-route", headers={"Accept": "application/json"})
+    assert api.status_code == 404
+    assert api.headers["content-type"].startswith("application/json")
+    plain = client.get("/no/such/page")  # default */* accept: not a browser
+    assert plain.status_code == 404
+    assert "mission control" not in plain.text
+    asset = client.get("/assets/missing.js", headers={"Accept": "text/html"})
+    assert asset.status_code == 404
+    assert "mission control" not in asset.text
 
 
 def test_no_protocol_means_accept_all(tmp_path):

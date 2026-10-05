@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable
 
 from scipy import stats as sps
@@ -21,6 +22,22 @@ def _validate(alpha: float, power_target: float, max_total_n: int) -> None:
         raise ValueError(f"max_total_n must be >= 4, got {max_total_n!r}")
 
 
+def _two_sided_power(t_crit: float, df: int, noncentrality: float) -> float:
+    """
+    Two-sided power from the non-central t, clipped to [0, 1]. scipy's nct can return
+    NaN or garbage for large df/noncentrality, so a non-finite result falls back to the
+    normal approximation (accurate in exactly that regime).
+    """
+    p = float(
+        sps.nct.sf(t_crit, df, noncentrality) + sps.nct.cdf(-t_crit, df, noncentrality)
+    )
+    if not math.isfinite(p):
+        p = float(
+            sps.norm.sf(t_crit - noncentrality) + sps.norm.cdf(-t_crit - noncentrality)
+        )
+    return min(1.0, max(0.0, p))
+
+
 def _power_at(n_per_group: int, d: float, alpha: float) -> float:
     """
     Exact power of a two-sample t-test (equal groups, two-sided) via the non-central t
@@ -29,9 +46,7 @@ def _power_at(n_per_group: int, d: float, alpha: float) -> float:
     df = 2 * n_per_group - 2
     noncentrality = d * (n_per_group / 2) ** 0.5
     t_crit = sps.t.ppf(1.0 - alpha / 2.0, df)
-    return float(
-        sps.nct.sf(t_crit, df, noncentrality) + sps.nct.cdf(-t_crit, df, noncentrality)
-    )
+    return _two_sided_power(t_crit, df, noncentrality)
 
 
 def two_sample_power_curve(
@@ -93,10 +108,7 @@ def _paired_power_at(n: int, d: float, alpha: float) -> float:
     df = n - 1
     noncentrality = d * n**0.5
     t_crit = sps.t.ppf(1.0 - alpha / 2.0, df)
-    return float(
-        sps.nct.sf(t_crit, df, noncentrality)
-        + sps.nct.cdf(-t_crit, df, noncentrality)
-    )
+    return _two_sided_power(t_crit, df, noncentrality)
 
 
 def paired_power_curve(
