@@ -544,6 +544,15 @@ export function ConversationView({
           : action === "noted"
             ? `I noted the caution about ${move.proposal}`
             : `I accepted: ${move.proposal}`;
+      // But not before the rest of that turn's cards are resolved: the next turn
+      // replaces the visible one, so asking after the first accept made the
+      // remaining cards vanish and left no way to accept several suggestions.
+      const stillOpen = turns.some(
+        (t) =>
+          t.moves.some((m) => m.moveId === moveId) &&
+          t.moves.some((m) => m.moveId !== moveId && m.status === "proposed"),
+      );
+      if (stillOpen) return;
       try {
         await sendText(actionText, { moveId, action });
       } catch {
