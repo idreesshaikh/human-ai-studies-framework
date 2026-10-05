@@ -65,11 +65,41 @@ class Snapshotter:
         git_dir: str | Path,
         *,
         clock: Clock | None = None,
+        code_files: tuple[str, ...] = (),
     ):
         self.keys = keys
         self.workspace = Path(workspace)
         self.shadow = ShadowRepo(workspace, git_dir)
         self.clock = clock or (lambda: datetime.now(UTC))
+        self.code_files = code_files
+        for name in code_files:
+            path = Path(name)
+            if (
+                path.is_absolute()
+                or ".." in path.parts
+                or any(part.startswith(".") for part in path.parts)
+                or path.suffix.lower()
+                not in {
+                    ".py",
+                    ".js",
+                    ".ts",
+                    ".tsx",
+                    ".jsx",
+                    ".java",
+                    ".go",
+                    ".rs",
+                    ".c",
+                    ".cpp",
+                    ".h",
+                    ".cs",
+                }
+                or not (self.workspace / path)
+                .resolve()
+                .is_relative_to(self.workspace.resolve())
+            ):
+                raise ValueError(
+                    "Code capture requires explicit, non-secret task file paths"
+                )
         self.shadow.init()
 
     def _ts(self) -> str:
@@ -90,6 +120,24 @@ class Snapshotter:
         shadow_hashes = self._hashes_oldest_first(self.shadow.git_dir)
         for seq, h in enumerate(shadow_hashes):
             stat = self.shadow.commit_numstat(h)
+            code = {}
+            if self.code_files:
+                patch = git(
+                    "show",
+                    "--format=",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    "--unified=3",
+                    h,
+                    "--",
+                    *(f":(literal){name}" for name in self.code_files),
+                    cwd=self.shadow.git_dir,
+                )
+                code = {"codeCaptureEnabled": True}
+                if len(patch) <= 64_000:
+                    code["diff"] = patch
+                else:
+                    code["diffOmitted"] = "Patch exceeds 64,000 characters"
             last = seq == len(shadow_hashes) - 1
             events.append(
                 study_event(
@@ -102,6 +150,7 @@ class Snapshotter:
                         "commitHash": h,
                         "trigger": trigger if last else "timer",
                         **stat,
+                        **code,
                     },
                 )
             )

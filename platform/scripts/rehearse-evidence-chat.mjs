@@ -21,17 +21,31 @@ try {
   const { project, study } = rehearsal;
   const route = `${BASE}/p/${project.slug}/studies/${study.id}`;
   await page.goto(route);
-  await page.getByRole("heading", { name: "Study design chat" }).waitFor();
+  await page.getByRole("heading", { name: "What would you like to study?" }).waitFor();
   const composer = page.getByRole("textbox", { name: "Message the design assistant" });
   await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Show details", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add known details", exact: true })).not.toBeVisible();
+  await page.getByRole("button", { name: "Research tools", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Show details", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
     await page.screenshot({ path: join(tmpdir(), `phoenix-chat-${width}.png`), fullPage: true });
     assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations.map(v => v.id), []);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.getByRole("button", { name: /^Steer mode:/ }).click();
+    await expect(page.getByRole("dialog", { name: "Choose steer mode" })).toBeVisible();
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Choose steer mode" })).toHaveCount(0);
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await composer.fill("First line");
+  await composer.press("Shift+Enter");
+  await composer.pressSequentially("Second line");
+  await expect(composer).toHaveValue("First line\nSecond line");
+  await composer.fill("");
+  await page.getByText("Examples and study tools", { exact: true }).click();
   await page.getByText("Try an example", { exact: true }).click();
   await page.getByRole("button", { name: "Compare how long debugging takes with and without an AI pair." }).click();
   await expect(composer).toHaveValue("Compare how long debugging takes with and without an AI pair.");
@@ -48,7 +62,8 @@ try {
   await page.unroute("**/conversation/turns");
 
   // Import through the UI, including invalid-file recovery.
-  await page.getByRole("button", { name: "Method evidence", exact: true }).click();
+  await page.getByRole("button", { name: "Research tools", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Method evidence", exact: true }).click();
   await page.getByLabel("Import an evidence map (JSON)").setInputFiles({ name: "invalid.json", mimeType: "application/json", buffer: Buffer.from("{}") });
   await page.getByRole("alert").filter({ hasText: "Invalid evidence map" }).waitFor();
   await page.getByLabel("Import an evidence map (JSON)").setInputFiles({ name: "synthetic-map.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(fixture)) });
@@ -108,6 +123,7 @@ try {
   await expect(move.getByText("DEMONSTRATION ONLY.", { exact: false })).toBeVisible();
   await move.focus();
   await page.keyboard.press("a");
+  await page.getByText("View recorded decisions (1)", { exact: true }).click();
   await expect(move.getByText("accepted", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Review draft", exact: true }).click();
   await expect(page.getByRole("button", { name: "Apply to protocol", exact: true })).toBeEnabled();

@@ -40,6 +40,7 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from protocol.assignment import assign, tasks_of
 from protocol.capture import (
+    privacy_policy,
     producer_capabilities,
     required_producers,
 )
@@ -585,6 +586,40 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return [_event_json(e) for e in s.scalars(q)]
 
     @app.get(
+        "/studies/{study_id}/sessions/{session_id}/replay",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def study_session_replay(
+        study_id: str, session_id: str, s: Session = Depends(db)
+    ) -> dict:
+        from middleware.replay import replay_frames
+
+        scoped = _session_scope(study_id, True)
+        rows = list(
+            s.scalars(
+                select(Event)
+                .where(Event.session_id == session_id, scoped(Event.session_id))
+                .order_by(Event.id)
+                .limit(10_001)
+            )
+        )
+        if not rows:
+            raise HTTPException(404, "no captured events for this study session")
+        if len(rows) > 10_000:
+            raise HTTPException(
+                413, "Replay exceeds 10,000 events; use the study export."
+            )
+        protocol = _resolve_study_protocol(s, study_id) or {}
+        raw_code = privacy_policy(protocol)["rawCode"]
+        return {
+            "sessionId": session_id,
+            "rawCode": raw_code,
+            "frames": replay_frames(
+                [_event_json(row, raw_code=raw_code) for row in rows], raw_code=raw_code
+            ),
+        }
+
+    @app.get(
         "/sessions/{session_id}/gaps",
         dependencies=[Depends(require_project_for_session("view"))],
     )
@@ -609,6 +644,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     ) -> list[dict]:
         """Join events and metrics belonging to this study, for every export."""
         in_this_study = _session_scope(study_id, include_synthetic)
+        raw_code = privacy_policy(_resolve_study_protocol(s, study_id) or {})["rawCode"]
         rows = [
             {
                 "source": e.source,
@@ -621,7 +657,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "type": e.type,
                 "seq": e.seq,
                 "flags": e.flags,
-                "payload": e.payload,
+                "payload": _capture_payload(e.payload, raw_code),
             }
             for e in s.scalars(select(Event).where(in_this_study(Event.session_id)))
         ] + [
@@ -4698,7 +4734,11 @@ def _session_gap_facts(seqs_by_source: dict[str, list[int]]) -> dict:
     }
 
 
-def _event_json(e: Event) -> dict:
+def _capture_payload(payload: dict, raw_code: bool = False) -> dict:
+    return {key: value for key, value in payload.items() if raw_code or key != "diff"}
+
+
+def _event_json(e: Event, *, raw_code: bool = False) -> dict:
     return {
         "v": e.v,
         "ts": e.ts,
@@ -4710,6 +4750,6 @@ def _event_json(e: Event) -> dict:
         "taskId": e.task_id,
         "seq": e.seq,
         "type": e.type,
-        "payload": e.payload,
+        "payload": _capture_payload(e.payload, raw_code),
         "flags": e.flags,
     }

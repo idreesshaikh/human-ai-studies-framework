@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Table2, ChartScatter, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { studyApi } from "@/lib/studyApi";
+import { SessionReplay } from "./SessionReplay";
 import {
   assembleLanes,
   timeScale,
@@ -50,6 +51,7 @@ export function SwimlaneTimeline({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [asTable, setAsTable] = useState(false);
+  const [replay, setReplay] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -128,8 +130,8 @@ export function SwimlaneTimeline({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h3 className="type-subhead text-text">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="min-w-0 break-words type-subhead text-text">
           Timeline: {sessionId}
           <span className="ml-2 type-caption text-text-muted">
             {events.length} events · {lanes.length} lanes
@@ -137,6 +139,9 @@ export function SwimlaneTimeline({
           </span>
         </h3>
         <div className="flex items-center gap-2">
+          <Button size="sm" variant="ghost" aria-expanded={replay} onClick={() => setReplay(v => !v)}>
+            {replay ? "Close replay" : "Replay session"}
+          </Button>
           {onClose && (
             <Button size="sm" variant="ghost" className="type-caption" onClick={onClose}>
               Close
@@ -154,7 +159,7 @@ export function SwimlaneTimeline({
         </div>
       </div>
 
-      {asTable ? (
+      {replay ? <SessionReplay studyId={studyId} sessionId={sessionId} /> : asTable ? (
         <TableTimeline lanes={lanes} allFlagKinds={allFlagKinds} />
       ) : (
         <ChartTimeline

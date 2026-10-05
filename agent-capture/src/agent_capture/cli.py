@@ -64,7 +64,21 @@ def _emit(events: list[dict], args) -> int:
 
 
 def _cmd_snapshot(args) -> int:
-    snap = Snapshotter(_keys(args), args.workspace, args.git_dir)
+    if args.code_file:
+        from protocol.capture import privacy_policy
+        from protocol.loader import load_protocol
+
+        if (
+            not args.protocol
+            or not privacy_policy(load_protocol(args.protocol))["rawCode"]
+        ):
+            raise ValueError(
+                "Code diffs require --protocol with capture.privacy.rawCode enabled "
+                "and appropriate participant consent"
+            )
+    snap = Snapshotter(
+        _keys(args), args.workspace, args.git_dir, code_files=tuple(args.code_file)
+    )
     return _emit(snap.snapshot(trigger=args.trigger), args)
 
 
@@ -129,9 +143,7 @@ def _cmd_correlate(args) -> int:
         token = args.token or os.environ.get("MIDDLEWARE_TOKEN")
         rows = _fetch_dataset_from_manifest(manifest, token) if manifest else None
         rows = (
-            rows
-            if rows is not None
-            else _fetch_dataset(args.server, args.study, token)
+            rows if rows is not None else _fetch_dataset(args.server, args.study, token)
         )
     by_session: dict[str, list[dict]] = {}
     for r in rows:
@@ -182,6 +194,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--git-dir", required=True, help="shadow repo git-dir (in .study-data/)"
     )
     snap.add_argument("--trigger", default="timer", choices=["save", "timer"])
+    snap.add_argument("--protocol", help="Approved protocol for opt-in code capture")
+    snap.add_argument(
+        "--code-file",
+        action="append",
+        default=[],
+        help="Task-relative source file; requires rawCode policy and consent",
+    )
     snap.set_defaults(func=_cmd_snapshot)
 
     harn = sub.add_parser("harness", help="run acceptance tests -> task_outcome")

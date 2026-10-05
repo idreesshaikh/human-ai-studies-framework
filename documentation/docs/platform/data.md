@@ -44,10 +44,22 @@ for making a claim about participants.
 
 ## Recruitment planning
 
-The Planning tab shows the power/sensitivity curve for the planned comparison,
+The Plan tab shows the power/sensitivity curve for the planned comparison,
 including the assumptions behind the target and the total `n` needed across
 plausible effect sizes. It keeps a sample-size decision attached to the protocol
 instead of burying it in a later notebook.
+
+## Replay a captured session
+
+Expand a session and select **Replay session** to step through its captured events,
+play/pause the sequence, or seek with the position slider. Missing events and
+integrity flags are not silently repaired. Playback is an inspection stepper,
+not reconstructed keystrokes or real-time playback.
+
+By default, snapshots contain change counts rather than raw code. A diff appears
+only when it was explicitly captured for selected task files and the current
+approved study policy permits raw code. Otherwise the replay explains why code
+is unavailable. Do not enable source capture without appropriate consent.
 
 ## The analysis hand-off
 

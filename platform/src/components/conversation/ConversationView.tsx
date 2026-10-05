@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PanelRight, PanelRightClose, Send } from "lucide-react";
+import { MoreHorizontal, PanelRight, PanelRightClose, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { StreamingTurn } from "./StreamingTurn";
 import { DraftRail } from "./DraftRail";
 import { RecommenderRail } from "./RecommenderRail";
@@ -637,11 +638,6 @@ export function ConversationView({
   // the researcher should have to read back as a speech bubble. They remain in the
   // compact history as “Decision recorded” so the audit trail is intact.
   const conversationTurns = turns.filter(turn => turn.turnId !== "opening" && !isDecisionEcho(turn.text));
-  const filledSections = MANDATORY_SLOTS.length - missingCoreSlots.length;
-  // This number describes the visible core study map, not schema validity. The
-  // server's unresolved list contains nested operational slots, so subtracting it
-  // from the human-facing sections produced impossible values such as “-3 / 7”.
-  const progressDone = filledSections;
   const visibleCompile = compileResult && missingCoreSlots.length > 0
     ? {
         ...compileResult,
@@ -657,6 +653,36 @@ export function ConversationView({
       }
     : activePlatform;
   const scopeBlocked = activePlatform?.source === "scope";
+  const welcome = !conversationLoading && threadEmpty && !openingPending && conversationTurns.length === 0;
+  const messageComposer = (
+    <form
+      className={cn("bg-surface", !welcome && "px-4 pb-4 pt-2 sm:px-6")}
+      onSubmit={(event) => { event.preventDefault(); send(); }}
+    >
+      <div className="mx-auto flex w-full max-w-reading flex-col rounded-card border border-control-edge bg-surface px-3 py-3 focus-within:border-accent">
+        <textarea
+          ref={composer}
+          className="type-body min-h-12 min-w-0 w-full resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-text placeholder:text-text-muted"
+          placeholder={welcome ? "Describe your research question…" : "Message the design assistant…"}
+          value={input}
+          rows={1}
+          onChange={(event) => setInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault(); send();
+            }
+          }}
+          aria-label="Message the design assistant"
+        />
+        <div className="flex items-center justify-between gap-2">
+          <SteerDial value={steer} onChange={changeSteer} />
+          <Button type="submit" size="icon" aria-label="Send" title="Send message" disabled={busy || !input.trim() || conversationLoading}>
+            <Send aria-hidden />
+          </Button>
+        </div>
+      </div>
+    </form>
+  );
 
   return (
     <div
@@ -664,30 +690,28 @@ export function ConversationView({
     >
       <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto scroll-smooth">
-          <header className="border-b border-border bg-surface px-4 py-4 sm:px-8 sm:py-5">
-            <div className="mx-auto flex w-full max-w-reading items-start justify-between gap-4">
-              <div>
-                <h2 className="type-section text-text">Study design chat</h2>
-                <p className="mt-1 max-w-[52ch] type-caption text-text-muted">
-                  You decide what becomes part of the protocol.
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
+          <header className="bg-surface px-4 py-1 sm:px-8">
+            <h2 className="sr-only">Study design chat</h2>
+            <div className="mx-auto flex w-full max-w-reading items-center justify-end gap-1">
                 <Button variant="ghost" size="sm" onClick={() => { void refreshCompile(); setShowFinish(true); }}>
                   Review draft
                 </Button>
-                <p className="type-caption text-text-muted">{progressDone}/{MANDATORY_SLOTS.length} sections</p>
-              </div>
-            </div>
-            <div className="mx-auto mt-2 flex w-full max-w-reading flex-wrap gap-2">
-              <Button variant="ghost" size="sm" aria-expanded={evidenceOpen} onClick={() => setEvidenceOpen(open => !open)}>Method evidence</Button>
-              <Button variant="ghost" size="sm" className="hidden lg:inline-flex" aria-expanded={!draftFolded} onClick={() => togglePanel("draft", studyId)}>{draftFolded ? "Show details" : "Hide details"}</Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" aria-label="Research tools" title="Research tools"><MoreHorizontal aria-hidden /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => setEvidenceOpen(open => !open)}>{evidenceOpen ? "Close method evidence" : "Method evidence"}</DropdownMenuItem>
+                    <DropdownMenuItem className="hidden lg:flex" onSelect={() => togglePanel("draft", studyId)}>{draftFolded ? "Show details" : "Hide details"}</DropdownMenuItem>
+                    {live && <DropdownMenuItem onSelect={() => setManualOpen(true)}>Enter protocol manually</DropdownMenuItem>}
+                  </DropdownMenuContent>
+                </DropdownMenu>
             </div>
           </header>
 
           {evidenceOpen && <EvidencePanel studyId={studyId} onProposed={async () => { await reloadConversation(); setLive(true); setNote(null); setEvidenceOpen(false); }} />}
 
-          <div className="mx-auto flex w-full max-w-reading flex-col gap-5 px-4 py-5 sm:px-8 sm:py-8">
+          <div className={cn("mx-auto flex w-full max-w-reading flex-col gap-5 px-4 py-5 sm:px-8 sm:py-8", welcome && "flex-1 justify-center pb-12")}>
             {conversationLoading ? (
               <div className="space-y-3 py-2" aria-busy="true" aria-label="Loading conversation">
                 <div className="h-3 w-24 animate-pulse rounded-full bg-border" />
@@ -698,6 +722,7 @@ export function ConversationView({
               <ConversationStart
                 onUse={takeOpening}
                 onEnterManually={live ? () => setManualOpen(true) : undefined}
+                composer={messageComposer}
               />
             ) : (
               <div className="flex flex-col gap-5">
@@ -724,13 +749,13 @@ export function ConversationView({
                   <div className="flex flex-col items-start gap-3">
                     {streamingText && (
                       <div className="max-w-bubble animate-in fade-in px-1 py-1 type-body duration-entrance">
-                        <span className="mb-1 block type-caption text-text-muted">Platform</span>
+                        <span className="mb-1 block type-caption text-text-muted">Assistant</span>
                         <span className="whitespace-pre-wrap text-text" aria-live="polite">
                           {streamingText}
                         </span>
                       </div>
                     )}
-                    <div className="flex items-center gap-1 px-1 py-1 type-caption text-text-muted" aria-label="Platform is thinking">
+                    <div className="flex items-center gap-1 px-1 py-1 type-caption text-text-muted" aria-label="Assistant is thinking">
                       <span className="size-1.5 animate-pulse rounded-full bg-text-muted" />
                       <span className="size-1.5 animate-pulse rounded-full bg-text-muted [animation-delay:var(--motion-fast)]" />
                       <span className="size-1.5 animate-pulse rounded-full bg-text-muted [animation-delay:var(--motion-standard)]" />
@@ -754,45 +779,7 @@ export function ConversationView({
           </div>
         )}
 
-        <form
-          className="border-t border-border bg-surface px-4 py-2 sm:px-6"
-          onSubmit={(e) => {
-            e.preventDefault();
-            send();
-          }}
-        >
-          <div className="mx-auto flex w-full max-w-reading items-end gap-1.5 rounded-card border border-control-edge bg-surface px-2.5 py-1.5 focus-within:border-accent">
-            <textarea
-              ref={composer}
-              className="type-body min-h-7 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-0 py-0.5 text-text placeholder:text-text-muted"
-              placeholder="Message the design assistant…"
-              value={input}
-              rows={1}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              aria-label="Message the design assistant"
-            />
-            <SteerDial value={steer} onChange={changeSteer} />
-            <Button
-              type="submit"
-              size="sm"
-              className="!h-9 !px-3"
-              aria-label="Send"
-              disabled={busy || !input.trim() || conversationLoading}
-            >
-              <Send aria-hidden />
-              <span className="hidden sm:inline">Send</span>
-            </Button>
-          </div>
-          <p className="mx-auto mt-1.5 hidden w-full max-w-reading px-1 type-legend text-text-muted sm:block">
-            Enter to send · Shift + Enter for a new line
-          </p>
-        </form>
+        {!welcome && messageComposer}
       </section>
 
       {/* Right rail: toggle between literature and protocol draft.

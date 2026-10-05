@@ -50,13 +50,16 @@ Applicability is assessed for a stated context, with reasons, constraints and
 missing facts. Its status is compatible, conditional, incompatible or unknown.
 Unreviewed or disputed relations must retain unknown applicability. Conditional
 decisions require an explicit constraint or missing fact. Downstream ranking
-must recompute applicability when that context changes; the contract does not
-yet implement ranking or researcher decisions.
+must recompute applicability when that context changes. The implemented
+[evidence workflow](evidence-workflow.md) performs these checks and preserves
+researcher decisions separately from the imported source review.
 
 ## Delivery boundary
 
 This delivers the machine-readable foundation of #90 and does not claim the
-reviewed pilot map, evidence ranking, protocol traceability, researcher UI or
-held-out benchmark are complete. The existing protocol schema and approval path
-remain authoritative. #91–#98 need reviewed sources and evaluation; no classifier
-is added before the adoption criteria are met.
+reviewed pilot map or expert-adjudicated held-out benchmark is complete. Ranking,
+protocol traceability, source review UI and exports are implemented and tested;
+research claims still require independent sources and evaluation. The existing
+protocol schema and approval path remain authoritative. See
+[evaluation](research-evaluation.md); no classifier is promoted before the
+adoption criteria are met.

@@ -58,6 +58,9 @@ docs/papers/*.pdf
 # Corpus harvest cache; the paper index is tracked separately.
 .corpus-cache/
 
+# Generated evaluation outputs, annotations and model artifacts are local data.
+.research-artifacts/
+
 # Local design previews
 .design-sync/
 .ds-sync/
