@@ -2,6 +2,7 @@
  * mutations require a server response. Credentials come from api.ts. */
 
 import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
+import { dataBundleFilename, dataBundlePath } from "./dataBundle.ts";
 import { isDemoStudy } from "./demo.ts";
 import type {
   PowerCurve,
@@ -430,6 +431,15 @@ export const studyApi = {
   downloadNotebook: async (study: string) => {
     await saveAs(`/studies/${enc(study)}/notebook`, `${study}-notebook.zip`);
   },
+  /** The collected data as a zip of tidy CSVs + the joined timeline + data
+   *  dictionary, for the researcher's own postprocessing. Dry-run rows are
+   *  left out unless `includeSynthetic` is set. */
+  downloadDataBundle: async (study: string, includeSynthetic = false) => {
+    await saveAs(
+      dataBundlePath(study, includeSynthetic),
+      dataBundleFilename(study),
+    );
+  },
   /** The elicitation record (FR-CONV-6) as a JSON file. */
   downloadElicitationRecord: async (study: string) => {
     await saveAs(
@@ -437,14 +447,14 @@ export const studyApi = {
       `${study}-elicitation-record.json`,
     );
   },
-  dataset: (study: string) =>
+  dataset: (study: string, includeSynthetic = false) =>
     liveOrSeedStudy(
       study,
       () =>
         req<{ studyId: string; rows: DatasetRow[] }>(
-          `/studies/${enc(study)}/dataset`,
+          `/studies/${enc(study)}/dataset${includeSynthetic ? "?includeSynthetic=true" : ""}`,
         ),
-      { studyId: study, rows: SEED_METRICS },
+      { studyId: study, rows: SEED_DATASET },
       { studyId: study, rows: [] },
     ),
   /** Sessions the middleware has heard from recently (FR-DASH-3).
@@ -534,12 +544,12 @@ export const studyApi = {
       profile,
       ...(seed !== undefined ? { seed } : {}),
     }),
-  status: (study: string) =>
+  status: (study: string, includeSynthetic = false) =>
     liveOrSeedStudy(
       study,
       () =>
         req<StudyStatusDoc>(
-          `/studies/${enc(study)}/status`,
+          `/studies/${enc(study)}/status${includeSynthetic ? "?includeSynthetic=true" : ""}`,
         ),
       {
         studyId: study,
@@ -701,8 +711,116 @@ function seedGraph(study: string): PaperGraph {
 
 const SEED_CONDITIONS = ["ai-assisted", "unassisted"];
 
-// A small metric dataset (function-level) so the metric strip has a shape.
+// A small metric dataset (function-level) so the metric strip has a shape,
+// plus event-derived rows across all four measurement types so the generalised
+// distribution panel (static code metrics, editing behaviour, fatigue,
+// comprehension, and agent activity) is explorable with no server. Keyed by
+// event `type`, matching what TERN and the agent leg emit.
 const SEED_METRICS: DatasetRow[] = seedMetricRows();
+const SEED_DATASET: DatasetRow[] = [...SEED_METRICS, ...seedEventRows()];
+
+function seedEventRows(): DatasetRow[] {
+  const rows: DatasetRow[] = [];
+  const CONDITIONS = ["ai-assisted", "unassisted"] as const;
+  // Six within-subjects participants, each in both conditions.
+  for (let p = 1; p <= 6; p++) {
+    const pid = `P${String(p).padStart(2, "0")}`;
+    for (const condition of CONDITIONS) {
+      const ai = condition === "ai-assisted";
+      const sid = `S-ev-${condition}-${pid}`;
+      let seq = 0;
+      const push = (type: string, source: string, payload: Record<string, unknown>) =>
+        rows.push({
+          source,
+          ts: "",
+          sessionId: sid,
+          participantId: pid,
+          condition,
+          type,
+          seq: seq++,
+          flags: [],
+          payload,
+        });
+
+      // Editing: in the AI condition some bursts are AI-authored (plus the odd
+      // paste); unassisted is all human. Deterministic, varied by participant.
+      const humanChars = [90 + p * 6, 70 + p * 4, 130 + p * 3];
+      for (const c of humanChars)
+        push("edit_burst", "tern", {
+          charsAdded: c,
+          charsDeleted: Math.round(c / 5),
+          linesTouched: Math.max(1, Math.round(c / 22)),
+          durationMs: 4000 + c * 10,
+          origin: "human",
+        });
+      if (ai) {
+        const aiChars = [260 + p * 20, 180 + p * 15];
+        for (const c of aiChars)
+          push("edit_burst", "tern", {
+            charsAdded: c,
+            charsDeleted: Math.round(c / 8),
+            linesTouched: Math.max(1, Math.round(c / 18)),
+            durationMs: 2000 + c * 6,
+            origin: "ai",
+          });
+        push("edit_burst", "tern", {
+          charsAdded: 60,
+          charsDeleted: 0,
+          linesTouched: 3,
+          durationMs: 800,
+          origin: "paste",
+        });
+      }
+
+      // Fatigue (1–7 ordinal): a little lower under AI assistance here.
+      const fatigueValues = ai ? [2, 3, 3 + (p % 2)] : [4, 5, 4 + (p % 3)];
+      for (const value of fatigueValues)
+        push("fatigue_response", "tern", {
+          value: Math.min(7, value),
+          points: 7,
+          msToAnswer: 3000 + value * 400,
+        });
+
+      // Comprehension probes: AI condition a touch worse; one ungradable null
+      // in the AI condition exercises the drop-null correct-rate.
+      const probes: (boolean | null)[] = ai
+        ? [true, false, p % 2 === 0 ? true : false, null]
+        : [true, true, p % 3 === 0 ? false : true];
+      for (const correct of probes)
+        push("comprehension_probe_response", "tern", {
+          correct,
+          promptKind: "predict-output",
+          msToAnswer: 8000 + p * 500,
+        });
+
+      // Task outcomes: acceptance suite passes more often under AI assistance.
+      const outcomes = ai ? [true, true, p % 4 === 0 ? false : true] : [true, false, p % 2 === 0];
+      for (const passed of outcomes)
+        push("task_outcome", "agent-capture", {
+          passed,
+          failed: passed ? 0 : 1,
+          total: 1,
+        });
+
+      // Agent activity only exists in the AI condition.
+      if (ai) {
+        const latencies = [900 + p * 50, 2200 + p * 40, 1500 + p * 30];
+        for (const latencyMs of latencies)
+          push("agent_turn", "agent-capture", {
+            role: "assistant",
+            latencyMs,
+            responseChars: latencyMs,
+            outputTokens: Math.round(latencyMs / 4),
+          });
+        // Server-derived AI character share (ai chars / all added chars), 0–1.
+        push("code_evolution", "agent-derived", {
+          aiInsertionShare: Math.min(0.9, 0.35 + p * 0.07),
+        });
+      }
+    }
+  }
+  return rows;
+}
 
 function seedMetricRows(): DatasetRow[] {
   const rows: DatasetRow[] = [];

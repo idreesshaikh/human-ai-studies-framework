@@ -833,8 +833,18 @@ def _explained_by_slot(error: str, unresolved: list[Slot]) -> bool:
     )
 
 
+def _since_manual_entry(moves: list[dict]) -> list[dict]:
+    """A manual protocol entry replaces every move accepted before it."""
+    for i in range(len(moves) - 1, -1, -1):
+        move = moves[i]
+        if move.get("status") == "accepted" and (move.get("patch") or {}).get("manual"):
+            return moves[i:]
+    return moves
+
+
 def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> CompileResult:
     """Compile accepted moves into a validated protocol draft."""
+    moves = _since_manual_entry(moves)
     sections = compile_sections(moves)
 
     # A move whose template(s) can't instantiate (hallucinated id, missing required

@@ -119,7 +119,7 @@ class QuickProtocolIn(BaseModel):
     """The bounded no-chat path for a supported developer study."""
 
     title: str = Field(min_length=3, max_length=160)
-    researchQuestion: str = Field(min_length=10, max_length=500)
+    researchQuestions: list[str] = Field(min_length=1, max_length=6)
     design: Literal["within-subjects", "between-subjects"]
     conditions: list[str] = Field(min_length=2, max_length=2)
     participantDescription: str = Field(min_length=2, max_length=240)

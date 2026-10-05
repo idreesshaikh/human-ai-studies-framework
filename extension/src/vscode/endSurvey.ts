@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { END_SURVEY_ITEMS, LikertItem } from '../core/surveys';
+import { endSurveyItems, LikertItem } from '../core/surveys';
 
 export interface EndSurveyResult {
   responses: Record<string, number>;
@@ -12,8 +12,10 @@ export interface EndSurveyResult {
  * taking screen space is fine. Styled as a frosted-glass card over the
  * editor theme colors.
  */
-export function showEndSurvey(): Promise<EndSurveyResult | undefined> {
-  const items: LikertItem[] = [...END_SURVEY_ITEMS];
+export function showEndSurvey(
+  condition: string,
+): Promise<EndSurveyResult | undefined> {
+  const items = endSurveyItems(condition);
 
   const panel = vscode.window.createWebviewPanel(
     'tern.endSurvey',

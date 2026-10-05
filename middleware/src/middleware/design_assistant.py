@@ -39,6 +39,11 @@ _RECENT_PLATFORM_TURNS = 8
 _DESIGN_INTENT_WORDS = ("design", "statistic", "test", "how many", "template")
 
 _NAMED_DESIGN_SCORE = 2
+# Designs a researcher can state outright, mapped to the template that realises them.
+_STATED_DESIGN_TEMPLATES = {
+    "within-subjects": "within-subjects-crossover-v1",
+    "between-subjects": "two-group-rct-v1",
+}
 
 
 TURN_ATTEMPTS = 3
@@ -264,6 +269,48 @@ class Turn:
     text: str
     moves: tuple[ProposedMove, ...]
     match_query: str | None = None
+
+
+def _with_scripted_design(turn: Turn, text: str) -> Turn:
+    """Add the best-matching template as a reviewable design card, when none exists.
+
+    Used only when the model cannot answer: the design card normally comes from the
+    model, and a pasted brief should not lose it. Offered only for a clear match, so
+    nothing is invented from a weak signal.
+    """
+    if any(m.kind in ("choose-template", "merge-templates") for m in turn.moves):
+        return turn
+    stated = next(
+        (
+            m.patch.get("value")
+            for m in turn.moves
+            if m.target == "participants.design" and m.patch
+        ),
+        None,
+    )
+    ranked = recommend_templates(text)
+    template_id = _STATED_DESIGN_TEMPLATES.get(stated)
+    if template_id is None:
+        # Without a stated design, only a clear winner is offered; a tie is a guess.
+        if not ranked or ranked[0]["matchScore"] < _NAMED_DESIGN_SCORE:
+            return turn
+        if len(ranked) > 1 and ranked[1]["matchScore"] == ranked[0]["matchScore"]:
+            return turn
+        template_id = ranked[0]["templateId"]
+    title = next(
+        (t.get("title") for t in list_templates() if t["templateId"] == template_id),
+        None,
+    )
+    move = ProposedMove(
+        kind="choose-template",
+        target="design",
+        proposal=f"Use the {title or template_id} design.",
+        patch={"templateId": template_id, "parameters": {}},
+        refs=(),
+    )
+    return Turn(
+        text=turn.text, moves=(*turn.moves, move), match_query=turn.match_query
+    )
 
 
 def _explicit_moves(text: str) -> tuple[ProposedMove, ...]:
@@ -1284,13 +1331,43 @@ def respond(
             state=state,
         )
     if client is None:
-        raise ModelUnavailable(NO_MODEL)
+        if explicit is None:
+            raise ModelUnavailable(NO_MODEL)
+        # No model configured, but the researcher's stated facts are still
+        # recordable as deterministic cards.
+        return _assemble(
+            s,
+            text,
+            _with_scripted_design(explicit, text),
+            llm_recommendations=[],
+            seq=seq,
+            study_id=study_id,
+            client=client,
+            stance=stance,
+            state=state,
+            source="scripted",
+        )
 
     directive = _directive(stance, state)
     turn = _propose_with_retry(
         client, text, history, papers, templates, directive, state
     )
     if turn is None:
+        if explicit is not None:
+            # The model is down, but what the researcher stated explicitly is
+            # still recordable: keep the deterministic cards rather than lose them.
+            return _assemble(
+                s,
+                text,
+                _with_scripted_design(explicit, text),
+                llm_recommendations=[],
+                seq=seq,
+                study_id=study_id,
+                client=client,
+                stance=stance,
+                state=state,
+                source="scripted",
+            )
         raise ModelUnavailable(MODEL_SILENT)
     if len(stance.get("explicitMoves") or ()) > 1:
         explicit_moves = _filter_repeated_moves(
@@ -1441,7 +1518,24 @@ def respond_streaming(
             state=state,
         )
     if client is None:
-        raise ModelUnavailable(NO_MODEL)
+        if explicit is None:
+            raise ModelUnavailable(NO_MODEL)
+        # No model configured, but the researcher's stated facts are still
+        # recordable as deterministic cards.
+        if explicit.text:
+            yield explicit.text
+        return _assemble(
+            s,
+            text,
+            _with_scripted_design(explicit, text),
+            llm_recommendations=[],
+            seq=seq,
+            study_id=study_id,
+            client=client,
+            stance=stance,
+            state=state,
+            source="scripted",
+        )
     from middleware import design_llm
 
     directive = _directive(stance, state)
@@ -1455,6 +1549,23 @@ def respond_streaming(
             client, text, history, papers, templates, directive, state
         )
     if turn is None:
+        if explicit is not None:
+            # The model is down, but what the researcher stated explicitly is
+            # still recordable: keep the deterministic cards rather than lose them.
+            if explicit.text:
+                yield explicit.text
+            return _assemble(
+                s,
+                text,
+                _with_scripted_design(explicit, text),
+                llm_recommendations=[],
+                seq=seq,
+                study_id=study_id,
+                client=client,
+                stance=stance,
+                state=state,
+                source="scripted",
+            )
         raise ModelUnavailable(MODEL_SILENT)
     if len(stance.get("explicitMoves") or ()) > 1:
         explicit_moves = _filter_repeated_moves(

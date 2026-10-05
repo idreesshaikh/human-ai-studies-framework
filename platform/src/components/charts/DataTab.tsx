@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   CheckCircle2,
@@ -7,7 +7,7 @@ import {
   ChevronRight,
   FlaskConical,
 } from "lucide-react";
-import { Info } from "lucide-react";
+import { Download, Info } from "lucide-react";
 import { MetricStrip } from "./MetricStrip";
 import { SwimlaneTimeline } from "./SwimlaneTimeline";
 import { PrescriptionPanel } from "./PrescriptionPanel";
@@ -40,6 +40,9 @@ export function DataTab({ studyId }: { studyId: string }) {
   const [seeded, setSeeded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [syntheticScope, setSyntheticScope] = useState({ studyId, enabled: false });
+  const includeSynthetic = syntheticScope.studyId === studyId && syntheticScope.enabled;
+  const requestVersion = useRef(0);
   const [dryRun, setDryRun] = useState<{
     report: Awaited<ReturnType<typeof studyApi.simulate>> | null;
     error: string | null;
@@ -47,17 +50,25 @@ export function DataTab({ studyId }: { studyId: string }) {
   }>({ report: null, error: null, busy: false });
 
   const refresh = (live: boolean, initial = false) => {
-    Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)])
+    const version = ++requestVersion.current;
+    Promise.all([
+      studyApi.status(studyId, includeSynthetic),
+      studyApi.dataset(studyId, includeSynthetic),
+    ])
       .then(([s, d]) => {
-        if (!live) return;
+        if (!live || version !== requestVersion.current) return;
         setLoadError(null);
         setSessions(s.sessions);
         setStatusDoc(s);
         setConditions(s.conditions);
-        setRows(d.rows.filter((r) => r.source === "metrics"));
+        // The whole one-timeline export: the metric registry decides what each
+        // measure reads (static-metric rows by payload key, event-derived
+        // measures by event type), so the Data tab no longer discards every
+        // row that isn't a static metric.
+        setRows(d.rows);
       })
       .catch((e: unknown) => {
-        if (!live) return;
+        if (!live || version !== requestVersion.current) return;
         // A study that hasn't compiled a protocol yet has no data  -  that's a
         // real, reachable state, not a fault. Surface it calmly instead of
         // letting the rejection blank the tab.
@@ -66,7 +77,7 @@ export function DataTab({ studyId }: { studyId: string }) {
         );
       })
       .finally(() => {
-        if (live && initial) setLoading(false);
+        if (live && initial && version === requestVersion.current) setLoading(false);
       });
   };
 
@@ -94,9 +105,10 @@ export function DataTab({ studyId }: { studyId: string }) {
     refresh(live, true);
     return () => {
       live = false;
+      requestVersion.current++;
       off();
     };
-  }, [studyId]);
+  }, [studyId, includeSynthetic]);
 
   const runDryRun = async () => {
     setDryRun({ report: null, error: null, busy: true });
@@ -120,8 +132,27 @@ export function DataTab({ studyId }: { studyId: string }) {
     }
   };
   const [showClientRehearsal, setShowClientRehearsal] = useState(false);
+  const [download, setDownload] = useState<{
+    busy: boolean;
+    error: string | null;
+  }>({ busy: false, error: null });
 
-  const metricRows = rows;
+  const downloadBundle = async () => {
+    setDownload({ busy: true, error: null });
+    try {
+      await studyApi.downloadDataBundle(studyId, includeSynthetic);
+      setDownload({ busy: false, error: null });
+    } catch (e) {
+      setDownload({
+        busy: false,
+        error:
+          e instanceof Error ? e.message : "Couldn't download this study's data.",
+      });
+    }
+  };
+
+  // The full one-timeline dataset — the metric registry selects per measure.
+  const datasetRows = rows;
 
   /* A study whose protocol has never compiled has no data by definition  -  not
    * three separate absences. The tab used to say so three times, in three
@@ -165,6 +196,23 @@ export function DataTab({ studyId }: { studyId: string }) {
 
   return (
     <Surface measure="work" label="Data">
+      {!seeded && (
+        <div className="flex flex-col gap-2 border-b border-border pb-5">
+          <label className="flex items-center gap-2 type-caption text-text">
+            <input
+              type="checkbox"
+              checked={includeSynthetic}
+              onChange={(event) => setSyntheticScope({ studyId, enabled: event.target.checked })}
+            />
+            Include dry-run (synthetic) rows
+          </label>
+          <p className="type-caption text-text-muted" role="status">
+            {includeSynthetic
+              ? "Views and data bundles include synthetic rehearsal data. These are not participant findings."
+              : "Views and data bundles exclude synthetic rehearsal data."}
+          </p>
+        </div>
+      )}
       {seeded && (
         <p
           className="flex items-center gap-2 rounded-control border border-border bg-well px-3 py-2 type-caption text-text"
@@ -240,6 +288,32 @@ export function DataTab({ studyId }: { studyId: string }) {
         <p className="type-caption text-critical" role="alert">
           {dryRun.error}
         </p>
+      )}
+
+      {!loadError && !seeded && (
+        <section className="flex flex-col gap-2 border-b border-border pb-5">
+          <h2 className="type-subhead text-text">Download data</h2>
+          <p className="max-w-reading type-caption text-text-muted">
+            A zip with one tidy CSV per event type, the joined timeline and a
+            data dictionary, for your own postprocessing.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={download.busy}
+              onClick={() => void downloadBundle()}
+            >
+              <Download className="size-4" aria-hidden />
+              Download data (.zip)
+            </Button>
+          </div>
+          {download.error && (
+            <p className="type-caption text-critical" role="alert">
+              {download.error}
+            </p>
+          )}
+        </section>
       )}
 
       <section className="flex flex-col gap-stack">
@@ -347,10 +421,12 @@ export function DataTab({ studyId }: { studyId: string }) {
         <section className="flex flex-col gap-stack">
           <h2 className="type-section text-text">Metrics by condition</h2>
           <p className="-mt-2 max-w-reading type-body text-text-muted">
-            Compare one code measure across study conditions. Each dot is one
-            analyzed function; the line shows the group median.
+            Compare a measure across study conditions. Pick any measure the
+            study collects — static code metrics, editing behaviour, fatigue,
+            comprehension, or agent activity — to see its distribution, drawn
+            with the mark that reads honestly for its type.
           </p>
-          <MetricStrip rows={metricRows} conditions={conditions} />
+          <MetricStrip rows={datasetRows} conditions={conditions} />
         </section>
         <PrescriptionPanel studyId={studyId} />
       </div>

@@ -4,6 +4,32 @@ Use a rehearsal study to check the whole path: choose a design, approve its
 capture scope, run TERN, and inspect the exported data. A successful rehearsal
 checks the plumbing; it is not evidence for a research claim.
 
+## Five-minute presentation
+
+1. **Setup:** enter a protocol manually or paste a complete labelled brief.
+   Review the resulting decisions, compile, and apply the draft. A template or
+   manual entry provides a reliable path when the design model is unavailable.
+2. **Run:** show enrollment and the assigned study folder. Mint a link in the
+   rehearsal study; keep the credential out of the presentation and recording.
+   TERN opens the folder, obtains consent, and locks capture to the assignment.
+3. **Capture:** edit and save the lab file, log fatigue, then end the session.
+   The AI-assisted debrief includes AI reliance; the other arm keeps the six
+   base questions. Reliance has descriptives only when just one arm has ratings.
+4. **Data:** inspect the recorded session and metrics. For a synthetic rehearsal,
+   explicitly select **Include dry-run (synthetic) rows**. The notice identifies
+   simulation, and the same choice controls the views and data-bundle export.
+   Reloading or opening another study defaults back to participant data.
+5. **Handoff:** download the data bundle and show its protocol, CSVs, joined
+   timeline, data dictionary, and integrity manifest. Open the starter notebook.
+   Synthetic examples demonstrate integration, not empirical findings.
+
+For the research extension, demonstrate
+`uv run protocol validate-evidence-map protocol/examples/evidence-map.yaml`.
+The [evidence-map contract](evidence-mapping.md) separates empirical studies
+from publications and keeps source passages, review, and applicability explicit.
+The shipped example is synthetic. Reviewed literature, recommendations and
+classifier evaluation are subsequent work, not completed demo claims.
+
 ## Start locally
 
 Follow the [setup instructions](../README.md#run-locally), including building
@@ -54,10 +80,11 @@ the protocol, JSON dataset, and starter notebook. The notebook describes the
 data and the registered analyses; it is not a completed confirmatory analysis.
 
 A **synthetic dry run** exercises the ingest and analysis path without TERN.
-New simulated rows carry `synthetic: true` in their payload. They remain in the
-study's exports, so run simulations only in a separate rehearsal study or
-exclude them explicitly before analysing participant data. The dry-run summary
-uses only the sessions created by that run.
+New simulated rows carry `synthetic: true` in their payload. Live views and
+exports exclude synthetic sessions by default. In the rehearsal study's Data
+tab, enable **Include dry-run data** to inspect and export them; API requests
+use `includeSynthetic=true`. Keep simulations in a separate rehearsal study.
+The dry-run summary uses only the sessions created by that run.
 
 The [worked example](examples/pilot-2026/notebook.ipynb) is a checked-in,
 reproducible starting point. To exercise the API-to-analysis path automatically:

@@ -23,6 +23,7 @@ from fastapi import (
     BackgroundTasks,
     Depends,
     FastAPI,
+    File,
     Form,
     Header,
     HTTPException,
@@ -63,6 +64,7 @@ from middleware import (
     semantic_scholar,
     template_registry,
     template_repertoire,
+    workspace,
 )
 from middleware import demo as demo_mod
 from middleware.db import (
@@ -88,6 +90,7 @@ from middleware.db import (
     SessionOpen,
     StoredFile,
     Study,
+    StudyWorkspace,
     UserProfile,
     get_engine,
     make_session_factory,
@@ -678,8 +681,67 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                         for k in header
                     ]
                 )
-            return PlainTextResponse(buf.getvalue(), media_type="text/csv")
+            return PlainTextResponse(
+                buf.getvalue(),
+                media_type="text/csv",
+                headers={
+                    "Content-Disposition": (
+                        f'attachment; filename="{study_id}-dataset.csv"'
+                    )
+                },
+            )
         raise HTTPException(400, "format must be 'json' or 'csv'")
+
+    @app.get(
+        "/studies/{study_id}/data-bundle",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def download_data_bundle(
+        study_id: str,
+        includeSynthetic: bool = False,
+        s: Session = Depends(db),
+    ):
+        """
+        The collected data as a zip of tidy CSVs, the joined timeline, a data
+        dictionary and uploaded files, for the researcher's own postprocessing.
+        Dry-run (synthetic) rows are left out unless asked for.
+        """
+        from analysis.dataset import Dataset
+        from analysis.notebook import data_dictionary_markdown
+
+        from middleware.export_bundle import build_bundle, is_synthetic
+
+        rows = _joined_rows(s, study_id, include_synthetic=includeSynthetic)
+        if not includeSynthetic:
+            rows = [r for r in rows if not is_synthetic(r)]
+        ds = Dataset(rows=rows, study_id=study_id)
+        dictionary_md = f"# {study_id}: data dictionary\n\n" + data_dictionary_markdown(
+            ds
+        )
+        files = []
+        for f in s.scalars(
+            select(StoredFile)
+            .where(StoredFile.study_id == study_id)
+            .order_by(StoredFile.id)
+        ):
+            path = Path(f.stored_path)
+            if path.is_file():
+                files.append((f"{f.id}-{f.filename}", path.read_bytes()))
+        return Response(
+            content=build_bundle(
+                study_id,
+                rows,
+                dictionary_md,
+                files,
+                protocol=_resolve_study_protocol(s, study_id),
+                include_synthetic=includeSynthetic,
+            ),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="{study_id}-data.zip"',
+                "Cache-Control": "no-store",
+            },
+        )
 
     @app.get(
         "/studies/{study_id}/protocol",
@@ -2337,6 +2399,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         Compilation,
         ProtocolDraftRow,
         SessionOpen,
+        StudyWorkspace,
     )
 
     def _delete_study_scoped_rows(s: Session, study_id: str) -> None:
@@ -2865,7 +2928,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     "metrics": f"{base}/ingest/metrics",
                 },
             ),
-            "consentStatement": enrollment.consent_statement(protocol, row.condition),
+            "consentStatement": enrollment.consent_statement(protocol),
             "contentPolicy": enrollment.content_policy(protocol),
         }
 
@@ -2957,7 +3020,124 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "title": (task or {}).get("title", ""),
             "description": (task or {}).get("description", ""),
             "materials": (task or {}).get("materials", ""),
+            "workspace": _workspace_for(s, row.study_id, task),
         }
+
+    def _safe_name(value: str) -> str:
+        return re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._") or "study"
+
+    def _workspace_for(s: Session, study_id: str, task: dict | None) -> dict | None:
+        """The folder a minted link opens: the researcher's setting, else the task's."""
+        row = s.get(StudyWorkspace, study_id)
+        if row is not None and row.kind == "path":
+            return {"kind": "path", "path": row.path}
+        if row is not None and row.kind == "archive":
+            return {
+                "kind": "archive",
+                "url": f"/studies/{study_id}/workspace/archive",
+                "sha256": row.sha256,
+                "size": row.size,
+                "filename": row.filename,
+            }
+        materials = ((task or {}).get("materials") or "").strip()
+        return {"kind": "path", "path": materials} if materials else None
+
+    def _workspace_doc(row: StudyWorkspace | None) -> dict:
+        if row is None:
+            return {"kind": None}
+        return {
+            "kind": row.kind,
+            "path": row.path,
+            "filename": row.filename,
+            "sha256": row.sha256,
+            "size": row.size,
+            "updatedAt": row.updated_at,
+        }
+
+    @app.get(
+        "/studies/{study_id}/workspace",
+        dependencies=[Depends(require_project_for_study("view"))],
+    )
+    def get_workspace(study_id: str, s: Session = Depends(db)) -> dict:
+        """The folder participants' minted links open, if the researcher set one."""
+        return _workspace_doc(s.get(StudyWorkspace, study_id))
+
+    @app.put(
+        "/studies/{study_id}/workspace",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    async def set_workspace(
+        study_id: str,
+        path: str | None = Form(default=None),
+        file: UploadFile | None = File(default=None),
+        s: Session = Depends(db),
+    ) -> dict:
+        """Name the study folder: a path on participants' machines, or a zip of it."""
+        if (path is None) == (file is None):
+            raise HTTPException(400, "send either a folder path or a zip, not both")
+        row = s.get(StudyWorkspace, study_id) or StudyWorkspace(study_id=study_id)
+        try:
+            if file is not None:
+                content = await file.read(workspace.MAX_ARCHIVE_BYTES + 1)
+                workspace.validate_archive(content)
+                digest = sha256(content).hexdigest()
+                folder = settings.data_dir / "workspaces"
+                folder.mkdir(parents=True, exist_ok=True)
+                stored = folder / f"{_safe_name(study_id)}-{digest[:16]}.zip"
+                stored.write_bytes(content)
+                row.kind = "archive"
+                row.path = None
+                row.filename = file.filename or "workspace.zip"
+                row.stored_path = str(stored)
+                row.sha256 = digest
+                row.size = len(content)
+            else:
+                row.kind = "path"
+                row.path = workspace.validate_path(path or "")
+                row.filename = row.stored_path = row.sha256 = None
+                row.size = None
+        except workspace.WorkspaceError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        row.updated_at = now()
+        s.add(row)
+        s.flush()
+        return _workspace_doc(row)
+
+    @app.delete(
+        "/studies/{study_id}/workspace",
+        dependencies=[Depends(require_project_for_study("contribute"))],
+    )
+    def clear_workspace(study_id: str, s: Session = Depends(db)) -> dict:
+        row = s.get(StudyWorkspace, study_id)
+        if row is not None:
+            s.delete(row)
+        return {"kind": None}
+
+    @app.get("/studies/{study_id}/workspace/archive")
+    def download_workspace_archive(
+        study_id: str,
+        authorization: str = Header(default=""),
+        s: Session = Depends(db),
+    ):
+        """The uploaded study folder, for a paired participant's extension."""
+        cred = resolve_credential(s, authorization)
+        if cred is None or cred.study_id != study_id:
+            raise HTTPException(401, "a valid session credential is required")
+        row = s.get(StudyWorkspace, study_id)
+        path = Path(row.stored_path) if row and row.stored_path else None
+        if row is None or row.kind != "archive" or path is None or not path.is_file():
+            raise HTTPException(404, "this study has no uploaded folder")
+        return Response(
+            content=path.read_bytes(),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="{_safe_name(study_id)}-workspace.zip"'
+                ),
+                "X-Content-SHA256": row.sha256 or "",
+                "Cache-Control": "no-store",
+            },
+        )
 
     @app.get("/studies/{study_id}/capture-config")
     def get_capture_config(
@@ -3746,12 +3926,18 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             not value.strip()
             for value in (
                 body.title,
-                body.researchQuestion,
                 body.participantDescription,
                 body.taskDescription,
             )
         ):
             raise HTTPException(422, "the study brief fields cannot be blank")
+        questions = [question.strip() for question in body.researchQuestions]
+        if any(not 10 <= len(question) <= 500 for question in questions):
+            raise HTTPException(
+                422, "each research question needs 10 to 500 characters"
+            )
+        if len({question.casefold() for question in questions}) != len(questions):
+            raise HTTPException(422, "research questions must be different")
         conditions = [condition.strip() for condition in body.conditions]
         if any(not condition or len(condition) > 80 for condition in conditions):
             raise HTTPException(
@@ -3772,7 +3958,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             )
 
         scope = elicitation.classify_scope(
-            [body.researchQuestion, body.taskDescription, body.participantDescription]
+            [*questions, body.taskDescription, body.participantDescription]
         )
         if scope != "supported":
             raise HTTPException(
@@ -3801,7 +3987,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         parameters = {
             "studyId": study_id,
             "title": body.title.strip(),
-            "researchQuestion": body.researchQuestion.strip(),
+            "researchQuestion": questions[0],
             "conditions": conditions,
             "participantPlan": body.plannedParticipants,
             "sessionMinutes": body.sessionMinutes,
@@ -3816,8 +4002,25 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     if body.design == "within-subjects"
                     else "Use a two-group between-subjects comparison."
                 ),
-                "patch": {"templateId": template_id, "parameters": parameters},
+                "patch": {
+                    "templateId": template_id,
+                    "parameters": parameters,
+                    "manual": True,
+                },
             },
+            *(
+                {
+                    "kind": "add-rq",
+                    "target": "researchQuestions[]",
+                    "proposal": question,
+                    "patch": {
+                        "section": "researchQuestions",
+                        "op": "append",
+                        "value": question,
+                    },
+                }
+                for question in questions[1:]
+            ),
             {
                 "kind": "set-field",
                 "target": "participants.description",
@@ -3848,6 +4051,32 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             },
         ]
 
+        existing = s.get(ProtocolDraftRow, study_id)
+        base_yaml = existing.yaml if existing else ""
+        current = compiler.compile_moves(
+            _conversation_moves(s, study_id), base_yaml=base_yaml
+        ).draft
+        kept_recipes = {
+            rq.get("text"): entry.get("recipes", [])
+            for rq in current.get("researchQuestions") or []
+            for entry in current.get("analysisPlan") or []
+            if entry.get("rq") == rq.get("id")
+        }
+        preview = compiler.compile_moves(
+            [{**spec, "status": "accepted"} for spec in move_specs]
+        ).draft
+        move_specs += [
+            {
+                "kind": "prescribe-statistics",
+                "target": "analysisPlan",
+                "proposal": f"Keep the {recipe} analysis for {rq['id']}.",
+                "patch": {"recipeId": recipe, "rq": rq["id"]},
+            }
+            for rq in preview.get("researchQuestions") or []
+            if rq.get("text") != questions[0]
+            for recipe in kept_recipes.get(rq.get("text"), [])
+        ]
+
         researcher = ConversationTurn(
             id=secrets.token_hex(8),
             study_id=study_id,
@@ -3855,7 +4084,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             role="researcher",
             author="Researcher",
             text=(
-                f"Quick protocol checklist submitted: {body.researchQuestion.strip()}"
+                f"Protocol details entered manually: {questions[0]}"
             ),
             retrieved_refs=[],
             created_at=now(),
@@ -3907,16 +4136,16 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 )
             )
 
-        existing = s.get(ProtocolDraftRow, study_id)
-        base_yaml = existing.yaml if existing else ""
-        result = compiler.compile_moves(moves, base_yaml=base_yaml)
+        s.flush()
+        all_moves = _conversation_moves(s, study_id)
+        result = compiler.compile_moves(all_moves, base_yaml=base_yaml)
         comp = Compilation(
             id=secrets.token_hex(8),
             study_id=study_id,
             base_sha256=sha256(base_yaml.encode()).hexdigest(),
             draft_yaml=result.yaml,
             diff=result.diff,
-            move_ids=[move["moveId"] for move in moves],
+            move_ids=[m["moveId"] for m in all_moves if m["status"] == "accepted"],
             errors=result.errors,
             unresolved=result.unresolved,
             valid=int(result.valid),

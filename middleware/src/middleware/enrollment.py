@@ -442,14 +442,17 @@ def leg_summary(protocol: dict, settings: dict | None = None) -> list[dict]:
     return out
 
 
-def consent_statement(protocol: dict, condition: str) -> str:
-    """A deterministic, protocol-derived consent paragraph (wall #1, FR-AGENT-5)."""
+def consent_statement(protocol: dict) -> str:
+    """A deterministic, protocol-derived consent paragraph (wall #1, FR-AGENT-5).
+
+    It never names the assigned condition: participants stay blind to their arm.
+    """
     title = protocol.get("study", {}).get("title", "this study")
     policy = content_policy(protocol)
     policy_desc = _POLICY_DESCRIPTIONS.get(policy, policy).rstrip(".")
     instruments = ", ".join(sorted(protocol.get("instruments", {}).keys())) or "none"
     return (
-        f'You are joining "{title}" in the {condition} condition. '
+        f'You are joining "{title}". '
         f"While you work, this study captures aggregate signals from these "
         f"instruments: {instruments}. It never records raw code content, "
         f"keystrokes, or clipboard text  -  only sizes, shapes, timings, and "

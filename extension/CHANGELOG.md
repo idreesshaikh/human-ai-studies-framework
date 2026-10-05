@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- Collect the AI-reliance debrief item for AI-assisted sessions using their
+  locked assignment. Unassisted sessions keep the six base items.
 - Remove the unused pairing reducer and its isolated tests. Live pairing and
   consent continue through the VS Code adapter.
 - Clear generated output before compilation so deleted modules and tests do not

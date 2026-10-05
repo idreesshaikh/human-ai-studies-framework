@@ -44,9 +44,6 @@ _COLUMN_MEANINGS: dict[str, str] = {
     "role": "agent conversation role (user/assistant)",
     "turnIndex": "agent conversation turn position in the session",
     "level": "metric level: function_metrics or file_metrics",
-    "mentalDemand": "NASA-TLX subscale rating",
-    "effort": "NASA-TLX subscale rating",
-    "frustration": "NASA-TLX subscale rating",
 }
 
 # The reverse of ``prescribe.shape_to_recipe_id``; built from the public API so the two

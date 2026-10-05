@@ -30,10 +30,10 @@ Every column in the exported dataset, one row each. A payload key is documented 
 | `payload.synthetic` | bool | simulated clipboard_paste event; not participant data |
 | `payload.file` | any | payload key on editor_focus events |
 | `payload.synthetic` | bool | simulated editor_focus event; not participant data |
-| `payload.effort` | any | payload key on end_survey events |
-| `payload.frustration` | any | payload key on end_survey events |
-| `payload.mentalDemand` | any | payload key on end_survey events |
-| `payload.synthetic` | bool | simulated end_survey event; not participant data |
+| `payload.comments` | any | payload key on end_survey_response events |
+| `payload.msToComplete` | any | payload key on end_survey_response events |
+| `payload.responses` | any | payload key on end_survey_response events |
+| `payload.synthetic` | bool | simulated end_survey_response event; not participant data |
 | `payload.score` | any | payload key on fatigue_response events |
 | `payload.synthetic` | bool | simulated fatigue_response event; not participant data |
 | `payload.evidenceMs` | any | payload key on stuck_response events |

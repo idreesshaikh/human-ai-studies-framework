@@ -9,7 +9,7 @@
  * move kind the conversation can propose has to land in the draft preview,
  * or an accepted move reads as "noted" and silently changes nothing.
  */
-import { compileAll, compile } from "../src/lib/compiler.ts";
+import { compileAll, compile, sinceManualEntry } from "../src/lib/compiler.ts";
 import { emptyDraft } from "../src/lib/types.ts";
 
 let failures = 0;
@@ -103,6 +103,33 @@ const instrumentDraft = compile(emptyDraft(), [instrumentMove]);
 ok("accepting an add-instrument move fills the draft's instruments slot",
   instrumentDraft.instruments.includes("post-task-survey"),
   instrumentDraft.instruments.join(", "));
+
+// A manual protocol entry replaces earlier moves; the server's compiled
+// protocol fills the draft because the template content lives there.
+const manualMove = {
+  ...templateMove,
+  moveId: "m-manual",
+  patch: { templateId: "two-group-rct-v1", manual: true },
+};
+const beforeManual = move("m-old", "add-measure", "measures", "Old outcome");
+ok("a manual entry drops the moves accepted before it",
+  !compileAll([beforeManual, manualMove]).measures.includes("Old outcome"));
+const compiled = {
+  researchQuestions: [{ id: "RQ-1", text: "Does AI help?" }],
+  participants: { design: "between-subjects", planned: 12 },
+  conditions: ["ai", "none"],
+  measures: ["task completion time"],
+  instruments: { tern: {} },
+  analysisPlan: [{ rq: "RQ-1", recipes: ["two-group-nonparametric"] }],
+};
+const manualDraft = compileAll([beforeManual, manualMove], compiled);
+ok("a manual entry fills every core section from the compiled protocol",
+  ["researchQuestions", "design", "participants", "conditions", "measures", "instruments", "statisticalPlan"]
+    .every((slot) => manualDraft[slot].length > 0),
+  JSON.stringify(manualDraft));
+
+ok("the review lists only the moves a manual entry kept",
+  JSON.stringify(sinceManualEntry([beforeManual, manualMove]).map((m) => m.moveId)) === '["m-manual"]');
 
 console.log(failures === 0
   ? "\n✓ all checks pass"

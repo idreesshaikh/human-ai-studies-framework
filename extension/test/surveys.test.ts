@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   AI_CONDITION_ITEM,
   END_SURVEY_ITEMS,
+  endSurveyItems,
   FATIGUE_ITEM,
   LikertItem,
 } from '../src/core/surveys';
@@ -51,5 +52,23 @@ test('AI-condition item is a distinct 7-point add-on', () => {
   assert.ok(
     !END_SURVEY_ITEMS.some((i) => i.id === AI_CONDITION_ITEM.id),
     'AI item is not already in the base battery',
+  );
+});
+
+test('locked AI assignment receives the reliance item without changing base items', () => {
+  const baseIds = END_SURVEY_ITEMS.map((item) => item.id);
+  assert.deepEqual(
+    endSurveyItems('ai-assisted').map((item) => item.id),
+    [...baseIds, 'ai_reliance'],
+  );
+  for (const condition of ['unassisted', 'unknown', '']) {
+    assert.deepEqual(
+      endSurveyItems(condition).map((item) => item.id),
+      baseIds,
+    );
+  }
+  assert.deepEqual(
+    END_SURVEY_ITEMS.map((item) => item.id),
+    baseIds,
   );
 });

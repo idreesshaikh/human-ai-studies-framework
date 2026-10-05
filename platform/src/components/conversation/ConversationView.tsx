@@ -8,8 +8,9 @@ import { RecommenderRail } from "./RecommenderRail";
 import { FinishReview } from "./FinishReview";
 import { SteerDial } from "./SteerDial";
 import { ConversationStart } from "./ConversationStart";
+import { ManualProtocolDialog } from "./ManualProtocolDialog";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { compileAll } from "@/lib/compiler";
+import { compileAll, sinceManualEntry } from "@/lib/compiler";
 import { openingTurn } from "@/lib/conversationOpening";
 import type { Recommendation } from "@/lib/types";
 import {
@@ -132,6 +133,7 @@ export function ConversationView({
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
   const [showFinish, setShowFinish] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
   const draftFolded = usePanel("draft", studyId);
   const [rail, setRail] = useState<RailId>(() => readRail(studyId));
   /* The one move the caret goes to, set only when a reply lands in answer
@@ -282,7 +284,10 @@ export function ConversationView({
   const openingKey = `${studyId}:${opening.trim()}`;
   const openingPending =
     Boolean(opening.trim()) && openingSubmitted.current === openingKey;
-  const clientDraft = useMemo(() => compileAll(allMoves), [allMoves]);
+  const clientDraft = useMemo(
+    () => compileAll(allMoves, compileResult?.protocol),
+    [allMoves, compileResult],
+  );
   const missingCoreSlots = useMemo(
     () => MANDATORY_SLOTS.filter((slot) => clientDraft[slot].length === 0),
     [clientDraft],
@@ -334,6 +339,12 @@ export function ConversationView({
   useEffect(() => {
     if (live) void refreshCompile();
   }, [allMoves, live, refreshCompile]);
+
+  async function reloadConversation() {
+    const { turns: t, understanding: u } = await loadConversation(studyId);
+    setTurns(t);
+    setUnderstanding(u);
+  }
 
   /* An opening taken from the blank record: it lands in the composer for the
    * researcher to edit, and the caret goes with it. Never sent for them  -
@@ -740,7 +751,10 @@ export function ConversationView({
                 <div className="h-4 w-3/5 animate-pulse rounded-full bg-border" />
               </div>
             ) : threadEmpty && !openingPending && !activeResearcher ? (
-              <ConversationStart onUse={takeOpening} />
+              <ConversationStart
+                onUse={takeOpening}
+                onEnterManually={live ? () => setManualOpen(true) : undefined}
+              />
             ) : (
               <div className="flex flex-col gap-5">
                 {activeResearcher && (
@@ -941,6 +955,7 @@ export function ConversationView({
               /* A reader can see the record; only a contributor can change it,
                * so the actions stay off when the compile came back 403. */
               onApply={live && compileResult ? applyDraft : undefined}
+              onEdit={live && compileResult ? () => setManualOpen(true) : undefined}
               applying={applying}
               onFinish={
                 live && compileResult
@@ -955,10 +970,18 @@ export function ConversationView({
           * duplicated onto the composer. One toggle, where its own title is. */}
       </div>
 
+      {manualOpen && (
+        <ManualProtocolDialog
+          studyId={studyId}
+          protocol={compileResult?.protocol}
+          onClose={() => setManualOpen(false)}
+          onEntered={() => void reloadConversation()}
+        />
+      )}
       <FinishReview
         open={showFinish}
         onOpenChange={setShowFinish}
-        moves={allMoves}
+        moves={sinceManualEntry(allMoves)}
         compile={visibleCompile}
         applying={applying}
         applied={applied}

@@ -302,6 +302,49 @@ def assess_understanding(researcher_texts: list[str]) -> dict[str, bool]:
     }
 
 
+_LABELS: dict[str, str] = {
+    "title": "title",
+    "study title": "title",
+    "study name": "title",
+    "research question": "rq",
+    "research questions": "rq",
+    "rq": "rq",
+    "participants": "participants",
+    "participant profile": "participants",
+    "population": "participants",
+    "ethics": "ethics",
+    "ethics status": "ethics",
+    "ethics reference": "ethics",
+    "duration": "duration",
+    "session length": "duration",
+    "session duration": "duration",
+    "n": "count",
+    "sample size": "count",
+    "number of participants": "count",
+}
+_LABEL_LINE = re.compile(
+    r"^\s*(?:[-*•]\s*)?(?:\*\*)?([A-Za-z][A-Za-z ]{0,30}?)(?:\*\*)?\s*[:=]\s*(.+?)\s*$"
+)
+
+
+def labelled_fields(text: str) -> dict[str, str]:
+    """Read ``Label: value`` lines of a structured brief.
+
+    Only labels in ``_LABELS`` count and the first occurrence wins, so prose that
+    merely contains a colon is never mistaken for a field.
+    """
+    fields: dict[str, str] = {}
+    for line in (text or "").splitlines():
+        match = _LABEL_LINE.match(line)
+        if not match:
+            continue
+        key = _LABELS.get(match.group(1).strip().lower())
+        value = match.group(2).strip().strip("*").strip()
+        if key and value and key not in fields:
+            fields[key] = value
+    return fields
+
+
 def is_complete_brief(text: str) -> bool:
     """Whether one message contains enough detail for a batch protocol pass.
 
@@ -314,6 +357,8 @@ def is_complete_brief(text: str) -> bool:
     """
     if not text or len(text.strip()) < 40:
         return False
+    if len(labelled_fields(text)) >= 3:
+        return True
     understanding = assess_understanding([text])
     known = sum(understanding.values())
     return known >= 4 or (known >= 3 and len(text.strip()) >= 80)
@@ -584,6 +629,75 @@ def explicit_protocol_facts(text: str) -> list[dict]:
                 "measures[]",
                 "Measure " + ", ".join(measures) + ".",
                 {"section": "measures", "op": "append", "value": measures},
+            )
+        )
+
+    fields = labelled_fields(text)
+    if "participants" in fields:
+        # The labelled line states the population exactly; don't also infer it
+        # from free text as a second card for the same fact.
+        moves = [m for m in moves if m["target"] != "participants[]"]
+
+    def _text_field(key: str, target: str, path: list[str], proposal: str) -> None:
+        if key in fields:
+            moves.append(
+                _fact_move(
+                    "set-field",
+                    target,
+                    proposal.format(fields[key]),
+                    {"op": "set-field", "path": path, "value": fields[key]},
+                )
+            )
+
+    _text_field("title", "study.title", ["study", "title"], "Name the study: {}.")
+    _text_field(
+        "participants",
+        "participants.description",
+        ["participants", "description"],
+        "Recruit: {}.",
+    )
+    _text_field(
+        "ethics", "study.ethicsRef", ["study", "ethicsRef"], "Record ethics status: {}."
+    )
+    inline_rq = re.search(r"research question\s*(?:is)?\s*[:\-]\s*([^\n]+)", text, re.I)
+    rq = fields.get("rq") or (inline_rq.group(1).strip() if inline_rq else None)
+    if rq:
+        moves.append(
+            _fact_move(
+                "add-rq",
+                "researchQuestions[]",
+                f"Research question: {rq}",
+                {"section": "researchQuestions", "op": "append", "value": [rq]},
+            )
+        )
+    duration_label = re.search(r"\d{1,3}", fields.get("duration", ""))
+    if duration_label and 1 <= int(duration_label.group()) <= 480:
+        value = int(duration_label.group())
+        moves.append(
+            _fact_move(
+                "set-field",
+                "session.durationMinutes",
+                f"Run each session for {value} minutes.",
+                {
+                    "op": "set-field",
+                    "path": ["session", "durationMinutes"],
+                    "value": value,
+                },
+            )
+        )
+    count_label = re.search(r"\d{1,4}", fields.get("count", ""))
+    if count_label and int(count_label.group()) >= 1:
+        value = int(count_label.group())
+        moves.append(
+            _fact_move(
+                "set-field",
+                "participants.planned",
+                f"Plan for {value} participants.",
+                {
+                    "op": "set-field",
+                    "path": ["participants", "planned"],
+                    "value": value,
+                },
             )
         )
 

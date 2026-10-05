@@ -25,7 +25,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   async function run(
-    kind: "kit" | "record" | "notebook",
+    kind: "kit" | "record" | "notebook" | "data",
     download: () => Promise<void>,
   ) {
     setBusy(kind);
@@ -63,6 +63,17 @@ export function ExportStudy({ studyId }: { studyId: string }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="max-w-72">
+          <DropdownMenuItem
+            onSelect={() => void run("data", () => studyApi.downloadDataBundle(studyId))}
+          >
+            <div className="flex flex-col gap-0.5">
+              <span>Data (.zip)</span>
+              <span className="type-caption text-text-muted">
+                Tidy CSV per event type, the joined timeline and a data
+                dictionary, for your own analysis. Dry-run rows excluded.
+              </span>
+            </div>
+          </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() =>
               void run("kit", () => studyApi.downloadReplicationKit(studyId))

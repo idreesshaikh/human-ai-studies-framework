@@ -1,0 +1,57 @@
+schemaVersion: 1
+mapId: contract-demonstration
+mapVersion: 0.1.0
+description: >-
+  Synthetic contract example, not research evidence. The reported facts and
+  passages below are invented fixtures. No literature review is claimed.
+publications:
+  - id: fixture-report
+    source: fixture:report-1
+    title: Synthetic study report
+    version: '1'
+studies:
+  - id: fixture-study-1
+    publicationIds: [fixture-report]
+    researchQuestions: ['Does assistance change task completion time?']
+    designFamily: between-subjects
+    population: null
+    tasks: [Synthetic bug-fixing exercise]
+    conditions: [ai-assisted, unassisted]
+    constructs: [completion-time]
+    measures:
+      - id: elapsed
+        construct: completion-time
+        definition: Session elapsed time, including pauses
+        instrument: tern
+        datasetFields: [session_timer_ended.actualDurationMs]
+        analysisRecipe: null
+    analysisAssumptions: null
+    limitations: null
+    captureRequirements:
+      - measureId: elapsed
+        producer: tern
+        eventTypes: [session_timer_ended]
+        availability: available
+relations:
+  - id: reported-design
+    studyId: fixture-study-1
+    target: between-subjects
+    kind: reported-method-use
+    claimType: reported-fact
+    claim: The synthetic report describes a between-subjects comparison.
+    passage:
+      publicationId: fixture-report
+      location: Synthetic fixture, methods paragraph 1
+      text: Each participant performed one task in one assigned condition.
+    review:
+      status: unreviewed
+      reviewers: []
+      notes: This invented passage cannot support a real study recommendation.
+    extractionConfidence: null
+    evidenceQuality: unknown
+    applicability:
+      status: unknown
+      context: A researcher planning an assistance comparison
+      reasons: []
+      constraints: []
+      missingFacts: [Participant population, Recruitment and assignment process]

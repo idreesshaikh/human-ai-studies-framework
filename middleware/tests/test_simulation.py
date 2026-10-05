@@ -303,7 +303,7 @@ def test_all_profiles_generate_full_sessions():
                 assert session["events"], profile
                 kinds = {e["type"] for e in session["events"]}
                 assert "task_outcome" in kinds
-                assert "end_survey" not in kinds
+                assert "end_survey_response" not in kinds
                 for e in session["events"]:
                     assert e["participant_id"] == p["participantId"]
                     assert e["condition"] == session["condition"]

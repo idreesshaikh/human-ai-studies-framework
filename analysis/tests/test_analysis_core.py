@@ -169,3 +169,20 @@ def test_dataset_preserves_exported_event_and_metric_identity():
     assert dataset.metrics.iloc[0]["taskId"] == "42"
     assert dataset.metrics.iloc[0]["schemaVersion"] == 2
     assert dataset.metric_columns == {"lines"}
+
+
+def test_retained_payload_field_available_to_analysis():
+    """Issue #39 (AC3): a payload field collected before a toggle change stays
+    readable by analysis. of_type must expose the full payload, not a filtered
+    subset, so retained telemetry remains usable for authorized analysis.
+    """
+    rows = [
+        event(0, "edit_burst", {"charsAdded": 120, "origin": "ai"}),
+        event(1, "edit_burst", {"charsAdded": 80, "origin": "human"}),
+    ]
+    bursts = Dataset(rows=rows).of_type("edit_burst")
+    assert list(bursts["charsAdded"]) == [120, 80]
+    assert set(bursts["origin"]) == {"ai", "human"}
+    # Join keys survive alongside the payload fields.
+    assert set(bursts["participantId"]) == {"P01"}
+    assert set(bursts["condition"]) == {"ai-assisted"}

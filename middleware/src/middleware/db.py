@@ -251,6 +251,24 @@ class Invitation(Base):
     accepted_at: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
+class StudyWorkspace(Base):
+    """The folder participants' minted links open: a path, or an uploaded archive.
+
+    Kept out of ``StoredFile`` so a study folder never leaks into the data export.
+    """
+
+    __tablename__ = "study_workspaces"
+
+    study_id: Mapped[str] = mapped_column(String, primary_key=True)
+    kind: Mapped[str] = mapped_column(String)  # "path" | "archive"
+    path: Mapped[str | None] = mapped_column(String, nullable=True)
+    filename: Mapped[str | None] = mapped_column(String, nullable=True)
+    stored_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    sha256: Mapped[str | None] = mapped_column(String, nullable=True)
+    size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[str] = mapped_column(String)
+
+
 class EnrollmentToken(Base):
     """A pairing token binding a study + participant + condition (FR-INST-20)."""
 

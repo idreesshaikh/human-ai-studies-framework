@@ -35,9 +35,18 @@ const MEASURE_OPTIONS = [
   ["code comprehension", "Code comprehension"],
 ] as const;
 
-export function ConversationStart({ onUse }: { onUse: (text: string) => void }) {
+export function ConversationStart({
+  onUse,
+  onEnterManually,
+}: {
+  onUse: (text: string) => void;
+  onEnterManually?: () => void;
+}) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [design, setDesign] = useState("within-subjects");
+  const [title, setTitle] = useState("");
+  const [researchQuestion, setResearchQuestion] = useState("");
+  const [profile, setProfile] = useState("");
   const [participants, setParticipants] = useState("");
   const [sessionMinutes, setSessionMinutes] = useState("");
   const [measures, setMeasures] = useState<string[]>([
@@ -54,17 +63,20 @@ export function ConversationStart({ onUse }: { onUse: (text: string) => void }) 
   };
 
   const addKnownDetails = () => {
+    // One labelled line per fact the researcher filled in, so the intake parser
+    // reads each field exactly and nothing blank is guessed.
     const lines = [
       "Here are the concrete study details I already know:",
+      title.trim() ? `Title: ${title.trim()}` : "",
+      researchQuestion.trim() ? `Research question: ${researchQuestion.trim()}` : "",
+      profile.trim() ? `Participants: ${profile.trim()}` : "",
       "Compare AI-assisted work with unassisted work.",
       `Use a ${design} design.`,
       measures.length > 0 ? `Measure ${measures.join(", ")}.` : "",
-      participants.trim() ? `Plan for ${participants.trim()} participants.` : "",
-      sessionMinutes.trim()
-        ? `Run each session for ${sessionMinutes.trim()} minutes.`
-        : "",
+      participants.trim() ? `N = ${participants.trim()}` : "",
+      sessionMinutes.trim() ? `Duration: ${sessionMinutes.trim()} minutes` : "",
     ].filter(Boolean);
-    onUse(lines.join(" "));
+    onUse(lines.join("\n"));
     setDetailsOpen(false);
   };
 
@@ -106,6 +118,34 @@ export function ConversationStart({ onUse }: { onUse: (text: string) => void }) 
         {detailsOpen && (
           <div className="mt-4 border-t border-border pt-4">
             <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2 sm:col-span-2">
+                <Label htmlFor="known-title">Study title</Label>
+                <Input
+                  id="known-title"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 sm:col-span-2">
+                <Label htmlFor="known-question">Research question</Label>
+                <Input
+                  id="known-question"
+                  value={researchQuestion}
+                  onChange={(event) => setResearchQuestion(event.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 sm:col-span-2">
+                <Label htmlFor="known-profile">Who you are recruiting</Label>
+                <Input
+                  id="known-profile"
+                  placeholder="e.g. novice developers"
+                  value={profile}
+                  onChange={(event) => setProfile(event.target.value)}
+                />
+              </div>
+
               <div className="flex flex-col gap-2">
                 <Label htmlFor="known-design">Study design</Label>
                 <Select
@@ -176,6 +216,15 @@ export function ConversationStart({ onUse }: { onUse: (text: string) => void }) 
           </div>
         )}
       </section>
+
+      {onEnterManually && (
+        <p className="mt-4 type-caption text-text-muted">
+          Already have a design?{" "}
+          <button type="button" className="text-accent underline-offset-2 hover:underline" onClick={onEnterManually}>
+            Enter the protocol details directly
+          </button>
+        </p>
+      )}
 
       <p className="mt-4 max-w-[58ch] type-caption text-text-muted">
         Supported lane: comparative coding-task studies using TERN-captured developer activity. The protocol draft on the right is the record that will be validated before anything runs.
