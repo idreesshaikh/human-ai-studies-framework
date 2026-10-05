@@ -102,7 +102,7 @@ export function FinishReview({
           <span className="type-quantity text-text">{accepted.length}</span>{" "}
           {accepted.length === 1 ? "move" : "moves"} accepted:{" "}
           <span className="type-quantity text-text">{grounded}</span> grounded in
-          papers, <span className="type-quantity text-text">{judgment}</span> on
+          sources, <span className="type-quantity text-text">{judgment}</span> on
           your judgment.
         </p>
 
@@ -205,15 +205,14 @@ export function FinishReview({
               The protocol is applied. Next: bring participants in.
             </p>
             <p className="type-caption mt-1 text-text-muted">
-              Mint a link for each participant and their editor joins the study
-              configured exactly the way you just designed it.
+              Create participant links, then connect TERN in VS Code.
             </p>
             <Link
               to="?tab=enrollment"
               onClick={() => onOpenChange(false)}
               className="type-control mt-2 inline-flex items-center gap-1.5 rounded-control text-accent underline decoration-border underline-offset-4 hover:decoration-control-edge"
             >
-              Go to Participants
+              Continue to enrollment
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>

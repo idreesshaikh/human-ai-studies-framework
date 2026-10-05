@@ -2,6 +2,11 @@
 
 Tools for studying how developers work with AI.
 
+The study-design chat keeps advanced controls out of the reading path. The
+[evidence-linked method workflow](docs/evidence-workflow.md) connects imported
+sources and explicit constraints to researcher-approved choices and provenance
+exports; its demonstration map is synthetic, not reviewed research evidence.
+
 A developer study often requires a protocol, participant assignments, editor
 instrumentation, and analysis scripts assembled separately. Those pieces can
 disagree: a planned measure may never be recorded, or the dataset may lack the

@@ -52,7 +52,8 @@ def test_run_plan_is_project_scoped(client):
     ).json()
     study = client.post(
         f"/projects/{project['slug']}/studies",
-        json={"name": "Private plan"}, headers=bearer("alice"),
+        json={"name": "Private plan"},
+        headers=bearer("alice"),
     ).json()
     path = f"/studies/{study['id']}/run-plan"
     assert client.get(path, headers=bearer("alice")).status_code == 200
@@ -64,6 +65,49 @@ def make_project(client: TestClient, owner: str, name: str) -> str:
     res = client.post("/projects", json={"name": name}, headers=bearer(owner))
     assert res.status_code == 200, res.text
     return res.json()["slug"]
+
+
+def test_evidence_map_is_scoped_and_viewers_cannot_write(client):
+    from middleware.demo import DEMO_STUDY_ID, seed_demo
+
+    seed_demo(f"sqlite:///{client.db_path}")
+    slug = make_project(client, "alice", "Private evidence")
+    study = client.post(
+        f"/projects/{slug}/studies",
+        json={"name": "Evidence"},
+        headers=bearer("alice"),
+    ).json()
+    path = f"/studies/{study['id']}/evidence-map"
+    assert client.get(path, headers=bearer("alice")).status_code == 200
+    assert client.get(path, headers=bearer("bob")).status_code == 403
+    demo_path = f"/studies/{DEMO_STUDY_ID}/evidence-map"
+    assert client.get(demo_path, headers=bearer("viewer")).status_code == 200
+    for method, suffix, body in (
+        ("PUT", "", {}),
+        ("POST", "/candidates", {}),
+        (
+            "POST",
+            "/propose",
+            {
+                "candidateId": "private",
+                "mapDigest": "x",
+                "requestId": "test",
+            },
+        ),
+    ):
+        assert (
+            client.request(
+                method, path + suffix, json=body, headers=bearer("bob")
+            ).status_code
+            == 403
+        )
+        if suffix != "/candidates":
+            assert (
+                client.request(
+                    method, demo_path + suffix, json=body, headers=bearer("viewer")
+                ).status_code
+                == 403
+            )
 
 
 def add_member(client, slug, owner, sub, role) -> None:

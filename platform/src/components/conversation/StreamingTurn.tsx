@@ -36,7 +36,7 @@ export function StreamingTurn({
         "flex min-w-0 flex-col gap-3",
         isPlatform ? "items-start" : "items-end")}
     >
-      <div
+      {turn.text && <div
         className={cn(
           "type-body animate-in fade-in duration-entrance",
           isPlatform
@@ -72,7 +72,7 @@ export function StreamingTurn({
         ) : (
           <p className="whitespace-pre-wrap">{turn.text}</p>
         )}
-      </div>
+      </div>}
 
       {turn.moves.length > 0 && (
         <div className="flex w-full min-w-0 max-w-decision flex-col gap-1.5">

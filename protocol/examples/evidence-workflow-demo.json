@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "mapId": "synthetic-workflow-demo",
+  "mapVersion": "1.0.0",
+  "description": "DEMONSTRATION ONLY. Invented studies, passages and reviewer identities exercise the software workflow. This is not research evidence or an independently reviewed literature map.",
+  "publications": [
+    { "id": "fixture-guidance", "source": "fixture:synthetic-guidance", "title": "Synthetic methods guidance (not a publication)", "version": "1" }
+  ],
+  "studies": [
+    {
+      "id": "synthetic-between",
+      "publicationIds": ["fixture-guidance"],
+      "researchQuestions": ["Does AI assistance change completion time?"],
+      "designFamily": "between-subjects",
+      "population": "Novice Python developers",
+      "tasks": ["Fix a Python bug"],
+      "conditions": ["ai-assisted", "unassisted"],
+      "constructs": ["completion-time"],
+      "measures": [
+        { "id": "elapsed", "construct": "completion-time", "definition": "Time to first passing test", "instrument": "task-harness", "datasetFields": ["task_outcome.firstGreenMs"], "analysisRecipe": "two-group-nonparametric" }
+      ],
+      "analysisAssumptions": ["Independent participants; inspect outcome distributions."],
+      "limitations": ["Synthetic example; no empirical effect or review is established."],
+      "captureRequirements": [
+        { "measureId": "elapsed", "producer": "task-harness", "eventTypes": ["task_outcome"], "availability": "external" }
+      ]
+    },
+    {
+      "id": "synthetic-within",
+      "publicationIds": ["fixture-guidance"],
+      "researchQuestions": ["Does AI assistance change completion time?"],
+      "designFamily": "within-subjects",
+      "population": "Novice Python developers",
+      "tasks": ["Fix a Python bug"],
+      "conditions": ["ai-assisted", "unassisted"],
+      "constructs": ["completion-time"],
+      "measures": [
+        { "id": "elapsed", "construct": "completion-time", "definition": "Time to first passing test", "instrument": "task-harness", "datasetFields": ["task_outcome.firstGreenMs"], "analysisRecipe": "paired-nonparametric" }
+      ],
+      "analysisAssumptions": ["Paired participant outcomes; inspect order and carryover effects."],
+      "limitations": ["Synthetic example; task equivalence and carryover require assessment."],
+      "captureRequirements": [
+        { "measureId": "elapsed", "producer": "task-harness", "eventTypes": ["task_outcome"], "availability": "external" }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "id": "synthetic-between-guidance",
+      "studyId": "synthetic-between",
+      "target": "between-subjects",
+      "kind": "conditional-applicability",
+      "claimType": "recommendation",
+      "claim": "Synthetic guidance suggests separate groups when repeated tasks would introduce learning effects.",
+      "passage": { "publicationId": "fixture-guidance", "location": "Invented fixture paragraph 1", "text": "Use separate participant groups when repeating the coding task changes what participants have learned." },
+      "review": { "status": "reviewed", "reviewers": ["SIMULATED reviewer — fixture only"], "notes": "Simulates a reviewed row for software demonstration; no human review is claimed." },
+      "extractionConfidence": null,
+      "evidenceQuality": "unknown",
+      "applicability": { "status": "compatible", "context": "Synthetic novice Python debugging comparison", "reasons": ["The fixture matches the stated population, task and construct."], "constraints": [], "missingFacts": [] }
+    },
+    {
+      "id": "synthetic-within-guidance",
+      "studyId": "synthetic-within",
+      "target": "within-subjects",
+      "kind": "conditional-applicability",
+      "claimType": "recommendation",
+      "claim": "Synthetic guidance permits a paired comparison only with equivalent tasks and an order-effect plan.",
+      "passage": { "publicationId": "fixture-guidance", "location": "Invented fixture paragraph 2", "text": "A paired comparison needs equivalent tasks, an order-effect plan, and scrutiny of carryover." },
+      "review": { "status": "reviewed", "reviewers": ["SIMULATED reviewer — fixture only"], "notes": "Simulates a reviewed row for software demonstration; no human review is claimed." },
+      "extractionConfidence": null,
+      "evidenceQuality": "unknown",
+      "applicability": { "status": "conditional", "context": "Synthetic novice Python debugging comparison", "reasons": ["The fixture matches the stated population, task and construct."], "constraints": ["Use equivalent, distinct tasks and assess condition order and carryover before applying."], "missingFacts": [] }
+    }
+  ]
+}

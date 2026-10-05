@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GroundingChip } from "./GroundingChip";
 import { UnsourcedLabel } from "./UnsourcedLabel";
+import { EvidenceDetails } from "./EvidenceDetails";
 import { cn } from "@/lib/cn";
 import type { DesignMove, MoveStatus } from "@/lib/types";
 
@@ -158,7 +159,14 @@ export function MoveCard({
          * of the card's decided state, same reasoning as the Undo button. */}
         <div className="mt-1 flex min-w-0 flex-wrap items-start gap-1 border-t border-border pt-1">
           {move.grounding.length > 0 ? (
-            move.grounding.map((g) => <GroundingChip key={g.ref} g={g} />)
+            move.grounding.map((g) => g.evidence ? (
+              <details key={g.ref} className="w-full">
+                <summary className="type-caption cursor-pointer text-accent">Evidence and conditions · {g.evidence.mapVersion}</summary>
+                <p className="mt-2 type-caption text-text-muted">{g.evidence.mapDescription}</p>
+                <EvidenceDetails candidate={g.evidence.candidate} />
+                <p className="mt-2 break-all type-caption text-text-muted">Map: {g.evidence.mapId} · {g.evidence.mapDigest}</p>
+              </details>
+            ) : <GroundingChip key={g.ref} g={g} />)
           ) : (
             <UnsourcedLabel />
           )}
