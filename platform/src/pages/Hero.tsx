@@ -33,7 +33,7 @@ export function Hero() {
         * nothing said so. */}
       {/* One row: wordmark left, nav right (wrapping cleanly when the two do
         * not fit side by side). */}
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <div className="flex animate-in items-center gap-2.5 fade-in duration-entrance ease-out">
           <PhoenixMark size={28} />
           <span className="type-section text-text">Phoenix</span>
@@ -46,7 +46,7 @@ export function Hero() {
             <Link to="/signin">Sign in</Link>
           </Button>
         </nav>
-      </div>
+      </header>
 
       <main className="mt-10 flex flex-col gap-10 sm:mt-14">
         <header className="flex flex-col items-center gap-7 text-center">
