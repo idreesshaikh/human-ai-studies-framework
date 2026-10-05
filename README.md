@@ -64,7 +64,16 @@ uv run --env-file .env python -m middleware serve
 ```
 
 The CLI does not automatically load `.env`. The design model defaults to
-`mistral-medium-latest`; `MISTRAL_DESIGN_MODEL` overrides it.
+`ministral-14b-latest` for both design and paper matching. Set `MISTRAL_MODEL`
+to change both routes, or `MISTRAL_DESIGN_MODEL` to override design alone.
+Settings are resolved when a client is created; restart after changing `.env`.
+For reproducible experiments, set a dated model ID instead of a `-latest` alias.
+
+An HTTP 429 means the provider's rate limit was reached, not that the protocol
+is invalid. Check your organisation's limits and allow a cooldown before retrying.
+Switching models does not guarantee that an account-wide limit is resolved.
+For a presentation, keep an approved protocol ready: manual authoring, participant
+assignment, capture, and exports do not depend on model availability.
 
 For frontend development, keep the middleware running and use
 `npm --prefix platform run dev`. Vite proxies API requests to port 8000.

@@ -88,9 +88,9 @@ NO_MODEL = (
     "Everything else on the platform works without one."
 )
 MODEL_SILENT = (
-    "I couldn't reach the model just now, so this turn went unanswered. "
-    "Nothing was lost. Your message is still here, and saying it again is "
-    "usually enough."
+    "The model is temporarily unavailable. Your message is saved and no "
+    "proposal was applied. Wait before retrying; repeated requests can prolong "
+    "a rate limit. You can also continue with manual protocol authoring."
 )
 
 
