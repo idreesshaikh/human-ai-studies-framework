@@ -19,6 +19,10 @@ project participant credentials or real participant data.
   claim participation; retryable reads; stale requests cannot replace newer ones.
 - #55/#62: updated runbook, API behavior and [canonical terminology](terminology.md).
 - #56: [standards assessment](methodology-readiness.md), with prioritized gaps.
+- #92–94: [evidence-to-choice software slice](evidence-workflow.md): imported
+  immutable maps, explicit constraints, supporting passages, atomic design/analysis
+  choices, researcher approval and provenance exports. Chat is the primary surface;
+  examples, fixed-detail forms and protocol panels use progressive disclosure.
 
 ## Open-ticket boundaries
 
@@ -31,7 +35,7 @@ project participant credentials or real participant data.
 | #57 | Protected-branch checks, review and public-release verification |
 | #62/#63 | Historical schema/template terminology and a fuller literature synthesis |
 | #65 | Consented human pilot, feasibility observations and deviations |
-| #89–94 | Evidence contract exists; independently reviewed map and evidence-to-choice workflow remain |
+| #89–94 | Software slice exists; independent literature review, third-family execution and full capture integration remain |
 | #95–98 | Expert-adjudicated benchmark, classifier comparison and workflow evaluation |
 
 The reviewed map needs real sources and a second reviewer. Synthetic examples
@@ -44,13 +48,20 @@ The checked-in browser rehearsal creates synthetic projects and links on a local
 server. Use a separate database, build the platform, install Chromium, then run:
 
 ```bash
-REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:run-plan
+REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:run-plan
+REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:evidence-chat
 ```
 
 It checks manual setup, unapplied preview, approval, keyboard selection, privacy,
 desktop/mobile accessibility, failure recovery and enrollment. Screenshots go to
 the OS temporary directory. It refuses non-local targets to avoid touching a
 hosted participant deployment.
+
+`REHEARSAL_ISOLATED=1` confirms that you started this server with a separate
+synthetic database; loopback alone does not prove isolation. Each rehearsal
+removes only its own newly created project in a `finally` block, including after
+failure. Add `REHEARSAL_KEEP=1` to retain a synthetic fixture for presentation or
+debugging. Existing projects and downloaded artifacts are never swept or deleted.
 
 The change must pass the full Python coverage floor, frontend check/build,
 accessibility and a browser rehearsal before merge. Use normal required review;

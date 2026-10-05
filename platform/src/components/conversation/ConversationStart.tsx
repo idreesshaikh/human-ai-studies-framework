@@ -82,16 +82,9 @@ export function ConversationStart({
 
   return (
     <section aria-label="Start the developer study setup" className="max-w-reading">
-      <h2 className="type-section text-text">Describe the study in your own words</h2>
+      <h2 className="type-section text-text">What do you want to find out?</h2>
       <p className="mt-2 max-w-[52ch] type-body text-text-muted">
-        Give me a complete brief if you have one, or start with the part you know. I’ll teach the
-        design choices as we go and turn the decisions we keep into a runnable protocol.
-      </p>
-
-      <p
-        className="mt-4 max-w-[58ch] border-l-2 border-accent pl-3 type-caption text-text-muted"
-      >
-        Students are supported when they are programming. Other study types belong outside this workspace.
+        Tell me about your coding study. We’ll work through the design together.
       </p>
 
       <section className="mt-6 border-y border-border py-4" aria-labelledby="known-details-heading">
@@ -103,10 +96,7 @@ export function ConversationStart({
         >
           <span>
             <span id="known-details-heading" className="type-control block text-text">
-              Set the concrete details you already know
-            </span>
-            <span className="mt-0.5 block type-caption text-text-muted">
-              Use controls for fixed choices; the assistant will reason through everything else.
+              Add known details
             </span>
           </span>
           <ChevronDown
@@ -226,13 +216,9 @@ export function ConversationStart({
         </p>
       )}
 
-      <p className="mt-4 max-w-[58ch] type-caption text-text-muted">
-        Supported lane: comparative coding-task studies using TERN-captured developer activity. The protocol draft on the right is the record that will be validated before anything runs.
-      </p>
-
-      <div className="mt-6">
-        <p className="type-caption text-text-muted">Try an example</p>
-        <ul className="mt-2 divide-y divide-border overflow-hidden rounded-plate border border-border bg-surface">
+      <details className="mt-5">
+        <summary className="type-caption cursor-pointer text-text-muted">Try an example</summary>
+        <ul className="mt-2 divide-y divide-border">
           {OPENINGS.map((text) => (
             <li key={text}>
               <button
@@ -246,8 +232,8 @@ export function ConversationStart({
             </li>
           ))}
         </ul>
-        <p className="mt-2 type-caption text-text-muted">Examples fill the composer; nothing is sent until you press send.</p>
-      </div>
+        <p className="mt-2 type-caption text-text-muted">Edit the example, then send.</p>
+      </details>
     </section>
   );
 }

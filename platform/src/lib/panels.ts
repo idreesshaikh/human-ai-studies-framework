@@ -6,7 +6,7 @@ import { useSyncExternalStore } from "react";
  * want around the work depends on the screen you are sitting at, so this
  * follows the machine rather than the account. The navigation fold is global,
  * while the protocol draft fold belongs to a study. A new study therefore
- * opens its draft for orientation, and a return to that study remembers the
+ * starts with a focused conversation, and a return to that study remembers the
  * last choice made there.
  */
 
@@ -66,9 +66,9 @@ function readValue(id: PanelId, studyId?: string): boolean {
   if (key in cache) return cache[key];
   if (key === KEY) return cache.nav;
   try {
-    cache[key] = localStorage.getItem(key) === "1";
+    cache[key] = localStorage.getItem(key) !== "0";
   } catch {
-    cache[key] = false;
+    cache[key] = true;
   }
   return cache[key];
 }

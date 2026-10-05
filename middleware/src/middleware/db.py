@@ -325,6 +325,20 @@ class Study(Base):
     data_path: Mapped[str] = mapped_column(String, default="")
 
 
+class EvidenceMapRow(Base):
+    """Immutable study-scoped evidence revisions, with curator review intact."""
+
+    __tablename__ = "evidence_maps"
+    __table_args__ = (UniqueConstraint("study_id", "map_id", "map_version"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    study_id: Mapped[str] = mapped_column(String, index=True)
+    map_id: Mapped[str] = mapped_column(String)
+    map_version: Mapped[str] = mapped_column(String)
+    digest: Mapped[str] = mapped_column(String)
+    document: Mapped[dict] = mapped_column(JSON)
+
+
 class ConversationTurn(Base):
     """One turn of a study's design conversation (FR-CONV-1)."""
 
