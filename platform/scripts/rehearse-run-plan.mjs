@@ -3,21 +3,20 @@ import AxeBuilder from "@axe-core/playwright";
 import assert from "node:assert/strict";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-const BASE = process.env.REHEARSAL_URL;
-if (!BASE || !["localhost", "127.0.0.1", "[::1]"].includes(new URL(BASE).hostname)) {
-  throw new Error("Set REHEARSAL_URL to an isolated local server. This test creates synthetic studies and participant links.");
-}
+import { createRehearsalProject, rehearsalUrl } from "./rehearsal-project.mjs";
+const BASE = rehearsalUrl();
 
 (async () => {
   const browser = await chromium.launch({ headless: Boolean(process.env.CI) });
+  let rehearsal;
   try {
     const context = await browser.newContext({viewport:{width:1440,height:1000}});
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     const name = `Usability rehearsal ${Date.now()}`;
-    const project = await (await page.request.post(`${BASE}/projects`, {data:{name}})).json();
-    const study = await (await page.request.post(`${BASE}/projects/${project.slug}/studies`, {data:{name}})).json();
+    rehearsal = await createRehearsalProject(page.request, BASE, name);
+    const { project, study } = rehearsal;
     const route = `${BASE}/p/${project.slug}/studies/${study.id}`;
     await page.goto(`${route}?tab=planning`);
     await page.getByRole('link', {name:'Set up the study',exact:true}).waitFor();
@@ -110,5 +109,7 @@ if (!BASE || !["localhost", "127.0.0.1", "[::1]"].includes(new URL(BASE).hostnam
     await expect(page.getByRole('button',{name:'Copy',exact:true}).first()).toBeVisible();
     assert.deepEqual(errors,[]);
     console.log('PASS: empty Plan -> manual setup -> draft preview -> approval -> keyboard assignment -> privacy -> desktop/mobile axe -> outage/retry -> enrollment');
-  } finally { await browser.close(); }
+  } finally {
+    try { await rehearsal?.cleanup(); } finally { await browser.close(); }
+  }
 })();

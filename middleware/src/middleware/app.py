@@ -77,6 +77,7 @@ from middleware.db import (
     DesignMoveRow,
     EnrollmentToken,
     Event,
+    EvidenceMapRow,
     Invitation,
     Membership,
     MetricRow,
@@ -2448,11 +2449,29 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         ApprovalEvent,
         Compilation,
         ProtocolDraftRow,
+        EvidenceMapRow,
+        SessionBlock,
         SessionOpen,
         StudyWorkspace,
     )
 
     def _delete_study_scoped_rows(s: Session, study_id: str) -> None:
+        # Capture is keyed by session, not study. Resolve ownership before deleting
+        # its mappings; never infer it from a participant or a name prefix.
+        owned = union(
+            select(SessionOpen.session_id).where(SessionOpen.study_id == study_id),
+            select(SessionBlock.session_id).where(SessionBlock.study_id == study_id),
+        )
+        shared = union(
+            select(SessionOpen.session_id).where(SessionOpen.study_id != study_id),
+            select(SessionBlock.session_id).where(SessionBlock.study_id != study_id),
+        )
+        for model in (Event, MetricRow):
+            s.execute(
+                model.__table__.delete().where(
+                    model.session_id.in_(owned), model.session_id.not_in(shared)
+                )
+            )
         for model in _STUDY_SCOPED:
             s.execute(model.__table__.delete().where(model.study_id == study_id))
 

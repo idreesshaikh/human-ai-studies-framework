@@ -48,14 +48,20 @@ The checked-in browser rehearsal creates synthetic projects and links on a local
 server. Use a separate database, build the platform, install Chromium, then run:
 
 ```bash
-REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:run-plan
-REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:evidence-chat
+REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:run-plan
+REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:evidence-chat
 ```
 
 It checks manual setup, unapplied preview, approval, keyboard selection, privacy,
 desktop/mobile accessibility, failure recovery and enrollment. Screenshots go to
 the OS temporary directory. It refuses non-local targets to avoid touching a
 hosted participant deployment.
+
+`REHEARSAL_ISOLATED=1` confirms that you started this server with a separate
+synthetic database; loopback alone does not prove isolation. Each rehearsal
+removes only its own newly created project in a `finally` block, including after
+failure. Add `REHEARSAL_KEEP=1` to retain a synthetic fixture for presentation or
+debugging. Existing projects and downloaded artifacts are never swept or deleted.
 
 The change must pass the full Python coverage floor, frontend check/build,
 accessibility and a browser rehearsal before merge. Use normal required review;

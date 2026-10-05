@@ -4,22 +4,21 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createRehearsalProject, rehearsalUrl } from "./rehearsal-project.mjs";
 
-const BASE = process.env.REHEARSAL_URL;
-if (!BASE || !["localhost", "127.0.0.1", "[::1]"].includes(new URL(BASE).hostname)) {
-  throw new Error("Set REHEARSAL_URL to an isolated local server. This rehearsal creates synthetic studies and decisions.");
-}
+const BASE = rehearsalUrl();
 const fixturePath = new URL("../../protocol/examples/evidence-workflow-demo.json", import.meta.url);
 const fixture = JSON.parse(await readFile(fixturePath, "utf8"));
 const browser = await chromium.launch({ headless: Boolean(process.env.CI) });
+let rehearsal;
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   const name = `Synthetic evidence rehearsal ${Date.now()}`;
-  const project = await (await page.request.post(`${BASE}/projects`, { data: { name } })).json();
-  const study = await (await page.request.post(`${BASE}/projects/${project.slug}/studies`, { data: { name } })).json();
+  rehearsal = await createRehearsalProject(page.request, BASE, name);
+  const { project, study } = rehearsal;
   const route = `${BASE}/p/${project.slug}/studies/${study.id}`;
   await page.goto(route);
   await page.getByRole("heading", { name: "Study design chat" }).waitFor();
@@ -126,5 +125,5 @@ try {
   assert.deepEqual(errors, []);
   console.log(`PASS: chat, import, sources, constraints, outage recovery, keyboard approval, desktop/mobile accessibility. ${route}`);
 } finally {
-  await browser.close();
+  try { await rehearsal?.cleanup(); } finally { await browser.close(); }
 }

@@ -51,12 +51,14 @@ events are **not** interchangeable with session timer telemetry. Arrange and
 verify the external task harness before attempting data collection.
 
 ```bash
-REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:evidence-chat
+REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:evidence-chat
 ```
 
 The rehearsal creates synthetic studies only on a loopback target. It checks
 chat, invalid imports, source inspection, constraint changes, failure recovery,
 keyboard approval, desktop/mobile accessibility and exported evidence.
+It cleans up only its newly created project, even on failure. Set
+`REHEARSAL_KEEP=1` to retain that synthetic presentation fixture explicitly.
 
 This delivers a software slice of #92–94, not completion of #89. The independently
 reviewed 20–30-study map, third design-family execution, expert benchmark,
