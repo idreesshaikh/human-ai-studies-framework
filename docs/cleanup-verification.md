@@ -10,7 +10,7 @@ printed. Existing database records and downloads were not deleted.
 - **P0 — Evidence delivery missing from main.** #101 merged at 10:09:06 UTC;
   #102 merged into its feature branch at 10:09:25 UTC. Main therefore lacked
   the evidence implementation despite both PRs saying merged. This follow-up
-  reapplies that already-reviewed feature commit onto current main. Verify the
+  reapplies that previously submitted feature commit onto current main. Verify the
   follow-up's merge and deployed build before claiming delivery.
 - **P1 — Incomplete study deletion.** The explicit cleanup list omitted
   `evidence_maps` and `session_blocks`; session-keyed events and metrics were
