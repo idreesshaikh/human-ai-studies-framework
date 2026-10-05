@@ -112,6 +112,11 @@ capture and analysis paths connect, not that the study design is valid.
 
 ## Contribute
 
+The research extension starts with a versioned
+[study-evidence mapping contract](docs/evidence-mapping.md). Its validator and
+synthetic example are available now; the reviewed pilot map and recommendation
+workflow remain future work.
+
 Start with [contributing](docs/contributing.md) for setup and checks, and the
 [architecture guide](docs/architecture.md) for the code paths. The
 [scope](docs/scope.md) explains the project boundary. Bug reports, reproducibility

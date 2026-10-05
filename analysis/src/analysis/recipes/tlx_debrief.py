@@ -55,6 +55,9 @@ def run(dataset: Dataset) -> RecipeResult:
     for sub in subscales:
         df = surveys[["participantId", "condition", sub]].copy()
         df[sub] = pd.to_numeric(df[sub], errors="coerce")
+        # Condition-specific items have no ratings in the other arm.
+        # Compare observed cells rather than testing against an empty sample.
+        df = df.dropna(subset=[sub])
         test, desc, sentence = compare_or_describe(df, sub, dataset)
         cells.append(desc.assign(subscale=sub))
         sentences.append(f"{sub}: {sentence}")

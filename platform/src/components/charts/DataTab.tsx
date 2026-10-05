@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   CheckCircle2,
@@ -40,6 +40,9 @@ export function DataTab({ studyId }: { studyId: string }) {
   const [seeded, setSeeded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [syntheticScope, setSyntheticScope] = useState({ studyId, enabled: false });
+  const includeSynthetic = syntheticScope.studyId === studyId && syntheticScope.enabled;
+  const requestVersion = useRef(0);
   const [dryRun, setDryRun] = useState<{
     report: Awaited<ReturnType<typeof studyApi.simulate>> | null;
     error: string | null;
@@ -47,9 +50,13 @@ export function DataTab({ studyId }: { studyId: string }) {
   }>({ report: null, error: null, busy: false });
 
   const refresh = (live: boolean, initial = false) => {
-    Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)])
+    const version = ++requestVersion.current;
+    Promise.all([
+      studyApi.status(studyId, includeSynthetic),
+      studyApi.dataset(studyId, includeSynthetic),
+    ])
       .then(([s, d]) => {
-        if (!live) return;
+        if (!live || version !== requestVersion.current) return;
         setLoadError(null);
         setSessions(s.sessions);
         setStatusDoc(s);
@@ -61,7 +68,7 @@ export function DataTab({ studyId }: { studyId: string }) {
         setRows(d.rows);
       })
       .catch((e: unknown) => {
-        if (!live) return;
+        if (!live || version !== requestVersion.current) return;
         // A study that hasn't compiled a protocol yet has no data  -  that's a
         // real, reachable state, not a fault. Surface it calmly instead of
         // letting the rejection blank the tab.
@@ -70,7 +77,7 @@ export function DataTab({ studyId }: { studyId: string }) {
         );
       })
       .finally(() => {
-        if (live && initial) setLoading(false);
+        if (live && initial && version === requestVersion.current) setLoading(false);
       });
   };
 
@@ -98,9 +105,10 @@ export function DataTab({ studyId }: { studyId: string }) {
     refresh(live, true);
     return () => {
       live = false;
+      requestVersion.current++;
       off();
     };
-  }, [studyId]);
+  }, [studyId, includeSynthetic]);
 
   const runDryRun = async () => {
     setDryRun({ report: null, error: null, busy: true });
@@ -124,7 +132,6 @@ export function DataTab({ studyId }: { studyId: string }) {
     }
   };
   const [showClientRehearsal, setShowClientRehearsal] = useState(false);
-  const [includeSynthetic, setIncludeSynthetic] = useState(false);
   const [download, setDownload] = useState<{
     busy: boolean;
     error: string | null;
@@ -189,6 +196,23 @@ export function DataTab({ studyId }: { studyId: string }) {
 
   return (
     <Surface measure="work" label="Data">
+      {!seeded && (
+        <div className="flex flex-col gap-2 border-b border-border pb-5">
+          <label className="flex items-center gap-2 type-caption text-text">
+            <input
+              type="checkbox"
+              checked={includeSynthetic}
+              onChange={(event) => setSyntheticScope({ studyId, enabled: event.target.checked })}
+            />
+            Include dry-run (synthetic) rows
+          </label>
+          <p className="type-caption text-text-muted" role="status">
+            {includeSynthetic
+              ? "Views and data bundles include synthetic rehearsal data. These are not participant findings."
+              : "Views and data bundles exclude synthetic rehearsal data."}
+          </p>
+        </div>
+      )}
       {seeded && (
         <p
           className="flex items-center gap-2 rounded-control border border-border bg-well px-3 py-2 type-caption text-text"
@@ -266,7 +290,7 @@ export function DataTab({ studyId }: { studyId: string }) {
         </p>
       )}
 
-      {sessions.length > 0 && !seeded && (
+      {!loadError && !seeded && (
         <section className="flex flex-col gap-2 border-b border-border pb-5">
           <h2 className="type-subhead text-text">Download data</h2>
           <p className="max-w-reading type-caption text-text-muted">
@@ -283,14 +307,6 @@ export function DataTab({ studyId }: { studyId: string }) {
               <Download className="size-4" aria-hidden />
               Download data (.zip)
             </Button>
-            <label className="flex items-center gap-2 type-caption text-text-muted">
-              <input
-                type="checkbox"
-                checked={includeSynthetic}
-                onChange={(e) => setIncludeSynthetic(e.target.checked)}
-              />
-              Include dry-run (synthetic) rows
-            </label>
           </div>
           {download.error && (
             <p className="type-caption text-critical" role="alert">

@@ -447,12 +447,12 @@ export const studyApi = {
       `${study}-elicitation-record.json`,
     );
   },
-  dataset: (study: string) =>
+  dataset: (study: string, includeSynthetic = false) =>
     liveOrSeedStudy(
       study,
       () =>
         req<{ studyId: string; rows: DatasetRow[] }>(
-          `/studies/${enc(study)}/dataset`,
+          `/studies/${enc(study)}/dataset${includeSynthetic ? "?includeSynthetic=true" : ""}`,
         ),
       { studyId: study, rows: SEED_DATASET },
       { studyId: study, rows: [] },
@@ -544,12 +544,12 @@ export const studyApi = {
       profile,
       ...(seed !== undefined ? { seed } : {}),
     }),
-  status: (study: string) =>
+  status: (study: string, includeSynthetic = false) =>
     liveOrSeedStudy(
       study,
       () =>
         req<StudyStatusDoc>(
-          `/studies/${enc(study)}/status`,
+          `/studies/${enc(study)}/status${includeSynthetic ? "?includeSynthetic=true" : ""}`,
         ),
       {
         studyId: study,

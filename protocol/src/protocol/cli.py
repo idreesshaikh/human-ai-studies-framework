@@ -33,6 +33,25 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_validate_evidence(args: argparse.Namespace) -> int:
+    from protocol.evidence import load_evidence_map
+
+    mapping = load_evidence_map(args.file)
+    print(
+        f"OK: {mapping['mapId']} {mapping['mapVersion']} "
+        f"(evidence schema {mapping['schemaVersion']}); "
+        f"{len(mapping['studies'])} studies, {len(mapping['relations'])} relations."
+    )
+    return 0
+
+
+def _cmd_evidence_schema(args: argparse.Namespace) -> int:
+    from protocol.evidence import evidence_map_schema
+
+    print(json.dumps(evidence_map_schema(), indent=2))
+    return 0
+
+
 def _cmd_derive(args: argparse.Namespace) -> int:
     protocol = load_protocol(args.file)
     settings = derive_overlay_settings(protocol, args.participant, args.condition)
@@ -93,6 +112,16 @@ def _build_parser() -> argparse.ArgumentParser:
     validate = sub.add_parser("validate", help="validate a protocol file")
     validate.add_argument("file")
     validate.set_defaults(func=_cmd_validate)
+
+    evidence = sub.add_parser(
+        "validate-evidence-map", help="validate a study-evidence map"
+    )
+    evidence.add_argument("file")
+    evidence.set_defaults(func=_cmd_validate_evidence)
+    evidence_schema = sub.add_parser(
+        "evidence-map-schema", help="emit evidence map schema"
+    )
+    evidence_schema.set_defaults(func=_cmd_evidence_schema)
 
     derive = sub.add_parser(
         "derive", help="derive instrument configuration from the protocol"

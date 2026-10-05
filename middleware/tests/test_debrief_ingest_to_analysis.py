@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import analysis.recipes  # noqa: F401 - register recipes
+import pytest
 from analysis.core import REGISTRY
 from analysis.dataset import Dataset
 from fastapi.testclient import TestClient
@@ -49,7 +50,8 @@ def _event(session: str, participant: str, condition: str, responses: dict) -> d
     }
 
 
-def test_debrief_survives_ingest_and_drives_tlx_analysis(tmp_path):
+@pytest.mark.parametrize("include_ai_reliance", [False, True])
+def test_debrief_survives_ingest_and_drives_tlx_analysis(tmp_path, include_ai_reliance):
     settings = Settings(
         db_path=tmp_path / "t.sqlite3",
         data_dir=tmp_path / "data",
@@ -66,6 +68,10 @@ def test_debrief_survives_ingest_and_drives_tlx_analysis(tmp_path):
             _event("S4", "P04", "unassisted", _responses(4)),
         ],
     }
+    if include_ai_reliance:
+        for event in batch["events"]:
+            if event["condition"] == "ai-assisted":
+                event["payload"]["responses"]["ai_reliance"] = 6
     with TestClient(create_app(settings)) as client:
         r = client.post("/ingest/events", json=batch)
         assert r.status_code == 200, r.text
@@ -81,6 +87,21 @@ def test_debrief_survives_ingest_and_drives_tlx_analysis(tmp_path):
     result = REGISTRY["tlx-debrief"].run(dataset)
     subscales = set(result.tables["per_condition"]["subscale"])
 
-    assert subscales == set(_SUBSCALES), f"expected the six subscales, got {subscales}"
+    expected = set(_SUBSCALES) | ({"ai_reliance"} if include_ai_reliance else set())
+    assert subscales == expected
+    if include_ai_reliance:
+        exported = result.tables["responses"]
+        assert (
+            exported.loc[exported["condition"] == "unassisted", "ai_reliance"]
+            .isna()
+            .all()
+        )
+        assert (
+            exported.loc[exported["condition"] == "ai-assisted", "ai_reliance"]
+            .eq(6)
+            .all()
+        )
+        assert "ai_reliance" not in set(result.tables["tests"]["subscale"])
+        assert "nan" not in result.summary.lower()
     assert "msToComplete" not in subscales and "comments" not in subscales
     assert "responded" in result.summary

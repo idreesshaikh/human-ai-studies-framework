@@ -66,7 +66,9 @@ outcome = json.loads(request(
 ))
 assert outcome["events"] > 0
 assert not outcome["plan"].get("errors"), outcome["plan"]
-dataset = json.loads(request(f"/studies/{study}/dataset"))
+live_dataset = json.loads(request(f"/studies/{study}/dataset"))
+assert live_dataset["rows"] == [], "synthetic sessions leaked into the live dataset"
+dataset = json.loads(request(f"/studies/{study}/dataset?includeSynthetic=true"))
 rows = dataset["rows"]
 assert {row["sessionId"] for row in rows} == set(outcome["sessionIds"])
 assert all(row["payload"].get("synthetic") is True for row in rows)
@@ -87,7 +89,9 @@ event["type"] = "editor_focus"
 json.loads(request("/ingest/events", batch))
 gaps = json.loads(request(f"/sessions/{row['sessionId']}/gaps"))
 assert gaps["gaps"], gaps
-csv_header = request(f"/studies/{study}/dataset?format=csv").splitlines()[0]
+csv_header = request(
+    f"/studies/{study}/dataset?format=csv&includeSynthetic=true"
+).splitlines()[0]
 assert b"taskId" in csv_header and b"schemaVersion" in csv_header
 print("Replay is idempotent; sequence gaps and CSV join keys are present.", flush=True)
 

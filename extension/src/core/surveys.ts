@@ -84,3 +84,10 @@ export const AI_CONDITION_ITEM: LikertItem = {
   highLabel: 'Entirely',
   points: 7,
 };
+
+/** Resolve the debrief from the session's locked assignment. */
+export function endSurveyItems(condition: string): LikertItem[] {
+  return condition === 'ai-assisted'
+    ? [...END_SURVEY_ITEMS, AI_CONDITION_ITEM]
+    : [...END_SURVEY_ITEMS];
+}

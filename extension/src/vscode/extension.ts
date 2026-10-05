@@ -687,7 +687,7 @@ async function finishStudy(reason: 'elapsed' | 'manual'): Promise<void> {
     pausedMs: s.session.pausedMsAccumulated,
   });
 
-  const survey = await showEndSurvey();
+  const survey = await showEndSurvey(s.session.cfg.condition);
   if (survey) {
     s.recorder.record('end_survey_response', { ...survey });
   } else {
