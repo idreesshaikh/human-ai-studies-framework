@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,9 +38,11 @@ const MEASURE_OPTIONS = [
 export function ConversationStart({
   onUse,
   onEnterManually,
+  composer,
 }: {
   onUse: (text: string) => void;
   onEnterManually?: () => void;
+  composer: ReactNode;
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [design, setDesign] = useState("within-subjects");
@@ -82,12 +84,12 @@ export function ConversationStart({
 
   return (
     <section aria-label="Start the developer study setup" className="max-w-reading">
-      <h2 className="type-section text-text">What do you want to find out?</h2>
-      <p className="mt-2 max-w-[52ch] type-body text-text-muted">
-        Tell me about your coding study. We’ll work through the design together.
-      </p>
+      <h2 className="type-title text-center text-text">What would you like to study?</h2>
+      <div className="mt-6">{composer}</div>
 
-      <section className="mt-6 border-y border-border py-4" aria-labelledby="known-details-heading">
+      <details className="mt-4">
+        <summary className="type-caption cursor-pointer text-center text-text-muted">Examples and study tools</summary>
+      <section className="mt-4 border-y border-border py-4" aria-labelledby="known-details-heading">
         <button
           type="button"
           className="flex w-full items-center justify-between gap-4 text-left"
@@ -233,6 +235,7 @@ export function ConversationStart({
           ))}
         </ul>
         <p className="mt-2 type-caption text-text-muted">Edit the example, then send.</p>
+      </details>
       </details>
     </section>
   );

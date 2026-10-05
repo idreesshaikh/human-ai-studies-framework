@@ -189,7 +189,6 @@ export function MoveCard({
                   * ProjectSwitcher wears. As a bare dimmed letter butted
                   * against the label it read as part of the sentence  -
                   * "Note it a…" had a reviewer asking "note it as what?" */}
-                <kbd className="type-legend ml-1 hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">a</kbd>
               </Button>
               <Button
                 size="sm"
@@ -198,7 +197,7 @@ export function MoveCard({
                 onClick={() => onDecide(move.moveId, "rejected", move)}
               >
                 <X aria-hidden />
-                Reject<kbd className="type-legend ml-1 hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">r</kbd>
+                Reject
               </Button>
             </div>
           )}

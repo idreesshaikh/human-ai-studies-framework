@@ -23,13 +23,18 @@ project participant credentials or real participant data.
   immutable maps, explicit constraints, supporting passages, atomic design/analysis
   choices, researcher approval and provenance exports. Chat is the primary surface;
   examples, fixed-detail forms and protocol panels use progressive disclosure.
+- Researcher chat: one welcome prompt and a prominent composer; research tools
+  are in a keyboard-accessible menu. Recorded decisions fold away but retain
+  source inspection and Undo. Protocol review remains an explicit approval step.
+- #49: chronological session replay; optional code patches require an explicitly
+  selected task file and the approved raw-code policy. No diffs are inferred.
 
 ## Open-ticket boundaries
 
 | Tickets | What remains; do not claim completion |
 | --- | --- |
 | #47 | PR #100 checks model availability; independent quality/cost evaluation remains |
-| #49 | Event replay exists; understandable code diffs require explicit source capture policy |
+| #49 | Replay and opt-in diffs implemented; physical editor capture rehearsal and merge remain |
 | #50 | Comparative subagent experiment; do not add an unevaluated agent layer before a demo |
 | #54/#58–61 | Final submission requirements, actual outcomes and author-reviewed contributions |
 | #57 | Protected-branch checks, review and public-release verification |
@@ -50,6 +55,7 @@ server. Use a separate database, build the platform, install Chromium, then run:
 ```bash
 REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:run-plan
 REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:evidence-chat
+REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:session-replay
 ```
 
 It checks manual setup, unapplied preview, approval, keyboard selection, privacy,

@@ -58,6 +58,9 @@ def test_run_plan_is_project_scoped(client):
     path = f"/studies/{study['id']}/run-plan"
     assert client.get(path, headers=bearer("alice")).status_code == 200
     assert client.get(path, headers=bearer("bob")).status_code == 403
+    replay_path = f"/studies/{study['id']}/sessions/private/replay"
+    assert client.get(replay_path, headers=bearer("bob")).status_code == 403
+    assert client.get(replay_path, headers=bearer("alice")).status_code == 404
 
 
 def make_project(client: TestClient, owner: str, name: str) -> str:

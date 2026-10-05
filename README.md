@@ -18,10 +18,12 @@ server joins editor events, surveys, and optional external measurements for
 export to a notebook. The live workflow is the supported product; external
 data mining is kept as a separate experimental package.
 
-This is a feature-complete master's research project for task-based human–AI
-software-development studies. Future changes are refinements to correctness,
-security, accessibility, reproducibility, and documentation; researchers remain
-responsible for methodological choices, ethics approval, and interpretation.
+The supported core is task-based human–AI software-development studies.
+Research extensions and empirical evaluation remain in progress. Researchers
+remain responsible for methodological choices, ethics approval, and interpretation.
+
+See [contribution guidance](CONTRIBUTING.md), [release readiness](docs/release-readiness.md),
+[session replay](docs/session-replay.md), and [research evaluation](docs/research-evaluation.md).
 
 ## How it fits together
 

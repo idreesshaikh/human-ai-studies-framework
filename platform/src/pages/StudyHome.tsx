@@ -168,7 +168,7 @@ export function StudyHome() {
        * rule that divides chrome from work, instead of floating 20px above
        * an unrelated border. */}
       <header className="border-b border-border bg-surface">
-        <div className="flex items-center gap-3 px-4 pb-1.5 pt-2">
+        <div className="flex items-center gap-3 px-4 py-1">
           <div className="flex min-w-0 items-baseline gap-2">
             <Link
               to={`/p/${slug}`}
@@ -193,7 +193,7 @@ export function StudyHome() {
             {/* A study id IS its slug in the schema, so the header was
              * printing `trust-calibration-in-ai-code-review` at 28px as the
              * study's name. Same string, read as words. */}
-            <h1 className="type-title truncate text-text" title={humanSlug(id)}>
+            <h1 className="type-control truncate text-text" title={humanSlug(id)}>
               {humanSlug(id)}
             </h1>
           </div>

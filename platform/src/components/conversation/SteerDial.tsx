@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { Check, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { STEER_STOPS, steerStop, type SteerLevel } from "@/lib/steer";
 
@@ -56,24 +56,20 @@ export function SteerDial({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={`Steer mode: ${stop.label}`}
+        title={`Assistant response style: ${stop.label}`}
         onClick={() => setOpen((current) => !current)}
       >
         <SlidersHorizontal className="size-4 text-text-muted" aria-hidden />
-        <span className="type-control">{stop.label}</span>
-        <ChevronDown
-          className={cn("size-3.5 text-text-muted transition-transform duration-fast", open && "rotate-180")}
-          aria-hidden
-        />
       </button>
 
       {open && (
         <div
           role="dialog"
           aria-label="Choose steer mode"
-          className="absolute bottom-full right-0 z-50 mb-2 w-80 rounded-card border border-border bg-surface-raised p-2 shadow-lifted"
+          className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-card border border-border bg-surface-raised p-2 shadow-lifted"
         >
           <div className="px-2 pb-2 pt-1">
-            <p className="type-subhead text-text">Steer the assistant</p>
+            <p className="type-subhead text-text">Assistant response style</p>
             <p className="type-caption mt-0.5 text-text-muted">
               Choose how much initiative it takes in this study.
             </p>

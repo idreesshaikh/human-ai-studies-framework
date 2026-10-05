@@ -614,6 +614,8 @@ export const studyApi = {
     ),
   runPlan: (study: string, participantIndex = 0, preview = true) =>
     req<RunPlan>(`/studies/${enc(study)}/run-plan?participantIndex=${participantIndex}&preview=${preview}`),
+  sessionReplay: (studyId: string, sessionId: string) =>
+    req<{ sessionId: string; rawCode: boolean; frames: ReplayFrame[] }>(`/studies/${enc(studyId)}/sessions/${enc(sessionId)}/replay`),
   sessionEvents: (studyId: string, sessionId: string) =>
     liveOrSeedStudy(
       studyId,
@@ -622,6 +624,12 @@ export const studyApi = {
       [],
     ),
 };
+
+export interface ReplayFrame {
+  ts: string; source: string; seq: number; type: string; flags: string[];
+  changes: { filesChanged?: number; insertions?: number; deletions?: number };
+  diff: string | null; codeState: "captured" | "policy-disabled" | "not-captured";
+}
 
 // ---------------------------------------------------------------- offline seed
 //

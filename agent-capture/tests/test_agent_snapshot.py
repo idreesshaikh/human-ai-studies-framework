@@ -104,6 +104,39 @@ def test_shadow_repo_never_captures_participant_git_internals(tmp_path, workspac
     assert "detect.py" in tracked
 
 
+def test_code_diff_is_explicit_file_scoped_and_off_by_default(tmp_path, workspace):
+    (workspace / ".env").write_text("SYNTHETIC_SECRET=fixture\n")
+    (workspace / "other.py").write_text("unselected fixture\n")
+    assert all(
+        "diff" not in e["payload"] for e in _snapshotter(tmp_path, workspace).snapshot()
+    )
+    snap = Snapshotter(
+        Keys("P01", "ai-assisted", "S1"),
+        workspace,
+        tmp_path / "shadow.git",
+        code_files=("detect.py",),
+    )
+    events = snap.snapshot()
+    patch = events[0]["payload"]["diff"]
+    assert "+def detect" in patch
+    assert "SYNTHETIC_SECRET" not in patch
+    assert "unselected fixture" not in patch
+    with pytest.raises(ValueError):
+        Snapshotter(
+            Keys("P01", "ai-assisted", "S1"),
+            workspace,
+            tmp_path / "shadow.git",
+            code_files=(".env",),
+        )
+    with pytest.raises(ValueError):
+        Snapshotter(
+            Keys("P01", "ai-assisted", "S1"),
+            workspace,
+            tmp_path / "shadow.git",
+            code_files=("../escape.py",),
+        )
+
+
 def test_git_wrapper_ignores_enclosing_git_context(tmp_path, monkeypatch):
     """
     When the snapshotter runs inside another git process (a commit hook, a rebase exec)
