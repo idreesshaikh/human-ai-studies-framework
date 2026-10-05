@@ -93,7 +93,6 @@ PROTOCOL_SLOTS: tuple[Slot, ...] = (
         "What will participants actually be doing in a session?",
         value_type="text",
     ),
-
     Slot(
         ("session", "durationMinutes"),
         "how long a session runs",
@@ -480,9 +479,7 @@ def _normalise_tern_config(config: object) -> tuple[dict, list[str]]:
     normalized = default_capture_instrument(_session_minutes_from_config(config))
     required = ("session", "fatigue", "stuck", "output")
     if any(not isinstance(source.get(section), dict) for section in required):
-        warnings.append(
-            "filled incomplete TERN config with standard capture defaults"
-        )
+        warnings.append("filled incomplete TERN config with standard capture defaults")
 
     optional_sections = {"ideHealth", "behavior", "comprehensionProbe"}
     unknown: list[str] = []
@@ -572,9 +569,9 @@ def _apply_field_moves(draft: dict, moves: list[dict]) -> list[str]:
                     "expected counterbalanced or fixed"
                 )
             else:
-                draft.setdefault("participants", {})[
-                    "counterbalanced"
-                ] = counterbalanced
+                draft.setdefault("participants", {})["counterbalanced"] = (
+                    counterbalanced
+                )
                 warnings.append(
                     "mapped the legacy design.conditionOrder field to "
                     "participants.counterbalanced"
@@ -604,6 +601,23 @@ def _apply_field_moves(draft: dict, moves: list[dict]) -> list[str]:
                 node[part] = nxt
             node = nxt
         node[slot.path[-1]] = value
+        analysis = patch.get("evidenceAnalysis")
+        if (
+            key == "participants.design"
+            and isinstance(analysis, dict)
+            and any(g.get("evidence") for g in move.get("grounding", []))
+        ):
+            # One reviewed choice changes its design and mapped analysis atomically.
+            # Other RQs and unrelated accepted choices remain untouched; Undo
+            # replays the prior plan rather than destructively rewriting it.
+            rq = analysis.get("rq")
+            if rq in {r["id"] for r in draft.get("researchQuestions", [])}:
+                plan = draft.setdefault("analysisPlan", [])
+                entry = next((p for p in plan if p.get("rq") == rq), None)
+                if entry is None:
+                    entry = {"rq": rq}
+                    plan.append(entry)
+                entry["recipes"] = analysis.get("recipes", [])
     return warnings
 
 
@@ -721,9 +735,7 @@ def _apply_analysis_moves(draft: dict, moves: list[dict]) -> list[str]:
     """Compile executable and legacy statistical moves into ``analysisPlan``."""
     warnings: list[str] = []
     declared_rqs = [
-        str(rq.get("id"))
-        for rq in draft.get("researchQuestions") or []
-        if rq.get("id")
+        str(rq.get("id")) for rq in draft.get("researchQuestions") or [] if rq.get("id")
     ]
     fallback_rq = declared_rqs[0] if declared_rqs else "RQ-1"
     plan = draft.get("analysisPlan") or []
@@ -752,9 +764,8 @@ def _apply_analysis_moves(draft: dict, moves: list[dict]) -> list[str]:
         if recipe_id is None:
             path = patch.get("path") or []
             section = patch.get("section")
-            if (
-                move.get("kind") in ("set-field", "set-parameter", "add-measure")
-                and (path == ["statisticalPlan"] or section == "statisticalPlan")
+            if move.get("kind") in ("set-field", "set-parameter", "add-measure") and (
+                path == ["statisticalPlan"] or section == "statisticalPlan"
             ):
                 recipe_id = _legacy_recipe(patch.get("value"))
                 legacy = recipe_id is not None
@@ -815,9 +826,7 @@ def _error_target(error: str) -> tuple[str, ...] | None:
     head, _, message = error.partition(": ")
     if not message:
         return None
-    parts: tuple[str, ...] = (
-        () if head == "(document root)" else tuple(head.split("."))
-    )
+    parts: tuple[str, ...] = () if head == "(document root)" else tuple(head.split("."))
     named = _REQUIRED_PROPERTY.match(message)
     return (*parts, named.group(1)) if named else parts
 

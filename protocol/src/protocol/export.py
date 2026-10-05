@@ -131,7 +131,12 @@ def _package_versions() -> dict[str, str]:
 
 
 def build_kit(
-    protocol_path: Path, dataset: dict, out_path: Path, repo_root: Path
+    protocol_path: Path,
+    dataset: dict,
+    out_path: Path,
+    repo_root: Path,
+    *,
+    evidence_record: dict | None = None,
 ) -> Path:
     """Assemble the deterministic kit archive; returns ``out_path``."""
     protocol = load_protocol(protocol_path)
@@ -142,6 +147,8 @@ def build_kit(
         staging = Path(td)
         (staging / "protocol.yaml").write_bytes(Path(protocol_path).read_bytes())
         (staging / "dataset.json").write_bytes(_canonical(dataset))
+        if evidence_record is not None:
+            (staging / "design-evidence.json").write_bytes(_canonical(evidence_record))
         (staging / "README.md").write_text(README_TEMPLATE.format(study_id=study_id))
         (staging / "literature.json").write_bytes(
             _canonical(protocol.get("literature", []))

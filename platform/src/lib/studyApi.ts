@@ -202,7 +202,7 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function studyRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
     res = await fetch(API_BASE + path, {
@@ -234,6 +234,8 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new OfflineError();
   }
 }
+
+const req = studyRequest;
 
 function post<T>(path: string, body: unknown): Promise<T> {
   return req<T>(path, {

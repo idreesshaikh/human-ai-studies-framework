@@ -8,7 +8,7 @@ import type {
   Turn,
   Understanding,
 } from "./types.ts";
-import { getAuthToken, notifyUnauthorized } from "./api.ts";
+import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
 import { OfflineError } from "./studyApi.ts";
 import { openingTurn } from "./conversationOpening.ts";
 import { isDemoStudy } from "./demo.ts";
@@ -59,7 +59,7 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
       /* non-JSON */
     }
     if (res.status === 401) notifyUnauthorized();
-    throw new Error(detail);
+    throw new ApiError(res.status, typeof detail === "string" && detail ? detail : `Request failed (${res.status})`);
   }
   if (res.status === 204) return undefined as T;
   try {
@@ -90,6 +90,7 @@ function mapGrounding(raw: unknown[]): Grounding[] {
       year: typeof row.year === "number" ? row.year : undefined,
       venue: typeof row.venue === "string" ? row.venue : undefined,
       why: String(row.why ?? ""),
+      evidence: row.evidence as Grounding["evidence"],
     };
   });
 }
