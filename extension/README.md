@@ -105,8 +105,12 @@ from the study protocol - no manual configuration, no side-channel.
    internally for event attribution but is not written back into editable
    settings, so it is not shown to the participant. A one-line summary
    confirms the capture scope.
-5. If the task declares a local materials folder, TERN opens that folder in
-   VS Code after pairing. Run **_TERN: Start Study Session_** when ready - the
+5. If the researcher set a study folder (a local path, or an uploaded zip that
+   TERN downloads and unpacks into its own storage) or the task declares a
+   local `materials` path, TERN opens that folder in VS Code after pairing. If
+   it can't - relative path, missing folder, failed download, or VS Code for the web -
+   you get a message with the reason and **Open Folder…** /
+   **Try again** buttons; pairing itself still succeeds. Run **_TERN: Start Study Session_** when ready - the
    session uses the researcher-issued configuration that arrived from the
    study.
 

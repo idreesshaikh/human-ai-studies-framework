@@ -40,6 +40,12 @@ Almost always one of the first checks above.
   `tern.behavior.languages` *and* `tern.stuck.languages`.
 - **File outside the workspace.** Open the task folder as the workspace so
   its files are counted as internal.
+- **The study folder didn't open after pairing.** TERN shows why: the path is
+  relative or a web address, the folder doesn't exist on this computer, the
+  download didn't match what the researcher uploaded, or this is VS Code for the
+  web (no local file system). In a WSL, SSH or container window the path must
+  exist on that window's machine. Use **Open Folder…** to open the task folder yourself, or
+  **Try again**. TERN never clones repositories.
 - **Behavioral capture switched off.** `tern.behavior.enabled` is the master
   switch; if it's `false`, none of the behavioral streams run.
 

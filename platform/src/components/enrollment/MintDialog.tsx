@@ -24,6 +24,7 @@ import {
  * copy of the authority string, and that second copy is how the identity
  * drifted out of sync with the extension manifest. */
 import { vscodeDeepLink } from "@/lib/extension";
+import { StudyFolderField } from "./StudyFolderField";
 
 /* The four capture legs, for the grouped config panel. The catalog carries a
  * `leg` key; the demo backend omits it, so instrument is the fallback group. */
@@ -157,6 +158,8 @@ export function MintDialog({ studyId, onMinted }: { studyId: string; onMinted: (
                 onBlur={onCountBlur} />
               <p className="type-caption text-text-muted">A whole number from 1 to 100.</p>
             </div>
+            <StudyFolderField studyId={studyId} />
+
             <div className="flex flex-col gap-1">
               <Label>Grain</Label>
               <SegmentedControl

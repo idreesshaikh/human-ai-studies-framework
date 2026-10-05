@@ -29,6 +29,7 @@ import {
   getStoredCredential,
   getPairedIdentity,
   enforcePairedSettings,
+  reapplyPairedSettings,
   pairingState,
   pairFromConnectionString,
   registerPairing,
@@ -118,7 +119,7 @@ export function activate(context: vscode.ExtensionContext): void {
   sidebar = registerSidebar(context, sidebarSession);
   context.subscriptions.push({ dispose: () => sidebar.dispose() });
   const pairedOnActivation = getPairedIdentity(context);
-  if (pairedOnActivation) void enforcePairedSettings(pairedOnActivation);
+  if (pairedOnActivation) void reapplyPairedSettings(context);
 
   context.subscriptions.push(
     vscode.commands.registerCommand('tern.startSession', () => startSession()),

@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { decodeConnectionString } from '../core/connectionString';
 import {
@@ -10,6 +12,8 @@ import {
 } from '../core/captureConfig';
 import { preflightSummary } from '../core/preflight';
 import { ConsentGate } from '../core/consentGate';
+import { openStudyFolder } from '../core/workspaceOpen';
+import { fetchAndUnpack } from '../core/workspaceArchive';
 
 const SECRET_CRED = 'tern.sessionCredential';
 const STATE_SERVER = 'tern.serverUrl';
@@ -87,19 +91,78 @@ const IDENTITY_KEYS = new Set([
   'output.httpEndpoint',
 ]);
 
+/** Workspace-scoped settings can only be written once a folder or workspace is
+ *  open; with none, VS Code throws "no workspace is opened". A participant
+ *  pairing from an empty window is the normal case (the study folder opens
+ *  right after), so pairing skips these writes and `reapplyPairedSettings`
+ *  makes them once the folder is open. */
+export function hasWorkspace(): boolean {
+  return (
+    (vscode.workspace.workspaceFolders?.length ?? 0) > 0 ||
+    vscode.workspace.workspaceFile !== undefined
+  );
+}
+
+/** Run a workspace-settings write without letting it abort pairing. A folder
+ *  that cannot take a `.vscode/settings.json` (read-only, owned by another
+ *  user) must not stop the participant joining or the study folder opening:
+ *  identity and locked settings live in extension state, not in that file. */
+async function bestEffort(write: () => Promise<void>): Promise<void> {
+  try {
+    await write();
+  } catch (e) {
+    console.warn('TERN: could not write workspace settings:', e);
+  }
+}
+
+/** Write a flat `tern.*` map into workspace settings, skipping values already
+ *  in place so an activation does not rewrite settings.json every time. */
+async function writeWorkspaceFlags(
+  flags: Record<string, unknown>,
+): Promise<void> {
+  if (!hasWorkspace()) return;
+  const conf = vscode.workspace.getConfiguration('tern');
+  for (const [key, value] of Object.entries(flags)) {
+    if (IDENTITY_KEYS.has(key)) continue; // identity/endpoint come from the redeem
+    if (
+      JSON.stringify(conf.inspect(key)?.workspaceValue) ===
+      JSON.stringify(value)
+    ) {
+      continue;
+    }
+    await bestEffort(() =>
+      Promise.resolve(
+        conf.update(key, value, vscode.ConfigurationTarget.Workspace),
+      ),
+    );
+  }
+}
+
 /** Apply a capture config's overlay flags into `tern.*` settings
- * (workspace scope). Called only at a session boundary (wall #6). */
+ * (workspace scope). Called only at a session boundary (wall #6). The flags are
+ * always remembered, so a pairing from an empty window still locks them. */
 async function applyConfig(
   context: vscode.ExtensionContext,
   cfg: CaptureConfig,
 ): Promise<void> {
   const flags = overlayFlags(cfg);
-  const conf = vscode.workspace.getConfiguration('tern');
-  for (const [key, value] of Object.entries(flags)) {
-    if (IDENTITY_KEYS.has(key)) continue; // identity/endpoint come from the redeem
-    await conf.update(key, value, vscode.ConfigurationTarget.Workspace);
-  }
+  await writeWorkspaceFlags(flags);
   await persistPairingState(context, STATE_LOCKED_SETTINGS, flags);
+}
+
+/** On activation in a window that now has a folder (typically right after the
+ *  study folder opened): write the settings pairing could not write earlier. */
+export async function reapplyPairedSettings(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  const paired = getPairedIdentity(context);
+  if (!paired || !hasWorkspace()) return;
+  await enforcePairedSettings(paired);
+  const locked = pairingState<Record<string, unknown>>(
+    context,
+    STATE_LOCKED_SETTINGS,
+  );
+  if (locked) await writeWorkspaceFlags(locked);
 }
 
 /** The credential last stored by a successful pairing, or undefined if this
@@ -282,22 +345,25 @@ export async function pairFromConnectionString(
     readBlock(result.captureConfig),
   );
   await persistPairingState(context, STATE_PENDING, undefined);
-  const conf = vscode.workspace.getConfiguration('tern');
-  await conf.update(
-    'studyId',
-    result.studyId,
-    vscode.ConfigurationTarget.Workspace,
-  );
-  await conf.update(
-    'participantId',
-    result.participantId,
-    vscode.ConfigurationTarget.Workspace,
-  );
-  await conf.update(
-    'output.httpEndpoint',
-    result.ingestEndpoint,
-    vscode.ConfigurationTarget.Workspace,
-  );
+  await bestEffort(async () => {
+    if (!hasWorkspace()) return;
+    const conf = vscode.workspace.getConfiguration('tern');
+    await conf.update(
+      'studyId',
+      result.studyId,
+      vscode.ConfigurationTarget.Workspace,
+    );
+    await conf.update(
+      'participantId',
+      result.participantId,
+      vscode.ConfigurationTarget.Workspace,
+    );
+    await conf.update(
+      'output.httpEndpoint',
+      result.ingestEndpoint,
+      vscode.ConfigurationTarget.Workspace,
+    );
+  });
   await applyConfig(context, result.captureConfig);
   await enforcePairedSettings({
     studyId: result.studyId,
@@ -307,14 +373,14 @@ export async function pairFromConnectionString(
   });
 
   // The redeem payload includes the first assigned task when the protocol
-  // declares one. Open a local task workspace before the participant starts;
+  // declares one. Open the assigned study folder before the participant starts;
   // repository URLs remain informational and are never executed or cloned.
   const initialBlock = readBlock(result.captureConfig);
-  if (initialBlock) await openAssignedWorkspace(initialBlock);
+  if (initialBlock) await openAssignedWorkspace(context, initialBlock);
   else {
     await refreshConfigAtSessionStart(context, false);
     const refreshedBlock = pairingState<SessionBlock>(context, STATE_BLOCK);
-    if (refreshedBlock) await openAssignedWorkspace(refreshedBlock);
+    if (refreshedBlock) await openAssignedWorkspace(context, refreshedBlock);
   }
   onPaired?.();
 
@@ -333,42 +399,93 @@ export async function pairFromConnectionString(
 export async function enforcePairedSettings(
   identity: PairedIdentity,
 ): Promise<void> {
-  const conf = vscode.workspace.getConfiguration('tern');
-  const target = vscode.ConfigurationTarget.Workspace;
-  await conf.update('studyId', identity.studyId, target);
-  await conf.update('participantId', identity.participantId, target);
-  // Do not write the assigned arm into editable workspace settings. The
-  // recorder receives it from the pairing lock, while leaving it here would
-  // let participants discover the blind through Settings or settings.json.
-  await conf.update('condition', undefined, target);
-  if (identity.ingestEndpoint) {
-    await conf.update('output.httpEndpoint', identity.ingestEndpoint, target);
+  if (!hasWorkspace()) return; // written on activation once a folder is open
+  await bestEffort(async () => {
+    const conf = vscode.workspace.getConfiguration('tern');
+    const target = vscode.ConfigurationTarget.Workspace;
+    await conf.update('studyId', identity.studyId, target);
+    await conf.update('participantId', identity.participantId, target);
+    // Do not write the assigned arm into editable workspace settings. The
+    // recorder receives it from the pairing lock, while leaving it here would
+    // let participants discover the blind through Settings or settings.json.
+    await conf.update('condition', undefined, target);
+    if (identity.ingestEndpoint) {
+      await conf.update('output.httpEndpoint', identity.ingestEndpoint, target);
+    }
+  });
+}
+
+/** Open the study folder the researcher assigned: a local path, or an uploaded
+ *  zip unpacked under the extension's own storage. Never clones a repository.
+ *  Pairing has already succeeded, so every problem ends in a clear message with
+ *  a way forward rather than a silent no-op. */
+async function openAssignedWorkspace(
+  context: vscode.ExtensionContext,
+  block: SessionBlock,
+): Promise<void> {
+  await openStudyFolder(block, {
+    env: {
+      web: vscode.env.uiKind === vscode.UIKind.Web,
+      homeDir: os.homedir(),
+      currentFolder: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+    },
+    isDirectory,
+    download: async (target) => {
+      const serverUrl = pairingState<string>(context, STATE_SERVER);
+      const credential = await context.secrets.get(SECRET_CRED);
+      if (!serverUrl || !credential) {
+        throw new Error('this computer is not paired with the study server');
+      }
+      return fetchAndUnpack({
+        serverUrl,
+        url: target.url,
+        credential,
+        sha256: target.sha256,
+        size: target.size,
+        destRoot: path.join(
+          context.globalStorageUri.fsPath,
+          'study-workspaces',
+          pairingState<string>(context, STATE_STUDY_ID) ?? 'study',
+        ),
+      });
+    },
+    openFolder: async (folder) => {
+      await vscode.commands.executeCommand(
+        'vscode.openFolder',
+        vscode.Uri.file(folder),
+        false,
+      );
+    },
+    offerFallback: (reason, shown) =>
+      offerFolderFallback(context, block, reason, shown),
+  });
+}
+
+function isDirectory(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
   }
 }
 
-/** Open only an explicit local folder supplied as task materials. */
-async function openAssignedWorkspace(block: SessionBlock): Promise<void> {
-  const raw = block.materials.trim();
-  if (!raw) return;
-  let folder: vscode.Uri | undefined;
-  if (raw.startsWith('file://')) {
-    try {
-      folder = vscode.Uri.parse(raw);
-    } catch {
-      return;
-    }
-  } else if (path.isAbsolute(raw)) {
-    folder = vscode.Uri.file(raw);
-  }
-  if (!folder) return;
-  const current = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (current && path.resolve(current) === path.resolve(folder.fsPath)) return;
-  try {
-    await vscode.commands.executeCommand('vscode.openFolder', folder, false);
-  } catch {
-    void vscode.window.showWarningMessage(
-      'Study connected, but the assigned workspace could not be opened automatically.',
-    );
+/** Tell the participant what happened and let them recover themselves. */
+async function offerFolderFallback(
+  context: vscode.ExtensionContext,
+  block: SessionBlock,
+  reason: string,
+  shown: string,
+): Promise<void> {
+  const task = block.title ? ` for “${block.title}”` : '';
+  const choice = await vscode.window.showWarningMessage(
+    `Study connected, but its folder${task} was not opened. ${reason} Folder: ${shown}`,
+    'Open Folder…',
+    'Try again',
+  );
+  if (choice === 'Open Folder…') {
+    await vscode.commands.executeCommand('workbench.action.files.openFolder');
+  } else if (choice === 'Try again') {
+    await openAssignedWorkspace(context, block);
   }
 }
 
