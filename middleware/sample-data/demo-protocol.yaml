@@ -13,7 +13,7 @@
 # demo's Data and Planning tabs render populated rather than empty:
 #   fatigue_response  -> fatigue-by-condition
 #   stuck_response    -> stuck-episodes
-#   end_survey        -> tlx-debrief
+#   end_survey_response -> tlx-debrief
 #   clipboard_paste   -> paste-behavior
 #   editor_focus      -> meyer-fragmentation
 #   ai_suggestion     -> ai-review-behavior, ziegler-acceptance-rate

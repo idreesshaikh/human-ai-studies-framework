@@ -13,3 +13,9 @@ synthetic dry run.
 
 The study is illustrative and uses anonymized demo IDs only. Generate a fresh
 handoff from a local middleware instance for a real study.
+
+> **Frozen snapshot.** This handoff predates the v4 debrief contract (issue #67):
+> its debrief events use the earlier `end_survey` name and flat payload rather than
+> `end_survey_response` with nested `responses`. It is kept as-is because it was
+> produced from a one-off local rehearsal; regenerate from a current middleware
+> instance for up-to-date field names.
