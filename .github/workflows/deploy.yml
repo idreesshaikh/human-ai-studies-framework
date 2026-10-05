@@ -1,12 +1,12 @@
-# Continuous deployment of the seeded demo (FR-OPS-1a, D24/D25).
+# Continuous deployment of the seeded demo (see docs/demo-runbook.md).
 #
 # Runs only after the CI workflow finishes green on main: builds the
-# container image (middleware + platform, one process - NFR-7), pushes it
+# container image (middleware + platform, one process), pushes it
 # to GHCR, then triggers a Railway deployment via the Railway API so the
 # demo instance rebuilds. The demo never runs a red build.
 #
 # Secrets used (all optional - steps skip cleanly when unset, so the
-# pipeline works before any account is provisioned; see RUNBOOK §9):
+# pipeline works before any account is provisioned; see docs/demo-runbook.md):
 #   RAILWAY_API_TOKEN      - Railway API token (account settings → tokens)
 #   RAILWAY_SERVICE_ID     - the Railway service ID for the demo deployment
 #   RAILWAY_ENVIRONMENT_ID - the Railway environment ID (e.g. production)
@@ -55,7 +55,7 @@ jobs:
           RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
         run: |
           if [ -z "$RAILWAY_API_TOKEN" ] || [ -z "$RAILWAY_SERVICE_ID" ]; then
-            echo "RAILWAY_API_TOKEN or RAILWAY_SERVICE_ID not set - skipping Railway deploy (RUNBOOK §9)."
+            echo "RAILWAY_API_TOKEN or RAILWAY_SERVICE_ID not set - skipping Railway deploy (secrets are optional; see docs/demo-runbook.md)."
             exit 0
           fi
           ENV_PART=""

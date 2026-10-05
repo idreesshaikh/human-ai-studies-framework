@@ -79,6 +79,54 @@ automated web tests do not verify that editor launch on the presentation machine
 
 ## Independent verification, 5 October
 
+### Combined Claude + merged-main delivery
+
+The original working folder was preserved in a private local checkpoint before
+integration. The combined copy was independently exercised on port 8014 with a
+separate SQLite database; no existing participant projects were deleted.
+
+- Python: **918 passed**, **84.16%** total coverage, metrics **98.92%**;
+  Ruff and six-package consistency passed.
+- Extension: **227 passed**, typecheck/lint/format passed, both dependency audits
+  reported zero vulnerabilities. VSIX packaging passed (52 files); the scripted
+  classifier harness ran and explicitly reports its known failure cases, not
+  real-world accuracy.
+- Platform: all semantic/UI checks, lint, typecheck, contrast and production
+  build passed; landing and unknown-route accessibility smoke passed.
+- Browser: final **60 cases** (five tabs × six widths × two themes), no Axe
+  violations or document overflow. Setup/approval/enrollment, evidence import,
+  source inspection, stale compile, Plan loading/assignment, replay, outage/retry,
+  keyboard/dialog/wheel scroll and all four download actions passed.
+- Additional human-workflow rehearsal: invalid counts never create links;
+  copy denial remains visible with manually selectable connection strings;
+  link dialogs fit 320–1440px; all tabs fit at 200% text; coarse-pointer buttons
+  have 44px targets; reading older chat stays in place when a reply completes;
+  Stop restores text immediately without resending; retry reuses its request id.
+- End-to-end smoke: 126 scoped synthetic rows, ingest idempotency, sequence-gap
+  detection, joined CSV keys, all ten analysis recipes, report/notebook/dictionary.
+- Strict documentation build passed. Docker daemon was unavailable locally;
+  a physical VS Code session and hosted deployment are **not certified** by these
+  tests. No claim of exhaustive testing of every possible state or measured
+  100/100 researcher usability is made.
+
+Run the extra regression against an isolated database:
+
+```bash
+REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8014 npm --prefix platform run rehearse:human-workflows
+```
+
+Integration retains Claude's disconnect/upload handling, validation harness,
+compiler-default warnings, revisions, readable capture labels, project palette,
+name limits and keyboard helpers, alongside merged evidence, replay, exports,
+study folders and the persistent collapsed draft rail. Contradictory route-removal
+assertions were corrected: Setup still calls quick-protocol, and the public
+schema/artifact/corpus APIs remain supported. Hosted unknown-study checks use
+hosted identity semantics; sensor integrity flags retain the existing nonblocking
+collection contract.
+
+The following records describe the earlier merged-main verification, not a second
+independent review of the combined delivery:
+
 - Full workspace: 841 Python tests passed, 83.28% coverage; metrics retained
   its stricter floor at 98.92%. Ruff and the six-package consistency check passed.
 - Extension: typecheck, lint, format and all 205 tests passed. Platform lint,

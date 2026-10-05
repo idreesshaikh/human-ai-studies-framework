@@ -1,5 +1,7 @@
 # PHOENIX · Human–AI Study Framework
 
+*This is the user guide, built with MkDocs from `documentation/`. Developer and architecture documentation lives in the repository's `docs/` folder.*
+
 ## From a research idea to a study you can trust
 
 PHOENIX is the researcher-facing half of the framework: a grounded design
@@ -55,8 +57,8 @@ the complete loop. If you are a participant, start with [Installing TERN](extens
 Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22, and a
 [Mistral API key](https://console.mistral.ai/) for the design conversation.
 PHOENIX uses Mistral Medium (`mistral-medium-latest`) for short design turns
-and Mistral Large for citation-heavy knowledge answers, both through Mistral's
-EU service. Set `MISTRAL_DESIGN_MODEL` to override the design model.
+through Mistral's EU service; Mistral Large is used only for optional
+model-assisted paper matching. Set `MISTRAL_DESIGN_MODEL` to override the design model.
 
 ```bash
 git clone https://github.com/idreesshaikh/human-ai-studies-framework.git

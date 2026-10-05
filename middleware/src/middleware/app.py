@@ -319,6 +319,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             block = blocks.get(e.sessionId)
             extra_flags: list[str] = []
             if cred_row is not None:
+                if s.get(SessionOpen, e.sessionId) is None:
+                    s.add(
+                        SessionOpen(
+                            session_id=e.sessionId,
+                            study_id=cred_row.study_id,
+                            protocol_version=1,
+                            opened_at=received,
+                        )
+                    )
                 expected = block.condition if block else cred_row.condition
                 if (e.participantId and e.participantId != cred_row.participant_id) or (
                     e.condition and e.condition != expected
@@ -1461,7 +1470,13 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         try:
             record = semantic_scholar.fetch_paper(ref, fetch=cached_fetch(s))
         except semantic_scholar.SemanticScholarError as exc:
-            raise HTTPException(502, f"Semantic Scholar: {exc}") from exc
+            if exc.status == 404:
+                raise HTTPException(
+                    404, "We couldn't find that paper. Check the arXiv id or DOI."
+                ) from exc
+            raise HTTPException(
+                502, "Paper lookup is unavailable right now. Try again later."
+            ) from exc
         upsert_paper(s, study_id, record, source="id")
         adopted = _adopt_corpus_edges(s, study_id, record["paperRef"])
         # Release the request transaction before the background session opens its
@@ -1494,6 +1509,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         """
 
         content = await file.read()
+        if not content.startswith(b"%PDF-"):
+            raise HTTPException(415, "Upload a PDF file.")
         extracted = pdf.extract(content)
         record = None
         title = extracted["title"] or (file.filename or "uploaded.pdf")
@@ -2249,6 +2266,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         name = str(body.get("name", "")).strip()
         if not name:
             raise HTTPException(400, "name is required")
+        if len(name) > 80:
+            raise HTTPException(400, "Project names must be 80 characters or fewer.")
 
         # Phase 6: Implicit personal projects. If the caller creates a project named
         # "Personal", check if they already have one  -  if so, return it (reusable).
@@ -2281,6 +2300,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 }
 
         chosen = str(body.get("slug", "")).strip()
+        if len(chosen) > 50 or (chosen and not re.fullmatch(r"[a-z0-9-]+", chosen)):
+            raise HTTPException(
+                400, "Use a slug of up to 50 lowercase letters, numbers or hyphens."
+            )
         slug = chosen
         if not slug:
             slug = _slug_from_text(name, 50)
@@ -2423,6 +2446,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(404, "project not found")
         name = str(body.get("name", "")).strip()
         base = _slug_from_text(name, 40) if name else ""
+        if len(name) > 120:
+            raise HTTPException(400, "Study names must be 120 characters or fewer.")
         if not base:
             base = "study"
         study_id = base
@@ -2538,6 +2563,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         name = str(body.get("name", "")).strip()
         if not name:
             raise HTTPException(400, "name is required")
+        if len(name) > 80:
+            raise HTTPException(400, "Project names must be 80 characters or fewer.")
         proj.name = name
         s.flush()
         return {"id": proj.id, "slug": proj.slug, "name": proj.name}
@@ -2599,7 +2626,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(404, "member not found")
         new_role = str(body.get("role", "")).strip()
         if new_role not in authz.ROLES:
-            raise HTTPException(400, f"role must be one of: {list(authz.ROLES)}")
+            raise HTTPException(400, "Choose owner, member or viewer as the role.")
         m.role = new_role
         s.flush()
         return {"identitySub": m.identity_sub, "role": m.role}
@@ -2649,7 +2676,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(404, "project not found")
         role = str(body.get("role", "")).strip()
         if role not in authz.ROLES:
-            raise HTTPException(400, f"role must be one of: {list(authz.ROLES)}")
+            raise HTTPException(400, "Choose owner or member as the role.")
+        email = str(body.get("email", "")).strip()
+        if email and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+            raise HTTPException(400, "Enter a valid email address.")
         # A member can invite peers (D40), but only an owner can mint an owner invite  -
         # otherwise invite_member would be a backdoor to ownership.
         if role == authz.Role.OWNER.value:
@@ -2774,6 +2804,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             raise HTTPException(404, f"no protocol for study {study_id!r}")
         if body.grain not in {"participant", "session"}:
             raise HTTPException(400, "grain must be 'participant' or 'session'")
+        if body.count < 1 or body.count > 100:
+            raise HTTPException(400, "count must be between 1 and 100")
         conditions = protocol["conditions"]
         existing = s.scalars(
             select(EnrollmentToken).where(EnrollmentToken.study_id == study_id)
@@ -3401,6 +3433,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     @app.post("/templates/{template_id}/instantiate")
     def instantiate_template(template_id: str, body: TemplateInstantiateIn) -> dict:
         """Template + parameters → a validated protocol draft (FR-TPL-1.4)."""
+        try:
+            template_registry.load_template(template_id)
+        except template_registry.TemplateError as exc:
+            raise HTTPException(404, "template not found") from exc
         params = dict(body.parameters)
         if body.studyId:
             params.setdefault("studyId", body.studyId)
@@ -3424,7 +3460,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         try:
             tpl = template_registry.load_template(template_id)
         except template_registry.TemplateError as exc:
-            raise HTTPException(404, str(exc)) from exc
+            raise HTTPException(404, "template not found") from exc
         return {
             "templateId": template_id,
             "explanation": template_registry.explain_plan(tpl),

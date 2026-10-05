@@ -11,3 +11,15 @@ export function memberLabel(
   if (viewer && m.identitySub === viewer.id) return viewer.label;
   return `Member ${m.identitySub.slice(-6)}`;
 }
+
+/** Who the signed-in viewer is, from whichever source knows: the hosted
+ * profile, else the server's /me. Used wherever the viewer's own row has to
+ * read the same as the header's account avatar ("You", not "Member local"). */
+export function viewerIdentity(
+  clerkUser: { id: string; label: string } | null | undefined,
+  me: { sub: string; displayName?: string } | null | undefined,
+): { id: string; label: string } | null {
+  if (clerkUser) return clerkUser;
+  if (me) return { id: me.sub, label: me.displayName ?? "You" };
+  return null;
+}

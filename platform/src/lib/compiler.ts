@@ -67,9 +67,13 @@ export function compile(
           if (!draft.conditions.includes(value)) draft.conditions.push(value);
         }
       } else if (path === "design.conditionOrder") {
-        draft.participants = ["set"];
+        setParticipantLine(draft, "condition order", move.patch.value);
       } else if (move.patch.path[0] === "participants") {
-        draft.participants = ["set"];
+        setParticipantLine(
+          draft,
+          move.patch.path.slice(1).join(" "),
+          move.patch.value,
+        );
       }
       continue;
     }
@@ -84,6 +88,23 @@ export function compile(
     }
   }
   return draft;
+}
+
+/* The participants slot shows the move's real planned value ("12
+ * participants"), never a placeholder. A repeat of the same field replaces its
+ * earlier line rather than stacking. */
+function setParticipantLine(
+  draft: ProtocolDraft,
+  field: string,
+  value: unknown,
+): void {
+  const text = Array.isArray(value) ? value.join(", ") : String(value ?? "");
+  const line =
+    field === "planned" && /^\d+$/.test(text)
+      ? `${text} participant${text === "1" ? "" : "s"}`
+      : `${field || "participants"}: ${text}`;
+  const prefix = field === "planned" ? /^\d+ participants?$/ : new RegExp(`^${field}: `);
+  draft.participants = [...draft.participants.filter((l) => !prefix.test(l)), line];
 }
 
 function legacyComparisonValues(value: unknown): string[] {

@@ -303,7 +303,7 @@ export function Constellation({
 
   if (graph.nodes.length === 0) {
     return (
-      <p className="p-6 type-body text-text-muted">
+      <p className="py-4 type-body text-text-muted">
         No papers yet. Add an arXiv id, DOI, or PDF, and the neighbourhood grows
         from the citation service.
       </p>

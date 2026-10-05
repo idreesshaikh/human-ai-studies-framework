@@ -100,6 +100,10 @@
       {
         "command": "tern.connectToStudy",
         "title": "TERN: Connect to Study"
+      },
+      {
+        "command": "tern.disconnectStudy",
+        "title": "TERN: Disconnect from Study"
       }
     ],
     "keybindings": [
@@ -148,7 +152,7 @@
             "unspecified"
           ],
           "default": "unspecified",
-          "description": "Study assignment, managed by pairing. Participant changes are ignored while connected to a study."
+          "description": "Not read by the extension. Unpaired sessions ask for the condition when they start; paired sessions take it from the study server and never write it to settings."
         },
         "tern.session.durationMinutes": {
           "type": "number",
@@ -209,7 +213,7 @@
         "tern.ideHealth.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Capture aggregate IDE diagnostic and build/test counts (content-free; FR-INST-18). When paired, this comes from the study protocol; edits are ignored and recorded."
+          "description": "Capture aggregate IDE diagnostic and build/test counts (content-free). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.ideHealth.debounceSeconds": {
           "type": "number",
@@ -219,7 +223,7 @@
         "tern.comprehensionProbe.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Show comprehension probes when the participant accepts an AI-produced chunk (predict-output / locate-change; FR-INST-19). When paired, this comes from the study protocol; edits are ignored and recorded."
+          "description": "Show comprehension probes when the participant accepts an AI-produced chunk (predict-output / locate-change). When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.comprehensionProbe.cadence": {
           "type": "string",
@@ -432,6 +436,7 @@
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"*.{json,md}\"",
     "pretest": "node -e \"require('node:fs').rmSync('out-tests', {recursive: true, force: true})\" && tsc -p tsconfig.test.json",
     "test": "node --test \"out-tests/test/**/*.test.js\"",
+    "validate": "npm run pretest && node out-tests/test/validation/run.js",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
     "package": "npm run check && vsce package",
     "package:check": "vsce ls",

@@ -26,9 +26,9 @@ While a participant works on a task, TERN:
   _directly around those lines of code_ with clickable actions above it:
   _Yes, I'm stuck · No, just thinking · I'd like a hint · Dismiss_. Ignored
   prompts time out silently after 60 s.
-- **Runs the study session clock** - start a session with a participant ID and
-  A/B condition (`ai-assisted` / `unassisted`); a status-bar countdown is the
-  only permanent UI. When time is up, a frosted-glass **end-of-study debrief**
+- **Runs the study session clock** - start a session (paired studies supply the
+  participant ID and condition from the study server; local testing asks for
+  them); a status-bar countdown is the only permanent UI. When time is up, a frosted-glass **end-of-study debrief**
   (NASA-TLX-inspired, same 7-point scale) opens automatically. Breaks can be
   **paused and resumed** (excluded from the study clock and the probe
   schedule), and an interrupted session (IDE crash, window reload) is offered
@@ -65,7 +65,8 @@ window opens with the extension loaded. In that window:
 
 1. Click **`Study: idle`** in the status bar (or run
    _TERN: Start Study Session_ from the command palette).
-2. Enter a participant ID (e.g. `P07`) and pick the condition.
+2. Enter a participant ID (e.g. `P07`) and pick a condition (local testing only;
+   paired studies get both from the server).
 3. Work normally. The countdown runs in the status bar; fatigue prompts appear
    every 15 min (default); stuck prompts appear inline when the heuristics fire.
 4. When the timer elapses (or you run _End Study Session_), the debrief survey
@@ -143,6 +144,13 @@ still enable GitHub Copilot, and one in `ai-assisted` can still turn off
 `editor.inlineSuggest.enabled`. Keeping a condition as assigned is
 facilitator procedure, not something this extension enforces.
 
+**Changing study.** Run **_TERN: Disconnect from Study_** (or use the
+Disconnect row in the Session view) to leave a study; it asks for
+confirmation, is refused while a session is running, clears the stored
+credential, paired identity, frozen configuration and the study-written
+`tern.*` settings, and returns the editor to local settings. Connect again
+with a new connection string to join another study.
+
 Outside a paired session - local testing, or the
 [`examples/tern-lab`](examples/tern-lab) sample workspace - nothing is
 locked and `tern.*` settings behave exactly as documented below.
@@ -216,8 +224,8 @@ Events land in `<workspace>/.study-data/<participant>_<timestamp>.jsonl`
 
 ### Behavioral telemetry events (schema v4)
 
-The behavioral leg (MP-05) adds the event types below. All payloads are
-FR-ETH-2-safe: sizes, shapes, and timings only - never code content,
+The behavioral leg adds the event types below. All payloads are
+Content-free: sizes, shapes, and timings only - never code content,
 keystrokes, clipboard text, or off-workspace paths. Capture is filtered to
 protocol-declared languages (`tern.behavior.languages`, pilot:
 Python) and workspace-internal files.
@@ -225,14 +233,14 @@ Python) and workspace-internal files.
 | Event type                  | When                                                                           | Key payload fields                                                                                                                                                         |
 | --------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `editor_focus`              | Active editor changed (debounced 250 ms: first + last) or window focus changed | file (workspace-relative or `external`), languageId, groupCount - or state (`focused`/`blurred`)                                                                           |
-| `visible_range`             | Scroll/resize settled (500 ms per editor)                                      | file, topLine, bottomLine, totalLines - feeds scroll coverage (FR-INST-9)                                                                                                  |
-| `edit_burst`                | 2 s without edits, or file switch                                              | file, charsAdded, charsDeleted, linesTouched, durationMs, origin (`human`/`ai`/`paste`/`undo-redo`, FR-INST-10)                                                            |
+| `visible_range`             | Scroll/resize settled (500 ms per editor)                                      | file, topLine, bottomLine, totalLines - feeds scroll coverage                                                                                                              |
+| `edit_burst`                | 2 s without edits, or file switch                                              | file, charsAdded, charsDeleted, linesTouched, durationMs, origin (`human`/`ai`/`paste`/`undo-redo`)                                                                        |
 | `clipboard_paste`           | Paste landed in a captured file                                                | charCount, lineCount, msSinceInternalCopy (present only when the copy happened in-workspace this session), targetFile - content is never read from the clipboard           |
-| `ai_suggestion`             | Inline suggestion decision                                                     | suggestionId, action (`shown`/`accepted`/`rejected`/`dismissed`), visibleMs (review latency, FR-INST-8), charCount, lineCount                                              |
+| `ai_suggestion`             | Inline suggestion decision                                                     | suggestionId, action (`shown`/`accepted`/`rejected`/`dismissed`), visibleMs (review latency), charCount, lineCount                                                         |
 | `file_save`                 | Captured file saved                                                            | file, charCount, lineCount                                                                                                                                                 |
-| `heartbeat`                 | Active/idle transition only (never periodic)                                   | state (`active`/`idle`) - active = interaction within a rolling 120 s window (FR-INST-11)                                                                                  |
+| `heartbeat`                 | Active/idle transition only (never periodic)                                   | state (`active`/`idle`) - active = interaction within a rolling 120 s window                                                                                               |
 | `attention`                 | Caret/hover left a line-region band, or file switch                            | file, startLine, endLine, focusMs, cursorMs, hoverMs, edited, mode (`reading`/`editing`/`mixed`), exitReason - region-level time-on-code, present-gated (idle/blur paused) |
-| `environment_snapshot`      | Once at session start                                                          | vscodeVersion, extensionVersions, os, agentTool, agentModelId, taskId (FR-INST-14 replication provenance)                                                                  |
+| `environment_snapshot`      | Once at session start                                                          | vscodeVersion, extensionVersions, os, agentTool, agentModelId, taskId (replication provenance)                                                                             |
 | `settings_override_attempt` | A locked `tern.*` setting is edited while paired                               | key, lockedValue, attemptedValue - content-free, protocol-domain scalars only                                                                                              |
 
 Set `tern.output.httpEndpoint` (e.g.
@@ -240,7 +248,7 @@ Set `tern.output.httpEndpoint` (e.g.
 middleware - same decoupled "lightweight sensor → local daemon" architecture
 as ActivityWatch. The JSONL file is always written regardless, so a dead
 server never loses data. Batches POST as
-`{"source":"cognitive-overlay","events":[...]}` every 5 s.
+`{"source":"tern","events":[...]}` every 5 s.
 
 If a capture leg looks empty, events aren't reaching the middleware, or a
 prompt never fires, see [`docs/troubleshooting.md`](docs/troubleshooting.md).

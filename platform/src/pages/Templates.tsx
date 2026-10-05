@@ -36,6 +36,7 @@ import { useAuth } from "@/lib/auth.tsx";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { signInHref } from "@/lib/returnTo";
+import { browserNameStore, rememberStudyName } from "@/lib/studyNames";
 import { publicPaperReference } from "@/lib/paperReference";
 
 /* The protocol repertoire (FR-TPL)  -  the literature read as *design shapes*
@@ -281,6 +282,7 @@ export function Templates() {
           ? `Merge these design shapes: ${[...selected].join(", ")}. ${text}`
           : text;
       const study = await api.createStudy(project.slug, title);
+      rememberStudyName(browserNameStore(), study.id, title);
       await refresh();
       navigate(`/p/${project.slug}/studies/${study.id}`, { state: { opening } });
     } catch (e) {

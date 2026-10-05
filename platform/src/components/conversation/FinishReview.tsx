@@ -8,6 +8,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
+import { splitCompileWarnings } from "@/lib/compileNotices";
 import { SLOT_LABELS, targetLabel, type DesignMove } from "@/lib/types";
 import type { CompileResult } from "@/lib/conversationApi";
 import { BlinkComparator } from "./BlinkComparator";
@@ -75,6 +77,9 @@ export function FinishReview({
   const grounded = accepted.filter((m) => m.grounding.length > 0).length;
   const judgment = accepted.length - grounded;
   const valid = compile?.valid ?? false;
+  const { altered, other: quietWarnings } = splitCompileWarnings(
+    compile?.warnings,
+  );
   const diffLines = useMemo(
     () => (compile?.diff ? parseDiffLines(compile.diff) : []),
     [compile?.diff],
@@ -89,7 +94,7 @@ export function FinishReview({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
-        <DialogTitle>Prepare your protocol draft</DialogTitle>
+        <DialogTitle>Review draft</DialogTitle>
         <DialogDescription>
           This is what your conversation became. Review it, then apply it to the
           protocol: the study's document of record.
@@ -109,7 +114,7 @@ export function FinishReview({
         </p>
 
         {accepted.length > 0 && (
-          <ul className="mt-3 max-h-48 overflow-auto rounded-input border border-border bg-surface">
+          <ul className="mt-3 rounded-input border border-border bg-surface">
             {accepted.map((m) => (
               <li
                 key={m.moveId}
@@ -146,7 +151,7 @@ export function FinishReview({
           <p className="mb-1 type-caption font-medium text-text-muted">
             Compiled protocol {compiling ? "· checking latest draft" : valid ? "· validated" : "· not yet valid"}
           </p>
-          <pre className="tabular max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-3 type-quantity text-text">
+          <pre className="tabular whitespace-pre-wrap break-words rounded-input border border-border-strong bg-bg p-3 type-quantity text-text">
             {compile?.yaml?.trim() ||
               (accepted.length > 0
                 ? "The server couldn't compile this draft. Check your connection, then reopen this review."
@@ -170,9 +175,21 @@ export function FinishReview({
               ))}
             </ul>
           )}
-          {compile && (compile.warnings?.length ?? 0) > 0 && (
+          {compile && altered.length > 0 && (
+            <Notice kind="problem" className="mt-1.5">
+              <p className="font-medium">
+                The draft differs from what you said in these places:
+              </p>
+              <ul className="mt-1 flex list-disc flex-col gap-1 pl-4">
+                {altered.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </Notice>
+          )}
+          {compile && quietWarnings.length > 0 && (
             <ul className="mt-1.5 flex flex-col gap-1">
-              {compile.warnings!.map((w, i) => (
+              {quietWarnings.map((w, i) => (
                 <li key={i} className="type-caption text-text-muted">
                   {w}
                 </li>
@@ -214,7 +231,7 @@ export function FinishReview({
               onClick={() => onOpenChange(false)}
               className="type-control mt-2 inline-flex items-center gap-1.5 rounded-control text-accent underline decoration-border underline-offset-4 hover:decoration-control-edge"
             >
-              Continue to enrollment
+              Go to Run
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>
@@ -232,7 +249,7 @@ export function FinishReview({
             ) : applying ? (
               "Applying…"
             ) : (
-              "Apply to protocol"
+              "Apply protocol"
             )}
           </Button>
         </div>

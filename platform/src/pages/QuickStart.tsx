@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useApi, useSession } from "@/lib/session";
 import { ApiError } from "@/lib/api";
+import { NAME_MAX_LENGTH } from "@/lib/uiText";
+import { browserNameStore, rememberStudyName } from "@/lib/studyNames";
 
 /* Quick-start flow: describe a study and create it in an implicit personal
  * workspace project. No project naming step  -  it's created silently. */
@@ -32,6 +34,7 @@ export function QuickStart() {
        * implicit personal project if it doesn't exist. */
       const project = await api.createProject("Personal");
       const study = await api.createStudy(project.slug, title);
+      rememberStudyName(browserNameStore(), study.id, title);
 
       await refresh();
 
@@ -59,7 +62,7 @@ export function QuickStart() {
             Configure a task-based human–AI study, then run it in VS Code.
           </p>
           <p className="type-caption mt-3 text-text-muted">
-            PHOENIX supports coding-task comparisons with AI-assisted and unassisted
+            Phoenix supports coding-task comparisons with AI-assisted and unassisted
             conditions. It is not an exam, classroom, clinical, marketing, or general survey
             tool.
           </p>
@@ -74,8 +77,13 @@ export function QuickStart() {
                 placeholder="e.g., AI-assisted code review"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                maxLength={NAME_MAX_LENGTH}
                 disabled={creating}
+                aria-describedby="study-name-hint"
               />
+              <p id="study-name-hint" className="type-caption text-text-muted">
+                Up to {NAME_MAX_LENGTH} characters.
+              </p>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -92,7 +100,7 @@ export function QuickStart() {
                 aria-describedby="study-brief-hint"
               />
               <p id="study-brief-hint" className="type-caption text-text-muted">
-                You can write it in one message. PHOENIX will extract the explicit choices and leave only genuinely missing details open.
+                You can write it in one message. Phoenix will extract the explicit choices and leave only genuinely missing details open.
               </p>
             </div>
 
@@ -102,6 +110,7 @@ export function QuickStart() {
               onClick={create}
               disabled={!title.trim() || creating}
               className="mt-2"
+              aria-describedby={title.trim() ? undefined : "configure-hint"}
             >
               {creating ? (
                 <>
@@ -112,6 +121,12 @@ export function QuickStart() {
                 "Configure study"
               )}
             </Button>
+
+            {!title.trim() && (
+              <p id="configure-hint" className="type-caption text-center text-text-muted">
+                Name the study to continue.
+              </p>
+            )}
 
             <p className="type-caption text-center text-text-muted">
               Studies live in a personal workspace. You can share them with others later.

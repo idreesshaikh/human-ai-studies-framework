@@ -203,3 +203,20 @@ export function summarizeProtocol(
   }
   return sections;
 }
+
+
+const KEBAB_ID = /^[a-z0-9]+(?:-[a-z0-9]+)+$/;
+const ACRONYMS: Record<string, string> = { tern: "TERN" };
+
+/** How one value in a draft-rail slot reads. Display only: the draft keeps the
+ * raw ids. Template ids are humanised (no title lookup exists client-side),
+ * comma lists get a space, and instrument acronyms are upper-cased. */
+export function formatSlotValue(slot: string, value: string): string {
+  if (slot === "design" || (slot === "ethics" && KEBAB_ID.test(value))) {
+    const words = value.replace(/[-_]+/g, " ").trim();
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  }
+  if (slot === "conditions") return value.replace(/\s*,\s*/g, ", ");
+  if (slot === "instruments") return ACRONYMS[value.toLowerCase()] ?? value;
+  return value;
+}

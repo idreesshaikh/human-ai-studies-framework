@@ -10,7 +10,6 @@ import {
   ProbeResponse,
   predictOutput,
   locateChange,
-  resetBurstId,
 } from '../src/core/comprehensionProbe';
 import { CLOCK_BASE, advanceTo } from './helpers';
 
@@ -40,7 +39,6 @@ interface Fixture {
 }
 
 function fixture(over: Partial<ComprehensionProbeConfig> = {}): Fixture {
-  resetBurstId();
   const probes: Fixture['probes'] = [];
   const responses: ProbeResponse[] = [];
   const machine = new ComprehensionProbeMachine(

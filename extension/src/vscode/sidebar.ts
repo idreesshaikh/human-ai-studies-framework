@@ -7,12 +7,15 @@ import {
   LegState,
 } from '../core/legs';
 import { SessionBlock } from '../core/captureConfig';
+import { sessionActions } from '../core/sidebarActions';
+import { describeSend, SendState } from '../core/sendStatus';
 import {
   pairingState,
   STATE_BLOCK,
   STATE_LEGS,
   STATE_PAIRED,
   STATE_PENDING,
+  STATE_STUDY_ID,
 } from './pairing';
 
 /**
@@ -52,6 +55,9 @@ export interface SidebarSession {
    *  Shown so the participant is not misled into thinking a change took, and
    *  the facilitator can see it without reading the event stream. */
   settingsOverrides?: number;
+  /** Upload health from the HTTP sink. Kept after a session ends so the Data
+   *  view can still report the last send. */
+  send?: SendState;
 }
 
 export type SessionProbe = () => SidebarSession;
@@ -111,8 +117,8 @@ abstract class BaseProvider implements vscode.TreeDataProvider<Row> {
   protected abstract roots(): Row[];
 }
 
-/** View 1  -  Session. The start/pause/end actions that were previously only
- *  reachable through the status-bar quick-pick. */
+/** View 1  -  Session. Start, pause, resume and end actions, plus leaving the
+ *  study while no session is running. */
 export class SessionView extends BaseProvider {
   constructor(
     private readonly probe: SessionProbe,
@@ -129,13 +135,22 @@ export class SessionView extends BaseProvider {
   protected roots(): Row[] {
     const s = this.probe();
     if (!s.active) {
-      return [
+      const idle = [
         new Row('No session running', undefined, 'circle-outline'),
         new Row('Start a session', undefined, 'play').runs(
           'tern.startSession',
           'Start session',
         ),
       ];
+      if (pairingState<boolean>(this.context, STATE_PAIRED)) {
+        idle.push(
+          new Row('Disconnect from study', undefined, 'debug-disconnect').runs(
+            'tern.disconnectStudy',
+            'Disconnect from study',
+          ),
+        );
+      }
+      return idle;
     }
     if (s.ending) {
       return [
@@ -158,6 +173,9 @@ export class SessionView extends BaseProvider {
     ];
     if (s.participantId) {
       rows.push(new Row('Participant', s.participantId, 'account'));
+    }
+    for (const a of sessionActions({ paused: s.paused })) {
+      rows.push(new Row(a.label, undefined, a.icon).runs(a.command, a.label));
     }
     /* What this session is actually for. The task belongs on screen, while
      * the server-assigned study arm remains deliberately hidden. */
@@ -294,8 +312,26 @@ export class DataView extends BaseProvider {
     if (pairingState<boolean>(this.context, STATE_PAIRED)) {
       const rows: Row[] = [
         new Row('Study data', 'Managed by the researcher', 'shield'),
-        new Row('Sent to study server', 'Connected', 'cloud-upload'),
       ];
+      const studyId = pairingState<string>(this.context, STATE_STUDY_ID);
+      if (s.send) {
+        const sent = describeSend(s.send, Date.now());
+        rows.push(
+          new Row(
+            'Sent to study server',
+            sent.detail,
+            sent.warn ? 'warning' : 'cloud-upload',
+          ),
+        );
+      } else {
+        rows.push(
+          new Row(
+            'Study server',
+            studyId ? `Paired with ${studyId}` : 'Paired',
+            'cloud',
+          ),
+        );
+      }
       if (s.active && s.written !== undefined) {
         const missing = s.written - (s.mirrored ?? 0);
         rows.push(

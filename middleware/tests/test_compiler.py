@@ -55,7 +55,7 @@ def test_hallucinated_template_id_reports_instead_of_raising():
     )
     assert result.yaml.strip(), "the draft must never come back empty"
     assert not result.valid
-    assert any("m-t" in e and "hallucinated-rct-2026" in e for e in result.errors)
+    assert any("hallucinated-rct-2026" in e for e in result.errors)
     assert "the design" in result.unresolved
 
 
@@ -128,7 +128,7 @@ def test_last_instantiable_template_wins_over_a_broken_later_one():
     )
     assert result.template_id == "two-group-rct-v1"
     assert result.valid
-    assert any("m-bad" in w for w in result.warnings)
+    assert any("hallucinated-rct-2026" in w for w in result.warnings)
 
 
 def test_list_valued_patch_flattens_into_string_entries():
@@ -168,7 +168,9 @@ def test_broken_template_before_a_working_one_stays_silent():
     )
     assert result.template_id == "two-group-rct-v1"
     assert result.valid
-    assert result.warnings == []
+    # The template's own content is announced, but the superseded one stays silent.
+    assert not any("hallucinated" in w for w in result.warnings)
+    assert all(w.startswith("Added from the") for w in result.warnings)
     assert result.errors == []
 
 
@@ -213,7 +215,7 @@ def test_merge_with_a_hallucinated_template_reports_instead_of_raising():
     )
     assert result.yaml.strip(), "the draft must never come back empty"
     assert not result.valid
-    assert any("m-merge" in e and "hallucinated-rct-2026" in e for e in result.errors)
+    assert any("hallucinated-rct-2026" in e for e in result.errors)
     assert "the design" in result.unresolved
 
 
@@ -235,6 +237,307 @@ def test_merge_supersedes_an_earlier_single_template():
     assert result.valid, result.errors
     assert result.draft["study"]["title"].startswith("Merged design")
     assert result.template_id is None
+
+
+# ------------------------------------------------ user values beat compiler defaults
+
+
+def _tern_move(config: dict, move_id: str = "m-tern") -> dict:
+    return {
+        "moveId": move_id,
+        "kind": "add-instrument",
+        "target": "instruments",
+        "proposal": "Capture with TERN.",
+        "patch": {
+            "section": "instruments",
+            "op": "add-instrument",
+            "name": "tern",
+            "config": config,
+        },
+        "grounding": [],
+        "status": "accepted",
+    }
+
+
+def _field_move(path: list[str], value, move_id: str = "m-field") -> dict:
+    return {
+        "moveId": move_id,
+        "kind": "set-field",
+        "target": ".".join(path),
+        "proposal": "Set it.",
+        "patch": {"op": "set-field", "path": path, "value": value},
+        "grounding": [],
+        "status": "accepted",
+    }
+
+
+def test_partial_tern_config_keeps_supplied_values_and_fills_only_missing():
+    config = {
+        "session": {"durationMinutes": 30},
+        "fatigue": {"intervalMinutes": 10},
+    }
+    result = compiler.compile_moves([_rq_move(), _tern_move(config)])
+    tern = result.draft["instruments"]["tern"]
+    assert tern["session"]["durationMinutes"] == 30
+    assert tern["fatigue"]["intervalMinutes"] == 10
+    assert tern["fatigue"]["jitterPercent"] == 20  # missing key filled
+    assert tern["stuck"]["enabled"] is True  # missing section filled
+    assert "Standard TERN capture settings were added." in result.warnings
+    assert not any("filled incomplete" in w for w in result.warnings)
+
+
+def test_accepted_session_duration_slot_is_merged_into_the_tern_config():
+    moves = [
+        _rq_move(),
+        _tern_move({}),
+        _field_move(["session", "durationMinutes"], 30),
+    ]
+    result = compiler.compile_moves(moves)
+    assert result.draft["session"]["durationMinutes"] == 30
+    assert result.draft["instruments"]["tern"]["session"]["durationMinutes"] == 30
+
+
+def test_session_duration_slot_wins_over_a_default_whatever_the_move_order():
+    moves = [
+        _field_move(["session", "durationMinutes"], 30),
+        _rq_move(),
+        _tern_move({"fatigue": {"intervalMinutes": 10}}),
+    ]
+    tern = compiler.compile_moves(moves).draft["instruments"]["tern"]
+    assert tern["session"]["durationMinutes"] == 30
+    assert tern["fatigue"]["intervalMinutes"] == 10
+
+
+def test_legacy_task_timer_remap_keeps_nested_minutes_including_45():
+    assert (
+        compiler._session_minutes_from_config(
+            {"capture": {"session": {"durationMinutes": 45}}}, default=30
+        )
+        == 45
+    )
+    assert compiler._session_minutes_from_config({}, default=30) == 30
+    assert compiler._session_minutes_from_config({"minutes": 20}, default=30) == 20
+
+
+def test_accepted_duration_slot_also_sizes_a_template_brought_tern_config():
+    moves = [
+        _template_move("m-t", "metr-rct-v1", {}),
+        _field_move(["session", "durationMinutes"], 30),
+    ]
+    draft = compiler.compile_moves(moves).draft
+    assert draft["session"]["durationMinutes"] == 30
+    assert draft["instruments"]["tern"]["session"]["durationMinutes"] == 30
+
+
+def test_a_later_accepted_slot_move_overrides_an_earlier_one():
+    planned = ["participants", "planned"]
+    moves = [
+        _rq_move(),
+        _field_move(planned, 12, "m-a"),
+        _field_move(planned, 20, "m-b"),
+    ]
+    assert compiler.compile_moves(moves).draft["participants"]["planned"] == 20
+    # A rejected later move does not override.
+    later = _field_move(planned, 99, "m-c")
+    later["status"] = "rejected"
+    assert (
+        compiler.compile_moves([*moves, later]).draft["participants"]["planned"] == 20
+    )
+
+
+def _task_move(text: str, **extra) -> dict:
+    patch = {"id": "refactor", "title": "Refactor task", "description": text, **extra}
+    return {
+        "moveId": "m-task",
+        "kind": "declare-task",
+        "target": "tasks[]",
+        "proposal": text,
+        "patch": patch,
+        "grounding": [],
+        "status": "accepted",
+    }
+
+
+def _crossover() -> dict:
+    return _template_move("m-t", "within-subjects-crossover-v1", {})
+
+
+def test_session_length_stated_in_a_declared_task_replaces_the_template_default():
+    moves = [_crossover(), _task_move("30 minutes per condition on one refactor")]
+    draft = compiler.compile_moves(moves).draft
+    assert draft["session"]["durationMinutes"] == 30
+    assert draft["instruments"]["tern"]["session"]["durationMinutes"] == 30
+
+
+def test_session_length_is_read_from_the_task_proposal_text_and_hyphenated_forms():
+    move = _task_move("Fix a failing test")
+    move["proposal"] = "A 20-minute task per condition"
+    draft = compiler.compile_moves([_crossover(), move]).draft
+    assert draft["session"]["durationMinutes"] == 20
+    move = _task_move("Budget 25 min for the refactor")
+    draft = compiler.compile_moves([_crossover(), move]).draft
+    assert draft["session"]["durationMinutes"] == 25
+
+
+def test_explicit_duration_slot_beats_minutes_found_in_task_text():
+    moves = [
+        _crossover(),
+        _task_move("30 minutes per condition"),
+        _field_move(["session", "durationMinutes"], 60),
+    ]
+    draft = compiler.compile_moves(moves).draft
+    assert draft["session"]["durationMinutes"] == 60
+    assert draft["instruments"]["tern"]["session"]["durationMinutes"] == 60
+
+
+def test_an_assumed_default_session_length_is_warned_about():
+    result = compiler.compile_moves([_crossover()])
+    assert result.draft["session"]["durationMinutes"] == 45
+    assert "Session length was not stated, so 45 minutes was assumed" in result.warnings
+
+
+def test_no_assumed_length_warning_when_the_length_was_stated():
+    stated = compiler.compile_moves(
+        [_crossover(), _field_move(["session", "durationMinutes"], 30)]
+    )
+    from_task = compiler.compile_moves([_crossover(), _task_move("30 minutes each")])
+    for result in (stated, from_task):
+        assert not any("was not stated" in w for w in result.warnings)
+
+
+def _measure_move(text: str, move_id: str) -> dict:
+    return {
+        "moveId": move_id,
+        "kind": "add-measure",
+        "target": "measures[]",
+        "proposal": f"Measure {text}.",
+        "patch": {"section": "measures", "op": "append", "value": text},
+        "grounding": [],
+        "status": "accepted",
+    }
+
+
+def test_template_supplied_research_questions_are_named_in_a_warning():
+    moves = [_rq_move(), _crossover()]
+    result = compiler.compile_moves(moves)
+    note = next(w for w in result.warnings if w.startswith("Added from the"))
+    assert "Within-subjects crossover" in note  # the title, not the raw id
+    assert "within-subjects-crossover-v1" not in note
+    assert "RQ-1" in note and "RQ-2" in note
+    assert "cognitive-load-9" in note
+    # Nothing was deleted: the template's content is still in the draft.
+    assert [rq["id"] for rq in result.draft["researchQuestions"]][:2] == [
+        "RQ-1",
+        "RQ-2",
+    ]
+
+
+def test_a_research_question_the_researcher_stated_is_not_credited_to_the_template():
+    stated = "How do participants perceive the AI-assisted vs unassisted experience?"
+    rq = _rq_move()
+    rq["patch"]["value"] = stated
+    note = next(
+        w
+        for w in compiler.compile_moves([rq, _crossover()]).warnings
+        if w.startswith("Added from the")
+    )
+    assert "RQ-2" not in note and "RQ-1" in note
+
+
+def test_no_template_means_no_added_from_template_warning():
+    result = compiler.compile_moves([_rq_move()])
+    assert not any(w.startswith("Added from the") for w in result.warnings)
+
+
+def test_measure_that_is_another_plus_a_unit_is_deduplicated_keeping_the_specific_one():
+    moves = [
+        _crossover(),
+        _measure_move("task completion time", "m1"),
+        _measure_move("Task completion time (seconds)", "m2"),
+        _measure_move("Correctness", "m3"),
+    ]
+    result = compiler.compile_moves(moves)
+    assert result.draft["measures"] == ["Task completion time (seconds)", "Correctness"]
+    assert any(
+        w.startswith("Dropped") and "task completion time" in w for w in result.warnings
+    )
+
+
+def test_measures_that_differ_only_in_case_are_deduplicated():
+    moves = [
+        _crossover(),
+        _measure_move("Task completion time (seconds)", "m1"),
+        _measure_move("task COMPLETION time", "m2"),
+    ]
+    assert compiler.compile_moves(moves).draft["measures"] == [
+        "Task completion time (seconds)"
+    ]
+
+
+def test_task_conditions_reuse_the_protocols_canonical_condition_names():
+    task = _task_move("Refactor", conditions=["AI-assisted", "unassisted", "extra"])
+    draft = compiler.compile_moves([_crossover(), task]).draft
+    assert draft["conditions"] == ["ai-assisted", "unassisted"]
+    assert draft["tasks"][0]["conditions"] == ["ai-assisted", "unassisted", "extra"]
+
+
+def _condition_move(text: str, move_id: str) -> dict:
+    return {
+        "moveId": move_id,
+        "kind": "add-condition",
+        "target": "conditions[]",
+        "proposal": f"Compare {text}.",
+        "patch": {"section": "conditions", "op": "append", "value": text},
+        "grounding": [],
+        "status": "accepted",
+    }
+
+
+def test_case_variant_conditions_are_collapsed_keeping_the_first_spelling():
+    moves = [
+        _crossover(),
+        _condition_move("AI-assisted", "c1"),
+        _condition_move("Unassisted", "c2"),
+        _task_move("Fix a bug", conditions=["AI-ASSISTED", "unassisted"]),
+    ]
+    draft = compiler.compile_moves(moves).draft
+    assert draft["conditions"] == ["ai-assisted", "unassisted"]
+    assert draft["tasks"][0]["conditions"] == ["ai-assisted", "unassisted"]
+
+
+def test_a_measure_combining_two_other_measures_is_dropped():
+    moves = [
+        _crossover(),
+        _measure_move("task completion time", "m1"),
+        _measure_move("solution correctness", "m2"),
+        _measure_move("Task completion time and solution correctness", "m3"),
+    ]
+    result = compiler.compile_moves(moves)
+    assert result.draft["measures"] == ["task completion time", "solution correctness"]
+    assert any(
+        w.startswith("Dropped the duplicate measure")
+        and "Task completion time and solution correctness" in w
+        for w in result.warnings
+    )
+
+
+def test_standard_tern_placeholders_raise_no_unsupported_or_key_list_warning():
+    config = dict.fromkeys(("session", "fatigue", "stuck", "output"), "standard")
+    result = compiler.compile_moves([_rq_move(), _tern_move(config)])
+    tern = result.draft["instruments"]["tern"]
+    assert tern == {**compiler.default_capture_instrument(45)}
+    assert not any("unsupported" in w for w in result.warnings)
+    assert not any(
+        "durationMinutes" in w or "intervalMinutes" in w for w in result.warnings
+    )
+    assert "Standard TERN capture settings were added." in result.warnings
+
+
+def test_genuinely_unsupported_tern_fields_are_still_reported_in_plain_words():
+    config = {"session": {"durationMinutes": 30, "colour": "red"}, "bogus": {}}
+    warnings = compiler.compile_moves([_rq_move(), _tern_move(config)]).warnings
+    note = next(w for w in warnings if "not supported" in w)
+    assert "colour" in note and "bogus" in note
 
 
 def test_manual_entry_supersedes_earlier_moves_but_not_later_ones():

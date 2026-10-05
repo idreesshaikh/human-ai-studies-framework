@@ -6,7 +6,7 @@ body:
     attributes:
       value: >-
         **Before you start:** if this involves participant data leaking, an
-        auth bypass, or the knowledge assistant seeing row-level data, stop
+        auth bypass, or the design conversation receiving participant row-level data, stop
         and report it privately instead — see
         [security policy](https://github.com/idreesshaikh/human-ai-studies-framework/blob/main/docs/security.md).
 
@@ -19,17 +19,18 @@ body:
     attributes:
       label: Component
       options:
-        - middleware (API + platform backend)
-        - platform (React frontend)
-        - extension (TERN, VS Code)
-        - protocol (schema, validator, lifecycle)
-        - analysis (recipes, runner, paper draft)
-        - agent-capture (agent leg)
-        - curated (curated-dataset leg)
-        - metrics (static-metrics leg)
-        - docs / requirements
+        - platform (web workspace)
+        - middleware (API, storage)
+        - protocol
+        - extension (TERN)
+        - analysis
+        - agent-capture
+        - metrics
+        - templates
+        - curated (experimental)
+        - docs
         - build, CI, or deployment
-        - not sure
+        - other
     validations:
       required: true
 
@@ -83,15 +84,6 @@ body:
         VS Code version.
     validations:
       required: true
-
-  - type: input
-    id: requirement
-    attributes:
-      label: Requirement affected (optional)
-      description: >-
-        If you know which requirement this breaks, name its ID — it makes
-        triage much faster.
-      placeholder: FR-ING-1, NFR-2, ...
 
   - type: checkboxes
     id: confirmations

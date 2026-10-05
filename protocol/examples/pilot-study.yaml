@@ -3,14 +3,14 @@
 #
 # This file is the study's requirements specification ("study-as-code"):
 # instruments, gates, and analyses below are derived from it by command,
-# never hand-configured (FR-PROT-1/4).
+# never hand-configured.
 #
-# FROZEN: pilot-2026 v1.0 (2026-07-12, MP-08 deliverable 1; git tag
-# `protocol/pilot-2026-v1.0` at the MP-08 commit). Amendments after this
-# line require a new version marker here plus a row in the traceability
-# phase-completion log - IDs and history are never rewritten (golden rule 2).
-# AMENDED: v1.1 (2026-07-12, MP-09 item 3) - analysisPlan RQ-P3 gains
-# `meyer-fragmentation` (second replicated-paper recipe, FR-ANA-5) and the
+# FROZEN: pilot-2026 v1.0 (2026-07-12, first freeze; git tag
+# `protocol/pilot-2026-v1.0`). Amendments after this
+# line require a new version marker here plus a row in the change
+# log - history is never rewritten.
+# AMENDED: v1.1 (2026-07-12, second amendment) - analysisPlan RQ-P3 gains
+# `meyer-fragmentation` (second replicated-paper recipe) and the
 # literature list gains its source; no instrument or session changes.
 # AMENDED: v1.2 (2026-07-21) - kite -> tern rename: instruments.kite becomes
 # instruments.tern, protocolVersion bumps 1 -> 4 to match; no other change.
@@ -65,7 +65,7 @@ session:
     Task A "expenses" and Task B "logbook", each a
     small existing codebase with two seeded defects and one feature request,
     shipped with acceptance tests providing outcome ground truth
-    (FR-INST-16, via the task harness). In ai-assisted sessions the
+    (via the task harness). In ai-assisted sessions the
     participant uses Claude Code in the integrated terminal; in unassisted
     sessions AI tooling is disabled.
 
@@ -99,10 +99,9 @@ instruments:
         - locate-change
   metrics:
     metricSet: cognitive-load-9
-  # Agent leg (MP-12 consumes this; declared before the freeze so the
-  # consent form matches the content policy by construction - FR-AGENT-5,
-  # FR-ETH-2 rev 2). metadata-only: turn/tool-call timings and sizes,
-  # never conversation text.
+  # Agent leg (declared before the freeze so the consent form matches the
+  # content policy by construction). metadata-only: turn/tool-call timings
+  # and sizes, never conversation text.
   agentCapture:
     adapter: claude-code
     contentPolicy: metadata-only

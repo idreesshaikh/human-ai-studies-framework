@@ -6,19 +6,28 @@ app. This is a technical health score, not a measured researcher usability score
 Implementation integrity: pass for the tested workspace. Semantic tokens, shared
 reading widths, explicit evidence decisions and protocol approval remain coherent.
 The bundled detector returned no findings on the changed conversation/Plan code.
-Code and screenshot review were independently checked; browser execution was not
-duplicated by that reviewer.
+The earlier merged-main code and screenshot review was independently checked;
+that reviewer did not duplicate browser execution. The combined Claude delivery
+has a fresh automated audit, documented in `demo-readiness.md`.
 
 | Dimension | Score / 4 | Evidence or limit |
 | --- | --- | --- |
 | Accessibility | 3 | 60 Axe-clean cases; keyboard review, decisions, seek and focus return; no screen-reader certification |
 | Performance | 3 | Lazy route chunks, about 113 kB gzip entry JS and 57 kB study chunk; no field Web Vitals or load-test claim |
-| Responsive design | 3 | 320–2048px, two themes, overflow and scroll checks; compact controls are below the 44px comfort target |
+| Responsive design | 3 | 320–2048px, two themes, overflow/scroll, 200% text and coarse-pointer 44px button checks; no human usability-study claim |
 | Theming | 4 | Semantic tokens, contrast verifier and both-theme Axe checks passed in tested states |
 | Implementation integrity | 4 | Source/approval truth preserved; stale-response gate and retained Plan state tested |
 | Total | 17 / 20 | Good; remaining verification limits are explicit |
 
 ## Material findings and disposition
+
+Combined-version regressions fixed and browser-tested: Evidence loading-list
+semantics; hidden copy failure after link creation; connection strings that could
+not be selected manually; completion forcing the chat reader to the bottom;
+Stop changing into Send and accidentally resubmitting; stale cancellation
+callbacks altering a newer reply; tab aliases and typed study-name display;
+inconsistent review/Run labels. Backend count/name/PDF validation and plain lookup
+errors have route-level regression tests. Claude's existing changes are retained.
 
 - P1, responsive: desktop-expanded preference removed mobile Review draft.
   Fixed in `ConversationView.tsx`; regression covers resizing with that preference.

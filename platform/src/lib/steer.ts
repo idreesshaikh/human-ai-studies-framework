@@ -53,20 +53,6 @@ export const STEER_STOPS: readonly SteerStop[] = [
  * guidance at any time. Matches `elicitation.DEFAULT_STEER` on the server. */
 export const DEFAULT_STEER: SteerLevel = 3;
 
-/** The starting stop for a given researcher profile.
- *
- * Being led is help for someone learning the vocabulary and friction for
- * someone who has run studies before: an experienced methodologist wants a
- * colleague who proposes and gets out of the way, not one who marches them
- * through a questionnaire. So a declared `experienced` profile starts at
- * `guides` instead. Everyone else  -  including anyone who has never opened
- * Settings  -  starts driven, because that is the case the default is for.
- *
- * Only the STARTING point. The dial is per-study and always wins once moved. */
-export function defaultSteerFor(profile?: string | null): SteerLevel {
-  return profile === "experienced" ? 2 : DEFAULT_STEER;
-}
-
 export function steerStop(level: SteerLevel): SteerStop {
   return STEER_STOPS[level] ?? STEER_STOPS[DEFAULT_STEER];
 }

@@ -58,7 +58,7 @@ try {
   await page.screenshot({ path: join(artifacts, "setup-mobile-expanded-pref-390.png"), fullPage: true });
   assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations.map(v => v.id), []);
   await page.getByRole("button", { name: "Review draft", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Prepare your protocol draft" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Review draft" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.setViewportSize({ width: 768, height: 900 });

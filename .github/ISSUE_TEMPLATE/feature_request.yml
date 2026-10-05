@@ -5,17 +5,13 @@ body:
   - type: markdown
     attributes:
       value: >-
-        **How this project works:** PHOENIX does study *design* and study
-        *setup* — the path from a research idea to a running, instrumented
-        session. It deliberately stops before analysis, which belongs in your
-        own notebook. A proposal that sits on that path is much likelier to
-        land than one that widens the scope.
-
-
-        This isn't bureaucracy for its own sake — the requirement set is a
-        submitted deliverable, and the traceability matrix is what keeps it
-        honest. New ideas are genuinely welcome; they just get written down
-        first.
+        **Scope:** PHOENIX supports task-based studies of human-AI software
+        development: study design, participant capture, and analysis handoff
+        through an explicit protocol. The feature set is frozen for this
+        release, so new product surfaces are out of scope; fixes, security,
+        accessibility, reproducibility, and documentation improvements are
+        welcome. See
+        [docs/scope.md](https://github.com/idreesshaikh/human-ai-studies-framework/blob/main/docs/scope.md).
 
   - type: textarea
     id: problem
@@ -45,30 +41,34 @@ body:
     validations:
       required: true
 
-  - type: input
-    id: requirement
+  - type: dropdown
+    id: component
     attributes:
-      label: Where on the path
-      description: >-
-        Which hop does this improve — designing the study, grounding it in the
-        literature, compiling the protocol, setting up the editor, or getting
-        the data back? If it is none of those, say what it earns instead.
-      placeholder: "Setup: the participant cannot tell which task they are on."
+      label: Component
+      options:
+        - platform (web workspace)
+        - middleware (API, storage)
+        - protocol
+        - extension (TERN)
+        - analysis
+        - agent-capture
+        - metrics
+        - templates
+        - curated (experimental)
+        - docs
+        - other
     validations:
       required: true
 
-  - type: dropdown
-    id: priority
+  - type: textarea
+    id: fit
     attributes:
-      label: Proposed MoSCoW priority
+      label: Fit with the project scope
       description: >-
-        Must is defined against the current milestone. A Could that displaces
-        an open Must will be declined on principle, not on merit.
-      options:
-        - Must
-        - Should
-        - Could
-        - Won't (recording it as explicitly out of scope)
+        Which part of the supported work does this improve, or which fix,
+        security, accessibility, reproducibility, or documentation gap does it
+        close? If it widens the scope, say why it should.
+      placeholder: "Setup: the participant cannot tell which task they are on."
     validations:
       required: true
 
@@ -77,9 +77,8 @@ body:
     attributes:
       label: Literature grounding (optional but valued)
       description: >-
-        If a paper motivates this, cite it. The corpus is the product's
-        knowledge; a grounded proposal is far stronger than an unsourced one,
-        and may map onto a template.
+        If a paper motivates this, cite it. A grounded proposal is far stronger
+        than an unsourced one, and may map onto a template.
 
   - type: textarea
     id: dependencies

@@ -105,6 +105,7 @@ export class HttpSink implements EventSink {
    *  view reads this to say how much of what was written has actually left
    *  the machine (NFR-2: loss must be detectable, not just written-to-disk). */
   private delivered = 0;
+  private lastOkAt?: number;
   private static readonly MAX_BUFFER = 2000;
   private static readonly REQUEST_TIMEOUT_MS = 4_000;
 
@@ -153,6 +154,7 @@ export class HttpSink implements EventSink {
         if (!res.ok) throw new Error(`middleware responded ${res.status}`);
         this.consecutiveFailures = 0;
         this.delivered += batch.length;
+        this.lastOkAt = Date.now();
       } finally {
         clearTimeout(timeout);
       }
@@ -171,6 +173,16 @@ export class HttpSink implements EventSink {
   dispose(): void {
     clearInterval(this.timer);
     void this.flush();
+  }
+
+  /** Events buffered and not yet accepted by the server. */
+  get pendingCount(): number {
+    return this.buffer.length;
+  }
+
+  /** Epoch ms of the last accepted POST, if any. */
+  get lastSuccessAt(): number | undefined {
+    return this.lastOkAt;
   }
 
   /** Events confirmed delivered so far, for the Data view's queue-depth row. */

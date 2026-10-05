@@ -1017,6 +1017,15 @@ body::before {
 }
 /* The input's own box is transparent, so the default focus ring would draw
  * around nothing; it goes on the thumb instead, where the eye already is. */
+@media (pointer: coarse) {
+  button, summary, [role="tab"], [role="menuitem"] {
+    min-height: var(--touch-target);
+  }
+  button[aria-label] {
+    min-width: var(--touch-target);
+  }
+}
+
 .steer-range:focus-visible {
   outline: none;
 }

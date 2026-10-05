@@ -490,3 +490,208 @@ def test_propose_turn_without_design_state_omits_the_block():
     assert all(
         "Design state so far" not in m["content"] for m in captured[0]["messages"]
     )
+
+
+# ------------------------------------------------ reply hygiene: loops, caps, markup
+
+LOOPED_PARAGRAPH = (
+    "That sounds like a within-subjects comparison. How many participants can "
+    "you realistically recruit?"
+)
+
+
+def test_trim_repeated_text_keeps_first_of_a_looped_paragraph():
+    looped = "\n\n".join([LOOPED_PARAGRAPH] * 12)
+    assert design_llm.trim_repeated_text(looped) == LOOPED_PARAGRAPH
+
+
+def test_trim_repeated_text_keeps_first_of_a_looped_sentence_in_one_line():
+    looped = "Good start. " + "Which tasks will people do in the session? " * 8
+    assert design_llm.trim_repeated_text(looped.strip()) == (
+        "Good start. Which tasks will people do in the session?"
+    )
+
+
+def test_trim_repeated_text_leaves_clean_text_alone():
+    clean = "Yes. No. Yes.\n\nSecond paragraph, different."
+    assert design_llm.trim_repeated_text(clean) == clean
+
+
+def test_cap_reply_text_cuts_at_a_sentence_boundary():
+    long = "A sentence of moderate length here. " * 100
+    capped = design_llm.cap_reply_text(long, limit=200)
+    assert len(capped) <= 200
+    assert capped.endswith(".")
+
+
+def test_sanitize_reply_text_strips_markdown_and_names_templates():
+    titles = {"metr-rct-v1": "METR RCT"}
+    text = "Try **the METR design** (`metr-rct-v1`) with *care*, see metr-rct-v1."
+    out = design_llm.sanitize_reply_text(text, titles)
+    assert out == "Try the METR design (METR RCT) with care, see METR RCT."
+
+
+def test_sanitize_reply_text_leaves_citation_links_and_unknown_ids_intact():
+    text = "See [the paper](https://arxiv.org/abs/2507.09089) and __other-v1__."
+    out = design_llm.sanitize_reply_text(text, {})
+    assert out == "See [the paper](https://arxiv.org/abs/2507.09089) and other-v1."
+
+
+def test_propose_turn_trims_a_looped_reply_and_resolves_template_ids():
+    reply = {
+        "text": "\n\n".join(["Use **metr-rct-v1** here."] * 6),
+        "moves": [],
+    }
+    client = _fake_client(reply)
+    turn = design_llm.propose_turn(client, "t", [], PAPERS, TEMPLATES)
+    assert turn.text == "Use METR RCT here."
+
+
+def test_streaming_salvages_truncated_json_without_a_second_call():
+    calls = {"post": 0}
+
+    def post(url, body, headers):
+        calls["post"] += 1
+        return {"choices": [{"message": {"content": "{}"}}]}
+
+    def stream(url, body, headers):
+        yield '{"text": "Half a reply that got cut'
+
+    client = assistant.MistralProvider("k", post=post, stream=stream)
+    gen = design_llm.propose_turn_streaming(client, "t", [], PAPERS, TEMPLATES)
+    try:
+        while True:
+            next(gen)
+    except StopIteration as stop:
+        turn = stop.value
+    assert calls["post"] == 0
+    assert turn is not None and turn.text == "Half a reply that got cut"
+
+
+def test_design_requests_cap_tokens_and_the_transport_has_timeouts():
+    import inspect
+
+    src = inspect.getsource(assistant)
+    assert "timeout=60" in src and "timeout=120" in src
+    assert design_llm.MAX_TOKENS <= 1200
+
+
+def test_system_prompt_forbids_markdown_and_raw_ids_in_reply_text():
+    prompt = design_llm.SYSTEM_PROMPT
+    assert "PLAIN TEXT" in prompt
+    assert "never write template ids" in prompt
+
+
+def test_proposal_text_is_sanitised_like_the_reply_prose():
+    reply = {
+        "text": "Here is a design.",
+        "moves": [
+            {
+                "kind": "choose-template",
+                "target": "design",
+                "proposal": (
+                    "Use the **metr-rct-v1** template (`metr-rct-v1`) to structure "
+                    "the study design."
+                ),
+                "patch": {"templateId": "metr-rct-v1", "parameters": {}},
+                "refs": [],
+            }
+        ],
+    }
+    turn = design_llm.propose_turn(_fake_client(reply), "t", [], PAPERS, TEMPLATES)
+    move = turn.moves[0]
+    assert "*" not in move.proposal and "`" not in move.proposal
+    assert "metr-rct-v1" not in move.proposal
+    assert "METR RCT" in move.proposal
+    # The patch keeps the real id: only display text changes.
+    assert move.patch["templateId"] == "metr-rct-v1"
+
+
+def test_streaming_proposal_text_is_sanitised_too():
+    reply = json.dumps(
+        {
+            "text": "ok",
+            "moves": [
+                {
+                    "kind": "add-measure",
+                    "target": "measures[]",
+                    "proposal": "Measure **review latency** per `metr-rct-v1` run.",
+                    "patch": {
+                        "section": "measures",
+                        "op": "append",
+                        "value": "Review latency",
+                    },
+                }
+            ],
+        }
+    )
+
+    def stream(url, body, headers):
+        yield reply
+
+    client = assistant.MistralProvider("k", post=lambda *a: {}, stream=stream)
+    gen = design_llm.propose_turn_streaming(client, "t", [], PAPERS, TEMPLATES)
+    try:
+        while True:
+            next(gen)
+    except StopIteration as stop:
+        turn = stop.value
+    assert turn.moves[0].proposal == "Measure review latency per METR RCT run."
+
+
+def _set_field_reply(path: list[str], value) -> dict:
+    return {
+        "text": "Reply.",
+        "moves": [
+            {
+                "kind": "set-field",
+                "target": ".".join(path),
+                "proposal": "Plan for twelve participants.",
+                "patch": {"op": "set-field", "path": path, "value": value},
+                "refs": [],
+            }
+        ],
+    }
+
+
+def test_sample_size_aliases_are_mapped_to_the_planned_participants_slot():
+    for alias in (["participants", "sampleSize"], ["participants", "size"], ["n"]):
+        client = _fake_client(_set_field_reply(alias, 12))
+        script = design_llm.propose_turn(client, "x", [], PAPERS, TEMPLATES)
+        assert script.moves[0].patch["path"] == ["participants", "planned"], alias
+
+
+def test_set_field_moves_for_non_fillable_slots_never_become_cards(caplog):
+    client = _fake_client(_set_field_reply(["participants", "favouriteColour"], "red"))
+    with caplog.at_level("INFO", logger="middleware.design_llm"):
+        script = design_llm.propose_turn(client, "x", [], PAPERS, TEMPLATES)
+    assert script.moves == ()
+    assert "favouriteColour" in caplog.text
+
+
+def test_system_prompt_lists_only_the_fillable_slot_names():
+    from middleware import compiler
+
+    for key in compiler.FILLABLE_SLOTS:
+        assert f"`{key}`" in design_llm.SYSTEM_PROMPT
+    assert "sampleSize" not in design_llm.SYSTEM_PROMPT
+
+
+def test_a_stray_comparison_template_parameter_is_dropped_at_parse_time():
+    reply = {
+        "text": "Reply.",
+        "moves": [
+            {
+                "kind": "choose-template",
+                "target": "design",
+                "proposal": "Use the METR design.",
+                "patch": {
+                    "templateId": "metr-rct-v1",
+                    "parameters": {"comparison": "AI vs none", "keep": 1},
+                },
+                "refs": [],
+            }
+        ],
+    }
+    script = design_llm.propose_turn(_fake_client(reply), "x", [], PAPERS, TEMPLATES)
+    assert script.moves[0].patch["parameters"] == {"keep": 1}

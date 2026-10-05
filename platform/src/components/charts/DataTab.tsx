@@ -13,6 +13,7 @@ import { SwimlaneTimeline } from "./SwimlaneTimeline";
 import { PrescriptionPanel } from "./PrescriptionPanel";
 import { DataProvenance } from "./DataProvenance";
 import { DryRunPlan } from "./DryRunPlan";
+import { dryRunFallbackSessionIds } from "./dryRunSessions";
 import { Surface } from "@/components/shell/Surface";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -49,9 +50,9 @@ export function DataTab({ studyId }: { studyId: string }) {
     busy: boolean;
   }>({ report: null, error: null, busy: false });
 
-  const refresh = (live: boolean, initial = false) => {
+  const refresh = (live: boolean, initial = false): Promise<void> => {
     const version = ++requestVersion.current;
-    Promise.all([
+    return Promise.all([
       studyApi.status(studyId, includeSynthetic),
       studyApi.dataset(studyId, includeSynthetic),
     ])
@@ -115,7 +116,10 @@ export function DataTab({ studyId }: { studyId: string }) {
     try {
       const report = await studyApi.simulate(studyId, 10);
       setDryRun({ report, error: null, busy: false });
-      refresh(true);
+      // Wait for the sessions list so the banner and the list agree; a failed
+      // refresh shows its error (refresh sets loadError), never a silent
+      // "No sessions yet" under a "Dry run complete" banner.
+      await refresh(true);
     } catch (e) {
       if (e instanceof OfflineError) {
         // No middleware: the rehearsal falls back to the honest client-side
@@ -166,6 +170,8 @@ export function DataTab({ studyId }: { studyId: string }) {
   const noProtocol =
     !!loadError && loadError.toLowerCase().includes("no protocol");
 
+  const fallbackIds = dryRunFallbackSessionIds(dryRun.report, sessions.length);
+
   if (loading) return null;
 
   if (noProtocol) {
@@ -175,7 +181,7 @@ export function DataTab({ studyId }: { studyId: string }) {
           line={
             <>
               Nothing has been collected yet: this study has no compiled
-              protocol. Design it in the conversation and apply the draft  -
+              protocol. Design it in Setup and apply the draft —
               its sessions, integrity flags and metrics appear here once
               participants start running it.
             </>
@@ -185,7 +191,7 @@ export function DataTab({ studyId }: { studyId: string }) {
               {/* The tab lives in the URL, so this is a real link: it is
                 * back-navigable and shareable, not a state poke. */}
               <Link to={{ search: "?tab=conversation" }}>
-                Open the design conversation
+                Open Setup
               </Link>
             </Button>
           }
@@ -231,10 +237,19 @@ export function DataTab({ studyId }: { studyId: string }) {
         </Notice>
       )}
 
+      {!loadError && sessions.length === 0 && (
+        <DataProvenance
+          conditions={conditions}
+          onDryRun={runDryRun}
+          dryRunBusy={dryRun.busy}
+          showClientRehearsal={showClientRehearsal}
+        />
+      )}
+
       {statusDoc && Object.keys(statusDoc.producers).length > 0 && (
-        <section className="flex flex-col gap-2 border-b border-border pb-5">
-          <div>
-            <h2 className="type-subhead text-text">Configured producers</h2>
+        <details className="border-b border-border pb-5">
+          <summary className="type-subhead cursor-pointer text-text">Configured producers</summary>
+          <div className="mt-2">
             <p className="mt-1 max-w-reading type-caption text-text-muted">
               Configuration is not receipt. A source is counted below only after its events or metric rows arrive.
             </p>
@@ -250,18 +265,7 @@ export function DataTab({ studyId }: { studyId: string }) {
               </div>
             ))}
           </div>
-        </section>
-      )}
-
-      {/* Before any data exists, the provenance decision comes first: collect
-          it live or rehearse with synthetic data. */}
-      {!loadError && sessions.length === 0 && (
-        <DataProvenance
-          conditions={conditions}
-          onDryRun={runDryRun}
-          dryRunBusy={dryRun.busy}
-          showClientRehearsal={showClientRehearsal}
-        />
+        </details>
       )}
 
       {dryRun.report && (
@@ -318,7 +322,15 @@ export function DataTab({ studyId }: { studyId: string }) {
 
       <section className="flex flex-col gap-stack">
         <h2 className="type-section text-text">Sessions</h2>
-        {sessions.length === 0 ? (
+        {sessions.length === 0 && fallbackIds.length > 0 ? (
+          <ul className="flex flex-col gap-1 type-caption text-text">
+            {fallbackIds.map((id) => (
+              <li key={id} className="font-mono">
+                {id}
+              </li>
+            ))}
+          </ul>
+        ) : sessions.length === 0 ? (
           <EmptyState line="No sessions yet. Collected data appears here per session, with its completeness and any integrity flags." />
         ) : (
           <div className="flex flex-col gap-3">

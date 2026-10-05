@@ -4,10 +4,6 @@ export interface IdeHealthConfig {
   debounceMs: number;
 }
 
-export const DEFAULT_IDE_HEALTH_CONFIG: IdeHealthConfig = {
-  debounceMs: 10_000,
-};
-
 export interface IdeHealthSnapshot {
   errorCount: number;
   warningCount: number;
@@ -26,7 +22,6 @@ export interface IdeHealthEvent {
   testInvocations: number;
 }
 
-export type DiagnosticKind = 'error' | 'warning';
 export type InvocationKind = 'build' | 'test';
 
 /** The event sink for emitted health snapshots. */

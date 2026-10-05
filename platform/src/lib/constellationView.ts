@@ -15,7 +15,6 @@ export const DIMMED_NODE_OPACITY = 0.14;
 export const DRIFT_AMPLITUDE = 1.2;
 export const SETTLE_ALPHA0 = 0.35;
 export const SETTLE_DECAY_PER_FRAME = 0.94;
-export const SETTLE_MAX_MS = 1000;
 export const SETTLE_NODE_LIMIT = 150;
 /** Above this many nodes, always-on labels stop being legible and the view
  * degrades to zoom-gated labels instead. Tuned well below `SETTLE_NODE_

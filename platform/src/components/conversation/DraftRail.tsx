@@ -5,7 +5,7 @@ import {
   type ProtocolDraft,
   type Understanding,
 } from "@/lib/types";
-import { summarizeProtocol, type ProtocolSection } from "@/lib/protocolFormat";
+import { formatSlotValue, summarizeProtocol, type ProtocolSection } from "@/lib/protocolFormat";
 import { buildProtocolPath } from "@/lib/protocolPath";
 import { Button } from "@/components/ui/button";
 import { ProtocolGuide } from "./ProtocolGuide";
@@ -203,7 +203,7 @@ export function DraftRail({
           )}
           {onFinish && (
             <Button size="sm" onClick={onFinish} className="flex-1">
-              {ready ? "Review draft" : "Review status"}
+              Review draft
             </Button>
           )}
           {onApply && !onFinish && (
@@ -232,7 +232,7 @@ function SlotPlate({ draft }: { draft: ProtocolDraft }) {
           <span className="type-label min-w-0 flex-1 text-text">{SLOT_LABELS[slot]}</span>
           {draft[slot].length > 0 ? (
             <ul className="flex min-w-0 flex-[1.4] flex-col gap-0.5 type-caption text-text">
-              {draft[slot].map((value, index) => <li key={index}>{value}</li>)}
+              {draft[slot].map((value, index) => <li key={index}>{formatSlotValue(slot, value)}</li>)}
             </ul>
           ) : (
             <span className="mt-1.5 size-2 shrink-0 rounded-dot border border-border-strong" role="img" aria-label="not yet resolved" />
@@ -244,7 +244,7 @@ function SlotPlate({ draft }: { draft: ProtocolDraft }) {
           <span className="type-label min-w-0 flex-1 text-text">{SLOT_LABELS[slot]}</span>
           {draft[slot].length > 0 ? (
             <ul className="flex min-w-0 flex-[1.4] flex-col gap-0.5 type-caption text-text">
-              {draft[slot].map((value, index) => <li key={index}>{value}</li>)}
+              {draft[slot].map((value, index) => <li key={index}>{formatSlotValue(slot, value)}</li>)}
             </ul>
           ) : (
             <span className="type-caption text-text-muted">Optional for now</span>

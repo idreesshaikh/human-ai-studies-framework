@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pandas as pd
 
 from analysis import figures
@@ -61,7 +63,7 @@ def run(dataset: Dataset) -> RecipeResult:
         test, desc, sentence = compare_or_describe(df, sub, dataset)
         cells.append(desc.assign(subscale=sub))
         sentences.append(f"{sub}: {sentence}")
-        if test:
+        if test and math.isfinite(test.statistic):
             rows.append({"subscale": sub, **test.row()})
 
     colors = condition_colors(dataset.conditions)

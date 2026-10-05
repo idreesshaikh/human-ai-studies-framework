@@ -1,4 +1,4 @@
-"""How the design conversation listens before it proposes (FR-CONV-9/10)."""
+"""How the design conversation listens before it proposes."""
 
 from __future__ import annotations
 

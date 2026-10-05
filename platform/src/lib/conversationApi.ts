@@ -12,6 +12,7 @@ import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
 import { OfflineError } from "./studyApi.ts";
 import { openingTurn } from "./conversationOpening.ts";
 import { isDemoStudy } from "./demo.ts";
+import { shouldResendAfterStreamFailure } from "./streamRecovery.ts";
 
 export type DecisionTrigger = {
   moveId: string;
@@ -35,7 +36,7 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-function newRequestId(): string {
+export function newRequestId(): string {
   return globalThis.crypto?.randomUUID?.() ??
     `conversation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
@@ -423,7 +424,12 @@ export const conversationApi = {
     steer?: SteerLevel,
     decision?: DecisionTrigger,
     requestId = newRequestId(),
+    /* Lets the researcher cancel a reply that is taking too long (the Stop
+     * button). A cancelled turn rejects with an AbortError and is never
+     * resent. */
+    signal?: AbortSignal,
   ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
+    let eventsReceived = 0;
     let done: {
       researcherTurnId: string;
       platformTurnId: string;
@@ -444,6 +450,7 @@ export const conversationApi = {
             accept: "text/event-stream",
           },
           credentials: "include",
+          signal,
           body: JSON.stringify({
             text,
             author,
@@ -471,13 +478,24 @@ export const conversationApi = {
           const raw = /^data: (.*)$/m.exec(frame)?.[1];
           if (!event || raw == null) continue;
           const payload = JSON.parse(raw);
+          eventsReceived += 1;
           if (event === "token") onToken?.(String(payload.text ?? ""));
           else if (event === "done") done = payload;
           else if (event === "error") throw new Error(String(payload.detail));
         }
       }
       if (!done) throw new Error("stream ended without a turn");
-    } catch {
+    } catch (error) {
+      /* Resend only when the server had not started answering and the
+       * researcher did not cancel. Otherwise the reply may already be
+       * persisted, so surface the failure; the caller keeps their text. The
+       * resend reuses `requestId`, which the server treats as the same turn. */
+      if (!shouldResendAfterStreamFailure({
+        aborted: signal?.aborted ?? false,
+        eventsReceived,
+      })) {
+        throw error;
+      }
       return this.sendTurn(studyId, text, author, steer, decision, requestId);
     }
 

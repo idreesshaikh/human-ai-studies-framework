@@ -81,7 +81,10 @@ export function GroundingChip({ g }: { g: Grounding }) {
         aria-describedby={open ? cardId : undefined}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
-        onClick={() => setOpen((v) => !v)}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((v) => !v);
+        }}
       >
         {/* The chip is clean; the citation's own confidence is the framed
           * mark and its printed score at the left. A wall of citations reads

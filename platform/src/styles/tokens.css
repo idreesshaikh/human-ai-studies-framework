@@ -1,6 +1,7 @@
 /* Shared colors, typography, spacing, shape, and motion for both themes. */
 
 :root {
+  --touch-target: 2.75rem;
   /* ---- Motion --------------------------------------------------------
    * A plate has mass and a tracked field never stops moving. Six durations:
    * a control answering, a state changing, a mark arriving, a plate landing,
@@ -149,7 +150,7 @@
    * its table readable on a desktop and let the wrapper provide the honest
    * horizontal scroll on smaller windows instead of squeezing labels into
    * one another. */
-  --enrollment-table-min-width: 74rem;
+  --enrollment-table-min-width: 60rem;
 
   /* The coordinate grid's pitch. Wide enough that the ruling reads as a
    * coordinate field rather than as graph paper: at 1.5rem the lines were

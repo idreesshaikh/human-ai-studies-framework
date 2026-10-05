@@ -12,7 +12,7 @@ They are excluded from ruff (root `pyproject.toml`) and used by:
 
 - the default target of `uv run python metrics/src/main.py`
 - the `__main__` demo in `metrics/src/parsers/ts_parser.py`
-- the hand-verified numbers recorded in the implementation plan
+- the hand-verified numbers recorded in the metrics tests
 
 Editing them silently invalidates those recorded values; if you must change
-the corpus, re-run the plan's verification section and update its numbers.
+the corpus, re-run the metrics tests and update the recorded numbers.

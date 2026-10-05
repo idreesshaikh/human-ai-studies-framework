@@ -60,9 +60,7 @@ def test_near_duplicate_catches_exact_and_paraphrase():
         "before accept/reject."
     )
     assert _is_near_duplicate(prior, prior)
-    assert _is_near_duplicate(
-        "Measure review latency (time before accept).", prior
-    )
+    assert _is_near_duplicate("Measure review latency (time before accept).", prior)
     moves = (_mv("add-measure", "Measure review latency (time before accept)."),)
     assert _filter_repeated_moves(moves, _state(key_texts=[prior])) == ()
 
@@ -183,3 +181,123 @@ def test_a_repeated_caution_is_still_dropped():
     content_echo = _mv("caution", "Measure review latency (time before accept).")
     state = _state(key_texts=["Measure review latency (time before accept)."])
     assert _filter_repeated_moves((content_echo,), state) == ()
+
+
+def _duration_move():
+    return ProposedMove(
+        "set-field",
+        "session.durationMinutes",
+        "Sessions run 30 minutes.",
+        {"op": "set-field", "path": ["session", "durationMinutes"], "value": 30},
+        (),
+    )
+
+
+def test_explicit_turn_names_what_was_recorded_and_asks_the_next_question():
+    from middleware.design_assistant import _explicit_turn
+
+    move = _duration_move()
+    stance = {
+        "explicitMoves": (move,),
+        "nextQuestion": "How many participants can you recruit?",
+    }
+    state = {"keyTexts": ["Sessions run 30 minutes. 30"]}
+    turn = _explicit_turn(stance, state)
+    assert turn is not None and turn.moves == ()
+    assert "already have those details recorded" not in turn.text
+    assert "Sessions run 30 minutes." in turn.text
+    assert turn.text.rstrip().endswith("How many participants can you recruit?")
+
+
+def test_explicit_turn_without_a_next_question_still_asks_something():
+    from middleware.design_assistant import _explicit_turn
+
+    stance = {"explicitMoves": (_duration_move(),), "nextQuestion": ""}
+    state = {"keyTexts": ["Sessions run 30 minutes. 30"]}
+    turn = _explicit_turn(stance, state)
+    assert "Sessions run 30 minutes." in turn.text
+    assert turn.text.rstrip().endswith("?")
+
+
+def test_scaffolding_turn_asks_the_open_slot_question_not_just_names_it():
+    from middleware.design_assistant import _scaffolding_turn
+
+    stance = {"understanding": {"known": True, "missing": []}}
+    state = {
+        "outstandingSlots": [
+            {
+                "key": "participants.planned",
+                "label": "how many participants",
+                "question": "How many participants can you realistically recruit?",
+            }
+        ],
+        "compileValid": True,
+    }
+    turn = _scaffolding_turn(stance, [], state)
+    assert "I already have" not in turn.text
+    assert "How many participants can you realistically recruit?" in turn.text
+
+
+# --- revisions of an already-stated number are not repeats ---------------------------
+
+
+def _numeric_key(proposal: str, value: int) -> str:
+    from middleware.design_assistant import _move_key_text
+
+    return _move_key_text(proposal, {"value": value})
+
+
+def test_moves_differing_only_in_a_number_are_not_near_duplicates():
+    assert not _is_near_duplicate(
+        _numeric_key("Run each session for 30 minutes", 30),
+        _numeric_key("Run each session for 45 minutes", 45),
+    )
+    assert not _is_near_duplicate(
+        _numeric_key("Plan for 12 participants", 12),
+        _numeric_key("Plan for 16 participants", 16),
+    )
+    # The same number is still a repeat.
+    assert _is_near_duplicate(
+        _numeric_key("Run each session for 30 minutes", 30),
+        _numeric_key("Run each session for 30 minutes", 30),
+    )
+
+
+def test_a_revision_of_an_accepted_number_is_kept_as_a_card():
+    prior = _numeric_key("Run each session for 30 minutes.", 30)
+    revision = _mv(
+        "set-field",
+        "Run each session for 45 minutes.",
+        {"op": "set-field", "path": ["session", "durationMinutes"], "value": 45},
+    )
+    assert _filter_repeated_moves((revision,), _state(key_texts=[prior])) == (revision,)
+
+
+def test_explicit_revision_is_proposed_not_claimed_as_already_in_draft():
+    from middleware.design_assistant import _explicit_turn
+
+    revision = _mv(
+        "set-field",
+        "Run each session for 45 minutes.",
+        {"op": "set-field", "path": ["session", "durationMinutes"], "value": 45},
+    )
+    state = {"keyTexts": [_numeric_key("Run each session for 30 minutes.", 30)]}
+    turn = _explicit_turn({"explicitMoves": (revision,)}, state)
+    assert turn is not None and turn.moves == (revision,)
+    assert "already in the draft" not in turn.text
+
+
+def test_change_participants_request_still_yields_a_card_once_the_draft_is_valid():
+    from middleware.design_assistant import _explicit_moves, _explicit_turn
+
+    moves = _explicit_moves("change participants to 20")
+    assert [m.patch["path"] for m in moves] == [["participants", "planned"]]
+    assert moves[0].patch["value"] == 20
+    state = {
+        "compileValid": True,
+        "keyTexts": [_numeric_key("Plan for 12 participants.", 12)],
+    }
+    turn = _explicit_turn({"explicitMoves": moves, "nextQuestion": ""}, state)
+    assert turn is not None and len(turn.moves) == 1
+    assert "every required decision" not in turn.text
+    assert "already in the draft" not in turn.text

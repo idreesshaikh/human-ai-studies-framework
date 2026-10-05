@@ -80,7 +80,7 @@ try {
   const review = page.getByRole("button", { name: "Review draft", exact: true });
   await review.focus();
   await page.keyboard.press("Enter");
-  const dialog = page.getByRole("dialog", { name: "Prepare your protocol draft" });
+  const dialog = page.getByRole("dialog", { name: "Review draft" });
   await expect(dialog).toBeVisible();
   await page.keyboard.press("Tab");
   assert(await page.evaluate(() => Boolean(document.activeElement.closest('[role="dialog"]'))));

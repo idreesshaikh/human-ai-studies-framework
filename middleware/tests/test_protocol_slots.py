@@ -183,14 +183,14 @@ def test_a_set_field_move_cannot_write_outside_the_declared_slots():
     assert result.draft["study"]["id"] == "draft"
     assert "literature" not in result.draft
     assert len(result.warnings) == 2
-    assert all("not one of the protocol's fillable slots" in w for w in result.warnings)
+    assert all("setting the protocol does not have" in w for w in result.warnings)
 
 
 def test_a_refused_value_is_warned_about_never_silently_dropped():
     result = compiler.compile_moves(
         [_field("f", ("participants", "design"), "sideways")]
     )
-    assert any("not a valid enum" in w for w in result.warnings)
+    assert any("expected one of the listed choices" in w for w in result.warnings)
 
 
 def test_false_is_an_answer_not_an_absence():
@@ -234,4 +234,4 @@ def test_legacy_statistical_plan_sentence_is_recovered_as_a_runnable_recipe():
     assert result.draft["analysisPlan"] == [
         {"rq": "RQ-1", "recipes": ["paired-nonparametric"]}
     ]
-    assert any("legacy statistical-plan" in warning for warning in result.warnings)
+    assert any("statistical-plan wording" in warning for warning in result.warnings)

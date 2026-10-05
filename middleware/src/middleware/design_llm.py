@@ -1,10 +1,12 @@
-"""LLM-driven design-conversation proposals (FR-CONV-1.4)."""
+"""LLM-driven design-conversation proposals."""
 
 from __future__ import annotations
 
 import json
 import logging
+import re
 
+from middleware.compiler import FILLABLE_SLOTS
 from middleware.design_assistant import ProposedMove, Turn
 
 log = logging.getLogger(__name__)
@@ -44,13 +46,52 @@ _PATCHABLE_SECTIONS = frozenset(
 # the compiled draft).
 _SECTION_LIST = ", ".join(sorted(_PATCHABLE_SECTIONS))
 
+_FILLABLE_KEYS = ", ".join(f"`{key}`" for key in FILLABLE_SLOTS)
+
+# Names a model tends to reach for instead of the slot's real key.
+_SLOT_ALIASES = {
+    "participants.samplesize": "participants.planned",
+    "participants.size": "participants.planned",
+    "participants.n": "participants.planned",
+    "participants.count": "participants.planned",
+    "participants.numparticipants": "participants.planned",
+    "participants.numberofparticipants": "participants.planned",
+    "samplesize": "participants.planned",
+    "size": "participants.planned",
+    "n": "participants.planned",
+    "numparticipants": "participants.planned",
+    "session.duration": "session.durationMinutes",
+    "session.minutes": "session.durationMinutes",
+}
+
+# Handled by the compiler's own mapping of older field names.
+_LEGACY_FIELD_KEYS = frozenset({"comparison", "design.conditionOrder"})
+
+
+def _canonical_slot_path(path: list[str]) -> list[str] | None:
+    """The fillable slot a set-field path means, or None if there is none."""
+    key = ".".join(path)
+    if key in FILLABLE_SLOTS or key in _LEGACY_FIELD_KEYS:
+        return list(path)
+    alias = _SLOT_ALIASES.get(key.lower())
+    if alias is not None:
+        log.info("mapped set-field path %r to %r", key, alias)
+        return alias.split(".")
+    log.info("dropped a set-field move for %r: not a fillable slot", key)
+    return None
+
+
 _PATCH_SHAPE_RULE = (
-    "PATCH SHAPES. Conditions are a section patch with `section: \"conditions\"` "
-    "and `op: \"append\"`; never use a `set-field` path named `comparison`. "
+    'PATCH SHAPES. Conditions are a section patch with `section: "conditions"` '
+    'and `op: "append"`; never use a `set-field` path named `comparison`. '
     "Counterbalancing is a `set-field` at `participants.counterbalanced`; never "
     "use `design.conditionOrder`. A statistics move must target a declared RQ id "
     "such as `RQ-1`, not the full question text. A TERN instrument uses the "
-    "standard `session`, `fatigue`, `stuck`, and `output` sections.\n\n"
+    "standard `session`, `fatigue`, `stuck`, and `output` sections, each an "
+    "object, never a bare word. A `set-field` path must be exactly one of these "
+    f"slot keys: {_FILLABLE_KEYS}. Never invent others such as a sample size "
+    "key; the planned participant count is `participants.planned`. "
+    "Never put a `comparison` parameter on a template.\n\n"
 )
 
 _HOUSE_STYLE = (
@@ -132,7 +173,7 @@ SYSTEM_PROMPT = (
     "reference yet, leave it open and continue with the study design. "
     "NEVER use `add-instrument` for this: "
     "that kind is reserved for an actual capture instrument (e.g. "
-    "agentCapture) and its patch always needs `section: \"instruments\"`, "
+    'agentCapture) and its patch always needs `section: "instruments"`, '
     "so an ethics posture sent as `add-instrument` never reaches the "
     "draft.\n\n"
     "INSTRUMENT NAMES. Use only real protocol instruments: `tern`, `metrics`, "
@@ -203,6 +244,11 @@ SYSTEM_PROMPT = (
     "can do here: it tells the researcher you were not listening. Do not "
     "re-propose something they already rejected without acknowledging that "
     "they rejected it and saying what changed.\n\n"
+    "PLAIN TEXT. The reply text is shown verbatim to a researcher, so write "
+    "plain prose: no markdown (no **bold**, no backticks, no bullet "
+    "syntax), never write template ids, paper refs (corpus:..., arxiv:...) "
+    "or slot keys (like session.durationMinutes) in it. Name a template by "
+    "its title, a paper by its title, and a field in everyday words.\n\n"
     "Reply with a single JSON object, no prose outside it:\n"
     '{"text": "conversational reply, no inline citations - refs live only '
     'in moves[].refs", '
@@ -243,7 +289,7 @@ SYSTEM_PROMPT = (
     '"set-instrument", "name": "...", "config": {...}}\n'
     '- reconfigure-instrument: {"section": "instruments", "op": '
     '"reconfigure", "name": "...", "path": ["..."], "value": ...}\n'
-    '- caution: patch is always null.'
+    "- caution: patch is always null."
 )
 
 
@@ -340,10 +386,10 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
     if kind == "choose-template":
         template_id = patch.get("templateId")
         if isinstance(template_id, str) and template_id:
-            return {
-                "templateId": template_id,
-                "parameters": patch.get("parameters") or {},
-            }
+            parameters = dict(patch.get("parameters") or {})
+            # The comparison is a conditions section, never a template parameter.
+            parameters.pop("comparison", None)
+            return {"templateId": template_id, "parameters": parameters}
         return None
     if kind == "merge-templates":
         template_ids = patch.get("templateIds")
@@ -390,7 +436,10 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
             and all(isinstance(p, str) and p for p in path)
             and "value" in patch
         ):
-            return {"op": "set-field", "path": list(path), "value": patch["value"]}
+            canonical = _canonical_slot_path(path)
+            if canonical is None:
+                return None
+            return {"op": "set-field", "path": canonical, "value": patch["value"]}
         return None
     if kind == "add-instrument" and patch.get("section") == "instruments":
         if (
@@ -446,15 +495,15 @@ def _known_template_ids() -> frozenset[str]:
     from middleware import template_registry
 
     try:
-        return frozenset(
-            t["templateId"] for t in template_registry.list_templates()
-        )
+        return frozenset(t["templateId"] for t in template_registry.list_templates())
     except Exception:  # noqa: BLE001 - degrade, never break a turn
         return frozenset()
 
 
 def _parse_moves(
-    raw_moves: object, candidate_refs: set[str]
+    raw_moves: object,
+    candidate_refs: set[str],
+    titles: dict[str, str] | None = None,
 ) -> tuple[ProposedMove, ...]:
     known_templates = _known_template_ids()
     out = []
@@ -488,8 +537,107 @@ def _parse_moves(
             if isinstance(raw_refs, list)
             else ()
         )
+        # Display text only: the patch keeps the real ids it needs to compile.
+        proposal = sanitize_reply_text(proposal, titles or {})
         out.append(ProposedMove(kind, str(m.get("target", "")), proposal, patch, refs))
     return tuple(out)
+
+
+MAX_TOKENS = 1200
+REPLY_TEXT_MAX_CHARS = 1500
+
+_PARAGRAPH_SPLIT = re.compile(r"\n\s*\n")
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+_MIN_REPEAT_CHARS = 15
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def trim_repeated_text(text: str) -> str:
+    """
+    Cut a looping reply back to its first occurrence: a paragraph, then a sentence,
+    that repeats an earlier one marks where the model began to loop.
+    """
+    paragraphs = _PARAGRAPH_SPLIT.split(text.strip())
+    kept: list[str] = []
+    seen: set[str] = set()
+    for para in paragraphs:
+        key = _norm(para)
+        if len(key) >= _MIN_REPEAT_CHARS and key in seen:
+            break
+        seen.add(key)
+        kept.append(para)
+    text = "\n\n".join(kept)
+    # Sentence pass: rebuild paragraph by paragraph, stopping at the first repeat.
+    seen = set()
+    out_paras: list[str] = []
+    for para in text.split("\n\n"):
+        out: list[str] = []
+        looped = False
+        for sentence in _SENTENCE_SPLIT.split(para):
+            key = _norm(sentence)
+            if len(key) >= _MIN_REPEAT_CHARS and key in seen:
+                looped = True
+                break
+            seen.add(key)
+            out.append(sentence)
+        if out:
+            out_paras.append(" ".join(out) if looped else para)
+        if looped:
+            break
+    return "\n\n".join(out_paras).strip()
+
+
+def cap_reply_text(text: str, limit: int = REPLY_TEXT_MAX_CHARS) -> str:
+    """Bound the reply's length, cutting at the last sentence end that fits."""
+    if len(text) <= limit:
+        return text
+    window = text[:limit]
+    ends = [m.end() for m in re.finditer(r"[.!?](?=\s|$)", window)]
+    return (window[: ends[-1]] if ends else window).rstrip()
+
+
+def sanitize_reply_text(text: str, titles: dict[str, str]) -> str:
+    """
+    Strip markdown emphasis/backticks and swap known template/paper ids for their
+    titles. Markdown links (the citation links) are left as written.
+    """
+    text = text.replace("`", "")
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text, flags=re.S)
+    text = re.sub(r"__(.+?)__", r"\1", text, flags=re.S)
+    text = re.sub(r"(?<![*\w])\*(?!\s)([^*\n]+?)\*(?![*\w])", r"\1", text)
+    for ident in sorted(titles, key=len, reverse=True):
+        if titles[ident]:
+            text = re.sub(
+                rf"(?<![\w:/-]){re.escape(ident)}(?![\w-])", titles[ident], text
+            )
+    return text
+
+
+def _title_map(papers: list[dict], templates: list[dict]) -> dict[str, str]:
+    """id -> human title for everything resolvable this turn."""
+    titles: dict[str, str] = {}
+    try:
+        from middleware import template_registry
+
+        for t in template_registry.list_templates():
+            titles[t["templateId"]] = t.get("title", "")
+    except Exception:  # noqa: BLE001 - degrade, never break a turn
+        log.debug("Template titles unavailable; using this turn's supplied titles")
+    for t in templates:
+        if t.get("templateId") and t.get("title"):
+            titles[t["templateId"]] = t["title"]
+    for p in papers:
+        if p.get("ref") and p.get("title"):
+            titles[p["ref"]] = p["title"]
+    return titles
+
+
+def _clean_reply(text: str, papers: list[dict], templates: list[dict]) -> str:
+    text = cap_reply_text(trim_repeated_text(text))
+    return sanitize_reply_text(text, _title_map(papers, templates))
 
 
 class _ReplyTextExtractor:
@@ -503,9 +651,15 @@ class _ReplyTextExtractor:
         self._in_text = False
         self._done = False
         self._escape = False
+        self.text = ""
 
     def feed(self, chunk: str) -> str:
         """Return whatever prose this chunk contributed (often "")."""
+        prose = self._feed(chunk)
+        self.text += prose
+        return prose
+
+    def _feed(self, chunk: str) -> str:
         if self._done:
             return ""
         out = []
@@ -524,7 +678,7 @@ class _ReplyTextExtractor:
                 self._buf = ""
                 chunk_tail = rest[opened + 1 :]
                 if chunk_tail:
-                    out.append(self.feed(chunk_tail))
+                    out.append(self._feed(chunk_tail))
                 continue
             if self._escape:
                 out.append({"n": "\n", "t": "\t", "r": "\r"}.get(ch, ch))
@@ -575,7 +729,12 @@ def propose_turn_streaming(
     stream = getattr(client, "stream", None)
     if stream is None:
         return propose_turn(
-            client, text, history, papers, templates, directive,
+            client,
+            text,
+            history,
+            papers,
+            templates,
+            directive,
             design_state=design_state,
         )
 
@@ -591,7 +750,7 @@ def propose_turn_streaming(
                 "model": client.model,
                 "messages": messages,
                 "response_format": {"type": "json_object"},
-                "max_tokens": 1200,
+                "max_tokens": MAX_TOKENS,
             },
             {"Authorization": f"Bearer {client.api_key}"},
         ):
@@ -599,17 +758,35 @@ def propose_turn_streaming(
             prose = extractor.feed(piece)
             if prose:
                 yield prose
-        parsed = json.loads(body)
+        try:
+            parsed = json.loads(body)
+        except json.JSONDecodeError:
+            # Cut off at the token cap: keep the prose already streamed rather
+            # than paying for a second full call that would likely loop again.
+            salvaged = _clean_reply(extractor.text.strip(), papers, templates)
+            if not salvaged:
+                raise
+            log.warning("streaming turn truncated; keeping its prose")
+            return Turn(text=salvaged, moves=(), match_query=None)
         if not isinstance(parsed, dict):
             raise ValueError("LLM reply was not a JSON object")
-        reply_text = str(parsed.get("text", "")).strip()
+        reply_text = _clean_reply(
+            str(parsed.get("text", "")).strip(), papers, templates
+        )
     except Exception as exc:  # noqa: BLE001 - any provider/parse failure degrades
         log.warning("streaming conversation turn failed, falling back: %s", exc)
         return propose_turn(
-            client, text, history, papers, templates, directive,
+            client,
+            text,
+            history,
+            papers,
+            templates,
+            directive,
             design_state=design_state,
         )
-    moves = _parse_moves(parsed.get("moves"), candidate_refs)
+    moves = _parse_moves(
+        parsed.get("moves"), candidate_refs, _title_map(papers, templates)
+    )
     if not reply_text and not moves:
         log.warning("LLM conversation turn produced no usable content, falling back")
         return None
@@ -642,7 +819,7 @@ def propose_turn(
                 "model": client.model,
                 "messages": messages,
                 "response_format": {"type": "json_object"},
-                "max_tokens": 1200,
+                "max_tokens": MAX_TOKENS,
             },
             {"Authorization": f"Bearer {client.api_key}"},
         )
@@ -650,13 +827,15 @@ def propose_turn(
         parsed = json.loads(content)
         if not isinstance(parsed, dict):
             raise ValueError("LLM reply was not a JSON object")
-        reply_text = str(parsed.get("text", "")).strip()
-    except Exception as exc:  # noqa: BLE001 - any provider/parse failure degrades
-        log.warning(
-            "LLM conversation turn unavailable: %s", exc
+        reply_text = _clean_reply(
+            str(parsed.get("text", "")).strip(), papers, templates
         )
+    except Exception as exc:  # noqa: BLE001 - any provider/parse failure degrades
+        log.warning("LLM conversation turn unavailable: %s", exc)
         return None
-    moves = _parse_moves(parsed.get("moves"), candidate_refs)
+    moves = _parse_moves(
+        parsed.get("moves"), candidate_refs, _title_map(papers, templates)
+    )
     if not reply_text and not moves:
         log.warning("LLM conversation turn produced no usable content, falling back")
         return None

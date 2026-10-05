@@ -59,7 +59,7 @@ export function Hero() {
           * able to name it. Balanced, the four lines come out even and
           * nothing is stranded. */}
           <p className="type-body-lg max-w-[52ch] animate-in text-balance fade-in text-text-muted delay-100 duration-entrance ease-out">
-            Phoenix configures task-based human–AI studies in VS Code. Describe
+            Phoenix configures task-based <span className="whitespace-nowrap">human–AI</span> studies in VS Code. Describe
             the coding task, comparison, and outcome, then review a protocol
             before optionally collecting the developer session data.
           </p>

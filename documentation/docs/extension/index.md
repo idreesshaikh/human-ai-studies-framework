@@ -49,7 +49,7 @@ the study that runs.
   stuck prompts never steal focus and time out silently after 60 s.
 - **One prompt at a time, everywhere.** Any visible prompt suppresses stuck
   detection, and every prompt interaction resets the detector cooldown.
-- **FR-ETH-2-safe by construction.** Capture is sizes, shapes, and timings
+- **Content-free by construction.** Capture is sizes, shapes, and timings
   only  -  never code content, keystrokes, clipboard text, or off-workspace
   paths.
 

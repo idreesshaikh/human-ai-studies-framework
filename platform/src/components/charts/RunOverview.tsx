@@ -107,7 +107,7 @@ export function RunOverview({ studyId, preview = true, onReady, active = true }:
             </ul>
             {plan.privacy && <p className="mt-3 type-caption text-text-muted">AI conversation policy: {plan.privacy.agentContentPolicy}. Raw code: {plan.privacy.rawCode ? "enabled; requires explicit consent" : "not collected"}. Clipboard text and individual keystrokes are not collected.</p>}
           </details>
-          {preview && !loading && <div className="flex justify-end border-t border-border pt-4"><Button asChild size="sm"><Link to={{ search: draft ? "?tab=conversation" : "?tab=enrollment" }}>{draft ? "Review and apply in Setup" : "Continue to enrollment"}</Link></Button></div>}
+          {preview && !loading && <div className="flex justify-end border-t border-border pt-4"><Button asChild size="sm"><Link to={{ search: draft ? "?tab=conversation" : "?tab=enrollment" }}>{draft ? "Review and apply in Setup" : "Go to Run"}</Link></Button></div>}
         </>
       )}
     </section>

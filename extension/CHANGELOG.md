@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- Add `TERN: Disconnect from Study` (command and Session view row). It asks
+  for confirmation, is refused during a session, and clears the credential,
+  paired identity, frozen configuration and study-written settings.
+- Show Pause/Resume and End actions in the Session view while a session runs.
+- Report real upload state in the Data view (last accepted send, events not
+  yet sent) instead of a static "Connected", including between sessions.
+- Remove the unused burst-id counter and
+  IDE-health default, and the never-read `tern.condition` setting's claim of
+  being managed by pairing.
+
 - Collect the AI-reliance debrief item for AI-assisted sessions using their
   locked assignment. Unassisted sessions keep the six base items.
 - Remove the unused pairing reducer and its isolated tests. Live pairing and

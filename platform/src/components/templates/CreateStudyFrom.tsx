@@ -9,6 +9,8 @@ import { useAuth } from "@/lib/auth.tsx";
 import { ApiError } from "@/lib/api.ts";
 import { hasRole } from "@/lib/capabilities";
 import { signInHref } from "@/lib/returnTo";
+import { browserNameStore, rememberStudyName } from "@/lib/studyNames";
+import { NAME_MAX_LENGTH } from "@/lib/uiText";
 
 /* "Turn this into a study"  -  the one way off the templates page.
  *
@@ -68,6 +70,7 @@ export function CreateStudyFrom({
     try {
       const study = await api.createStudy(slug, name.trim(), protocol);
       // Refresh `me` so the new study's membership resolves immediately.
+      rememberStudyName(browserNameStore(), study.id, name);
       await refresh();
       navigate(`/p/${slug}/studies/${study.id}`);
     } catch (e) {
@@ -128,6 +131,7 @@ export function CreateStudyFrom({
             placeholder="Name the study…"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            maxLength={NAME_MAX_LENGTH}
             onKeyDown={(e) => {
               if (e.key === "Enter") create();
               if (e.key === "Escape") setName("");

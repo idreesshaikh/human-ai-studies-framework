@@ -50,7 +50,7 @@ const LAYOUT_CONTRACT_FILES = new Set([
   "pages/Members.tsx",
   "pages/ProjectHome.tsx",
   "pages/Projects.tsx",
-  "pages/Settings.tsx",
+  "pages/AccountSettings.tsx",
   "pages/Templates.tsx",
 ]);
 const ALLOWED_MEASURES = new Set([

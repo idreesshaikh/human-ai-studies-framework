@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MoreHorizontal, PanelRight, PanelRightClose, Send } from "lucide-react";
+import { MoreHorizontal, PanelRight, PanelRightClose, Send, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -17,6 +17,7 @@ import { openingTurn } from "@/lib/conversationOpening";
 import type { Recommendation } from "@/lib/types";
 import {
   conversationApi,
+  newRequestId,
   loadConversation,
   type CompileResult,
   type DecisionTrigger,
@@ -98,12 +99,19 @@ export function ConversationView({
    * the hand-off idempotent while the empty conversation is being replaced by
    * the real LLM turn. */
   const openingSubmitted = useRef<string | null>(null);
+  /* Cancels the reply in flight (Stop). */
+  const abortRef = useRef<AbortController | null>(null);
+  const activeRequest = useRef<{ text: string; id: string; pendingId: string } | null>(null);
+  /* The last turn that failed or was stopped, so resending the same text reuses
+   * its request id and the server can recognise it as the same turn. */
+  const failedRequest = useRef<{ text: string; id: string } | null>(null);
   /* How much the assistant drives this conversation (see lib/steer.ts).
    * Per-study and read lazily, so a reload lands back on the setting this
    * study was left at rather than on the default. */
   const [steer, setSteer] = useState<SteerLevel>(DEFAULT_STEER);
 
   const threadEnd = useRef<HTMLDivElement>(null);
+  const followReply = useRef(true);
   const composer = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -143,9 +151,9 @@ export function ConversationView({
   // scroll for every fragment, while smooth scrolling keeps the thread from
   // jumping under the reader's eyes.
   useEffect(() => {
-    if (!busy && streamingText == null) return;
+    if ((!busy && streamingText == null) || !followReply.current) return;
     const frame = requestAnimationFrame(() =>
-      threadEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" }),
+      threadEnd.current?.scrollIntoView({ behavior: "instant", block: "end" }),
     );
     return () => cancelAnimationFrame(frame);
   }, [busy, streamingText]);
@@ -340,6 +348,7 @@ export function ConversationView({
       return;
     }
 
+    setNote(null);
     // Optimistic: show the researcher's message and clear the composer
     // immediately  -  before any network/LLM round-trip  -  so the thread never
     // sits with the box full while the model "thinks". The pending id is
@@ -357,10 +366,19 @@ export function ConversationView({
     setTurns((prev) => [...prev, researcherTurn]);
     setInput("");
     setBusy(true);
+    followReply.current = true;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId =
+      failedRequest.current?.text === text
+        ? failedRequest.current.id
+        : newRequestId();
+    failedRequest.current = null;
+    activeRequest.current = { text, id: requestId, pendingId };
     const scrollDown = () =>
-      queueMicrotask(() =>
-        threadEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" }),
-      );
+      queueMicrotask(() => {
+        if (followReply.current) threadEnd.current?.scrollIntoView({ behavior: "instant", block: "end" });
+      });
     scrollDown();
 
     try {
@@ -377,10 +395,15 @@ export function ConversationView({
           studyId,
           text,
           "You",
-          (fragment) => setStreamingText((prev) => prev + fragment),
+          (fragment) => {
+            if (abortRef.current === controller) setStreamingText((prev) => prev + fragment);
+          },
           steer,
           decision,
+          requestId,
+          controller.signal,
         );
+        if (abortRef.current !== controller) return;
         setStreamingText(null);
         setUnderstanding(appended.understanding);
         setTurns((prev) => {
@@ -398,26 +421,54 @@ export function ConversationView({
             ...appended.turns,
           ];
         });
-        setFocusMoveId(firstProposed(appended.turns));
+        if (followReply.current) setFocusMoveId(firstProposed(appended.turns));
       }
       scrollDown();
     } catch (e) {
+      if (abortRef.current !== controller) return;
       /* No invented reply. The platform used to answer from a keyword script
        * whenever the server was unreachable, which read as a design
        * conversation and was not one  -  a researcher had no way to tell the
        * difference until they acted on it. What they typed stays on screen,
        * and the reason it went unanswered is stated. */
-      setLive(false);
-      setNote(
-        e instanceof ApiError && e.status === 503
-          ? e.message
-          : "That didn't reach the server, so it hasn't been answered yet. Your message is still here. Try again when you're back online.",
-      );
+      /* Either way the typed text goes back into the composer and out of the
+       * thread, so nothing is lost and a retry does not show it twice. */
+      failedRequest.current = { text, id: requestId };
+      setTurns((prev) => prev.filter((t) => t.turnId !== pendingId));
+      setInput((current) => current || text);
+      if (controller.signal.aborted) {
+        setNote("Stopped. Your message is back in the box. Send it again when you're ready.");
+      } else {
+        setLive(false);
+        setNote(
+          e instanceof ApiError && e.status === 503
+            ? e.message
+            : "That didn't reach the server, so it hasn't been answered yet. Your message is back in the box. Try again when you're back online.",
+        );
+      }
       scrollDown();
     } finally {
-      setStreamingText(null);
-      setBusy(false);
+      if (abortRef.current === controller) {
+        setStreamingText(null);
+        setBusy(false);
+        abortRef.current = null;
+        activeRequest.current = null;
+      }
     }
+  }
+
+  function stopReply() {
+    const request = activeRequest.current;
+    if (!request) return;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    activeRequest.current = null;
+    failedRequest.current = { text: request.text, id: request.id };
+    setTurns((prev) => prev.filter((turn) => turn.turnId !== request.pendingId));
+    setInput((current) => current || request.text);
+    setStreamingText(null);
+    setBusy(false);
+    setNote("Stopped. Your message is back in the box. Send it again when you're ready.");
   }
 
   async function decide(
@@ -668,7 +719,7 @@ export function ConversationView({
       className={cn("mx-auto w-full max-w-reading bg-surface", !welcome && "px-4 pb-4 pt-2 sm:px-8")}
       onSubmit={(event) => { event.preventDefault(); send(); }}
     >
-      <div className="mx-auto flex w-full max-w-reading items-end gap-2 rounded-card border border-border bg-surface px-3 py-2 focus-within:border-accent">
+      <div className="composer focus-ring-owned mx-auto flex w-full max-w-reading items-end gap-2 rounded-card border border-border bg-surface px-3 py-2 focus-within:outline focus-within:outline-2 focus-within:outline-accent">
         <SteerDial value={steer} onChange={changeSteer} />
         <textarea
           ref={composer}
@@ -684,9 +735,11 @@ export function ConversationView({
           }}
           aria-label="Message the design assistant"
         />
-          <Button type="submit" size="icon" aria-label="Send" title="Send message" disabled={busy || !input.trim() || conversationLoading}>
-            <Send aria-hidden />
-          </Button>
+          {busy && live ? (
+            <Button type="button" size="icon" variant="outline" aria-label="Stop reply" onClick={(event) => { event.preventDefault(); stopReply(); }}><Square aria-hidden /></Button>
+          ) : (
+            <Button type="submit" size="icon" aria-label="Send" title="Send message" disabled={busy || !input.trim() || conversationLoading}><Send aria-hidden /></Button>
+          )}
       </div>
     </form>
   );
@@ -696,7 +749,17 @@ export function ConversationView({
       className={cn("split-rail chat-workspace h-full bg-surface", draftFolded && "rail-folded")}
     >
       <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto scroll-smooth">
+        <div
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto"
+          onWheel={(event) => { if (event.deltaY < 0) followReply.current = false; }}
+          onKeyDown={(event) => {
+            if (["PageUp", "Home", "ArrowUp"].includes(event.key)) followReply.current = false;
+          }}
+          onScroll={(event) => {
+            const thread = event.currentTarget;
+            followReply.current = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 80;
+          }}
+        >
           <header className="mx-auto w-full max-w-reading bg-surface px-4 py-1 sm:px-8">
             <h2 className="sr-only">Study design chat</h2>
             <div className="mx-auto flex w-full max-w-reading items-center justify-end gap-1">

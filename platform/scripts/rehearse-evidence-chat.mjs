@@ -136,12 +136,12 @@ try {
   });
   await page.getByRole("button", { name: "Review draft", exact: true }).click();
   await compileRequest;
-  await expect(page.getByRole("button", { name: "Apply to protocol", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Apply protocol", exact: true })).toBeDisabled();
   releaseCompile();
-  await expect(page.getByRole("button", { name: "Apply to protocol", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Apply protocol", exact: true })).toBeEnabled();
   await page.unroute("**/conversation/compile");
   const approved = page.waitForResponse(response => response.url().endsWith("/conversation/approve"));
-  await page.getByRole("button", { name: "Apply to protocol", exact: true }).click();
+  await page.getByRole("button", { name: "Apply protocol", exact: true }).click();
   const approvalResponse = await approved;
   assert.equal(approvalResponse.status(), 200, await approvalResponse.text());
   const record = await (await page.request.get(`${BASE}/studies/${study.id}/conversation/export`)).json();

@@ -52,7 +52,7 @@ approved protocol. The separate public demo project is read-only.
 
 Add `--env-file .env` to `uv run` if you have configured a model key there.
 The seed is useful for testing capture without a model key. To test design
-instead, start a new study from **Repertoire**, review its instruments and
+instead, start a new study from **Templates**, review its instruments and
 analysis plan, and approve the protocol. Model-assisted conversation needs
 `MISTRAL_API_KEY`; it does not replace the researcher's methodological review.
 

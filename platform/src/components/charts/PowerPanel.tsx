@@ -319,9 +319,9 @@ function PowerChart({ doc }: { doc: PowerDoc }) {
           strokeDasharray="4,3"
         />
         <text
-          x={SVG_W - M.right - 4}
+          x={M.left + 6}
           y={y(doc.powerTarget) - 6}
-          textAnchor="end"
+          textAnchor="start"
           className="fill-text-muted type-caption"
         >
           {doc.powerTarget * 100}% target
@@ -411,6 +411,7 @@ function PowerChart({ doc }: { doc: PowerDoc }) {
         {doc.curves.map((curve, i) => {
           const { color, dash } = seriesOf(curve.effectSize);
           const points = curve.points
+            .filter((p) => Number.isFinite(p.power))
             .map((p) => `${x(p.totalN).toFixed(1)},${y(p.power).toFixed(1)}`)
             .join(" ");
           const req = doc.requiredN[i];

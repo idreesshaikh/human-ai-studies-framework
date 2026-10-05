@@ -22,7 +22,8 @@ import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
 import { resolveRole, roleOrNull } from "@/lib/role";
 import { cn } from "@/lib/cn";
-import { humanSlug } from "@/lib/slug";
+import { browserNameStore, studyDisplayName } from "@/lib/studyNames";
+import { resolveStudyTab } from "@/lib/studyTabs";
 
 /* A study's workspace, and the whole arc the platform supports: configure a
  * developer study, run it, and inspect the data. The setup conversation is the
@@ -59,7 +60,7 @@ export function StudyHome() {
   // instead of always bouncing back to the conversation.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const tab: Tab = TABS.some((t) => t.id === tabParam) ? (tabParam as Tab) : "conversation";
+  const tab: Tab = resolveStudyTab(tabParam);
   useEffect(() => { if (tab === "planning") setPlanVisited(id); }, [tab, id]);
   const setTab = (next: Tab) =>
     setSearchParams(
@@ -195,8 +196,8 @@ export function StudyHome() {
             {/* A study id IS its slug in the schema, so the header was
              * printing `trust-calibration-in-ai-code-review` at 28px as the
              * study's name. Same string, read as words. */}
-            <h1 className="type-control truncate text-text" title={humanSlug(id)}>
-              {humanSlug(id)}
+            <h1 className="type-control truncate text-text" title={studyDisplayName(browserNameStore(), id)}>
+              {studyDisplayName(browserNameStore(), id)}
             </h1>
           </div>
 

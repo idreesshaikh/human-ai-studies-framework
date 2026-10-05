@@ -6,7 +6,7 @@ the answer to be interpretable, then proposes one decision at a time.
 
 The live design loop uses Mistral Medium (`mistral-medium-latest`) through
 Mistral's EU service because its output is short, structured, and latency
-sensitive. Citation-heavy knowledge answers continue to use Mistral Large.
+sensitive. Mistral Large is used only for optional model-assisted paper matching.
 Configure `MISTRAL_API_KEY` on the middleware; `MISTRAL_DESIGN_MODEL` can
 override the design model when needed. If the key is unavailable, PHOENIX
 shows an honest offline state instead of presenting scripted replies as live
