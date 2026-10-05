@@ -56,6 +56,8 @@ server. Use a separate database, build the platform, install Chromium, then run:
 REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:run-plan
 REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:evidence-chat
 REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:session-replay
+REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:workspace-layout
+REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:demo-readiness
 ```
 
 It checks manual setup, unapplied preview, approval, keyboard selection, privacy,
@@ -74,3 +76,33 @@ accessibility and a browser rehearsal before merge. Use normal required review;
 do not bypass branch protection. After merge, verify the deployed build before
 claiming hosted readiness. Also rehearse one physical TERN session in VS Code;
 automated web tests do not verify that editor launch on the presentation machine.
+
+## Independent verification, 5 October
+
+- Full workspace: 841 Python tests passed, 83.28% coverage; metrics retained
+  its stricter floor at 98.92%. Ruff and the six-package consistency check passed.
+- Extension: typecheck, lint, format and all 205 tests passed. Platform lint,
+  typecheck, semantic verifiers, token contrast checks and production build passed.
+  Both npm dependency audits reported no vulnerabilities. Strict docs build passed.
+- Browser: all five study tabs checked at 320, 390, 768, 1024, 1440 and 2048px
+  in light and dark themes, with reduced motion enabled: 60 cases, zero Axe
+  violations or document overflow. Tab-owned scroll containers were exercised.
+- Separate workflow rehearsals cover empty/manual setup, unapplied preview,
+  approval, assignments, evidence import/source inspection, keyboard decisions,
+  privacy, enrollment, deterministic replay and explicit outage/retry paths.
+  All four Share exports produced actual nonempty downloads.
+- Integrated smoke: simulation, synthetic/live separation, ingest idempotency,
+  sequence gaps, joined CSV keys, ten analysis recipes, report and notebook passed.
+
+Verified defects fixed: disappearing collapsed draft rail; expanded desktop
+preference hiding mobile review; inconsistent chat/composer widths; stale Plan
+loading/assignment state; approval offered during an unfinished compile; 320px
+project-switcher overflow; skipped Evidence heading levels. Delayed compilation
+now has a regression test: Apply remains disabled until the current draft arrives.
+An independent read-only reviewer approved the focused sidebar and timing fixes.
+
+These are software checks, not a human usability score or a claim that every
+possible interaction was tested. Hosted sign-in, the deployed release, physical
+VS Code pairing/capture, all external providers and a consented human pilot still
+need their own verification. The test smoke study is retained only in the isolated
+synthetic database; existing user projects and tickets were not deleted.

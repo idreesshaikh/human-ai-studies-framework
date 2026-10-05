@@ -82,14 +82,12 @@ export function DraftRail({
       <div className="shrink-0 border-b border-border px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="type-legend text-accent">STUDY MAP</p>
-            <h2 className="mt-1 type-section text-text">Protocol draft</h2>
             <p className="mt-1 type-caption text-text-muted">{draftCaption}</p>
           </div>
           <ProtocolGuide />
         </div>
 
-        <div className="mt-5">
+        <div className="mt-3">
           <div className="flex items-baseline justify-between gap-2">
             <span className="type-caption text-text-muted">Draft progress</span>
             <span className="type-quantity text-text">{path.done}/{path.total}</span>
@@ -208,7 +206,7 @@ export function DraftRail({
               {ready ? "Review draft" : "Review status"}
             </Button>
           )}
-          {onApply && (
+          {onApply && !onFinish && (
             <Button
               size="sm"
               variant="outline"

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
@@ -51,6 +51,7 @@ const TABS: { id: Tab; label: string; icon: typeof Library }[] = [
 
 export function StudyHome() {
   const { slug = "", id = "" } = useParams();
+  const [planVisited, setPlanVisited] = useState<string | null>(null);
   const api = useApi();
   const { me, loading: meLoading } = useSession();
   // The active tab lives in the URL (not local state) so a refresh, a
@@ -59,6 +60,7 @@ export function StudyHome() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const tab: Tab = TABS.some((t) => t.id === tabParam) ? (tabParam as Tab) : "conversation";
+  useEffect(() => { if (tab === "planning") setPlanVisited(id); }, [tab, id]);
   const setTab = (next: Tab) =>
     setSearchParams(
       (prev) => {
@@ -267,11 +269,11 @@ export function StudyHome() {
             <DataTab studyId={id} />
           </div>
         )}
-        {tab === "planning" && (
-          <div className="min-h-0 min-w-0 flex-1">
-            <PowerPanel key={id} studyId={id} />
-          </div>
-        )}
+        <div hidden={tab !== "planning"} className={cn("min-h-0 min-w-0 flex-1", tab !== "planning" && "hidden")}>
+          {tab === "planning" || planVisited === id ? (
+            <PowerPanel key={id} studyId={id} active={tab === "planning"} />
+          ) : null}
+        </div>
         {tab === "enrollment" && (
           <div className="min-h-0 min-w-0 flex-1">
             <EnrollmentPanel key={id} studyId={id} role={role} />

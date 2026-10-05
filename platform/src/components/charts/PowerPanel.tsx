@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Crosshair } from "lucide-react";
 import { Surface } from "@/components/shell/Surface";
 import { RunOverview } from "./RunOverview";
@@ -50,7 +50,7 @@ function seriesOf(effectSize: number): { color: string; dash: string } {
   return { color: LINE_COLORS[k], dash: LINE_DASHES[k] };
 }
 
-export function PowerPanel({ studyId }: { studyId: string }) {
+export function PowerPanel({ studyId, active = true }: { studyId: string; active?: boolean }) {
   const [alpha, setAlpha] = useState(0.05);
   const [powerTarget, setPowerTarget] = useState(0.8);
   const [maxN, setMaxN] = useState(120);
@@ -58,6 +58,7 @@ export function PowerPanel({ studyId }: { studyId: string }) {
   const [doc, setDoc] = useState<PowerDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [seeded, setSeeded] = useState(false);
+  const [overviewReady, setOverviewReady] = useState(false);
 
   const load = useCallback(
     (isLive: () => boolean) => {
@@ -90,6 +91,13 @@ export function PowerPanel({ studyId }: { studyId: string }) {
       off();
     };
   }, [load]);
+  const wasActive = useRef(active);
+  useEffect(() => {
+    let live = true;
+    if (active && !wasActive.current) load(() => live);
+    wasActive.current = active;
+    return () => { live = false; };
+  }, [active, load]);
 
   const toggleSize = (d: number) =>
     setSizes((prev) =>
@@ -97,15 +105,15 @@ export function PowerPanel({ studyId }: { studyId: string }) {
     );
 
   return (
-    <Surface measure="work" label="Planning">
+    <Surface measure="reading" label="Planning" className="bg-surface">
       <section className="flex flex-col gap-stack">
-        <RunOverview key={studyId} studyId={studyId} />
+        <RunOverview key={studyId} studyId={studyId} onReady={setOverviewReady} active={active} />
+        {overviewReady && <details className="mt-6 border-t border-border pt-5">
+          <summary className="cursor-pointer type-control text-text-muted">Sample size estimates</summary>
+          <div className="mt-4 flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <h2 className="type-section text-text">Recruitment planning</h2>
           <p className="type-body text-text-muted">
-            Size the planned comparison before anyone participates. These are
-            assumption curves, never findings; the study's design and current
-            plan stay visible beside the math.
+            Explore recruitment assumptions. These estimates are not findings.
           </p>
         </div>
 
@@ -266,6 +274,8 @@ export function PowerPanel({ studyId }: { studyId: string }) {
 
           </>
         )}
+          </div>
+        </details>}
       </section>
     </Surface>
   );

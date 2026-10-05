@@ -74,6 +74,8 @@ export function ConversationView({
    * to explain why it hasn't proposed a design yet. */
   const [understanding, setUnderstanding] = useState<Understanding | undefined>();
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
+  const [compiling, setCompiling] = useState(false);
+  const compileRequest = useRef(0);
   /** The protocol as a reader sees it, when this identity may not compile. */
   const [readOnlyProtocol, setReadOnlyProtocol] = useState<Record<
     string,
@@ -267,11 +269,15 @@ export function ConversationView({
      * look like it blinked into another state. The first compile runs after
      * the conversation settles, so both panes have one coherent hand-off. */
     if (!live || conversationLoading) return;
+    const request = ++compileRequest.current;
+    setCompiling(true);
     try {
       const result = await conversationApi.compile(studyId);
+      if (request !== compileRequest.current) return;
       setCompileResult(result);
       setReadOnlyProtocol(null);
     } catch {
+      if (request !== compileRequest.current) return;
       setCompileResult(null);
       /* Compiling is a contribute-level action, so a viewer 403s here  -  and
        * used to be shown an empty "no design shape yet" rail over a protocol
@@ -280,10 +286,13 @@ export function ConversationView({
        * claimed there wasn't one). Fall back to the view-capability document
        * so a reader sees the study's record; they still can't compile it. */
       try {
-        setReadOnlyProtocol(await studyApi.protocol(studyId));
+        const protocol = await studyApi.protocol(studyId);
+        if (request === compileRequest.current) setReadOnlyProtocol(protocol);
       } catch {
-        setReadOnlyProtocol(null);
+        if (request === compileRequest.current) setReadOnlyProtocol(null);
       }
+    } finally {
+      if (request === compileRequest.current) setCompiling(false);
     }
   }, [conversationLoading, live, studyId]);
 
@@ -615,7 +624,7 @@ export function ConversationView({
   }
 
   async function applyDraft() {
-    if (!compileResult?.valid || missingCoreSlots.length > 0 || applying) return;
+    if (!compileResult?.valid || missingCoreSlots.length > 0 || compiling || applying) return;
     setApplying(true);
     try {
       await conversationApi.approve(studyId, compileResult.compilationId);
@@ -656,13 +665,14 @@ export function ConversationView({
   const welcome = !conversationLoading && threadEmpty && !openingPending && conversationTurns.length === 0;
   const messageComposer = (
     <form
-      className={cn("bg-surface", !welcome && "px-4 pb-4 pt-2 sm:px-6")}
+      className={cn("mx-auto w-full max-w-reading bg-surface", !welcome && "px-4 pb-4 pt-2 sm:px-8")}
       onSubmit={(event) => { event.preventDefault(); send(); }}
     >
-      <div className="mx-auto flex w-full max-w-reading flex-col rounded-card border border-control-edge bg-surface px-3 py-3 focus-within:border-accent">
+      <div className="mx-auto flex w-full max-w-reading items-end gap-2 rounded-card border border-border bg-surface px-3 py-2 focus-within:border-accent">
+        <SteerDial value={steer} onChange={changeSteer} />
         <textarea
           ref={composer}
-          className="type-body min-h-12 min-w-0 w-full resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-text placeholder:text-text-muted"
+          className="type-body-lg min-h-8 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-text placeholder:text-text-muted"
           placeholder={welcome ? "Describe your research question…" : "Message the design assistant…"}
           value={input}
           rows={1}
@@ -674,26 +684,23 @@ export function ConversationView({
           }}
           aria-label="Message the design assistant"
         />
-        <div className="flex items-center justify-between gap-2">
-          <SteerDial value={steer} onChange={changeSteer} />
           <Button type="submit" size="icon" aria-label="Send" title="Send message" disabled={busy || !input.trim() || conversationLoading}>
             <Send aria-hidden />
           </Button>
-        </div>
       </div>
     </form>
   );
 
   return (
     <div
-      className={cn("split-rail h-full", draftFolded && "rail-folded")}
+      className={cn("split-rail h-full bg-surface", draftFolded && "rail-folded")}
     >
       <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto scroll-smooth">
-          <header className="bg-surface px-4 py-1 sm:px-8">
+          <header className="mx-auto w-full max-w-reading bg-surface px-4 py-1 sm:px-8">
             <h2 className="sr-only">Study design chat</h2>
             <div className="mx-auto flex w-full max-w-reading items-center justify-end gap-1">
-                <Button variant="ghost" size="sm" onClick={() => { void refreshCompile(); setShowFinish(true); }}>
+                <Button className={cn(!draftFolded && "lg:hidden")} variant="ghost" size="sm" onClick={() => { void refreshCompile(); setShowFinish(true); }}>
                   Review draft
                 </Button>
                 <DropdownMenu>
@@ -794,7 +801,7 @@ export function ConversationView({
           real icon strip that says what it is and reopens itself. */}
       <div
         className={cn(
-          "hidden min-h-0 min-w-0 flex-col border-l border-border-strong bg-surface transition-all duration-fast lg:flex",
+          "hidden min-h-0 min-w-0 flex-col border-l border-border bg-surface lg:flex",
           /* Expanded, the rail fills the track the grid gave it  -  it must not
            * name its own width. `.split-rail` sizes this column as
            * `clamp(--rail-min, --rail-share, --rail-max)`, and `--rail-share`
@@ -806,15 +813,16 @@ export function ConversationView({
            *
            * Folded is the reverse case and stays explicit: that track is
            * `auto`, so it takes its width FROM this div. */
-          draftFolded ? "!hidden" : "w-full",
+          draftFolded ? "w-12" : "w-full",
         )}
       >
         {draftFolded ? (
-          <div className="flex flex-col items-center gap-1 py-2">
+          <div className="flex h-full flex-col items-center gap-3 py-3">
             <Button
               variant="ghost"
               size="icon"
               aria-label="Show protocol draft"
+              title="Show protocol draft"
               aria-expanded={false}
               onClick={() => togglePanel("draft", studyId)}
             >
@@ -822,12 +830,9 @@ export function ConversationView({
             </Button>
             {/* Set along the rail it reopens, so a folded panel still names
               * itself instead of leaving one unexplained glyph in a gutter. */}
-            <span
-              className="type-legend select-none text-text-muted [writing-mode:vertical-rl]"
-              aria-hidden
-            >
-              {rail === "papers" ? "Literature" : "Protocol draft"}
-            </span>
+            <button type="button" className="type-caption rounded-control px-2 py-3 text-text-muted hover:bg-zone-9 hover:text-text [writing-mode:vertical-rl]" onClick={() => togglePanel("draft", studyId)}>
+              Protocol draft
+            </button>
           </div>
         ) : (
           <div className="flex items-center gap-2 border-b border-border-strong bg-surface p-2">
@@ -907,6 +912,7 @@ export function ConversationView({
         onOpenChange={setShowFinish}
         moves={sinceManualEntry(allMoves)}
         compile={visibleCompile}
+        compiling={compiling}
         applying={applying}
         applied={applied}
         onApply={applyDraft}

@@ -103,7 +103,7 @@ const BASE = rehearsalUrl();
     await page.getByRole('link',{name:'Continue to enrollment'}).click();
     await page.getByRole('button',{name:'Create participant links',exact:true}).waitFor();
     await page.getByText('Preview the participant journey',{exact:true}).click();
-    await page.getByRole('heading',{name:'How this study will run'}).waitFor();
+    await page.getByRole('heading',{name:'Study plan'}).last().waitFor();
     await page.getByRole('button',{name:'Create participant links',exact:true}).click();
     await page.getByRole('button',{name:'Create 1 link',exact:true}).click();
     await page.getByText('1 enrollment link',{exact:true}).waitFor();
