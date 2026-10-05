@@ -56,3 +56,26 @@ must be readable before recording begins.
 
 Run `npm run check` and `npm run a11y` in `platform/`. Check changed views
 at desktop and mobile widths, including loading, empty, and error states.
+
+## Form controls
+
+One spec (`.control`, tokens.css/index.css); guarded by `scripts/verify-form-controls.mjs`.
+
+- Control: 40px, 1px `--control-edge` border, input radius, surface fill, no
+  shadow, on Input, Textarea, Select and the input group. Disabled is the well;
+  read-only is the well with a normal edge; invalid is a critical edge plus icon
+  and text, never colour alone.
+- Focus: one 2px accent ring over the border, identical everywhere (a group
+  draws it on its wrapper); forced-colors maps it to Highlight.
+- Numbers: native spinners hidden; `stepper` only where +/- helps; arrow keys
+  always work. A unit is muted text inside the field edge (`unit="min"`).
+- Checkbox: always `ui/checkbox.tsx`, never raw `type="checkbox"`: empty box
+  off, accent fill and check on, dash for indeterminate; the row is the 24px hit area.
+- Field (`ui/field.tsx`): label at control size, 6px gap, hint or error below,
+  20px between fields; wires id, aria-describedby, aria-invalid. Placeholders
+  are short examples; guidance goes in the hint. `autoGrow` textareas have no grip.
+- Dialog: `DialogHeader`, one scrolling `DialogBody`, sticky `DialogFooter`
+  (secondary left of primary), capped in dvh, shade only when scrollable, full
+  sheet on phones. Footer submit uses `form="id"`. Validation: role=alert
+  summary of links that focus fields, plus inline errors.
+- Beside a field in a row, use `Button size="field"` so heights match.

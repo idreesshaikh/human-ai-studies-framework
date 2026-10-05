@@ -7,6 +7,7 @@ import { Notice } from "@/components/ui/notice";
 import { evidenceApi, type EvidenceContext } from "@/lib/evidenceApi";
 import { useAsync } from "@/lib/useAsync";
 import { EvidenceDetails } from "./EvidenceDetails";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const EMPTY: EvidenceContext = { query: "", population: "", task: "", construct: "", producers: [], instruments: [], confirmedRelationIds: [] };
 const STATUS = { compatible: "Compatible", conditional: "Conditional", incompatible: "Incompatible", "insufficient-evidence": "More evidence needed" };
@@ -120,13 +121,10 @@ export function EvidencePanel({ studyId, onProposed, onClose }: { studyId: strin
                 <summary className="type-caption cursor-pointer text-accent">Sources, limits and capture requirements</summary>
                 <EvidenceDetails candidate={candidate} />
                 {candidate.sources.filter(s => s.review.status === 'reviewed' && s.kind !== 'reported-method-use' && ['compatible', 'conditional'].includes(s.applicability.status)).map(source => (
-                  <label key={source.id} className="mt-3 flex items-start gap-2 type-caption text-text">
-                    <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-accent" checked={context.confirmedRelationIds.includes(source.id)} disabled={busy} onChange={e => {
-                      const next = { ...context, confirmedRelationIds: e.target.checked ? [...context.confirmedRelationIds, source.id] : context.confirmedRelationIds.filter(id => id !== source.id) };
-                      setContext(next); setCompared(next);
-                    }} />
-                    <span>I checked the source context: {source.applicability.context}</span>
-                  </label>
+                  <Checkbox key={source.id} rowClassName="mt-3" label={`I checked the source context: ${source.applicability.context}`} checked={context.confirmedRelationIds.includes(source.id)} disabled={busy} onChange={e => {
+                    const next = { ...context, confirmedRelationIds: e.target.checked ? [...context.confirmedRelationIds, source.id] : context.confirmedRelationIds.filter(id => id !== source.id) };
+                    setContext(next); setCompared(next);
+                  }} />
                 ))}
               </details>
               <Button size="sm" variant="subtle" disabled={busy || !comparisonCurrent || !['compatible', 'conditional'].includes(candidate.status)} onClick={() => void propose(candidate.id)}>Review this choice in chat</Button>

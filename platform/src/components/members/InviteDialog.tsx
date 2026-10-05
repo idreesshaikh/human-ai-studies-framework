@@ -2,8 +2,11 @@ import { useState } from "react";
 import { Copy, Check, Link2 } from "lucide-react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -63,36 +66,48 @@ export function InviteDialog({ slug, onInvited }: { slug: string; onInvited: () 
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogTitle>Share this project</DialogTitle>
-        <DialogDescription>
-          Create a link and share it with teammates. The link works for anyone
-          who clicks it and can be revoked anytime.
-        </DialogDescription>
-
-        {!invite ? (
-          <div className="mt-4 flex flex-col gap-3">
-            {error && <Notice kind="problem">{error}</Notice>}
-            <Button onClick={submit} disabled={busy} className="mt-1 self-start">
+        <DialogHeader>
+          <DialogTitle>Share this project</DialogTitle>
+          <DialogDescription>
+            Anyone with the link can join as a member. You can revoke it anytime.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogBody>
+          {error && <Notice kind="problem">{error}</Notice>}
+          {!invite ? (
+            !error && (
+              <p className="type-body text-text-muted">
+                Create a link to share with teammates.
+              </p>
+            )
+          ) : (
+            <div className="flex flex-col gap-3">
+              <p className="type-body text-text">
+                Share this link to invite people as a member:
+              </p>
+              <div className="control control-group gap-2 pl-3">
+                <Link2 className="size-4 shrink-0 text-text-muted" aria-hidden />
+                <span className="min-w-0 flex-1 truncate type-quantity text-text">
+                  {window.location.origin + (invite.url ?? "")}
+                </span>
+                <Button size="sm" variant="subtle" onClick={copy} className="m-1 shrink-0">
+                  {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+                  {copied ? "Copied" : "Copy"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
+            {invite ? "Done" : "Cancel"}
+          </Button>
+          {!invite && (
+            <Button size="sm" onClick={submit} disabled={busy}>
               {busy ? "Creating…" : "Create link"}
             </Button>
-          </div>
-        ) : (
-          <div className="mt-4 flex flex-col gap-3">
-            <p className="type-body text-text">
-              Share this link to invite people as a member:
-            </p>
-            <div className="flex items-center gap-2 rounded-input border border-border bg-bg px-2 py-1.5">
-              <Link2 className="size-4 shrink-0 text-text-muted" aria-hidden />
-              <span className="truncate type-quantity text-text">
-                {window.location.origin + (invite.url ?? "")}
-              </span>
-              <Button size="sm" variant="subtle" onClick={copy} className="ml-auto shrink-0">
-                {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-                {copied ? "Copied" : "Copy"}
-              </Button>
-            </div>
-          </div>
-        )}
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

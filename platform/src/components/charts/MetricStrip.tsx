@@ -92,7 +92,7 @@ export function MetricStrip({
             value={metricKey}
             onValueChange={setChosen}
             options={METRIC_REGISTRY.map((m) => ({ value: m.key, label: m.label }))}
-            className="h-8 w-auto"
+            className="w-auto"
             aria-label="Choose a measure to plot"
           />
         </label>

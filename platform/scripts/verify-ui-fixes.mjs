@@ -250,7 +250,7 @@ const ph = src("pages/ProjectHome.tsx");
 ok("empty study name shows a hint", /Give the study a name/.test(ph));
 const lt = src("components/library/Constellation.tsx");
 ok("Literature map empty text is not indented past its heading", !/p-6 type-body/.test(lt));
-ok("Evidence Add button is not styled like a disabled one", /<Button\s+size="sm"\s+variant="outline"\s+onClick=\{ingest\}/.test(lib));
+ok("Evidence Add button is not styled like a disabled one", /<Button\s+size="(sm|field)"\s+variant="outline"\s+onClick=\{ingest\}/.test(lib));
 
 /* UI-10 */
 const css = src("styles/index.css") + src("styles/tokens.css");

@@ -25,7 +25,7 @@ export function SessionReplay({ studyId, sessionId }: { studyId: string; session
           <Button variant="outline" disabled={index >= frames.length - 1} onClick={() => { setPlaying(false); setIndex(i => i + 1); }}>Next event</Button>
         </div>
         <label className="flex flex-col gap-1 type-caption text-text-muted">Event {index + 1} of {frames.length}
-          <input aria-label="Replay position" type="range" min={0} max={frames.length - 1} value={index} onChange={e => { setPlaying(false); setIndex(Number(e.target.value)); }} />
+          <input className="scrub-range" aria-label="Replay position" type="range" min={0} max={frames.length - 1} value={index} onChange={e => { setPlaying(false); setIndex(Number(e.target.value)); }} />
         </label>
         <Frame frame={frame} />
       </>}

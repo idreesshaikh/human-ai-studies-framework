@@ -1,11 +1,11 @@
 import { useState } from "react";
+import { Field } from "@/components/ui/field";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { NAME_MAX_LENGTH } from "@/lib/uiText";
-import { Label } from "@/components/ui/label";
 import { RoleGate } from "@/components/shell/RoleGate";
 import { useApi, useSession } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
@@ -78,17 +78,16 @@ export function ProjectSettings() {
       >
         <Card>
           <CardContent className="flex flex-col gap-3 p-4">
-            <Label htmlFor="rename">Project name</Label>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-              <Input
-                id="rename"
-                placeholder={data?.name ?? "Project name"}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={NAME_MAX_LENGTH}
-                className="min-h-11"
-              />
-              <Button onClick={rename} disabled={!name.trim()} className="min-h-11">
+              <Field id="rename" label="Project name" className="flex-1">
+                <Input
+                  placeholder={data?.name ?? "Project name"}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  maxLength={NAME_MAX_LENGTH}
+                />
+              </Field>
+              <Button size="field" onClick={rename} disabled={!name.trim()}>
                 Save
               </Button>
             </div>
@@ -130,13 +129,12 @@ export function ProjectSettings() {
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   aria-label="Type DELETE to confirm deletion"
-                  className="min-h-11"
                 />
                 <Button
                   variant="danger"
+                  size="field"
                   onClick={remove}
                   disabled={confirm !== "DELETE"}
-                  className="min-h-11"
                 >
                   Delete project
                 </Button>

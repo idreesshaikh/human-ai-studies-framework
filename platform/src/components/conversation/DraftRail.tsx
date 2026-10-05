@@ -29,6 +29,7 @@ export function DraftRail({
   understanding,
   loading,
   scopeBlocked,
+  onNextStep,
 }: {
   draft: ProtocolDraft;
   serverYaml?: string;
@@ -47,7 +48,14 @@ export function DraftRail({
    *  visible, but stop the rail from asking a developer-study question that
    *  contradicts the boundary message in the conversation. */
   scopeBlocked?: boolean;
+  /** Called with the next unfilled section's label; the host drafts a prompt
+   *  into the composer without sending it. */
+  onNextStep?: (sectionLabel: string) => void;
 }) {
+  const nextStep = (): { label: string } | null => {
+    const slot = MANDATORY_SLOTS.find((s) => draft[s].length === 0);
+    return slot ? { label: SLOT_LABELS[slot] } : null;
+  };
   const path = buildProtocolPath(draft, scopeBlocked ? undefined : understanding);
   const complete = unresolved !== undefined
     ? unresolved.length === 0
@@ -88,10 +96,26 @@ export function DraftRail({
         </div>
 
         <div className="mt-3">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="type-caption text-text-muted">Draft progress</span>
-            <span className="type-quantity text-text">{path.done}/{path.total}</span>
-          </div>
+          <p className="type-caption text-text" aria-live="polite">
+            <span className="type-quantity">{path.done} of {path.total} drafted.</span>
+            {!scopeBlocked && !ready && nextStep() && (
+              <>
+                {" Next: "}
+                {onNextStep ? (
+                  <button
+                    type="button"
+                    className="type-caption text-accent underline underline-offset-2 hover:text-text"
+                    onClick={() => onNextStep(nextStep()!.label)}
+                  >
+                    {nextStep()!.label}
+                  </button>
+                ) : (
+                  nextStep()!.label
+                )}
+              </>
+            )}
+            {ready && " Review the draft."}
+          </p>
           <div
             className="mt-2 h-1.5 overflow-hidden rounded-chip bg-well"
             role="progressbar"
@@ -109,11 +133,6 @@ export function DraftRail({
             <p className="mt-3 rounded-input border border-accent/30 bg-accent-wash px-3 py-2 type-caption text-text">
               <span className="type-legend text-accent">SETUP PAUSED</span>
               <span className="ml-2">Use a supported coding-study brief to continue.</span>
-            </p>
-          ) : path.upNext && !ready ? (
-            <p className="mt-3 rounded-input bg-accent-wash px-3 py-2 type-caption text-text">
-              <span className="type-legend text-accent">NEXT</span>
-              <span className="ml-2">{path.upNext}</span>
             </p>
           ) : null}
         </div>

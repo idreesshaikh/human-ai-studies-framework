@@ -3,6 +3,8 @@
  * wiring. Run: node --experimental-strip-types scripts/verify-conversation-polish.mjs */
 import { readFileSync, readdirSync } from "node:fs";
 import {
+  moveEyebrow,
+  nextStepPrompt,
   shouldFollowUpAfterDecision,
   moveStateLabel,
   cleanProposalText,
@@ -105,5 +107,32 @@ ok("dialog takes accepted measures", /measureOptionsFromMoves/.test(md) && /move
 /* 7 steer */
 const sd = src("components/conversation/SteerDial.tsx");
 ok("steer shows its mode name", /\{stop\.label\}/.test(sd));
+
+/* 8 expert-thread polish: eyebrows, one decisions disclosure, rail next step, a11y */
+ok("eyebrow: set-parameter on participants", moveEyebrow("set-parameter", { section: "participants" }) === "Participants");
+ok("eyebrow: statistical plan is Analysis", moveEyebrow("set-parameter", { section: "statisticalPlan" }) === "Analysis");
+ok("eyebrow: conditions section", moveEyebrow("add-measure", { section: "conditions" }) === "Conditions");
+ok("eyebrow: plain set-parameter is Setting", moveEyebrow("set-parameter") === "Setting");
+ok("eyebrow: measure/task/design/caution",
+  moveEyebrow("add-measure") === "Measure" && moveEyebrow("declare-task") === "Task" &&
+  moveEyebrow("choose-template") === "Design" && moveEyebrow("caution") === "Caution" &&
+  moveEyebrow("add-rq") === "Research question" && moveEyebrow("prescribe-statistics") === "Analysis" &&
+  moveEyebrow("add-instrument") === "Instrument");
+ok("next-step prompt names the section and is not empty", /conditions/i.test(nextStepPrompt("Conditions")));
+const mc = src("components/conversation/MoveCard.tsx");
+ok("card uses moveEyebrow", /moveEyebrow\(/.test(mc) && !/"Parameter"/.test(mc));
+ok("card handles u to undo", /"u"/.test(mc));
+const ul = src("components/conversation/UnsourcedLabel.tsx");
+ok("unsourced label wording", /No source: your call/.test(ul));
+const stt = src("components/conversation/StreamingTurn.tsx");
+ok("one Decisions (N) disclosure",
+  /Decisions \(/.test(stt) && !/View recorded decisions/.test(stt) && !/View decisions/.test(cv) && /Decisions \(/.test(cv));
+ok("keyboard hint caption with tooltip", /Keyboard shortcuts/.test(stt) && /A accept/.test(stt));
+ok("stream is not a live region; completion is announced once",
+  !/aria-live="polite">\s*\{streamingText\}/.test(cv) && /data-testid="turn-announcer"/.test(cv));
+ok("thinking dots respect reduced motion", /motion-reduce:animate-none/.test(cv));
+const dr = src("components/conversation/DraftRail.tsx");
+ok("rail answers where and next", /drafted\./.test(dr) && /onNextStep/.test(dr) && /onNextStep=/.test(cv));
+ok("canned copy has no apology", !/Couldn't|couldn't|Sorry/.test(cv.match(/setNote\([^)]*\)/g)?.join("") ?? ""));
 console.log(failures ? `\n${failures} failed` : "\nall passed");
 process.exit(failures ? 1 : 0);

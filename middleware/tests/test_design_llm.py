@@ -89,7 +89,7 @@ def test_propose_turn_drops_unknown_kind_but_keeps_the_text():
     client = _fake_client(reply)
     script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
     assert script is not None
-    assert script.text == "Still a useful reply."
+    assert script.text == "Still a useful reply. What would you like to settle next?"
     assert script.moves == ()
 
 
@@ -239,7 +239,7 @@ def test_propose_turn_drops_choose_template_with_hallucinated_id():
     client = _fake_client(reply)
     script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
     assert script is not None
-    assert script.text == "Adopt a template."
+    assert script.text == "Adopt a template. What would you like to settle next?"
     assert script.moves == ()
 
 
@@ -544,7 +544,7 @@ def test_propose_turn_trims_a_looped_reply_and_resolves_template_ids():
     }
     client = _fake_client(reply)
     turn = design_llm.propose_turn(client, "t", [], PAPERS, TEMPLATES)
-    assert turn.text == "Use METR RCT here."
+    assert turn.text == "Use METR RCT here. What would you like to settle next?"
 
 
 def test_streaming_salvages_truncated_json_without_a_second_call():
@@ -565,7 +565,9 @@ def test_streaming_salvages_truncated_json_without_a_second_call():
     except StopIteration as stop:
         turn = stop.value
     assert calls["post"] == 0
-    assert turn is not None and turn.text == "Half a reply that got cut"
+    assert turn is not None
+    assert turn.text.startswith("Half a reply that got cut")
+    assert turn.text.endswith("What would you like to settle next?")
 
 
 def test_design_requests_cap_tokens_and_the_transport_has_timeouts():
@@ -740,7 +742,8 @@ def test_decision_followup_reply_is_capped_to_a_short_length():
     )
     assert len(turn.text) <= design_llm.DECISION_REPLY_MAX_CHARS == 400
     normal = design_llm.propose_turn(client, "t", [], PAPERS, TEMPLATES)
-    assert len(normal.text) > 400
+    assert len(normal.text) > len(turn.text)
+    assert len(normal.text) <= design_llm.REPLY_TEXT_MAX_CHARS
 
 
 def test_decision_followup_cap_applies_when_streaming_falls_back():
@@ -777,7 +780,7 @@ def test_decision_followup_reply_drops_invented_motives():
         _fake_client(reply), "t", [], PAPERS, TEMPLATES, decision_followup=True
     )
     assert "because you" not in turn.text
-    assert "How many participants" in turn.text
+    assert turn.text == "Noted."
 
 
 def test_system_prompt_sets_expert_voice_rules():
@@ -828,10 +831,14 @@ def test_batch_and_requested_explanations_have_room_for_material_tradeoffs():
     text = " ".join(
         f"Decision {i} has a distinct material tradeoff to inspect." for i in range(50)
     )
-    for directive in ["BATCH INTAKE", "QUESTION ABOUT WHAT YOU ALREADY SAID"]:
-        reply = design_llm._clean_reply(text, [], [], directive=directive)
-        assert 700 < len(reply) <= design_llm.EXTENDED_REPLY_MAX_CHARS
-        assert reply.endswith(".")
+    explanation = design_llm._clean_reply(
+        text, [], [], directive="QUESTION ABOUT WHAT YOU ALREADY SAID"
+    )
+    assert 700 < len(explanation) <= design_llm.EXPLAIN_REPLY_MAX_CHARS
+    assert explanation.endswith(".")
+    batch = design_llm._clean_reply(text, [], [], directive="BATCH INTAKE")
+    assert len(batch) <= design_llm.REPLY_TEXT_MAX_CHARS
+    assert batch.endswith("?")
     assert len(design_llm._clean_reply(text, [], [])) <= 700
     assert len(design_llm._clean_reply(text, [], [], True, "BATCH INTAKE")) <= 400
 
@@ -867,7 +874,7 @@ def test_batch_budget_applies_to_blocking_and_streaming_provider_calls():
             streamed = stop.value
             break
     assert blocking.text == streamed.text
-    assert len(blocking.text) > 700
+    assert len(blocking.text) <= design_llm.REPLY_TEXT_MAX_CHARS
     assert budgets == [design_llm.MAX_TOKENS * 2] * 2
 
 
@@ -938,3 +945,235 @@ def test_canned_replies_are_short_and_name_the_fix():
     assert len(da.NO_MODEL) <= 160
     assert "apolog" not in da.MODEL_SILENT.lower()
     assert len(da.MODEL_SILENT) <= 170
+
+
+# ------------------------------------------------ server-side enforcement of
+# expert brevity (live-model fixtures; no model needed).
+
+LIVE_USER = (
+    "We want to know whether AI code completion changes how experienced developers "
+    "review code. Thinking of a within-subjects design with about 16 developers."
+)
+SERBIA_TITLE = (
+    "AI ASSISTANTS IN PROGRAMMING: MULTIDIMENSIONAL ANALYSIS OF USEFULNESS, "
+    "TRUST AND PRODUCTIVITY"
+)
+LIVE_PAPERS = [
+    {
+        "ref": "corpus:serbia",
+        "title": SERBIA_TITLE,
+        "authors": ["Jovanovic, M.", "Petrovic, A."],
+        "year": 2024,
+    },
+    {
+        "ref": "corpus:metr",
+        "title": (
+            "AI-Assisted Programming Decreases the Productivity "
+            "of Experienced Developers"
+        ),
+        "authors": "Smith, J.",
+        "year": 2025,
+    },
+]
+LIVE_REPLY = (
+    "The study is a within-subjects design with 16 experienced developers. "
+    "The research question is whether AI code completion changes how developers "
+    "review code. This is a classic human-AI synergy study: the key question is "
+    "whether the AI changes the review process rather than only the output. "
+    "The literature shows that AI can alter developer attitudes "
+    "(AI-Assisted Programming Decreases the Productivity of Experienced Developers). "
+    "The risk here is conflating output changes with process changes, such as more "
+    "or fewer comments. The template Within-subject human-AI synergy comparison is "
+    "the closest fit because it separates the two. The Randomized controlled trial "
+    "of AI assistance on real tasks is too broad for this question. "
+    "The Self-report-only "
+    f"survey is insufficient alone because it misses behaviour ({SERBIA_TITLE})."
+)
+
+
+def test_cards_prose_is_three_sentences_520_chars_and_skips_restatement():
+    out = design_llm._clean_reply(
+        LIVE_REPLY, LIVE_PAPERS, [], user_text=LIVE_USER, has_cards=True
+    )
+    assert len(out) <= 520
+    assert out.startswith("This is a classic human-AI synergy study")
+    assert "is too broad" not in out and "is insufficient" not in out
+    assert SERBIA_TITLE not in out
+    sentences = [x for x in design_llm._SENTENCE_SPLIT.split(out) if x]
+    assert len(sentences) <= 3
+
+
+def test_restating_leading_sentences_are_dropped_but_never_all():
+    out = design_llm.drop_restatement(
+        "Within-subjects design with 16 developers. Fix AI-first?", LIVE_USER
+    )
+    assert out == "Fix AI-first?"
+    only = "Within-subjects design with 16 experienced developers."
+    assert design_llm.drop_restatement(only, LIVE_USER) == only
+
+
+def test_rejected_alternative_sentences_are_dropped():
+    out = design_llm.drop_rejected_alternatives(
+        "Use the crossover. The rejected trial is too broad. "
+        "The unused alternative survey is insufficient alone. "
+        "This template does not prescribe a test. Order effects matter."
+    )
+    assert out == (
+        "Use the crossover. This template does not prescribe a test. "
+        "Order effects matter."
+    )
+
+
+def test_reply_shortening_preserves_sample_size_and_capture_limitations():
+    text = (
+        "The sample is not sufficient for this effect size. "
+        "This capture will not include code correctness. Consider a pilot?"
+    )
+    assert design_llm._clean_reply(text, [], []) == text
+
+
+def test_inline_full_title_citations_become_surname_year():
+    out = design_llm.shorten_citations(
+        f"Trust differs (AI-Assisted Programming Decreases the Productivity of "
+        f"Experienced Developers) and ({SERBIA_TITLE}).",
+        LIVE_PAPERS,
+    )
+    assert "(Smith 2025)" in out
+    assert "(Jovanovic et al. 2024)" in out
+
+
+def test_citation_without_authors_uses_sentence_case_title_year():
+    papers = [{"ref": "r", "title": SERBIA_TITLE, "year": 2024}]
+    out = design_llm.shorten_citations(f"Seen ({SERBIA_TITLE}).", papers)
+    inner = out[out.index("(") + 1 : out.index(")")]
+    assert inner.endswith("2024") and inner != inner.upper()
+    assert len(inner) <= 70 and inner.startswith("Ai assistants")
+
+
+def test_citation_tolerates_typos_in_the_models_copy_of_the_title():
+    typo = SERBIA_TITLE.replace("OF USEFULNESS", "OFUSEFULNESS")
+    out = design_llm.shorten_citations(f"Seen ({typo}).", LIVE_PAPERS)
+    assert "(Jovanovic et al. 2024)" in out
+
+
+def test_missing_question_appends_next_question_only_without_cards():
+    plain = design_llm._clean_reply(
+        "Fixed order confounds learning with AI use.",
+        [],
+        [],
+        has_cards=False,
+        next_question="Counterbalance order, or fix AI-first?",
+    )
+    assert plain.endswith("Counterbalance order, or fix AI-first?")
+    carded = design_llm._clean_reply(
+        "Fixed order confounds learning with AI use.",
+        [],
+        [],
+        has_cards=True,
+        next_question="Counterbalance order, or fix AI-first?",
+    )
+    assert "?" not in carded
+    fallback = design_llm._clean_reply(
+        "Fixed order confounds.", [], [], has_cards=False
+    )
+    assert fallback.endswith("?")
+
+
+def test_existing_question_is_kept_and_not_duplicated():
+    out = design_llm._clean_reply(
+        "Fixed order confounds learning. Counterbalance? Also this is extra. And more.",
+        [],
+        [],
+        has_cards=True,
+        next_question="Other?",
+    )
+    assert out.count("?") == 1 and out.endswith("Counterbalance?")
+
+
+def test_extended_cap_only_for_explain_turns_and_is_900():
+    long = " ".join(
+        f"Distinct explanatory sentence number {i} is here." for i in range(60)
+    )
+    explain = design_llm._clean_reply(
+        long, [], [], directive="THIS TURN IS A QUESTION ABOUT WHAT YOU ALREADY SAID."
+    )
+    assert 700 < len(explain) <= 900
+    batch = design_llm._clean_reply(
+        long, [], [], directive="BATCH INTAKE.", has_cards=True
+    )
+    assert len(batch) <= 520
+
+
+def _mv(kind, proposal, section=None, value=None):
+    move = {"kind": kind, "target": "t", "proposal": proposal}
+    if section:
+        move["patch"] = {"section": section, "op": "set", "value": value}
+    return move
+
+
+def test_parse_moves_collapses_duplicate_participant_cards():
+    moves = design_llm._parse_moves(
+        [
+            _mv("set-parameter", "Plan for 16 participants.", "participants", "16"),
+            _mv(
+                "set-parameter",
+                "Set 16 participants (within-subjects).",
+                "participants",
+                "16 participants (within-subjects)",
+            ),
+            _mv("set-parameter", "Set 20 participants.", "participants", "20"),
+        ],
+        set(),
+    )
+    assert [m.proposal for m in moves] == [
+        "Plan for 16 participants.",
+        "Set 20 participants.",
+    ]
+
+
+def test_parse_moves_drops_empty_cautions():
+    for text in ("None.", "N/A", "No caution.", "No cautions", ""):
+        assert design_llm._parse_moves([_mv("caution", text)], set()) == ()
+    kept = design_llm._parse_moves(
+        [_mv("caution", "Order effects threaten validity.")], set()
+    )
+    assert len(kept) == 1
+
+
+def test_parse_moves_keeps_distinct_measures_with_the_same_number():
+    moves = design_llm._parse_moves(
+        [
+            _mv(
+                "add-measure",
+                "Track 2026 completion time.",
+                "measures",
+                "2026 completion time",
+            ),
+            _mv(
+                "add-measure", "Track 2026 correctness.", "measures", "2026 correctness"
+            ),
+        ],
+        set(),
+    )
+    assert len(moves) == 2
+
+
+def test_parse_moves_caps_cards_per_turn():
+    raw = [
+        _mv("add-measure", f"Add measure {i}.", "measures", f"measure number {i} alpha")
+        for i in range(10)
+    ]
+    assert len(design_llm._parse_moves(raw, set())) == 5
+    assert len(design_llm._parse_moves(raw, set(), max_cards=8)) == 8
+
+
+def test_decision_followup_reply_is_deterministic():
+    lecture = (
+        "Noted: you rejected the within-subjects proposal. The field expects "
+        "explicit control over order effects in human-AI studies."
+    )
+    out = design_llm._clean_reply(
+        lecture, [], [], decision_followup=True, next_question="Who takes part?"
+    )
+    assert out == "Noted. Who takes part?"
+    assert design_llm._clean_reply(lecture, [], [], decision_followup=True) == "Noted."

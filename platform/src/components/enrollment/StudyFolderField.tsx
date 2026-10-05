@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Field } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Notice } from "@/components/ui/notice";
 import { useApi } from "@/lib/session";
 import { ApiError } from "@/lib/api";
@@ -66,24 +66,23 @@ export function StudyFolderField({ studyId }: { studyId: string }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-2 border-t border-border pt-4">
-      <Label htmlFor="study-folder">Study folder</Label>
-      <p className="type-caption text-text-muted">
-        Open a folder already on participants’ computers, or distribute a zip.
-      </p>
-      <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+      <Field
+        id="study-folder"
+        label="Study folder"
+        className="min-w-0"
+        hint="Open a folder already on participants’ computers, or distribute a zip."
+      >
         <Input
-          id="study-folder"
-          className="min-w-0 flex-1 basis-40"
           aria-describedby="study-folder-status"
           placeholder="/home/participant/study-task"
           value={pathText}
           onChange={(e) => setPathText(e.target.value)}
         />
+      </Field>
+      <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="subtle" disabled={busy} onClick={savePath}>
           Save path
         </Button>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
         <input
           ref={fileInput}
           type="file"

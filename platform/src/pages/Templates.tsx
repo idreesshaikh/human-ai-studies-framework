@@ -3,8 +3,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { BookOpen, Loader2, Info, MessageSquareText } from "lucide-react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -190,7 +193,7 @@ export function Templates() {
               value={describe}
               onChange={(e) => setDescribe(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && void describeStudy()}
-              placeholder="e.g. Does AI pair programming change debugging time, comparing telemetry with self-report?"
+              placeholder="Describe the study in a sentence"
               aria-label="Describe your study"
               className="min-w-0 flex-1 basis-56"
             />
@@ -200,12 +203,12 @@ export function Templates() {
               * question they came with  -  but the button says what it will
               * actually do rather than failing after the click. */}
             {signedOut ? (
-              <Button asChild size="sm">
+              <Button asChild size="field">
                 <Link to={signInHref(pathname + search)}>Sign in to start</Link>
               </Button>
             ) : (
               <Button
-                size="sm"
+                size="field"
                 onClick={() => void describeStudy()}
                 disabled={!describe.trim() || describeBusy}
               >
@@ -361,14 +364,13 @@ function ShapeDetailPanel({
 }) {
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-work max-h-[80vh] flex flex-col">
-        {/* `pr-9` reserves the corner the Close button occupies. */}
-        <div className="pr-9">
-          <DialogTitle className="type-display">{entry.title}</DialogTitle>
-          <DialogDescription className="mt-2 type-caption">{BAND_COPY[entry.band]}</DialogDescription>
-        </div>
+      <DialogContent wide>
+        <DialogHeader>
+          <DialogTitle>{entry.title}</DialogTitle>
+          <DialogDescription>{BAND_COPY[entry.band]}</DialogDescription>
+        </DialogHeader>
 
-        <div className="mt-4 flex-1 overflow-y-auto space-y-4">
+        <DialogBody className="space-y-4">
           <div>
             <h3 className="type-label font-semibold text-text">Description</h3>
             <p className="mt-2 type-body text-text">{entry.description}</p>
@@ -412,7 +414,10 @@ function ShapeDetailPanel({
               </p>
             )}
           </div>
-        </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>Close</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

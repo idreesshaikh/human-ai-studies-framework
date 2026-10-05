@@ -140,7 +140,9 @@ try {
   } });
   assert.equal(quick.status(), 200, await quick.text());
   await between.getByRole("button", { name: "Review this choice in chat" }).click();
-  const move = page.getByLabel("Field move: Use a between-subjects design.", { exact: true });
+  const move = page.locator("[data-move-id]").filter({
+    has: page.getByText("Use a between-subjects design.", { exact: true }),
+  });
   await expect(move).toBeVisible();
   await expect(move).toBeFocused();
   await move.getByText("Evidence and conditions", { exact: false }).click();
@@ -155,7 +157,7 @@ try {
   await expect(move.getByRole("button", { name: "Accept", exact: true })).toBeVisible();
   await move.focus();
   await page.keyboard.press("a");
-  await page.getByText("View recorded decisions (1)", { exact: true }).click();
+  await page.getByText("Decisions (1)", { exact: true }).click();
   await expect(move.getByText("Accepted", { exact: true })).toBeVisible();
   let releaseCompile;
   let compileStarted;

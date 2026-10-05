@@ -34,6 +34,10 @@ try {
   await page.getByRole("button", { name: "Create participant links", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Create participant links" });
   const count = dialog.getByLabel("How many", { exact: true });
+  await dialog.getByRole("button", { name: "Increase How many", exact: true }).click();
+  await expect(count).toHaveValue("2");
+  await dialog.getByRole("button", { name: "Decrease How many", exact: true }).click();
+  await expect(count).toHaveValue("1");
   const artifactDir = process.env.REHEARSAL_ARTIFACTS || join(tmpdir(), "phoenix-participant-links");
   await mkdir(artifactDir, { recursive: true });
   const settings = dialog.getByRole("region", { name: "Participant link settings" });

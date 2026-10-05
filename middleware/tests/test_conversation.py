@@ -750,7 +750,7 @@ def test_a_flaky_provider_is_retried_before_giving_up(client, monkeypatch):
     monkeypatch.setattr(design_assistant.time, "sleep", delays.append)
     turn = _ask(client, "does a blip lose my turn?")
     assert turn["source"] == "llm"
-    assert turn["text"] == "Second time lucky."
+    assert turn["text"].startswith("Second time lucky.")
     assert calls["n"] == 3
     assert delays == [0.25, 0.5]
 

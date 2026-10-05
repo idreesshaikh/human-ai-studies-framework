@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Field } from "@/components/ui/field";
 import { Plus, Upload, X, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
   const [graph, setGraph] = useState<PaperGraph | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [idInput, setIdInput] = useState("");
+  const pdfInput = useRef<HTMLInputElement>(null);
   const [linkDraft, setLinkDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -161,12 +163,12 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             value={idInput}
             onChange={(e) => setIdInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && ingest()}
-            placeholder="arXiv id or DOI, e.g. 2302.06590"
+            placeholder="arXiv id or DOI"
             aria-label="arXiv id or DOI"
             className="flex-1"
           />
           <Button
-            size="sm"
+            size="field"
             variant="outline"
             onClick={ingest}
             disabled={busy || !idInput.trim()}
@@ -178,10 +180,18 @@ export function LibraryTab({ studyId }: { studyId: string }) {
             * slot, an empty region); on a working control it said the button
             * itself was provisional. It matches the Add button beside it now,
             * because they are two ways to do one thing. */}
-          <label className="flex cursor-pointer items-center gap-1.5 rounded-control border border-control-edge bg-surface px-3 py-2 type-control text-text transition-colors duration-fast hover:bg-zone-9">
-            <Upload className="size-4" aria-hidden /> PDF
-            <input type="file" accept="application/pdf" hidden onChange={uploadPdf} />
-          </label>
+          <input
+            ref={pdfInput}
+            type="file"
+            accept="application/pdf"
+            className="sr-only"
+            tabIndex={-1}
+            aria-label="Upload a PDF"
+            onChange={uploadPdf}
+          />
+          <Button size="field" variant="outline" onClick={() => pdfInput.current?.click()}>
+            <Upload aria-hidden /> PDF
+          </Button>
         </div>
 
         {busy && (
@@ -322,15 +332,17 @@ export function LibraryTab({ studyId }: { studyId: string }) {
 
               {selectedPaper ? (
                 <div className="mt-3 shrink-0 border-t border-border pt-3">
-                  <label className="block type-body text-text">
-                    Protocol links
+                  <Field
+                    id="protocol-links"
+                    label="Protocol links"
+                    hint="Separate with commas, e.g. RQ-1, metric:parameter_count."
+                  >
                     <Input
                       value={linkDraft}
                       onChange={(e) => setLinkDraft(e.target.value)}
-                      placeholder="RQ-1, metric:parameter_count, recipe:…"
-                      className="mt-1"
+                      placeholder="e.g. RQ-1"
                     />
-                  </label>
+                  </Field>
                   <div className="mt-2 flex items-center gap-2">
                     <Button
                       size="sm"

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Field } from "@/components/ui/field";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronRight, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -192,16 +193,15 @@ export function Projects() {
       </header>
 
       {composing && (
-        <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-mark">
-          <label htmlFor="new-project-name" className="type-label text-text">
-            Name the project
-          </label>
-          <div className="flex flex-wrap gap-2">
+        <div className="form-stack rounded-card border border-border bg-surface p-4">
+          <Field
+            id="new-project-name"
+            label="Name the project"
+            hint={`A project owns its studies, papers and people. Up to ${NAME_MAX_LENGTH} characters; rename it later.`}
+          >
             <Input
-              id="new-project-name"
               ref={nameRef}
-              className="min-w-0 flex-1 basis-56"
-              placeholder="Pair programming with agents"
+              placeholder="e.g. Pair programming"
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={NAME_MAX_LENGTH}
@@ -209,25 +209,22 @@ export function Projects() {
                 if (e.key === "Enter") create();
                 if (e.key === "Escape") closeComposer();
               }}
-              aria-describedby="new-project-hint"
             />
-          </div>
+          </Field>
 
-          <label htmlFor="new-project-question" className="type-label text-text">
-            What do you want to run?
-          </label>
-          <Textarea
+          <Field
             id="new-project-question"
-            placeholder="Paste the coding task, AI comparison, and outcome you want to capture."
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            aria-describedby="new-project-question-hint"
-          />
-          <p id="new-project-question-hint" className="type-caption text-text-muted">
-            Optional. Describe a coding task, the AI comparison, and the outcome
-            you want to capture. You will land in the setup conversation for the
-            project's first study.
-          </p>
+            label="What do you want to run?"
+            hint="Optional. Describe a coding task, the AI comparison, and the outcome you want to capture. You will land in the setup conversation for the project's first study."
+          >
+            <Textarea
+              autoGrow
+              rows={2}
+              placeholder="Coding task, AI comparison, outcome"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+            />
+          </Field>
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={create} disabled={!name.trim() || creating}>
@@ -237,10 +234,6 @@ export function Projects() {
               Cancel
             </Button>
           </div>
-          <p id="new-project-hint" className="type-caption text-text-muted">
-            A project owns its studies, the papers behind them, and the people you
-            work with. Up to {NAME_MAX_LENGTH} characters; you can rename it later.
-          </p>
           {createError && (
             <p role="alert" className="type-caption text-critical">
               {createError}

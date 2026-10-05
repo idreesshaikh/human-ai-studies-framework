@@ -6,27 +6,12 @@ import { GroundingChip } from "./GroundingChip";
 import { UnsourcedLabel } from "./UnsourcedLabel";
 import { EvidenceDetails } from "./EvidenceDetails";
 import { cn } from "@/lib/cn";
-import { cleanProposalText, moveStateLabel } from "@/lib/uiText";
+import { cleanProposalText, moveEyebrow, moveStateLabel } from "@/lib/uiText";
 import type { DesignMove, MoveStatus } from "@/lib/types";
-
-const KIND_LABEL: Record<DesignMove["kind"], string> = {
-  "add-rq": "Research question",
-  "choose-template": "Design",
-  "set-parameter": "Parameter",
-  "set-field": "Field",
-  "declare-task": "Task",
-  "add-instrument": "Instrument",
-  "reconfigure-instrument": "Instrument setting",
-  "add-measure": "Measure",
-  "merge-templates": "Design merge",
-  "prescribe-statistics": "Analysis plan",
-  caution: "Caution",
-};
 
 /* A proposed design move with accept/reject, and an Undo once decided  -
  * reopens the card to "proposed" rather than flipping straight to the
- * opposite decision. Keyboard-first: a / r when the card is focused (undo
- * is click-only; a long-since-decided card isn't the one holding focus).
+ * opposite decision. Keyboard-first: a / r when the card is focused, u to undo.
  * Accepted moves fold toward the draft rail; rejected ones fade out. A
  * caution has no patch, so accepting it just marks it noted  -  it never
  * changes the draft. */
@@ -49,6 +34,7 @@ export function MoveCard({
   // compiler folds a patch-less move into the draft.
   const compiled = Boolean(move.patch);
   const decided = move.status !== "proposed";
+  const eyebrow = moveEyebrow(move.kind, move.patch);
   const isMergedResearchQuestion =
     move.kind === "add-rq" && move.status === "accepted" && compiled;
   /* Whether ANY citation stands behind this move. How strongly each one does
@@ -57,7 +43,13 @@ export function MoveCard({
 
   const onKey = useCallback(
     (e: React.KeyboardEvent) => {
-      if (decided || e.target !== e.currentTarget || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat || e.nativeEvent.isComposing) return;
+      if (e.target !== e.currentTarget || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat || e.nativeEvent.isComposing) return;
+      if (decided) {
+        if (e.key !== "u") return;
+        e.preventDefault();
+        onDecide(move.moveId, "proposed", move);
+        return;
+      }
       if (e.key !== "a" && e.key !== "r") return;
       e.preventDefault();
       onDecide(move.moveId, e.key === "a" ? "accepted" : "rejected", move);
@@ -81,7 +73,7 @@ export function MoveCard({
       tabIndex={decided ? -1 : 0}
       data-move-id={move.moveId}
       onKeyDown={onKey}
-      aria-label={`${KIND_LABEL[move.kind]} move: ${move.proposal}`}
+      aria-label={`${eyebrow}: ${cleanProposalText(move.proposal)}. ${move.status === "proposed" ? "Awaiting your decision" : moveStateLabel(move.status, move.kind)}`}
       className={cn(
         "relative transition-all",
       /* A proposed move is a compact decision sheet: it has enough framing to
@@ -112,7 +104,7 @@ export function MoveCard({
           >
           <div className="flex items-center gap-2">
             <span className="type-legend text-text-muted">
-              {KIND_LABEL[move.kind]}
+              {eyebrow}
             </span>
             {decided && (
               <span

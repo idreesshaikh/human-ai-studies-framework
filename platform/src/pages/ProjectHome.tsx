@@ -157,7 +157,7 @@ export function ProjectHome() {
             <div className="flex gap-2">
               <Input
                 autoFocus
-                placeholder="Name a new study…"
+                placeholder="Name a new study"
                 value={studyName}
                 onChange={(e) => {
                   setStudyName(e.target.value);
@@ -175,6 +175,7 @@ export function ProjectHome() {
                 aria-label="New study name"
               />
               <Button
+                size="field"
                 onClick={newStudy}
                 disabled={creating}
               >
@@ -182,6 +183,7 @@ export function ProjectHome() {
               </Button>
               <Button
                 variant="ghost"
+                size="field"
                 onClick={() => {
                   setComposing(false);
                   setStudyName("");

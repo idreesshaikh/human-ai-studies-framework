@@ -28,6 +28,7 @@ import {
 } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 import { captureTokenLabel, producerStateLabel } from "@/lib/uiText";
+import { Checkbox } from "@/components/ui/checkbox";
 
 /* The Data surface  -  the study's collected data as honest shapes (NFR-8).
  * Per-session
@@ -205,14 +206,12 @@ export function DataTab({ studyId }: { studyId: string }) {
     <Surface measure="work" label="Data">
       {!seeded && (
         <div className="flex flex-col gap-2 border-b border-border pb-5">
-          <label className="flex min-h-7 w-fit cursor-pointer items-center gap-2 type-caption text-text">
-            <input
-              type="checkbox"
-              checked={includeSynthetic}
-              onChange={(event) => setSyntheticScope({ studyId, enabled: event.target.checked })}
-            />
-            Include dry-run (synthetic) rows
-          </label>
+          <Checkbox
+            rowClassName="w-fit"
+            label="Include dry-run (synthetic) rows"
+            checked={includeSynthetic}
+            onChange={(event) => setSyntheticScope({ studyId, enabled: event.target.checked })}
+          />
           <p className="type-caption text-text-muted" role="status">
             {includeSynthetic
               ? "Views and data bundles include synthetic rehearsal data. These are not participant findings."

@@ -40,6 +40,8 @@ const buttonVariants = cva(
          * compose bar) and still clears the 24px AA floor with room. */
         default: "h-11",
         sm: "h-9 px-3",
+        /* Beside a field in one row: the same 40px as the field. */
+        field: "h-[var(--control-height)] px-4",
         icon: "size-11 px-0",
       },
     },

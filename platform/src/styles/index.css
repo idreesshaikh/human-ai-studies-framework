@@ -1361,6 +1361,7 @@ body::before {
     appearance: none;
     -webkit-appearance: none;
     display: inline-grid;
+    grid-template: 100% / 100%; /* a definite track, so the tick has a size */
     flex: none;
     place-content: center;
     width: var(--checkbox-size);
@@ -1533,4 +1534,20 @@ body::before {
   .checkbox::before {
     background: HighlightText;
   }
+}
+@media (prefers-reduced-motion: reduce) {
+  .control,
+  .control-step,
+  .checkbox,
+  .checkbox::before,
+  .checkbox-row--card {
+    transition: none;
+  }
+}
+/* A plain scrubber: the native range in the accent, at a 24px+ target. */
+.scrub-range {
+  width: 100%;
+  height: var(--target-min);
+  accent-color: var(--accent);
+  cursor: pointer;
 }

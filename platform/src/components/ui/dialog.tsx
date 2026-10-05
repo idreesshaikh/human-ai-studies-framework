@@ -2,6 +2,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { scrollEdges } from "@/lib/scrollEdges";
 
 /* Radix supplies focus trapping and Escape handling; content scrolls within the viewport. */
 /* The last element focused OUTSIDE any dialog. Tracked once, for the whole
@@ -47,12 +48,23 @@ if (typeof document !== "undefined") {
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
 
+/* Structured dialog: DialogHeader (title, one-line description, close), ONE
+ * scrolling DialogBody, and a sticky DialogFooter (secondary left of primary).
+ * The whole is capped to the viewport (dvh) so the footer is always visible,
+ * and becomes a full-height sheet on phones (`.dialog` in index.css). A dialog
+ * with no DialogBody keeps the legacy single scrolling plate (palette,
+ * confirmations). */
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     scrollable?: boolean;
+    /** Structured dialogs only: the wide (40rem) plate. */
+    wide?: boolean;
   }
->(({ className, children, scrollable = true, ...props }, ref) => {
+>(({ className, children, scrollable = true, wide, ...props }, ref) => {
+  const structured = React.Children.toArray(children).some(
+    (child) => React.isValidElement(child) && child.type === DialogBody,
+  );
   return (
     <DialogPrimitive.Portal>
       {/* The scrim is the record's own ink, not a generic black: over the
@@ -73,35 +85,93 @@ export const DialogContent = React.forwardRef<
           }
         }}
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2",
-          "flex max-h-[calc(100dvh-2rem)] flex-col",
-          "rounded-plate border border-border bg-surface-raised p-5 shadow-lifted",
+          structured
+            ? cn("dialog", wide && "dialog--wide")
+            : cn(
+                "fixed left-1/2 top-1/2 z-50 w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2",
+                "flex max-h-[calc(100dvh-2rem)] flex-col",
+                "rounded-plate border border-border bg-surface-raised p-5 shadow-lifted",
+              ),
           "duration-entrance data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95",
           className,
         )}
         {...props}
       >
-        {/* `-mr-1 pr-1` keeps the scrollbar off the text without shifting the
-         * content when the dialog is short enough not to need one. */}
-        <div
-          className={cn(
-            "-mr-1 min-h-0 flex-1 pr-1",
-            scrollable ? "overflow-y-auto" : "flex flex-col overflow-hidden",
-          )}
-        >
-          {children}
-        </div>
-        <DialogPrimitive.Close
-          className="absolute right-4 top-4 rounded-control bg-surface-raised text-text-muted transition-colors duration-fast hover:text-text"
-          aria-label="Close"
-        >
-          <X className="size-4" aria-hidden />
-        </DialogPrimitive.Close>
+        {structured ? (
+          children
+        ) : (
+          <>
+            {/* `-mr-1 pr-1` keeps the scrollbar off the text without shifting the
+             * content when the dialog is short enough not to need one. */}
+            <div
+              className={cn(
+                "-mr-1 min-h-0 flex-1 pr-1",
+                scrollable ? "overflow-y-auto" : "flex flex-col overflow-hidden",
+              )}
+            >
+              {children}
+            </div>
+            <DialogPrimitive.Close
+              className="absolute right-4 top-4 rounded-control bg-surface-raised text-text-muted transition-colors duration-fast hover:text-text"
+              aria-label="Close"
+            >
+              <X className="size-4" aria-hidden />
+            </DialogPrimitive.Close>
+          </>
+        )}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );
 });
 DialogContent.displayName = "DialogContent";
+
+export const DialogHeader = ({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("dialog-header", className)} {...props}>
+    <div className="flex min-w-0 flex-col gap-1">{children}</div>
+    <DialogPrimitive.Close
+      className="-mr-2 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-control text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
+      aria-label="Close"
+    >
+      <X className="size-4" aria-hidden />
+    </DialogPrimitive.Close>
+  </div>
+);
+
+export const DialogBody = ({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) => {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = React.useState({ above: false, below: false });
+  const measure = React.useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const next = scrollEdges(el.scrollTop, el.clientHeight, el.scrollHeight);
+    setEdges((cur) => (cur.above === next.above && cur.below === next.below ? cur : next));
+  }, []);
+  React.useEffect(() => {
+    measure();
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    Array.from(el.children).forEach((child) => observer.observe(child));
+    return () => observer.disconnect();
+  }, [measure]);
+  return (
+    <div
+      ref={ref}
+      onScroll={measure}
+      data-more-above={edges.above ? "" : undefined}
+      data-more-below={edges.below ? "" : undefined}
+      className={cn("dialog-body", className)}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+};
+
+export const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("dialog-footer", className)} {...props} />
+);
 
 export const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
@@ -121,7 +191,7 @@ export const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn("mt-1 type-body text-text-muted", className)}
+    className={cn("type-body text-text-muted", className)}
     {...props}
   />
 ));
