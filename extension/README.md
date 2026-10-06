@@ -8,7 +8,7 @@ into a research-ready timeline without turning the editor into a dashboard.
 
 **Pair once. Consent first. Work normally. Get a clean timeline.**
 
-TERN is the participant-side instrument in PHOENIX. The platform supplies the
+TERN is the participant-side instrument in StudyLoop. PHOENIX supplies the
 protocol; TERN supplies the in-editor session clock, short reflection prompts,
 content-free behavioral telemetry, and a local-first JSONL record. The network
 is optional. The participant stays in control.

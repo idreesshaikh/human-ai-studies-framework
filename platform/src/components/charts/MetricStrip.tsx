@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Table2, ChartScatter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Field } from "@/components/ui/field";
 import { EmptyState } from "@/components/shell/EmptyState";
 import type { DatasetRow } from "@/lib/studyApi";
 import {
@@ -85,17 +86,14 @@ export function MetricStrip({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-2 type-body text-text-muted">
-          Metric
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Metric" className="w-full sm:w-80">
           <Select
             value={metricKey}
             onValueChange={setChosen}
             options={METRIC_REGISTRY.map((m) => ({ value: m.key, label: m.label }))}
-            className="w-auto"
-            aria-label="Choose a measure to plot"
           />
-        </label>
+        </Field>
         <Button
           size="sm"
           variant="ghost"

@@ -1087,7 +1087,7 @@ body::before {
  * fields, send, tabs and dialog controls clear 44px. Wide mouse layouts keep
  * their density. */
 @media (pointer: coarse), (max-width: 640px) {
-  button, summary, nav a, header a, a.type-control, [role="tab"], [role="menuitem"], [role="radio"],
+  button, summary, nav a, header a, a.type-control, [role="tab"], [role="menuitem"], [role="menuitemradio"], [role="radio"],
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not(.control-bare),
   select {
     min-height: var(--touch-target);
