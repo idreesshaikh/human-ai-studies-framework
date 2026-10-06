@@ -9,10 +9,9 @@ export const DropdownMenuTrigger = Menu.Trigger;
 
 export const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof Menu.Content>,
-  React.ComponentPropsWithoutRef<typeof Menu.Content>
->(({ className, sideOffset = 6, ...props }, ref) => (
-  <Menu.Portal>
-    <Menu.Content
+  React.ComponentPropsWithoutRef<typeof Menu.Content> & { regionLabel?: string }
+>(({ className, sideOffset = 6, regionLabel, ...props }, ref) => {
+  const content = <Menu.Content
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
@@ -21,9 +20,13 @@ export const DropdownMenuContent = React.forwardRef<
         className,
       )}
       {...props}
-    />
-  </Menu.Portal>
-));
+    />;
+  return (
+    <Menu.Portal>
+      {regionLabel ? <div role="region" aria-label={regionLabel}>{content}</div> : content}
+    </Menu.Portal>
+  );
+});
 DropdownMenuContent.displayName = "DropdownMenuContent";
 
 export const DropdownMenuItem = React.forwardRef<

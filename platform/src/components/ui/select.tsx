@@ -1,9 +1,9 @@
 import * as React from "react";
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
+import * as Menu from "@radix-ui/react-dropdown-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuCheckItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/cn";
@@ -44,11 +44,22 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
     ref
   ) => {
     const selected = options.find((opt) => opt.value === value);
+    const [menuNode, setMenuNode] = React.useState<HTMLDivElement | null>(null);
+    const [open, setOpen] = React.useState(false);
+    React.useEffect(() => {
+      if (!open) return;
+      const current = menuNode?.querySelector<HTMLElement>('[role="menuitemradio"][data-state="checked"]')
+        ?? menuNode?.querySelector<HTMLElement>('[role="menuitemradio"]');
+      current?.focus();
+      const frame = requestAnimationFrame(() => current?.scrollIntoView({ block: "nearest" }));
+      return () => cancelAnimationFrame(frame);
+    }, [open, menuNode]);
 
     return (
-      <DropdownMenu>
+      <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger ref={ref} asChild>
           <button
+            type="button"
             id={id}
             aria-label={ariaLabel}
             aria-describedby={ariaDescribedBy}
@@ -65,22 +76,35 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             <ChevronDown className="size-4 shrink-0 text-text-muted" aria-hidden />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-full min-w-56">
+        <DropdownMenuContent
+          ref={setMenuNode}
+          align="start"
+          tabIndex={0}
+          regionLabel={ariaLabel ? `${ariaLabel} options` : "Selection options"}
+          className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 max-w-[calc(100vw-2rem)] max-h-[min(20rem,var(--radix-dropdown-menu-content-available-height))] overflow-y-auto"
+        >
+          <Menu.RadioGroup
+            value={value}
+            onValueChange={onValueChange}
+          >
           {options.map((option) => (
-            <DropdownMenuCheckItem
+            <Menu.RadioItem
               key={option.value}
-              checked={value === option.value}
-              onSelect={() => onValueChange?.(option.value)}
-              className="cursor-pointer"
+              value={option.value}
+              className="relative flex cursor-pointer select-none items-start gap-2 rounded-input py-2 pl-8 pr-2 text-text outline-none focus:bg-zone-9"
             >
-              <div className="flex flex-col">
+              <Menu.ItemIndicator className="absolute left-2 top-2.5 flex size-4 items-center justify-center">
+                <Check className="size-4" aria-hidden />
+              </Menu.ItemIndicator>
+              <div className="flex min-w-0 flex-col">
                 <span className="type-body">{option.label}</span>
                 {option.hint && (
                   <span className="type-caption text-text-muted">{option.hint}</span>
                 )}
               </div>
-            </DropdownMenuCheckItem>
+            </Menu.RadioItem>
           ))}
+          </Menu.RadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     );

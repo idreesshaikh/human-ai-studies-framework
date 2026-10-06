@@ -45,7 +45,7 @@ try {
   await page.getByText("Sample size estimates", { exact: true }).click();
   const select = page.getByLabel("Preview assignment for");
   await select.click();
-  await page.getByRole("menuitem", { name: "Participant 2", exact: true }).click();
+  await page.getByRole("menuitemradio", { name: "Participant 2", exact: true }).click();
   await expect(page.getByRole("button", { name: "Refresh plan" })).toBeEnabled();
   await page.getByRole("button", { name: "Setup", exact: true }).click();
   await page.getByRole("button", { name: "Show protocol draft", exact: true }).click();
