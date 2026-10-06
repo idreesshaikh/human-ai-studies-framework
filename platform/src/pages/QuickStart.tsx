@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Field } from "@/components/ui/field";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { useApi, useSession } from "@/lib/session";
 import { ApiError } from "@/lib/api";
 import { NAME_MAX_LENGTH } from "@/lib/uiText";
@@ -61,7 +61,7 @@ export function QuickStart() {
           <p className="type-body mt-1 text-pretty text-text-muted">
             Configure a task-based human–AI study, then run it in VS Code.
           </p>
-          <p className="type-caption mt-3 text-pretty text-text-muted">
+          <p className="type-note mt-3 text-pretty text-text-muted">
             Phoenix supports coding-task comparisons with AI-assisted and unassisted
             conditions. It is not an exam, classroom, clinical, marketing, or general survey
             tool.
@@ -70,39 +70,30 @@ export function QuickStart() {
 
         <Card>
           <CardContent className="flex flex-col gap-4 p-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="study-title">Study name</Label>
+            <Field id="study-title" label="Study name" hint={`Up to ${NAME_MAX_LENGTH} characters.`}>
               <Input
-                id="study-title"
-                placeholder="e.g., AI-assisted code review"
+                placeholder="e.g. AI-assisted code review"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 maxLength={NAME_MAX_LENGTH}
                 disabled={creating}
-                aria-describedby="study-name-hint"
               />
-              <p id="study-name-hint" className="type-caption text-text-muted">
-                Up to {NAME_MAX_LENGTH} characters.
-              </p>
-            </div>
+            </Field>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="opening-thought">Study brief</Label>
-              <p className="type-caption text-text-muted">
-                Name the coding task, AI comparison, and outcome you want to capture.
-              </p>
+            <Field
+              id="opening-thought"
+              label="Study brief"
+              hint="Name the coding task, AI comparison, and outcome you want to capture. One message is enough; Phoenix extracts the explicit choices and leaves only genuinely missing details open."
+            >
               <Textarea
-                id="opening-thought"
-                placeholder="Paste the whole brief here: the coding task, who will do it, what AI changes, and what you want to measure."
+                autoGrow
+                rows={3}
+                placeholder="Task, people, AI change, measures"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 disabled={creating}
-                aria-describedby="study-brief-hint"
               />
-              <p id="study-brief-hint" className="type-caption text-text-muted">
-                You can write it in one message. Phoenix will extract the explicit choices and leave only genuinely missing details open.
-              </p>
-            </div>
+            </Field>
 
             {error && <Notice kind="problem">{error}</Notice>}
 
@@ -123,12 +114,12 @@ export function QuickStart() {
             </Button>
 
             {!title.trim() && (
-              <p id="configure-hint" className="type-caption text-center text-text-muted">
+              <p id="configure-hint" className="type-note text-center text-text-muted">
                 Name the study to continue.
               </p>
             )}
 
-            <p className="type-caption text-center text-text-muted">
+            <p className="type-note text-center text-text-muted">
               Studies live in a personal workspace. You can share them with others later.
             </p>
           </CardContent>

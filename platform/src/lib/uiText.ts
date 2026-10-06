@@ -246,3 +246,44 @@ export function measureOptionsFromMoves(
     });
   return options.filter((o) => texts.some((t) => t.includes(o.toLowerCase())));
 }
+
+const EYEBROW_BY_SECTION: Record<string, string> = {
+  researchQuestions: "Research question",
+  design: "Design",
+  participants: "Participants",
+  conditions: "Conditions",
+  measures: "Measure",
+  instruments: "Instrument",
+  statisticalPlan: "Analysis",
+  ethics: "Setting",
+};
+
+const EYEBROW_BY_KIND: Record<string, string> = {
+  "add-rq": "Research question",
+  "choose-template": "Design",
+  "merge-templates": "Design",
+  "set-parameter": "Setting",
+  "set-field": "Setting",
+  "declare-task": "Task",
+  "add-instrument": "Instrument",
+  "reconfigure-instrument": "Instrument",
+  "add-measure": "Measure",
+  "prescribe-statistics": "Analysis",
+  caution: "Caution",
+};
+
+/** The card's eyebrow: a human noun matching the draft rail's sections. A
+ *  patch that names its section wins over the move kind. */
+export function moveEyebrow(kind: string, patch?: unknown): string {
+  const section = (patch as { section?: unknown } | undefined)?.section;
+  if (kind !== "caution" && typeof section === "string" && EYEBROW_BY_SECTION[section]) {
+    return EYEBROW_BY_SECTION[section];
+  }
+  return EYEBROW_BY_KIND[kind] ?? "Setting";
+}
+
+/** Composer prefill for the rail's "Next" button. Drafted for the researcher
+ *  to edit; never sent. */
+export function nextStepPrompt(sectionLabel: string): string {
+  return `Propose the ${sectionLabel.toLowerCase()} for this study.`;
+}

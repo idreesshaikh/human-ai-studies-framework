@@ -124,7 +124,7 @@ export function PowerPanel({ studyId, active = true }: { studyId: string; active
         ) : doc?.note ? (
           <div className="rounded-card border border-dashed border-border-strong bg-surface p-5">
             <p className="type-body text-text">{doc.note}</p>
-            <p className="mt-2 type-caption text-text-muted">
+            <p className="mt-2 type-note text-text-muted">
               The chart will appear once Phoenix has a real comparison to size.
             </p>
           </div>
@@ -135,7 +135,7 @@ export function PowerPanel({ studyId, active = true }: { studyId: string; active
             change refetches the exact curve from the middleware. */}
         <div className="flex flex-wrap items-end gap-4 rounded-card border border-border bg-surface p-4">
           <label className="flex flex-col gap-1">
-            <span className="type-caption text-text-muted">alpha (two-sided)</span>
+            <span className="type-label text-text">alpha (two-sided)</span>
             <Select
               value={String(alpha)}
               onValueChange={(v) => setAlpha(Number(v))}
@@ -144,7 +144,7 @@ export function PowerPanel({ studyId, active = true }: { studyId: string; active
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="type-caption text-text-muted">target power</span>
+            <span className="type-label text-text">target power</span>
             <Select
               value={String(powerTarget)}
               onValueChange={(v) => setPowerTarget(Number(v))}
@@ -153,7 +153,7 @@ export function PowerPanel({ studyId, active = true }: { studyId: string; active
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="type-caption text-text-muted">explored range (total n)</span>
+            <span className="type-label text-text">explored range (total n)</span>
             <Select
               value={String(maxN)}
               onValueChange={(v) => setMaxN(Number(v))}
@@ -162,7 +162,7 @@ export function PowerPanel({ studyId, active = true }: { studyId: string; active
             />
           </label>
           <div className="flex flex-col gap-1">
-            <span className="type-caption text-text-muted">effect sizes (Cohen's d)</span>
+            <span className="type-label text-text">effect sizes (Cohen's d)</span>
             {/* These are the chart's legend, and they happen to be
               * switchable  -  so each one carries the stroke its curve is drawn
               * with, and you can read the key off the control rather than
@@ -220,7 +220,7 @@ export function PowerPanel({ studyId, active = true }: { studyId: string; active
         </div>
 
         {seeded && (
-          <p className="type-caption text-text-muted" role="status">
+          <p className="type-note text-text-muted" role="status">
             Middleware unreachable  -  showing the built-in stand-in curve
             (normal approximation of the same formula), not a live study
             plan.
@@ -228,7 +228,7 @@ export function PowerPanel({ studyId, active = true }: { studyId: string; active
         )}
 
         {doc && (doc.plannedParticipants != null || doc.assumption) && (
-          <p className="type-caption text-text-muted">
+          <p className="type-note text-text-muted">
             {doc.plannedParticipants != null && (
               <>Current draft: <span className="tabular text-text">{doc.plannedParticipants}</span> planned participants. </>
             )}

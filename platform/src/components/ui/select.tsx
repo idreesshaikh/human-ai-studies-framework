@@ -18,6 +18,7 @@ interface SelectProps {
   id?: string;
   "aria-label"?: string;
   "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
   value?: string;
   onValueChange?: (value: string) => void;
   options: SelectOption[];
@@ -32,6 +33,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
       id,
       "aria-label": ariaLabel,
       "aria-describedby": ariaDescribedBy,
+      "aria-invalid": ariaInvalid,
       value,
       onValueChange,
       options,
@@ -50,6 +52,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             id={id}
             aria-label={ariaLabel}
             aria-describedby={ariaDescribedBy}
+            aria-invalid={ariaInvalid}
             className={cn(
               "control relative flex min-w-0 items-center justify-between gap-2 type-body text-left",
               className

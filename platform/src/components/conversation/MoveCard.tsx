@@ -6,27 +6,12 @@ import { GroundingChip } from "./GroundingChip";
 import { UnsourcedLabel } from "./UnsourcedLabel";
 import { EvidenceDetails } from "./EvidenceDetails";
 import { cn } from "@/lib/cn";
-import { cleanProposalText, moveStateLabel } from "@/lib/uiText";
+import { cleanProposalText, moveEyebrow, moveStateLabel } from "@/lib/uiText";
 import type { DesignMove, MoveStatus } from "@/lib/types";
-
-const KIND_LABEL: Record<DesignMove["kind"], string> = {
-  "add-rq": "Research question",
-  "choose-template": "Design",
-  "set-parameter": "Parameter",
-  "set-field": "Field",
-  "declare-task": "Task",
-  "add-instrument": "Instrument",
-  "reconfigure-instrument": "Instrument setting",
-  "add-measure": "Measure",
-  "merge-templates": "Design merge",
-  "prescribe-statistics": "Analysis plan",
-  caution: "Caution",
-};
 
 /* A proposed design move with accept/reject, and an Undo once decided  -
  * reopens the card to "proposed" rather than flipping straight to the
- * opposite decision. Keyboard-first: a / r when the card is focused (undo
- * is click-only; a long-since-decided card isn't the one holding focus).
+ * opposite decision. Keyboard-first: a / r when the card is focused, u to undo.
  * Accepted moves fold toward the draft rail; rejected ones fade out. A
  * caution has no patch, so accepting it just marks it noted  -  it never
  * changes the draft. */
@@ -49,6 +34,7 @@ export function MoveCard({
   // compiler folds a patch-less move into the draft.
   const compiled = Boolean(move.patch);
   const decided = move.status !== "proposed";
+  const eyebrow = moveEyebrow(move.kind, move.patch);
   const isMergedResearchQuestion =
     move.kind === "add-rq" && move.status === "accepted" && compiled;
   /* Whether ANY citation stands behind this move. How strongly each one does
@@ -57,7 +43,13 @@ export function MoveCard({
 
   const onKey = useCallback(
     (e: React.KeyboardEvent) => {
-      if (decided || e.target !== e.currentTarget || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat || e.nativeEvent.isComposing) return;
+      if (e.target !== e.currentTarget || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat || e.nativeEvent.isComposing) return;
+      if (decided) {
+        if (e.key !== "u") return;
+        e.preventDefault();
+        onDecide(move.moveId, "proposed", move);
+        return;
+      }
       if (e.key !== "a" && e.key !== "r") return;
       e.preventDefault();
       onDecide(move.moveId, e.key === "a" ? "accepted" : "rejected", move);
@@ -78,10 +70,11 @@ export function MoveCard({
   return (
     <Card
       ref={ref}
+      role="group"
       tabIndex={decided ? -1 : 0}
       data-move-id={move.moveId}
       onKeyDown={onKey}
-      aria-label={`${KIND_LABEL[move.kind]} move: ${move.proposal}`}
+      aria-label={`${eyebrow}: ${cleanProposalText(move.proposal)}. ${move.status === "proposed" ? "Awaiting your decision" : moveStateLabel(move.status, move.kind)}`}
       className={cn(
         "relative transition-all",
       /* A proposed move is a compact decision sheet: it has enough framing to
@@ -103,16 +96,13 @@ export function MoveCard({
         * the source it measures. */}
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="min-w-0">
-          <div
-            className={cn(
-              "flex flex-col gap-1.5",
-              move.status === "accepted" && "opacity-70",
-              move.status === "rejected" && "opacity-60",
-            )}
-          >
+          {/* A decided card recedes through its text tokens, not opacity:
+            * fading the block took the muted eyebrow and status under
+            * 4.5:1 (NFR-12). */}
+          <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <span className="type-legend text-text-muted">
-              {KIND_LABEL[move.kind]}
+              {eyebrow}
             </span>
             {decided && (
               <span
@@ -129,13 +119,17 @@ export function MoveCard({
           {move.kind === "merge-templates" && move.mergeData ? (
             <div className="flex flex-col gap-1.5">
               <p className="type-body leading-snug text-text">{cleanProposalText(move.proposal)}</p>
-              <p className="type-caption text-text-muted italic">{move.mergeData.reason}</p>
+              <p className="type-note text-text-muted italic">{move.mergeData.reason}</p>
             </div>
           ) : (
             <p
               className={cn(
-                "type-body pr-3 leading-snug text-text",
-                move.status === "rejected" && "superseded",
+                "type-body pr-3 leading-snug",
+                move.status === "rejected"
+                  ? "superseded"
+                  : move.status === "accepted"
+                    ? "text-text-muted"
+                    : "text-text",
               )}
             >
               {cleanProposalText(move.proposal)}
@@ -143,12 +137,10 @@ export function MoveCard({
           )}
         </div>
 
-        {/* Outside the faded wrapper above, deliberately: CSS opacity always
-         * applies to every descendant, including a popover positioned
-         * absolutely outside its parent's box  -  a citation's hover card would
-         * inherit the card's 40/60% fade and render see-through, which is
-         * worse than not fading it. Citations stay fully legible regardless
-         * of the card's decided state, same reasoning as the Undo button. */}
+        {/* Citations stay fully legible regardless of the card's decided
+         * state, same reasoning as the Undo button. Never fade an ancestor
+         * here: opacity reaches every descendant, including a citation's
+         * absolutely positioned hover card, which would render see-through. */}
         <div className="mt-1 flex min-w-0 flex-wrap items-start gap-1 border-t border-border pt-1">
           {move.grounding.length > 0 ? (
             move.grounding.map((g) => g.evidence ? (

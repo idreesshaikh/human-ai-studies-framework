@@ -21,7 +21,7 @@ export function CommandDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0">
+      <DialogContent scrollable={false} className="overflow-hidden p-0">
         {/* The dialog's accessible name, not drawn: the search field below is
           * the visible heading. */}
         <DialogTitle className="sr-only">{label}</DialogTitle>
@@ -60,7 +60,21 @@ export const CommandInput = React.forwardRef<
 ));
 CommandInput.displayName = "CommandInput";
 
-export const CommandList = CommandPrimitive.List;
+/* The list scrolls vertically inside the palette's height cap and never
+ * sideways: cmdk's list is `overflow: auto`, so any row wider than the plate
+ * (a long project name, the role chip) or the scrollbar gutter produced a
+ * horizontal scrollbar. min-w-0 lets rows truncate instead of widening it. */
+export const CommandList = React.forwardRef<
+  React.ElementRef<typeof CommandPrimitive.List>,
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
+>(({ className, ...props }, ref) => (
+  <CommandPrimitive.List
+    ref={ref}
+    className={cn("min-h-0 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain", className)}
+    {...props}
+  />
+));
+CommandList.displayName = "CommandList";
 
 export const CommandEmpty = ({
   className,
@@ -81,7 +95,7 @@ export const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "flex cursor-default select-none items-center gap-2 px-4 py-2.5 type-body text-text outline-none",
+      "flex min-w-0 cursor-default select-none items-center gap-2 px-4 py-2.5 type-body text-text outline-none",
       "data-[selected=true]:bg-zone-9",
       className,
     )}

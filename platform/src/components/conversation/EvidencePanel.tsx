@@ -7,6 +7,7 @@ import { Notice } from "@/components/ui/notice";
 import { evidenceApi, type EvidenceContext } from "@/lib/evidenceApi";
 import { useAsync } from "@/lib/useAsync";
 import { EvidenceDetails } from "./EvidenceDetails";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const EMPTY: EvidenceContext = { query: "", population: "", task: "", construct: "", producers: [], instruments: [], confirmedRelationIds: [] };
 const STATUS = { compatible: "Compatible", conditional: "Conditional", incompatible: "Incompatible", "insufficient-evidence": "More evidence needed" };
@@ -73,7 +74,7 @@ export function EvidencePanel({ studyId, onProposed, onClose }: { studyId: strin
         <h3 className="type-subhead text-text">Evidence-linked methods</h3>
         {onClose && <Button variant="ghost" size="icon" aria-label="Close method comparison" onClick={onClose}><X aria-hidden /></Button>}
       </div>
-      <p className="type-caption text-text-muted">Compare source-backed methods. No choice changes the protocol without your approval.</p>
+      <p className="type-note text-text-muted">Compare source-backed methods. No choice changes the protocol without your approval.</p>
       {map.loading && <p role="status" className="type-caption text-text-muted">Loading evidence…</p>}
       {map.error && <Notice kind="problem">{map.error} <button className="underline" onClick={map.reload}>Retry</button></Notice>}
       {map.data?.document && <p className="type-caption text-text-muted">{map.data.document.mapId} · {map.data.document.mapVersion}<br />{map.data.document.description}</p>}
@@ -96,12 +97,12 @@ export function EvidencePanel({ studyId, onProposed, onClose }: { studyId: strin
               </div>
             ))}
           </div>
-          <p className="type-caption text-text-muted">Suggestions come from this map. Choose them only when they match your study; other contexts need an applicability review. Equipment listed here is your declaration, not a capture check.</p>
+          <p className="type-note text-text-muted">Suggestions come from this map. Choose them only when they match your study; other contexts need an applicability review. Equipment listed here is your declaration, not a capture check.</p>
           <Button type="submit" size="sm" disabled={busy || results.loading}>Compare methods</Button>
         </form>
       )}
       {error && <Notice kind="problem">{error}</Notice>}
-      {compared && results.loading && <p role="status" className="type-caption text-text-muted">Checking constraints…</p>}
+      {compared && results.loading && <p role="status" className="type-note text-text-muted">Checking constraints…</p>}
       {compared && results.error && <Notice kind="problem">{results.error} <button className="underline" onClick={results.reload}>Retry comparison</button></Notice>}
       {compared && results.data && sameConstraints && !results.error && (
         <ol className="divide-y divide-border" aria-label="Method alternatives">
@@ -112,7 +113,7 @@ export function EvidencePanel({ studyId, onProposed, onClose }: { studyId: strin
                 <h4 className="type-control text-text">{candidate.designFamily ?? "Unspecified design"}</h4>
                 <span className="type-caption text-text-muted">{comparisonCurrent ? STATUS[candidate.status] : "Checking constraints…"}</span>
               </div>
-              <p className="type-caption text-text-muted">{candidate.missingFacts[0] ?? candidate.reasons[0] ?? 'Inspect the source and its conditions.'}</p>
+              <p className="type-note text-text-muted">{candidate.missingFacts[0] ?? candidate.reasons[0] ?? 'Inspect the source and its conditions.'}</p>
               <details open={expanded.includes(candidate.id)} onToggle={event => {
                 const open = event.currentTarget.open;
                 setExpanded(current => open ? current.includes(candidate.id) ? current : [...current, candidate.id] : current.filter(id => id !== candidate.id));
@@ -120,13 +121,10 @@ export function EvidencePanel({ studyId, onProposed, onClose }: { studyId: strin
                 <summary className="type-caption cursor-pointer text-accent">Sources, limits and capture requirements</summary>
                 <EvidenceDetails candidate={candidate} />
                 {candidate.sources.filter(s => s.review.status === 'reviewed' && s.kind !== 'reported-method-use' && ['compatible', 'conditional'].includes(s.applicability.status)).map(source => (
-                  <label key={source.id} className="mt-3 flex items-start gap-2 type-caption text-text">
-                    <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-accent" checked={context.confirmedRelationIds.includes(source.id)} disabled={busy} onChange={e => {
-                      const next = { ...context, confirmedRelationIds: e.target.checked ? [...context.confirmedRelationIds, source.id] : context.confirmedRelationIds.filter(id => id !== source.id) };
-                      setContext(next); setCompared(next);
-                    }} />
-                    <span>I checked the source context: {source.applicability.context}</span>
-                  </label>
+                  <Checkbox key={source.id} rowClassName="mt-3" label={`I checked the source context: ${source.applicability.context}`} checked={context.confirmedRelationIds.includes(source.id)} disabled={busy} onChange={e => {
+                    const next = { ...context, confirmedRelationIds: e.target.checked ? [...context.confirmedRelationIds, source.id] : context.confirmedRelationIds.filter(id => id !== source.id) };
+                    setContext(next); setCompared(next);
+                  }} />
                 ))}
               </details>
               <Button size="sm" variant="subtle" disabled={busy || !comparisonCurrent || !['compatible', 'conditional'].includes(candidate.status)} onClick={() => void propose(candidate.id)}>Review this choice in chat</Button>

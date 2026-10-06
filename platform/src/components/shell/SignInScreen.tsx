@@ -10,7 +10,7 @@ import { KeyRound, Moon, Sun } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
 import { PhoenixMark } from "@/components/brand/PhoenixMark";
 import { useAuth } from "@/lib/auth.tsx";
 import { getTheme, nextTheme, applyTheme, subscribeTheme, themeToggleLabel } from "@/lib/theme";
@@ -127,11 +127,10 @@ function TokenForm({ awaitingClerk }: { awaitingClerk: boolean }) {
   const { signInWithToken } = useAuth();
   const [token, setToken] = useState("");
   const fieldId = useId();
-  const hintId = `${fieldId}-hint`;
 
   return (
     <form
-      className="flex flex-col gap-2"
+      className="form-stack"
       onSubmit={(e) => {
         e.preventDefault();
         if (token.trim()) signInWithToken(token);
@@ -142,17 +141,11 @@ function TokenForm({ awaitingClerk }: { awaitingClerk: boolean }) {
        * page vanished the moment you typed into it  -  and it named the thing
        * ("Session token") without ever saying where a researcher is supposed
        * to get one, which is the only question anyone actually has here. */}
-      <Label htmlFor={fieldId}>Session token</Label>
-      <Input
+      <Field
         id={fieldId}
-        type="password"
-        autoComplete="current-password"
-        value={token}
-        onChange={(e) => setToken(e.target.value)}
-        aria-describedby={hintId}
-      />
-      <p id={hintId} className="type-caption text-text-muted">
-        {awaitingClerk ? (
+        label="Session token"
+        hint={
+        awaitingClerk ? (
           "The sign-in widget couldn't load. Check your connection, or ask whoever runs this deployment for a session token."
         ) : (
           <>
@@ -163,8 +156,16 @@ function TokenForm({ awaitingClerk }: { awaitingClerk: boolean }) {
             <span className="font-mono text-text">MIDDLEWARE_TOKEN</span> on the
             server.
           </>
-        )}
-      </p>
+        )
+        }
+      >
+        <Input
+          type="password"
+          autoComplete="current-password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+        />
+      </Field>
       <Button type="submit" disabled={!token.trim()} className="mt-1">
         <KeyRound aria-hidden /> Sign in
       </Button>

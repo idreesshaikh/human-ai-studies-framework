@@ -125,7 +125,7 @@ const CLERK_APPEARANCE = {
     dividerLine: "bg-border",
     dividerText: "type-legend text-text-muted",
     formFieldLabel:
-      "type-legend text-text-muted",
+      "type-label text-text",
     formFieldInput:
       "rounded-input border border-border-strong bg-surface-raised type-body text-text focus:border-accent",
     formButtonPrimary:

@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { useSession } from "@/lib/session";
 import type { Theme } from "@/lib/theme";
 
@@ -24,12 +24,11 @@ export function AccountSettings() {
         <CardContent className="flex flex-col gap-4 p-4">
           <div>
             <h2 className="type-subhead text-text">Display</h2>
-            <p className="type-caption text-text-muted">
+            <p className="type-note text-text-muted">
               These settings apply to all your projects.
             </p>
           </div>
-          <div className="flex flex-col gap-2">
-            <Label>Theme</Label>
+          <Field id="theme" label="Theme">
             <Select
               value={prefs.theme ?? "light"}
               onValueChange={(v) => void setThemePreference(v as Theme)}
@@ -38,7 +37,7 @@ export function AccountSettings() {
                 { value: "dark", label: "Dark" },
               ]}
             />
-          </div>
+          </Field>
         </CardContent>
       </Card>
     </div>

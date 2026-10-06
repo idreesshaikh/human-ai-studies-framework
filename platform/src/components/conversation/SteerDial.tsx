@@ -71,7 +71,7 @@ export function SteerDial({
         >
           <div className="px-2 pb-2 pt-1">
             <p className="type-subhead text-text">Assistant response style</p>
-            <p className="type-caption mt-0.5 text-text-muted">
+            <p className="type-note mt-0.5 text-text-muted">
               Choose how much initiative it takes in this study.
             </p>
           </div>

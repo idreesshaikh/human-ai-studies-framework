@@ -30,7 +30,7 @@ const BASE = rehearsalUrl();
     await page.getByLabel('Condition 2', {exact:true}).fill('unassisted');
     await page.getByLabel('Who takes part', {exact:true}).fill('Novice Python developers');
     await page.getByLabel('Session length', {exact:true}).fill('45');
-    await page.getByLabel('Task', {exact:true}).fill('Fix the bug in the provided Python application.');
+    await page.getByLabel('What participants do', {exact:true}).fill('Fix the bug in the provided Python application.');
     await page.getByRole('checkbox', {name:'task completion time',exact:true}).check();
     await page.getByRole('checkbox', {name:'cognitive load',exact:true}).check();
     const compiled = page.waitForResponse(r => r.url().endsWith('/quick-protocol'));

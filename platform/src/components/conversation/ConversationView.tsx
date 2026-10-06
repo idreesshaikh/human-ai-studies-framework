@@ -19,6 +19,7 @@ import {
   nextFocusAfterDecision,
   rejectedMoveText,
   shouldFollowUpAfterDecision,
+  nextStepPrompt,
 } from "@/lib/uiText";
 import type { Recommendation } from "@/lib/types";
 import {
@@ -225,7 +226,7 @@ export function ConversationView({
         setLive(false);
         if (openingText) {
           setNote(
-            "Your brief is still here, but the assistant needs the running middleware before it can configure the protocol.",
+            "Offline: the server is unreachable, so the assistant cannot reply. Your brief is kept. Start the middleware, then reload.",
           );
         }
         setConversationLoading(false);
@@ -480,13 +481,13 @@ export function ConversationView({
       setTurns((prev) => prev.filter((t) => t.turnId !== pendingId));
       setInput((current) => current || text);
       if (controller.signal.aborted) {
-        setNote("Stopped. Your message is back in the box. Send it again when you're ready.");
+        setNote("Stopped. Your message is back in the box.");
       } else {
         setLive(false);
         setNote(
           e instanceof ApiError && e.status === 503
             ? e.message
-            : "That didn't reach the server, so it hasn't been answered yet. Your message is back in the box. Try again when you're back online.",
+            : "Not sent: the server is unreachable. Your message is back in the box. Check the connection and send again.",
         );
       }
       scrollDown();
@@ -514,7 +515,7 @@ export function ConversationView({
     setInput((current) => current || request.text);
     setStreamingText(null);
     setBusy(false);
-    setNote("Stopped. Your message is back in the box. Send it again when you're ready.");
+    setNote("Stopped. Your message is back in the box.");
   }
 
   /* Undo moves a card out of "recorded decisions" and back into the open list,
@@ -600,7 +601,7 @@ export function ConversationView({
             ),
           })),
         );
-        setNote("This decision is still local. It didn't reach the server, so nothing was changed. Try again.");
+        setNote("Decision not saved: the server did not respond. Try again.");
         return;
       }
 
@@ -629,7 +630,7 @@ export function ConversationView({
               return next;
             });
             setNote(
-              "Accepted, but couldn't add its cited paper to your library. Try again from the Literature panel.",
+              "Accepted. Its cited paper was not added to the library: retry from Literature.",
             );
           });
         }
@@ -660,7 +661,7 @@ export function ConversationView({
           await sendText(actionText, { moveId, action });
         }
       } catch {
-        setNote("The decision was saved, but the next question could not be generated. Try sending a short reply to continue.");
+        setNote("Decision saved. No follow-up was generated: send a short reply to continue.");
       }
     } else if (live && status === "proposed") {
       try {
@@ -674,7 +675,7 @@ export function ConversationView({
             ),
           })),
         );
-        setNote("This decision is still local. It didn't reach the server, so nothing was changed. Try again.");
+        setNote("Decision not saved: the server did not respond. Try again.");
       }
     }
   }
@@ -781,7 +782,7 @@ export function ConversationView({
         next.delete(ref);
         return next;
       });
-      setNote("Couldn't add that paper to your library. Check your connection and try again.");
+      setNote("Paper not added: check the connection and retry.");
     }
   }
 
@@ -794,7 +795,7 @@ export function ConversationView({
       setNote("Draft applied to the protocol.");
       await refreshCompile();
     } catch {
-      setNote("Couldn't apply the draft. Check your connection and try again.");
+      setNote("Draft not applied: check the connection and retry.");
     } finally {
       setApplying(false);
     }
@@ -915,6 +916,7 @@ export function ConversationView({
                       onAcceptBatch={turn === activePlatform ? acceptBatch : undefined}
                       focusMoveId={turn === activePlatform ? focusMoveId : null}
                       active
+                      showKeyHint={turn === activePlatform}
                     />
                     {/* Pending choices stay in the open list wherever a later turn
                       * has landed; only fully decided turns fold away. */}
@@ -929,7 +931,7 @@ export function ConversationView({
                     {turn !== activePlatform && turn.moves.length > 0 && !turn.moves.some(move => move.status === "proposed") && (
                       <details className="mt-2">
                         <summary className="type-caption cursor-pointer text-text-muted">
-                          View decisions
+                          Decisions ({turn.moves.length})
                         </summary>
                         <StreamingTurn turn={{ ...turn, text: "" }} onDecide={decide} />
                       </details>
@@ -941,15 +943,15 @@ export function ConversationView({
                     {streamingText && (
                       <div className="max-w-bubble animate-in fade-in px-1 py-1 type-body duration-entrance">
                         <span className="mb-1 block type-caption text-text-muted">Assistant</span>
-                        <span className="whitespace-pre-wrap text-text" aria-live="polite">
+                        <span className="whitespace-pre-wrap text-text">
                           {streamingText}
                         </span>
                       </div>
                     )}
                     <div className="flex items-center gap-1 px-1 py-1 type-caption text-text-muted" role="status" aria-label="Assistant is thinking">
-                      <span className="size-1.5 animate-pulse rounded-full bg-text-muted" />
-                      <span className="size-1.5 animate-pulse rounded-full bg-text-muted [animation-delay:var(--motion-fast)]" />
-                      <span className="size-1.5 animate-pulse rounded-full bg-text-muted [animation-delay:var(--motion-standard)]" />
+                      <span className="size-1.5 animate-pulse rounded-full bg-text-muted motion-reduce:animate-none" />
+                      <span className="size-1.5 animate-pulse rounded-full bg-text-muted motion-reduce:animate-none [animation-delay:var(--motion-fast)]" />
+                      <span className="size-1.5 animate-pulse rounded-full bg-text-muted motion-reduce:animate-none [animation-delay:var(--motion-standard)]" />
                       <span className="ml-1">Thinking…</span>
                     </div>
                   </div>
@@ -957,6 +959,11 @@ export function ConversationView({
               </div>
             )}
 
+            {/* Announced once, when a reply finishes streaming: a live region
+              * whose text changes per token would read the stream aloud. */}
+            <div className="sr-only" role="status" aria-live="polite" data-testid="turn-announcer">
+              {!busy && activePlatform?.text ? activePlatform.text : ""}
+            </div>
             <div ref={threadEnd} />
           </div>
         </div>
@@ -1055,6 +1062,7 @@ export function ConversationView({
             />
           ) : (
             <DraftRail
+              onNextStep={(label) => takeOpening(nextStepPrompt(label))}
               understanding={understanding}
               scopeBlocked={scopeBlocked}
               loading={conversationLoading}

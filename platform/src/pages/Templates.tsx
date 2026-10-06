@@ -3,8 +3,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { BookOpen, Loader2, Info, MessageSquareText } from "lucide-react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -181,7 +184,7 @@ export function Templates() {
             <MessageSquareText className="size-4" aria-hidden />
             Describe your study instead
           </h2>
-          <p className="type-caption text-text-muted">
+          <p className="type-note text-text-muted">
             Not sure which template fits? Describe the study in plain language
             and the assistant works the design out with you.
           </p>
@@ -190,7 +193,7 @@ export function Templates() {
               value={describe}
               onChange={(e) => setDescribe(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && void describeStudy()}
-              placeholder="e.g. Does AI pair programming change debugging time, comparing telemetry with self-report?"
+              placeholder="Describe the study in a sentence"
               aria-label="Describe your study"
               className="min-w-0 flex-1 basis-56"
             />
@@ -200,12 +203,12 @@ export function Templates() {
               * question they came with  -  but the button says what it will
               * actually do rather than failing after the click. */}
             {signedOut ? (
-              <Button asChild size="sm">
+              <Button asChild size="field">
                 <Link to={signInHref(pathname + search)}>Sign in to start</Link>
               </Button>
             ) : (
               <Button
-                size="sm"
+                size="field"
                 onClick={() => void describeStudy()}
                 disabled={!describe.trim() || describeBusy}
               >
@@ -218,7 +221,7 @@ export function Templates() {
             )}
           </div>
           {describeError && (
-            <p role="alert" className="type-caption text-critical">
+            <p role="alert" className="type-note text-critical">
               {describeError}
             </p>
           )}
@@ -239,7 +242,7 @@ export function Templates() {
            grows in place. */
         <section className="flex flex-col gap-2">
           <h2 className="type-subhead text-text">Study templates</h2>
-          <p className="type-caption text-text-muted">
+          <p className="type-note text-text-muted">
             Open a card for its full description and its references.
           </p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -259,7 +262,7 @@ export function Templates() {
           <h2 className="type-subhead flex items-center gap-1.5 text-text-muted">
             <Info className="size-4" aria-hidden /> Held back
           </h2>
-          <p className="type-caption text-text-muted">
+          <p className="type-note text-text-muted">
             Too rare to propose without a strong source. Shown, not hidden: the
             reason is stated so you can judge it yourself.
           </p>
@@ -270,7 +273,7 @@ export function Templates() {
                 className="rounded-plate border border-dashed border-unsourced p-3"
               >
                 <p className="type-label font-semibold text-text">{entry.title}</p>
-                <p className="type-caption mt-0.5 text-text-muted">
+                <p className="type-note mt-0.5 text-text-muted">
                   {entry.admissionNote}
                 </p>
               </div>
@@ -361,14 +364,13 @@ function ShapeDetailPanel({
 }) {
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-work max-h-[80vh] flex flex-col">
-        {/* `pr-9` reserves the corner the Close button occupies. */}
-        <div className="pr-9">
-          <DialogTitle className="type-display">{entry.title}</DialogTitle>
-          <DialogDescription className="mt-2 type-caption">{BAND_COPY[entry.band]}</DialogDescription>
-        </div>
+      <DialogContent wide>
+        <DialogHeader>
+          <DialogTitle>{entry.title}</DialogTitle>
+          <DialogDescription>{BAND_COPY[entry.band]}</DialogDescription>
+        </DialogHeader>
 
-        <div className="mt-4 flex-1 overflow-y-auto space-y-4">
+        <DialogBody className="space-y-4">
           <div>
             <h3 className="type-label font-semibold text-text">Description</h3>
             <p className="mt-2 type-body text-text">{entry.description}</p>
@@ -405,14 +407,17 @@ function ShapeDetailPanel({
               ))}
             </ul>
             {entry.unresolvedSources.length > 0 && (
-              <p className="mt-2 type-caption text-text-muted">
+              <p className="mt-2 type-note text-text-muted">
                 Additional source: {entry.unresolvedSources
                   .map((source) => publicPaperReference(source) ?? "Source record")
                   .join(", ")}
               </p>
             )}
           </div>
-        </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>Close</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

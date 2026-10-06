@@ -157,7 +157,7 @@ export function ProjectHome() {
             <div className="flex gap-2">
               <Input
                 autoFocus
-                placeholder="Name a new study…"
+                placeholder="Name a new study"
                 value={studyName}
                 onChange={(e) => {
                   setStudyName(e.target.value);
@@ -175,6 +175,7 @@ export function ProjectHome() {
                 aria-label="New study name"
               />
               <Button
+                size="field"
                 onClick={newStudy}
                 disabled={creating}
               >
@@ -182,6 +183,7 @@ export function ProjectHome() {
               </Button>
               <Button
                 variant="ghost"
+                size="field"
                 onClick={() => {
                   setComposing(false);
                   setStudyName("");
@@ -190,7 +192,7 @@ export function ProjectHome() {
                 Cancel
               </Button>
             </div>
-            <p id="new-study-hint" className="type-caption text-text-muted">
+            <p id="new-study-hint" className="type-note text-text-muted">
               Up to {NAME_MAX_LENGTH} characters.
             </p>
             {createError && <Notice kind="problem">{createError}</Notice>}
@@ -299,7 +301,7 @@ export function ProjectHome() {
             ))}
           </div>
         ) : (
-          <p className="type-caption text-text-muted">
+          <p className="type-note text-text-muted">
             This read-only demo has no project members to manage.
           </p>
         )}

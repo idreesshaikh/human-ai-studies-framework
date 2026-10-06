@@ -25,7 +25,7 @@ export function SessionReplay({ studyId, sessionId }: { studyId: string; session
           <Button variant="outline" disabled={index >= frames.length - 1} onClick={() => { setPlaying(false); setIndex(i => i + 1); }}>Next event</Button>
         </div>
         <label className="flex flex-col gap-1 type-caption text-text-muted">Event {index + 1} of {frames.length}
-          <input aria-label="Replay position" type="range" min={0} max={frames.length - 1} value={index} onChange={e => { setPlaying(false); setIndex(Number(e.target.value)); }} />
+          <input className="scrub-range" aria-label="Replay position" type="range" min={0} max={frames.length - 1} value={index} onChange={e => { setPlaying(false); setIndex(Number(e.target.value)); }} />
         </label>
         <Frame frame={frame} />
       </>}
@@ -39,6 +39,6 @@ function Frame({ frame }: { frame: ReplayFrame }) {
     {Object.keys(frame.changes).length > 0 && <p className="type-body text-text-muted">{frame.changes.filesChanged ?? 0} files · +{frame.changes.insertions ?? 0} / −{frame.changes.deletions ?? 0} lines</p>}
     {frame.flags.length > 0 && <p className="break-words type-caption text-critical">Integrity flags: {frame.flags.join(", ")}</p>}
     {frame.diff ? <pre aria-label="Captured code diff" className="max-h-96 overflow-auto rounded-control bg-well p-3 font-mono type-caption text-text">{frame.diff}</pre> :
-      <p className="type-caption text-text-muted">{frame.codeState === "policy-disabled" ? "Code diffs are disabled by this study’s capture policy." : "No code diff was captured for this event."}</p>}
+      <p className="type-note text-text-muted">{frame.codeState === "policy-disabled" ? "Code diffs are disabled by this study’s capture policy." : "No code diff was captured for this event."}</p>}
   </div>;
 }

@@ -2,15 +2,19 @@ import { useEffect, useState } from "react";
 import { Copy, Check, ExternalLink } from "lucide-react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useApi } from "@/lib/session";
 import {
@@ -176,48 +180,36 @@ export function MintDialog({
       <DialogTrigger asChild>
         <Button size="sm">Create participant links</Button>
       </DialogTrigger>
-      <DialogContent scrollable={false}>
-        <div className="shrink-0 border-b border-border pb-4 pr-6">
+      <DialogContent>
+        <DialogHeader>
           <DialogTitle>Create participant links</DialogTitle>
           <DialogDescription>
             Participants use these links to connect in VS Code.
           </DialogDescription>
-        </div>
-        <div
-          role="region"
-          aria-label="Participant link settings"
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4"
-        >
+        </DialogHeader>
+        <DialogBody role="region" aria-label="Participant link settings">
           {minted.length === 0 ? (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="count">How many</Label>
+            <div className="form-stack">
+              <Field
+                id="count"
+                label="How many"
+                hint={countTouched && countProblem ? undefined : "A whole number from 1 to 100."}
+                error={countTouched ? countProblem ?? undefined : undefined}
+              >
                 <Input
-                  id="count"
                   type="number"
                   min={1}
                   max={100}
                   inputMode="numeric"
+                  stepper
+                  quantity
                   value={countText}
                   onChange={(e) => onCountChange(e.target.value)}
                   onBlur={() => setCountTouched(true)}
-                  aria-invalid={countTouched && !!countProblem}
-                  aria-describedby="count-hint"
                 />
-                <p
-                  id="count-hint"
-                  role={countTouched && countProblem ? "alert" : undefined}
-                  className={
-                    countTouched && countProblem
-                      ? "type-caption text-critical"
-                      : "type-caption text-text-muted"
-                  }
-                >
-                  {countProblem ?? "A whole number from 1 to 100."}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>Link type</Label>
+              </Field>
+              <div className="field">
+                <span id="link-type-label" className="type-label text-text">Link type</span>
                 <SegmentedControl
                   aria-label="Link type"
                   value={grain}
@@ -225,7 +217,7 @@ export function MintDialog({
                   className="flex-wrap"
                   options={[...GRAIN_OPTIONS]}
                 />
-                <p className="type-caption text-text-muted">
+                <p className="type-note text-text-muted">
                   {grain === "participant"
                     ? "Reusable across a participant’s sessions."
                     : "Single use: create a new link for each session."}
@@ -239,7 +231,7 @@ export function MintDialog({
                     Capture settings
                   </summary>
                   <div className="mt-3 flex flex-col gap-3">
-                    <p className="type-caption text-text-muted">
+                    <p className="type-note text-text-muted">
                       Protocol defaults apply. Changes affect every link in this
                       batch.
                     </p>
@@ -255,22 +247,13 @@ export function MintDialog({
                               ? (changed[key].value as boolean)
                               : defaultOn(e);
                           return (
-                            <label key={key} className="checkbox-row">
-                              <input
-                                type="checkbox"
-                                className="checkbox"
-                                checked={checked}
-                                onChange={(ev) => toggle(e, ev.target.checked)}
-                              />
-                              <span className="min-w-0">
-                                <span className="type-body text-text">
-                                  {e.label}
-                                </span>
-                                <span className="block type-caption text-text-muted">
-                                  {e.description}
-                                </span>
-                              </span>
-                            </label>
+                            <Checkbox
+                              key={key}
+                              label={e.label}
+                              description={e.description}
+                              checked={checked}
+                              onChange={(ev) => toggle(e, ev.target.checked)}
+                            />
                           );
                         })}
                       </div>
@@ -280,11 +263,11 @@ export function MintDialog({
               )}
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {minted.map((t) => (
                 <div
                   key={t.id}
-                  className="grid grid-cols-[auto_1fr] items-center gap-2 rounded-input border border-border bg-bg p-2"
+                  className="flex flex-col gap-2 rounded-input border border-border bg-bg p-3"
                 >
                   <span className="type-quantity text-text">
                     {t.participantId}
@@ -293,16 +276,11 @@ export function MintDialog({
                     aria-label={`Connection link for ${t.participantId}`}
                     readOnly
                     value={t.connectionString ?? ""}
-                    className="min-w-0 type-quantity"
+                    className="type-quantity"
                     onFocus={(event) => event.currentTarget.select()}
                   />
-                  <div className="col-span-2 flex flex-wrap justify-end gap-2">
-                    <Button
-                      asChild
-                      size="sm"
-                      variant="ghost"
-                      className="ml-auto shrink-0"
-                    >
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button asChild size="sm" variant="ghost" className="shrink-0">
                       <a href={vscodeDeepLink(t.connectionString ?? "")}>
                         <ExternalLink aria-hidden />
                         Open in VS Code
@@ -314,11 +292,7 @@ export function MintDialog({
                       className="shrink-0"
                       onClick={() => copy(t.connectionString ?? "", t.id)}
                     >
-                      {copied === t.id ? (
-                        <Check aria-hidden />
-                      ) : (
-                        <Copy aria-hidden />
-                      )}
+                      {copied === t.id ? <Check aria-hidden /> : <Copy aria-hidden />}
                       {copied === t.id ? "Copied" : "Copy"}
                     </Button>
                   </div>
@@ -326,22 +300,32 @@ export function MintDialog({
               ))}
             </div>
           )}
-          {error && <Notice kind="problem">{error}</Notice>}
-        </div>
-        {minted.length === 0 && (
-          <div
-            className="flex shrink-0 justify-end border-t border-border pt-4"
-            aria-busy={minting}
-          >
-            <Button onClick={submit} disabled={minting}>
-              {minting
-                ? "Creating…"
-                : count > 0
-                  ? `Create ${count} link${count > 1 ? "s" : ""}`
-                  : "Create links"}
+          {error && (
+            <div className="mt-4">
+              <Notice kind="problem">{error}</Notice>
+            </div>
+          )}
+        </DialogBody>
+        <DialogFooter aria-busy={minting}>
+          {minted.length === 0 ? (
+            <>
+              <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={submit} disabled={minting}>
+                {minting
+                  ? "Creating…"
+                  : count > 0
+                    ? `Create ${count} link${count > 1 ? "s" : ""}`
+                    : "Create links"}
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" onClick={() => { setOpen(false); setMinted([]); }}>
+              Done
             </Button>
-          </div>
-        )}
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

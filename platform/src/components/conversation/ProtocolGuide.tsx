@@ -1,11 +1,15 @@
 import { HelpCircle } from "lucide-react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DialogClose } from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
 import {
   MANDATORY_SLOTS,
@@ -28,14 +32,15 @@ export function ProtocolGuide() {
           <HelpCircle className="size-4" aria-hidden />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogTitle>The sections of a protocol draft</DialogTitle>
-        <DialogDescription>
-          These sections help you shape a runnable study. Open choices can stay
-          open while you draft. Ethics status is recorded when you have it; the
-          platform does not issue or verify approval.
-        </DialogDescription>
-        <dl className="mt-3 flex max-h-96 flex-col gap-3 overflow-auto">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>The sections of a protocol draft</DialogTitle>
+          <DialogDescription>
+            Open choices can stay open while you draft. Ethics status is recorded, not approved.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogBody>
+        <dl className="flex flex-col gap-3">
           {MANDATORY_SLOTS.map((slot) => (
             <div key={slot}>
               <dt className="type-body font-medium text-text">
@@ -60,7 +65,7 @@ export function ProtocolGuide() {
           * citable answer. The core sections organise the conversation, while
           * the schema's `required` list is the authority for validation. Ethics
           * status is intentionally outside that required list. */}
-        <p className="type-caption mt-4 border-t border-border pt-3 text-text-muted">
+        <p className="type-note mt-4 border-t border-border pt-3 text-text-muted">
           These are the core sections the design conversation works through.
           What a protocol must contain in order to validate is defined by the
           study protocol schema, which you can read at{" "}
@@ -75,6 +80,12 @@ export function ProtocolGuide() {
           . The compiler checks the draft against that schema and names
           anything still missing in plain words.
         </p>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button size="sm" variant="outline">Close</Button>
+          </DialogClose>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

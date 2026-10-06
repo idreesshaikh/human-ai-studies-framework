@@ -105,6 +105,7 @@ def _propose_with_retry(
     directive: str,
     state: dict | None,
     decision_followup: bool = False,
+    next_question: str = "",
 ) -> Turn | None:
     """Make bounded, spaced retries for a transient model request failure."""
     from middleware import design_llm
@@ -119,6 +120,7 @@ def _propose_with_retry(
             directive,
             design_state=state,
             decision_followup=decision_followup,
+            next_question=next_question,
         )
         if turn is not None:
             return turn
@@ -1465,6 +1467,7 @@ def respond(
         directive,
         state,
         decision_followup=bool(stance.get("decisionAction")),
+        next_question=stance.get("nextQuestion") or "",
     )
     if turn is None:
         if explicit is not None:
@@ -1660,6 +1663,7 @@ def respond_streaming(
         directive,
         design_state=state,
         decision_followup=bool(stance.get("decisionAction")),
+        next_question=stance.get("nextQuestion") or "",
     )
     if turn is None:
         log.info("streamed design turn produced nothing; retrying blocking")
@@ -1672,6 +1676,7 @@ def respond_streaming(
             directive,
             state,
             decision_followup=bool(stance.get("decisionAction")),
+            next_question=stance.get("nextQuestion") or "",
         )
     if turn is None:
         if explicit is not None:
@@ -1713,6 +1718,21 @@ def respond_streaming(
     )
 
 
+def _dedupe_turn(turn: Turn, text: str) -> Turn:
+    """Collapse duplicate cards after explicit and model moves are merged."""
+    from middleware import design_llm
+
+    cap = (
+        design_llm.MAX_BATCH_CARDS
+        if elicitation.is_complete_brief(text)
+        else design_llm.MAX_CARDS
+    )
+    moves = design_llm.dedupe_moves(turn.moves, cap)
+    if moves == tuple(turn.moves):
+        return turn
+    return Turn(turn.text, moves, turn.match_query)
+
+
 def _assemble(
     s: Session,
     text: str,
@@ -1732,6 +1752,7 @@ def _assemble(
     against retrieved rows, recommendations, and the design recommender's
     prescription/figures.
     """
+    turn = _dedupe_turn(turn, text)
     had_model_moves = bool(turn.moves)
     kept = _filter_repeated_moves(turn.moves, state)
     if kept != turn.moves:

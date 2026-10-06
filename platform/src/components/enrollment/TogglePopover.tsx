@@ -66,11 +66,10 @@ export function TogglePopover({
     <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-card border border-border bg-surface p-3 shadow-lifted">
       <div className="mb-2 flex items-center justify-between">
         <span className="type-body text-text">{entry.label}</span>
-        <button onClick={onClose}
-          className="text-text-muted hover:text-text"
-          aria-label="Close"><X className="size-4" aria-hidden /></button>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onClose}
+          aria-label="Close"><X aria-hidden /></Button>
       </div>
-      <p className="mb-2 type-caption text-text-muted">{entry.description}</p>
+      <p className="mb-2 type-note text-text-muted">{entry.description}</p>
       <div className="mb-3 flex items-center gap-2">
         <span className="type-caption text-text-muted">Current:</span>
         <span className={cn("type-quantity",

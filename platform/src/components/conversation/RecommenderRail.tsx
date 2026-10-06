@@ -24,7 +24,7 @@ export function RecommenderRail({
         <h2 className="type-subhead flex items-center gap-2 text-text">
           Literature
         </h2>
-        <p className="type-caption text-text-muted">
+        <p className="type-note text-text-muted">
           Study-specific matches appear first. A paper is evidence for a design move only when its relevance is clear.
         </p>
       </div>

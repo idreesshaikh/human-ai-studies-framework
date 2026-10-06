@@ -120,7 +120,12 @@ export function GroundingChip({ g }: { g: Grounding }) {
               "MORE CODE, LESS UNDERSTANDING…" identifies nothing, and two of
               them read as the same source. The flex chain above this now has
               a definite width to wrap into (see StudyHome's tab body). */}
-          <span className="min-w-0 whitespace-normal text-left">{g.title}</span>
+          <span className="min-w-0 whitespace-normal text-left">
+            {g.title}
+            {(g.year || g.venue) && (
+              <span className="text-text-muted">{` · ${[g.year, g.venue].filter(Boolean).join(", ")}`}</span>
+            )}
+          </span>
         </Badge>
       </button>
       {open &&

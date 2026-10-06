@@ -91,9 +91,6 @@ export function HeroShowcase() {
         <span className="type-legend text-text-muted">
           Developer study setup
         </span>
-        <span className="ml-auto hidden type-legend text-text-muted sm:inline">
-          every move cited
-        </span>
       </div>
 
       <div aria-hidden className="flex min-h-64 flex-col gap-4 p-5 sm:p-6">
@@ -152,14 +149,12 @@ export function HeroShowcase() {
               * The real MoveCard never fills Accept in the accent: it is
               * `variant="subtle"`, and once decided the Accept/Reject pair is
               * replaced outright by a single "Undo" ghost control while the
-              * card settles to 70% opacity and prints its status in text
+              * card settles into muted text and prints its status in text
               * ("in draft", grounded ink). Filling Accept here would have
               * invented behaviour the product doesn't have, on top of putting
               * a second accent fill on a page whose one fill is already
               * "Start a project" above it. */}
-            <div
-              className={compiled ? "mt-4 flex items-center gap-2 opacity-70" : "mt-4 flex items-center gap-2"}
-            >
+            <div className="mt-4 flex items-center gap-2">
               {compiled ? (
                 <span className="type-legend text-grounded">in draft</span>
               ) : (

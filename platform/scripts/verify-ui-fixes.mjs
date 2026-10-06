@@ -250,7 +250,7 @@ const ph = src("pages/ProjectHome.tsx");
 ok("empty study name shows a hint", /Give the study a name/.test(ph));
 const lt = src("components/library/Constellation.tsx");
 ok("Literature map empty text is not indented past its heading", !/p-6 type-body/.test(lt));
-ok("Evidence Add button is not styled like a disabled one", /<Button\s+size="sm"\s+variant="outline"\s+onClick=\{ingest\}/.test(lib));
+ok("Evidence Add button is not styled like a disabled one", /<Button\s+size="(sm|field)"\s+variant="outline"\s+onClick=\{ingest\}/.test(lib));
 
 /* UI-10 */
 const css = src("styles/index.css") + src("styles/tokens.css");
@@ -337,6 +337,12 @@ ok("a rejected field card is described as a setting", rejectedMoveText("set-fiel
 ok("a rejected measure card is described as a measure", rejectedMoveText("add-measure") === "I rejected the proposed measure.");
 ok("a rejected design card is described as a design", rejectedMoveText("choose-template") === "I rejected the proposed design.");
 ok("no hyphenated kind name leaks into the echo", !/-/.test(rejectedMoveText("reconfigure-instrument")));
+
+/* A non-scrolling dialog body must not use the scrollbar-gutter trick (-mr-1 pr-1):
+ * it makes the dialog 3-4px wider than its container (seen live on the palette). */
+const dlgSrc = src("components/ui/dialog.tsx");
+const bodyClass = (dlgSrc.match(/cn\(\s*"([^"]*min-h-0 flex-1[^"]*)",\s*scrollable/) ?? [])[1] ?? "";
+ok("the legacy dialog body only uses the scrollbar-gutter margin when it scrolls", !/-mr-1/.test(bodyClass), bodyClass);
 
 if (failures) {
   console.error(`\n${failures} check(s) failed`);

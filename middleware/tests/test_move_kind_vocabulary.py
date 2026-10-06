@@ -10,6 +10,7 @@ TYPES_TS = REPO_ROOT / "platform" / "src" / "lib" / "types.ts"
 MOVE_CARD_TSX = (
     REPO_ROOT / "platform" / "src" / "components" / "conversation" / "MoveCard.tsx"
 )
+UI_TEXT_TS = REPO_ROOT / "platform" / "src" / "lib" / "uiText.ts"
 
 
 def _server_kinds() -> set[str]:
@@ -29,12 +30,11 @@ def _frontend_move_kind_union() -> set[str]:
 
 def _kind_label_keys() -> set[str]:
     """
-    Parse KIND_LABEL's own keys out of MoveCard.tsx  -  belt and braces alongside the
-    TypeScript compiler's own exhaustiveness check, since a test failure here explains
-    *why* in a way a red `npm run check` does not.
+    The shared label map still covers every kind and MoveCard consumes it.
     """
-    text = MOVE_CARD_TSX.read_text()
-    start = text.index("const KIND_LABEL")
+    assert "moveEyebrow(move.kind, move.patch)" in MOVE_CARD_TSX.read_text()
+    text = UI_TEXT_TS.read_text()
+    start = text.index("const EYEBROW_BY_KIND")
     end = text.index("};", start)
     block = text[start:end]
     quoted = re.findall(r'"([a-z-]+)":', block)
@@ -55,6 +55,6 @@ def test_move_card_labels_every_kind_the_union_declares():
     frontend = _frontend_move_kind_union()
     labeled = _kind_label_keys()
     assert frontend == labeled, (
-        f"MoveKind and KIND_LABEL disagree: "
+        f"MoveKind and EYEBROW_BY_KIND disagree: "
         f"union-only={frontend - labeled}, label-only={labeled - frontend}"
     )

@@ -16,6 +16,7 @@ export function StreamingTurn({
   onAcceptBatch,
   focusMoveId = null,
   active = false,
+  showKeyHint = false,
 }: {
   turn: Turn;
   onDecide: (moveId: string, status: MoveStatus, move?: Turn["moves"][number]) => void;
@@ -26,6 +27,8 @@ export function StreamingTurn({
   /** Only the active reply gets full prose treatment. Older turns are compact
    * history rows so the workspace remains a decision surface. */
   active?: boolean;
+  /** Show the shortcut caption once, above the first pending card. */
+  showKeyHint?: boolean;
 }) {
   const isPlatform = turn.role === "platform";
   const isUnavailable = turn.source === "unavailable";
@@ -78,6 +81,7 @@ export function StreamingTurn({
               </Button>
             </div>
           )}
+          {showKeyHint && turn.moves.some((m) => m.status === "proposed") && <KeyHint />}
           {turn.moves.filter(move => !active || move.status === "proposed").map((m) => (
             <MoveCard
               key={m.moveId}
@@ -93,7 +97,7 @@ export function StreamingTurn({
           {active && turn.moves.some(move => move.status !== "proposed") && (
             <details className="mt-2">
               <summary className="type-caption cursor-pointer text-text-muted">
-                View recorded decisions ({turn.moves.filter(move => move.status !== "proposed").length})
+                Decisions ({turn.moves.filter(move => move.status !== "proposed").length})
               </summary>
               <div className="mt-2 flex flex-col gap-2">
                 {turn.moves.filter(move => move.status !== "proposed").map(move => (
@@ -105,6 +109,25 @@ export function StreamingTurn({
         </div>
       )}
     </div>
+  );
+}
+
+/* Quiet caption, not a toolbar: the shortcuts act on the focused card. The
+ * "?" is a real button so the same text is reachable by keyboard. */
+function KeyHint() {
+  const hint = "With a card focused: A accept, R reject, U undo.";
+  return (
+    <p className="flex items-center gap-2 type-caption text-text-muted">
+      <span>A accept · R reject · U undo</span>
+      <button
+        type="button"
+        className="inline-flex size-6 items-center justify-center rounded-chip border border-border type-caption text-text-muted hover:text-text"
+        title={hint}
+        aria-label={`Keyboard shortcuts. ${hint}`}
+      >
+        ?
+      </button>
+    </p>
   );
 }
 

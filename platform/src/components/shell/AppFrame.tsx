@@ -13,7 +13,6 @@ import {
   PanelLeft,
   PanelLeftClose,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -35,6 +34,13 @@ import { useRouteTitle } from "@/lib/useDocumentTitle";
 import { browserNameStore, studyDisplayName } from "@/lib/studyNames";
 
 const THEME_ICON = { light: Sun, dark: Moon };
+
+/* One row spec for every control in the rail: the nav links and the fold
+ * button share height, radius, type and hover so none reads as a different
+ * kind of thing. */
+const NAV_ITEM =
+  "type-control flex items-center gap-2 rounded-control border py-2 transition-all duration-standard";
+const NAV_ITEM_IDLE = "border-transparent text-text-muted hover:bg-zone-9 hover:text-text";
 
 /* The signed-in chrome: a project-scoped sidebar + a top bar (breadcrumb,
  * project switcher, theme, account). Collapses to a toggle on narrow
@@ -109,7 +115,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       title={showFolded ? label : undefined}
       className={({ isActive }) =>
         cn(
-          "type-control flex items-center gap-2 rounded-control border py-2 transition-all duration-standard",
+          NAV_ITEM,
           // The folded rail is 3.25rem (52px) wide with 0.75rem of outer
           // padding on each side (12px), leaving 28px per row  -  px-2.5's
           // 20px of horizontal padding was sized for the expanded row and
@@ -119,7 +125,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           showFolded ? "justify-center px-1.5" : "px-2.5",
           isActive || forceActive
             ? "control-axis"
-            : "border-transparent text-text-muted hover:bg-zone-9 hover:text-text",
+            : NAV_ITEM_IDLE,
         )
       }
     >
@@ -135,7 +141,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         {!signedOut && (
           <button
             type="button"
-            className="rounded-input border border-transparent p-1 text-text hover:border-border hover:bg-zone-9 lg:hidden"
+            className="header-control lg:hidden"
             onClick={() => setNavOpen((v) => !v)}
             aria-label="Toggle navigation"
           >
@@ -155,23 +161,24 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         </Link>
         <div className="ml-auto flex items-center gap-2">
           {!signedOut && <ProjectSwitcher memberships={me?.memberships ?? []} />}
-          <Button variant="ghost" size="icon" onClick={cycleTheme} aria-label={themeToggleLabel(theme)}>
+          <button type="button" className="header-control" onClick={cycleTheme} aria-label={themeToggleLabel(theme)}>
             <Icon aria-hidden />
-          </Button>
+          </button>
           {/* Signed out, there is no account to open a menu about and no
             * project to switch between  -  an avatar reading "You" over a
             * "Sign out" item would be describing a session that does not
             * exist. The one thing a visitor on a public page can do with
             * their identity is acquire one. */}
           {signedOut ? (
-            <Button asChild size="sm" variant="outline">
-              <Link to={signInHref(pathname + search)}>Sign in</Link>
-            </Button>
+            <Link to={signInHref(pathname + search)} className="header-control px-3 text-text">
+              Sign in
+            </Link>
           ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className="rounded-chip -m-1.5 p-1.5 transition-colors duration-fast hover:bg-zone-9"
+                type="button"
+                className="header-control px-0"
                 aria-label="Account"
               >
                 <Avatar name={accountName} src={accountImg} />
@@ -287,14 +294,17 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             * every label to a 52px column of bare glyphs with no visible way
             * back  -  the button that had just done that was now unlabelled
             * too. Below `lg` the control simply is not there. */}
+          <div className="hidden shrink-0 border-t border-border p-3 lg:block">
           <button
             type="button"
             onClick={() => togglePanel("nav")}
             aria-label={navFolded ? "Expand navigation" : "Collapse navigation"}
             aria-expanded={!navFolded}
             className={cn(
-              "hidden shrink-0 items-center gap-2 border-t border-border py-3 type-control text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text lg:flex",
-              navFolded ? "justify-center px-1.5" : "px-4",
+              NAV_ITEM,
+              NAV_ITEM_IDLE,
+              "w-full",
+              navFolded ? "justify-center px-1.5" : "px-2.5",
             )}
           >
             {navFolded ? (
@@ -304,6 +314,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             )}
             {!navFolded && <span>Collapse</span>}
           </button>
+          </div>
         </nav>
         <main className={cn("min-h-0 flex-1", isWorkspace ? "overflow-hidden" : "overflow-auto")}>
           {children}

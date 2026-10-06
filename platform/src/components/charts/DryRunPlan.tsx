@@ -6,7 +6,7 @@ import type { DryRunPlan as Plan } from "@/lib/studyApi";
 export function DryRunPlan({ plan }: { plan: Plan }) {
   if (plan.note) {
     return (
-      <p className="type-caption text-text-muted">
+      <p className="type-note text-text-muted">
         {plan.note}
       </p>
     );
@@ -26,7 +26,7 @@ export function DryRunPlan({ plan }: { plan: Plan }) {
           <FlaskConical className="size-4 text-text-muted" aria-hidden />
           The statistics your design prescribes
         </h3>
-        <p className="mt-1 type-caption text-text-muted">
+        <p className="mt-1 type-note text-text-muted">
           {complete ? (
             <>
               All {plan.planned} of the tests this protocol calls for ran
@@ -67,7 +67,7 @@ export function DryRunPlan({ plan }: { plan: Plan }) {
               </div>
               {/* Verbatim, and wrapped rather than clipped: the caveats live
                 * at the end of these sentences. */}
-              <p className="mt-1.5 type-caption leading-relaxed text-text-muted">
+              <p className="mt-1.5 type-note leading-relaxed text-text-muted">
                 {r.summary}
               </p>
             </li>
@@ -89,7 +89,7 @@ export function DryRunPlan({ plan }: { plan: Plan }) {
               </li>
             ))}
           </ul>
-          <p className="mt-1.5 type-caption text-text-muted">
+          <p className="mt-1.5 type-note text-text-muted">
             Each line is a gap between what the plan asks for and what the
             capture config collects. Both are yours to change.
           </p>

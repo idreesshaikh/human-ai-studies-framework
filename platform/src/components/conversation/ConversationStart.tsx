@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from "react";
+import { Field } from "@/components/ui/field";
 import { Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 /* Empty state for a new developer study. The supported lane is stated before
  * anyone commits to a long conversation, while the small known-facts intake
@@ -89,7 +90,7 @@ export function ConversationStart({
 
       <details className="mt-4">
         <summary className="type-caption cursor-pointer text-center text-text-muted">Examples and study tools</summary>
-        <p className="mt-3 type-caption text-text-muted">Supported: coding-task studies. Not for exams, classrooms or surveys.</p>
+        <p className="mt-3 type-note text-text-muted">Supported: coding-task studies. Not for exams, classrooms or surveys.</p>
       <section className="mt-4 border-y border-border py-4" aria-labelledby="known-details-heading">
         <button
           type="button"
@@ -110,95 +111,49 @@ export function ConversationStart({
 
         {detailsOpen && (
           <div className="mt-4 border-t border-border pt-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-2 sm:col-span-2">
-                <Label htmlFor="known-title">Study title</Label>
-                <Input
-                  id="known-title"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                />
-              </div>
+            <div className="form-grid">
+              <Field id="known-title" label="Study title" className="span-2">
+                <Input value={title} onChange={(event) => setTitle(event.target.value)} />
+              </Field>
 
-              <div className="flex flex-col gap-2 sm:col-span-2">
-                <Label htmlFor="known-question">Research question</Label>
-                <Input
-                  id="known-question"
-                  value={researchQuestion}
-                  onChange={(event) => setResearchQuestion(event.target.value)}
-                />
-              </div>
+              <Field id="known-question" label="Research question" className="span-2">
+                <Input value={researchQuestion} onChange={(event) => setResearchQuestion(event.target.value)} />
+              </Field>
 
-              <div className="flex flex-col gap-2 sm:col-span-2">
-                <Label htmlFor="known-profile">Who you are recruiting</Label>
-                <Input
-                  id="known-profile"
-                  placeholder="e.g. novice developers"
-                  value={profile}
-                  onChange={(event) => setProfile(event.target.value)}
-                />
-              </div>
+              <Field id="known-profile" label="Who you are recruiting" className="span-2">
+                <Input placeholder="e.g. novice developers" value={profile} onChange={(event) => setProfile(event.target.value)} />
+              </Field>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="known-design">Study design</Label>
-                <Select
-                  id="known-design"
-                  value={design}
-                  onValueChange={setDesign}
-                  options={DESIGN_OPTIONS}
-                />
-              </div>
+              <Field id="known-design" label="Study design">
+                <Select value={design} onValueChange={setDesign} options={DESIGN_OPTIONS} />
+              </Field>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="known-participants">Planned participants</Label>
-                <Input
-                  id="known-participants"
-                  type="number"
-                  min={4}
-                  placeholder="e.g. 12"
-                  value={participants}
-                  onChange={(event) => setParticipants(event.target.value)}
-                />
-              </div>
+              <Field id="known-participants" label="Planned participants" hint="At least 4.">
+                <Input type="number" inputMode="numeric" min={4} stepper quantity placeholder="e.g. 12" value={participants} onChange={(event) => setParticipants(event.target.value)} />
+              </Field>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="known-session">Session length</Label>
-                <Input
-                  id="known-session"
-                  type="number"
-                  min={15}
-                  max={180}
-                  placeholder="e.g. 45"
-                  value={sessionMinutes}
-                  onChange={(event) => setSessionMinutes(event.target.value)}
-                  unit="min"
-                  quantity
-                />
-              </div>
+              <Field id="known-session" label="Session length" hint="Minutes, 15 to 180.">
+                <Input type="number" inputMode="numeric" min={15} max={180} step={5} stepper unit="min" quantity placeholder="e.g. 45" value={sessionMinutes} onChange={(event) => setSessionMinutes(event.target.value)} />
+              </Field>
 
-              <fieldset className="flex flex-col gap-2 sm:col-span-2">
+              <fieldset className="form-section span-2">
                 <legend className="type-label text-text">What should we capture?</legend>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {MEASURE_OPTIONS.map(([value, label]) => (
-                    <label
+                    <Checkbox
                       key={value}
-                      className="flex cursor-pointer items-center gap-2 rounded-control border border-border bg-surface px-3 py-2 transition-colors duration-fast hover:border-control-edge"
-                    >
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-accent"
-                        checked={measures.includes(value)}
-                        onChange={() => toggleMeasure(value)}
-                      />
-                      <span className="type-caption text-text">{label}</span>
-                    </label>
+                      bordered
+                      label={label}
+                      checked={measures.includes(value)}
+                      onChange={() => toggleMeasure(value)}
+                    />
                   ))}
                 </div>
               </fieldset>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="max-w-reading type-caption text-text-muted">
+              <p className="max-w-reading type-note text-text-muted">
                 These details will be placed in the chat for the assistant to review, explain, and add to the protocol.
               </p>
               <Button type="button" size="sm" onClick={addKnownDetails}>
@@ -211,7 +166,7 @@ export function ConversationStart({
       </section>
 
       {onEnterManually && (
-        <p className="mt-4 type-caption text-text-muted">
+        <p className="mt-4 type-note text-text-muted">
           Already have a design?{" "}
           <button type="button" className="text-accent underline-offset-2 hover:underline" onClick={onEnterManually}>
             Enter the protocol details directly
@@ -235,7 +190,7 @@ export function ConversationStart({
             </li>
           ))}
         </ul>
-        <p className="mt-2 type-caption text-text-muted">Edit the example, then send.</p>
+        <p className="mt-2 type-note text-text-muted">Edit the example, then send.</p>
       </details>
       </details>
     </section>

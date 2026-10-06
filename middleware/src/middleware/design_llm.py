@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 import json
 import logging
 import re
@@ -537,13 +538,75 @@ def _known_template_ids() -> frozenset[str]:
         return frozenset()
 
 
+MAX_CARDS = 5
+MAX_BATCH_CARDS = 8
+_EMPTY_CAUTION = re.compile(
+    r"^\W*(?:none|n/?a|nothing|no\s+(?:caution|cautions|concerns?|risks?))\W*$", re.I
+)
+
+
+def _move_dedupe_key(kind: str, target: str, proposal: str, patch: dict | None):
+    """
+    Semantic identity of a card: the slot's section plus the value, regardless of
+    move kind or path leaf, so a set-field and a set-parameter that write the same
+    thing are one decision.
+    """
+    if not isinstance(patch, dict):
+        return (kind, _norm(re.sub(r"[^\w\s]", "", proposal)))
+    if "templateId" in patch:
+        return ("template", str(patch["templateId"]))
+    if "templateIds" in patch:
+        return ("template", tuple(sorted(map(str, patch["templateIds"]))))
+    path = patch.get("path")
+    where = patch.get("section") or (path[0] if path else None) or target
+    value = patch.get("value")
+    if value is None:
+        value = patch.get("name") or patch.get("title") or proposal
+    value = str(value)
+    count = re.fullmatch(
+        r"(\d+(?:\.\d+)?)(?:\s+participants(?:\s*\([^)]*\))?)?",
+        value.strip(), re.I,
+    )
+    if where == "participants" and count:
+        return ("participants", count.group(1))
+    return (_norm(str(where)), _norm(re.sub(r"[^\w\s]", "", value)))
+
+
+def dedupe_moves(moves, max_cards: int = MAX_CARDS) -> tuple:
+    """
+    Keep the first of each semantically identical card. Over the cap, the design
+    (template) cards stay and the earliest remaining cards fill the rest.
+    """
+    seen: set = set()
+    unique = []
+    for m in moves:
+        key = _move_dedupe_key(m.kind, m.target, m.proposal, m.patch)
+        if key not in seen:
+            seen.add(key)
+            unique.append(m)
+    if len(unique) <= max_cards:
+        return tuple(unique)
+    is_design = [m.kind in ("choose-template", "merge-templates") for m in unique]
+    room = max(max_cards - sum(is_design), 0)
+    out = []
+    for m, design in zip(unique, is_design, strict=True):
+        if design:
+            out.append(m)
+        elif room > 0:
+            out.append(m)
+            room -= 1
+    return tuple(out)
+
+
 def _parse_moves(
     raw_moves: object,
     candidate_refs: set[str],
     titles: dict[str, str] | None = None,
+    max_cards: int = MAX_CARDS,
 ) -> tuple[ProposedMove, ...]:
     known_templates = _known_template_ids()
-    out = []
+    out: list[ProposedMove] = []
+    seen_keys: set[tuple] = set()
     for m in raw_moves if isinstance(raw_moves, list) else []:
         if not isinstance(m, dict):
             continue
@@ -552,6 +615,8 @@ def _parse_moves(
             continue
         proposal = str(m.get("proposal", "")).strip()
         if not proposal:
+            continue
+        if kind == "caution" and _EMPTY_CAUTION.match(proposal):
             continue
         patch = _validate_patch(kind, m.get("patch"))
         if kind != "caution" and patch is None:
@@ -576,13 +641,21 @@ def _parse_moves(
         )
         # Display text only: the patch keeps the real ids it needs to compile.
         proposal = tighten_proposal(sanitize_reply_text(proposal, titles or {}))
+        key = _move_dedupe_key(kind, str(m.get("target", "")), proposal, patch)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
         out.append(ProposedMove(kind, str(m.get("target", "")), proposal, patch, refs))
+        if len(out) >= max_cards:
+            break
     return tuple(out)
 
 
 MAX_TOKENS = 1200
 REPLY_TEXT_MAX_CHARS = 700
-EXTENDED_REPLY_MAX_CHARS = 1800
+EXPLAIN_REPLY_MAX_CHARS = 900
+CARDS_REPLY_MAX_CHARS = 520
+CARDS_REPLY_MAX_SENTENCES = 3
 DECISION_REPLY_MAX_CHARS = 400
 
 _MOTIVE_SENTENCE = re.compile(
@@ -650,7 +723,22 @@ def tighten_proposal(proposal: str) -> str:
 
 
 _PARAGRAPH_SPLIT = re.compile(r"\n\s*\n")
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+def _split_sentences(text: str) -> list[str]:
+    """Split after . ! ? followed by space, but never inside parentheses (paper
+    titles in citations contain '?' and ':')."""
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    for i, ch in enumerate(text):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(depth - 1, 0)
+        elif ch in ".!?" and depth == 0 and i + 1 < len(text) and text[i + 1].isspace():
+            parts.append(text[start : i + 1])
+            start = i + 1
+    parts.append(text[start:])
+    return [p.strip() for p in parts if p.strip()]
 _MIN_REPEAT_CHARS = 15
 
 
@@ -679,7 +767,7 @@ def trim_repeated_text(text: str) -> str:
     for para in text.split("\n\n"):
         out: list[str] = []
         looped = False
-        for sentence in _SENTENCE_SPLIT.split(para):
+        for sentence in _split_sentences(para):
             key = _norm(sentence)
             if len(key) >= _MIN_REPEAT_CHARS and key in seen:
                 looped = True
@@ -738,27 +826,186 @@ def _title_map(papers: list[dict], templates: list[dict]) -> dict[str, str]:
     return titles
 
 
+_STOPWORDS = frozenset(
+    "the a an and or of to in on for with is are was were be been this that these "  # noqa: SIM905
+    "those it its as at by from we you your our they their how what which whether "
+    "about into than then so not no can could would should will may might do does "
+    "did have has had thinking want know".split()
+)
+
+
+def _content_words(text: str) -> set[str]:
+    words = re.findall(r"[a-z0-9]+", text.lower())
+    return {w.rstrip("s") if len(w) > 3 else w for w in words if w not in _STOPWORDS}
+
+
+def drop_restatement(text: str, user_text: str, threshold: float = 0.6) -> str:
+    """Drop leading sentences that mostly repeat the researcher's own message."""
+    user_words = _content_words(user_text)
+    if not user_words:
+        return text
+    sentences = _split_sentences(text.strip())
+    i = 0
+    while i < len(sentences) - 1:
+        words = _content_words(sentences[i])
+        if not words or len(words & user_words) / len(words) < threshold:
+            break
+        i += 1
+    return " ".join(sentences[i:]) if i else text
+
+
+_REJECTED_ALTERNATIVE = re.compile(
+    r"\b(?:is|are)\s+(?:too\s+(?:broad|narrow)|insufficient|not\s+(?:enough|sufficient))\b"
+    r"|\bwill\s+not\s+(?:include|have|contain)\b|\bdoes\s+not\s+(?:prescribe|include)\b",
+    re.I,
+)
+
+
+def drop_rejected_alternatives(text: str) -> str:
+    """Drop sentences that list alternatives the design does not use."""
+    sentences = _split_sentences(text.strip())
+    kept = [x for x in sentences if not (
+        _REJECTED_ALTERNATIVE.search(x)
+        and re.search(r"\b(?:rejected|not selected|unused alternative)\b", x, re.I)
+    )]
+    return " ".join(kept) if kept and len(kept) != len(sentences) else text
+
+
+def _surname(authors: object) -> tuple[str, bool] | None:
+    """(first author's surname, whether there are more authors)."""
+    if isinstance(authors, str):
+        parts = [a for a in re.split(r"\s*(?:;|\band\b|&)\s*", authors) if a.strip()]
+    elif isinstance(authors, list):
+        parts = [str(a) for a in authors if str(a).strip()]
+    else:
+        return None
+    if not parts:
+        return None
+    first = parts[0].strip()
+    name = first.split(",")[0] if "," in first else first.split()[-1]
+    return name.strip(), len(parts) > 1
+
+
+def _short_citation(paper: dict, fallback_title: str = "") -> str:
+    year = paper.get("year")
+    who = _surname(paper.get("authors"))
+    if who:
+        name, more = who
+        label = f"{name} et al." if more else name
+        return f"{label} {year}" if year else label
+    title = re.sub(r"\s+", " ", (paper.get("title") or fallback_title)).strip()
+    if title.upper() == title:
+        title = title.lower().capitalize()
+    head = re.split(r"[?!:.]\s", title, maxsplit=1)[0].rstrip("?!:. ")
+    cut = head != title
+    if len(head) > 60:
+        head = head[:60].rsplit(" ", 1)[0].rstrip(" ,;:-")
+        cut = True
+    title = head + ("\u2026" if cut else "")
+    return f"{title} {year}" if year else title
+
+
+def _same_title(a: str, b: str) -> bool:
+    x = re.sub(r"[^a-z0-9 ]", "", a.lower()).strip()
+    y = re.sub(r"[^a-z0-9 ]", "", b.lower()).strip()
+    if not x or not y:
+        return False
+    if x.startswith(y[:40]) or y.startswith(x[:40]):
+        return True
+    return difflib.SequenceMatcher(None, x, y).ratio() >= 0.8
+
+
+def _looks_like_title(text: str) -> bool:
+    """A long Title Case or ALL CAPS parenthetical of five or more words."""
+    words = text.split()
+    if len(text) <= 60 or len(words) < 5:
+        return False
+    big = [w for w in words if len(w) > 3]
+    capped = [w for w in big if w[0].isupper()]
+    return bool(big) and len(capped) / len(big) >= 0.7
+
+
+_PAREN = re.compile(r"\(([^()]{20,})\)")
+
+
+def shorten_citations(text: str, papers: list[dict]) -> str:
+    """Turn inline '(Full Paper Title)' into '(Surname Year)'."""
+
+    def swap(match: re.Match) -> str:
+        inner = match.group(1).strip().rstrip(".,; ")
+        inner = re.sub(r"[,\s]*(?:\u2026|\.\.\.)$", "", inner)
+        for paper in papers:
+            title = paper.get("title") or ""
+            if title and _same_title(inner, title):
+                return f"({_short_citation(paper)})"
+        if _looks_like_title(inner):
+            return f"({_short_citation({'title': inner})})"
+        return match.group(0)
+
+    return _PAREN.sub(swap, text)
+
+
+def _limit_sentences(sentences: list[str], limit: int, max_sentences: int) -> str:
+    """Keep up to max_sentences within limit chars, hard-cutting the first."""
+    out: list[str] = []
+    for sentence in sentences[:max_sentences]:
+        candidate = " ".join([*out, sentence])
+        if len(candidate) > limit:
+            if not out:
+                out.append(cap_reply_text(sentence, limit))
+            break
+        out.append(sentence)
+    return " ".join(out)
+
+
+_QUESTION_SCAFFOLD = re.compile(r"\b(?:the\s+)?next\s+question\s+is\s*:\s*", re.I)
+
+
 def _clean_reply(
     text: str,
     papers: list[dict],
     templates: list[dict],
     decision_followup: bool = False,
     directive: str = "",
+    *,
+    user_text: str = "",
+    has_cards: bool = False,
+    next_question: str = "",
 ) -> str:
-    text = strip_filler(trim_repeated_text(text))
     if decision_followup:
-        text = cap_reply_text(
-            strip_attributed_motives(text) or text, DECISION_REPLY_MAX_CHARS
-        )
+        # Deterministic: the model's prose after a decision is never shown.
+        return "Noted." + (f" {next_question.strip()}" if next_question.strip() else "")
+    titles = _title_map(papers, templates)
+    # Ids first (the model cites papers by id), so shortening sees the titles.
+    text = sanitize_reply_text(strip_filler(trim_repeated_text(text)), titles)
+    text = _QUESTION_SCAFFOLD.sub("", text)
+    text = drop_rejected_alternatives(drop_restatement(text, user_text))
+    text = shorten_citations(text, papers)
+    structured_text = text
+    explain = "QUESTION ABOUT WHAT YOU ALREADY SAID" in directive
+    if explain and not has_cards:
+        text = cap_reply_text(text, EXPLAIN_REPLY_MAX_CHARS)
     else:
-        extended = (
-            "BATCH INTAKE" in directive
-            or "QUESTION ABOUT WHAT YOU ALREADY SAID" in directive
+        sentences = _split_sentences(text.strip())
+        question = next((x for x in reversed(sentences) if x.endswith("?")), "")
+        body = [x for x in sentences if x != question]
+        if not question and not has_cards and not explain:
+            question = next_question.strip()
+        if has_cards:
+            limit, count = CARDS_REPLY_MAX_CHARS, CARDS_REPLY_MAX_SENTENCES
+        else:
+            limit, count = REPLY_TEXT_MAX_CHARS, 4
+        if question:
+            count -= 1
+            limit -= len(question) + 1
+        text = " ".join(
+            x for x in (_limit_sentences(body, max(limit, 60), count), question) if x
         )
-        text = cap_reply_text(
-            text, EXTENDED_REPLY_MAX_CHARS if extended else REPLY_TEXT_MAX_CHARS
-        )
-    return sanitize_reply_text(text, _title_map(papers, templates))
+    if _norm(text) == _norm(structured_text) and len(structured_text) <= (
+        CARDS_REPLY_MAX_CHARS if has_cards else REPLY_TEXT_MAX_CHARS
+    ):
+        text = structured_text
+    return text
 
 
 class _ReplyTextExtractor:
@@ -846,6 +1093,7 @@ def propose_turn_streaming(
     *,
     design_state: dict | None = None,
     decision_followup: bool = False,
+    next_question: str = "",
 ):
     """:func:`propose_turn`, yielding the reply's prose as it arrives."""
     stream = getattr(client, "stream", None)
@@ -859,6 +1107,7 @@ def propose_turn_streaming(
             directive,
             design_state=design_state,
             decision_followup=decision_followup,
+            next_question=next_question,
         )
 
     candidate_refs = {p["ref"] for p in papers if p.get("ref")}
@@ -887,7 +1136,13 @@ def propose_turn_streaming(
             # Cut off at the token cap: keep the prose already streamed rather
             # than paying for a second full call that would likely loop again.
             salvaged = _clean_reply(
-                extractor.text.strip(), papers, templates, decision_followup, directive
+                extractor.text.strip(),
+                papers,
+                templates,
+                decision_followup,
+                directive,
+                user_text=text,
+                next_question=next_question,
             )
             if not salvaged:
                 raise
@@ -895,12 +1150,21 @@ def propose_turn_streaming(
             return Turn(text=salvaged, moves=(), match_query=None)
         if not isinstance(parsed, dict):
             raise ValueError("LLM reply was not a JSON object")
+        moves = _parse_moves(
+            parsed.get("moves"),
+            candidate_refs,
+            _title_map(papers, templates),
+            MAX_BATCH_CARDS if "BATCH INTAKE" in directive else MAX_CARDS,
+        )
         reply_text = _clean_reply(
             str(parsed.get("text", "")).strip(),
             papers,
             templates,
             decision_followup,
             directive,
+            user_text=text,
+            has_cards=bool(moves),
+            next_question=next_question,
         )
     except Exception as exc:  # noqa: BLE001 - any provider/parse failure degrades
         log.warning("streaming conversation turn failed, falling back: %s", exc)
@@ -913,10 +1177,8 @@ def propose_turn_streaming(
             directive,
             design_state=design_state,
             decision_followup=decision_followup,
+            next_question=next_question,
         )
-    moves = _parse_moves(
-        parsed.get("moves"), candidate_refs, _title_map(papers, templates)
-    )
     if not reply_text and not moves:
         log.warning("LLM conversation turn produced no usable content, falling back")
         return None
@@ -933,6 +1195,7 @@ def propose_turn(
     *,
     design_state: dict | None = None,
     decision_followup: bool = False,
+    next_question: str = "",
 ) -> Turn | None:
     """
     Ask the configured LLM provider for this turn's prose + proposed moves, constrained
@@ -958,19 +1221,25 @@ def propose_turn(
         parsed = json.loads(content)
         if not isinstance(parsed, dict):
             raise ValueError("LLM reply was not a JSON object")
+        moves = _parse_moves(
+            parsed.get("moves"),
+            candidate_refs,
+            _title_map(papers, templates),
+            MAX_BATCH_CARDS if "BATCH INTAKE" in directive else MAX_CARDS,
+        )
         reply_text = _clean_reply(
             str(parsed.get("text", "")).strip(),
             papers,
             templates,
             decision_followup,
             directive,
+            user_text=text,
+            has_cards=bool(moves),
+            next_question=next_question,
         )
     except Exception as exc:  # noqa: BLE001 - any provider/parse failure degrades
         log.warning("LLM conversation turn unavailable: %s", exc)
         return None
-    moves = _parse_moves(
-        parsed.get("moves"), candidate_refs, _title_map(papers, templates)
-    )
     if not reply_text and not moves:
         log.warning("LLM conversation turn produced no usable content, falling back")
         return None

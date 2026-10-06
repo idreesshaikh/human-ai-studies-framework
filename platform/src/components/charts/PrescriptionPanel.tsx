@@ -38,7 +38,7 @@ export function PrescriptionPanel({ studyId }: { studyId: string }) {
           <FlaskConical className="size-4 text-text-muted" aria-hidden />
           What analysis your design calls for
         </h2>
-        <p className="mt-1 type-caption text-text-muted">
+        <p className="mt-1 type-note text-text-muted">
           The exact test, effect size, and correction this study's own compiled
           analysis plan calls for, with the reasoning. Honest by construction:
           effect sizes and per-cell n, never a bare p-value.
