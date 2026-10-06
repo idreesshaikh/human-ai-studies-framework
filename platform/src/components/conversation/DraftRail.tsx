@@ -90,7 +90,7 @@ export function DraftRail({
       <div className="shrink-0 border-b border-border px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="mt-1 type-caption text-text-muted">{draftCaption}</p>
+            <p className="mt-1 type-note text-text-muted">{draftCaption}</p>
           </div>
           <ProtocolGuide />
         </div>
@@ -130,8 +130,8 @@ export function DraftRail({
             />
           </div>
           {scopeBlocked ? (
-            <p className="mt-3 rounded-input border border-accent/30 bg-accent-wash px-3 py-2 type-caption text-text">
-              <span className="type-legend text-accent">SETUP PAUSED</span>
+            <p className="mt-3 rounded-input border border-accent/30 bg-accent-wash px-3 py-2 type-note text-text">
+              <span className="type-legend text-accent">Setup paused</span>
               <span className="ml-2">Use a supported coding-study brief to continue.</span>
             </p>
           ) : null}
@@ -175,7 +175,7 @@ export function DraftRail({
                 <li key={slot}>{SLOT_LABELS[slot as keyof typeof SLOT_LABELS] ?? slot}</li>
               ))}
             </ul>
-            <p className="mt-2 type-caption text-text-muted">
+            <p className="mt-2 type-note text-text-muted">
               These stay in the draft while you work. They only matter when you review a runnable protocol.
             </p>
           </details>

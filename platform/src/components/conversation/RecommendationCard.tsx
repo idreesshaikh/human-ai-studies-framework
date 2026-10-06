@@ -63,7 +63,7 @@ export function RecommendationCard({
         {rec.abstract && (
           <div className="border-t border-border pt-2">
             <p className="type-legend text-text-muted">Paper focus</p>
-            <p className="mt-1 line-clamp-3 type-caption text-text">
+            <p className="mt-1 line-clamp-3 type-note text-text">
               {rec.abstract}
             </p>
           </div>

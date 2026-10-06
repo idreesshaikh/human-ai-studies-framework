@@ -65,7 +65,7 @@ export function ProtocolGuide() {
           * citable answer. The core sections organise the conversation, while
           * the schema's `required` list is the authority for validation. Ethics
           * status is intentionally outside that required list. */}
-        <p className="type-caption mt-4 border-t border-border pt-3 text-text-muted">
+        <p className="type-note mt-4 border-t border-border pt-3 text-text-muted">
           These are the core sections the design conversation works through.
           What a protocol must contain in order to validate is defined by the
           study protocol schema, which you can read at{" "}

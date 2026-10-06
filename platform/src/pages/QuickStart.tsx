@@ -61,7 +61,7 @@ export function QuickStart() {
           <p className="type-body mt-1 text-pretty text-text-muted">
             Configure a task-based human–AI study, then run it in VS Code.
           </p>
-          <p className="type-caption mt-3 text-pretty text-text-muted">
+          <p className="type-note mt-3 text-pretty text-text-muted">
             Phoenix supports coding-task comparisons with AI-assisted and unassisted
             conditions. It is not an exam, classroom, clinical, marketing, or general survey
             tool.
@@ -114,12 +114,12 @@ export function QuickStart() {
             </Button>
 
             {!title.trim() && (
-              <p id="configure-hint" className="type-caption text-center text-text-muted">
+              <p id="configure-hint" className="type-note text-center text-text-muted">
                 Name the study to continue.
               </p>
             )}
 
-            <p className="type-caption text-center text-text-muted">
+            <p className="type-note text-center text-text-muted">
               Studies live in a personal workspace. You can share them with others later.
             </p>
           </CardContent>

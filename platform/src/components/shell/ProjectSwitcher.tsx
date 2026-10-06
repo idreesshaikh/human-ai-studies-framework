@@ -78,11 +78,11 @@ export function ProjectSwitcher({ memberships }: { memberships: Membership[] }) 
         type="button"
         aria-label="Switch project"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-input border border-border px-2 py-2 type-caption text-text-muted transition-colors duration-fast hover:bg-zone-9"
+        className="header-control"
       >
-        <FolderOpen className="size-3.5" aria-hidden />
+        <FolderOpen aria-hidden />
         <span className="hidden sm:inline">Switch project</span>
-        <kbd className="type-legend hidden rounded-chip border border-border px-1.5 py-0.5 text-text-muted sm:inline">
+        <kbd className="type-legend hidden rounded-chip border border-border px-1.5 text-text-muted sm:inline">
           {shortcutLabel(mac)}
         </kbd>
       </button>

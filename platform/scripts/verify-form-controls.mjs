@@ -174,9 +174,13 @@ const oneOffs = [];
 })(root);
 ok("no raw input/select/textarea and no per-field height, radius, shadow, border or fill", oneOffs.length === 0, oneOffs.join(" | "));
 
+/* The tick is a ::before sized 100% inside an inline-grid. In an auto-sized grid
+ * track that resolves to 0px and the mark never shows (seen live: 0x0). The box
+ * must give the pseudo-element a definite track. */
 const checkboxRule = (css.match(/\n\s*\.checkbox\s*\{[^}]*\}/) ?? [""])[0];
 ok("the checkbox gives its tick a definite grid track (not 0px)",
-  /grid-template(-columns|-rows)?\s*:/.test(checkboxRule));
+  /grid-template(-columns|-rows)?\s*:/.test(checkboxRule),
+  "the .checkbox rule needs an explicit grid template");
 
 if (failures) {
   console.error(`\n${failures} check(s) failed`);

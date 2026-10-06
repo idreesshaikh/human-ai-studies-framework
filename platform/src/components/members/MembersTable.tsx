@@ -80,7 +80,9 @@ export function MembersTable({
               <TH>Member</TH>
               <TH>Role</TH>
               <TH>Joined</TH>
-              <TH className="w-10" />
+              <TH className="w-10">
+                <span className="sr-only">Actions</span>
+              </TH>
             </TR>
           </THead>
           <TBody>

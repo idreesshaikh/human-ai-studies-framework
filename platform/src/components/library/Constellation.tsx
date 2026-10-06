@@ -501,7 +501,7 @@ export function Constellation({
         <button
           type="button"
           onClick={fit}
-          className="absolute right-2 top-2 flex items-center gap-1 rounded-input border border-border-strong bg-surface px-2 py-1 type-caption font-medium text-text shadow-mark transition-colors duration-fast hover:bg-zone-9 hover:text-text"
+          className="absolute right-2 top-2 flex min-h-7 items-center gap-1 rounded-input border border-border-strong bg-surface px-2 py-1 type-caption font-medium text-text shadow-mark transition-colors duration-fast hover:bg-zone-9 hover:text-text"
           aria-label="Reset the view"
         >
           <Maximize2 className="size-3.5" aria-hidden /> Fit

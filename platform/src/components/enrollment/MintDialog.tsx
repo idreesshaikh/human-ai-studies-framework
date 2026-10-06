@@ -217,7 +217,7 @@ export function MintDialog({
                   className="flex-wrap"
                   options={[...GRAIN_OPTIONS]}
                 />
-                <p className="type-caption text-text-muted">
+                <p className="type-note text-text-muted">
                   {grain === "participant"
                     ? "Reusable across a participant’s sessions."
                     : "Single use: create a new link for each session."}
@@ -231,7 +231,7 @@ export function MintDialog({
                     Capture settings
                   </summary>
                   <div className="mt-3 flex flex-col gap-3">
-                    <p className="type-caption text-text-muted">
+                    <p className="type-note text-text-muted">
                       Protocol defaults apply. Changes affect every link in this
                       batch.
                     </p>

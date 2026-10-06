@@ -436,8 +436,68 @@ body::before {
     font-size: var(--text-legend);
     font-weight: 600;
     line-height: var(--leading-normal);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-legend);
+  }
+  /* Body-length small copy: a hint, note, explanation or empty-state line.
+   * Anything that reads as a sentence is 13px or more; type-caption stays
+   * for metadata (counts, timestamps, provenance). */
+  .type-note {
+    font-family: var(--font-text);
+    font-size: var(--text-note);
+    line-height: var(--leading-normal);
+  }
+  /* A header control: one height (the field's 40px; 44px on coarse/narrow),
+   * one radius, one edge, one 13px voice, centred on the header's line. */
+  .header-control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    box-sizing: border-box;
+    height: var(--control-height);
+    min-width: var(--control-height);
+    padding-inline: 0.625rem;
+    border: var(--rule-hair) solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: var(--text-label);
+    font-weight: 550;
+    line-height: var(--leading-normal);
+    white-space: nowrap;
+    transition: background-color var(--motion-fast), color var(--motion-fast),
+      border-color var(--motion-fast);
+  }
+  .header-control:hover {
+    background: var(--zone-9);
+    color: var(--text);
+    border-color: var(--control-edge);
+  }
+  .header-control > svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+  /* A paper (or any list item) as a row: the title is the click target. */
+  .row-button {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: var(--target-min);
+    padding: 0.25rem 0.5rem;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color var(--motion-fast), background-color var(--motion-fast);
+  }
+  .row-button:hover {
+    color: var(--accent);
+    background: var(--zone-9);
   }
 
   /* The workspace's one split geometry: a measured column plus a rail that
@@ -1033,6 +1093,10 @@ body::before {
     min-height: var(--touch-target);
   }
   button[aria-label] {
+    min-width: var(--touch-target);
+  }
+  .header-control {
+    height: var(--touch-target);
     min-width: var(--touch-target);
   }
   /* Standalone links that are navigation or a download, not words in a

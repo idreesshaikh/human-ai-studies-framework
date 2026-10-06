@@ -338,6 +338,12 @@ ok("a rejected measure card is described as a measure", rejectedMoveText("add-me
 ok("a rejected design card is described as a design", rejectedMoveText("choose-template") === "I rejected the proposed design.");
 ok("no hyphenated kind name leaks into the echo", !/-/.test(rejectedMoveText("reconfigure-instrument")));
 
+/* A non-scrolling dialog body must not use the scrollbar-gutter trick (-mr-1 pr-1):
+ * it makes the dialog 3-4px wider than its container (seen live on the palette). */
+const dlgSrc = src("components/ui/dialog.tsx");
+const bodyClass = (dlgSrc.match(/cn\(\s*"([^"]*min-h-0 flex-1[^"]*)",\s*scrollable/) ?? [])[1] ?? "";
+ok("the legacy dialog body only uses the scrollbar-gutter margin when it scrolls", !/-mr-1/.test(bodyClass), bodyClass);
+
 if (failures) {
   console.error(`\n${failures} check(s) failed`);
   process.exit(1);

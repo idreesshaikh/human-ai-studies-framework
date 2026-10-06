@@ -90,7 +90,7 @@ export function ConversationStart({
 
       <details className="mt-4">
         <summary className="type-caption cursor-pointer text-center text-text-muted">Examples and study tools</summary>
-        <p className="mt-3 type-caption text-text-muted">Supported: coding-task studies. Not for exams, classrooms or surveys.</p>
+        <p className="mt-3 type-note text-text-muted">Supported: coding-task studies. Not for exams, classrooms or surveys.</p>
       <section className="mt-4 border-y border-border py-4" aria-labelledby="known-details-heading">
         <button
           type="button"
@@ -153,7 +153,7 @@ export function ConversationStart({
             </div>
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="max-w-reading type-caption text-text-muted">
+              <p className="max-w-reading type-note text-text-muted">
                 These details will be placed in the chat for the assistant to review, explain, and add to the protocol.
               </p>
               <Button type="button" size="sm" onClick={addKnownDetails}>
@@ -166,7 +166,7 @@ export function ConversationStart({
       </section>
 
       {onEnterManually && (
-        <p className="mt-4 type-caption text-text-muted">
+        <p className="mt-4 type-note text-text-muted">
           Already have a design?{" "}
           <button type="button" className="text-accent underline-offset-2 hover:underline" onClick={onEnterManually}>
             Enter the protocol details directly
@@ -190,7 +190,7 @@ export function ConversationStart({
             </li>
           ))}
         </ul>
-        <p className="mt-2 type-caption text-text-muted">Edit the example, then send.</p>
+        <p className="mt-2 type-note text-text-muted">Edit the example, then send.</p>
       </details>
       </details>
     </section>

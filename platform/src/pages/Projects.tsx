@@ -93,6 +93,8 @@ export function Projects() {
   const [question, setQuestion] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [savedProject, setSavedProject] = useState<ProjectSummary | null>(null);
+  const createInFlight = useRef(false);
   const [filter, setFilter] = useState("");
   const nameRef = useRef<HTMLInputElement>(null);
   /* `?new=1` is how the command palette's "New project" arrives: the
@@ -123,21 +125,22 @@ export function Projects() {
   };
 
   const closeComposer = () => {
+    if (createInFlight.current) return;
     setComposing(false);
     setName("");
     setQuestion("");
     setCreateError("");
+    setSavedProject(null);
   };
 
   const create = async () => {
-    if (!name.trim() || creating) return;
+    if (!name.trim() || createInFlight.current) return;
+    createInFlight.current = true;
     setCreating(true);
     setCreateError("");
     try {
-      const project = await api.createProject(name);
-      setName("");
-      setQuestion("");
-      setComposing(false);
+      const project = savedProject ?? await api.createProject(name);
+      setSavedProject(project);
       // Refresh both the project list and `me` so the creator's owner
       // membership on the new project resolves right away (role-gated controls
       // depend on it).
@@ -148,6 +151,10 @@ export function Projects() {
       const opening = question.trim();
       const study = await api.createStudy(project.slug, name);
       rememberStudyName(browserNameStore(), study.id, name);
+      setName("");
+      setQuestion("");
+      setComposing(false);
+      setSavedProject(null);
       navigate(`/p/${project.slug}/studies/${study.id}`, { state: { opening } });
     } catch (e) {
       // Only the API's own wording reaches the researcher; a bare HTTP status
@@ -155,10 +162,11 @@ export function Projects() {
       setCreateError(
         e instanceof ApiError && e.fromServer
           ? e.message
-          : "Could not create the project. The server didn't accept the request. Try again in a moment.",
+          : "Could not finish setup. Try again in a moment; your entries are still here.",
       );
     } finally {
       setCreating(false);
+      createInFlight.current = false;
     }
   };
 
@@ -205,6 +213,8 @@ export function Projects() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={NAME_MAX_LENGTH}
+              readOnly={Boolean(savedProject)}
+              disabled={creating}
               onKeyDown={(e) => {
                 if (e.key === "Enter") create();
                 if (e.key === "Escape") closeComposer();
@@ -223,19 +233,21 @@ export function Projects() {
               placeholder="Coding task, AI comparison, outcome"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
+              disabled={creating}
             />
           </Field>
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={create} disabled={!name.trim() || creating}>
-              {creating ? "Creating…" : "Create and start"}
+              {creating ? "Creating…" : savedProject ? "Retry study creation" : "Create and start"}
             </Button>
             <Button variant="outline" onClick={closeComposer} disabled={creating}>
               Cancel
             </Button>
           </div>
           {createError && (
-            <p role="alert" className="type-caption text-critical">
+            <p role="alert" className="type-note text-critical">
+              {savedProject && "The project was saved, but its first study could not be created. Retry to finish setup in the same project. "}
               {createError}
             </p>
           )}
@@ -322,7 +334,7 @@ export function Projects() {
           <h2 className="type-subhead text-text">
             Start from a study template
           </h2>
-          <p className="type-caption mt-0.5 max-w-reading text-text-muted">
+          <p className="type-note mt-0.5 max-w-reading text-text-muted">
             Browse designs with supporting references, then review the
             protocol for your study.
           </p>

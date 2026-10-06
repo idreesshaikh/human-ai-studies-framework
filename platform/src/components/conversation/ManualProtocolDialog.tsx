@@ -328,7 +328,7 @@ export function ManualProtocolDialog({
                 </span>
               </legend>
               {errorFor("manual-outcomes") && (
-                <p id="manual-outcomes-error" className="flex items-start gap-1 type-caption text-critical">
+                <p id="manual-outcomes-error" className="flex items-start gap-1 type-note text-critical">
                   <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
                   {errorFor("manual-outcomes")}
                 </p>

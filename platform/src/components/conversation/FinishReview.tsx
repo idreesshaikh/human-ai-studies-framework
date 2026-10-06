@@ -3,13 +3,17 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, ArrowRight, Check } from "lucide-react";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
-import { SLOT_LABELS, targetLabel, type DesignMove } from "@/lib/types";
+import { SLOT_LABELS, type DesignMove } from "@/lib/types";
+import { rowLabel } from "@/lib/slotRowLabels";
 import type { CompileResult } from "@/lib/conversationApi";
 import { BlinkComparator } from "./BlinkComparator";
 import { hasEarlierVersion } from "@/lib/comparator";
@@ -91,19 +95,22 @@ export function FinishReview({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogTitle>Review draft</DialogTitle>
-        <DialogDescription>
-          This is what your conversation became. Review it, then apply it to the
-          protocol: the study's document of record.
-        </DialogDescription>
+      <DialogContent wide>
+        <DialogHeader>
+          <DialogTitle>Review draft</DialogTitle>
+          <DialogDescription>
+            This is what your conversation became. Review it, then apply it to the
+            protocol: the study's document of record.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogBody>
 
         {/* One line, not three cells. Three big numbers over three small
           * labels is the hero-metric template, and it was the loudest thing in
           * a dialog whose actual subject is the protocol below it. The counts
           * still align and still compare, in the measurement voice, at the
           * weight a summary deserves. */}
-        <p className="mt-3 type-body text-text-muted">
+        <p className="type-body text-text-muted">
           <span className="type-quantity text-text">{accepted.length}</span>{" "}
           {accepted.length === 1 ? "move" : "moves"} accepted:{" "}
           <span className="type-quantity text-text">{grounded}</span> grounded in
@@ -120,7 +127,7 @@ export function FinishReview({
               >
                 <span className="mt-0.5 w-32 shrink-0 type-caption text-text-muted">
                   {/* The plain-words label, never the raw dotted path (see
-                    * targetLabel: an earlier prompt version had the model
+                    * rowLabel: an earlier prompt version had the model
                     * literally echoing "protocol.design" as a real target,
                     * and even a well-formed path like "researchQuestions[]"
                     * is still code, not a name a researcher reads). A fixed
@@ -128,7 +135,7 @@ export function FinishReview({
                     * row's proposal text start at the same x position;
                     * without it "Design" and "Research questions" left each
                     * row's second column starting somewhere different. */}
-                  {targetLabel(m.target)}
+                  {rowLabel(m.target)}
                 </span>
                 <span className="min-w-0 flex-1 break-words text-text">{cleanProposalText(m.proposal)}</span>
                 {m.grounding.length > 0 ? (
@@ -186,7 +193,7 @@ export function FinishReview({
             </Notice>
           )}
           {compile && !valid && compile.unresolved.length > 0 && (
-            <p className="mt-1.5 rounded-input border border-border bg-surface p-2 type-caption text-text-muted">
+            <p className="mt-1.5 rounded-input border border-border bg-surface p-2 type-note text-text-muted">
               <span className="font-medium text-text">Still unresolved:</span>{" "}
               {compile.unresolved
                 .map((s) => SLOT_LABELS[s as keyof typeof SLOT_LABELS] ?? s)
@@ -212,7 +219,7 @@ export function FinishReview({
             <p className="type-body text-text">
               The protocol is applied. Next: bring participants in.
             </p>
-            <p className="type-caption mt-1 text-text-muted">
+            <p className="type-note mt-1 text-text-muted">
               Create participant links, then connect TERN in VS Code.
             </p>
             <Link
@@ -226,11 +233,18 @@ export function FinishReview({
           </div>
         )}
 
-        <div className="sticky bottom-0 -mx-5 mt-3 flex items-center justify-end gap-2 border-t border-border bg-surface-raised px-5 py-3">
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={applying}>
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            disabled={applying}
+          >
             Keep editing
           </Button>
-          <Button onClick={onApply} disabled={!valid || compiling || applying || applied}>
+          <Button size="sm" onClick={onApply} disabled={!valid || compiling || applying || applied}>
             {applied ? (
               <>
                 <Check aria-hidden /> Applied
@@ -241,7 +255,7 @@ export function FinishReview({
               "Apply protocol"
             )}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

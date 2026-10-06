@@ -95,11 +95,11 @@ export function ProjectSettings() {
              * intentional, so bookmarks and shared invite links never break.
              * Called out here so that stays a design decision, not a bug
              * report. */}
-            <p className="type-caption text-text-muted">
+            <p className="type-note text-text-muted">
               The URL (<span className="type-quantity identifier">/{data?.slug}</span>) stays the
               same so existing links keep working. Only the display name changes.
             </p>
-            {msg && <p className="type-caption text-text-muted">{msg}</p>}
+            {msg && <p className="type-note text-text-muted">{msg}</p>}
           </CardContent>
         </Card>
 

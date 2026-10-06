@@ -63,7 +63,7 @@ export function RunOverview({ studyId, preview = true, onReady, active = true }:
               <Select aria-label="Preview assignment for" className="w-48" value={String(participant)} onValueChange={value => setParticipant(Number(value))}
                 options={Array.from({ length: Math.min(Math.max(plan.participants?.planned ?? 2, 1), 12) }, (_, i) => ({ value: String(i), label: `Participant ${i + 1}` }))} />
             </label>
-            {loading ? <p className="type-caption text-text-muted" role="status">Updating assignment…</p> : plan.blocks?.length ? (
+            {loading ? <p className="type-note text-text-muted" role="status">Updating assignment…</p> : plan.blocks?.length ? (
               <ol className="divide-y divide-border border-y border-border">
                 {plan.blocks.map(block => <li key={block.index} className="py-4">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -78,8 +78,8 @@ export function RunOverview({ studyId, preview = true, onReady, active = true }:
           <details className="type-body text-text">
             <summary className="cursor-pointer type-control text-text-muted">Allocation and session steps</summary>
             <div className="mt-3 space-y-3">
-              <p className="type-caption text-text-muted">Preview only; no participant link is created. {plan.participants?.counterbalanced ? "Order is counterbalanced." : "Order is not counterbalanced."}</p>
-              <p className="type-caption text-text-muted">{plan.allocationNote}</p>
+              <p className="type-note text-text-muted">Preview only; no participant link is created. {plan.participants?.counterbalanced ? "Order is counterbalanced." : "Order is not counterbalanced."}</p>
+              <p className="type-note text-text-muted">{plan.allocationNote}</p>
               <ol className="list-decimal space-y-2 pl-5">
                 <li>Open the assigned folder in VS Code and review consent.</li>
                 <li>Complete the blocks above, then end the session and debrief.</li>
@@ -95,9 +95,9 @@ export function RunOverview({ studyId, preview = true, onReady, active = true }:
             <summary className="cursor-pointer type-control text-text-muted">Capture and privacy</summary>
             {plan.fatigueIntervalMinutes != null && <p className="mt-3 type-body">Fatigue prompts: every {plan.fatigueIntervalMinutes} minutes, subject to pause and quiet-tail settings.</p>}
             <ul className="mt-3 space-y-3">
-              {producers.map(([name, value]) => <li key={name}><span className="font-medium">{captureTokenLabel(name)}</span>: {producerStateLabel(value.state)}{plan.requiredProducers?.includes(name) && " · Required"}<p className="mt-1 type-caption text-text-muted">{value.reason}</p></li>)}
+              {producers.map(([name, value]) => <li key={name}><span className="font-medium">{captureTokenLabel(name)}</span>: {producerStateLabel(value.state)}{plan.requiredProducers?.includes(name) && " · Required"}<p className="mt-1 type-note text-text-muted">{value.reason}</p></li>)}
             </ul>
-            {plan.privacy && <p className="mt-3 type-caption text-text-muted">AI conversation policy: {plan.privacy.agentContentPolicy}. Raw code: {plan.privacy.rawCode ? "enabled; requires explicit consent" : "not collected"}. Clipboard text and individual keystrokes are not collected.</p>}
+            {plan.privacy && <p className="mt-3 type-note text-text-muted">AI conversation policy: {plan.privacy.agentContentPolicy}. Raw code: {plan.privacy.rawCode ? "enabled; requires explicit consent" : "not collected"}. Clipboard text and individual keystrokes are not collected.</p>}
           </details>
           {preview && !loading && <div className="flex justify-end border-t border-border pt-4"><Button asChild size="sm"><Link to={{ search: draft ? "?tab=conversation" : "?tab=enrollment" }}>{draft ? "Review and apply in Setup" : "Go to Run"}</Link></Button></div>}
         </>

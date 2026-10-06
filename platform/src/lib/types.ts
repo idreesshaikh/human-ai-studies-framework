@@ -1,3 +1,5 @@
+import { rowLabel } from "./slotRowLabels.ts";
+
 /* The conversation domain model. These shapes match the server interfaces
  * so wiring the backend later is a transport swap, not a redesign. */
 
@@ -219,39 +221,14 @@ export const MANDATORY_SLOTS: (keyof ProtocolDraft)[] = [
 
 export const OPTIONAL_SLOTS: (keyof ProtocolDraft)[] = ["ethics"];
 
-/** camelCase -> "Camel case": the plain-words fallback for any identifier
- * this map doesn't recognise by name. Never used for a known slot  -  those
- * always take their SLOT_LABELS wording  -  only for a path segment (like
- * "durationMinutes") that has no entry of its own. */
-function sentenceCase(segment: string): string {
-  const spaced = segment.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
-}
-
 /** Renders a move's `target` (a dotted protocol path such as
  * "researchQuestions[]" or "session.durationMinutes") in the words a
- * researcher reads, never as raw code.
- *
- * `target` is model-authored (design_llm's own JSON contract, not a
- * validated enum), and an earlier prompt version showed a literal
- * "protocol.path" example the model echoed as a real "protocol." prefix  -
- * this strips that defensively so an older persisted move still reads
- * cleanly. Each dotted segment is looked up against SLOT_LABELS where it
- * matches one of the core sections; anything else falls back to
- * sentence case rather than showing camelCase or a raw path. */
+ * researcher reads, never as raw code. The wording lives in
+ * slotRowLabels.ts, which the review table also uses. `target` is
+ * model-authored, so a stale "protocol." prefix and a trailing "[]" are
+ * stripped there. */
 export function targetLabel(target: string): string {
-  const cleaned = target
-    .replace(/^protocol\./, "")
-    .replace(/\[\]$/, "")
-    .trim();
-  if (!cleaned) return "the protocol";
-  /* "participants.description" is the participants section, not a second
-   * place: a trailing free-text field name adds nothing a reader needs. */
-  const parts = cleaned.split(".");
-  while (parts.length > 1 && /^(description|text|value|name)$/i.test(parts[parts.length - 1])) parts.pop();
-  return parts
-    .map((part) => SLOT_LABELS[part as keyof ProtocolDraft] ?? sentenceCase(part))
-    .join(" \u2022 ");
+  return rowLabel(target);
 }
 
 export const SLOT_LABELS: Record<keyof ProtocolDraft, string> = {

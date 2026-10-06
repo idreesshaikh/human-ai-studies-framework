@@ -110,7 +110,7 @@ export function StudyFolderField({ studyId }: { studyId: string }) {
         )}
       </div>
       {workspace && (
-        <p id="study-folder-status" className="type-caption text-text-muted" aria-live="polite">
+        <p id="study-folder-status" className="type-note text-text-muted" aria-live="polite">
           {describeWorkspace(workspace)}
         </p>
       )}

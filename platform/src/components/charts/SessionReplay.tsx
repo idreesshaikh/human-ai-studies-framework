@@ -39,6 +39,6 @@ function Frame({ frame }: { frame: ReplayFrame }) {
     {Object.keys(frame.changes).length > 0 && <p className="type-body text-text-muted">{frame.changes.filesChanged ?? 0} files · +{frame.changes.insertions ?? 0} / −{frame.changes.deletions ?? 0} lines</p>}
     {frame.flags.length > 0 && <p className="break-words type-caption text-critical">Integrity flags: {frame.flags.join(", ")}</p>}
     {frame.diff ? <pre aria-label="Captured code diff" className="max-h-96 overflow-auto rounded-control bg-well p-3 font-mono type-caption text-text">{frame.diff}</pre> :
-      <p className="type-caption text-text-muted">{frame.codeState === "policy-disabled" ? "Code diffs are disabled by this study’s capture policy." : "No code diff was captured for this event."}</p>}
+      <p className="type-note text-text-muted">{frame.codeState === "policy-disabled" ? "Code diffs are disabled by this study’s capture policy." : "No code diff was captured for this event."}</p>}
   </div>;
 }

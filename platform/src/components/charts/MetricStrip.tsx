@@ -106,7 +106,7 @@ export function MetricStrip({
           {asTable ? "Chart" : "Table"}
         </Button>
       </div>
-      <p className="type-caption text-text-muted">{metric.definition}</p>
+      <p className="type-note text-text-muted">{metric.definition}</p>
 
       {/* Full chart/table states keep a stable working height, while an empty
           metric stays content-sized. */}
@@ -316,7 +316,7 @@ function PointStrip({
           })}
         </g>
       </svg>
-      <p className="px-2 type-caption text-text-muted">
+      <p className="px-2 type-note text-text-muted">
         Every observation plotted · median line
         {points.length >= 5 ? " + interquartile box" : ""} · exact values in the
         table view.
@@ -473,7 +473,7 @@ function OrdinalDistribution({
             </text>
           </g>
         </svg>
-        <p className="px-2 type-caption text-text-muted">
+        <p className="px-2 type-note text-text-muted">
           Counts per level — an ordinal scale is shown as a distribution, never
           averaged. Exact counts in the table view.
         </p>
@@ -590,7 +590,7 @@ function CategoricalShare({
             )}
           </div>
         ))}
-        <p className="type-caption text-text-muted">
+        <p className="type-note text-text-muted">
           Shares are weighted by volume; exact counts in the table view.
         </p>
         <Tooltip tip={tip} />

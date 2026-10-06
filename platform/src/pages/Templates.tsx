@@ -184,7 +184,7 @@ export function Templates() {
             <MessageSquareText className="size-4" aria-hidden />
             Describe your study instead
           </h2>
-          <p className="type-caption text-text-muted">
+          <p className="type-note text-text-muted">
             Not sure which template fits? Describe the study in plain language
             and the assistant works the design out with you.
           </p>
@@ -221,7 +221,7 @@ export function Templates() {
             )}
           </div>
           {describeError && (
-            <p role="alert" className="type-caption text-critical">
+            <p role="alert" className="type-note text-critical">
               {describeError}
             </p>
           )}
@@ -242,7 +242,7 @@ export function Templates() {
            grows in place. */
         <section className="flex flex-col gap-2">
           <h2 className="type-subhead text-text">Study templates</h2>
-          <p className="type-caption text-text-muted">
+          <p className="type-note text-text-muted">
             Open a card for its full description and its references.
           </p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -262,7 +262,7 @@ export function Templates() {
           <h2 className="type-subhead flex items-center gap-1.5 text-text-muted">
             <Info className="size-4" aria-hidden /> Held back
           </h2>
-          <p className="type-caption text-text-muted">
+          <p className="type-note text-text-muted">
             Too rare to propose without a strong source. Shown, not hidden: the
             reason is stated so you can judge it yourself.
           </p>
@@ -273,7 +273,7 @@ export function Templates() {
                 className="rounded-plate border border-dashed border-unsourced p-3"
               >
                 <p className="type-label font-semibold text-text">{entry.title}</p>
-                <p className="type-caption mt-0.5 text-text-muted">
+                <p className="type-note mt-0.5 text-text-muted">
                   {entry.admissionNote}
                 </p>
               </div>
@@ -407,7 +407,7 @@ function ShapeDetailPanel({
               ))}
             </ul>
             {entry.unresolvedSources.length > 0 && (
-              <p className="mt-2 type-caption text-text-muted">
+              <p className="mt-2 type-note text-text-muted">
                 Additional source: {entry.unresolvedSources
                   .map((source) => publicPaperReference(source) ?? "Source record")
                   .join(", ")}

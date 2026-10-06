@@ -70,6 +70,7 @@ export function MoveCard({
   return (
     <Card
       ref={ref}
+      role="group"
       tabIndex={decided ? -1 : 0}
       data-move-id={move.moveId}
       onKeyDown={onKey}
@@ -95,13 +96,10 @@ export function MoveCard({
         * the source it measures. */}
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="min-w-0">
-          <div
-            className={cn(
-              "flex flex-col gap-1.5",
-              move.status === "accepted" && "opacity-70",
-              move.status === "rejected" && "opacity-60",
-            )}
-          >
+          {/* A decided card recedes through its text tokens, not opacity:
+            * fading the block took the muted eyebrow and status under
+            * 4.5:1 (NFR-12). */}
+          <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <span className="type-legend text-text-muted">
               {eyebrow}
@@ -121,13 +119,17 @@ export function MoveCard({
           {move.kind === "merge-templates" && move.mergeData ? (
             <div className="flex flex-col gap-1.5">
               <p className="type-body leading-snug text-text">{cleanProposalText(move.proposal)}</p>
-              <p className="type-caption text-text-muted italic">{move.mergeData.reason}</p>
+              <p className="type-note text-text-muted italic">{move.mergeData.reason}</p>
             </div>
           ) : (
             <p
               className={cn(
-                "type-body pr-3 leading-snug text-text",
-                move.status === "rejected" && "superseded",
+                "type-body pr-3 leading-snug",
+                move.status === "rejected"
+                  ? "superseded"
+                  : move.status === "accepted"
+                    ? "text-text-muted"
+                    : "text-text",
               )}
             >
               {cleanProposalText(move.proposal)}
@@ -135,12 +137,10 @@ export function MoveCard({
           )}
         </div>
 
-        {/* Outside the faded wrapper above, deliberately: CSS opacity always
-         * applies to every descendant, including a popover positioned
-         * absolutely outside its parent's box  -  a citation's hover card would
-         * inherit the card's 40/60% fade and render see-through, which is
-         * worse than not fading it. Citations stay fully legible regardless
-         * of the card's decided state, same reasoning as the Undo button. */}
+        {/* Citations stay fully legible regardless of the card's decided
+         * state, same reasoning as the Undo button. Never fade an ancestor
+         * here: opacity reaches every descendant, including a citation's
+         * absolutely positioned hover card, which would render see-through. */}
         <div className="mt-1 flex min-w-0 flex-wrap items-start gap-1 border-t border-border pt-1">
           {move.grounding.length > 0 ? (
             move.grounding.map((g) => g.evidence ? (

@@ -200,7 +200,7 @@ export function EnrollmentPanel({
             * participants without ever having minted one. */}
           <h2 className="type-section text-text">{heading.title}</h2>
           {heading.detail && (
-            <p className="type-caption text-text-muted">{heading.detail}</p>
+            <p className="type-note text-text-muted">{heading.detail}</p>
           )}
           {/* Prose is held to the reading measure even inside a wider column  -
             * the layout contract has a measure for running text precisely so

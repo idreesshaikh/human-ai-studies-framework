@@ -195,14 +195,14 @@ export function LibraryTab({ studyId }: { studyId: string }) {
         </div>
 
         {busy && (
-          <p className="flex items-center gap-2 type-caption text-text-muted" role="status">
+          <p className="flex items-center gap-2 type-note text-text-muted" role="status">
             <Loader2 className="size-3 animate-spin" aria-hidden />
             Fetching metadata and the citation neighbourhood (the citation
             service allows one request per second)…
           </p>
         )}
         {edgesPending && !busy && (
-          <p className="type-caption text-text-muted" role="status">
+          <p className="type-note text-text-muted" role="status">
             Paper added. Its citation neighbourhood is filling in.
           </p>
         )}
@@ -234,28 +234,33 @@ export function LibraryTab({ studyId }: { studyId: string }) {
               <li
                 key={p.paperRef}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 type-body",
+                  "flex items-center gap-1 px-2 py-0.5 type-body",
                   p.paperRef === selected && "bg-zone-9",
                 )}
               >
                 <button
-                  className="flex-1 truncate text-left text-text hover:text-accent"
+                  className="row-button"
+                  aria-current={p.paperRef === selected ? "true" : undefined}
                   onClick={() => select(p.paperRef)}
                   title={p.title || p.paperRef}
                 >
                   {p.title || "Untitled paper"}
                 </button>
                 {p.year && (
-                  <span className="tabular type-caption text-text-muted">{p.year}</span>
+                  <span className="tabular shrink-0 type-caption text-text-muted">{p.year}</span>
                 )}
-                <button
-                  className="text-text-muted hover:text-status-critical"
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="shrink-0 hover:text-status-critical"
                   aria-label={`Remove ${p.title || p.paperRef}`}
+                  title="Remove from library"
                   onClick={() => run(() => studyApi.deletePaper(studyId, p.paperRef))}
                   disabled={busy}
                 >
-                  <X className="size-4" aria-hidden />
-                </button>
+                  <X aria-hidden />
+                </Button>
               </li>
             ))}
             {!loading && papers.length === 0 && (
@@ -277,7 +282,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
         >
           <div className="flex min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface p-4">
             <h2 className="type-subhead text-text">Literature map</h2>
-            <p className="mt-0.5 shrink-0 type-caption text-text-muted">
+            <p className="mt-0.5 shrink-0 type-note text-text-muted">
               Relationships determine the constellation; year gives temporal context, node
               size shows citation weight, and edge colour shows how papers are related.
             </p>
@@ -295,15 +300,18 @@ export function LibraryTab({ studyId }: { studyId: string }) {
           {/* Selected-paper detail. */}
           {selectedNode && (
             <aside className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface-raised p-4 lg:h-full">
-              <button
-                className="absolute right-3 top-3 text-text-muted hover:text-text"
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="absolute right-2 top-2"
                 onClick={() => setSelected(null)}
                 aria-label="Close detail"
               >
-                <X className="size-4" aria-hidden />
-              </button>
+                <X aria-hidden />
+              </Button>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2">
-                <h3 className="pr-6 font-medium text-text">
+                <h3 className="pr-8 font-medium text-text">
                   {selectedNode.title || selected}
                 </h3>
                 <p className="mt-0.5 type-caption text-text-muted">
@@ -323,7 +331,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
                   </p>
                 )}
                 {!selectedPaper && (
-                  <p className="mt-2 type-caption text-text-muted">
+                  <p className="mt-2 type-note text-text-muted">
                     Suggested paper, not yet in the study. Its preview is already warm
                     and can be added without another provider request.
                   </p>

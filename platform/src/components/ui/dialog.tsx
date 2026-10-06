@@ -101,12 +101,13 @@ export const DialogContent = React.forwardRef<
           children
         ) : (
           <>
-            {/* `-mr-1 pr-1` keeps the scrollbar off the text without shifting the
-             * content when the dialog is short enough not to need one. */}
+            {/* When it scrolls, `-mr-1 pr-1` keeps the scrollbar off the text
+             * without shifting the content; a body that does not scroll must not
+             * carry it (it would widen the dialog past its container). */}
             <div
               className={cn(
-                "-mr-1 min-h-0 flex-1 pr-1",
-                scrollable ? "overflow-y-auto" : "flex flex-col overflow-hidden",
+                "min-h-0 flex-1",
+                scrollable ? "-mr-1 overflow-y-auto pr-1" : "flex flex-col overflow-hidden",
               )}
             >
               {children}

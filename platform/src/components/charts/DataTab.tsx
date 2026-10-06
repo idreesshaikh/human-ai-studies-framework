@@ -212,7 +212,7 @@ export function DataTab({ studyId }: { studyId: string }) {
             checked={includeSynthetic}
             onChange={(event) => setSyntheticScope({ studyId, enabled: event.target.checked })}
           />
-          <p className="type-caption text-text-muted" role="status">
+          <p className="type-note text-text-muted" role="status">
             {includeSynthetic
               ? "Views and data bundles include synthetic rehearsal data. These are not participant findings."
               : "Views and data bundles exclude synthetic rehearsal data."}
@@ -250,7 +250,7 @@ export function DataTab({ studyId }: { studyId: string }) {
         <details className="border-b border-border pb-5">
           <summary className="type-subhead cursor-pointer text-text">Capture sources and their status</summary>
           <div className="mt-2">
-            <p className="mt-1 max-w-reading type-caption text-text-muted">
+            <p className="mt-1 max-w-reading type-note text-text-muted">
               Configuration is not receipt. A source is counted below only after its events or metric rows arrive.
             </p>
           </div>
@@ -261,7 +261,7 @@ export function DataTab({ studyId }: { studyId: string }) {
                   <span className="type-label text-text">{captureTokenLabel(id)}</span>
                   <span className="type-caption text-text-muted">{producerStateLabel(producer.state)}</span>
                 </div>
-                <p className="mt-0.5 type-caption text-text-muted">{producer.reason}</p>
+                <p className="mt-0.5 type-note text-text-muted">{producer.reason}</p>
               </div>
             ))}
           </div>
@@ -274,7 +274,7 @@ export function DataTab({ studyId }: { studyId: string }) {
             className="mt-0.5 size-4 shrink-0 text-text-muted"
             aria-hidden
           />
-          <p className="type-caption text-text">
+          <p className="type-note text-text">
             <span className="type-label text-text">
               Dry run complete: {dryRun.report.participants} synthetic
               participants
@@ -289,7 +289,7 @@ export function DataTab({ studyId }: { studyId: string }) {
       )}
       {dryRun.report?.plan && <DryRunPlan plan={dryRun.report.plan} />}
       {dryRun.error && (
-        <p className="type-caption text-critical" role="alert">
+        <p className="type-note text-critical" role="alert">
           {dryRun.error}
         </p>
       )}
@@ -297,7 +297,7 @@ export function DataTab({ studyId }: { studyId: string }) {
       {!loadError && !seeded && (
         <section className="flex flex-col gap-2 border-b border-border pb-5">
           <h2 className="type-subhead text-text">Download data</h2>
-          <p className="max-w-reading type-caption text-text-muted">
+          <p className="max-w-reading type-note text-text-muted">
             A zip with one tidy CSV per event type, the joined timeline and a
             data dictionary, for your own postprocessing.
           </p>
@@ -313,7 +313,7 @@ export function DataTab({ studyId }: { studyId: string }) {
             </Button>
           </div>
           {download.error && (
-            <p className="type-caption text-critical" role="alert">
+            <p className="type-note text-critical" role="alert">
               {download.error}
             </p>
           )}

@@ -140,9 +140,7 @@ try {
   } });
   assert.equal(quick.status(), 200, await quick.text());
   await between.getByRole("button", { name: "Review this choice in chat" }).click();
-  const move = page.locator("[data-move-id]").filter({
-    has: page.getByText("Use a between-subjects design.", { exact: true }),
-  });
+  const move = page.getByRole("group", { name: /^Setting: Use a between-subjects design\./ });
   await expect(move).toBeVisible();
   await expect(move).toBeFocused();
   await move.getByText("Evidence and conditions", { exact: false }).click();

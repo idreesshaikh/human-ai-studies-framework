@@ -1718,6 +1718,21 @@ def respond_streaming(
     )
 
 
+def _dedupe_turn(turn: Turn, text: str) -> Turn:
+    """Collapse duplicate cards after explicit and model moves are merged."""
+    from middleware import design_llm
+
+    cap = (
+        design_llm.MAX_BATCH_CARDS
+        if elicitation.is_complete_brief(text)
+        else design_llm.MAX_CARDS
+    )
+    moves = design_llm.dedupe_moves(turn.moves, cap)
+    if moves == tuple(turn.moves):
+        return turn
+    return Turn(turn.text, moves, turn.match_query)
+
+
 def _assemble(
     s: Session,
     text: str,
@@ -1737,6 +1752,7 @@ def _assemble(
     against retrieved rows, recommendations, and the design recommender's
     prescription/figures.
     """
+    turn = _dedupe_turn(turn, text)
     had_model_moves = bool(turn.moves)
     kept = _filter_repeated_moves(turn.moves, state)
     if kept != turn.moves:

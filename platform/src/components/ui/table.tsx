@@ -24,7 +24,7 @@ export const TR = ({ className, ...props }: React.HTMLAttributes<HTMLTableRowEle
 export const TH = ({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
   <th
     className={cn(
-      "px-3 py-2 text-left type-caption font-medium uppercase tracking-wide text-text-muted",
+      "px-3 py-2 text-left type-caption font-medium text-text-muted",
       className,
     )}
     {...props}

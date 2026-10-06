@@ -546,30 +546,56 @@ _EMPTY_CAUTION = re.compile(
 
 
 def _move_dedupe_key(kind: str, target: str, proposal: str, patch: dict | None):
-    """Two cards that would write the same thing collapse to one key."""
-    where = target
-    value = proposal
-    if isinstance(patch, dict):
-        where = str(patch.get("section") or patch.get("path") or target)
-        value = str(
-            patch.get("value")
-            or patch.get("templateId")
-            or patch.get("name")
-            or patch.get("title")
-            or proposal
-        )
-    # Count cards can spell the same value as "16" or "16 participants".
-    # Other patches must not collapse just because they share a year/number.
+    """
+    Semantic identity of a card: the slot's section plus the value, regardless of
+    move kind or path leaf, so a set-field and a set-parameter that write the same
+    thing are one decision.
+    """
+    if not isinstance(patch, dict):
+        return (kind, _norm(re.sub(r"[^\w\s]", "", proposal)))
+    if "templateId" in patch:
+        return ("template", str(patch["templateId"]))
+    if "templateIds" in patch:
+        return ("template", tuple(sorted(map(str, patch["templateIds"]))))
+    path = patch.get("path")
+    where = patch.get("section") or (path[0] if path else None) or target
+    value = patch.get("value")
+    if value is None:
+        value = patch.get("name") or patch.get("title") or proposal
+    value = str(value)
     count = re.fullmatch(
         r"(\d+(?:\.\d+)?)(?:\s+participants(?:\s*\([^)]*\))?)?",
-        value.strip(),
-        re.I,
+        value.strip(), re.I,
     )
-    if kind == "set-parameter" and where == "participants" and count:
-        return (kind, where, count.group(1))
-    if isinstance(patch, dict):
-        return (kind, json.dumps(patch, sort_keys=True, ensure_ascii=False))
-    return (kind, _norm(where), _norm(value))
+    if where == "participants" and count:
+        return ("participants", count.group(1))
+    return (_norm(str(where)), _norm(re.sub(r"[^\w\s]", "", value)))
+
+
+def dedupe_moves(moves, max_cards: int = MAX_CARDS) -> tuple:
+    """
+    Keep the first of each semantically identical card. Over the cap, the design
+    (template) cards stay and the earliest remaining cards fill the rest.
+    """
+    seen: set = set()
+    unique = []
+    for m in moves:
+        key = _move_dedupe_key(m.kind, m.target, m.proposal, m.patch)
+        if key not in seen:
+            seen.add(key)
+            unique.append(m)
+    if len(unique) <= max_cards:
+        return tuple(unique)
+    is_design = [m.kind in ("choose-template", "merge-templates") for m in unique]
+    room = max(max_cards - sum(is_design), 0)
+    out = []
+    for m, design in zip(unique, is_design, strict=True):
+        if design:
+            out.append(m)
+        elif room > 0:
+            out.append(m)
+            room -= 1
+    return tuple(out)
 
 
 def _parse_moves(
@@ -697,7 +723,22 @@ def tighten_proposal(proposal: str) -> str:
 
 
 _PARAGRAPH_SPLIT = re.compile(r"\n\s*\n")
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+def _split_sentences(text: str) -> list[str]:
+    """Split after . ! ? followed by space, but never inside parentheses (paper
+    titles in citations contain '?' and ':')."""
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    for i, ch in enumerate(text):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(depth - 1, 0)
+        elif ch in ".!?" and depth == 0 and i + 1 < len(text) and text[i + 1].isspace():
+            parts.append(text[start : i + 1])
+            start = i + 1
+    parts.append(text[start:])
+    return [p.strip() for p in parts if p.strip()]
 _MIN_REPEAT_CHARS = 15
 
 
@@ -726,7 +767,7 @@ def trim_repeated_text(text: str) -> str:
     for para in text.split("\n\n"):
         out: list[str] = []
         looped = False
-        for sentence in _SENTENCE_SPLIT.split(para):
+        for sentence in _split_sentences(para):
             key = _norm(sentence)
             if len(key) >= _MIN_REPEAT_CHARS and key in seen:
                 looped = True
@@ -786,7 +827,7 @@ def _title_map(papers: list[dict], templates: list[dict]) -> dict[str, str]:
 
 
 _STOPWORDS = frozenset(
-    "the a an and or of to in on for with is are was were be been this that these "  # noqa: SIM905 - compact vocabulary
+    "the a an and or of to in on for with is are was were be been this that these "  # noqa: SIM905
     "those it its as at by from we you your our they their how what which whether "
     "about into than then so not no can could would should will may might do does "
     "did have has had thinking want know".split()
@@ -803,7 +844,7 @@ def drop_restatement(text: str, user_text: str, threshold: float = 0.6) -> str:
     user_words = _content_words(user_text)
     if not user_words:
         return text
-    sentences = [x for x in _SENTENCE_SPLIT.split(text.strip()) if x]
+    sentences = _split_sentences(text.strip())
     i = 0
     while i < len(sentences) - 1:
         words = _content_words(sentences[i])
@@ -821,16 +862,12 @@ _REJECTED_ALTERNATIVE = re.compile(
 
 
 def drop_rejected_alternatives(text: str) -> str:
-    """Remove explicitly rejected alternatives, never infer away a limitation."""
-    sentences = [x for x in _SENTENCE_SPLIT.split(text.strip()) if x]
-    kept = [
-        x
-        for x in sentences
-        if not (
-            _REJECTED_ALTERNATIVE.search(x)
-            and re.search(r"\b(?:rejected|not selected|unused alternative)\b", x, re.I)
-        )
-    ]
+    """Drop sentences that list alternatives the design does not use."""
+    sentences = _split_sentences(text.strip())
+    kept = [x for x in sentences if not (
+        _REJECTED_ALTERNATIVE.search(x)
+        and re.search(r"\b(?:rejected|not selected|unused alternative)\b", x, re.I)
+    )]
     return " ".join(kept) if kept and len(kept) != len(sentences) else text
 
 
@@ -857,9 +894,14 @@ def _short_citation(paper: dict, fallback_title: str = "") -> str:
         label = f"{name} et al." if more else name
         return f"{label} {year}" if year else label
     title = re.sub(r"\s+", " ", (paper.get("title") or fallback_title)).strip()
-    title = title.lower().capitalize()
-    if len(title) > 60:
-        title = title[:60].rstrip(" ,;:-") + "\u2026"
+    if title.upper() == title:
+        title = title.lower().capitalize()
+    head = re.split(r"[?!:.]\s", title, maxsplit=1)[0].rstrip("?!:. ")
+    cut = head != title
+    if len(head) > 60:
+        head = head[:60].rsplit(" ", 1)[0].rstrip(" ,;:-")
+        cut = True
+    title = head + ("\u2026" if cut else "")
     return f"{title} {year}" if year else title
 
 
@@ -871,6 +913,16 @@ def _same_title(a: str, b: str) -> bool:
     if x.startswith(y[:40]) or y.startswith(x[:40]):
         return True
     return difflib.SequenceMatcher(None, x, y).ratio() >= 0.8
+
+
+def _looks_like_title(text: str) -> bool:
+    """A long Title Case or ALL CAPS parenthetical of five or more words."""
+    words = text.split()
+    if len(text) <= 60 or len(words) < 5:
+        return False
+    big = [w for w in words if len(w) > 3]
+    capped = [w for w in big if w[0].isupper()]
+    return bool(big) and len(capped) / len(big) >= 0.7
 
 
 _PAREN = re.compile(r"\(([^()]{20,})\)")
@@ -886,14 +938,11 @@ def shorten_citations(text: str, papers: list[dict]) -> str:
             title = paper.get("title") or ""
             if title and _same_title(inner, title):
                 return f"({_short_citation(paper)})"
-        if len(inner) > 60 and inner.upper() == inner:
+        if _looks_like_title(inner):
             return f"({_short_citation({'title': inner})})"
         return match.group(0)
 
     return _PAREN.sub(swap, text)
-
-
-_GENERIC_QUESTION = "What would you like to settle next?"
 
 
 def _limit_sentences(sentences: list[str], limit: int, max_sentences: int) -> str:
@@ -907,6 +956,9 @@ def _limit_sentences(sentences: list[str], limit: int, max_sentences: int) -> st
             break
         out.append(sentence)
     return " ".join(out)
+
+
+_QUESTION_SCAFFOLD = re.compile(r"\b(?:the\s+)?next\s+question\s+is\s*:\s*", re.I)
 
 
 def _clean_reply(
@@ -923,9 +975,10 @@ def _clean_reply(
     if decision_followup:
         # Deterministic: the model's prose after a decision is never shown.
         return "Noted." + (f" {next_question.strip()}" if next_question.strip() else "")
-    if not text.strip():
-        return ""
-    text = strip_filler(trim_repeated_text(text))
+    titles = _title_map(papers, templates)
+    # Ids first (the model cites papers by id), so shortening sees the titles.
+    text = sanitize_reply_text(strip_filler(trim_repeated_text(text)), titles)
+    text = _QUESTION_SCAFFOLD.sub("", text)
     text = drop_rejected_alternatives(drop_restatement(text, user_text))
     text = shorten_citations(text, papers)
     structured_text = text
@@ -933,11 +986,11 @@ def _clean_reply(
     if explain and not has_cards:
         text = cap_reply_text(text, EXPLAIN_REPLY_MAX_CHARS)
     else:
-        sentences = [x for x in _SENTENCE_SPLIT.split(text.strip()) if x]
+        sentences = _split_sentences(text.strip())
         question = next((x for x in reversed(sentences) if x.endswith("?")), "")
         body = [x for x in sentences if x != question]
         if not question and not has_cards and not explain:
-            question = next_question.strip() or _GENERIC_QUESTION
+            question = next_question.strip()
         if has_cards:
             limit, count = CARDS_REPLY_MAX_CHARS, CARDS_REPLY_MAX_SENTENCES
         else:
@@ -948,13 +1001,11 @@ def _clean_reply(
         text = " ".join(
             x for x in (_limit_sentences(body, max(limit, 60), count), question) if x
         )
-    # Already-concise replies retain their line breaks instead of jumping to
-    # a flattened paragraph when the streamed turn is committed.
     if _norm(text) == _norm(structured_text) and len(structured_text) <= (
         CARDS_REPLY_MAX_CHARS if has_cards else REPLY_TEXT_MAX_CHARS
     ):
         text = structured_text
-    return sanitize_reply_text(text, _title_map(papers, templates))
+    return text
 
 
 class _ReplyTextExtractor:

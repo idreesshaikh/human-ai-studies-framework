@@ -24,7 +24,7 @@ export function AccountSettings() {
         <CardContent className="flex flex-col gap-4 p-4">
           <div>
             <h2 className="type-subhead text-text">Display</h2>
-            <p className="type-caption text-text-muted">
+            <p className="type-note text-text-muted">
               These settings apply to all your projects.
             </p>
           </div>

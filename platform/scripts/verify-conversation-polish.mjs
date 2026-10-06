@@ -85,7 +85,7 @@ ok("strip Declare the task prefix + double period",
   cleanProposalText("Declare the task: Fix a bug in the app.."));
 ok("ellipsis kept", cleanProposalText("Wait...") === "Wait...");
 ok("target label has no slot leak", targetLabel("participants.description") === "Participants", targetLabel("participants.description"));
-ok("target label keeps real detail", targetLabel("session.durationMinutes") === "Session • Duration minutes");
+ok("target label keeps real detail", targetLabel("session.durationMinutes") === "Session length");
 const fr = src("components/conversation/FinishReview.tsx");
 ok("review cleans proposals", /cleanProposalText\(/.test(fr));
 ok("warnings wrap", /break-words/.test(fr.slice(fr.indexOf("warnings.map"))));

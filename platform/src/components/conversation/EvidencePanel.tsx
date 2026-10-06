@@ -74,7 +74,7 @@ export function EvidencePanel({ studyId, onProposed, onClose }: { studyId: strin
         <h3 className="type-subhead text-text">Evidence-linked methods</h3>
         {onClose && <Button variant="ghost" size="icon" aria-label="Close method comparison" onClick={onClose}><X aria-hidden /></Button>}
       </div>
-      <p className="type-caption text-text-muted">Compare source-backed methods. No choice changes the protocol without your approval.</p>
+      <p className="type-note text-text-muted">Compare source-backed methods. No choice changes the protocol without your approval.</p>
       {map.loading && <p role="status" className="type-caption text-text-muted">Loading evidence…</p>}
       {map.error && <Notice kind="problem">{map.error} <button className="underline" onClick={map.reload}>Retry</button></Notice>}
       {map.data?.document && <p className="type-caption text-text-muted">{map.data.document.mapId} · {map.data.document.mapVersion}<br />{map.data.document.description}</p>}
@@ -97,12 +97,12 @@ export function EvidencePanel({ studyId, onProposed, onClose }: { studyId: strin
               </div>
             ))}
           </div>
-          <p className="type-caption text-text-muted">Suggestions come from this map. Choose them only when they match your study; other contexts need an applicability review. Equipment listed here is your declaration, not a capture check.</p>
+          <p className="type-note text-text-muted">Suggestions come from this map. Choose them only when they match your study; other contexts need an applicability review. Equipment listed here is your declaration, not a capture check.</p>
           <Button type="submit" size="sm" disabled={busy || results.loading}>Compare methods</Button>
         </form>
       )}
       {error && <Notice kind="problem">{error}</Notice>}
-      {compared && results.loading && <p role="status" className="type-caption text-text-muted">Checking constraints…</p>}
+      {compared && results.loading && <p role="status" className="type-note text-text-muted">Checking constraints…</p>}
       {compared && results.error && <Notice kind="problem">{results.error} <button className="underline" onClick={results.reload}>Retry comparison</button></Notice>}
       {compared && results.data && sameConstraints && !results.error && (
         <ol className="divide-y divide-border" aria-label="Method alternatives">
@@ -113,7 +113,7 @@ export function EvidencePanel({ studyId, onProposed, onClose }: { studyId: strin
                 <h4 className="type-control text-text">{candidate.designFamily ?? "Unspecified design"}</h4>
                 <span className="type-caption text-text-muted">{comparisonCurrent ? STATUS[candidate.status] : "Checking constraints…"}</span>
               </div>
-              <p className="type-caption text-text-muted">{candidate.missingFacts[0] ?? candidate.reasons[0] ?? 'Inspect the source and its conditions.'}</p>
+              <p className="type-note text-text-muted">{candidate.missingFacts[0] ?? candidate.reasons[0] ?? 'Inspect the source and its conditions.'}</p>
               <details open={expanded.includes(candidate.id)} onToggle={event => {
                 const open = event.currentTarget.open;
                 setExpanded(current => open ? current.includes(candidate.id) ? current : [...current, candidate.id] : current.filter(id => id !== candidate.id));

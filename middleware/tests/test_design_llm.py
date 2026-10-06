@@ -89,7 +89,7 @@ def test_propose_turn_drops_unknown_kind_but_keeps_the_text():
     client = _fake_client(reply)
     script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
     assert script is not None
-    assert script.text == "Still a useful reply. What would you like to settle next?"
+    assert script.text == "Still a useful reply."
     assert script.moves == ()
 
 
@@ -239,7 +239,7 @@ def test_propose_turn_drops_choose_template_with_hallucinated_id():
     client = _fake_client(reply)
     script = design_llm.propose_turn(client, "text", [], PAPERS, TEMPLATES)
     assert script is not None
-    assert script.text == "Adopt a template. What would you like to settle next?"
+    assert script.text == "Adopt a template."
     assert script.moves == ()
 
 
@@ -544,7 +544,7 @@ def test_propose_turn_trims_a_looped_reply_and_resolves_template_ids():
     }
     client = _fake_client(reply)
     turn = design_llm.propose_turn(client, "t", [], PAPERS, TEMPLATES)
-    assert turn.text == "Use METR RCT here. What would you like to settle next?"
+    assert turn.text == "Use METR RCT here."
 
 
 def test_streaming_salvages_truncated_json_without_a_second_call():
@@ -565,9 +565,7 @@ def test_streaming_salvages_truncated_json_without_a_second_call():
     except StopIteration as stop:
         turn = stop.value
     assert calls["post"] == 0
-    assert turn is not None
-    assert turn.text.startswith("Half a reply that got cut")
-    assert turn.text.endswith("What would you like to settle next?")
+    assert turn is not None and turn.text == "Half a reply that got cut"
 
 
 def test_design_requests_cap_tokens_and_the_transport_has_timeouts():
@@ -740,10 +738,9 @@ def test_decision_followup_reply_is_capped_to_a_short_length():
     turn = design_llm.propose_turn(
         client, "t", [], PAPERS, TEMPLATES, decision_followup=True
     )
-    assert len(turn.text) <= design_llm.DECISION_REPLY_MAX_CHARS == 400
+    assert turn.text == "Noted."
     normal = design_llm.propose_turn(client, "t", [], PAPERS, TEMPLATES)
-    assert len(normal.text) > len(turn.text)
-    assert len(normal.text) <= design_llm.REPLY_TEXT_MAX_CHARS
+    assert 100 < len(normal.text) <= 700
 
 
 def test_decision_followup_cap_applies_when_streaming_falls_back():
@@ -831,16 +828,16 @@ def test_batch_and_requested_explanations_have_room_for_material_tradeoffs():
     text = " ".join(
         f"Decision {i} has a distinct material tradeoff to inspect." for i in range(50)
     )
-    explanation = design_llm._clean_reply(
+    reply = design_llm._clean_reply(
         text, [], [], directive="QUESTION ABOUT WHAT YOU ALREADY SAID"
     )
-    assert 700 < len(explanation) <= design_llm.EXPLAIN_REPLY_MAX_CHARS
-    assert explanation.endswith(".")
-    batch = design_llm._clean_reply(text, [], [], directive="BATCH INTAKE")
-    assert len(batch) <= design_llm.REPLY_TEXT_MAX_CHARS
-    assert batch.endswith("?")
+    assert 700 < len(reply) <= design_llm.EXPLAIN_REPLY_MAX_CHARS == 900
+    assert reply.endswith(".")
     assert len(design_llm._clean_reply(text, [], [])) <= 700
-    assert len(design_llm._clean_reply(text, [], [], True, "BATCH INTAKE")) <= 400
+    batch = design_llm._clean_reply(
+        text, [], [], directive="BATCH INTAKE", has_cards=True
+    )
+    assert len(batch) <= design_llm.CARDS_REPLY_MAX_CHARS == 520
 
 
 def test_batch_budget_applies_to_blocking_and_streaming_provider_calls():
@@ -874,7 +871,7 @@ def test_batch_budget_applies_to_blocking_and_streaming_provider_calls():
             streamed = stop.value
             break
     assert blocking.text == streamed.text
-    assert len(blocking.text) <= design_llm.REPLY_TEXT_MAX_CHARS
+    assert len(blocking.text) <= 700
     assert budgets == [design_llm.MAX_TOKENS * 2] * 2
 
 
@@ -967,10 +964,7 @@ LIVE_PAPERS = [
     },
     {
         "ref": "corpus:metr",
-        "title": (
-            "AI-Assisted Programming Decreases the Productivity "
-            "of Experienced Developers"
-        ),
+        "title": "AI-Assisted Programming Decreases the Productivity of Experienced Developers",  # noqa: E501
         "authors": "Smith, J.",
         "year": 2025,
     },
@@ -985,21 +979,20 @@ LIVE_REPLY = (
     "The risk here is conflating output changes with process changes, such as more "
     "or fewer comments. The template Within-subject human-AI synergy comparison is "
     "the closest fit because it separates the two. The Randomized controlled trial "
-    "of AI assistance on real tasks is too broad for this question. "
-    "The Self-report-only "
+    "of AI assistance on real tasks is too broad for this question. The Self-report-only "  # noqa: E501
     f"survey is insufficient alone because it misses behaviour ({SERBIA_TITLE})."
 )
 
 
-def test_cards_prose_is_three_sentences_520_chars_and_skips_restatement():
+def test_cards_turn_prose_is_three_sentences_and_520_chars_and_starts_past_restatement():  # noqa: E501
     out = design_llm._clean_reply(
         LIVE_REPLY, LIVE_PAPERS, [], user_text=LIVE_USER, has_cards=True
     )
     assert len(out) <= 520
     assert out.startswith("This is a classic human-AI synergy study")
     assert "is too broad" not in out and "is insufficient" not in out
-    assert SERBIA_TITLE not in out
-    sentences = [x for x in design_llm._SENTENCE_SPLIT.split(out) if x]
+    assert "MULTIDIMENSIONAL" not in out
+    sentences = design_llm._split_sentences(out)
     assert len(sentences) <= 3
 
 
@@ -1022,14 +1015,6 @@ def test_rejected_alternative_sentences_are_dropped():
         "Use the crossover. This template does not prescribe a test. "
         "Order effects matter."
     )
-
-
-def test_reply_shortening_preserves_sample_size_and_capture_limitations():
-    text = (
-        "The sample is not sufficient for this effect size. "
-        "This capture will not include code correctness. Consider a pilot?"
-    )
-    assert design_llm._clean_reply(text, [], []) == text
 
 
 def test_inline_full_title_citations_become_surname_year():
@@ -1076,7 +1061,7 @@ def test_missing_question_appends_next_question_only_without_cards():
     fallback = design_llm._clean_reply(
         "Fixed order confounds.", [], [], has_cards=False
     )
-    assert fallback.endswith("?")
+    assert fallback == "Fixed order confounds."
 
 
 def test_existing_question_is_kept_and_not_duplicated():
@@ -1140,24 +1125,6 @@ def test_parse_moves_drops_empty_cautions():
     assert len(kept) == 1
 
 
-def test_parse_moves_keeps_distinct_measures_with_the_same_number():
-    moves = design_llm._parse_moves(
-        [
-            _mv(
-                "add-measure",
-                "Track 2026 completion time.",
-                "measures",
-                "2026 completion time",
-            ),
-            _mv(
-                "add-measure", "Track 2026 correctness.", "measures", "2026 correctness"
-            ),
-        ],
-        set(),
-    )
-    assert len(moves) == 2
-
-
 def test_parse_moves_caps_cards_per_turn():
     raw = [
         _mv("add-measure", f"Add measure {i}.", "measures", f"measure number {i} alpha")
@@ -1177,3 +1144,241 @@ def test_decision_followup_reply_is_deterministic():
     )
     assert out == "Noted. Who takes part?"
     assert design_llm._clean_reply(lecture, [], [], decision_followup=True) == "Noted."
+
+
+# ------------------------------------------------ real shapes from a live run
+# (voice-study-2: persisted design_moves and conversation_turns rows).
+
+
+def _pm(kind, target, proposal, patch):
+    from middleware.design_assistant import ProposedMove
+
+    return ProposedMove(kind, target, proposal, patch, ())
+
+
+LIVE_MOVES = (
+    _pm(
+        "set-field",
+        "participants.design",
+        "Use a within-subjects design where each participant completes both conditions.",  # noqa: E501
+        {
+            "op": "set-field",
+            "path": ["participants", "design"],
+            "value": "within-subjects",
+        },
+    ),
+    _pm(
+        "set-field",
+        "participants.planned",
+        "Plan for 16 participants.",
+        {"op": "set-field", "path": ["participants", "planned"], "value": 16},
+    ),
+    _pm(
+        "set-parameter",
+        "participants[]",
+        "Recruit experienced developers as the study population.",
+        {"section": "participants", "op": "append", "value": "experienced developers"},
+    ),
+    _pm(
+        "set-field",
+        "participants.planned",
+        "Set 16 participants (within-subjects).",
+        {"op": "set-field", "path": ["participants", "planned"], "value": 16},
+    ),
+    _pm(
+        "set-field",
+        "participants.description",
+        "Set population to experienced developers.",
+        {
+            "op": "set-field",
+            "path": ["participants", "description"],
+            "value": "Experienced developers",
+        },
+    ),
+    _pm(
+        "add-rq",
+        "researchQuestions[]",
+        "Declare research question: Does AI code completion change how experienced developers review code?",  # noqa: E501
+        {
+            "section": "researchQuestions",
+            "op": "append",
+            "value": "Does AI code completion change how experienced developers review code?",  # noqa: E501
+        },
+    ),
+    _pm(
+        "choose-template",
+        "templateId",
+        "Choose the within-subjects crossover template.",
+        {"templateId": "hai-eval-synergy-v1", "parameters": {}},
+    ),
+)
+
+
+def test_dedupe_moves_is_semantic_across_kinds_and_paths():
+    kept = design_llm.dedupe_moves(LIVE_MOVES, max_cards=5)
+    assert [m.proposal for m in kept] == [
+        LIVE_MOVES[0].proposal,
+        "Plan for 16 participants.",
+        "Recruit experienced developers as the study population.",
+        LIVE_MOVES[5].proposal,
+        LIVE_MOVES[6].proposal,
+    ]
+    assert len(design_llm.dedupe_moves(LIVE_MOVES * 1, max_cards=3)) == 3
+
+
+def test_assemble_level_merge_of_explicit_and_model_moves_is_deduped():
+    from middleware import design_assistant
+
+    turn = design_assistant.Turn("t", LIVE_MOVES, None)
+    out = design_assistant._dedupe_turn(turn, "a short partial idea")
+    assert len(out.moves) == 5
+
+
+LIVE_TURN3 = (
+    "For a within-subjects study of AI code completion's effect on code review, "
+    "the measures must capture both objective and subjective changes. The "
+    "literature shows that AI-assisted review alters review time (Does AI Code "
+    "Review Lead to Code Changes? A Case Study of GitHub Actions), comment quality "
+    "(What Types of Code Review Comments Do Developers Most Frequently Resolve?), "
+    "and perceived effort (AI ASSISTANTS IN PROGRAMMING: MULTIDIMENSIONAL ANALYSIS "
+    "OFUSEFULNESS, CHANGES IN WORK ATTITUDES, AND FUTURE EXPECTATIONS FOR "
+    "DEVELOPERS IN THE REPUBLIC OF SERBIA). Objective measures avoid the "
+    "perception gap. The next question is: Do you want to measure review time, "
+    "comment quality, or both, and how will you operationalize them?"
+)
+
+
+def test_uncandidate_title_parentheticals_are_shortened_too():
+    out = design_llm.shorten_citations(LIVE_TURN3, [])
+    assert "Case Study of GitHub Actions)" not in out
+    assert "(Does AI Code Review Lead to Code" in out and "…" in out
+    assert "MULTIDIMENSIONAL" not in out
+    assert "(Ai assistants in programming" in out
+    for m in __import__("re").finditer(r"\(([^()]+)\)", out):
+        assert len(m.group(1)) <= 70
+
+
+def test_next_question_scaffolding_prefix_is_removed():
+    out = design_llm._clean_reply(LIVE_TURN3, [], [], has_cards=False)
+    assert "The next question is" not in out
+    assert out.endswith("operationalize them?")
+    assert len(out) <= 700
+
+
+def test_a_cited_paper_id_is_shown_as_a_short_citation_not_its_full_title():
+    """The model cites papers by id. The id must become '(Surname Year)', not the
+    full title: expanding ids to titles after shortening undid the shortening."""
+    papers = [
+        {
+            "ref": "arxiv:2510.00001",
+            "title": "AI-Assisted Programming Decreases the Productivity of Experienced "  # noqa: E501
+            "Developers by Increasing the Technical Debt and Maintenance Burden",
+            "authors": ["Maria Okafor", "Jan Lindqvist"],
+            "year": 2025,
+        }
+    ]
+    out = design_llm._clean_reply(
+        "Experienced developers often overestimate their gains (arxiv:2510.00001). "
+        "Which task do you want them to review?",
+        papers,
+        [],
+        has_cards=True,
+    )
+    assert "Technical Debt and Maintenance Burden" not in out
+    assert "Okafor" in out and "2025" in out
+    assert out.rstrip().endswith("?")
+
+
+def test_a_title_with_a_question_mark_does_not_break_the_reply_into_fragments():
+    """Titles contain '?' and ':'. Citations must be shortened BEFORE the reply is
+    split into sentences, or the title is cut in half (live: '(Does AI Code Review
+    Lead to Code Changes?' with the parenthesis never closed)."""
+    papers = [
+        {
+            "ref": "arxiv:2510.00002",
+            "title": "Does AI Code Review Lead to Code Changes? A Case Study of GitHub Actions",  # noqa: E501
+            "authors": ["Priya Raman"],
+            "year": 2025,
+        }
+    ]
+    out = design_llm._clean_reply(
+        "AI review can change review patterns (arxiv:2510.00002). "
+        "Objective measures avoid the perception gap. "
+        "Which review task do you want to use?",
+        papers,
+        [],
+        has_cards=True,
+    )
+    assert out.count("(") == out.count(")")
+    assert "Raman" in out and "2025" in out
+    assert "A Case Study of GitHub" not in out
+    assert out.rstrip().endswith("Which review task do you want to use?")
+
+
+def test_a_literal_title_with_a_question_mark_is_shortened_before_sentence_splitting():
+    """Live shape: the model writes the title itself (not an id)."""
+    papers = [
+        {
+            "ref": "arxiv:2510.00003",
+            "title": "Does AI Code Review Lead to Code Changes? A Case Study of GitHub Actions",  # noqa: E501
+            "authors": ["Priya Raman"],
+            "year": 2025,
+        }
+    ]
+    out = design_llm._clean_reply(
+        "The literature shows that AI can change review patterns "
+        "(Does AI Code Review Lead to Code Changes? A Case Study of GitHub Actions). "
+        "Objective measures avoid the perception gap between felt and measured effects. "  # noqa: E501
+        "Which review task do you want to use?",
+        papers,
+        [],
+        has_cards=True,
+    )
+    assert out.count("(") == out.count(")"), out
+    assert "A Case Study of GitHub" not in out, out
+    assert "Raman" in out, out
+    assert out.rstrip().endswith("Which review task do you want to use?"), out
+
+
+def test_an_unmatched_long_title_never_leaves_sentence_punctuation_inside_the_cite():
+    """Live (turn 1): the 3-sentence limiter split a shortened title at its '?' and
+    kept '(Does AI Code Review Lead to Code Changes?' with no closing parenthesis."""
+    text = (
+        "The research question is about how AI code completion affects review behaviour. "  # noqa: E501
+        "This is a classic human-AI synergy study with objective and subjective outcomes. "  # noqa: E501
+        "The literature shows that AI can change review patterns "
+        "(Does AI Code Review Lead to Code Changes? A Case Study of GitHub Actions). "
+        "Objective measures avoid the perception gap between felt and measured effects."
+    )
+    out = design_llm._clean_reply(text, [], [], has_cards=True)
+    assert out.count("(") == out.count(")"), out
+    inside = __import__("re").findall(r"\(([^)]*)\)", out)
+    assert all(not any(ch in cite for ch in "?!:") for cite in inside), out
+    assert "Lead to Code Changes" in out or "Does AI Code Review" in out, out
+
+
+def test_reply_shortening_preserves_sample_size_and_capture_limitations():
+    text = (
+        "The sample is not sufficient for this effect size. "
+        "This capture will not include code correctness. Consider a pilot?"
+    )
+    assert design_llm._clean_reply(text, [], []) == text
+
+
+
+def test_parse_moves_keeps_distinct_measures_with_the_same_number():
+    moves = design_llm._parse_moves(
+        [
+            _mv(
+                "add-measure",
+                "Track 2026 completion time.",
+                "measures",
+                "2026 completion time",
+            ),
+            _mv(
+                "add-measure", "Track 2026 correctness.", "measures", "2026 correctness"
+            ),
+        ],
+        set(),
+    )
+    assert len(moves) == 2
