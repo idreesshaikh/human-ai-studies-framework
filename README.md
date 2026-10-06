@@ -1,6 +1,10 @@
-# PHOENIX and TERN
+# StudyLoop
 
 Tools for studying how developers work with AI.
+
+**StudyLoop** is the project and framework. **PHOENIX** is its researcher
+platform, and **TERN** is its participant extension for VS Code. Together they
+connect study design, capture and analysis through one approved protocol.
 
 The study-design chat keeps advanced controls out of the reading path. The
 [evidence-linked method workflow](docs/evidence-workflow.md) connects imported

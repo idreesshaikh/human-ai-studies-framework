@@ -1,6 +1,10 @@
-# PHOENIX · Human–AI Study Framework
+# StudyLoop · Human–AI Study Framework
 
 *This is the user guide, built with MkDocs from `documentation/`. Developer and architecture documentation lives in the repository's `docs/` folder.*
+
+**StudyLoop** is the project and framework. Its two components keep their names:
+**PHOENIX**, the researcher platform, and **TERN**, the participant extension
+for VS Code. They share an approved study protocol and analysis handoff.
 
 ## From a research idea to a study you can trust
 
@@ -44,7 +48,7 @@ them observable.
   before recruitment, while sequence gaps and incomplete sessions remain visible
   instead of being quietly smoothed away.
 
-## Two products, one workflow
+## Two components, one workflow
 
 - **[Platform](platform/index.md)** — design, compile, rehearse, recruit, curate.
 - **[TERN Extension](extension/index.md)** — pair, consent, work, probe, debrief.
@@ -54,11 +58,11 @@ the complete loop. If you are a participant, start with [Installing TERN](extens
 
 ## Try the release locally
 
-Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22, and a
-[Mistral API key](https://console.mistral.ai/) for the design conversation.
-PHOENIX uses Mistral Medium (`mistral-medium-latest`) for short design turns
-through Mistral's EU service; Mistral Large is used only for optional
-model-assisted paper matching. Set `MISTRAL_DESIGN_MODEL` to override the design model.
+Prerequisites: [uv](https://docs.astral.sh/uv/) and Node 22. Add a
+[Mistral API key](https://console.mistral.ai/) for the optional design conversation.
+The default model is `ministral-14b-latest` for design and paper matching.
+Set `MISTRAL_MODEL` to change both routes or `MISTRAL_DESIGN_MODEL` to override
+design alone. Manual authoring, templates, capture and exports work without a key.
 
 ```bash
 git clone https://github.com/idreesshaikh/human-ai-studies-framework.git

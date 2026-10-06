@@ -1,5 +1,7 @@
 # PHOENIX web workspace
 
+PHOENIX is the researcher platform in the StudyLoop project.
+
 The researcher interface for study design, protocol review, participant setup,
 literature, and data export. Built with React, TypeScript, Vite, and Tailwind.
 

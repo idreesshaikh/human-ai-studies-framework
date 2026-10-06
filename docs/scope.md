@@ -1,6 +1,6 @@
 # Scope
 
-PHOENIX supports task-based studies of human–AI software development. It connects
+StudyLoop supports task-based studies of human–AI software development. It connects
 study design, participant capture, and analysis handoff through an explicit
 protocol.
 

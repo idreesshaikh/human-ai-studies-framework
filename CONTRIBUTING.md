@@ -1,6 +1,6 @@
 # Contributing
 
-PHOENIX is the researcher workspace; TERN is the participant extension. Keep
+StudyLoop includes the PHOENIX researcher workspace and TERN participant extension. Keep
 changes focused, preserve protocol/API identifiers, and include regressions for
 capture, approval, permissions, analysis, and exports.
 

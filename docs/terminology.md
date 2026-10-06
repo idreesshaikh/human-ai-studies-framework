@@ -3,6 +3,17 @@
 Keep API and historical template IDs stable. Improve visible labels without
 renaming stored records or silently changing a study's design.
 
+## Project name
+
+**StudyLoop** is the project and framework. **PHOENIX** remains the researcher
+platform and **TERN** remains the participant extension for VS Code. Use
+StudyLoop when referring to the whole project; use the component name when
+describing its specific interface or responsibility.
+
+The project rename does not change extension IDs, `tern.*` settings, protocol
+fields, event sources, storage keys or release filenames. Existing studies
+and participant links continue to use the same integration contracts.
+
 | Term | Meaning |
 | --- | --- |
 | Study | One protocol, participant assignments, and attributed dataset |

@@ -1,5 +1,7 @@
 # PHOENIX Platform
 
+PHOENIX is the researcher-facing platform in StudyLoop.
+
 ## The study desk, from first question to clean hand-off
 
 PHOENIX is the web application where a researcher turns an idea into a study
