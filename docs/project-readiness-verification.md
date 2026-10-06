@@ -1,4 +1,4 @@
-# MIT demo verification
+# Project readiness verification
 
 6 October 2026. This verifies the local source and production build in an isolated
 synthetic database. Existing studies and participant data were not used.
@@ -42,7 +42,7 @@ The source-map-js build dependency is updated to 1.2.2; both npm audits are clea
   notebook and dictionary generation. All four workspace exports download
   actual nonempty files.
 
-## Remaining demo limits
+## Remaining verification limits
 
 These are bounded software and browser checks. Hosted deployment/sign-in,
 external model availability, a physical VS Code capture session, and human
