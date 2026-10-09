@@ -14,6 +14,10 @@ Filter study papers by title, author, year or identifier. Sort by recently added
 title or publication year. Templates and design recommendations remain available
 in Templates and Setup.
 
+The desktop collection and reader have equal, stable heights. Long collections
+scroll inside the list; long abstracts scroll inside the reader. Author summaries
+keep rows compact, with the full list available through **View all authors**.
+
 ## Read and connect
 
 Select a paper to read its bibliographic details and abstract. **Open source**

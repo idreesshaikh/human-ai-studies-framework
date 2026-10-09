@@ -58,16 +58,7 @@ function Home() {
   return isSolo && slug ? <Navigate to={`/p/${slug}`} replace /> : <Projects />;
 }
 
-/* Routes the shell renders to anyone, credential or not.
- *
- * Templates are a public browse and the middleware already treats them as
- * one: `/templates/repertoire` carries no auth dependency and answers 200 to
- * an unauthenticated request. The gate was the SPA's own invention, and it made
- * the page contradict its own first line  -  "No project needed to browse"  -
- * by demanding an account before a visitor saw a single design shape.
- *
- * Public means readable, not writable. Every action that creates something
- * still needs an identity, and the describe-a-study panel says so where it is. */
+/* Templates are publicly readable; creating a study still requires an identity. */
 const PUBLIC_PATHS = new Set(["/repertoire"]);
 
 function Shell() {

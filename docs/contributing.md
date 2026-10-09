@@ -34,9 +34,8 @@ Keep the dependency direction visible:
   persistence/provider rules in service modules.
 - `platform/` is the view layer. It calls the API and renders state; study
   rules belong on the server.
-- `agent-capture/` and `metrics/` are optional producers. `curated/` is an
-  isolated experimental archive package. Neither belongs in the live server's
-  dependency path unless a complete, tested integration is added.
+- `agent-capture/` and `metrics/` are optional producers. Keep them outside
+  the live server's dependency path.
 
 Prefer small pure functions at package boundaries and explicit side effects at
 the edges. A change to an event, manifest, or protocol field needs a focused

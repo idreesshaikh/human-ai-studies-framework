@@ -1,13 +1,4 @@
-/* The TERN extension's identity and how a participant gets it.
- *
- * VS Code routes a `vscode://` URI by the extension's `publisher.name` and
- * nothing else, so a wrong string here fails silently  -  the browser hands the
- * URI to VS Code, no installed extension claims it, and the participant sees
- * nothing happen. That is precisely what shipped: this link pointed at
- * `hpi-research.cognitive-overlay`, an identity that has never existed.
- * `test_extension_identity.py` now asserts these constants against
- * `extension/package.json`, so the two cannot drift apart again.
- */
+/* VS Code pairing URIs use the publisher.name identity from extension/package.json. */
 
 /** `publisher.name`, exactly as VS Code resolves it. */
 export const EXTENSION_ID = "idreesrazak.tern";

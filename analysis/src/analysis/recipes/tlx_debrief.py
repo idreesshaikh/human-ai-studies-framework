@@ -115,7 +115,7 @@ def run(dataset: Dataset) -> RecipeResult:
         tables=tables,
         figures={"subscales": fig},
         summary=(
-            f"TLX debrief (RQ-P1); {n_responded} responded, {n_skipped} skipped. "
+            f"TLX debrief; {n_responded} responded, {n_skipped} skipped. "
             + " ".join(sentences)
         ),
         methods=METHODS,

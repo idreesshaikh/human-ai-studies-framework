@@ -148,6 +148,6 @@ def run(dataset: Dataset) -> RecipeResult:
     return RecipeResult(
         tables=tables,
         figures=figs,
-        summary="Agent interaction dynamics (RQ-P5). " + " ".join(sentences),
+        summary="Agent interaction dynamics. " + " ".join(sentences),
         methods=METHODS,
     )

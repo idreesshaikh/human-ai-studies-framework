@@ -362,7 +362,7 @@ def start_background_import(db_url: str, session_factory) -> dict[str, object]:
         return dict(_BOOTSTRAP_STATE)
 
 
-_DEMO_SEED_REFS = (
+_REFERENCE_REFS = (
     "corpus:trust-in-ai-code-generation",
     "corpus:insecure-code-with-ai-assistants",
     "corpus:metr-early-2025-dev-productivity",
@@ -381,7 +381,7 @@ def verify_import(db_url: str) -> dict[str, bool]:
     expected_b = len(parse_tier_b())
     checks: dict[str, bool] = {}
     with factory() as s:
-        for ref in _DEMO_SEED_REFS:
+        for ref in _REFERENCE_REFS:
             row = s.execute(
                 select(Paper).where(
                     Paper.study_id == CORPUS_STUDY_ID, Paper.paper_ref == ref
@@ -411,7 +411,7 @@ def verify_import(db_url: str) -> dict[str, bool]:
         checks["via-edges-landed"] = (edge_count or 0) > 0
         hits = paper_index.search(s, "over-trust AI generated code", limit=10)
         found = {h["paperRef"] for h in hits}
-        checks["fts-finds-demo-seeds"] = bool(
-            found & {_DEMO_SEED_REFS[0], _DEMO_SEED_REFS[1]}
+        checks["fts-finds-reference-papers"] = bool(
+            found & {_REFERENCE_REFS[0], _REFERENCE_REFS[1]}
         )
     return checks

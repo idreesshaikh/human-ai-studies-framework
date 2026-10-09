@@ -677,19 +677,6 @@ CARDS_REPLY_MAX_CHARS = 520
 CARDS_REPLY_MAX_SENTENCES = 3
 DECISION_REPLY_MAX_CHARS = 400
 
-_MOTIVE_SENTENCE = re.compile(
-    r"\bbecause\s+you\b|\byou\s+(?:wanted|preferred|felt|thought|needed|chose)\b"
-    r"|\b(?:was|were)\s+trying\s+to\b|\bto\s+clarify\s+the\s+setup\b",
-    re.I,
-)
-
-
-def strip_attributed_motives(text: str) -> str:
-    """Drop sentences that attribute a reason to the researcher's card decision."""
-    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
-    kept = [s for s in sentences if not _MOTIVE_SENTENCE.search(s)]
-    return " ".join(kept).strip()
-
 
 _FILLER_SENTENCE = re.compile(
     r"^\W*(?:great|good|excellent|interesting)\s+(?:question|point|idea)\b"

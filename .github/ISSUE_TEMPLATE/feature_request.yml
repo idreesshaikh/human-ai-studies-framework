@@ -54,7 +54,6 @@ body:
         - agent-capture
         - metrics
         - templates
-        - curated (experimental)
         - docs
         - other
     validations:

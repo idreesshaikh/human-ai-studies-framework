@@ -176,15 +176,7 @@ export function EnrollmentPanel({
   const heading = enrollmentHeading(rows.length, redeemed);
 
   return (
-    /* `work`, the same measure Data and Planning use  -  the four tabs of one
-     * workspace must not move the content column as you switch between them.
-     * This panel was the odd one out at `wide`, so Participants sat 192px
-     * wider than Data and Planning and the page visibly jumped between tabs.
-     *
-     * The old justification  -  seven columns needing the contract's escape
-     * hatch  -  does not hold: the table is `min-w-3xl` (768px) inside
-     * `overflow-x-auto`, and `work` leaves 896px of column, so it fits with
-     * room to spare and still scrolls on its own if a window gets tighter. */
+    /* Keep the workspace measure stable; let the roster scroll within it. */
     <Surface measure="work" label="Participants">
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1">

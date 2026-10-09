@@ -81,6 +81,8 @@ uv run agent-capture correlate --manifest .phoenix/session-manifest.json
 
 For a protected server, set `MIDDLEWARE_TOKEN` or pass `--token` to
 `correlate`; the token is used only for the dataset read.
+Without a manifest or local `--dataset`, pass `--study` explicitly. The command
+does not select an example study automatically.
 
 The raw stream feeds the platform's agent view and the
 `agent-interaction-dynamics` and `task-outcome-by-condition` recipes. The

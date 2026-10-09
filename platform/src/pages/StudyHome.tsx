@@ -14,7 +14,7 @@ import { LibraryTab } from "@/components/library/LibraryTab";
 import { DataTab } from "@/components/charts/DataTab";
 import { PowerPanel } from "@/components/charts/PowerPanel";
 import { EnrollmentPanel } from "@/components/enrollment/EnrollmentPanel";
-import { StudyTour, markTourSeen } from "@/components/shell/StudyTour";
+import { StudyTour } from "@/components/shell/StudyTour";
 import { ExportStudy } from "@/components/shell/ExportStudy";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
@@ -25,20 +25,7 @@ import { cn } from "@/lib/cn";
 import { browserNameStore, studyDisplayName } from "@/lib/studyNames";
 import { resolveStudyTab } from "@/lib/studyTabs";
 
-/* A study's workspace, and the whole arc the platform supports: configure a
- * developer study, run it, and inspect the data. The setup conversation is the
- * primary surface. The workspace tabs follow the actual researcher path:
- * Setup → Evidence → Plan → Run → Data. The route ids stay stable for deep
- * links and the tour, while the visible labels explain why each surface exists
- * instead of exposing five unrelated product nouns.
- *
- * There is deliberately no lifecycle board. Tracking a study across seven
- * phases was ceremony no researcher worked through, and treating ethics approval
- * as an app gate blocked the one thing this workspace exists to do: it made a
- * designed, compiled study impossible to actually set up. Approval is the
- * university's to grant; what the platform owes a participant is an
- * unmissable account of what will be captured, which the consent statement
- * at pairing gives them. */
+/* Study workflow: Setup → Evidence → Plan → Run → Data. Route IDs stay stable for deep links. */
 
 type Tab = "conversation" | "library" | "data" | "planning" | "enrollment";
 
@@ -82,21 +69,7 @@ export function StudyHome() {
       : "";
 
   const [showTour, setShowTour] = useState(false);
-  /* The tab the researcher was on when the tour opened.
-   *
-   * The tour BORROWS the workspace to demonstrate it  -  each step switches the
-   * tab to whatever it is describing  -  and it has to give it back. It did
-   * not: the last step is about Participants, so every first-run walkthrough
-   * ended by abandoning the researcher on the Participants tab of a study
-   * with no protocol, looking at "Nobody can be enrolled yet". The one screen
-   * whose whole job is to get someone started left them on the only tab where
-   * nothing can be done yet, and the first tab it had just spent two steps
-   * explaining was two clicks away again.
-   *
-   * Restoring the remembered tab is right in both directions: a first run
-   * opens on Conversation and returns there, and a researcher who reopens the
-   * tour with "?" from Planning is put back on Planning rather than being
-   * dumped somewhere they never chose. */
+  /* Return to the researcher’s selected tab when the walkthrough closes. */
   const tabBeforeTour = useRef<Tab>(tab);
 
   const openTour = () => {
@@ -109,7 +82,6 @@ export function StudyHome() {
   // for it, but never put a first-time modal in front of their study.
 
   const closeTour = () => {
-    markTourSeen();
     setShowTour(false);
     setTab(tabBeforeTour.current);
   };

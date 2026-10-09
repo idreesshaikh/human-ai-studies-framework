@@ -44,23 +44,6 @@ def git(*args: str, cwd: str | Path | None = None, check: bool = False) -> str:
     return proc.stdout.strip()
 
 
-def numstat(commit_args: list[str], cwd: str | Path) -> dict:
-    """
-    ``{filesChanged, insertions, deletions}`` for ``git diff --numstat <commit_args>``
-    (content-free - counts only, never paths or text).
-    """
-    out = git("diff", "--numstat", *commit_args, cwd=cwd)
-    files = insertions = deletions = 0
-    for line in out.splitlines():
-        parts = line.split("\t")
-        if len(parts) < 3:
-            continue
-        files += 1
-        insertions += int(parts[0]) if parts[0].isdigit() else 0
-        deletions += int(parts[1]) if parts[1].isdigit() else 0
-    return {"filesChanged": files, "insertions": insertions, "deletions": deletions}
-
-
 def show_numstat(commit_hash: str, cwd: str | Path) -> dict:
     """Same shape for a single commit (``git show --numstat``)."""
     out = git("show", "--numstat", "--format=", commit_hash, cwd=cwd)

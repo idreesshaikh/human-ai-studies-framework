@@ -76,3 +76,15 @@ export function paperIdentifier(paper: {
   if (paper.arxivId) return `arXiv:${paper.arxivId.replace(/^arxiv:/i, "")}`;
   return publicPaperReference(paper.paperRef);
 }
+
+export function paperAuthorSummary(authors: string[] = []): string {
+  return authors.length > 1 ? `${authors[0]} et al.` : (authors[0] ?? "");
+}
+
+/** Keep source text intact while making common abstract formatting readable. */
+export function readableAbstract(text: string): string {
+  return text.replace(
+    /\\(?:textsc|textit|textbf|textrm|emph)\{([^{}]*)\}/g,
+    "$1",
+  );
+}

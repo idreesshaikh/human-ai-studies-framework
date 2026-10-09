@@ -479,11 +479,7 @@ def register(app: FastAPI, deps: ApiDeps):
             rate = [0] * buckets
             for e in events:
                 age = (now_dt - datetime.fromisoformat(e.received_at)).total_seconds()
-                # Un-clamped, a negative age floor-divides to a negative bucket offset
-                # and indexes past the end of `rate`, which crashed this route outright
-                # the moment a study had ever run a dry run - the offending IndexError
-                # never depended on anything about the study, so it was invisible until
-                # real data (simulated or otherwise) actually triggered it.
+                # Clock skew must not produce an out-of-range bucket index.
                 offset = min(max(int(age // bucketSeconds), 0), buckets - 1)
                 idx = buckets - 1 - offset
                 rate[idx] += 1

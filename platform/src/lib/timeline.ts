@@ -1,13 +1,4 @@
-/**
- * Lane-assembly module for the session-timeline swimlane (FR-DASH-4).
- *
- * Pure, testable, no DOM dependencies. Groups events by source into labelled
- * lanes, sorted deterministically by timestamp. Provides a minimal time-to-pixel
- * scale (hand-rolled, matching MetricStrip.tsx's no-dependency pattern).
- *
- * Wall #4: renders exactly the join-keyed rows every leg already emits  -
- * invents no new event shape.
- */
+/* Group joined session events into timestamp-ordered source lanes. */
 
 /** One event row from the middleware (GET /sessions/{id}/events). */
 export interface EventRow {
@@ -36,12 +27,6 @@ export interface Lane {
   count: number;
   /** Number of flagged events in this lane. */
   flagged: number;
-}
-
-/** Lane colour slot (index into the CSS series vars). */
-export interface LaneStyle {
-  source: string;
-  slot: number;
 }
 
 /** Parse an ISO-8601 timestamp to epoch ms, or 0 if invalid. */
@@ -160,19 +145,4 @@ export function timeScale(
     const frac = (t - minTs) / range;
     return marginLeft + frac * plotW;
   };
-}
-
-/**
- * Lane colouring: deterministic slot per source for visual consistency
- * across re-renders. 8 slots in the validated palette.
- */
-export function laneStyle(source: string): LaneStyle {
-  const HASH_SLOTS = [
-    1, 3, 5, 7, 2, 4, 6, 8,
-  ];
-  let hash = 0;
-  for (let i = 0; i < source.length; i++) {
-    hash = (hash * 31 + source.charCodeAt(i)) | 0;
-  }
-  return { source, slot: HASH_SLOTS[((hash & 0x7fffffff) % HASH_SLOTS.length)] };
 }

@@ -27,7 +27,6 @@ body:
         - agent-capture
         - metrics
         - templates
-        - curated (experimental)
         - docs
         - build, CI, or deployment
         - other

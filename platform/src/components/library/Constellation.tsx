@@ -156,30 +156,18 @@ export function Constellation({
       layoutGraph(nodes, edges, {
         width: W,
         height: H,
-        spread: true,
       }),
     [nodes, edges],
   );
   const degrees = useMemo(() => degreeMap(nodes, edges), [nodes, edges]);
   const adjacency = useMemo(() => buildAdjacency(edges), [edges]);
 
-  // Per-node position overrides produced by dragging a node  -  the one thing
-  // that opts a node out of the settle/drift layers below (respecting a
-  // deliberate placement matters more than the ambient motion).
+  // Preserve positions explicitly chosen by dragging.
   const [moved, setMoved] = useState<Record<string, { x: number; y: number }>>(
     {},
   );
 
-  // The spread seed is already the readable arrangement. A second live force
-  // pass used to undo it by pulling linked papers back into a centre knot,
-  // while also making the graph re-render on every animation frame. Keep the
-  // first paint deterministic and still; pan, zoom, focus and drag provide
-  // the useful motion.
-  const settled = base;
-
-  // A new lens or harvested neighbourhood gets its own useful framing. This
-  // is intentionally tied to the solved base, not every settle frame, so a
-  // researcher's manual zoom remains theirs until the graph actually changes.
+  // Reframe when graph positions change; preserve manual zoom otherwise.
   const framing = useRef("");
   useEffect(() => {
     const signature = JSON.stringify(
@@ -192,8 +180,8 @@ export function Constellation({
   }, [base]);
 
   const positioned = useMemo(
-    () => settled.map((n) => ({ ...n, ...(moved[n.paperRef] ?? {}) })),
-    [settled, moved],
+    () => base.map((n) => ({ ...n, ...(moved[n.paperRef] ?? {}) })),
+    [base, moved],
   );
 
   const posByRef = useMemo(

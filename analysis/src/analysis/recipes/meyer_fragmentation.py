@@ -36,7 +36,7 @@ METHODS = (
     id="meyer-fragmentation",
     answers=["RQ-P3"],
     requires_events=["editor_focus"],
-    title="Work fragmentation per Meyer et al. 2017 (replication demo 2)",
+    title="Work fragmentation per Meyer et al. 2017",
 )
 def run(dataset: Dataset) -> RecipeResult:
     focus = dataset.of_type("editor_focus")
@@ -162,7 +162,7 @@ def run(dataset: Dataset) -> RecipeResult:
     return RecipeResult(
         tables=tables,
         figures=figs,
-        summary="Work fragmentation, replication demo 2 (RQ-P3). "
+        summary="Work fragmentation. "
         + " ".join(sentences),
         methods=METHODS,
     )

@@ -11,6 +11,8 @@ import { studyApi } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 import {
   paperIdentifier,
+  paperAuthorSummary,
+  readableAbstract,
   paperLookupInput,
   paperSourceHref,
 } from "@/lib/paperReference";
@@ -313,12 +315,12 @@ export function LibraryTab({
       )}
       {actionError && <Notice kind="problem">{actionError}</Notice>}
 
-      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(14rem,1fr)_minmax(0,2fr)]">
+      <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-[minmax(14rem,1fr)_minmax(0,2fr)]">
         <section
-          className="min-w-0 overflow-hidden rounded-plate border border-border bg-surface"
+          className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-plate border border-border bg-surface lg:h-[var(--library-pane-h)]"
           aria-labelledby="evidence-papers-heading"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-border p-4">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border p-4">
             <h2 id="evidence-papers-heading" className="type-subhead text-text">
               Study papers
             </h2>
@@ -327,7 +329,7 @@ export function LibraryTab({
             </span>
           </div>
           {papers.length > 0 && (
-            <div className="flex flex-col gap-2 border-b border-border p-3">
+            <div className="flex shrink-0 flex-col gap-2 border-b border-border p-3">
               <Field id="evidence-filter" label="Filter papers">
                 <Input
                   type="search"
@@ -358,7 +360,7 @@ export function LibraryTab({
             tabIndex={0}
             role="region"
             aria-label="Study paper list"
-            className="max-h-[var(--library-pane-h)] overflow-y-auto overscroll-contain"
+            className="min-h-0 max-h-80 flex-1 overflow-y-auto overscroll-contain lg:max-h-none"
           >
             {initialLoading ? (
               <p role="status" className="p-4 type-body text-text-muted">
@@ -379,11 +381,11 @@ export function LibraryTab({
                         selected === paper.paperRef && "bg-zone-9",
                       )}
                     >
-                      <span className="line-clamp-2 type-body font-medium text-text">
+                      <span className="line-clamp-2 min-h-[2lh] type-body font-medium text-text">
                         {paper.title || "Untitled paper"}
                       </span>
-                      <span className="type-caption text-text-muted">
-                        {[(paper.authors ?? []).join(", "), paper.year]
+                      <span className="w-full truncate type-caption text-text-muted">
+                        {[paperAuthorSummary(paper.authors ?? []), paper.year]
                           .filter(Boolean)
                           .join(" · ") || "Bibliographic details unavailable"}
                       </span>
@@ -430,81 +432,94 @@ export function LibraryTab({
 
         <aside
           aria-label="Paper details"
-          className="min-w-0 rounded-plate border border-border bg-surface p-4"
+          className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-plate border border-border bg-surface lg:h-[var(--library-pane-h)]"
         >
           {detail ? (
             <>
-              <div className="flex items-start justify-between gap-3">
-                <h2
-                  ref={heading}
-                  tabIndex={-1}
-                  className="type-subhead break-words text-text"
-                >
-                  {detail.title || "Untitled paper"}
-                </h2>
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  aria-label="Close paper details"
-                  onClick={() => {
-                    setSelected(null);
-                    paperList.current?.focus();
-                  }}
-                >
-                  <X aria-hidden />
-                </Button>
-              </div>
-              <p className="mt-2 type-note text-text-muted">
-                {[
-                  (detail.authors ?? []).join(", "),
-                  detail.year,
-                  selectedPaper?.venue,
-                ]
-                  .filter(Boolean)
-                  .join(" · ") || "Bibliographic details unavailable"}
-              </p>
-              <p className="mt-1 type-caption text-text-muted">
-                {paperIdentifier(
-                  selectedPaper ?? { paperRef: detail.paperRef },
-                ) ??
-                  (selectedPaper?.hasFullText
-                    ? "Uploaded PDF"
-                    : "Library paper")}
-                {detail.citationCount != null
-                  ? ` · ${detail.citationCount} citations`
-                  : ""}
-              </p>
-              {sourceHref && (
-                <a
-                  href={sourceHref}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 inline-flex items-center gap-1 type-control text-accent underline underline-offset-4"
-                >
-                  <ExternalLink className="size-4" aria-hidden /> Open source
-                </a>
-              )}
-              <div className="mt-4 border-t border-border pt-4">
-                <h3
-                  id="evidence-abstract-heading"
-                  className="type-label text-text"
-                >
-                  Abstract
-                </h3>
-                <div
-                  tabIndex={0}
-                  role="region"
-                  aria-labelledby="evidence-abstract-heading"
-                  className="mt-2 max-h-[var(--library-pane-h)] overflow-y-auto overscroll-contain"
-                >
-                  <p className="max-w-reading whitespace-pre-line break-words type-body text-text-muted">
-                    {detail.abstract ||
-                      "The source has not supplied an abstract for this paper."}
-                  </p>
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label="Paper reader content"
+                className="min-h-0 max-h-[var(--library-pane-h)] flex-1 overflow-y-auto overscroll-contain p-4 lg:max-h-none"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h2
+                    ref={heading}
+                    tabIndex={-1}
+                    className="type-subhead break-words text-text"
+                  >
+                    {detail.title || "Untitled paper"}
+                  </h2>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label="Close paper details"
+                    onClick={() => {
+                      setSelected(null);
+                      paperList.current?.focus();
+                    }}
+                  >
+                    <X aria-hidden />
+                  </Button>
+                </div>
+                <p className="mt-2 type-note text-text-muted">
+                  {[
+                    paperAuthorSummary(detail.authors ?? []),
+                    detail.year,
+                    selectedPaper?.venue,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Bibliographic details unavailable"}
+                </p>
+                {(detail.authors?.length ?? 0) > 1 && (
+                  <details className="mt-1 type-note text-text-muted">
+                    <summary className="w-fit cursor-pointer text-accent underline underline-offset-4">
+                      View all {detail.authors!.length} authors
+                    </summary>
+                    <p className="mt-2 break-words">
+                      {detail.authors!.join(", ")}
+                    </p>
+                  </details>
+                )}
+                <p className="mt-1 type-caption text-text-muted">
+                  {paperIdentifier(
+                    selectedPaper ?? { paperRef: detail.paperRef },
+                  ) ??
+                    (selectedPaper?.hasFullText
+                      ? "Uploaded PDF"
+                      : "Library paper")}
+                  {detail.citationCount != null
+                    ? ` · ${detail.citationCount} citations`
+                    : ""}
+                </p>
+                {sourceHref && (
+                  <a
+                    href={sourceHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex items-center gap-1 type-control text-accent underline underline-offset-4"
+                  >
+                    <ExternalLink className="size-4" aria-hidden /> Open source
+                  </a>
+                )}
+                <div className="mt-4 border-t border-border pt-4">
+                  <h3
+                    id="evidence-abstract-heading"
+                    className="type-label text-text"
+                  >
+                    Abstract
+                  </h3>
+                  <div className="mt-2">
+                    <p className="max-w-reading whitespace-pre-line break-words type-body text-text-muted">
+                      {detail.abstract
+                        ? readableAbstract(detail.abstract)
+                        : "The source has not supplied an abstract for this paper."}
+                    </p>
+                  </div>
                 </div>
               </div>
               {!inStudy && (
-                <div className="mt-4 flex flex-col items-start gap-2 border-t border-border pt-4">
+                <div className="flex shrink-0 flex-col items-start gap-2 border-t border-border p-4">
                   <p className="type-note text-text-muted">
                     Related paper. It is not yet part of this study.
                   </p>
@@ -531,7 +546,7 @@ export function LibraryTab({
                 </div>
               )}
               {selectedPaper && (
-                <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
+                <div className="flex shrink-0 flex-col gap-3 border-t border-border p-4">
                   {canEdit ? (
                     <>
                       <Field
@@ -627,7 +642,7 @@ export function LibraryTab({
               )}
             </>
           ) : (
-            <div className="flex flex-col gap-2 py-4">
+            <div className="flex flex-1 flex-col justify-center gap-2 p-4">
               <h2 className="type-subhead text-text">
                 Read and connect a paper
               </h2>

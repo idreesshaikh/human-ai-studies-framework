@@ -61,21 +61,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   const theme = useSyncExternalStore(subscribeTheme, getTheme, getTheme);
   const navFolded = usePanel("nav");
   const [navOpen, setNavOpen] = useState(false);
-  /* What the rail actually renders as, which is NOT simply `navFolded`.
-   *
-   * `navFolded` is a per-device preference (panels.ts) with no notion of
-   * viewport  -  it is set by folding the desktop rail and stays set the next
-   * time this same browser opens a narrow window, because it has no reason
-   * to know that window is a phone. The mobile drawer (`navOpen`) shares its
-   * markup with the desktop rail, so honoring `navFolded` there collapsed
-   * every label to a 52px column of bare glyphs  -  and did it inside an
-   * overlay whose own fold button had just been removed as meaningless in
-   * that context (see below), leaving no way back to full width short of
-   * clearing localStorage.
-   *
-   * The mobile drawer already has its show/hide control, the hamburger, so
-   * it never folds: full labels, full width, always, while `navOpen` is
-   * true. */
+  /* A mobile drawer always shows labels, regardless of the saved desktop fold preference. */
   const showFolded = navFolded && !navOpen;
   const studyId = /^\/p\/[^/]+\/studies\/([^/]+)/.exec(pathname)?.[1];
   useRouteTitle({

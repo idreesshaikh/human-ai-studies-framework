@@ -8,20 +8,7 @@ export const INCIDENT_EDGE_OPACITY = 0.86;
 export const DIMMED_EDGE_OPACITY = 0.06;
 export const NEUTRAL_NODE_OPACITY = 1;
 export const DIMMED_NODE_OPACITY = 0.14;
-export const DRIFT_AMPLITUDE = 1.2;
-export const SETTLE_ALPHA0 = 0.35;
-export const SETTLE_DECAY_PER_FRAME = 0.94;
-export const SETTLE_NODE_LIMIT = 150;
-/** Above this many nodes, always-on labels stop being legible and the view
- * degrades to zoom-gated labels instead. Tuned well below `SETTLE_NODE_
- * LIMIT`: a node without a parsed author list falls back to its title
- * (Constellation.tsx's `nodeLabel`), which runs noticeably wider than an
- * "Author, Year" string  -  at 150 nodes a real harvested neighbourhood
- * (most of which lack authors) rendered as a solid wall of overlapping
- * title text, worse than the zoom-gated behaviour it replaced. 40 keeps
- * "always" for the genuinely small case (a new study and its first
- * citations) legible; anything larger falls back to the pre-existing,
- * already-legible hub-first zoom-gated reveal. */
+/* Dense graphs reveal labels by focus and zoom to avoid overlap. */
 export const LABEL_ALWAYS_NODE_LIMIT = 40;
 
 export type LabelMode = "always" | "dense";
@@ -131,53 +118,7 @@ export function labelMode(nodeCount: number): LabelMode {
   return nodeCount <= LABEL_ALWAYS_NODE_LIMIT ? "always" : "dense";
 }
 
-/** A deterministic per-node phase from its ref, so the idle drift has no
- * randomness (replay-stable) and doesn't depend on array order. */
-export function driftPhase(ref: string): number {
-  let h = 0;
-  for (let i = 0; i < ref.length; i++) h = (h * 31 + ref.charCodeAt(i)) >>> 0;
-  return (h % 1000) / 1000 * Math.PI * 2;
-}
-
-/** Render-only per-node offset at time `t` (seconds)  -  never written back
- * to any position state, so it cannot accumulate or diverge; a caller adds
- * this to a node's settled (x, y) purely for the current frame's paint. */
-export function driftOffset(ref: string, t: number): { dx: number; dy: number } {
-  const phase = driftPhase(ref);
-  return {
-    dx: Math.sin(t + phase) * DRIFT_AMPLITUDE,
-    dy: Math.cos(t * 0.8 + phase) * DRIFT_AMPLITUDE,
-  };
-}
-
-/** The settle animation's alpha schedule: given the previous frame's alpha,
- * the next one  -  decays geometrically until it's negligible. Pure so the
- * schedule (and therefore roughly how many frames it takes) is assertable
- * without a rAF loop. */
-export function nextSettleAlpha(alpha: number): number {
-  return alpha * SETTLE_DECAY_PER_FRAME;
-}
-
-/** Whether the bounded rAF settle should run at all for this graph size  -
- * skipped above the node limit (each frame is an O(n²) relaxStep) so a large
- * harvested neighbourhood never costs a dropped-frame animation for a
- * refinement that was already good enough after `layoutGraph`'s own solve. */
-export function shouldSettle(nodeCount: number): boolean {
-  return nodeCount > 0 && nodeCount <= SETTLE_NODE_LIMIT;
-}
-
-/* ---- Lenses -----------------------------------------------------------
- *
- * A citation graph answers three different questions at once, and drawn all
- * together it answers none of them clearly: what this study's papers cite,
- * what cites them, and what merely resembles them are three separate reading
- * tasks sharing one canvas. The lens is which of those three is on screen.
- *
- * The vocabulary is the researcher's, not the API's: `references` is *earlier
- * work* (the study's papers point back at it), `citations` is *later work*
- * (it points forward at the study's papers), `recommendations` is *similar
- * work* (no direction, just resemblance). "All" stays the default, because a
- * researcher opening the tab has not yet asked one of the three questions. */
+/* Relation lenses separate earlier, later, and similar work. */
 
 export type Lens = "all" | "references" | "citations" | "recommendations";
 
@@ -442,16 +383,7 @@ export function lensEdges<E extends { kind: string }>(edges: E[], lens: Lens): E
   return lens === "all" ? edges : edges.filter((e) => e.kind === lens);
 }
 
-/**
- * The nodes a lens keeps.
- *
- * Every ingested paper survives every lens, even when the lens leaves it with
- * no edges at all: those are the study's own library  -  its anchors  -  and a
- * lens that made a researcher's own papers vanish would read as data loss
- * rather than as a filter. Suggestions are the opposite: one exists only as
- * the far end of a harvested relation, so it survives only while the relation
- * that introduced it does.
- */
+/* Retain study papers in every lens; suggestions survive only with a visible relation. */
 export function lensNodes<N extends { paperRef: string; ingested: boolean }>(
   nodes: N[],
   edges: { src: string; dst: string; kind: string }[],

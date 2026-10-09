@@ -11,11 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-/* A focused, first-study walkthrough. It doesn't just describe the workspace  -
- * it drives it: advancing switches the active tab (via onTab), so each step is
- * read against the surface it's about. Deliberately in-house (no tour library):
- * full keyboard + reduced-motion control, and nothing new to pull in. Shown
- * once (localStorage), and re-openable from the "?" in the workspace. */
+/* Optional walkthrough: each step opens the tab it describes. */
 
 export type TourTab =
   | "conversation"
@@ -113,10 +109,4 @@ export function StudyTour({
       </DialogContent>
     </Dialog>
   );
-}
-
-const TOUR_KEY = "phoenix.studyTourSeen";
-
-export function markTourSeen() {
-  localStorage.setItem(TOUR_KEY, "1");
 }

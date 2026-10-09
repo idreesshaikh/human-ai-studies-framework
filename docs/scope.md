@@ -15,13 +15,9 @@ surfaces are out of scope.
 - Compile reviewed decisions into validated YAML.
 - Derive assignment, consent, and instrumentation for TERN in VS Code.
 - Collect study-scoped events and optional code or provider measurements.
-- Rehearse capture and recipe compatibility with labelled synthetic data.
+- Run tagged pilot sessions to check capture and recipe compatibility.
 - Export datasets, dictionaries, notebooks, CLI reports, and replication kits.
 - Explore literature and inspect planning calculations with stated assumptions.
-
-The `curated` package is retained as an experimental mining contract. It only
-supports local archive fixtures today; it is not part of the supported live
-workflow and its authorship signals are hypotheses, not ground truth.
 
 ## Outside this project
 

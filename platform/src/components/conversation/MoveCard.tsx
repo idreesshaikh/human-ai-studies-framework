@@ -81,7 +81,7 @@ export function MoveCard({
          * separate a protocol choice from the conversation, without becoming a
          * second giant assistant message. Accepted and rejected moves remain
          * readable because nothing here is ever erased. */
-        move.status === "accepted" && "duration-settle ease-sheet",
+        move.status === "accepted" && "duration-settle ease-settle",
         move.status === "rejected" && "duration-standard",
         isMergedResearchQuestion && "move-card-merged",
         /* No citation, no score: an undecided unsourced move wears the

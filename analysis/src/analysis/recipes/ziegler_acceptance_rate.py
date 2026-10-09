@@ -32,7 +32,7 @@ METHODS = (
     id="ziegler-acceptance-rate",
     answers=["RQ-P4"],
     requires_events=["ai_suggestion"],
-    title="Acceptance rate per Ziegler et al. 2022 (replication demo)",
+    title="Acceptance rate per Ziegler et al. 2022",
 )
 def run(dataset: Dataset) -> RecipeResult:
     sug = dataset.of_type("ai_suggestion")
@@ -89,6 +89,6 @@ def run(dataset: Dataset) -> RecipeResult:
     return RecipeResult(
         tables=tables,
         figures={"acceptance_rate": fig},
-        summary="Replication demo (RQ-P4). " + " ".join(sentences),
+        summary="AI suggestion acceptance. " + " ".join(sentences),
         methods=METHODS,
     )

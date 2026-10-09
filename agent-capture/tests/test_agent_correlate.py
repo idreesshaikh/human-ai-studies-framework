@@ -142,3 +142,15 @@ def test_correlate_dataset_read_accepts_optional_bearer_token(monkeypatch):
     assert cli._fetch_dataset("https://example.test", "study", "secret") == [
         {"sessionId": "S1"}
     ]
+
+
+def test_correlate_without_a_study_does_not_fetch_an_example(monkeypatch, capsys):
+    from agent_capture import cli
+
+    def unexpected_fetch(*_args):
+        raise AssertionError("Missing study input must not trigger a dataset read")
+
+    monkeypatch.setattr(cli, "_fetch_dataset", unexpected_fetch)
+
+    assert cli.main(["correlate", "--print"]) == 2
+    assert "--manifest, --dataset, or --study" in capsys.readouterr().err
