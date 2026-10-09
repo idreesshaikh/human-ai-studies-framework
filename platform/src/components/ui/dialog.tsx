@@ -162,9 +162,9 @@ export const DialogBody = ({ className, children, ...props }: React.HTMLAttribut
       onScroll={measure}
       data-more-above={edges.above ? "" : undefined}
       data-more-below={edges.below ? "" : undefined}
-      tabIndex={edges.above || edges.below ? 0 : undefined}
-      role={edges.above || edges.below ? "region" : undefined}
-      aria-label={edges.above || edges.below ? "Dialog content" : undefined}
+      tabIndex={0}
+      role="region"
+      aria-label="Dialog content"
       className={cn("dialog-body", className)}
       {...props}
     >

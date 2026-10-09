@@ -211,11 +211,6 @@ function post<T>(path: string, body: unknown): Promise<T> {
   });
 }
 
-export function onSeededData(_listener: (study?: string) => void): () => void {
-  void _listener;
-  return () => {};
-}
-
 const enc = encodeURIComponent;
 
 /** Fetch a file and hand it to the browser's download flow. The server's
@@ -307,23 +302,7 @@ export const studyApi = {
   uploadPaperPdf: async (study: string, file: File) => {
     const body = new FormData();
     body.append("file", file);
-    let res: Response;
-    try {
-      res = await fetch(`${API_BASE}/studies/${enc(study)}/papers/upload`, {
-        method: "POST",
-        body,
-        headers: await authHeaders(),
-        credentials: "include",
-      });
-    } catch {
-      throw new OfflineError();
-    }
-    if (!res.ok) throw new Error(`upload failed: ${res.status}`);
-    try {
-      return (await res.json()) as { paperRef: string };
-    } catch {
-      throw new OfflineError();
-    }
+    return req<{ paperRef: string }>(`/studies/${enc(study)}/papers/upload`, { method: "POST", body });
   },
   /** The byte-reproducible replication kit (FR-PROT-7), saved to disk.
    *  Streamed straight to a blob  -  the archive is binary and can be large,
