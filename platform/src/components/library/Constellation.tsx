@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Maximize2 } from "lucide-react";
+import { Maximize2, Minus, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { layoutGraph, degreeMap, type PositionedNode } from "@/lib/forceLayout";
 import {
@@ -79,14 +80,19 @@ function truncatedTitle(title: string): string {
  * nodes sharing a publication year would collapse to the same string. */
 function nodeLabel(n: PositionedNode): string {
   const author = n.authors?.[0]?.split(" ").pop();
-  const who = author ? (n.authors!.length > 1 ? `${author} et al.` : author) : "";
+  const who = author
+    ? n.authors!.length > 1
+      ? `${author} et al.`
+      : author
+    : "";
   if (who && n.year) return `${who}, ${n.year}`;
   if (who) return who;
   return n.title ? truncatedTitle(n.title) : "";
 }
 
 type View = { x: number; y: number; k: number };
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+const clamp = (v: number, lo: number, hi: number) =>
+  Math.min(hi, Math.max(lo, v));
 
 function fitView(nodes: PositionedNode[]): View {
   if (nodes.length === 0) return { x: 0, y: 0, k: 1 };
@@ -160,7 +166,9 @@ export function Constellation({
   // Per-node position overrides produced by dragging a node  -  the one thing
   // that opts a node out of the settle/drift layers below (respecting a
   // deliberate placement matters more than the ambient motion).
-  const [moved, setMoved] = useState<Record<string, { x: number; y: number }>>({});
+  const [moved, setMoved] = useState<Record<string, { x: number; y: number }>>(
+    {},
+  );
 
   // The spread seed is already the readable arrangement. A second live force
   // pass used to undo it by pulling linked papers back into a centre knot,
@@ -172,7 +180,13 @@ export function Constellation({
   // A new lens or harvested neighbourhood gets its own useful framing. This
   // is intentionally tied to the solved base, not every settle frame, so a
   // researcher's manual zoom remains theirs until the graph actually changes.
+  const framing = useRef("");
   useEffect(() => {
+    const signature = JSON.stringify(
+      base.map((node) => [node.paperRef, node.x, node.y]),
+    );
+    if (framing.current === signature) return;
+    framing.current = signature;
     setView(fitView(base));
     setMoved({});
   }, [base]);
@@ -191,12 +205,28 @@ export function Constellation({
     [nodes],
   );
   const svgRef = useRef<SVGSVGElement>(null);
+  const [displayScale, setDisplayScale] = useState(1);
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const measure = () => {
+      const rect = svg.getBoundingClientRect();
+      setDisplayScale(Math.min(rect.width / W, rect.height / H) || 1);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    measure();
+    return () => observer.disconnect();
+  }, [graph.nodes.length]);
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
   // Who has the focus/hover right now  -  drives the neighbourhood highlight.
   // `pointerenter`/`pointerleave` AND `focus`/`blur` both drive it, so
   // keyboard use gets the same neighbourhood highlight a mouse hover does.
   const [focusRef, setFocusRef] = useState<string | null>(null);
-  const active = useMemo(() => activeNeighbourhood(focusRef, adjacency), [focusRef, adjacency]);
+  const active = useMemo(
+    () => activeNeighbourhood(focusRef, adjacency),
+    [focusRef, adjacency],
+  );
 
   // Live gesture state kept in a ref so pointer handlers don't re-subscribe.
   const gesture = useRef<{
@@ -223,9 +253,16 @@ export function Constellation({
   }, []);
 
   const beginPan = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (e.pointerType === "touch") return;
     // Only the background starts a pan; node handlers stop propagation.
     const { sx, sy } = toBox(e.clientX, e.clientY);
-    gesture.current = { kind: "pan", startSx: sx, startSy: sy, startView: view, moved: false };
+    gesture.current = {
+      kind: "pan",
+      startSx: sx,
+      startSy: sy,
+      startView: view,
+      moved: false,
+    };
     svgRef.current?.setPointerCapture(e.pointerId);
   };
 
@@ -234,7 +271,14 @@ export function Constellation({
     // move/up handlers keep firing for the rest of the drag.
     e.stopPropagation();
     const { sx, sy } = toBox(e.clientX, e.clientY);
-    gesture.current = { kind: "node", ref, startSx: sx, startSy: sy, startView: view, moved: false };
+    gesture.current = {
+      kind: "node",
+      ref,
+      startSx: sx,
+      startSy: sy,
+      startView: view,
+      moved: false,
+    };
     svgRef.current?.setPointerCapture(e.pointerId);
   };
 
@@ -261,23 +305,21 @@ export function Constellation({
     gesture.current = null;
     if (!g) return;
     // A press that never crossed the threshold is a click → selection.
-    if (!g.moved && g.kind === "node" && g.ref) onSelect(g.ref);
+    if (e.type !== "pointercancel" && !g.moved && g.kind === "node" && g.ref)
+      onSelect(g.ref);
     if (svgRef.current?.hasPointerCapture(e.pointerId))
       svgRef.current.releasePointerCapture(e.pointerId);
   };
 
-  const zoomAt = useCallback(
-    (sx: number, sy: number, deltaY: number) => {
-      setView((v) => {
-        const k = clamp(v.k * Math.exp(-deltaY * 0.0015), MIN_K, MAX_K);
-        // Keep the point under the cursor fixed while zooming.
-        const lx = (sx - v.x) / v.k;
-        const ly = (sy - v.y) / v.k;
-        return { k, x: sx - lx * k, y: sy - ly * k };
-      });
-    },
-    [],
-  );
+  const zoomAt = useCallback((sx: number, sy: number, deltaY: number) => {
+    setView((v) => {
+      const k = clamp(v.k * Math.exp(-deltaY * 0.0015), MIN_K, MAX_K);
+      // Keep the point under the cursor fixed while zooming.
+      const lx = (sx - v.x) / v.k;
+      const ly = (sy - v.y) / v.k;
+      return { k, x: sx - lx * k, y: sy - ly * k };
+    });
+  }, []);
 
   // A native, non-passive listener: React attaches `onWheel` as passive at
   // the root for scroll performance, which silently ignores this handler's
@@ -288,6 +330,7 @@ export function Constellation({
     const el = svgRef.current;
     if (!el) return;
     const handler = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const { sx, sy } = toBox(e.clientX, e.clientY);
       zoomAt(sx, sy, e.deltaY);
@@ -316,22 +359,26 @@ export function Constellation({
   // legible instead of painting over each other.
   const alwaysLabels = labelMode(nodes.length) === "always";
   const sparse = nodes.length <= 5;
+  const tabStop = positioned.some((node) => node.paperRef === focusRef)
+    ? focusRef
+    : positioned.some((node) => node.paperRef === selected)
+      ? selected
+      : positioned[0]?.paperRef;
 
   return (
     <figure className="m-0 flex flex-col gap-2">
       {/* The lens strip. Counts are suggestions, not nodes: the number is
-        * how much undiscovered work sits behind each question, which is the
-        * thing being chosen between. A lens with nothing behind it stays
-        * selectable rather than disappearing  -  "no later work harvested yet"
-        * is an answer, and a control that reshuffles itself as papers arrive
-        * is harder to learn than one that holds still. */}
-      <div
-        className="flex flex-wrap items-center gap-2"
-      >
+       * how much undiscovered work sits behind each question, which is the
+       * thing being chosen between. A lens with nothing behind it stays
+       * selectable rather than disappearing  -  "no later work harvested yet"
+       * is an answer, and a control that reshuffles itself as papers arrive
+       * is harder to learn than one that holds still. */}
+      <div className="flex flex-wrap items-center gap-2">
         <SegmentedControl
           value={lens}
           onChange={setLens}
           aria-label="Which citation relation to show"
+          className="max-w-full flex-wrap"
           options={LENSES.map((l) => ({
             value: l.id,
             label:
@@ -346,7 +393,9 @@ export function Constellation({
       <div
         className={cn(
           "relative w-full overflow-hidden rounded-card bg-bg",
-          sparse ? "h-[var(--constellation-h-sparse)]" : "h-[var(--constellation-h)]",
+          sparse
+            ? "h-[var(--constellation-h-sparse)]"
+            : "h-[var(--constellation-h)]",
         )}
       >
         {/* A calm field, not a boxed chart: a faint vignette instead of a
@@ -364,11 +413,11 @@ export function Constellation({
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="xMidYMid meet"
           className={cn(
-            "h-full w-full touch-none select-none",
+            "h-full w-full touch-pan-y select-none",
             panning ? "cursor-grabbing" : "cursor-grab",
           )}
           role="group"
-          aria-label="Citation constellation of the study's papers. Drag to pan, scroll to zoom."
+          aria-label="Literature map. Arrow keys move between papers; Enter or Space opens details."
           onPointerDown={beginPan}
           onPointerMove={onMove}
           onPointerUp={onUp}
@@ -383,7 +432,10 @@ export function Constellation({
               const b = posByRef.get(e.dst);
               if (!a || !b) return null;
               const state = edgeState(e.src, e.dst, focusRef);
-              const edge = EDGE[e.kind] ?? { color: "var(--viz-axis)", label: "relation" };
+              const edge = EDGE[e.kind] ?? {
+                color: "var(--viz-axis)",
+                label: "relation",
+              };
               return (
                 <path
                   key={`${e.src}-${e.dst}-${e.kind}`}
@@ -391,14 +443,19 @@ export function Constellation({
                   fill="none"
                   stroke={edge.color}
                   strokeWidth={state === "incident" ? 2.2 : 1.5}
-                  strokeDasharray={e.kind === "recommendations" ? "4 5" : undefined}
+                  strokeDasharray={
+                    e.kind === "recommendations" ? "4 5" : undefined
+                  }
                   vectorEffect="non-scaling-stroke"
                   opacity={edgeOpacity(state)}
                   className="transition-opacity duration-standard"
                 />
               );
             })}
-            {[...positioned.filter((n) => !n.ingested), ...positioned.filter((n) => n.ingested)].map((n) => {
+            {[
+              ...positioned.filter((n) => !n.ingested),
+              ...positioned.filter((n) => n.ingested),
+            ].map((n) => {
               const isSel = n.paperRef === selected;
               const inFocusNeighbourhood = active.has(n.paperRef);
               const r = nodeRadius(
@@ -422,7 +479,9 @@ export function Constellation({
               // explicit hover/select regardless.
               const hasAuthor = Boolean(n.authors?.[0]);
               const hasTitle = Boolean(n.title);
-              const hasIdentity = alwaysLabels ? hasAuthor || hasTitle : hasAuthor;
+              const hasIdentity = alwaysLabels
+                ? hasAuthor || hasTitle
+                : hasAuthor;
               const showLabel =
                 (n.ingested || isSel || inFocusNeighbourhood) &&
                 (hasIdentity || isSel || inFocusNeighbourhood) &&
@@ -434,8 +493,14 @@ export function Constellation({
                     zoomK: view.k,
                   }));
               const label = showLabel ? nodeLabel(n) : "";
-              const labelAnchor = n.x < W * 0.24 ? "start" : n.x > W * 0.76 ? "end" : "middle";
-              const labelOffset = labelAnchor === "start" ? r + 8 : labelAnchor === "end" ? -(r + 8) : 0;
+              const labelAnchor =
+                n.x < W * 0.24 ? "start" : n.x > W * 0.76 ? "end" : "middle";
+              const labelOffset =
+                labelAnchor === "start"
+                  ? r + 8
+                  : labelAnchor === "end"
+                    ? -(r + 8)
+                    : 0;
               const highlighted = isSel || inFocusNeighbourhood;
               return (
                 <g
@@ -443,21 +508,63 @@ export function Constellation({
                   transform={`translate(${n.x},${n.y})`}
                   className="cursor-pointer"
                   role="button"
-                  tabIndex={0}
-                  opacity={nodeOpacity(n.paperRef, active)}
-                  style={{ transition: "opacity var(--motion-standard)" }}
+                  tabIndex={n.paperRef === tabStop ? 0 : -1}
                   aria-label={
-                    (n.title || n.paperRef) + (n.ingested ? "" : " (suggested, click to add)")
+                    (n.title || "Untitled paper") +
+                    (n.ingested ? "" : " (related paper)")
                   }
                   onPointerDown={(ev) => beginNode(ev, n.paperRef)}
                   onPointerEnter={() => setFocusRef(n.paperRef)}
-                  onPointerLeave={() => setFocusRef((cur) => (cur === n.paperRef ? null : cur))}
+                  onPointerLeave={() =>
+                    setFocusRef((cur) => (cur === n.paperRef ? null : cur))
+                  }
                   onFocus={() => setFocusRef(n.paperRef)}
-                  onBlur={() => setFocusRef((cur) => (cur === n.paperRef ? null : cur))}
-                  onKeyDown={(ev) => ev.key === "Enter" && onSelect(n.paperRef)}
+                  onBlur={() =>
+                    setFocusRef((cur) => (cur === n.paperRef ? null : cur))
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onSelect(n.paperRef);
+                    } else if (
+                      [
+                        "ArrowRight",
+                        "ArrowLeft",
+                        "ArrowDown",
+                        "ArrowUp",
+                        "Home",
+                        "End",
+                      ].includes(event.key)
+                    ) {
+                      event.preventDefault();
+                      const buttons = [
+                        ...(svgRef.current?.querySelectorAll<SVGGElement>(
+                          '[role="button"]',
+                        ) ?? []),
+                      ];
+                      const index = buttons.indexOf(event.currentTarget);
+                      const next =
+                        event.key === "Home"
+                          ? 0
+                          : event.key === "End"
+                            ? buttons.length - 1
+                            : (index +
+                                (["ArrowLeft", "ArrowUp"].includes(event.key)
+                                  ? -1
+                                  : 1) +
+                                buttons.length) %
+                              buttons.length;
+                      buttons[next]?.focus();
+                    }
+                  }}
                 >
                   <circle
+                    r={Math.max(r, 12 / (displayScale * view.k))}
+                    fill="transparent"
+                  />
+                  <circle
                     r={r}
+                    opacity={nodeOpacity(n.paperRef, active)}
                     fill={n.ingested ? "var(--accent)" : "var(--series-3)"}
                     fillOpacity={n.ingested ? 0.96 : 0.9}
                     stroke={
@@ -471,48 +578,71 @@ export function Constellation({
                     vectorEffect="non-scaling-stroke"
                   />
                   {label && (
-                    <text
-                      x={labelOffset}
-                      y={r + 11}
-                      textAnchor={labelAnchor}
-                      transform={`scale(${1 / view.k})`}
-                      // The counter-scale above keeps this text a constant
-                      // rendered size regardless of zoom  -  without it, a
-                      // label would grow right along with the graph.
-                      /* An SVG label inside the graph, at the scale's own legend step. */
-                      className="fill-text-muted text-legend-svg"
-                      stroke="var(--bg)"
-                      strokeWidth={3}
-                      style={{ paintOrder: "stroke" }}
+                    <g
+                      transform={`translate(${labelOffset},${r + 18 / (displayScale * view.k)})`}
                     >
-                      {label}
-                    </text>
+                      <text
+                        textAnchor={labelAnchor}
+                        transform={`scale(${1 / (displayScale * view.k)})`}
+                        className="fill-text-muted text-legend-svg"
+                        stroke="var(--bg)"
+                        strokeWidth={3}
+                        style={{ paintOrder: "stroke" }}
+                      >
+                        {label}
+                      </text>
+                    </g>
                   )}
                   <title>
                     {n.title || n.paperRef}
-                    {n.citationCount != null ? ` · ${n.citationCount} citations` : ""}
-                    {n.ingested ? "" : " · suggested, click to add to the study"}
+                    {n.citationCount != null
+                      ? ` · ${n.citationCount} citations`
+                      : ""}
+                    {n.ingested ? "" : " · related paper, select to inspect"}
                   </title>
                 </g>
               );
             })}
           </g>
         </svg>
-        <button
-          type="button"
-          onClick={fit}
-          className="absolute right-2 top-2 flex min-h-7 items-center gap-1 rounded-input border border-border-strong bg-surface px-2 py-1 type-caption font-medium text-text shadow-mark transition-colors duration-fast hover:bg-zone-9 hover:text-text"
-          aria-label="Reset the view"
-        >
-          <Maximize2 className="size-3.5" aria-hidden /> Fit
-        </button>
+        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-control bg-surface p-1">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Zoom out"
+            disabled={view.k <= MIN_K}
+            onClick={() => zoomAt(W / 2, H / 2, 180)}
+          >
+            <Minus aria-hidden />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Zoom in"
+            disabled={view.k >= MAX_K}
+            onClick={() => zoomAt(W / 2, H / 2, -180)}
+          >
+            <Plus aria-hidden />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={fit}
+            aria-label="Fit literature map"
+          >
+            <Maximize2 aria-hidden /> Fit
+          </Button>
+        </div>
       </div>
 
       <figcaption className="flex flex-col gap-3 type-caption text-text-muted">
-        <span className="text-text-muted/80">Drag to pan · scroll to zoom · select a paper to inspect it</span>
+        <span>
+          Drag to pan · Ctrl or ⌘ + scroll to zoom · arrow keys move between
+          papers
+        </span>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <LegendDot filled label="ingested" />
-          <LegendDot color="var(--series-3)" label="suggested, click to add" />
+          <LegendDot filled label="in this study" />
+          <LegendDot color="var(--series-3)" label="related paper" />
           {Object.entries(EDGE).map(([kind, { color, label }]) => (
             <span key={kind} className="flex items-center gap-1">
               <span

@@ -1,420 +1,682 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, Upload, X, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import { Field } from "@/components/ui/field";
-import { Plus, Upload, X, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Notice } from "@/components/ui/notice";
 import { Surface } from "@/components/shell/Surface";
 import { Constellation } from "./Constellation";
-import {
-  studyApi,
-  OfflineError,
-  type Paper,
-  type PaperGraph,
-} from "@/lib/studyApi";
+import { studyApi } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
-import { paperIdentifier } from "@/lib/paperReference";
+import {
+  paperIdentifier,
+  paperLookupInput,
+  paperSourceHref,
+} from "@/lib/paperReference";
 import { plainErrorMessage, libraryFreshness } from "@/lib/uiText";
-import { templatesApi, type CorpusStatus } from "@/lib/templatesApi";
+import { templatesApi } from "@/lib/templatesApi";
+import { useAsync } from "@/lib/useAsync";
+import { hasRole } from "@/lib/capabilities";
+import type { RoleState } from "@/lib/role";
 
-/* The Library  -  the knowledge layer (FR-LIT-1/2/3). Live paper ingest
- * (arXiv/DOI/PDF), the citation constellation, and protocol-element links.
- * The corpus is the product's knowledge, not background reading  -  so this is a
- * first-class study surface, not a side panel. */
-export function LibraryTab({ studyId }: { studyId: string }) {
-  const [papers, setPapers] = useState<Paper[]>([]);
-  const [graph, setGraph] = useState<PaperGraph | null>(null);
+const SORT_OPTIONS = [
+  { value: "recent", label: "Recently added" },
+  { value: "title", label: "Title" },
+  { value: "year", label: "Newest publication" },
+];
+const targetsOf = (text: string) => [
+  ...new Set(
+    text
+      .split(",")
+      .map((target) => target.trim())
+      .filter(Boolean),
+  ),
+];
+
+export function LibraryTab({
+  studyId,
+  roleState,
+}: {
+  studyId: string;
+  roleState: RoleState;
+}) {
+  const paperRequest = useAsync(() => studyApi.papers(studyId), [studyId]);
+  const graphRequest = useAsync(() => studyApi.papersGraph(studyId), [studyId]);
+  const freshness = useAsync(() => templatesApi.corpusStatus(), []);
+  const papers = paperRequest.data ?? [];
+  const graph = graphRequest.data;
+  const initialLoading = paperRequest.loading && paperRequest.data === null;
+  const canEdit =
+    roleState.status === "known" && hasRole(roleState.role, "contribute");
   const [selected, setSelected] = useState<string | null>(null);
   const [idInput, setIdInput] = useState("");
+  const [inputError, setInputError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState("recent");
+  const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>({});
+  const [pending, setPending] = useState<string | null>(null);
+  const [pendingPaper, setPendingPaper] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const pdfInput = useRef<HTMLInputElement>(null);
-  const [linkDraft, setLinkDraft] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
-  const [edgesPending, setEdgesPending] = useState(false);
-  const [corpusStatus, setCorpusStatus] = useState<CorpusStatus | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const paperList = useRef<HTMLDivElement>(null);
+  const inspectRequested = useRef(false);
+  const selectedPaper = papers.find((paper) => paper.paperRef === selected);
+  const selectedNode = graph?.nodes.find((node) => node.paperRef === selected);
+  const linkDraft =
+    (selected ? linkDrafts[selected] : undefined) ??
+    (selectedPaper?.links ?? []).join(", ");
+  const detail = selectedPaper ?? selectedNode;
+  const inStudy = Boolean(selectedPaper || selectedNode?.ingested);
+  const sourceHref = detail ? paperSourceHref(detail) : null;
+  const linksChanged =
+    targetsOf(linkDraft).sort().join(",") !==
+    [...(selectedPaper?.links ?? [])].sort().join(",");
+  const needle = query.trim().toLowerCase();
+  const filtered = papers.filter((paper) =>
+    [
+      paper.title,
+      ...(paper.authors ?? []),
+      paper.year,
+      paperIdentifier(paper),
+      paper.venue,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(needle),
+  );
+  const visible = [...filtered].sort((a, b) =>
+    sort === "title"
+      ? (a.title || "").localeCompare(b.title || "")
+      : sort === "year"
+        ? (b.year ?? 0) - (a.year ?? 0) ||
+          (a.title || "").localeCompare(b.title || "")
+        : b.addedAt.localeCompare(a.addedAt) ||
+          (a.title || "").localeCompare(b.title || ""),
+  );
 
   useEffect(() => {
-    let active = true;
-    void templatesApi.corpusStatus().then((status) => {
-      if (active) setCorpusStatus(status);
-    }).catch(() => undefined);
-    return () => { active = false; };
-  }, []);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const [ps, g] = await Promise.all([
-        studyApi.papers(studyId),
-        studyApi.papersGraph(studyId),
-      ]);
-      setPapers(ps);
-      setGraph(g);
-      return g;
-    } catch (error) {
-      setLoadError(
-        error instanceof OfflineError
-          ? error.message
-          : "The library could not be loaded. Try again.",
-      );
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, [studyId]);
+    if (!inspectRequested.current || !detail) return;
+    inspectRequested.current = false;
+    heading.current?.focus({ preventScroll: true });
+    heading.current?.scrollIntoView({ block: "nearest" });
+  }, [selected, detail]);
 
   useEffect(() => {
-    void load().catch(() => undefined);
-  }, [load]);
+    if (
+      pendingPaper &&
+      graph?.edges.some(
+        (edge) => edge.src === pendingPaper || edge.dst === pendingPaper,
+      )
+    )
+      setPendingPaper(null);
+  }, [pendingPaper, graph]);
 
   useEffect(() => {
-    if (!edgesPending) return;
-    let cancelled = false;
-    let timer: number | undefined;
+    if (!pendingPaper) return;
+    let timer: number;
     let attempts = 0;
-
-    /* Edge harvesting runs after the add response and paces its three upstream
-     * requests. One retry was shorter than that work, so the map could stay at
-     * its two ingested nodes forever. Keep the loading state alive for a small,
-     * bounded window and stop early as soon as a real edge lands. */
-    const poll = async () => {
-      try {
-        const next = await load();
-        if (cancelled) return;
-        if (next.edges.length > 0 || attempts >= 5) {
-          setEdgesPending(false);
-          return;
-        }
-        attempts += 1;
-        timer = window.setTimeout(() => void poll(), 1000);
-      } catch {
-        if (!cancelled) setEdgesPending(false);
-      }
+    const poll = () => {
+      graphRequest.reload();
+      if (++attempts < 6) timer = window.setTimeout(poll, 1000);
+      else setPendingPaper(null);
     };
-
-    timer = window.setTimeout(() => void poll(), 1000);
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
-  }, [edgesPending, load]);
-
-  /* Resolves true when the action worked, so a caller can keep what the
-   * researcher typed when it did not. */
-  async function run(fn: () => Promise<unknown>): Promise<boolean> {
-    setBusy(true);
-    setNote(null);
-    try {
-      await fn();
-      await load();
-      return true;
-    } catch (e) {
-      setNote(
-        e instanceof OfflineError
-          ? e.message
-          : plainErrorMessage(e, "That didn't work. Check the id and try again."),
-      );
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function ingest() {
-    const raw = idInput.trim();
-    if (!raw) return;
-    const id = raw.toLowerCase().includes("arxiv")
-      ? { arxivId: raw.replace(/.*arxiv[:/]?/i, "") }
-      : /^10\./.test(raw)
-        ? { doi: raw }
-        : { arxivId: raw };
-    run(async () => {
-      const result = await studyApi.ingestPaper(studyId, id);
-      setEdgesPending(Boolean(result.edgesPending));
-      return result;
-    }).then((added) => {
-      if (added) setIdInput("");
-    });
-  }
-
-  function uploadPdf(ev: React.ChangeEvent<HTMLInputElement>) {
-    const file = ev.target.files?.[0];
-    if (file) run(() => studyApi.uploadPaperPdf(studyId, file));
-  }
+    timer = window.setTimeout(poll, 1000);
+    return () => window.clearTimeout(timer);
+  }, [pendingPaper, graphRequest.reload]);
 
   function select(ref: string) {
+    inspectRequested.current = true;
     setSelected(ref);
-    setLinkDraft((papers.find((p) => p.paperRef === ref)?.links ?? []).join(", "));
+    setConfirmRemove(false);
+    setActionError(null);
+    if (ref === selected) heading.current?.focus();
   }
 
-  const selectedPaper = papers.find((p) => p.paperRef === selected) ?? null;
-  const selectedNode = graph?.nodes.find((n) => n.paperRef === selected) ?? null;
+  async function mutate<T>(
+    label: string,
+    work: () => Promise<T>,
+    success: (result: T) => string,
+  ): Promise<T | null> {
+    if (pending || !canEdit) return null;
+    setPending(label);
+    setActionError(null);
+    setMessage(null);
+    try {
+      const result = await work();
+      setMessage(success(result));
+      paperRequest.reload();
+      graphRequest.reload();
+      return result;
+    } catch (error) {
+      setActionError(
+        plainErrorMessage(
+          error,
+          "The change could not be saved. Check your connection and try again.",
+        ),
+      );
+      return null;
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function ingest() {
+    const lookup = paperLookupInput(idInput);
+    if (!lookup) {
+      setInputError(
+        "Paste an arXiv or DOI link, or enter an identifier such as 2507.09089 or 10.1145/1234567.",
+      );
+      return;
+    }
+    setInputError(null);
+    const result = await mutate(
+      "Adding paper…",
+      () => studyApi.ingestPaper(studyId, lookup),
+      (paper) => `Added ${paper.title || "paper"} to this study.`,
+    );
+    if (!result) return;
+    setIdInput("");
+    select(result.paperRef);
+    if (result.edgesPending) setPendingPaper(result.paperRef);
+  }
+
+  async function uploadPdf(file: File) {
+    const result = await mutate(
+      "Uploading PDF…",
+      () => studyApi.uploadPaperPdf(studyId, file),
+      () => "PDF added to this study.",
+    );
+    if (result) select(result.paperRef);
+    if (pdfInput.current) pdfInput.current.value = "";
+  }
+
+  async function removePaper() {
+    if (!selectedPaper) return;
+    const result = await mutate(
+      "Removing paper…",
+      () => studyApi.deletePaper(studyId, selectedPaper.paperRef),
+      () => "Paper and its protocol links removed from this study.",
+    );
+    if (result) {
+      setSelected(null);
+      setConfirmRemove(false);
+      paperList.current?.focus();
+    }
+  }
 
   return (
-    /* A Surface, like every other screen. This tab hand-rolled its own root,
-     * scroller, gutter and (absent) measure, which put it outside the layout
-     * contract entirely: it ran the full width of the window while Data and
-     * Planning sat centred at `work`, so moving between the four tabs of one
-     * workspace moved the content column under the researcher. `Surface`
-     * owns the clip, the scroll, the gutter, the rhythm and the measure  -
-     * and the keyboard-reachable region this markup was duplicating by hand.
-     *
-     * The escape from the contract was easy to miss while this tab still had
-     * a second panel beside it; with that gone the single column stretched to
-     * the whole window and the mismatch became the most visible thing about
-     * the workspace. */
-    <Surface measure="work" label="Library">
-        <p className="type-note text-text-muted" role="status">{libraryFreshness(corpusStatus)}</p>
-        {/* Ingest bar  -  the live-fetch moment. */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            value={idInput}
-            onChange={(e) => setIdInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && ingest()}
-            placeholder="arXiv id or DOI"
-            aria-label="arXiv id or DOI"
-            className="flex-1"
-          />
-          <Button
-            size="field"
-            variant="outline"
-            onClick={ingest}
-            disabled={busy || !idInput.trim()}
-          >
-            <Plus aria-hidden /> Add
-          </Button>
-          {/* A solid edge, not a dashed one. Dashed is this world's mark for
-            * "logged, nothing identified yet" (an unsourced claim, an unfilled
-            * slot, an empty region); on a working control it said the button
-            * itself was provisional. It matches the Add button beside it now,
-            * because they are two ways to do one thing. */}
-          <input
-            ref={pdfInput}
-            type="file"
-            accept="application/pdf"
-            className="sr-only"
-            tabIndex={-1}
-            aria-label="Upload a PDF"
-            onChange={uploadPdf}
-          />
-          <Button size="field" variant="outline" onClick={() => pdfInput.current?.click()}>
-            <Upload aria-hidden /> PDF
-          </Button>
-        </div>
-
-        {busy && (
-          <p className="flex items-center gap-2 type-note text-text-muted" role="status">
-            <Loader2 className="size-3 animate-spin" aria-hidden />
-            Fetching metadata and the citation neighbourhood (the citation
-            service allows one request per second)…
+    <Surface measure="work" label="Evidence">
+      <header className="flex flex-col gap-2">
+        <h1 className="type-section text-text">Evidence</h1>
+        <p className="max-w-reading type-body text-text-muted">
+          Collect the papers behind your study. Read their abstracts, connect
+          them to your protocol and explore related work.
+        </p>
+        {freshness.error ? (
+          <p className="type-note text-text-muted">
+            Library freshness is unavailable.{" "}
+            <button
+              className="text-accent underline"
+              onClick={freshness.reload}
+            >
+              Check again
+            </button>
           </p>
-        )}
-        {edgesPending && !busy && (
+        ) : (
           <p className="type-note text-text-muted" role="status">
-            Paper added. Its citation neighbourhood is filling in.
+            {libraryFreshness(freshness.data)}
           </p>
         )}
-        {note && <Notice kind="problem">{note}</Notice>}
-        {loadError && (
-          <div className="flex items-center justify-between gap-3 rounded-input border border-border bg-surface p-3">
-            <p className="type-body text-text-muted">{loadError}</p>
-            <Button size="sm" variant="subtle" onClick={() => void load()}>
-              Try again
+      </header>
+
+      {canEdit && (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void ingest();
+          }}
+          className="flex flex-wrap items-start gap-3"
+        >
+          <Field
+            id="evidence-paper-id"
+            label="Paper link or identifier"
+            hint="arXiv and DOI links, or their identifiers."
+            error={inputError}
+            className="min-w-0 flex-1 basis-64"
+          >
+            <Input
+              value={idInput}
+              maxLength={2048}
+              disabled={Boolean(pending)}
+              onChange={(event) => {
+                setIdInput(event.target.value);
+                setInputError(null);
+              }}
+              placeholder="Paste a paper link or identifier"
+            />
+          </Field>
+          <div className="flex flex-wrap items-center gap-2 self-center">
+            <Button
+              type="submit"
+              size="field"
+              disabled={Boolean(pending) || !idInput.trim()}
+            >
+              <Plus aria-hidden /> Add paper
+            </Button>
+            <input
+              ref={pdfInput}
+              type="file"
+              accept="application/pdf"
+              className="sr-only"
+              tabIndex={-1}
+              aria-label="Upload a PDF"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadPdf(file);
+              }}
+            />
+            <Button
+              type="button"
+              size="field"
+              variant="outline"
+              disabled={Boolean(pending)}
+              onClick={() => pdfInput.current?.click()}
+            >
+              <Upload aria-hidden /> Upload PDF
             </Button>
           </div>
-        )}
+        </form>
+      )}
+      {roleState.status === "known" && !canEdit && (
+        <p className="type-note text-text-muted">
+          You have read-only access. Owners and members can add papers and edit
+          protocol links.
+        </p>
+      )}
+      {pending && (
+        <p
+          role="status"
+          className="flex items-center gap-2 type-note text-text-muted"
+        >
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+          {pending}
+        </p>
+      )}
+      {message && (
+        <Notice kind="note" role="status">
+          {message}
+        </Notice>
+      )}
+      {actionError && <Notice kind="problem">{actionError}</Notice>}
 
-        {/* Library list  -  the study's primary paper set. Papers accepted from
-            the design conversation's recommendations land here too. */}
-        <div className="rounded-card border border-border bg-surface">
-          <div className="flex items-center justify-between border-b border-border px-4 py-2">
-            <h2 className="type-subhead text-text">Library</h2>
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(14rem,1fr)_minmax(0,2fr)]">
+        <section
+          className="min-w-0 overflow-hidden rounded-plate border border-border bg-surface"
+          aria-labelledby="evidence-papers-heading"
+        >
+          <div className="flex items-center justify-between gap-2 border-b border-border p-4">
+            <h2 id="evidence-papers-heading" className="type-subhead text-text">
+              Study papers
+            </h2>
             <span className="type-caption text-text-muted">
               {papers.length} {papers.length === 1 ? "paper" : "papers"}
             </span>
           </div>
-          <ul className="max-h-64 overflow-y-auto">
-            {loading ? (
-              <li className="px-4 py-3 type-body text-text-muted">
-                <span role="status">Loading papers…</span>
-              </li>
-            ) : papers.map((p) => (
-              <li
-                key={p.paperRef}
-                className={cn(
-                  "flex items-center gap-1 px-2 py-0.5 type-body",
-                  p.paperRef === selected && "bg-zone-9",
-                )}
-              >
-                <button
-                  className="row-button"
-                  aria-current={p.paperRef === selected ? "true" : undefined}
-                  onClick={() => select(p.paperRef)}
-                  title={p.title || p.paperRef}
-                >
-                  {p.title || "Untitled paper"}
-                </button>
-                {p.year && (
-                  <span className="tabular shrink-0 type-caption text-text-muted">{p.year}</span>
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className="shrink-0 hover:text-status-critical"
-                  aria-label={`Remove ${p.title || p.paperRef}`}
-                  title="Remove from library"
-                  onClick={() => run(() => studyApi.deletePaper(studyId, p.paperRef))}
-                  disabled={busy}
-                >
-                  <X aria-hidden />
-                </Button>
-              </li>
-            ))}
-            {!loading && papers.length === 0 && (
-              <li className="px-4 py-3 type-body text-text-muted">
-                No papers yet: add one above.
-              </li>
-            )}
-          </ul>
-        </div>
-
-        {/* Keep the selected paper paired with the graph so selecting a node
-            never sends the graph out of view before its action is reachable. */}
-        <div
-          className={cn(
-            "items-stretch gap-4",
-            selectedNode &&
-              "grid min-h-0 lg:min-h-[var(--library-pane-h)] lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]",
+          {papers.length > 0 && (
+            <div className="flex flex-col gap-2 border-b border-border p-3">
+              <Field id="evidence-filter" label="Filter papers">
+                <Input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Title, author, year or identifier"
+                />
+              </Field>
+              <Field id="evidence-sort" label="Sort papers">
+                <Select
+                  value={sort}
+                  onValueChange={setSort}
+                  options={SORT_OPTIONS}
+                />
+              </Field>
+            </div>
           )}
-        >
-          <div className="flex min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface p-4">
-            <h2 className="type-subhead text-text">Literature map</h2>
-            <p className="mt-0.5 shrink-0 type-note text-text-muted">
-              Relationships determine the constellation; year gives temporal context, node
-              size shows citation weight, and edge colour shows how papers are related.
-            </p>
-            {loading ? (
-              <div className="flex h-[var(--constellation-h)] items-center justify-center rounded-card bg-bg type-body text-text-muted" role="status">
-                Mapping your literature…
-              </div>
-            ) : graph ? (
-              <div className="min-h-0 flex-1">
-                <Constellation graph={graph} selected={selected} onSelect={select} />
-              </div>
-            ) : null}
-          </div>
-
-          {/* Selected-paper detail. */}
-          {selectedNode && (
-            <aside className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-card border border-border bg-surface-raised p-4 lg:h-full">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="absolute right-2 top-2"
-                onClick={() => setSelected(null)}
-                aria-label="Close detail"
-              >
-                <X aria-hidden />
+          {paperRequest.error && (
+            <Notice kind="problem" className="m-3">
+              Could not refresh study papers.{" "}
+              <Button variant="subtle" size="sm" onClick={paperRequest.reload}>
+                Try again
               </Button>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2">
-                <h3 className="pr-8 font-medium text-text">
-                  {selectedNode.title || selected}
-                </h3>
-                <p className="mt-0.5 type-caption text-text-muted">
-                  {paperIdentifier(selectedPaper ?? { paperRef: selected ?? "" }) ?? "Library paper"}
-                  {selectedNode.year ? ` · ${selectedNode.year}` : ""}
-                  {selectedNode.citationCount != null
-                    ? ` · ${selectedNode.citationCount} citations`
-                    : ""}
-                </p>
-                {(selectedPaper?.abstract || selectedNode.abstract) ? (
-                  <p className="mt-2 type-body leading-relaxed text-text-muted">
-                    {selectedPaper?.abstract || selectedNode.abstract}
-                  </p>
-                ) : (
-                  <p className="mt-2 type-body text-text-muted">
-                    No abstract is available from the source yet.
-                  </p>
-                )}
-                {!selectedPaper && (
-                  <p className="mt-2 type-note text-text-muted">
-                    Suggested paper, not yet in the study. Its preview is already warm
-                    and can be added without another provider request.
-                  </p>
-                )}
-              </div>
-
-              {selectedPaper ? (
-                <div className="mt-3 shrink-0 border-t border-border pt-3">
-                  <Field
-                    id="protocol-links"
-                    label="Protocol links"
-                    hint="Separate with commas, e.g. RQ-1, metric:parameter_count."
-                  >
-                    <Input
-                      value={linkDraft}
-                      onChange={(e) => setLinkDraft(e.target.value)}
-                      placeholder="e.g. RQ-1"
-                    />
-                  </Field>
-                  <div className="mt-2 flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="subtle"
-                      disabled={busy}
-                      onClick={() =>
-                        run(() =>
-                          studyApi.setPaperLinks(
-                            studyId,
-                            selected!,
-                            linkDraft.split(",").map((t) => t.trim()).filter(Boolean),
-                          ),
-                        )
+            </Notice>
+          )}
+          <div
+            ref={paperList}
+            tabIndex={0}
+            role="region"
+            aria-label="Study paper list"
+            className="max-h-[var(--library-pane-h)] overflow-y-auto overscroll-contain"
+          >
+            {initialLoading ? (
+              <p role="status" className="p-4 type-body text-text-muted">
+                Loading study papers…
+              </p>
+            ) : visible.length > 0 ? (
+              <ul aria-label="Study papers" className="divide-y divide-border">
+                {visible.map((paper) => (
+                  <li key={paper.paperRef}>
+                    <button
+                      type="button"
+                      onClick={() => select(paper.paperRef)}
+                      aria-current={
+                        selected === paper.paperRef ? "true" : undefined
                       }
+                      className={cn(
+                        "flex w-full flex-col gap-1 p-4 text-left transition-colors duration-fast hover:bg-zone-9",
+                        selected === paper.paperRef && "bg-zone-9",
+                      )}
                     >
-                      Save links
-                    </Button>
-                    {selectedPaper.url && (
-                      <a
-                        href={selectedPaper.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 type-body text-accent hover:underline"
-                      >
-                        <ExternalLink className="size-3" aria-hidden /> open
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-3 shrink-0 border-t border-border pt-3">
+                      <span className="line-clamp-2 type-body font-medium text-text">
+                        {paper.title || "Untitled paper"}
+                      </span>
+                      <span className="type-caption text-text-muted">
+                        {[(paper.authors ?? []).join(", "), paper.year]
+                          .filter(Boolean)
+                          .join(" · ") || "Bibliographic details unavailable"}
+                      </span>
+                      {paper.links.length > 0 && (
+                        <span className="type-caption text-text-muted">
+                          {paper.links.length} protocol{" "}
+                          {paper.links.length === 1 ? "link" : "links"}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="flex flex-col gap-2 p-4 type-body text-text-muted">
+                <p>
+                  {paperRequest.error && !paperRequest.data
+                    ? "Study papers are unavailable."
+                    : needle
+                      ? "No study papers match this filter."
+                      : "No papers in this study yet."}
+                </p>
+                {needle ? (
                   <Button
                     size="sm"
                     variant="subtle"
-                    disabled={busy}
-                    onClick={() =>
-                      run(async () => {
-                        const result = await studyApi.addPaperFromGraph(
-                          studyId,
-                          selected!,
-                        );
-                        setEdgesPending(Boolean(result.edgesPending));
-                        return result;
-                      })
-                    }
+                    onClick={() => setQuery("")}
                   >
-                    <Plus aria-hidden /> Add to study
+                    Clear filter
                   </Button>
+                ) : (
+                  !paperRequest.error && (
+                    <p className="type-note">
+                      {canEdit
+                        ? "Add a paper above, or accept a recommendation in Setup."
+                        : "Papers added to this study will appear here."}
+                    </p>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <aside
+          aria-label="Paper details"
+          className="min-w-0 rounded-plate border border-border bg-surface p-4"
+        >
+          {detail ? (
+            <>
+              <div className="flex items-start justify-between gap-3">
+                <h2
+                  ref={heading}
+                  tabIndex={-1}
+                  className="type-subhead break-words text-text"
+                >
+                  {detail.title || "Untitled paper"}
+                </h2>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Close paper details"
+                  onClick={() => {
+                    setSelected(null);
+                    paperList.current?.focus();
+                  }}
+                >
+                  <X aria-hidden />
+                </Button>
+              </div>
+              <p className="mt-2 type-note text-text-muted">
+                {[
+                  (detail.authors ?? []).join(", "),
+                  detail.year,
+                  selectedPaper?.venue,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || "Bibliographic details unavailable"}
+              </p>
+              <p className="mt-1 type-caption text-text-muted">
+                {paperIdentifier(
+                  selectedPaper ?? { paperRef: detail.paperRef },
+                ) ??
+                  (selectedPaper?.hasFullText
+                    ? "Uploaded PDF"
+                    : "Library paper")}
+                {detail.citationCount != null
+                  ? ` · ${detail.citationCount} citations`
+                  : ""}
+              </p>
+              {sourceHref && (
+                <a
+                  href={sourceHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex items-center gap-1 type-control text-accent underline underline-offset-4"
+                >
+                  <ExternalLink className="size-4" aria-hidden /> Open source
+                </a>
+              )}
+              <div className="mt-4 border-t border-border pt-4">
+                <h3
+                  id="evidence-abstract-heading"
+                  className="type-label text-text"
+                >
+                  Abstract
+                </h3>
+                <div
+                  tabIndex={0}
+                  role="region"
+                  aria-labelledby="evidence-abstract-heading"
+                  className="mt-2 max-h-[var(--library-pane-h)] overflow-y-auto overscroll-contain"
+                >
+                  <p className="max-w-reading whitespace-pre-line break-words type-body text-text-muted">
+                    {detail.abstract ||
+                      "The source has not supplied an abstract for this paper."}
+                  </p>
+                </div>
+              </div>
+              {!inStudy && (
+                <div className="mt-4 flex flex-col items-start gap-2 border-t border-border pt-4">
+                  <p className="type-note text-text-muted">
+                    Related paper. It is not yet part of this study.
+                  </p>
+                  {canEdit && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={Boolean(pending)}
+                      onClick={() =>
+                        void mutate(
+                          "Adding related paper…",
+                          () =>
+                            studyApi.addPaperFromGraph(
+                              studyId,
+                              detail.paperRef,
+                            ),
+                          () => "Related paper added to this study.",
+                        )
+                      }
+                    >
+                      <Plus aria-hidden /> Add to study
+                    </Button>
+                  )}
                 </div>
               )}
-            </aside>
+              {selectedPaper && (
+                <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
+                  {canEdit ? (
+                    <>
+                      <Field
+                        id="protocol-links"
+                        label="Protocol links"
+                        hint="Separate protocol identifiers with commas. For example: RQ-1, RQ-2."
+                      >
+                        <Input
+                          value={linkDraft}
+                          disabled={Boolean(pending)}
+                          onChange={(event) =>
+                            setLinkDrafts((drafts) => ({
+                              ...drafts,
+                              [selectedPaper.paperRef]: event.target.value,
+                            }))
+                          }
+                          placeholder="e.g. RQ-1"
+                        />
+                      </Field>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={Boolean(pending) || !linksChanged}
+                          onClick={() =>
+                            void mutate(
+                              "Saving protocol links…",
+                              () =>
+                                studyApi.setPaperLinks(
+                                  studyId,
+                                  selectedPaper.paperRef,
+                                  targetsOf(linkDraft),
+                                ),
+                              (result) => {
+                                setLinkDrafts((drafts) => ({
+                                  ...drafts,
+                                  [selectedPaper.paperRef]:
+                                    result.links.join(", "),
+                                }));
+                                return "Protocol links saved.";
+                              },
+                            )
+                          }
+                        >
+                          Save links
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="subtle"
+                          disabled={Boolean(pending)}
+                          onClick={() => setConfirmRemove(true)}
+                        >
+                          <Trash2 aria-hidden /> Remove paper
+                        </Button>
+                      </div>
+                      {confirmRemove && (
+                        <div className="flex flex-col gap-2 rounded-control border border-border p-3">
+                          <p className="type-note text-text">
+                            Remove this paper and its protocol links from the
+                            study?
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              disabled={Boolean(pending)}
+                              onClick={() => void removePaper()}
+                            >
+                              Remove from study
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={Boolean(pending)}
+                              onClick={() => setConfirmRemove(false)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="type-label text-text">Protocol links</h3>
+                      <p className="type-note text-text-muted">
+                        {selectedPaper.links.join(", ") ||
+                          "No protocol links yet."}
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col gap-2 py-4">
+              <h2 className="type-subhead text-text">
+                Read and connect a paper
+              </h2>
+              <p className="type-body text-text-muted">
+                Select a study paper to read its abstract and protocol links.
+                Select a related paper in the map to inspect it before adding
+                it.
+              </p>
+            </div>
+          )}
+        </aside>
+      </div>
+
+      <section
+        className="min-w-0 rounded-plate border border-border bg-surface p-4"
+        aria-labelledby="evidence-map-heading"
+      >
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 id="evidence-map-heading" className="type-subhead text-text">
+              Literature map
+            </h2>
+            <p className="mt-1 type-note text-text-muted">
+              Explore references, later citations and similar work. Selecting a
+              paper opens its details above.
+            </p>
+          </div>
+          {pendingPaper && (
+            <p role="status" className="type-note text-text-muted">
+              Finding related literature…
+            </p>
           )}
         </div>
+        {graphRequest.error && (
+          <Notice kind="problem">
+            Could not refresh the literature map.{" "}
+            <Button variant="subtle" size="sm" onClick={graphRequest.reload}>
+              Try again
+            </Button>
+          </Notice>
+        )}
+        {graphRequest.loading && !graph ? (
+          <p role="status" className="py-4 type-body text-text-muted">
+            Loading the literature map…
+          </p>
+        ) : graph ? (
+          <Constellation graph={graph} selected={selected} onSelect={select} />
+        ) : null}
+      </section>
     </Surface>
   );
 }

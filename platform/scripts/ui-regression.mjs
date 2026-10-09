@@ -1,7 +1,7 @@
 // Researcher workflows against a disposable backend; --audit also checks WCAG,
 // themes, responsive layouts and scroll reach. Build the platform first.
 import { spawn } from "node:child_process";
-import { mkdtempSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -32,7 +32,35 @@ const freePort = () =>
 const port = await freePort();
 const base = `http://127.0.0.1:${port}`;
 const data = mkdtempSync(join(tmpdir(), "ui-regression-"));
-const server = spawn("uv", ["run", "python", "-m", "middleware", "serve"], {
+const evidenceFixtures = [
+  { paperId: "fixture-a", title: "Fixture: AI assistance and debugging", authors: [{ name: "Ada Example" }], year: 2026, venue: "Fixture journal", externalIds: { ArXiv: "2601.00001" }, citationCount: 12, abstract: "Synthetic browser fixture. A counterbalanced developer study compares assisted and unassisted debugging. Task duration and reported workload are distinct outcomes." },
+  { paperId: "fixture-b", title: "Fixture: Workload during code review", authors: [{ name: "Bryn Example" }], year: 2024, externalIds: { DOI: "10.1234/fixture" }, citationCount: 4, abstract: "Synthetic browser fixture. Developers report workload while reviewing code. This text exercises paper filtering and reading." },
+  { paperId: "fixture-c", title: "Fixture: Related debugging study", authors: [{ name: "Casey Example" }], year: 2023, externalIds: { DOI: "10.1234/related" }, citationCount: 7, abstract: "Synthetic browser fixture for inspecting and adding a related paper from the literature map." },
+];
+writeFileSync(join(data, "metadata.json"), JSON.stringify(evidenceFixtures));
+const server = spawn("uv", ["run", "python", "-c", `
+import json, os, urllib.parse
+from pathlib import Path
+import uvicorn
+from middleware import semantic_scholar
+from middleware.app import create_app
+from middleware.settings import Settings
+records = json.loads(Path(os.environ["UI_METADATA_FIXTURE"]).read_text())
+def metadata(url):
+    url = urllib.parse.unquote(url).lower()
+    if "/references" in url:
+        return {"data": [{"citedPaper": records[2]}]}
+    if "/citations" in url:
+        return {"data": []}
+    if "forpaper" in url:
+        return {"recommendedPapers": []}
+    for row in records:
+        if any(urllib.parse.urlsplit(url).path.endswith("/paper/" + kind.lower() + ":" + str(ident).lower()) for kind, ident in row["externalIds"].items()):
+            return row
+    raise semantic_scholar.SemanticScholarError("No synthetic fixture for this paper", status=404)
+semantic_scholar.get_json = metadata
+uvicorn.run(create_app(Settings()), host="127.0.0.1", port=int(os.environ["MIDDLEWARE_PORT"]))
+`], {
   cwd: ROOT,
   env: {
     ...process.env,
@@ -49,6 +77,7 @@ const server = spawn("uv", ["run", "python", "-m", "middleware", "serve"], {
     LLM_API_KEY: "",
     LLM_BASE_URL: "",
     MISTRAL_API_KEY: "",
+    UI_METADATA_FIXTURE: join(data, "metadata.json"),
   },
   detached: process.platform !== "win32",
   stdio: "ignore",
@@ -72,9 +101,14 @@ const check = (ok, message) => {
 
 const auditPage = async (page, label) => {
   if (!values.audit) return;
+  await page.bringToFront();
   for (const [theme, width, height] of [["light", 1280, 800], ["dark", 1280, 800], ["light", 390, 844], ["dark", 390, 844], ["light", 768, 1024], ["light", 360, 800]]) {
     await page.setViewportSize({ width, height });
     await page.evaluate((theme) => document.documentElement.setAttribute("data-theme", theme), theme);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+    });
     await page.waitForFunction(() => document.getAnimations().every((animation) => !(animation instanceof CSSTransition) || animation.playState !== "running"), null, { timeout: 5000 });
     const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
     const geometry = await page.evaluate(() => {
@@ -128,6 +162,122 @@ const { protocol } = await api("/templates/two-group-rct-v1/instantiate", {
 });
 const bare = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "No protocol" }) })).id;
 const full = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "With protocol", protocol }) })).id;
+const literature = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "Evidence browser fixtures" }) })).id;
+
+browser = await chromium.launch();
+const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+const evidence = await context.newPage();
+await evidence.goto(`${base}/p/implicit/studies/${literature}?tab=library`);
+const paperInput = evidence.getByRole("textbox", { name: /arXiv id or DOI|Paper link or identifier/i });
+await paperInput.fill("https://arxiv.org/abs/2601.00001");
+const addingPaper = evidence.waitForResponse((response) => response.url().endsWith(`/studies/${literature}/papers`) && response.request().method() === "POST");
+await paperInput.press("Enter");
+const addedPaper = await addingPaper;
+check(addedPaper.status() === 200, "Evidence accepts a pasted arXiv link");
+check(addedPaper.request().postDataJSON().arxivId === "2601.00001", "Evidence resolves the paper link to its scholarly identifier");
+if (!addedPaper.ok()) throw new Error("pasted paper link did not reach a successful lookup");
+await evidence.getByRole("heading", { name: evidenceFixtures[0].title, exact: true }).waitFor();
+await paperInput.fill("https://doi.org/10.1234/fixture");
+const addingDoi = evidence.waitForResponse((response) => response.url().endsWith(`/studies/${literature}/papers`) && response.request().method() === "POST");
+await paperInput.press("Enter");
+const addedDoi = await addingDoi;
+check(addedDoi.ok() && addedDoi.request().postDataJSON().doi === "10.1234/fixture", "Evidence accepts a pasted DOI link");
+await evidence.getByRole("heading", { name: evidenceFixtures[1].title, exact: true }).waitFor();
+const list = evidence.getByRole("region", { name: "Study paper list", exact: true });
+await evidence.getByRole("searchbox", { name: "Filter papers", exact: true }).fill("2024");
+check(await list.getByRole("button").count() === 1 && await list.getByRole("button", { name: new RegExp(evidenceFixtures[1].title) }).isVisible(), "study papers filter by bibliographic information");
+await evidence.getByRole("searchbox", { name: "Filter papers", exact: true }).fill("no such paper");
+await evidence.getByRole("button", { name: "Clear filter", exact: true }).click();
+await list.getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
+await evidence.getByRole("textbox", { name: "Protocol links", exact: true }).fill("RQ-1, RQ-1, RQ-2");
+await evidence.getByRole("button", { name: "Save links", exact: true }).click();
+await evidence.getByRole("status").filter({ hasText: "Protocol links saved." }).waitFor();
+check(JSON.stringify((await api(`/studies/${literature}/papers`)).find((paper) => paper.paperRef === "arxiv:2601.00001").links.sort()) === JSON.stringify(["RQ-1", "RQ-2"]), "protocol links save without duplicate targets");
+check(await evidence.getByRole("link", { name: "Open source", exact: true }).getAttribute("href") === "https://arxiv.org/abs/2601.00001", "selected papers have a readable source link");
+await evidence.getByRole("textbox", { name: "Protocol links", exact: true }).fill("RQ-9");
+await list.getByRole("button", { name: new RegExp(evidenceFixtures[1].title) }).click();
+await list.getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
+check(await evidence.getByRole("textbox", { name: "Protocol links", exact: true }).inputValue() === "RQ-9", "switching papers preserves unsaved protocol-link drafts");
+await evidence.getByRole("textbox", { name: "Protocol links", exact: true }).fill("RQ-1, RQ-2");
+await evidence.getByRole("button", { name: "Sort papers", exact: true }).click();
+await evidence.getByRole("menuitemradio", { name: "Newest publication", exact: true }).click();
+check((await list.getByRole("button").first().innerText()).includes(evidenceFixtures[0].title), "study papers can be sorted by publication year");
+await evidence.waitForFunction(() => ![...document.querySelectorAll('[role="status"]')].some((element) => element.textContent.includes("Finding related literature")));
+const related = evidence.getByRole("button", { name: `${evidenceFixtures[2].title} (related paper)`, exact: true });
+await related.focus();
+await related.press("Space");
+await evidence.getByRole("heading", { name: evidenceFixtures[2].title, exact: true }).waitFor();
+check(await evidence.getByRole("button", { name: "Add to study", exact: true }).isVisible(), "map papers open with Space and can be added from their detail");
+await auditPage(evidence, "populated Evidence and related paper");
+if (values.screenshots) {
+  await evidence.evaluate(() => { document.activeElement?.blur(); document.querySelector('[role="region"][aria-label="Evidence"]').scrollTop = 0; });
+  await evidence.screenshot({ path: join(values.screenshots, "evidence-populated-desktop.png"), fullPage: true });
+  await evidence.setViewportSize({ width: 390, height: 844 });
+  await evidence.screenshot({ path: join(values.screenshots, "evidence-populated-mobile.png"), fullPage: true });
+  await evidence.setViewportSize({ width: 1280, height: 800 });
+}
+await evidence.getByRole("button", { name: "Add to study", exact: true }).click();
+await evidence.getByRole("status").filter({ hasText: "Related paper added" }).waitFor();
+await evidence.getByRole("button", { name: "Remove paper", exact: true }).click();
+await evidence.getByRole("button", { name: "Cancel", exact: true }).click();
+check((await api(`/studies/${literature}/papers`)).length === 3, "canceling removal preserves the paper and its links");
+await evidence.getByRole("button", { name: "Remove paper", exact: true }).click();
+await evidence.getByRole("button", { name: "Remove from study", exact: true }).click();
+await evidence.getByRole("status").filter({ hasText: "Paper and its protocol links removed" }).waitFor();
+check((await api(`/studies/${literature}/papers`)).length === 2, "confirmed paper removal persists");
+await paperInput.fill("https://example.org/unrecognized-paper");
+await paperInput.press("Enter");
+check(await paperInput.getAttribute("aria-invalid") === "true", "unsupported paper links have an inline validation error");
+await paperInput.fill("2601.99999");
+await paperInput.press("Enter");
+await evidence.getByRole("alert").filter({ hasText: /couldn't find that paper/ }).waitFor();
+check(await paperInput.inputValue() === "2601.99999", "failed paper lookup preserves the entered identifier");
+await evidence.reload();
+await evidence.getByRole("region", { name: "Study paper list", exact: true }).getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
+await evidence.route(`${base}/studies/${literature}/papers`, async (route) => {
+  if (route.request().method() === "GET") await route.fulfill({ status: 503, json: { detail: "Synthetic read failure" } });
+  else await route.continue();
+});
+await evidence.getByRole("textbox", { name: "Protocol links", exact: true }).fill("RQ-3");
+await evidence.getByRole("button", { name: "Save links", exact: true }).click();
+await evidence.getByRole("status").filter({ hasText: "Protocol links saved." }).waitFor();
+await evidence.getByRole("alert").filter({ hasText: "Could not refresh study papers." }).waitFor();
+check(await evidence.getByRole("heading", { name: evidenceFixtures[0].title, exact: true }).isVisible(), "a failed refresh retains the reading pane and successful save feedback");
+await evidence.unroute(`${base}/studies/${literature}/papers`);
+await evidence.getByRole("button", { name: "Try again", exact: true }).click();
+await evidence.getByRole("alert").filter({ hasText: "Could not refresh study papers." }).waitFor({ state: "hidden" });
+const map = evidence.getByRole("group", { name: /^Literature map/ });
+await map.scrollIntoViewIfNeeded();
+const bodyScroll = evidence.getByRole("region", { name: "Evidence", exact: true });
+await bodyScroll.evaluate((element) => { element.scrollTop = 0; });
+const beforeScroll = await bodyScroll.evaluate((element) => element.scrollTop);
+await map.hover();
+await evidence.mouse.wheel(0, 250);
+await evidence.waitForFunction((before) => document.querySelector('[role="region"][aria-label="Evidence"]').scrollTop > before, beforeScroll);
+check(true, "normal scrolling over the map continues through the Evidence page");
+const beforeZoom = await map.locator(":scope > g").getAttribute("transform");
+await evidence.getByRole("button", { name: "Zoom out", exact: true }).click();
+check(await map.locator(":scope > g").getAttribute("transform") !== beforeZoom, "map zoom is available through keyboard-accessible buttons");
+await evidence.getByRole("button", { name: "Fit literature map", exact: true }).click();
+await evidence.getByLabel("Upload a PDF", { exact: true }).setInputFiles({ name: "not-a-pdf.pdf", mimeType: "application/pdf", buffer: Buffer.from("This is not PDF content.") });
+await evidence.getByRole("alert").waitFor();
+check(!/upload failed:|HTTP \d{3}/.test(await evidence.getByRole("alert").innerText()), "PDF errors explain the failed upload in readable language");
+await evidence.close();
+
+const viewer = await context.newPage();
+await viewer.route(`${base}/projects/implicit`, async (route) => {
+  const response = await route.fetch();
+  const body = await response.json();
+  body.members = body.members.map((member) => ({ ...member, role: "viewer" }));
+  await route.fulfill({ response, json: body });
+});
+await viewer.goto(`${base}/p/implicit/studies/${literature}?tab=library`);
+await viewer.getByText("You have read-only access.", { exact: false }).waitFor();
+check(await viewer.getByRole("button", { name: "Add paper", exact: true }).count() === 0, "read-only Evidence hides paper mutations");
+await viewer.getByRole("region", { name: "Study paper list", exact: true }).getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
+check(await viewer.getByRole("button", { name: "Save links", exact: true }).count() === 0 && await viewer.getByRole("link", { name: "Open source", exact: true }).isVisible(), "viewers can inspect sources and saved links without editing controls");
+await auditPage(viewer, "read-only Evidence");
+await viewer.close();
 
 const PROTOCOL_ONLY = /\/studies\/[^/]+\/(plan|status|dataset|live|enrollment)(\/|\?|$)/;
 const RING_SCAN = () => {
@@ -147,8 +297,6 @@ const RING_SCAN = () => {
   return { focusable: els.length, doubles };
 };
 
-browser = await chromium.launch();
-const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 await context.route("**/*", (route) => {
   if (new URL(route.request().url()).origin !== base) {
     check(false, "regression build must use the disposable backend");

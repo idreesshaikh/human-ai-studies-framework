@@ -256,7 +256,7 @@ export function StudyHome() {
         )}
         {tab === "library" && (
           <div className="min-h-0 min-w-0 flex-1">
-            <LibraryTab studyId={id} />
+            <LibraryTab key={id} studyId={id} roleState={roleState} />
           </div>
         )}
         {tab === "data" && (

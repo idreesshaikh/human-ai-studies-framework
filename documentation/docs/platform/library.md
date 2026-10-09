@@ -1,48 +1,46 @@
-# Library
+# Evidence
 
-The Library is PHOENIX’s evidence surface: described protocol shapes on one side,
-the literature constellation behind them on the other. It lets a researcher
-reuse a method without treating reuse as a black box.
+The Evidence tab holds the papers used to design a study, their protocol links,
+and related literature. Paper counts and citations describe the collection;
+they do not establish the quality or validity of a study.
 
-<figure markdown="span">
-  ![The current Phoenix literature library](../assets/screens/phoenix-demo-library-current.png){ width="900" }
-  <figcaption>An example literature library, its relationships, and the study’s evidence trail.</figcaption>
-</figure>
+## Add and find papers
 
-## Protocol templates
+Paste an arXiv or DOI link, or enter its identifier, in **Paper link or identifier**.
+Choose **Add paper**, or use **Upload PDF** for a researcher-supplied file. Failed
+lookups preserve the input and explain how to try again.
 
-Design shapes are ranked by how widely the corpus uses them. Each shape carries
-the statistical plan it requires and keeps its supporting references.
+Filter study papers by title, author, year or identifier. Sort by recently added,
+title or publication year. Templates and design recommendations remain available
+in Templates and Setup.
 
-Examples include:
+## Read and connect
 
-- **Single-arm benchmark evaluation** — descriptive measures only, with no
-  inferential comparison;
-- **Self-report-only AI-assistance study** — within-subject experience measures;
-- **Within-subject human–AI synergy comparison** — matched human-only,
-  AI-only, and collaborative conditions with explicit synergy measures.
+Select a paper to read its bibliographic details and abstract. **Open source**
+opens the article's public identifier or source page. Add protocol identifiers,
+such as `RQ-1`, to **Protocol links**, then choose **Save links**. Unsaved drafts
+remain available when switching between papers; saving reports the server result.
 
-The templates are a starting point. The researcher still decides whether the
-shape fits the question, population, task, and ethics boundary.
+**Remove paper** asks for confirmation before removing the paper and its links
+from the study. Viewers can read papers and their saved links; owners and members
+can change the collection.
 
-## Literature constellation
+## Explore related work
 
-Citation chips from the design conversation open the supporting paper in the
-constellation: its position in the corpus, confidence score, and the moves it
-supports. The platform distinguishes a citation from an unsourced suggestion
-at the data-model level, not just by styling.
+The literature map shows references, later citations and similar work. Select a
+related paper to inspect its details, then choose **Add to study** if it belongs
+in the collection. Citation updates keep the reading pane available.
 
-## Corpus provenance
+Use the zoom buttons or Ctrl/Command plus scroll to zoom; ordinary scrolling
+continues through the page. Drag the map background to pan and choose **Fit** to
+frame the visible papers. Arrow keys move between papers; Enter or Space opens
+their details. Map labels remain readable across screen sizes and zoom levels.
 
 Local development can import the project corpus with:
 
 ```bash
 uv run python -m middleware corpus-import
 ```
-
-Grounding is a type, not a tone: every proposal is cited or explicitly
-unsourced. That distinction travels with the protocol and remains available in
-the analysis and ethics hand-off.
 
 ## Keeping the library current
 
