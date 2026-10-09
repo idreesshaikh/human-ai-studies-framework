@@ -24,14 +24,6 @@ const buttonVariants = cva(
          * removes something a colleague could be relying on. */
         danger:
           "plate-lift border border-critical bg-surface text-critical shadow-mark hover:bg-critical hover:text-paper",
-        /* Legacy aliases  -  `filtration` and `struck` were the old world's
-         * names for "the one next action" and "a committed control". Both
-         * resolve into this world's single fill so no call site changes
-         * meaning while it is being migrated. */
-        /* Legacy aliases kept so no call site changes meaning while it is
-         * migrated; both resolve into this world's single fill. */
-        filtration: "plate-lift control-primary border shadow-mark",
-        struck: "plate-lift control-ink border shadow-mark",
       },
       size: {
         /* 44px is the comfortable touch target (WCAG 2.5.5, AAA); a control

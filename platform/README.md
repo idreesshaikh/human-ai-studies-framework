@@ -20,8 +20,10 @@ npm run check
 npm run build
 ```
 
-Workspace changes require the server. Reads and writes use the live middleware; unavailable data is reported explicitly. The design
-conversation requires `MISTRAL_API_KEY` on the server.
+Workspace changes require the server. Unavailable data is reported explicitly.
+The design conversation uses the server's configured provider: `LLM_API_KEY`
+for a hosted API, or `LLM_BASE_URL` for a compatible local server. The existing
+`MISTRAL_API_KEY` alias remains supported.
 
 See [development](docs/development.md), the
 [design guide](../docs/design.md), and the

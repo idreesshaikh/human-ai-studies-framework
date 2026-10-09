@@ -224,6 +224,6 @@ def run(dataset: Dataset) -> RecipeResult:
     return RecipeResult(
         tables=tables,
         figures=figs,
-        summary="AI review behavior (RQ-P4). " + " ".join(sentences),
+        summary="AI review behavior. " + " ".join(sentences),
         methods=METHODS,
     )

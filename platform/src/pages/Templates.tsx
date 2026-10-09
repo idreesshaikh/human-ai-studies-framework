@@ -357,15 +357,7 @@ function ShapeCard({
   );
 }
 
-/** How widely the corpus uses this shape.
- *
- * "How much evidence stands behind this" is the same question grounding
- * answers everywhere else in the app, so it is answered the same way: the
- * count is PRINTED, in the machine face, and the dot that used to sit beside
- * it is gone. The dot was a second encoding of a number already on the line  -
- * and a size ramp nobody could rank without the two marks side by side (see
- * docs/design.md). The band's own words stay in the
- * title, where they explain what the count means. */
+/* Print the corpus count; explain its evidence band in the title. */
 function SupportBadge({ entry }: { entry: RepertoireEntry }) {
   return (
     <span

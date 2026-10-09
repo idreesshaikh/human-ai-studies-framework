@@ -1,4 +1,4 @@
-"""Shared storage helpers for the ingest routes and the dry-run simulator."""
+"""Shared storage helpers for event and metric ingestion."""
 
 from __future__ import annotations
 

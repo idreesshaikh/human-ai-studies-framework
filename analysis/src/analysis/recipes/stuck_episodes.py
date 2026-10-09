@@ -90,7 +90,7 @@ def run(dataset: Dataset) -> RecipeResult:
         tables=tables,
         figures={"rate_by_condition": fig, "duration_by_condition": dur_fig},
         summary=(
-            f"Stuck episodes (RQ-P1). Rate: {rate_sentence} Duration: {dur_sentence}"
+            f"Stuck episodes. Rate: {rate_sentence} Duration: {dur_sentence}"
         ),
         methods=METHODS,
     )

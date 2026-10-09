@@ -1,4 +1,4 @@
-"""Built-in analysis recipes (FR-ANA-3 + the FR-ANA-5 replication demo)."""
+"""Built-in analysis recipes."""
 
 from analysis.recipes import (
     agent_interaction_dynamics,

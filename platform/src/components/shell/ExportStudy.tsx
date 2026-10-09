@@ -9,16 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { studyApi, OfflineError } from "@/lib/studyApi";
 
-/* Getting the study *out* (FR-PROT-7, FR-CONV-6, FR-AGENT-5). Three
- * things a researcher actually needs to hand to someone else, or to
- * themselves at the platform's own boundary:
- *
- * - the replication kit  -  protocol, joined dataset, regenerated report and
- *   pinned versions, byte-reproducible, the thing a reviewer reruns;
- * - the elicitation record  -  the decision chain from idea to specification;
- * - the starter notebook  -  a loaded, documented dataframe with every
- *   planned recipe imported and never run: where the platform's own scope
- *   ends and the researcher's analysis begins. */
+/* Export the replication kit, decision record, or starter notebook from the same study. */
 export function ExportStudy({ studyId }: { studyId: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);

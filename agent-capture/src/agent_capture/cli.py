@@ -125,7 +125,11 @@ def _fetch_dataset_from_manifest(
 ) -> list[dict] | None:
     events_endpoint = (manifest.get("endpoints") or {}).get("events", "")
     marker = "/ingest/events"
-    if not events_endpoint or marker not in events_endpoint:
+    if (
+        not manifest.get("studyId")
+        or not events_endpoint
+        or marker not in events_endpoint
+    ):
         return None
     server = events_endpoint.split(marker, 1)[0]
     return _fetch_dataset(server, str(manifest.get("studyId", "")), token)
@@ -142,9 +146,14 @@ def _cmd_correlate(args) -> int:
     else:
         token = args.token or os.environ.get("MIDDLEWARE_TOKEN")
         rows = _fetch_dataset_from_manifest(manifest, token) if manifest else None
-        rows = (
-            rows if rows is not None else _fetch_dataset(args.server, args.study, token)
-        )
+        if rows is None:
+            if not args.study:
+                print(
+                    "correlate needs --manifest, --dataset, or --study",
+                    file=sys.stderr,
+                )
+                return 2
+            rows = _fetch_dataset(args.server, args.study, token)
     by_session: dict[str, list[dict]] = {}
     for r in rows:
         by_session.setdefault(r.get("sessionId", ""), []).append(r)
@@ -218,7 +227,7 @@ def _build_parser() -> argparse.ArgumentParser:
     imp.set_defaults(func=_cmd_import)
 
     corr = sub.add_parser("correlate", help="cross-leg correlation + evolution")
-    corr.add_argument("--study", default="pilot-2026")
+    corr.add_argument("--study", help="study ID for a server dataset read")
     corr.add_argument("--server", default="http://127.0.0.1:8000")
     corr.add_argument("--dataset", help="dataset JSON file (instead of fetching)")
     corr.add_argument("--endpoint", default=DEFAULT_ENDPOINT)

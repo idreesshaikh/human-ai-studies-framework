@@ -244,18 +244,7 @@ export function ConversationView({
     [turns],
   );
 
-  /* Nothing of the study's own is on the sheet yet: the platform has not
-   * answered and no move has been proposed. The blank record teaches the
-   * first move here.
-   *
-   * The researcher's OWN opening question does not end the blank state. It
-   * used to: a study opened from "Start a project" carries that question in
-   * as its first turn, which flipped this to false before the workspace had
-   * ever painted  -  so the one screen that explains how the record gets
-   * written was skipped by exactly the researchers who had never seen it,
-   * and what they got instead was a single unanswered bubble above half a
-   * screen of bare ground. A question you asked and nothing has answered is
-   * still a blank plate. */
+  /* An unanswered opening question still needs the setup guidance. */
   /* `opening` is a client-side prompt, not an answered turn. Treating it as
    * conversation content made the durable first-run guide disappear before a
    * researcher had written anything, especially on a newly created study. */
@@ -995,17 +984,7 @@ export function ConversationView({
       <div
         className={cn(
           "hidden min-h-0 min-w-0 flex-col border-l border-border bg-surface md:flex",
-          /* Expanded, the rail fills the track the grid gave it  -  it must not
-           * name its own width. `.split-rail` sizes this column as
-           * `clamp(--rail-min, --rail-share, --rail-max)`, and `--rail-share`
-           * is `32vw`, so on any window narrower than 90rem the track lands
-           * BELOW the 30rem this div used to hardcode: at 1440px the track
-           * computed to 460.8px against a 480px div, and the extra 19px of
-           * the protocol draft hung past the right edge of the window and was
-           * clipped. Two widths for one column can only agree by coincidence.
-           *
-           * Folded is the reverse case and stays explicit: that track is
-           * `auto`, so it takes its width FROM this div. */
+          /* The expanded rail takes its width from the grid; the folded rail sizes the auto track. */
           draftFolded ? "w-12" : "w-full",
         )}
       >

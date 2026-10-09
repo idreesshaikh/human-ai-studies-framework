@@ -79,7 +79,7 @@ def run(dataset: Dataset) -> RecipeResult:
         tables=tables,
         figures={"size_by_condition": size_fig, "rate_by_condition": rate_fig},
         summary=(
-            f"Paste behavior (RQ-P3). Size: {size_sentence} Frequency: {rate_sentence}"
+            f"Paste behavior. Size: {size_sentence} Frequency: {rate_sentence}"
         ),
         methods=METHODS,
     )

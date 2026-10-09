@@ -77,6 +77,6 @@ def run(dataset: Dataset) -> RecipeResult:
     return RecipeResult(
         tables=tables,
         figures={"trajectories": fig, "by_condition": strip},
-        summary=f"Self-reported fatigue (RQ-P1). {sentence}",
+        summary=f"Self-reported fatigue. {sentence}",
         methods=METHODS,
     )

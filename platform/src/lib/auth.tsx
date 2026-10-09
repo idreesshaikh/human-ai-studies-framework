@@ -10,27 +10,7 @@ import {
 } from "react";
 import { apiBase, onUnauthorized, setTokenProvider } from "./api.ts";
 
-/* Sign-in state for the app shell (FR-OPS-5, D29).
- *
- * The middleware announces its sign-in mode via GET /auth/config; any 401
- * from the API flips `needed` and `Shell` (App.tsx) renders the sign-in
- * surface instead of letting project pages fail one by one.
- *
- * - token mode: signing in stores the bearer token where the API client
- *   already looks (`middleware.token`, see api.ts's tokenProvider default).
- * - clerk mode: clerk-js is hot-loaded from the Clerk instance's own domain
- *   (Clerk's documented pattern for non-React apps  -  the npm package's ESM
- *   build ships without the UI renderer, so self-bundling mounts nothing;
- *   @clerk/clerk-js stays a types-only devDependency, never a runtime one).
- *   Since clerk-js v6 the component renderer lives in a second script,
- *   @clerk/ui: it must load first (it sets window.__internal_ClerkUICtor)
- *   and the constructor is passed to Clerk.load({ ui: { ClerkUI } })  -  a
- *   bare load() initializes headless and mountSignIn throws "not loaded
- *   with Ui components". Once loaded, the API client gets a live token
- *   getter (Clerk session JWTs are short-lived; clerk-js refreshes them, we
- *   fetch one per request via setTokenProvider). If the script can't load,
- *   the paste-a-token fallback still works  -  a manually issued session
- *   token verifies server-side the same way. */
+/* Resolve sign-in mode from the server. Token mode stores the bearer token; Clerk loads UI before its client and supplies a fresh session token per request. Keep manual token sign-in available if hosted scripts fail. */
 
 export interface AuthConfig {
   mode: "none" | "token" | "clerk";

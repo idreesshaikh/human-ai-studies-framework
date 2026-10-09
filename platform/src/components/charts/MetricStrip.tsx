@@ -17,17 +17,7 @@ import {
   type MetricObservation,
 } from "@/lib/metricRegistry";
 
-/* Metric distribution split by condition (FR-DASH-5), small-n honest (NFR-8).
- * One panel, three marks chosen by the measure's type so each reads truthfully
- * (the swimlane-only measures of FR-DASH-4 get a real distribution here):
- *   - continuous / count → every observation drawn (deterministic jitter),
- *     median line, IQR box only at n ≥ 5;
- *   - ordinal → counts per level, clustered by condition, never averaged;
- *   - categorical → a per-condition share bar, weighted, with its n.
- * Every mark keeps a table twin with exact numbers, per-cell n always shown,
- * and identity is never carried by color alone. Follows the dataviz skill;
- * no charting dependency — hand-built scales, reading the registry's pure
- * aggregation helpers (D17). */
+/* Render every continuous/count observation, counts for ordinal levels, and categorical shares. Keep exact tables and per-cell n; show IQR only at n ≥ 5. */
 
 const M = { left: 48, right: 16, top: 12, bottom: 48 };
 const H = 300;

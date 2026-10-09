@@ -46,19 +46,7 @@ export function SignInScreen() {
     return () => unmountSignIn(el);
   }, [showClerkWidget, mountSignIn, unmountSignIn]);
 
-  /* Already signed in: forward, don't frame a sign-in card.
-   *
-   * This is the whole return-to mechanism. Signing in ends in
-   * `location.reload()`, so the browser comes back to this same URL  -
-   * `/signin?next=/repertoire`  -  and by then the credential exists. Reading
-   * `next` here and redirecting is what carries the researcher back to the
-   * page they left, across a reload that destroys every other kind of state.
-   *
-   * `resolving` is respected for the same reason `Shell` does: in clerk mode
-   * `hasCredential` reads false until clerk-js has checked the session, and
-   * forwarding on that transient false would bounce an already-signed-in
-   * visitor. `replace` so Back does not return to a sign-in page that would
-   * only forward again. */
+  /* Wait for auth to resolve, then replace the sign-in URL with its saved return path. */
   if (!resolving && hasCredential) {
     return <Navigate to={next} replace />;
   }

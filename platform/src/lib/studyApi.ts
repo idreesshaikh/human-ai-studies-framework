@@ -60,7 +60,7 @@ export interface PaperGraph {
   edges: GraphEdge[];
 }
 
-/** One recipe the dry run actually executed, with the statistic it produced. */
+/** Joined event or metric row from a study dataset. */
 export interface DatasetRow {
   source: string;
   ts: string;

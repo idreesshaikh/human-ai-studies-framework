@@ -1,34 +1,8 @@
 """``python -m middleware`` - run the ingestion service or CLI commands."""
 
 import argparse
-import json
 import os
 import sys
-import urllib.request
-
-
-def _auth_headers() -> dict:
-    token = os.environ.get("MIDDLEWARE_TOKEN", "")
-    return {"authorization": f"Bearer {token}"} if token else {}
-
-
-def _post(server: str, path: str, body: dict) -> dict:
-    req = urllib.request.Request(  # noqa: S310
-        f"{server.rstrip('/')}{path}",
-        data=json.dumps(body).encode(),
-        headers={**_auth_headers(), "content-type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=60) as res:  # noqa: S310
-        return json.loads(res.read())
-
-
-def _get(server: str, path: str) -> dict:
-    req = urllib.request.Request(  # noqa: S310
-        f"{server.rstrip('/')}{path}", headers=_auth_headers(), method="GET"
-    )
-    with urllib.request.urlopen(req, timeout=60) as res:  # noqa: S310
-        return json.loads(res.read())
 
 
 def main() -> None:

@@ -1,14 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-/* Which panels the researcher has folded away, remembered per device.
- *
- * A per-device ergonomic, not an identity preference: how much chrome you
- * want around the work depends on the screen you are sitting at, so this
- * follows the machine rather than the account. The navigation fold is global,
- * while the protocol draft fold belongs to a study. A new study therefore
- * starts with a focused conversation, and a return to that study remembers the
- * last choice made there.
- */
+/* Remember navigation per device and the protocol rail per study. */
 
 export type PanelId = "nav" | "draft";
 export type RailId = "papers" | "draft";

@@ -140,11 +140,6 @@ def prescribe(design_shape: str) -> Prescription | None:
     return _TABLE.get(design_shape)
 
 
-def prescription_table() -> list[Prescription]:
-    """All prescriptions, in canonical order."""
-    return [_TABLE[shape] for shape in SHAPES]
-
-
 def design_shapes() -> list[str]:
     """Canonical list of supported design shapes."""
     return list(SHAPES)
@@ -161,11 +156,6 @@ _SHAPE_RECIPES = {
 def shape_to_recipe_id(design_shape: str) -> str | None:
     """The built-in recipe that runs this shape's prescribed test, if any."""
     return _SHAPE_RECIPES.get(design_shape)
-
-
-def runnable_shapes() -> list[str]:
-    """Design shapes whose prescribed test PHOENIX can run itself."""
-    return [s for s in SHAPES if s in _SHAPE_RECIPES]
 
 
 def shapes_from_recipe_ids(recipe_ids: set[str]) -> set[str]:

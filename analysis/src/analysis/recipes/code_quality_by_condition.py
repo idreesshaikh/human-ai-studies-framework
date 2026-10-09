@@ -154,6 +154,6 @@ def run(dataset: Dataset) -> RecipeResult:
     return RecipeResult(
         tables=tables,
         figures={"metrics_by_condition": fig},
-        summary=f"Static code quality (RQ-P2). {sentence}",
+        summary=f"Static code quality. {sentence}",
         methods=METHODS,
     )

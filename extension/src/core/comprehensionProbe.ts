@@ -66,13 +66,6 @@ export interface ComprehensionProbeConfig {
   probeTypes: ProbeKind[];
 }
 
-export const DEFAULT_COMPREHENSION_PROBE_CONFIG: ComprehensionProbeConfig = {
-  enabled: true,
-  cadence: 'every-chunk',
-  sampleRate: 1,
-  probeTypes: ['predict-output', 'locate-change'],
-};
-
 export interface ProbeCallbacks {
   /** Fired when a probe is ready to be shown (probe-pending → adapter). */
   onProbe: (

@@ -38,7 +38,7 @@ Read [planner methods, API and limits](docs/planner.md), the [v6 example](protoc
 ## Validate
 
 ```bash
-uv run pytest protocol/tests analysis/tests middleware/tests metrics/tests agent-capture/tests curated/tests
+uv run pytest protocol/tests analysis/tests middleware/tests metrics/tests agent-capture/tests
 npm --prefix extension run check
 npm --prefix platform run check
 ```

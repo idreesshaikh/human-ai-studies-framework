@@ -1,7 +1,4 @@
-import { rowLabel } from "./slotRowLabels.ts";
-
-/* The conversation domain model. These shapes match the server interfaces
- * so wiring the backend later is a transport swap, not a redesign. */
+/* Conversation types shared with the server's wire contract. */
 
 /** Citations attached to a design move. A move with no grounding is shown
  * as "unsourced". Quality is the continuous `confidence` (0..1)  -  there is no
@@ -68,16 +65,7 @@ export interface Turn {
   text: string;
   moves: DesignMove[];
   recommendations: Recommendation[];
-  /** Which path produced a platform turn.
-   *
-   * - `"llm"`  -  the design conversation. The only kind that proposes moves.
-   * - `"unavailable"`  -  a holding turn: the model couldn't be reached, so
-   *   this says so and proposes nothing. Both turns are persisted for recovery.
-   * - `"scripted"`  -  manual checklist confirmations and legacy scripted turns.
-   * - `"scope"`  -  a deterministic boundary response. The idea is outside
-   *   PHOENIX's human–AI developer-study lane, so it never reaches the model.
-   *
-   * Absent for researcher turns. */
+  /* Platform-turn origin. Only llm turns propose moves; unavailable, scripted, and scope turns are persisted without model proposals. Absent for researcher turns. */
   source?: "llm" | "scripted" | "unavailable" | "scope";
 }
 
@@ -218,16 +206,6 @@ export const MANDATORY_SLOTS: (keyof ProtocolDraft)[] = [
 ];
 
 export const OPTIONAL_SLOTS: (keyof ProtocolDraft)[] = ["ethics"];
-
-/** Renders a move's `target` (a dotted protocol path such as
- * "researchQuestions[]" or "session.durationMinutes") in the words a
- * researcher reads, never as raw code. The wording lives in
- * slotRowLabels.ts, which the review table also uses. `target` is
- * model-authored, so a stale "protocol." prefix and a trailing "[]" are
- * stripped there. */
-export function targetLabel(target: string): string {
-  return rowLabel(target);
-}
 
 export const SLOT_LABELS: Record<keyof ProtocolDraft, string> = {
   researchQuestions: "Research questions",

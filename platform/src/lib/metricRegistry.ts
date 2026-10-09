@@ -1,21 +1,4 @@
-/**
- * Metric registry for the Data surface (FR-DASH-5).
- *
- * The Data tab used to visualise exactly three static-code metrics; every other
- * measure the study collects was reachable only as a dot on the per-session
- * swimlane (FR-DASH-4). This registry generalises the distribution view: each
- * entry knows how to pull its own observations out of the one-timeline dataset
- * rows (metric rows *and* event rows alike) and declares its measurement type,
- * so the renderer can choose an honest mark for it (NFR-8) instead of forcing
- * every measure through one continuous scale.
- *
- * Pure and dependency-free, like timeline.ts: the component renders what these
- * functions return, and the verify script exercises them directly.
- *
- * Wall: invents no new event shape and no new endpoint. Every row it reads is
- * already join-keyed (participantId, condition, sessionId) and already on the
- * wire from GET /studies/{id}/dataset.
- */
+/* Extract typed observations from the joined study dataset so charts preserve each measure’s scale. */
 
 import type { DatasetRow } from "./studyApi";
 
@@ -90,9 +73,7 @@ function staticMetric(
     extract(rows) {
       const out: MetricObservation[] = [];
       for (const r of rows) {
-        // Real metric rows are source "metrics"; the in-browser rehearsal
-        // (DataProvenance) emits the same static-metric payload under
-        // source "synthetic", type "metric" — accept both.
+        // Historical synthetic metric rows retain the same payload shape.
         if (r.source !== "metrics" && !(r.source === "synthetic" && r.type === "metric"))
           continue;
         const v = num(r.payload[key]);

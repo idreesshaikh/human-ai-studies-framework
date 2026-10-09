@@ -4,8 +4,7 @@ The protocol connects the researcher's intended study to capture and analysis.
 The web app helps build it; the remaining tools consume it.
 
 The supported product is a live, protocol-driven study. Optional producers
-send measurements to the same ingest contract, while `curated/` is an isolated
-external-data experiment outside the release path.
+send measurements to the same ingest contract.
 
 Python packages use a `src/` layout. For example, `middleware/app.py` below
 means [middleware/src/middleware/app.py](../middleware/src/middleware/app.py).
@@ -69,7 +68,7 @@ function merely to reduce a line count would hide, rather than remove, coupling.
 `platform/src/components/conversation/` renders turns, proposals, and the draft.
 `middleware/design_assistant.py` combines study state and retrieved literature;
 `design_llm.py` constrains and parses model output. `assistant.py` supplies the
-Mistral transport. There is no separate knowledge-chat interface.
+configured chat-provider transport. There is no separate knowledge-chat interface.
 
 After researcher review, `middleware/compiler.py` folds accepted changes into
 YAML and validates it through `protocol/loader.py`. The browser compiler in
@@ -136,16 +135,10 @@ Share menu.
 
 Confirmatory dataset views omit whole pilot, synthetic and researcher-excluded sessions. Raw exports preserve real pilot rows, decisions, and instrument/session provenance. Data bundles and replication kits include a JSON/Markdown design card, which reports recorded assumptions and audit signals without rating validity. Re-run lineage comparisons authorize both studies and never pool data automatically.
 
-`curated/` is an experimental library for local archive import,
-pseudonymisation, and validity-threat records. It is not imported by the live
-server, does not provide a mining command or API adapter, and must not be
-described as a finished observational-study workflow.
-
 ## Where maintenance is needed
 
-The API is still concentrated in a large module. Extract routes by feature when
-working on that feature, with access-control tests. Keep optional producers out
-of the server's hard dependencies. Protocol `phases` remains for schema
+Keep route handlers thin and access-control tests at their feature boundary.
+Keep optional producers out of the server's hard dependencies. Protocol `phases` remains for schema
 compatibility; there is no phase-transition service.
 
 The model and paper services are tested with fixtures. Tests do not establish

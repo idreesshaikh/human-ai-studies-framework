@@ -2,7 +2,6 @@ import { test, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ComprehensionProbeMachine,
-  DEFAULT_COMPREHENSION_PROBE_CONFIG,
   ComprehensionProbeConfig,
   ChunkMeta,
   ChunkReference,
@@ -42,7 +41,13 @@ function fixture(over: Partial<ComprehensionProbeConfig> = {}): Fixture {
   const probes: Fixture['probes'] = [];
   const responses: ProbeResponse[] = [];
   const machine = new ComprehensionProbeMachine(
-    { ...DEFAULT_COMPREHENSION_PROBE_CONFIG, ...over },
+    {
+      enabled: true,
+      cadence: 'every-chunk',
+      sampleRate: 1,
+      probeTypes: ['predict-output', 'locate-change'],
+      ...over,
+    },
     {
       onProbe: (meta, descriptor, ref) =>
         probes.push({ meta, descriptor, ref }),

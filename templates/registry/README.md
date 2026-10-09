@@ -42,9 +42,8 @@ mandatory citations, recipe names, and declared placeholders. It cannot decide
 whether a recipe is methodologically appropriate for a particular question;
 the researcher must make that judgment.
 
-Drafts in [`templates/drafts`](../drafts/) are intentionally not registry
-entries. They reference data paths or recipes that the supported live workflow
-does not provide. Do not promote one without a complete, tested vertical slice.
+Generated candidates in [`templates/drafts`](../drafts/) are excluded from the
+registry. Review their capture path and recipe compatibility before promotion.
 
 Templates are library content. A study is a protocol instance in
 `protocol/examples/` and may start from a template, but it is never itself a
