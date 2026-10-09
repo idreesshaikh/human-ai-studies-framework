@@ -66,6 +66,7 @@ export function ConversationView({
   studyId = "study",
   opening = "",
   roleState = LOADING_ROLE,
+  onProtocolChanged,
 }: {
   studyId?: string;
   /** My role in the project; a viewer's open never issues the compile POST. */
@@ -74,6 +75,7 @@ export function ConversationView({
    *  the "what do you want to find out?" answer given while creating the
    *  project. Sent once, then never again for this study. */
   opening?: string;
+  onProtocolChanged?: () => void;
 }) {
   const [turns, setTurns] = useState<Turn[]>(() => [openingTurn(opening)]);
   const [input, setInput] = useState("");
@@ -323,12 +325,7 @@ export function ConversationView({
     } catch {
       if (request !== compileRequest.current) return;
       setCompileResult(null);
-      /* Compiling is a contribute-level action, so a viewer 403s here  -  and
-       * used to be shown an empty "no design shape yet" rail over a protocol
-       * that exists and is fully compiled (the read-only demo made this
-       * unmissable: Data and Planning rendered the protocol while this rail
-       * claimed there wasn't one). Fall back to the view-capability document
-       * so a reader sees the study's record; they still can't compile it. */
+      // Readers can load the recorded protocol even when they cannot compile.
       try {
         const protocol = await studyApi.protocol(studyId);
         if (request === compileRequest.current) setReadOnlyProtocol(protocol);
@@ -792,6 +789,7 @@ export function ConversationView({
     try {
       await conversationApi.approve(studyId, compileResult.compilationId);
       setApplied(true);
+      onProtocolChanged?.();
       setNote("Draft applied to the protocol.");
       await refreshCompile();
     } catch {
@@ -831,11 +829,11 @@ export function ConversationView({
       className={cn("mx-auto w-full max-w-reading bg-surface", !welcome && "px-4 pb-4 pt-2 sm:px-8")}
       onSubmit={(event) => { event.preventDefault(); send(); }}
     >
-      <div className="composer focus-ring-owned mx-auto flex w-full max-w-reading items-end gap-2 rounded-card border border-border bg-surface px-3 py-2 focus-within:outline focus-within:outline-2 focus-within:outline-accent">
+      <div className="composer focus-ring-owned mx-auto flex w-full max-w-reading items-end gap-2 rounded-card border border-border bg-surface px-3 py-2 has-[textarea:focus]:outline has-[textarea:focus]:outline-2 has-[textarea:focus]:outline-accent">
         <SteerDial value={steer} onChange={changeSteer} />
         <textarea
           ref={composer}
-          className="type-body-lg min-h-8 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-text placeholder:text-text-muted"
+          className="focus-ring-owned outline-none type-body-lg min-h-8 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-text placeholder:text-text-muted"
           placeholder={welcome ? "Describe your research question…" : "Message the design assistant…"}
           value={input}
           rows={1}
@@ -1101,7 +1099,7 @@ export function ConversationView({
           protocol={compileResult?.protocol}
           moves={allMoves}
           onClose={() => setManualOpen(false)}
-          onEntered={() => { setLive(true); void reloadConversation(); }}
+          onEntered={() => { setLive(true); void reloadConversation(); onProtocolChanged?.(); }}
         />
       )}
       <FinishReview

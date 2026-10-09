@@ -10,13 +10,15 @@ from analysis.dataset import Dataset
 from analysis.recipes._common import compare_or_describe
 
 METHODS = (
+    "Small untied samples use exact tests; ties/large samples use "
+    "the asymptotic approximation with tie correction. "
     "A stuck episode is one `stuck_response` event; its duration is the "
     "detector's accumulated evidence (`evidenceMs`). Episode counts are "
     "normalized to episodes per hour using each session's event span (an "
     "upper bound on active time; idle-corrected denominators arrive with "
     "the agent leg). Rates and durations are compared per condition with "
-    "the exact Wilcoxon signed-rank on per-participant means (paired) or "
-    "the exact Mann-Whitney U with Cliff's delta (unpaired); per-cell n "
+    "the Wilcoxon signed-rank on per-participant means (paired) or "
+    "the Mann-Whitney U with Cliff's delta (unpaired); per-cell n "
     "accompanies every statistic and pilot-scale results are "
     "hypothesis-generating."
 )

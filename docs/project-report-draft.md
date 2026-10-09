@@ -36,7 +36,7 @@ currently executable protocol. Replay and exports preserve captured-data limits.
   journey planning, enrollment usability and asynchronous-response hardening.
 - [#103](https://github.com/idreesshaikh/human-ai-studies-framework/pull/103): delivered
   evidence/chat work to main and fixed scoped cleanup and rehearsal hygiene.
-- [Evidence workflow](evidence-workflow.md), [replay](session-replay.md),
+- [Evidence workflow](evidence-workflow.md), [planner](planner.md),
   [evaluation](research-evaluation.md), and their checked-in regression tests
   describe the newer implementation; cite its merged PR/version before submission.
 

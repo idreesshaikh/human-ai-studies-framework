@@ -129,7 +129,11 @@ async function writeWorkspaceFlags(
   if (!hasWorkspace()) return;
   const conf = vscode.workspace.getConfiguration('tern');
   for (const [key, value] of Object.entries(flags)) {
-    if (IDENTITY_KEYS.has(key)) continue; // identity/endpoint come from the redeem
+    if (
+      IDENTITY_KEYS.has(key) ||
+      ['surveys', 'protocolVersion', 'toolVersions', 'provenance'].includes(key)
+    )
+      continue; // identity/endpoint come from the redeem
     if (
       JSON.stringify(conf.inspect(key)?.workspaceValue) ===
       JSON.stringify(value)
@@ -398,7 +402,7 @@ export async function pairFromConnectionString(
       .map((i) => i.label)
       .join(', ') || 'nothing';
   void vscode.window.showInformationMessage(
-    `Study connected for ${result.participantId}. This study will capture: ${on}. Run “TERN: Start session” when you're ready.`,
+    `Study connected for ${result.participantId}. This study will capture: ${on}. Run “StudyLoop: Start Study Session” when you're ready.`,
   );
 }
 
@@ -527,7 +531,7 @@ export function registerPairing(
     async () => {
       if (getPairedIdentity(context)) {
         void vscode.window.showInformationMessage(
-          'This editor is already connected to a study. Use “TERN: Disconnect from Study” first if you need to switch.',
+          'This editor is already connected to a study. Use “StudyLoop: Disconnect from Study” first if you need to switch.',
         );
         return;
       }

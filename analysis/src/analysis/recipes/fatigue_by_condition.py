@@ -9,12 +9,14 @@ from analysis.figures import condition_colors, new_axes
 from analysis.recipes._common import compare_or_describe
 
 METHODS = (
+    "Small untied samples use exact tests; ties/large samples use "
+    "the asymptotic approximation with tie correction. "
     "Fatigue probes are 1-5 Likert responses (`fatigue_response.score`). "
     "Scores are aggregated to one mean per (participant, condition) to avoid "
-    "pseudo-replication, then compared with the exact two-sided Wilcoxon "
+    "pseudo-replication, then compared with the two-sided Wilcoxon "
     "signed-rank test on participants observed in both conditions "
     "(matched-pairs rank-biserial correlation as effect size); when fewer "
-    "than two participants have both conditions the exact two-sided "
+    "than two participants have both conditions the two-sided "
     "Mann-Whitney U with Cliff's delta is used on the unpaired cells. "
     "Per-cell n is reported with every statistic; at pilot sample sizes all "
     "results are hypothesis-generating."

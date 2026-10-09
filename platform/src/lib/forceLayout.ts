@@ -339,15 +339,8 @@ export interface RelaxOptions {
   spread?: boolean;
 }
 
-/** One frame of a *live* settle animation, separate from `layoutGraph`'s own
- * fixed-iteration solve  -  which stays untouched by this addition, so its
- * golden-snapshot output (`verify-library.mjs`) can never drift underneath
- * it. Same physics shape as one pass of that loop (repulsion + spring +
- * centre-pull), but driven by a decaying `alpha` rather than a fixed
- * iteration count, since a `requestAnimationFrame` loop doesn't know in
- * advance how many frames it will get: the caller seeds `nodes` from
- * `layoutGraph`'s own output, then calls this once per frame with `alpha`
- * multiplied by ~0.94 each time, stopping once the motion is imperceptible. */
+/** One animation frame of graph repulsion, springs and centering.
+ * The caller supplies the previous positions and a decaying alpha. */
 export function relaxStep(
   nodes: PositionedNode[],
   edges: GraphEdgeIn[],

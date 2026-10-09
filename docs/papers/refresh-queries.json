@@ -1,0 +1,21 @@
+{
+  "arxiv": [
+    {
+      "terms": [
+        "AI coding assistant",
+        "GitHub Copilot",
+        "LLM-assisted programming",
+        "AI pair programming",
+        "code generation developers"
+      ],
+      "categories": ["cs.SE", "cs.HC"]
+    }
+  ],
+  "semanticScholar": [
+    "AI coding assistant developer controlled experiment",
+    "Copilot randomized controlled trial programmers",
+    "LLM-assisted programming user study productivity",
+    "generative AI software engineers field experiment"
+  ],
+  "maxPerQuery": 100
+}

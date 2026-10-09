@@ -119,6 +119,11 @@ _OUT_OF_SCOPE_CUES = (
 _SUPPORTED_STUDY_CUES = (
     "code",
     "coding",
+    "programming",
+    # A task named by its language is a software task even without "code".
+    "javascript",
+    "typescript",
+    "python",
     "software",
     "developer",
     "developers",

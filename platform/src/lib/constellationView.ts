@@ -1,8 +1,4 @@
-/* Pure decision logic for the Obsidian-style constellation view  -  kept out
- * of the component so `verify-library.mjs` can assert every branch without
- * a DOM (the project has no component test tooling; see
- * platform/docs/development.md). `Constellation.tsx` is thin glue over these
- * functions: state wiring, SVG markup, and the pointer/keyboard event plumbing. */
+/* Shared pointer, keyboard and selection logic for the literature map. */
 
 export const NODE_RADIUS_MIN = 9;
 export const NODE_RADIUS_MAX = 34;

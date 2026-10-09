@@ -11,7 +11,6 @@ import type {
 import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
 import { OfflineError } from "./studyApi.ts";
 import { openingTurn } from "./conversationOpening.ts";
-import { isDemoStudy } from "./demo.ts";
 import { shouldResendAfterStreamFailure } from "./streamRecovery.ts";
 
 export type DecisionTrigger = {
@@ -37,8 +36,10 @@ async function authHeaders(): Promise<Record<string, string>> {
 }
 
 export function newRequestId(): string {
-  return globalThis.crypto?.randomUUID?.() ??
-    `conversation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `conversation-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
 }
 
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -60,7 +61,12 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
       /* non-JSON */
     }
     if (res.status === 401) notifyUnauthorized();
-    throw new ApiError(res.status, typeof detail === "string" && detail ? detail : `Request failed (${res.status})`);
+    throw new ApiError(
+      res.status,
+      typeof detail === "string" && detail
+        ? detail
+        : `Request failed (${res.status})`,
+    );
   }
   if (res.status === 204) return undefined as T;
   try {
@@ -86,7 +92,8 @@ function mapGrounding(raw: unknown[]): Grounding[] {
     const row = g as Record<string, unknown>;
     return {
       ref: String(row.ref ?? ""),
-      confidence: typeof row.confidence === "number" ? row.confidence : undefined,
+      confidence:
+        typeof row.confidence === "number" ? row.confidence : undefined,
       title: String(row.title ?? row.ref ?? ""),
       year: typeof row.year === "number" ? row.year : undefined,
       venue: typeof row.venue === "string" ? row.venue : undefined,
@@ -149,12 +156,17 @@ function mapPatch(raw: unknown): DesignMove["patch"] {
       value: patch.value,
     };
   }
-  if (typeof patch.section === "string" && (patch.op === "append" || patch.op === "set")) {
+  if (
+    typeof patch.section === "string" &&
+    (patch.op === "append" || patch.op === "set")
+  ) {
     return {
       section: patch.section as keyof ProtocolDraft,
       op: patch.op,
       key: typeof patch.key === "string" ? patch.key : undefined,
-      value: String(patch.value ?? ""),
+      value: patch.value && typeof patch.value === "object"
+        ? patch.value as Record<string, unknown> | unknown[]
+        : String(patch.value ?? ""),
     };
   }
   return undefined;
@@ -189,108 +201,16 @@ function mapTurn(raw: Record<string, unknown>): Turn {
     author: String(raw.author ?? ""),
     text: String(raw.text ?? ""),
     moves: ((raw.moves as Record<string, unknown>[]) ?? []).map(mapMove),
-    recommendations: ((raw.recommendations as Recommendation[]) ?? []),
+    recommendations: (raw.recommendations as Recommendation[]) ?? [],
     source:
-      raw.source === "llm" || raw.source === "scripted" || raw.source === "unavailable" || raw.source === "scope"
+      raw.source === "llm" ||
+      raw.source === "scripted" ||
+      raw.source === "unavailable" ||
+      raw.source === "scope"
         ? raw.source
         : undefined,
   };
 }
-
-function demoDecisionReply(
-  decision: DecisionTrigger,
-): ConversationReply {
-  const actionText =
-    decision.action === "rejected"
-      ? "Understood. That proposal stays out of the draft. What should be different: the participants, the task, or the comparison?"
-      : decision.action === "noted"
-        ? "I’ve noted that caution beside the draft. What will each participant actually do during the session?"
-        : "That choice is now part of the draft. What will each participant actually do during the session?";
-  return {
-    researcherTurnId: `demo-decision-${decision.moveId}-${Date.now()}`,
-    platformTurnId: `demo-followup-${decision.moveId}-${Date.now()}`,
-    text: actionText,
-    moves: [],
-    recommendations: [],
-    source: "scripted",
-  };
-}
-
-const DEMO_CONVERSATION: Turn[] = [
-  {
-    turnId: "demo-turn-researcher",
-    role: "researcher",
-    author: "Demo Researcher",
-    text: "I want to know whether AI assistance changes developer productivity and how carefully developers review the code it suggests.",
-    moves: [],
-    recommendations: [],
-  },
-  {
-    turnId: "demo-turn-platform",
-    role: "platform",
-    author: "Platform",
-    source: "llm",
-    text: "A within-subjects comparison fits this question because the same developer can be compared across matched maintenance tasks with and without AI assistance.",
-    moves: [
-      {
-        moveId: "demo-move-design",
-        kind: "choose-template",
-        target: "design",
-        proposal: "Use a counterbalanced within-subjects design so each developer completes matched tasks in both conditions.",
-        patch: { templateId: "within-subjects-crossover-v1", parameters: {} },
-        grounding: [
-          {
-            ref: "corpus:metr-early-2025-dev-productivity",
-            confidence: 0.94,
-            title: "Measuring the Impact of Early-2025 AI on Developer Productivity",
-            year: 2025,
-            venue: "METR",
-            why: "Pairs perceived productivity with observed task completion and correctness.",
-          },
-        ],
-        status: "accepted",
-      },
-      {
-        moveId: "demo-move-measure",
-        kind: "add-measure",
-        target: "measures[]",
-        proposal: "Measure task completion time, correctness, self-reported fatigue, and review latency in both conditions.",
-        patch: { section: "measures", op: "append", value: "task time, correctness, fatigue, and review latency" },
-        grounding: [
-          {
-            ref: "corpus:trust-in-ai-code-generation",
-            confidence: 0.98,
-            title: "Investigating and Designing for Trust in AI-powered Code Generation",
-            year: 2024,
-            venue: "Empirical Software Engineering",
-            why: "Measures whether developers verify AI-generated code before accepting it.",
-          },
-        ],
-        status: "proposed",
-      },
-    ],
-    recommendations: [
-      {
-        ref: "corpus:trust-in-ai-code-generation",
-        confidence: 0.98,
-        title: "Investigating and Designing for Trust in AI-powered Code Generation",
-        year: 2024,
-        venue: "Empirical Software Engineering",
-        matchReason: "Measures whether developers verify AI-generated code before accepting it.",
-        inStudy: false,
-      },
-      {
-        ref: "corpus:metr-early-2025-dev-productivity",
-        confidence: 0.94,
-        title: "Measuring the Impact of Early-2025 AI on Developer Productivity",
-        year: 2025,
-        venue: "METR",
-        matchReason: "Pairs perceived productivity with observed task completion and correctness.",
-        inStudy: false,
-      },
-    ],
-  },
-];
 
 export interface CompileResult {
   compilationId: string;
@@ -320,36 +240,43 @@ export interface ManualProtocolFields {
   taskDescription: string;
   sessionMinutes: number;
   measures: string[];
+  measureIds?: string[];
+  existingMeasureIds?: string[];
+  typedMeasures?: boolean;
   counterbalanced: boolean;
 }
 
+export interface MeasureChoice {
+  id: string;
+  construct: string;
+  description: string;
+  instrument: string;
+  fields: string[];
+  aliases: string[];
+  recipeByDesign: Record<ManualProtocolFields["design"], string | null>;
+  designCompatible?: boolean;
+}
+
 export const conversationApi = {
+  async measureCatalog(): Promise<MeasureChoice[]> {
+    const catalog = await req<{ measures: MeasureChoice[] }>("/measure-catalog");
+    return catalog.measures;
+  },
+
+  measureSuggestions(studyId: string, text: string, design: ManualProtocolFields["design"], signal?: AbortSignal) {
+    return req<{ suggestions: MeasureChoice[]; abstain: boolean }>(
+      `/studies/${encodeURIComponent(studyId)}/measure-suggestions`,
+      { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, design }), signal },
+    );
+  },
+
   async get(
     studyId: string,
   ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
-    let data: { turns: Record<string, unknown>[]; understanding?: Understanding };
-    try {
-      data = await req<{
-        turns: Record<string, unknown>[];
-        understanding?: Understanding;
-      }>(`/studies/${encodeURIComponent(studyId)}/conversation`);
-    } catch (error) {
-      if (error instanceof OfflineError && isDemoStudy(studyId)) {
-        return {
-          turns: DEMO_CONVERSATION,
-          understanding: {
-            facets: { population: true, task: true, comparison: true, measures: true },
-            known: ["population", "task", "comparison", "measures"],
-            missing: [],
-            missingLabels: [],
-            readyForDesign: true,
-            facetsNeeded: 4,
-            nextQuestion: "",
-          },
-        };
-      }
-      throw error;
-    }
+    const data = await req<{
+      turns: Record<string, unknown>[];
+      understanding?: Understanding;
+    }>(`/studies/${encodeURIComponent(studyId)}/conversation`);
     const turns = data.turns.map(mapTurn);
     return {
       turns: turns.length ? turns : [openingTurn()],
@@ -369,26 +296,16 @@ export const conversationApi = {
     decision?: DecisionTrigger,
     requestId?: string,
   ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
-    let reply: ConversationReply;
-    try {
-      reply = await post<ConversationReply>(
-        `/studies/${encodeURIComponent(studyId)}/conversation/turns`,
-        {
-          text,
-          author,
-          ...(steer == null ? {} : { steer: steerStop(steer).id }),
-          ...(decision ? { decision } : {}),
-          ...(requestId ? { requestId } : {}),
-        },
-      );
-    } catch (error) {
-      /* The demo is intentionally useful without a middleware process. Its
-       * decision cards still need to demonstrate the same interaction as a
-       * live study, but normal demo messages must remain honest about offline
-       * model access. */
-      if (!(isDemoStudy(studyId) && decision)) throw error;
-      reply = demoDecisionReply(decision);
-    }
+    const reply = await post<ConversationReply>(
+      `/studies/${encodeURIComponent(studyId)}/conversation/turns`,
+      {
+        text,
+        author,
+        ...(steer == null ? {} : { steer: steerStop(steer).id }),
+        ...(decision ? { decision } : {}),
+        ...(requestId ? { requestId } : {}),
+      },
+    );
     const researcher: Turn = {
       turnId: reply.researcherTurnId,
       role: "researcher",
@@ -406,7 +323,10 @@ export const conversationApi = {
       recommendations: reply.recommendations ?? [],
       source: reply.source,
     };
-    return { turns: [researcher, platform], understanding: reply.understanding };
+    return {
+      turns: [researcher, platform],
+      understanding: reply.understanding,
+    };
   },
 
   /** `sendTurn`, with the reply's prose surfaced as the model writes it.
@@ -490,10 +410,12 @@ export const conversationApi = {
        * researcher did not cancel. Otherwise the reply may already be
        * persisted, so surface the failure; the caller keeps their text. The
        * resend reuses `requestId`, which the server treats as the same turn. */
-      if (!shouldResendAfterStreamFailure({
-        aborted: signal?.aborted ?? false,
-        eventsReceived,
-      })) {
+      if (
+        !shouldResendAfterStreamFailure({
+          aborted: signal?.aborted ?? false,
+          eventsReceived,
+        })
+      ) {
         throw error;
       }
       return this.sendTurn(studyId, text, author, steer, decision, requestId);
@@ -520,15 +442,10 @@ export const conversationApi = {
   },
 
   async decide(studyId: string, moveId: string, status: MoveStatus) {
-    try {
-      return await post<{ moveId: string; status: string }>(
-        `/studies/${encodeURIComponent(studyId)}/conversation/moves/${encodeURIComponent(moveId)}/decision`,
-        { status, decidedBy: "Researcher" },
-      );
-    } catch (error) {
-      if (isDemoStudy(studyId)) return { moveId, status };
-      throw error;
-    }
+    return await post<{ moveId: string; status: string }>(
+      `/studies/${encodeURIComponent(studyId)}/conversation/moves/${encodeURIComponent(moveId)}/decision`,
+      { status, decidedBy: "Researcher" },
+    );
   },
 
   compile(studyId: string, baseYaml?: string | null): Promise<CompileResult> {
@@ -538,7 +455,10 @@ export const conversationApi = {
     );
   },
 
-  enterProtocol(studyId: string, fields: ManualProtocolFields): Promise<CompileResult> {
+  enterProtocol(
+    studyId: string,
+    fields: ManualProtocolFields,
+  ): Promise<CompileResult> {
     return post<CompileResult>(
       `/studies/${encodeURIComponent(studyId)}/quick-protocol`,
       fields,
@@ -551,7 +471,6 @@ export const conversationApi = {
       { compilationId, rationale, approvedBy: "Researcher" },
     );
   },
-
 };
 
 /** Callers (`ConversationView`) need to tell a genuine live load apart from

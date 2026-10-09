@@ -84,7 +84,8 @@ SCOPE_CLARIFICATION = (
 
 NO_MODEL = (
     "No language model is connected. Templates and the checklist still work. "
-    "Set MISTRAL_API_KEY on the server to enable replies."
+    "Set LLM_API_KEY or a local LLM_BASE_URL on the server to enable "
+    "replies."
 )
 MODEL_SILENT = (
     "The model did not respond. Your message is saved and nothing was applied. "
@@ -1520,8 +1521,7 @@ def _retrieve(
     templates, history)  -  run *before* the model is asked anything, so the model can
     only select from what was actually retrieved.
     """
-    # An explicit history (the stateless demo passes the visitor's own prior turns)
-    # wins; otherwise load it from the study's stored turns.
+    # Explicit history takes precedence over the study's stored turns.
     if history is None:
         history = _load_history(s, study_id)
     if decision is not None:

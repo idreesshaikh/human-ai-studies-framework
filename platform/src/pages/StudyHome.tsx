@@ -118,21 +118,15 @@ export function StudyHome() {
   // (the session's memberships can be a session old, which is what made the
   // Revoke control on Participants come and go); "still loading" stays
   // distinct from "member"  -  see lib/role.ts.
-  const { data: project, loading: projectLoading } = useAsync(
+  const { data: project, loading: projectLoading, reload: reloadProject } = useAsync(
     () => api.projectHome(slug),
     [api, slug],
   );
-  /* In local (non-Clerk) dev mode, the server's per-study authorization
-   * check waves through any unknown study id  -  deliberately, since local
-   * mode has no real accounts to check against  -  so a stale bookmark, a
-   * typo'd id, or a deleted study all render a fully interactive, empty
-   * workspace with no sign anything is wrong (verified live: every
-   * conversation/compile call the page fires returns 200 for a study that
-   * was never created). `project.studies` is the same list the sidebar
-   * and Studies tab already read from, so cross-checking against it here
-   * is a real "does this study exist in THIS project" answer, not a guess. */
+  // Local auth permits unknown ids, so verify membership in the loaded project
+  // before rendering an editable study workspace.
   const studyExists =
     projectLoading || !project ? null : project.studies.some((st) => st.id === id);
+  const hasProtocol = project?.studies.find((study) => study.id === id)?.hasProtocol ?? false;
   const roleState = resolveRole({
     projectMembers: project?.members,
     meSub: me?.sub,
@@ -257,7 +251,7 @@ export function StudyHome() {
            * whole workspace column off the side of a phone. A definite width
            * here is also what lets the citation wrap instead of clamp. */
           <div className="min-h-0 min-w-0 flex-1">
-            <ConversationView studyId={id} opening={opening} roleState={roleState} />
+            <ConversationView studyId={id} opening={opening} roleState={roleState} onProtocolChanged={reloadProject} />
           </div>
         )}
         {tab === "library" && (
@@ -267,17 +261,17 @@ export function StudyHome() {
         )}
         {tab === "data" && (
           <div className="min-h-0 min-w-0 flex-1">
-            <DataTab studyId={id} />
+            <DataTab studyId={id} role={role} hasProtocol={hasProtocol} />
           </div>
         )}
         <div hidden={tab !== "planning"} className={cn("min-h-0 min-w-0 flex-1", tab !== "planning" && "hidden")}>
           {tab === "planning" || planVisited === id ? (
-            <PowerPanel key={id} studyId={id} active={tab === "planning"} />
+            <PowerPanel key={id} studyId={id} active={tab === "planning"} role={role} hasProtocol={hasProtocol} />
           ) : null}
         </div>
         {tab === "enrollment" && (
           <div className="min-h-0 min-w-0 flex-1">
-            <EnrollmentPanel key={id} studyId={id} role={role} />
+            <EnrollmentPanel key={id} studyId={id} role={role} hasProtocol={hasProtocol} />
           </div>
         )}
       </div>

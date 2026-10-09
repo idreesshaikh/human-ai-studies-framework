@@ -1,0 +1,350 @@
+[
+  {
+    "id": "legacy-tlx-inspired",
+    "version": "1.0",
+    "title": "Legacy workload and comprehension",
+    "timing": "post-task",
+    "items": [
+      {
+        "id": "mental_demand",
+        "text": "How mentally demanding was the task?",
+        "scale": {
+          "min": 1,
+          "max": 7,
+          "step": 1,
+          "lowLabel": "Very low",
+          "highLabel": "Very high"
+        },
+        "reverse": false
+      },
+      {
+        "id": "effort",
+        "text": "How hard did you have to work to accomplish your level of performance?",
+        "scale": {
+          "min": 1,
+          "max": 7,
+          "step": 1,
+          "lowLabel": "Very little",
+          "highLabel": "Very hard"
+        },
+        "reverse": false
+      },
+      {
+        "id": "frustration",
+        "text": "How insecure, discouraged, irritated, or annoyed were you?",
+        "scale": {
+          "min": 1,
+          "max": 7,
+          "step": 1,
+          "lowLabel": "Not at all",
+          "highLabel": "Extremely"
+        },
+        "reverse": false
+      },
+      {
+        "id": "time_pressure",
+        "text": "How hurried or rushed was the pace of the task?",
+        "scale": {
+          "min": 1,
+          "max": 7,
+          "step": 1,
+          "lowLabel": "Very relaxed",
+          "highLabel": "Very rushed"
+        },
+        "reverse": false
+      },
+      {
+        "id": "perceived_performance",
+        "text": "How successful were you in accomplishing what you were asked to do?",
+        "scale": {
+          "min": 1,
+          "max": 7,
+          "step": 1,
+          "lowLabel": "Failure",
+          "highLabel": "Perfect"
+        },
+        "reverse": false
+      },
+      {
+        "id": "comprehension",
+        "text": "How well did you understand the code you worked with?",
+        "scale": {
+          "min": 1,
+          "max": 7,
+          "step": 1,
+          "lowLabel": "Not at all",
+          "highLabel": "Completely"
+        },
+        "reverse": false
+      }
+    ],
+    "scoring": "none",
+    "source": "StudyLoop legacy six-item survey",
+    "licence": "Repository MIT licence",
+    "validation": "TLX-inspired, not NASA-TLX; no validated aggregate"
+  },
+  {
+    "id": "raw-nasa-tlx",
+    "version": "1.0",
+    "title": "Raw NASA-TLX",
+    "timing": "post-task",
+    "items": [
+      {
+        "id": "mental_demand",
+        "text": "How much mental and perceptual activity was required (e.g., thinking, deciding, calculating, remembering, looking, searching, etc.)? Was the task easy or demanding, simple or complex, exacting or forgiving?",
+        "scale": {
+          "min": 0,
+          "max": 100,
+          "step": 5,
+          "lowLabel": "Low",
+          "highLabel": "High"
+        },
+        "reverse": false
+      },
+      {
+        "id": "physical_demand",
+        "text": "How much physical activity was required (e.g., pushing, pulling, turning, controlling, activating, etc.)? Was the task easy or demanding, slow or brisk, slack or strenuous, restful or laborious?",
+        "scale": {
+          "min": 0,
+          "max": 100,
+          "step": 5,
+          "lowLabel": "Low",
+          "highLabel": "High"
+        },
+        "reverse": false
+      },
+      {
+        "id": "temporal_demand",
+        "text": "How much time pressure did you feel due to the rate or pace at which the tasks or task elements occurred? Was the pace slow and leisurely or rapid and frantic?",
+        "scale": {
+          "min": 0,
+          "max": 100,
+          "step": 5,
+          "lowLabel": "Low",
+          "highLabel": "High"
+        },
+        "reverse": false
+      },
+      {
+        "id": "performance",
+        "text": "How successful do you think you were in accomplishing the goals of the task set by the experimenter (or yourself)? How satisfied were you with your performance in accomplishing these goals?",
+        "scale": {
+          "min": 0,
+          "max": 100,
+          "step": 5,
+          "lowLabel": "Good",
+          "highLabel": "Poor"
+        },
+        "reverse": false
+      },
+      {
+        "id": "effort",
+        "text": "How hard did you have to work (mentally and physically) to accomplish your level of performance?",
+        "scale": {
+          "min": 0,
+          "max": 100,
+          "step": 5,
+          "lowLabel": "Low",
+          "highLabel": "High"
+        },
+        "reverse": false
+      },
+      {
+        "id": "frustration",
+        "text": "How insecure, discouraged, irritated, stressed and annoyed versus secure, gratified, content, relaxed and complacent did you feel during the task?",
+        "scale": {
+          "min": 0,
+          "max": 100,
+          "step": 5,
+          "lowLabel": "Low",
+          "highLabel": "High"
+        },
+        "reverse": false
+      }
+    ],
+    "scoring": "mean",
+    "source": "https://ntrs.nasa.gov/citations/20000021488",
+    "licence": "US government work; NASA permits use and modification without permission",
+    "validation": "Raw unweighted mean; not the weighted NASA-TLX. Labels and descriptions from NASA paper-and-pencil v1.0; electronic 0–100 scale in steps of 5."
+  },
+  {
+    "id": "sus",
+    "version": "1.0",
+    "title": "System Usability Scale",
+    "timing": "post-task",
+    "items": [
+      {
+        "id": "sus_1",
+        "text": "I think that I would like to use this system frequently",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Strongly disagree",
+          "highLabel": "Strongly agree"
+        },
+        "reverse": false
+      },
+      {
+        "id": "sus_2",
+        "text": "I found the system unnecessarily complex",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Strongly disagree",
+          "highLabel": "Strongly agree"
+        },
+        "reverse": true
+      },
+      {
+        "id": "sus_3",
+        "text": "I thought the system was easy to use",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Strongly disagree",
+          "highLabel": "Strongly agree"
+        },
+        "reverse": false
+      },
+      {
+        "id": "sus_4",
+        "text": "I think that I would need the support of a technical person to be able to use this system",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Strongly disagree",
+          "highLabel": "Strongly agree"
+        },
+        "reverse": true
+      },
+      {
+        "id": "sus_5",
+        "text": "I found the various functions in this system were well integrated",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Strongly disagree",
+          "highLabel": "Strongly agree"
+        },
+        "reverse": false
+      },
+      {
+        "id": "sus_6",
+        "text": "I thought there was too much inconsistency in this system",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Strongly disagree",
+          "highLabel": "Strongly agree"
+        },
+        "reverse": true
+      },
+      {
+        "id": "sus_7",
+        "text": "I would imagine that most people would learn to use this system very quickly",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Strongly disagree",
+          "highLabel": "Strongly agree"
+        },
+        "reverse": false
+      },
+      {
+        "id": "sus_8",
+        "text": "I found the system very cumbersome to use",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Strongly disagree",
+          "highLabel": "Strongly agree"
+        },
+        "reverse": true
+      },
+      {
+        "id": "sus_9",
+        "text": "I felt very confident using the system",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Strongly disagree",
+          "highLabel": "Strongly agree"
+        },
+        "reverse": false
+      },
+      {
+        "id": "sus_10",
+        "text": "I needed to learn a lot of things before I could get going with this system",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Strongly disagree",
+          "highLabel": "Strongly agree"
+        },
+        "reverse": true
+      }
+    ],
+    "scoring": "sus",
+    "source": "https://hci-studies.org/methods-and-measures/downloads/SUS_Brooke1996.pdf",
+    "licence": "© Digital Equipment Corporation 1986; freely available for usability assessment with acknowledgement of John Brooke (1996) in published reports",
+    "validation": "Original ten-item wording; reverse even items; sum contributions × 2.5 (0–100). Define the system being assessed in participant instructions."
+  },
+  {
+    "id": "pre-task-skill",
+    "version": "1.0",
+    "title": "Pre-task programming skill (experimental)",
+    "timing": "pre-task",
+    "items": [
+      {
+        "id": "experience",
+        "text": "How much experience do you have maintaining code in the language used in this study?",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "None",
+          "highLabel": "Extensive"
+        },
+        "reverse": false
+      },
+      {
+        "id": "debugging",
+        "text": "How confident are you in diagnosing a failing test in an unfamiliar project?",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Not confident",
+          "highLabel": "Very confident"
+        },
+        "reverse": false
+      },
+      {
+        "id": "familiarity",
+        "text": "How familiar are you with the kind of task used in this study?",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Unfamiliar",
+          "highLabel": "Very familiar"
+        },
+        "reverse": false
+      }
+    ],
+    "scoring": "mean",
+    "source": "StudyLoop experimental item set, 2026-10-08",
+    "licence": "Repository MIT licence",
+    "validation": "Unvalidated draft: researcher must pilot before using as a skill covariate"
+  }
+]

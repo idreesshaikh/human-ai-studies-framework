@@ -2,7 +2,9 @@
 
 import datetime as dt
 
+import pytest
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
 from middleware.app import create_app
 from middleware.settings import Settings
 
@@ -23,7 +25,7 @@ def _client(tmp_path, **kw) -> TestClient:
 def test_schema_endpoint_serves_the_real_schema(tmp_path):
     c = _client(tmp_path)
     schema = c.get("/schemas/protocol").json()
-    assert schema["properties"]["protocolVersion"]["enum"] == [1, 2, 3, 4, 5]
+    assert schema["properties"]["protocolVersion"]["enum"] == [1, 2, 3, 4, 5, 6]
 
 
 def test_event_schema_includes_the_archive_version(tmp_path):
@@ -31,5 +33,26 @@ def test_event_schema_includes_the_archive_version(tmp_path):
     schema = c.get("/schemas/event").json()
     version = schema["properties"]["v"]
     assert version["minimum"] == 2
-    assert version["maximum"] == 5
+    assert version["maximum"] >= 5
     assert "archive vocabulary" in version["description"]
+
+
+@pytest.mark.parametrize(
+    "version,condition", [(5, "unassisted"), (6, "unassisted"), (6, "manual-control")]
+)
+def test_event_schema_accepts_current_capture_and_protocol_condition_names(
+    tmp_path, version, condition
+):
+    schema = _client(tmp_path).get("/schemas/event").json()
+    event = {
+        "v": version,
+        "ts": "2026-10-08T12:00:00Z",
+        "mono": 0,
+        "sessionId": "S1",
+        "participantId": "P01",
+        "condition": condition,
+        "seq": 0,
+        "type": "survey_response",
+        "payload": {"responses": {"mental_demand": 25}},
+    }
+    assert list(Draft202012Validator(schema).iter_errors(event)) == []

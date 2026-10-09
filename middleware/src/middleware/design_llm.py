@@ -7,6 +7,7 @@ import json
 import logging
 import re
 
+from middleware import assistant
 from middleware.compiler import FILLABLE_SLOTS
 from middleware.design_assistant import ProposedMove, Turn
 
@@ -505,11 +506,28 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
         and patch.get("op") in ("append", "set")
         and "value" in patch
     ):
-        value = _normalize_value(patch["value"])
+        value = (
+            _normalize_measure_value(patch["value"])
+            if patch["section"] == "measures"
+            else _normalize_value(patch["value"])
+        )
         if value is None:
             return None
         return {"section": patch["section"], "op": patch["op"], "value": value}
     return None
+
+
+def _normalize_measure_value(value: object):
+    from protocol.measure_catalog import catalog_entry
+
+    if isinstance(value, dict):
+        ident = value.get("catalogId")
+        entry = catalog_entry(ident) if isinstance(ident, str) else None
+        return {"catalogId": ident, "construct": entry["construct"]} if entry else None
+    if isinstance(value, list):
+        items = [_normalize_measure_value(item) for item in value]
+        return items if items and all(item is not None for item in items) else None
+    return _normalize_value(value)
 
 
 def _normalize_value(value: object) -> str | list[str] | None:
@@ -565,7 +583,8 @@ def _move_dedupe_key(kind: str, target: str, proposal: str, patch: dict | None):
     value = str(value)
     count = re.fullmatch(
         r"(\d+(?:\.\d+)?)(?:\s+participants(?:\s*\([^)]*\))?)?",
-        value.strip(), re.I,
+        value.strip(),
+        re.I,
     )
     if where == "participants" and count:
         return ("participants", count.group(1))
@@ -723,6 +742,8 @@ def tighten_proposal(proposal: str) -> str:
 
 
 _PARAGRAPH_SPLIT = re.compile(r"\n\s*\n")
+
+
 def _split_sentences(text: str) -> list[str]:
     """Split after . ! ? followed by space, but never inside parentheses (paper
     titles in citations contain '?' and ':')."""
@@ -739,6 +760,8 @@ def _split_sentences(text: str) -> list[str]:
             start = i + 1
     parts.append(text[start:])
     return [p.strip() for p in parts if p.strip()]
+
+
 _MIN_REPEAT_CHARS = 15
 
 
@@ -864,10 +887,14 @@ _REJECTED_ALTERNATIVE = re.compile(
 def drop_rejected_alternatives(text: str) -> str:
     """Drop sentences that list alternatives the design does not use."""
     sentences = _split_sentences(text.strip())
-    kept = [x for x in sentences if not (
-        _REJECTED_ALTERNATIVE.search(x)
-        and re.search(r"\b(?:rejected|not selected|unused alternative)\b", x, re.I)
-    )]
+    kept = [
+        x
+        for x in sentences
+        if not (
+            _REJECTED_ALTERNATIVE.search(x)
+            and re.search(r"\b(?:rejected|not selected|unused alternative)\b", x, re.I)
+        )
+    ]
     return " ".join(kept) if kept and len(kept) != len(sentences) else text
 
 
@@ -1072,6 +1099,23 @@ def _messages(
     """The chat messages for one design turn."""
     menu = _candidate_menu(papers, templates)
     content = f"{text}\n\nCandidate menu this turn:\n{menu}"
+    from protocol.measure_catalog import measure_catalog
+
+    catalog = "\n".join(
+        f"{row['id']}: {row['construct']} ({row['instrument']}); "
+        f"within: {row['recipeByDesign']['within-subjects'] or 'unsupported'}; "
+        f"between: {row['recipeByDesign']['between-subjects'] or 'unsupported'}"
+        for row in measure_catalog()
+    )
+    content += (
+        "\n\nSupported measurement catalog:\n"
+        + catalog
+        + "\nFor a supported outcome use an add-measure patch with section "
+        '"measures", op "append", and value {"catalogId": "<id>"}. '
+        "Only propose compatible entries. S10 is a pre-task covariate, not an "
+        "outcome. Custom outcomes stay free text until capture is defined. "
+        "Catalog membership is not evidence of study validity or model confidence."
+    )
     state_block = _design_state_block(design_state)
     if state_block:
         content += f"\n\n{state_block}"
@@ -1124,7 +1168,7 @@ def propose_turn_streaming(
                 "response_format": {"type": "json_object"},
                 "max_tokens": MAX_TOKENS * (2 if "BATCH INTAKE" in directive else 1),
             },
-            {"Authorization": f"Bearer {client.api_key}"},
+            assistant.client_headers(client),
         ):
             body += piece
             prose = extractor.feed(piece)
@@ -1215,7 +1259,7 @@ def propose_turn(
                 "response_format": {"type": "json_object"},
                 "max_tokens": MAX_TOKENS * (2 if "BATCH INTAKE" in directive else 1),
             },
-            {"Authorization": f"Bearer {client.api_key}"},
+            assistant.client_headers(client),
         )
         content = (res.get("choices") or [{}])[0].get("message", {}).get("content", "")
         parsed = json.loads(content)

@@ -14,6 +14,7 @@ import urllib.request
 from importlib import metadata, resources
 from pathlib import Path
 
+from protocol.design_card import design_card, design_card_markdown
 from protocol.errors import ProtocolError
 from protocol.loader import load_protocol
 
@@ -137,6 +138,7 @@ def build_kit(
     repo_root: Path,
     *,
     evidence_record: dict | None = None,
+    design_card_record: dict | None = None,
 ) -> Path:
     """Assemble the deterministic kit archive; returns ``out_path``."""
     protocol = load_protocol(protocol_path)
@@ -147,6 +149,9 @@ def build_kit(
         staging = Path(td)
         (staging / "protocol.yaml").write_bytes(Path(protocol_path).read_bytes())
         (staging / "dataset.json").write_bytes(_canonical(dataset))
+        card = design_card_record or design_card(protocol, rows=dataset.get("rows", []))
+        (staging / "design-card.json").write_bytes(_canonical(card))
+        (staging / "design-card.md").write_text(design_card_markdown(card))
         if evidence_record is not None:
             (staging / "design-evidence.json").write_bytes(_canonical(evidence_record))
         (staging / "README.md").write_text(README_TEMPLATE.format(study_id=study_id))

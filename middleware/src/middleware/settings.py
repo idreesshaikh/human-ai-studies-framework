@@ -18,7 +18,6 @@ def _sqlite_path(raw: str) -> Path:
 class Settings:
     """Runtime configuration; every field has a ``MIDDLEWARE_*`` env var."""
 
-
     database_url: str | None = field(
         default_factory=lambda: os.environ.get("DATABASE_URL") or None
     )
@@ -37,9 +36,9 @@ class Settings:
         if self.database_url:
             url = self.database_url
             if url.startswith("postgres://"):
-                url = "postgresql+psycopg://" + url[len("postgres://"):]
+                url = "postgresql+psycopg://" + url[len("postgres://") :]
             elif url.startswith("postgresql://"):
-                url = "postgresql+psycopg://" + url[len("postgresql://"):]
+                url = "postgresql+psycopg://" + url[len("postgresql://") :]
             return url
         return f"sqlite:///{self.db_path}"
 
@@ -66,6 +65,14 @@ class Settings:
     spa_dist: Path = field(
         default_factory=lambda: Path(os.environ.get("MIDDLEWARE_WEB", "platform/dist"))
     )
+    spa_required: bool = field(
+        default_factory=lambda: os.environ.get("MIDDLEWARE_API_ONLY") != "1"
+    )
+
+    def __post_init__(self) -> None:
+        root = Path(__file__).resolve().parents[3]
+        object.__setattr__(self, "spa_dist", (root / self.spa_dist).resolve())
+
     token: str | None = field(
         default_factory=lambda: os.environ.get("MIDDLEWARE_TOKEN") or None
     )

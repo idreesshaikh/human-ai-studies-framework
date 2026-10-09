@@ -72,10 +72,8 @@ export interface Turn {
    *
    * - `"llm"`  -  the design conversation. The only kind that proposes moves.
    * - `"unavailable"`  -  a holding turn: the model couldn't be reached, so
-   *   this says so and proposes nothing. Never persisted, so it is gone on
-   *   reload; the researcher's own turn stays.
-   * - `"scripted"`  -  turns stored before the keyword fallback was removed.
-   *   Kept readable, never produced.
+   *   this says so and proposes nothing. Both turns are persisted for recovery.
+   * - `"scripted"`  -  manual checklist confirmations and legacy scripted turns.
    * - `"scope"`  -  a deterministic boundary response. The idea is outside
    *   PHOENIX's human–AI developer-study lane, so it never reaches the model.
    *
@@ -131,7 +129,7 @@ export interface SectionPatch {
   /** append to a list section, or set a scalar/keyed section. */
   op: "append" | "set";
   key?: string;
-  value: string;
+  value: string | unknown[] | Record<string, unknown>;
 }
 
 /** A ``choose-template`` move's patch  -  the *only* thing that can fill the

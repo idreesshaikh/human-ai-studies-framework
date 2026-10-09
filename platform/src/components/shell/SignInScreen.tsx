@@ -87,10 +87,10 @@ export function SignInScreen() {
         <Link
           to="/"
           className="mb-8 flex flex-col items-center gap-2 text-center"
-          aria-label="Phoenix, back to home"
+          aria-label="StudyLoop, back to home"
         >
           <PhoenixMark size={40} />
-          <span className="type-section text-text">Phoenix</span>
+          <span className="type-section text-text">StudyLoop</span>
         </Link>
 
         {/* One clean card is the sign-in frame. Clerk's hosted widget mounts

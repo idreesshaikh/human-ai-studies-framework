@@ -17,13 +17,13 @@ Or open the folder in VS Code after installing the `.vsix` from the release.
 The workspace settings are a standalone local-only preset. A PHOENIX-linked
 session can replace its duration, task, condition, endpoint, and capture scope
 at pairing/session start, so inspect the pre-flight rather than assuming these
-local defaults apply. The feature-rich linked rehearsal is documented in the
-[local PHOENIX + TERN demo runbook](../../../docs/demo-runbook.md).
+local defaults apply. Linking a session to PHOENIX is documented in
+[using TERN](../../../documentation/docs/extension/using.md).
 
 ## Try the extension
 
 1. Open `sample_app.py`.
-2. Run **TERN: Start Study Session**, use `DEMO-01`, choose **Unassisted**,
+2. Run **StudyLoop: Start Study Session**, use `DEMO-01`, choose **Unassisted**,
    and accept the pre-flight summary.
 3. Move between `sample_app.py` and this README, scroll through the file, make
    a small edit, and save. These actions produce content-free telemetry.

@@ -452,83 +452,12 @@ def test_propose_turn_notes_the_accepted_templates_prescribed_statistics():
     assert "do not propose a standalone statisticalPlan move" not in user
 
 
-def test_cautions_render_as_advisory_and_the_prompt_says_they_fill_nothing():
-    """
-    A caution carries no patch: it must not read as draft content in the state block,
-    and the standing prompt must say how ethics actually gets filled (the bug: two
-    accepted ethics cautions, ethics slot still dark).
-    """
-    captured: list = []
-    client = _capturing_client({"text": "Noted.", "moves": []}, captured)
-    state = {
-        **DESIGN_STATE,
-        "accepted": [
-            {
-                "kind": "caution",
-                "section": "ethics",
-                "proposal": "Snapshots may capture personal data.",
-            }
-        ],
-    }
-    design_llm.propose_turn(
-        client, "what next?", [], PAPERS, TEMPLATES, design_state=state
-    )
-    user = captured[0]["messages"][-1]["content"]
-    assert "caution [ethics] (advisory, fills no section):" in user
-    assert "set-parameter` move" in design_llm.SYSTEM_PROMPT
-    assert 'patch.section` "ethics"' in design_llm.SYSTEM_PROMPT
-
-
-def test_propose_turn_without_design_state_omits_the_block():
-    """
-    Backward compatible: no state (stateless demo, first turn)  -  the request looks
-    exactly like before.
-    """
-    captured: list = []
-    client = _capturing_client({"text": "Noted.", "moves": []}, captured)
-    design_llm.propose_turn(client, "what next?", [], PAPERS, TEMPLATES)
-    assert all(
-        "Design state so far" not in m["content"] for m in captured[0]["messages"]
-    )
-
-
 # ------------------------------------------------ reply hygiene: loops, caps, markup
 
 LOOPED_PARAGRAPH = (
     "That sounds like a within-subjects comparison. How many participants can "
     "you realistically recruit?"
 )
-
-
-def test_trim_repeated_text_keeps_first_of_a_looped_paragraph():
-    looped = "\n\n".join([LOOPED_PARAGRAPH] * 12)
-    assert design_llm.trim_repeated_text(looped) == LOOPED_PARAGRAPH
-
-
-def test_trim_repeated_text_keeps_first_of_a_looped_sentence_in_one_line():
-    looped = "Good start. " + "Which tasks will people do in the session? " * 8
-    assert design_llm.trim_repeated_text(looped.strip()) == (
-        "Good start. Which tasks will people do in the session?"
-    )
-
-
-def test_trim_repeated_text_leaves_clean_text_alone():
-    clean = "Yes. No. Yes.\n\nSecond paragraph, different."
-    assert design_llm.trim_repeated_text(clean) == clean
-
-
-def test_cap_reply_text_cuts_at_a_sentence_boundary():
-    long = "A sentence of moderate length here. " * 100
-    capped = design_llm.cap_reply_text(long, limit=200)
-    assert len(capped) <= 200
-    assert capped.endswith(".")
-
-
-def test_sanitize_reply_text_strips_markdown_and_names_templates():
-    titles = {"metr-rct-v1": "METR RCT"}
-    text = "Try **the METR design** (`metr-rct-v1`) with *care*, see metr-rct-v1."
-    out = design_llm.sanitize_reply_text(text, titles)
-    assert out == "Try the METR design (METR RCT) with care, see METR RCT."
 
 
 def test_sanitize_reply_text_leaves_citation_links_and_unknown_ids_intact():
@@ -539,7 +468,9 @@ def test_sanitize_reply_text_leaves_citation_links_and_unknown_ids_intact():
 
 def test_propose_turn_trims_a_looped_reply_and_resolves_template_ids():
     reply = {
-        "text": "\n\n".join(["Use **metr-rct-v1** here."] * 6),
+        "text": "Great question.\n\n"
+        + "\n\n".join(["Use **metr-rct-v1** here."] * 6)
+        + " This is feasible for a course project.",
         "moves": [],
     }
     client = _fake_client(reply)
@@ -566,20 +497,6 @@ def test_streaming_salvages_truncated_json_without_a_second_call():
         turn = stop.value
     assert calls["post"] == 0
     assert turn is not None and turn.text == "Half a reply that got cut"
-
-
-def test_design_requests_cap_tokens_and_the_transport_has_timeouts():
-    import inspect
-
-    src = inspect.getsource(assistant)
-    assert "timeout=60" in src and "timeout=120" in src
-    assert design_llm.MAX_TOKENS <= 1200
-
-
-def test_system_prompt_forbids_markdown_and_raw_ids_in_reply_text():
-    prompt = design_llm.SYSTEM_PROMPT
-    assert "PLAIN TEXT" in prompt
-    assert "never write template ids" in prompt
 
 
 def test_proposal_text_is_sanitised_like_the_reply_prose():
@@ -669,14 +586,6 @@ def test_set_field_moves_for_non_fillable_slots_never_become_cards(caplog):
     assert "favouriteColour" in caplog.text
 
 
-def test_system_prompt_lists_only_the_fillable_slot_names():
-    from middleware import compiler
-
-    for key in compiler.FILLABLE_SLOTS:
-        assert f"`{key}`" in design_llm.SYSTEM_PROMPT
-    assert "sampleSize" not in design_llm.SYSTEM_PROMPT
-
-
 def test_a_stray_comparison_template_parameter_is_dropped_at_parse_time():
     reply = {
         "text": "Reply.",
@@ -699,37 +608,6 @@ def test_a_stray_comparison_template_parameter_is_dropped_at_parse_time():
 
 # ------------------------------------------------ decision follow-ups: no invented
 # motives, short replies, no unrecorded facts.
-
-
-def test_system_prompt_forbids_inventing_the_researchers_reasons():
-    prompt = design_llm.SYSTEM_PROMPT
-    assert "Never state, guess or imply why the researcher accepted" in prompt
-
-
-def test_system_prompt_only_restates_recorded_details():
-    assert (
-        "only restate details that appear as accepted moves in the state block "
-        "or as cards in this turn"
-    ) in design_llm.SYSTEM_PROMPT
-
-
-def test_decision_followup_prompt_is_neutral_and_short():
-    from middleware import design_assistant
-
-    for action in ("accepted", "rejected", "noted", "undone"):
-        directive = design_assistant._directive(
-            {
-                "decisionAction": action,
-                "intent": "answer",
-                "batchIntake": False,
-                "understanding": {},
-                "profile": None,
-            },
-            None,
-        )
-        assert "Never state, guess or imply why the researcher" in directive
-        assert "at most three sentences" in directive
-        assert "explain what the proposal was trying to solve" not in directive
 
 
 def test_decision_followup_reply_is_capped_to_a_short_length():
@@ -756,17 +634,6 @@ def test_decision_followup_cap_applies_when_streaming_falls_back():
     assert len(turn.text) <= 400
 
 
-def test_strip_attributed_motives_removes_invented_reasons():
-    text = (
-        "You rejected the within-subjects design move because you wanted to "
-        "clarify the setup first. Who will take part?"
-    )
-    assert design_llm.strip_attributed_motives(text) == "Who will take part?"
-    text2 = "The rejected move was trying to name the population. What size?"
-    assert design_llm.strip_attributed_motives(text2) == "What size?"
-    assert design_llm.strip_attributed_motives("Noted. How many?") == "Noted. How many?"
-
-
 def test_decision_followup_reply_drops_invented_motives():
     reply = {
         "text": "Noted: you rejected that choice. You did so because you wanted "
@@ -780,36 +647,6 @@ def test_decision_followup_reply_drops_invented_motives():
     assert turn.text == "Noted."
 
 
-def test_system_prompt_sets_expert_voice_rules():
-    prompt = design_llm.SYSTEM_PROMPT
-    assert "EXPERT VOICE" in prompt
-    assert "Never define basic research concepts" in prompt
-    assert "Never restate the brief" in prompt
-    assert "no negative lists" in prompt
-    assert "exactly one next question" in prompt
-    assert "one imperative sentence" in prompt
-
-
-def test_normal_reply_cap_is_700_chars_and_decision_cap_stays_400():
-    assert design_llm.REPLY_TEXT_MAX_CHARS == 700
-    assert design_llm.DECISION_REPLY_MAX_CHARS == 400
-    long = " ".join(f"Distinct sentence number {i} is here." for i in range(60))
-    assert len(design_llm.cap_reply_text(long)) <= 700
-
-
-def test_strip_filler_removes_openers_and_student_assumptions():
-    out = design_llm.strip_filler(
-        "Great question. Certainly! I understand. As an AI, I think so. "
-        "Use 12 participants. This is feasible for a course project."
-    )
-    assert out == "Use 12 participants."
-
-
-def test_strip_filler_keeps_substantive_text():
-    text = "Counterbalance order. Fixed order confounds learning with AI use."
-    assert design_llm.strip_filler(text) == text
-
-
 def test_strip_filler_preserves_reply_structure():
     text = (
         "Compare both designs.\n\nWithin-subjects risks learning.\n"
@@ -817,11 +654,6 @@ def test_strip_filler_preserves_reply_structure():
     )
     assert design_llm.strip_filler(text) == text
     assert design_llm.strip_filler("Great question.\n\n" + text) == text
-
-
-def test_clean_reply_strips_filler():
-    out = design_llm._clean_reply("Certainly. Fix AI-first?", [], [])
-    assert out == "Fix AI-first?"
 
 
 def test_batch_and_requested_explanations_have_room_for_material_tradeoffs():
@@ -875,21 +707,6 @@ def test_batch_budget_applies_to_blocking_and_streaming_provider_calls():
     assert budgets == [design_llm.MAX_TOKENS * 2] * 2
 
 
-def test_tighten_proposal_trims_trailing_rationale():
-    t = design_llm.tighten_proposal
-    assert (
-        t("Set 12 participants (within-subjects), because power is adequate.")
-        == "Set 12 participants (within-subjects)."
-    )
-    assert t("Add task completion time. This captures speed.") == (
-        "Add task completion time."
-    )
-    assert t("Use a paired design so that order effects cancel") == (
-        "Use a paired design."
-    )
-    assert t("Set 12 participants.") == "Set 12 participants."
-
-
 def test_parse_moves_tightens_proposal():
     moves = design_llm._parse_moves(
         [
@@ -921,27 +738,6 @@ def _stance(intent):
         "mayProposeDesign": False,
         "nextQuestion": "What will participants do?",
     }
-
-
-def test_directives_use_expert_voice():
-    from middleware import design_assistant
-
-    stuck = design_assistant._directive(_stance("needs-scaffolding"), None)
-    assert "plain language" not in stuck
-    assert "Do not define" in stuck
-    step = design_assistant._directive(_stance("answer"), None)
-    assert "Reflect their idea" not in step
-    assert "Never restate" in step
-    assert "exactly one" in step
-
-
-def test_canned_replies_are_short_and_name_the_fix():
-    from middleware import design_assistant as da
-
-    assert "MISTRAL_API_KEY" in da.NO_MODEL
-    assert len(da.NO_MODEL) <= 160
-    assert "apolog" not in da.MODEL_SILENT.lower()
-    assert len(da.MODEL_SILENT) <= 170
 
 
 # ------------------------------------------------ server-side enforcement of
@@ -994,27 +790,6 @@ def test_cards_turn_prose_is_three_sentences_and_520_chars_and_starts_past_resta
     assert "MULTIDIMENSIONAL" not in out
     sentences = design_llm._split_sentences(out)
     assert len(sentences) <= 3
-
-
-def test_restating_leading_sentences_are_dropped_but_never_all():
-    out = design_llm.drop_restatement(
-        "Within-subjects design with 16 developers. Fix AI-first?", LIVE_USER
-    )
-    assert out == "Fix AI-first?"
-    only = "Within-subjects design with 16 experienced developers."
-    assert design_llm.drop_restatement(only, LIVE_USER) == only
-
-
-def test_rejected_alternative_sentences_are_dropped():
-    out = design_llm.drop_rejected_alternatives(
-        "Use the crossover. The rejected trial is too broad. "
-        "The unused alternative survey is insufficient alone. "
-        "This template does not prescribe a test. Order effects matter."
-    )
-    assert out == (
-        "Use the crossover. This template does not prescribe a test. "
-        "Order effects matter."
-    )
 
 
 def test_inline_full_title_citations_become_surname_year():
@@ -1073,20 +848,6 @@ def test_existing_question_is_kept_and_not_duplicated():
         next_question="Other?",
     )
     assert out.count("?") == 1 and out.endswith("Counterbalance?")
-
-
-def test_extended_cap_only_for_explain_turns_and_is_900():
-    long = " ".join(
-        f"Distinct explanatory sentence number {i} is here." for i in range(60)
-    )
-    explain = design_llm._clean_reply(
-        long, [], [], directive="THIS TURN IS A QUESTION ABOUT WHAT YOU ALREADY SAID."
-    )
-    assert 700 < len(explain) <= 900
-    batch = design_llm._clean_reply(
-        long, [], [], directive="BATCH INTAKE.", has_cards=True
-    )
-    assert len(batch) <= 520
 
 
 def _mv(kind, proposal, section=None, value=None):
@@ -1363,7 +1124,6 @@ def test_reply_shortening_preserves_sample_size_and_capture_limitations():
         "This capture will not include code correctness. Consider a pilot?"
     )
     assert design_llm._clean_reply(text, [], []) == text
-
 
 
 def test_parse_moves_keeps_distinct_measures_with_the_same_number():

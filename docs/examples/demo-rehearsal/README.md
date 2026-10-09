@@ -9,7 +9,7 @@ synthetic dry run.
   recipes without presenting synthetic output as a finding.
 - [`data-dictionary.md`](data-dictionary.md) describes the event-first dataset
   and its payload fields.
-- The complete walkthrough is [`../../demo-runbook.md`](../../demo-runbook.md).
+- The complete walkthrough is [`../../planner.md`](../../planner.md).
 
 The study is illustrative and uses anonymized demo IDs only. Generate a fresh
 handoff from a local middleware instance for a real study.

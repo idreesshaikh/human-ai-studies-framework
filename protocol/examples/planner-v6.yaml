@@ -1,0 +1,450 @@
+# Example configuration, not a study result. Fill in task materials and actual tool versions.
+protocolVersion: 6
+study:
+  id: planner-example
+  title: Versioned developer study planning example
+  researchers:
+  - Study researcher
+researchQuestions:
+- id: RQ-P1
+  text: How does the recorded tool version affect completion time and participant
+    experience?
+conditions:
+- tool-version-a
+- tool-version-b
+participants:
+  planned: 40
+  design: within-subjects
+  counterbalanced: true
+session:
+  durationMinutes: 45
+  taskDescription: Matched maintenance tasks under two recorded tool versions.
+instruments:
+  tern:
+    session:
+      durationMinutes: 45
+    fatigue:
+      intervalMinutes: 15
+      waitForPauseSeconds: 4
+      jitterPercent: 20
+      quietTailMinutes: 5
+    stuck:
+      enabled: true
+      thresholdSeconds: 90
+      cooldownMinutes: 5
+      languages:
+      - python
+    output:
+      httpEndpoint: http://127.0.0.1:8000/ingest/events
+    ideHealth:
+      enabled: false
+      debounceSeconds: 10
+    comprehensionProbe:
+      enabled: true
+      cadence: every-chunk
+      sampleRate: 1
+      probeTypes:
+      - predict-output
+      - locate-change
+  metrics:
+    metricSet: cognitive-load-9
+  agentCapture:
+    adapter: claude-code
+    contentPolicy: metadata-only
+  surveys:
+  - id: legacy-tlx-inspired
+    version: '1.0'
+    title: Legacy workload and comprehension
+    timing: post-task
+    items:
+    - id: mental_demand
+      text: How mentally demanding was the task?
+      scale:
+        min: 1
+        max: 7
+        step: 1
+        lowLabel: Very low
+        highLabel: Very high
+      reverse: false
+    - id: effort
+      text: How hard did you have to work to accomplish your level of performance?
+      scale:
+        min: 1
+        max: 7
+        step: 1
+        lowLabel: Very little
+        highLabel: Very hard
+      reverse: false
+    - id: frustration
+      text: How insecure, discouraged, irritated, or annoyed were you?
+      scale:
+        min: 1
+        max: 7
+        step: 1
+        lowLabel: Not at all
+        highLabel: Extremely
+      reverse: false
+    - id: time_pressure
+      text: How hurried or rushed was the pace of the task?
+      scale:
+        min: 1
+        max: 7
+        step: 1
+        lowLabel: Very relaxed
+        highLabel: Very rushed
+      reverse: false
+    - id: perceived_performance
+      text: How successful were you in accomplishing what you were asked to do?
+      scale:
+        min: 1
+        max: 7
+        step: 1
+        lowLabel: Failure
+        highLabel: Perfect
+      reverse: false
+    - id: comprehension
+      text: How well did you understand the code you worked with?
+      scale:
+        min: 1
+        max: 7
+        step: 1
+        lowLabel: Not at all
+        highLabel: Completely
+      reverse: false
+    scoring: none
+    source: StudyLoop legacy six-item survey
+    licence: Repository MIT licence
+    validation: TLX-inspired, not NASA-TLX; no validated aggregate
+  - id: raw-nasa-tlx
+    version: '1.0'
+    title: Raw NASA-TLX
+    timing: post-task
+    items:
+    - id: mental_demand
+      text: How much mental and perceptual activity was required (e.g., thinking,
+        deciding, calculating, remembering, looking, searching, etc.)? Was the task
+        easy or demanding, simple or complex, exacting or forgiving?
+      scale:
+        min: 0
+        max: 100
+        step: 5
+        lowLabel: Low
+        highLabel: High
+      reverse: false
+    - id: physical_demand
+      text: How much physical activity was required (e.g., pushing, pulling, turning,
+        controlling, activating, etc.)? Was the task easy or demanding, slow or brisk,
+        slack or strenuous, restful or laborious?
+      scale:
+        min: 0
+        max: 100
+        step: 5
+        lowLabel: Low
+        highLabel: High
+      reverse: false
+    - id: temporal_demand
+      text: How much time pressure did you feel due to the rate or pace at which the
+        tasks or task elements occurred? Was the pace slow and leisurely or rapid
+        and frantic?
+      scale:
+        min: 0
+        max: 100
+        step: 5
+        lowLabel: Low
+        highLabel: High
+      reverse: false
+    - id: performance
+      text: How successful do you think you were in accomplishing the goals of the
+        task set by the experimenter (or yourself)? How satisfied were you with your
+        performance in accomplishing these goals?
+      scale:
+        min: 0
+        max: 100
+        step: 5
+        lowLabel: Good
+        highLabel: Poor
+      reverse: false
+    - id: effort
+      text: How hard did you have to work (mentally and physically) to accomplish
+        your level of performance?
+      scale:
+        min: 0
+        max: 100
+        step: 5
+        lowLabel: Low
+        highLabel: High
+      reverse: false
+    - id: frustration
+      text: How insecure, discouraged, irritated, stressed and annoyed versus secure,
+        gratified, content, relaxed and complacent did you feel during the task?
+      scale:
+        min: 0
+        max: 100
+        step: 5
+        lowLabel: Low
+        highLabel: High
+      reverse: false
+    scoring: mean
+    source: https://ntrs.nasa.gov/citations/20000021488
+    licence: US government work; NASA permits use and modification without permission
+    validation: Raw unweighted mean; not the weighted NASA-TLX. Labels and descriptions
+      from NASA paper-and-pencil v1.0; electronic 0–100 scale in steps of 5.
+  - id: sus
+    version: '1.0'
+    title: System Usability Scale
+    timing: post-task
+    items:
+    - id: sus_1
+      text: I think that I would like to use this system frequently
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Strongly disagree
+        highLabel: Strongly agree
+      reverse: false
+    - id: sus_2
+      text: I found the system unnecessarily complex
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Strongly disagree
+        highLabel: Strongly agree
+      reverse: true
+    - id: sus_3
+      text: I thought the system was easy to use
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Strongly disagree
+        highLabel: Strongly agree
+      reverse: false
+    - id: sus_4
+      text: I think that I would need the support of a technical person to be able
+        to use this system
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Strongly disagree
+        highLabel: Strongly agree
+      reverse: true
+    - id: sus_5
+      text: I found the various functions in this system were well integrated
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Strongly disagree
+        highLabel: Strongly agree
+      reverse: false
+    - id: sus_6
+      text: I thought there was too much inconsistency in this system
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Strongly disagree
+        highLabel: Strongly agree
+      reverse: true
+    - id: sus_7
+      text: I would imagine that most people would learn to use this system very quickly
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Strongly disagree
+        highLabel: Strongly agree
+      reverse: false
+    - id: sus_8
+      text: I found the system very cumbersome to use
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Strongly disagree
+        highLabel: Strongly agree
+      reverse: true
+    - id: sus_9
+      text: I felt very confident using the system
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Strongly disagree
+        highLabel: Strongly agree
+      reverse: false
+    - id: sus_10
+      text: I needed to learn a lot of things before I could get going with this system
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Strongly disagree
+        highLabel: Strongly agree
+      reverse: true
+    scoring: sus
+    source: https://hci-studies.org/methods-and-measures/downloads/SUS_Brooke1996.pdf
+    licence: © Digital Equipment Corporation 1986; freely available for usability
+      assessment with acknowledgement of John Brooke (1996) in published reports
+    validation: Original ten-item wording; reverse even items; sum contributions ×
+      2.5 (0–100). Define the system being assessed in participant instructions.
+  - id: pre-task-skill
+    version: '1.0'
+    title: Pre-task programming skill (experimental)
+    timing: pre-task
+    items:
+    - id: experience
+      text: How much experience do you have maintaining code in the language used
+        in this study?
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: None
+        highLabel: Extensive
+      reverse: false
+    - id: debugging
+      text: How confident are you in diagnosing a failing test in an unfamiliar project?
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Not confident
+        highLabel: Very confident
+      reverse: false
+    - id: familiarity
+      text: How familiar are you with the kind of task used in this study?
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Unfamiliar
+        highLabel: Very familiar
+      reverse: false
+    scoring: mean
+    source: StudyLoop experimental item set, 2026-10-08
+    licence: Repository MIT licence
+    validation: 'Unvalidated draft: researcher must pilot before using as a skill
+      covariate'
+  taskHarness:
+    enabled: true
+phases:
+- name: design
+  gates:
+  - protocol-validated.txt
+  - task-definitions.md
+- name: ethics
+  gates:
+  - ethics-approval.pdf
+  - consent-form.pdf
+- name: pilot
+  gates:
+  - dry-run-report.md
+- name: recruitment
+  gates:
+  - participant-schedule.md
+- name: data-collection
+  gates:
+  - dataset-export.sqlite3
+  - integrity-report.md
+- name: analysis
+  gates:
+  - per-rq-report.md
+- name: write-up
+  gates: []
+analysisPlan:
+- rq: RQ-P1
+  recipes:
+  - paired-nonparametric
+  - typed-measures
+  - control_arm_audit
+tasks:
+- id: task-a
+  title: Maintenance task A
+  description: Supply the task materials before recruitment.
+  version: '1.0'
+  contentHash: 4bcceec9759b7d976f50f00d9c4ccd8f2bf50762fced057bf69bc50cc9194eef
+- id: task-b
+  title: Maintenance task B
+  description: Supply matched task materials before recruitment.
+  version: '1.0'
+  contentHash: 5c2006b8e0e9d4d398e079371b4c8534a9b843e2840dd7aea87580c4579ded40
+measureSetVersion: '1.0'
+measures:
+- id: completion-time
+  construct: Task completion time
+  instrument: taskHarness
+  fields:
+  - task_outcome.firstGreenMs
+  analysisRecipe: paired-nonparametric
+  version: '1.0'
+- id: legacy-tlx-inspired-1
+  construct: mental demand
+  instrument: legacy-tlx-inspired
+  fields:
+  - survey_response.responses.mental_demand
+  analysisRecipe: typed-measures
+  version: '1.0'
+- id: legacy-tlx-inspired-2
+  construct: effort
+  instrument: legacy-tlx-inspired
+  fields:
+  - survey_response.responses.effort
+  analysisRecipe: typed-measures
+  version: '1.0'
+- id: legacy-tlx-inspired-3
+  construct: frustration
+  instrument: legacy-tlx-inspired
+  fields:
+  - survey_response.responses.frustration
+  analysisRecipe: typed-measures
+  version: '1.0'
+- id: legacy-tlx-inspired-4
+  construct: time pressure
+  instrument: legacy-tlx-inspired
+  fields:
+  - survey_response.responses.time_pressure
+  analysisRecipe: typed-measures
+  version: '1.0'
+- id: legacy-tlx-inspired-5
+  construct: perceived performance
+  instrument: legacy-tlx-inspired
+  fields:
+  - survey_response.responses.perceived_performance
+  analysisRecipe: typed-measures
+  version: '1.0'
+- id: legacy-tlx-inspired-6
+  construct: comprehension
+  instrument: legacy-tlx-inspired
+  fields:
+  - survey_response.responses.comprehension
+  analysisRecipe: typed-measures
+  version: '1.0'
+- id: raw-nasa-tlx-1
+  construct: Raw NASA-TLX
+  instrument: raw-nasa-tlx
+  fields:
+  - survey_response.score
+  analysisRecipe: typed-measures
+  version: '1.0'
+- id: sus-1
+  construct: System Usability Scale
+  instrument: sus
+  fields:
+  - survey_response.score
+  analysisRecipe: typed-measures
+  version: '1.0'
+covariate:
+  instrument: pre-task-skill
+  field: pre_task_covariate.score
+  timing: pre-task
+toolVersions:
+  tool-version-a:
+    tool: copilot
+    extensionId: GitHub.copilot
+  tool-version-b:
+    tool: copilot
+    extensionId: GitHub.copilot

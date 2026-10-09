@@ -1,0 +1,134 @@
+[
+  {
+    "source": "s2",
+    "query": "\"AI coding assistant\" developers controlled experiment",
+    "utc": "2026-10-08T13:03:26.134444+00:00",
+    "total": 0,
+    "retrieved": 0,
+    "files": [
+      "s2-q01-failure.json"
+    ],
+    "outcome": "failed: 429"
+  },
+  {
+    "source": "arxiv",
+    "query": "\"AI coding assistant\" developers controlled experiment",
+    "utc": "2026-10-08T13:03:26.134444+00:00",
+    "total": 3,
+    "retrieved": 3,
+    "files": [
+      "arxiv-q01-p0000.xml"
+    ],
+    "outcome": "ok"
+  },
+  {
+    "source": "s2",
+    "query": "Copilot randomized controlled trial programmers",
+    "utc": "2026-10-08T13:03:26.134444+00:00",
+    "total": 0,
+    "retrieved": 0,
+    "files": [
+      "s2-q02-p0000.json"
+    ],
+    "outcome": "ok"
+  },
+  {
+    "source": "arxiv",
+    "query": "Copilot randomized controlled trial programmers",
+    "utc": "2026-10-08T13:03:26.134444+00:00",
+    "total": 0,
+    "retrieved": 0,
+    "files": [
+      "arxiv-q02-p0000.xml"
+    ],
+    "outcome": "ok"
+  },
+  {
+    "source": "s2",
+    "query": "LLM-assisted programming user study productivity",
+    "utc": "2026-10-08T13:03:26.134444+00:00",
+    "total": 0,
+    "retrieved": 0,
+    "files": [
+      "s2-q03-failure.json"
+    ],
+    "outcome": "failed: 429"
+  },
+  {
+    "source": "arxiv",
+    "query": "LLM-assisted programming user study productivity",
+    "utc": "2026-10-08T13:03:26.134444+00:00",
+    "total": 2,
+    "retrieved": 2,
+    "files": [
+      "arxiv-q03-p0000.xml"
+    ],
+    "outcome": "ok"
+  },
+  {
+    "source": "s2",
+    "query": "large language model developers field experiment",
+    "utc": "2026-10-08T13:03:26.134444+00:00",
+    "total": 36,
+    "retrieved": 36,
+    "files": [
+      "s2-q04-p0000.json"
+    ],
+    "outcome": "ok"
+  },
+  {
+    "source": "arxiv",
+    "query": "large language model developers field experiment",
+    "utc": "2026-10-08T13:03:26.134444+00:00",
+    "total": 59,
+    "retrieved": 59,
+    "files": [
+      "arxiv-q04-p0000.xml"
+    ],
+    "outcome": "ok"
+  },
+  {
+    "source": "s2",
+    "query": "AI pair programming empirical study participants",
+    "utc": "2026-10-08T13:03:26.134444+00:00",
+    "total": 0,
+    "retrieved": 0,
+    "files": [
+      "s2-q05-failure.json"
+    ],
+    "outcome": "failed: 429"
+  },
+  {
+    "source": "arxiv",
+    "query": "AI pair programming empirical study participants",
+    "utc": "2026-10-08T13:03:26.134444+00:00",
+    "total": 1,
+    "retrieved": 1,
+    "files": [
+      "arxiv-q05-p0000.xml"
+    ],
+    "outcome": "ok"
+  },
+  {
+    "source": "s2",
+    "query": "generative AI software engineers task completion time experiment",
+    "utc": "2026-10-08T13:03:26.134444+00:00",
+    "total": 0,
+    "retrieved": 0,
+    "files": [
+      "s2-q06-p0000.json"
+    ],
+    "outcome": "ok"
+  },
+  {
+    "source": "arxiv",
+    "query": "generative AI software engineers task completion time experiment",
+    "utc": "2026-10-08T13:03:26.134444+00:00",
+    "total": 9,
+    "retrieved": 9,
+    "files": [
+      "arxiv-q06-p0000.xml"
+    ],
+    "outcome": "ok"
+  }
+]

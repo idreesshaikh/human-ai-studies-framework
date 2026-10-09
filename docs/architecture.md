@@ -43,19 +43,18 @@ layering rule:
   `middleware/src/middleware/schemas.py`.
 - **Controllers** are the FastAPI endpoints in `middleware/src/middleware/app.py`.
   They authenticate requests, validate input, orchestrate a transaction, and
-  shape the response. Some existing handlers still contain their small database
-  transaction because `app.py` is the composition root; reusable domain rules
-  belong in the service modules.
+  shape the response. Routes live in `middleware/routes/`; `app.py` composes their
+  shared dependencies. Reusable domain rules belong in service modules.
 - **Views** are the React components in `platform/src/`; they consume API
   responses and do not own study or database rules.
 - **Services and adapters** are the focused modules beside the controller:
-  `compiler`, `enrollment`, `matching`, `template_registry`, `simulation`,
+  `compiler`, `enrollment`, `matching`, `template_registry`, `corpus_refresh`,
   `analysis`, `agent-capture`, and `metrics`.  They can be tested without a
   browser.
 
 ```mermaid
 flowchart LR
-    View[React views<br/>platform/] -->|HTTP JSON| Controller[FastAPI controllers<br/>middleware/app.py]
+    View[React views<br/>platform/] -->|HTTP JSON| Controller[FastAPI controllers<br/>middleware/routes/]
     Controller --> Services[Services and adapters]
     Services --> Models[Protocol and database models]
     Protocol[protocol/] --> Models
@@ -117,13 +116,9 @@ TERN telemetry excludes source and clipboard text. External transcript policies
 can allow content; workspace snapshots store source locally. The model receives
 the design conversation and literature, not participant event rows.
 
-## Analysis and rehearsal
+## Planning and analysis
 
-`GET /studies/{id}/run-plan` derives a participant journey using the existing
-compiler, assignment and capture contracts. Plan previews accepted decisions;
-`preview=false` reads only the current protocol used by enrollment. The endpoint
-checks project view access and creates no compilation, approval or participant
-link. The UI refreshes on entry and offers explicit refresh after decisions change.
+`analysis/planner.py` provides pure analytic and seeded simulation power calculations. `POST /studies/{id}/plan` checks them against the recorded protocol and stores an immutable protocol snapshot/hash. The compatibility `/power` route uses the same engine. Protocol v6 declares typed event-linked measures and survey wording/scales; the extension captures instrument version/hash, pre-task covariates and session tool provenance. Real pilot tags and audit decisions are recorded with identity/date, and the pilot update returns before/after recruitment and variance intervals. See [planner methods and limits](planner.md).
 
 `analysis/dataset.py` prepares the joined dataset. Recipes register required
 events and metrics in `analysis/core.py`. `runner.py` checks the plan and writes
@@ -139,11 +134,7 @@ rows are included (they are not by default), and a sha256 per member. The bundle
 `README.md` documents the layout. The platform offers it in the Data tab and the
 Share menu.
 
-`middleware/simulation.py` creates synthetic events and session blocks without
-issuing participant credentials. Rows carry `payload.synthetic: true`; the
-response lists `sessionIds`. Each dry-run report uses only that run's sessions.
-Synthetic rows remain in the selected study, so use a separate rehearsal study
-or filter them explicitly before participant analysis.
+Confirmatory dataset views omit whole pilot, synthetic and researcher-excluded sessions. Raw exports preserve real pilot rows, decisions, and instrument/session provenance. Data bundles and replication kits include a JSON/Markdown design card, which reports recorded assumptions and audit signals without rating validity. Re-run lineage comparisons authorize both studies and never pool data automatically.
 
 `curated/` is an experimental library for local archive import,
 pseudonymisation, and validity-threat records. It is not imported by the live

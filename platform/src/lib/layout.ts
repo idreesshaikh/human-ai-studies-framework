@@ -1,11 +1,4 @@
-/* The layout contract, as data: every screen is a Surface owning exactly
- * four things  -  one measure, one gutter, one rhythm, one scroller. Screens
- * used to each pick their own p-, gap-, and max-w- values with no shared
- * rule, which is what made panel-to-panel navigation read as different
- * tools.
- *
- * Pure and dependency-free so `verify-layout.mjs` can assert every branch
- * without a DOM  -  the same pattern as `role.ts`. */
+/* Surface owns the content width, gutter, rhythm and single scroller. */
 
 export const MEASURES = ["narrow", "reading", "work", "wide"] as const;
 export type Measure = (typeof MEASURES)[number];

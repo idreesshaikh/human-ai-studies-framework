@@ -70,7 +70,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
               <span>Data (.zip)</span>
               <span className="type-caption text-text-muted">
                 Tidy CSV per event type, the joined timeline and a data
-                dictionary, for your own analysis. Dry-run rows excluded.
+                dictionary, for your own analysis. Synthetic rows excluded.
               </span>
             </div>
           </DropdownMenuItem>

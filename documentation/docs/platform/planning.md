@@ -1,61 +1,15 @@
 # Planning
 
-## Preview the participant journey
+The Plan tab estimates participant recruitment against the fixed analysis in the study protocol. Enter outcome distribution, effect and variance assumptions, alpha, target power and dropout. Analytic t/ANCOVA and seeded rank-test simulations share the analysis contract; unsupported combinations explain why no number is reported.
 
-Open **Plan** before creating participant links. The run overview shows the
-assigned tasks and conditions, minutes per block, capture runners and privacy
-policy. Select a participant number to inspect order; this creates no link.
+Manual setup and accepted catalog suggestions now create typed outcomes with
+their capture fields, survey definitions and compatible analysis recipes.
+Existing measurement IDs, scales, wording and covariates are preserved when
+editing a typed protocol. An unresolved custom outcome needs its collection
+and analysis defined before it can be saved in this authoring path.
+Suggestions are catalog matches for your confirmation, not calibrated estimates
+of validity or confidence.
 
-Accepted decisions appear as an unapplied preview. **Run** continues to show the
-current protocol until you review and apply changes in Setup. **Refresh plan**
-reloads the latest choices without approving them. Warnings identify repeated
-tasks and inconsistent timers. Counterbalancing is not random allocation.
+Saved plans are pinned to a protocol hash. Charts show power and simulation intervals; sensitivity reports detectable effects at planned sample sizes. Real pilot sessions tagged in Data can update variance and show before/after recruitment. Pilots below eight participants are flagged.
 
-The overview is planned configuration, not participant data. Recruitment
-calculations below remain assumptions, not observed results.
-
-Planning turns the protocol's comparison into a recruitment boundary. It is
-where the researcher explores how many observations may be needed before
-inviting anyone; it is not a report of results from participants.
-
-<figure markdown="span">
-  ![The current Phoenix Planning tab](../assets/screens/phoenix-study-planning-current.png){ width="900" }
-  <figcaption>The Planning tab shows the target, explored range, effect-size curves, and the first total <code>n</code> that reaches the target.</figcaption>
-</figure>
-
-## What the controls mean
-
-- **Alpha (two-sided)** — the significance threshold used by the planning
-  calculation.
-- **Target power** — the probability target the curve tries to reach, such as
-  80% or 90%.
-- **Explored range (total n)** — the largest total sample size plotted. It is a
-  search boundary, not a recommendation to recruit that many people.
-- **Effect sizes (Cohen's d)** — the plausible differences to compare. Toggle
-  curves on or off to keep the chart readable while checking small, medium,
-  and large effects.
-
-The table below the chart reports the first total `n` at which each selected
-curve reaches the target. If a curve never reaches it within the explored
-range, Planning says so instead of inventing a sample size.
-
-## How to use it
-
-1. Finish the comparison, conditions, and primary measure in the conversation.
-2. Open **Plan** and choose assumptions that are defensible for the study,
-   not simply the most optimistic effect size.
-3. Compare the recruitment number against the people you can realistically
-   reach. A small feasible study can still be useful, but its conclusions may
-   be exploratory.
-4. Revisit the curve whenever the design changes. The protocol and the
-   planning assumptions should describe the same comparison.
-
-When middleware is unavailable, the tab labels the built-in stand-in curve
-explicitly. It is useful for understanding the interface and the calculation,
-but it is not a live study plan or evidence from participants.
-
-## What Planning does not decide
-
-The curve does not choose your population, task, outcome, or ethics posture.
-It also does not turn a target into a guarantee: the researcher still owns the
-assumptions, feasibility judgment, and final analysis plan.
+See [the planner guide](https://github.com/idreesshaikh/human-ai-studies-framework/blob/main/docs/planner.md) for effect units, covariate/period limits, protocol v6 instruments, API and evaluation gates.

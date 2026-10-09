@@ -75,7 +75,6 @@
   --font-mono: "Spline Sans Mono Variable", "Spline Sans Mono", ui-monospace,
     "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
   --font-text: var(--font-sans);
-  --font-serif: var(--font-sans); /* legacy alias  -  this world has no serif */
 
   /* Width axis. The compressed-caps display voice belonged to the discarded
    * world and shouted on every screen; an atlas label is set at normal width
@@ -120,7 +119,7 @@
 
   /* ---- Layout  -  unchanged contract ------------------------------------
    * The four content widths, chosen by what the page is FOR
-   * (src/lib/layout.ts, verify-layout.mjs), plus the chat measure. */
+   * (src/lib/layout.ts), plus the chat measure. */
   --measure-narrow: 26rem;
   --measure-reading: 44rem;
   --measure-work: 60rem;
@@ -405,9 +404,7 @@
   .mark-pulse,
   .cursor-block,
   .just-written,
-  .refuse,
-  .hero-fold-in,
-  .hero-glow-in {
+  .refuse {
     animation: none !important;
   }
 }

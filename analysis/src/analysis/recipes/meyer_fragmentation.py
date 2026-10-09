@@ -13,6 +13,8 @@ from analysis.dataset import Dataset
 from analysis.recipes._common import compare_or_describe
 
 METHODS = (
+    "Small untied samples use exact tests; ties/large samples use "
+    "the asymptotic approximation with tie correction. "
     "Replication of Meyer et al. (IEEE TSE 43(12), 2017, DOI "
     "10.1109/TSE.2017.2656886) at session scale. A switch is a change of "
     "file in consecutive file-bearing `editor_focus` events (instrument- "
@@ -20,7 +22,7 @@ METHODS = (
     "switches per hour over the session event span (an upper bound on "
     "active time - the paper's active-window denominators arrive with "
     "idle-corrected denominators) and focus-segment durations (minutes "
-    "between consecutive switches). Conditions compared with the exact "
+    "between consecutive switches). Conditions compared with the "
     "Wilcoxon signed-rank on per-participant means (paired) or exact "
     "Mann-Whitney U with Cliff's delta (unpaired). Where the paper "
     "correlates switching with experience-sampled perceived productivity, "

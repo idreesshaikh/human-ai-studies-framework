@@ -44,9 +44,9 @@ them observable.
 - **Participant dignity.** TERN records sizes, shapes, and timings—not raw code,
   keystrokes, clipboard text, or off-workspace paths. The consent statement and
   preflight summary are generated from the same approved capture config.
-- **Analysis readiness.** A synthetic dry run exercises the real capture path
-  before recruitment, while sequence gaps and incomplete sessions remain visible
-  instead of being quietly smoothed away.
+- **Analysis readiness.** Pilot sessions are tagged and kept out of confirmatory
+  analysis, while sequence gaps and incomplete sessions remain visible instead
+  of being quietly smoothed away.
 
 ## Two components, one workflow
 
@@ -58,18 +58,19 @@ the complete loop. If you are a participant, start with [Installing TERN](extens
 
 ## Try the release locally
 
-Prerequisites: [uv](https://docs.astral.sh/uv/) and Node 22. Add a
-[Mistral API key](https://console.mistral.ai/) for the optional design conversation.
-The default model is `ministral-14b-latest` for design and paper matching.
-Set `MISTRAL_MODEL` to change both routes or `MISTRAL_DESIGN_MODEL` to override
-design alone. Manual authoring, templates, capture and exports work without a key.
+Prerequisites: [uv](https://docs.astral.sh/uv/) and Node 22. The optional design
+conversation uses the model configured in `.env`: `LLM_API_KEY`, `LLM_BASE_URL`
+and `LLM_MODEL`. The default is `ministral-14b-latest` on Mistral's API.
+`LLM_DESIGN_MODEL` overrides design alone; legacy `MISTRAL_*` names still work.
+A local chat-completions server needs only `LLM_BASE_URL`. Manual authoring,
+templates, capture and exports work without a model.
 
 ```bash
 git clone https://github.com/idreesshaikh/human-ai-studies-framework.git
 cd human-ai-studies-framework
 uv sync --all-packages
 (cd platform && npm ci && npm run build)
-echo "MISTRAL_API_KEY=sk-..." >> .env
+echo "LLM_API_KEY=sk-..." >> .env
 uv run python -m middleware corpus-import
 uv run python -m middleware serve
 ```

@@ -12,23 +12,20 @@ import { useAsync } from "@/lib/useAsync";
 import { ApiError } from "@/lib/api.ts";
 import { resolveRole, roleOrNull } from "@/lib/role";
 
-/* Project settings: rename, and an owner-only danger zone whose delete
- * requires typing DELETE to confirm. */
 export function ProjectSettings() {
   const api = useApi();
   const { me, loading: meLoading, refresh } = useSession();
   const navigate = useNavigate();
   const { slug = "" } = useParams();
-  const { data } = useAsync(() => api.projectHome(slug), [api, slug]);
+  const { data, loading, error: loadError, reload } = useAsync(() => api.projectHome(slug), [api, slug]);
 
-  const [name, setName] = useState("");
+  const [name, setName] = useState<string | null>(null);
   const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const projectName = name ?? data?.name ?? "";
 
-  // My role here, with "not known yet" kept distinct from "viewer"  -  see
-  // lib/role.ts. Defaulting to viewer while the session loaded is what made
-  // the owner-only danger zone flicker in and out.
   const roleState = resolveRole({
     projectMembers: data?.members,
     meSub: me?.sub,
@@ -40,28 +37,34 @@ export function ProjectSettings() {
   const rolePending = roleState.status === "loading";
 
   const rename = async () => {
+    if (busy || !projectName.trim()) return;
+    setBusy(true);
     setErr("");
     setMsg("");
     try {
-      await api.renameProject(slug, name);
-      setMsg("Renamed.");
-      await refresh();
+      await api.renameProject(slug, projectName.trim());
+      setName(projectName.trim());
+      setMsg("Project name saved.");
+      reload();
+      await refresh().catch(() => {});
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Could not rename.");
+    } finally {
+      setBusy(false);
     }
   };
 
   const remove = async () => {
+    if (busy || confirm !== "DELETE") return;
+    setBusy(true);
     setErr("");
     try {
       await api.deleteProject(slug, confirm);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Could not delete.");
+      setBusy(false);
       return;
     }
-    // The project is gone. Refreshing the session is housekeeping after the
-    // fact  -  if it fails, that must not be reported as a failed delete, which
-    // is what happened while this sat inside the try above.
     await refresh().catch(() => {});
     navigate("/home");
   };
@@ -70,50 +73,42 @@ export function ProjectSettings() {
     <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
       <h1 className="type-title text-text">Project settings</h1>
 
+      {!data && loading && <p role="status" className="type-body text-text-muted">Loading project settings…</p>}
+      {loadError && <Notice kind="problem">{loadError} <Button variant="subtle" size="sm" onClick={reload}>Try again</Button></Notice>}
+
       <RoleGate
         role={mine}
         capability="manage_members"
-        pending={rolePending}
+        pending={rolePending || !data}
         fallback={<p className="type-body text-text-muted">Only owners can change settings.</p>}
       >
         <Card>
           <CardContent className="flex flex-col gap-3 p-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <form onSubmit={(event) => { event.preventDefault(); void rename(); }} className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <Field id="rename" label="Project name" className="flex-1">
                 <Input
-                  placeholder={data?.name ?? "Project name"}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={projectName}
+                  onChange={(e) => { setName(e.target.value); setMsg(""); }}
+                  disabled={busy}
                   maxLength={NAME_MAX_LENGTH}
                 />
               </Field>
-              <Button size="field" onClick={rename} disabled={!name.trim()}>
-                Save
+              <Button type="submit" size="field" disabled={busy || loading || !projectName.trim() || projectName.trim() === data?.name}>
+                {busy ? "Saving…" : "Save"}
               </Button>
-            </div>
-            {/* The slug is set once at creation and never follows a rename  -
-             * intentional, so bookmarks and shared invite links never break.
-             * Called out here so that stays a design decision, not a bug
-             * report. */}
+            </form>
             <p className="type-note text-text-muted">
               The URL (<span className="type-quantity identifier">/{data?.slug}</span>) stays the
               same so existing links keep working. Only the display name changes.
             </p>
-            {msg && <p className="type-note text-text-muted">{msg}</p>}
+            {msg && <Notice kind="note" role="status">{msg}</Notice>}
           </CardContent>
         </Card>
 
         <RoleGate role={mine} capability="delete" pending={rolePending}>
-          {/* Framed in critical, not in `--unsourced`. Unsourced is this
-            * world's mark for "logged, your call, not wrong"; wearing it on a
-            * destructive control said the opposite of what deleting a project
-            * means, and spent a provenance signal on something that carries no
-            * provenance. */}
           <Card className="border-critical/40">
             <CardContent className="flex flex-col gap-3 p-4">
               <div>
-                {/* Named for what it does. "Danger zone" is borrowed copy that
-                  * describes the box rather than the action inside it. */}
                 <h2 className="type-subhead text-text">Delete this project</h2>
                 <p className="type-body text-text-muted">
                   This removes the project, its memberships and its
@@ -128,13 +123,14 @@ export function ProjectSettings() {
                   placeholder="DELETE"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
+                  disabled={busy}
                   aria-label="Type DELETE to confirm deletion"
                 />
                 <Button
                   variant="danger"
                   size="field"
                   onClick={remove}
-                  disabled={confirm !== "DELETE"}
+                  disabled={busy || confirm !== "DELETE"}
                 >
                   Delete project
                 </Button>

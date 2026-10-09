@@ -70,5 +70,5 @@ Add an entry to `METRIC_REGISTRY` with its `measurementType` and an `extract`
 function that pulls observations from dataset rows (key static metrics on
 `payload[key]`; key event measures on the event `type`). The panel needs no
 change — it renders whatever the registry returns. Add a case to
-`platform/scripts/verify-metrics.mjs` for any non-trivial `extract` or derived
+the platform checks and browser validation for any non-trivial `extract` or derived
 value.

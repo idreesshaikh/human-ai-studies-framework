@@ -30,46 +30,6 @@ def _dataset() -> Dataset:
     return Dataset(rows=synthetic_rows(), study_id="pilot-2026")
 
 
-def test_build_notebook_is_valid_nbformat4_json():
-    doc = build_notebook(_protocol(), _dataset(), "pilot-2026")
-    assert doc["nbformat"] == 4
-    assert isinstance(doc["cells"], list) and doc["cells"]
-    for cell in doc["cells"]:
-        assert cell["cell_type"] in {"markdown", "code"}
-        assert isinstance(cell["source"], str) and cell["source"]
-
-
-def test_the_notebook_actually_opens_in_jupyter():
-    """
-    The bar that matters: not "shaped like nbformat 4" by this module's own assumptions,
-    but valid against nbformat's real schema  -  the same check Jupyter itself runs on
-    open.
-    """
-    doc = build_notebook(_protocol(), _dataset(), "pilot-2026")
-    nbformat.validate(nbformat.from_dict(doc))
-
-
-def test_cell_ids_are_present_and_unique():
-    """
-    nbformat 4.5+ requires a cell id; two cells sharing one is also a validation failure
-    nbformat catches but a shape-only check would not.
-    """
-    doc = build_notebook(_protocol(), _dataset(), "pilot-2026")
-    ids = [c["id"] for c in doc["cells"]]
-    assert all(ids)
-    assert len(ids) == len(set(ids)), "cell ids must be unique"
-
-
-def test_notebook_is_deterministic():
-    a = json.dumps(
-        build_notebook(_protocol(), _dataset(), "pilot-2026"), sort_keys=True
-    )
-    b = json.dumps(
-        build_notebook(_protocol(), _dataset(), "pilot-2026"), sort_keys=True
-    )
-    assert a == b
-
-
 def test_dictionary_documents_only_real_columns():
     dataset = _dataset()
     md = data_dictionary_markdown(dataset)
@@ -129,15 +89,6 @@ def test_every_planned_recipe_has_a_resolvable_import_cell():
         assert f"from analysis.recipes import {module}" in source
 
 
-def test_notebook_never_runs_a_recipe():
-    doc = build_notebook(_protocol(), _dataset(), "pilot-2026")
-    source = "\n".join(c.get("source", "") for c in doc["cells"])
-    assert ".run(dataset)" in source
-    assert "result.summary" in source
-    # ...but the notebook itself must not execute anything at build time.
-    assert "Your analysis starts here" in source
-
-
 def test_notebook_carries_the_session_timeline_cell():
     """
     P2-1: the starter notebook leads with the one-glance session picture  -  the
@@ -156,7 +107,7 @@ def test_write_notebook_lands_both_artifacts(tmp_path):
     nb, dd = write_notebook(protocol, _dataset(), "pilot-2026", tmp_path)
     assert nb.name == "notebook.ipynb" and dd.name == "data-dictionary.md"
     doc = json.loads(nb.read_text())
-    assert doc["nbformat"] == 4
+    nbformat.validate(nbformat.from_dict(doc))
     assert "## Data dictionary" in dd.read_text()
 
 
@@ -171,3 +122,39 @@ def test_dictionary_only_flag(tmp_path):
     assert code == 0
     assert (tmp_path / "pilot-2026" / "data-dictionary.md").exists()
     assert not (tmp_path / "pilot-2026" / "notebook.ipynb").exists()
+
+
+def test_notebook_freezes_protocol_metadata_for_typed_recipe_execution(monkeypatch):
+    dataset = _dataset()
+    protocol = _protocol()
+    notebook = build_notebook(protocol, dataset, "pilot-2026")
+    setup = next(
+        cell["source"]
+        for cell in notebook["cells"]
+        if "dataset = Dataset.from_json" in cell.get("source", "")
+    )
+    monkeypatch.setattr(Dataset, "from_json", classmethod(lambda cls, path: dataset))
+    namespace = {}
+    exec(setup, namespace)  # noqa: S102 - execute only the generated fixture cell
+    assert namespace["dataset"].meta["protocol"] == protocol
+    assert namespace["dataset"].meta["control_conditions"] == protocol.get(
+        "controlConditions", []
+    )
+
+
+def test_notebook_states_how_many_sessions_were_excluded_and_never_opens_one():
+    rows = synthetic_rows()
+    first = rows[0]["sessionId"]
+    for r in rows:
+        if r["sessionId"] == first:
+            r["pilot"] = True
+    nb = build_notebook(
+        _protocol(), Dataset(rows=rows, study_id="pilot-2026"), "pilot-2026"
+    )
+    text = "\n".join(c["source"] for c in nb["cells"])
+    total = len({r["sessionId"] for r in rows})
+    assert f"Sessions analysed: {total - 1} of {total}" in text
+    assert "excluded from confirmatory analysis: 1" in text
+    # The timeline example must start from an analysed session, not the pilot.
+    assert "dataset.analysis_rows[0]" in text
+    assert 'dataset.rows[0]["sessionId"]' not in text

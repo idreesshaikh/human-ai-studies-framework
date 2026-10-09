@@ -1,16 +1,8 @@
-/* Study data and literature requests. Read-only demo examples are labelled;
- * mutations require a server response. Credentials come from api.ts. */
+/* Study data and literature requests. Reads and mutations use the server. Credentials come from api.ts. */
 
 import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
 import { dataBundleFilename, dataBundlePath } from "./dataBundle.ts";
-import { isDemoStudy } from "./demo.ts";
-import type {
-  PowerCurve,
-  PowerDoc,
-  PowerPoint,
-  PowerRequirement,
-  Recommendation,
-} from "./types";
+import type { PowerDoc, Recommendation } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -18,7 +10,7 @@ export class OfflineError extends Error {
   constructor() {
     super(
       "This needs the running middleware (port 8000). Start it with " +
-        "`docker compose up`, or explore the seeded demo below.",
+        "`docker compose up`.",
     );
     this.name = "OfflineError";
   }
@@ -69,27 +61,6 @@ export interface PaperGraph {
 }
 
 /** One recipe the dry run actually executed, with the statistic it produced. */
-export interface DryRunResult {
-  recipeId: string;
-  title: string;
-  rqs: string[];
-  answers: string[];
-  /** The recipe's own human-readable result  -  test, p-value, effect size, and
-   *  its own caveats. Rendered verbatim: the honesty is in the wording. */
-  summary: string;
-}
-
-/** The analysis plan, validated and run against the dry run's synthetic data. */
-export interface DryRunPlan {
-  planned: number;
-  ran: string[];
-  blocked: { recipeId: string; rq: string; reason: string }[];
-  errors?: Record<string, string>;
-  results: DryRunResult[];
-  /** Present only when the protocol has no analysis plan to validate yet. */
-  note?: string;
-}
-
 export interface DatasetRow {
   source: string;
   ts: string;
@@ -102,6 +73,8 @@ export interface DatasetRow {
   seq: number | null;
   flags: string[];
   payload: Record<string, unknown>;
+  pilot?: boolean;
+  inclusionDecision?: string;
 }
 
 /** One session the middleware has heard from inside the live window. */
@@ -139,24 +112,6 @@ export interface Prescription {
   rationale: string;
 }
 
-export interface RunPlan {
-  allocationNote?: string;
-  source: "accepted-decisions" | "current-protocol";
-  hasProtocol: boolean;
-  hasPendingChanges: boolean;
-  participantIndex: number;
-  participants?: { planned?: number; design?: string; counterbalanced?: boolean };
-  conditions?: string[];
-  durationMinutes?: number;
-  fatigueIntervalMinutes?: number;
-  blocks?: { index: number; taskId: string; title: string; description: string; condition: string }[];
-  producers?: Record<string, ProducerStatus>;
-  requiredProducers?: string[];
-  privacy?: { agentContentPolicy: string; rawCode: boolean; clipboardText: boolean; keystrokes: boolean };
-  errors: string[];
-  warnings?: string[];
-}
-
 export interface SessionStatus {
   sessionId: string;
   participantId: string;
@@ -175,11 +130,19 @@ export interface SessionStatus {
 
 export interface ProducerStatus {
   source: string;
-  state: "enabled" | "disabled" | "external-required" | "unsupported" | "unavailable";
+  state:
+    | "enabled"
+    | "disabled"
+    | "external-required"
+    | "unsupported"
+    | "unavailable";
   configured: boolean;
   reason: string;
   executor: string;
-  capabilities: Record<string, { state: string; available: boolean; reason: string }>;
+  capabilities: Record<
+    string,
+    { state: string; available: boolean; reason: string }
+  >;
   adapter?: string;
 }
 
@@ -202,7 +165,10 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function studyRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function studyRequest<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
   let res: Response;
   try {
     res = await fetch(API_BASE + path, {
@@ -245,61 +211,10 @@ function post<T>(path: string, body: unknown): Promise<T> {
   });
 }
 
-/** Run a read against the server, but fall back to `seed` when offline so the
- * surface still renders (the constellation and charts are worth showing even
- * with nothing on :8000). Non-offline errors propagate. */
-// When the middleware is unreachable, reads fall back to built-in sample data
-// so the UI stays explorable  -  but that must never be mistaken for a live
-// study's real data. Anything that falls back fires this signal so surfaces
-// (the Data tab) can say so honestly.
-type SeededListener = (study?: string) => void;
-const seededListeners = new Set<SeededListener>();
-
-export function onSeededData(listener: SeededListener): () => void {
-  seededListeners.add(listener);
-  return () => seededListeners.delete(listener);
+export function onSeededData(_listener: (study?: string) => void): () => void {
+  void _listener;
+  return () => {};
 }
-
-function notifySeeded(study?: string): void {
-  for (const l of seededListeners) l(study);
-}
-
-async function liveOrSeed<T>(run: () => Promise<T>, seed: T): Promise<T> {
-  try {
-    return await run();
-  } catch (e) {
-    if (e instanceof OfflineError) {
-      notifySeeded();
-      return seed;
-    }
-    throw e;
-  }
-}
-
-/** Study-scoped reads: only the seeded demo study shows sample data when
- * offline. Every real study falls back to an honest *empty* value (it starts
- * from scratch), and  -  unlike the demo  -  does NOT raise the "seeded sample
- * data" banner, because empty is the truth, not a stand-in. */
-async function liveOrSeedStudy<T>(
-  study: string,
-  run: () => Promise<T>,
-  demoSeed: T,
-  empty: T,
-): Promise<T> {
-  try {
-    return await run();
-  } catch (e) {
-    if (e instanceof OfflineError) {
-      if (isDemoStudy(study)) {
-        notifySeeded(study);
-        return demoSeed;
-      }
-      return empty;
-    }
-    throw e;
-  }
-}
-
 
 const enc = encodeURIComponent;
 
@@ -338,24 +253,16 @@ async function saveAs(path: string, filename: string): Promise<void> {
 
 export const studyApi = {
   papers: (study: string) =>
-    liveOrSeedStudy(
-      study,
-      () => req<Paper[]>(`/studies/${enc(study)}/papers`),
-      SEED_PAPERS,
-      [],
-    ),
+    (() => req<Paper[]>(`/studies/${enc(study)}/papers`))(),
   papersGraph: (study: string) =>
-    liveOrSeedStudy(
-      study,
-      () => req<PaperGraph>(`/studies/${enc(study)}/papers/graph`),
-      seedGraph(study),
-      { studyId: study, nodes: [], edges: [] },
-    ),
+    (() => req<PaperGraph>(`/studies/${enc(study)}/papers/graph`))(),
   ingestPaper: (study: string, id: { arxivId?: string; doi?: string }) =>
-    post<{ paperRef: string; title: string; edges: number; edgesPending?: boolean }>(
-      `/studies/${enc(study)}/papers`,
-      id,
-    ),
+    post<{
+      paperRef: string;
+      title: string;
+      edges: number;
+      edgesPending?: boolean;
+    }>(`/studies/${enc(study)}/papers`, id),
   deletePaper: (study: string, ref: string) =>
     req<{ deleted: string }>(`/studies/${enc(study)}/papers/${enc(ref)}`, {
       method: "DELETE",
@@ -369,32 +276,15 @@ export const studyApi = {
     ),
   /** One-click accept of a recommendation into the study's Library, keeping
    * the match reason as elicitation evidence (FR-LIT-9.3). */
-  addPaperFromMatch: async (study: string, ref: string, matchReason = "") => {
-    try {
-      return await post<{
-        studyId: string;
-        paperRef: string;
-        title: string;
-        addedVia: string;
-        edges: number;
-        edgesPending: boolean;
-      }>(`/studies/${enc(study)}/papers/from-match`, { ref, matchReason });
-    } catch (error) {
-      /* A demo card is allowed to demonstrate the evidence hand-off without a
-       * middleware process. Keep the visible Library coherent with the seeded
-       * paper set, while real studies still surface every failed write. */
-      if (!isDemoStudy(study)) throw error;
-      const paper = SEED_PAPERS.find((candidate) => candidate.paperRef === ref);
-      return {
-        studyId: study,
-        paperRef: ref,
-        title: paper?.title ?? ref,
-        addedVia: "demo",
-        edges: 0,
-        edgesPending: false,
-      };
-    }
-  },
+  addPaperFromMatch: (study: string, ref: string, matchReason = "") =>
+    post<{
+      studyId: string;
+      paperRef: string;
+      title: string;
+      addedVia: string;
+      edges: number;
+      edgesPending: boolean;
+    }>(`/studies/${enc(study)}/papers/from-match`, { ref, matchReason }),
   /** Add a graph suggestion from its already-harvested metadata. This avoids
    * repeating a Semantic Scholar lookup when the provider is rate-limiting. */
   addPaperFromGraph: (study: string, ref: string) =>
@@ -454,6 +344,11 @@ export const studyApi = {
   /** The collected data as a zip of tidy CSVs + the joined timeline + data
    *  dictionary, for the researcher's own postprocessing. Dry-run rows are
    *  left out unless `includeSynthetic` is set. */
+  downloadDesignCard: async (study: string) =>
+    saveAs(
+      `/studies/${enc(study)}/design-card?format=markdown`,
+      `${study}-design-card.md`,
+    ),
   downloadDataBundle: async (study: string, includeSynthetic = false) => {
     await saveAs(
       dataBundlePath(study, includeSynthetic),
@@ -468,15 +363,10 @@ export const studyApi = {
     );
   },
   dataset: (study: string, includeSynthetic = false) =>
-    liveOrSeedStudy(
-      study,
-      () =>
-        req<{ studyId: string; rows: DatasetRow[] }>(
-          `/studies/${enc(study)}/dataset${includeSynthetic ? "?includeSynthetic=true" : ""}`,
-        ),
-      { studyId: study, rows: SEED_DATASET },
-      { studyId: study, rows: [] },
-    ),
+    (() =>
+      req<{ studyId: string; rows: DatasetRow[] }>(
+        `/studies/${enc(study)}/dataset${includeSynthetic ? "?includeSynthetic=true" : ""}`,
+      ))(),
   /** Sessions the middleware has heard from recently (FR-DASH-3).
    *
    * Deliberately *not* seeded when the server is unreachable: an empty live
@@ -502,22 +392,9 @@ export const studyApi = {
       req<{ prescriptions: Prescription[] }>(
         `/analysis/prescriptions${study ? `?study_id=${enc(study)}` : ""}`,
       ).then((d) => d.prescriptions);
-    // The unscoped catalogue is allowed to be useful offline. A study-scoped
-    // read is different: showing the catalogue's paired/two-group examples in
-    // a real study makes an empty design look as if it already has an analysis
-    // plan. Keep sample rows behind the demo boundary, just like dataset and
-    // status.
-    return study
-      ? liveOrSeedStudy(study, run, SEED_PRESCRIPTIONS, [])
-      : liveOrSeed(run, SEED_PRESCRIPTIONS);
+    return run();
   },
-  /** The power/sensitivity curve (P2-2): exact two-sample t-test power
-   * (non-central t, equal per-group n, two-sided) across per-group n, plus
-   * the first n reaching the target power, per effect size. Planning math
-   * over the study's planned comparison  -  the payload carries its own model
-   * and assumptions, so the panel renders them without hardcoding. Offline:
-   * the demo study gets a normal-approximation stand-in of the same formula
-   * (the seeded-data banner says so); real studies get an honest empty doc. */
+  /** Unsaved compatibility power curve, calculated by the live planner. */
   power: (
     study: string,
     opts: {
@@ -527,537 +404,29 @@ export const studyApi = {
       effectSizes?: number[];
     } = {},
   ) =>
-    liveOrSeedStudy(
-      study,
-      () => {
-        const q = new URLSearchParams();
-        q.set("alpha", String(opts.alpha ?? 0.05));
-        q.set("maxN", String(opts.maxN ?? 120));
-        q.set("powerTarget", String(opts.powerTarget ?? 0.8));
-        q.set("effectSizes", (opts.effectSizes ?? [0.2, 0.5, 0.8]).join(","));
-        return req<PowerDoc>(`/studies/${enc(study)}/power?${q.toString()}`);
-      },
-      seedPowerDoc(opts),
-      emptyPowerDoc(),
-    ),
-  /** Synthetic dry run (FR-DRY-1): N simulated participants through the
-   * real ingest path  -  session blocks recorded, events and
-   * metrics stored exactly as a live capture would  -  and then the study's
-   * own analysis plan run over what landed. `plan` is the half that answers
-   * the researcher's real question: whether the statistics this design
-   * prescribes can actually be computed, before anyone sits down.
-   * A live action: never seeded, offline raises `OfflineError`. */
-  simulate: (study: string, count = 10, profile = "mixed", seed?: number) =>
-    post<{
-      participants: number;
-      profile: string;
-      seed: number | null;
-      run: string;
-      sessions: number;
-      events: number;
-      metricRows: number;
-      sessionIds: string[];
-      studyId: string;
-      plan: DryRunPlan;
-    }>(`/studies/${enc(study)}/simulate`, {
-      count,
-      profile,
-      ...(seed !== undefined ? { seed } : {}),
-    }),
+    (() => {
+      const q = new URLSearchParams();
+      q.set("alpha", String(opts.alpha ?? 0.05));
+      q.set("maxN", String(opts.maxN ?? 120));
+      q.set("powerTarget", String(opts.powerTarget ?? 0.8));
+      q.set("effectSizes", (opts.effectSizes ?? [0.2, 0.5, 0.8]).join(","));
+      return req<PowerDoc>(`/studies/${enc(study)}/power?${q.toString()}`);
+    })(),
   status: (study: string, includeSynthetic = false) =>
-    liveOrSeedStudy(
-      study,
-      () =>
-        req<StudyStatusDoc>(
-          `/studies/${enc(study)}/status${includeSynthetic ? "?includeSynthetic=true" : ""}`,
-        ),
-      {
-        studyId: study,
-        generatedAt: "",
-        conditions: SEED_CONDITIONS,
-        plannedParticipants: 0,
-        plannedSessionsPerParticipant: 1,
-        sessions: SEED_SESSIONS,
-        researchQuestions: [],
-        producers: {},
-        requiredProducers: [],
-      },
-      {
-        studyId: study,
-        generatedAt: "",
-        conditions: [],
-        plannedParticipants: 0,
-        plannedSessionsPerParticipant: 1,
-        sessions: [],
-        researchQuestions: [],
-        producers: {},
-        requiredProducers: [],
-      },
-    ),
-  /** The study's compiled protocol, read-only.
-   *
-   *  The conversation gets its protocol back from `/conversation/compile`,
-   *  which needs a contribute-level capability  -  so a viewer (and every
-   *  visitor to the read-only demo) got a 403 there and saw an empty
-   *  "no design shape yet" rail over a fully compiled protocol. This is the
-   *  view-capability twin of that call: no compilation, no write, just the
-   *  document of record. */
+    (() =>
+      req<StudyStatusDoc>(
+        `/studies/${enc(study)}/status${includeSynthetic ? "?includeSynthetic=true" : ""}`,
+      ))(),
+  /** Recorded protocol for readers, without compilation or a database write. */
   protocol: (study: string) =>
-    liveOrSeedStudy(
-      study,
-      () =>
-        req<{ document?: Record<string, unknown> }>(
-          `/studies/${enc(study)}/protocol`,
-        ).then((r) => r.document ?? null),
-      SEED_PROTOCOL,
-      null,
-    ),
-  runPlan: (study: string, participantIndex = 0, preview = true) =>
-    req<RunPlan>(`/studies/${enc(study)}/run-plan?participantIndex=${participantIndex}&preview=${preview}`),
-  sessionReplay: (studyId: string, sessionId: string) =>
-    req<{ sessionId: string; rawCode: boolean; frames: ReplayFrame[] }>(`/studies/${enc(studyId)}/sessions/${enc(sessionId)}/replay`),
-  sessionEvents: (studyId: string, sessionId: string) =>
-    liveOrSeedStudy(
-      studyId,
-      () => req<import("./timeline").EventRow[]>(`/sessions/${enc(sessionId)}/events`),
-      SEED_SESSION_EVENTS,
-      [],
-    ),
+    (() =>
+      req<{ document?: Record<string, unknown> }>(
+        `/studies/${enc(study)}/protocol`,
+      ).then((r) => r.document ?? null))(),
+
+  sessionEvents: (_studyId: string, sessionId: string) =>
+    (() =>
+      req<import("./timeline").EventRow[]>(
+        `/sessions/${enc(sessionId)}/events`,
+      ))(),
 };
-
-export interface ReplayFrame {
-  ts: string; source: string; seq: number; type: string; flags: string[];
-  changes: { filesChanged?: number; insertions?: number; deletions?: number };
-  diff: string | null; codeState: "captured" | "policy-disabled" | "not-captured";
-}
-
-// ---------------------------------------------------------------- offline seed
-//
-// A curated, corpus-consistent seed (the same landmark papers the design
-// conversation cites) so the constellation, library, and charts are
-// beautiful with no server  -  the platform's offline-explorable posture.
-
-const SEED_PAPERS: Paper[] = [
-  seedPaper("corpus:trust-in-ai-code-generation", "Investigating and Designing for Trust in AI-powered Code Generation", 2024, 141, ["RQ-1", "measure:review-latency"]),
-  seedPaper("corpus:metr-early-2025-dev-productivity", "Measuring the Impact of Early-2025 AI on Developer Productivity", 2025, 63, ["design:within-subjects"]),
-  seedPaper("corpus:guidelines-empirical-llm-se", "Guidelines for Empirical Studies of LLMs in Software Engineering", 2025, 88, ["design:within-subjects"]),
-  seedPaper("corpus:insecure-code-with-ai-assistants", "Do Users Write More Insecure Code with AI Assistants?", 2023, 302, ["measure:correctness"]),
-  seedPaper("corpus:realhumaneval", "RealHumanEval: Measuring the Human Utility of Coding Assistants", 2024, 47, []),
-];
-
-const SEED_PROTOCOL: Record<string, unknown> = {
-  protocolVersion: 4,
-  study: {
-    id: "demo-study",
-    title: "AI assistance and developer productivity: a within-subjects pilot",
-    researchers: ["Demo Researcher"],
-    ethicsRef: "Illustrative demo only. This is synthetic data.",
-  },
-  researchQuestions: [
-    "How does AI assistance affect task time and correctness?",
-    "How carefully do developers review AI-generated code before accepting it?",
-  ],
-  design: "Counterbalanced within-subjects comparison with matched maintenance tasks.",
-  participants: "Six developers, each completing both conditions.",
-  conditions: ["ai-assisted", "unassisted"],
-  measures: [
-    "task completion time",
-    "task correctness",
-    "self-reported fatigue",
-    "review latency and acceptance rate",
-  ],
-  instruments: {
-    tern: {
-      session: { durationMinutes: 60 },
-      fatigue: { intervalMinutes: 15 },
-      stuck: { enabled: true, thresholdSeconds: 90 },
-      metrics: { metricSet: "cognitive-load-9" },
-    },
-  },
-  analysisPlan: [
-    { rq: "RQ-P1", recipes: ["fatigue-by-condition", "stuck-episodes", "tlx-debrief"] },
-    { rq: "RQ-P2", recipes: ["code-quality-by-condition"] },
-    { rq: "RQ-P3", recipes: ["paste-behavior", "meyer-fragmentation"] },
-    { rq: "RQ-P4", recipes: ["ai-review-behavior", "ziegler-acceptance-rate"] },
-  ],
-  literature: SEED_PAPERS.slice(0, 3).map((paper) => ({ paperRef: paper.paperRef })),
-};
-
-function seedPaper(
-  ref: string,
-  title: string,
-  year: number,
-  citationCount: number,
-  links: string[],
-): Paper {
-  return {
-    paperRef: ref,
-    title,
-    authors: [],
-    year,
-    venue: "",
-    abstract:
-      "Seeded corpus paper: the citation neighbourhood and full metadata " +
-      "load from the running middleware.",
-    doi: "",
-    arxivId: "",
-    url: "",
-    citationCount,
-    hasFullText: true,
-    links,
-    addedAt: "",
-    inProtocolLiterature: links.length > 0,
-  };
-}
-
-function seedGraph(study: string): PaperGraph {
-  const nodes: GraphNode[] = SEED_PAPERS.map((p) => ({
-    paperRef: p.paperRef,
-    title: p.title,
-    year: p.year,
-    citationCount: p.citationCount,
-    ingested: true,
-  }));
-  // A few un-ingested suggestions on the periphery (the grow-the-graph moment).
-  const suggestions: [string, string, number][] = [
-    ["arxiv:2308.10620", "Large Language Models for Software Engineering: A Survey", 210],
-    ["arxiv:2302.06590", "Is Your Code Generated by ChatGPT Really Correct?", 620],
-    ["doi:10.1145/3597503", "Grounded Copilot: How Programmers Interact with Code-Generating Models", 180],
-  ];
-  for (const [ref, title, cc] of suggestions) {
-    nodes.push({ paperRef: ref, title, year: null, citationCount: cc, ingested: false });
-  }
-  const edges: GraphEdge[] = [
-    { src: "corpus:trust-in-ai-code-generation", dst: "corpus:insecure-code-with-ai-assistants", kind: "references" },
-    { src: "corpus:metr-early-2025-dev-productivity", dst: "corpus:guidelines-empirical-llm-se", kind: "references" },
-    { src: "corpus:realhumaneval", dst: "corpus:trust-in-ai-code-generation", kind: "citations" },
-    { src: "corpus:trust-in-ai-code-generation", dst: "arxiv:2308.10620", kind: "recommendations" },
-    { src: "corpus:insecure-code-with-ai-assistants", dst: "arxiv:2302.06590", kind: "recommendations" },
-    { src: "corpus:metr-early-2025-dev-productivity", dst: "doi:10.1145/3597503", kind: "recommendations" },
-    { src: "corpus:guidelines-empirical-llm-se", dst: "corpus:realhumaneval", kind: "citations" },
-  ];
-  return { studyId: study, nodes, edges };
-}
-
-const SEED_CONDITIONS = ["ai-assisted", "unassisted"];
-
-// A small metric dataset (function-level) so the metric strip has a shape,
-// plus event-derived rows across all four measurement types so the generalised
-// distribution panel (static code metrics, editing behaviour, fatigue,
-// comprehension, and agent activity) is explorable with no server. Keyed by
-// event `type`, matching what TERN and the agent leg emit.
-const SEED_METRICS: DatasetRow[] = seedMetricRows();
-const SEED_DATASET: DatasetRow[] = [...SEED_METRICS, ...seedEventRows()];
-
-function seedEventRows(): DatasetRow[] {
-  const rows: DatasetRow[] = [];
-  const CONDITIONS = ["ai-assisted", "unassisted"] as const;
-  // Six within-subjects participants, each in both conditions.
-  for (let p = 1; p <= 6; p++) {
-    const pid = `P${String(p).padStart(2, "0")}`;
-    for (const condition of CONDITIONS) {
-      const ai = condition === "ai-assisted";
-      const sid = `S-ev-${condition}-${pid}`;
-      let seq = 0;
-      const push = (type: string, source: string, payload: Record<string, unknown>) =>
-        rows.push({
-          source,
-          ts: "",
-          sessionId: sid,
-          participantId: pid,
-          condition,
-          type,
-          seq: seq++,
-          flags: [],
-          payload,
-        });
-
-      // Editing: in the AI condition some bursts are AI-authored (plus the odd
-      // paste); unassisted is all human. Deterministic, varied by participant.
-      const humanChars = [90 + p * 6, 70 + p * 4, 130 + p * 3];
-      for (const c of humanChars)
-        push("edit_burst", "tern", {
-          charsAdded: c,
-          charsDeleted: Math.round(c / 5),
-          linesTouched: Math.max(1, Math.round(c / 22)),
-          durationMs: 4000 + c * 10,
-          origin: "human",
-        });
-      if (ai) {
-        const aiChars = [260 + p * 20, 180 + p * 15];
-        for (const c of aiChars)
-          push("edit_burst", "tern", {
-            charsAdded: c,
-            charsDeleted: Math.round(c / 8),
-            linesTouched: Math.max(1, Math.round(c / 18)),
-            durationMs: 2000 + c * 6,
-            origin: "ai",
-          });
-        push("edit_burst", "tern", {
-          charsAdded: 60,
-          charsDeleted: 0,
-          linesTouched: 3,
-          durationMs: 800,
-          origin: "paste",
-        });
-      }
-
-      // Fatigue (1–7 ordinal): a little lower under AI assistance here.
-      const fatigueValues = ai ? [2, 3, 3 + (p % 2)] : [4, 5, 4 + (p % 3)];
-      for (const value of fatigueValues)
-        push("fatigue_response", "tern", {
-          value: Math.min(7, value),
-          points: 7,
-          msToAnswer: 3000 + value * 400,
-        });
-
-      // Comprehension probes: AI condition a touch worse; one ungradable null
-      // in the AI condition exercises the drop-null correct-rate.
-      const probes: (boolean | null)[] = ai
-        ? [true, false, p % 2 === 0 ? true : false, null]
-        : [true, true, p % 3 === 0 ? false : true];
-      for (const correct of probes)
-        push("comprehension_probe_response", "tern", {
-          correct,
-          promptKind: "predict-output",
-          msToAnswer: 8000 + p * 500,
-        });
-
-      // Task outcomes: acceptance suite passes more often under AI assistance.
-      const outcomes = ai ? [true, true, p % 4 === 0 ? false : true] : [true, false, p % 2 === 0];
-      for (const passed of outcomes)
-        push("task_outcome", "agent-capture", {
-          passed,
-          failed: passed ? 0 : 1,
-          total: 1,
-        });
-
-      // Agent activity only exists in the AI condition.
-      if (ai) {
-        const latencies = [900 + p * 50, 2200 + p * 40, 1500 + p * 30];
-        for (const latencyMs of latencies)
-          push("agent_turn", "agent-capture", {
-            role: "assistant",
-            latencyMs,
-            responseChars: latencyMs,
-            outputTokens: Math.round(latencyMs / 4),
-          });
-        // Server-derived AI character share (ai chars / all added chars), 0–1.
-        push("code_evolution", "agent-derived", {
-          aiInsertionShare: Math.min(0.9, 0.35 + p * 0.07),
-        });
-      }
-    }
-  }
-  return rows;
-}
-
-function seedMetricRows(): DatasetRow[] {
-  const rows: DatasetRow[] = [];
-  // Deterministic, plausible cognitive_complexity split: ai-assisted a touch
-  // higher-variance (the kind of shape the study probes). No randomness.
-  const cfg: [string, number[]][] = [
-    ["ai-assisted", [4, 6, 7, 9, 11, 8]],
-    ["unassisted", [5, 6, 8, 7, 9, 10]],
-  ];
-  let seq = 0;
-  for (const [condition, values] of cfg) {
-    values.forEach((v, i) => {
-      rows.push({
-        source: "metrics",
-        ts: "",
-          sessionId: `S-sample-${String(i * 2 + (condition === "ai-assisted" ? 1 : 2)).padStart(3, "0")}`,
-          participantId: `P${String(i + 1).padStart(2, "0")}`,
-        condition,
-        type: "function_metrics",
-        seq: seq++,
-        flags: [],
-        payload: {
-          function: `handler_${i}`,
-          file: "app.py",
-          cognitive_complexity: v,
-          parameter_count: Math.min(7, 2 + (v % 5)),
-          nesting_penalty: Math.round(v / 3),
-        },
-      });
-    });
-  }
-  return rows;
-}
-
-const SEED_SESSION_EVENTS: import("./timeline").EventRow[] = [
-  {
-    v: 4, ts: "2026-07-16T14:30:00.000Z", mono: 0,
-    sessionId: "S-ai-assisted", source: "tern",
-    participantId: "P1", condition: "ai-assisted",
-    seq: 0, type: "session_start", payload: {}, flags: [],
-  },
-  {
-    v: 4, ts: "2026-07-16T14:30:05.000Z", mono: 5_000,
-    sessionId: "S-ai-assisted", source: "tern",
-    participantId: "P1", condition: "ai-assisted",
-    seq: 1, type: "edit_burst", payload: { charsAdded: 120, linesTouched: 5, origin: "human" }, flags: [],
-  },
-  {
-    v: 4, ts: "2026-07-16T14:30:45.000Z", mono: 45_000,
-    sessionId: "S-ai-assisted", source: "agent-capture",
-    participantId: "P1", condition: "ai-assisted",
-    seq: 0, type: "agent_turn", payload: { role: "assistant", tool: "EditTool", chars: 450 }, flags: [],
-  },
-  {
-    v: 4, ts: "2026-07-16T14:31:10.000Z", mono: 70_000,
-    sessionId: "S-ai-assisted", source: "tern",
-    participantId: "P1", condition: "ai-assisted",
-    seq: 2, type: "edit_burst", payload: { charsAdded: 320, linesTouched: 12, origin: "ai" }, flags: [],
-  },
-  {
-    v: 4, ts: "2026-07-16T14:32:00.000Z", mono: 120_000,
-    sessionId: "S-ai-assisted", source: "agent-capture",
-    participantId: "P1", condition: "ai-assisted",
-    seq: 1, type: "tool_use", payload: { tool: "ReadTool", durationMs: 3_200 }, flags: [],
-  },
-  {
-    v: 4, ts: "2026-07-16T14:33:00.000Z", mono: 180_000,
-    sessionId: "S-ai-assisted", source: "tern",
-    participantId: "P1", condition: "ai-assisted",
-    seq: 3, type: "fatigue_prompt_shown", payload: { trigger: "scheduled" }, flags: ["unauthenticated"],
-  },
-  {
-    v: 4, ts: "2026-07-16T14:33:05.000Z", mono: 185_000,
-    sessionId: "S-ai-assisted", source: "tern",
-    participantId: "P1", condition: "ai-assisted",
-    seq: 4, type: "fatigue_response", payload: { value: 4, points: 7 }, flags: [],
-  },
-  {
-    v: 4, ts: "2026-07-16T14:35:00.000Z", mono: 300_000,
-    sessionId: "S-ai-assisted", source: "workspace-snapshot",
-    participantId: "P1", condition: "ai-assisted",
-    seq: 0, type: "snapshot", payload: { commit: "abc1234" }, flags: [],
-  },
-  {
-    v: 4, ts: "2026-07-16T14:38:00.000Z", mono: 480_000,
-    sessionId: "S-ai-assisted", source: "task-harness",
-    participantId: "P1", condition: "ai-assisted",
-    seq: 0, type: "test_result", payload: { passed: 3, failed: 1 }, flags: [],
-  },
-  {
-    v: 4, ts: "2026-07-16T14:40:00.000Z", mono: 600_000,
-    sessionId: "S-ai-assisted", source: "agent-capture",
-    participantId: "P1", condition: "ai-assisted",
-    seq: 2, type: "agent_turn", payload: { role: "user", chars: 80 }, flags: ["credential-mismatch"],
-  },
-];
-
-const SEED_SESSIONS: SessionStatus[] = Array.from({ length: 12 }, (_, i) => ({
-  sessionId: `S-sample-${String(i + 1).padStart(3, "0")}`,
-  participantId: `P${String(Math.floor(i / 2) + 1).padStart(2, "0")}`,
-  condition: i % 2 === 0 ? "ai-assisted" : "unassisted",
-  events: 48 + (i % 4) * 7,
-  metricRows: 2,
-  flaggedEvents: i === 3 ? 1 : 0,
-  flagKinds: i === 3 ? ["sequence-gap"] : [],
-  gapCount: i === 3 ? 1 : 0,
-  missingEvents: i === 3 ? 2 : 0,
-  complete: i !== 3,
-  lastReceivedAt: `2026-07-${String(16 + Math.floor(i / 4)).padStart(2, "0")}T15:02:00.000Z`,
-}));
-
-
-// Offline fallback for the prescription table (the live values come from the
-// analysis engine at /analysis/prescriptions). Kept short  -  the two shapes a
-// small-N developer study most often lands on.
-const SEED_PRESCRIPTIONS: Prescription[] = [
-  {
-    designShape: "paired",
-    test: "Wilcoxon signed-rank (exact, two-sided)",
-    effectSize: "Matched-pairs rank-biserial correlation (r)",
-    correction: "none",
-    sampleSizeGuidance: "Report per-cell n; small-N is hypothesis-generating.",
-    rationale: "Within-subjects pairs each participant to themselves: the exact paired test needs no normality assumption.",
-  },
-  {
-    designShape: "two-group",
-    test: "Mann-Whitney U (exact, two-sided)",
-    effectSize: "Cliff's delta",
-    correction: "none",
-    sampleSizeGuidance: "Report per-cell n; small-N is hypothesis-generating.",
-    rationale: "Two independent groups with no distribution assumption; Cliff's delta reports the effect honestly at small N.",
-  },
-];
-
-// Offline stand-in for the power curve (P2-2). The demo is within-subjects,
-// so this uses the paired-difference approximation used by its live model.
-function normCdf(x: number): number {
-  return 0.5 * (1 + erf(x / Math.SQRT2));
-}
-
-// Abramowitz & Stegun 7.1.26  -  good to ~1.5e-7, plenty for a stand-in.
-function erf(x: number): number {
-  const t = 1 / (1 + 0.3275911 * Math.abs(x));
-  const y =
-    1 -
-    (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) *
-      t *
-      Math.exp(-x * x);
-  return x >= 0 ? y : -y;
-}
-
-const Z_ALPHA: Record<number, number> = { 0.01: 2.5758293035, 0.05: 1.9599639845, 0.1: 1.644853627 };
-
-function seedPowerDoc(opts: {
-  alpha?: number;
-  maxN?: number;
-  powerTarget?: number;
-  effectSizes?: number[];
-}): PowerDoc {
-  const alpha = opts.alpha ?? 0.05;
-  const powerTarget = opts.powerTarget ?? 0.8;
-  const maxTotalN = opts.maxN ?? 120;
-  const sizes = opts.effectSizes ?? [0.2, 0.5, 0.8];
-  const zCrit = Z_ALPHA[alpha] ?? 1.9599639845;
-  const maxParticipants = maxTotalN;
-  const curves: PowerCurve[] = [];
-  const requiredN: PowerRequirement[] = [];
-  for (const d of sizes) {
-    const points: PowerPoint[] = [];
-    for (let n = 2; n <= maxParticipants; n += 1) {
-      const power = Math.min(
-        1,
-        Math.max(
-          0,
-          1 - normCdf(zCrit - d * Math.sqrt(n)) + normCdf(-zCrit - d * Math.sqrt(n)),
-        ),
-      );
-      points.push({ nPerGroup: n, totalN: n, power: Math.round(power * 1e6) / 1e6 });
-    }
-    const reached = points.find((p) => p.power >= powerTarget);
-    requiredN.push({
-      effectSize: d,
-      nPerGroup: reached?.nPerGroup ?? null,
-      totalN: reached?.totalN ?? null,
-      powerAtTargetN: reached?.power ?? null,
-      reachesTarget: reached !== undefined,
-    });
-    curves.push({ effectSize: d, points });
-  }
-  return {
-    model: "paired t-test, within-subjects differences, two-sided",
-    alpha,
-    powerTarget,
-    maxTotalN,
-    curves,
-    requiredN,
-  };
-}
-
-function emptyPowerDoc(): PowerDoc {
-  return {
-    model: "two-sample t-test, independent means, equal per-group n, two-sided",
-    assumption: "Cohen's d is an exploration input, not an observed result.",
-    alpha: 0.05,
-    powerTarget: 0.8,
-    maxTotalN: 120,
-    curves: [],
-    requiredN: [],
-  };
-}

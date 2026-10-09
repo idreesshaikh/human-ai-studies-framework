@@ -1,6 +1,7 @@
 """Load and validate study protocol YAML files against the JSON Schema."""
 
 import json
+import math
 from functools import cache
 from importlib import resources
 from pathlib import Path
@@ -101,6 +102,113 @@ def _referential_errors(data: dict) -> list[str]:
         errors.append(
             "capture.privacy.agentContentPolicy: full requires instruments.agentCapture"
         )
+    errors.extend(_v6_errors(data))
+    return errors
+
+
+def _v6_errors(data: dict) -> list[str]:
+    from protocol.versioning import version_record
+
+    errors = []
+    surveys = data.get("instruments", {}).get("surveys", [])
+    for collection, entries in (
+        ("surveys", surveys),
+        ("tasks", data.get("tasks", [])),
+        ("measures", [m for m in data.get("measures", []) if isinstance(m, dict)]),
+    ):
+        ids = [e["id"] for e in entries]
+        if len(set(ids)) != len(ids):
+            errors.append(f"{collection}: duplicate IDs")
+        for entry in entries:
+            if (
+                entry.get("contentHash")
+                and entry["contentHash"] != version_record(entry)["sha256"]
+            ):
+                errors.append(
+                    f"{collection}.{entry['id']}.contentHash: does not match content"
+                )
+    instruments = set(data.get("instruments", {})) | {i["id"] for i in surveys}
+    recipes = {r for a in data.get("analysisPlan", []) for r in a.get("recipes", [])}
+    conditions = set(data.get("conditions", []))
+    for condition in data.get("toolVersions", {}):
+        if condition not in conditions:
+            errors.append(f"toolVersions.{condition}: undeclared condition")
+    if set(data.get("controlConditions", [])) - conditions:
+        errors.append("controlConditions: undeclared condition")
+    for survey in surveys:
+        ids = [i["id"] for i in survey["items"]]
+        if len(set(ids)) != len(ids):
+            errors.append(f"surveys.{survey['id']}: duplicate item IDs")
+        if set(survey.get("conditions", [])) - conditions:
+            errors.append(f"surveys.{survey['id']}: undeclared condition")
+        for item in survey["items"]:
+            scale = item["scale"]
+            span = scale["max"] - scale["min"]
+            step = scale.get("step", 1)
+            if (
+                not all(math.isfinite(v) for v in (scale["min"], scale["max"], step))
+                or span <= 0
+                or span / step > 100
+                or abs(span / step - round(span / step)) > 1e-8
+            ):
+                errors.append(
+                    f"surveys.{survey['id']}.{item['id']}: "
+                    "scale must have 2–101 equally spaced values"
+                )
+        if survey["scoring"] == "sus" and (
+            len(survey["items"]) != 10
+            or any(
+                i["scale"]["min"] != 1
+                or i["scale"]["max"] != 5
+                or i["scale"].get("step", 1) != 1
+                or i.get("reverse", False) != bool(n % 2)
+                for n, i in enumerate(survey["items"])
+            )
+        ):
+            errors.append(
+                f"surveys.{survey['id']}: SUS requires ten 1–5 items, "
+                "reverse even items"
+            )
+    for measure in data.get("measures", []):
+        if not isinstance(measure, dict):
+            continue
+        if measure["instrument"] not in instruments:
+            errors.append(
+                f"measures.{measure['id']}.instrument: instrument is not declared"
+            )
+        if measure["analysisRecipe"] not in recipes:
+            errors.append(
+                f"measures.{measure['id']}.analysisRecipe: "
+                "recipe is not in analysisPlan"
+            )
+        survey = next((i for i in surveys if i["id"] == measure["instrument"]), None)
+        if survey:
+            event = (
+                "pre_task_covariate"
+                if survey["timing"] == "pre-task"
+                else "survey_response"
+            )
+            allowed = {f"{event}.score"} | {
+                f"{event}.responses.{i['id']}" for i in survey["items"]
+            }
+            if set(measure["fields"]) - allowed:
+                errors.append(
+                    f"measures.{measure['id']}.fields: "
+                    "field is not captured by this survey"
+                )
+    cov = data.get("covariate")
+    if cov:
+        survey = next((i for i in surveys if i["id"] == cov["instrument"]), None)
+        if (
+            not survey
+            or survey["timing"] != "pre-task"
+            or cov["field"] != "pre_task_covariate.score"
+            or survey["scoring"] == "none"
+        ):
+            errors.append(
+                "covariate: requires a scored pre-task survey and "
+                "pre_task_covariate.score"
+            )
     return errors
 
 

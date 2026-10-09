@@ -79,6 +79,12 @@ def test_health_reports_protocol(client):
     assert body["protocolLoaded"] is True
 
 
+def test_health_does_not_reveal_the_server_filesystem(client):
+    body = client.get("/health").json()
+    assert "path" not in body["web"]
+    assert set(body["web"]) == {"available", "buildHash"}
+
+
 def test_ingest_is_idempotent_on_session_and_seq(client):
     batch = {"source": "tern", "events": [event(i) for i in range(5)]}
     first = client.post("/ingest/events", json=batch).json()
@@ -405,11 +411,7 @@ def test_live_reports_recent_sessions_with_rate_buckets(client):
 
 
 def test_live_survives_a_session_whose_received_at_is_in_the_future(client, tmp_path):
-    """
-    Regression: a synthetic dry run schedules sessions across a realistic span rather
-    than bunching them at one instant (simulation.py), so some events' received_at
-    legitimately lands after "now" at query time.
-    """
+    """Future-dated imported events must not crash the live-session summary."""
     from datetime import timedelta
 
     from middleware.db import Event, make_session_factory

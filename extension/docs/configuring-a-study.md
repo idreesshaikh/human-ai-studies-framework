@@ -45,7 +45,7 @@ locked and every setting below behaves exactly as its description says.
 There are two ways a setting gets its value, and they don't fight:
 
 - **From the protocol (enrollment).** The researcher generates a connection
-  string; the participant runs _TERN: Connect to Study_ and the settings
+  string; the participant runs _StudyLoop: Connect to Study_ and the settings
   arrive with it, resolved once and frozen for the session as described
   above. This is how real sessions run. See the README's "Connecting to a
   study" section.

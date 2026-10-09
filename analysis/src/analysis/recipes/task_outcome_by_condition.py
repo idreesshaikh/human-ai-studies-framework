@@ -13,12 +13,15 @@ from analysis.dataset import Dataset
 from analysis.recipes._common import compare_or_describe, describe_cells
 
 METHODS = (
+    "Small untied samples use exact tests; ties/large samples use "
+    "the asymptotic approximation with tie correction. "
     "`task_outcome` events carry the task harness's acceptance-test "
     "verdict (`passed`) and, when the run first turned green, "
     "`firstGreenMs` (fallback: elapsed time from session start to the "
     "first passing outcome). Pass rates by condition: Fisher's exact test "
     "on the 2x2 pass/fail table with the odds ratio. Time-to-first-green: "
-    "exact Wilcoxon/Mann-Whitney machinery with effect sizes. "
+    "Wilcoxon/Mann-Whitney machinery (exact when valid; "
+    "otherwise tie-corrected asymptotic) with effect sizes. "
     "Outcome-conditioned splits of fatigue and paste measures are "
     "descriptive only - no tests on twice-split pilot cells. Per-cell n "
     "everywhere; hypothesis-generating at pilot scale."

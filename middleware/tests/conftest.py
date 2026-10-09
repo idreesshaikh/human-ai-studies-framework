@@ -12,6 +12,7 @@ STUDY = "pilot"
 @pytest.fixture(autouse=True)
 def _model(monkeypatch):
     """Give every middleware test a language model."""
+    monkeypatch.setenv("MIDDLEWARE_API_ONLY", "1")
     from middleware import assistant
 
     double = model_double.plausible()
@@ -102,3 +103,9 @@ def client_designed(tmp_path) -> TestClient:
     tc = _build_client(tmp_path)
     _reach_approved_protocol(tc)
     return tc
+
+
+@pytest.fixture(autouse=True)
+def _api_only_planner_tests(monkeypatch):
+    """API test fixtures deliberately have no compiled frontend."""
+    monkeypatch.setenv("MIDDLEWARE_API_ONLY", "1")

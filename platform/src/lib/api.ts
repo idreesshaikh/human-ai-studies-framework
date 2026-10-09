@@ -44,6 +44,7 @@ export interface ProjectSummary {
 
 export interface StudyRef {
   id: string;
+  hasProtocol: boolean;
 }
 
 export interface Member {

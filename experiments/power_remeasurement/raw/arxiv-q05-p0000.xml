@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/dPMGe3H2b0xKXZQRKZxdy6dPuYI</id>
+  <title>arXiv Query: search_query=(cat:cs.SE OR cat:cs.HC) AND (all:"AI" AND all:"pair" AND all:"programming" AND all:"empirical" AND all:"study" AND all:"participants") AND submittedDate:"202201010000 TO 202610012359"&amp;id_list=&amp;start=0&amp;max_results=200</title>
+  <updated>2026-10-08T13:03:53Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=(cat:cs.SE+OR+cat:cs.HC)+AND+((all:%22AI%22+AND+(all:%22pair%22+AND+(all:%22programming%22+AND+(all:%22empirical%22+AND+(all:%22study%22+AND+all:%22participants%22)))))+AND+submittedDate:%22202201010000+TO+202610012359%22)&amp;start=0&amp;max_results=200&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>200</opensearch:itemsPerPage>
+  <opensearch:totalResults>1</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2604.18538v1</id>
+    <title>Fast and Forgettable: A Controlled Study of Novices' Performance, Learning, Workload, and Emotion in AI-Assisted and Human Pair Programming Paradigms</title>
+    <updated>2026-04-20T17:33:13Z</updated>
+    <link href="https://arxiv.org/abs/2604.18538v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2604.18538v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Code-generating Artificial Intelligence has gained popularity within both professional and educational programming settings over the past several years. While research and pedagogy are beginning to cope with this change, computing students are left to bear the unforeseen consequences of AI amidst a dearth of empirical evidence about its effects. Though pair programming between students is well studied and known to be beneficial to self-efficacy and academic achievement, it remains underutilized and further threatened by the proposition that AI can replace a human programming partner. In this paper, we present a controlled pair programming study with 22 participants who wrote Python code under time pressure in teams of two and individually with GitHub Copilot for 20 minutes each. They were incentivized by bonus compensation to balance performance with understanding and were retested individually on the programming tasks after a retention interval of one week. Subjective measures of workload and emotion as well as objective measures of performance and learning (retest performance) were collected. Results showed that participants performed significantly better with GitHub Copilot than their human teammate, and several dimensions of their workload were significantly reduced. However, the emotional effect of the human teammate was significantly more positive and arousing as compared to working with Copilot. Furthermore, there was a nonsignificant absolute retest performance reduction in the AI condition and a larger retest performance decrement in the AI condition. We recommend that educators strongly consider revisiting pair programming as an educational tool in addition to embracing modern AI.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-04-20T17:33:13Z</published>
+    <arxiv:comment>for online appendices, see https://doi.org/10.5281/zenodo.19665253</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Nicholas Gardella</name>
+    </author>
+    <author>
+      <name>James Prather</name>
+    </author>
+    <author>
+      <name>Juho Leinonen</name>
+    </author>
+    <author>
+      <name>Paul Denny</name>
+    </author>
+    <author>
+      <name>Raymond Pettit</name>
+    </author>
+    <author>
+      <name>Sara L. Riggs</name>
+    </author>
+  </entry>
+</feed>

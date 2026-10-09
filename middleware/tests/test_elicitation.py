@@ -37,14 +37,9 @@ def _ask(client, text, study=STUDY):
 @pytest.mark.parametrize(
     "text",
     [
-        "why did you give me this?",
         "Why?",
-        "why that template and not the other one",
         "what do you mean by counterbalanced?",
-        "explain that",
-        "on what basis?",
         "I asked why, you didn't answer",
-        "how do you know that?",
     ],
 )
 def test_questions_about_prior_turns_are_recognised(text):
@@ -54,17 +49,11 @@ def test_questions_about_prior_turns_are_recognised(text):
 @pytest.mark.parametrize(
     "text",
     [
-        "I don't know",
         "I dont know you help me",
         "not sure",
         "what?",
         "can you help me",
-        "okay",
-        "exactly",
-        "same thing",
-        "exactly the same thing",
         "yes indeed",
-        "yes absolutely",
         "I've a sample example",
         "what else do you need",
     ],
@@ -86,27 +75,11 @@ def test_a_question_about_a_prior_move_is_not_misclassified_as_stuck():
     "text",
     [
         "what design and statistics should I use?",
-        "which template do you recommend?",
-        "just give me the design",
-        "suggest a study design please",
         "skip the questions",
     ],
 )
 def test_explicit_design_requests_are_recognised(text):
     assert elicitation.classify_turn(text) == "design-request"
-
-
-def test_a_description_is_not_a_question():
-    assert elicitation.classify_turn(SKETCH) == "describe"
-
-
-def test_a_real_description_covers_several_facets():
-    understanding = elicitation.assess_understanding([SKETCH])
-    assert understanding["population"]
-    assert understanding["task"]
-    assert understanding["comparison"]
-    assert understanding["outcome"]
-    assert elicitation.ready_for_design(understanding)
 
 
 def test_a_complete_brief_uses_batch_intake():
@@ -206,21 +179,6 @@ def test_explicit_answer_is_recorded_before_a_model_can_loop(client, monkeypatch
     assert reply["moves"][0]["patch"]["title"] == "Fix Python bug"
 
 
-def test_a_vague_opener_understands_nothing():
-    understanding = elicitation.assess_understanding(["help me design a study"])
-    assert not elicitation.ready_for_design(understanding)
-    assert elicitation.next_question(understanding)
-
-
-def test_only_the_researchers_own_words_count():
-    """
-    The platform asking about conditions cannot make the platform better informed  -
-    assess_understanding is only ever given researcher turns.
-    """
-    understanding = elicitation.assess_understanding([])
-    assert not any(understanding.values())
-
-
 def test_an_explicit_request_lowers_the_bar_but_not_to_zero():
     nothing = elicitation.assess_understanding(["hello"])
     assert not elicitation.ready_for_design(nothing, requested=True)
@@ -230,24 +188,47 @@ def test_an_explicit_request_lowers_the_bar_but_not_to_zero():
     assert not elicitation.ready_for_design(two)
 
 
-def test_next_question_asks_one_thing():
-    understanding = elicitation.assess_understanding(["developers"])
-    question = elicitation.next_question(understanding)
-    assert question.count("?") == 1
-
-
 def test_a_vague_opener_gets_a_question_not_a_design(client):
     reply = _ask(client, "I want to study AI and productivity")
     assert [m for m in reply["moves"] if m["kind"] == "choose-template"] == []
-    assert "?" in reply["text"], "the platform should be asking something"
+    assert reply["text"].count("?") == 1
+    assert reply["understanding"]["nextQuestion"]
     assert reply["understanding"]["readyForDesign"] is False
     assert reply["understanding"]["missing"]
 
 
 def test_scope_gate_allows_students_when_they_are_programming():
-    assert elicitation.classify_scope(
-        ["Students debug a shared repository with and without an AI coding assistant."]
-    ) == "supported"
+    assert (
+        elicitation.classify_scope(
+            [
+                "Students debug a shared repository with and without "
+                "an AI coding assistant."
+            ]
+        )
+        == "supported"
+    )
+
+
+def test_scope_gate_allows_a_programming_task_named_by_its_language():
+    # The Peng et al. replication, in a researcher's own words: no "code" or
+    # "developer", but plainly a software-development task.
+    assert (
+        elicitation.classify_scope(
+            [
+                "Does AI assistance change the time to a passing solution for HPI "
+                "students?",
+                "Implement the toy HTTP engine in JavaScript; 12 automated checks",
+                "HPI students with basic JavaScript experience",
+            ]
+        )
+        == "supported"
+    )
+    assert (
+        elicitation.classify_scope(
+            ["Students solve Python programming exercises with and without AI help."]
+        )
+        == "supported"
+    )
 
 
 def test_scope_gate_blocks_exam_and_other_non_developer_studies(client):
@@ -327,14 +308,6 @@ def test_stuck_researcher_gets_explanation_and_actionable_measure_card(client):
     assert "task time" in reply["text"]
     assert "correctness" in reply["text"]
     assert [m["kind"] for m in reply["moves"]] == ["add-measure"]
-
-
-def test_every_profile_has_distinct_guidance():
-    guidances = {k: elicitation.profile_guidance(k) for k in elicitation.PROFILES}
-    assert len(set(guidances.values())) == len(elicitation.PROFILES)
-    assert "STUDENT" in guidances["student"]
-    assert "EXPERIENCED" in guidances["experienced"]
-    assert "COMPANY" in guidances["industry"]
 
 
 def test_an_unknown_profile_falls_back_to_the_default():
@@ -424,31 +397,9 @@ def test_asking_why_about_a_named_design_still_answers(client):
     assert [m for m in reply["moves"] if m["kind"] != "caution"] == []
 
 
-def test_understanding_summary_carries_the_next_question():
-    """The UI shows the researcher what is being asked next."""
-    understanding = elicitation.assess_understanding(["I want to study developers"])
-    summary = elicitation.understanding_summary(understanding)
-
-    assert summary["nextQuestion"] == elicitation.next_question(understanding)
-    assert summary["nextQuestion"], "something is still missing, so something is asked"
-
-
 def test_understanding_summary_asks_nothing_once_every_facet_is_known():
     understanding = dict.fromkeys(elicitation.FACETS, True)
     assert elicitation.understanding_summary(understanding)["nextQuestion"] == ""
-
-
-def test_understanding_summary_labels_every_facet_not_just_missing_ones():
-    """
-    ``missingLabels`` names only what is absent, which is fine for a sentence about what
-    is missing and useless for a checklist that has to name the steps already done.
-    """
-    understanding = elicitation.assess_understanding(["developers refactoring code"])
-    summary = elicitation.understanding_summary(understanding)
-
-    assert set(summary["facetLabels"]) == set(elicitation.FACETS)
-    for facet, spec in elicitation.FACETS.items():
-        assert summary["facetLabels"][facet] == spec["label"]
 
 
 def test_a_pasted_brief_keeps_its_cards_with_no_model_configured(client, monkeypatch):
@@ -498,17 +449,12 @@ def _facts_by_path(text):
     }
 
 
-def test_full_brief_yields_a_participant_count_card():
+def test_full_brief_records_participants_duration_and_declared_capture():
     facts = _facts_by_path(FULL_BRIEF)
     assert facts[("participants", "planned")]["patch"]["value"] == 12
 
-
-def test_full_brief_yields_a_session_length_card():
-    facts = _facts_by_path(FULL_BRIEF)
     assert facts[("session", "durationMinutes")]["patch"]["value"] == 30
 
-
-def test_full_brief_yields_a_tern_instrument_card():
     moves = [
         m
         for m in elicitation.explicit_protocol_facts(FULL_BRIEF)

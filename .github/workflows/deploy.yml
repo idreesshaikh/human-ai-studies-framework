@@ -1,17 +1,17 @@
-# Continuous deployment of the seeded demo (see docs/demo-runbook.md).
+# Continuous deployment of StudyLoop (see middleware/README.md).
 #
 # Runs only after the CI workflow finishes green on main: builds the
 # container image (middleware + platform, one process), pushes it
 # to GHCR, then triggers a Railway deployment via the Railway API so the
-# demo instance rebuilds. The demo never runs a red build.
+# StudyLoop instance rebuilds. StudyLoop deploys only after CI succeeds.
 #
 # Secrets used (all optional - steps skip cleanly when unset, so the
-# pipeline works before any account is provisioned; see docs/demo-runbook.md):
+# pipeline works before any account is provisioned; see middleware/README.md):
 #   RAILWAY_API_TOKEN      - Railway API token (account settings → tokens)
-#   RAILWAY_SERVICE_ID     - the Railway service ID for the demo deployment
+#   RAILWAY_SERVICE_ID     - the Railway service ID for the StudyLoop deployment
 #   RAILWAY_ENVIRONMENT_ID - the Railway environment ID (e.g. production)
 
-name: Deploy demo
+name: Deploy StudyLoop
 
 on:
   workflow_run:
@@ -20,7 +20,7 @@ on:
     branches: [main]
 
 concurrency:
-  group: deploy-demo
+  group: deploy-studyloop
   cancel-in-progress: true
 
 permissions:
@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   image:
-    name: Build image → GHCR → Railway demo
+    name: Build image → GHCR → Railway StudyLoop
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -48,14 +48,14 @@ jobs:
           docker push "$IMAGE:main"
           docker push "$IMAGE:sha-$SHA"
 
-      - name: Trigger Railway demo deploy
+      - name: Trigger Railway StudyLoop deploy
         env:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
           RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
         run: |
           if [ -z "$RAILWAY_API_TOKEN" ] || [ -z "$RAILWAY_SERVICE_ID" ]; then
-            echo "RAILWAY_API_TOKEN or RAILWAY_SERVICE_ID not set - skipping Railway deploy (secrets are optional; see docs/demo-runbook.md)."
+            echo "RAILWAY_API_TOKEN or RAILWAY_SERVICE_ID not set - skipping Railway deploy (secrets are optional; see middleware/README.md)."
             exit 0
           fi
           ENV_PART=""

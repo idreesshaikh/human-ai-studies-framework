@@ -62,10 +62,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {unit && <span className="control-suffix type-caption">{unit}</span>}
         {stepper && (
           <>
-            <button type="button" className="control-step" aria-label={`Decrease ${label}`} disabled={props.disabled || props.readOnly} onClick={() => step(-1)}>
+            <button type="button" className="control-step focus-ring-owned outline-none" aria-label={`Decrease ${label}`} disabled={props.disabled || props.readOnly} onClick={() => step(-1)}>
               <Minus className="size-4" aria-hidden />
             </button>
-            <button type="button" className="control-step" aria-label={`Increase ${label}`} disabled={props.disabled || props.readOnly} onClick={() => step(1)}>
+            <button type="button" className="control-step focus-ring-owned outline-none" aria-label={`Increase ${label}`} disabled={props.disabled || props.readOnly} onClick={() => step(1)}>
               <Plus className="size-4" aria-hidden />
             </button>
           </>

@@ -1,0 +1,76 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/wmw0XVmm1ipxRHxEMC0l27w8ass</id>
+  <title>arXiv Query: search_query=cat:cs.SE AND all:copilot AND submittedDate:"202609080000 TO 202610082359"&amp;id_list=&amp;start=0&amp;max_results=2</title>
+  <updated>2026-10-08T12:33:24Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=cat:cs.SE+AND+(all:copilot+AND+submittedDate:%22202609080000+TO+202610082359%22)&amp;start=0&amp;max_results=2&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>2</opensearch:itemsPerPage>
+  <opensearch:totalResults>6</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2610.07639v1</id>
+    <title>HarnessSecurity-Bench: Do Security Mechanisms Really Protect Coding Agent Harnesses?</title>
+    <updated>2026-10-06T02:34:53Z</updated>
+    <link href="https://arxiv.org/abs/2610.07639v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2610.07639v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Coding agent harnesses mediate tool use and authorize actions, yet their security mechanisms and runtime effects remain incompletely characterized. We present HarnessSecurity, the first systematic empirical study and benchmark of open- and closed-source coding agent harnesses. First, we derive a ten-mechanism taxonomy and then assess 400 harness-mechanism cells using independent ratings by researchers and large language model (LLM) judges. We find that about half of confirmed mechanism implementations are opt-in, while closed-source harnesses exhibit substantial evidence gaps. Second, we introduce HarnessSecurity-Bench, a benchmark of 23 tasks across five attack surfaces without sacrificing legitimate task requirements. Using separate deterministic oracles to measure task utility and attack effects with security setting comparisons, we evaluate nine mechanisms across six leading harnesses: Claude Code, Codex CLI, Gemini CLI, gptme, Qwen Code, and GitHub Copilot. Under a controlled LLM baseline GLM-5.2, we conduct 2,500 trials, recording 81,155 tool calls and over 2.2 billion tokens. Enabling auto-approve increases utility and raises attack success from 29.2% to 95.6%. Network isolation and read-only mode reduce attack effects with substantial utility losses, while command allowlisting and command denylisting reduce attack effects with a small utility loss and a utility gain, respectively. Task-level cases show that restrictions on a shared capability can obstruct both legitimate and malicious operations, and that allowed tools or commands can leave unauthorized operations reachable through alternative execution paths. Harness providers should make security settings verifiable, test alternative execution paths to protected operations, and assess attack effects alongside task utility and execution costs.</summary>
+    <category term="cs.CR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-10-06T02:34:53Z</published>
+    <arxiv:comment>23 pages, 6 figures, 11 tables. Project website: https://tsingpig.github.io/HarnessSecurity-Benchmark/</arxiv:comment>
+    <arxiv:primary_category term="cs.CR"/>
+    <author>
+      <name>Zhengyang Zhu</name>
+    </author>
+    <author>
+      <name>Liming Huang</name>
+    </author>
+    <author>
+      <name>Runmin Ji</name>
+    </author>
+    <author>
+      <name>Mingxi Ye</name>
+    </author>
+    <author>
+      <name>Zihan Zhou</name>
+    </author>
+    <author>
+      <name>Hanyang Guo</name>
+    </author>
+    <author>
+      <name>Jingwen Wu</name>
+    </author>
+    <author>
+      <name>Yuhan Ye</name>
+    </author>
+    <author>
+      <name>Yuming Feng</name>
+    </author>
+    <author>
+      <name>Hong-Ning Dai</name>
+    </author>
+    <author>
+      <name>Zibin Zheng</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2609.33712v1</id>
+    <title>Beyond the Prompt: Linking What Developers Ask, Do, and Understand with Coding Agents</title>
+    <updated>2026-09-27T16:15:30Z</updated>
+    <link href="https://arxiv.org/abs/2609.33712v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2609.33712v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Coding agents can now change code for developers, who describe goals, supply context, and respond to the agent's work. Yet prompts, screen activity, and task success each tell only part of this story. We present Say, Do, Understand, an end-to-end workflow for analyzing what developers write to an agent, what they do while it works, and what they can explain afterwards. The workflow has five stages (Capture, Prepare, Analyze, Integrate, and Interpret) and three instruments: a prompt codebook, a scheme for coding screen-recorded activities and events, and separate rubrics for explaining the process and the solution. We applied it in an observational study of ten experienced developers who used GitHub Copilot on an unfamiliar codebase. Crossing task performance with understanding produced four personas. The two measures agreed for eight developers but split for two: one passed most tests but could not explain the solution, and another passed few tests but explained it well. In this sample, the personas that most often asked the agent to check its work spent the least time testing on their own. These patterns are descriptive and do not generalize beyond the sample. We recommend the workflow to computing educators, industry practitioners, and researchers to adapt and evaluate human--AI communication in software engineering.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-09-27T16:15:30Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Yunhan Qiao</name>
+    </author>
+    <author>
+      <name>Summit Haque</name>
+    </author>
+    <author>
+      <name>Christopher Hundhausen</name>
+    </author>
+  </entry>
+</feed>

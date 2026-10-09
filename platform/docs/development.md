@@ -32,7 +32,7 @@ requests. They share the authentication token provider. A 401 tells the auth
 layer to show sign-in; network failure does not create temporary projects or
 participant links.
 
-Some read-only demo views include labelled bundled examples. The conversation
+Study reads require the live middleware. The conversation
 requires a model and reports when one is unavailable.
 
 Component state holds drafts and selection. `useAsync` handles loading, errors,
@@ -49,6 +49,8 @@ The browser compiler mirrors part of `middleware/compiler.py`. When changing
 move types or compilation rules, check both; only server validation permits
 applying a protocol.
 
-Run `npm run check` for lint, type checking, behavior checks, and a production
-build. Run `npm run a11y` for browser accessibility checks. Add targeted tests
+Run `npm run check` for lint, type checking, a production build, and WCAG 2.2 AA,
+theme, responsive and scroll checks against a disposable real backend. It also
+exercises manual setup, planning, participant links and downloads. `npm run a11y`
+runs the browser pass against an existing build. Add targeted tests
 for changed behavior rather than tests that repeat component markup.

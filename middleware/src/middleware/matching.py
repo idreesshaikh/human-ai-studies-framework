@@ -177,11 +177,11 @@ def search_by_connectivity(s: Session, query: str, *, limit: int = 10) -> list[d
 
 
 def rerank_with_llm(query: str, candidates: list[dict]) -> list[dict] | None:
-    """Reorder ``candidates`` and phrase one-line reasons via Mistral."""
+    """Reorder ``candidates`` and phrase one-line reasons via the configured model."""
     from middleware import assistant
 
     # Paper ranking is part of the assistant's visible reasoning trail. Use the
-    # the same EU Mistral route as the design turn, with the knowledge model's
+    # same configured route as the design turn, with the knowledge model's
     # larger context budget for citation-heavy reranking.
     client = assistant.make_client()
     if client is None or not candidates:
@@ -202,7 +202,7 @@ def rerank_with_llm(query: str, candidates: list[dict]) -> list[dict] | None:
                 "response_format": {"type": "json_object"},
                 "max_tokens": 1024,
             },
-            {"Authorization": f"Bearer {client.api_key}"},
+            assistant.client_headers(client),
         )
         content = (res.get("choices") or [{}])[0].get("message", {}).get("content", "")
         parsed = json.loads(content)
@@ -258,7 +258,7 @@ def expand_query(query: str) -> str:
                 "messages": [{"role": "user", "content": prompt}],
                 "max_tokens": 120,
             },
-            {"Authorization": f"Bearer {client.api_key}"},
+            assistant.client_headers(client),
         )
         msg = (res.get("choices") or [{}])[0].get("message", {})
         extra = msg.get("content", "") or ""

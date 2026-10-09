@@ -44,6 +44,9 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
     ref
   ) => {
     const selected = options.find((opt) => opt.value === value);
+    // The trigger's name is its label; the chosen value is exposed as its
+    // description so assistive tech announces it too (WCAG 4.1.2).
+    const valueId = React.useId();
     const [menuNode, setMenuNode] = React.useState<HTMLDivElement | null>(null);
     const [open, setOpen] = React.useState(false);
     React.useEffect(() => {
@@ -62,7 +65,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             type="button"
             id={id}
             aria-label={ariaLabel}
-            aria-describedby={ariaDescribedBy}
+            aria-describedby={[ariaDescribedBy, valueId].filter(Boolean).join(" ")}
             aria-invalid={ariaInvalid}
             className={cn(
               "control relative flex min-w-0 items-center justify-between gap-2 type-body text-left",
@@ -70,7 +73,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             )}
             disabled={disabled}
           >
-            <span className={cn("min-w-0 truncate", !selected ? "text-text-muted" : "text-text")}>
+            <span id={valueId} className={cn("min-w-0 truncate", !selected ? "text-text-muted" : "text-text")}>
               {selected?.label ?? placeholder}
             </span>
             <ChevronDown className="size-4 shrink-0 text-text-muted" aria-hidden />

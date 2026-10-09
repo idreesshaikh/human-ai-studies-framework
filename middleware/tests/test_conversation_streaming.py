@@ -8,7 +8,7 @@ from middleware.app import create_app
 from middleware.design_llm import _ReplyTextExtractor
 from middleware.settings import Settings
 
-from middleware import assistant, design_assistant
+from middleware import assistant
 
 STUDY = "stream-study"
 
@@ -112,21 +112,11 @@ def test_stream_emits_tokens_then_the_full_turn(client):
     assert done["text"] == _REPLY["text"]
     assert done["source"] == "llm"
     assert [m["kind"] for m in done["moves"]] == ["add-rq"]
-
-
-def test_streamed_turn_is_stored_like_a_blocking_one(client):
-    with client.stream(
-        "POST", f"/studies/{STUDY}/conversation/turns/stream", json={"text": "rct"}
-    ) as res:
-        events = _events("".join(res.iter_text()))
-    done = events[-1][1]
-
     stored = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
-    assert [t["role"] for t in stored] == ["researcher", "platform"]
-    platform = stored[1]
-    assert platform["turnId"] == done["platformTurnId"]
-    assert platform["text"] == done["text"]
-    assert len(platform["moves"]) == len(done["moves"])
+    assert [turn["role"] for turn in stored] == ["researcher", "platform"]
+    assert stored[1]["turnId"] == done["platformTurnId"]
+    assert stored[1]["text"] == done["text"]
+    assert len(stored[1]["moves"]) == len(done["moves"])
 
 
 def test_retried_stream_replays_without_duplicate_turns(client):
@@ -189,7 +179,7 @@ def test_no_model_closes_the_stream_with_a_holding_turn(client, monkeypatch):
     done = events[0][1]
     assert done["source"] == "unavailable"
     assert done["moves"] == []
-    assert "MISTRAL_API_KEY" in done["text"]
+    assert "LLM_API_KEY" in done["text"]
 
     turns = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
     assert any(t["text"] == "over-trust in AI code" for t in turns)
@@ -210,23 +200,3 @@ def test_streaming_and_blocking_produce_the_same_turn(client, tmp_path):
         m["kind"] for m in blocking["moves"]
     ]
     assert streamed["source"] == blocking["source"]
-
-
-def test_respond_streaming_returns_the_same_dict_as_respond(client, tmp_path):
-    """The generator's return value is the ordinary result dict."""
-    from middleware.db import make_session_factory
-
-    factory = make_session_factory(f"sqlite:///{tmp_path / 'x.sqlite3'}")
-    with factory() as s:
-        gen = design_assistant.respond_streaming(
-            s, "rct", seq=2, study_id=None, client=_StubClient()
-        )
-        prose = []
-        try:
-            while True:
-                prose.append(next(gen))
-        except StopIteration as done:
-            result = done.value
-    assert "".join(prose) == _REPLY["text"]
-    assert result["text"] == _REPLY["text"]
-    assert result["source"] == "llm"

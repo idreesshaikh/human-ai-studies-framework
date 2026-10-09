@@ -5,7 +5,7 @@ starts it to the debrief. Everything in between is captured as events.
 
 ## Starting a session
 
-Click **`Study: idle`** in the status bar, or run _TERN: Start Study Session_
+Click **`Study: idle`** in the status bar, or run _StudyLoop: Start Study Session_
 from the command palette (F1).
 
 1. **Participant ID**  -  enter the participant's ID, e.g. `P07`.
@@ -63,6 +63,11 @@ When the timer elapses  -  or you run _End Study Session_  -  a frosted-glass
 automatically. During the debrief the status bar says **Study: debrief** and the
 sidebar says **Debrief in progress**; the countdown is never left running behind
 the survey.
+
+The legacy six-item debrief is adapted and includes comprehension; it is not the
+standard NASA-TLX and has no validated aggregate. Version 6 protocols can declare
+the separate raw NASA-TLX instrument, whose wording, scales and scoring travel
+with the protocol.
 
 <figure markdown="span">
   ![The end-of-study debrief](../assets/screens/tern-debrief.png){ width="700" }

@@ -51,7 +51,7 @@ events are **not** interchangeable with session timer telemetry. Arrange and
 verify the external task harness before attempting data collection.
 
 ```bash
-REHEARSAL_ISOLATED=1 REHEARSAL_URL=http://127.0.0.1:8011 npm --prefix platform run rehearse:evidence-chat
+npm --prefix platform run check
 ```
 
 The rehearsal creates synthetic studies only on a loopback target. It checks

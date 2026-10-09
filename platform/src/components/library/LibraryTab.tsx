@@ -14,7 +14,8 @@ import {
 } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 import { paperIdentifier } from "@/lib/paperReference";
-import { plainErrorMessage } from "@/lib/uiText";
+import { plainErrorMessage, libraryFreshness } from "@/lib/uiText";
+import { templatesApi, type CorpusStatus } from "@/lib/templatesApi";
 
 /* The Library  -  the knowledge layer (FR-LIT-1/2/3). Live paper ingest
  * (arXiv/DOI/PDF), the citation constellation, and protocol-element links.
@@ -32,6 +33,15 @@ export function LibraryTab({ studyId }: { studyId: string }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [edgesPending, setEdgesPending] = useState(false);
+  const [corpusStatus, setCorpusStatus] = useState<CorpusStatus | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void templatesApi.corpusStatus().then((status) => {
+      if (active) setCorpusStatus(status);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -157,6 +167,7 @@ export function LibraryTab({ studyId }: { studyId: string }) {
      * the whole window and the mismatch became the most visible thing about
      * the workspace. */
     <Surface measure="work" label="Library">
+        <p className="type-note text-text-muted" role="status">{libraryFreshness(corpusStatus)}</p>
         {/* Ingest bar  -  the live-fetch moment. */}
         <div className="flex flex-wrap items-center gap-2">
           <Input

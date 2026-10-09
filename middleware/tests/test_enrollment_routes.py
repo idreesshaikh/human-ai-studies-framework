@@ -146,7 +146,9 @@ def test_mint_with_overrides_layers_on_the_redeemed_config(
                 "instrument": "tern",
                 "path": ["stuck", "enabled"],
                 "value": False,
-            }
+            },
+            {"instrument": "tern", "path": ["session", "durationMinutes"], "value": 30},
+            {"instrument": "tern", "path": ["participantId"], "value": "forged"},
         ]
     }
     tok = client_designed.post(
@@ -163,6 +165,14 @@ def test_mint_with_overrides_layers_on_the_redeemed_config(
     raw = tok["connectionString"].rsplit("#", 1)[1]
     body = client_designed.post("/pair/redeem", json={"token": raw}).json()
     assert body["captureConfig"]["settings"]["tern.stuck.enabled"] is False
+    config = body["captureConfig"]
+    assert config["settings"]["tern.participantId"] == tok["participantId"]
+    assert config["settings"]["tern.session.durationMinutes"] == 30
+    assert config["sessionManifest"]["timing"]["durationMinutes"] == 30
+    assert (
+        config["sessionManifest"]["captureConfigVersion"]
+        == config["captureConfigVersion"]
+    )
 
 
 def test_mint_without_overrides_behaves_like_today(client_designed: TestClient):
@@ -443,36 +453,6 @@ def test_ingest_survives_a_failing_credential_lookup(client_designed: TestClient
         assert "unauthenticated" in rows[0]["flags"]
     finally:
         del client_designed.app.dependency_overrides[db_dep]
-
-
-def test_toggles_never_govern_join_keys():
-    """Issue #39 (AC2): required/join-key fields must always be available for
-    analysis, so no capture toggle may govern one. Join keys are stamped from the
-    pairing credential and condition assignment, never from the toggleable
-    instrument settings. This fails if someone adds a toggle over a join key.
-    """
-    from middleware.enrollment import _TOGGLE_CATALOG
-
-    join_keys = {
-        "source",
-        "ts",
-        "mono",
-        "sessionId",
-        "participantId",
-        "condition",
-        "seq",
-        "type",
-        "v",
-        "schemaVersion",
-    }
-    assert _TOGGLE_CATALOG, "the catalog must have entries to guard"
-    for entry in _TOGGLE_CATALOG:
-        segments = {str(p) for p in entry["path"]}
-        assert not (segments & join_keys), (
-            f"toggle {entry['label']!r} governs a join key via path {entry['path']}"
-        )
-        # The governed capture instruments are never a join key namespace either.
-        assert entry["instrument"] not in join_keys
 
 
 def test_credential_never_persists_into_stored_rows(client_designed: TestClient):

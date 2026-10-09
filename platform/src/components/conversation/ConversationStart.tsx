@@ -89,7 +89,7 @@ export function ConversationStart({
       <div className="mt-6">{composer}</div>
 
       <details className="mt-4">
-        <summary className="type-caption cursor-pointer text-center text-text-muted">Examples and study tools</summary>
+        <summary className="type-caption cursor-pointer text-center text-text-muted">Start from details or an example</summary>
         <p className="mt-3 type-note text-text-muted">Supported: coding-task studies. Not for exams, classrooms or surveys.</p>
       <section className="mt-4 border-y border-border py-4" aria-labelledby="known-details-heading">
         <button

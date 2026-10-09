@@ -36,9 +36,9 @@ claim that people have joined or completed sessions. Plan distinguishes accepted
 decision previews from the current protocol used in Run. Assignment remains
 deterministic; counterbalancing does not establish random allocation.
 
-Regression coverage: `middleware/tests/test_run_plan.py`,
+Regression coverage: `protocol/tests/test_assignment.py`,
 `middleware/tests/test_authz.py`, `middleware/tests/test_terminology.py`, and the
-browser rehearsals described in [demo readiness](demo-readiness.md). Checks keep
+browser rehearsals described in [planner methods](planner.md). Checks keep
 registry IDs aligned with filenames, design-family names aligned with the
 protocol enum, historical editor-source aliases compatible, and enrollment
 actions honest. No stored identifier or schema/data migration is required.

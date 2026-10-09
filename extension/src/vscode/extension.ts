@@ -5,7 +5,11 @@ import { EditBurst } from '../core/behavior';
 import { Recorder } from '../core/recorder';
 import { newSessionId, StudySession } from '../core/session';
 import { DEFAULT_STUCK_CONFIG, StuckDetector } from '../core/stuckDetector';
-import { FATIGUE_ITEM } from '../core/surveys';
+import {
+  FATIGUE_ITEM,
+  readInstruments,
+  scoreInstrument,
+} from '../core/surveys';
 import {
   EditorSignal,
   EventSink,
@@ -22,7 +26,7 @@ import {
 } from './behavior';
 import { ComprehensionProbeMachine } from '../core/comprehensionProbe';
 import { ComprehensionPromptController } from './comprehensionPrompt';
-import { showEndSurvey } from './endSurvey';
+import { showEndSurvey, showInstrumentSurvey } from './endSurvey';
 import { LikertPromptHandle, showLikertQuickPick } from './fatiguePrompt';
 import { VscodeIdeHealthAdapter } from './ideHealth';
 import {
@@ -391,6 +395,21 @@ async function startSession(): Promise<void> {
     return;
   }
 
+  const preTask = readInstruments(cfg('surveys', []), condition, 'pre-task');
+  const preResponses = [];
+  for (const instrument of preTask) {
+    const response = await showInstrumentSurvey(instrument);
+    preResponses.push({ instrument, response });
+  }
+  const tool = cfg<Record<string, string>>('toolVersions', {});
+  const confirmedModel = tool.tool
+    ? await vscode.window.showInputBox({
+        title: 'Record the model used in this session',
+        prompt: `Confirm the model name for ${tool.tool}. Leave blank if unknown.`,
+        value: tool.model ?? '',
+      })
+    : undefined;
+
   bootSession({
     participantId,
     condition,
@@ -412,7 +431,41 @@ async function startSession(): Promise<void> {
     platform: os.platform(),
     workspace: vscode.workspace.workspaceFolders?.[0]?.name ?? null,
   });
+  for (const { instrument, response } of preResponses) {
+    study!.recorder.record(response ? 'pre_task_covariate' : 'survey_skipped', {
+      instrumentId: instrument.id,
+      instrumentVersion: instrument.version,
+      instrumentHash: cfg<{
+        instruments?: Array<{ id: string; sha256: string }>;
+      }>('provenance', {}).instruments?.find((i) => i.id === instrument.id)
+        ?.sha256,
+      timing: instrument.timing,
+      ...(response
+        ? {
+            ...response,
+            score: scoreInstrument(instrument, response.responses),
+          }
+        : {}),
+    });
+  }
   study!.recorder.record('environment_snapshot', {
+    recordedAt: new Date().toISOString(),
+    declaredTool: tool,
+    modelName: confirmedModel?.trim() || null,
+    modelNameSource: confirmedModel?.trim()
+      ? 'participant-confirmed'
+      : 'unknown',
+    provenance: cfg('provenance', {}),
+    auditCapture: {
+      aiLifecycle:
+        cfg('behavior.enabled', true) &&
+        cfg('behavior.captureAiLifecycle', true),
+      editBursts:
+        cfg('behavior.enabled', true) &&
+        cfg('behavior.captureEditBursts', true),
+      clipboard:
+        cfg('behavior.enabled', true) && cfg('behavior.captureClipboard', true),
+    },
     ...environmentSnapshotPayload(
       extContext,
       `${os.platform()} ${os.release()}`,
@@ -701,11 +754,36 @@ async function finishStudy(reason: 'elapsed' | 'manual'): Promise<void> {
     pausedMs: s.session.pausedMsAccumulated,
   });
 
-  const survey = await showEndSurvey(s.session.cfg.condition);
-  if (survey) {
-    s.recorder.record('end_survey_response', { ...survey });
+  if (cfg('protocolVersion', 1) >= 6) {
+    const instruments = readInstruments(
+      cfg('surveys', []),
+      s.session.cfg.condition,
+      'post-task',
+    );
+    for (const instrument of instruments) {
+      const response = await showInstrumentSurvey(instrument);
+      s.recorder.record(response ? 'survey_response' : 'survey_skipped', {
+        instrumentId: instrument.id,
+        instrumentVersion: instrument.version,
+        instrumentHash: cfg<{
+          instruments?: Array<{ id: string; sha256: string }>;
+        }>('provenance', {}).instruments?.find((i) => i.id === instrument.id)
+          ?.sha256,
+        timing: instrument.timing,
+        ...(response
+          ? {
+              ...response,
+              score: scoreInstrument(instrument, response.responses),
+            }
+          : {}),
+      });
+    }
   } else {
-    s.recorder.record('end_survey_skipped', {});
+    const survey = await showEndSurvey(s.session.cfg.condition);
+    s.recorder.record(
+      survey ? 'end_survey_response' : 'end_survey_skipped',
+      survey ? { ...survey } : {},
+    );
   }
 
   s.recorder.record('session_end', { reason });
@@ -1056,7 +1134,7 @@ async function statusMenu(): Promise<void> {
     });
   }
   const pick = await vscode.window.showQuickPick(items, {
-    title: 'TERN - session menu',
+    title: 'StudyLoop - session menu',
   });
   if (pick?.action === 'pause') pauseSession();
   if (pick?.action === 'resume') resumeSession();
@@ -1083,7 +1161,7 @@ function reportSinkError(err: unknown): void {
   if (sinkErrorShown) return;
   sinkErrorShown = true;
   void vscode.window.showErrorMessage(
-    `TERN: a data write failed (${String(err)}). ` +
+    `StudyLoop: a data write failed (${String(err)}). ` +
       'The extension switched to a fallback write path - check disk space ' +
       'and the data folder before the next session.',
   );

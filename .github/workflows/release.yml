@@ -1,7 +1,7 @@
 # Release pipeline.
 #
 # Push a tag to cut a release:
-#   v1.0.1-rc.1  → gates → GHCR image → GitHub pre-release; deploys demo.
+#   v1.0.1-rc.1  → gates → GHCR image → GitHub pre-release.
 #   v1.0.1       → the same, as a full release.
 #
 # A manual run can repair or refresh an existing release without moving its
@@ -16,8 +16,8 @@
 # extension cannot be installed on demand the way a Marketplace one can
 # (platform/src/lib/extension.ts).
 #
-# Secrets (each step skips cleanly when its secret is unset; see docs/demo-runbook.md):
-#   RAILWAY_API_TOKEN      - Railway API token for demo redeploy
+# Secrets (each step skips cleanly when its secret is unset; see middleware/README.md):
+#   RAILWAY_API_TOKEN      - Railway API token for StudyLoop redeploy
 #   RAILWAY_SERVICE_ID     - Railway service ID
 #   RAILWAY_ENVIRONMENT_ID - Railway environment ID (optional)
 
@@ -53,6 +53,7 @@ jobs:
         run: |
           uv sync --all-packages --frozen
           uv run ruff check .
+          uv run python scripts/check_workspace_config.py
           uv run pytest
 
       - uses: actions/setup-node@v7
@@ -73,6 +74,7 @@ jobs:
         working-directory: platform
         run: |
           npm ci
+          npx playwright install --with-deps chromium
           npm run check
 
   build:
@@ -129,19 +131,19 @@ jobs:
           VERSION="${TAG#v}"
           gh release upload "$TAG" --repo "${{ github.repository }}" --clobber "extension/tern-$VERSION.vsix"
 
-  deploy-demo:
-    name: Deploy demo to Railway (all tags)
+  deploy-studyloop:
+    name: Deploy StudyLoop to Railway (all tags)
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Railway demo deploy
+      - name: Trigger Railway StudyLoop deploy
         env:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
           RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
         run: |
           if [ -z "$RAILWAY_API_TOKEN" ] || [ -z "$RAILWAY_SERVICE_ID" ]; then
-            echo "RAILWAY_API_TOKEN or RAILWAY_SERVICE_ID not set - skipping Railway deploy (secrets are optional; see docs/demo-runbook.md)."
+            echo "RAILWAY_API_TOKEN or RAILWAY_SERVICE_ID not set - skipping Railway deploy (secrets are optional; see middleware/README.md)."
             exit 0
           fi
           ENV_PART=""

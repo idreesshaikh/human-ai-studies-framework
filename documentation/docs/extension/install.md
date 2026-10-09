@@ -52,7 +52,7 @@ Open the extension folder in VS Code and press **F5**  -  an Extension
 Development Host window opens with the extension loaded. In that window:
 
 1. Click **`Study: idle`** in the status bar (or run
-   _TERN: Start Study Session_ from the command palette).
+   _StudyLoop: Start Study Session_ from the command palette).
 2. Enter a participant ID (e.g. `P07`) and pick the condition.
 3. Work normally  -  the countdown runs in the status bar, and fatigue prompts
    appear every 15 min (default).

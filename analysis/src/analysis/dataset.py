@@ -42,13 +42,38 @@ class Dataset:
         return cls(rows=doc["rows"], study_id=doc.get("studyId", study_id))
 
     @cached_property
+    def exclusions(self) -> dict[str, list[str]]:
+        """
+        Sessions kept out of confirmatory analysis, with every reason found. The one
+        definition of the rule: reports must say who was left out and why.
+        """
+        reasons: dict[str, set[str]] = {}
+        for r in self.rows:
+            payload = r.get("payload") or {}
+            found = set()
+            if r.get("pilot") or "pilot" in r.get("flags", []) or payload.get("pilot"):
+                found.add("pilot")
+            if payload.get("synthetic"):
+                found.add("synthetic")
+            if r.get("inclusionDecision") == "exclude":
+                found.add("researcher-excluded")
+            if found:
+                reasons.setdefault(r["sessionId"], set()).update(found)
+        return {sid: sorted(found) for sid, found in sorted(reasons.items())}
+
+    @cached_property
+    def analysis_rows(self) -> list[dict]:
+        """Confirmatory rows; raw rows remain available to provenance/audit exports."""
+        return [r for r in self.rows if r["sessionId"] not in self.exclusions]
+
+    @cached_property
     def events(self) -> pd.DataFrame:
         """
         StudyEvent rows: join keys + ``ts`` (UTC datetime) + ``type`` + ``seq`` +
         ``flags`` (integrity marks stamped at ingest; the export always carries the key,
         empty list when clean) + raw ``payload``.
         """
-        rows = [r for r in self.rows if r.get("source") != "metrics"]
+        rows = [r for r in self.analysis_rows if r.get("source") != "metrics"]
         if not rows:
             return pd.DataFrame(
                 columns=[*JOIN_KEYS, "ts", "type", "seq", "flags", "payload"]
@@ -60,7 +85,7 @@ class Dataset:
     @cached_property
     def metrics(self) -> pd.DataFrame:
         """Static-metric rows with the payload's metric columns expanded."""
-        rows = [r for r in self.rows if r.get("source") == "metrics"]
+        rows = [r for r in self.analysis_rows if r.get("source") == "metrics"]
         if not rows:
             return pd.DataFrame(columns=[*JOIN_KEYS, "ts", "level"])
         base = pd.DataFrame(

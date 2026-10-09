@@ -1,5 +1,7 @@
 """Pure helpers for the live capture link (FR-INST-20/21, FR-ING-7)."""
 
+import copy
+
 from protocol.capture import (
     POLICY_DESCRIPTIONS as _POLICY_DESCRIPTIONS,
 )
@@ -7,6 +9,7 @@ from protocol.capture import (
     capture_config_version as _manifest_capture_config_version,
 )
 from protocol.capture import (
+    privacy_policy,
     session_manifest,
 )
 from protocol.derive import derive_overlay_settings
@@ -37,11 +40,16 @@ def build_capture_config(
     """The versioned, protocol-derived capture config for one producer."""
     if producer != "overlay":
         raise ValueError(f"unknown capture-config producer {producer!r}")
-    settings = derive_overlay_settings(protocol, participant_id, condition, task)
-    if overrides:
-        settings = apply_capture_overrides(settings, overrides)
+    effective = apply_capture_overrides(protocol, overrides)
+    settings = derive_overlay_settings(effective, participant_id, condition, task)
+    settings["tern.protocolVersion"] = protocol.get("protocolVersion", 1)
+    settings["tern.surveys"] = protocol.get("instruments", {}).get("surveys", [])
+    settings["tern.toolVersions"] = protocol.get("toolVersions", {}).get(condition, {})
+    from protocol.versioning import provenance
+
+    settings["tern.provenance"] = provenance(protocol)
     manifest = session_manifest(
-        protocol,
+        effective,
         study_id=study_id,
         participant_id=participant_id,
         condition=(block or {}).get("condition") or condition,
@@ -51,14 +59,10 @@ def build_capture_config(
         endpoints=endpoints,
     )
     config = {
-        "captureConfigVersion": capture_config_version(protocol),
+        "captureConfigVersion": manifest["captureConfigVersion"],
         "producer": producer,
         "settings": settings,
-        # Mint-time switches are part of the participant's effective config.
-        # Summarising the protocol alone made the extension sidebar say that
-        # overridden behavioral/metrics legs were off even while their flat
-        # settings were on.
-        "legs": leg_summary(protocol, settings),
+        "legs": leg_summary(effective, settings),
         "producers": manifest["producers"],
         "sessionManifest": manifest,
     }
@@ -67,28 +71,27 @@ def build_capture_config(
     return config
 
 
-def apply_capture_overrides(settings: dict, overrides: dict) -> dict:
-    """
-    Layer mint-time toggle overrides on top of the derived ``tern.*`` settings.
-
-    ``overrides`` is ``{"toggles": [{"instrument", "path", "value"}, ...]}``
-    -  the same ``{instrument, path, value}`` triples ``TogglePopover`` sends. Each
-    triple addresses
-    one flat setting key ``{instrument}.{path[0]}.{path[1]}...``, so ``tern`` overrides
-    land exactly where ``derive_overlay_settings`` put them. Condition assignment stays
-    untouched: overrides only tune what an already-assigned condition captures.
-    """
-    if not overrides:
-        return settings
-    out = dict(settings)
-    for toggle in overrides.get("toggles") or []:
-        instrument = toggle.get("instrument")
-        path = toggle.get("path")
-        if not instrument or not isinstance(path, list) or not path:
+def apply_capture_overrides(protocol: dict, overrides: dict | None) -> dict:
+    """Derive a link's effective capture without changing its approved protocol."""
+    effective = copy.deepcopy(protocol)
+    allowed = {
+        (row["instrument"], tuple(row["path"])) for row in toggle_catalog(protocol)
+    }
+    for toggle in (clean_capture_overrides(overrides) or {}).get("toggles", []):
+        instrument, path, value = toggle["instrument"], toggle["path"], toggle["value"]
+        if (instrument, tuple(path)) not in allowed:
             continue
-        key = f"{instrument}.{'.'.join(str(p) for p in path)}"
-        out[key] = toggle.get("value")
-    return out
+        target = effective["instruments"][instrument]
+        for segment in path[:-1]:
+            target = target.setdefault(segment, {})
+        target[path[-1]] = value
+        if instrument == "tern" and path == ["session", "durationMinutes"]:
+            effective.setdefault("session", {})["durationMinutes"] = value
+        if instrument == "agentCapture" and path == ["contentPolicy"]:
+            effective.setdefault("capture", {}).setdefault("privacy", {})[
+                "agentContentPolicy"
+            ] = value
+    return effective
 
 
 def clean_capture_overrides(overrides: dict | None) -> dict | None:
@@ -135,11 +138,7 @@ def enabled_instruments(settings: dict) -> list[dict]:
 
 def content_policy(protocol: dict) -> str:
     """The study's agent content policy (default metadata-only, the safest)."""
-    agent = protocol.get("instruments", {}).get("agentCapture", {})
-    capture_policy = ((protocol.get("capture") or {}).get("privacy") or {}).get(
-        "agentContentPolicy"
-    )
-    return capture_policy or agent.get("contentPolicy", "metadata-only")
+    return privacy_policy(protocol)["agentContentPolicy"]
 
 
 LEG_METRICS = "metrics"
@@ -451,12 +450,17 @@ def consent_statement(protocol: dict) -> str:
     policy = content_policy(protocol)
     policy_desc = _POLICY_DESCRIPTIONS.get(policy, policy).rstrip(".")
     instruments = ", ".join(sorted(protocol.get("instruments", {}).keys())) or "none"
+    workspace_content = (
+        "Workspace content capture is enabled: raw code may be stored."
+        if privacy_policy(protocol)["rawCode"]
+        else "Workspace content capture is not enabled in this protocol."
+    )
     return (
         f'You are joining "{title}". '
-        f"While you work, this study captures aggregate signals from these "
-        f"instruments: {instruments}. It never records raw code content, "
-        f"keystrokes, or clipboard text  -  only sizes, shapes, timings, and "
-        f'salted hashes. Agent-conversation capture is set to "{policy}": '
-        f"{policy_desc}. You appear in all data only as an anonymized ID. "
+        f"This study uses these instruments: {instruments}. Editor activity "
+        "telemetry records sizes, shapes, timings and salted hashes; "
+        "it does not record keystrokes or clipboard text. "
+        f'{workspace_content} Agent-conversation capture is set to "{policy}": '
+        f"{policy_desc}. Session records use an assigned participant ID. "
         f"You can stop the session at any time."
     )

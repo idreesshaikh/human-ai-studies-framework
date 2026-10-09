@@ -290,10 +290,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           cfg = { mode: "token" };
         }
       } catch {
-        // No server reachable at all (local dev with nothing on :8000, a
-        // static preview)  -  stay in "none". createApi() already falls back
-        // to the offline in-memory demo for this exact case, so the shell
-        // should stay unlocked rather than show a sign-in dead end.
+        // Keep local auth while the server is unavailable; API loaders report
+        // the connection failure instead of sending the user to sign-in.
       }
       if (cancelled) return;
       setConfig(cfg);

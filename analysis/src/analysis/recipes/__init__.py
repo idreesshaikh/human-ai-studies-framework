@@ -4,8 +4,10 @@ from analysis.recipes import (
     agent_interaction_dynamics,
     ai_review_behavior,
     code_quality_by_condition,
+    control_arm_audit,
     correlation,
     fatigue_by_condition,
+    mean_comparison,
     meyer_fragmentation,
     paired_nonparametric,
     paste_behavior,
@@ -14,6 +16,7 @@ from analysis.recipes import (
     tlx_debrief,
     two_group_nonparametric,
     two_proportion,
+    typed_measures,
     ziegler_acceptance_rate,
 )
 
@@ -21,8 +24,10 @@ __all__ = [
     "agent_interaction_dynamics",
     "ai_review_behavior",
     "code_quality_by_condition",
+    "control_arm_audit",
     "correlation",
     "fatigue_by_condition",
+    "mean_comparison",
     "meyer_fragmentation",
     "paired_nonparametric",
     "paste_behavior",
@@ -31,5 +36,6 @@ __all__ = [
     "tlx_debrief",
     "two_group_nonparametric",
     "two_proportion",
+    "typed_measures",
     "ziegler_acceptance_rate",
 ]

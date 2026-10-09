@@ -20,8 +20,7 @@ npm run check
 npm run build
 ```
 
-Workspace changes require the server. Some read-only demo views have labelled
-bundled examples; they cannot create projects or participant links. The design
+Workspace changes require the server. Reads and writes use the live middleware; unavailable data is reported explicitly. The design
 conversation requires `MISTRAL_API_KEY` on the server.
 
 See [development](docs/development.md), the

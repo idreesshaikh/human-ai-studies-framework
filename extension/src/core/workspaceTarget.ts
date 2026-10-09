@@ -66,7 +66,7 @@ export function resolveWorkspaceTarget(
     return {
       kind: 'fallback',
       reason:
-        'The study folder is a web address. TERN never clones or downloads repositories for you; get the folder from your researcher and open it yourself.',
+        'The study folder is a web address. StudyLoop never clones or downloads repositories for you; get the folder from your researcher and open it yourself.',
       shown: raw,
     };
   }
@@ -89,7 +89,7 @@ export function resolveWorkspaceTarget(
     return {
       kind: 'fallback',
       reason:
-        'The study folder is not an absolute path, so TERN cannot tell where it is.',
+        'The study folder is not an absolute path, so StudyLoop cannot tell where it is.',
       shown: raw,
     };
   }

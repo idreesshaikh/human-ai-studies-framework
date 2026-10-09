@@ -6,6 +6,7 @@ import { useRouteTitle } from "@/lib/useDocumentTitle";
 import { AppFrame } from "@/components/shell/AppFrame";
 import { SignInScreen } from "@/components/shell/SignInScreen";
 import { useAuth } from "@/lib/auth.tsx";
+import { useSession } from "@/lib/session";
 
 /* Route-level code splitting. The marketing hero and the study workspace (the
  * two heaviest subtrees  -  the workspace pulls the whole conversation, charts,
@@ -14,10 +15,6 @@ import { useAuth } from "@/lib/auth.tsx";
  * chrome (AppFrame + auth) stays eager: it is on every signed-in screen and
  * must paint immediately. */
 
-const Hero = lazy(() => import("@/pages/Hero").then((m) => ({ default: m.Hero })));
-const QuickStart = lazy(() =>
-  import("@/pages/QuickStart").then((m) => ({ default: m.QuickStart })),
-);
 const Projects = lazy(() =>
   import("@/pages/Projects").then((m) => ({ default: m.Projects })),
 );
@@ -52,6 +49,13 @@ function PageFallback() {
       <span className="size-2.5 animate-pulse rounded-dot bg-text-muted" />
     </div>
   );
+}
+
+function Home() {
+  const { isSolo, me, loading } = useSession();
+  if (isSolo && loading) return <PageFallback />;
+  const slug = me?.memberships[0]?.projectSlug;
+  return isSolo && slug ? <Navigate to={`/p/${slug}`} replace /> : <Projects />;
 }
 
 /* Routes the shell renders to anyone, credential or not.
@@ -97,10 +101,10 @@ function NotFound() {
         <Link
           to="/"
           className="-ml-2 flex items-center gap-2 rounded-control px-2 py-2 transition-colors duration-fast hover:bg-zone-9"
-          aria-label="Phoenix, home"
+          aria-label="StudyLoop, home"
         >
           <PhoenixMark size={22} />
-          <span className="type-subhead tracking-tight text-text">Phoenix</span>
+          <span className="hidden type-subhead tracking-tight text-text sm:inline">StudyLoop</span>
         </Link>
       </header>
       <main className="mx-auto flex w-full max-w-narrow flex-1 flex-col items-center justify-center gap-4 p-gutter text-center">
@@ -124,7 +128,7 @@ export default function App() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Routes>
-        <Route path="/" element={<Hero />} />
+        <Route path="/" element={<Navigate to="/home" replace />} />
         {/* A real address for signing in, so a public page has somewhere to
             send someone that can carry them back afterwards (?next=). Outside
             `Shell`: the whole point is that it renders without a credential,
@@ -138,8 +142,8 @@ export default function App() {
               hard navigation (refresh, bookmark, the sign-in/sign-out
               location.reload()), which bypasses the SPA shell entirely and
               shows the raw API response instead of this page. */}
-          <Route path="/start" element={<QuickStart />} />
-          <Route path="/home" element={<Projects />} />
+          <Route path="/start" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/settings" element={<AccountSettings />} />
           {/* Templates are project-agnostic (FR-TPL): one global browse,
               not one per project. Not "/templates"  -  that's the backend's

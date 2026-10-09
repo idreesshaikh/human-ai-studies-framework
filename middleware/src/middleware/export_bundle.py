@@ -16,6 +16,7 @@ import re
 import zipfile
 
 import yaml
+from protocol.design_card import design_card, design_card_markdown
 
 FORMAT_VERSION = 1
 
@@ -29,6 +30,8 @@ JOIN_COLUMNS = [
     "source",
     "seq",
     "flags",
+    "pilot",
+    "inclusionDecision",
 ]
 _EPOCH = (1980, 1, 1, 0, 0, 0)
 
@@ -47,6 +50,9 @@ Everything here is plain text (UTF-8) a spreadsheet, pandas or R can open.
 - `protocol.yaml`: the resolved study protocol these data were collected under.
 - `data-dictionary.md`: what each table and column holds.
 - `files/`: artifacts uploaded for this study, if any.
+- `design-card.json` and `design-card.md`: recorded power assumptions, typed
+  measures, survey wording/versions, session tool versions, audit results and
+  inclusion decisions. No validity score.
 - `manifest.json`: provenance and integrity, described below.
 
 ## Conventions
@@ -145,6 +151,7 @@ def build_bundle(
     *,
     protocol: dict | None = None,
     include_synthetic: bool = False,
+    design_card_record: dict | None = None,
 ) -> bytes:
     """Zip the tidy tables, timeline, protocol, dictionary and uploaded files."""
     by_type: dict[str, list[dict]] = {}
@@ -162,6 +169,14 @@ def build_bundle(
         members["protocol.yaml"] = yaml.safe_dump(
             protocol, sort_keys=False, default_flow_style=False
         ).encode()
+    card = design_card_record or (
+        design_card(protocol, rows=rows) if protocol else None
+    )
+    if card:
+        members["design-card.json"] = json.dumps(
+            card, indent=2, sort_keys=True
+        ).encode()
+        members["design-card.md"] = design_card_markdown(card).encode()
     used: set[str] = set()
     for type_, group in sorted(by_type.items()):
         stem = _safe(type_)

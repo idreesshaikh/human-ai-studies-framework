@@ -1,5 +1,5 @@
 /* Small pure helpers for wording and behaviour that several screens share.
- * Kept free of React so scripts/verify-ui-fixes.mjs can exercise them. */
+ * Kept free of React; scripts/ui-regression.mjs checks the rendered states. */
 import type { ProjectSummary } from "./api.ts";
 
 /** Longest project or study name a researcher can enter. */
@@ -34,6 +34,25 @@ export function isMissingProtocolError(e: unknown): boolean {
 }
 
 export const APPLY_PROTOCOL_FIRST = "Apply the protocol first, in Setup.";
+export const OPEN_SETUP = "Open Setup";
+export const PLAN_EMPTY_TITLE = "Plan once you have a protocol";
+export const PLAN_EMPTY_BODY =
+  "Sample size depends on your design and analysis. Describe your study in Setup, then come back.";
+export const DATA_EMPTY_TITLE = "No data yet";
+export const DATA_EMPTY_BODY =
+  "Sessions appear here once a protocol is applied and participants have joined.";
+
+export function libraryFreshness(status: {
+  lastRefresh?: { ageDays: number; status: string } | null;
+  candidates?: { new: number };
+} | null): string {
+  if (!status) return "Checking library freshness…";
+  const waiting = status.candidates?.new ?? 0;
+  const latest = status.lastRefresh;
+  if (!latest) return `Never refreshed. ${waiting} candidates awaiting review.`;
+  if (latest.status === "failed") return `The last library refresh failed; ${waiting} candidates waiting.`;
+  return `Library last refreshed ${latest.ageDays} days ago${latest.status === "partial" ? " (some sources were unavailable)" : ""}; ${waiting} candidates waiting.`;
+}
 
 export function describeMintError(e: unknown): string {
   if (isMissingProtocolError(e)) return APPLY_PROTOCOL_FIRST;
@@ -241,11 +260,21 @@ export function measureOptionsFromMoves(
     .filter((m) => m.status === "accepted" && m.kind === "add-measure")
     .map((m) => {
       const patch = m.patch as { section?: string; value?: unknown } | undefined;
-      const value = patch?.section === "measures" && typeof patch.value === "string" ? patch.value : "";
+      const raw = patch?.section === "measures" ? patch.value : "";
+      const value = (Array.isArray(raw) ? raw : [raw]).map((item) =>
+        typeof item === "string" ? item : item && typeof item === "object" && "construct" in item ? String(item.construct) : "",
+      ).join(" ");
       return `${value} ${m.proposal}`.toLowerCase();
     });
   return options.filter((o) => texts.some((t) => t.includes(o.toLowerCase())));
 }
+
+export const MEASURE_LABELS: Record<string, string> = {
+  "time to first green": "Time to first passing test",
+  "test success": "Tests pass (yes/no)",
+  "overall workload": "Workload (NASA-TLX)",
+  "self-rated comprehension": "Self-rated code understanding",
+};
 
 const EYEBROW_BY_SECTION: Record<string, string> = {
   researchQuestions: "Research question",

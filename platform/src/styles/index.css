@@ -15,7 +15,7 @@
  * atlas's labelling voice: a grotesk that stays precise at 11px and still has
  * presence at display size, so one family covers every role set in letters.
  * Spline Sans Mono carries quantities only. */
-@import "@fontsource-variable/archivo/wdth.css";
+@import "@fontsource-variable/archivo/wght.css";
 @import "@fontsource-variable/spline-sans-mono";
 
 @import "./tokens.css";
@@ -114,7 +114,6 @@
   --shadow-lifted: var(--shadow-lifted);
 
   --font-display: var(--font-display);
-  --font-serif: var(--font-serif);
   --font-mono: var(--font-mono);
   --font-sans: var(--font-sans);
 
@@ -1228,15 +1227,6 @@ body::before {
 }
 .clerk-embed .cl-formButtonPrimary:disabled {
   opacity: 0.5 !important;
-}
-
-/* The hero replays the one watchable move: a proposal landing on the draft,
- * with the same mass and settle the real conversation spends. */
-.hero-fold-in {
-  animation: plate-land var(--motion-settle) var(--ease-settle) both;
-}
-.hero-glow-in {
-  animation: entry-rise var(--motion-entrance) var(--ease-out) both;
 }
 
 /* ---- Form controls: one spec ------------------------------------------

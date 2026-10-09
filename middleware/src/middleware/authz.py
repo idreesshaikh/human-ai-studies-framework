@@ -23,8 +23,7 @@ class Role(StrEnum):
 
     OWNER = "owner"
     MEMBER = "member"
-    # Read-only, internal only: the demo project grants it so a signed-in
-    # visitor can look but never write. Not assignable via invitations.
+    # Internal read-only access; not assignable via invitations.
     VIEWER = "viewer"
 
 
@@ -35,8 +34,7 @@ ROLE_RANK: dict[Role, int] = {
 }
 
 
-# The roles a human can actually hold or be invited as. "viewer" is a
-# demo-only grant, never a row in the members table.
+# Assignable membership roles; "viewer" is an internal read-only grant.
 ROLES: frozenset[str] = frozenset({"owner", "member"})
 
 
@@ -108,26 +106,10 @@ def build_authz(
             raise HTTPException(status_code=404, detail="project not found")
         return proj
 
-    def _demo_membership(identity: Identity, project: Project) -> Membership | None:
-        """Viewer on the demo project, for anyone signed in."""
-        from middleware.demo import DEMO_PROJECT_ID
-
-        if project.id != DEMO_PROJECT_ID:
-            return None
-        return Membership(
-            project_id=project.id,
-            identity_sub=identity.sub,
-            role=Role.VIEWER,
-            invited_by="",
-            joined_at="",
-        )
-
     def _authorize(
         s: Session, identity: Identity, project: Project, capability: str
     ) -> Membership:
-        m = _membership_for(s, identity.sub, project.id) or _demo_membership(
-            identity, project
-        )
+        m = _membership_for(s, identity.sub, project.id)
         if m is None or not has_role(m.role, capability):
             raise _forbidden(capability, m.role if m else None)
         return m

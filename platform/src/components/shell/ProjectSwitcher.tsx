@@ -19,11 +19,7 @@ import {
   shortcutLabel,
 } from "@/lib/uiText";
 
-/* ⌘K / Ctrl K project switcher: fuzzy over project names. The list comes from
- * the same call /home makes, re-read each time the palette opens, so a viewer
- * project (the demo) is listed and a project created a minute ago is not
- * missing until reload. The session's memberships only seed the list for the
- * moment before that call answers. */
+// Reload projects whenever the palette opens; memberships seed the initial list.
 export function ProjectSwitcher({ memberships }: { memberships: Membership[] }) {
   const [open, setOpen] = useState(false);
   const [listed, setListed] = useState<ProjectSummary[] | null>(null);

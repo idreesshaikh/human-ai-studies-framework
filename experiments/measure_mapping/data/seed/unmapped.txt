@@ -1,0 +1,12 @@
+bounded-case-study-v1:within-context-outcome: Outcome compared within this one context, not across contexts
+factorial-2x2-v1:primary-outcome: Primary outcome by factor combination
+field-experiment-v1:primary-outcome: Real-work outcome compared across the two field arms
+metr-rct-v1:perceived-speed: Self-reported speed / productivity perception
+metr-rct-v1:code-correctness: Objective code correctness via the static-metrics leg
+multi-arm-rct-v1:primary-outcome: Primary outcome measure across all arms
+paired-pre-post-v1:pre-post-difference: Difference in outcome from pre to post intervention
+single-arm-benchmark-v1:benchmark-outcome: Outcome against absolute benchmark
+single-group-repeated-measures-v1:time-series: Repeated outcome measurement across time points
+survey-self-report-v1:self-report-workload: Six adapted self-report items (mental demand, effort, frustration, time pressure, perceived performance, comprehension); not standard NASA-TLX or a validated aggregate
+within-subjects-crossover-v1:self-report: Participant self-report after each session
+ziegler-telemetry-survey-v1:self-report-productivity: Subjective productivity assessment

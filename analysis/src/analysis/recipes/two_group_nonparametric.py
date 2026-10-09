@@ -32,7 +32,10 @@ def _figure_label(form: str) -> str:
 
 
 METHOD_TEMPLATE = (
-    "Two-group nonparametric comparison: exact Mann-Whitney U test with "
+    "Small untied samples use exact tests; ties/large samples use "
+    "the asymptotic approximation with tie correction. "
+    "Two-group nonparametric comparison: Mann-Whitney U test "
+    "(exact for small untied samples, otherwise asymptotic) with "
     "Cliff's delta effect size. Per-cell means aggregated per participant "
     "to avoid pseudo-replication. Descriptives: n, median, min, max per "
     "condition. Figure: {figure}. Hypothesis-generating framing at pilot n. "
@@ -60,14 +63,17 @@ def run(dataset: Dataset) -> RecipeResult:
 
     cols = [c for c in dataset.conditions if c in set(df["condition"])]
     if len(cols) >= 2:
-        a = df.loc[df["condition"] == cols[0], value].dropna().tolist()
-        b = df.loc[df["condition"] == cols[1], value].dropna().tolist()
+        per = df.groupby(["participantId", "condition"])[value].mean().reset_index()
+        a = per.loc[per["condition"] == cols[0], value].dropna().tolist()
+        b = per.loc[per["condition"] == cols[1], value].dropna().tolist()
         test = stats.mann_whitney(a, b, labels=(cols[0], cols[1]))
         tables["test"] = pd.DataFrame([test.row()])
         summary = test.line()
         fig_fn = _pick_figure(figure_form)
         fig = fig_fn(
-            df, value, dataset.conditions,
+            df,
+            value,
+            dataset.conditions,
             title="Two-group comparison",
             ylabel=value,
         )

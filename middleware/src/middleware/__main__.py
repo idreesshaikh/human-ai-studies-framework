@@ -5,8 +5,6 @@ import json
 import os
 import sys
 import urllib.request
-from datetime import UTC, datetime
-from pathlib import Path
 
 
 def _auth_headers() -> dict:
@@ -33,66 +31,8 @@ def _get(server: str, path: str) -> dict:
         return json.loads(res.read())
 
 
-
-def cmd_simulate(
-    study_id: str,
-    server: str,
-    count: int,
-    profile: str,
-    seed: int | None,
-    protocol_path: str | None = None,
-) -> int:
-    """
-    Dry-run a study over plain HTTP, then validate the analysis plan on the synthetic
-    data.
-    """
-    import analysis.recipes  # noqa: F401 - registers the built-in recipes
-    import yaml
-    from analysis.dataset import Dataset
-    from analysis.runner import run_plan
-
-    protocol: dict = {}
-    if protocol_path:
-        protocol = yaml.safe_load(Path(protocol_path).read_text()) or {}
-    if not protocol.get("analysisPlan"):
-        export = _get(server, f"/studies/{study_id}/conversation/export")
-        protocol = yaml.safe_load(export.get("currentDraft") or "{}") or {}
-    if not protocol.get("analysisPlan"):
-        print(
-            "protocol has no analysis plan to validate "
-            "(pass --protocol <yaml> for a boot-protocol study)"
-        )
-        return 2
-    outcome = _post(
-        server,
-        f"/studies/{study_id}/simulate",
-        {"count": count, "profile": profile, "seed": seed},
-    )
-    print(
-        f"simulated {outcome['participants']} participants "
-        f"({outcome['profile']}): {outcome['sessions']} sessions, "
-        f"{outcome['events']} events, {outcome['metricRows']} metric rows"
-    )
-    fetched = Dataset.fetch(server, study_id, include_synthetic=True)
-    session_ids = set(outcome["sessionIds"])
-    dataset = Dataset(
-        rows=[row for row in fetched.rows if row["sessionId"] in session_ids],
-        study_id=study_id,
-    )
-    print(f"dataset: {len(dataset.rows)} joined rows")
-    outcome_run = run_plan(protocol, dataset, study_id, out_root=Path("results"))
-    failed = len(outcome_run.failed_validation) + len(outcome_run.errors)
-    print(
-        f"plan validation: {len(outcome_run.executed)} recipe(s) ran, "
-        f"{failed} check(s) failed; report under results/{study_id}/"
-    )
-    return 1 if failed else 0
-
-
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Study server, corpus tools, and synthetic rehearsals"
-    )
+    parser = argparse.ArgumentParser(description="Study server and corpus tools")
     parser.add_argument(
         "command",
         nargs="?",
@@ -102,18 +42,12 @@ def main() -> None:
             "corpus-import",
             "corpus-verify",
             "corpus-enrich",
-            "demo-seed",
-            "backup-seed",
+            "corpus-refresh",
+            "corpus-candidates",
+            "corpus-decide",
             "templates",
-            "simulate",
         ],
         help="Command to run (default: serve)",
-    )
-    parser.add_argument(
-        "study_id",
-        nargs="?",
-        default=None,
-        help="simulate: the study id to dry-run",
     )
     parser.add_argument(
         "--db",
@@ -129,34 +63,28 @@ def main() -> None:
         "(highest confidence first; default: every one still missing)",
     )
     parser.add_argument(
-        "--server",
-        default="http://127.0.0.1:8000",
-        help="simulate: middleware base URL (default http://127.0.0.1:8000)",
-    )
-    parser.add_argument(
-        "--count",
-        type=int,
-        default=5,
-        help="simulate: how many synthetic participants (default 5)",
-    )
-    parser.add_argument(
-        "--profile",
-        default="mixed",
-        help="simulate: mixed|fast|struggling|novice|expert (default mixed)",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
+        "--since",
         default=None,
-        help="simulate: RNG seed for a reproducible dry run",
+        help="corpus-refresh: first date to fetch, YYYY-MM-DD "
+        "(default: resume from the last good run, or 30 days back)",
     )
     parser.add_argument(
-        "--protocol",
-        default=None,
-        help="simulate: local protocol YAML to validate against "
-        "(needed when the study was boot-loaded via MIDDLEWARE_PROTOCOL "
-        "and has no design-conversation draft)",
+        "--dry-run",
+        action="store_true",
+        help="corpus-refresh: fetch and report, but store nothing",
     )
+    parser.add_argument(
+        "--queries",
+        default=None,
+        help="corpus-refresh: queries JSON (default: MIDDLEWARE_REFRESH_QUERIES, "
+        "else docs/papers/refresh-queries.json)",
+    )
+    parser.add_argument("--ref", default=None, help="corpus-decide: the paper ref")
+    parser.add_argument(
+        "--decision", choices=["accept", "reject"], help="corpus-decide: the decision"
+    )
+    parser.add_argument("--note", default="", help="corpus-decide: why")
+
     args = parser.parse_args()
 
     if args.db and not os.environ.get("DATABASE_URL"):
@@ -184,32 +112,6 @@ def main() -> None:
             )
         ok = result["tierA"]["count"] > 0 and result["tierB"]["count"] > 0
         sys.exit(0 if ok else 1)
-
-    elif args.command == "demo-seed":
-        from middleware.demo import seed_demo
-        from middleware.settings import Settings
-
-        settings = Settings()
-        made = seed_demo(settings.db_url, now=datetime.now(UTC).isoformat())
-        print(
-            f"demo: project {'created' if made['project'] else 'present'}, "
-            f"study {'created' if made['study'] else 'present'}, "
-            f"{made['sessions']} session mapping(s) added"
-        )
-
-    elif args.command == "backup-seed":
-        from middleware.demo import seed_backup
-        from middleware.settings import Settings
-
-        settings = Settings()
-        made = seed_backup(settings.db_url, now=datetime.now(UTC).isoformat())
-        print(
-            "backup: study ai-cognitive-load-demo is ready "
-            f"(study {'created' if made['study'] else 'present'}, "
-            f"protocol {'updated' if made['protocol'] else 'present'}, "
-            f"conversation {'created' if made['conversation'] else 'present'}, "
-            f"compilation {'created' if made['compilation'] else 'present'})"
-        )
 
     elif args.command == "corpus-verify":
         from middleware.corpus_importer import verify_import
@@ -245,6 +147,84 @@ def main() -> None:
         print(f"  now {after['withAbstract']} of {after['papers']} carry an abstract")
         sys.exit(0 if result["enriched"] or not result["candidates"] else 1)
 
+    elif args.command == "corpus-refresh":
+        import logging
+        from pathlib import Path
+
+        from middleware import corpus_refresh
+        from middleware.db import make_session_factory
+        from middleware.settings import Settings
+
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
+        queries = args.queries or os.environ.get("MIDDLEWARE_REFRESH_QUERIES")
+        factory = make_session_factory(Settings().db_url)
+        try:
+            result = corpus_refresh.run_once(
+                factory,
+                config_path=Path(queries) if queries else None,
+                since=args.since,
+                dry_run=args.dry_run,
+            )
+        except (ValueError, corpus_refresh.RefreshInProgress) as exc:
+            print(f"corpus-refresh: {exc}", file=sys.stderr)
+            sys.exit(2)
+        print(corpus_refresh.format_summary(result))
+        sys.exit(0 if result["status"] in ("ok", "dry-run") else 1)
+
+    elif args.command == "corpus-candidates":
+        from middleware import corpus_refresh
+        from middleware.db import make_session_factory
+        from middleware.settings import Settings
+
+        factory = make_session_factory(Settings().db_url)
+        with factory() as s:
+            counts = corpus_refresh.candidate_counts(s)
+            rows = corpus_refresh.list_candidates(s, limit=args.limit or 20)
+        print(
+            f"candidates: {counts['new']} new, {counts['accepted']} accepted, "
+            f"{counts['rejected']} rejected"
+        )
+        for row in rows:
+            print(f"  {row['ref']}  [{row['score']}]  {row['year']}  {row['title']}")
+        sys.exit(0)
+
+    elif args.command == "corpus-decide":
+        from middleware import corpus_refresh
+        from middleware.db import make_session_factory
+        from middleware.settings import Settings
+
+        if not args.ref or not args.decision:
+            print(
+                "corpus-decide needs --ref and --decision accept|reject",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        factory = make_session_factory(Settings().db_url)
+        who = os.environ.get("USER") or "cli"
+        decide = (
+            corpus_refresh.promote
+            if args.decision == "accept"
+            else corpus_refresh.reject
+        )
+        with factory() as s:
+            try:
+                out = decide(
+                    s,
+                    args.ref,
+                    decided_by=who,
+                    now=corpus_refresh.utc_now(),
+                    note=args.note,
+                )
+            except KeyError:
+                print(f"no candidate {args.ref}", file=sys.stderr)
+                sys.exit(1)
+            except ValueError as exc:
+                print(str(exc), file=sys.stderr)
+                sys.exit(1)
+            s.commit()
+        print(f"{out['ref']}: {out['status']}")
+        sys.exit(0)
+
     elif args.command == "templates":
         from middleware import template_registry
 
@@ -254,22 +234,6 @@ def main() -> None:
         for problem in problems:
             print(f"  FAIL {problem}")
         sys.exit(0 if not problems else 1)
-
-    elif args.command == "simulate":
-        if not args.study_id:
-            print("simulate needs a study id: python -m middleware simulate <study_id>")
-            sys.exit(2)
-        sys.exit(
-            cmd_simulate(
-                args.study_id,
-                server=args.server,
-                count=args.count,
-                profile=args.profile,
-                seed=args.seed,
-                protocol_path=args.protocol,
-            )
-        )
-
 
 
 if __name__ == "__main__":

@@ -1,0 +1,98 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/xZpnJ2t8PvUXNaj9cpFtHfVNmAM</id>
+  <title>arXiv Query: search_query=(cat:cs.SE OR cat:cs.HC) AND (all:"AI coding assistant" AND all:"developers" AND all:"controlled" AND all:"experiment") AND submittedDate:"202201010000 TO 202610012359"&amp;id_list=&amp;start=0&amp;max_results=200</title>
+  <updated>2026-10-08T13:03:31Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=(cat:cs.SE+OR+cat:cs.HC)+AND+((all:%22AI+coding+assistant%22+AND+(all:%22developers%22+AND+(all:%22controlled%22+AND+all:%22experiment%22)))+AND+submittedDate:%22202201010000+TO+202610012359%22)&amp;start=0&amp;max_results=200&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>200</opensearch:itemsPerPage>
+  <opensearch:totalResults>3</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2311.18452v1</id>
+    <title>Developer Experiences with a Contextualized AI Coding Assistant: Usability, Expectations, and Outcomes</title>
+    <updated>2023-11-30T10:52:28Z</updated>
+    <link href="https://arxiv.org/abs/2311.18452v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2311.18452v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>In the rapidly advancing field of artificial intelligence, software development has emerged as a key area of innovation. Despite the plethora of general-purpose AI assistants available, their effectiveness diminishes in complex, domain-specific scenarios. Noting this limitation, both the academic community and industry players are relying on contextualized coding AI assistants. These assistants surpass general-purpose AI tools by integrating proprietary, domain-specific knowledge, offering precise and relevant solutions. Our study focuses on the initial experiences of 62 participants who used a contextualized coding AI assistant -- named StackSpot AI -- in a controlled setting. According to the participants, the assistants' use resulted in significant time savings, easier access to documentation, and the generation of accurate codes for internal APIs. However, challenges associated with the knowledge sources necessary to make the coding assistant access more contextual information as well as variable responses and limitations in handling complex codes were observed. The study's findings, detailing both the benefits and challenges of contextualized AI assistants, underscore their potential to revolutionize software development practices, while also highlighting areas for further refinement.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2023-11-30T10:52:28Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Gustavo Pinto</name>
+    </author>
+    <author>
+      <name>Cleidson de Souza</name>
+    </author>
+    <author>
+      <name>Thayssa Rocha</name>
+    </author>
+    <author>
+      <name>Igor Steinmacher</name>
+    </author>
+    <author>
+      <name>Alberto de Souza</name>
+    </author>
+    <author>
+      <name>Edward Monteiro</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2508.12285v1</id>
+    <title>"My productivity is boosted, but ..." Demystifying Users' Perception on AI Coding Assistants</title>
+    <updated>2025-08-17T08:22:47Z</updated>
+    <link href="https://arxiv.org/abs/2508.12285v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2508.12285v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>This paper aims to explore fundamental questions in the era when AI coding assistants like GitHub Copilot are widely adopted: what do developers truly value and criticize in AI coding assistants, and what does this reveal about their needs and expectations in real-world software development? Unlike previous studies that conduct observational research in controlled and simulated environments, we analyze extensive, first-hand user reviews of AI coding assistants, which capture developers' authentic perspectives and experiences drawn directly from their actual day-to-day work contexts. We identify 1,085 AI coding assistants from the Visual Studio Code Marketplace. Although they only account for 1.64% of all extensions, we observe a surge in these assistants: over 90% of them are released within the past two years. We then manually analyze the user reviews sampled from 32 AI coding assistants that have sufficient installations and reviews to construct a comprehensive taxonomy of user concerns and feedback about these assistants. We manually annotate each review's attitude when mentioning certain aspects of coding assistants, yielding nuanced insights into user satisfaction and dissatisfaction regarding specific features, concerns, and overall tool performance. Built on top of the findings-including how users demand not just intelligent suggestions but also context-aware, customizable, and resource-efficient interactions-we propose five practical implications and suggestions to guide the enhancement of AI coding assistants that satisfy user needs.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-08-17T08:22:47Z</published>
+    <arxiv:comment>13 pages, Camera-Ready Version that will appear in ASE 2025</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Yunbo Lyu</name>
+    </author>
+    <author>
+      <name>Zhou Yang</name>
+    </author>
+    <author>
+      <name>Jieke Shi</name>
+    </author>
+    <author>
+      <name>Jianming Chang</name>
+    </author>
+    <author>
+      <name>Yue Liu</name>
+    </author>
+    <author>
+      <name>David Lo</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2607.09215v1</id>
+    <title>Configurable AI Coding Assistants: Designing For Developers Who Like to Be in Control</title>
+    <updated>2026-07-10T09:06:00Z</updated>
+    <link href="https://arxiv.org/abs/2607.09215v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2607.09215v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>AI coding assistants are now widely used in professional development, yet they offer only limited ways for developers to control how they behave. In this paper, we investigate what kinds of configurations experienced developers want in coding assistants, how they prioritize different types of configuration needs, and which interface mechanisms they prefer. We first synthesize product documentation and prior research on trust and personalization to compile a list of 33 configuration options, grouped into four categories: Code suggestions, System &amp; policies, Human-assistant interaction, and Users &amp; their personal context. We then conduct a survey with 56 professional developers and 7 design sessions in which participants arrange configurations into their perfect control board and talk about their needs and experiences in more depth.
+  Developers report strong interest in configurability: 72.6% of usefulness ratings are positive, while only around a third indicate that the corresponding configuration is known to participants in their tools. Demand is particularly high for task-related controls such as minimum confidence thresholds, visibility of suggestion quality, and response length, whereas many persona-related configurations are seen as unnecessary. In this paper, we discuss the implications for designing more unified and discoverable configuration surfaces for future coding assistants</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-07-10T09:06:00Z</published>
+    <arxiv:comment>9 pages, 1 figure, 2 tables, accepted at FSE Companion'26 [HumanAISE]</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Ekaterina Koshchenko</name>
+    </author>
+    <author>
+      <name>Jovana Stankovic</name>
+    </author>
+    <author>
+      <name>Ilya Zakharov</name>
+    </author>
+    <author>
+      <name>Agnia Sergeyuk</name>
+    </author>
+    <arxiv:doi>10.1145/3803437.3806709</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1145/3803437.3806709" title="doi"/>
+  </entry>
+</feed>

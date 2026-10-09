@@ -325,3 +325,46 @@ def test_unreviewed_and_stale_proposals_are_blocked(client_designed, evidence, c
     evidence["mapVersion"] = "0.2.0"
     client_designed.put(path, json=evidence)
     assert client_designed.post(path + "/propose", json=body).status_code == 409
+
+
+def test_exports_omit_recommendation_abstracts_without_changing_live_records(
+    client_designed, evidence
+):
+    from middleware.db import ConversationTurn, make_session_factory
+
+    client = client_designed
+    factory = make_session_factory(f"sqlite:///{client.db_path}")
+    marker = "S2_ABSTRACT_NOT_FOR_REDISTRIBUTION"
+    with factory() as session:
+        session.add(
+            ConversationTurn(
+                id="abstract-export-fixture",
+                study_id="pilot",
+                seq=100,
+                role="platform",
+                text="Synthetic recommendation",
+                created_at="2026-10-08T12:00:00Z",
+                recommendations=[
+                    {"ref": "s2:fixture", "title": "Fixture", "abstract": marker}
+                ],
+            )
+        )
+        session.commit()
+    assert client.put("/studies/pilot/evidence-map", json=evidence).status_code == 200
+    exported = client.get("/studies/pilot/conversation/export")
+    assert exported.status_code == 200
+    assert marker not in exported.text
+    assert "s2:fixture" in exported.text
+    kit = client.get("/studies/pilot/replication-kit")
+    assert kit.status_code == 200, kit.text
+    with tarfile.open(fileobj=io.BytesIO(kit.content), mode="r:gz") as archive:
+        for member in archive.getmembers():
+            if member.isfile():
+                assert marker.encode() not in archive.extractfile(member).read()
+    bundle = client.get("/studies/pilot/data-bundle")
+    assert bundle.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(bundle.content)) as archive:
+        assert all(
+            marker.encode() not in archive.read(name) for name in archive.namelist()
+        )
+    assert marker in client.get("/studies/pilot/conversation").text

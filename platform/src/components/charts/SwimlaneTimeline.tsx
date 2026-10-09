@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Table2, ChartScatter, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { studyApi } from "@/lib/studyApi";
-import { SessionReplay } from "./SessionReplay";
 import {
   assembleLanes,
   timeScale,
@@ -17,7 +16,8 @@ import {
  * Table-view twin ships from day one (wall #10, NFR-12). */
 
 const SVG_W = 800;
-const M = { left: 60, right: 20, top: 12, bottom: 32 };
+// The left margin holds the longest lane label ("Workspace snapshots").
+const M = { left: 136, right: 20, top: 12, bottom: 32 };
 const LANE_H = 28;
 const LANE_GAP = 8;
 const MARK_R = 4;
@@ -51,7 +51,6 @@ export function SwimlaneTimeline({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [asTable, setAsTable] = useState(false);
-  const [replay, setReplay] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -134,14 +133,11 @@ export function SwimlaneTimeline({
         <h3 className="min-w-0 break-words type-subhead text-text">
           Timeline: {sessionId}
           <span className="ml-2 type-caption text-text-muted">
-            {events.length} events · {lanes.length} lanes
+            {events.length} {events.length === 1 ? "event" : "events"} · {lanes.length} {lanes.length === 1 ? "lane" : "lanes"}
             {allFlagKinds.length > 0 && ` · ${allFlagKinds.join(", ")}`}
           </span>
         </h3>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" aria-expanded={replay} onClick={() => setReplay(v => !v)}>
-            {replay ? "Close replay" : "Replay session"}
-          </Button>
           {onClose && (
             <Button size="sm" variant="ghost" className="type-caption" onClick={onClose}>
               Close
@@ -159,7 +155,7 @@ export function SwimlaneTimeline({
         </div>
       </div>
 
-      {replay ? <SessionReplay studyId={studyId} sessionId={sessionId} /> : asTable ? (
+      {asTable ? (
         <TableTimeline lanes={lanes} allFlagKinds={allFlagKinds} />
       ) : (
         <ChartTimeline
@@ -207,7 +203,7 @@ function ChartTimeline({
         viewBox={`0 0 ${SVG_W} ${totalH}`}
         className="h-auto w-full"
         role="img"
-        aria-label={`Session timeline: ${lanes.length} lanes, ${displayData.length} events`}
+        aria-label={`Session timeline: ${lanes.length} ${lanes.length === 1 ? "lane" : "lanes"}, ${displayData.length} ${displayData.length === 1 ? "event" : "events"}`}
       >
         {/* Time axis */}
         <line
@@ -232,7 +228,8 @@ function ChartTimeline({
             <text
               x={t.x}
               y={totalH - M.bottom + 16}
-              textAnchor="middle"
+              // Edge ticks align inward so their labels stay inside the plot.
+              textAnchor={i === 0 ? "start" : i === ticks.length - 1 ? "end" : "middle"}
               className="tabular fill-text-muted type-caption"
             >
               {t.label}

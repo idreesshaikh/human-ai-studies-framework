@@ -1,447 +1,300 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  CheckCircle2,
   AlertTriangle,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
-  FlaskConical,
+  Download,
 } from "lucide-react";
-import { Download, Info } from "lucide-react";
 import { MetricStrip } from "./MetricStrip";
 import { SwimlaneTimeline } from "./SwimlaneTimeline";
 import { PrescriptionPanel } from "./PrescriptionPanel";
-import { DataProvenance } from "./DataProvenance";
-import { DryRunPlan } from "./DryRunPlan";
-import { dryRunFallbackSessionIds } from "./dryRunSessions";
+import { ControlAudit } from "./ControlAudit";
 import { Surface } from "@/components/shell/Surface";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { Button } from "@/components/ui/button";
-import { Notice } from "@/components/ui/notice";
 import {
   studyApi,
-  OfflineError,
-  onSeededData,
   type DatasetRow,
   type SessionStatus,
   type StudyStatusDoc,
 } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
-import { captureTokenLabel, producerStateLabel } from "@/lib/uiText";
-import { Checkbox } from "@/components/ui/checkbox";
+import { laneLabel } from "@/lib/timeline";
+import { hasRole, type Role } from "@/lib/capabilities";
+import { OPEN_SETUP, DATA_EMPTY_TITLE, DATA_EMPTY_BODY } from "@/lib/uiText";
 
-/* The Data surface  -  the study's collected data as honest shapes (NFR-8).
- * Per-session
- * integrity (completeness, seq gaps, flags) and the metric distribution split
- * by condition. Nothing here animates  -  data is the celebration. */
-export function DataTab({ studyId }: { studyId: string }) {
+export function DataTab({
+  studyId,
+  role,
+  hasProtocol,
+}: {
+  studyId: string;
+  role?: Role | null;
+  hasProtocol: boolean;
+}) {
   const [sessions, setSessions] = useState<SessionStatus[]>([]);
   const [statusDoc, setStatusDoc] = useState<StudyStatusDoc | null>(null);
   const [conditions, setConditions] = useState<string[]>([]);
   const [rows, setRows] = useState<DatasetRow[]>([]);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
-  const [seeded, setSeeded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [syntheticScope, setSyntheticScope] = useState({ studyId, enabled: false });
-  const includeSynthetic = syntheticScope.studyId === studyId && syntheticScope.enabled;
-  const requestVersion = useRef(0);
-  const [dryRun, setDryRun] = useState<{
-    report: Awaited<ReturnType<typeof studyApi.simulate>> | null;
-    error: string | null;
-    busy: boolean;
-  }>({ report: null, error: null, busy: false });
-
-  const refresh = (live: boolean, initial = false): Promise<void> => {
-    const version = ++requestVersion.current;
-    return Promise.all([
-      studyApi.status(studyId, includeSynthetic),
-      studyApi.dataset(studyId, includeSynthetic),
-    ])
+  const [revision, setRevision] = useState(0);
+  const [download, setDownload] = useState({ busy: false, error: "" });
+  const generation = useRef(0);
+  useEffect(() => {
+    if (!hasProtocol) return;
+    const version = ++generation.current;
+    setLoading(true);
+    setLoadError(null);
+    Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)])
       .then(([s, d]) => {
-        if (!live || version !== requestVersion.current) return;
-        setLoadError(null);
+        if (generation.current !== version) return;
         setSessions(s.sessions);
         setStatusDoc(s);
         setConditions(s.conditions);
-        // The whole one-timeline export: the metric registry decides what each
-        // measure reads (static-metric rows by payload key, event-derived
-        // measures by event type), so the Data tab no longer discards every
-        // row that isn't a static metric.
         setRows(d.rows);
       })
-      .catch((e: unknown) => {
-        if (!live || version !== requestVersion.current) return;
-        // A study that hasn't compiled a protocol yet has no data  -  that's a
-        // real, reachable state, not a fault. Surface it calmly instead of
-        // letting the rejection blank the tab.
-        setLoadError(
-          e instanceof Error ? e.message : "Could not load this study's data.",
-        );
+      .catch((e) => {
+        if (generation.current === version)
+          setLoadError(
+            e instanceof Error ? e.message : "Could not load study data.",
+          );
       })
       .finally(() => {
-        if (live && initial && version === requestVersion.current) setLoading(false);
+        if (generation.current === version) setLoading(false);
       });
-  };
-
-  useEffect(() => {
-    // If any read falls back to built-in sample data, say so honestly.
-    const off = onSeededData((seededStudy) => {
-      if (seededStudy === studyId) setSeeded(true);
-    });
-    let live = true;
-    // Re-arm the loading gate on every study switch, not just first mount  -
-    // `StudyHome` doesn't remount `DataTab` on a route change between two
-    // studies, so without this the stale `loading: false` from the previous
-    // study let its sessions/rows flash under the new study's tab for the
-    // gap between navigation and this fetch resolving. Clearing the arrays
-    // too, not just the flag: if the new study's fetch fails with anything
-    // other than "no protocol", the old study's sessions would otherwise
-    // still be sitting in state and render right alongside that error.
-    setLoading(true);
-    setSeeded(false);
-    setSessions([]);
-    setStatusDoc(null);
-    setConditions([]);
-    setRows([]);
-    setLoadError(null);
-    refresh(live, true);
     return () => {
-      live = false;
-      requestVersion.current++;
-      off();
+      generation.current++;
     };
-  }, [studyId, includeSynthetic]);
-
-  const runDryRun = async () => {
-    setDryRun({ report: null, error: null, busy: true });
+  }, [studyId, revision, hasProtocol]);
+  async function downloadFile(kind: "data" | "card" | "kit") {
+    setDownload({ busy: true, error: "" });
     try {
-      const report = await studyApi.simulate(studyId, 10);
-      setDryRun({ report, error: null, busy: false });
-      // Wait for the sessions list so the banner and the list agree; a failed
-      // refresh shows its error (refresh sets loadError), never a silent
-      // "No sessions yet" under a "Dry run complete" banner.
-      await refresh(true);
-    } catch (e) {
-      if (e instanceof OfflineError) {
-        // No middleware: the rehearsal falls back to the honest client-side
-        // rows DataProvenance already knows how to draw.
-        setDryRun({ report: null, error: null, busy: false });
-        setShowClientRehearsal(true);
-        return;
-      }
-      setDryRun({
-        report: null,
-        error: e instanceof Error ? e.message : "dry run failed",
-        busy: false,
-      });
-    }
-  };
-  const [showClientRehearsal, setShowClientRehearsal] = useState(false);
-  const [download, setDownload] = useState<{
-    busy: boolean;
-    error: string | null;
-  }>({ busy: false, error: null });
-
-  const downloadBundle = async () => {
-    setDownload({ busy: true, error: null });
-    try {
-      await studyApi.downloadDataBundle(studyId, includeSynthetic);
-      setDownload({ busy: false, error: null });
+      if (kind === "data") await studyApi.downloadDataBundle(studyId);
+      else if (kind === "kit") await studyApi.downloadReplicationKit(studyId);
+      else await studyApi.downloadDesignCard(studyId);
+      setDownload({ busy: false, error: "" });
     } catch (e) {
       setDownload({
         busy: false,
-        error:
-          e instanceof Error ? e.message : "Couldn't download this study's data.",
+        error: e instanceof Error ? e.message : "Download failed.",
       });
     }
-  };
-
-  // The full one-timeline dataset — the metric registry selects per measure.
-  const datasetRows = rows;
-
-  /* A study whose protocol has never compiled has no data by definition  -  not
-   * three separate absences. The tab used to say so three times, in three
-   * dashed boxes of equal weight stacked down five hundred pixels: "no
-   * compiled protocol", then "no sessions", then "no metric rows carry
-   * cognitive_complexity"  -  the last two being consequences of the first, and
-   * the metric picker above them offering a choice that could not change
-   * anything. Three statements of one fact read as three faults.
-   *
-   * One precondition, said once, with the move that resolves it. */
-  const noProtocol =
-    !!loadError && loadError.toLowerCase().includes("no protocol");
-
-  const fallbackIds = dryRunFallbackSessionIds(dryRun.report, sessions.length);
-
-  if (loading) return null;
-
-  if (noProtocol) {
+  }
+  if (!hasProtocol)
     return (
       <Surface measure="work" label="Data">
-        <EmptyState
-          line={
-            <>
-              Nothing has been collected yet: this study has no compiled
-              protocol. Design it in Setup and apply the draft —
-              its sessions, integrity flags and metrics appear here once
-              participants start running it.
-            </>
-          }
-          action={
-            <Button asChild size="sm">
-              {/* The tab lives in the URL, so this is a real link: it is
-                * back-navigable and shareable, not a state poke. */}
-              <Link to={{ search: "?tab=conversation" }}>
-                Open Setup
-              </Link>
-            </Button>
-          }
-        />
+        <h2 className="type-section text-text">{DATA_EMPTY_TITLE}</h2>
+        <EmptyState line={DATA_EMPTY_BODY} action={
+          <Button asChild size="sm">
+            <Link to={{ search: "?tab=conversation" }}>{OPEN_SETUP}</Link>
+          </Button>
+        } />
       </Surface>
     );
-  }
-
+  if (loading)
+    return (
+      <Surface measure="work" label="Data">
+        <p className="type-body text-text-muted" role="status">
+          Loading real captured data…
+        </p>
+      </Surface>
+    );
   return (
     <Surface measure="work" label="Data">
-      {!seeded && (
-        <div className="flex flex-col gap-2 border-b border-border pb-5">
-          <Checkbox
-            rowClassName="w-fit"
-            label="Include dry-run (synthetic) rows"
-            checked={includeSynthetic}
-            onChange={(event) => setSyntheticScope({ studyId, enabled: event.target.checked })}
-          />
-          <p className="type-note text-text-muted" role="status">
-            {includeSynthetic
-              ? "Views and data bundles include synthetic rehearsal data. These are not participant findings."
-              : "Views and data bundles exclude synthetic rehearsal data."}
-          </p>
-        </div>
-      )}
-      {seeded && (
-        <p
-          className="flex items-center gap-2 rounded-control border border-border bg-well px-3 py-2 type-caption text-text"
-          role="status"
-        >
-          <Info className="size-4 shrink-0 text-text-muted" aria-hidden />
-          Showing built-in sample data, not connected to a live study. Start the
-          middleware to see this study's real sessions and metrics.
+      {loadError ? (
+        <p className="type-body text-critical" role="alert">
+          {loadError}
         </p>
-      )}
-      {/* The no-protocol case returned above; anything reaching here is a
-        * genuine fault, so it is reported as one rather than as an absence. */}
-      {loadError && (
-        <Notice kind="problem">
-          Couldn&apos;t load this study&apos;s data. {loadError}
-        </Notice>
-      )}
-
-      {!loadError && sessions.length === 0 && (
-        <DataProvenance
-          conditions={conditions}
-          onDryRun={runDryRun}
-          dryRunBusy={dryRun.busy}
-          showClientRehearsal={showClientRehearsal}
-        />
-      )}
-
-      {statusDoc && Object.keys(statusDoc.producers).length > 0 && (
-        <details className="border-b border-border pb-5">
-          <summary className="type-subhead cursor-pointer text-text">Capture sources and their status</summary>
-          <div className="mt-2">
-            <p className="mt-1 max-w-reading type-note text-text-muted">
-              Configuration is not receipt. A source is counted below only after its events or metric rows arrive.
+      ) : (
+        <>
+          <section className="flex flex-col gap-3 border-b border-border pb-5">
+            <h2 className="type-subhead text-text">Download study records</h2>
+            <p className="type-note text-text-muted">
+              Data bundles include real captured rows, pilot tags and inclusion
+              decisions. Synthetic rows are excluded. The design card records
+              assumptions, instruments, tool versions and audit signals without
+              rating validity.
             </p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {Object.entries(statusDoc.producers).map(([id, producer]) => (
-              <div key={id} className="rounded-input border border-border px-3 py-2">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="type-label text-text">{captureTokenLabel(id)}</span>
-                  <span className="type-caption text-text-muted">{producerStateLabel(producer.state)}</span>
-                </div>
-                <p className="mt-0.5 type-note text-text-muted">{producer.reason}</p>
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
-
-      {dryRun.report && (
-        <div className="flex items-start gap-2 rounded-plate border border-dashed border-unsourced bg-well p-3">
-          <FlaskConical
-            className="mt-0.5 size-4 shrink-0 text-text-muted"
-            aria-hidden
-          />
-          <p className="type-note text-text">
-            <span className="type-label text-text">
-              Dry run complete: {dryRun.report.participants} synthetic
-              participants
-            </span>
-            <br />
-            {dryRun.report.sessions} sessions, {dryRun.report.events} events
-            stored through the real capture path. These sessions are simulated;
-            the exported rows are marked synthetic. Keep them separate from
-            participant data when analysing your study.
-          </p>
-        </div>
-      )}
-      {dryRun.report?.plan && <DryRunPlan plan={dryRun.report.plan} />}
-      {dryRun.error && (
-        <p className="type-note text-critical" role="alert">
-          {dryRun.error}
-        </p>
-      )}
-
-      {!loadError && !seeded && (
-        <section className="flex flex-col gap-2 border-b border-border pb-5">
-          <h2 className="type-subhead text-text">Download data</h2>
-          <p className="max-w-reading type-note text-text-muted">
-            A zip with one tidy CSV per event type, the joined timeline and a
-            data dictionary, for your own postprocessing.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={download.busy}
-              onClick={() => void downloadBundle()}
-            >
-              <Download className="size-4" aria-hidden />
-              Download data (.zip)
-            </Button>
-          </div>
-          {download.error && (
-            <p className="type-note text-critical" role="alert">
-              {download.error}
-            </p>
-          )}
-        </section>
-      )}
-
-      <section className="flex flex-col gap-stack">
-        <h2 className="type-section text-text">Sessions</h2>
-        {sessions.length === 0 && fallbackIds.length > 0 ? (
-          <ul className="flex flex-col gap-1 type-caption text-text">
-            {fallbackIds.map((id) => (
-              <li key={id} className="font-mono">
-                {id}
-              </li>
-            ))}
-          </ul>
-        ) : sessions.length === 0 ? (
-          <EmptyState line="No sessions yet. Collected data appears here per session, with its completeness and any integrity flags." />
-        ) : (
-          <div className="flex flex-col gap-3">
-            {sessions.map((s) => {
-              const isOpen = expandedSession === s.sessionId;
-              const missingProducers = statusDoc
-                ? statusDoc.requiredProducers.filter((id) => {
-                    const source = statusDoc.producers[id]?.source ?? id;
-                    return (s.sourceCounts?.[source] ?? 0) === 0;
-                  })
-                : [];
-              return (
-                <div
-                  key={s.sessionId}
-                  className="rounded-card border border-border bg-surface"
-                >
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between p-4 text-left hover:bg-zone-9"
-                    onClick={() =>
-                      setExpandedSession(isOpen ? null : s.sessionId)
-                    }
-                  >
-                    <div className="flex items-center gap-2">
-                      {isOpen ? (
-                        <ChevronDown className="size-4 text-text-muted" aria-hidden />
-                      ) : (
-                        <ChevronRight className="size-4 text-text-muted" aria-hidden />
-                      )}
-                      <div className="min-w-0">
-                        <div>
-                          <span className="font-medium text-text">{s.participantId}</span>
-                          <span className="ml-2 rounded-chip bg-zone-9 px-2 py-0.5 type-legend text-text">
-                            {s.condition}
-                          </span>
-                        </div>
-                        <span className="mt-1 block truncate font-mono type-legend text-text-muted" title="Session ID">
-                          {s.sessionId}
-                        </span>
-                      </div>
-                    </div>
-                    <dl className="flex gap-4 type-body">
-                      <Stat label="events" value={s.events} />
-                      <Stat label="metric rows" value={s.metricRows} />
-                      <Stat label="gaps" value={s.gapCount} />
-                    </dl>
-                    <p
-                      className={cn(
-                        "flex items-center gap-1 type-caption",
-                        s.complete ? "text-text" : "text-critical",
-                      )}
+            <div className="flex flex-wrap gap-3">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={download.busy}
+                onClick={() => void downloadFile("data")}
+              >
+                <Download className="size-4" aria-hidden />
+                Data (.zip)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={download.busy}
+                onClick={() => void downloadFile("card")}
+              >
+                Design card (.md)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={download.busy || !hasRole(role, "run_recipe")}
+                onClick={() => void downloadFile("kit")}
+              >
+                Replication kit
+              </Button>
+            </div>
+            {download.error && (
+              <p className="type-note text-critical" role="alert">
+                {download.error}
+              </p>
+            )}
+          </section>
+          <section className="flex flex-col gap-stack">
+            <h2 className="type-section text-text">Sessions</h2>
+            {sessions.length === 0 ? (
+              <EmptyState line="No sessions yet. Collected data appears here per session, with its completeness and any integrity flags." />
+            ) : (
+              <div className="flex flex-col gap-3">
+                {sessions.map((s) => {
+                  const isOpen = expandedSession === s.sessionId;
+                  const missingProducers = statusDoc
+                    ? statusDoc.requiredProducers.filter((id) => {
+                        const source = statusDoc.producers[id]?.source ?? id;
+                        return (s.sourceCounts?.[source] ?? 0) === 0;
+                      })
+                    : [];
+                  return (
+                    <div
+                      key={s.sessionId}
+                      className="rounded-card border border-border bg-surface"
                     >
-                      {s.complete ? (
-                        <>
-                          <CheckCircle2 className="size-3" aria-hidden /> complete
-                        </>
-                      ) : (
-                        <>
-                          <AlertTriangle className="size-3" aria-hidden />
-                          {s.missingEvents > 0
-                            ? `${s.missingEvents} event${s.missingEvents === 1 ? "" : "s"} missing`
-                            : "in progress"}
-                          {s.flagKinds.length > 0 && ` · ${s.flagKinds.join(", ")}`}
-                        </>
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between p-4 text-left hover:bg-zone-9"
+                        onClick={() =>
+                          setExpandedSession(isOpen ? null : s.sessionId)
+                        }
+                      >
+                        <div className="flex items-center gap-2">
+                          {isOpen ? (
+                            <ChevronDown
+                              className="size-4 text-text-muted"
+                              aria-hidden
+                            />
+                          ) : (
+                            <ChevronRight
+                              className="size-4 text-text-muted"
+                              aria-hidden
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <div>
+                              <span className="font-medium text-text">
+                                {s.participantId}
+                              </span>
+                              <span className="ml-2 rounded-chip bg-zone-9 px-2 py-0.5 type-legend text-text">
+                                {s.condition}
+                              </span>
+                            </div>
+                            <span
+                              className="mt-1 block truncate font-mono type-legend text-text-muted"
+                              title="Session ID"
+                            >
+                              {s.sessionId}
+                            </span>
+                          </div>
+                        </div>
+                        <dl className="flex gap-4 type-body">
+                          <Stat label="events" value={s.events} />
+                          <Stat label="metric rows" value={s.metricRows} />
+                          <Stat label="gaps" value={s.gapCount} />
+                        </dl>
+                        <p
+                          className={cn(
+                            "flex items-center gap-1 type-caption",
+                            s.complete ? "text-text" : "text-critical",
+                          )}
+                        >
+                          {s.complete ? (
+                            <>
+                              <CheckCircle2 className="size-3" aria-hidden />{" "}
+                              complete
+                            </>
+                          ) : (
+                            <>
+                              <AlertTriangle className="size-3" aria-hidden />
+                              {s.missingEvents > 0
+                                ? `${s.missingEvents} event${s.missingEvents === 1 ? "" : "s"} missing`
+                                : "in progress"}
+                              {s.flagKinds.length > 0 &&
+                                ` · ${s.flagKinds.join(", ")}`}
+                            </>
+                          )}
+                        </p>
+                      </button>
+                      {isOpen && (
+                        <div className="border-t border-border px-4 pb-4 pt-3">
+                          <div className="mb-3 flex flex-wrap items-center gap-2 type-caption text-text-muted">
+                            <span>task: {s.taskId || "not stamped"}</span>
+                            {Object.entries(s.sourceCounts ?? {}).map(
+                              ([source, count]) => (
+                                <span
+                                  key={source}
+                                  className="rounded-chip bg-well px-2 py-0.5"
+                                >
+                                  {laneLabel(source)}: {count}
+                                </span>
+                              ),
+                            )}
+                            {missingProducers.length > 0 && (
+                              <span className="text-critical">
+                                missing required: {missingProducers.join(", ")}
+                              </span>
+                            )}
+                          </div>
+                          <SwimlaneTimeline
+                            sessionId={s.sessionId}
+                            studyId={studyId}
+                            onClose={() => setExpandedSession(null)}
+                          />
+                        </div>
                       )}
-                    </p>
-                  </button>
-                  {isOpen && (
-                    <div className="border-t border-border px-4 pb-4 pt-3">
-                      <div className="mb-3 flex flex-wrap items-center gap-2 type-caption text-text-muted">
-                        <span>task: {s.taskId || "not stamped"}</span>
-                        {Object.entries(s.sourceCounts ?? {}).map(([source, count]) => (
-                          <span key={source} className="rounded-chip bg-well px-2 py-0.5">
-                            {source}: {count}
-                          </span>
-                        ))}
-                        {missingProducers.length > 0 && (
-                          <span className="text-critical">
-                            missing required: {missingProducers.join(", ")}
-                          </span>
-                        )}
-                      </div>
-                      <SwimlaneTimeline
-                        sessionId={s.sessionId}
-                        studyId={studyId}
-                        onClose={() => setExpandedSession(null)}
-                      />
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
-      {/* Metrics and the prescription that reads them sit close together  -
-          they're one analytical unit, tighter than the section gap. */}
-      <div className="flex flex-col gap-stack">
-        <section className="flex flex-col gap-stack">
-          <h2 className="type-section text-text">Metrics by condition</h2>
-          <p className="-mt-2 max-w-reading type-body text-text-muted">
-            Compare a measure across study conditions. Pick any measure the
-            study collects — static code metrics, editing behaviour, fatigue,
-            comprehension, or agent activity — to see its distribution, drawn
-            with the mark that reads honestly for its type.
-          </p>
-          <MetricStrip rows={datasetRows} conditions={conditions} />
-        </section>
-        <PrescriptionPanel studyId={studyId} />
-      </div>
+          <ControlAudit
+            studyId={studyId}
+            sessions={sessions}
+            role={role}
+            onUpdated={() => setRevision((r) => r + 1)}
+          />
+          <div className="flex flex-col gap-stack">
+            <section className="flex flex-col gap-stack">
+              <h2 className="type-section text-text">
+                Confirmatory metrics by condition
+              </h2>
+              <p className="type-note text-text-muted">
+                Pilot sessions and researcher-excluded sessions are omitted from
+                this comparison.
+              </p>
+              <MetricStrip
+                rows={rows.filter(
+                  (r) => !r.pilot && r.inclusionDecision !== "exclude",
+                )}
+                conditions={conditions}
+              />
+            </section>
+            <PrescriptionPanel studyId={studyId} />
+          </div>
+        </>
+      )}
     </Surface>
   );
 }

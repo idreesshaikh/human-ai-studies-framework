@@ -30,7 +30,11 @@ def derive_overlay_settings(
     protocol: dict, participant_id: str, condition: str, task: dict | None = None
 ) -> dict:
     """Return the flat ``tern.*`` settings for one session."""
-    if _PREFIX not in protocol.get("instruments", {}):
+    instruments = protocol.get("instruments", {})
+    instrument = instruments.get(_PREFIX)
+    if instrument is None and protocol.get("protocolVersion", 1) <= 3:
+        instrument = instruments.get("kite")
+    if instrument is None:
         raise ProtocolError(
             "this protocol declares no tern instrument  -  it is an "
             "agent-participant study (FR-PROT-9). Use `derive agent-hooks` for "
@@ -53,7 +57,7 @@ def derive_overlay_settings(
     # saw it.
     if task and task.get("id"):
         settings[f"{_PREFIX}.session.taskId"] = task["id"]
-    _flatten(_PREFIX, protocol["instruments"][_PREFIX], settings)
+    _flatten(_PREFIX, instrument, settings)
 
     settings.setdefault(
         f"{_PREFIX}.session.durationMinutes",

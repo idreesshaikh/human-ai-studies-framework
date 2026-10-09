@@ -255,7 +255,7 @@ export const METRIC_REGISTRY: MetricEntry[] = [
         if (r.type !== "fatigue_response") continue;
         // Real TERN capture carries `value`; the simulator and the analysis
         // recipe use `score`. Read whichever the row carries so the chart is
-        // honest against both live sessions and synthetic dry runs.
+        // honest against both live sessions and imported synthetic captures.
         const v = num(r.payload.value) ?? num(r.payload.score);
         if (v === null) continue;
         out.push({

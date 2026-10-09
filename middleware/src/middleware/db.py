@@ -12,6 +12,7 @@ from sqlalchemy import (
     CheckConstraint,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -187,6 +188,60 @@ class S2Cache(Base):
     url: Mapped[str] = mapped_column(String, unique=True)
     body: Mapped[dict] = mapped_column(JSON)
     fetched_at: Mapped[str] = mapped_column(String)
+
+
+class CorpusRefreshRun(Base):
+    """One scheduled or manual refresh of the candidate pool."""
+
+    __tablename__ = "corpus_refresh_runs"
+    __table_args__ = (
+        Index(
+            "uq_corpus_refresh_running",
+            "status",
+            unique=True,
+            sqlite_where=text("status = 'running'"),
+            postgresql_where=text("status = 'running'"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    started_at: Mapped[str] = mapped_column(String)
+    finished_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="running")
+    since: Mapped[str] = mapped_column(String)
+    until: Mapped[str] = mapped_column(String)
+    fetched: Mapped[int] = mapped_column(Integer, default=0)
+    new_candidates: Mapped[int] = mapped_column(Integer, default=0)
+    duplicates: Mapped[int] = mapped_column(Integer, default=0)
+    errors: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class CorpusCandidate(Base):
+    """A paper found by a refresh, awaiting a human decision. Not searchable."""
+
+    __tablename__ = "corpus_candidates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ref: Mapped[str] = mapped_column(String, unique=True, index=True)
+    arxiv_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    doi: Mapped[str | None] = mapped_column(String, nullable=True)
+    s2_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    title: Mapped[str] = mapped_column(String)
+    abstract: Mapped[str] = mapped_column(Text, default="")
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    published_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    venue: Mapped[str] = mapped_column(String, default="")
+    authors: Mapped[list] = mapped_column(JSON, default=list)
+    citation_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source: Mapped[str] = mapped_column(String)
+    url: Mapped[str | None] = mapped_column(String, nullable=True)
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    run_id: Mapped[int] = mapped_column(Integer)
+    first_seen_at: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, default="new", index=True)
+    decided_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    note: Mapped[str] = mapped_column(Text, default="")
 
 
 class RecipeRun(Base):
@@ -440,6 +495,45 @@ class SessionOpen(Base):
     study_id: Mapped[str] = mapped_column(String, index=True)
     protocol_version: Mapped[int] = mapped_column(Integer)
     opened_at: Mapped[str] = mapped_column(String)
+
+
+class StudyPlan(Base):
+    """Immutable planner runs pinned to a protocol hash/version."""
+
+    __tablename__ = "study_plans"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    study_id: Mapped[str] = mapped_column(String, index=True)
+    protocol_version: Mapped[int] = mapped_column(Integer)
+    protocol_hash: Mapped[str] = mapped_column(String)
+    protocol: Mapped[dict] = mapped_column(JSON)
+    inputs: Mapped[dict] = mapped_column(JSON)
+    result: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[str] = mapped_column(String)
+
+
+class SessionAnnotation(Base):
+    """Researcher pilot tags and audit inclusion decisions; never inferred."""
+
+    __tablename__ = "session_annotations"
+    session_id: Mapped[str] = mapped_column(String, primary_key=True)
+    study_id: Mapped[str] = mapped_column(String, index=True)
+    pilot: Mapped[int] = mapped_column(Integer, default=0)
+    decision: Mapped[str] = mapped_column(String, default="undecided")
+    reason: Mapped[str] = mapped_column(Text, default="")
+    decided_by: Mapped[str] = mapped_column(String, default="")
+    updated_at: Mapped[str] = mapped_column(String)
+
+
+class StudyAuditRecord(Base):
+    """Append-only researcher decision/calibration provenance."""
+
+    __tablename__ = "study_audit_records"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    study_id: Mapped[str] = mapped_column(String, index=True)
+    kind: Mapped[str] = mapped_column(String)
+    record: Mapped[dict] = mapped_column(JSON)
+    recorded_by: Mapped[str] = mapped_column(String)
+    created_at: Mapped[str] = mapped_column(String)
 
 
 class UserProfile(Base):

@@ -16,6 +16,8 @@ _COLUMN_MEANINGS: dict[str, str] = {
     "taskId": "the protocol task assigned to this session",
     "participantId": "anonymized participant id (P01, P02, ...)",
     "condition": "the condition this session ran under",
+    "pilot": "researcher-tagged pilot session; excluded from confirmatory analysis",
+    "inclusionDecision": "researcher decision: include, exclude or undecided",
     "schemaVersion": "producer row schema version",
     "ts": "UTC timestamp (ISO-8601, millisecond precision)",
     "type": "event type  -  what the row records",
@@ -103,8 +105,17 @@ def _dictionary_rows(dataset: Dataset) -> list[tuple[str, str, str]]:
     rows: list[tuple[str, str, str]] = []
     events = dataset.events
     fixed = [c for c in events.columns if c != "payload"]
+    fixed.extend(
+        c
+        for c in ("pilot", "inclusionDecision")
+        if c not in fixed and any(c in r for r in dataset.rows)
+    )
     for column in fixed:
-        dtype = str(events[column].dtype) if not events.empty else "object"
+        dtype = (
+            str(events[column].dtype)
+            if not events.empty and column in events
+            else "object"
+        )
         meaning = _COLUMN_MEANINGS.get(column, "event-row attribute stamped at ingest")
         rows.append((column, dtype, meaning))
     for type_, keys in _event_payload_keys(dataset).items():
@@ -119,7 +130,10 @@ def _dictionary_rows(dataset: Dataset) -> list[tuple[str, str, str]]:
                 )
             else:
                 rows.append((f"payload.{key}", "any", f"payload key on {type_} events"))
-    if "synthetic" in dataset.metrics.columns:
+    if any(
+        r.get("source") == "metrics" and "synthetic" in (r.get("payload") or {})
+        for r in dataset.rows
+    ):
         rows.append(("synthetic", "bool", "simulated metric row; not participant data"))
     # Sorted, never the set's raw iteration order: metric_columns is a set, and set
     # iteration order is per-process hash-randomized  -  an unsorted pass would make the
@@ -175,9 +189,13 @@ def _provenance_markdown(protocol: dict, dataset: Dataset, study_id: str) -> str
         f"- Participants: {participants.get('planned', '?')} "
         f"({participants.get('design', '?')}, "
         f"{_counterbalancing_text(participants)})  ",
-        f"- Dataset rows: {len(dataset.rows)} "
+        f"- Dataset rows: {len(dataset.analysis_rows)} analysed of "
+        f"{len(dataset.rows)} exported "
         f"({len(dataset.events)} events, "
         f"{len(dataset.metrics)} metric rows)  ",
+        f"- Sessions analysed: {len({r['sessionId'] for r in dataset.analysis_rows})} "
+        f"of {len({r['sessionId'] for r in dataset.rows})}; "
+        f"excluded from confirmatory analysis: {len(dataset.exclusions)}  ",
         f"- Planned recipes: {', '.join(recipe_ids) or 'none'}",
         (
             "- Capture policy: metadata-only by default; raw code, conversation "
@@ -268,7 +286,11 @@ def build_notebook(protocol: dict, dataset: Dataset, study_id: str) -> dict:
             "\n"
             "# Point this at your dataset export, or start the middleware\n"
             '# and use Dataset.fetch("http://127.0.0.1:8000", "' + study_id + '").\n'
-            'dataset = Dataset.from_json("dataset.json")\n',
+            'dataset = Dataset.from_json("dataset.json")\n'
+            "# The frozen protocol defines scoring and the planned test.\n"
+            f"protocol = {protocol!r}\n"
+            "dataset.meta.update(protocol=protocol, "
+            'control_conditions=protocol.get("controlConditions", []))\n',
             len(cells),
         )
     )
@@ -287,9 +309,9 @@ def build_notebook(protocol: dict, dataset: Dataset, study_id: str) -> dict:
         _code_cell(
             "from analysis import figures\n"
             "\n"
-            "# The first session in the dataset; loop over rows for all of them:\n"
-            "# for session_id in sorted({r['sessionId'] for r in dataset.rows}):\n"
-            'session_id = dataset.rows[0]["sessionId"]\n'
+            "# The first analysed session; loop over analysis_rows for all of them:\n"
+            "# for sid in sorted({r['sessionId'] for r in dataset.analysis_rows}):\n"
+            "session_id = dataset.analysis_rows[0]['sessionId']\n"
             "fig = figures.session_timeline(dataset, session_id)\n"
             'fig.savefig(f"session-timeline-{session_id}.png", dpi=150)\n',
             len(cells),

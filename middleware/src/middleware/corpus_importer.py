@@ -91,6 +91,21 @@ def parse_tier_b() -> list[dict]:
     return [e for e in data.get("tierB", []) if e.get("ref")]
 
 
+def core_row_count(s: Session) -> int:
+    """
+    Rows that came from the checked-in manifest (tiers A and B), not promoted
+    papers.
+    """
+    return (
+        s.scalar(
+            select(func.count())
+            .select_from(Paper)
+            .where(Paper.study_id == CORPUS_STUDY_ID, Paper.tier.in_(("A", "B")))
+        )
+        or 0
+    )
+
+
 def expected_corpus_rows() -> int:
     """The number of paper rows represented by the checked-in corpus manifest."""
     global _EXPECTED_ROWS
@@ -101,11 +116,7 @@ def expected_corpus_rows() -> int:
 
 def corpus_status_for_session(s: Session) -> dict[str, object]:
     """Return an honest readiness status for the corpus-backed UI."""
-    total = s.scalar(
-        select(func.count())
-        .select_from(Paper)
-        .where(Paper.study_id == CORPUS_STUDY_ID)
-    ) or 0
+    total = core_row_count(s)
     expected = expected_corpus_rows()
     with _BOOTSTRAP_LOCK:
         state = dict(_BOOTSTRAP_STATE)
@@ -310,11 +321,7 @@ def start_background_import(db_url: str, session_factory) -> dict[str, object]:
             return dict(_BOOTSTRAP_STATE)
 
         with session_factory() as s:
-            current = s.scalar(
-                select(func.count())
-                .select_from(Paper)
-                .where(Paper.study_id == CORPUS_STUDY_ID)
-            ) or 0
+            current = core_row_count(s)
         expected = expected_corpus_rows()
         if current >= expected > 0:
             _BOOTSTRAP_STATE.update(
@@ -331,11 +338,7 @@ def start_background_import(db_url: str, session_factory) -> dict[str, object]:
             try:
                 import_corpus(db_url, session_factory=session_factory)
                 with session_factory() as s:
-                    total = s.scalar(
-                        select(func.count())
-                        .select_from(Paper)
-                        .where(Paper.study_id == CORPUS_STUDY_ID)
-                    ) or 0
+                    total = core_row_count(s)
                 with _BOOTSTRAP_LOCK:
                     _BOOTSTRAP_STATE.update(
                         state="ready" if total >= expected else "partial",
@@ -370,7 +373,7 @@ _DEMO_SEED_REFS = (
 
 def verify_import(db_url: str) -> dict[str, bool]:
     """
-    Spot-check an import against the source files (F8.1/F8.4): demo seeds present and
+    Spot-check an import against the source files (F8.1/F8.4): anchor papers present and
     searchable, row counts match the index, via-edges landed.
     """
     factory = make_session_factory(db_url)

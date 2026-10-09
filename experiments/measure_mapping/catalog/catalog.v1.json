@@ -1,0 +1,562 @@
+[
+  {
+    "id": "S1",
+    "construct": "mental demand",
+    "description": "Perceived mental demands of the task, as a declared questionnaire item.",
+    "instrument": "raw-nasa-tlx",
+    "fields": [
+      "survey_response.responses.mental_demand"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "mentally demanding",
+      "mental demand"
+    ],
+    "positives": [
+      "How mentally taxing was the task?",
+      "Mental demand of the coding task"
+    ],
+    "negatives": [
+      "Physical strain from typing",
+      "Overall weighted task workload"
+    ],
+    "source": "protocol/src/protocol/schema/survey-instruments.json",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "S2",
+    "construct": "effort",
+    "description": "Self-reported effort invested in accomplishing the task.",
+    "instrument": "raw-nasa-tlx",
+    "fields": [
+      "survey_response.responses.effort"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "effort",
+      "worked hard"
+    ],
+    "positives": [
+      "How hard did you have to work?",
+      "Effort required to finish the task"
+    ],
+    "negatives": [
+      "Time spent on the task",
+      "Frustration with the task"
+    ],
+    "source": "protocol/src/protocol/schema/survey-instruments.json",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "S3",
+    "construct": "frustration",
+    "description": "Self-reported frustration during the task.",
+    "instrument": "raw-nasa-tlx",
+    "fields": [
+      "survey_response.responses.frustration"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "frustration",
+      "annoyance"
+    ],
+    "positives": [
+      "How frustrated were participants?",
+      "Annoyance and discouragement during the task"
+    ],
+    "negatives": [
+      "Fatigue probe during the session",
+      "Trust in generated code"
+    ],
+    "source": "protocol/src/protocol/schema/survey-instruments.json",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "S4",
+    "construct": "temporal demand",
+    "description": "Perceived time pressure, distinct from elapsed task duration.",
+    "instrument": "raw-nasa-tlx",
+    "fields": [
+      "survey_response.responses.temporal_demand"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "temporal demand",
+      "time pressure"
+    ],
+    "positives": [
+      "How rushed did the task feel?",
+      "Perceived time pressure during coding"
+    ],
+    "negatives": [
+      "Minutes until tests passed",
+      "Physical effort"
+    ],
+    "source": "protocol/src/protocol/schema/survey-instruments.json",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "S5",
+    "construct": "perceived performance",
+    "description": "Self-rated task performance, distinct from objective test success.",
+    "instrument": "raw-nasa-tlx",
+    "fields": [
+      "survey_response.responses.performance"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "perceived performance",
+      "self-rated performance"
+    ],
+    "positives": [
+      "How successful did participants feel?",
+      "Participants rate their task performance"
+    ],
+    "negatives": [
+      "Whether the solution passed its tests",
+      "Productivity gain estimated by participants"
+    ],
+    "source": "protocol/src/protocol/schema/survey-instruments.json",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "S6",
+    "construct": "self-rated comprehension",
+    "description": "Self-reported code understanding; this is not a scored comprehension quiz.",
+    "instrument": "legacy-tlx-inspired",
+    "fields": [
+      "survey_response.responses.comprehension"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "self-rated comprehension",
+      "reported understanding"
+    ],
+    "positives": [
+      "How well did participants feel they understood the code?",
+      "Self-rated code understanding"
+    ],
+    "negatives": [
+      "Correct answers on a comprehension quiz",
+      "Complexity of the source code"
+    ],
+    "source": "protocol/src/protocol/schema/survey-instruments.json",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "S7",
+    "construct": "physical demand",
+    "description": "Perceived physical demands of the task.",
+    "instrument": "raw-nasa-tlx",
+    "fields": [
+      "survey_response.responses.physical_demand"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "physical demand",
+      "physical strain"
+    ],
+    "positives": [
+      "Physical effort required for the task",
+      "How physically demanding was coding?"
+    ],
+    "negatives": [
+      "Mental effort during debugging",
+      "Elapsed typing time"
+    ],
+    "source": "protocol/src/protocol/schema/survey-instruments.json",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "S8",
+    "construct": "overall workload",
+    "description": "Unweighted mean of the six declared raw NASA-TLX ratings; not weighted TLX.",
+    "instrument": "raw-nasa-tlx",
+    "fields": [
+      "survey_response.score"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "raw NASA-TLX",
+      "overall workload"
+    ],
+    "positives": [
+      "Overall workload from the raw TLX mean",
+      "Unweighted mean of six task workload ratings"
+    ],
+    "negatives": [
+      "Just the mental-demand item",
+      "Static cognitive complexity of the code"
+    ],
+    "source": "protocol/src/protocol/schema/survey-instruments.json",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "S9",
+    "construct": "usability",
+    "description": "System usability measured with the ten-item SUS and its declared scoring.",
+    "instrument": "sus",
+    "fields": [
+      "survey_response.score"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "SUS",
+      "system usability"
+    ],
+    "positives": [
+      "System Usability Scale score for the assistant",
+      "How usable was the tool according to SUS?"
+    ],
+    "negatives": [
+      "Trust in the assistant",
+      "Overall satisfaction with the tool"
+    ],
+    "source": "protocol/src/protocol/schema/survey-instruments.json",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "S10",
+    "construct": "pre-task skill",
+    "description": "Draft self-report covariate for prior skill; not a validated proficiency test or outcome.",
+    "instrument": "pre-task-skill",
+    "fields": [
+      "pre_task_covariate.score"
+    ],
+    "recipeByDesign": {
+      "within-subjects": null,
+      "between-subjects": null
+    },
+    "aliases": [
+      "prior skill",
+      "pre-task experience"
+    ],
+    "positives": [
+      "Participants rate their prior debugging experience",
+      "Self-reported skill before starting the task"
+    ],
+    "negatives": [
+      "Task accuracy after the session",
+      "Score on a validated programming skills test"
+    ],
+    "source": "protocol/src/protocol/schema/survey-instruments.json",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "E1",
+    "construct": "time to first green",
+    "description": "Time to first passing test milestone; not total active work or perceived productivity.",
+    "instrument": "taskHarness",
+    "fields": [
+      "task_outcome.firstGreenMs"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "paired-nonparametric",
+      "between-subjects": "two-group-nonparametric"
+    },
+    "aliases": [
+      "first green",
+      "task completion time"
+    ],
+    "positives": [
+      "Time until the tests first passed",
+      "How long until the first successful test run?"
+    ],
+    "negatives": [
+      "Perceived productivity improvement",
+      "Whether tests passed at all"
+    ],
+    "source": "analysis/src/analysis/recipes/paired_nonparametric.py",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "E2",
+    "construct": "test success",
+    "description": "Binary observed task test success; not substantive defect count or general code quality.",
+    "instrument": "taskHarness",
+    "fields": [
+      "task_outcome.passed"
+    ],
+    "recipeByDesign": {
+      "within-subjects": null,
+      "between-subjects": "two-proportion"
+    },
+    "aliases": [
+      "pass/fail",
+      "test success"
+    ],
+    "positives": [
+      "Did the task solution pass its tests?",
+      "Proportion of solutions passing the test harness"
+    ],
+    "negatives": [
+      "Number of substantive defects",
+      "Time until the tests passed"
+    ],
+    "source": "analysis/src/analysis/recipes/two_proportion.py",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "E3",
+    "construct": "self-reported fatigue",
+    "description": "Periodic self-reported fatigue probe; not a workload aggregate.",
+    "instrument": "tern",
+    "fields": [
+      "fatigue_response.score"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "fatigue-by-condition",
+      "between-subjects": "fatigue-by-condition"
+    },
+    "aliases": [
+      "fatigue",
+      "tiredness probe"
+    ],
+    "positives": [
+      "Self-reported tiredness during the session",
+      "Fatigue ratings from periodic probes"
+    ],
+    "negatives": [
+      "Post-task raw NASA-TLX mean",
+      "Physical demands of the task"
+    ],
+    "source": "analysis/src/analysis/recipes/fatigue_by_condition.py",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "E4",
+    "construct": "stuck episodes",
+    "description": "Detector-supported struggle episodes; inactivity alone does not establish being stuck.",
+    "instrument": "tern",
+    "fields": [
+      "stuck_response.evidenceMs"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "stuck-episodes",
+      "between-subjects": "stuck-episodes"
+    },
+    "aliases": [
+      "stuck episodes",
+      "struggle episodes"
+    ],
+    "positives": [
+      "Frequency of captured stuck episodes",
+      "Evidence duration of reported struggle episodes"
+    ],
+    "negatives": [
+      "General dissatisfaction",
+      "Fatigue ratings"
+    ],
+    "source": "analysis/src/analysis/recipes/stuck_episodes.py",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "E5",
+    "construct": "paste behaviour",
+    "description": "Captured clipboard paste amounts and declared provenance; paste alone does not prove AI use.",
+    "instrument": "tern",
+    "fields": [
+      "clipboard_paste.charCount"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "paste-behavior",
+      "between-subjects": "paste-behavior"
+    },
+    "aliases": [
+      "paste amount",
+      "paste provenance"
+    ],
+    "positives": [
+      "How many characters were pasted?",
+      "Amounts pasted with reported assistant provenance"
+    ],
+    "negatives": [
+      "AI suggestion acceptance rate",
+      "Number of agent prompts"
+    ],
+    "source": "analysis/src/analysis/recipes/paste_behavior.py",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "E6",
+    "construct": "file switching",
+    "description": "Observed editor file switching as a fragmentation proxy, not all interruptions.",
+    "instrument": "tern",
+    "fields": [
+      "editor_focus.file"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "meyer-fragmentation",
+      "between-subjects": "meyer-fragmentation"
+    },
+    "aliases": [
+      "file switching",
+      "editor fragmentation"
+    ],
+    "positives": [
+      "How frequently participants switched files",
+      "Editor focus changes between source files"
+    ],
+    "negatives": [
+      "Interruptions from meetings",
+      "Number of debugging failures"
+    ],
+    "source": "analysis/src/analysis/recipes/meyer_fragmentation.py",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "E7",
+    "construct": "suggestion review timing",
+    "description": "Observed suggestion review actions and timing; not review quality or care.",
+    "instrument": "tern",
+    "fields": [
+      "ai_suggestion.action"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "ai-review-behavior",
+      "between-subjects": "ai-review-behavior"
+    },
+    "aliases": [
+      "review latency",
+      "suggestion review"
+    ],
+    "positives": [
+      "Time before deciding on an AI suggestion",
+      "How long suggestions were displayed before a review action"
+    ],
+    "negatives": [
+      "How many suggestions were accepted",
+      "Quality of a pull request review"
+    ],
+    "source": "analysis/src/analysis/recipes/ai_review_behavior.py",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "E8",
+    "construct": "suggestion acceptance",
+    "description": "Share of shown AI suggestions accepted under the recipe denominator.",
+    "instrument": "tern",
+    "fields": [
+      "ai_suggestion.action"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "ziegler-acceptance-rate",
+      "between-subjects": "ziegler-acceptance-rate"
+    },
+    "aliases": [
+      "acceptance rate",
+      "accepted completions"
+    ],
+    "positives": [
+      "Share of AI completions accepted",
+      "Ratio of accepted to shown suggestions"
+    ],
+    "negatives": [
+      "Latency before reviewing a suggestion",
+      "Trust in generated code"
+    ],
+    "source": "analysis/src/analysis/recipes/ziegler_acceptance_rate.py",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "E9",
+    "construct": "agent interaction dynamics",
+    "description": "Captured agent conversation turns, cadence and response sizes; not unobserved reasoning.",
+    "instrument": "agentCapture",
+    "fields": [
+      "agent_turn.responseChars"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "agent-interaction-dynamics",
+      "between-subjects": "agent-interaction-dynamics"
+    },
+    "aliases": [
+      "agent turns",
+      "turn cadence"
+    ],
+    "positives": [
+      "Number of prompts and response lengths",
+      "Cadence of captured agent conversations"
+    ],
+    "negatives": [
+      "Assistant suggestion acceptance rate",
+      "Perceived productivity"
+    ],
+    "source": "analysis/src/analysis/recipes/agent_interaction_dynamics.py",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  },
+  {
+    "id": "E10",
+    "construct": "static code metrics",
+    "description": "Static code characteristics such as cognitive complexity; not measured mental load or defects.",
+    "instrument": "metrics",
+    "fields": [
+      "file_metrics.cognitive_complexity"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "code-quality-by-condition",
+      "between-subjects": "code-quality-by-condition"
+    },
+    "aliases": [
+      "cognitive complexity",
+      "static code metrics"
+    ],
+    "positives": [
+      "Cognitive complexity of the produced code",
+      "Nesting and other static code characteristics"
+    ],
+    "negatives": [
+      "Subjective workload while coding",
+      "Number of substantive bugs"
+    ],
+    "source": "analysis/src/analysis/recipes/code_quality_by_condition.py",
+    "provenance": "llm",
+    "reviewStatus": "proposed"
+  }
+]

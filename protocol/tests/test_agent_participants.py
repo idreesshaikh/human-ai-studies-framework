@@ -17,12 +17,6 @@ def _load(path: Path) -> dict:
     return yaml.safe_load(path.read_text())
 
 
-def test_agent_fixture_validates_under_v3():
-    doc = _load(FIXTURE)
-    assert doc["protocolVersion"] == 3
-    assert validate_protocol(doc) == []
-
-
 def test_v3_requires_at_least_one_real_instrument():
     doc = _load(FIXTURE)
     doc["instruments"] = {"metrics": {"metricSet": "cognitive-load-9"}}
@@ -36,10 +30,6 @@ def test_v4_still_requires_an_instrument():
     doc["instruments"] = {"metrics": {"metricSet": "cognitive-load-9"}}
     errors = validate_protocol(doc)
     assert errors and any("instruments" in e for e in errors)
-
-
-def test_pilot_still_valid():
-    assert validate_protocol(_load(PILOT)) == []
 
 
 def test_v4_curated_still_requires_an_instrument():

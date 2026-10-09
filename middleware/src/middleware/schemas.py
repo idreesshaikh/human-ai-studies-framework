@@ -134,7 +134,18 @@ class QuickProtocolIn(BaseModel):
     taskDescription: str = Field(min_length=8, max_length=500)
     sessionMinutes: int = Field(ge=15, le=180)
     measures: list[str] = Field(min_length=1, max_length=6)
+    measureIds: list[str] = Field(default_factory=list, max_length=6)
+    existingMeasureIds: list[str] = Field(default_factory=list, max_length=6)
+    typedMeasures: bool = False
     counterbalanced: bool = True
+
+
+class MeasureSuggestionIn(BaseModel):
+    model_config = {"extra": "forbid"}
+    text: str = Field(min_length=1, max_length=1000)
+    design: Literal["within-subjects", "between-subjects"]
+    topK: int = Field(default=3, ge=1, le=5)
+    requestId: str | None = Field(default=None, max_length=128)
 
 
 class SessionStartIn(BaseModel):
@@ -174,14 +185,6 @@ class ToggleIn(BaseModel):
     rationale: str = ""
 
 
-class SimulateIn(BaseModel):
-    """Synthetic rehearsal settings."""
-
-    count: int = 5
-    profile: str = "mixed"
-    seed: int | None = None
-
-
 __all__ = [
     "ApproveIn",
     "CompileIn",
@@ -199,7 +202,6 @@ __all__ = [
     "RecipeRunIn",
     "RedeemIn",
     "SessionStartIn",
-    "SimulateIn",
     "StudyEventIn",
     "TemplateInstantiateIn",
     "ToggleIn",

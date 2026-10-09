@@ -21,6 +21,7 @@ import {
   templatesApi,
   type RepertoireEntry,
   type CorpusStatus,
+  type FeaturedTemplate,
 } from "@/lib/templatesApi";
 import { OfflineError } from "@/lib/studyApi";
 import { useApi, useSession } from "@/lib/session";
@@ -28,12 +29,8 @@ import { useAuth } from "@/lib/auth.tsx";
 import { ApiError } from "@/lib/api";
 import { signInHref } from "@/lib/returnTo";
 import { plainMatchReason } from "@/lib/uiText";
+import { hasRole } from "@/lib/capabilities";
 import { publicPaperReference } from "@/lib/paperReference";
-
-/* Templates (FR-TPL)  -  the literature read as *design shapes* rather than as
- * thirteen studies to replicate. Each template is ranked by how widely the
- * corpus actually uses it (common to rare), and the papers that used it hang
- * off it as ranked references. */
 
 const BAND_COPY: Record<RepertoireEntry["band"], string> = {
   common: "Widely used across the corpus",
@@ -52,13 +49,11 @@ export function Templates() {
   const [corpus, setCorpus] = useState<CorpusStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [featured, setFeatured] = useState<FeaturedTemplate[]>([]);
+  const [starting, setStarting] = useState<string | null>(null);
 
-  /* The conversational alternative to browsing: describe the study in plain
-   * language and the assistant works the design out in a design conversation.
-   * Templates are public to READ; starting a conversation writes, so it needs
-   * an identity and says so where it is. */
   const api = useApi();
-  const { refresh } = useSession();
+  const { me, loading: meLoading, refresh } = useSession();
   const { hasCredential } = useAuth();
   const signedOut = !hasCredential;
   const navigate = useNavigate();
@@ -67,6 +62,35 @@ export function Templates() {
   const [describe, setDescribe] = useState("");
   const [describeBusy, setDescribeBusy] = useState(false);
   const [describeError, setDescribeError] = useState("");
+
+  async function studyProject() {
+    return me?.memberships.find((membership) => hasRole(membership.role, "contribute"))?.projectSlug
+      ?? (await api.createProject("Personal")).slug;
+  }
+
+  useEffect(() => {
+    let active = true;
+    void templatesApi.featured().then((items) => { if (active) setFeatured(items); })
+      .catch(() => { if (active) setError("Could not load starting templates."); });
+    return () => { active = false; };
+  }, []);
+
+  async function useTemplate(templateId: string, title: string) {
+    if (starting || meLoading) return;
+    setStarting(templateId);
+    setError(null);
+    try {
+      const slug = await studyProject();
+      const { protocol } = await templatesApi.instantiate(templateId, { title });
+      const study = await api.createStudy(slug, title, protocol);
+      await refresh().catch(() => {});
+      navigate(`/p/${slug}/studies/${study.id}?tab=planning`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not start this study.");
+    } finally {
+      setStarting(null);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -78,7 +102,7 @@ export function Templates() {
           if (!active) return;
           setEntries(d.repertoire);
           setCorpus(d.corpus);
-          if (d.corpus.state === "loading" || d.corpus.state === "partial") {
+          if (d.corpus.state === "loading") {
             timer = window.setTimeout(load, 1200);
           }
         })
@@ -114,14 +138,12 @@ export function Templates() {
     setDescribeBusy(true);
     setDescribeError("");
     try {
-      // Same implicit-personal-project path as QuickStart: no naming friction,
-      // the researcher lands straight in the conversation.
-      const project = await api.createProject("Personal");
+      const slug = await studyProject();
       const title =
         text.length > 60 ? `${text.slice(0, 57).trimEnd()}…` : text;
-      const study = await api.createStudy(project.slug, title);
+      const study = await api.createStudy(slug, title);
       await refresh();
-      navigate(`/p/${project.slug}/studies/${study.id}`, {
+      navigate(`/p/${slug}/studies/${study.id}`, {
         state: { opening: text },
       });
     } catch (e) {
@@ -138,15 +160,10 @@ export function Templates() {
   return (
     <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
       <div>
-        {/* No icon beside the heading. A page title carries its own weight,
-          * and an accent-tinted glyph next to it spends the screen's one
-          * accent on decoration instead of on the action the researcher is
-          * meant to find. */}
         <h1 className="type-title text-text">Templates</h1>
         <p className="type-body mt-1 max-w-reading text-pretty text-text-muted">
-          Proven design shapes from a 15,000-paper corpus, ranked by how widely
-          they're actually used. The papers behind each template are its
-          references. No project needed to browse.
+          Start with a protocol or browse the full collection of design shapes
+          and their references. No project needed to browse.
         </p>
         {entries && corpusReady && (
           <p className="mt-2 type-caption text-text-muted">
@@ -166,20 +183,34 @@ export function Templates() {
         <Notice kind="problem">{error}</Notice>
       )}
 
+      <section className="flex flex-col gap-3">
+        <h2 className="type-section text-text">Start a study</h2>
+        <div className="grid gap-3 md:grid-cols-3">
+          {featured.map((template) => (
+            <div key={template.id} className="flex flex-col gap-3 rounded-plate border border-border bg-surface p-4">
+              <h3 className="type-subhead text-text">{template.title}</h3>
+              <p className="type-note text-text-muted">{template.description}</p>
+              {signedOut ? <Button asChild size="sm" variant="outline"><Link to={signInHref(pathname + search)}>Sign in to use</Link></Button> :
+                <Button size="sm" variant="outline" className="mt-auto" aria-busy={starting === template.id} disabled={meLoading || starting !== null} onClick={() => void useTemplate(template.id, template.title)}>{starting === template.id ? "Starting…" : "Use this template"}</Button>}
+            </div>
+          ))}
+        </div>
+      </section>
+
       {corpus && corpus.state !== "ready" && (
         <Notice kind={corpus.state === "error" ? "problem" : "note"}>
           {corpus.state === "error"
             ? `The literature index could not finish loading. ${corpus.error}`
-            : `Loading the literature index (${corpus.papers.toLocaleString()} of ${corpus.expected.toLocaleString()} papers). Design evidence will appear as soon as it is ready.`}
+            : corpus.state === "loading"
+              ? `Indexing literature (${corpus.papers.toLocaleString()} of ${corpus.expected.toLocaleString()} papers). Design evidence will appear when indexing finishes.`
+              : corpus.papers > 0
+                ? `${corpus.papers.toLocaleString()} papers indexed. Design evidence will appear when indexing finishes. You can start with a template or describe your study.`
+                : "No literature indexed yet. You can start with a template or describe your study."}
         </Notice>
       )}
 
 
-      {/* The conversational alternative to browsing. A researcher who can
-        * describe their problem but not name the template it needs gets a path
-        * straight into a design conversation. */}
-      {entries && entries.length > 0 && corpusReady && (
-        <section className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4">
+      <section className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4">
           <h2 className="type-subhead flex items-center gap-2 text-text">
             <MessageSquareText className="size-4" aria-hidden />
             Describe your study instead
@@ -197,11 +228,6 @@ export function Templates() {
               aria-label="Describe your study"
               className="min-w-0 flex-1 basis-56"
             />
-            {/* Starting a conversation creates a project and a study, so this
-              * is the one control in the panel that needs an identity. The
-              * field stays usable either way  -  a visitor can still frame the
-              * question they came with  -  but the button says what it will
-              * actually do rather than failing after the click. */}
             {signedOut ? (
               <Button asChild size="field">
                 <Link to={signInHref(pathname + search)}>Sign in to start</Link>
@@ -210,13 +236,9 @@ export function Templates() {
               <Button
                 size="field"
                 onClick={() => void describeStudy()}
-                disabled={!describe.trim() || describeBusy}
+                disabled={meLoading || !describe.trim() || describeBusy}
               >
-                {describeBusy ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
-                ) : (
-                  "Start conversation"
-                )}
+                {describeBusy ? "Starting conversation…" : "Start conversation"}
               </Button>
             )}
           </div>
@@ -225,8 +247,7 @@ export function Templates() {
               {describeError}
             </p>
           )}
-        </section>
-      )}
+      </section>
 
 
       {entries === null && !error ? (
@@ -251,6 +272,8 @@ export function Templates() {
                 key={entry.id}
                 entry={entry}
                 onDetail={() => setDetailId(entry.id)}
+                onUse={() => void useTemplate(entry.id, entry.title)}
+                canUse={!signedOut && Boolean(me?.memberships.length) && starting === null}
               />
             ))}
           </div>
@@ -276,6 +299,7 @@ export function Templates() {
                 <p className="type-note mt-0.5 text-text-muted">
                   {entry.admissionNote}
                 </p>
+                {!signedOut && <Button className="mt-3" variant="outline" size="sm" disabled={!me?.memberships.length || starting !== null} onClick={() => void useTemplate(entry.id, entry.title)}>Use this template</Button>}
               </div>
             ))}
           </div>
@@ -296,9 +320,13 @@ export function Templates() {
 function ShapeCard({
   entry,
   onDetail,
+  onUse,
+  canUse,
 }: {
   entry: RepertoireEntry;
   onDetail: () => void;
+  onUse: () => void;
+  canUse: boolean;
 }) {
   return (
     <Card className="flex flex-col transition-colors duration-fast hover:border-control-edge">
@@ -323,6 +351,7 @@ function ShapeCard({
           <SupportBadge entry={entry} />
           <Badge variant="outline">{humanizeDesignType(entry.designType)}</Badge>
         </div>
+        <Button variant="outline" size="sm" disabled={!canUse} onClick={onUse}>Use this template</Button>
       </CardContent>
     </Card>
   );

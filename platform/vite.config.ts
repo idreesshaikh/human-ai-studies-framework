@@ -22,6 +22,7 @@ export default defineConfig({
       "/health": "http://127.0.0.1:8000",
       "/ingest": "http://127.0.0.1:8000",
       "/me": "http://127.0.0.1:8000",
+      "/measure-catalog": "http://127.0.0.1:8000",
       "/projects": "http://127.0.0.1:8000",
       "/studies": "http://127.0.0.1:8000",
       "/templates": "http://127.0.0.1:8000",

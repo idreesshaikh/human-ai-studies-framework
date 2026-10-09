@@ -4,8 +4,9 @@ title: Self-report-only survey of AI-assistance experience
 description: |
   A within-subjects design with no objective performance measure at all.
   Every research question is answered from the end-of-session self-report
-  (the six NASA-TLX subscales). Use it when the idea is purely about
-  developer-reported experience, not measured outcomes, instead of forcing
+  (six adapted TLX-inspired items, including comprehension). This is not
+  the standard NASA-TLX or a validated aggregate. Use it for
+  developer-reported experience rather than objective performance, instead of forcing
   it into a benchmark or outcome-comparison template.
 designType: survey
 
@@ -20,7 +21,7 @@ designSignature:
 dataPath: live
 source:
   - paperRef: corpus:ai-assistants-in-practice
-    role: primary-design
+    role: experience-reference; survey and allocation adapted
 parameters:
   studyId:
     type: string
@@ -56,7 +57,7 @@ measures:
   - id: self-report-workload
     leg: cognitive
     elements: [end_survey_response]
-    description: Six NASA-TLX subscales (mental demand, effort, frustration, time pressure, perceived performance, comprehension) at end of session
+    description: Six adapted self-report items (mental demand, effort, frustration, time pressure, perceived performance, comprehension); not standard NASA-TLX or a validated aggregate
     caution: Self-report may diverge from objective measures; no behavioral or outcome data is collected in this design
 statisticalPlan:
   unit: participant
@@ -81,7 +82,7 @@ protocolSkeleton:
     ethicsRef: "{{ ethicsRef }}"
   researchQuestions:
     - id: RQ-1
-      text: How do developers self-report their workload across six NASA-TLX subscales (mental demand, effort, frustration, time pressure, perceived performance, comprehension) with vs without AI assistance?
+      text: How do developers rate six adapted self-report items (mental demand, effort, frustration, time pressure, perceived performance, comprehension) with vs without AI assistance?
   conditions: "{{ conditions }}"
   participants:
     planned: "{{ participantPlan }}"
