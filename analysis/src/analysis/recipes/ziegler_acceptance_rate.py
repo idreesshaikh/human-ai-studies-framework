@@ -13,11 +13,14 @@ from analysis.dataset import Dataset
 from analysis.recipes._common import compare_or_describe
 
 METHODS = (
+    "Small untied samples use exact tests; ties/large samples use "
+    "the asymptotic approximation with tie correction. "
     "Replication of Ziegler et al. (MAPS '22, arXiv:2205.06537): "
     "acceptance rate = accepted / shown `ai_suggestion` events, computed "
     "per session (the paper's unit is developer-weeks of Copilot "
     "telemetry; the metric definition is unchanged). Conditions are "
-    "compared with the exact Wilcoxon/Mann-Whitney machinery (effect "
+    "compared with the Wilcoxon/Mann-Whitney machinery "
+    "(exact when valid; otherwise tie-corrected asymptotic) (effect "
     "sizes, per-cell n). Where the paper correlates acceptance rate with "
     "self-reported productivity (Spearman), the pilot correlates it with "
     "the session's mean fatigue response - an explicit stand-in, reported "

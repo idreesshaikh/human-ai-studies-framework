@@ -3,19 +3,30 @@
 from middleware.settings import Settings
 
 
-def test_defaults_to_8000_when_nothing_is_set(monkeypatch):
+def test_port_precedence_is_resolved_from_the_current_environment(monkeypatch):
     monkeypatch.delenv("MIDDLEWARE_PORT", raising=False)
     monkeypatch.delenv("PORT", raising=False)
     assert Settings().port == 8000
-
-
-def test_uses_railway_port_when_set(monkeypatch):
-    monkeypatch.delenv("MIDDLEWARE_PORT", raising=False)
     monkeypatch.setenv("PORT", "4123")
     assert Settings().port == 4123
-
-
-def test_middleware_port_overrides_railway_port(monkeypatch):
     monkeypatch.setenv("MIDDLEWARE_PORT", "9001")
-    monkeypatch.setenv("PORT", "4123")
     assert Settings().port == 9001
+
+
+def test_spa_resolves_from_repo_root_and_reports_missing_build(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    import pytest
+    from middleware.app import create_app
+
+    monkeypatch.chdir(tmp_path)
+    settings = Settings(spa_dist=Path("platform/dist"))
+    assert settings.spa_dist == Path(__file__).resolve().parents[2] / "platform/dist"
+    missing = Settings(
+        db_path=tmp_path / "missing.sqlite",
+        spa_dist=tmp_path / "missing-web",
+        spa_required=True,
+    )
+    with pytest.raises(FileNotFoundError, match=r"missing-web/index\.html"):
+        create_app(missing)
+    assert not missing.db_path.exists()  # fail before database initialization

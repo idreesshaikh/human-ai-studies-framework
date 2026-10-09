@@ -4,7 +4,7 @@
  * the prompts the core requests.
  */
 
-export type StudyCondition = 'ai-assisted' | 'unassisted' | 'unspecified';
+export type StudyCondition = string;
 
 /**
  * Bump when the event shape or the meaning of a payload field changes, so
@@ -19,7 +19,8 @@ export type StudyCondition = 'ai-assisted' | 'unassisted' | 'unspecified';
  * carrying chunkReference, promptKind, answer, correct, msToAnswer, expired
  * (Phase 21, extension/src/core/comprehensionProbe.ts).
  */
-export const SCHEMA_VERSION = 4;
+/** v6: declared surveys, pre-task covariates and session version provenance. */
+export const SCHEMA_VERSION = 6;
 
 /** One row of the study dataset. Serialized as JSON Lines. */
 export interface StudyEvent {

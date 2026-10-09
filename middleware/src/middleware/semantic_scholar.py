@@ -70,9 +70,10 @@ class SemanticScholarError(Exception):
 
 
 def _headers() -> dict[str, str]:
-    key = os.environ.get("MIDDLEWARE_S2_API_KEY")
+    key = (
+        os.environ.get("MIDDLEWARE_S2_API_KEY") or os.environ.get("S2_API_KEY") or ""
+    ).strip()
     return {"x-api-key": key} if key else {}
-
 
 def _pace(url: str) -> None:
     """Hold callers to S2's 1 req/s budget, tracked separately per host  -  the

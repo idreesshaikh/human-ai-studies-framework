@@ -32,7 +32,9 @@ def _figure_label(form: str) -> str:
 
 
 METHOD_TEMPLATE = (
-    "Paired (within-subjects) nonparametric comparison: exact Wilcoxon "
+    "Small untied samples use exact tests; ties/large samples use "
+    "the asymptotic approximation with tie correction. "
+    "Paired (within-subjects) nonparametric comparison: Wilcoxon "
     "signed-rank test with matched-pairs rank-biserial correlation as "
     "effect size. Zero differences excluded following Siegel & Castellan. "
     "Per-participant means computed before pairing. Descriptives: n, "
@@ -81,13 +83,16 @@ def run(dataset: Dataset) -> RecipeResult:
             if figure_form == "paired-dots":
                 fig_wide = wide.dropna(subset=list(conds))
                 fig = figures.paired_dots(
-                    fig_wide, (conds[0], conds[1]),
+                    fig_wide,
+                    (conds[0], conds[1]),
                     title="Paired comparison",
                     ylabel=value,
                 )
             else:
                 fig = fig_fn(
-                    df, value, conds,
+                    df,
+                    value,
+                    conds,
                     title="Paired comparison",
                     ylabel=value,
                 )

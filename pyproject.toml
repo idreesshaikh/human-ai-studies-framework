@@ -27,7 +27,7 @@ docs = [
 [tool.ruff]
 line-length = 88
 target-version = "py312"
-extend-exclude = ["metrics/corpus"]
+extend-exclude = ["metrics/corpus", "artifacts"]  # presentation tooling, not product code
 
 [tool.ruff.lint]
 select = [
@@ -63,7 +63,6 @@ ignore = [
 # Outbound HTTP to fixed https roots or operator-set endpoints.
 "middleware/src/middleware/semantic_scholar.py" = ["S310"]
 "middleware/src/middleware/assistant.py" = ["S310"]
-"middleware/scripts/replay_session.py" = ["S310"]
 "analysis/src/analysis/runner.py" = ["S310"]
 "analysis/src/analysis/dataset.py" = ["S310"]
 "agent-capture/src/agent_capture/ingest.py" = ["S310"]

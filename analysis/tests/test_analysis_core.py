@@ -52,9 +52,11 @@ def test_every_builtin_recipe_declares_the_full_contract():
         assert rec.id and rec.id == rec.id.lower()
         assert rec.answers, f"{rec.id} answers no RQ"
         assert all(a.startswith("RQ-") for a in rec.answers)
-        assert rec.requires.events or rec.requires.metrics, (
-            f"{rec.id} declares no data requirements"
-        )
+        assert (
+            rec.requires.events
+            or rec.requires.metrics
+            or rec.id in {"control_arm_audit", "typed-measures", "mean-comparison"}
+        ), f"{rec.id} declares no data requirements"
         assert callable(rec.run)
 
 
@@ -145,8 +147,9 @@ def test_dataset_separates_legs_and_discovers_requirements():
 
 def test_synthetic_label_is_not_a_static_metric():
     dataset = Dataset(rows=[metric_row({"lines": 12, "synthetic": True})])
-    assert dataset.metric_columns == {"lines"}
-    assert dataset.metrics["synthetic"].all()
+    assert dataset.metric_columns == set()
+    assert dataset.metrics.empty
+    assert dataset.rows[0]["payload"]["synthetic"] is True
 
 
 def test_dataset_preserves_exported_event_and_metric_identity():

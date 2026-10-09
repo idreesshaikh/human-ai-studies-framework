@@ -166,3 +166,53 @@ def test_ziegler_recipe_computes_known_acceptance_rate(dataset):
     assert (per_session["acceptanceRate"] == 0.5).all()
     assert "Ziegler" in result.methods
     assert "2205.06537" in result.methods
+
+
+def _rows_with_three_exclusions():
+    rows = synthetic_rows()
+    sessions = sorted({r["sessionId"] for r in rows})
+    pilot, simulated, dropped = sessions[0], sessions[1], sessions[2]
+    for r in rows:
+        if r["sessionId"] == pilot:
+            r["pilot"] = True
+        elif r["sessionId"] == simulated:
+            r["payload"] = {**(r.get("payload") or {}), "synthetic": True}
+        elif r["sessionId"] == dropped:
+            r["inclusionDecision"] = "exclude"
+    return rows, sessions, (pilot, simulated, dropped)
+
+
+def test_dataset_records_why_each_session_is_excluded():
+    rows, sessions, (pilot, simulated, dropped) = _rows_with_three_exclusions()
+    ds = Dataset(rows=rows, study_id="synthetic-study")
+    assert ds.exclusions[pilot] == ["pilot"]
+    assert ds.exclusions[simulated] == ["synthetic"]
+    assert ds.exclusions[dropped] == ["researcher-excluded"]
+    assert set(ds.exclusions) == {pilot, simulated, dropped}
+    kept = {r["sessionId"] for r in ds.analysis_rows}
+    assert kept == set(sessions) - {pilot, simulated, dropped}
+
+
+def test_report_states_how_many_sessions_were_excluded_and_why(tmp_path):
+    rows, sessions, (pilot, simulated, dropped) = _rows_with_three_exclusions()
+    outcome = run_plan(
+        PROTOCOL,
+        Dataset(rows=rows, study_id="synthetic-study"),
+        "synthetic-study",
+        out_root=tmp_path,
+    )
+    assert set(outcome.excluded_sessions) == {pilot, simulated, dropped}
+    report = (tmp_path / "synthetic-study" / "report.md").read_text()
+    assert "## Sessions in this analysis" in report
+    assert f"Analysed: {len(sessions) - 3} of {len(sessions)} sessions" in report
+    assert f"`{pilot}`: pilot" in report
+    assert f"`{simulated}`: synthetic" in report
+    assert f"`{dropped}`: researcher-excluded" in report
+
+
+def test_report_says_so_when_nothing_was_excluded(tmp_path, dataset):
+    run_plan(PROTOCOL, dataset, "synthetic-study", out_root=tmp_path)
+    report = (tmp_path / "synthetic-study" / "report.md").read_text()
+    sessions = {r["sessionId"] for r in dataset.rows}
+    assert f"Analysed: {len(sessions)} of {len(sessions)} sessions" in report
+    assert "No sessions were excluded." in report

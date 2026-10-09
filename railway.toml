@@ -25,22 +25,13 @@
 #   MIDDLEWARE_CLERK_*    - (when auth=clerk)
 #
 # Optional:
-#   MIDDLEWARE_SEED_ON_START=1   - build the shared demo project on boot:
-#                                  its study, the session -> study mappings,
-#                                  and a replay of the sample sessions. Every
-#                                  signed-in identity is a viewer on it; nobody
-#                                  can write to it. Idempotent per boot.
-#   MISTRAL_API_KEY              - enables the configured Mistral route;
-#                                  MISTRAL_MODEL / MISTRAL_DESIGN_MODEL override it
-#   MIDDLEWARE_S2_API_KEY        - Semantic Scholar enrichment
-
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "middleware/Dockerfile"
 dockerBuildContext = "."
 
 [deploy]
-startCommand = "sh middleware/scripts/start_with_seed.sh"
+startCommand = "uv run python -m middleware"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"

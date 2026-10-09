@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import difflib
+import json
 import logging
 import re
 from dataclasses import dataclass, field
 
 import yaml
 from protocol.loader import validate_protocol
+from protocol.measure_catalog import apply_catalog_measures
 
 log = logging.getLogger(__name__)
 
@@ -259,10 +261,14 @@ def empty_sections() -> dict[str, list]:
     return {s: [] for s in SECTIONS}
 
 
-def _as_section_items(value: object) -> list[str]:
+def _as_section_items(value: object, *, typed_measures: bool = False) -> list:
     """A patch value as the string items it contributes to a section."""
     items = value if isinstance(value, list) else [value]
-    return [i if isinstance(i, str) else str(i) for i in items if i is not None]
+    return [
+        i if isinstance(i, str) or (typed_measures and isinstance(i, dict)) else str(i)
+        for i in items
+        if i is not None
+    ]
 
 
 def compile_sections(moves: list[dict]) -> dict[str, list]:
@@ -278,7 +284,9 @@ def compile_sections(moves: list[dict]) -> dict[str, list]:
         if section not in sections:
             continue
         op = patch.get("op", "append")
-        items = _as_section_items(patch.get("value"))
+        items = _as_section_items(
+            patch.get("value"), typed_measures=section == "measures"
+        )
         if op == "append":
             for item in items:
                 if item not in sections[section]:
@@ -322,9 +330,19 @@ def _accepted_template_moves(moves: list[dict]) -> list[dict]:
     ]
 
 
-def _instantiate_leniently(patch: dict) -> tuple[dict, list[str]]:
-    """Instantiate a template patch, tolerating invented parameter names."""
+def _instantiate_leniently(
+    patch: dict, sections: dict[str, list] | None = None
+) -> tuple[dict, list[str]]:
+    """Instantiate a template patch, tolerating invented parameter names.
+
+    A template's default conditions can be placeholders (``control`` and
+    ``treatment``). When the researcher named entirely different conditions in
+    other accepted moves and the template move did not set them, those fill
+    the parameter, so the placeholders are replaced rather than kept beside
+    the researcher's conditions. Conditions that merely differ in spelling
+    keep the template's spelling (see ``_dedupe_conditions``)."""
     from middleware import template_registry
+    from middleware.template_registry import TemplateError
 
     template_id = patch["templateId"]
     version = patch.get("templateVersion")
@@ -340,9 +358,23 @@ def _instantiate_leniently(patch: dict) -> tuple[dict, list[str]]:
             f"Skipped setting(s) the {_template_title(template_id)} design "
             f"doesn't have: {', '.join(unknown)}."
         )
-    instantiated = template_registry.instantiate_template(
-        template_id, parameters, version=version
-    )
+    supplied = dict(parameters)
+    named = list((sections or {}).get("conditions") or [])
+    if named and "conditions" in declared and "conditions" not in supplied:
+        default = template["parameters"]["conditions"].get("default") or []
+        placeholders = {str(c).strip().lower() for c in default}
+        if not placeholders & {str(c).strip().lower() for c in named}:
+            supplied["conditions"] = named
+    try:
+        instantiated = template_registry.instantiate_template(
+            template_id, supplied, version=version
+        )
+    except TemplateError:
+        # The researcher's values do not fit this template's parameter rules
+        # (for example a single condition); keep the template's own defaults.
+        instantiated = template_registry.instantiate_template(
+            template_id, parameters, version=version
+        )
     return instantiated, notes
 
 
@@ -766,11 +798,13 @@ def _refine(protocol: dict, sections: dict[str, list]) -> dict:
     for c in sections["conditions"]:
         if c not in out.get("conditions", []):
             out.setdefault("conditions", []).append(c)
-    existing_measures = set(out.get("measures") or [])
+    existing_measures = {
+        json.dumps(m, sort_keys=True) for m in (out.get("measures") or [])
+    }
     for measure in sections["measures"]:
-        if measure not in existing_measures:
+        if json.dumps(measure, sort_keys=True) not in existing_measures:
             out.setdefault("measures", []).append(measure)
-            existing_measures.add(measure)
+            existing_measures.add(json.dumps(measure, sort_keys=True))
     return out
 
 
@@ -891,6 +925,9 @@ def _template_title(template_id: str | None) -> str:
 RESEARCHER_PLACEHOLDER = "Lead researcher (edit me)"
 
 RECIPE_LABELS: dict[str, str] = {
+    "control_arm_audit": "control-arm AI-use audit",
+    "typed-measures": "protocol-declared survey scoring",
+    "mean-comparison": "mean comparison or ANCOVA",
     "agent-interaction-dynamics": "agent conversation analysis",
     "ai-review-behavior": "AI suggestion review analysis",
     "code-quality-by-condition": "code quality comparison",
@@ -1174,7 +1211,7 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
                 )
                 notes: list[str] = []
             else:
-                instantiated, notes = _instantiate_leniently(patch)
+                instantiated, notes = _instantiate_leniently(patch, sections)
         except TemplateError as err:
             label = (
                 patch.get("templateId")
@@ -1192,6 +1229,20 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
         template_id = instantiated.get("templateId")
         template_version = instantiated.get("templateVersion")
         draft = _refine(instantiated["protocol"], sections)
+        if patch.get("manual") and isinstance(patch.get("baseProtocol"), dict):
+            draft = _refine(patch["baseProtocol"], sections)
+            params = patch["parameters"]
+            draft["study"].update(id=params["studyId"], title=params["title"])
+            draft["conditions"] = params["conditions"]
+            draft["participants"].update(
+                planned=params["participantPlan"],
+                design=patch["design"],
+                counterbalanced=patch["counterbalanced"],
+            )
+            draft.setdefault("session", {}).update(
+                durationMinutes=params["sessionMinutes"],
+                taskDescription=params["taskDescription"],
+            )
         # Later accepted design moves that failed were skipped in favour of this one  -
         # say so, but don't block a valid draft on them.
         warnings.extend(failed)
@@ -1202,6 +1253,33 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
             _refine(seeded, sections)
             if seeded is not None
             else _scaffold_from_sections(sections)
+        )
+
+    manual_patch = next(
+        (
+            move["patch"]
+            for move in moves
+            if move.get("status") == "accepted"
+            and move.get("kind") == "choose-template"
+            and (move.get("patch") or {}).get("manual")
+            and isinstance((move.get("patch") or {}).get("researchQuestions"), list)
+        ),
+        None,
+    )
+    if manual_patch:
+        draft["researchQuestions"] = [
+            {"id": f"RQ-{index}", "text": text}
+            for index, text in enumerate(manual_patch["researchQuestions"], start=1)
+        ]
+        declared = {row["id"] for row in draft["researchQuestions"]}
+        draft["analysisPlan"] = (
+            []
+            if manual_patch.get("typedMeasures")
+            else [
+                entry
+                for entry in draft.get("analysisPlan", [])
+                if entry["rq"] in declared
+            ]
         )
 
     slot_minutes = _accepted_session_minutes(moves)
@@ -1217,6 +1295,14 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
     warnings.extend(_apply_task_moves(draft, moves))
 
     warnings.extend(_apply_field_moves(draft, moves))
+    if any(isinstance(value, dict) for value in sections["measures"]) and any(
+        move.get("status") == "accepted"
+        and (move.get("patch") or {}).get("section") == "measures"
+        and (move.get("patch") or {}).get("op") == "set"
+        for move in moves
+    ):
+        draft["measures"] = sections["measures"]
+    catalog_errors = apply_catalog_measures(draft)
     warnings.extend(_dedupe_measures(draft))
     _dedupe_conditions(draft)
     _canonical_task_conditions(draft)
@@ -1255,11 +1341,15 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
 
     outstanding = unresolved_slots(draft)
     unresolved = [slot.label for slot in outstanding]
-    errors = failed + [
-        err
-        for err in validate_protocol(draft)
-        if not _explained_by_slot(err, outstanding)
-    ]
+    errors = (
+        failed
+        + catalog_errors
+        + [
+            err
+            for err in validate_protocol(draft)
+            if not _explained_by_slot(err, outstanding)
+        ]
+    )
 
     return CompileResult(
         draft=draft,

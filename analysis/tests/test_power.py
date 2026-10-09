@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import pytest
-from analysis.power import paired_power_curve, two_sample_power_curve
+from analysis.power import (
+    minimum_detectable_d,
+    paired_power_curve,
+    two_sample_power_curve,
+)
 
 
 def test_textbook_anchors():
@@ -92,7 +96,29 @@ def test_power_curve_is_finite_monotone_and_bounded_for_large_n(curve_fn):
     r = curve_fn((0.2, 0.5, 0.8, 1.2), max_total_n=600)
     for curve in r["curves"]:
         powers = [p["power"] for p in curve["points"]]
-        assert all(math.isfinite(x) and 0.0 <= x <= 1.0 for x in powers), (
-            curve.get("effectSize", curve)
+        assert all(math.isfinite(x) and 0.0 <= x <= 1.0 for x in powers), curve.get(
+            "effectSize", curve
         )
         assert powers == sorted(powers), "power must not decrease with n"
+
+
+def test_minimum_detectable_d_matches_textbook_values():
+    assert minimum_detectable_d(64, "between") == pytest.approx(0.50, abs=0.01)
+    assert minimum_detectable_d(34, "within") == pytest.approx(0.50, abs=0.01)
+
+
+def test_more_participants_never_raise_the_threshold():
+    values = [minimum_detectable_d(n, "between") for n in (10, 20, 40, 80, 160)]
+    assert values == sorted(values, reverse=True)
+
+
+def test_an_unreachable_threshold_is_none():
+    assert minimum_detectable_d(2, "between") is None
+
+
+@pytest.mark.parametrize(
+    "args", [(1, "between"), (10, "other"), (2.5, "between"), (float("nan"), "within")]
+)
+def test_invalid_inputs_are_refused(args):
+    with pytest.raises(ValueError):
+        minimum_detectable_d(*args)

@@ -1,79 +1,9 @@
-# Data
+# Data and study records
 
-The Data tab answers the question every researcher needs answered before
-analysis: **what arrived, how complete is it, and is it live or rehearsal data?**
+The Data tab shows real captured sessions and their source/sequence integrity. Synthetic rows are excluded. Mark real pilot sessions with a reason; these rows remain in exports, explicitly tagged, and are excluded from confirmatory recipes and metric comparisons. Record a researcher's inclusion or exclusion decision beside control-arm audit signals. Decisions carry the researcher identity and date, and their history is retained.
 
-<figure markdown="span">
-  ![The current Phoenix Data tab](../assets/screens/phoenix-demo-data-current.png){ width="900" }
-  <figcaption>Complete sessions stay visible beside an intentional sequence-gap warning; the platform does not quietly repair evidence.</figcaption>
-</figure>
+The audit reports `no-evidence`, `evidence-of-ai-use`, or `cannot-assess`. No evidence is never proof of no AI use. Paste origins and AI edit classifications are heuristics; missing capture boundaries or configuration produce an abstention. External CLI reloads and activity outside the editor remain blind spots.
 
-## Two paths, one schema
+Download tidy event CSVs, joined JSON and a data dictionary as a data bundle. Design cards (JSON and Markdown) record saved power assumptions, fixed analysis, instrument versions and wording, session tool/model provenance, audit results and inclusion decisions. Replication kits include the same design card and the frozen protocol/data/report. Nothing rates validity or automatically pools re-runs.
 
-- **Live capture** — TERN’s cognitive, behavioural, static-metrics, and agent
-  legs, configured per study from the approved protocol.
-- **Curated import** — archive adapters with a validity-threats record, for
-  studies that began elsewhere.
-
-Both paths converge on the same event and metric schema, so the analysis plan
-does not change depending on how a row entered the project.
-
-## Synthetic dry run
-
-Before recruiting, send simulated participants through the real ingest and
-analysis path:
-
-```bash
-uv run python -m middleware simulate pilot-2026 --count 10 --seed 42
-```
-
-The run validates every recipe in the study’s analysis plan and exits non-zero
-if the plan cannot be satisfied. This is a plumbing and design check, not an
-empirical result.
-
-## Integrity is a first-class result
-
-The Data tab exposes event counts, metric rows, and sequence gaps per session.
-A red `sequence-gap` marker means events are missing from the expected sequence;
-it does not mean the platform guessed what happened. Complete and incomplete
-sessions remain distinguishable for the researcher’s decision.
-
-The banner also distinguishes built-in sample data from a live middleware
-connection. Screenshots and demo rows are useful for understanding the UI, never
-for making a claim about participants.
-
-## Recruitment planning
-
-The Plan tab shows the power/sensitivity curve for the planned comparison,
-including the assumptions behind the target and the total `n` needed across
-plausible effect sizes. It keeps a sample-size decision attached to the protocol
-instead of burying it in a later notebook.
-
-## Replay a captured session
-
-Expand a session and select **Replay session** to step through its captured events,
-play/pause the sequence, or seek with the position slider. Missing events and
-integrity flags are not silently repaired. Playback is an inspection stepper,
-not reconstructed keystrokes or real-time playback.
-
-By default, snapshots contain change counts rather than raw code. A diff appears
-only when it was explicitly captured for selected task files and the current
-approved study policy permits raw code. Otherwise the replay explains why code
-is unavailable. Do not enable source capture without appropriate consent.
-
-## The analysis hand-off
-
-The protocol that configured TERN also produces the hand-off:
-
-- **`notebook`** — a loaded, documented dataframe with planned recipes and a
-  standalone `data-dictionary.md`;
-- **`paper`** — a first-draft Methods + Results section from the same plan;
-- **`run` / `validate` / `list`** — execute recipes, check plan satisfaction, and
-  catalogue what exists.
-
-The research team still owns the final analysis and interpretation. PHOENIX
-makes the inputs, assumptions, and integrity decisions inspectable.
-
-!!! warning "Synthetic means synthetic"
-    The checked-in `demo-study` data is illustrative. Never present it as a
-    finding or combine it with a live result without an explicit provenance rule.
+See [planner methods and API](https://github.com/idreesshaikh/human-ai-studies-framework/blob/main/docs/planner.md) for pilot updates, numerical limits and independently labelled audit calibration.

@@ -653,7 +653,11 @@ export function environmentSnapshotPayload(
     ),
   };
   for (const ext of vscode.extensions.all) {
-    if (AI_EXTENSION_PATTERN.test(ext.id)) {
+    if (
+      AI_EXTENSION_PATTERN.test(ext.id) ||
+      captureSetting<Record<string, string>>('toolVersions', {}).extensionId ===
+        ext.id
+    ) {
       extensionVersions[ext.id] = String(ext.packageJSON?.version ?? 'unknown');
     }
   }

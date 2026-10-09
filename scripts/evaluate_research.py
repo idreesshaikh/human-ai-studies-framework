@@ -2,10 +2,9 @@
 
 import argparse
 import json
-import os
 from pathlib import Path
 
-from middleware.assistant import MistralProvider, model_name
+from middleware.assistant import make_design_client, model_name
 from middleware.evaluation import (
     Benchmark,
     Case,
@@ -119,9 +118,9 @@ def main() -> None:
     elif args.runner == "rules":
         rows = rules_predictions(benchmark, evidence)
     else:
-        if not args.live or not os.environ.get("MISTRAL_API_KEY"):
-            parser.error("Live experiments require --live and MISTRAL_API_KEY")
-        client = MistralProvider(os.environ["MISTRAL_API_KEY"])
+        client = make_design_client() if args.live else None
+        if client is None:
+            parser.error("Live experiments require --live and a configured model route")
         client.model = args.model
 
         def request(prompt):
@@ -148,7 +147,7 @@ def main() -> None:
                         {"role": "user", "content": prompt},
                     ],
                 },
-                {"Authorization": f"Bearer {client.api_key}"},
+                client.headers,
             )
             calls.append(
                 {"resolvedModel": response.get("model"), "usage": response.get("usage")}

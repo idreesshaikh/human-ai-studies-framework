@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/zPycm6rwjKzpaCK77m6222CDNQE</id>
+  <title>arXiv Query: search_query=(cat:cs.SE OR cat:cs.HC) AND (all:"LLM-assisted" AND all:"programming" AND all:"user" AND all:"study" AND all:"productivity") AND submittedDate:"202201010000 TO 202610012359"&amp;id_list=&amp;start=0&amp;max_results=200</title>
+  <updated>2026-10-08T13:03:42Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=(cat:cs.SE+OR+cat:cs.HC)+AND+((all:%22LLM-assisted%22+AND+(all:%22programming%22+AND+(all:%22user%22+AND+(all:%22study%22+AND+all:%22productivity%22))))+AND+submittedDate:%22202201010000+TO+202610012359%22)&amp;start=0&amp;max_results=200&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>200</opensearch:itemsPerPage>
+  <opensearch:totalResults>2</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2410.09318v2</id>
+    <title>Impeding LLM-assisted Cheating in Introductory Programming Assignments via Adversarial Perturbation</title>
+    <updated>2024-10-15T05:48:40Z</updated>
+    <link href="https://arxiv.org/abs/2410.09318v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2410.09318v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>While Large language model (LLM)-based programming assistants such as CoPilot and ChatGPT can help improve the productivity of professional software developers, they can also facilitate cheating in introductory computer programming courses. Assuming instructors have limited control over the industrial-strength models, this paper investigates the baseline performance of 5 widely used LLMs on a collection of introductory programming problems, examines adversarial perturbations to degrade their performance, and describes the results of a user study aimed at understanding the efficacy of such perturbations in hindering actual code generation for introductory programming assignments. The user study suggests that i) perturbations combinedly reduced the average correctness score by 77%, ii) the drop in correctness caused by these perturbations was affected based on their detectability.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CY" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-10-12T01:01:00Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Saiful Islam Salim</name>
+    </author>
+    <author>
+      <name>Rubin Yuchan Yang</name>
+    </author>
+    <author>
+      <name>Alexander Cooper</name>
+    </author>
+    <author>
+      <name>Suryashree Ray</name>
+    </author>
+    <author>
+      <name>Saumya Debray</name>
+    </author>
+    <author>
+      <name>Sazzadur Rahaman</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2510.06452v3</id>
+    <title>Code Semantic Zooming</title>
+    <updated>2026-06-30T19:34:14Z</updated>
+    <link href="https://arxiv.org/abs/2510.06452v3" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2510.06452v3" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Recent advances in Large Language Models (LLMs) have introduced a new paradigm for software development, where source code is generated from natural language prompts. While this paradigm significantly boosts development productivity, building complex, real-world software systems remains challenging because natural language offers limited control over the code generation process. Inspired by the historical evolution of programming languages toward higher levels of abstraction, we advocate for a high-level abstraction language that gives developers greater control over LLM-assisted code writing. To this end, we propose Code Semantic Zooming (CodeZoom), a novel approach based on pseudocode that allows developers to iteratively explore, understand, and refine code across multiple layers of semantic abstraction. In a within-subjects user study (n=26), our method matches a state-of-the-art coding agent, Claude Code, on usability while producing a large effect on code comprehension: over 90% of participants reported feeling more in control of design decisions when using CodeZoom compared to using Claude Code.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-10-07T20:43:35Z</published>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Jinsheng Ba</name>
+    </author>
+    <author>
+      <name>Sverrir Thorgeirsson</name>
+    </author>
+    <author>
+      <name>Zhendong Su</name>
+    </author>
+  </entry>
+</feed>

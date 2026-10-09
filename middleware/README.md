@@ -9,12 +9,13 @@ From the repository root:
 
 ```bash
 uv sync --all-packages --frozen
+npm --prefix platform run build
 uv run python -m middleware serve
 ```
 
 Storage defaults to SQLite at `.study-data/middleware.sqlite3`. Set
 `DATABASE_URL` to use PostgreSQL. `docker compose up --build` starts PostgreSQL,
-the app, and a synthetic demo in shared storage.
+and the app in shared storage.
 
 To load a protocol directly:
 
@@ -40,16 +41,22 @@ automatically.
 | `MIDDLEWARE_TOKEN` | Shared bearer token for token mode |
 | `MIDDLEWARE_PUBLIC_URL` | Public base URL used in participant links |
 | `MIDDLEWARE_CORS_ORIGINS` | Comma-separated origins for a separate frontend |
-| `MISTRAL_API_KEY` | Enables the design conversation and model-assisted matching |
-| `MISTRAL_MODEL` | Shared model (default `ministral-14b-latest`) |
-| `MISTRAL_DESIGN_MODEL` | Optional design-only model override |
+| `LLM_API_KEY` | Enables the design conversation and model-assisted matching |
+| `LLM_BASE_URL` | Chat-completions API base or full URL; defaults to Mistral's API; local servers need no key |
+| `LLM_MODEL` | Shared model (default `ministral-14b-latest`) |
+| `LLM_DESIGN_MODEL` | Optional design-only model override |
+| `LLM_TIMEOUT_S` | Request timeout in seconds; default 60, range 1–600 |
+| `LLM_STREAM_TIMEOUT_S` | Stream timeout in seconds; default 120, range 1–1800 |
+| `LLM_MAX_RETRIES` | Retries for 429, transient server and connection failures; default 2, range 0–5 |
+| `LLM_ALLOW_HTTP` | Set to 1 to allow plain HTTP to a non-local host |
+| `MISTRAL_API_KEY` | Legacy alias for `LLM_API_KEY` |
+| `MISTRAL_MODEL` | Legacy alias for `LLM_MODEL` |
+| `MISTRAL_DESIGN_MODEL` | Legacy alias for `LLM_DESIGN_MODEL` |
 | `MIDDLEWARE_CORPUS_BOOTSTRAP` | Set to 0 to disable background corpus import |
-| `MIDDLEWARE_S2_API_KEY` | Optional Semantic Scholar key for higher rate limits (the unprefixed `S2_API_KEY` is not read) |
-| `MIDDLEWARE_SEED_ON_START` | Used by `scripts/start_with_seed.sh`; `1` (default) seeds the synthetic demo, `0` skips it |
-| `MIDDLEWARE_ENRICH_ON_START` | Used by `scripts/start_with_seed.sh`; `0` (default) skips corpus enrichment, a number limits how many papers to enrich |
+| `MIDDLEWARE_S2_API_KEY` | Optional Semantic Scholar key for higher rate limits (`S2_API_KEY` is a legacy alias) |
 
-If `MISTRAL_API_KEY` is missing, the design assistant replies that no language
-model is connected. Templates, the quick checklist and the rest of the app keep
+With no model key or local endpoint configured, the design assistant replies
+that no language model is connected. Templates, the quick checklist and the rest of the app keep
 working. Set the key and restart the server to enable it.
 
 Adding or searching for papers by arXiv id or DOI makes outbound requests to the
@@ -66,10 +73,7 @@ same paper work offline.
 | `corpus-import` | Import the bundled literature corpus |
 | `corpus-verify` | Check the imported corpus is complete |
 | `corpus-enrich` | Fill in missing abstracts from Semantic Scholar |
-| `demo-seed` | Create the synthetic demo study |
-| `backup-seed` | Create the backup-session study mappings |
 | `templates` | Validate and list the template registry |
-| `simulate` | Dry-run a study over HTTP and check its analysis plan |
 
 The default is local single-user access. In Clerk mode, configure
 `MIDDLEWARE_CLERK_JWKS_URL`, `MIDDLEWARE_CLERK_ISSUER`, and
@@ -88,10 +92,7 @@ Use `GET /sessions/{id}/gaps` to inspect sequence gaps and
 replication-kit reads are scoped through the study's session mappings.
 The running service's `/docs` page lists the complete API.
 
-`GET /studies/{id}/run-plan?participantIndex=0&preview=true` previews the
-participant journey from accepted decisions. Use `preview=false` for enrollment's
-current protocol. The zero-based index is bounded to 0–9999. Both modes are
-read-only and require project view access; neither creates participant links.
+`POST /studies/{id}/plan` saves recruitment assumptions against the recorded protocol. Pilot updates, audit decisions and version/lineage records are described in [the planner guide](../docs/planner.md).
 
 Optional producers share TERN's protocol-derived manifest; see
 [agent capture](../agent-capture/README.md). The capture contract describes
@@ -99,10 +100,17 @@ capabilities and privacy policy; it is not a bearer credential.
 
 ## Development
 
-Run `uv run pytest middleware`. Use the repository
-[smoke check](../scripts/smoke.sh) only against a development instance: it creates
-a synthetic study and writes test events.
+Run `uv run pytest middleware`.
 
-`middleware/scripts/replay_session.py` replays the bundled demo recordings.
-`demo-seed` creates their study mappings; both must target the same database.
 See [template review](docs/templates.md) for the corpus-to-template workflow.
+
+## Planning and protocol v6
+
+`GET /measure-catalog` returns the supported measurement declarations for a
+signed-in identity. `POST /studies/{id}/measure-suggestions` requires contribution
+access and returns read-only alias matches with `calibrated: false`. Confirmation
+in Setup declares the corresponding capture, survey and analysis. Unsupported
+designs and unresolved custom outcomes are explicit; editing v6 keeps existing
+measurement definitions and configuration.
+
+See [planner methods and API](../docs/planner.md). Plans, pilot tags and audit decisions use study-scoped authorization. `MIDDLEWARE_WEB` is resolved relative to the repository root. The default server requires a compiled frontend; `MIDDLEWARE_API_ONLY=1` allows an explicit API-only process. `/health` reports build availability and its hash.

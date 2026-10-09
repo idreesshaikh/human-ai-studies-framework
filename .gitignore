@@ -72,10 +72,7 @@ platform/.ds-shipped.css
 docs/superpowers/
 requirements/
 
-# Worked-example per-recipe outputs (docs/examples): figures, tables, and
-# per-recipe summaries regenerate with `python -m middleware simulate`;
-# only the curated text artifacts (protocol, ethics package, report,
-# notebook, data dictionary) are tracked.
+# Generated figures and tables from the archived pilot example.
 docs/examples/pilot-2026/*/
 
 # Documentation site build output
@@ -83,3 +80,12 @@ documentation/site/
 
 # Playwright CLI session logs/snapshots
 .playwright-cli/
+
+# Local work products that must never be staged by a blanket `git add`:
+# presentation builds (large pptx/pdf/zip), research notes and reports from
+# investigations, and one-off browser screenshot scripts. Use `git add -f` to track
+# one deliberately.
+artifacts/
+reports/
+research_notes/
+platform/.shots.mjs

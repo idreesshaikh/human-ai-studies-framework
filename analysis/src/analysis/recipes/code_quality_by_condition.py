@@ -1,4 +1,4 @@
-"""code-quality-by-condition (RQ-P2): the 9-metric matrix by condition."""
+"""code-quality-by-condition (RQ-P2): static code characteristics by condition."""
 
 from __future__ import annotations
 
@@ -25,9 +25,11 @@ MATRIX = [
 ]
 
 METHODS = (
-    "Static metrics are the 9-metric cognitive-load matrix computed over "
-    "workspace snapshots (function- and file-level rows). For each metric "
-    "present in the dataset, conditions are compared with the exact "
+    "Small untied samples use exact tests; ties/large samples use "
+    "the asymptotic approximation with tie correction. "
+    "Static metrics describe code characteristics in workspace snapshots "
+    "(function- and file-level rows), not measured mental workload. For each metric "
+    "present in the dataset, conditions are compared with the "
     "two-sided Mann-Whitney U at measurement level, and the primary "
     "reported quantity is Cliff's delta with per-cell n (NFR-8). Caveat "
     "stated with the results: measurements within one participant's "
@@ -78,7 +80,7 @@ def run(dataset: Dataset) -> RecipeResult:
         top = effects.iloc[0]
         sentence = (
             f"Largest effect: {top['metric']} (Cliff's delta "
-            f"{top['effect']:+.2f}, exact p={top['p_exact']:.3f}, "
+            f"{top['effect']:+.2f}, p={top['p_value']:.3f}, "
             f"n {conds[0]}={top[f'n_{conds[0]}']:g} / "
             f"{conds[1]}={top[f'n_{conds[1]}']:g}). Measurement-level "
             "comparison - see methods caveat. Small n: hypothesis-generating."

@@ -59,7 +59,7 @@ at desktop and mobile widths, including loading, empty, and error states.
 
 ## Form controls
 
-One spec (`.control`, tokens.css/index.css); guarded by `scripts/verify-form-controls.mjs`.
+One spec (`.control`, tokens.css/index.css); checked by frontend lint and browser accessibility verification.
 
 - Control: 40px, 1px `--control-edge` border, input radius, surface fill, no
   shadow, on Input, Textarea, Select and the input group. Disabled is the well;

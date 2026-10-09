@@ -1,0 +1,257 @@
+templateVersion: 1
+templateId: metr-inspired-v1
+title: METR-inspired issue study
+description: METR randomised AI access per issue on developers’ own repositories, collecting
+  pre-assignment forecasts and self-reported time. This capture adaptation uses paired first-green
+  timing. Arrange issue randomisation and forecast/time-report collection separately; it is
+  not a replication.
+designType: rct-within-subjects
+designSignature:
+- crossover
+- cross-over
+- counterbalanced
+- order effect
+dataPath: live
+source:
+- paperRef: arxiv:2507.09089
+  role: comparison-reference; capture and allocation adapted
+parameters:
+  studyId:
+    type: string
+    default: metr-inspired-v1-study
+  title:
+    type: string
+    default: METR-inspired issue study
+  researchQuestion:
+    type: string
+    default: Does AI assistance affect objective task time compared to unassisted work?
+  conditions:
+    type: conditions
+    default:
+    - unassisted
+    - ai-assisted
+  participantPlan:
+    type: participants
+    min: 4
+    default: 34
+    rationale: Assumed two-sided t-test planning at d_z=0.5 (difference SD), alpha=0.05, power=0.8;
+      not an observed effect or a sample copied from a paper.
+  sessionMinutes:
+    type: int
+    default: 45
+    min: 15
+    max: 120
+  taskDescription:
+    type: string
+    default: 'Development tasks completed under both conditions, counterbalanced. Capture adaptation,
+      not a METR replication: separately randomise issues on developers own repositories and
+      collect forecasts before assignment and self-reported active time; first-green timing
+      is a different outcome.'
+  researchers:
+    type: conditions
+    default:
+    - Researcher
+  ethicsRef:
+    type: string
+    default: 'pending: not yet obtained'
+  outputEndpoint:
+    type: string
+    default: http://127.0.0.1:8000/ingest/events
+measures:
+- id: first-green-time
+  leg: behavioral
+  elements:
+  - task_outcome.firstGreenMs
+  description: Captured first-green milestone, not self-reported total active issue time.
+- id: workload
+  leg: cognitive
+  elements:
+  - survey_response.score
+  description: Declared raw NASA-TLX mean.
+statisticalPlan:
+  unit: participant
+  perRQ:
+  - rq: RQ-1
+    outcome: First-green timing; paired
+    test: t-test-paired
+    effectSize: cohen-d
+    smallN: hypothesis-generating
+  - rq: RQ-2
+    outcome: Declared workload score
+    test: wilcoxon-signed-rank
+    effectSize: matched-pairs rank-biserial
+    smallN: hypothesis-generating
+threats:
+- threat: allocation-and-timing-adaptation
+  mitigation: Document randomisation separately and distinguish first-green timing from total
+    active task time.
+- threat: task-materials
+  mitigation: Pilot and version actual task materials before recruitment.
+protocolSkeleton:
+  protocolVersion: 6
+  study:
+    id: '{{ studyId }}'
+    title: '{{ title }}'
+    researchers: '{{ researchers }}'
+    ethicsRef: '{{ ethicsRef }}'
+  researchQuestions:
+  - id: RQ-1
+    text: '{{ researchQuestion }}'
+  - id: RQ-2
+    text: How does reported workload differ between conditions?
+  conditions: '{{ conditions }}'
+  participants:
+    planned: '{{ participantPlan }}'
+    design: within-subjects
+    counterbalanced: true
+  session:
+    durationMinutes: '{{ sessionMinutes }}'
+    taskDescription: '{{ taskDescription }}'
+  instruments:
+    tern:
+      session:
+        durationMinutes: '{{ sessionMinutes }}'
+      fatigue:
+        intervalMinutes: 15
+        waitForPauseSeconds: 4
+        jitterPercent: 20
+        quietTailMinutes: 5
+      stuck:
+        enabled: true
+        thresholdSeconds: 90
+        cooldownMinutes: 5
+        languages:
+        - python
+      output:
+        httpEndpoint: '{{ outputEndpoint }}'
+    taskHarness:
+      enabled: true
+    surveys:
+    - id: raw-nasa-tlx
+      version: '1.0'
+      title: Raw NASA-TLX
+      timing: post-task
+      items:
+      - id: mental_demand
+        text: How much mental and perceptual activity was required (e.g., thinking, deciding,
+          calculating, remembering, looking, searching, etc.)? Was the task easy or demanding,
+          simple or complex, exacting or forgiving?
+        scale:
+          min: 0
+          max: 100
+          step: 5
+          lowLabel: Low
+          highLabel: High
+        reverse: false
+      - id: physical_demand
+        text: How much physical activity was required (e.g., pushing, pulling, turning, controlling,
+          activating, etc.)? Was the task easy or demanding, slow or brisk, slack or strenuous,
+          restful or laborious?
+        scale:
+          min: 0
+          max: 100
+          step: 5
+          lowLabel: Low
+          highLabel: High
+        reverse: false
+      - id: temporal_demand
+        text: How much time pressure did you feel due to the rate or pace at which the tasks
+          or task elements occurred? Was the pace slow and leisurely or rapid and frantic?
+        scale:
+          min: 0
+          max: 100
+          step: 5
+          lowLabel: Low
+          highLabel: High
+        reverse: false
+      - id: performance
+        text: How successful do you think you were in accomplishing the goals of the task set
+          by the experimenter (or yourself)? How satisfied were you with your performance in
+          accomplishing these goals?
+        scale:
+          min: 0
+          max: 100
+          step: 5
+          lowLabel: Good
+          highLabel: Poor
+        reverse: false
+      - id: effort
+        text: How hard did you have to work (mentally and physically) to accomplish your level
+          of performance?
+        scale:
+          min: 0
+          max: 100
+          step: 5
+          lowLabel: Low
+          highLabel: High
+        reverse: false
+      - id: frustration
+        text: How insecure, discouraged, irritated, stressed and annoyed versus secure, gratified,
+          content, relaxed and complacent did you feel during the task?
+        scale:
+          min: 0
+          max: 100
+          step: 5
+          lowLabel: Low
+          highLabel: High
+        reverse: false
+      scoring: mean
+      source: https://ntrs.nasa.gov/citations/20000021488
+      licence: US government work; NASA permits use and modification without permission
+      validation: Raw unweighted mean; not the weighted NASA-TLX. Labels and descriptions from
+        NASA paper-and-pencil v1.0; electronic 0–100 scale in steps of 5.
+  phases:
+  - name: design
+    gates:
+    - protocol-validated.txt
+  - name: ethics
+    gates:
+    - ethics-approval.pdf
+  - name: pilot
+    gates: []
+  - name: recruitment
+    gates: []
+  - name: data-collection
+    gates: []
+  - name: analysis
+    gates: []
+  - name: write-up
+    gates: []
+  analysisPlan:
+  - rq: RQ-1
+    recipes:
+    - mean-comparison
+  - rq: RQ-2
+    recipes:
+    - typed-measures
+  tasks:
+  - id: task-a
+    title: Coding task A
+    description: Define and pilot task materials before recruitment.
+    version: '1.0'
+  - id: task-b
+    title: Coding task B
+    description: Define matched materials for the second condition before recruitment.
+    version: '1.0'
+  measureSetVersion: '1.0'
+  measures:
+  - id: first-green-time
+    construct: Time to first passing test
+    instrument: taskHarness
+    fields:
+    - task_outcome.firstGreenMs
+    analysisRecipe: mean-comparison
+    version: '1.0'
+  - id: workload
+    construct: Raw NASA-TLX workload
+    instrument: raw-nasa-tlx
+    fields:
+    - survey_response.score
+    analysisRecipe: typed-measures
+    version: '1.0'
+  controlConditions:
+  - unassisted
+  literature:
+  - paperRef: arxiv:2507.09089
+    justifies:
+    - RQ-1

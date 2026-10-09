@@ -35,8 +35,7 @@ import {
 } from "@/lib/uiText";
 import { StudyFolderField } from "./StudyFolderField";
 
-/* The four capture legs, for the grouped config panel. The catalog carries a
- * `leg` key; the demo backend omits it, so instrument is the fallback group. */
+// Capture groups use the catalog's leg, falling back to instrument when absent.
 const LEG_LABELS: Record<string, string> = {
   metrics: "Static metrics",
   behavioral: "Behavioral",

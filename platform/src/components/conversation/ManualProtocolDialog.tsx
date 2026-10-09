@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CircleAlert, Loader2, Plus, X } from "lucide-react";
 import {
   Dialog,
@@ -16,13 +16,14 @@ import { Field } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { asList, asRecord, asText } from "@/lib/compiler";
+import { asList, asRecord, asText, measureText } from "@/lib/compiler";
 import {
   conversationApi,
   type ManualProtocolFields,
+  type MeasureChoice,
 } from "@/lib/conversationApi";
 import { validateManualProtocol, type ManualProblem } from "@/lib/manualProtocol";
-import { measureOptionsFromMoves } from "@/lib/uiText";
+import { MEASURE_LABELS, measureOptionsFromMoves } from "@/lib/uiText";
 import type { DesignMove } from "@/lib/types";
 
 const DESIGN_OPTIONS = [
@@ -39,11 +40,18 @@ const DESIGN_OPTIONS = [
 ];
 
 const MEASURE_OPTIONS = [
-  "task completion time",
-  "solution correctness",
-  "cognitive load",
-  "code comprehension",
+  "time to first green",
+  "test success",
+  "overall workload",
+  "self-rated comprehension",
 ];
+
+const LEGACY_MEASURES: Record<string, string> = {
+  "task completion time": "time to first green",
+  "solution correctness": "test success",
+  "cognitive load": "overall workload",
+  "code comprehension": "self-rated comprehension",
+};
 
 type Design = ManualProtocolFields["design"];
 
@@ -72,7 +80,7 @@ function fromProtocol(
     sessionMinutes: asText(session.durationMinutes),
     measures: [
       ...new Set([
-        ...asList(protocol.measures).map(asText).filter(Boolean),
+        ...asList(protocol.measures).map(measureText).filter(Boolean),
         ...acceptedMeasures,
       ]),
     ],
@@ -103,14 +111,58 @@ export function ManualProtocolDialog({
   const [other, setOther] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [catalog, setCatalog] = useState<MeasureChoice[]>([]);
+  const [existingChoices, setExistingChoices] = useState<Record<string, string>>({});
+  const [catalogError, setCatalogError] = useState(false);
+  const [suggestions, setSuggestions] = useState<MeasureChoice[]>([]);
+  const [lookup, setLookup] = useState<"idle" | "loading" | "ready" | "unavailable">("idle");
   const set = (patch: Partial<typeof form>) => setForm((current) => ({ ...current, ...patch }));
-  const [measureOptions] = useState(() => [...new Set([...MEASURE_OPTIONS, ...form.measures])]);
+  const measureOptions = [...new Set([...MEASURE_OPTIONS, ...form.measures])];
   const errorFor = (id: string) => problems.find((p) => p.id === id)?.message;
+
+  useEffect(() => {
+    let current = true;
+    conversationApi.measureCatalog().then((choices) => {
+      if (!current) return;
+      setCatalog(choices);
+      const canonical = (text: string) => {
+        const declared = asList(protocol?.measures).map(asRecord).find((row) => row.construct === text);
+        const matches = declared ? choices.filter((choice) => choice.instrument === declared.instrument && JSON.stringify(choice.fields) === JSON.stringify(declared.fields)) : [];
+        return matches.length === 1 ? matches[0].construct : declared ? text : LEGACY_MEASURES[text.toLowerCase()] ?? text;
+      };
+      setExistingChoices(Object.fromEntries(asList(protocol?.measures).map(asRecord).filter((row) => typeof row.id === "string" && typeof row.construct === "string").map((row) => [canonical(String(row.construct)), String(row.id)])));
+      setForm((form) => ({ ...form, measures: [...new Set(form.measures.map((text) => {
+        return canonical(text);
+      }))] }));
+    }).catch(() => { if (current) setCatalogError(true); });
+    return () => { current = false; };
+  }, [protocol]);
+
+  useEffect(() => {
+    const query = other.split(",")[0].trim();
+    setSuggestions([]);
+    if (query.length < 2) { setLookup("idle"); return; }
+    setLookup("loading");
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      conversationApi.measureSuggestions(studyId, query, form.design, controller.signal).then((result) => {
+        if (controller.signal.aborted) return;
+        setSuggestions(result.suggestions);
+        setLookup("ready");
+      }).catch(() => { if (!controller.signal.aborted) setLookup("unavailable"); });
+    }, 200);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [other, form.design, studyId]);
+
+  const choiceFor = (text: string) => catalog.find((choice) =>
+    [choice.construct, ...choice.aliases].some((alias) => alias.toLowerCase() === text.toLowerCase()),
+  );
 
   const allMeasures = () => [
     ...new Set([...form.measures, ...other.split(",").map((m) => m.trim()).filter(Boolean)]),
   ];
   const selectedCount = allMeasures().length;
+  const minParticipants = form.design === "between-subjects" ? 6 : 4;
 
   const toggleMeasure = (measure: string) =>
     set({
@@ -129,6 +181,9 @@ export function ManualProtocolDialog({
     event.preventDefault();
     const measures = allMeasures();
     const found = validateManualProtocol({ ...form, measures });
+    if (measures.some((text) => !existingChoices[text] && !choiceFor(text)?.recipeByDesign[form.design])) {
+      found.push({ id: "manual-other-outcomes", label: "Other outcomes", message: "Choose a supported mapping for each outcome. Custom capture or an incompatible analysis must be defined in Setup before saving." });
+    }
     setProblems(found);
     if (found.length) {
       requestAnimationFrame(() => {
@@ -147,6 +202,9 @@ export function ManualProtocolDialog({
         plannedParticipants: Number(form.plannedParticipants),
         sessionMinutes: Number(form.sessionMinutes),
         measures,
+        measureIds: measures.filter((text) => !existingChoices[text]).map((text) => choiceFor(text)!.id),
+        existingMeasureIds: measures.filter((text) => existingChoices[text]).map((text) => existingChoices[text]),
+        typedMeasures: true,
         counterbalanced: form.design === "within-subjects",
       });
       onEntered();
@@ -299,8 +357,8 @@ export function ManualProtocolDialog({
                     onChange={(e) => set({ participantDescription: e.target.value })}
                   />
                 </Field>
-                <Field id="manual-planned" label="Planned participants" required hint="4 to 1000." error={errorFor("manual-planned")}>
-                  <Input type="number" inputMode="numeric" min={4} max={1000} stepper quantity value={form.plannedParticipants} onChange={(e) => set({ plannedParticipants: e.target.value })} />
+                <Field id="manual-planned" label="Planned participants" required hint={`${minParticipants} to 1000${form.design === "between-subjects" ? "; at least 3 per condition" : ""}.`} error={errorFor("manual-planned")}>
+                  <Input type="number" inputMode="numeric" min={minParticipants} max={1000} stepper quantity value={form.plannedParticipants} onChange={(e) => set({ plannedParticipants: e.target.value })} />
                 </Field>
                 <Field id="manual-minutes" label="Session length" required hint="Minutes, 15 to 180." error={errorFor("manual-minutes")}>
                   <Input type="number" inputMode="numeric" min={15} max={180} step={5} stepper unit="min" quantity value={form.sessionMinutes} onChange={(e) => set({ sessionMinutes: e.target.value })} />
@@ -334,19 +392,38 @@ export function ManualProtocolDialog({
                 </p>
               )}
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {measureOptions.map((measure) => (
+                {measureOptions.map((measure) => {
+                  const choice = choiceFor(measure);
+                  const compatible = Boolean(choice?.recipeByDesign[form.design]);
+                  return (
                   <Checkbox
                     key={measure}
                     bordered
-                    label={measure}
+                    label={MEASURE_LABELS[measure] ?? measure}
+                    description={choice && !compatible ? "No supported analysis for this design yet." : undefined}
+                    disabled={saving || (Boolean(choice) && !compatible && !form.measures.includes(measure))}
                     checked={form.measures.includes(measure)}
                     onChange={() => toggleMeasure(measure)}
                   />
-                ))}
+                ); })}
               </div>
               <Field id="manual-other-outcomes" label="Other outcomes" hint="Separate several with commas.">
-                <Input placeholder="e.g. defect count" value={other} onChange={(e) => setOther(e.target.value)} />
+                <Input placeholder="e.g. mental demand" value={other} maxLength={600} onChange={(e) => setOther(e.target.value)} />
               </Field>
+              <div className="flex flex-col gap-2" aria-live="polite" aria-busy={lookup === "loading"}>
+                {lookup === "loading" && <p className="type-caption text-text-muted">Checking available measures…</p>}
+                {suggestions.map((choice) => (
+                  <div key={choice.id} className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="min-w-0 flex-1 type-caption text-text-muted">{choice.description}{!choice.designCompatible && " No supported outcome analysis for this design."}</p>
+                    <Button type="button" variant="outline" size="sm" aria-label={`Add ${choice.construct}`} disabled={!choice.designCompatible || saving || form.measures.length >= MAX_OUTCOMES || form.measures.includes(choice.construct)} onClick={() => {
+                      set({ measures: [...new Set([...form.measures, choice.construct])] });
+                      setOther(other.split(",").slice(1).join(",").trim());
+                      document.getElementById("manual-other-outcomes")?.focus();
+                    }}><Plus aria-hidden />Add {choice.construct}</Button>
+                  </div>
+                ))}
+                {((lookup === "ready" && suggestions.length === 0) || lookup === "unavailable" || catalogError) && <p className="type-caption text-text-muted">Define custom capture and analysis in Setup, or choose an available measure before saving.</p>}
+              </div>
             </fieldset>
             {error && <Notice kind="problem">{error}</Notice>}
           </form>

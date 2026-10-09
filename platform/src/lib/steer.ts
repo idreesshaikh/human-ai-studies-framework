@@ -1,4 +1,4 @@
-/* Steer maps conversational initiative to the server's researcher profiles. */
+/* Steer maps assistant response style to the server's researcher profiles. */
 
 export type SteerLevel = 0 | 1 | 2 | 3;
 
@@ -19,28 +19,28 @@ export const STEER_STOPS: readonly SteerStop[] = [
   {
     level: 0,
     id: "checks",
-    label: "Checks",
+    label: "Checks only",
     summary: "Answers what you ask. Flags only risks and unsourced claims.",
     profile: "experienced",
   },
   {
     level: 1,
     id: "assists",
-    label: "Assists",
-    summary: "Proposes where the protocol is structurally missing something.",
+    label: "Fills gaps",
+    summary: "Suggests missing details in your protocol.",
     profile: "experienced",
   },
   {
     level: 2,
     id: "guides",
-    label: "Guides",
+    label: "Guides you",
     summary: "Proposes freely and explains why, following your order.",
     profile: "new-researcher",
   },
   {
     level: 3,
     id: "leads",
-    label: "Leads",
+    label: "Suggests",
     summary: "Keeps one useful next step visible. You can redirect or defer.",
     profile: "student",
   },

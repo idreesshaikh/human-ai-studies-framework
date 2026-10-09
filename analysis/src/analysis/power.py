@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable
+from numbers import Integral
 
 from scipy import stats as sps
 
@@ -162,3 +163,31 @@ def paired_power_curve(
         "curves": curves,
         "requiredN": required,
     }
+
+
+def minimum_detectable_d(
+    n: int, design: str, *, power: float = 0.8, alpha: float = DEFAULT_ALPHA
+) -> float | None:
+    """
+    Cohen's d (between) or d_z standardized by the difference SD (within),
+    reachable at ``power`` with ``n`` per arm or paired participants respectively.
+    None when even d=5 is not enough.
+    A property of the design, not of any observed effect.
+    """
+    if design not in {"between", "within"}:
+        raise ValueError(f"design must be 'between' or 'within', got {design!r}")
+    if isinstance(n, bool) or not isinstance(n, Integral) or n < 2:
+        raise ValueError(f"n must be an integer of at least 2, got {n!r}")
+    if not 0 < power < 1 or not 0 < alpha < 1:
+        raise ValueError("power and alpha must lie strictly between 0 and 1")
+    curve = _power_at if design == "between" else _paired_power_at
+    lo, hi = 0.01, 5.0
+    if curve(n, hi, alpha) < power:
+        return None
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        if curve(n, mid, alpha) >= power:
+            hi = mid
+        else:
+            lo = mid
+    return round(hi, 3)

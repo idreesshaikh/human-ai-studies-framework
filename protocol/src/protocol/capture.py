@@ -55,6 +55,7 @@ _PRODUCER_SOURCES = {
     "agent-derived": "agent-derived",
 }
 
+
 def new_session_id() -> str:
     """Create a non-secret, facilitator-friendly session identifier."""
     return f"s-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{secrets.token_hex(4)}"
@@ -68,6 +69,9 @@ def capture_config_version(protocol: dict) -> str:
         "instruments": protocol.get("instruments", {}),
         "capture": protocol.get("capture", {}),
         "protocolVersion": protocol.get("protocolVersion"),
+        "toolVersions": protocol.get("toolVersions", {}),
+        "tasks": protocol.get("tasks", []),
+        "measures": protocol.get("measures", []),
     }
     blob = json.dumps(capture, sort_keys=True, separators=(",", ":"))
     return sha256(blob.encode()).hexdigest()[:12]
@@ -131,6 +135,8 @@ def producer_capabilities(protocol: dict) -> dict[str, dict]:
     agent = instruments.get("agentCapture")
     harness = instruments.get("taskHarness", capture.get("taskHarness"))
     tern = instruments.get("tern")
+    if tern is None and protocol.get("protocolVersion", 1) <= 3:
+        tern = instruments.get("kite")
 
     producers: dict[str, dict] = {}
     tern_state = _configured_state(tern, "tern")
@@ -258,7 +264,7 @@ def producer_capabilities(protocol: dict) -> dict[str, dict]:
         "source": "task-harness",
         **_status(
             harness_state,
-                "run by an external harness command against task tests",
+            "run by an external harness command against task tests",
             configured=harness is not None,
         ),
         "executor": "task harness",
@@ -406,6 +412,9 @@ def session_manifest(
         "manifestVersion": MANIFEST_VERSION,
         "studyId": study_id or protocol.get("study", {}).get("id", ""),
         "protocolVersion": protocol.get("protocolVersion"),
+        "toolVersions": protocol.get("toolVersions", {}),
+        "tasks": protocol.get("tasks", []),
+        "measures": protocol.get("measures", []),
         "participantId": participant_id,
         "condition": condition,
         "taskId": task_id,

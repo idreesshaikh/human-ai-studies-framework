@@ -2,13 +2,12 @@
 
 import argparse
 import json
-import os
 import urllib.error
 from datetime import UTC, datetime
 from time import perf_counter
 
 from evaluate_research import save
-from middleware.assistant import MistralProvider, _post_json, model_name
+from middleware.assistant import _post_json, make_design_client, model_name
 from middleware.design_llm import propose_turn
 
 BRIEFS = (
@@ -27,13 +26,12 @@ def main() -> None:
     parser.add_argument(
         "--live",
         action="store_true",
-        help="Explicitly permit synthetic prompts to the configured Mistral key",
+        help="Explicitly permit synthetic prompts to the configured model route",
     )
     parser.add_argument("--output", default=".research-artifacts/design-models.json")
     args = parser.parse_args()
-    key = os.environ.get("MISTRAL_API_KEY")
-    if not args.live or not key:
-        parser.error("Use --live with MISTRAL_API_KEY; no participant prompts are used")
+    if not args.live or make_design_client() is None:
+        parser.error("Use --live with a configured model route; prompts are synthetic")
     results = []
     for selected in dict.fromkeys(args.models):
         observations = {}
@@ -49,7 +47,8 @@ def main() -> None:
             )
             return response
 
-        client = MistralProvider(key, post=post)
+        client = make_design_client()
+        client.post = post
         client.model = selected
         for index, brief in enumerate(BRIEFS):
             observations.clear()

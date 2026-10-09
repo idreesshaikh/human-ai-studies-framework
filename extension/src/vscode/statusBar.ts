@@ -20,7 +20,7 @@ export class SessionStatusBar implements vscode.Disposable {
 
   idle(): void {
     this.item.text = '$(beaker) Study: idle';
-    this.item.tooltip = 'TERN - click to start a study session';
+    this.item.tooltip = 'StudyLoop - click to start a study session';
     this.item.backgroundColor = undefined;
   }
 

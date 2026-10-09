@@ -15,6 +15,7 @@ import { ApiError } from "@/lib/api.ts";
 import { resolveRole, roleOrNull } from "@/lib/role";
 import { cn } from "@/lib/cn";
 import { NAME_MAX_LENGTH } from "@/lib/uiText";
+import { templatesApi, type FeaturedTemplate } from "@/lib/templatesApi";
 import {
   browserNameStore,
   rememberStudyName,
@@ -24,7 +25,7 @@ import {
 /* Project home: its studies, and a preview of who's on the team. */
 export function ProjectHome() {
   const api = useApi();
-  const { me, loading: meLoading, refresh } = useSession();
+  const { me, isSolo, loading: meLoading, refresh } = useSession();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { slug = "" } = useParams();
@@ -35,6 +36,16 @@ export function ProjectHome() {
   const [studyName, setStudyName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [featured, setFeatured] = useState<FeaturedTemplate[] | null>(null);
+  const [blank, setBlank] = useState(false);
+  useEffect(() => {
+    if (!composing || featured) return;
+    let active = true;
+    void templatesApi.featured().then((items) => {
+      if (active) setFeatured(items);
+    }).catch(() => { if (active) setCreateError("Could not load starting templates."); });
+    return () => { active = false; };
+  }, [composing, featured]);
   const names = browserNameStore();
   const viewer = viewerIdentity(user, me);
   // Two-step confirm for study deletion: first click arms, second deletes.
@@ -105,6 +116,23 @@ export function ProjectHome() {
     }
   };
 
+  const startTemplate = async (template: FeaturedTemplate) => {
+    if (creating) return;
+    setCreating(true);
+    setCreateError("");
+    try {
+      const title = studyName.trim() || template.title;
+      const { protocol } = await templatesApi.instantiate(template.id, { title });
+      const study = await api.createStudy(slug, title, protocol);
+      rememberStudyName(names, study.id, title);
+      await refresh();
+      navigate(`/p/${slug}/studies/${study.id}?tab=planning`);
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : "Could not start this study.");
+      setCreating(false);
+    }
+  };
+
   // Only the *first* load blanks the page; a post-delete `reload()` refetch
   // shouldn't unmount the whole tree while `studies` already reflects the
   // optimistic update  -  that remount was the delete-study flicker.
@@ -123,13 +151,13 @@ export function ProjectHome() {
   return (
     <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
       <div>
-        <Link
+        {!isSolo && <Link
           to="/home"
           className="type-caption mb-2 inline-flex min-h-11 items-center gap-1 rounded-control pr-2 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
         >
           <ChevronLeft className="size-4" aria-hidden />
           Back to projects
-        </Link>
+        </Link>}
         <h1 className="type-title text-text">{data.name}</h1>
         <p className="type-body text-text-muted">/{data.slug}</p>
       </div>
@@ -154,7 +182,20 @@ export function ProjectHome() {
           * here to do is open one. */}
         {composing && (
           <div className="flex flex-col gap-2">
-            <div className="flex gap-2">
+            <div className="grid gap-3 md:grid-cols-3">
+              {featured?.map((template) => (
+                <div key={template.id} className="flex flex-col gap-3 rounded-plate border border-border bg-surface p-4">
+                  <h3 className="type-subhead text-text">{template.title}</h3>
+                  <p className="type-note text-text-muted">{template.description}</p>
+                  <Button size="sm" variant="outline" className="mt-auto" disabled={creating} onClick={() => void startTemplate(template)}>
+                    Use this template
+                  </Button>
+                </div>
+              ))}
+            </div>
+            {!featured && !createError && <p className="type-note text-text-muted">Loading starting templates…</p>}
+            {!blank && <Button size="sm" variant="ghost" onClick={() => setBlank(true)}>Start with a blank study</Button>}
+            {blank && <div className="flex gap-2">
               <Input
                 autoFocus
                 placeholder="Name a new study"
@@ -191,10 +232,10 @@ export function ProjectHome() {
               >
                 Cancel
               </Button>
-            </div>
-            <p id="new-study-hint" className="type-note text-text-muted">
+            </div>}
+            {blank && <p id="new-study-hint" className="type-note text-text-muted">
               Up to {NAME_MAX_LENGTH} characters.
-            </p>
+            </p>}
             {createError && <Notice kind="problem">{createError}</Notice>}
           </div>
         )}
@@ -269,7 +310,7 @@ export function ProjectHome() {
         )}
       </section>
 
-      <section className="flex flex-col gap-3">
+      {!isSolo && <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="type-section text-text">Team</h2>
           {/* Not accent-coloured. The one accent on a screen belongs to the
@@ -302,10 +343,10 @@ export function ProjectHome() {
           </div>
         ) : (
           <p className="type-note text-text-muted">
-            This read-only demo has no project members to manage.
+            This read-only project has no members to manage.
           </p>
         )}
-      </section>
+      </section>}
     </div>
   );
 }

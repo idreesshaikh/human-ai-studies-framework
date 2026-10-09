@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useState, useSyncExternalStore } from "react";
 import { Link, NavLink, useLocation, useParams } from "react-router-dom";
 import {
   Menu,
@@ -23,7 +23,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PhoenixMark } from "@/components/brand/PhoenixMark";
-import { ProjectSwitcher } from "./ProjectSwitcher";
 import { useSession } from "@/lib/session";
 import { useAuth } from "@/lib/auth.tsx";
 import { getTheme, nextTheme, subscribeTheme, themeToggleLabel } from "@/lib/theme";
@@ -34,6 +33,7 @@ import { useRouteTitle } from "@/lib/useDocumentTitle";
 import { browserNameStore, studyDisplayName } from "@/lib/studyNames";
 
 const THEME_ICON = { light: Sun, dark: Moon };
+const ProjectSwitcher = lazy(() => import("./ProjectSwitcher").then((module) => ({ default: module.ProjectSwitcher })));
 
 /* One row spec for every control in the rail: the nav links and the fold
  * button share height, radius, type and hover so none reads as a different
@@ -46,7 +46,7 @@ const NAV_ITEM_IDLE = "border-transparent text-text-muted hover:bg-zone-9 hover:
  * project switcher, theme, account). Collapses to a toggle on narrow
  * viewports. */
 export function AppFrame({ children }: { children: React.ReactNode }) {
-  const { me, setThemePreference } = useSession();
+  const { me, isSolo, setThemePreference } = useSession();
   const { signOut, user: clerkUser, hasCredential } = useAuth();
   /* No identity, and this deployment wants one. `hasCredential` already reads
    * true in `mode: "none"` (a local deployment has no accounts to be signed
@@ -154,13 +154,13 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         <Link
           to={signedOut ? "/" : "/home"}
           className="-ml-2 flex items-center gap-2 rounded-control px-2 py-2 transition-colors duration-fast hover:bg-zone-9"
-          aria-label="Phoenix, home"
+          aria-label="StudyLoop, home"
         >
           <PhoenixMark size={22} />
-          <span className="type-subhead tracking-tight text-text">Phoenix</span>
+          <span className="hidden type-subhead tracking-tight text-text sm:inline">StudyLoop</span>
         </Link>
         <div className="ml-auto flex items-center gap-2">
-          {!signedOut && <ProjectSwitcher memberships={me?.memberships ?? []} />}
+          {!signedOut && !isSolo && <Suspense fallback={null}><ProjectSwitcher memberships={me?.memberships ?? []} /></Suspense>}
           <button type="button" className="header-control" onClick={cycleTheme} aria-label={themeToggleLabel(theme)}>
             <Icon aria-hidden />
           </button>
@@ -240,7 +240,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           )}
         >
           <div className="flex flex-1 flex-col gap-1 overflow-auto p-3">
-            {navItem(
+            {!isSolo && navItem(
               "/home",
               "Projects",
               <FolderOpen className="size-4" aria-hidden />,
@@ -268,7 +268,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
                       forceActive: pathname.includes("/studies/"),
                     },
                   )}
-                  {navItem(`/p/${navSlug}/members`, "Members", <Users className="size-4" aria-hidden />)}
+                  {!isSolo && navItem(`/p/${navSlug}/members`, "Members", <Users className="size-4" aria-hidden />)}
                   {navItem(
                     `/p/${navSlug}/settings`,
                     "Project settings",

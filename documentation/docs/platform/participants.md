@@ -52,7 +52,7 @@ own machine, so a path must exist where the participant's VS Code runs (for
 WSL, a Linux path such as `/home/participant/task`; for desktop Windows, a
 `C:\` path).
 
-Supported launch path: the `vscode://…/pair` deep link or **TERN: Connect to
+Supported launch path: the `vscode://…/pair` deep link or **StudyLoop: Connect to
 Study** in desktop VS Code. `vscode-insiders://` links are not generated.
 
 ## Assignment is part of the protocol
@@ -82,5 +82,6 @@ participant confirms **Begin session**.
 | Researcher | Collaborate on the conversation, participants, and data |
 | Viewer | Read-only access |
 
-Run a [synthetic dry run](data.md#synthetic-dry-run) first. It exercises the
-same capture boundary without asking a real participant to debug the study.
+Run a small pilot with a few real participants first, and tag those sessions as
+pilot in the [Data tab](data.md). Pilot sessions stay in the export but are kept
+out of confirmatory analysis.

@@ -3,17 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preload" href="/node_modules/@fontsource-variable/archivo/files/archivo-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta
       name="description"
-      content="Phoenix turns a research idea into a grounded, statistically prescribed protocol: design moves cited into a 15,000-paper corpus, compiled deterministically into a versioned draft."
+      content="StudyLoop supports research planning, cited design choices, versioned protocols, participant capture and reproducible analysis."
     />
     <!-- The browser's own chrome is part of the record too: each rendition
          hands the OS the ground it is actually painting. -->
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#eff3f9" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a1120" />
     <meta name="color-scheme" content="light dark" />
-    <title>Phoenix</title>
+    <title>StudyLoop</title>
     <script>
       // Apply the theme before first paint so there's no flash. Always the
       // atlas in daylight unless the researcher has explicitly chosen the
@@ -25,47 +26,6 @@
     </script>
   </head>
   <body>
-    <!-- DIRECTION CONTRACT: user-pinned-chat-workspace
-      THESIS: Research design through a focused chat, not a wall of configuration.
-      OWN-WORLD: Existing Archivo typography, blue accent and semantic tokens;
-      plain working surfaces, one shared reading width, restrained borders.
-      STORY: Discuss a question, inspect evidence, review the draft, preview the run.
-      FIRST VIEWPORT: Chat and composer share one spine. A labelled collapsed
-      protocol rail stays discoverable; expanding it reveals a working draft.
-      Plan begins with summary and tasks, with calculations and explanations
-      available on demand. One primary action per work area.
-      FORM: User-requested familiar conversational workspace; code-led refinement.
-      FINISH: unreviewed and undocumented is unfinished; this build ends with
-      the finish review, its scoped verdict and docs/design.md. This refinement
-      uses code-native interface elements, with no new raster assets.
-    -->
-    <!-- Historical direction superseded on Setup and Plan: seed 25cb9e81
-      THESIS: An observatory night-log kept beside a star atlas. The protocol
-      is the plate  -  a ruled coordinate field where every slot has an address;
-      the conversation is the log  -  dated entries, each one confirmed against
-      the catalogue or written down as unidentified. Refuses the research-tool
-      card grid, and refuses the two competing emphasis fills that made the
-      old world unreadable.
-      OWN-WORLD: Cool chart paper on a blue graticule; white plates, rounded,
-      hairline-ruled. Four marks and no fifth  -  magnitude is grounding
-      strength, an open ring is unsourced, a struck line is superseded, a
-      doubled mark is a conflict. One emphasis and no second: a fill is an
-      action, an axis mark is where you are, ink is the record. Archivo in
-      sentence case, Spline Sans Mono for measurement only, one accent blue.
-      STORY: The researcher reads the study the way an observer reads a plate
-       -  what is claimed, how strongly it is grounded, what conflicts, what is
-      next  -  and rules on it one entry at a time.
-      FIRST VIEWPORT: Study workspace. The draft plate holds the rail; log
-      entries stack against it, each carrying its magnitude mark; the key
-      anchors the foot; the assist dial and the composer sit on the axis, and
-      one accent fill marks the single next action.
-      FORM: Observatory night-log and star atlas  -  candidate 6 of 7, assigned
-      by seed 25cb9e81, raised by four donations (total palette commitment,
-      a counted accent budget, per-character change cascade, one ruling axis).
-      FINISH: unreviewed and undocumented is unfinished; this build ends with
-      the finish review, the verdict, and the interface design guide
-      carrying its provenance.
-    -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

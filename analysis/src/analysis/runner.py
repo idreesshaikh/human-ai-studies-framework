@@ -25,6 +25,8 @@ class RunOutcome:
     executed: list[str] = field(default_factory=list)
     failed_validation: list[PlanCheck] = field(default_factory=list)
     errors: dict[str, str] = field(default_factory=dict)
+    excluded_sessions: dict[str, list[str]] = field(default_factory=dict)
+    sessions_total: int = 0
 
     @property
     def ok(self) -> bool:
@@ -98,12 +100,25 @@ def run_plan(
     Validate the protocol's analysis plan against the dataset, run every satisfiable
     recipe once, and stitch the per-RQ report.
     """
+    audit_dataset = dataset
+    excluded_sessions = dict(audit_dataset.exclusions)
+    sessions_total = len({r["sessionId"] for r in audit_dataset.rows})
+    dataset = Dataset(
+        audit_dataset.analysis_rows,
+        study_id=audit_dataset.study_id,
+        meta=dict(audit_dataset.meta),
+    )
     plan = protocol.get("analysisPlan", [])
     rq_text = {
         rq["id"]: rq.get("text", "") for rq in protocol.get("researchQuestions", [])
     }
     checks = validate_plan(plan, dataset)
-    outcome = RunOutcome(study_id=study_id, out_dir=out_root / study_id)
+    outcome = RunOutcome(
+        study_id=study_id,
+        out_dir=out_root / study_id,
+        excluded_sessions=excluded_sessions,
+        sessions_total=sessions_total,
+    )
     outcome.out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"plan validation ({len(checks)} entries):")
@@ -127,7 +142,20 @@ def run_plan(
         print(f"running {rec.id} ...", flush=True)
         try:
             dataset.meta = dict(base_meta)
-            result = rec.run(dataset)
+            if rec.id in {"typed-measures", "mean-comparison", "control_arm_audit"}:
+                dataset.meta.update(
+                    protocol=protocol,
+                    control_conditions=protocol.get("controlConditions", []),
+                )
+            if rec.id == "control_arm_audit":
+                audit_copy = Dataset(
+                    audit_dataset.rows,
+                    study_id=dataset.study_id,
+                    meta=dict(dataset.meta),
+                )
+                result = rec.run(audit_copy)
+            else:
+                result = rec.run(dataset)
         except Exception as exc:  # noqa: BLE001 - recorded in outcome.errors below
             outcome.errors[rec.id] = f"{type(exc).__name__}: {exc}"
             print(f"  ERROR {rec.id}: {outcome.errors[rec.id]}", file=sys.stderr)
@@ -172,7 +200,19 @@ def _write_report(
         "Created by `analysis run`; every section names the research "
         "question it answers.",
         "",
+        "## Sessions in this analysis",
+        "",
+        f"Analysed: {outcome.sessions_total - len(outcome.excluded_sessions)} of "
+        f"{outcome.sessions_total} sessions.",
+        "",
     ]
+    if outcome.excluded_sessions:
+        lines += ["Excluded from confirmatory analysis:", ""]
+        for sid, why in outcome.excluded_sessions.items():
+            lines.append(f"- `{sid}`: {', '.join(why)}")
+        lines.append("")
+    else:
+        lines += ["No sessions were excluded.", ""]
     if outcome.failed_validation or outcome.errors:
         lines += ["## Plan validation failures", ""]
         for c in outcome.failed_validation:

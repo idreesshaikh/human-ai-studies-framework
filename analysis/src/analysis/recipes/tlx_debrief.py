@@ -13,13 +13,15 @@ from analysis.figures import condition_colors, new_axes
 from analysis.recipes._common import compare_or_describe
 
 METHODS = (
+    "Small untied samples use exact tests; ties/large samples use "
+    "the asymptotic approximation with tie correction. "
     "The end survey (`end_survey_response`) records TLX-style subscales under "
     "its `responses` object (e.g. mental demand, effort, frustration), one "
     "response per session; a dismissed survey (`end_survey_skipped`) is a "
     "non-response, counted but not rated. Each "
-    "subscale is compared independently across conditions with the exact "
+    "subscale is compared independently across conditions with the "
     "two-sided Wilcoxon signed-rank on participants observed in both "
-    "conditions (rank-biserial correlation), else the exact Mann-Whitney U "
+    "conditions (rank-biserial correlation), else Mann-Whitney U "
     "with Cliff's delta; per-cell n reported per subscale. No omnibus or "
     "multiple-comparison correction is applied at pilot n - results are "
     "hypothesis-generating, stated as such."

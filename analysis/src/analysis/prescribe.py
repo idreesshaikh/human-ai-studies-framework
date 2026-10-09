@@ -20,7 +20,7 @@ class Prescription:
 _TABLE: dict[str, Prescription] = {
     "two-group": Prescription(
         design_shape="two-group",
-        test="Mann-Whitney U (exact, two-sided)",
+        test="Mann-Whitney U (two-sided; exact when small/untied, else asymptotic)",
         effect_size="Cliff's delta",
         correction="none",
         sample_size_guidance="≥3 per cell for exact distribution; "
@@ -33,7 +33,7 @@ _TABLE: dict[str, Prescription] = {
     ),
     "paired": Prescription(
         design_shape="paired",
-        test="Wilcoxon signed-rank (exact, two-sided)",
+        test="Wilcoxon signed-rank (two-sided; exact when untied, else asymptotic)",
         effect_size="Matched-pairs rank-biserial correlation (r)",
         correction="none",
         sample_size_guidance="≥4 non-zero difference pairs for exact "
@@ -42,14 +42,14 @@ _TABLE: dict[str, Prescription] = {
         "Wilcoxon signed-rank is the non-parametric paired t-test. "
         "Rank-biserial r is interpretable as the fraction of pairs "
         "favouring one condition over the other. Zero differences are "
-        "excluded following Siegel & Castellan. NFR-8: exact p-values.",
+        "excluded following Siegel & Castellan. Exact p-values only "
+        "for small untied samples; otherwise tie-corrected asymptotic.",
     ),
     "multi-group": Prescription(
         design_shape="multi-group",
         test="Kruskal-Wallis H (exact where available, else asymptotic)",
         effect_size="Epsilon-squared (ε²) or rank-eta-squared",
-        correction="Holm-Bonferroni for post-hoc pairwise comparisons "
-        "via Dunn's test",
+        correction="Holm-Bonferroni for post-hoc pairwise comparisons via Dunn's test",
         sample_size_guidance="≥3 per group; ≥5 per group recommended; "
         "post-hoc comparisons follow the paired/two-group guidance",
         rationale="Multi-group (3+) independent comparison. Kruskal-Wallis "

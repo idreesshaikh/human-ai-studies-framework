@@ -21,7 +21,7 @@ When something looks wrong, run through these before digging in:
 
 1. Is a session actually running? The status bar shows a countdown while a
    session is active; if it says `Study: idle`, nothing is being captured.
-2. Open the data folder (_TERN: Open Study Data Folder_) and check the JSONL
+2. Open the data folder (_StudyLoop: Open Study Data Folder_) and check the JSONL
    file is there and growing.
 3. Are you working in a captured language? By default the behavioral capture
    only watches Python (`tern.behavior.languages`). Editing a Markdown or JSON
@@ -33,7 +33,7 @@ When something looks wrong, run through these before digging in:
 
 Almost always one of the first checks above.
 
-- **No session running.** Start one with _TERN: Start Study Session_.
+- **No session running.** Start one with _StudyLoop: Start Study Session_.
 - **Wrong language.** The pilot config captures Python only. If the
   participant is working in another language, either that's expected (the
   study is Python-only) or you need to add the language to
@@ -114,7 +114,7 @@ file and nudge it occasionally without typing.
   `tern.fatigue.intervalMinutes` randomised by `tern.fatigue.jitterPercent`,
   so the exact timing moves session to session by design.
 
-To trigger one on demand, run _TERN: Log Fatigue Now_.
+To trigger one on demand, run _StudyLoop: Log Fatigue Now_.
 
 ## Some events are missing / sequence numbers have gaps
 
@@ -146,7 +146,7 @@ things that look like bugs are intended:
 
 ## I couldn't connect to a study
 
-The pairing step (_TERN: Connect to Study_) can refuse for a few specific
+The pairing step (_StudyLoop: Connect to Study_) can refuse for a few specific
 reasons:
 
 - **"No protocol for this study."** Pairing is blocked until the study has a
@@ -164,8 +164,8 @@ reasons:
 
 ## I need to switch study or reconnect
 
-Once connected, _TERN: Connect to Study_ refuses to run again. Run
-_TERN: Disconnect from Study_ (also available as a row in the Session view
+Once connected, _StudyLoop: Connect to Study_ refuses to run again. Run
+_StudyLoop: Disconnect from Study_ (also available as a row in the Session view
 while no session is running), confirm the prompt, then connect with the new
 connection string. Disconnecting is blocked while a session is running; end
 it first. It removes the stored credential, the paired identity, the frozen

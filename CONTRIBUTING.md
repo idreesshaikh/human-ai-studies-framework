@@ -23,8 +23,8 @@ uv run --no-sync mkdocs build --strict -f documentation/mkdocs.yml
 
 CI is authoritative; do not lower coverage floors to pass a change. Install
 Chromium using `npm --prefix platform exec playwright install chromium` before
-browser rehearsals. Follow [demo readiness](docs/demo-readiness.md) and use a
-separate synthetic database, never a participant deployment.
+browser rehearsals. Use a separate synthetic database, never a participant
+deployment.
 
 ## Research and data
 
@@ -47,5 +47,4 @@ cleanup targets before deleting data or tickets.
 
 Root and extension code carry MIT notices; preserve both attribution notices.
 External papers, datasets, fonts, and dependencies retain their own terms.
-See [security](SECURITY.md) for sensitive findings and
-[release readiness](docs/release-readiness.md) before publication.
+See [security](SECURITY.md) for sensitive findings.

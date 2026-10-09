@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/+Pepi66nVynsC51wgKocHpCKBWo</id>
+  <title>arXiv Query: search_query=(cat:cs.SE OR cat:cs.HC) AND (all:"Copilot" AND all:"randomized" AND all:"controlled" AND all:"trial" AND all:"programmers") AND submittedDate:"202201010000 TO 202610012359"&amp;id_list=&amp;start=0&amp;max_results=200</title>
+  <updated>2026-10-08T13:03:36Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=(cat:cs.SE+OR+cat:cs.HC)+AND+((all:%22Copilot%22+AND+(all:%22randomized%22+AND+(all:%22controlled%22+AND+(all:%22trial%22+AND+all:%22programmers%22))))+AND+submittedDate:%22202201010000+TO+202610012359%22)&amp;start=0&amp;max_results=200&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>200</opensearch:itemsPerPage>
+  <opensearch:totalResults>0</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+</feed>

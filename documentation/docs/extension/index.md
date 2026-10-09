@@ -39,7 +39,7 @@ the study that runs.
 
 | Leg | Instrument | What it captures |
 | --- | --- | --- |
-| How participants feel | TERN probes | Fatigue Likert, end-of-session TLX survey |
+| How participants feel | TERN probes | Fatigue Likert, adapted TLX-inspired debrief |
 | What participants do | TERN telemetry | Focus switches, edit bursts, pastes (sizes only), stuck episodes |
 | What the AI does | agent-capture | Tool calls, transcripts, suggestion lifecycle |
 | What the code looks like | metrics | Complexity profile of the code produced |

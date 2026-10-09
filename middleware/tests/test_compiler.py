@@ -449,15 +449,6 @@ def test_template_supplied_items_get_one_plain_warning_each():
     ]
 
 
-def test_every_registered_recipe_has_a_plain_label():
-    import analysis.recipes  # noqa: F401
-    from analysis.core import REGISTRY
-
-    missing = set(REGISTRY) - set(compiler.RECIPE_LABELS)
-    assert not missing, f"add plain labels for new recipes: {sorted(missing)}"
-    assert all(label != rid for rid, label in compiler.RECIPE_LABELS.items())
-
-
 def test_a_research_question_the_researcher_stated_is_not_credited_to_the_template():
     stated = "How do participants perceive the AI-assisted vs unassisted experience?"
     rq = _rq_move()
@@ -612,3 +603,28 @@ def test_a_researcher_name_that_is_set_is_left_alone():
     }
     result = compiler.compile_moves([], base_yaml=yaml.safe_dump(seed))
     assert result.draft["study"]["researchers"] == ["Dr Ada Lovelace"]
+
+
+def test_researcher_conditions_replace_template_placeholder_conditions():
+    # The design assistant chooses a template with no parameters and names the
+    # conditions in a separate move. The template's placeholders
+    # (control/treatment) must give way to them, not sit beside them: a
+    # two-group study has exactly two conditions.
+    conditions = {
+        "moveId": "m-cond",
+        "kind": "set-parameter",
+        "target": "conditions[]",
+        "proposal": "Compare AI-assisted work with unassisted work.",
+        "patch": {
+            "section": "conditions",
+            "op": "append",
+            "value": ["ai-assisted", "unassisted"],
+        },
+        "grounding": [],
+        "status": "accepted",
+    }
+    result = compiler.compile_moves(
+        [_template_move("m-t", "two-group-rct-v1", {}), conditions, _rq_move()]
+    )
+    assert result.valid, result.errors
+    assert yaml.safe_load(result.yaml)["conditions"] == ["ai-assisted", "unassisted"]

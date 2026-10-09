@@ -3,8 +3,8 @@
  * the hook that applies it lives in useDocumentTitle.ts. */
 import { STUDY_TAB_LABELS, resolveStudyTab } from "./studyTabs.ts";
 
-export const SITE_NAME = "Phoenix";
-export const LANDING_TITLE = "Phoenix: run a defensible developer study";
+export const SITE_NAME = "StudyLoop";
+export const LANDING_TITLE = "StudyLoop: run a defensible developer study";
 
 export interface TitleInput {
   pathname: string;

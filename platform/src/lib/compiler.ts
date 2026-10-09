@@ -79,12 +79,12 @@ export function compile(
     }
     if (!isSectionPatch(move.patch)) continue;
     const { section, op, value } = move.patch;
+    const values = (Array.isArray(value) ? value : [value]).map(measureText).filter(Boolean);
     if (op === "append") {
       const list = draft[section];
-      if (!list.includes(value)) list.push(value);
+      for (const text of values) if (!list.includes(text)) list.push(text);
     } else {
-      // `set` replaces the section's single line (scalar-ish slots)
-      draft[section] = [value];
+      draft[section] = values;
     }
   }
   return draft;
@@ -140,6 +140,9 @@ export const asRecord = (value: unknown): Record<string, unknown> =>
 export const asText = (value: unknown): string =>
   typeof value === "string" || typeof value === "number" ? String(value) : "";
 
+export const measureText = (value: unknown): string =>
+  typeof value === "object" ? asText(asRecord(value).construct) : asText(value);
+
 /** The draft sections a compiled protocol fills. */
 export function protocolToDraft(protocol: Record<string, unknown>): ProtocolDraft {
   const participants = asRecord(protocol.participants);
@@ -149,7 +152,7 @@ export function protocolToDraft(protocol: Record<string, unknown>): ProtocolDraf
     design: texts([participants.design]),
     participants: texts([participants.planned && `${asText(participants.planned)} planned`]),
     conditions: texts(asList(protocol.conditions)),
-    measures: texts(asList(protocol.measures)),
+    measures: texts(asList(protocol.measures).map(m => typeof m === "object" ? asRecord(m).construct : m)),
     instruments: Object.keys(asRecord(protocol.instruments)),
     statisticalPlan: texts(asList(protocol.analysisPlan).flatMap((e) => asList(asRecord(e).recipes))),
     ethics: texts([asRecord(protocol.study).ethicsRef]),

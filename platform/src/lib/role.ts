@@ -1,18 +1,6 @@
 import type { Role } from "./capabilities.ts";
 
-/* Resolving *my* role in a project  -  and, just as importantly, knowing when
- * the answer isn't in yet.
- *
- * The bug this exists to kill: pages resolved the role with
- * `… ?? … ?? "viewer"`, so while the session was still loading, every
- * owner-only control silently rendered as if the caller were a viewer. The
- * delete button appeared a beat after the page, or  -  if the session request
- * was slow  -  appeared to be missing entirely. "Delete sometimes doesn't
- * work" is partly that: the control was never there to click.
- *
- * "Not known yet" and "known to be a viewer" are different answers and must
- * be represented differently. Pure and dependency-free so the verify script
- * can exercise every branch without a DOM. */
+/* Keep a loading identity distinct from a known project role. */
 
 export type RoleState =
   | { status: "loading" }

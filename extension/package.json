@@ -1,6 +1,6 @@
 {
   "name": "tern",
-  "displayName": "TERN: Telemetry for Engineering & Reasoning Norms",
+  "displayName": "StudyLoop Capture",
   "description": "Zero-distraction in-IDE overlay for developer studies: fatigue Likert sampling, stuck detection with inline code prompts, and session telemetry.",
   "version": "1.0.1",
   "publisher": "idreesrazak",
@@ -43,7 +43,7 @@
       "activitybar": [
         {
           "id": "tern",
-          "title": "TERN study",
+          "title": "StudyLoop study",
           "icon": "media/tern.svg"
         }
       ]
@@ -67,43 +67,43 @@
     "commands": [
       {
         "command": "tern.startSession",
-        "title": "TERN: Start Study Session"
+        "title": "StudyLoop: Start Study Session"
       },
       {
         "command": "tern.endSession",
-        "title": "TERN: End Study Session"
+        "title": "StudyLoop: End Study Session"
       },
       {
         "command": "tern.pauseSession",
-        "title": "TERN: Pause Study Session"
+        "title": "StudyLoop: Pause Study Session"
       },
       {
         "command": "tern.resumeSession",
-        "title": "TERN: Resume Study Session"
+        "title": "StudyLoop: Resume Study Session"
       },
       {
         "command": "tern.logFatigueNow",
-        "title": "TERN: Log Fatigue Now"
+        "title": "StudyLoop: Log Fatigue Now"
       },
       {
         "command": "tern.openDataFolder",
-        "title": "TERN: Open Study Data Folder"
+        "title": "StudyLoop: Open Study Data Folder"
       },
       {
         "command": "tern.statusMenu",
-        "title": "TERN: Session Menu"
+        "title": "StudyLoop: Session Menu"
       },
       {
         "command": "tern.respondStuck",
-        "title": "TERN: Respond to Stuck Prompt"
+        "title": "StudyLoop: Respond to Stuck Prompt"
       },
       {
         "command": "tern.connectToStudy",
-        "title": "TERN: Connect to Study"
+        "title": "StudyLoop: Connect to Study"
       },
       {
         "command": "tern.disconnectStudy",
-        "title": "TERN: Disconnect from Study"
+        "title": "StudyLoop: Disconnect from Study"
       }
     ],
     "keybindings": [
@@ -137,7 +137,7 @@
       }
     ],
     "configuration": {
-      "title": "TERN",
+      "title": "StudyLoop",
       "properties": {
         "tern.participantId": {
           "type": "string",

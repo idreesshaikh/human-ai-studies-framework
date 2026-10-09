@@ -65,10 +65,6 @@ uv sync --group docs --frozen
 uv run --group docs mkdocs build --config-file documentation/mkdocs.yml --strict
 ```
 
-`bash scripts/smoke.sh` checks the container stack and writes an analysis report
-to a temporary directory. It ingests synthetic sessions: use a development
-instance, never a participant database.
-
 ## Research and data contracts
 
 - Scope reads and exports to their study. Knowing a session ID does not grant

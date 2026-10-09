@@ -26,7 +26,7 @@ export interface EventRow {
 
 /** One lane of the swimlane: a label, a source, and its events sorted by ts. */
 export interface Lane {
-  /** Human-readable label for this lane (e.g. "TERN editor"). */
+  /** Human-readable label for this lane (e.g. "Editor capture"). */
   label: string;
   /** The source identifier (e.g. "tern"). */
   source: string;
@@ -52,11 +52,11 @@ export function parseTs(ts: string): number {
 
 /** Human-readable lane labels keyed by source. */
 const LANE_LABELS: Record<string, string> = {
-  tern: "TERN editor",
+  tern: "Editor capture",
   // Rows written before the stream was renamed. New events are normalised at
   // ingest, but a database that predates the rename still holds the old value
   // and an unlabelled lane would read as an unknown producer.
-  "cognitive-overlay": "TERN editor",
+  "cognitive-overlay": "Editor capture",
   "agent-capture": "Agent interaction",
   "agent-derived": "Agent-derived",
   "workspace-snapshot": "Workspace snapshots",
@@ -65,7 +65,7 @@ const LANE_LABELS: Record<string, string> = {
 };
 
 /** Fallback label for unknown sources. */
-function laneLabel(source: string): string {
+export function laneLabel(source: string): string {
   return LANE_LABELS[source] ?? source;
 }
 

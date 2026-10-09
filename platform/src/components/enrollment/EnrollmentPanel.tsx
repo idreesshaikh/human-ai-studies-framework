@@ -10,7 +10,6 @@ import { Surface } from "@/components/shell/Surface";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { Notice } from "@/components/ui/notice";
 import { LiveSessions } from "./LiveSessions";
-import { RunOverview } from "../charts/RunOverview";
 import { MintDialog } from "./MintDialog";
 import { TogglePopover } from "./TogglePopover";
 import { summarizeProducerStates } from "./captureSummary";
@@ -55,9 +54,11 @@ const STATUS_STYLE: Record<string, string> = {
 export function EnrollmentPanel({
   studyId,
   role,
+  hasProtocol,
 }: {
   studyId: string;
   role: Role | null;
+  hasProtocol: boolean;
 }) {
   const api = useApi();
   const [rows, setRows] = useState<EnrollmentTokenView[]>([]);
@@ -73,17 +74,13 @@ export function EnrollmentPanel({
    * console (and the server log) with the same refusal every few seconds. */
   const [noProtocol, setNoProtocol] = useState(false);
   const [ready, setReady] = useState(false);
-  /* Participants this study already holds data for. Enrollment tokens and
-   * collected sessions are different facts: a study can carry sessions that
-   * never came through a minted link (a curated import, a replayed capture,
-   * the bundled demo). Saying "No participants yet" on the strength of an
-   * empty token list made this tab contradict the Data tab, which was listing
-   * those same participants and their completed sessions. */
+  // Imported sessions can contain participants without enrollment tokens.
   const [dataParticipants, setDataParticipants] = useState<string[]>([]);
   const canMint = hasRole(role, "mint_token");
   const canToggle = hasRole(role, "toggle_capture");
 
   const load = useCallback(() => {
+    if (!hasProtocol) return;
     // Tokens first: a study with no applied protocol refuses them, and that
     // one answer is enough to know the other two reads would be refused too.
     void api
@@ -114,18 +111,18 @@ export function EnrollmentPanel({
         }
         setLoadError(plainErrorMessage(e, "Could not load enrollment."));
       });
-  }, [studyId, api]);
+  }, [studyId, api, hasProtocol]);
   useEffect(load, [load]);
 
   // Live polling: refresh statuses every 15s, but only once a protocol exists.
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !hasProtocol) return;
     pollRef.current = setInterval(load, 15_000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [load, ready]);
+  }, [load, ready, hasProtocol]);
 
   /* Revoking used to be `void api.revoke(...).then(load)`  -  a rejection
    * became an unhandled promise and the row simply stayed, which reads as
@@ -156,7 +153,7 @@ export function EnrollmentPanel({
     }).catch(() => setRevokeError("Could not copy the link. Select and copy it manually."));
   };
 
-  if (noProtocol) {
+  if (!hasProtocol || noProtocol) {
     return (
       <Surface measure="work" label="Participants">
         <EmptyState
@@ -189,10 +186,6 @@ export function EnrollmentPanel({
      * `overflow-x-auto`, and `work` leaves 896px of column, so it fits with
      * room to spare and still scrolls on its own if a window gets tighter. */
     <Surface measure="work" label="Participants">
-      <details className="border-b border-border pb-3">
-        <summary className="cursor-pointer type-label text-text">Preview the participant journey</summary>
-        <div className="mt-4"><RunOverview key={studyId} studyId={studyId} preview={false} /></div>
-      </details>
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1">
           {/* Counts enrollment links, so it says "enrolled" only about

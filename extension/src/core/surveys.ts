@@ -11,6 +11,8 @@ export interface LikertItem {
   highLabel: string;
   /** Number of scale points (7 => answers 1..7). */
   points: number;
+  minimum?: number;
+  step?: number;
   /** Optional per-point descriptions shown next to the numbers. */
   hints?: Record<number, string>;
 }
@@ -90,4 +92,140 @@ export function endSurveyItems(condition: string): LikertItem[] {
   return condition === 'ai-assisted'
     ? [...END_SURVEY_ITEMS, AI_CONDITION_ITEM]
     : [...END_SURVEY_ITEMS];
+}
+
+/** Protocol v6 instruments. These definitions travel in the locked capture config. */
+export interface SurveyInstrument {
+  id: string;
+  version: string;
+  title: string;
+  timing: 'pre-task' | 'post-task';
+  conditions?: string[];
+  items: Array<{
+    id: string;
+    text: string;
+    scale: {
+      min: number;
+      max: number;
+      step?: number;
+      lowLabel: string;
+      highLabel: string;
+    };
+    reverse?: boolean;
+  }>;
+  scoring: 'mean' | 'sum' | 'sus' | 'none';
+  validation?: string;
+}
+
+export function readInstruments(
+  value: unknown,
+  condition: string,
+  timing: SurveyInstrument['timing'],
+): SurveyInstrument[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((candidate): candidate is SurveyInstrument => {
+    if (!candidate || typeof candidate !== 'object') return false;
+    const i = candidate as SurveyInstrument;
+    if (
+      !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(i.id) ||
+      typeof i.version !== 'string' ||
+      typeof i.title !== 'string' ||
+      i.timing !== timing ||
+      !Array.isArray(i.items) ||
+      !i.items.length ||
+      !['mean', 'sum', 'sus', 'none'].includes(i.scoring)
+    )
+      return false;
+    if (
+      i.conditions &&
+      (!Array.isArray(i.conditions) || !i.conditions.includes(condition))
+    )
+      return false;
+    const ids = new Set<string>();
+    return i.items.every((item) => {
+      if (
+        !item ||
+        !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(item.id) ||
+        ids.has(item.id) ||
+        typeof item.text !== 'string' ||
+        !item.scale
+      )
+        return false;
+      ids.add(item.id);
+      const { min, max, step = 1, lowLabel, highLabel } = item.scale;
+      const count = (max - min) / step;
+      return (
+        [min, max, step].every(Number.isFinite) &&
+        max > min &&
+        step > 0 &&
+        count <= 100 &&
+        Number.isInteger(count) &&
+        typeof lowLabel === 'string' &&
+        typeof highLabel === 'string'
+      );
+    });
+  });
+}
+
+export function instrumentItems(instrument: SurveyInstrument): LikertItem[] {
+  return instrument.items.map((item) => ({
+    id: item.id,
+    question: item.text,
+    lowLabel: item.scale.lowLabel,
+    highLabel: item.scale.highLabel,
+    points: (item.scale.max - item.scale.min) / (item.scale.step ?? 1) + 1,
+    minimum: item.scale.min,
+    step: item.scale.step ?? 1,
+  }));
+}
+
+export function scoreInstrument(
+  instrument: SurveyInstrument,
+  responses: Record<string, number>,
+): number | null {
+  const values: number[] = [];
+  for (const item of instrument.items) {
+    let value = responses[item.id];
+    const { min, max, step = 1 } = item.scale;
+    if (
+      !Number.isFinite(value) ||
+      value < min ||
+      value > max ||
+      Math.abs((value - min) / step - Math.round((value - min) / step)) > 1e-8
+    )
+      return null;
+    if (item.reverse) value = min + max - value;
+    if (instrument.scoring === 'sus') value -= min;
+    values.push(value);
+  }
+  if (!values.length || instrument.scoring === 'none') return null;
+  const sum = values.reduce((total, value) => total + value, 0);
+  return instrument.scoring === 'sus'
+    ? sum * 2.5
+    : instrument.scoring === 'sum'
+      ? sum
+      : sum / values.length;
+}
+
+export function validateResponses(
+  items: LikertItem[],
+  value: unknown,
+): Record<string, number> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return undefined;
+  const responses = value as Record<string, number>;
+  for (const item of items) {
+    const answer = responses[item.id];
+    const low = item.minimum ?? 1;
+    const step = item.step ?? 1;
+    const index = (answer - low) / step;
+    if (
+      !Number.isFinite(answer) ||
+      !Number.isInteger(index) ||
+      index < 0 ||
+      index >= item.points
+    )
+      return undefined;
+  }
+  return Object.fromEntries(items.map((item) => [item.id, responses[item.id]]));
 }

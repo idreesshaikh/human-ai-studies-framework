@@ -1,4 +1,4 @@
-"""Static-metrics orchestrator: the 9-metric cognitive-load matrix as tables."""
+"""Static-metrics orchestrator: source-code characteristics as tables."""
 
 import argparse
 import json
@@ -23,6 +23,13 @@ from analyzers.text_metrics import (
 from parsers.ts_parser import collect_function_metrics
 
 SCHEMA_VERSION = 2
+CODE_QUALITY_METRICS = {
+    "nesting_penalty",
+    "cognitive_complexity",
+    "parameter_count",
+    "halstead_effort",
+    "mean_scope_distance",
+}
 
 DEFAULT_TARGET = Path(__file__).resolve().parents[1] / "corpus"
 SKIP_DIRS = {"venv", ".venv", "__pycache__", "node_modules", ".git"}
@@ -115,7 +122,9 @@ def build_tables(
     file_df = pd.DataFrame(all_file_rows)
     if metric_set_value != ALL_METRICS:
         selected = (
-            {metric_set_value}
+            CODE_QUALITY_METRICS
+            if metric_set_value == "code-quality-5"
+            else {metric_set_value}
             if isinstance(metric_set_value, str)
             else set(metric_set_value)
         )
@@ -233,8 +242,7 @@ def write_tables(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Extract the 9-metric cognitive-load matrix over a "
-        "directory of Python files."
+        description="Extract static code metrics over a directory of Python files."
     )
     parser.add_argument(
         "target",

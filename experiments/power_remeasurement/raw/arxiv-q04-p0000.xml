@@ -1,0 +1,2063 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/GfFeRVXa6MPF4M3iIwo9X1X5yfw</id>
+  <title>arXiv Query: search_query=(cat:cs.SE OR cat:cs.HC) AND (all:"large" AND all:"language" AND all:"model" AND all:"developers" AND all:"field" AND all:"experiment") AND submittedDate:"202201010000 TO 202610012359"&amp;id_list=&amp;start=0&amp;max_results=200</title>
+  <updated>2026-10-08T13:03:48Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=(cat:cs.SE+OR+cat:cs.HC)+AND+((all:%22large%22+AND+(all:%22language%22+AND+(all:%22model%22+AND+(all:%22developers%22+AND+(all:%22field%22+AND+all:%22experiment%22)))))+AND+submittedDate:%22202201010000+TO+202610012359%22)&amp;start=0&amp;max_results=200&amp;id_list=" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>200</opensearch:itemsPerPage>
+  <opensearch:totalResults>59</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2211.04769v1</id>
+    <title>Interpretable Explainability in Facial Emotion Recognition and Gamification for Data Collection</title>
+    <updated>2022-11-09T09:53:48Z</updated>
+    <link href="https://arxiv.org/abs/2211.04769v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2211.04769v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Training facial emotion recognition models requires large sets of data and costly annotation processes. To alleviate this problem, we developed a gamified method of acquiring annotated facial emotion data without an explicit labeling effort by humans. The game, which we named Facegame, challenges the players to imitate a displayed image of a face that portrays a particular basic emotion. Every round played by the player creates new data that consists of a set of facial features and landmarks, already annotated with the emotion label of the target facial expression. Such an approach effectively creates a robust, sustainable, and continuous machine learning training process. We evaluated Facegame with an experiment that revealed several contributions to the field of affective computing. First, the gamified data collection approach allowed us to access a rich variation of facial expressions of each basic emotion due to the natural variations in the players' facial expressions and their expressive abilities. We report improved accuracy when the collected data were used to enrich well-known in-the-wild facial emotion datasets and consecutively used for training facial emotion recognition models. Second, the natural language prescription method used by the Facegame constitutes a novel approach for interpretable explainability that can be applied to any facial emotion recognition model. Finally, we observed significant improvements in the facial emotion perception and expression skills of the players through repeated game play.</summary>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2022-11-09T09:53:48Z</published>
+    <arxiv:comment>8 pages, 8 figures, 2022 10th International Conference on Affective Computing and Intelligent Interaction (ACII)</arxiv:comment>
+    <arxiv:primary_category term="cs.CV"/>
+    <author>
+      <name>Krist Shingjergji</name>
+    </author>
+    <author>
+      <name>Deniz Iren</name>
+    </author>
+    <author>
+      <name>Felix Bottger</name>
+    </author>
+    <author>
+      <name>Corrie Urlings</name>
+    </author>
+    <author>
+      <name>Roland Klemke</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2211.12104v2</id>
+    <title>Energy Consumption of Automated Program Repair</title>
+    <updated>2024-02-05T09:12:51Z</updated>
+    <link href="https://arxiv.org/abs/2211.12104v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2211.12104v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Automated program repair (APR) aims to automatize the process of repairing software bugs in order to reduce the cost of maintaining software programs. Moreover, the success (given by the accuracy metric) of APR approaches has increased in recent years. However, no previous work has considered the energy impact of repairing bugs automatically using APR. The field of green software research aims to measure the energy consumption required to develop, maintain, and use software products. This paper combines, for the first time, the APR and Green software research fields. We have as main goal to define the foundation for measuring the energy consumption of the APR activity. We measure the energy consumption of ten traditional program repair tools for Java and ten fine-tuned Large-Language Models (LLM) on source code trying to repair real bugs from Defects4J, a set of real buggy programs. The initial results from this experiment show the existing trade-off between energy consumption and the ability to correctly repair bugs: Some APR tools are capable of achieving higher accuracy by spending less energy than other tools.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2022-11-22T09:10:34Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <arxiv:journal_ref>2024 IEEE/ACM 46th International Conference on Software Engineering: Companion Proceedings (ICSE-Companion '24), April 14--20, 2024, Lisbon, Portugal</arxiv:journal_ref>
+    <author>
+      <name>Matias Martinez</name>
+    </author>
+    <author>
+      <name>Silverio Martínez-Fernández</name>
+    </author>
+    <author>
+      <name>Xavier Franch</name>
+    </author>
+    <arxiv:doi>10.1145/3639478.3643114</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1145/3639478.3643114" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2212.05738v1</id>
+    <title>Automated Variable Renaming: Are We There Yet?</title>
+    <updated>2022-12-12T07:36:27Z</updated>
+    <link href="https://arxiv.org/abs/2212.05738v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2212.05738v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Identifiers, such as method and variable names, form a large portion of source code. Therefore, low-quality identifiers can substantially hinder code comprehension. To support developers in using meaningful identifiers, several (semi-)automatic techniques have been proposed, mostly being data-driven (e.g. statistical language models, deep learning models) or relying on static code analysis. Still, limited empirical investigations have been performed on the effectiveness of such techniques for recommending developers with meaningful identifiers, possibly resulting in rename refactoring operations. We present a large-scale study investigating the potential of data-driven approaches to support automated variable renaming. We experiment with three state-of-the-art techniques: a statistical language model and two DL-based models. The three approaches have been trained and tested on three datasets we built with the goal of evaluating their ability to recommend meaningful variable identifiers. Our quantitative and qualitative analyses show the potential of such techniques that, under specific conditions, can provide valuable recommendations and are ready to be integrated in rename refactoring tools. Nonetheless, our results also highlight limitations of the experimented approaches that call for further research in this field.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2022-12-12T07:36:27Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Antonio Mastropaolo</name>
+    </author>
+    <author>
+      <name>Emad Aghajani</name>
+    </author>
+    <author>
+      <name>Luca Pascarella</name>
+    </author>
+    <author>
+      <name>Gabriele Bavota</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2309.05076v1</id>
+    <title>An Appraisal-Based Chain-Of-Emotion Architecture for Affective Language Model Game Agents</title>
+    <updated>2023-09-10T16:55:49Z</updated>
+    <link href="https://arxiv.org/abs/2309.05076v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2309.05076v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The development of believable, natural, and interactive digital artificial agents is a field of growing interest. Theoretical uncertainties and technical barriers present considerable challenges to the field, particularly with regards to developing agents that effectively simulate human emotions. Large language models (LLMs) might address these issues by tapping common patterns in situational appraisal. In three empirical experiments, this study tests the capabilities of LLMs to solve emotional intelligence tasks and to simulate emotions. It presents and evaluates a new chain-of-emotion architecture for emotion simulation within video games, based on psychological appraisal research. Results show that it outperforms standard LLM architectures on a range of user experience and content analysis metrics. This study therefore provides early evidence of how to construct and test affective agents based on cognitive processes represented in language models.</summary>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2023-09-10T16:55:49Z</published>
+    <arxiv:primary_category term="cs.AI"/>
+    <author>
+      <name>Maximilian Croissant</name>
+    </author>
+    <author>
+      <name>Madeleine Frister</name>
+    </author>
+    <author>
+      <name>Guy Schofield</name>
+    </author>
+    <author>
+      <name>Cade McCall</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2309.16639v2</id>
+    <title>MindShift: Leveraging Large Language Models for Mental-States-Based Problematic Smartphone Use Intervention</title>
+    <updated>2024-02-28T04:45:17Z</updated>
+    <link href="https://arxiv.org/abs/2309.16639v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2309.16639v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Problematic smartphone use negatively affects physical and mental health. Despite the wide range of prior research, existing persuasive techniques are not flexible enough to provide dynamic persuasion content based on users' physical contexts and mental states. We first conducted a Wizard-of-Oz study (N=12) and an interview study (N=10) to summarize the mental states behind problematic smartphone use: boredom, stress, and inertia. This informs our design of four persuasion strategies: understanding, comforting, evoking, and scaffolding habits. We leveraged large language models (LLMs) to enable the automatic and dynamic generation of effective persuasion content. We developed MindShift, a novel LLM-powered problematic smartphone use intervention technique. MindShift takes users' in-the-moment app usage behaviors, physical contexts, mental states, goals \&amp; habits as input, and generates personalized and dynamic persuasive content with appropriate persuasion strategies. We conducted a 5-week field experiment (N=25) to compare MindShift with its simplified version (remove mental states) and baseline techniques (fixed reminder). The results show that MindShift improves intervention acceptance rates by 4.7-22.5% and reduces smartphone usage duration by 7.4-9.8%. Moreover, users have a significant drop in smartphone addiction scale scores and a rise in self-efficacy scale scores. Our study sheds light on the potential of leveraging LLMs for context-aware persuasion in other behavior change domains.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2023-09-28T17:49:03Z</published>
+    <arxiv:comment>Published at ACM CHI'24</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Ruolan Wu</name>
+    </author>
+    <author>
+      <name>Chun Yu</name>
+    </author>
+    <author>
+      <name>Xiaole Pan</name>
+    </author>
+    <author>
+      <name>Yujia Liu</name>
+    </author>
+    <author>
+      <name>Ningning Zhang</name>
+    </author>
+    <author>
+      <name>Yue Fu</name>
+    </author>
+    <author>
+      <name>Yuhan Wang</name>
+    </author>
+    <author>
+      <name>Zhi Zheng</name>
+    </author>
+    <author>
+      <name>Li Chen</name>
+    </author>
+    <author>
+      <name>Qiaolei Jiang</name>
+    </author>
+    <author>
+      <name>Xuhai Xu</name>
+    </author>
+    <author>
+      <name>Yuanchun Shi</name>
+    </author>
+    <arxiv:doi>10.1145/3613904.3642790</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1145/3613904.3642790" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2310.02102v1</id>
+    <title>dFlow: A Domain Specific Language for the Rapid Development of open-source Virtual Assistants</title>
+    <updated>2023-10-03T14:46:33Z</updated>
+    <link href="https://arxiv.org/abs/2310.02102v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2310.02102v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>An increasing number of models and frameworks for Virtual Assistant (VA) development exist nowadays, following the progress in the Natural Language Processing (NLP) and Natural Language Understanding (NLU) fields. Regardless of their performance, popularity, and ease of use, these frameworks require at least basic expertise in NLP and software engineering, even for simple and repetitive processes, limiting their use only to the domain and programming experts. However, since the current state of practice of VA development is a straightforward process, Model-Driven Engineering approaches can be utilized to achieve automation and rapid development in a more convenient manner. To this end, we present \textit{dFlow}, a textual Domain-Specific Language (DSL) that offers a simplified, reusable, and framework-agnostic language for creating task-specific VAs in a low-code manner. We describe a system-agnostic VA meta-model, the developed grammar, and all essential processes for developing and deploying smart VAs. For further convenience, we create a cloud-native architecture and expose it through the Discord platform. We conducted a large-scale empirical evaluation with more than 200 junior software developers and collected positive feedback, indicating that dFlow can accelerate the entire VA development process, while also enabling citizen and software developers with minimum experience to participate.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2023-10-03T14:46:33Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Nikolaos Malamas</name>
+    </author>
+    <author>
+      <name>Konstantinos Panayiotou</name>
+    </author>
+    <author>
+      <name>Andreas L. Symeonidis</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2310.06155v3</id>
+    <title>CoQuest: Exploring Research Question Co-Creation with an LLM-based Agent</title>
+    <updated>2024-03-20T20:43:03Z</updated>
+    <link href="https://arxiv.org/abs/2310.06155v3" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2310.06155v3" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Developing novel research questions (RQs) often requires extensive literature reviews, especially in interdisciplinary fields. To support RQ development through human-AI co-creation, we leveraged Large Language Models (LLMs) to build an LLM-based agent system named CoQuest. We conducted an experiment with 20 HCI researchers to examine the impact of two interaction designs: breadth-first and depth-first RQ generation. The findings revealed that participants perceived the breadth-first approach as more creative and trustworthy upon task completion. Conversely, during the task, participants considered the depth-first generated RQs as more creative. Additionally, we discovered that AI processing delays allowed users to reflect on multiple RQs simultaneously, leading to a higher quantity of generated RQs and an enhanced sense of control. Our work makes both theoretical and practical contributions by proposing and evaluating a mental model for human-AI co-creation of RQs. We also address potential ethical issues, such as biases and over-reliance on AI, advocating for using the system to improve human research creativity rather than automating scientific inquiry.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2023-10-09T21:05:27Z</published>
+    <arxiv:comment>Accepted to SIGCHI 2024</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Yiren Liu</name>
+    </author>
+    <author>
+      <name>Si Chen</name>
+    </author>
+    <author>
+      <name>Haocong Cheng</name>
+    </author>
+    <author>
+      <name>Mengxia Yu</name>
+    </author>
+    <author>
+      <name>Xiao Ran</name>
+    </author>
+    <author>
+      <name>Andrew Mo</name>
+    </author>
+    <author>
+      <name>Yiliu Tang</name>
+    </author>
+    <author>
+      <name>Yun Huang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2311.05943v1</id>
+    <title>Prompt Problems: A New Programming Exercise for the Generative AI Era</title>
+    <updated>2023-11-10T09:01:34Z</updated>
+    <link href="https://arxiv.org/abs/2311.05943v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2311.05943v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Large Language Models (LLMs) are revolutionizing the field of computing education with their powerful code-generating capabilities. Traditional pedagogical practices have focused on code writing tasks, but there is now a shift in importance towards code reading, comprehension and evaluation of LLM-generated code. Alongside this shift, an important new skill is emerging -- the ability to solve programming tasks by constructing good prompts for code-generating models. In this work we introduce a new type of programming exercise to hone this nascent skill: 'Prompt Problems'. Prompt Problems are designed to help students learn how to write effective prompts for AI code generators. A student solves a Prompt Problem by crafting a natural language prompt which, when provided as input to an LLM, outputs code that successfully solves a specified programming task. We also present a new web-based tool called Promptly which hosts a repository of Prompt Problems and supports the automated evaluation of prompt-generated code. We deploy Promptly for the first time in one CS1 and one CS2 course and describe our experiences, which include student perceptions of this new type of activity and their interactions with the tool. We find that students are enthusiastic about Prompt Problems, and appreciate how the problems engage their computational thinking skills and expose them to new programming constructs. We discuss ideas for the future development of new variations of Prompt Problems, and the need to carefully study their integration into classroom practice.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2023-11-10T09:01:34Z</published>
+    <arxiv:comment>Accepted to SIGCSE'24. arXiv admin note: substantial text overlap with arXiv:2307.16364</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Paul Denny</name>
+    </author>
+    <author>
+      <name>Juho Leinonen</name>
+    </author>
+    <author>
+      <name>James Prather</name>
+    </author>
+    <author>
+      <name>Andrew Luxton-Reilly</name>
+    </author>
+    <author>
+      <name>Thezyrie Amarouche</name>
+    </author>
+    <author>
+      <name>Brett A. Becker</name>
+    </author>
+    <author>
+      <name>Brent N. Reeves</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2311.13857v1</id>
+    <title>Challenges of Large Language Models for Mental Health Counseling</title>
+    <updated>2023-11-23T08:56:41Z</updated>
+    <link href="https://arxiv.org/abs/2311.13857v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2311.13857v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The global mental health crisis is looming with a rapid increase in mental disorders, limited resources, and the social stigma of seeking treatment. As the field of artificial intelligence (AI) has witnessed significant advancements in recent years, large language models (LLMs) capable of understanding and generating human-like text may be used in supporting or providing psychological counseling. However, the application of LLMs in the mental health domain raises concerns regarding the accuracy, effectiveness, and reliability of the information provided. This paper investigates the major challenges associated with the development of LLMs for psychological counseling, including model hallucination, interpretability, bias, privacy, and clinical effectiveness. We explore potential solutions to these challenges that are practical and applicable to the current paradigm of AI. From our experience in developing and deploying LLMs for mental health, AI holds a great promise for improving mental health care, if we can carefully navigate and overcome pitfalls of LLMs.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2023-11-23T08:56:41Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Neo Christopher Chung</name>
+    </author>
+    <author>
+      <name>George Dyer</name>
+    </author>
+    <author>
+      <name>Lennart Brocki</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2401.10739v2</id>
+    <title>In-IDE Human-AI Experience in the Era of Large Language Models; A Literature Review</title>
+    <updated>2024-01-22T10:37:27Z</updated>
+    <link href="https://arxiv.org/abs/2401.10739v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2401.10739v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Integrated Development Environments (IDEs) have become central to modern software development, especially with the integration of Artificial Intelligence (AI) to enhance programming efficiency and decision-making. The study of in-IDE Human-AI Experience is critical in understanding how these AI tools are transforming the software development process, impacting programmer productivity, and influencing code quality. We conducted a literature review to study the current state of in-IDE Human-AI Experience research, bridging a gap in understanding the nuanced interactions between programmers and AI assistants within IDEs. By analyzing 36 selected papers, our study illustrates three primary research branches: Design, Impact, and Quality of Interaction. The trends, challenges, and opportunities identified in this paper emphasize the evolving landscape of software development and inform future directions for research and development in this dynamic field. Specifically, we invite the community to investigate three aspects of these interactions: designing task-specific user interface, building trust, and improving readability.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-01-19T14:55:51Z</published>
+    <arxiv:comment>Paper accepted for presentation at the IDE Workshop, co-located with ICSE'24</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Agnia Sergeyuk</name>
+    </author>
+    <author>
+      <name>Sergey Titov</name>
+    </author>
+    <author>
+      <name>Maliheh Izadi</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2402.08113v3</id>
+    <title>Addressing cognitive bias in medical language models</title>
+    <updated>2024-02-20T23:45:43Z</updated>
+    <link href="https://arxiv.org/abs/2402.08113v3" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2402.08113v3" rel="related" type="application/pdf" title="pdf"/>
+    <summary>There is increasing interest in the application large language models (LLMs) to the medical field, in part because of their impressive performance on medical exam questions. While promising, exam questions do not reflect the complexity of real patient-doctor interactions. In reality, physicians' decisions are shaped by many complex factors, such as patient compliance, personal experience, ethical beliefs, and cognitive bias. Taking a step toward understanding this, our hypothesis posits that when LLMs are confronted with clinical questions containing cognitive biases, they will yield significantly less accurate responses compared to the same questions presented without such biases. In this study, we developed BiasMedQA, a benchmark for evaluating cognitive biases in LLMs applied to medical tasks. Using BiasMedQA we evaluated six LLMs, namely GPT-4, Mixtral-8x70B, GPT-3.5, PaLM-2, Llama 2 70B-chat, and the medically specialized PMC Llama 13B. We tested these models on 1,273 questions from the US Medical Licensing Exam (USMLE) Steps 1, 2, and 3, modified to replicate common clinically-relevant cognitive biases. Our analysis revealed varying effects for biases on these LLMs, with GPT-4 standing out for its resilience to bias, in contrast to Llama 2 70B-chat and PMC Llama 13B, which were disproportionately affected by cognitive bias. Our findings highlight the critical need for bias mitigation in the development of medical LLMs, pointing towards safer and more reliable applications in healthcare.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-02-12T23:08:37Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Samuel Schmidgall</name>
+    </author>
+    <author>
+      <name>Carl Harris</name>
+    </author>
+    <author>
+      <name>Ime Essien</name>
+    </author>
+    <author>
+      <name>Daniel Olshvang</name>
+    </author>
+    <author>
+      <name>Tawsifur Rahman</name>
+    </author>
+    <author>
+      <name>Ji Woong Kim</name>
+    </author>
+    <author>
+      <name>Rojin Ziaei</name>
+    </author>
+    <author>
+      <name>Jason Eshraghian</name>
+    </author>
+    <author>
+      <name>Peter Abadir</name>
+    </author>
+    <author>
+      <name>Rama Chellappa</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2402.15769v3</id>
+    <title>GenCode: A Generic Data Augmentation Framework for Boosting Deep Learning-Based Code Understanding</title>
+    <updated>2026-01-28T08:05:32Z</updated>
+    <link href="https://arxiv.org/abs/2402.15769v3" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2402.15769v3" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Pre-trained code models lead the era of code intelligence, with multiple models designed with impressive performance. However, one important problem, data augmentation for code data that automatically helps developers prepare training data lacks study in this field. In this paper, we introduce a generic data augmentation framework, GenCode, to enhance the training of code understanding models. Simply speaking, GenCode follows a generation-and-selection paradigm to prepare useful training code data. Specifically, it employs code augmentation techniques to generate new code candidates first and then identifies important ones as the training data by influence scores. To evaluate the effectiveness of GenCode, we conduct experiments on four code understanding tasks (e.g., code clone detection) and three pre-trained code models (e.g., CodeT5) and two recent released code-specific Large Language Models (LLMs) (e.g., Qwen2.5-Coder). Compared to the state-of-the-art (SOTA) code augmentation method MixCode, GenCode produces pre-trained code models with 2.92% higher accuracy and 4.90% adversarial robustness on average. For code-specific LLMs, GenCode achieves an average improvement of 0.93% in accuracy and 0.98% in natural robustness.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-02-24T08:57:12Z</published>
+    <arxiv:comment>Accepted by Empirical Software Engineering (EMSE) 2026</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Zeming Dong</name>
+    </author>
+    <author>
+      <name>Qiang Hu</name>
+    </author>
+    <author>
+      <name>Xiaofei Xie</name>
+    </author>
+    <author>
+      <name>Maxime Cordy</name>
+    </author>
+    <author>
+      <name>Mike Papadakis</name>
+    </author>
+    <author>
+      <name>Yves Le Traon</name>
+    </author>
+    <author>
+      <name>Jianjun Zhao</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2403.11671v1</id>
+    <title>HDLdebugger: Streamlining HDL debugging with Large Language Models</title>
+    <updated>2024-03-18T11:19:37Z</updated>
+    <link href="https://arxiv.org/abs/2403.11671v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2403.11671v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>In the domain of chip design, Hardware Description Languages (HDLs) play a pivotal role. However, due to the complex syntax of HDLs and the limited availability of online resources, debugging HDL codes remains a difficult and time-intensive task, even for seasoned engineers. Consequently, there is a pressing need to develop automated HDL code debugging models, which can alleviate the burden on hardware engineers. Despite the strong capabilities of Large Language Models (LLMs) in generating, completing, and debugging software code, their utilization in the specialized field of HDL debugging has been limited and, to date, has not yielded satisfactory results. In this paper, we propose an LLM-assisted HDL debugging framework, namely HDLdebugger, which consists of HDL debugging data generation via a reverse engineering approach, a search engine for retrieval-augmented generation, and a retrieval-augmented LLM fine-tuning approach. Through the integration of these components, HDLdebugger can automate and streamline HDL debugging for chip design. Our comprehensive experiments, conducted on an HDL code dataset sourced from Huawei, reveal that HDLdebugger outperforms 13 cutting-edge LLM baselines, displaying exceptional effectiveness in HDL code debugging.</summary>
+    <category term="cs.AR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-03-18T11:19:37Z</published>
+    <arxiv:comment>13 pages,5 figures</arxiv:comment>
+    <arxiv:primary_category term="cs.AR"/>
+    <author>
+      <name>Xufeng Yao</name>
+    </author>
+    <author>
+      <name>Haoyang Li</name>
+    </author>
+    <author>
+      <name>Tsz Ho Chan</name>
+    </author>
+    <author>
+      <name>Wenyi Xiao</name>
+    </author>
+    <author>
+      <name>Mingxuan Yuan</name>
+    </author>
+    <author>
+      <name>Yu Huang</name>
+    </author>
+    <author>
+      <name>Lei Chen</name>
+    </author>
+    <author>
+      <name>Bei Yu</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2404.09249v1</id>
+    <title>Test Code Generation for Telecom Software Systems using Two-Stage Generative Model</title>
+    <updated>2024-04-14T13:25:15Z</updated>
+    <link href="https://arxiv.org/abs/2404.09249v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2404.09249v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>In recent years, the evolution of Telecom towards achieving intelligent, autonomous, and open networks has led to an increasingly complex Telecom Software system, supporting various heterogeneous deployment scenarios, with multi-standard and multi-vendor support. As a result, it becomes a challenge for large-scale Telecom software companies to develop and test software for all deployment scenarios. To address these challenges, we propose a framework for Automated Test Generation for large-scale Telecom Software systems. We begin by generating Test Case Input data for test scenarios observed using a time-series Generative model trained on historical Telecom Network data during field trials. Additionally, the time-series Generative model helps in preserving the privacy of Telecom data. The generated time-series software performance data are then utilized with test descriptions written in natural language to generate Test Script using the Generative Large Language Model. Our comprehensive experiments on public datasets and Telecom datasets obtained from operational Telecom Networks demonstrate that the framework can effectively generate comprehensive test case data input and useful test code.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-04-14T13:25:15Z</published>
+    <arxiv:comment>6 pages, 5 figures, Accepted at 1st Workshop on The Impact of Large Language Models on 6G Networks - IEEE International Conference on Communications (ICC) 2024</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Mohamad Nabeel</name>
+    </author>
+    <author>
+      <name>Doumitrou Daniil Nimara</name>
+    </author>
+    <author>
+      <name>Tahar Zanouda</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2404.11542v3</id>
+    <title>A Lean Simulation Framework for Stress Testing IoT Cloud Systems</title>
+    <updated>2024-06-03T21:20:13Z</updated>
+    <link href="https://arxiv.org/abs/2404.11542v3" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2404.11542v3" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The Internet of Things connects a plethora of smart devices globally across various applications like smart cities, autonomous vehicles and health monitoring. Simulation plays a key role in the testing of IoT systems, noting that field testing of a complete IoT product may be infeasible or prohibitively expensive. This paper addresses a specific yet important need in simulation-based testing for IoT: Stress testing of cloud systems. Existing stress testing solutions for IoT demand significant computational resources, making them ill-suited and costly. We propose a lean simulation framework designed for IoT cloud stress testing which enables efficient simulation of a large array of IoT and edge devices that communicate with the cloud. To facilitate simulation construction for practitioners, we develop a domain-specific language (DSL), named IoTECS, for generating simulators from model-based specifications. We provide the syntax and semantics of IoTECS and implement IoTECS using Xtext and Xtend. We assess simulators generated from IoTECS specifications for stress testing two real-world systems: a cloud-based IoT monitoring system and an IoT-connected vehicle system. Our empirical results indicate that simulators created using IoTECS: (1)achieve best performance when configured with Docker containerization; (2)effectively assess the service capacity of our case-study systems, and (3)outperform industrial stress-testing baseline tools, JMeter and Locust, by a factor of 3.5 in terms of the number of IoT and edge devices they can simulate using identical hardware resources. To gain initial insights about the usefulness of IoTECS in practice, we interviewed two engineers from our industry partner who have firsthand experience with IoTECS. Feedback from these interviews suggests that IoTECS is effective in stress testing IoT cloud systems, saving significant time and effort.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-04-17T16:36:55Z</published>
+    <arxiv:comment>Accepted to the IEEE Transactions on Software Engineering. arXiv admin note: text overlap with arXiv:2208.06954</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Jia Li</name>
+    </author>
+    <author>
+      <name>Behrad Moeini</name>
+    </author>
+    <author>
+      <name>Shiva Nejati</name>
+    </author>
+    <author>
+      <name>Mehrdad Sabetzadeh</name>
+    </author>
+    <author>
+      <name>Michael McCallen</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2404.13414v3</id>
+    <title>Evaluating the Effectiveness of LLMs in Introductory Computer Science Education: A Semester-Long Field Study</title>
+    <updated>2024-05-03T00:28:46Z</updated>
+    <link href="https://arxiv.org/abs/2404.13414v3" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2404.13414v3" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The integration of AI assistants, especially through the development of Large Language Models (LLMs), into computer science education has sparked significant debate. An emerging body of work has looked into using LLMs in education, but few have examined the impacts of LLMs on students in entry-level programming courses, particularly in real-world contexts and over extended periods. To address this research gap, we conducted a semester-long, between-subjects study with 50 students using CodeTutor, an LLM-powered assistant developed by our research team. Our study results show that students who used CodeTutor (the experimental group) achieved statistically significant improvements in their final scores compared to peers who did not use the tool (the control group). Within the experimental group, those without prior experience with LLM-powered tools demonstrated significantly greater performance gain than their counterparts. We also found that students expressed positive feedback regarding CodeTutor's capability, though they also had concerns about CodeTutor's limited role in developing critical thinking skills. Over the semester, students' agreement with CodeTutor's suggestions decreased, with a growing preference for support from traditional human teaching assistants. Our analysis further reveals that the quality of user prompts was significantly correlated with CodeTutor's response effectiveness. Building upon our results, we discuss the implications of our findings for integrating Generative AI literacy into curricula to foster critical thinking skills and turn to examining the temporal dynamics of user engagement with LLM-powered tools. We further discuss the discrepancy between the anticipated functions of tools and students' actual capabilities, which sheds light on the need for tailored strategies to improve educational outcomes.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-04-20T15:58:22Z</published>
+    <arxiv:comment>Accepted to Learning @ Scale 2024</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Wenhan Lyu</name>
+      <arxiv:affiliation>Rachel</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Yimeng Wang</name>
+      <arxiv:affiliation>Rachel</arxiv:affiliation>
+    </author>
+    <author>
+      <name> Tingting</name>
+      <arxiv:affiliation>Rachel</arxiv:affiliation>
+    </author>
+    <author>
+      <name> Chung</name>
+    </author>
+    <author>
+      <name>Yifan Sun</name>
+    </author>
+    <author>
+      <name>Yixuan Zhang</name>
+    </author>
+    <arxiv:doi>10.1145/3657604.3662036</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1145/3657604.3662036" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2404.14646v2</id>
+    <title>Exploring and Unleashing the Power of Large Language Models in Automated Code Translation</title>
+    <updated>2024-05-11T13:20:19Z</updated>
+    <link href="https://arxiv.org/abs/2404.14646v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2404.14646v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Code translation tools (transpilers) are developed for automatic source-to-source translation. Although learning-based transpilers have shown impressive enhancement against rule-based counterparts, owing to their task-specific pre-training on extensive monolingual corpora. Their current performance still remains unsatisfactory for practical deployment, and the associated training resources are also prohibitively expensive. LLMs pre-trained on huge amounts of human-written code/text have shown remarkable performance in many code intelligence tasks due to their powerful generality, even without task-specific training. Thus, LLMs can potentially circumvent the above limitations, but they have not been exhaustively explored yet. This paper investigates diverse LLMs and learning-based transpilers for automated code translation tasks, finding that: although certain LLMs have outperformed current transpilers, they still have some accuracy issues, where most of the failures are induced by a lack of comprehension of source programs, missing clear instructions on I/O types in translation, and ignoring discrepancies between source and target programs. Enlightened by the above findings, we further propose UniTrans, a Unified code Translation framework, applicable to various LLMs, for unleashing their power in this field. Specifically, UniTrans first crafts a series of test cases for target programs with the assistance of source programs. Next, it harnesses the above auto-generated test cases to augment the code translation and then evaluate their correctness via execution. Afterward, UniTrans further (iteratively) repairs incorrectly translated programs prompted by test case execution results. Extensive experiments are conducted on six settings of translation datasets between Python, Java, and C++. Three recent LLMs of diverse sizes are tested with UniTrans, and all achieve substantial improvements.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-04-23T00:49:46Z</published>
+    <arxiv:comment>23 pages, 7 figures, accepted by FSE'24 (2024 ACM International Conference on the Foundations of Software Engineering)</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Zhen Yang</name>
+    </author>
+    <author>
+      <name>Fang Liu</name>
+    </author>
+    <author>
+      <name>Zhongxing Yu</name>
+    </author>
+    <author>
+      <name>Jacky Wai Keung</name>
+    </author>
+    <author>
+      <name>Jia Li</name>
+    </author>
+    <author>
+      <name>Shuo Liu</name>
+    </author>
+    <author>
+      <name>Yifan Hong</name>
+    </author>
+    <author>
+      <name>Xiaoxue Ma</name>
+    </author>
+    <author>
+      <name>Zhi Jin</name>
+    </author>
+    <author>
+      <name>Ge Li</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2404.14824v2</id>
+    <title>Automated Commit Message Generation with Large Language Models: An Empirical Study and Beyond</title>
+    <updated>2024-11-06T01:37:52Z</updated>
+    <link href="https://arxiv.org/abs/2404.14824v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2404.14824v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Commit Message Generation (CMG) approaches aim to automatically generate commit messages based on given code diffs, which facilitate collaboration among developers and play a critical role in Open-Source Software (OSS). Very recently, Large Language Models (LLMs) have demonstrated extensive applicability in diverse code-related task. But few studies systematically explored their effectiveness using LLMs. This paper conducts the first comprehensive experiment to investigate how far we have been in applying LLM to generate high-quality commit messages. Motivated by a pilot analysis, we first clean the most widely-used CMG dataset following practitioners' criteria. Afterward, we re-evaluate diverse state-of-the-art CMG approaches and make comparisons with LLMs, demonstrating the superior performance of LLMs against state-of-the-art CMG approaches. Then, we further propose four manual metrics following the practice of OSS, including Accuracy, Integrity, Applicability, and Readability, and assess various LLMs accordingly. Results reveal that GPT-3.5 performs best overall, but different LLMs carry different advantages. To further boost LLMs' performance in the CMG task, we propose an Efficient Retrieval-based In-Context Learning (ICL) framework, namely ERICommiter, which leverages a two-step filtering to accelerate the retrieval efficiency and introduces semantic/lexical-based retrieval algorithm to construct the ICL examples. Extensive experiments demonstrate the substantial performance improvement of ERICommiter on various LLMs for code diffs of different programming languages. Meanwhile, ERICommiter also significantly reduces the retrieval time while keeping almost the same performance. Our research contributes to the understanding of LLMs' capabilities in the CMG field and provides valuable insights for practitioners seeking to leverage these tools in their workflows.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-04-23T08:24:43Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Pengyu Xue</name>
+    </author>
+    <author>
+      <name>Linhao Wu</name>
+    </author>
+    <author>
+      <name>Zhongxing Yu</name>
+    </author>
+    <author>
+      <name>Zhi Jin</name>
+    </author>
+    <author>
+      <name>Zhen Yang</name>
+    </author>
+    <author>
+      <name>Xinyi Li</name>
+    </author>
+    <author>
+      <name>Zhenyu Yang</name>
+    </author>
+    <author>
+      <name>Yue Tan</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2405.00750v1</id>
+    <title>From Keyboard to Chatbot: An AI-powered Integration Platform with Large-Language Models for Teaching Computational Thinking for Young Children</title>
+    <updated>2024-05-01T04:29:21Z</updated>
+    <link href="https://arxiv.org/abs/2405.00750v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2405.00750v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Teaching programming in early childhood (4-9) to enhance computational thinking has gained popularity in the recent movement of computer science for all. However, current practices ignore some fundamental issues resulting from young children's developmental readiness, such as the sustained capability to keyboarding, the decomposition of complex tasks to small tasks, the need for intuitive mapping from abstract programming to tangible outcomes, and the limited amount of screen time exposure. To address these issues in this paper, we present a novel methodology with an AI-powered integration platform to effectively teach computational thinking for young children. The system features a hybrid pedagogy that supports both the top-down and bottom-up approach for teaching computational thinking. Young children can describe their desired task in natural language, while the system can respond with an easy-to-understand program consisting of the right level of decomposed sub-tasks. A tangible robot can immediately execute the decomposed program and demonstrate the program's outcomes to young children. The system is equipped with an intelligent chatbot that can interact with young children through natural languages, and children can speak to the chatbot to complete all the needed programming tasks, while the chatbot orchestrates the execution of the program onto the robot. This would completely eliminates the need of keyboards for young children to program. By developing such a system, we aim to make the concept of computational thinking more accessible to young children, fostering a natural understanding of programming concepts without the need of explicit programming skills. Through the interactive experience provided by the robotic agent, our system seeks to engage children in an effective manner, contributing to the field of educational technology for early childhood computer science education.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CY" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-05-01T04:29:21Z</published>
+    <arxiv:comment>26 pages, 11 figures</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Changjae Lee</name>
+    </author>
+    <author>
+      <name>Jinjun Xiong</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2405.04645v2</id>
+    <title>Enhancing LLM-Based Feedback: Insights from Intelligent Tutoring Systems and the Learning Sciences</title>
+    <updated>2024-05-11T17:36:58Z</updated>
+    <link href="https://arxiv.org/abs/2405.04645v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2405.04645v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The field of Artificial Intelligence in Education (AIED) focuses on the intersection of technology, education, and psychology, placing a strong emphasis on supporting learners' needs with compassion and understanding. The growing prominence of Large Language Models (LLMs) has led to the development of scalable solutions within educational settings, including generating different types of feedback in Intelligent Tutoring Systems. However, the approach to utilizing these models often involves directly formulating prompts to solicit specific information, lacking a solid theoretical foundation for prompt construction and empirical assessments of their impact on learning. This work advocates careful and caring AIED research by going through previous research on feedback generation in ITS, with emphasis on the theoretical frameworks they utilized and the efficacy of the corresponding design in empirical evaluations, and then suggesting opportunities to apply these evidence-based principles to the design, experiment, and evaluation phases of LLM-based feedback generation. The main contributions of this paper include: an avocation of applying more cautious, theoretically grounded methods in feedback generation in the era of generative AI; and practical suggestions on theory and evidence-based feedback design for LLM-powered ITS.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CY" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-05-07T20:09:18Z</published>
+    <arxiv:comment>Accepted to 25th International Conference on Artificial Intelligence in Education (AIED 2024) BlueSky special track</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>John Stamper</name>
+    </author>
+    <author>
+      <name>Ruiwei Xiao</name>
+    </author>
+    <author>
+      <name>Xinying Hou</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2405.15729v2</id>
+    <title>Optimizing Large Language Models for OpenAPI Code Completion</title>
+    <updated>2024-06-10T21:58:24Z</updated>
+    <link href="https://arxiv.org/abs/2405.15729v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2405.15729v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Recent advancements in Large Language Models (LLMs) and their utilization in code generation tasks have significantly reshaped the field of software development. Despite the remarkable efficacy of code completion solutions in mainstream programming languages, their performance lags when applied to less ubiquitous formats such as OpenAPI definitions. This study evaluates the OpenAPI completion performance of GitHub Copilot, a prevalent commercial code completion tool, and proposes a set of task-specific optimizations leveraging Meta's open-source model Code Llama. A semantics-aware OpenAPI completion benchmark proposed in this research is used to perform a series of experiments through which the impact of various prompt-engineering and fine-tuning techniques on the Code Llama model's performance is analyzed. The fine-tuned Code Llama model reaches a peak correctness improvement of 55.2% over GitHub Copilot despite utilizing 25 times fewer parameters than the commercial solution's underlying Codex model. Additionally, this research proposes an enhancement to a widely used code infilling training technique, addressing the issue of underperformance when the model is prompted with context sizes smaller than those used during training. The dataset, the benchmark, and the model fine-tuning code are made publicly available.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-05-24T17:19:03Z</published>
+    <arxiv:comment>Update: a better quality and readability of figures, better explanation of code infilling and document splitting in training, some text polishing, making it more compact</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Bohdan Petryshyn</name>
+    </author>
+    <author>
+      <name>Mantas Lukoševičius</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2407.03790v1</id>
+    <title>Assessing Consensus of Developers' Views on Code Readability</title>
+    <updated>2024-07-04T09:54:42Z</updated>
+    <link href="https://arxiv.org/abs/2407.03790v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2407.03790v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The rapid rise of Large Language Models (LLMs) has changed software development, with tools like Copilot, JetBrains AI Assistant, and others boosting developers' productivity. However, developers now spend more time reviewing code than writing it, highlighting the importance of Code Readability for code comprehension. Our previous research found that existing Code Readability models were inaccurate in representing developers' notions and revealed a low consensus among developers, highlighting a need for further investigations in this field.
+  Building on this, we surveyed 10 Java developers with similar coding experience to evaluate their consensus on Code Readability assessments and related aspects. We found significant agreement among developers on Code Readability evaluations and identified specific code aspects strongly correlated with Code Readability. Overall, our study sheds light on Code Readability within LLM contexts, offering insights into how these models can align with developers' perceptions of Code Readability, enhancing software development in the AI era.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-07-04T09:54:42Z</published>
+    <arxiv:comment>8 pages, 1 figure, accepted to be presented at the PPIG'24 workshop</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Agnia Sergeyuk</name>
+    </author>
+    <author>
+      <name>Olga Lvova</name>
+    </author>
+    <author>
+      <name>Sergey Titov</name>
+    </author>
+    <author>
+      <name>Anastasiia Serova</name>
+    </author>
+    <author>
+      <name>Farid Bagirov</name>
+    </author>
+    <author>
+      <name>Timofey Bryksin</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2407.17291v1</id>
+    <title>How Good (Or Bad) Are LLMs at Detecting Misleading Visualizations?</title>
+    <updated>2024-07-24T14:02:20Z</updated>
+    <link href="https://arxiv.org/abs/2407.17291v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2407.17291v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>In this study, we address the growing issue of misleading charts, a prevalent problem that undermines the integrity of information dissemination. Misleading charts can distort the viewer's perception of data, leading to misinterpretations and decisions based on false information. The development of effective automatic detection methods for misleading charts is an urgent field of research. The recent advancement of multimodal Large Language Models (LLMs) has introduced a promising direction for addressing this challenge. We explored the capabilities of these models in analyzing complex charts and assessing the impact of different prompting strategies on the models' analyses. We utilized a dataset of misleading charts collected from the internet by prior research and crafted nine distinct prompts, ranging from simple to complex, to test the ability of four different multimodal LLMs in detecting over 21 different chart issues. Through three experiments--from initial exploration to detailed analysis--we progressively gained insights into how to effectively prompt LLMs to identify misleading charts and developed strategies to address the scalability challenges encountered as we expanded our detection range from the initial five issues to 21 issues in the final experiment. Our findings reveal that multimodal LLMs possess a strong capability for chart comprehension and critical thinking in data interpretation. There is significant potential in employing multimodal LLMs to counter misleading information by supporting critical thinking and enhancing visualization literacy. This study demonstrates the applicability of LLMs in addressing the pressing concern of misleading charts.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-07-24T14:02:20Z</published>
+    <arxiv:comment>To be presented at IEEE VIS 2024</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Leo Yu-Ho Lo</name>
+    </author>
+    <author>
+      <name>Huamin Qu</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2408.10486v2</id>
+    <title>Revisiting Evolutionary Program Repair via Code Language Model</title>
+    <updated>2024-08-26T08:01:49Z</updated>
+    <link href="https://arxiv.org/abs/2408.10486v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2408.10486v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Software defects are an inherent part of software development and maintenance. To address these defects, Automated Program Repair (APR) has been developed to fix bugs automatically. With the advent of Large Language Models, Code Language Models (CLMs) trained on code corpora excels in code generation, making them suitable for APR applications. Despite this progress, a significant limitation remains: many bugs necessitate multi-point edits for repair, yet current CLM-based APRs are restricted to single-point bug fixes, which severely narrows the scope of repairable bugs. Moreover, these tools typically only consider the direct context of the buggy line when building prompts for the CLM, leading to suboptimal repair outcomes due to the limited information provided. This paper introduces a novel approach, ARJA-CLM, which integrates the multiobjective evolutionary algorithm with CLM to fix multilocation bugs in Java projects. We also propose a context-aware prompt construction stratege, which enriches the prompt with additional information about accessible fields and methods for the CLM generating candidate statements. Our experiments on the Defects4J and APR-2024 competition benchmark demonstrate that ARJA-CLM surpasses many state-of-the-art repair systems, and performs well on multi-point bugs. The results also reveal that CLMs effectively utilize the provided field and method information within context-aware prompts to produce candidate statements.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-08-20T01:57:45Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Yunan Wang</name>
+    </author>
+    <author>
+      <name>Tingyu Guo</name>
+    </author>
+    <author>
+      <name>Zilong Huang</name>
+    </author>
+    <author>
+      <name>Yuan Yuan</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2409.03779v1</id>
+    <title>ChatGPT and Its Educational Impact: Insights from a Software Development Competition</title>
+    <updated>2024-08-22T05:59:59Z</updated>
+    <link href="https://arxiv.org/abs/2409.03779v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2409.03779v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>This study explores the integration and impact of ChatGPT, a generative AI that utilizes natural language processing, in an educational environment. The main goal is to evaluate how ChatGPT affects project performance. To this end, we organize a software development competition utilizing ChatGPT, lasting for four weeks and involving 36 students. The competition is structured in two rounds: in the first round, all 36 students participate and are evaluated based on specific performance metrics such as code quality, innovation, and adherence to project requirements. The top 15 performers from the first round are then selected to advance to the second round, where they compete for the final rankings and the overall winner is determined. The competition shows that students who use ChatGPT extensively in various stages of development, including ideation, documentation, software development, and quality assurance, have higher project completion rates and better scores. A detailed comparative analysis between first-round and second-round winners reveals significant differences in their experience with generative AI for software development, experience learning large-scale language models, and interest in their respective fields of study. These findings suggest that ChatGPT enhances individual learning and project performance. A post-survey of participants also reveals high levels of satisfaction, further emphasizing the benefits of integrating generative AI like ChatGPT in academic settings. This study highlights the transformative potential of ChatGPT in project-based learning environments and supports further research into its long-term impact and broader application in a variety of educational contexts.</summary>
+    <category term="cs.CY" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-08-22T05:59:59Z</published>
+    <arxiv:comment>Accepted into KDD 2024 workshop on AI4EDU</arxiv:comment>
+    <arxiv:primary_category term="cs.CY"/>
+    <author>
+      <name>Sunhee Hwang</name>
+    </author>
+    <author>
+      <name>Yudoo Kim</name>
+    </author>
+    <author>
+      <name>Heejin Lee</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2408.16498v2</id>
+    <title>A Survey on Evaluating Large Language Models in Code Generation Tasks</title>
+    <updated>2025-03-04T09:13:23Z</updated>
+    <link href="https://arxiv.org/abs/2408.16498v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2408.16498v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>This paper provides a comprehensive review of the current methods and metrics used to evaluate the performance of Large Language Models (LLMs) in code generation tasks. With the rapid growth in demand for automated software development, LLMs have demonstrated significant potential in the field of code generation. The paper begins by reviewing the historical development of LLMs and their applications in code generation. Next, it details various methods and metrics for assessing the code generation capabilities of LLMs, including code correctness, efficiency, readability, and evaluation methods based on expert review and user experience. The paper also evaluates the widely used benchmark datasets, identifying their limitations and proposing directions for future improvements. Specifically, the paper analyzes the performance of code generation models across different tasks by combining multiple evaluation metrics, such as code compilation/interpretation success rates, unit test pass rates, and performance and efficiency metrics, to comprehensively assess the practical application of LLMs in code generation. Finally, the paper discusses the challenges faced in evaluating LLMs in code generation, particularly how to ensure the comprehensiveness and accuracy of evaluation methods and how to adapt to the evolving practices of software development. These analyses and discussions provide valuable insights for further optimizing and improving the application of LLMs in code generation tasks.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-08-29T12:56:06Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Liguo Chen</name>
+    </author>
+    <author>
+      <name>Qi Guo</name>
+    </author>
+    <author>
+      <name>Hongrui Jia</name>
+    </author>
+    <author>
+      <name>Zhengran Zeng</name>
+    </author>
+    <author>
+      <name>Xin Wang</name>
+    </author>
+    <author>
+      <name>Yijiang Xu</name>
+    </author>
+    <author>
+      <name>Jian Wu</name>
+    </author>
+    <author>
+      <name>Yidong Wang</name>
+    </author>
+    <author>
+      <name>Qing Gao</name>
+    </author>
+    <author>
+      <name>Jindong Wang</name>
+    </author>
+    <author>
+      <name>Wei Ye</name>
+    </author>
+    <author>
+      <name>Shikun Zhang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2409.04987v1</id>
+    <title>How to Align Large Language Models for Teaching English? Designing and Developing LLM based-Chatbot for Teaching English Conversation in EFL, Findings and Limitations</title>
+    <updated>2024-09-08T05:57:51Z</updated>
+    <link href="https://arxiv.org/abs/2409.04987v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2409.04987v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>This study investigates the design, development, and evaluation of a Large Language Model (LLM)-based chatbot for teaching English conversations in an English as a Foreign Language (EFL) context. Employing the Design and Development Research (DDR), we analyzed needs, established design principles, and iteratively refined a chatbot through experimenting various LLMs and alignment methods. Through both quantitative and qualitative evaluations, we identified the most effective LLM and its prompt combination to generate high-quality, contextually appropriate responses. Interviews with teachers provided insights into desirable system features, potential educational applications, and ethical considerations in the development and deployment of the chatbots. The design iterations yielded the importance of feedback mechanisms and customizable AI personas. Future research should explore adaptive feedback strategies, collaborative approaches with various stakeholders, and the integration of insights from human-computer interaction (HCI) and user experience (UX) design. This study contributes to the growing body of research on applying LLMs in language education, providing insights and recommendations for the design, development, and evaluation of LLM-based chatbots for EFL conversation practice. As the field evolves, ongoing research and collaboration among educators, AI engineers, and other stakeholders will be essential to harness the potential of these technologies to enhance language learning experiences.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-09-08T05:57:51Z</published>
+    <arxiv:comment>56 pages</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Jaekwon Park</name>
+    </author>
+    <author>
+      <name>Jiyoung Bae</name>
+    </author>
+    <author>
+      <name>Unggi Lee</name>
+    </author>
+    <author>
+      <name>Taekyung Ahn</name>
+    </author>
+    <author>
+      <name>Sookbun Lee</name>
+    </author>
+    <author>
+      <name>Dohee Kim</name>
+    </author>
+    <author>
+      <name>Aram Choi</name>
+    </author>
+    <author>
+      <name>Yeil Jeong</name>
+    </author>
+    <author>
+      <name>Jewoong Moon</name>
+    </author>
+    <author>
+      <name>Hyeoncheol Kim</name>
+    </author>
+    <arxiv:doi>10.13140/RG.2.2.13490.82883</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.13140/RG.2.2.13490.82883" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2409.08379v4</id>
+    <title>The Impact of Large Language Models on Open-source Innovation: Evidence from GitHub Copilot</title>
+    <updated>2026-05-24T10:33:00Z</updated>
+    <link href="https://arxiv.org/abs/2409.08379v4" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2409.08379v4" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Large Language Models (LLMs) are reshaping knowledge work, yet their impact on voluntary, self-guided open innovation forums (contributors choose tasks without managerial direction) may differ fundamentally from effects observed in organizational settings. We study this question in open-source software development, where individuals' contributions collectively drive innovation at a community level. Unlike product innovation, where typologies for classifying innovation are well established, knowledge work in open-source settings calls for a distinction grounded in the cognitive demand a task places on the contributor. Burgeoning literature distinguishes substantive contributions, which require creative problem formulation to introduce new functionality, from incremental contributions, which draw on comprehension of existing code to maintain and refine it. We exploit a natural experiment around GitHub Copilot's launch in October 2021, where Copilot supported languages like Python while not supporting R for business reasons, creating an exogenous partition between otherwise comparable ecosystems. Using three complementary identification strategies and two classification approaches, we find that Copilot availability increases open-source contributions by 28 to 40 percent. The increase in incremental contributions is significantly larger than the increase in substantive contributions across all specifications. This disparity is more pronounced in projects with higher activity levels and widens following a model upgrade: LLMs function more effectively when existing context helps define the problem and constrain solutions, tilting collaborative innovation toward exploitation of established codebases rather than exploration of new functionality. This paper provides a rare instance of causal field evidence on LLM effects, given the speed at which GenAI has exploded across the knowledge economy.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="econ.GN" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-09-12T19:59:54Z</published>
+    <arxiv:comment>JEL Classification: O31, C88, J24, O35, L86</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Doron Yeverechyahu</name>
+    </author>
+    <author>
+      <name>Raveesh Mayya</name>
+    </author>
+    <author>
+      <name>Gal Oestreicher-Singer</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2409.09972v1</id>
+    <title>Securing the Future: Exploring Privacy Risks and Security Questions in Robotic Systems</title>
+    <updated>2024-09-16T04:10:24Z</updated>
+    <link href="https://arxiv.org/abs/2409.09972v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2409.09972v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The integration of artificial intelligence, especially large language models in robotics, has led to rapid advancements in the field. We are now observing an unprecedented surge in the use of robots in our daily lives. The development and continual improvements of robots are moving at an astonishing pace. Although these remarkable improvements facilitate and enhance our lives, several security and privacy concerns have not been resolved yet. Therefore, it has become crucial to address the privacy and security threats of robotic systems while improving our experiences. In this paper, we aim to present existing applications and threats of robotics, anticipated future evolution, and the security and privacy issues they may imply. We present a series of open questions for researchers and practitioners to explore further.</summary>
+    <category term="cs.RO" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-09-16T04:10:24Z</published>
+    <arxiv:comment>11 pages, Conference Paper</arxiv:comment>
+    <arxiv:primary_category term="cs.RO"/>
+    <arxiv:journal_ref>Springer vol 552 (2024) 148-157</arxiv:journal_ref>
+    <author>
+      <name>Diba Afroze</name>
+    </author>
+    <author>
+      <name>Yazhou Tu</name>
+    </author>
+    <author>
+      <name>Xiali Hei</name>
+    </author>
+    <arxiv:doi>10.1007/978-3-031-51630-6_10</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1007/978-3-031-51630-6_10" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2410.12836v2</id>
+    <title>EditRoom: LLM-parameterized Graph Diffusion for Composable 3D Room Layout Editing</title>
+    <updated>2025-04-01T23:38:07Z</updated>
+    <link href="https://arxiv.org/abs/2410.12836v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2410.12836v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Given the steep learning curve of professional 3D software and the time-consuming process of managing large 3D assets, language-guided 3D scene editing has significant potential in fields such as virtual reality, augmented reality, and gaming. However, recent approaches to language-guided 3D scene editing either require manual interventions or focus only on appearance modifications without supporting comprehensive scene layout changes. In response, we propose EditRoom, a unified framework capable of executing a variety of layout edits through natural language commands, without requiring manual intervention. Specifically, EditRoom leverages Large Language Models (LLMs) for command planning and generates target scenes using a diffusion-based method, enabling six types of edits: rotate, translate, scale, replace, add, and remove. To address the lack of data for language-guided 3D scene editing, we have developed an automatic pipeline to augment existing 3D scene synthesis datasets and introduced EditRoom-DB, a large-scale dataset with 83k editing pairs, for training and evaluation. Our experiments demonstrate that our approach consistently outperforms other baselines across all metrics, indicating higher accuracy and coherence in language-guided scene layout editing.</summary>
+    <category term="cs.GR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-10-03T17:42:24Z</published>
+    <arxiv:primary_category term="cs.GR"/>
+    <author>
+      <name>Kaizhi Zheng</name>
+    </author>
+    <author>
+      <name>Xiaotong Chen</name>
+    </author>
+    <author>
+      <name>Xuehai He</name>
+    </author>
+    <author>
+      <name>Jing Gu</name>
+    </author>
+    <author>
+      <name>Linjie Li</name>
+    </author>
+    <author>
+      <name>Zhengyuan Yang</name>
+    </author>
+    <author>
+      <name>Kevin Lin</name>
+    </author>
+    <author>
+      <name>Jianfeng Wang</name>
+    </author>
+    <author>
+      <name>Lijuan Wang</name>
+    </author>
+    <author>
+      <name>Xin Eric Wang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2411.06723v2</id>
+    <title>Script-Strategy Aligned Generation: Aligning LLMs with Expert-Crafted Dialogue Scripts and Therapeutic Strategies for Psychotherapy</title>
+    <updated>2025-08-19T04:43:39Z</updated>
+    <link href="https://arxiv.org/abs/2411.06723v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2411.06723v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Chatbots or conversational agents (CAs) are increasingly used to improve access to digital psychotherapy. Many current systems rely on rigid, rule-based designs, heavily dependent on expert-crafted dialogue scripts for guiding therapeutic conversations. Although advances in large language models (LLMs) offer potential for more flexible interactions, their lack of controllability and explanability poses challenges in high-stakes contexts like psychotherapy. To address this, we conducted two studies in this work to explore how aligning LLMs with expert-crafted scripts can enhance psychotherapeutic chatbot performance. In Study 1 (N=43), an online experiment with a within-subjects design, we compared rule-based, pure LLM, and LLMs aligned with expert-crafted scripts via fine-tuning and prompting. Results showed that aligned LLMs significantly outperformed the other types of chatbots in empathy, dialogue relevance, and adherence to therapeutic principles. Building on findings, we proposed ``Script-Strategy Aligned Generation (SSAG)'', a more flexible alignment approach that reduces reliance on fully scripted content while maintaining LLMs' therapeutic adherence and controllability. In a 10-day field Study 2 (N=21), SSAG achieved comparable therapeutic effectiveness to full-scripted LLMs while requiring less than 40\% of expert-crafted dialogue content. Beyond these results, this work advances LLM applications in psychotherapy by providing a controllable and scalable solution, reducing reliance on expert effort. By enabling domain experts to align LLMs through high-level strategies rather than full scripts, SSAG supports more efficient co-development and expands access to a broader context of psychotherapy.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-11-11T05:14:14Z</published>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Xin Sun</name>
+    </author>
+    <author>
+      <name>Jan de Wit</name>
+    </author>
+    <author>
+      <name>Zhuying Li</name>
+    </author>
+    <author>
+      <name>Jiahuan Pei</name>
+    </author>
+    <author>
+      <name>Abdallah El Ali</name>
+    </author>
+    <author>
+      <name>Jos A. Bosch</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2411.10351v4</id>
+    <title>Bias Unveiled: Investigating Social Bias in LLM-Generated Code</title>
+    <updated>2025-03-07T18:59:21Z</updated>
+    <link href="https://arxiv.org/abs/2411.10351v4" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2411.10351v4" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Large language models (LLMs) have significantly advanced the field of automated code generation. However, a notable research gap exists in evaluating social biases that may be present in the code produced by LLMs. To solve this issue, we propose a novel fairness framework, i.e., Solar, to assess and mitigate the social biases of LLM-generated code. Specifically, Solar can automatically generate test cases for quantitatively uncovering social biases of the auto-generated code by LLMs. To quantify the severity of social biases in generated code, we develop a dataset that covers a diverse set of social problems. We applied Solar and the crafted dataset to four state-of-the-art LLMs for code generation. Our evaluation reveals severe bias in the LLM-generated code from all the subject LLMs. Furthermore, we explore several prompting strategies for mitigating bias, including Chain-of-Thought (CoT) prompting, combining positive role-playing with CoT prompting and dialogue with Solar. Our experiments show that dialogue with Solar can effectively reduce social bias in LLM-generated code by up to 90%. Last, we make the code and data publicly available is highly extensible to evaluate new social problems.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-11-15T16:55:57Z</published>
+    <arxiv:comment>accepted for publication in the Association for the Advancement of Artificial Intelligence (AAAI), 2025</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Lin Ling</name>
+    </author>
+    <author>
+      <name>Fazle Rabbi</name>
+    </author>
+    <author>
+      <name>Song Wang</name>
+    </author>
+    <author>
+      <name>Jinqiu Yang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2411.14652v2</id>
+    <title>Reranking partisan animosity in algorithmic social media feeds alters affective polarization</title>
+    <updated>2025-11-28T00:32:30Z</updated>
+    <link href="https://arxiv.org/abs/2411.14652v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2411.14652v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Today, social media platforms hold sole power to study the effects of feed ranking algorithms. We developed a platform-independent method that reranks participants' feeds in real-time and used this method to conduct a preregistered 10-day field experiment with 1,256 participants on X during the 2024 U.S. presidential campaign. Our experiment used a large language model to rerank posts that expressed antidemocratic attitudes and partisan animosity (AAPA). Decreasing or increasing AAPA exposure shifted out-party partisan animosity by two points on a 100-point feeling thermometer, with no detectable differences across party lines, providing causal evidence that exposure to AAPA content alters affective polarization. This work establishes a method to study feed algorithms without requiring platform cooperation, enabling independent evaluation of ranking interventions in naturalistic settings.</summary>
+    <category term="cs.CY" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.SI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-11-22T00:55:07Z</published>
+    <arxiv:primary_category term="cs.CY"/>
+    <arxiv:journal_ref>Science; Volume 390 | Issue 6776; 27 November 2025</arxiv:journal_ref>
+    <author>
+      <name>Tiziano Piccardi</name>
+    </author>
+    <author>
+      <name>Martin Saveski</name>
+    </author>
+    <author>
+      <name>Chenyan Jia</name>
+    </author>
+    <author>
+      <name>Jeffrey T. Hancock</name>
+    </author>
+    <author>
+      <name>Jeanne L. Tsai</name>
+    </author>
+    <author>
+      <name>Michael Bernstein</name>
+    </author>
+    <arxiv:doi>10.1126/science.adu5584</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1126/science.adu5584" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2411.18279v12</id>
+    <title>Large Language Model-Brained GUI Agents: A Survey</title>
+    <updated>2025-05-06T15:08:00Z</updated>
+    <link href="https://arxiv.org/abs/2411.18279v12" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2411.18279v12" rel="related" type="application/pdf" title="pdf"/>
+    <summary>GUIs have long been central to human-computer interaction, providing an intuitive and visually-driven way to access and interact with digital systems. The advent of LLMs, particularly multimodal models, has ushered in a new era of GUI automation. They have demonstrated exceptional capabilities in natural language understanding, code generation, and visual processing. This has paved the way for a new generation of LLM-brained GUI agents capable of interpreting complex GUI elements and autonomously executing actions based on natural language instructions. These agents represent a paradigm shift, enabling users to perform intricate, multi-step tasks through simple conversational commands. Their applications span across web navigation, mobile app interactions, and desktop automation, offering a transformative user experience that revolutionizes how individuals interact with software. This emerging field is rapidly advancing, with significant progress in both research and industry.
+  To provide a structured understanding of this trend, this paper presents a comprehensive survey of LLM-brained GUI agents, exploring their historical evolution, core components, and advanced techniques. We address research questions such as existing GUI agent frameworks, the collection and utilization of data for training specialized GUI agents, the development of large action models tailored for GUI tasks, and the evaluation metrics and benchmarks necessary to assess their effectiveness. Additionally, we examine emerging applications powered by these agents. Through a detailed analysis, this survey identifies key research gaps and outlines a roadmap for future advancements in the field. By consolidating foundational knowledge and state-of-the-art developments, this work aims to guide both researchers and practitioners in overcoming challenges and unlocking the full potential of LLM-brained GUI agents.</summary>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-11-27T12:13:39Z</published>
+    <arxiv:comment>The collection of papers reviewed in this survey will be hosted and regularly updated on the GitHub repository: https://github.com/vyokky/LLM-Brained-GUI-Agents-Survey Additionally, a searchable webpage is available at https://aka.ms/gui-agent for easier access and exploration</arxiv:comment>
+    <arxiv:primary_category term="cs.AI"/>
+    <author>
+      <name>Chaoyun Zhang</name>
+    </author>
+    <author>
+      <name>Shilin He</name>
+    </author>
+    <author>
+      <name>Jiaxu Qian</name>
+    </author>
+    <author>
+      <name>Bowen Li</name>
+    </author>
+    <author>
+      <name>Liqun Li</name>
+    </author>
+    <author>
+      <name>Si Qin</name>
+    </author>
+    <author>
+      <name>Yu Kang</name>
+    </author>
+    <author>
+      <name>Minghua Ma</name>
+    </author>
+    <author>
+      <name>Guyue Liu</name>
+    </author>
+    <author>
+      <name>Qingwei Lin</name>
+    </author>
+    <author>
+      <name>Saravan Rajmohan</name>
+    </author>
+    <author>
+      <name>Dongmei Zhang</name>
+    </author>
+    <author>
+      <name>Qi Zhang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2412.01078v2</id>
+    <title>Advancing Speech Language Models by Scaling Supervised Fine-Tuning with Over 60,000 Hours of Synthetic Speech Dialogue Data</title>
+    <updated>2024-12-03T02:59:43Z</updated>
+    <link href="https://arxiv.org/abs/2412.01078v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2412.01078v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The GPT-4o represents a significant milestone in enabling real-time interaction with large language models (LLMs) through speech, its remarkable low latency and high fluency not only capture attention but also stimulate research interest in the field. This real-time speech interaction is particularly valuable in scenarios requiring rapid feedback and immediate responses, dramatically enhancing user experience. However, there is a notable lack of research focused on real-time large speech language models, particularly for Chinese. In this work, we present KE-Omni, a seamless large speech language model built upon Ke-SpeechChat, a large-scale high-quality synthetic speech interaction dataset consisting of 7 million Chinese and English conversations, featuring 42,002 speakers, and totaling over 60,000 hours, This contributes significantly to the advancement of research and development in this field. The demos can be accessed at \url{https://huggingface.co/spaces/KE-Team/KE-Omni}.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2024-12-02T03:31:46Z</published>
+    <arxiv:comment>KE-Omni, Ke-SpeechChat</arxiv:comment>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Shuaijiang Zhao</name>
+    </author>
+    <author>
+      <name>Tingwei Guo</name>
+    </author>
+    <author>
+      <name>Bajian Xiang</name>
+    </author>
+    <author>
+      <name>Tongtang Wan</name>
+    </author>
+    <author>
+      <name>Qiang Niu</name>
+    </author>
+    <author>
+      <name>Wei Zou</name>
+    </author>
+    <author>
+      <name>Xiangang Li</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2501.12374v2</id>
+    <title>Expertise elevates AI usage: experimental evidence comparing laypeople and professional artists</title>
+    <updated>2025-12-04T10:59:46Z</updated>
+    <link href="https://arxiv.org/abs/2501.12374v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2501.12374v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Generative AI's novel capacities raise questions about the future role of human expertise: does AI level the playing field between professional artists and laypeople, or does expertise enhance AI use? Do the cognitive skills experts make use of in analyzing and drawing visual art also transfer to using these new tools? This pre-registered study conducts experimental comparisons between 50 professional artists and a demographically matched sample of laypeople. Our interdisciplinary team developed two tasks involving image replication and creative image creation, assessing their copying accuracy and divergent thinking. We implemented a bespoke platform for the experiment, powered by a modern text-to-image AI. Results reveal artists produced more accurate copies and more divergent ideas than lay participants, highlighting a skill transfer of professional expertise - even to the confined space of generative AI. We also explored how well an exemplary vision-capable large language model (GPT-4o) would fare: on par in copying and slightly better on average than artists in the creative task, although never above best humans. These findings highlight the importance of integrating artistic skills with AI, suggesting a potential for collaborative synergy that could reshape creative industries and arts education.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CY" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-01-21T18:53:21Z</published>
+    <arxiv:comment>Eisenmann and Karjus contributed equally to this work and share first authorship</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <arxiv:journal_ref>International Journal of Human-Computer Interaction, 2026, pp 1-22</arxiv:journal_ref>
+    <author>
+      <name>Thomas F. Eisenmann</name>
+    </author>
+    <author>
+      <name>Andres Karjus</name>
+    </author>
+    <author>
+      <name>Mar Canet Sola</name>
+    </author>
+    <author>
+      <name>Levin Brinkmann</name>
+    </author>
+    <author>
+      <name>Bramantyo Ibrahim Supriyatno</name>
+    </author>
+    <author>
+      <name>Iyad Rahwan</name>
+    </author>
+    <arxiv:doi>10.1080/10447318.2026.2669041</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1080/10447318.2026.2669041" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2502.03233v1</id>
+    <title>Exploring the Security Threats of Knowledge Base Poisoning in Retrieval-Augmented Code Generation</title>
+    <updated>2025-02-05T14:49:12Z</updated>
+    <link href="https://arxiv.org/abs/2502.03233v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2502.03233v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The integration of Large Language Models (LLMs) into software development has revolutionized the field, particularly through the use of Retrieval-Augmented Code Generation (RACG) systems that enhance code generation with information from external knowledge bases. However, the security implications of RACG systems, particularly the risks posed by vulnerable code examples in the knowledge base, remain largely unexplored. This risk is particularly concerning given that public code repositories, which often serve as the sources for knowledge base collection in RACG systems, are usually accessible to anyone in the community. Malicious attackers can exploit this accessibility to inject vulnerable code into the knowledge base, making it toxic. Once these poisoned samples are retrieved and incorporated into the generated code, they can propagate security vulnerabilities into the final product. This paper presents the first comprehensive study on the security risks associated with RACG systems, focusing on how vulnerable code in the knowledge base compromises the security of generated code. We investigate the LLM-generated code security across different settings through extensive experiments using four major LLMs, two retrievers, and two poisoning scenarios. Our findings highlight the significant threat of knowledge base poisoning, where even a single poisoned code example can compromise up to 48% of generated code. Our findings provide crucial insights into vulnerability introduction in RACG systems and offer practical mitigation recommendations, thereby helping improve the security of LLM-generated code in future works.</summary>
+    <category term="cs.CR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-02-05T14:49:12Z</published>
+    <arxiv:primary_category term="cs.CR"/>
+    <author>
+      <name>Bo Lin</name>
+    </author>
+    <author>
+      <name>Shangwen Wang</name>
+    </author>
+    <author>
+      <name>Liqian Chen</name>
+    </author>
+    <author>
+      <name>Xiaoguang Mao</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2502.03804v2</id>
+    <title>Understanding and Supporting Formal Email Exchange by Answering AI-Generated Questions</title>
+    <updated>2025-02-07T02:45:17Z</updated>
+    <link href="https://arxiv.org/abs/2502.03804v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2502.03804v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Replying to formal emails is time-consuming and cognitively demanding, as it requires crafting polite phrasing and providing an adequate response to the sender's demands. Although systems with Large Language Models (LLMs) were designed to simplify the email replying process, users still need to provide detailed prompts to obtain the expected output. Therefore, we proposed and evaluated an LLM-powered question-and-answer (QA)-based approach for users to reply to emails by answering a set of simple and short questions generated from the incoming email. We developed a prototype system, ResQ, and conducted controlled and field experiments with 12 and 8 participants. Our results demonstrated that the QA-based approach improves the efficiency of replying to emails and reduces workload while maintaining email quality, compared to a conventional prompt-based approach that requires users to craft appropriate prompts to obtain email drafts. We discuss how the QA-based approach influences the email reply process and interpersonal relationship dynamics, as well as the opportunities and challenges associated with using a QA-based approach in AI-mediated communication.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-02-06T06:27:09Z</published>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Yusuke Miura</name>
+    </author>
+    <author>
+      <name>Chi-Lan Yang</name>
+    </author>
+    <author>
+      <name>Masaki Kuribayashi</name>
+    </author>
+    <author>
+      <name>Keigo Matsumoto</name>
+    </author>
+    <author>
+      <name>Hideaki Kuzuoka</name>
+    </author>
+    <author>
+      <name>Shigeo Morishima</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2502.16895v1</id>
+    <title>Unlocking Scientific Concepts: How Effective Are LLM-Generated Analogies for Student Understanding and Classroom Practice?</title>
+    <updated>2025-02-24T06:49:50Z</updated>
+    <link href="https://arxiv.org/abs/2502.16895v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2502.16895v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Teaching scientific concepts is essential but challenging, and analogies help students connect new concepts to familiar ideas. Advancements in large language models (LLMs) enable generating analogies, yet their effectiveness in education remains underexplored. In this paper, we first conducted a two-stage study involving high school students and teachers to assess the effectiveness of LLM-generated analogies in biology and physics through a controlled in-class test and a classroom field study. Test results suggested that LLM-generated analogies could enhance student understanding particularly in biology, but require teachers' guidance to prevent over-reliance and overconfidence. Classroom experiments suggested that teachers could refine LLM-generated analogies to their satisfaction and inspire new analogies from generated ones, encouraged by positive classroom feedback and homework performance boosts. Based on findings, we developed and evaluated a practical system to help teachers generate and refine teaching analogies. We discussed future directions for developing and evaluating LLM-supported teaching and learning by analogy.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-02-24T06:49:50Z</published>
+    <arxiv:comment>19 pages, conditionally accepted by CHI 2025</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Zekai Shao</name>
+    </author>
+    <author>
+      <name>Siyu Yuan</name>
+    </author>
+    <author>
+      <name>Lin Gao</name>
+    </author>
+    <author>
+      <name>Yixuan He</name>
+    </author>
+    <author>
+      <name>Deqing Yang</name>
+    </author>
+    <author>
+      <name>Siming Chen</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2503.16474v1</id>
+    <title>From Voices to Worlds: Developing an AI-Powered Framework for 3D Object Generation in Augmented Reality</title>
+    <updated>2025-03-04T06:31:51Z</updated>
+    <link href="https://arxiv.org/abs/2503.16474v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2503.16474v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>This paper presents Matrix, an advanced AI-powered framework designed for real-time 3D object generation in Augmented Reality (AR) environments. By integrating a cutting-edge text-to-3D generative AI model, multilingual speech-to-text translation, and large language models (LLMs), the system enables seamless user interactions through spoken commands. The framework processes speech inputs, generates 3D objects, and provides object recommendations based on contextual understanding, enhancing AR experiences. A key feature of this framework is its ability to optimize 3D models by reducing mesh complexity, resulting in significantly smaller file sizes and faster processing on resource-constrained AR devices. Our approach addresses the challenges of high GPU usage, large model output sizes, and real-time system responsiveness, ensuring a smoother user experience. Moreover, the system is equipped with a pre-generated object repository, further reducing GPU load and improving efficiency. We demonstrate the practical applications of this framework in various fields such as education, design, and accessibility, and discuss future enhancements including image-to-3D conversion, environmental object detection, and multimodal support. The open-source nature of the framework promotes ongoing innovation and its utility across diverse industries.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-03-04T06:31:51Z</published>
+    <arxiv:comment>arXiv admin note: text overlap with arXiv:2502.15869</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Majid Behravan</name>
+    </author>
+    <author>
+      <name>Denis Gracanin</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2503.15808v1</id>
+    <title>ChatGPT and U(X): A Rapid Review on Measuring the User Experience</title>
+    <updated>2025-03-20T02:51:11Z</updated>
+    <link href="https://arxiv.org/abs/2503.15808v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2503.15808v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>ChatGPT, powered by a large language model (LLM), has revolutionized everyday human-computer interaction (HCI) since its 2022 release. While now used by millions around the world, a coherent pathway for evaluating the user experience (UX) ChatGPT offers remains missing. In this rapid review (N = 58), I explored how ChatGPT UX has been approached quantitatively so far. I focused on the independent variables (IVs) manipulated, the dependent variables (DVs) measured, and the methods used for measurement. Findings reveal trends, gaps, and emerging consensus in UX assessments. This work offers a first step towards synthesizing existing approaches to measuring ChatGPT UX, urgent trajectories to advance standardization and breadth, and two preliminary frameworks aimed at guiding future research and tool development. I seek to elevate the field of ChatGPT UX by empowering researchers and practitioners in optimizing user interactions with ChatGPT and similar LLM-based systems.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CY" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-03-20T02:51:11Z</published>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Katie Seaborn</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2504.13865v2</id>
+    <title>A Survey on (M)LLM-Based GUI Agents</title>
+    <updated>2025-06-04T17:29:13Z</updated>
+    <link href="https://arxiv.org/abs/2504.13865v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2504.13865v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Graphical User Interface (GUI) Agents have emerged as a transformative paradigm in human-computer interaction, evolving from rule-based automation scripts to sophisticated AI-driven systems capable of understanding and executing complex interface operations. This survey provides a comprehensive examination of the rapidly advancing field of LLM-based GUI Agents, systematically analyzing their architectural foundations, technical components, and evaluation methodologies. We identify and analyze four fundamental components that constitute modern GUI Agents: (1) perception systems that integrate text-based parsing with multimodal understanding for comprehensive interface comprehension; (2) exploration mechanisms that construct and maintain knowledge bases through internal modeling, historical experience, and external information retrieval; (3) planning frameworks that leverage advanced reasoning methodologies for task decomposition and execution; and (4) interaction systems that manage action generation with robust safety controls. Through rigorous analysis of these components, we reveal how recent advances in large language models and multimodal learning have revolutionized GUI automation across desktop, mobile, and web platforms. We critically examine current evaluation frameworks, highlighting methodological limitations in existing benchmarks while proposing directions for standardization. This survey also identifies key technical challenges, including accurate element localization, effective knowledge retrieval, long-horizon planning, and safety-aware execution control, while outlining promising research directions for enhancing GUI Agents' capabilities. Our systematic review provides researchers and practitioners with a thorough understanding of the field's current state and offers insights into future developments in intelligent interface automation.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-03-27T17:58:31Z</published>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Fei Tang</name>
+    </author>
+    <author>
+      <name>Haolei Xu</name>
+    </author>
+    <author>
+      <name>Hang Zhang</name>
+    </author>
+    <author>
+      <name>Siqi Chen</name>
+    </author>
+    <author>
+      <name>Xingyu Wu</name>
+    </author>
+    <author>
+      <name>Yongliang Shen</name>
+    </author>
+    <author>
+      <name>Wenqi Zhang</name>
+    </author>
+    <author>
+      <name>Guiyang Hou</name>
+    </author>
+    <author>
+      <name>Zeqi Tan</name>
+    </author>
+    <author>
+      <name>Yuchen Yan</name>
+    </author>
+    <author>
+      <name>Kaitao Song</name>
+    </author>
+    <author>
+      <name>Jian Shao</name>
+    </author>
+    <author>
+      <name>Weiming Lu</name>
+    </author>
+    <author>
+      <name>Jun Xiao</name>
+    </author>
+    <author>
+      <name>Yueting Zhuang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2504.18804v1</id>
+    <title>Can We Enhance Bug Report Quality Using LLMs?: An Empirical Study of LLM-Based Bug Report Generation</title>
+    <updated>2025-04-26T05:15:53Z</updated>
+    <link href="https://arxiv.org/abs/2504.18804v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2504.18804v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Bug reports contain the information developers need to triage and fix software bugs. However, unclear, incomplete, or ambiguous information may lead to delays and excessive manual effort spent on bug triage and resolution. In this paper, we explore whether Instruction fine-tuned Large Language Models (LLMs) can automatically transform casual, unstructured bug reports into high-quality, structured bug reports adhering to a standard template. We evaluate three open-source instruction-tuned LLMs (\emph{Qwen 2.5, Mistral, and Llama 3.2}) against ChatGPT-4o, measuring performance on established metrics such as CTQRS, ROUGE, METEOR, and SBERT. Our experiments show that fine-tuned Qwen 2.5 achieves a CTQRS score of \textbf{77%}, outperforming both fine-tuned Mistral (\textbf{71%}), Llama 3.2 (\textbf{63%}) and ChatGPT in 3-shot learning (\textbf{75%}). Further analysis reveals that Llama 3.2 shows higher accuracy of detecting missing fields particularly Expected Behavior and Actual Behavior, while Qwen 2.5 demonstrates superior performance in capturing Steps-to-Reproduce, with an F1 score of 76%. Additional testing of the models on other popular projects (e.g., Eclipse, GCC) demonstrates that our approach generalizes well, achieving up to \textbf{70%} CTQRS in unseen projects' bug reports. These findings highlight the potential of instruction fine-tuning in automating structured bug report generation, reducing manual effort for developers and streamlining the software maintenance process.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-04-26T05:15:53Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Jagrit Acharya</name>
+    </author>
+    <author>
+      <name>Gouri Ginde</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2505.03214v1</id>
+    <title>DocSpiral: A Platform for Integrated Assistive Document Annotation through Human-in-the-Spiral</title>
+    <updated>2025-05-06T06:02:42Z</updated>
+    <link href="https://arxiv.org/abs/2505.03214v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2505.03214v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Acquiring structured data from domain-specific, image-based documents such as scanned reports is crucial for many downstream tasks but remains challenging due to document variability. Many of these documents exist as images rather than as machine-readable text, which requires human annotation to train automated extraction systems. We present DocSpiral, the first Human-in-the-Spiral assistive document annotation platform, designed to address the challenge of extracting structured information from domain-specific, image-based document collections. Our spiral design establishes an iterative cycle in which human annotations train models that progressively require less manual intervention. DocSpiral integrates document format normalization, comprehensive annotation interfaces, evaluation metrics dashboard, and API endpoints for the development of AI / ML models into a unified workflow. Experiments demonstrate that our framework reduces annotation time by at least 41\% while showing consistent performance gains across three iterations during model training. By making this annotation platform freely accessible, we aim to lower barriers to AI/ML models development in document processing, facilitating the adoption of large language models in image-based, document-intensive fields such as geoscience and healthcare. The system is freely available at: https://app.ai4wa.com. The demonstration video is available: https://app.ai4wa.com/docs/docspiral/demo.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-05-06T06:02:42Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Qiang Sun</name>
+    </author>
+    <author>
+      <name>Sirui Li</name>
+    </author>
+    <author>
+      <name>Tingting Bi</name>
+    </author>
+    <author>
+      <name>Du Huynh</name>
+    </author>
+    <author>
+      <name>Mark Reynolds</name>
+    </author>
+    <author>
+      <name>Yuanyi Luo</name>
+    </author>
+    <author>
+      <name>Wei Liu</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2505.06676v1</id>
+    <title>VTutor: An Animated Pedagogical Agent SDK that Provide Real Time Multi-Model Feedback</title>
+    <updated>2025-05-10T15:37:40Z</updated>
+    <link href="https://arxiv.org/abs/2505.06676v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2505.06676v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Pedagogical Agents (PAs) show significant potential for boosting student engagement and learning outcomes by providing adaptive, on-demand support in educational contexts. However, existing PA solutions are often hampered by pre-scripted dialogue, unnatural animations, uncanny visual realism, and high development costs. To address these gaps, we introduce VTutor, an open-source SDK leveraging lightweight WebGL, Unity, and JavaScript frameworks. VTutor receives text outputs from a large language model (LLM), converts them into audio via text-to-speech, and then renders a real-time, lip-synced pedagogical agent (PA) for immediate, large-scale deployment on web-based learning platforms. By providing on-demand, personalized feedback, VTutor strengthens students' motivation and deepens their engagement with instructional material. Using an anime-like aesthetic, VTutor alleviates the uncanny valley effect, allowing learners to engage with expressive yet comfortably stylized characters. Our evaluation with 50 participants revealed that VTutor significantly outperforms the existing talking-head approaches (e.g., SadTalker) on perceived synchronization accuracy, naturalness, emotional expressiveness, and overall preference. As an open-source project, VTutor welcomes community-driven contributions - from novel character designs to specialized showcases of pedagogical agent applications - that fuel ongoing innovation in AI-enhanced education. By providing an accessible, customizable, and learner-centered PA solution, VTutor aims to elevate human-AI interaction experience in education fields, ultimately broadening the impact of AI in learning contexts. The demo link to VTutor is at https://vtutor-aied25.vercel.app.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-05-10T15:37:40Z</published>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Eason Chen</name>
+    </author>
+    <author>
+      <name>Chenyu Lin</name>
+    </author>
+    <author>
+      <name>Yu-Kai Huang</name>
+    </author>
+    <author>
+      <name>Xinyi Tang</name>
+    </author>
+    <author>
+      <name>Aprille Xi</name>
+    </author>
+    <author>
+      <name>Jionghao Lin</name>
+    </author>
+    <author>
+      <name>Kenneth Koedinger</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2506.21536v1</id>
+    <title>PsyLite Technical Report</title>
+    <updated>2025-06-26T17:54:42Z</updated>
+    <link href="https://arxiv.org/abs/2506.21536v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2506.21536v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>With the rapid development of digital technology, AI-driven psychological counseling has gradually become an important research direction in the field of mental health. However, existing models still have deficiencies in dialogue safety, detailed scenario handling, and lightweight deployment. To address these issues, this study proposes PsyLite, a lightweight psychological counseling large language model agent developed based on the base model InternLM2.5-7B-chat. Through a two-stage training strategy (hybrid distillation data fine-tuning and ORPO preference optimization), PsyLite enhances the model's deep-reasoning ability, psychological counseling ability, and safe dialogue ability. After deployment using Ollama and Open WebUI, a custom workflow is created with Pipelines. An innovative conditional RAG is designed to introduce crosstalk humor elements at appropriate times during psychological counseling to enhance user experience and decline dangerous requests to strengthen dialogue safety. Evaluations show that PsyLite outperforms the baseline models in the Chinese general evaluation (CEval), psychological counseling professional evaluation (CPsyCounE), and dialogue safety evaluation (SafeDialBench), particularly in psychological counseling professionalism (CPsyCounE score improvement of 47.6\%) and dialogue safety (\safe{} score improvement of 2.4\%). Additionally, the model uses quantization technology (GGUF q4\_k\_m) to achieve low hardware deployment (5GB memory is sufficient for operation), providing a feasible solution for psychological counseling applications in resource-constrained environments.</summary>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-06-26T17:54:42Z</published>
+    <arxiv:primary_category term="cs.AI"/>
+    <author>
+      <name>Fangjun Ding</name>
+    </author>
+    <author>
+      <name>Renyu Zhang</name>
+    </author>
+    <author>
+      <name>Xinyu Feng</name>
+    </author>
+    <author>
+      <name>Chengye Xie</name>
+    </author>
+    <author>
+      <name>Zheng Zhang</name>
+    </author>
+    <author>
+      <name>Yanting Zhang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2506.23826v1</id>
+    <title>Towards the "Digital Me": A vision of authentic Conversational Agents powered by personal Human Digital Twins</title>
+    <updated>2025-06-30T13:18:31Z</updated>
+    <link href="https://arxiv.org/abs/2506.23826v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2506.23826v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Human Digital Twins (HDTs) have traditionally been conceptualized as data-driven models designed to support decision-making across various domains. However, recent advancements in conversational AI open new possibilities for HDTs to function as authentic, interactive digital counterparts of individuals. This paper introduces a novel HDT system architecture that integrates large language models with dynamically updated personal data, enabling it to mirror an individual's conversational style, memories, and behaviors. To achieve this, our approach implements context-aware memory retrieval, neural plasticity-inspired consolidation, and adaptive learning mechanisms, creating a more natural and evolving digital persona. The resulting system does not only replicate an individual's unique conversational style depending on who they are speaking with, but also enriches responses with dynamically captured personal experiences, opinions, and memories. While this marks a significant step toward developing authentic virtual counterparts, it also raises critical ethical concerns regarding privacy, accountability, and the long-term implications of persistent digital identities. This study contributes to the field of HDTs by describing our novel system architecture, demonstrating its capabilities, and discussing future directions and emerging challenges to ensure the responsible and ethical development of HDTs.</summary>
+    <category term="cs.ET" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CY" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.IR" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-06-30T13:18:31Z</published>
+    <arxiv:comment>24 pages, 9 figures</arxiv:comment>
+    <arxiv:primary_category term="cs.ET"/>
+    <author>
+      <name>Lluís C. Coll</name>
+    </author>
+    <author>
+      <name>Martin W. Lauer-Schmaltz</name>
+    </author>
+    <author>
+      <name>Philip Cash</name>
+    </author>
+    <author>
+      <name>John P. Hansen</name>
+    </author>
+    <author>
+      <name>Anja Maier</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2507.05279v1</id>
+    <title>ReservoirChat: Interactive Documentation Enhanced with LLM and Knowledge Graph for ReservoirPy</title>
+    <updated>2025-07-04T08:48:15Z</updated>
+    <link href="https://arxiv.org/abs/2507.05279v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2507.05279v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>We introduce a tool designed to improve the capabilities of Large Language Models (LLMs) in assisting with code development using the ReservoirPy library, as well as in answering complex questions in the field of Reservoir Computing. By incorporating external knowledge through Retrieval-Augmented Generation (RAG) and knowledge graphs, our approach aims to reduce hallucinations and increase the factual accuracy of generated responses. The system provides an interactive experience similar to ChatGPT, tailored specifically for ReservoirPy, enabling users to write, debug, and understand Python code while accessing reliable domain-specific insights. In our evaluation, while proprietary models such as ChatGPT-4o and NotebookLM performed slightly better on general knowledge questions, our model outperformed them on coding tasks and showed a significant improvement over its base model, Codestral-22B.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.NE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-07-04T08:48:15Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Virgile Boraud</name>
+      <arxiv:affiliation>Mnemosyne</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Yannis Bendi-Ouis</name>
+      <arxiv:affiliation>Mnemosyne</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Paul Bernard</name>
+      <arxiv:affiliation>Mnemosyne</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Xavier Hinaut</name>
+      <arxiv:affiliation>Mnemosyne</arxiv:affiliation>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2509.11708v2</id>
+    <title>From Evaluation to Enhancement: Large Language Models for Zero-Knowledge Proof Code Generation</title>
+    <updated>2026-01-31T11:20:59Z</updated>
+    <link href="https://arxiv.org/abs/2509.11708v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2509.11708v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Zero-knowledge proofs (ZKPs) are increasingly deployed in domains such as privacy-preserving authentication, verifiable computation, and secure finance. However, authoring ZK programs remains challenging: unlike conventional software development, ZK programming manifests a fundamental paradigm shift from \textit{imperative computation} to \textit{declarative verification}. This process requires rigorous reasoning about finite field arithmetic and complex constraint systems (which is rare in common imperative languages), making it knowledge-intensive and error-prone. While large language models (LLMs) have demonstrated strong code generation capabilities in general-purpose languages, their effectiveness for ZK programming, where correctness hinges on both language mastery and constraint-level reasoning, remains unexplored. To address this gap, we propose \textsc{ZK-Eval}, a domain-specific evaluation pipeline that probes LLM capabilities on ZK programming at three levels: language knowledge, algebraic primitive competence, and end-to-end program generation. Our evaluation of four state-of-the-art LLMs reveals that while models demonstrate strong proficiency in language syntax, they struggle when implementing and composing algebraic primitives to specify correct constraint systems, frequently producing incorrect programs. Based on these insights, we introduce \textsc{ZK-Coder}, an agentic framework that augments LLMs with constraint sketching, guided retrieval, and interactive repair. Experiments with GPT-o3 on Circom and Noir show substantial gains, with success rates improving from 20.29\% to 87.85\% and from 28.38\% to 97.79\%, respectively. With \textsc{ZK-Eval} and \textsc{ZK-Coder}, we establish a new basis for systematically measuring and augmenting LLMs in ZK code generation to lower barriers for practitioners and advance privacy computing.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-09-15T09:07:52Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Zhantong Xue</name>
+    </author>
+    <author>
+      <name>Pingchuan Ma</name>
+    </author>
+    <author>
+      <name>Zhaoyu Wang</name>
+    </author>
+    <author>
+      <name>Yuguang Zhou</name>
+    </author>
+    <author>
+      <name>Xiaoqin Zhang</name>
+    </author>
+    <author>
+      <name>Shuai Wang</name>
+    </author>
+    <author>
+      <name>Juergen Rahmel</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2511.18538v5</id>
+    <title>From Code Foundation Models to Agents and Applications: A Comprehensive Survey and Practical Guide to Code Intelligence</title>
+    <updated>2025-12-06T13:25:15Z</updated>
+    <link href="https://arxiv.org/abs/2511.18538v5" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2511.18538v5" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Large language models (LLMs) have fundamentally transformed automated software development by enabling direct translation of natural language descriptions into functional code, driving commercial adoption through tools like Github Copilot (Microsoft), Cursor (Anysphere), Trae (ByteDance), and Claude Code (Anthropic). While the field has evolved dramatically from rule-based systems to Transformer-based architectures, achieving performance improvements from single-digit to over 95\% success rates on benchmarks like HumanEval. In this work, we provide a comprehensive synthesis and practical guide (a series of analytic and probing experiments) about code LLMs, systematically examining the complete model life cycle from data curation to post-training through advanced prompting paradigms, code pre-training, supervised fine-tuning, reinforcement learning, and autonomous coding agents. We analyze the code capability of the general LLMs (GPT-4, Claude, LLaMA) and code-specialized LLMs (StarCoder, Code LLaMA, DeepSeek-Coder, and QwenCoder), critically examining the techniques, design decisions, and trade-offs. Further, we articulate the research-practice gap between academic research (e.g., benchmarks and tasks) and real-world deployment (e.g., software-related code tasks), including code correctness, security, contextual awareness of large codebases, and integration with development workflows, and map promising research directions to practical needs. Last, we conduct a series of experiments to provide a comprehensive analysis of code pre-training, supervised fine-tuning, and reinforcement learning, covering scaling law, framework selection, hyperparameter sensitivity, model architectures, and dataset comparisons.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-11-23T17:09:34Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Jian Yang</name>
+    </author>
+    <author>
+      <name>Xianglong Liu</name>
+    </author>
+    <author>
+      <name>Weifeng Lv</name>
+    </author>
+    <author>
+      <name>Ken Deng</name>
+    </author>
+    <author>
+      <name>Shawn Guo</name>
+    </author>
+    <author>
+      <name>Lin Jing</name>
+    </author>
+    <author>
+      <name>Yizhi Li</name>
+    </author>
+    <author>
+      <name>Shark Liu</name>
+    </author>
+    <author>
+      <name>Xianzhen Luo</name>
+    </author>
+    <author>
+      <name>Yuyu Luo</name>
+    </author>
+    <author>
+      <name>Changzai Pan</name>
+    </author>
+    <author>
+      <name>Ensheng Shi</name>
+    </author>
+    <author>
+      <name>Yingshui Tan</name>
+    </author>
+    <author>
+      <name>Renshuai Tao</name>
+    </author>
+    <author>
+      <name>Jiajun Wu</name>
+    </author>
+    <author>
+      <name>Xianjie Wu</name>
+    </author>
+    <author>
+      <name>Zhenhe Wu</name>
+    </author>
+    <author>
+      <name>Daoguang Zan</name>
+    </author>
+    <author>
+      <name>Chenchen Zhang</name>
+    </author>
+    <author>
+      <name>Wei Zhang</name>
+    </author>
+    <author>
+      <name>He Zhu</name>
+    </author>
+    <author>
+      <name>Terry Yue Zhuo</name>
+    </author>
+    <author>
+      <name>Kerui Cao</name>
+    </author>
+    <author>
+      <name>Xianfu Cheng</name>
+    </author>
+    <author>
+      <name>Jun Dong</name>
+    </author>
+    <author>
+      <name>Shengjie Fang</name>
+    </author>
+    <author>
+      <name>Zhiwei Fei</name>
+    </author>
+    <author>
+      <name>Xiangyuan Guan</name>
+    </author>
+    <author>
+      <name>Qipeng Guo</name>
+    </author>
+    <author>
+      <name>Zhiguang Han</name>
+    </author>
+    <author>
+      <name>Joseph James</name>
+    </author>
+    <author>
+      <name>Tianqi Luo</name>
+    </author>
+    <author>
+      <name>Renyuan Li</name>
+    </author>
+    <author>
+      <name>Yuhang Li</name>
+    </author>
+    <author>
+      <name>Yiming Liang</name>
+    </author>
+    <author>
+      <name>Congnan Liu</name>
+    </author>
+    <author>
+      <name>Jiaheng Liu</name>
+    </author>
+    <author>
+      <name>Qian Liu</name>
+    </author>
+    <author>
+      <name>Ruitong Liu</name>
+    </author>
+    <author>
+      <name>Tyler Loakman</name>
+    </author>
+    <author>
+      <name>Xiangxin Meng</name>
+    </author>
+    <author>
+      <name>Chuang Peng</name>
+    </author>
+    <author>
+      <name>Tianhao Peng</name>
+    </author>
+    <author>
+      <name>Jiajun Shi</name>
+    </author>
+    <author>
+      <name>Mingjie Tang</name>
+    </author>
+    <author>
+      <name>Boyang Wang</name>
+    </author>
+    <author>
+      <name>Haowen Wang</name>
+    </author>
+    <author>
+      <name>Yunli Wang</name>
+    </author>
+    <author>
+      <name>Fanglin Xu</name>
+    </author>
+    <author>
+      <name>Zihan Xu</name>
+    </author>
+    <author>
+      <name>Fei Yuan</name>
+    </author>
+    <author>
+      <name>Ge Zhang</name>
+    </author>
+    <author>
+      <name>Jiayi Zhang</name>
+    </author>
+    <author>
+      <name>Xinhao Zhang</name>
+    </author>
+    <author>
+      <name>Wangchunshu Zhou</name>
+    </author>
+    <author>
+      <name>Hualei Zhu</name>
+    </author>
+    <author>
+      <name>King Zhu</name>
+    </author>
+    <author>
+      <name>Bryan Dai</name>
+    </author>
+    <author>
+      <name>Aishan Liu</name>
+    </author>
+    <author>
+      <name>Zhoujun Li</name>
+    </author>
+    <author>
+      <name>Chenghua Lin</name>
+    </author>
+    <author>
+      <name>Tianyu Liu</name>
+    </author>
+    <author>
+      <name>Chao Peng</name>
+    </author>
+    <author>
+      <name>Kai Shen</name>
+    </author>
+    <author>
+      <name>Libo Qin</name>
+    </author>
+    <author>
+      <name>Shuangyong Song</name>
+    </author>
+    <author>
+      <name>Zizheng Zhan</name>
+    </author>
+    <author>
+      <name>Jiajun Zhang</name>
+    </author>
+    <author>
+      <name>Jie Zhang</name>
+    </author>
+    <author>
+      <name>Zhaoxiang Zhang</name>
+    </author>
+    <author>
+      <name>Bo Zheng</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2511.18926v1</id>
+    <title>MoodBench 1.0: An Evaluation Benchmark for Emotional Companionship Dialogue Systems</title>
+    <updated>2025-11-24T09:32:02Z</updated>
+    <link href="https://arxiv.org/abs/2511.18926v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2511.18926v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>With the rapid development of Large Language Models, dialogue systems are shifting from information tools to emotional companions, heralding the era of Emotional Companionship Dialogue Systems (ECDs) that provide personalized emotional support for users. However, the field lacks clear definitions and systematic evaluation standards for ECDs. To address this, we first propose a definition of ECDs with formal descriptions. Then, based on this theory and the design principle of "Ability Layer-Task Layer (three level)-Data Layer-Method Layer", we design and implement the first ECD evaluation benchmark - MoodBench 1.0. Through extensive evaluations of 30 mainstream models, we demonstrate that MoodBench 1.0 has excellent discriminant validity and can effectively quantify the differences in emotional companionship abilities among models. Furthermore, the results reveal current models' shortcomings in deep emotional companionship, guiding future technological optimization and significantly aiding developers in enhancing ECDs' user experience.</summary>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2025-11-24T09:32:02Z</published>
+    <arxiv:comment>26 pages, 7 figures</arxiv:comment>
+    <arxiv:primary_category term="cs.AI"/>
+    <author>
+      <name>Haifeng Jing</name>
+    </author>
+    <author>
+      <name>Yujie Hou</name>
+    </author>
+    <author>
+      <name>Junfei Liu</name>
+    </author>
+    <author>
+      <name>Rui Xie</name>
+    </author>
+    <author>
+      <name>alan Xu</name>
+    </author>
+    <author>
+      <name>Jinlong Ma</name>
+    </author>
+    <author>
+      <name>Qichun Deng</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2604.05719v1</id>
+    <title>Hackers or Hallucinators? A Comprehensive Analysis of LLM-Based Automated Penetration Testing</title>
+    <updated>2026-04-07T11:19:16Z</updated>
+    <link href="https://arxiv.org/abs/2604.05719v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2604.05719v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>The rapid advancement of Large Language Models (LLMs) has created new opportunities for Automated Penetration Testing (AutoPT), spawning numerous frameworks aimed at achieving end-to-end autonomous attacks. However, despite the proliferation of related studies, existing research generally lacks systematic architectural analysis and large-scale empirical comparisons under a unified benchmark. Therefore, this paper presents the first Systematization of Knowledge (SoK) focusing on the architectural design and comprehensive empirical evaluation of current LLM-based AutoPT frameworks. At systematization level, we comprehensively review existing framework designs across six dimensions: agent architecture, agent plan, agent memory, agent execution, external knowledge, and benchmarks. At empirical level, we conduct large-scale experiments on 13 representative open-source AutoPT frameworks and 2 baseline frameworks utilizing a unified benchmark. The experiments consumed over 10 billion tokens in total and generated more than 1,500 execution logs, which were manually reviewed and analyzed over four months by a panel of more than 15 researchers with expertise in cybersecurity. By investigating the latest progress in this rapidly developing field, we provide researchers with a structured taxonomy to understand existing LLM-based AutoPT frameworks and a large-scale empirical benchmark, along with promising directions for future research.</summary>
+    <category term="cs.CR" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-04-07T11:19:16Z</published>
+    <arxiv:primary_category term="cs.CR"/>
+    <author>
+      <name>Jiaren Peng</name>
+    </author>
+    <author>
+      <name>Zeqin Li</name>
+    </author>
+    <author>
+      <name>Chang You</name>
+    </author>
+    <author>
+      <name>Yan Wang</name>
+    </author>
+    <author>
+      <name>Hanlin Sun</name>
+    </author>
+    <author>
+      <name>Xuan Tian</name>
+    </author>
+    <author>
+      <name>Shuqiao Zhang</name>
+    </author>
+    <author>
+      <name>Junyi Liu</name>
+    </author>
+    <author>
+      <name>Jianguo Zhao</name>
+    </author>
+    <author>
+      <name>Renyang Liu</name>
+    </author>
+    <author>
+      <name>Haoran Ou</name>
+    </author>
+    <author>
+      <name>Yuqiang Sun</name>
+    </author>
+    <author>
+      <name>Jiancheng Zhang</name>
+    </author>
+    <author>
+      <name>Yutong Jiao</name>
+    </author>
+    <author>
+      <name>Kunshu Song</name>
+    </author>
+    <author>
+      <name>Chao Zhang</name>
+    </author>
+    <author>
+      <name>Fan Shi</name>
+    </author>
+    <author>
+      <name>Hongda Sun</name>
+    </author>
+    <author>
+      <name>Rui Yan</name>
+    </author>
+    <author>
+      <name>Cheng Huang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2606.06523v2</id>
+    <title>Lean4Agent: Formal Modeling and Verification for Agent Workflow and Trajectory</title>
+    <updated>2026-06-15T18:24:02Z</updated>
+    <link href="https://arxiv.org/abs/2606.06523v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2606.06523v2" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Equipping Large Language Models (LLMs) to execute reliable multi-step workflows has become a central challenge in artificial intelligence. Despite recent advances in LLMs' agentic capabilities, most agent systems still lack formal methods for specifying, verifying, and debugging their workflow and execution trajectories. This challenge mirrors a long-standing problem in mathematics, where the ambiguity of natural languages (NLs) motivates the development of formal languages (FLs). Inspired by this paradigm, we propose **Lean4Agent**, to the best of our knowledge, the first framework that uses Lean4, a dependent-type FL to model and verify agent behavior. **Lean4Agent** launches **FormalAgentLib**, an extensible Lean4 library for formally modeling and verifying agent workflows' semantic consistency under explicit assumptions, and enabling localization of execution-time failures revealed by trajectories. Building on **FormalAgentLib**, we further develop **LeanEvolve**, which applies results in **FormalAgentLib** to revise workflows to enhance its capability. Extensive experiments on a hard problem subset of SWE-Bench-Verified and a subset of ELAIP-Bench across 5 leading LLMs indicate that the verification-passing workflows outperform the failing ones by an average of **11.94%**, and **LeanEvolve** further improves SWE performance by **7.47%** on average. Furthermore, **Lean4Agent** establishes a foundation for a new field of using expressive dependent-type FL to formally model and verify agent behavior.</summary>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LO" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-06-02T18:46:50Z</published>
+    <arxiv:primary_category term="cs.AI"/>
+    <author>
+      <name>Ruida Wang</name>
+    </author>
+    <author>
+      <name>Jerry Huang</name>
+    </author>
+    <author>
+      <name>Pengcheng Wang</name>
+    </author>
+    <author>
+      <name>Xuanqing Liu</name>
+    </author>
+    <author>
+      <name>Luyang Kong</name>
+    </author>
+    <author>
+      <name>Tong Zhang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2606.08710v1</id>
+    <title>Structuring agentic AI for HPC code modernization</title>
+    <updated>2026-06-07T16:07:29Z</updated>
+    <link href="https://arxiv.org/abs/2606.08710v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2606.08710v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Modernization of legacy scientific codes is often necessary to keep up with the ever-evolving changes in the compute resource ecosystem. Parallelization and migration from poorly supported software ecosystems are two of the most time-consuming activities in the research software engineering field. This paper presents our experience in the successful, two-phase AI-assisted modernization of NMAP-RKPM, a roughly 60,000-line, 3D explicit solid mechanics physics engine based on the Reproducing Kernel Particle Method (RKPM). We converted this single-threaded, Fortran based MPI application into a OpenMP-parallel C++ based MPI tool in the span of a few months. While Large Language Model (LLM) based tools on their own proved inadequate, we developed a highly structured "hand-holding" agentic AI methodology, like providing manually created examples, ensuring continuous buildability and limiting session scope, that was instead highly effective. The paper provides both the AI-assisted steps that were successful and the problems that we had to overcome, alongside the reasoning behind the chosen path.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-06-07T16:07:29Z</published>
+    <arxiv:comment>10 pages</arxiv:comment>
+    <arxiv:primary_category term="cs.SE"/>
+    <arxiv:journal_ref>USRSE'26 Conference Proceedings (2026)</arxiv:journal_ref>
+    <author>
+      <name>Anthony Marinov</name>
+    </author>
+    <author>
+      <name>Igor Sfiligoi</name>
+    </author>
+    <arxiv:doi>10.5281/zenodo.22283502</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.5281/zenodo.22283502" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2606.22306v1</id>
+    <title>Leveraging Large Language Models to Obscure Code Stylometry: A Comparative Study of GPT-3.5 and GPT-4</title>
+    <updated>2026-06-21T02:19:45Z</updated>
+    <link href="https://arxiv.org/abs/2606.22306v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2606.22306v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>In the rapidly evolving field of software development, code stylometry analyzing unique stylistic signatures of programmers plays a crit-ical role in authorship attribution and cybersecurity. Recent advancements in artificial intelligence, particularly Large Language Models (LLMs) like GPT-3.5 and GPT-4, have introduced new dimensions to this field, challenging traditional stylometry techniques. This study investigates the effectiveness of LLMs in altering code stylometry while preserving functionality and evaluates the impact of various prompt engineering strategies. Through comprehensive experiments, we assess how well these models can obscure stylistic signatures to avoid detection by a Random Forest classifier trained for authorship attribution. The results reveal significant differences in effectiveness between single-shot and multi-shot methods and highlight the importance of detailed, structured prompts. Additionally, functionality preservation checks demonstrate the challenges in maintaining code integrity post-modification. This research provides critical insights into the robustness of authorship attribution techniques against advanced AI capabilities, informing future cybersecurity and software engineering developments</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-06-21T02:19:45Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Saman Pordanesh</name>
+    </author>
+    <author>
+      <name>Benjamin Tan</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2608.12036v3</id>
+    <title>Mechanist: AI as a Scientific Instrument for Discovering the Mechanisms of Intelligence</title>
+    <updated>2026-09-06T16:45:34Z</updated>
+    <link href="https://arxiv.org/abs/2608.12036v3" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2608.12036v3" rel="related" type="application/pdf" title="pdf"/>
+    <summary>AI models are increasingly used in scientific discovery and human decision-making. Yet how AI models work and what risks they pose remain poorly understood. As AI development becomes faster and more automated, research on the mechanisms underlying AI remains largely manual. To bridge this gap, we introduce Mechanist, an agentic system that uses AI as a scientific instrument for the autonomous discovery of mechanisms underlying AI. To ground novel mechanism hypotheses, we construct a scientific knowledge graph of 13,000 studies on AI mechanisms, alongside a multidisciplinary database of 43 million papers spanning 26 fields. For reliable experiment execution, we curate a library of 32 foundational methods for mechanism analysis. Compared with Claude Code and existing AI-scientist systems, Mechanist generates higher-quality mechanism hypotheses and executes experiments more reliably. Across four case studies, Mechanist autonomously discovers new model behaviors and their underlying mechanisms, and translates these discoveries into mechanism-guided interventions and interdisciplinary design. Specifically, Mechanist first uncovers a counterintuitive safety risk in scientific laboratories, showing that unsafe traits can transfer to fine-tuned student models through apparently safe training data and emerge across modalities. Mechanist then develops a mechanism theory of belief, revealing how models represent world knowledge, form beliefs, infer the beliefs of others, and how these mechanisms emerge during pretraining. Building on this theory, Mechanist develops targeted interventions that improve model performance across diverse scenarios. Finally, Mechanist can also advance interdisciplinary discovery through mechanistic design, providing an alternative to the computationally intensive generate-and-rerank paradigm.</summary>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.MA" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-08-12T13:19:42Z</published>
+    <arxiv:comment>Work in progress</arxiv:comment>
+    <arxiv:primary_category term="cs.AI"/>
+    <author>
+      <name>Mengru Wang</name>
+    </author>
+    <author>
+      <name>Junfeng Fang</name>
+    </author>
+    <author>
+      <name>Shuofei Qiao</name>
+    </author>
+    <author>
+      <name>Zhenqian Xu</name>
+    </author>
+    <author>
+      <name>Haoming Xu</name>
+    </author>
+    <author>
+      <name>Haoxiong Wang</name>
+    </author>
+    <author>
+      <name>Shumin Deng</name>
+    </author>
+    <author>
+      <name>Linyi Yang</name>
+    </author>
+    <author>
+      <name>Xin Xu</name>
+    </author>
+    <author>
+      <name>Yunzhi Yao</name>
+    </author>
+    <author>
+      <name>Dan Zhang</name>
+    </author>
+    <author>
+      <name>Fei Shen</name>
+    </author>
+    <author>
+      <name>Zhixiang Cui</name>
+    </author>
+    <author>
+      <name>Buqiang Xu</name>
+    </author>
+    <author>
+      <name>Haozhe Luo</name>
+    </author>
+    <author>
+      <name>Yunxiang Wei</name>
+    </author>
+    <author>
+      <name>Ningyu Zhang</name>
+    </author>
+    <author>
+      <name>Julian McAuley</name>
+    </author>
+    <author>
+      <name>Tat Seng Chua</name>
+    </author>
+    <author>
+      <name>Huajun Chen</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2608.20446v1</id>
+    <title>Vibe Coding: Practice, Performance, Productivity, and Risk -A State-of-the-Art Review</title>
+    <updated>2026-08-20T16:10:28Z</updated>
+    <link href="https://arxiv.org/abs/2608.20446v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2608.20446v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Vibe coding - AI-assisted software development in which the developer describes intent in natural language and validates results by running rather than reading the generated code - was named by Andrej Karpathy in February 2025 and produced its first body of empirical evidence within seventeen months. This state-of-the-art review assembles that evidence across a cross-disciplinary corpus spanning software engineering, human-computer interaction, labour economics, security research, governance, and education. We survey the model landscape, the tool ecosystem, and the performance record by task type, finding the early benchmarks saturated but task-level capability uneven: reliable code generation alongside weak fault detection and hard-to-audit documentation. The productivity record is at first contradictory: peer-reviewed field experiments report +26% more tasks per week, independent randomised trials measure a 19% slowdown, and team-level telemetry shows code-review time up +441%. We argue these readings are consistent once measurement method, scope, and time horizon are held constant, and identify six patterns behind the dispersion, among them effect-shrinkage under broader measurement, self-report diverging from independent measurement, output volume conflated with productivity, and bold claims walked back once tested over longer horizons. We further document security failures in deployed applications, code-quality degradation visible in large-scale code and developer telemetry, unsettled copyright exposure, and evidence of skill atrophy. The review closes with the open research questions and one falsifiable conjecture: that the gains are real on new code and shrink or reverse on mature codebases, which would account for most of the disagreement in the record.</summary>
+    <category term="cs.SE" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-08-20T16:10:28Z</published>
+    <arxiv:primary_category term="cs.SE"/>
+    <author>
+      <name>Dominik L. Michels</name>
+    </author>
+    <author>
+      <name>Mutaz Abu Ghazaleh</name>
+    </author>
+    <author>
+      <name>Francois Lazzari</name>
+    </author>
+    <author>
+      <name>Nabil Kassem</name>
+    </author>
+    <author>
+      <name>Jonathan Klein</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2609.01976v1</id>
+    <title>Knowing Is Not Enough: Information Retrievability as a Precondition to Effective LLM Oversight</title>
+    <updated>2026-09-02T01:25:47Z</updated>
+    <link href="https://arxiv.org/abs/2609.01976v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2609.01976v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Large language models (LLMs) are increasingly embedded in organizational work, yet their errors often pass human review. Prior research locates such failures in users' capability to review LLM output or their engagement in doing so. We develop an alternative, retrieval-based account of human oversight and posit that error detection is more effective when oversight-relevant information is accessible to users at the moment of review. Across two randomized lab-in-the-field experiments with 640 customer-facing employees, we show that self-generated explanations improve error detection and strengthen recall of verification-relevant reasoning, while cues that reactivate such reasoning help sustain detection under repeated LLM use. Theoretically, we identify information retrievability as a distinct precondition for effective oversight and specify generative encoding and cue-supported reactivation as mechanisms that build and sustain it. Practically, lightweight onboarding self-explanations and daily retrieval cues can make human oversight more resilient as LLM use becomes routine.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-09-02T01:25:47Z</published>
+    <arxiv:primary_category term="cs.HC"/>
+    <author>
+      <name>Xinyu Fu</name>
+    </author>
+    <author>
+      <name>Narayan Ramasubbu</name>
+    </author>
+    <author>
+      <name>Dennis Galletta</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2609.19570v1</id>
+    <title>Learning from Success and Failure: Acquiring Adaptive Dialogue Strategies for Social Robots</title>
+    <updated>2026-09-17T01:57:34Z</updated>
+    <link href="https://arxiv.org/abs/2609.19570v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2609.19570v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Traditional dialogue systems for social robots require both dialogue strategies and user attribute recognition, each demanding specialized expertise. However, data collection is costly in real-world deployments, and the resulting datasets often include many failure cases. In this study, we aim to automate the acquisition of dialogue strategies by leveraging both successful and failed interactions using a vision-language model (VLM) and a large language model (LLM). We propose an architecture in which user attributes, recognized by the VLM, along with dialogue history, are fed into the LLM to generate dialogue strategies tailored to specific user attributes. We extracted dialogue strategies from an interaction dataset collected through a field experiment and evaluated their effectiveness. The results demonstrate that explicitly representing failure strategies complements success strategies and improves performance. Our findings highlight a practical pipeline for constructing and maintaining an interpretable strategy repository from in-the-wild deployment logs by recycling abundant failure interactions as reusable constraints, ultimately reducing the development cost of social robots.</summary>
+    <category term="cs.HC" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-09-17T01:57:34Z</published>
+    <arxiv:comment>8 pages, 3 figures</arxiv:comment>
+    <arxiv:primary_category term="cs.HC"/>
+    <arxiv:journal_ref>IEEE Robotics and Automation Letters 11(8) (2026) 9263-9270</arxiv:journal_ref>
+    <author>
+      <name>Sanae Yamashita</name>
+    </author>
+    <author>
+      <name>Yuki Okafuji</name>
+    </author>
+    <arxiv:doi>10.1109/LRA.2026.3704002</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1109/LRA.2026.3704002" title="doi"/>
+  </entry>
+</feed>

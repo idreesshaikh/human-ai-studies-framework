@@ -1,5 +1,11 @@
 import * as vscode from 'vscode';
-import { endSurveyItems, LikertItem } from '../core/surveys';
+import {
+  endSurveyItems,
+  instrumentItems,
+  LikertItem,
+  SurveyInstrument,
+  validateResponses,
+} from '../core/surveys';
 
 export interface EndSurveyResult {
   responses: Record<string, number>;
@@ -13,25 +19,45 @@ export interface EndSurveyResult {
 export function showEndSurvey(
   condition: string,
 ): Promise<EndSurveyResult | undefined> {
-  const items = endSurveyItems(condition);
+  return showSurvey(endSurveyItems(condition), 'Study Debrief', false);
+}
 
+export function showInstrumentSurvey(
+  instrument: SurveyInstrument,
+): Promise<EndSurveyResult | undefined> {
+  return showSurvey(
+    instrumentItems(instrument),
+    instrument.title,
+    instrument.timing === 'pre-task',
+    instrument.validation,
+  );
+}
+
+function showSurvey(
+  items: LikertItem[],
+  title: string,
+  preTask: boolean,
+  note?: string,
+): Promise<EndSurveyResult | undefined> {
   const panel = vscode.window.createWebviewPanel(
     'tern.endSurvey',
-    'Study Debrief',
+    title,
     vscode.ViewColumn.Active,
     { enableScripts: true, retainContextWhenHidden: true },
   );
   const nonce = Math.random().toString(36).slice(2);
-  panel.webview.html = renderHtml(items, nonce);
+  panel.webview.html = renderHtml(items, nonce, title, preTask, note);
 
   const shownAt = Date.now();
   return new Promise((resolve) => {
     let settled = false;
     panel.webview.onDidReceiveMessage((msg) => {
       if (msg?.kind !== 'submit' || settled) return;
+      const responses = validateResponses(items, msg.responses);
+      if (!responses) return;
       settled = true;
       resolve({
-        responses: msg.responses as Record<string, number>,
+        responses,
         comments: String(msg.comments ?? ''),
         msToComplete: Date.now() - shownAt,
       });
@@ -46,7 +72,13 @@ export function showEndSurvey(
   });
 }
 
-function renderHtml(items: LikertItem[], nonce: string): string {
+function renderHtml(
+  items: LikertItem[],
+  nonce: string,
+  title: string,
+  preTask: boolean,
+  note?: string,
+): string {
   const rows = items
     .map(
       (item) => `
@@ -54,11 +86,11 @@ function renderHtml(items: LikertItem[], nonce: string): string {
         <legend>${escapeHtml(item.question)}</legend>
         <div class="scale" aria-describedby="${item.id}-scale">
           ${Array.from({ length: item.points }, (_, i) => {
-            const v = i + 1;
+            const v = (item.minimum ?? 1) + i * (item.step ?? 1);
             return `<label><input type="radio" name="${item.id}" value="${v}" aria-describedby="${item.id}-scale"><span>${v}</span></label>`;
           }).join('')}
         </div>
-        <p class="scale-labels" id="${item.id}-scale"><span>1 — ${escapeHtml(item.lowLabel)}</span><span>${item.points} — ${escapeHtml(item.highLabel)}</span></p>
+        <p class="scale-labels" id="${item.id}-scale"><span>${item.minimum ?? 1} · ${escapeHtml(item.lowLabel)}</span><span>${(item.minimum ?? 1) + (item.points - 1) * (item.step ?? 1)} · ${escapeHtml(item.highLabel)}</span></p>
       </fieldset>`,
     )
     .join('\n');
@@ -68,7 +100,7 @@ function renderHtml(items: LikertItem[], nonce: string): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Study debrief</title>
+<title>${escapeHtml(title)}</title>
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
 <style>
@@ -142,14 +174,15 @@ function renderHtml(items: LikertItem[], nonce: string): string {
 </head>
 <body>
   <main class="card">
-    <h1>Thanks - the session is complete</h1>
-    <p class="sub">A few questions about your experience. Answers are linked to your participant ID and session in the study dataset.</p>
+    <h1>${escapeHtml(title)}</h1>
+    <p class="sub">${preTask ? 'Before your task begins, answer these questions about your experience.' : 'The task is complete. Answer these questions about your experience.'} Answers are linked to your participant ID and session.</p>
+    ${note ? `<p class="sub">${escapeHtml(note)}</p>` : ''}
     ${rows}
     <fieldset class="q">
       <legend id="comments-label">Anything else about the session? (optional)</legend>
       <textarea id="comments" aria-labelledby="comments-label" placeholder="Where you got stuck, what helped, what got in the way…"></textarea>
     </fieldset>
-    <button id="submit" disabled>Submit &amp; finish</button>
+    <button id="submit" disabled>${preTask ? 'Submit &amp; begin task' : 'Submit &amp; continue'}</button>
     <span class="hint" id="progress" role="status"></span>
   </main>
   <script nonce="${nonce}">
@@ -168,7 +201,7 @@ function renderHtml(items: LikertItem[], nonce: string): string {
       const responses = {};
       for (const id of ids) {
         const el = document.querySelector('input[name="' + id + '"]:checked');
-        if (el) responses[id] = parseInt(el.value, 10);
+        if (el) responses[id] = Number(el.value);
       }
       vscode.postMessage({
         kind: 'submit',

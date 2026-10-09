@@ -41,7 +41,7 @@ same study spine.
 | Planning | Make sample-size assumptions visible | Power/sensitivity curve |
 | Participants | Connect a person to one study run | Pairing token and assignment |
 | Data | Rehearse, monitor, and curate | Integrity-aware dataset |
-| Library | Inspect proven shapes and supporting papers | Reusable design evidence |
+| Library | Inspect described shapes and supporting papers | Reusable design evidence |
 
 <figure markdown="span">
   ![A grounded Phoenix design session](../assets/screens/phoenix-demo-conversation-current.png){ width="900" }
@@ -83,8 +83,8 @@ uv run python -m middleware corpus-import
 uv run python -m middleware serve
 ```
 
-The design conversation needs `MISTRAL_API_KEY` and uses Mistral Medium
-(`mistral-medium-latest`) through Mistral's EU service. Mistral Large is used only
-for optional model-assisted paper matching. Set `MISTRAL_DESIGN_MODEL` to override the
-design model. The compiled protocol, dry run, pairing, and analysis paths do
-not need a model key.
+The design conversation uses the model configured in `.env` (`LLM_API_KEY`,
+`LLM_BASE_URL`, `LLM_MODEL`); the default is `ministral-14b-latest` on Mistral's
+API. Paper matching shares that model. `LLM_DESIGN_MODEL` overrides design
+alone; legacy `MISTRAL_*` names still work. A local server needs no key. The
+compiled protocol, pairing, and analysis paths do not need a model.

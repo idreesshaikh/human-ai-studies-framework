@@ -1,516 +1,726 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Crosshair } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Surface } from "@/components/shell/Surface";
-import { RunOverview } from "./RunOverview";
+import { EmptyState } from "@/components/shell/EmptyState";
+import { OPEN_SETUP, PLAN_EMPTY_TITLE, PLAN_EMPTY_BODY } from "@/lib/uiText";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { cn } from "@/lib/cn";
-import { studyApi, onSeededData } from "@/lib/studyApi";
-import type { PowerDoc, PowerRequirement } from "@/lib/types";
+import { hasRole, type Role } from "@/lib/capabilities";
+import {
+  plannerApi,
+  type Lineage,
+  type PlanInputs,
+  type PlanResult,
+  type PlannerProtocol,
+  type TypedMeasure,
+} from "@/lib/plannerApi";
 
-/* The Planning surface (P2-2): the power/sensitivity curve for the study's
- * planned comparison  -  how power moves with total n, and the first n that
- * reaches the target, per effect size. Planning math only, from the
- * middleware's /studies/{id}/power: the payload carries its own model and
- * assumptions, and a target not reached within the explored range is
- * reported as such, never as a number. Nothing here animates  -  the numbers
- * are the point. */
-const SVG_W = 840;
-const M = { left: 56, right: 24, top: 16, bottom: 36 };
-const PLOT_H = 300;
-const LINE_COLORS = [
-  "var(--series-1)",
-  "var(--series-3)",
-  "var(--series-5)",
-  "var(--series-7)",
-];
-
-/* A stroke pattern per series, carried everywhere the series appears.
- *
- * tokens.css commits this world to it in as many words  -  "every series that
- * must survive a greyscale print carries a mark as well as a hue"  -  and the
- * curve was the one place that didn't: three solid 1.6px lines separated by
- * colour alone, which is also the exactly the reading a red-green viewer, a
- * greyscale print of a thesis chapter, or a projector with the saturation
- * crushed does not get. */
-const LINE_DASHES = ["", "7 3", "2 3", "9 3 2 3"];
-
-const ALPHAS = [0.01, 0.05, 0.1];
-const TARGETS = [0.8, 0.9];
-const MAX_NS = [60, 120, 200, 400];
-const SIZES = [0.2, 0.5, 0.8];
-
-/* A series' identity is its EFFECT SIZE, not its position in the response.
- * Keyed by position in `doc.curves`, deselecting d=0.2 promoted d=0.5 into
- * slot 0 and the pink curve silently turned blue  -  the same quantity drawn
- * in the colour that had meant a different one a moment earlier, which is
- * the one thing a planning chart must never do. */
-function seriesOf(effectSize: number): { color: string; dash: string } {
-  const i = SIZES.indexOf(effectSize);
-  const k = i >= 0 ? i : LINE_COLORS.length - 1;
-  return { color: LINE_COLORS[k], dash: LINE_DASHES[k] };
+const DEFAULTS: PlanInputs = {
+  design: "between-subjects",
+  test: "mann-whitney",
+  distribution: "normal",
+  effect: 0.5,
+  sd: 1,
+  alpha: 0.05,
+  target_power: 0.8,
+  dropout: 0,
+  covariate_correlation: 0,
+  period_effect: 0,
+  order_effect: 0,
+  counterbalanced: true,
+  planned_n: 40,
+  max_n: 400,
+  simulations: 1000,
+  seed: 20261007,
+  ordinal_levels: 7,
+};
+const LABELS: Record<string, string> = {
+  "mann-whitney": "Mann–Whitney U",
+  wilcoxon: "Wilcoxon signed-rank",
+  "two-sample-t": "Independent t-test / ANCOVA",
+  "paired-t": "Paired t-test",
+};
+function testsFor(protocol: PlannerProtocol, measure?: TypedMeasure) {
+  const recipes = measure
+    ? [measure.analysisRecipe]
+    : protocol.analysisPlan.flatMap((p) => p.recipes);
+  const paired = protocol.participants.design === "within-subjects";
+  const tests: string[] = [];
+  if (recipes.includes("mean-comparison"))
+    tests.push(paired ? "paired-t" : "two-sample-t");
+  if (
+    recipes.includes("typed-measures") ||
+    recipes.includes(
+      paired ? "paired-nonparametric" : "two-group-nonparametric",
+    )
+  )
+    tests.push(paired ? "wilcoxon" : "mann-whitney");
+  return tests;
 }
+const percent = (n: number) => `${(n * 100).toFixed(1)}%`;
 
-export function PowerPanel({ studyId, active = true }: { studyId: string; active?: boolean }) {
-  const [alpha, setAlpha] = useState(0.05);
-  const [powerTarget, setPowerTarget] = useState(0.8);
-  const [maxN, setMaxN] = useState(120);
-  const [sizes, setSizes] = useState<number[]>([0.2, 0.5, 0.8]);
-  const [doc, setDoc] = useState<PowerDoc | null>(null);
+export function PowerPanel({
+  studyId,
+  active = true,
+  hasProtocol,
+  role,
+}: {
+  studyId: string;
+  active?: boolean;
+  hasProtocol: boolean;
+  role?: Role | null;
+}) {
+  const [protocol, setProtocol] = useState<PlannerProtocol | null>(null);
+  const [inputs, setInputs] = useState<PlanInputs>(DEFAULTS);
+  const [result, setResult] = useState<PlanResult | null>(null);
+  const [lineage, setLineage] = useState<Lineage | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [seeded, setSeeded] = useState(false);
-  const [overviewReady, setOverviewReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const generation = useRef(0);
+  const canEdit = hasRole(role, "contribute");
+  const wasActive = useRef(false);
 
-  const load = useCallback(
-    (isLive: () => boolean) => {
-      setLoading(true);
-      studyApi
-        .power(studyId, { alpha, powerTarget, maxN, effectSizes: sizes })
-        .then((d) => {
-          if (isLive()) setDoc(d);
-        })
-        .catch(() => {
-          if (isLive()) setDoc(null);
-        })
-        .finally(() => {
-          if (isLive()) setLoading(false);
+  useEffect(() => {
+    if (!active && wasActive.current) {
+      wasActive.current = false;
+      return;
+    }
+    if (!active || !hasProtocol) return;
+    wasActive.current = true;
+    const version = ++generation.current;
+    setLoading(true);
+    setBusy(false);
+    setError(null);
+    plannerApi
+      .load(studyId)
+      .then((doc) => {
+        if (version !== generation.current) return;
+        setProtocol(doc.protocol);
+        setResult(doc.plan);
+        const measures =
+          doc.protocol.measures?.filter(
+            (m): m is TypedMeasure => typeof m === "object",
+          ) ?? [];
+        const first =
+          measures.find((m) => testsFor(doc.protocol, m).length) ?? measures[0];
+        const selected =
+          measures.find((m) => m.id === doc.plan?.measureId) ?? first;
+        const allowed = testsFor(doc.protocol, selected);
+        const prior = doc.plan?.inputs;
+        setInputs({
+          ...(prior ?? DEFAULTS),
+          design: doc.protocol.participants.design,
+          counterbalanced: doc.protocol.participants.counterbalanced,
+          planned_n:
+            prior?.planned_n ?? Math.max(4, doc.protocol.participants.planned),
+          test:
+            prior && allowed.includes(prior.test)
+              ? prior.test
+              : (allowed[0] ?? ""),
+          measure_id: selected?.id,
+          distribution:
+            prior && doc.plan?.measureId === selected?.id
+              ? prior.distribution
+              : selected?.analysisScale === "log"
+                ? "log-normal"
+                : "normal",
         });
-    },
-    [studyId, alpha, powerTarget, maxN, sizes],
-  );
-
-  useEffect(() => {
-    // If the read falls back to the built-in stand-in, say so honestly.
-    const off = onSeededData((seededStudy) => {
-      if (seededStudy === studyId) setSeeded(true);
-    });
-    let live = true;
-    setSeeded(false);
-    load(() => live);
+      })
+      .catch((e) => {
+        if (version === generation.current)
+          setError(
+            e instanceof Error
+              ? e.message
+              : "Could not load the recorded plan.",
+          );
+      })
+      .finally(() => {
+        if (version === generation.current) setLoading(false);
+      });
     return () => {
-      live = false;
-      off();
+      generation.current++;
     };
-  }, [load]);
-  const wasActive = useRef(active);
-  useEffect(() => {
-    let live = true;
-    if (active && !wasActive.current) load(() => live);
-    wasActive.current = active;
-    return () => { live = false; };
-  }, [active, load]);
+  }, [studyId, active, hasProtocol]);
 
-  const toggleSize = (d: number) =>
-    setSizes((prev) =>
-      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort(),
+  const measures =
+    protocol?.measures?.filter(
+      (m): m is TypedMeasure => typeof m === "object",
+    ) ?? [];
+  const measure = measures.find((m) => m.id === inputs.measure_id);
+  const tests = protocol ? testsFor(protocol, measure) : [];
+  const paired = inputs.design === "within-subjects";
+  const simulation = !inputs.test.endsWith("-t");
+  const dirty =
+    result &&
+    ((result.measureId ?? null) !== (inputs.measure_id ?? null) ||
+      Object.entries(result.inputs).some(
+        ([key, value]) => inputs[key as keyof PlanInputs] !== value,
+      ));
+  const set = <K extends keyof PlanInputs>(key: K, value: PlanInputs[K]) =>
+    setInputs((p) => ({ ...p, [key]: value }));
+  const calculate = async (pilot: boolean) => {
+    const version = generation.current;
+    setBusy(true);
+    setError(null);
+    try {
+      const doc = await (pilot
+        ? plannerApi.pilot(studyId, inputs)
+        : plannerApi.calculate(studyId, inputs));
+      if (version === generation.current) {
+        setResult(doc);
+        setInputs({ ...doc.inputs, measure_id: doc.measureId });
+      }
+    } catch (e) {
+      if (version === generation.current)
+        setError(
+          e instanceof Error ? e.message : "The plan could not be calculated.",
+        );
+    } finally {
+      if (version === generation.current) setBusy(false);
+    }
+  };
+  const number = (
+    key: keyof PlanInputs,
+    label: string,
+    min: number,
+    max: number,
+    step: number | string,
+    hint?: string,
+  ) => (
+    <label className="flex min-w-0 flex-col gap-1" key={key}>
+      <span className="type-label text-text">{label}</span>
+      <Input
+        type="number"
+        value={Number.isFinite(Number(inputs[key])) ? String(inputs[key]) : ""}
+        min={min}
+        max={max}
+        step={step}
+        required
+        disabled={!canEdit || busy}
+        onChange={(e) =>
+          set(key, e.target.value === "" ? NaN : Number(e.target.value))
+        }
+      />
+      {hint && <span className="type-note text-text-muted">{hint}</span>}
+    </label>
+  );
+  if (!hasProtocol)
+    return (
+      <Surface measure="work" label="Planning">
+        <h2 className="type-section text-text">{PLAN_EMPTY_TITLE}</h2>
+        <EmptyState line={PLAN_EMPTY_BODY} action={
+          <Button asChild size="sm">
+            <Link to={{ search: "?tab=conversation" }}>{OPEN_SETUP}</Link>
+          </Button>
+        } />
+      </Surface>
     );
-
   return (
-    <Surface measure="reading" label="Planning" className="bg-surface">
-      <section className="flex flex-col gap-stack">
-        <RunOverview key={studyId} studyId={studyId} onReady={setOverviewReady} active={active} />
-        {overviewReady && <details className="mt-6 border-t border-border pt-5">
-          <summary className="cursor-pointer type-control text-text-muted">Sample size estimates</summary>
-          <div className="mt-4 flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <p className="type-body text-text-muted">
-            Explore recruitment assumptions. These estimates are not findings.
+    <Surface measure="work" label="Planning" className="bg-surface">
+      <section className="flex flex-col gap-5">
+        <div className="flex flex-col gap-2">
+          <h2 className="type-section text-text">
+            Plan participant recruitment
+          </h2>
+          <p className="max-w-reading type-body text-text-muted">
+            Estimate power for the analysis in your protocol. A plan based on
+            assumptions is a hypothesis; it is not a study finding.
           </p>
         </div>
-
-        {loading && doc === null ? (
-          <div className="rounded-card border border-dashed border-border-strong bg-surface p-5">
-            <p className="type-body text-text-muted">Loading the study plan…</p>
-          </div>
-        ) : doc?.note ? (
-          <div className="rounded-card border border-dashed border-border-strong bg-surface p-5">
-            <p className="type-body text-text">{doc.note}</p>
-            <p className="mt-2 type-note text-text-muted">
-              The chart will appear once Phoenix has a real comparison to size.
-            </p>
-          </div>
-        ) : (
-          <>
-
-        {/* Controls: alpha, target, explored range, effect sizes. Every
-            change refetches the exact curve from the middleware. */}
-        <div className="flex flex-wrap items-end gap-4 rounded-card border border-border bg-surface p-4">
-          <label className="flex flex-col gap-1">
-            <span className="type-label text-text">alpha (two-sided)</span>
-            <Select
-              value={String(alpha)}
-              onValueChange={(v) => setAlpha(Number(v))}
-              options={ALPHAS.map((a) => ({ value: String(a), label: String(a) }))}
-              className="w-28"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="type-label text-text">target power</span>
-            <Select
-              value={String(powerTarget)}
-              onValueChange={(v) => setPowerTarget(Number(v))}
-              options={TARGETS.map((t) => ({ value: String(t), label: `${t * 100}%` }))}
-              className="w-28"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="type-label text-text">explored range (total n)</span>
-            <Select
-              value={String(maxN)}
-              onValueChange={(v) => setMaxN(Number(v))}
-              options={MAX_NS.map((n) => ({ value: String(n), label: `up to ${n}` }))}
-              className="w-32"
-            />
-          </label>
-          <div className="flex flex-col gap-1">
-            <span className="type-label text-text">effect sizes (Cohen's d)</span>
-            {/* These are the chart's legend, and they happen to be
-              * switchable  -  so each one carries the stroke its curve is drawn
-              * with, and you can read the key off the control rather than
-              * matching two colours across the panel.
-              *
-              * They are emphatically NOT accent. Selected used to mean
-              * `border-accent`, which put three accent-edged controls in a
-              * row directly above an accent-free chart: in this world a fill
-              * or an edge in the accent means "an action you can take", and
-              * a size you have already switched on is a state, not an action
-              *  -  the exact "two things both meaning primary" failure
-              * tokens.css says this palette exists to end. On is a raised
-              * plate with a strong edge and its own series mark; off is flat
-              * paper with the mark drained out of it. */}
-            <div className="flex gap-2">
-              {SIZES.map((d) => {
-                const on = sizes.includes(d);
-                const { color, dash } = seriesOf(d);
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => toggleSize(d)}
-                    className={cn(
-                      "flex h-10 items-center gap-2 rounded-input border px-3 type-body transition-colors duration-fast",
-                      on
-                        ? "border-border-strong bg-surface-raised text-text shadow-mark"
-                        : "border-border bg-surface text-text-muted hover:border-border-strong hover:text-text",
-                    )}
-                  >
-                    <svg
-                      width={16}
-                      height={2}
-                      viewBox="0 0 16 2"
-                      aria-hidden
-                      className="shrink-0 overflow-visible"
-                    >
-                      <line
-                        x1={0}
-                        y1={1}
-                        x2={16}
-                        y2={1}
-                        stroke={on ? color : "var(--border-strong)"}
-                        strokeWidth={1.6}
-                        strokeDasharray={dash || undefined}
-                      />
-                    </svg>
-                    d={d}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {seeded && (
-          <p className="type-note text-text-muted" role="status">
-            Middleware unreachable  -  showing the built-in stand-in curve
-            (normal approximation of the same formula), not a live study
-            plan.
+        {loading && (
+          <p className="type-body text-text-muted" role="status">
+            Loading the recorded protocol and plan…
           </p>
         )}
-
-        {doc && (doc.plannedParticipants != null || doc.assumption) && (
-          <p className="type-note text-text-muted">
-            {doc.plannedParticipants != null && (
-              <>Current draft: <span className="tabular text-text">{doc.plannedParticipants}</span> planned participants. </>
+        {error && (
+          <p className="type-body text-critical" role="alert">
+            {error}
+          </p>
+        )}
+        {!loading && !protocol && (
+          <Button variant="outline" asChild>
+            <Link to="?tab=conversation">Open Setup to record a protocol</Link>
+          </Button>
+        )}
+        {!loading && protocol && (
+          <>
+            <p className="type-note text-text-muted">
+              Recorded design:{" "}
+              <span className="text-text">{protocol.participants.design}</span>,{" "}
+              {protocol.conditions.join(" / ")}.{" "}
+              {protocol.participants.counterbalanced
+                ? "Counterbalanced order."
+                : "Fixed order."}{" "}
+              <Link className="text-accent underline" to="?tab=conversation">
+                Change the design in Setup
+              </Link>
+            </p>
+            {!canEdit && (
+              <p className="type-note text-text-muted">
+                You can read saved plans. A project member can calculate and
+                save a new plan.
+              </p>
             )}
-            {doc.assumption ?? "Effect size is an exploration assumption, not collected data."}
-          </p>
-        )}
-
-        {doc === null ? (
-          <div className="rounded-card border border-border bg-surface p-4">
-            <p className="type-body text-text-muted">
-              The planning curve is unavailable right now.
-            </p>
-          </div>
-        ) : sizes.length === 0 ? (
-          <div className="rounded-card border border-border bg-surface p-4">
-            <p className="type-body text-text-muted">
-              Nothing to draw  -  select at least one effect size.
-            </p>
-          </div>
-        ) : doc.curves.length === 0 ? (
-          <div className="rounded-card border border-border bg-surface p-4">
-            <p className="type-body text-text-muted">
-              The planning curve is unavailable right now.
-            </p>
-          </div>
-        ) : (
-          <>
-            <PowerChart doc={doc} />
-            <RequiredTable
-              requirements={doc.requiredN}
-              maxTotalN={doc.maxTotalN}
-              paired={doc.model.startsWith("paired")}
-            />
-            <p className="type-caption text-text-muted">
-              Model: {doc.model}. alpha = {doc.alpha}, target ={" "}
-              {doc.powerTarget * 100}%, range explored up to total n ={" "}
-               {doc.maxTotalN}. {doc.model.startsWith("paired")
-                 ? "Each participant contributes one observation in each condition."
-                 : "Per-group n is half the total (equal groups)."}
-            </p>
+            <form
+              className="flex flex-col gap-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void calculate(false);
+              }}
+            >
+              <fieldset
+                disabled={!canEdit || busy}
+                className="grid min-w-0 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                {measures.length > 0 && (
+                  <label className="flex flex-col gap-1">
+                    <span className="type-label text-text">
+                      Outcome measure
+                    </span>
+                    <Select
+                      value={inputs.measure_id ?? ""}
+                      options={measures.map((m) => ({
+                        value: m.id,
+                        label: m.construct,
+                      }))}
+                      onValueChange={(id) => {
+                        const m = measures.find((v) => v.id === id);
+                        setInputs((p) => ({
+                          ...p,
+                          measure_id: id,
+                          test: testsFor(protocol, m)[0] ?? "",
+                          distribution:
+                            m?.analysisScale === "log"
+                              ? "log-normal"
+                              : "normal",
+                        }));
+                      }}
+                    />
+                    <span className="type-note text-text-muted">
+                      {measure?.fields.join(", ")}
+                    </span>
+                  </label>
+                )}
+                <label className="flex flex-col gap-1">
+                  <span className="type-label text-text">Planned test</span>
+                  <Select
+                    value={inputs.test}
+                    options={tests.map((t) => ({ value: t, label: LABELS[t] }))}
+                    onValueChange={(t) => set("test", t)}
+                  />
+                  <span className="type-note text-text-muted">
+                    {measure?.analysisRecipe ??
+                      "Uses the recorded analysis plan."}
+                  </span>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="type-label text-text">
+                    Outcome distribution
+                  </span>
+                  <Select
+                    value={inputs.distribution}
+                    options={[
+                      { value: "normal", label: "Normal" },
+                      {
+                        value: "log-normal",
+                        label: "Log-normal (completion times)",
+                      },
+                      { value: "ordinal", label: "Ordinal (Likert ratings)" },
+                    ]}
+                    onValueChange={(v) => set("distribution", v)}
+                  />
+                </label>
+                {number(
+                  "effect",
+                  "Effect to detect",
+                  0.0001,
+                  100000000,
+                  "any",
+                  inputs.distribution === "ordinal"
+                    ? "Latent normal shift in SD units."
+                    : inputs.distribution === "log-normal"
+                      ? "Difference on the log scale."
+                      : "Difference in outcome units.",
+                )}
+                {number(
+                  "sd",
+                  paired ? "SD of participant differences" : "Outcome SD",
+                  0.0001,
+                  100000000,
+                  "any",
+                  inputs.distribution === "log-normal"
+                    ? "SD on the log scale."
+                    : inputs.distribution === "ordinal"
+                      ? "Set to 1 for latent standardized effects."
+                      : "Use the same units as the effect.",
+                )}
+                {number(
+                  "planned_n",
+                  "Planned complete participants (total)",
+                  4,
+                  1000,
+                  1,
+                )}
+                {number("alpha", "Two-sided alpha", 0.001, 0.5, 0.001)}
+                {number("target_power", "Target power", 0.01, 0.99, 0.01)}
+                {number(
+                  "dropout",
+                  "Expected dropout (fraction)",
+                  0,
+                  0.95,
+                  0.01,
+                  "0.10 means 10% dropout.",
+                )}
+              </fieldset>
+              <details className="border-t border-border pt-3">
+                <summary className="cursor-pointer type-control text-text">
+                  Range, covariates and period assumptions
+                </summary>
+                <fieldset
+                  disabled={!canEdit || busy}
+                  className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+                >
+                  {number("max_n", "Maximum total n to explore", 4, 1000, 1)}
+                  {inputs.test === "two-sample-t" &&
+                    number(
+                      "covariate_correlation",
+                      "Pre-task covariate correlation",
+                      -0.95,
+                      0.95,
+                      0.01,
+                      "Requires a declared pre-task covariate; uses the approximate ANCOVA factor 1 − rho².",
+                    )}
+                  {paired && (
+                    <>
+                      {number(
+                        "period_effect",
+                        "Period effect",
+                        -1000,
+                        1000,
+                        "any",
+                        "Same units as effect; nonzero effects require simulation.",
+                      )}
+                      {number(
+                        "order_effect",
+                        "Additional order effect",
+                        -1000,
+                        1000,
+                        "any",
+                        "Shift for participants assigned the positive order; carryover is unsupported.",
+                      )}
+                    </>
+                  )}
+                  {simulation && (
+                    <>
+                      {number(
+                        "simulations",
+                        "Simulation repetitions",
+                        200,
+                        10000,
+                        100,
+                      )}
+                      {number("seed", "Reproducible seed", 0, 4294967295, 1)}
+                    </>
+                  )}
+                  {inputs.distribution === "ordinal" &&
+                    number("ordinal_levels", "Ordinal categories", 2, 11, 1)}
+                </fieldset>
+              </details>
+              {!tests.length && (
+                <p className="type-body text-text-muted">
+                  This protocol has no supported two-arm comparison recipe.
+                  Record a supported analysis in Setup; the planner will not
+                  invent a sample size.
+                </p>
+              )}
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  type="submit"
+                  disabled={!canEdit || busy || !tests.length}
+                >
+                  {busy ? "Calculating…" : "Calculate and save plan"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!canEdit || busy || !tests.length}
+                  onClick={(e) => {
+                    if (e.currentTarget.form?.reportValidity())
+                      void calculate(true);
+                  }}
+                >
+                  Update from tagged pilot sessions
+                </Button>
+              </div>
+              <p className="type-note text-text-muted">
+                Tag real pilot sessions in Data. Their outcomes are excluded
+                from confirmatory analysis; synthetic rows are never used in
+                pilot estimates.
+              </p>
+            </form>
+            {result && (
+              <section
+                className="flex flex-col gap-4 border-t border-border pt-5"
+                aria-live="polite"
+              >
+                <h3 className="type-subhead text-text">
+                  {result.basis === "pilot-data"
+                    ? "Plan based on pilot data"
+                    : "Plan based on assumptions"}
+                </h3>
+                {(dirty || result.stale) && (
+                  <p className="type-note text-critical">
+                    {result.stale
+                      ? "The recorded protocol changed after this plan was saved."
+                      : "Inputs have changed."}{" "}
+                    Recalculate to update the result below.
+                  </p>
+                )}
+                <p className="type-body text-text">
+                  {result.required
+                    ? `${result.required.recruitTotal} participants to recruit (${result.required.recruitPerArm} ${paired ? "paired participants" : "per arm"}), allowing for dropout. ${result.required.totalN} complete participants reach estimated ${percent(result.required.power)} power.`
+                    : (result.requiredWithheld?.message ??
+                      `The target is not reached within ${result.inputs.max_n} participants. No required sample size is reported.`)}
+                </p>
+                {result.required?.ci && (
+                  <p className="type-note text-text-muted">
+                    Simulation 95% interval at the estimated sample size:{" "}
+                    {percent(result.required.ci[0])} to{" "}
+                    {percent(result.required.ci[1])}.
+                  </p>
+                )}
+                {result.pilot && (
+                  <div className="flex flex-col gap-1 type-body text-text">
+                    <p>
+                      {result.pilot.participants} pilot participants; SD{" "}
+                      {result.pilot.sd.toPrecision(4)}, 95% interval{" "}
+                      {result.pilot.sdCI
+                        .map((n) => n.toPrecision(4))
+                        .join(" to ")}
+                      .
+                    </p>
+                    <p>
+                      Before pilot:{" "}
+                      {result.before?.required?.recruitTotal ??
+                        "target not reached"}{" "}
+                      to recruit. After pilot:{" "}
+                      {result.required?.recruitTotal ?? "target not reached"}.
+                    </p>
+                    {!result.pilot.actionable && (
+                      <p className="text-critical">
+                        Fewer than 8 pilot participants: this variance interval
+                        is too wide to act on.
+                      </p>
+                    )}
+                    {result.pilotSensitivity?.map((p) => (
+                      <p key={p.sd} className="type-note text-text-muted">
+                        At pilot SD {p.sd.toPrecision(4)}:{" "}
+                        {p.required
+                          ? `${p.required.recruitTotal} to recruit`
+                          : "target not reached in range"}
+                        .
+                      </p>
+                    ))}
+                  </div>
+                )}
+                {result.nullPower && (
+                  <p className="type-note text-text-muted">
+                    Under no treatment effect, the simulation rejects{" "}
+                    {percent(result.nullPower.power)} of runs at planned n (95%
+                    interval {result.nullPower.ci.map(percent).join(" to ")};
+                    nominal alpha {percent(result.inputs.alpha)}).
+                  </p>
+                )}
+                <PowerChart result={result} />
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse type-body text-left">
+                    <caption className="pb-2 text-left type-label text-text">
+                      Sensitivity at planned sample sizes ({result.effectUnits})
+                    </caption>
+                    <thead>
+                      <tr className="border-b border-border type-caption text-text-muted">
+                        <th className="py-2 font-normal">
+                          Complete participants
+                        </th>
+                        <th className="py-2 font-normal">
+                          Smallest detectable effect
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.sensitivity.map((s) => (
+                        <tr key={s.totalN} className="border-b border-border">
+                          <td className="py-2 tabular">{s.totalN}</td>
+                          <td className="py-2 tabular">
+                            {s.smallestDetectableEffect?.toPrecision(3) ??
+                              "Not reached"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <ul className="flex list-disc flex-col gap-1 pl-5 type-note text-text-muted">
+                  {result.warnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+                <p className="type-caption text-text-muted">
+                  Saved plan {result.planId}; protocol v
+                  {result.protocol?.protocolVersion}. {result.method}{" "}
+                  calculation.{" "}
+                  {result.method === "simulation" &&
+                    `Seed ${result.inputs.seed}, ${result.inputs.simulations} repetitions.`}
+                </p>
+              </section>
+            )}
+            {protocol.rerunOf && (
+              <details
+                className="border-t border-border pt-3"
+                onToggle={(e) => {
+                  if (e.currentTarget.open && !lineage)
+                    plannerApi
+                      .lineage(studyId)
+                      .then(setLineage)
+                      .catch((e) =>
+                        setError(
+                          e instanceof Error
+                            ? e.message
+                            : "Could not load the original design.",
+                        ),
+                      );
+                }}
+              >
+                <summary className="cursor-pointer type-control text-text">
+                  Compare with original study: {protocol.rerunOf}
+                </summary>
+                <p className="mt-3 type-note text-text-muted">
+                  Designs are recorded separately. No automatic pooling.
+                </p>
+                {lineage && (
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full type-note">
+                      <thead>
+                        <tr>
+                          <th className="text-left">Design field</th>
+                          <th className="text-left">Original</th>
+                          <th className="text-left">Re-run</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lineage.fields.map((f) => (
+                          <tr key={f.field} className="border-b border-border">
+                            <td className="py-2">
+                              {f.field}
+                              {f.changed ? " (changed)" : ""}
+                            </td>
+                            <td className="max-w-64 break-words p-2">
+                              {JSON.stringify(f.original) ?? "Not recorded"}
+                            </td>
+                            <td className="max-w-64 break-words p-2">
+                              {JSON.stringify(f.rerun) ?? "Not recorded"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </details>
+            )}
           </>
         )}
-
-          </>
-        )}
-          </div>
-        </details>}
       </section>
     </Surface>
   );
 }
 
-function PowerChart({ doc }: { doc: PowerDoc }) {
-  const plotW = SVG_W - M.left - M.right;
-  const paired = doc.model.startsWith("paired");
-  const xMax = doc.maxTotalN;
-  const x = (totalN: number) => M.left + (plotW * totalN) / xMax;
-  const y = (power: number) => M.top + PLOT_H * (1 - power);
-
-  const xTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => ({
-    label: String(Math.round(xMax * f)),
-    x: M.left + plotW * f,
-  }));
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => ({
-    label: String(f * 100),
-    y: M.top + PLOT_H * (1 - f),
-  }));
-  const totalH = M.top + M.bottom + PLOT_H;
-
+function PowerChart({ result }: { result: PlanResult }) {
+  const x = (n: number) => 56 + (720 * n) / result.inputs.max_n;
+  const y = (p: number) => 24 + 240 * (1 - p);
   return (
-    <div className="rounded-card border border-border bg-surface p-2">
+    <figure className="flex flex-col gap-2">
       <svg
-        viewBox={`0 0 ${SVG_W} ${totalH}`}
-        className="h-auto w-full"
+        viewBox="0 0 820 315"
         role="img"
-        aria-label={`Power curve: power vs total n for effect sizes ${doc.curves
-          .map((c) => c.effectSize)
-          .join(", ")}`}
+        aria-label={`Estimated power versus total complete participants; target ${percent(result.inputs.target_power)}`}
+        className="h-auto w-full"
       >
-        {/* Reference line at the target power */}
-        <line
-          x1={M.left}
-          y1={y(doc.powerTarget)}
-          x2={SVG_W - M.right}
-          y2={y(doc.powerTarget)}
-          stroke="var(--viz-axis)"
-          strokeWidth={1}
-          strokeDasharray="4,3"
-        />
-        <text
-          x={M.left + 6}
-          y={y(doc.powerTarget) - 6}
-          textAnchor="start"
-          className="fill-text-muted type-caption"
-        >
-          {doc.powerTarget * 100}% target
-        </text>
-
-        {/* Grid */}
-        {yTicks.map((t) => (
-          <g key={`y-${t.label}`}>
+        {[0, 0.25, 0.5, 0.75, 1].map((p) => (
+          <g key={p}>
             <line
-              x1={M.left}
-              y1={t.y}
-              x2={SVG_W - M.right}
-              y2={t.y}
+              x1="56"
+              x2="776"
+              y1={y(p)}
+              y2={y(p)}
               stroke="var(--viz-grid)"
-              strokeWidth={0.5}
-              strokeDasharray="2,2"
             />
             <text
-              x={M.left - 6}
-              y={t.y + 3}
+              x="48"
+              y={y(p) + 4}
               textAnchor="end"
-              className="tabular fill-text-muted type-caption"
+              className="fill-text-muted type-caption"
             >
-              {t.label}
+              {percent(p)}
             </text>
           </g>
         ))}
-        {xTicks.map((t) => (
-          <g key={`x-${t.label}`}>
+        {[0, 0.25, 0.5, 0.75, 1].map((p) => (
+          <text
+            key={p}
+            x={x(p * result.inputs.max_n)}
+            y="286"
+            textAnchor="middle"
+            className="fill-text-muted type-caption"
+          >
+            {Math.round(p * result.inputs.max_n)}
+          </text>
+        ))}
+        <line
+          x1="56"
+          x2="776"
+          y1={y(result.inputs.target_power)}
+          y2={y(result.inputs.target_power)}
+          stroke="var(--viz-axis)"
+          strokeDasharray="6 4"
+        />
+        <polyline
+          points={result.curve
+            .map((p) => `${x(p.totalN)},${y(p.power)}`)
+            .join(" ")}
+          fill="none"
+          stroke="var(--series-1)"
+          strokeWidth="2"
+        />
+        {result.curve
+          .filter((p) => p.ci)
+          .map((p) => (
             <line
-              x1={t.x}
-              y1={M.top}
-              x2={t.x}
-              y2={M.top + PLOT_H}
-              stroke="var(--viz-grid)"
-              strokeWidth={0.5}
-              strokeDasharray="2,2"
+              key={p.totalN}
+              x1={x(p.totalN)}
+              x2={x(p.totalN)}
+              y1={y(p.ci![0])}
+              y2={y(p.ci![1])}
+              stroke="var(--series-1)"
+              strokeWidth="1"
             />
-            <text
-              x={t.x}
-              y={M.top + PLOT_H + 16}
-              textAnchor="middle"
-              className="tabular fill-text-muted type-caption"
-            >
-              {t.label}
-            </text>
-          </g>
-        ))}
-
-        {/* Axes */}
-        <line
-          x1={M.left}
-          y1={M.top + PLOT_H}
-          x2={SVG_W - M.right}
-          y2={M.top + PLOT_H}
-          stroke="var(--viz-axis)"
-          strokeWidth={1}
-        />
-        <line
-          x1={M.left}
-          y1={M.top}
-          x2={M.left}
-          y2={M.top + PLOT_H}
-          stroke="var(--viz-axis)"
-          strokeWidth={1}
-        />
-        <text
-          x={M.left + plotW / 2}
-          y={totalH - 4}
-          textAnchor="middle"
-          className="fill-text-muted type-caption"
-        >
-          {paired ? "participants with both conditions" : "total n (both groups)"}
-        </text>
-        <text
-          x={12}
-          y={M.top + PLOT_H / 2}
-          textAnchor="middle"
-          className="fill-text-muted type-caption"
-          transform={`rotate(-90 12 ${M.top + PLOT_H / 2})`}
-        >
-          power (%)
-        </text>
-
-        {/* One line per effect size; a filled diamond marks the first n at
-            which the target is reached. */}
-        {doc.curves.map((curve, i) => {
-          const { color, dash } = seriesOf(curve.effectSize);
-          const points = curve.points
-            .filter((p) => Number.isFinite(p.power))
-            .map((p) => `${x(p.totalN).toFixed(1)},${y(p.power).toFixed(1)}`)
-            .join(" ");
-          const req = doc.requiredN[i];
-          return (
-            <g key={curve.effectSize}>
-              <polyline
-                points={points}
-                fill="none"
-                stroke={color}
-                strokeWidth={1.6}
-                strokeDasharray={dash || undefined}
-              />
-              {req?.reachesTarget && req.nPerGroup !== null && (
-                <circle
-                  cx={x(paired ? req.totalN ?? 0 : 2 * req.nPerGroup)}
-                  cy={y(req.powerAtTargetN ?? 0)}
-                  r={4}
-                  fill="var(--surface)"
-                  stroke={color}
-                  strokeWidth={1.5}
-                >
-                  <title>{`d=${curve.effectSize}: ${req.totalN} total reaches ${doc.powerTarget * 100}% power`}</title>
-                </circle>
-              )}
-            </g>
-          );
-        })}
-
-        {/* Legend  -  the same stroke the curve is drawn with, dash included, so
-            the key is readable as a key without reference to colour. */}
-        <g transform={`translate(${M.left}, ${M.top - 6})`}>
-          {doc.curves.map((curve, i) => (
-            <g key={curve.effectSize} transform={`translate(${i * 110}, 0)`}>
-              <line
-                x1={0}
-                y1={0}
-                x2={16}
-                y2={0}
-                stroke={seriesOf(curve.effectSize).color}
-                strokeWidth={1.6}
-                strokeDasharray={seriesOf(curve.effectSize).dash || undefined}
-              />
-              <text x={22} y={3} className="fill-text type-caption">
-                d={curve.effectSize}
-              </text>
-            </g>
           ))}
-        </g>
+        <text
+          x="416"
+          y="310"
+          textAnchor="middle"
+          className="fill-text-muted type-caption"
+        >
+          Total complete participants
+        </text>
       </svg>
-    </div>
-  );
-}
-
-function RequiredTable({
-  requirements,
-  maxTotalN,
-  paired,
-}: {
-  requirements: PowerRequirement[];
-  maxTotalN: number;
-  paired: boolean;
-}) {
-  return (
-    <div className="overflow-x-auto rounded-card border border-border bg-surface">
-      <table className="w-full border-collapse type-body">
-        <thead>
-          <tr className="border-b border-border text-left type-caption text-text-muted">
-            <th className="px-4 py-2 font-normal">effect size</th>
-            <th className="px-4 py-2 font-normal">{paired ? "participants" : "per-group n"}</th>
-            <th className="px-4 py-2 font-normal">total n</th>
-            <th className="px-4 py-2 font-normal">target reached</th>
-          </tr>
-        </thead>
-        <tbody>
-          {requirements.map((r) => (
-            <tr key={r.effectSize} className="border-b border-border last:border-0">
-              <td className="px-4 py-2 tabular text-text">d = {r.effectSize}</td>
-              <td className="px-4 py-2 tabular text-text">
-                {r.nPerGroup ?? " - "}
-              </td>
-              <td className="px-4 py-2 tabular text-text">
-                {r.totalN ?? " - "}
-              </td>
-              <td className="px-4 py-2">
-                {r.reachesTarget ? (
-                  <span className="flex items-center gap-1 text-text">
-                    <Crosshair className="size-3" aria-hidden />
-                    {r.totalN} {paired ? "participants" : "total"}
-                  </span>
-                ) : (
-                  <span className="text-text-muted">
-                    not within {maxTotalN} explored
-                  </span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+      <figcaption className="type-note text-text-muted">
+        Power curve for the recorded assumptions. Dashed line: target power.{" "}
+        {result.method === "simulation" &&
+          "Vertical marks: 95% Monte Carlo intervals."}
+      </figcaption>
+    </figure>
   );
 }

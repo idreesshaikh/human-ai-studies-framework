@@ -11,7 +11,7 @@ import { STEER_STOPS, steerStop, type SteerLevel } from "@/lib/steer";
  * thing to look at and the mode remains one click away.
  *
  * The four options are real modes, not decorative labels: selecting one keeps
- * the existing server profile and initiative levers, and the active mode is
+ * the existing server profile and proposal settings, and the active mode is
  * announced with aria-pressed. */
 export function SteerDial({
   value,
@@ -55,8 +55,8 @@ export function SteerDial({
         )}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`Steer mode: ${stop.label}`}
-        title={`Assistant response style: ${stop.label}`}
+        aria-label={`Assistant style: ${stop.label}`}
+        title={`Assistant style: ${stop.label}`}
         onClick={() => setOpen((current) => !current)}
       >
         <SlidersHorizontal className="size-4 text-text-muted" aria-hidden />
@@ -70,9 +70,9 @@ export function SteerDial({
           className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-card border border-border bg-surface-raised p-2 shadow-lifted"
         >
           <div className="px-2 pb-2 pt-1">
-            <p className="type-subhead text-text">Assistant response style</p>
+            <p className="type-subhead text-text">Assistant style</p>
             <p className="type-note mt-0.5 text-text-muted">
-              Choose how much initiative it takes in this study.
+              How much the assistant proposes on its own.
             </p>
           </div>
           <div className="space-y-1">

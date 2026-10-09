@@ -21,6 +21,13 @@ export interface TemplateSummary {
   source: TemplateSource[];
 }
 
+export interface FeaturedTemplate {
+  id: string;
+  title: string;
+  description: string;
+  designType: string;
+}
+
 /* One paper attached to a design shape: either a paper the template cites as
  * its source, or a corpus paper that describes itself with the shape's design
  * vocabulary. Ranked by confidence, never by provenance. */
@@ -50,6 +57,8 @@ export interface CorpusStatus {
   papers: number;
   expected: number;
   error: string;
+  lastRefresh?: { ageDays: number; status: string; newCandidates: number; errors: number } | null;
+  candidates?: { new: number; accepted: number; rejected: number };
 }
 
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -81,6 +90,12 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const templatesApi = {
+  featured: () => req<FeaturedTemplate[]>("/templates/featured"),
+  instantiate: (id: string, options: { title?: string } = {}) =>
+    req<{ protocol: Record<string, unknown> }>(`/templates/${encodeURIComponent(id)}/instantiate`, {
+      method: "POST", body: JSON.stringify({ parameters: {}, ...options }),
+    }),
+  corpusStatus: () => req<CorpusStatus>("/corpus/status"),
   repertoire: (limitRefs = 4) =>
     req<{
       repertoire: RepertoireEntry[];

@@ -17,6 +17,10 @@ jobs:
         with:
           enable-cache: true
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
       - name: Install workspace
         run: uv sync --all-packages --frozen
 
@@ -24,9 +28,7 @@ jobs:
         run: uv run ruff check .
 
 
-      # No workspace member may be missing from testpaths or the coverage
-      # source list - that is how `curated`'s 11 tests went unrun.
-      - name: Workspace package lists agree
+      - name: Workspace and deployment configuration agree
         run: uv run python scripts/check_workspace_config.py
 
       # `--cov` with no value takes its source list from
@@ -67,7 +69,7 @@ jobs:
         run: npm run check
 
   platform:
-    name: Platform - tsc + lint + verify + build
+    name: Platform - tsc + lint + build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -87,14 +89,21 @@ jobs:
       - name: Audit (no known high-severity advisories)
         run: npm audit --audit-level=high
 
-      - name: Check (lint + tsc + verify + build)
+      - name: Install uv for the real-backend regression
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install workspace
+        run: uv sync --all-packages --frozen
+
+      - name: Install Chromium for browser checks
+        run: npx playwright install --with-deps chromium
+
+      - name: Check (lint + tsc + build + accessible researcher workflows)
         run: npm run check
-
-      - name: Install Chromium for accessibility smoke test
-        run: npx playwright install chromium
-
-      - name: Accessibility smoke test
-        run: npm run a11y
+        env:
+          VITE_API_BASE: ""
 
   docker:
     name: Middleware image builds

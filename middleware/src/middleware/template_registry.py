@@ -17,6 +17,7 @@ log = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parent.parent.parent.parent
 REGISTRY_DIR = REPO / "templates" / "registry"
 SCHEMA_FILE = REPO / "templates" / "schemas" / "template.schema.json"
+FEATURED_FILE = REPO / "templates" / "featured.json"
 
 _EXACT_PLACEHOLDER = re.compile(r"^\{\{\s*(\w+)\s*\}\}$")
 _EMBEDDED_PLACEHOLDER = re.compile(r"\{\{\s*(\w+)\s*\}\}")
@@ -174,6 +175,26 @@ def list_templates() -> list[dict]:
             ((tid, d) for tid, d in latest.items()), key=lambda x: x[0]
         )
     ]
+
+
+def featured_templates() -> list[dict]:
+    """A small starting list; the rest of the registry remains browsable."""
+    result = []
+    for template_id in json.loads(FEATURED_FILE.read_text()):
+        try:
+            document = load_template(template_id)
+        except TemplateError:
+            log.warning("featured template %s is unknown; skipped", template_id)
+            continue
+        result.append(
+            {
+                "id": document["templateId"],
+                "title": document["title"],
+                "description": document.get("description", ""),
+                "designType": document["designType"],
+            }
+        )
+    return result
 
 
 def _coerce(name: str, definition: dict, value: Any) -> Any:

@@ -30,7 +30,9 @@ def client(tmp_path, monkeypatch) -> TestClient:
         protocol_path=None,
         spa_dist=tmp_path / "no-dist",
     )
-    return TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
+    client = TestClient(create_app(settings, clock=lambda: FROZEN_NOW))
+    client.db_path = settings.db_path
+    return client
 
 
 def bearer(sub: str) -> dict:

@@ -86,6 +86,6 @@ institutional review and for deciding when an amendment requires a new review.
 
 ## Proven shapes
 
-The [Library](library.md) ranks proven design shapes by corpus usage. Each shape
+The [Library](library.md) ranks described design shapes by corpus usage. Each shape
 binds the statistical plan it requires, and the draft stays grounded in the
 papers attached to the chosen moves.

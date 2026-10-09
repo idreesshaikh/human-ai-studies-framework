@@ -46,21 +46,6 @@ def bearer(sub: str) -> dict:
     return {"Authorization": f"Bearer {sub}"}
 
 
-def test_run_plan_is_project_scoped(client):
-    project = client.post(
-        "/projects", json={"name": "Run plan privacy"}, headers=bearer("alice")
-    ).json()
-    study = client.post(
-        f"/projects/{project['slug']}/studies",
-        json={"name": "Private plan"},
-        headers=bearer("alice"),
-    ).json()
-    path = f"/studies/{study['id']}/run-plan"
-    assert client.get(path, headers=bearer("alice")).status_code == 200
-    assert client.get(path, headers=bearer("bob")).status_code == 403
-    replay_path = f"/studies/{study['id']}/sessions/private/replay"
-    assert client.get(replay_path, headers=bearer("bob")).status_code == 403
-    assert client.get(replay_path, headers=bearer("alice")).status_code == 404
 
 
 def make_project(client: TestClient, owner: str, name: str) -> str:
@@ -70,47 +55,6 @@ def make_project(client: TestClient, owner: str, name: str) -> str:
     return res.json()["slug"]
 
 
-def test_evidence_map_is_scoped_and_viewers_cannot_write(client):
-    from middleware.demo import DEMO_STUDY_ID, seed_demo
-
-    seed_demo(f"sqlite:///{client.db_path}")
-    slug = make_project(client, "alice", "Private evidence")
-    study = client.post(
-        f"/projects/{slug}/studies",
-        json={"name": "Evidence"},
-        headers=bearer("alice"),
-    ).json()
-    path = f"/studies/{study['id']}/evidence-map"
-    assert client.get(path, headers=bearer("alice")).status_code == 200
-    assert client.get(path, headers=bearer("bob")).status_code == 403
-    demo_path = f"/studies/{DEMO_STUDY_ID}/evidence-map"
-    assert client.get(demo_path, headers=bearer("viewer")).status_code == 200
-    for method, suffix, body in (
-        ("PUT", "", {}),
-        ("POST", "/candidates", {}),
-        (
-            "POST",
-            "/propose",
-            {
-                "candidateId": "private",
-                "mapDigest": "x",
-                "requestId": "test",
-            },
-        ),
-    ):
-        assert (
-            client.request(
-                method, path + suffix, json=body, headers=bearer("bob")
-            ).status_code
-            == 403
-        )
-        if suffix != "/candidates":
-            assert (
-                client.request(
-                    method, demo_path + suffix, json=body, headers=bearer("viewer")
-                ).status_code
-                == 403
-            )
 
 
 def add_member(client, slug, owner, sub, role) -> None:
@@ -716,216 +660,83 @@ def test_an_explicitly_chosen_slug_still_reports_a_collision(client):
     assert clash.status_code == 409, clash.text
 
 
-def test_the_demo_project_is_readable_by_anyone_who_signs_in(client):
-    """One fully-built study everybody can look at, nobody can edit."""
-    from middleware.demo import seed_demo
-
-    seed_demo(f"sqlite:///{client.db_path}")
-
-    listed = client.get("/projects", headers=bearer("newcomer")).json()
-    demo = [p for p in listed if p["slug"] == "demo"]
-    assert demo, f"the demo is not offered to a new identity: {listed}"
-    assert demo[0]["role"] == "viewer"
-    assert demo[0]["studyCount"] == 1
-
-
-def test_the_demo_project_cannot_be_written_to(client):
-    """
-    Viewer, and only viewer: a shared example that any visitor could add a study to,
-    rename, or delete is not an example for long.
-    """
-    from middleware.demo import seed_demo
-
-    seed_demo(f"sqlite:///{client.db_path}")
-
-    assert client.get("/projects/demo", headers=bearer("newcomer")).status_code == 200
-    assert (
-        client.post(
-            "/projects/demo/studies",
-            json={"name": "mine"},
-            headers=bearer("newcomer"),
-        ).status_code
-        == 403
-    )
-    assert (
-        client.request(
-            "DELETE",
-            "/projects/demo",
-            json={"confirm": "DELETE"},
-            headers=bearer("newcomer"),
-        ).status_code
-        == 403
-    )
-
-
-def test_status_only_reports_this_study_s_sessions(client):
-    """
-    `/status` read `Event` with no study scoping at all: it grouped every event
-    row in the database by session and returned the lot, so one project's Data
-    tab listed another project's sessions and participants. `/sessions` had
-    closed exactly this leak; `/status` answers the same question and never got
-    the same treatment. Both now share `_session_scope`.
-    """
-    from middleware.demo import DEMO_STUDY_ID, seed_demo
-
-    seed_demo(f"sqlite:///{client.db_path}")
-    client.post("/ingest/events", json=[_event(0, "S-sample-001", "P01")])
-
-    slug = make_project(client, "alice", "Other lab")
-    # `/status` needs a protocol before it will report anything, so this study
-    # is seeded with a minimal one  -  the leak being tested is about whose
-    # sessions come back, not about protocol resolution.
-    mine = client.post(
+def _study_with_protocol(client, slug: str, owner: str, name: str) -> str:
+    """A study in ``slug`` that has a minimal protocol, so `/status` will answer."""
+    res = client.post(
         f"/projects/{slug}/studies",
         json={
-            "name": "Mine",
+            "name": name,
             "protocol": {
                 "protocolVersion": 4,
-                "study": {"id": "mine", "title": "Mine"},
+                "study": {"id": name.lower(), "title": name},
                 "researchQuestions": [{"id": "RQ-1", "text": "A question?"}],
                 "conditions": ["ai-assisted"],
                 "participants": {"planned": 2, "design": "within-subjects"},
                 "phases": [{"name": "design", "gates": []}],
             },
         },
-        headers=bearer("alice"),
-    ).json()["id"]
-    client.post(
-        f"/studies/{mine}/sessions/start",
-        json={"sessionId": "S-mine-001"},
-        headers=bearer("alice"),
+        headers=bearer(owner),
     )
-    client.post("/ingest/events", json=[_event(0, "S-mine-001", "P09")])
-
-    mine_status = client.get(f"/studies/{mine}/status", headers=bearer("alice")).json()
-    assert [s["sessionId"] for s in mine_status["sessions"]] == ["S-mine-001"]
-
-    demo_status = client.get(
-        f"/studies/{DEMO_STUDY_ID}/status", headers=bearer("alice")
-    ).json()
-    assert "S-mine-001" not in [s["sessionId"] for s in demo_status["sessions"]]
-
-
-def test_the_demo_study_resolves_a_protocol(client):
-    """
-    The demo exists to be "one fully-built study anybody can look at", and every
-    panel that shows collected data  -  the whole Data tab, Planning, /status  -
-    gates on the study resolving a protocol. It never could: the seeder wrote a
-    project, a study row and session mappings but no protocol, and the boot
-    protocol (when one is loaded at all) is a different study id, so all three
-    resolution paths missed and /status 404'd on the one study seeded with real
-    sessions and metrics.
-    """
-    from middleware.demo import DEMO_STUDY_ID, seed_demo
-
-    seed_demo(f"sqlite:///{client.db_path}")
-
-    res = client.get(f"/studies/{DEMO_STUDY_ID}/protocol", headers=bearer("newcomer"))
     assert res.status_code == 200, res.text
-    proto = res.json()
-    # The design the bundled sample sessions actually implement  -  P02 appears in
-    # both conditions, so a demo protocol claiming anything else would describe
-    # data the demo does not have.
-    assert proto["conditions"] == ["ai-assisted", "unassisted"]
-    assert proto["participants"]["design"] == "within-subjects"
-
-    status = client.get(f"/studies/{DEMO_STUDY_ID}/status", headers=bearer("newcomer"))
-    assert status.status_code == 200, status.text
+    return res.json()["id"]
 
 
-def test_the_demo_study_shows_the_design_record(client):
-    """The read-only demo includes the conversation it is meant to teach."""
-    from middleware.demo import DEMO_STUDY_ID, seed_demo
-
-    seed_demo(f"sqlite:///{client.db_path}")
-
-    conversation = client.get(
-        f"/studies/{DEMO_STUDY_ID}/conversation", headers=bearer("newcomer")
-    )
-    assert conversation.status_code == 200, conversation.text
-    turns = conversation.json()["turns"]
-    platform_turn = next(turn for turn in turns if turn["role"] == "platform")
-    assert platform_turn["source"] == "demo"
-    assert platform_turn["moves"]
-    assert platform_turn["recommendations"]
-
-
-def test_the_demo_study_shows_its_paired_prescription(client):
-    """Domain recipe IDs still resolve through the protocol's design shape."""
-    from middleware.demo import DEMO_STUDY_ID, seed_demo
-
-    seed_demo(f"sqlite:///{client.db_path}")
-
-    response = client.get(
-        f"/analysis/prescriptions?study_id={DEMO_STUDY_ID}",
-        headers=bearer("newcomer"),
-    )
-    assert response.status_code == 200, response.text
-    assert [row["designShape"] for row in response.json()["prescriptions"]] == [
-        "paired"
-    ]
-
-
-def test_the_demo_study_owns_the_sample_sessions(client):
+def test_status_only_reports_this_study_s_sessions(client):
     """
-    The seeded sample data belongs to the demo study, so it shows there  -  and nowhere
-    else.
+    `/status` once grouped every event row in the database by session, so one
+    project's Data tab listed another project's sessions and participants. It now
+    shares `_session_scope` with `/sessions`; this pins that two projects never see
+    each other's sessions.
     """
-    from middleware.demo import DEMO_STUDY_ID, seed_demo
+    alice_study = _study_with_protocol(
+        client, make_project(client, "alice", "Lab A"), "alice", "Alpha"
+    )
+    bob_study = _study_with_protocol(
+        client, make_project(client, "bob", "Lab B"), "bob", "Beta"
+    )
+    for study, who, session, participant in (
+        (alice_study, "alice", "S-alpha-001", "P01"),
+        (bob_study, "bob", "S-beta-001", "P09"),
+    ):
+        started = client.post(
+            f"/studies/{study}/sessions/start",
+            json={"sessionId": session},
+            headers=bearer(who),
+        )
+        assert started.status_code == 200, started.text
+        client.post("/ingest/events", json=[_event(0, session, participant)])
 
-    seed_demo(f"sqlite:///{client.db_path}")
-    client.post("/ingest/events", json=[_event(0, "S-sample-001", "P01")])
+    def sessions_of(study: str, who: str) -> list[str]:
+        res = client.get(f"/studies/{study}/status", headers=bearer(who))
+        assert res.status_code == 200, res.text
+        return [s["sessionId"] for s in res.json()["sessions"]]
 
-    rows = client.get(
-        f"/studies/{DEMO_STUDY_ID}/sessions", headers=bearer("newcomer")
-    ).json()
-    assert [r["sessionId"] for r in rows] == ["S-sample-001"]
+    assert sessions_of(alice_study, "alice") == ["S-alpha-001"]
+    assert sessions_of(bob_study, "bob") == ["S-beta-001"]
+    assert (
+        client.get(f"/studies/{bob_study}/status", headers=bearer("alice")).status_code
+        == 403
+    )
 
-    mine = make_project(client, "newcomer", "My lab")
+
+def test_evidence_map_is_scoped_to_its_project(client):
+    """A non-member can neither read nor write another project's evidence map."""
+    slug = make_project(client, "alice", "Private evidence")
     study = client.post(
-        f"/projects/{mine}/studies", json={"name": "fresh"}, headers=bearer("newcomer")
-    ).json()["id"]
-    mine_rows = client.get(
-        f"/studies/{study}/sessions", headers=bearer("newcomer")
+        f"/projects/{slug}/studies", json={"name": "Evidence"}, headers=bearer("alice")
     ).json()
-    assert mine_rows == []
-
-
-def test_the_writable_backup_is_complete_and_owner_accessible(client):
-    """The local fallback is ready for the platform and TERN without live design."""
-    from middleware.demo import BACKUP_STUDY_ID, seed_backup
-
-    seed_backup(f"sqlite:///{client.db_path}")
-
-    projects = client.get("/projects", headers=bearer("local")).json()
-    implicit = next(project for project in projects if project["slug"] == "implicit")
-    assert implicit["role"] == "owner"
-    assert implicit["studyCount"] == 1
-
-    protocol = client.get(
-        f"/studies/{BACKUP_STUDY_ID}/protocol", headers=bearer("local")
-    )
-    assert protocol.status_code == 200, protocol.text
-    assert protocol.json()["participants"]["counterbalanced"] is True
-
-    conversation = client.get(
-        f"/studies/{BACKUP_STUDY_ID}/conversation", headers=bearer("local")
-    ).json()
-    moves = [move for turn in conversation["turns"] for move in turn["moves"]]
-    assert len([move for move in moves if move["status"] == "accepted"]) == 12
-
-    compiled = client.post(
-        f"/studies/{BACKUP_STUDY_ID}/conversation/compile",
-        json={},
-        headers=bearer("local"),
-    )
-    assert compiled.status_code == 200, compiled.text
-    assert compiled.json()["valid"] is True, compiled.text
-
-    minted = client.post(
-        f"/studies/{BACKUP_STUDY_ID}/enrollment/tokens",
-        json={"count": 1, "grain": "participant"},
-        headers=bearer("local"),
-    )
-    assert minted.status_code == 200, minted.text
-    assert minted.json()[0]["condition"] == "ai-assisted"
+    path = f"/studies/{study['id']}/evidence-map"
+    assert client.get(path, headers=bearer("alice")).status_code == 200
+    assert client.get(path, headers=bearer("bob")).status_code == 403
+    assert client.get(path).status_code == 401
+    for method, suffix, body in (
+        ("PUT", "", {}),
+        ("POST", "/candidates", {}),
+        (
+            "POST",
+            "/propose",
+            {"candidateId": "private", "mapDigest": "x", "requestId": "test"},
+        ),
+    ):
+        res = client.request(method, path + suffix, json=body, headers=bearer("bob"))
+        assert res.status_code == 403, f"{method} {suffix}: {res.status_code}"

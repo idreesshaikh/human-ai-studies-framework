@@ -722,7 +722,7 @@ def test_no_model_configured_names_the_setting_that_fixes_it(client, monkeypatch
     assert r.status_code == 200
     body = r.json()
     assert body["source"] == "unavailable"
-    assert "MISTRAL_API_KEY" in body["text"]
+    assert "LLM_API_KEY" in body["text"]
 
 
 def test_a_flaky_provider_is_retried_before_giving_up(client, monkeypatch):

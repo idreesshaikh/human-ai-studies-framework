@@ -64,7 +64,7 @@ Open this folder in VS Code and press **F5** → an Extension Development Host
 window opens with the extension loaded. In that window:
 
 1. Click **`Study: idle`** in the status bar (or run
-   _TERN: Start Study Session_ from the command palette).
+   _StudyLoop: Start Study Session_ from the command palette).
 2. Enter a participant ID (e.g. `P07`) and pick a condition (local testing only;
    paired studies get both from the server).
 3. Work normally. The countdown runs in the status bar; fatigue prompts appear
@@ -95,7 +95,7 @@ from the study protocol - no manual configuration, no side-channel.
 
 1. The researcher mints a **connection string** for the participant (from the
    platform / middleware). It looks like `https://your-study-server#<token>`.
-2. In VS Code, run **_TERN: Connect to Study_** from the command palette and
+2. In VS Code, run **_StudyLoop: Connect to Study_** from the command palette and
    paste the connection string. (A `vscode://…/pair?c=<connection-string>`
    deep link runs the same flow.)
 3. The extension shows the study's **consent statement**; capture begins only
@@ -111,7 +111,7 @@ from the study protocol - no manual configuration, no side-channel.
    local `materials` path, TERN opens that folder in VS Code after pairing. If
    it can't - relative path, missing folder, failed download, or VS Code for the web -
    you get a message with the reason and **Open Folder…** /
-   **Try again** buttons; pairing itself still succeeds. Run **_TERN: Start Study Session_** when ready - the
+   **Try again** buttons; pairing itself still succeeds. Run **_StudyLoop: Start Study Session_** when ready - the
    session uses the researcher-issued configuration that arrived from the
    study.
 
@@ -144,7 +144,7 @@ still enable GitHub Copilot, and one in `ai-assisted` can still turn off
 `editor.inlineSuggest.enabled`. Keeping a condition as assigned is
 facilitator procedure, not something this extension enforces.
 
-**Changing study.** Run **_TERN: Disconnect from Study_** (or use the
+**Changing study.** Run **_StudyLoop: Disconnect from Study_** (or use the
 Disconnect row in the Session view) to leave a study; it asks for
 confirmation, is refused while a session is running, clears the stored
 credential, paired identity, frozen configuration and the study-written
