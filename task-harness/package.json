@@ -7,7 +7,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "begin": "node scripts/study.js begin",
-    "test": "node scripts/study.js test"
+    "test": "node scripts/study.js test",
+    "export": "node scripts/study.js export"
   }
 }
