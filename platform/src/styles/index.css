@@ -457,8 +457,7 @@ body::before {
   transition:
     transform var(--motion-standard) var(--ease-settle),
     box-shadow var(--motion-standard) var(--ease-settle),
-    border-color var(--motion-fast) var(--ease-out),
-    background-color var(--motion-fast) var(--ease-out);
+    border-color var(--motion-fast) var(--ease-out);
 }
 .plate-lift:hover {
   transform: translateY(-1px);
