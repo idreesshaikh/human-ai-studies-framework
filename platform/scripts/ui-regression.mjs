@@ -37,6 +37,10 @@ const evidenceFixtures = [
   { paperId: "fixture-b", title: "Fixture: Workload during code review", authors: [{ name: "Bryn Example" }], year: 2024, externalIds: { DOI: "10.1234/fixture" }, citationCount: 4, abstract: "Synthetic browser fixture. Developers report workload while reviewing code. This text exercises paper filtering and reading." },
   { paperId: "fixture-c", title: "Fixture: Related debugging study", authors: [{ name: "Casey Example" }], year: 2023, externalIds: { DOI: "10.1234/related" }, citationCount: 7, abstract: "Synthetic browser fixture for inspecting and adding a related paper from the literature map." },
 ];
+evidenceFixtures[0].authors.push(...Array.from({ length: 39 }, (_, index) => ({ name: `Fixture Collaborator ${index + 1}` })));
+evidenceFixtures[0].abstract = `${evidenceFixtures[0].abstract}\n\n` + "A long synthetic abstract exercises the reader without changing the study workspace geometry. \\textsc{Fixture Research} remains readable while its original source text stays intact. ".repeat(24);
+const collectionFixtures = Array.from({ length: 14 }, (_, index) => ({ ...evidenceFixtures[1], paperId: `fixture-collection-${index}`, title: `Fixture: Collection paper ${index + 1}`, year: 2025, externalIds: { ArXiv: `2601.${String(index + 101).padStart(5, "0")}` } }));
+evidenceFixtures.push(...collectionFixtures);
 writeFileSync(join(data, "metadata.json"), JSON.stringify(evidenceFixtures));
 const server = spawn("uv", ["run", "python", "-c", `
 import json, os, urllib.parse
@@ -259,6 +263,32 @@ const beforeZoom = await map.locator(":scope > g").getAttribute("transform");
 await evidence.getByRole("button", { name: "Zoom out", exact: true }).click();
 check(await map.locator(":scope > g").getAttribute("transform") !== beforeZoom, "map zoom is available through keyboard-accessible buttons");
 await evidence.getByRole("button", { name: "Fit literature map", exact: true }).click();
+for (const record of collectionFixtures) await api(`/studies/${literature}/papers`, { method: "POST", body: JSON.stringify({ arxivId: record.externalIds.ArXiv }) });
+await evidence.reload();
+const collection = evidence.getByRole("region", { name: "Study paper list", exact: true });
+await collection.getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
+const frameHeight = async () => evidence.getByRole("complementary", { name: "Paper details", exact: true }).evaluate((element) => element.getBoundingClientRect().height);
+const longHeight = await frameHeight();
+const listHeight = await collection.evaluate((element) => element.parentElement.getBoundingClientRect().height);
+check(Math.abs(longHeight - listHeight) <= 1, "desktop paper list and reader share one stable height");
+await collection.getByRole("button", { name: new RegExp(evidenceFixtures[1].title) }).click();
+check(Math.abs(await frameHeight() - longHeight) <= 1, "switching between short and long papers preserves the reading frame");
+await collection.getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
+await evidence.getByText("View all 40 authors", { exact: true }).click();
+check(Math.abs(await frameHeight() - longHeight) <= 1, "expanding the full author list does not grow the reading card");
+const content = evidence.getByRole("region", { name: "Paper reader content", exact: true });
+check((await content.innerText()).includes("Fixture Collaborator 39") && !(await content.innerText()).includes("\\textsc{"), "full author details and abstract formatting stay readable");
+check(await collection.evaluate((element) => element.scrollHeight > element.clientHeight), "a growing paper collection scrolls within its frame");
+await evidence.getByText("View all 40 authors", { exact: true }).click();
+await content.evaluate((element) => { element.scrollTop = 0; });
+await auditPage(evidence, "bounded Evidence with long bibliography");
+if (values.screenshots) {
+  await evidence.evaluate(() => { document.activeElement?.blur(); document.querySelector('[role="region"][aria-label="Evidence"]').scrollTop = 0; });
+  await evidence.screenshot({ path: join(values.screenshots, "evidence-long-desktop.png"), fullPage: true });
+  await evidence.setViewportSize({ width: 390, height: 844 });
+  await evidence.screenshot({ path: join(values.screenshots, "evidence-long-mobile.png"), fullPage: true });
+  await evidence.setViewportSize({ width: 1280, height: 800 });
+}
 await evidence.getByLabel("Upload a PDF", { exact: true }).setInputFiles({ name: "not-a-pdf.pdf", mimeType: "application/pdf", buffer: Buffer.from("This is not PDF content.") });
 await evidence.getByRole("alert").waitFor();
 check(!/upload failed:|HTTP \d{3}/.test(await evidence.getByRole("alert").innerText()), "PDF errors explain the failed upload in readable language");

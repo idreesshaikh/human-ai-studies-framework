@@ -155,10 +155,9 @@
    * plotting field in that state turns absence of suggestions into a page of
    * empty blue ground, so sparse views use a shorter working field. */
   --constellation-h-sparse: clamp(16rem, 32vh, 22rem);
-  /* The map and its paper preview share one working frame. The graph owns the
-   * larger interior field; the remaining space covers its lens strip, title,
-   * and legend without letting a long abstract stretch the map card. */
-  --library-pane-h: calc(var(--constellation-h) + 11rem);
+  /* Equal-height desktop collection and reader panes. Content scrolls inside
+   * the frame so adding papers or selecting a long abstract keeps its size. */
+  --library-pane-h: clamp(28rem, 68dvh, 42rem);
 
   /* The participant roster has one deliberately wide evidence column. Keep
    * its table readable on a desktop and let the wrapper provide the honest
