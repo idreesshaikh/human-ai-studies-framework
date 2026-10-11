@@ -1,6 +1,6 @@
 """The steer dial (FR-CONV-9): how much the assistant drives a conversation."""
 
-from middleware.design_assistant import _directive, _permitted_moves
+from middleware.design_assistant import _permitted_moves
 
 from middleware import elicitation
 
@@ -75,10 +75,10 @@ def test_checks_drops_proposals_but_never_drops_a_caution():
     assert [m.kind for m in kept] == ["caution"]
 
 
-def test_every_level_keeps_one_decision_at_a_time():
+def test_related_choices_and_risks_can_be_reviewed_together():
     moves = (_Move("choose-template"), _Move("add-measure"), _Move("caution"))
     kept = _permitted_moves(moves, _stance(steer="leads"))
-    assert [m.kind for m in kept] == ["caution"]
+    assert [m.kind for m in kept] == ["choose-template", "add-measure", "caution"]
 
 
 def test_a_complete_brief_can_return_the_whole_safe_batch():
@@ -91,7 +91,7 @@ def test_a_complete_brief_can_return_the_whole_safe_batch():
     ]
 
 
-def test_assists_only_keeps_one_move_for_an_empty_section():
+def test_assists_fills_gaps_without_reopening_filled_sections():
     moves = (
         _SectionMove("add-measure", "measures"),
         _SectionMove("add-rq", "researchQuestions"),
@@ -102,22 +102,4 @@ def test_assists_only_keeps_one_move_for_an_empty_section():
         _stance(steer="assists"),
         {"filled": ["measures"]},
     )
-    assert [m.kind for m in kept] == ["caution"]
-
-
-def test_missing_facets_still_allow_one_safe_concrete_move():
-    stance = _stance(
-        intent="describe",
-        steer="leads",
-        understanding={
-            "missing": ["task"],
-            "missingLabels": ["the programming task"],
-            "known": ["population"],
-            "facetsNeeded": 5,
-        },
-        nextQuestion="What will participants do?",
-        mayProposeDesign=False,
-    )
-    directive = _directive(stance)
-    assert "record only that safe fact as one move" in directive
-    assert "Do not add a different protocol move" not in directive
+    assert [m.kind for m in kept] == ["add-rq", "caution"]

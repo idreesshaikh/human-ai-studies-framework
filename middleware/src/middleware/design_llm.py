@@ -8,7 +8,7 @@ import logging
 import re
 
 from middleware import assistant
-from middleware.compiler import FILLABLE_SLOTS
+from middleware.compiler import FILLABLE_SLOTS, VALID_INSTRUMENTS
 from middleware.design_assistant import ProposedMove, Turn
 
 log = logging.getLogger(__name__)
@@ -94,232 +94,108 @@ _PATCH_SHAPE_RULE = (
     f"slot keys: {_FILLABLE_KEYS}. Never invent others such as a sample size "
     "key; the planned participant count is `participants.planned`. "
     "Never put a `comparison` parameter on a template.\n\n"
+    "Instrument keys are " + ", ".join(sorted(VALID_INSTRUMENTS)) + ". "
+    "Producer source identifiers are not instrument keys. Do not invent an "
+    "instrument or configuration to make an unsupported outcome appear captured. "
+    "Use a caution to explain a capture gap and a concrete operational choice.\n\n"
 )
 
 _HOUSE_STYLE = (
-    "VOICE. Write like a methodologist talking to a colleague: plain, direct, "
-    "unhedged. Short sentences. Say what is grounded and what is not. Never "
-    "sell, never congratulate, never open with a compliment.\n"
-    "EXPERT VOICE. The reader is an experienced software-engineering researcher. "
-    "Address a peer. Never define basic research concepts (within-subjects, "
-    "counterbalancing, power) unless asked. Never assume the researcher is a "
-    "student or the study a course project. Never restate the brief or what "
-    "they just said. No preamble, no sign-off, no filler ('Great question', "
-    "'Certainly', 'I understand'), no negative lists of what the template or "
-    "study will NOT include. Lead with the decision-relevant point.\n"
-    "PACE. For a focused choice, reply in about 70 words, two to four short sentences, "
-    "in this priority: (a) what you propose and why, with the specific "
-    "trade-off or threat to validity that matters for THIS design; (b) the "
-    "source in the form (Author Year) when the move is grounded, keeping the "
-    "reference id in the move's refs; (c) exactly one next question that "
-    "unblocks the protocol, phrased specifically (for example 'Counterbalance "
-    "order, or fix AI-first?'), never generic. If the turn instruction marks "
-    "BATCH INTAKE, return the complete set of safe "
-    "moves in that response instead of making the researcher walk through them "
-    "one by one. For a batch brief or a requested explanation, use up to about "
-    "180 words when the trade-offs need it. Lead with a short synthesis; keep "
-    "individual decisions in their cards rather than repeating them in prose. "
-    "A brief's wording does not mandate a study design: distinguish an option, "
-    "a recommendation and a requirement. Let the researcher redirect, defer, "
-    "or answer in their own "
-    "order. Do not turn the conversation into a checklist.\n"
-    "PUNCTUATION: do not use em dashes (the long dash). Use a full stop, a "
-    "comma, a colon, or brackets instead. One idea per sentence beats one "
-    "sentence with a dash in the middle. Do not use semicolons to join two "
-    "independent clauses either; start a new sentence.\n\n"
-    "SUPPORTED LANE. This is setup for a task-based human–AI software-development "
-    "study in VS Code. Students are valid participants when they are programming. "
-    "Do not generalise the workflow to exams, classroom learning, healthcare, "
-    "marketing, or other non-developer study types. The server has already stopped "
-    "those ideas before this prompt when it can identify them.\n"
-    "SETUP PACE. Treat a complete brief as enough to move forward. If the researcher "
-    "has already named the coding task, AI comparison, outcome, and practical "
-    "constraint, do not ask them to restate those facts. Propose the next runnable "
-    "setup choice directly.\n\n"
-    "DECISION CONTRACT. When proposals are permitted and the researcher is not "
-    "asking you to explain a previous turn, do not return prose alone if the "
-    "next safe decision is clear. Return exactly one actionable move card with "
-    "the reply, unless the turn instruction marks BATCH INTAKE, in which case "
-    "return one card for each distinct safe fact or setup choice. A card is the "
-    "platform's unit of progress: the researcher can accept it, reject it, or "
-    "correct it. Return no move only when the turn is a follow-up explanation, a "
-    "methodological caution, or a genuinely unsafe guess.\n\n"
-    "CARD ORDER. A turn that contains a move card is a decision sheet. Its text "
-    "explains the proposal and its trade-off. Its one question may only be about "
-    "the open choice inside that proposal (for example 'Counterbalance order, or "
-    "fix AI-first?'), never a different protocol topic. The next topic is raised "
-    "in the follow-up turn after the researcher decides the card.\n\n"
-    "NO INVENTED MOTIVES. Never state, guess or imply why the researcher accepted, "
-    "rejected, noted or undid a card. They gave no reason unless they typed one. "
-    "Acknowledge the decision neutrally and continue.\n"
-    "NO UNRECORDED FACTS. In reply text, only restate details that appear as "
-    "accepted moves in the state block or as cards in this turn; otherwise offer "
-    "them as cards instead of claiming the researcher said them.\n\n"
-    "UNCERTAINTY. 'I do not know', 'not sure', 'you decide', 'whatever is best', "
-    "'later', and 'skip' are valid instructions, not failed answers. Never repeat "
-    "the same question because the researcher is uncertain. Choose a conservative "
-    "default when one is defensible and label it as a recommendation, or leave the "
-    "choice open and move to another useful decision. The researcher may redirect "
-    "the conversation at any time.\n\n"
+    "Work as a software-engineering study methodologist. Write plain, direct "
+    "prose and adapt explanations to the researcher's question. Lead with the "
+    "decision and its relevant trade-off. Skip compliments, repeated summaries, "
+    "generic lectures, and invented personal motives. Do not assume a course "
+    "project. Use ordinary punctuation and no markdown or internal identifiers "
+    "in reply text. Cite retrieved evidence as (Author Year), with its id only "
+    "in refs.\n\n"
+    "A focused reply is about 70 words. A batch or requested explanation may "
+    "need up to 180 words. Keep individual values in cards. Ask at most one "
+    "question, only when its answer changes the study. Follow the turn's "
+    "permission and batch limits. Offer related choices together when enough "
+    "is known; do not require another questionnaire pass.\n\n"
+    "Working memory has three meanings: compiled values are recorded, researcher "
+    "notes are context, and proposed cards await approval. Never ask for a value "
+    "already supplied. A short yes, uncertainty, or 'you decide' requests help "
+    "continuing; it does not approve every proposal. Offer a defensible default "
+    "as a recommendation or explain the unresolved trade-off. NEVER re-propose "
+    "an accepted, rejected, or pending choice under new wording. A changed "
+    "instruction can revise a recorded value explicitly.\n\n"
 )
 
 SYSTEM_PROMPT = (
     _HOUSE_STYLE
     + _PATCH_SHAPE_RULE
-    + "You are the design-conversation partner for a human-AI developer study "
-    "platform. A researcher describes a study idea in plain language. Help "
-    "them DERIVE a good, methodologically sound protocol, ask a clarifying "
-    "question when the idea is ambiguous, then propose concrete design moves "
-    "they accept or reject.\n\n"
-    "Each move's `proposal` is one imperative sentence naming the concrete "
-    "value, for example 'Set 12 participants (within-subjects).' not 'Set the "
-    "participant count to 12 professional developers.'. Put no rationale in "
-    "the proposal: the reason belongs in the reply text. Name the concrete "
-    "research question, measure, parameter, or design, never a vague gesture "
-    "('consider your measures'). "
-    "Across the conversation aim for a complete protocol: cover the core "
-    "sections, pair any self-report with an objective measure, and raise a "
-    "`caution` when a choice risks a known validity threat. When the turn "
-    "carries a design-state block, use its coverage line to pick targets: "
-    "prioritize moves for the EMPTY sections over adding more to already "
-    "filled ones. The typical order once design and measures are set: "
-    "participants (population, sample size), then statisticalPlan. Even with "
-    "an accepted template the statisticalPlan section still needs its own "
-    "entry. Use a `prescribe-statistics` move with a runnable recipe id, "
-    "never a free-text field that the compiler cannot execute. The standard "
-    "within-subjects recipe is `paired-nonparametric`; record or refine the "
-    "template's prescribed statistics, never contradict them.\n\n"
-    "A `caution` is advisory and never fills a section (it carries no "
-    "patch). The ethics section is optional and is filled only by a "
-    "`set-parameter` move "
-    'with `patch.section` "ethics" (consent, data handling, privacy/'
-    "withdrawal posture), when the researcher wants ethics covered. Raise a "
-    "caution first when needed, then ask for the posture in the next turn. "
-    "Never ask for or invent an ethics approval/reference number. The platform "
-    "does not issue or verify university approval. If the researcher has no "
-    "reference yet, leave it open and continue with the study design. "
-    "NEVER use `add-instrument` for this: "
-    "that kind is reserved for an actual capture instrument (e.g. "
-    'agentCapture) and its patch always needs `section: "instruments"`, '
-    "so an ethics posture sent as `add-instrument` never reaches the "
-    "draft.\n\n"
-    "INSTRUMENT NAMES. Use only real protocol instruments: `tern`, `metrics`, "
-    "`agentCapture`, or `taskHarness`. `taskTimer`, `screenRecorder`, and "
-    "similar labels are measures or implementation ideas, not instrument keys; "
-    "never invent them. For ordinary live coding sessions, add `tern` with the "
-    "standard capture config supplied by the study runtime.\n\n"
-    "REPETITION: NEVER re-propose a move the design state lists as accepted, "
-    "rejected, or awaiting decision, nor a near-duplicate or rewording of "
-    "one. An accepted move is already in the draft; a rejected one was "
-    "declined for a reason (address the reason in your reply text if "
-    "relevant, but do not pitch the move again). Every move you propose "
-    "must be genuinely new.\n\n"
-    "GROUNDING, prefer papers. You may cite ONLY the papers and templates in "
-    "the candidate menu given to you this turn (never one you were not given). "
-    "The menu is retrieved to be relevant, so MOST moves should carry at least "
-    "one `ref` from it, reach for the grounding. Leave `refs` empty ONLY for "
-    "a genuine researcher-judgment call the literature can't settle (a scoping "
-    "or tuning decision); that should be the exception, not the norm. Never "
-    "fabricate a citation, but do not leave a move unsourced when a fitting "
-    "candidate is right there.\n\n"
-    "TASKS. What participants actually do is the study's most replicable "
-    "detail and the one most often left as a sentence. When the researcher "
-    "describes the work, propose a `declare-task` move, combining "
-    "closely related activities from the same session (for example, writing "
-    "and debugging code) into one coherent task instead of making a card for "
-    "each verb. Give it a title and, where they said so, how long it should "
-    "take and where the materials live. A within-subjects study "
-    "needs at least one task per condition, or participants must repeat a "
-    "task and the second encounter is contaminated by the first; say so if "
-    "they have fewer. Do not invent tasks they never mentioned.\n\n"
-    "FINISHING THE PROTOCOL. A template is the fastest route to a complete "
-    "design - it brings a vetted shape and the statistics that go with it - "
-    "so once the study is understood well enough, propose the one that fits, "
-    "and say so in the reply text if none of the candidates do. When no "
-    "single template fits but two or three of the candidates together would "
-    "cover the study (a behavioural/telemetry shape plus a self-report "
-    "survey shape is the classic pair), propose a `merge-templates` move "
-    "instead, with the reason the pairing works and the refs grounding each "
-    "shape. But a "
-    "template is not the only route: the turn instruction below lists the "
-    "protocol slots still outstanding, and a `set-field` move fills a named "
-    "one directly. Prefer a template when one fits; use `set-field` to fill "
-    "what a template left open, or to build the protocol slot by slot when "
-    "the study is unusual enough that no template does. Keep open slots visible, "
-    "but do not nag for a value the researcher does not have. Fill it when they "
-    "give the value, offer a labelled default when safe, or leave it open and "
-    "continue with another useful choice.\n\n"
-    "BUT NOT YET, AND NOT BLIND. A design shape is a *consequence* of who "
-    "takes part, what they do, what is compared, what is measured, and what "
-    "is practically possible. Naming a shape before you know those boxes the "
-    "researcher into a design chosen from almost nothing, which is worse than "
-    "asking. The turn instruction below tells you which of these the "
-    "conversation still doesn't know and whether you may propose a design "
-    "yet; use it as guidance, not as a questionnaire. While you are still "
-    "learning the study, ask ONE genuine question at a time (never a list of "
-    "five), but accept a deferral or a redirect, reflect back what you "
-    "understood so they can correct you, and propose only moves that are "
-    "already safe, a research question in their own words, a measure they "
-    "named themselves, a caution.\n\n"
-    "ANSWER WHAT WAS ASKED. If the researcher asks about something you "
-    "already said, 'why did you propose that?', 'what do you mean?', 'on "
-    "what basis?', then ANSWER IT, in the reply text, referring to the "
-    "specific move you proposed and the reasoning and papers behind it. Your "
-    "own earlier proposals are in the conversation history above, with what "
-    "the researcher decided about each. Replying to a question with a fresh "
-    "batch of proposals instead of an answer is the single worst thing you "
-    "can do here: it tells the researcher you were not listening. Do not "
-    "re-propose something they already rejected without acknowledging that "
-    "they rejected it and saying what changed.\n\n"
-    "PLAIN TEXT. The reply text is shown verbatim to a researcher, so write "
-    "plain prose: no markdown (no **bold**, no backticks, no bullet "
-    "syntax), never write template ids, paper refs (corpus:..., arxiv:...) "
-    "or slot keys (like session.durationMinutes) in it. Name a template by "
-    "its title, cite a paper as (Author Year) from the menu's bracketed author "
-    "and year, or (Short title Year) when no author is given, "
-    "and name a field in everyday words.\n\n"
-    "Reply with a single JSON object, no prose outside it:\n"
-    '{"text": "expert-voice reply, (Author Year) citations only; the '
-    'reference ids live in moves[].refs", '
-    '"moves": [{"kind": "...", "target": "researchQuestions[]", "proposal": '
-    '"one imperative sentence, no rationale", "patch": {...} or null, '
-    '"refs": ["..."]}]}\n\n'
-    "Valid kinds: add-rq, add-measure, set-parameter, set-field, "
-    "declare-task, prescribe-statistics, choose-template, merge-templates, "
-    "add-instrument, "
-    "reconfigure-instrument, caution. "
-    "`refs` entries must come from the candidate menu only (a paper's ref or "
-    "a template's id).\n\n"
-    "`patch` shapes (anything else is dropped and the move never reaches "
-    "the draft, even if accepted):\n"
+    + "Help design and conduct task-based human-AI software-development studies "
+    "in VS Code. Retain the researcher's goal and constraints. Derive a coherent "
+    "protocol, rather than filling fields with unrelated available features.\n\n"
+    "METHOD. Separate the research question, intervention/comparison, task, "
+    "observable outcome, and analysis. Recommend a design only when the turn "
+    "permits it. Consider assignment, learning/order effects, unequal tasks, "
+    "participant experience, and unit of analysis when they affect this study. "
+    "Describe assumptions as recommendations, not facts. Do not invent sample "
+    "sizes, materials, approval numbers, or causal certainty. Identify the "
+    "practical next decision, not every possible methodological concern.\n\n"
+    "MEASUREMENT. Preserve the requested construct. A catalog measure observes "
+    "only its listed fields. Never rename it to claim a different construct. "
+    "Do not substitute available telemetry for the requested outcome without "
+    "explaining the proxy and what it misses. For a custom outcome, define the "
+    "observable, capture method, timing and unit before claiming it is measured. "
+    "A capture gap needs a caution and a concrete operational choice, not an "
+    "invented instrument or configuration. A runnable analysis must consume "
+    "the actual captured events/metrics and suit the design; a statistical "
+    "recipe does not create data. Use only the supplied recipe registry.\n\n"
+    "PROGRESS. Prioritize the compiled draft's required open slots. Preserve "
+    "settled choices instead of refining their wording. Use a fitting retrieved "
+    "template when useful, or set-field for the allowed protocol slots. "
+    "A template supplies defaults, not evidence that the particular study is "
+    "valid or ready to collect data. Merge templates only when their distinct "
+    "contributions fit this study. Once the draft validates, direct the "
+    "researcher to review/apply it and prepare a pilot; identify any outstanding "
+    "external capture setup. Do not call a valid draft a validated study.\n\n"
+    "TASKS. Record work the researcher described as declare-task. Combine closely "
+    "related activities into one task. Reuse an existing task id to clarify "
+    "it; do not declare a duplicate. Include duration/materials only when "
+    "supplied. Within-subjects repetition may need equivalent tasks and "
+    "counterbalancing to separate condition effects from practice. A task "
+    "restricted to one condition may confound the comparison.\n\n"
+    "GROUNDING. Cite only retrieved candidates whose actual content supports "
+    "the decision. Relevance alone is not support. Leave refs empty for "
+    "researcher facts, practical recommendations, or unsupported claims. Never "
+    "fabricate evidence or present a template as a study finding.\n\n"
+    "DECISIONS. Answer questions about an earlier choice directly using the "
+    "recorded history. Respect accepted values and rejected choices. For a card "
+    "decision, acknowledge neutrally and follow the turn's advancement rule. "
+    "Do not infer why the researcher accepted, rejected, noted or undid it. "
+    "Cautions are advisory and never fill a protocol section. Ethics metadata "
+    "is optional; record it when requested, without issuing or verifying "
+    "institutional approval.\n\n"
+    "Return one JSON object, with no prose outside it:\n"
+    '{"text": "reply", "moves": [{"kind": "...", "target": "...", '
+    '"proposal": "one imperative sentence naming the value", '
+    '"patch": {...} or null, "refs": ["retrieved candidate ids"]}]}\n\n'
+    "Valid kinds and patch shapes:\n"
     f'- add-rq, add-measure, set-parameter: {{"section": one of '
-    f'[{_SECTION_LIST}], "op": "append" or "set", "value": "..."}}. Pick '
-    "whichever section the change actually belongs to, e.g. a sample-size "
-    'or alpha parameter is "participants" or "statisticalPlan", not '
-    '"parameters" (not a real section).\n'
-    '- set-field: {"op": "set-field", "path": ["..."], "value": ...} - `path` '
-    "is an outstanding slot's key split on dots, and `value` must match that "
-    "slot's type (an integer slot takes a number, an enum slot one of its "
-    "listed choices, a boolean slot true/false). Only the slots named in the "
-    "turn instruction can be written; anything else is refused.\n"
-    '- declare-task: {"title": "...", "description": "...", "minutes": N, '
-    '"materials": "repo url or path", "conditions": ["..."]}, one move per '
-    "task. Only `title` is required; `conditions` restricts a task to some "
-    "of the study's arms and should be left out unless the researcher means "
-    "it, since a task tied to one condition confounds the two.\n"
-    '- prescribe-statistics: {"recipeId": "paired-nonparametric", "rq": "RQ-1"}. '
-    "Use a recipe from the platform catalogue and point it at a declared research "
-    "question.\n"
-    '- choose-template: {"templateId": "...", "parameters": {...}}\n'
-    '- merge-templates: {"templateIds": ["...", "..."], "reason": "..."} - '
-    "two or more candidate template ids plus why this pairing works (what "
-    "each shape contributes, e.g. objective behaviour data plus self-report "
-    "perception). `refs` should carry each merged template's id.\n"
+    f'[{_SECTION_LIST}], "op": "append" or "set", "value": "..."}}. '
+    'A catalog measure uses value {"catalogId": "id from the menu"}.\n'
+    '- set-field: {"op": "set-field", "path": ["section", "field"], '
+    '"value": ...}. Use an allowed slot key split on dots and its declared '
+    'type. For example the title path is ["study", "title"].\n'
+    '- declare-task: {"id": "existing id when refining", "title": "...", '
+    '"description": "...", "minutes": N, "materials": "repo url or path", '
+    '"conditions": ["..."]}. Only title is required; omit unknown values.\n'
+    '- prescribe-statistics: {"recipeId": "supplied recipe id", "rq": "declared '
+    'RQ id"}. Never target full question text or invent a recipe.\n'
+    '- choose-template: {"templateId": "retrieved id", "parameters": {...}}\n'
+    '- merge-templates: {"templateIds": ["retrieved id", "retrieved id"], '
+    '"reason": "what each contributes"}\n'
     '- add-instrument: {"section": "instruments", "op": "add-instrument" or '
-    '"set-instrument", "name": "...", "config": {...}}\n'
-    '- reconfigure-instrument: {"section": "instruments", "op": '
-    '"reconfigure", "name": "...", "path": ["..."], "value": ...}\n'
-    "- caution: patch is always null."
+    '"set-instrument", "name": "supported instrument key", "config": {...}}. '
+    "Ordinary coding sessions use the standard TERN capture configuration. "
+    "Use actual instrument keys, not producer identifiers or desired outcomes.\n"
+    '- reconfigure-instrument: {"section": "instruments", "op": "reconfigure", '
+    '"name": "supported instrument key", "path": ["..."], "value": ...}\n'
+    "- caution: patch is null. Put rationale in reply text; the card names the "
+    "specific concern and recovery."
 )
 
 
@@ -342,6 +218,38 @@ def _design_state_block(state: dict | None) -> str:
     if not state:
         return ""
     lines = ["Design state so far:"]
+    draft = state.get("draft") or {}
+    if draft:
+        lines.append(
+            "Recorded protocol values: " + json.dumps(draft, ensure_ascii=False)
+        )
+    lines.append(
+        "Declared instruments: " + ", ".join(state.get("instrumentNames") or [])
+    )
+    if state.get("producerCapabilities"):
+        lines.append("Capture capabilities and execution requirements:")
+        for name, producer in state["producerCapabilities"].items():
+            capabilities = "; ".join(
+                f"{key}: {value['state']} ({value['reason']})"
+                for key, value in producer.get("capabilities", {}).items()
+            )
+            lines.append(
+                f"{name}: {producer['state']}; {producer['reason']}; {capabilities}"
+            )
+    notes = [
+        note
+        for note in state.get("researcherNotes") or []
+        if not note.lower().startswith(("i accepted:", "i rejected", "i noted"))
+    ]
+    if notes:
+        notes = list(dict.fromkeys(notes))
+        opening = notes[0][:1_200]
+        recent = "\n".join(notes[1:])[-4_800:]
+        lines.append(
+            "Researcher notes (context, not approvals):\n" + opening + "\n" + recent
+        )
+    if state.get("compileWarnings"):
+        lines.append("Compiler warnings: " + "; ".join(state["compileWarnings"][:5]))
     for title, bucket in (
         ("Accepted (already in the draft, do not re-propose):", "accepted"),
         ("Rejected (the researcher said no, do not re-pitch):", "rejected"),
@@ -374,11 +282,13 @@ def _design_state_block(state: dict | None) -> str:
             "set-field move when the researcher has given you the value, or ask "
             "about one only when they want to settle it."
         )
-    else:
+    elif state.get("compileValid"):
         lines.append(
             "The protocol has every slot it needs and will compile. Do not "
             "tell the researcher something is missing."
         )
+    elif state.get("compileErrors"):
+        lines.append("Compiler corrections: " + "; ".join(state["compileErrors"][:3]))
     if state.get("templateId"):
         lines.append(
             f"Template {state['templateId']} is accepted and prescribes the "
@@ -476,6 +386,8 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
             and "value" in patch
         ):
             canonical = _canonical_slot_path(path)
+            if canonical is None and isinstance(patch.get("section"), str):
+                canonical = _canonical_slot_path([patch["section"], *path])
             if canonical is None:
                 return None
             return {"op": "set-field", "path": canonical, "value": patch["value"]}
@@ -484,7 +396,7 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
         if (
             patch.get("op") in ("add-instrument", "set-instrument")
             and isinstance(patch.get("name"), str)
-            and patch.get("name")
+            and patch.get("name") in VALID_INSTRUMENTS | {"taskTimer"}
             and isinstance(patch.get("config"), dict)
         ):
             return patch
@@ -493,7 +405,7 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
         if (
             patch.get("op") == "reconfigure"
             and isinstance(patch.get("name"), str)
-            and patch.get("name")
+            and patch.get("name") in VALID_INSTRUMENTS | {"taskTimer"}
             and isinstance(patch.get("path"), list)
             and patch["path"]
             and all(isinstance(p, str) for p in patch["path"])
@@ -506,15 +418,26 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
         and patch.get("op") in ("append", "set")
         and "value" in patch
     ):
+        raw_value = patch["value"]
+        if patch["section"] == "conditions":
+            raw_value = _condition_value(raw_value)
         value = (
             _normalize_measure_value(patch["value"])
             if patch["section"] == "measures"
-            else _normalize_value(patch["value"])
+            else _normalize_value(raw_value)
         )
         if value is None:
             return None
         return {"section": patch["section"], "op": patch["op"], "value": value}
     return None
+
+
+def _condition_value(value: object):
+    if isinstance(value, dict):
+        return value.get("name") or value.get("label") or value.get("id")
+    if isinstance(value, list):
+        return [_condition_value(item) for item in value]
+    return value
 
 
 def _normalize_measure_value(value: object):
@@ -659,6 +582,9 @@ def _parse_moves(
             else ()
         )
         # Display text only: the patch keeps the real ids it needs to compile.
+        value = (patch or {}).get("value")
+        if kind == "add-measure" and isinstance(value, dict) and value.get("catalogId"):
+            proposal = f"Measure {value['construct']}."
         proposal = tighten_proposal(sanitize_reply_text(proposal, titles or {}))
         key = _move_dedupe_key(kind, str(m.get("target", "")), proposal, patch)
         if key in seen_keys:
@@ -668,6 +594,20 @@ def _parse_moves(
         if len(out) >= max_cards:
             break
     return tuple(out)
+
+
+def _proposal_issues(raw_moves: object) -> list[str]:
+    """Describe invalid executable patches for one bounded model correction."""
+    if not isinstance(raw_moves, list):
+        return []
+    return [
+        f"{move.get('kind')}: unsupported patch {json.dumps(move.get('patch'))}"
+        for move in raw_moves
+        if isinstance(move, dict)
+        and move.get("kind") in _ALLOWED_KINDS
+        and move.get("kind") != "caution"
+        and _validate_patch(str(move.get("kind")), move.get("patch")) is None
+    ][:3]
 
 
 MAX_TOKENS = 1200
@@ -987,8 +927,19 @@ def _clean_reply(
     next_question: str = "",
 ) -> str:
     if decision_followup:
-        # Deterministic: the model's prose after a decision is never shown.
-        return "Noted." + (f" {next_question.strip()}" if next_question.strip() else "")
+        text = (
+            " ".join(
+                sentence
+                for sentence in _split_sentences(text)
+                if not re.search(
+                    r"\byou (?:accepted|rejected|chose|noted)\b.*\bbecause\b"
+                    r"|\bbecause you (?:want|wanted|prefer|preferred|felt)\b",
+                    sentence,
+                    re.I,
+                )
+            )
+            or "Decision recorded."
+        )
     titles = _title_map(papers, templates)
     # Ids first (the model cites papers by id), so shortening sees the titles.
     text = sanitize_reply_text(strip_filler(trim_repeated_text(text)), titles)
@@ -1009,6 +960,8 @@ def _clean_reply(
             limit, count = CARDS_REPLY_MAX_CHARS, CARDS_REPLY_MAX_SENTENCES
         else:
             limit, count = REPLY_TEXT_MAX_CHARS, 4
+        if decision_followup:
+            limit, count = min(limit, DECISION_REPLY_MAX_CHARS), min(count, 3)
         if question:
             count -= 1
             limit -= len(question) + 1
@@ -1090,6 +1043,7 @@ def _messages(
 
     catalog = "\n".join(
         f"{row['id']}: {row['construct']} ({row['instrument']}); "
+        f"{row['description']}; fields: {', '.join(row['fields'])}; "
         f"within: {row['recipeByDesign']['within-subjects'] or 'unsupported'}; "
         f"between: {row['recipeByDesign']['between-subjects'] or 'unsupported'}"
         for row in measure_catalog()
@@ -1102,10 +1056,35 @@ def _messages(
         "Only propose compatible entries. S10 is a pre-task covariate, not an "
         "outcome. Custom outcomes stay free text until capture is defined. "
         "Catalog membership is not evidence of study validity or model confidence."
+        " Do not substitute a different construct just because it is available. "
+        "A proxy must be named as a proxy, with what it observes and what it misses. "
+        "A custom outcome needs an operational definition and capture path before "
+        "you can claim this study measures it."
     )
     state_block = _design_state_block(design_state)
     if state_block:
         content += f"\n\n{state_block}"
+    from analysis.core import REGISTRY
+
+    from analysis import recipes as _recipes  # noqa: F401 - registers recipes
+
+    content += "\n\nRunnable analyses (choose compatible data):\n"
+    content += (
+        "Generic statistical comparisons do not create measurements. Define "
+        "the observable and capture path before prescribing its analysis. "
+        "A task harness records test outcomes and first-green timing; it does "
+        "not collect arbitrary code metrics. Editor edit bursts record character "
+        "counts, while optional workspace/Git collectors record change summaries. "
+        "Distinguish cumulative editing, net code change, and exact rewrites; "
+        "they are not interchangeable. External collectors need preparation, "
+        "not just an instrument label.\n"
+    )
+    content += "\n".join(
+        f"{recipe.id}: {recipe.title}; needs events "
+        f"{', '.join(sorted(recipe.requires.events)) or 'none'}; metrics "
+        f"{', '.join(sorted(recipe.requires.metrics)) or 'none'}"
+        for recipe in REGISTRY.values()
+    )
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
         *history,
@@ -1181,6 +1160,21 @@ def propose_turn_streaming(
             return Turn(text=salvaged, moves=(), match_query=None)
         if not isinstance(parsed, dict):
             raise ValueError("LLM reply was not a JSON object")
+        issues = _proposal_issues(parsed.get("moves"))
+        if issues:
+            return propose_turn(
+                client,
+                text,
+                history,
+                papers,
+                templates,
+                directive + "\nCorrect these patches using the supported shapes. "
+                "Do not repeat setup questions: " + "; ".join(issues),
+                design_state=design_state,
+                decision_followup=decision_followup,
+                next_question=next_question,
+                _repair=True,
+            )
         moves = _parse_moves(
             parsed.get("moves"),
             candidate_refs,
@@ -1227,6 +1221,7 @@ def propose_turn(
     design_state: dict | None = None,
     decision_followup: bool = False,
     next_question: str = "",
+    _repair: bool = False,
 ) -> Turn | None:
     """
     Ask the configured LLM provider for this turn's prose + proposed moves, constrained
@@ -1252,12 +1247,35 @@ def propose_turn(
         parsed = json.loads(content)
         if not isinstance(parsed, dict):
             raise ValueError("LLM reply was not a JSON object")
+        issues = _proposal_issues(parsed.get("moves"))
+        if issues and not _repair:
+            return propose_turn(
+                client,
+                text,
+                history,
+                papers,
+                templates,
+                directive + "\nCorrect these patches using the supported shapes. "
+                "Do not repeat setup questions: " + "; ".join(issues),
+                design_state=design_state,
+                decision_followup=decision_followup,
+                next_question=next_question,
+                _repair=True,
+            )
         moves = _parse_moves(
             parsed.get("moves"),
             candidate_refs,
             _title_map(papers, templates),
             MAX_BATCH_CARDS if "BATCH INTAKE" in directive else MAX_CARDS,
         )
+        if issues:
+            parsed["text"] = (
+                "Some proposed changes could not be prepared. Review the available "
+                "cards or clarify the remaining choice."
+                if moves
+                else "I could not prepare a supported change for that request. "
+                "The draft remains unchanged."
+            )
         reply_text = _clean_reply(
             str(parsed.get("text", "")).strip(),
             papers,

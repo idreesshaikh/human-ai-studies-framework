@@ -31,7 +31,6 @@ export function compile(
     }
     if (!move.patch) continue; // cautions have no patch
     if (isTemplatePatch(move.patch)) {
-      // The only move kind that can ever fill the mandatory `design` slot.
       draft.design = [move.patch.templateId];
       continue;
     }
@@ -53,19 +52,14 @@ export function compile(
       continue;
     }
     if (isFieldPatch(move.patch)) {
-      // Only participants.* maps onto one of the core sections here  -  the
-      // other fillable slots (session.*, study.*) are administrative detail
-      // this client-side preview does not track. This used to match none of
-      // the type guards at all, so an accepted set-field move silently did
-      // not move the dot it should have: the server's own compile (the
-      // authoritative unresolved list) already reflected it, but the
-      // optimistic preview a researcher watches while deciding did not.
       const path = move.patch.path.join(".");
       if (path === "comparison") {
         const values = legacyComparisonValues(move.patch.value);
         for (const value of values) {
           if (!draft.conditions.includes(value)) draft.conditions.push(value);
         }
+      } else if (path === "participants.design") {
+        draft.design = [asText(move.patch.value)].filter(Boolean);
       } else if (path === "design.conditionOrder") {
         setParticipantLine(draft, "condition order", move.patch.value);
       } else if (move.patch.path[0] === "participants") {
@@ -168,6 +162,7 @@ export function compileAll(
   moves: DesignMove[],
   compiled?: Record<string, unknown>,
 ): ProtocolDraft {
+  if (moves.length === 0 && compiled) return protocolToDraft(compiled);
   if (lastManualEntry(moves) < 0) return compile(emptyDraft(), moves);
   return compiled ? protocolToDraft(compiled) : compile(emptyDraft(), sinceManualEntry(moves));
 }

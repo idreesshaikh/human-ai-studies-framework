@@ -307,6 +307,7 @@ check(await viewer.getByRole("button", { name: "Add paper", exact: true }).count
 await viewer.getByRole("region", { name: "Study paper list", exact: true }).getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
 check(await viewer.getByRole("button", { name: "Save links", exact: true }).count() === 0 && await viewer.getByRole("link", { name: "Open source", exact: true }).isVisible(), "viewers can inspect sources and saved links without editing controls");
 await auditPage(viewer, "read-only Evidence");
+await viewer.unrouteAll({ behavior: "wait" });
 await viewer.close();
 
 const PROTOCOL_ONLY = /\/studies\/[^/]+\/(plan|status|dataset|live|enrollment)(\/|\?|$)/;
@@ -342,8 +343,19 @@ await context.route("**/*", (route) => {
       page.on("request", (r) => requests.push(new URL(r.url()).pathname));
       page.on("console", (m) => m.type() === "error" && consoleErrors.push(m.text()));
       await page.goto(`${base}/p/implicit/studies/${id}?tab=${tab}`);
-      await page.waitForLoadState("networkidle");
-      await page.waitForTimeout(200);
+      if (tab === "enrollment" && !hasProtocol) {
+        await page.getByText("Set up and apply a protocol before creating participant links.", { exact: false }).waitFor();
+      } else if (tab === "library") {
+        await page.getByRole("status").filter({ hasText: "Never refreshed" }).waitFor();
+      } else {
+        const title = {
+          conversation: hasProtocol ? "Review your study draft" : "What would you like to study?",
+          planning: hasProtocol ? "Plan participant recruitment" : "Plan once you have a protocol",
+          enrollment: "No links yet",
+          data: hasProtocol ? "Download study records" : "No data yet",
+        }[tab];
+        await page.getByRole("heading", { name: title, exact: true }).waitFor();
+      }
       const where = `${label}, ${tab} tab`;
       await auditPage(page, where);
       if (!hasProtocol) {
@@ -359,6 +371,10 @@ await context.route("**/*", (route) => {
         if (tab === "library") {
           check(await page.getByRole("status").filter({ hasText: "Never refreshed" }).isVisible(), `${where}: library freshness is visible`);
         }
+      }
+      if (hasProtocol && tab === "conversation") {
+        await page.getByRole("heading", { name: "Review your study draft", exact: true }).waitFor();
+        check(true, "a saved study opens with its draft ready for review");
       }
       await page.evaluate(() => document.querySelectorAll("details").forEach((d) => (d.open = true)));
       const { focusable, doubles } = await page.evaluate(RING_SCAN);
@@ -384,7 +400,11 @@ await context.route("**/*", (route) => {
   for (const path of ["/home", "/repertoire", "/settings", "/p/implicit", "/p/implicit/members", "/p/implicit/settings"]) {
     const page = await context.newPage();
     await page.goto(base + path);
-    await page.waitForLoadState("networkidle");
+    if (path === "/repertoire") {
+      await page.getByText("No literature indexed yet.", { exact: false }).waitFor();
+    } else {
+      await page.getByRole("heading").first().waitFor();
+    }
     await auditPage(page, path);
     if (path === "/p/implicit") {
       check(!/Members|Team|Manage members|Switch project/.test(await page.locator("body").innerText()), "solo project: no team or switching controls");
@@ -425,7 +445,7 @@ await context.route("**/*", (route) => {
   const requests = [];
   page.on("request", (request) => requests.push(new URL(request.url()).pathname));
   await page.goto(`${base}/p/implicit/studies/${bare}?tab=planning`);
-  await page.waitForLoadState("networkidle");
+  await page.getByRole("heading", { name: "Plan once you have a protocol", exact: true }).waitFor();
   for (const name of ["Run", "Data", "Plan", "Run", "Data"]) {
     await page.getByRole("button", { name, exact: true }).click();
     await page.waitForTimeout(100);
@@ -493,7 +513,7 @@ await context.route("**/*", (route) => {
   await page.getByText(/Saved plan \d+/).waitFor();
   check(true, "manual entry and Apply unlock Plan without reloading the page");
   await page.getByRole("button", { name: "Run", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await page.getByRole("heading", { name: "No links yet", exact: true }).waitFor();
   await auditPage(page, "typed protocol Run");
   check(!await page.getByText("Set up and apply a protocol before creating participant links.", { exact: false }).isVisible(), "manual save unlocks Run without reloading");
   await page.getByRole("button", { name: "Create participant links", exact: true }).click();
@@ -519,7 +539,7 @@ await context.route("**/*", (route) => {
   await page.getByRole("heading", { name: "Download study records" }).waitFor();
   await auditPage(page, "typed protocol Data");
   for (const name of ["Data (.zip)", "Design card (.md)", "Replication kit"]) {
-    const download = page.waitForEvent("download");
+    const download = page.waitForEvent("download", { timeout: name === "Replication kit" ? 60_000 : 30_000 });
     await page.getByRole("button", { name, exact: true }).click();
     const file = await download;
     check(await file.failure() === null, `${name}: generated download completes`);
@@ -540,8 +560,10 @@ await context.route("**/*", (route) => {
   await starter.close();
 
   const mutation = await context.newPage();
+  const restored = mutation.waitForResponse(response => response.url().endsWith(`/studies/${bare}/conversation`) && response.request().method() === "GET");
   await mutation.goto(`${base}/p/implicit/studies/${bare}?tab=conversation`);
-  await mutation.waitForLoadState("networkidle");
+  await restored;
+  await mutation.getByRole("textbox", { name: "Message the design assistant", exact: true }).waitFor();
   const original = await mutation.evaluate(() => {
     const button = [...document.querySelectorAll("button")].find((element) => element.offsetParent !== null);
     const parent = button.parentElement;

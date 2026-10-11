@@ -1036,6 +1036,11 @@ def _apply_task_moves(draft: dict, moves: list[dict]) -> list[str]:
         tasks[task_id] = task
     if tasks:
         draft["tasks"] = list(tasks.values())
+        session = draft.setdefault("session", {})
+        if not session.get("taskDescription"):
+            session["taskDescription"] = "; ".join(
+                task.get("description") or task["title"] for task in tasks.values()
+            )
         if int(draft.get("protocolVersion") or 0) < 5:
             draft["protocolVersion"] = 5
     return warnings
@@ -1249,11 +1254,7 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
         failed = []
     else:
         seeded = _seeded_draft(base_yaml)
-        draft = (
-            _refine(seeded, sections)
-            if seeded is not None
-            else _scaffold_from_sections(sections)
-        )
+        draft = _refine(seeded or _scaffold_from_sections(sections), sections)
 
     manual_patch = next(
         (
@@ -1295,6 +1296,9 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
     warnings.extend(_apply_task_moves(draft, moves))
 
     warnings.extend(_apply_field_moves(draft, moves))
+    participants = draft.get("participants") or {}
+    if participants.get("design") == "between-subjects":
+        participants.setdefault("counterbalanced", False)
     if any(isinstance(value, dict) for value in sections["measures"]) and any(
         move.get("status") == "accepted"
         and (move.get("patch") or {}).get("section") == "measures"

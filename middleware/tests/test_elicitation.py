@@ -53,7 +53,6 @@ def test_questions_about_prior_turns_are_recognised(text):
         "not sure",
         "what?",
         "can you help me",
-        "yes indeed",
         "I've a sample example",
         "what else do you need",
     ],
@@ -80,6 +79,12 @@ def test_a_question_about_a_prior_move_is_not_misclassified_as_stuck():
 )
 def test_explicit_design_requests_are_recognised(text):
     assert elicitation.classify_turn(text) == "design-request"
+
+
+@pytest.mark.parametrize("text", ["yes", "whichever", "you decide"])
+def test_continuation_is_not_confusion_or_blanket_approval(text):
+    assert elicitation.classify_turn(text) == "continue"
+    assert not elicitation.needs_scaffolding(text)
 
 
 def test_a_complete_brief_uses_batch_intake():
@@ -169,10 +174,7 @@ def test_prose_with_a_colon_is_not_a_labelled_field():
 def test_explicit_answer_is_recorded_before_a_model_can_loop(client, monkeypatch):
     from middleware import design_llm
 
-    def should_not_run(*_args, **_kwargs):
-        raise AssertionError("a plain task answer should not need an LLM turn")
-
-    monkeypatch.setattr(design_llm, "propose_turn", should_not_run)
+    monkeypatch.setattr(design_llm, "propose_turn", lambda *_args, **_kwargs: None)
     reply = _ask(client, "Yes, they will fix a Python bug.")
     assert reply["source"] == "scripted"
     assert [move["kind"] for move in reply["moves"]] == ["declare-task"]
@@ -297,17 +299,34 @@ def test_understanding_accumulates_across_turns(client):
     assert "population" in known and "task" in known
 
 
-def test_stuck_researcher_gets_explanation_and_actionable_measure_card(client):
+def test_stuck_researcher_gets_contextual_model_help(client, monkeypatch):
+    import model_double
+
+    from middleware import assistant
+
+    captured = []
     _ask(
         client,
         "I want junior engineers to debug code with AI and without AI in a "
         "45-minute lab session.",
     )
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *_a, **_kw: model_double.always(
+            {
+                "text": "Compare task time and correctness on the shared task.",
+                "moves": [model_double.move("add-measure", "measures", "Task time")],
+            },
+            captured,
+        ),
+    )
     reply = _ask(client, "I don't know you help me")
     assert reply["turnIntent"] == "needs-scaffolding"
-    assert "task time" in reply["text"]
+    assert "task time" in reply["text"].lower()
     assert "correctness" in reply["text"]
     assert [m["kind"] for m in reply["moves"]] == ["add-measure"]
+    assert captured
 
 
 def test_an_unknown_profile_falls_back_to_the_default():

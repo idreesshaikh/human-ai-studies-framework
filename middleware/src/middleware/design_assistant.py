@@ -9,11 +9,12 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from protocol.capture import producer_capabilities
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from middleware import compiler, elicitation, matching
-from middleware.db import ConversationTurn, DesignMoveRow
+from middleware.db import ConversationTurn, DesignMoveRow, ProtocolDraftRow
 from middleware.template_registry import list_templates
 
 log = logging.getLogger(__name__)
@@ -25,7 +26,8 @@ _LLM_HISTORY_TURNS = 8
 _LLM_HISTORY_TEXT_CHARS = 1_200
 
 _STATE_MOVE_CAP = 30
-_BATCH_MOVE_CAP = 12
+_BATCH_MOVE_CAP = 8
+_GROUP_MOVE_CAP = 3
 
 # Near-duplicate thresholds (tunable): two moves are the same move when their content
 # terms overlap this much (denominator: the smaller term set, so a short prior move
@@ -561,14 +563,25 @@ def turn_stance(
     profile: str | None = None,
     steer: str | None = None,
     decision: dict | None = None,
+    state: dict | None = None,
 ) -> dict:
     """What this turn is, how much is understood, and what may be proposed."""
     prior = researcher_texts(s, study_id)
     scope = elicitation.classify_scope([*prior, text])
     understanding = elicitation.assess_understanding([*prior, text])
+    for facet in elicitation.FACETS:
+        if _facet_settled_in_state(facet, state):
+            understanding[facet] = True
     explicit_moves = _explicit_moves(text)
-    batch_intake = elicitation.is_complete_brief(text) or len(explicit_moves) > 1
     intent = elicitation.classify_turn(text)
+    batch_intake = (
+        elicitation.is_complete_brief(text)
+        or len(explicit_moves) > 1
+        or (
+            intent in {"design-request", "continue"}
+            and elicitation.ready_for_design(understanding)
+        )
+    )
     templates = list_templates()
     # A follow-up question never counts, or "why the crossover?" would re-propose the
     # crossover.
@@ -590,7 +603,13 @@ def turn_stance(
         "intent": intent,
         "steer": steer if steer in elicitation.STEER_LEVELS else None,
         "profile": declared or elicitation.steer_profile(steer),
-        "understanding": elicitation.understanding_summary(understanding),
+        "understanding": {
+            **elicitation.understanding_summary(understanding),
+            "protocolReady": bool((state or {}).get("compileValid")),
+            "openChoices": [
+                slot["label"] for slot in (state or {}).get("outstandingSlots") or []
+            ],
+        },
         "nextQuestion": elicitation.next_question(understanding),
         "namedDesign": named_design,
         "decisionAction": decision_action,
@@ -600,7 +619,7 @@ def turn_stance(
         or elicitation.ready_for_design(
             understanding, requested=intent == "design-request"
         ),
-        "mayProposeMoves": not decision_action
+        "mayProposeMoves": decision_action in {None, "accepted"}
         and intent != "followup-question"
         and elicitation.proposals_permitted(steer),
     }
@@ -637,12 +656,9 @@ def _explicit_turn(stance: dict, state: dict | None = None) -> Turn | None:
     moves = protocol_moves
     kept = _filter_repeated_moves(moves, state)
     if not kept:
-        recorded = " ".join(m.proposal.strip() for m in moves[:3] if m.proposal)
-        question = (stance.get("nextQuestion") or "").strip() or (
-            "What would you like to settle next?"
-        )
         return Turn(
-            text=f"Noted, this is already in the draft: {recorded} {question}",
+            text="That detail has already been considered. "
+            + _progress_turn(state).text,
             moves=(),
         )
     count = len(kept)
@@ -711,290 +727,102 @@ def _slot_directive(state: dict | None) -> str:
 
 
 def _directive(stance: dict, state: dict | None = None) -> str:
-    """The stance as this turn's instruction to the model."""
-    understanding = stance["understanding"]
+    """Choose the response mode from the conversation and compiled protocol."""
     lines = [
         elicitation.profile_guidance(stance["profile"]),
         elicitation.steer_guidance(stance.get("steer")),
+        "Use the compiled draft and researcher notes as working memory. "
+        "Accepted values are recorded; notes are context; new cards are proposals. "
+        "Never ask again for a value present in either. If a stated fact is not "
+        "recorded yet, propose its patch instead of asking them to repeat it.",
     ]
-
+    action = stance.get("decisionAction")
+    if action:
+        lines.append(
+            f"CARD DECISION: {action}. Acknowledge it neutrally, without inventing "
+            "the researcher's motive. The acceptance echo is not a new brief."
+        )
+        if action != "accepted" or (state or {}).get("proposed"):
+            lines.append(
+                "Return no new moves while this decision or other pending cards "
+                "need review. Explain the remaining choice or invite a correction."
+            )
+            return "\n\n".join(lines)
+        lines.append(
+            "Advance to the next safe, reviewable choice using the recorded facts. "
+            "Do not merely acknowledge and ask another setup question."
+        )
+    if stance["intent"] == "followup-question":
+        lines.append(
+            "QUESTION ABOUT WHAT YOU ALREADY SAID. Answer it directly, with "
+            "the relevant reasoning and retrieved evidence. Return no new "
+            "proposals except a caution needed to answer it."
+        )
+        return "\n\n".join(lines)
     if stance.get("batchIntake"):
         lines.append(
-            "BATCH INTAKE. The researcher supplied a complete brief in one message. "
-            "Extract every explicit protocol fact from it now. Return one move for "
-            "each distinct section or value you can safely record, including the "
-            "task, population, comparison, measures, constraints, research question, "
-            "and matching design when the brief supports them. Return the batch in "
-            "this response instead of asking for those facts one by one. Do not "
-            "invent values for details they did not state. You may leave a genuinely "
-            "missing slot open and name it briefly after the batch. This instruction "
-            "overrides the normal one-move pace for this turn only."
+            "BATCH INTAKE. Use the accumulated study brief to propose a coherent "
+            "group of missing decisions in this response, up to eight cards. "
+            "Preserve accepted values. State assumptions as recommendations "
+            "and keep them reviewable; never present guessed values as facts."
+            " Prioritize the required open slots below. Preserve recorded choices; "
+            "do not spend this turn rewriting task wording or adding optional "
+            "refinements. Record known conditions even if their explanation appeared "
+            "in an earlier reply: discussion is not a saved condition."
         )
-
-    if stance.get("decisionAction"):
-        action = stance["decisionAction"]
-        lines.append(
-            "THIS IS AN AUTOMATIC FOLLOW-UP TO A CARD DECISION. The researcher "
-            f"just {action} the move identified in the design state. Do not "
-            "propose any move in this response. Return an empty `moves` array. "
-            "Never state, guess or imply why the researcher accepted, rejected, "
-            "noted or undid the card: they gave no reason, so do not invent one "
-            "and do not explain what the proposal was trying to do. Acknowledge "
-            "the decision neutrally (for example 'Noted: you rejected that "
-            "choice.') and continue. Reply in at most three sentences in total, "
-            "ending with one next question only if the researcher has not "
-            "redirected or deferred. Do not force the first outstanding decision "
-            "or a prescribed order. Do not re-propose or restate the decided "
-            "move, and only restate details that appear as accepted moves in the "
-            "state block. The response must be useful even if the researcher "
-            "only answers that one question."
-        )
-        lines.append(_slot_directive(state))
-        return "\n\n".join(lines)
-
-    if stance["intent"] == "needs-scaffolding":
-        lines.append(
-            "THE RESEARCHER IS STUCK. Give two or three concrete options for the "
-            "first missing facet, tied to this study, with the trade-off of each "
-            "in a clause. Do not define basic research concepts. Do not repeat "
-            "the generic question verbatim. Close with exactly one specific "
-            "question and, when a safe concrete measure or task can help, propose "
-            "one move card. Do not invent a value they have not supplied."
-        )
-    elif stance["intent"] == "followup-question":
-        lines.append(
-            "THIS TURN IS A QUESTION ABOUT WHAT YOU ALREADY SAID. Answer it "
-            "directly in `text`, naming the specific move you proposed and the "
-            "reasoning and papers behind it (they are in the history above). "
-            "Return an EMPTY `moves` array unless a `caution` is genuinely "
-            "part of the answer. Do not offer new proposals in place of an "
-            "answer, and do not change the subject."
-        )
-    if understanding["missing"]:
-        lines.append(
-            "STILL UNKNOWN about this study: "
-            + ", ".join(understanding["missingLabels"])
-            + ". Offer one of these as the next focus only if it is useful. "
-            "Ask one question in your own words, informed by what they have "
-            "already told you. A good next question is: "
-            + (stance["nextQuestion"] or "(none)")
-        )
-        if stance["intent"] == "followup-question":
-            lines.append(
-                "Answer the question before doing anything else. Do not attach "
-                "a new design move to this explanation."
-            )
-        elif stance["intent"] == "needs-scaffolding":
-            lines.append(
-                "Use an explanation plus concrete options, not another open-ended "
-                "request for the same missing facet."
-            )
-        elif not stance.get("batchIntake"):
-            lines.append(
-                "ONE STEP ONLY. Help the researcher with one useful facet, not "
-                "necessarily the first missing facet. Never restate their idea "
-                "back to them. Ask exactly one specific question that unblocks "
-                "the protocol. If their latest message "
-                "contains one concrete task, measure, "
-                "research question, or protocol value, record only that safe "
-                "fact as one move. Do not propose a design shape yet."
-            )
     else:
         lines.append(
-            "You now know who takes part, what they do, what is compared, "
-            "what is measured, and what is possible. That is enough to design."
+            "Offer up to three related, executable choices when enough is known. "
+            "Keep a risk beside the choice it affects. Ask at most one focused "
+            "question only when the answer changes the plan; no question is "
+            "needed when you can already offer the next choice for review."
         )
-    if not stance["mayProposeDesign"]:
+    if stance["intent"] in {"needs-scaffolding", "continue"}:
         lines.append(
-            "DO NOT propose a choose-template or merge-templates move this "
-            "turn: too little of the study is understood for a design shape "
-            "to be a considered choice rather than a guess, and one would be "
-            "discarded before the researcher ever saw it. Keep drawing the "
-            "idea out instead. "
-            f"({len(understanding['known'])} of {understanding['facetsNeeded']} "
-            "needed facets known.)"
-        )
-    elif stance.get("namedDesign"):
-        lines.append(
-            "The researcher named a design themselves. Record it rather than "
-            "second-guessing them: propose the matching template, and note "
-            "any assumption it carries that they may want to correct."
-        )
-    elif stance["intent"] == "design-request":
-        lines.append(
-            "The researcher has explicitly asked you to name a design. Do so "
-            "State plainly which of your assumptions it rests on, so a "
-            "wrong one is easy for them to correct."
+            "The researcher wants help moving forward. A short yes is not "
+            "confusion or blanket approval. Use the preceding exchange to "
+            "recommend the next step. For uncertainty, explain a defensible "
+            "default or a concrete trade-off tied to this study; do not restart "
+            "the questionnaire or switch to a generic example task."
         )
     if stance["mayProposeDesign"]:
         lines.append(
-            "If no single candidate template fits the study but two or three "
-            "together would, propose a `merge-templates` move instead of "
-            "forcing the closest single shape."
+            "Enough to design. Recommend a defensible design or record the "
+            "researcher's chosen design. Distinguish a recommendation from a "
+            "requirement and explain the relevant trade-off. A causal research "
+            "question alone does not require independent groups."
         )
-        lines.append(_slot_directive(state))
+        if stance.get("namedDesign"):
+            lines.append(
+                "The researcher named a design themselves. Record that choice "
+                "and identify any assumption that needs review."
+            )
+        elif stance["intent"] == "design-request":
+            lines.append(
+                "They explicitly asked you to name a design. Offer a reviewable "
+                "recommendation, with the assumptions and alternatives that matter."
+            )
+    else:
+        lines.append(
+            "Do not propose choose-template or merge-templates yet. Clarify "
+            "the decision that changes the study, while retaining safe facts "
+            "as executable cards."
+        )
+    if stance.get("explicitMoves"):
+        lines.append(
+            "This turn contains explicit facts that will be included as cards. "
+            "Explain how they advance the plan and add only distinct useful choices."
+        )
+    lines.append(_slot_directive(state))
+    if state and state.get("outstandingSlots"):
+        lines.append(
+            "Executable next choices: conditions use set-parameter with section "
+            "conditions and op append; instruments use add-instrument with a real "
+            "instrument key; a title uses set-field at study.title. An analysis "
+            "uses prescribe-statistics with a declared RQ id once its observable "
+            "is defined. Never let a cosmetic refinement block these choices."
+        )
     return "\n\n".join(lines)
-
-
-def _scaffolding_turn(
-    stance: dict, papers: list[dict], state: dict | None = None
-) -> Turn:
-    """Give a stuck researcher a useful explanation and one visible next move.
-
-    This is intentionally deterministic. A low-information reply is the one place
-    where asking the model to improvise is least reliable: it can mirror the same
-    unanswered question forever. The card remains a proposal, so the researcher is
-    still the person who decides what enters the protocol.
-    """
-    understanding = stance.get("understanding") or {}
-    if not understanding.get("known"):
-        return Turn(
-            text=(
-                "Start with the question you want to answer, in plain language. "
-                "For example: does AI assistance change how junior developers debug "
-                "code? What do you want to find out?"
-            ),
-            moves=(),
-        )
-    missing = [
-        facet
-        for facet in (understanding.get("missing") or [])
-        if not _facet_settled_in_state(facet, state)
-    ]
-    if not missing:
-        if state and not state.get("outstandingSlots"):
-            if state.get("compileValid") is False:
-                return Turn(
-                    text=(
-                        "The choices are recorded, but the draft still needs a "
-                        "compiler correction before it can run."
-                    ),
-                    moves=(),
-                )
-            return Turn(
-                text=(
-                    "The protocol is complete and valid. I will not invent another "
-                    "question. Review the draft when you are ready."
-                ),
-                moves=(),
-            )
-        if state and state.get("outstandingSlots"):
-            slot = state["outstandingSlots"][0]
-            question = (
-                slot.get("question") or f"What is your choice for {slot['label']}?"
-            )
-            return Turn(
-                text=f"Your confirmed decisions are in the draft. {question}",
-                moves=(),
-            )
-        return Turn(
-            text=(
-                "The study is understood enough to make a design choice. "
-                "What would you like to settle next?"
-            ),
-            moves=(),
-        )
-    facet = missing[0]
-    copy: dict[str, tuple[str, ProposedMove | None]] = {
-        "population": (
-            "A practical starting population is junior engineers who already use AI "
-            "coding tools. This records who the study is about without guessing a "
-            "sample size.",
-            ProposedMove(
-                "set-parameter",
-                "participants[]",
-                "Recruit junior engineers who regularly use AI coding tools.",
-                {
-                    "section": "participants",
-                    "op": "append",
-                    "value": "junior engineers who regularly use AI coding tools",
-                },
-                (),
-            ),
-        ),
-        "task": (
-            "A concrete task keeps the study reproducible: have participants complete "
-            "a small bug-fixing task on a shared project.",
-            ProposedMove(
-                "declare-task",
-                "tasks[]",
-                "Have participants complete a small bug-fixing task on a shared "
-                "project.",
-                {
-                    "title": "Complete a small bug-fixing task on a shared project",
-                    "description": (
-                        "Participants diagnose and fix the same kind of project issue."
-                    ),
-                },
-                (),
-            ),
-        ),
-        "comparison": (
-            "That is okay. A comparison is what you put side by side: for example, "
-            "AI-assisted work versus unassisted work, or the same people before and "
-            "after using AI. Which comparison matches your aim?",
-            None,
-        ),
-        "outcome": (
-            "Measure correctness alongside task time because it "
-            "shows whether the completed work is actually right, using passed tests "
-            "and substantive defects.",
-            ProposedMove(
-                "add-measure",
-                "measures[]",
-                "Measure solution correctness by counting passed test cases and "
-                "substantive defects.",
-                {
-                    "section": "measures",
-                    "op": "append",
-                    "value": (
-                        "solution correctness: passed test cases and "
-                        "substantive defects"
-                    ),
-                },
-                tuple(p["ref"] for p in papers[:1] if p.get("ref")),
-            ),
-        ),
-        "constraints": (
-            "That is okay. Practical constraints are the limits that make the study "
-            "real, such as session length, setting, or data you can access. Which "
-            "limit should we plan around first?",
-            None,
-        ),
-    }
-    text, move = copy.get(
-        facet,
-        (
-            "That is okay. We can leave that choice open and work on whichever "
-            "thread is useful next: who takes part, what they do, what is compared, "
-            "or what we measure.",
-            None,
-        ),
-    )
-    if move and not _filter_repeated_moves((move,), state):
-        # A rejected or still-pending suggestion must not be shown again as if
-        # the researcher never answered. Keep the next turn useful by naming
-        # the actual choice instead of looping the same example.
-        if facet == "task":
-            text = (
-                "The example task is only a starting point, and I will not repeat it. "
-                "What is the actual work: writing code, debugging a defect, or "
-                "AI-generated code?"
-            )
-        elif facet == "population":
-            text = (
-                "The participant example is only a starting point, and I will not "
-                "repeat it. "
-                "Who can you realistically recruit, and roughly how many people?"
-            )
-        elif facet == "outcome":
-            text = (
-                "The correctness measure is only a starting point, and I will not "
-                "repeat it. Which result matters most here: time, correctness, "
-                "review quality, or understanding?"
-            )
-        move = None
-    return Turn(text=text, moves=(move,) if move else ())
 
 
 def _facet_settled_in_state(facet: str, state: dict | None) -> bool:
@@ -1012,7 +840,9 @@ def _facet_settled_in_state(facet: str, state: dict | None) -> bool:
     if facet == "comparison":
         return "conditions" in filled or "conditions" not in outstanding
     if facet == "outcome":
-        return "measures" in filled
+        return "measures" in filled or bool(
+            (state.get("draft") or {}).get("analysisPlan")
+        )
     if facet == "constraints":
         return bool(state.get("sessionMinutes")) or (
             "session.durationMinutes" not in outstanding
@@ -1038,15 +868,12 @@ def _permitted_moves(
 ) -> tuple[ProposedMove, ...]:
     """Apply the stance to a script's moves  -  the enforcement half.
 
-    The model is normally instructed to make one proposal at a time, but that
-    rule must also hold when a provider returns a verbose turn or an older prompt
-    is in use. A complete brief is the deliberate exception: keep the full safe
-    batch together so the researcher can review it in one pass. Otherwise keep
-    one permitted move, with a grounded caution taking priority over an action
-    when both are present. A risk is the decision the researcher needs to see
-    before accepting a new protocol choice.
+    Keep related choices together, with the same permission and design-readiness
+    boundaries as a single choice. Pending decisions pause automatic advancement.
     """
-    if stance.get("decisionAction"):
+    if stance.get("decisionAction") and (
+        stance["decisionAction"] != "accepted" or (state or {}).get("proposed")
+    ):
         return ()
     candidates = []
     for move in moves:
@@ -1080,22 +907,9 @@ def _permitted_moves(
     if not candidates:
         return ()
     if stance.get("batchIntake"):
-        # A complete brief is the explicit exception to the one-card teaching
-        # rhythm. Keep every distinct, validated proposal together so the
-        # researcher can review the complete setup in one pass.
         return tuple(candidates[:_BATCH_MOVE_CAP])
 
-    chosen = next(
-        (move for move in candidates if move.kind == "caution"),
-        candidates[0],
-    )
-    chosen = (chosen,) if chosen is not None else ()
-    if len(candidates) > len(chosen):
-        log.info(
-            "held back %d move(s): the conversation offers one decision at a time",
-            len(candidates) - len(chosen),
-        )
-    return chosen
+    return tuple(candidates[:_GROUP_MOVE_CAP])
 
 
 def _move_key_text(proposal: str, patch: dict | None) -> str:
@@ -1144,6 +958,7 @@ def _filter_repeated_moves(
         return moves
     content = state.get("keyTexts") or []
     advisory = state.get("advisoryTexts") or []
+    by_target = state.get("keysByTarget")
     template_ids = set(state.get("templateIds") or [])
     merge_keys = set(state.get("mergeKeys") or [])
     kept = []
@@ -1158,11 +973,26 @@ def _filter_repeated_moves(
                 continue
         else:
             key = _move_key_text(sm.proposal, sm.patch)
-            prior = content if sm.patch else [*content, *advisory]
+            prior = (
+                by_target.get(_patch_target(sm.target, sm.patch), [])
+                if by_target is not None and sm.patch
+                else content
+                if sm.patch
+                else [*content, *advisory]
+            )
             if any(_is_near_duplicate(key, p) for p in prior):
                 continue
         kept.append(sm)
     return tuple(kept)
+
+
+def _patch_target(target: str, patch: dict | None) -> str:
+    """A shared fact can legitimately fill different protocol fields."""
+    patch = patch or {}
+    path = patch.get("path")
+    if isinstance(path, list):
+        return ".".join(path)
+    return str(patch.get("section") or target.removesuffix("[]"))
 
 
 def _repeats_platform_reply(s: Session, study_id: str | None, text: str) -> bool:
@@ -1225,11 +1055,12 @@ def _progress_turn(state: dict | None) -> Turn:
         )
     outstanding = state.get("outstandingSlots") or []
     if outstanding:
-        slot = str(outstanding[0].get("label") or "the next protocol choice")
+        slot = outstanding[0]
+        label = str(slot.get("label") or "the next protocol choice")
         return Turn(
             text=(
-                f"The next open protocol choice is {slot}. State the value you "
-                "want in one sentence and I will prepare it for review."
+                f"The next open protocol choice is {label}. "
+                + (slot.get("question") or "State the value you want to use.")
             ),
             moves=(),
         )
@@ -1257,8 +1088,7 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         .where(DesignMoveRow.study_id == study_id)
         .order_by(ConversationTurn.seq, DesignMoveRow.seq)
     ).all()
-    if not rows:
-        return None
+    saved = s.get(ProtocolDraftRow, study_id)
     moves = [
         {
             "moveId": row.id,
@@ -1271,7 +1101,7 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         }
         for row in rows
     ]
-    result = compiler.compile_moves(moves)
+    result = compiler.compile_moves(moves, base_yaml=saved.yaml if saved else None)
     sections = compiler.compile_sections(moves)
     has_instrument = any(
         m["status"] == "accepted"
@@ -1289,7 +1119,8 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
     )
     draft_values = {
         "researchQuestions": result.draft.get("researchQuestions"),
-        "design": result.draft.get("design")
+        "design": (result.draft.get("participants") or {}).get("design")
+        or result.draft.get("design")
         or result.template_id is not None
         or has_merged,
         "participants": result.draft.get("participants"),
@@ -1309,6 +1140,7 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
     empty = [sec for sec in conversation_sections if sec not in filled]
     buckets: dict[str, list[dict]] = {"accepted": [], "rejected": [], "proposed": []}
     key_texts: list[str] = []
+    keys_by_target: dict[str, list[str]] = {}
     advisory_texts: list[str] = []
     template_ids: list[str] = []
     merge_keys: list[str] = []
@@ -1333,9 +1165,13 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         # Kept apart so a section move addressing a caution's concern is never mistaken
         # for a repeat of it (see _filter_repeated_moves).
         key = _move_key_text(m["proposal"], m["patch"])
+        if m["patch"]:
+            keys_by_target.setdefault(
+                _patch_target(m["target"], m["patch"]), []
+            ).append(key)
         (key_texts if m["patch"] else advisory_texts).append(key)
         bucket = buckets.get(m["status"])
-        if bucket is not None and len(bucket) < _STATE_MOVE_CAP:
+        if bucket is not None:
             bucket.append(
                 {"kind": m["kind"], "section": section, "proposal": m["proposal"]}
             )
@@ -1352,7 +1188,24 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
     session = result.draft.get("session") or {}
     tasks = result.draft.get("tasks") or []
     return {
-        **buckets,
+        "draft": {
+            key: result.draft[key]
+            for key in (
+                "study",
+                "researchQuestions",
+                "participants",
+                "conditions",
+                "tasks",
+                "session",
+                "measures",
+                "analysisPlan",
+            )
+            if key in result.draft
+        },
+        "instrumentNames": list((result.draft.get("instruments") or {}).keys()),
+        "producerCapabilities": producer_capabilities(result.draft),
+        "researcherNotes": list(dict.fromkeys(researcher_texts(s, study_id))),
+        **{key: values[-_STATE_MOVE_CAP:] for key, values in buckets.items()},
         "filled": filled,
         "empty": empty,
         "outstandingSlots": outstanding,
@@ -1371,6 +1224,7 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
         "templateIds": template_ids,
         "mergeKeys": merge_keys,
         "keyTexts": key_texts,
+        "keysByTarget": keys_by_target,
         "advisoryTexts": advisory_texts,
     }
 
@@ -1388,6 +1242,7 @@ def respond(
     decision: dict | None = None,
 ) -> dict:
     """One platform turn responding to researcher ``text``."""
+    state = _load_design_state(s, study_id)
     stance = turn_stance(
         s,
         text,
@@ -1395,8 +1250,8 @@ def respond(
         profile=profile,
         steer=steer,
         decision=decision,
+        state=state,
     )
-    state = _load_design_state(s, study_id)
     if stance["scope"] == "out-of-scope":
         return _assemble(
             s,
@@ -1412,7 +1267,7 @@ def respond(
             suppress_recommendations=True,
         )
     explicit = _explicit_turn(stance, state)
-    if explicit is not None and not stance.get("namedDesign"):
+    if client is None and explicit is not None and not stance.get("namedDesign"):
         return _assemble(
             s,
             text,
@@ -1428,11 +1283,11 @@ def respond(
     papers, templates, history = _retrieve(
         s, text, study_id, history, decision=decision
     )
-    if stance["intent"] == "needs-scaffolding":
+    if client is None and stance["intent"] == "needs-scaffolding":
         return _assemble(
             s,
             text,
-            _scaffolding_turn(stance, papers, state),
+            _progress_turn(state),
             llm_recommendations=papers,
             seq=seq,
             study_id=study_id,
@@ -1487,7 +1342,7 @@ def respond(
                 source="scripted",
             )
         raise ModelUnavailable(MODEL_SILENT)
-    if len(stance.get("explicitMoves") or ()) > 1:
+    if stance.get("explicitMoves"):
         explicit_moves = _filter_repeated_moves(tuple(stance["explicitMoves"]), state)
         if explicit_moves:
             turn = Turn(
@@ -1524,7 +1379,7 @@ def _retrieve(
     # Explicit history takes precedence over the study's stored turns.
     if history is None:
         history = _load_history(s, study_id)
-    if decision is not None:
+    if decision is not None and decision.get("action") != "accepted":
         # Accept/reject text is an audit event, not a new research idea. Searching
         # it was how tiny fragments such as "let" displaced the study's useful
         # literature with accidental papers in the recommender rail.
@@ -1541,7 +1396,9 @@ def _retrieve(
     # and a bounded recent window so retrieval stays topical without growing forever.
     anchors = researcher_context[:2]
     recent = researcher_context[-8:]
-    retrieval_parts = list(dict.fromkeys((*anchors, *recent, text)))
+    retrieval_parts = list(
+        dict.fromkeys((*anchors, *recent, text if not decision else ""))
+    )
     retrieval_query = " ".join(retrieval_parts).strip()[:6000]
     papers = matching.match_papers(
         s,
@@ -1555,7 +1412,7 @@ def _retrieve(
         # The standalone corpus search can still opt into expansion.
         expand=False,
     )
-    templates = recommend_templates(text, support=corpus_support(s))
+    templates = recommend_templates(retrieval_query, support=corpus_support(s))
     return papers, templates, history
 
 
@@ -1572,6 +1429,7 @@ def respond_streaming(
     decision: dict | None = None,
 ):
     """:func:`respond`, yielding the reply's prose as the model writes it."""
+    state = _load_design_state(s, study_id)
     stance = turn_stance(
         s,
         text,
@@ -1579,8 +1437,8 @@ def respond_streaming(
         profile=profile,
         steer=steer,
         decision=decision,
+        state=state,
     )
-    state = _load_design_state(s, study_id)
     if stance["scope"] == "out-of-scope":
         turn = _scope_turn(stance["scope"])
         if turn.text:
@@ -1599,7 +1457,7 @@ def respond_streaming(
             suppress_recommendations=True,
         )
     explicit = _explicit_turn(stance, state)
-    if explicit is not None and not stance.get("namedDesign"):
+    if client is None and explicit is not None and not stance.get("namedDesign"):
         if explicit.text:
             yield explicit.text
         return _assemble(
@@ -1617,8 +1475,8 @@ def respond_streaming(
     papers, templates, history = _retrieve(
         s, text, study_id, history, decision=decision
     )
-    if stance["intent"] == "needs-scaffolding":
-        turn = _scaffolding_turn(stance, papers, state)
+    if client is None and stance["intent"] == "needs-scaffolding":
+        turn = _progress_turn(state)
         if turn.text:
             yield turn.text
         return _assemble(
@@ -1697,7 +1555,7 @@ def respond_streaming(
                 source="scripted",
             )
         raise ModelUnavailable(MODEL_SILENT)
-    if len(stance.get("explicitMoves") or ()) > 1:
+    if stance.get("explicitMoves"):
         explicit_moves = _filter_repeated_moves(tuple(stance["explicitMoves"]), state)
         if explicit_moves:
             turn = Turn(
@@ -1718,13 +1576,13 @@ def respond_streaming(
     )
 
 
-def _dedupe_turn(turn: Turn, text: str) -> Turn:
+def _dedupe_turn(turn: Turn, text: str, *, batch: bool = False) -> Turn:
     """Collapse duplicate cards after explicit and model moves are merged."""
     from middleware import design_llm
 
     cap = (
         design_llm.MAX_BATCH_CARDS
-        if elicitation.is_complete_brief(text)
+        if batch or elicitation.is_complete_brief(text)
         else design_llm.MAX_CARDS
     )
     moves = design_llm.dedupe_moves(turn.moves, cap)
@@ -1752,31 +1610,18 @@ def _assemble(
     against retrieved rows, recommendations, and the design recommender's
     prescription/figures.
     """
-    turn = _dedupe_turn(turn, text)
-    had_model_moves = bool(turn.moves)
+    turn = _dedupe_turn(turn, text, batch=bool(stance.get("batchIntake")))
     kept = _filter_repeated_moves(turn.moves, state)
     if kept != turn.moves:
         turn = Turn(turn.text, kept, turn.match_query)
     permitted = _permitted_moves(kept, stance, state)
-    if (
-        not permitted
-        and not had_model_moves
-        and stance.get("mayProposeMoves")
-        and stance.get("intent") != "followup-question"
-        and not suppress_recommendations
+    if not permitted and (
+        _repeats_platform_reply(s, study_id, turn.text)
+        or (
+            stance.get("mayProposeMoves")
+            and turn.text.strip().lower() in {"noted.", "decision recorded."}
+        )
     ):
-        # The model's prose is still valuable, but a prose-only turn leaves the
-        # researcher with nothing to decide. Use the same constrained
-        # scaffolding card as the explicit "what?" path, then run it through
-        # the exact same repetition and steer gates as model-authored moves.
-        guided = _scaffolding_turn(stance, llm_recommendations or [], state)
-        guided_kept = _filter_repeated_moves(guided.moves, state)
-        guided_permitted = _permitted_moves(guided_kept, stance, state)
-        if guided_permitted:
-            turn = Turn(turn.text, guided_kept, turn.match_query)
-            kept = guided_kept
-            permitted = guided_permitted
-    if not permitted and _repeats_platform_reply(s, study_id, turn.text):
         # The provider has supplied no new decision and has repeated a recent
         # question. Switch to durable state rather than letting prose history
         # grow until the researcher abandons the conversation.

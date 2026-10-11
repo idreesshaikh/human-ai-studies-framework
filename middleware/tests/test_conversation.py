@@ -130,7 +130,7 @@ def test_over_trust_moves_are_grounded_only_in_retrieved(client):
     assert grounded, "at least one move must be grounded"
     refs = {g["ref"] for g in grounded if g["ref"] != "none"}
     assert "corpus:trust-in-ai-code-generation" in refs
-    assert len(reply["moves"]) == 1
+    assert 1 <= len(reply["moves"]) <= 3
 
 
 def test_recommendations_surface_the_two_demo_papers(client):
@@ -199,11 +199,14 @@ def _drive_to_valid_draft(client) -> dict:
     protocol draft, all in-conversation (F1.1).
     """
     _ask(client, _STUDY_SKETCH)
-    reply = _ask(client, (
-        "what design and statistics should I use? I was thinking "
-        "within-subjects, with each developer doing both conditions "
-        "counterbalanced"
-    ))
+    reply = _ask(
+        client,
+        (
+            "what design and statistics should I use? I was thinking "
+            "within-subjects, with each developer doing both conditions "
+            "counterbalanced"
+        ),
+    )
     template_moves = [m for m in reply["moves"] if m["kind"] == "choose-template"]
     assert template_moves, "the design script must propose a template"
     for m in template_moves:
@@ -227,6 +230,32 @@ def test_compile_is_deterministic(client):
     first = _drive_to_valid_draft(client)
     second = _compile(client)
     assert first["yaml"] == second["yaml"]
+
+
+def test_seeded_protocol_is_remembered_without_design_moves(client, monkeypatch):
+    seed = client.post(
+        "/templates/two-group-rct-v1/instantiate", json={"parameters": {}}
+    ).json()["protocol"]
+    created = client.post(
+        "/projects/implicit/studies",
+        json={"name": "Remembered study", "protocol": seed},
+    )
+    assert created.status_code == 200
+    study = created.json()["id"]
+    monkeypatch.setattr(
+        assistant, "make_client", lambda *_a, **_kw: model_double.silent()
+    )
+    response = client.post(
+        f"/studies/{study}/conversation/turns", json={"text": "yes"}
+    )
+    assert response.status_code == 200
+    reply = response.json()
+    assert reply["understanding"]["protocolReady"]
+    assert reply["moves"] == []
+    assert "Review" in reply["text"]
+    assert client.get(f"/studies/{study}/conversation").json()["understanding"][
+        "protocolReady"
+    ]
 
 
 def test_delete_removes_a_study_with_moves_and_an_approval(client):
@@ -512,25 +541,23 @@ def test_llm_configured_and_healthy_produces_an_llm_sourced_turn(client, monkeyp
     turn = _ask(client, "junior developers over-trust AI code")
     assert turn["source"] == "llm"
     assert turn["text"] == "Let's ground this in the corpus."
-    assert len(turn["moves"]) == 1
-    assert turn["moves"][0]["kind"] == "add-measure"
-    grounded_refs = {g["ref"] for g in turn["moves"][0]["grounding"]}
+    measure = next(m for m in turn["moves"] if m["kind"] == "add-measure")
+    grounded_refs = {g["ref"] for g in measure["grounding"]}
     assert grounded_refs == {"corpus:trust-in-ai-code-generation"}
 
 
-def test_prose_only_model_turn_gets_one_guided_decision_card(client, monkeypatch):
+def test_prose_only_model_turn_records_explicit_facts(client, monkeypatch):
     """A model's prose must still resolve into the platform's next decision."""
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.silent())
 
     turn = _ask(client, "I want to research how junior engineers use AI")
 
     assert turn["source"] == "llm"
-    assert len(turn["moves"]) == 1
-    assert turn["moves"][0]["kind"] == "declare-task"
-    assert turn["moves"][0]["grounding"] == []
+    assert any(move["target"] == "participants[]" for move in turn["moves"])
+    assert all(move["grounding"] == [] for move in turn["moves"])
 
 
-def test_rejected_guided_card_turns_into_a_concrete_choice(client, monkeypatch):
+def test_rejected_card_is_not_reintroduced_as_a_generic_default(client, monkeypatch):
     """Rejecting a default must change the next turn instead of replaying it."""
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.silent())
 
@@ -540,8 +567,7 @@ def test_rejected_guided_card_turns_into_a_concrete_choice(client, monkeypatch):
 
     next_turn = _ask(client, "what?")
 
-    assert next_turn["moves"] == []
-    assert "actual work" in next_turn["text"]
+    assert all(m["proposal"] != move["proposal"] for m in next_turn["moves"])
     assert move["proposal"] not in next_turn["text"]
 
 
@@ -563,40 +589,39 @@ def test_repeated_model_reply_becomes_a_progress_prompt(client, monkeypatch):
     assert second["moves"] == []
 
 
-def test_card_decision_can_trigger_one_empty_move_followup(client, monkeypatch):
+@pytest.mark.parametrize("action", ["accepted", "rejected"])
+def test_card_decision_can_advance_to_the_next_reviewable_choice(
+    client, monkeypatch, action
+):
     """The card action is explicit context, not a fresh idea the model can misread."""
-    monkeypatch.setattr(
-        assistant,
-        "make_client",
-        lambda *a, **k: model_double.always(
+    model = model_double.in_turn(
+        [
+            {"text": "The profile is ready for review.", "moves": []},
             {
-                "text": "The next decision is ready.",
-                "moves": [
-                    model_double.move(
-                        "add-measure", "measures", "A move that must be suppressed."
-                    )
-                ],
-            }
-        ),
+                "text": "Measure task time next.",
+                "moves": [model_double.move("add-measure", "measures", "Task time")],
+            },
+        ]
     )
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model)
     first = _ask(client, "I want to research how junior engineers use AI")
     move = first["moves"][0]
-    _accept(client, move["moveId"])
+    _accept(client, move["moveId"], status=action)
 
     followup = client.post(
         f"/studies/{STUDY}/conversation/turns",
         json={
             "text": f"I accepted: {move['proposal']}",
-            "decision": {"moveId": move["moveId"], "action": "accepted"},
+            "decision": {"moveId": move["moveId"], "action": action},
         },
     )
     assert followup.status_code == 200, followup.text
-    assert followup.json()["moves"] == []
+    assert [m["kind"] for m in followup.json()["moves"]] == (
+        ["add-measure"] if action == "accepted" else []
+    )
 
 
-def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(
-    client, monkeypatch
-):
+def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(client, monkeypatch):
     """A failing provider ends the turn honestly, without ending the session."""
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())
     r = client.post(
@@ -732,9 +757,7 @@ def test_a_flaky_provider_is_retried_before_giving_up(client, monkeypatch):
     """
     calls = {"n": 0}
     delays: list[float] = []
-    good = model_double.always(
-        {"text": "Second time lucky.", "moves": []}
-    )
+    good = model_double.always({"text": "Second time lucky.", "moves": []})
 
     def flaky(url, body, headers):
         calls["n"] += 1
@@ -789,8 +812,8 @@ def test_accepted_move_is_not_reproposed(client, monkeypatch):
     reply = {"text": "A grounded measure.", "moves": [_LATENCY_MOVE]}
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
     turn = _ask(client, "junior developers over-trust AI code")
-    assert len(turn["moves"]) == 1
-    _accept(client, turn["moves"][0]["moveId"])
+    measure = next(m for m in turn["moves"] if m["kind"] == "add-measure")
+    _accept(client, measure["moveId"])
     again = _ask(client, "what should we measure?")
     assert again["source"] == "llm"
     assert again["moves"] == []
@@ -978,10 +1001,10 @@ def _read_move_order(client: TestClient) -> list[str]:
 
 
 def test_moves_keep_proposal_order_across_decisions(client, tmp_path):
-    """The one surfaced card keeps its sequence across decisions."""
+    """Related cards keep their sequence across decisions."""
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
     proposed = [m["moveId"] for m in reply["moves"]]
-    assert len(proposed) == 1
+    assert len(proposed) > 1
 
     middle = proposed[len(proposed) // 2]
     _accept(client, middle, status="accepted")

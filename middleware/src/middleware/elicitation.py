@@ -48,15 +48,8 @@ _STUCK_EXACT = frozenset(
         "no idea",
         "i'm lost",
         "im lost",
-        "ok",
-        "okay",
-        "sure",
-        "yes",
-        "exactly",
         "same thing",
         "exactly the same thing",
-        "yes indeed",
-        "yes absolutely",
         "what else",
         "what else do you need",
         "i've a sample example",
@@ -182,6 +175,7 @@ def needs_scaffolding(text: str) -> bool:
         return False
     return q in _STUCK_EXACT or any(phrase in q for phrase in _STUCK_PHRASES)
 
+
 _DESIGN_REQUEST_PATTERNS = (
     re.compile(
         r"\b(what|which|recommend|suggest|propose|pick|choose|give me)\b"
@@ -192,6 +186,10 @@ _DESIGN_REQUEST_PATTERNS = (
     ),
     re.compile(r"\b(skip|stop) the questions\b"),
     re.compile(r"\bi (already )?know what i want\b"),
+    re.compile(
+        r"\b(propose|prepare|build|create|finish|complete|draft)\b"
+        r"[^.?!]{0,60}\b(draft|protocol|plan|study|choices)\b"
+    ),
 )
 
 
@@ -211,6 +209,12 @@ def classify_turn(text: str) -> str:
     q = (text or "").strip().lower()
     if not q:
         return "describe"
+    if re.fullmatch(
+        r"(?:yes(?: indeed| absolutely)?|ok(?:ay)?|sure|exactly|continue|"
+        r"go ahead|whichever|you decide|whatever(?: is best)?)[.!\s]*",
+        q,
+    ):
+        return "continue"
     if needs_scaffolding(q):
         return "needs-scaffolding"
     if any(cue in q for cue in _FOLLOWUP_CUES):

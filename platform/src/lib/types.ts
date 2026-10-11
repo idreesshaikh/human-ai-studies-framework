@@ -88,6 +88,8 @@ export interface Understanding {
    *  known. Decided by the server (elicitation.next_question) and shown so
    *  the researcher can see what is coming, not only what is missing. */
   nextQuestion?: string;
+  protocolReady?: boolean;
+  openChoices?: string[];
 }
 
 /** A paper matched to the researcher's idea. */

@@ -364,7 +364,7 @@ export function ConversationView({
     // "finish" / "wrap up" / "done" opens the protocol-review moment rather
     // than sending a turn  -  the researcher is signalling they're ready to
     // compile, not asking another question.
-    if (/^\s*(finish|wrap up|wrap-up|done|i'?m done|that'?s it)\b/i.test(text)) {
+    if (/^\s*(finish|wrap up|wrap-up|done|i'?m done|that'?s it)[.!\s]*$/i.test(text)) {
       setInput("");
       await refreshCompile();
       setShowFinish(true);
@@ -823,7 +823,7 @@ export function ConversationView({
         <textarea
           ref={composer}
           className="focus-ring-owned outline-none type-body-lg min-h-8 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-text placeholder:text-text-muted"
-          placeholder={welcome ? "Describe your research question…" : "Message the design assistant…"}
+          placeholder={welcome && !understanding?.protocolReady ? "Describe your research question…" : "Message the design assistant…"}
           value={input}
           rows={1}
           onChange={(event) => setInput(event.target.value)}
@@ -861,7 +861,17 @@ export function ConversationView({
         >
           <header className="mx-auto w-full max-w-reading bg-surface px-4 py-1 sm:px-8">
             <h2 className="sr-only">Study design chat</h2>
-            <div className="mx-auto flex w-full max-w-reading items-center justify-end gap-1">
+            <div className="mx-auto flex w-full max-w-reading items-center justify-between gap-2">
+              <p className="min-w-0 flex-1 type-caption text-text-muted" role="status">
+                {busy ? "Preparing the next step…"
+                  : allMoves.some((move) => move.status === "proposed")
+                    ? "Review the proposed choices below, or say what to change."
+                    : understanding?.protocolReady
+                      ? "Your draft is ready to review and apply."
+                      : understanding?.openChoices?.length
+                        ? `Next: ${understanding.openChoices[0]}.`
+                        : "Describe what you want to find out."}
+              </p>
                 <Button className={cn(!draftFolded && "md:hidden")} variant="ghost" size="sm" onClick={() => { void refreshCompile(); setShowFinish(true); }}>
                   Review draft
                 </Button>
@@ -888,11 +898,19 @@ export function ConversationView({
                 <div className="h-4 w-3/5 animate-pulse rounded-full bg-border" />
               </div>
             ) : threadEmpty && !openingPending && conversationTurns.length === 0 ? (
-              <ConversationStart
-                onUse={takeOpening}
-                onEnterManually={live ? () => setManualOpen(true) : undefined}
-                composer={messageComposer}
-              />
+              understanding?.protocolReady ? (
+                <section className="max-w-reading">
+                  <h2 className="type-title text-center text-text">Review your study draft</h2>
+                  <p className="mt-4 type-body text-text-muted">Your saved protocol is loaded. Review it before recruiting, or ask the assistant to refine it.</p>
+                  <div className="mt-6">{messageComposer}</div>
+                </section>
+              ) : (
+                <ConversationStart
+                  onUse={takeOpening}
+                  onEnterManually={live ? () => setManualOpen(true) : undefined}
+                  composer={messageComposer}
+                />
+              )
             ) : (
               <div className="flex flex-col gap-5">
                 {conversationTurns.map(turn => (

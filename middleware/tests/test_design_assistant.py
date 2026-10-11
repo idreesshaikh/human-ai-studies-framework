@@ -75,6 +75,19 @@ def test_distinct_moves_survive_the_filter():
     assert _filter_repeated_moves((move,), _state(key_texts=[prior])) == (move,)
 
 
+def test_discussing_a_comparison_does_not_block_recording_its_conditions():
+    fact = "Compare assisted and unassisted debugging on the same repository."
+    move = _mv(
+        "set-parameter",
+        fact,
+        {"section": "conditions", "op": "append", "value": fact},
+    )
+    state = {"keysByTarget": {"researchQuestions": [fact]}}
+    assert _filter_repeated_moves((move,), state) == (move,)
+    state["keysByTarget"]["conditions"] = [fact]
+    assert _filter_repeated_moves((move,), state) == ()
+
+
 def test_choose_template_duplicate_is_keyed_on_template_id():
     """
     A re-pitched template is repetition however it's re-worded  -  and a template the
@@ -193,49 +206,38 @@ def _duration_move():
     )
 
 
-def test_explicit_turn_names_what_was_recorded_and_asks_the_next_question():
-    from middleware.design_assistant import _explicit_turn
-
-    move = _duration_move()
-    stance = {
-        "explicitMoves": (move,),
-        "nextQuestion": "How many participants can you recruit?",
-    }
-    state = {"keyTexts": ["Sessions run 30 minutes. 30"]}
-    turn = _explicit_turn(stance, state)
-    assert turn is not None and turn.moves == ()
-    assert "already have those details recorded" not in turn.text
-    assert "Sessions run 30 minutes." in turn.text
-    assert turn.text.rstrip().endswith("How many participants can you recruit?")
-
-
-def test_explicit_turn_without_a_next_question_still_asks_something():
+def test_recorded_detail_leads_to_review_instead_of_another_question():
     from middleware.design_assistant import _explicit_turn
 
     stance = {"explicitMoves": (_duration_move(),), "nextQuestion": ""}
-    state = {"keyTexts": ["Sessions run 30 minutes. 30"]}
+    state = {"keyTexts": ["Sessions run 30 minutes. 30"], "compileValid": True}
     turn = _explicit_turn(stance, state)
-    assert "Sessions run 30 minutes." in turn.text
-    assert turn.text.rstrip().endswith("?")
+    assert turn.moves == ()
+    assert "Review" in turn.text
+    assert "?" not in turn.text
 
 
-def test_scaffolding_turn_asks_the_open_slot_question_not_just_names_it():
-    from middleware.design_assistant import _scaffolding_turn
+def test_pending_detail_is_not_described_as_recorded():
+    from middleware.design_assistant import _explicit_turn
 
-    stance = {"understanding": {"known": True, "missing": []}}
+    stance = {"explicitMoves": (_duration_move(),), "nextQuestion": ""}
+    state = {"keyTexts": ["Sessions run 30 minutes. 30"], "proposed": [{}]}
+    turn = _explicit_turn(stance, state)
+    assert turn.moves == ()
+    assert "waiting for your decision" in turn.text
+
+
+def test_stalled_reply_names_the_actual_unresolved_choice():
+    from middleware.design_assistant import _progress_turn
+
     state = {
         "outstandingSlots": [
-            {
-                "key": "participants.planned",
-                "label": "how many participants",
-                "question": "How many participants can you realistically recruit?",
-            }
+            {"label": "how many participants", "question": "How many can you recruit?"}
         ],
-        "compileValid": True,
+        "compileValid": False,
     }
-    turn = _scaffolding_turn(stance, [], state)
-    assert "I already have" not in turn.text
-    assert "How many participants can you realistically recruit?" in turn.text
+    turn = _progress_turn(state)
+    assert "How many can you recruit?" in turn.text
 
 
 # --- revisions of an already-stated number are not repeats ---------------------------

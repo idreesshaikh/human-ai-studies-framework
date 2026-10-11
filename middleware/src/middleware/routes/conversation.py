@@ -534,11 +534,12 @@ def register(app: FastAPI, deps: ApiDeps):
             # Recomputed the same way a fresh turn computes it
             # (`design_assistant.turn_stance`)  -  otherwise a reload blanks the line
             # the UI keeps this for, until the next turn is sent.
-            "understanding": elicitation.understanding_summary(
-                elicitation.assess_understanding(
-                    design_assistant.researcher_texts(s, study_id)
-                )
-            ),
+            "understanding": design_assistant.turn_stance(
+                s,
+                "",
+                study_id=study_id,
+                state=design_assistant._load_design_state(s, study_id),
+            )["understanding"],
         }
 
     @app.post(

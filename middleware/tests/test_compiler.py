@@ -369,6 +369,25 @@ def test_session_length_stated_in_a_declared_task_replaces_the_template_default(
     assert draft["instruments"]["tern"]["session"]["durationMinutes"] == 30
 
 
+def test_accepted_task_fills_session_description_without_reasking():
+    task = _task_move("Diagnose a failure in a shared project")
+    design = {
+        "kind": "set-field",
+        "status": "accepted",
+        "patch": {
+            "op": "set-field",
+            "path": ["participants", "design"],
+            "value": "between-subjects",
+        },
+    }
+    result = compiler.compile_moves([task, design])
+    assert result.draft["session"]["taskDescription"]
+    assert result.draft["participants"]["counterbalanced"] is False
+    assert "what participants will do" not in result.unresolved
+    assert "whether condition order is counterbalanced" not in result.unresolved
+    assert "how many participants" in result.unresolved
+
+
 def test_session_length_is_read_from_the_task_proposal_text_and_hyphenated_forms():
     move = _task_move("Fix a failing test")
     move["proposal"] = "A 20-minute task per condition"
@@ -628,3 +647,25 @@ def test_researcher_conditions_replace_template_placeholder_conditions():
     )
     assert result.valid, result.errors
     assert yaml.safe_load(result.yaml)["conditions"] == ["ai-assisted", "unassisted"]
+
+
+def test_accepted_catalog_measure_executes_without_a_template():
+    measure = {
+        "kind": "add-measure",
+        "target": "measures",
+        "status": "accepted",
+        "proposal": "Measure time to first green.",
+        "patch": {"section": "measures", "op": "append", "value": {"catalogId": "E1"}},
+    }
+    result = compiler.compile_moves(
+        [
+            _rq_move(),
+            _field_move(["participants", "design"], "between-subjects"),
+            measure,
+        ]
+    )
+    assert result.draft["measures"][0]["fields"] == ["task_outcome.firstGreenMs"]
+    assert result.draft["instruments"]["taskHarness"]["enabled"]
+    assert result.draft["analysisPlan"][0]["recipes"] == ["two-group-nonparametric"]
+    assert "what will be captured" not in result.unresolved
+    assert "the analysis plan" not in result.unresolved

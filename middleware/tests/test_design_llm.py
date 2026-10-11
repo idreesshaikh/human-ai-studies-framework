@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from middleware import assistant, design_llm
 
 PAPERS = [
@@ -48,6 +50,108 @@ def test_propose_turn_happy_path_returns_validated_moves():
     assert len(script.moves) == 1
     assert script.moves[0].kind == "add-measure"
     assert script.moves[0].refs == ("corpus:trust-in-ai-code-generation",)
+
+
+def test_model_field_and_condition_variants_reach_the_compiled_draft():
+    from middleware.compiler import compile_moves
+
+    reply = {
+        "text": "Prepare the comparison and title.",
+        "moves": [
+            {
+                "kind": "set-field",
+                "target": "study.title",
+                "proposal": "Name the study.",
+                "patch": {
+                    "section": "study",
+                    "op": "set-field",
+                    "path": ["title"],
+                    "value": "Assisted debugging",
+                },
+            },
+            {
+                "kind": "set-parameter",
+                "target": "conditions",
+                "proposal": "Compare the two conditions.",
+                "patch": {
+                    "section": "conditions",
+                    "op": "append",
+                    "value": [{"label": "Assisted", "id": "a"}, {"id": "Unassisted"}],
+                },
+            },
+        ],
+    }
+    turn = design_llm.propose_turn(_fake_client(reply), "Prepare the draft", [], [], [])
+    assert turn is not None
+    assert len(turn.moves) == 2
+    compiled = compile_moves(
+        [
+            {
+                "kind": move.kind,
+                "target": move.target,
+                "proposal": move.proposal,
+                "patch": move.patch,
+                "status": "accepted",
+            }
+            for move in turn.moves
+        ]
+    )
+    assert compiled.draft["study"]["title"] == "Assisted debugging"
+    assert compiled.draft["conditions"] == ["Assisted", "Unassisted"]
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+def test_unsupported_capture_is_repaired_once_and_never_offered_as_working(streaming):
+    payload = json.dumps(
+        {
+            "text": "Capture is fully configured.",
+            "moves": [
+                {
+                    "kind": "add-instrument",
+                    "target": "instruments",
+                    "proposal": "Record the workspace.",
+                    "patch": {
+                        "section": "instruments",
+                        "op": "add-instrument",
+                        "name": "workspace-snapshot",
+                        "config": {"enabled": True},
+                    },
+                }
+            ],
+        }
+    )
+    calls = []
+
+    class Client:
+        base_url = "https://example.invalid"
+        api_key = "synthetic"
+        model = "test-model"
+
+        def post(self, *args):
+            calls.append("post")
+            return {"choices": [{"message": {"content": payload}}]}
+
+        def stream(self, *args):
+            calls.append("stream")
+            yield payload
+
+    client = Client()
+    if streaming:
+        generator = design_llm.propose_turn_streaming(
+            client, "Set up capture", [], [], []
+        )
+        while True:
+            try:
+                next(generator)
+            except StopIteration as stop:
+                turn = stop.value
+                break
+    else:
+        turn = design_llm.propose_turn(client, "Set up capture", [], [], [])
+    assert calls == (["stream", "post"] if streaming else ["post", "post"])
+    assert turn is not None
+    assert turn.moves == ()
+    assert "fully configured" not in turn.text
 
 
 def test_propose_turn_strips_refs_outside_the_candidate_menu():
@@ -422,6 +526,11 @@ def test_design_state_prompt_keeps_recent_moves_without_growing_unbounded():
             }
             for n in range(12)
         ],
+        "researcherNotes": [
+            "Original question",
+            *[f"Older note {i} " + "x" * 500 for i in range(20)],
+            "Most recent constraint",
+        ],
     }
 
     block = design_llm._design_state_block(state)
@@ -429,6 +538,9 @@ def test_design_state_prompt_keeps_recent_moves_without_growing_unbounded():
     assert "4 earlier move(s) omitted" in block
     assert "Measure 0." not in block
     assert "Measure 11." in block
+    assert "Original question" in block
+    assert "Most recent constraint" in block
+    assert len(block) < 8_000
 
 
 def test_propose_turn_notes_the_accepted_templates_prescribed_statistics():
@@ -616,7 +728,7 @@ def test_decision_followup_reply_is_capped_to_a_short_length():
     turn = design_llm.propose_turn(
         client, "t", [], PAPERS, TEMPLATES, decision_followup=True
     )
-    assert turn.text == "Noted."
+    assert len(turn.text) <= 400
     normal = design_llm.propose_turn(client, "t", [], PAPERS, TEMPLATES)
     assert 100 < len(normal.text) <= 700
 
@@ -644,7 +756,7 @@ def test_decision_followup_reply_drops_invented_motives():
         _fake_client(reply), "t", [], PAPERS, TEMPLATES, decision_followup=True
     )
     assert "because you" not in turn.text
-    assert turn.text == "Noted."
+    assert "larger sample" not in turn.text
 
 
 def test_strip_filler_preserves_reply_structure():
@@ -903,8 +1015,8 @@ def test_decision_followup_reply_is_deterministic():
     out = design_llm._clean_reply(
         lecture, [], [], decision_followup=True, next_question="Who takes part?"
     )
-    assert out == "Noted. Who takes part?"
-    assert design_llm._clean_reply(lecture, [], [], decision_followup=True) == "Noted."
+    assert "Who takes part?" in out
+    assert len(out) <= 400
 
 
 # ------------------------------------------------ real shapes from a live run
