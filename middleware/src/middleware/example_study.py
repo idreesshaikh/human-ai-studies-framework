@@ -421,6 +421,9 @@ def seed_example(settings: Settings | None = None) -> dict:
     )
     with _quiet_app_env():
         app = create_app(local, clock=clock)
+    # Only this temporary in-process app can mint/redeem the illustrative
+    # links while building fixtures. A running service never enables this.
+    app.state.seeding_example = True
     base = f"/studies/{EXAMPLE_STUDY_ID}"
     # A fixed simulation, not a secret.
     rng = random.Random(SEED)  # noqa: S311

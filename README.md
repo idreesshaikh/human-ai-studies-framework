@@ -29,7 +29,7 @@ To see every tab populated, seed the synthetic example study once (running it ag
 uv run python -m middleware seed-example
 ```
 
-It adds "Example: Copilot and bug fixing (synthetic data)" to "My project": a v6 protocol from the featured crossover template, a saved recruitment plan, 24 participant links and 25 simulated sessions. Every row is marked synthetic. The Data tab shows them only for this study, under a "Synthetic example data, not a finding" notice; they stay out of data bundles, pilot estimates and analysis recipes. Delete the study in the app to remove it.
+It adds "Example: Copilot and bug fixing (synthetic data)" to "My project": a v6 protocol from the featured crossover template, a saved recruitment plan, 24 illustrative participant links and 25 simulated sessions. The example links cannot connect an editor; create a separate study for live capture. Every row is marked synthetic. The Data tab shows them only for this study, under a "Synthetic example data, not a finding" notice; they stay out of data bundles, pilot estimates and analysis recipes. Delete the study in the app to remove it.
 
 The design conversation and model-assisted matching share `ministral-14b-latest` by default. Set `LLM_API_KEY` for a hosted provider or `LLM_BASE_URL` for a compatible local server. Use `LLM_MODEL` for a shared model and `LLM_DESIGN_MODEL` for a design-only override; legacy `MISTRAL_*` settings remain supported. Record the exact tool/model version used in each study condition. See [server configuration](middleware/README.md).
 

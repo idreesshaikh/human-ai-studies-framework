@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Copy, Check, ExternalLink } from "lucide-react";
 import { useApi } from "@/lib/session";
 import { studyApi } from "@/lib/studyApi";
+import { SYNTHETIC_EXAMPLE_LABEL } from "@/lib/syntheticExample";
 import { hasRole, type Role } from "@/lib/capabilities";
 import type { EnrollmentTokenView, ToggleCatalogEntry } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -76,8 +77,9 @@ export function EnrollmentPanel({
   const [ready, setReady] = useState(false);
   // Imported sessions can contain participants without enrollment tokens.
   const [dataParticipants, setDataParticipants] = useState<string[]>([]);
-  const canMint = hasRole(role, "mint_token");
-  const canToggle = hasRole(role, "toggle_capture");
+  const synthetic = rows.some((row) => row.illustrative);
+  const canMint = ready && !synthetic && hasRole(role, "mint_token");
+  const canToggle = ready && !synthetic && hasRole(role, "toggle_capture");
 
   const load = useCallback(() => {
     if (!hasProtocol) return;
@@ -178,6 +180,13 @@ export function EnrollmentPanel({
   return (
     /* Keep the workspace measure stable; let the roster scroll within it. */
     <Surface measure="work" label="Participants">
+      {synthetic && (
+        <Notice>
+          <strong>{SYNTHETIC_EXAMPLE_LABEL}</strong> These example links are
+          illustrative and cannot connect an editor. Create a separate study
+          for live capture.
+        </Notice>
+      )}
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1">
           {/* Counts enrollment links, so it says "enrolled" only about
@@ -190,46 +199,50 @@ export function EnrollmentPanel({
           {/* Prose is held to the reading measure even inside a wider column  -
             * the layout contract has a measure for running text precisely so
             * a panel does not set its prose to the width its table needs. */}
-          <p className="mt-1 max-w-work type-body text-text-muted">
-            One link per participant. They paste it once, their editor joins the
-            study, and what each instrument will capture is listed before
-            anything is recorded.
-          </p>
-          {/* The deep link can only reach an editor that already has the
-            * extension: {EXTENSION_NAME} ships as a GitHub release artifact,
-            * not on the Marketplace, so VS Code cannot fetch it on demand the
-            * way a Marketplace link would. Say so once, here, rather than
-            * letting a participant click a link that does nothing. */}
-          {/* Same measure, and it matters more here: this sentence ends in a
-            * mono command chip, so at full width the chip was stranded out at
-            * the right edge on its own. VS Code's command really is named
-            * "Extensions: Install from VSIX…"  -  that ellipsis is part of the
-            * name, not a truncation  -  but marooned at the end of a very long
-            * line it read as a string that had been cut off. */}
-          <p className="mt-2 max-w-work type-body text-text-muted">
-            Participants install the {EXTENSION_NAME} extension for VS Code
-            first. It is a direct download, not a Marketplace listing.
-          </p>
-          <div className="mt-1 flex max-w-work flex-wrap items-center gap-x-1.5 gap-y-1 type-caption text-text-muted">
-            <span>Download the extension:</span>{" "}
-            <a
-              href={EXTENSION_RELEASES_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="touch-link inline-block py-1 -my-1 underline underline-offset-2 hover:text-text"
-            >
-              Download the .vsix
-            </a>
-            <span>and install it with</span>
-            {/* Verbatim, and in the measurement voice. `type-legend`
-              * uppercases and tracks its contents, which is right for a
-              * column head and wrong for a string the participant has to
-              * find in a menu: this rendered as "EXTENSIONS: INSTALL FROM
-              * VSIX…", a command that matches nothing they can search for. */}
-            <kbd className="type-quantity whitespace-nowrap rounded-chip border border-border px-1.5 py-0.5 font-mono text-text">
-              Extensions: Install from VSIX…
-            </kbd>
-          </div>
+          {!synthetic && (
+            <>
+              <p className="mt-1 max-w-work type-body text-text-muted">
+                One link per participant. They paste it once, their editor joins the
+                study, and what each instrument will capture is listed before
+                anything is recorded.
+              </p>
+              {/* The deep link can only reach an editor that already has the
+                * extension: {EXTENSION_NAME} ships as a GitHub release artifact,
+                * not on the Marketplace, so VS Code cannot fetch it on demand the
+                * way a Marketplace link would. Say so once, here, rather than
+                * letting a participant click a link that does nothing. */}
+              {/* Same measure, and it matters more here: this sentence ends in a
+                * mono command chip, so at full width the chip was stranded out at
+                * the right edge on its own. VS Code's command really is named
+                * "Extensions: Install from VSIX…"  -  that ellipsis is part of the
+                * name, not a truncation  -  but marooned at the end of a very long
+                * line it read as a string that had been cut off. */}
+              <p className="mt-2 max-w-work type-body text-text-muted">
+                Participants install the {EXTENSION_NAME} extension for VS Code
+                first. It is a direct download, not a Marketplace listing.
+              </p>
+              <div className="mt-1 flex max-w-work flex-wrap items-center gap-x-1.5 gap-y-1 type-caption text-text-muted">
+                <span>Download the extension:</span>{" "}
+                <a
+                  href={EXTENSION_RELEASES_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="touch-link inline-block py-1 -my-1 underline underline-offset-2 hover:text-text"
+                >
+                  Download the .vsix
+                </a>
+                <span>and install it with</span>
+                {/* Verbatim, and in the measurement voice. `type-legend`
+                  * uppercases and tracks its contents, which is right for a
+                  * column head and wrong for a string the participant has to
+                  * find in a menu: this rendered as "EXTENSIONS: INSTALL FROM
+                  * VSIX…", a command that matches nothing they can search for. */}
+                <kbd className="type-quantity whitespace-nowrap rounded-chip border border-border px-1.5 py-0.5 font-mono text-text">
+                  Extensions: Install from VSIX…
+                </kbd>
+              </div>
+            </>
+          )}
         </div>
         {/* Only while there is a roster to add to. With none, the same control
           * moves into the empty state below, next to the sentence telling you
@@ -418,7 +431,7 @@ export function EnrollmentPanel({
           </table>
         </div>
       )}
-      {popoverEntry && (
+      {!synthetic && popoverEntry && (
         <TogglePopover
           studyId={studyId}
           entry={popoverEntry}

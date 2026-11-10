@@ -289,3 +289,71 @@ def test_no_other_study_is_marked_as_the_synthetic_example(client):
         client.get(f"/studies/{other}/status?includeSynthetic=true").json()["sessions"]
         == []
     )
+
+
+def test_example_links_are_illustrative_and_do_not_expose_connection_strings(client):
+    links = client.get(f"{BASE}/enrollment/tokens").json()
+    assert len(links) == PLANNED_PARTICIPANTS
+    assert all(link["illustrative"] is True for link in links)
+    assert all(link["connectionString"] is None for link in links)
+    assert all(link["captureConfig"] for link in links)
+
+
+def test_example_cannot_mint_live_capture_links(client, seeded):
+    before = _counts(seeded)
+    response = client.post(f"{BASE}/enrollment/tokens", json={"count": 1})
+    assert response.status_code == 409
+    assert "illustrative" in response.json()["detail"]
+    assert "separate study" in response.json()["detail"]
+    assert _counts(seeded) == before
+
+
+@pytest.mark.parametrize("redeemed", [True, False])
+@pytest.mark.parametrize("expired", [True, False])
+def test_example_tokens_refuse_live_pairing_before_expiry_checks(
+    client, seeded, redeemed, expired
+):
+    with make_session_factory(seeded.db_url)() as s:
+        row = s.scalar(
+            select(EnrollmentToken).where(
+                EnrollmentToken.redeemed_at.is_not(None)
+                if redeemed
+                else EnrollmentToken.redeemed_at.is_(None)
+            )
+        )
+        token = row.token
+        row.expires_at = (
+            "2000-01-01T00:00:00+00:00" if expired else "2099-01-01T00:00:00+00:00"
+        )
+        s.commit()
+    before = _counts(seeded)
+    response = client.post(
+        "/pair/redeem?seeding_example=true",
+        json={"token": token, "seeding_example": True},
+        headers={"X-Seeding-Example": "true"},
+    )
+    assert response.status_code == 409
+    assert "illustrative" in response.json()["detail"]
+    assert "separate study" in response.json()["detail"]
+    assert _counts(seeded) == before
+
+
+def test_a_separate_study_still_mints_and_redeems_live_links(client):
+    document = client.get(f"{BASE}/protocol").json()["document"]
+    study = client.post(
+        "/projects/implicit/studies",
+        json={"name": "A live capture rehearsal", "protocol": document},
+    ).json()["id"]
+    response = client.post(f"/studies/{study}/enrollment/tokens", json={"count": 1})
+    assert response.status_code == 200, response.text
+    link = response.json()[0]
+    assert isinstance(link["connectionString"], str)
+    listed = client.get(f"/studies/{study}/enrollment/tokens").json()[0]
+    assert "illustrative" not in listed
+    assert listed["connectionString"] == link["connectionString"]
+    response = client.post(
+        "/pair/redeem",
+        json={"token": link["connectionString"].rsplit("#", 1)[-1]},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["studyId"] == study

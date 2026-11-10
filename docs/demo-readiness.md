@@ -73,6 +73,10 @@ sessions, sequence gaps and control-arm signals. Export a data bundle and
 explain why the simulated sessions are excluded by default. Run the seed
 command again to confirm that it creates no duplicate study.
 
+Example participant links are illustrative and cannot connect an editor. The
+roster preserves the simulated statuses; minting or redeeming live links for
+the reserved example is refused. Use the separate study below for live capture.
+
 Create a separate empty study to demonstrate the checklist/template path.
 Describe two coding conditions, enter participants and outcomes, review the
 compiler-validated draft and apply it. An unconfigured model should produce

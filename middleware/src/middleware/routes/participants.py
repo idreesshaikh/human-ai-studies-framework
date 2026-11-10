@@ -37,6 +37,7 @@ from middleware.db import (
     SessionBlock,
     StudyWorkspace,
 )
+from middleware.example_study import is_example_study
 from middleware.routes.deps import ApiDeps
 from middleware.schemas import (
     MintTokensIn,
@@ -45,6 +46,20 @@ from middleware.schemas import (
 )
 
 log = logging.getLogger("middleware.app")
+
+_ILLUSTRATIVE_LINKS = (
+    "Synthetic example links are illustrative. "
+    "Create a separate study for live capture."
+)
+
+
+def _require_live_links(study_id: str, request: Request) -> None:
+    # The seed calls real routes on its private in-process app. There is no
+    # request header, parameter or environment switch for this internal mode.
+    if is_example_study(study_id) and not getattr(
+        request.app.state, "seeding_example", False
+    ):
+        raise HTTPException(409, _ILLUSTRATIVE_LINKS)
 
 
 def register(app: FastAPI, deps: ApiDeps):
@@ -60,6 +75,7 @@ def register(app: FastAPI, deps: ApiDeps):
     ) -> list[dict]:
         from datetime import timedelta as td
 
+        _require_live_links(study_id, request)
         protocol = deps.resolve_study_protocol(s, study_id)
         if protocol is None:
             raise HTTPException(404, f"no protocol for study {study_id!r}")
@@ -146,6 +162,7 @@ def register(app: FastAPI, deps: ApiDeps):
 
         protocol = deps.resolve_study_protocol(s, study_id)
         base = str(request.base_url).rstrip("/")
+        illustrative = is_example_study(study_id)
         out = []
         for r in rows:
             if r.redeemed_at and r.participant_id in streaming_participants:
@@ -189,7 +206,12 @@ def register(app: FastAPI, deps: ApiDeps):
                     "condition": r.condition,
                     "grain": r.grain,
                     "status": status,
-                    "connectionString": enrollment.connection_string(base, r.token),
+                    "connectionString": (
+                        None
+                        if illustrative
+                        else enrollment.connection_string(base, r.token)
+                    ),
+                    **({"illustrative": True} if illustrative else {}),
                     "captureConfig": capture_config,
                     "captureOverrides": r.capture_overrides,
                 }
@@ -285,7 +307,12 @@ def register(app: FastAPI, deps: ApiDeps):
         row = s.scalar(
             select(EnrollmentToken).where(EnrollmentToken.token == body.token)
         )
-        if row is None or row.revoked_at:
+        if row is None:
+            raise HTTPException(
+                410, "this connection link is invalid or has been revoked"
+            )
+        _require_live_links(row.study_id, request)
+        if row.revoked_at:
             raise HTTPException(
                 410, "this connection link is invalid or has been revoked"
             )
