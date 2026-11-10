@@ -6,7 +6,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 const ROOT = resolve(import.meta.dirname, "..", "..");
@@ -546,12 +546,22 @@ await context.route("**/*", (route) => {
   const chatRequests = [];
   const recoveredReply = "Synthetic transport fixture: your research question was received.";
   let chatMode = "offline";
+  const chatErrors = {
+    validation: { status: 422, detail: [{ loc: ["body", "text"], msg: "Text must contain valid Unicode characters." }], message: "Text must contain valid Unicode characters." },
+    forbidden: { status: 403, detail: "Only project contributors can send messages.", message: "Only project contributors can send messages." },
+    conflict: { status: 409, detail: "Refresh the conversation and try again.", message: "Refresh the conversation and try again." },
+    limited: { status: 429, detail: "Too many requests. Wait a few seconds and try again.", message: "Too many requests. Wait a few seconds and try again." },
+  };
   let releasePending;
   const pendingGate = new Promise((resolve) => { releasePending = resolve; });
   await chat.route(new RegExp(`/studies/${chatStudy}/conversation/turns(?:/stream)?$`), async (route) => {
     const request = route.request();
     const body = request.postDataJSON();
     chatRequests.push({ path: new URL(request.url()).pathname, ...body });
+    if (chatErrors[chatMode]) {
+      const error = chatErrors[chatMode];
+      return route.fulfill({ status: error.status, contentType: "application/json", body: JSON.stringify({ detail: error.detail }) });
+    }
     if (chatMode === "offline") return route.abort("connectionfailed");
     if (chatMode === "truncated") return route.fulfill({ status: 200, contentType: "text/event-stream", body: 'event: token\ndata: {"text":"Synthetic partial reply"}\n\n' });
     if (chatMode === "pending") {
@@ -597,6 +607,20 @@ await context.route("**/*", (route) => {
   await chat.getByRole("status").filter({ hasText: "Stopped. Your message is back in the box." }).waitFor();
   check(chatRequests.length === 6 && await composer.inputValue() === stoppedText, "chat: Stop restores editable text without a fallback POST");
   releasePending();
+  for (const [mode, error] of Object.entries(chatErrors)) {
+    chatMode = mode;
+    const before = chatRequests.length;
+    const text = `Preserve my message after ${mode}: العربية 日本語 🔬`;
+    await composer.fill(text);
+    const refused = chat.waitForResponse((response) => response.url().endsWith(`/studies/${chatStudy}/conversation/turns/stream`) && response.request().method() === "POST");
+    await send.click();
+    await refused;
+    await expect(composer).toHaveValue(text);
+    await chat.getByRole("button", { name: "Stop reply", exact: true }).waitFor({ state: "hidden" });
+    check(chatRequests.length === before + 1, `chat: ${error.status} does not cause an automatic duplicate POST`);
+    check(await composer.inputValue() === text, `chat: ${error.status} preserves the editable message`);
+    check(await chat.getByRole("status").filter({ hasText: error.message }).isVisible(), `chat: ${error.status} explains the server refusal without calling it offline`);
+  }
   await auditPage(chat, "chat transport recovery");
   await chat.close();
 

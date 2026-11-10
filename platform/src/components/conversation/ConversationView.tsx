@@ -20,6 +20,7 @@ import {
   rejectedMoveText,
   shouldFollowUpAfterDecision,
   nextStepPrompt,
+  plainErrorMessage,
 } from "@/lib/uiText";
 import type { Recommendation } from "@/lib/types";
 import {
@@ -470,10 +471,10 @@ export function ConversationView({
       if (controller.signal.aborted) {
         setNote("Stopped. Your message is back in the box.");
       } else {
-        setLive(false);
+        setLive(e instanceof ApiError);
         setNote(
-          e instanceof ApiError && e.status === 503
-            ? e.message
+          e instanceof ApiError
+            ? plainErrorMessage(e, "Your message could not be sent. Try again.")
             : "Not sent: the server is unreachable. Your message is back in the box. Check the connection and send again.",
         );
       }
