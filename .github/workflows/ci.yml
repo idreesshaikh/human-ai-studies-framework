@@ -22,7 +22,7 @@ jobs:
           node-version: 22
 
       - name: Install workspace
-        run: uv sync --all-packages --frozen
+        run: uv sync --all-packages --group docs --frozen
 
       - name: Lint
         run: uv run ruff check .
@@ -43,6 +43,9 @@ jobs:
       # workspace floor must never be a licence to let it slip.
       - name: Metrics leg keeps its stricter floor (95%)
         run: uv run coverage report --include='metrics/src/*' --fail-under=95
+
+      - name: Documentation builds without warnings
+        run: uv run --no-sync mkdocs build --strict -f documentation/mkdocs.yml
 
   extension:
     name: Extension - typecheck + lint + format + test

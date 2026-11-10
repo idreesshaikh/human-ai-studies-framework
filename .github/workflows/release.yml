@@ -37,12 +37,25 @@ permissions:
   contents: write
   packages: write
 
+env:
+  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+
 jobs:
   verify:
     name: Gates (pytest + ruff + extension + platform)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
+
+      - name: Validate release tag and extension version
+        run: |
+          git check-ref-format "refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          VERSION="${RELEASE_TAG#v}"
+          test "$VERSION" != "$RELEASE_TAG"
+          test "$(node -p "require('./extension/package.json').version")" = "$VERSION"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -54,7 +67,8 @@ jobs:
           uv sync --all-packages --frozen
           uv run ruff check .
           uv run python scripts/check_workspace_config.py
-          uv run pytest
+          uv run pytest --cov --cov-report=term-missing --cov-fail-under=79
+          uv run coverage report --include='metrics/src/*' --fail-under=95
 
       - uses: actions/setup-node@v7
         with:
@@ -68,12 +82,14 @@ jobs:
         working-directory: extension
         run: |
           npm ci
+          npm audit --audit-level=high
           npm run check
 
       - name: Platform gate
         working-directory: platform
         run: |
           npm ci
+          npm audit --audit-level=high
           npx playwright install --with-deps chromium
           npm run check
 
@@ -83,13 +99,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
 
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Build and push versioned image
         run: |
-          TAG="${{ inputs.release_tag || github.ref_name }}"
+          TAG="$RELEASE_TAG"
           IMAGE="ghcr.io/${{ github.repository }}/middleware"
           docker build -f middleware/Dockerfile -t "$IMAGE:$TAG" .
           docker push "$IMAGE:$TAG"
@@ -103,7 +121,7 @@ jobs:
 
       - name: Check extension version matches release tag
         run: |
-          TAG="${{ inputs.release_tag || github.ref_name }}"
+          TAG="$RELEASE_TAG"
           VERSION="${TAG#v}"
           test "$(node -p "require('./extension/package.json').version")" = "$VERSION"
 
@@ -117,7 +135,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ inputs.release_tag || github.ref_name }}"
+          TAG="$RELEASE_TAG"
           FLAGS=""
           case "$TAG" in *-rc.*) FLAGS="--prerelease" ;; esac
           NOTES="Container image: \`ghcr.io/${{ github.repository }}/middleware:$TAG\`
@@ -150,15 +168,20 @@ jobs:
           if [ -n "$RAILWAY_ENVIRONMENT_ID" ]; then
             ENV_PART=", environmentId: \"$RAILWAY_ENVIRONMENT_ID\""
           fi
-          RESPONSE=$(curl -fsS -X POST https://backboard.railway.app/graphql/v2 \
+          RESPONSE_FILE="$(mktemp)"
+          trap 'rm -f "$RESPONSE_FILE"' EXIT
+          curl -fsS -X POST https://backboard.railway.app/graphql/v2 \
             -H "Authorization: Bearer $RAILWAY_API_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"query\": \"mutation { serviceInstanceRedeploy(serviceId: \\\"$RAILWAY_SERVICE_ID\\\"$ENV_PART) }\"}" \
-            -w "\n%{http_code}")
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "Railway deploy triggered successfully."
-          else
-            echo "Railway deploy trigger failed (HTTP $HTTP_CODE)."
-            exit 1
-          fi
+            -o "$RESPONSE_FILE"
+          python3 - "$RESPONSE_FILE" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          result = json.loads(Path(sys.argv[1]).read_text())
+          data = result.get("data") or {}
+          if result.get("errors") or data.get("serviceInstanceRedeploy") is not True:
+              raise SystemExit("Railway did not confirm a successful deploy trigger.")
+          print("Railway deploy triggered successfully.")
+          PY

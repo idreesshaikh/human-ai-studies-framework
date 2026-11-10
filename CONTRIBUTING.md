@@ -26,6 +26,11 @@ Chromium using `npm --prefix platform exec playwright install chromium` before
 browser rehearsals. Use a separate synthetic database, never a participant
 deployment.
 
+After installation, `uv run --no-sync python scripts/check_demo.py` runs the
+offline gates above and records exact versions, source fingerprint and logs.
+See [demo rehearsal](docs/demo-readiness.md) and
+[methodological readiness for WSESE 2027](docs/wsese-2027-readiness.md).
+
 ## Research and data
 
 - Never commit `.env`, credentials, participant records, raw source snapshots,
