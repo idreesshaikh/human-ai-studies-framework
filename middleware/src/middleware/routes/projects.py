@@ -12,6 +12,7 @@ from fastapi import (
     FastAPI,
     HTTPException,
 )
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import func, select, union
 from sqlalchemy.orm import Session
 
@@ -50,8 +51,19 @@ from middleware.route_helpers import (
     _slug_from_text,
 )
 from middleware.routes.deps import ApiDeps
+from middleware.schemas import UnicodeText
 
 log = logging.getLogger("middleware.app")
+_NAME_TEXT = TypeAdapter(UnicodeText)
+
+
+def _name_from_body(body: dict) -> str:
+    try:
+        return _NAME_TEXT.validate_python(body.get("name", "")).strip()
+    except ValidationError as exc:
+        raise HTTPException(
+            422, "Names must be text with valid Unicode characters."
+        ) from exc
 
 
 def register(app: FastAPI, deps: ApiDeps):
@@ -62,7 +74,7 @@ def register(app: FastAPI, deps: ApiDeps):
         s: Session = Depends(deps.db),
     ) -> dict:
         """Create a new project (FR-PLAT-1), or return existing implicit project."""
-        name = str(body.get("name", "")).strip()
+        name = _name_from_body(body)
         if not name:
             raise HTTPException(400, "name is required")
         if len(name) > 80:
@@ -244,7 +256,7 @@ def register(app: FastAPI, deps: ApiDeps):
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
             raise HTTPException(404, "project not found")
-        name = str(body.get("name", "")).strip()
+        name = _name_from_body(body)
         base = _slug_from_text(name, 40) if name else ""
         if len(name) > 120:
             raise HTTPException(400, "Study names must be 120 characters or fewer.")
@@ -364,7 +376,7 @@ def register(app: FastAPI, deps: ApiDeps):
         proj = s.scalar(select(Project).where(Project.slug == slug))
         if proj is None:
             raise HTTPException(404, "project not found")
-        name = str(body.get("name", "")).strip()
+        name = _name_from_body(body)
         if not name:
             raise HTTPException(400, "name is required")
         if len(name) > 80:

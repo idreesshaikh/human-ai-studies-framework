@@ -130,7 +130,12 @@ def system_prompt() -> str:
 
 def _clip(value: object, limit: int) -> str:
     # Only text is text: a nested object or a number is not a description.
-    return " ".join(value.split())[:limit].strip() if isinstance(value, str) else ""
+    if not isinstance(value, str):
+        return ""
+    # Provider JSON may contain escaped, unpaired UTF-16 surrogates. Keep its
+    # usable prose without passing an unencodable string to storage or the UI.
+    value = value.encode("utf-8", errors="replace").decode("utf-8")
+    return " ".join(value.split())[:limit].strip()
 
 
 def plan_of(draft: dict | None) -> dict:

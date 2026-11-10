@@ -5,9 +5,20 @@ controller layer and the domain services visible.  These classes describe
 transport only; validation and persistence stay in the service modules.
 """
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AfterValidator, BaseModel, Field, field_validator
+
+
+def _unicode_text(value: str) -> str:
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise ValueError("Text must contain valid Unicode characters.") from exc
+    return value
+
+
+UnicodeText = Annotated[str, AfterValidator(_unicode_text)]
 
 
 class StudyEventIn(BaseModel):
@@ -85,13 +96,13 @@ class DecisionTriggerIn(BaseModel):
 class ConversationTurnIn(BaseModel):
     """One researcher turn in the design conversation."""
 
-    text: str
-    author: str = "Researcher"
-    steer: str | None = None
+    text: UnicodeText
+    author: UnicodeText = "Researcher"
+    steer: UnicodeText | None = None
     decision: DecisionTriggerIn | None = None
     # A streamed request can be retried through the blocking endpoint.  Reusing
     # this key keeps that retry idempotent.
-    requestId: str | None = None
+    requestId: UnicodeText | None = None
 
     @field_validator("text")
     @classmethod
@@ -125,17 +136,17 @@ class ApproveIn(BaseModel):
 class QuickProtocolIn(BaseModel):
     """The bounded no-chat path for a supported developer study."""
 
-    title: str = Field(min_length=3, max_length=160)
-    researchQuestions: list[str] = Field(min_length=1, max_length=6)
+    title: UnicodeText = Field(min_length=3, max_length=160)
+    researchQuestions: list[UnicodeText] = Field(min_length=1, max_length=6)
     design: Literal["within-subjects", "between-subjects"]
-    conditions: list[str] = Field(min_length=2, max_length=2)
-    participantDescription: str = Field(min_length=2, max_length=240)
+    conditions: list[UnicodeText] = Field(min_length=2, max_length=2)
+    participantDescription: UnicodeText = Field(min_length=2, max_length=240)
     plannedParticipants: int = Field(ge=4, le=1000)
-    taskDescription: str = Field(min_length=8, max_length=500)
+    taskDescription: UnicodeText = Field(min_length=8, max_length=500)
     sessionMinutes: int = Field(ge=15, le=180)
-    measures: list[str] = Field(min_length=1, max_length=6)
-    measureIds: list[str] = Field(default_factory=list, max_length=6)
-    existingMeasureIds: list[str] = Field(default_factory=list, max_length=6)
+    measures: list[UnicodeText] = Field(min_length=1, max_length=6)
+    measureIds: list[UnicodeText] = Field(default_factory=list, max_length=6)
+    existingMeasureIds: list[UnicodeText] = Field(default_factory=list, max_length=6)
     typedMeasures: bool = False
     counterbalanced: bool = True
 

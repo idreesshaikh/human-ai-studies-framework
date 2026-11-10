@@ -294,6 +294,19 @@ def test_overlong_and_odd_strings_are_clipped_not_fatal():
     assert built.draft["conditions"][0] == "<script>alert(1)</script>"
 
 
+def test_broken_unicode_from_a_model_cannot_poison_the_saved_reply(api):
+    client, _ = api(
+        _reply({**PLAN, "title": "Debugging \ud800 🔬"}, reply="A draft \udfff 🔬")
+    )
+    turn = _say(client, BRIEF)
+    assert "🔬" in turn["text"]
+    _accept_all(client, turn)
+    compiled = _compile(client)
+    assert compiled["valid"], compiled["errors"]
+    assert "🔬" in compiled["protocol"]["study"]["title"]
+    assert client.get("/studies/s1/conversation").status_code == 200
+
+
 # ------------------------------------------------------ chat and checklist together
 
 
