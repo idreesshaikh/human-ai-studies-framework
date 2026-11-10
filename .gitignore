@@ -89,3 +89,11 @@ artifacts/
 reports/
 research_notes/
 platform/.shots.mjs
+
+# Private project administration and unfinished research work
+docs/private/
+experiments/
+docs/finalization.md
+docs/interview-study.md
+docs/project-report-draft.md
+docs/wsese-2027-readiness.md

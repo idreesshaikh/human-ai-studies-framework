@@ -11,11 +11,6 @@ the study that runs.
 > **The participant experience in one line:** pair once, consent first, work
 > normally, and leave with a clean timeline—not a recording of the work itself.
 
-<figure markdown="span">
-  ![TERN sidebar, idle](../assets/screens/tern-sidebar-idle.png){ width="700" }
-  <figcaption>The TERN sidebar: session status, what is captured, and where your data goes.</figcaption>
-</figure>
-
 ## What TERN does
 
 - **Runs the study session clock**  -  start a session with a participant ID and

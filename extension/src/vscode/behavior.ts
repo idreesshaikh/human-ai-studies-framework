@@ -16,18 +16,9 @@ import { DEFAULT_IDLE_CONFIG, IdleDetector } from '../core/idle';
 import { captureSetting } from './configLock';
 
 /**
- * Behavioral telemetry adapter: maps native VS Code events onto the
- * core aggregators and records the behavioral event types. Mechanisms and
- * their blind spots are documented in `docs/adaptation-notes.md` (NFR-10).
- *
- * Privacy stance (FR-ETH-2): every payload is sizes/shapes/timings. Text
- * content is touched in exactly two transient, in-memory ways - hashing a
- * copied selection for the internal-copy correlation, and reading
- * `contentChanges` lengths - and is never stored or forwarded.
- *
- * Failure stance (NFR-1): every native handler swallows its own errors,
- * counts them, and reports once per source as a `behavior_sensor_error`
- * event; a broken sensor never interrupts the participant.
+ * Maps VS Code signals to content-free behavioral events. Selection hashes stay
+ * in memory; source text is never stored or forwarded. Sensor errors are counted
+ * and reported without interrupting the participant.
  */
 
 export interface BehaviorPort {

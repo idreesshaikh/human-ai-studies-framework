@@ -56,8 +56,8 @@ researcher decisions separately from the imported source review.
 
 ## Delivery boundary
 
-This delivers the machine-readable foundation of #90 and does not claim the
-reviewed pilot map or expert-adjudicated held-out benchmark is complete. Ranking,
+The evidence contract does not supply a reviewed source map or an independently
+adjudicated benchmark. Ranking,
 protocol traceability, source review UI and exports are implemented and tested;
 research claims still require independent sources and evaluation. The existing
 protocol schema and approval path remain authoritative. See

@@ -374,7 +374,7 @@ class HttpBackend implements Api {
     }>("GET", "/conversation/profiles");
 }
 
-/** Same-origin by default; override only for a separate API deployment. */
+/** Same-origin by default; override only for a separate API origin. */
 export function apiBase(): string {
   return (
     (typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_BASE : undefined) ?? ""

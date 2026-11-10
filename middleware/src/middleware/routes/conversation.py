@@ -574,11 +574,7 @@ def register(app: FastAPI, deps: ApiDeps):
             mv.decided_by = body.decidedBy
             mv.decided_at = deps.now()
 
-        # It did not, and the omission hid behind three surfaces that each looked right
-        # on their own: the move card showed its citations, the compiled provenance
-        # recorded them, and the library assistant answered questions about them (it
-        # searches a cross-study index), while the library's own list and citation graph
-        # - both scoped to `study_id` - had never been told the papers existed.
+        # Accepted citations must also appear in the study-scoped library.
         adopted: list[str] = []
         if body.status == "accepted":
             for g in mv.grounding or []:

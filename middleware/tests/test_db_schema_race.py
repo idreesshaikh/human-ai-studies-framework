@@ -77,7 +77,7 @@ def test_create_schema_retries_transient_connection_failures_then_succeeds(
         calls["n"] += 1
         if calls["n"] < 3:
             raise _operational_error(
-                "failed to resolve host 'postgres.railway.internal'"
+                "failed to resolve host 'database.example.invalid'"
             )
         real_create_all(bound_engine)
 
@@ -92,7 +92,7 @@ def test_create_schema_exhausts_retries_and_exits(tmp_path, monkeypatch):
     engine = create_engine(f"sqlite:///{tmp_path / 'dead.sqlite3'}")
 
     def always_fails(_engine):
-        raise _operational_error("failed to resolve host 'postgres.railway.internal'")
+        raise _operational_error("failed to resolve host 'database.example.invalid'")
 
     monkeypatch.setattr(Base.metadata, "create_all", always_fails)
     try:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check workspace coverage and documented deployment configuration."""
+"""Check workspace coverage and documented environment configuration."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ PYPROJECT = REPO / "pyproject.toml"
 
 
 SOURCES = ("middleware/src", "analysis/src", "protocol/src", "scripts")
-# Provided by the platform that hosts the app, not configured by the researcher.
+# Standard process environment variables.
 PLATFORM_PROVIDED = {"PORT", "USER"}
 
 _DIRECT = re.compile(
@@ -49,25 +49,6 @@ def _environment_problems() -> list[str]:
     missing = sorted(_names_read() - _documented() - PLATFORM_PROVIDED)
     if missing:
         problems.append(f"undocumented in .env.example: {', '.join(missing)}")
-    compose = (REPO / "docker-compose.yml").read_text()
-    passed = set(re.findall(r"^\s+([A-Z][A-Z0-9_]+):\s*\$\{", compose, re.M))
-    required = {
-        "LLM_API_KEY",
-        "LLM_BASE_URL",
-        "LLM_MODEL",
-        "LLM_DESIGN_MODEL",
-        "MISTRAL_API_KEY",
-        "MIDDLEWARE_AUTH",
-        "MIDDLEWARE_TOKEN",
-        "MIDDLEWARE_CORS_ORIGINS",
-        "MIDDLEWARE_PUBLIC_URL",
-        "MIDDLEWARE_S2_API_KEY",
-        "MIDDLEWARE_CLERK_JWKS_URL",
-        "MIDDLEWARE_CLERK_ISSUER",
-        "MIDDLEWARE_CLERK_PUBLISHABLE_KEY",
-    }
-    if missing_compose := sorted(required - passed):
-        problems.append(f"not passed through Compose: {', '.join(missing_compose)}")
     return problems
 
 

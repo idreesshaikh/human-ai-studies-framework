@@ -1,4 +1,4 @@
-"""Verification must not report success for interrupted checks or failed deploys."""
+"""Verification must not report success for interrupted or failed checks."""
 
 import importlib.util
 import json
@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 import pytest
-import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -63,32 +62,3 @@ def test_failed_gate_cannot_be_hidden_by_later_successes(
     assert len(saved["checks"]) == 7
     assert saved["checks"][0]["returncode"] == (127 if missing_executable else 1)
     assert all(row["returncode"] == 0 for row in saved["checks"][1:])
-
-
-@pytest.mark.parametrize(
-    "response,expected",
-    [
-        ({"data": {"serviceInstanceRedeploy": True}}, 0),
-        ({"data": {"serviceInstanceRedeploy": False}}, 1),
-        ({"data": None, "errors": [{"message": "synthetic denied"}]}, 1),
-        ({"data": {"serviceInstanceRedeploy": True}, "errors": [{}]}, 1),
-        ({"data": None}, 1),
-        ({}, 1),
-    ],
-)
-def test_release_requires_graphql_success_even_when_http_is_200(
-    tmp_path, response, expected
-):
-    workflow = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())
-    shell = workflow["jobs"]["deploy-studyloop"]["steps"][0]["run"]
-    validation = shell.split("<<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
-    body = tmp_path / "response.json"
-    body.write_text(json.dumps(response))
-    result = subprocess.run(
-        [sys.executable, "-c", validation, str(body)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == expected, result.stderr
-    assert ("triggered successfully" in result.stdout) is (expected == 0)

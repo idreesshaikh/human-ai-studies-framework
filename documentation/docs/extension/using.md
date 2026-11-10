@@ -32,11 +32,6 @@ the status-bar clock any time to open the session menu:
 - **Resume study session**  -  pick up where you left off.
 - **End study session**  -  finish early and open the debrief.
 
-<figure markdown="span">
-  ![TERN recording a real sample workspace](../assets/screens/tern-sample-code.png){ width="700" }
-  <figcaption>A real TERN session in the sample workspace: code stays in the editor, while the live clock stays in the status bar.</figcaption>
-</figure>
-
 ### Fatigue probes
 
 A 7-point Likert micro-prompt (`1`–`7` + Enter, `Esc` to skip) appears at a
@@ -68,11 +63,6 @@ The legacy six-item debrief is adapted and includes comprehension; it is not the
 standard NASA-TLX and has no validated aggregate. Version 6 protocols can declare
 the separate raw NASA-TLX instrument, whose wording, scales and scoring travel
 with the protocol.
-
-<figure markdown="span">
-  ![The end-of-study debrief](../assets/screens/tern-debrief.png){ width="700" }
-  <figcaption>The NASA-TLX-inspired debrief.</figcaption>
-</figure>
 
 ### Breaks and interruptions
 

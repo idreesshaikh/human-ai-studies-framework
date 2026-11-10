@@ -14,7 +14,8 @@ code --extensionDevelopmentPath=extension extension/examples/tern-lab
 ```
 
 Or open the folder in VS Code after installing the `.vsix` from the release.
-The workspace settings are a standalone local-only preset. A PHOENIX-linked
+The workspace settings are a standalone local-only preset: 15-minute sessions,
+a 15-second stuck threshold, and HTTP forwarding disabled. A PHOENIX-linked
 session can replace its duration, task, condition, endpoint, and capture scope
 at pairing/session start, so inspect the pre-flight rather than assuming these
 local defaults apply. Linking a session to PHOENIX is documented in

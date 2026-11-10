@@ -28,7 +28,7 @@ jobs:
         run: uv run ruff check .
 
 
-      - name: Workspace and deployment configuration agree
+      - name: Workspace configuration is consistent
         run: uv run python scripts/check_workspace_config.py
 
       # `--cov` with no value takes its source list from
@@ -107,22 +107,3 @@ jobs:
         run: npm run check
         env:
           VITE_API_BASE: ""
-
-  docker:
-    name: Middleware image builds
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Build middleware image
-        run: docker build -t studyloop-ci -f middleware/Dockerfile .
-
-      - name: Synthetic demo seeds in the production image
-        run: >-
-          docker run --rm
-          -e MIDDLEWARE_PROTOCOL=
-          -e MIDDLEWARE_AUTH=none
-          -e MIDDLEWARE_CORPUS_BOOTSTRAP=0
-          studyloop-ci
-          uv run --no-sync --no-dev --package middleware
-          python -m middleware seed-example

@@ -10,7 +10,7 @@ export class OfflineError extends Error {
   constructor() {
     super(
       "This needs the running middleware (port 8000). Start it with " +
-        "`docker compose up`.",
+        "`uv run python -m middleware`.",
     );
     this.name = "OfflineError";
   }

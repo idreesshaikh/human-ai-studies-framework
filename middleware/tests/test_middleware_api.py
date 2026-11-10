@@ -615,7 +615,7 @@ def test_no_protocol_means_accept_all(tmp_path):
 
 def test_stale_database_schema_fails_loudly_at_startup(tmp_path):
     """
-    A database created by an older middleware (e.g. a compose volume from before
+    A database created by an older middleware (e.g. a database from before
     events.source existed) must be rejected AT STARTUP with a remediation message - not
     pass /health and then 500 on the first ingest (NFR-1/NFR-2: sensor-facing failures
     are never quiet).
@@ -629,5 +629,5 @@ def test_stale_database_schema_fails_loudly_at_startup(tmp_path):
     con.close()
 
     settings = Settings(db_path=db, data_dir=tmp_path, protocol_path=None)
-    with pytest.raises(RuntimeError, match=r"source.*docker compose down -v|predates"):
+    with pytest.raises(RuntimeError, match=r"source.*current schema|predates"):
         create_app(settings, clock=lambda: FROZEN_NOW)

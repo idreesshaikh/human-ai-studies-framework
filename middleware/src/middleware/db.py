@@ -939,8 +939,8 @@ def _check_schema(engine, db_url: str) -> None:
         raise RuntimeError(
             f"database {db_url!r} predates the current schema: "
             + "; ".join(problems)
-            + ". Either point MIDDLEWARE_DB at a fresh file, or reset the "
-            "volume: `docker compose down -v`."
+            + ". Either point MIDDLEWARE_DB at a fresh file, or migrate a "
+            "backed-up database to the current schema."
         )
 
 

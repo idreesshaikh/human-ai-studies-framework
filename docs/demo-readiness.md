@@ -1,6 +1,6 @@
-# Demo rehearsal and verification
+# Verification
 
-Use Python 3.12+, Node.js 22+, and uv. Install the locked dependencies and
+Requires Python 3.12+, Node.js 22+, and uv. Install locked dependencies and
 Chromium from the repository root:
 
 ```bash
@@ -8,117 +8,55 @@ uv sync --all-packages --group docs --frozen
 npm --prefix platform ci
 npm --prefix extension ci
 npm --prefix platform exec playwright install chromium
-```
-
-## Run the complete software gate
-
-```bash
 uv run --no-sync python scripts/check_demo.py
 ```
 
-The command runs Python lint, workspace configuration checks, the entire
-workspace test suite with the 79% coverage floor, the separate 95% metrics
-coverage floor, extension checks, the production frontend build and browser
-accessibility/workflow checks, and the strict documentation build. It returns
-nonzero if any gate fails and continues collecting the other results.
+The gate runs Python lint, workspace configuration checks, tests with the 79%
+coverage floor, the separate 95% metrics floor, extension checks, the frontend
+build and browser workflows, and a strict documentation build. A failed or
+interrupted run is never marked successful.
 
 Logs and `report.json` go to ignored `.research-artifacts/demo-readiness/`.
-The report records the commit, branch, dirty state, source fingerprint, runtime
-versions, exact commands, timings and exit codes. An interrupted run is never
-marked complete. It contains no environment-variable dump or credentials.
-Use `--artifacts /tmp/studyloop-verification` to choose another location.
+The report records the commit, source fingerprint, tool versions, exact commands,
+timings, and exit codes. Use `--artifacts /tmp/studyloop-verification` to choose
+another location. Checks use disposable storage and synthetic fixtures.
 
-These checks use synthetic fixtures and disposable storage. No live language
-model, participant database, paper service or deployment is needed. Current
-dependency advisories require network access and are checked separately:
+## Browser checks
+
+```bash
+node platform/scripts/ui-regression.mjs --audit --screenshots /tmp/studyloop-screenshots
+```
+
+The suite covers empty and populated views, protocol review, manual entry,
+enrollment, planning, downloads, permissions, themes, and responsive layouts.
+Recovery cases include interrupted chat, retry identity, Stop, Unicode,
+HTML-looking input, and duplicate submission. Review screenshots for personal
+information before publishing them.
+
+Automated Chromium accessibility checks complement manual keyboard and
+assistive-technology checks. They do not establish compatibility with every
+browser or editor version.
+
+## Example and model checks
+
+Use the [disposable example](demo-walkthrough.md) to inspect the workflow.
+For optional provider compatibility:
+
+```bash
+uv run --no-sync --env-file .env python scripts/check_design_models.py --live
+```
+
+This explicitly calls a provider using synthetic briefs and checks parser and
+compiler behavior. It does not measure advice quality or empirical usefulness.
+
+Check current dependency advisories separately:
 
 ```bash
 npm --prefix platform audit --audit-level=high
 npm --prefix extension audit --audit-level=high
 ```
 
-For reviewable browser screenshots:
-
-```bash
-node platform/scripts/ui-regression.mjs --audit --screenshots /tmp/studyloop-screenshots
-```
-
-The browser suite covers empty and populated views, protocol review and manual
-entry, enrollment, planning, downloads, long literature records, read-only
-permissions, light/dark themes, and desktop/tablet/mobile widths. Recovery cases
-include failed and interrupted chat streams, retry identity, Stop, Unicode and
-HTML-looking text, and duplicate form submission. Automated accessibility
-checks complement human keyboard and assistive-technology review.
-
-## Rehearse in a separate demo database
-
-After the platform build, the shortest isolated launch is:
-
-```bash
-uv run --no-sync python scripts/run_demo.py
-```
-
-This seeds a fresh temporary database and serves the built app on
-`http://127.0.0.1:8000`. It overrides inherited study storage, authentication,
-protocol and background-job settings and disables live model calls. The manual
-checklist and populated example work without a provider. Use `--port 8001` if
-8000 is occupied. Ctrl+C stops the server and removes its temporary data.
-Changes made in this rehearsal disappear on exit. Use the normal server with
-explicit storage configuration for work you intend to retain.
-
-The [showcase walkthrough](demo-walkthrough.md) gives a seven-minute script,
-audience prompts and a fallback route. This is an illustrative example rather
-than an additional empirical study.
-
-For manual control of the demo environment instead:
-
-Run these commands in the same terminal. The directory is new and contains
-only the labelled example, keeping rehearsal separate from collected data.
-
-```bash
-DEMO_DATA_DIR="$(mktemp -d "${TMPDIR:-/tmp}/studyloop-demo.XXXXXX")"
-export MIDDLEWARE_DB="$DEMO_DATA_DIR/middleware.sqlite3"
-export MIDDLEWARE_DATA_DIR="$DEMO_DATA_DIR"
-export DATABASE_URL="" MIDDLEWARE_AUTH=none MIDDLEWARE_PROTOCOL=""
-export MIDDLEWARE_CORPUS_BOOTSTRAP=0 MIDDLEWARE_REFRESH_INTERVAL_H=""
-npm --prefix platform run build
-uv run --no-sync python -m middleware seed-example
-uv run --no-sync python -m middleware
-```
-
-Open `http://127.0.0.1:8000`, then the study named
-**Example: Copilot and bug fixing (synthetic data)**. Inspect Setup, the saved
-Plan, participant links and Data. Show the synthetic notice, incomplete
-sessions, sequence gaps and control-arm signals. Export a data bundle and
-explain why the simulated sessions are excluded by default. Run the seed
-command again to confirm that it creates no duplicate study.
-
-Example participant links are illustrative and cannot connect an editor. The
-roster preserves the simulated statuses; minting or redeeming live links for
-the reserved example is refused. Use the separate study below for live capture.
-
-Create a separate empty study to demonstrate the checklist/template path.
-Describe two coding conditions, enter participants and outcomes, review the
-compiler-validated draft and apply it. An unconfigured model should produce
-an explicit connection message while the checklist remains usable.
-
-For a configured provider, run the bounded synthetic compatibility check:
-
-```bash
-uv run --no-sync --env-file .env python scripts/check_design_models.py --live
-```
-
-This explicitly makes provider calls and records parsing/compiler behavior;
-it does not measure the quality of methodological advice. Freeze exact model
-versions for a research comparison. Inspect the report before presenting a
-live chat; account limits and provider availability can change.
-
-## Remaining environment checks
-
-The browser gate uses Chromium and SQLite. A packaged VSIX and unit tests do
-not replace installing the extension in the intended VS Code version,
-pairing it with the demo study, obtaining consent and completing a session.
-Verify Firefox/WebKit, assistive technology, PostgreSQL, the Docker image and
-the deployed public URL when those are part of the presentation environment.
-See [the WSESE claim boundaries](wsese-2027-readiness.md) before making
-claims about research quality or validated instruments.
+Extension unit tests do not replace installing TERN in the intended VS Code
+version, reviewing consent, pairing a separate study, and completing a session.
+Statistical and capture assumptions are documented in the
+[planner guide](planner.md) and [scope](scope.md).

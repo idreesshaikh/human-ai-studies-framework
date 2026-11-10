@@ -1,17 +1,23 @@
 # Contributing
 
-StudyLoop includes the PHOENIX researcher workspace and TERN participant extension. Keep
-changes focused, preserve protocol/API identifiers, and include regressions for
-capture, approval, permissions, analysis, and exports.
+Keep changes focused and preserve protocol, capture, approval, access, and export
+contracts. Read the [architecture](docs/architecture.md) and
+[scope](docs/scope.md) before proposing a feature.
 
-## Reproduce the checks
+## Setup and checks
 
-Use Python 3.12+, Node.js 22+, and uv. From the repository root:
+Use Python 3.12+, Node.js 22+, and uv:
 
 ```bash
 uv sync --all-packages --group docs --frozen
 npm --prefix platform ci
 npm --prefix extension ci
+npm --prefix platform exec playwright install chromium
+```
+
+Run checks for the code you change. CI checks the whole workspace:
+
+```bash
 uv run --no-sync ruff check .
 uv run --no-sync python scripts/check_workspace_config.py
 uv run --no-sync pytest --cov --cov-report=term-missing --cov-fail-under=79
@@ -21,35 +27,41 @@ npm --prefix extension run check
 uv run --no-sync mkdocs build --strict -f documentation/mkdocs.yml
 ```
 
-CI is authoritative; do not lower coverage floors to pass a change. Install
-Chromium using `npm --prefix platform exec playwright install chromium` before
-browser rehearsals. Use a separate synthetic database, never a participant
-deployment.
+`uv run --no-sync python scripts/check_demo.py` runs these gates and records
+versions and logs. See [verification](docs/demo-readiness.md),
+[frontend development](platform/docs/development.md), and
+[extension development](extension/docs/development.md).
 
-After installation, `uv run --no-sync python scripts/check_demo.py` runs the
-offline gates above and records exact versions, source fingerprint and logs.
-See [demo rehearsal](docs/demo-readiness.md) and
-[methodological readiness for WSESE 2027](docs/wsese-2027-readiness.md).
+## Implementation contracts
 
-## Research and data
+- `protocol/` owns schemas and deterministic derivations; `analysis/` consumes
+  protocol data without accessing middleware storage.
+- `middleware/` owns API, persistence, and provider orchestration. Keep route
+  handlers thin and reusable rules in service modules.
+- `platform/` renders server state. Its protocol preview is advisory; server
+  validation and researcher approval remain authoritative.
+- Preserve study attribution, participant and session identity, producer,
+  sequence, timestamps, and schema versions throughout capture and export.
+- Test contract and statistical changes with meaningful synthetic cases,
+  including missing data. Keep simulated observations separate from findings.
 
-- Never commit `.env`, credentials, participant records, raw source snapshots,
-  downloads, generated reports, model weights, or `.research-artifacts/`.
-- Use clearly labelled synthetic fixtures in tests. A passing test, generated
-  annotation, or simulated reviewer is not empirical evidence.
-- Model/classifier adoption requires a frozen, independent evaluation. Preserve
-  explicit abstention, deterministic validation, and researcher approval.
-- Protocol changes need compatibility notes. Historical IDs are not UI labels;
-  consult [terminology](docs/terminology.md).
+## Public repository boundary
 
-## Delivery
+Commit source, tests, small synthetic fixtures, and maintained documentation.
+Keep participant records, consent materials, interview sources, personal paths,
+credentials, research administration, paper drafts, generated reports, and
+builds outside the public tree. Private working material belongs in approved
+storage; `.research-artifacts/` is ignored by Git.
 
-Open a PR against `main`, link the issue, list the exact checks and remaining
-limits, and obtain required code-owner review. Do not merge feature work into
-an already-merged feature branch. Verify the final main tree and deployed build.
-Do not bypass review rules or remove someone else's changes. Document exact
-cleanup targets before deleting data or tickets.
+Check screenshots for account details, local paths, recent files, and hostnames.
+Use generic identities in examples. Preserve license notices, source attribution,
+and identifiers required by published integrations.
 
-Root and extension code carry MIT notices; preserve both attribution notices.
-External papers, datasets, fonts, and dependencies retain their own terms.
-See [security](SECURITY.md) for sensitive findings.
+## Pull requests
+
+Describe the problem, resulting behavior, and checks run. Explain compatibility
+or dependency changes and update relevant documentation. Update TERN's changelog
+for extension changes. Do not lower coverage floors to pass a change.
+
+Use [private reporting](SECURITY.md) for vulnerabilities. Contributions are
+offered under the [MIT License](LICENSE); preserve existing attribution notices.

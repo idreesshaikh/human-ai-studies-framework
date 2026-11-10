@@ -143,4 +143,4 @@ compatibility; there is no phase-transition service.
 
 The model and paper services are tested with fixtures. Tests do not establish
 live-provider availability or methodological validity. See
-[contributing](contributing.md) for reproducible checks.
+[contributing](../CONTRIBUTING.md) for reproducible checks.

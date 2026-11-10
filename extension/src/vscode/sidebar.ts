@@ -19,21 +19,8 @@ import {
 } from './pairing';
 
 /**
- * The study, in the sidebar (FR-INST-22).
- *
- * Three views answer the three questions a participant actually has: *am I in
- * a session?*, *what is being captured right now?*, and *where is my data
- * going?* Before this the only permanent surface was a countdown in the status
- * bar, which cannot answer any of them.
- *
- * Tree views rather than a webview, deliberately: they inherit VS Code's
- * theming, keyboard navigation, and screen-reader behaviour, which is most of
- * NFR-12's bar met by construction instead of re-implemented in HTML  -  and
- * they cannot execute anything, which matters on a surface that renders
- * server-supplied strings.
- *
- * Passive by construction (NFR-1): these providers read state and never drive
- * the recorder. If a provider throws, the session is unaffected.
+ * Native tree views expose session state, capture scope, and data destinations.
+ * Providers only read state; failures cannot interrupt recording.
  */
 
 /** What the sidebar needs to know about the running session. Supplied by

@@ -4,7 +4,7 @@
 Run with the synced workspace interpreter:
     uv run --no-sync python scripts/check_demo.py
 
-No live model, literature service, deployment or participant database is used.
+No live model, literature service or participant database is used.
 The browser gate creates its own disposable backend. Logs and the report stay
 under the ignored .research-artifacts directory unless --artifacts is supplied.
 """

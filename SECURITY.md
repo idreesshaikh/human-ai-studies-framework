@@ -1,30 +1,38 @@
 # Security and participant data
 
-This is research software, not a security or ethics certification. Protect
-participant identities, session credentials, code, and consent records.
-
 ## Report privately
 
-Use GitHub private vulnerability reporting if enabled. Otherwise contact a
-maintainer privately through their GitHub profile before sharing sensitive
-details. The code owners are listed in `.github/CODEOWNERS`. Do not include live
-keys, tokens, participant data, or source code in public issues. Provide a
-minimal synthetic reproduction and the affected commit/version.
+Use [GitHub private vulnerability reporting](https://github.com/idreesshaikh/human-ai-studies-framework/security/advisories/new).
+If unavailable, contact a maintainer through their GitHub profile. Provide the
+affected version and a minimal synthetic reproduction. Never put credentials,
+participant records, consent materials, or private source code in public issues.
 
-## Deployment boundary
+Report cross-project access, authentication bypass, invalid participant
+credentials, undisclosed capture, and model-output validation bypass privately.
+Methodological advice issues can be reported publicly using synthetic examples.
 
-Local no-auth mode is for a loopback server on a trusted machine, not a hosted
-participant deployment. Hosted access requires the documented authentication,
-project scope, transport security, and operator configuration. Health checks
-and passing tests do not establish a production security audit.
+## Access and capture
 
-Raw code capture is off by default. New replay diffs require explicit task-file
-selection, approved protocol configuration, and appropriate participant consent.
-Review selected source files for secrets; filename checks cannot detect secrets
-embedded in otherwise legitimate code. Code diffs are hidden when the current
-study policy disables them. Downloaded bundles and local shadow repositories
-remain sensitive artifacts even when git-ignored.
+Unauthenticated mode is for local use on a trusted machine. Configure access
+controls before sharing an instance. Passing tests do not constitute a security
+or ethics certification.
 
-Before changing retention or deleting data, identify ownership and exact scope,
-preserve a recoverable copy where appropriate, and inform the operator. Never
-sweep records based only on a test-like name or a missing study mapping.
+TERN excludes source text, keystrokes, and clipboard content. Optional transcript
+and snapshot tools have separate content policies. Review their configuration,
+selected files, and participant consent before enabling them. Filename checks
+cannot detect secrets embedded in otherwise legitimate source files.
+
+The model receives the design conversation and retrieved literature, not
+participant event rows. Study reads and exports require project-scoped access.
+Operators are responsible for storage, access, and retention arrangements.
+
+## Retention
+
+Capture toggles change future collection at session boundaries. They do not
+erase previously collected events or filter historical fields from exports.
+Disabled fields are not collected for possible later use. Attribution keys
+remain available for joining and ordering records.
+
+Downloaded bundles, transcript exports, and local shadow repositories may hold
+sensitive information even when ignored by Git. Before deleting data, identify
+ownership and exact scope and preserve a recoverable copy where appropriate.
