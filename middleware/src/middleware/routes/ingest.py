@@ -132,7 +132,15 @@ def register(app: FastAPI, deps: ApiDeps):
         received = deps.now()
         flagged = 0
         flags_by_row: list[list[str]] = []
-        for row in rows:
+        for index, row in enumerate(rows):
+            version = row.get("schemaVersion", -1)
+            if (
+                type(version) is not int
+                or not -(2**31) <= version < 2**31
+            ):
+                raise HTTPException(
+                    422, f"Metric row {index + 1}: schemaVersion must be an integer."
+                )
             participant_id = str(row.get("participantId", ""))
             condition = str(row.get("condition", ""))
             session_id = str(row.get("sessionId", ""))
@@ -180,22 +188,31 @@ def register(app: FastAPI, deps: ApiDeps):
         studyId: str | None = Form(default=None),
         s: Session = Depends(deps.db),
     ) -> dict:
+        filename = file.filename or "unnamed"
+        if (
+            filename in {".", ".."}
+            or any(c in filename for c in ("/", "\\", "\x00"))
+            or len(filename.encode("utf-8")) > 200
+        ):
+            raise HTTPException(
+                400, "Use a filename without directory paths, up to 200 UTF-8 bytes."
+            )
         content = await file.read()
         digest = sha256(content).hexdigest()
         existing = s.scalar(
             select(StoredFile).where(
                 StoredFile.sha256 == digest,
-                StoredFile.filename == (file.filename or "unnamed"),
+                StoredFile.filename == filename,
                 StoredFile.study_id == studyId,
             )
         )
         if existing:
             return {"id": existing.id, "sha256": digest, "duplicate": True}
         deps.settings.files_dir.mkdir(parents=True, exist_ok=True)
-        stored = deps.settings.files_dir / f"{digest[:16]}-{file.filename}"
+        stored = deps.settings.files_dir / f"{digest[:16]}-{filename}"
         stored.write_bytes(content)
         record = StoredFile(
-            filename=file.filename or "unnamed",
+            filename=filename,
             stored_path=str(stored),
             content_type=file.content_type or "",
             size=len(content),
