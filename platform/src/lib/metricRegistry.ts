@@ -171,6 +171,34 @@ export const METRIC_REGISTRY: MetricEntry[] = [
     "count",
   ),
   {
+    key: "first_green_minutes",
+    label: "Time to first passing test",
+    definition:
+      "Minutes from session start until the task's acceptance tests first all passed. One point per session that reached a passing run.",
+    measurementType: "continuous",
+    origin: "task",
+    rqId: "RQ-P2",
+    extract(rows) {
+      // The harness repeats firstGreenMs on every later run; keep one per session.
+      const seen = new Set<string>();
+      const out: MetricObservation[] = [];
+      for (const r of rows) {
+        if (r.type !== "task_outcome" || seen.has(r.sessionId)) continue;
+        const ms = num(r.payload.firstGreenMs);
+        if (ms === null) continue;
+        seen.add(r.sessionId);
+        const minutes = Math.round(ms / 600) / 100;
+        out.push({
+          condition: r.condition,
+          participantId: r.participantId,
+          value: minutes,
+          detail: `${minutes.toFixed(1)} min · ${r.participantId}`,
+        });
+      }
+      return out;
+    },
+  },
+  {
     key: "code_authorship",
     label: "Code authorship (AI vs human)",
     definition:

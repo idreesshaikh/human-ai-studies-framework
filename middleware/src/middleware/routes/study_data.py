@@ -44,6 +44,7 @@ from middleware.db import (
     StoredFile,
 )
 from middleware.evidence_mapping import evidence_export
+from middleware.example_study import is_example_study
 from middleware.route_helpers import (
     _session_gap_facts,
 )
@@ -417,6 +418,9 @@ def register(app: FastAPI, deps: ApiDeps):
             ],
             "producers": producer_capabilities(proto),
             "requiredProducers": required_producers(proto),
+            # The seeded example holds only simulated sessions; the Data tab
+            # asks for them explicitly and labels them. No other study is marked.
+            "syntheticExample": is_example_study(study_id),
         }
 
     @app.get(

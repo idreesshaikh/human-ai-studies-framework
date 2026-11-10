@@ -156,6 +156,8 @@ export interface StudyStatusDoc {
   researchQuestions: { id: string; recipes: string[]; recipeRuns: string[] }[];
   producers: Record<string, ProducerStatus>;
   requiredProducers: string[];
+  /** True only for the seeded example study, whose sessions are all simulated. */
+  syntheticExample?: boolean;
 }
 
 // ------------------------------------------------------------------- transport

@@ -351,13 +351,14 @@ def register_routes(app, db, authorize, resolve_protocol, joined_rows, now, iden
         "/studies/{study_id}/control-arm-audit",
         dependencies=[Depends(authorize("view"))],
     )
-    def control_audit(study_id: str, s=Depends(db)):
+    def control_audit(study_id: str, includeSynthetic: bool = False, s=Depends(db)):
         proto = protocol(s, study_id)
         return {
             **audit_sessions(
-                joined_rows(s, study_id),
+                joined_rows(s, study_id, includeSynthetic),
                 proto.get("controlConditions", []),
                 decision_records(s, study_id),
+                include_synthetic=includeSynthetic,
             ),
             "records": audit_records(s, study_id),
         }

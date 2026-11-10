@@ -49,6 +49,7 @@ Event-derived measures read the event `type` from the one-timeline dataset.
 | Comment ratio | static (`comment_ratio`) | continuous | RQ-P2 |
 | Indentation variance | static (`indentation_variance`) | continuous | RQ-P2 |
 | Line width (mean / max) | static (`mean_line_width`, `max_line_width`) | continuous / count | RQ-P2 |
+| Time to first passing test | `task_outcome.firstGreenMs` (minutes, one per session) | continuous | RQ-P2 |
 | Code authorship (AI vs human) | `edit_burst.origin` | categorical | RQ-P3 |
 | AI-authored share | `edit_burst` (per participant) | continuous | RQ-P3 |
 | AI character share (session) | `code_evolution.aiInsertionShare` | continuous | RQ-P3 |

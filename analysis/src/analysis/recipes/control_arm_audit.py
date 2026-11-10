@@ -19,13 +19,18 @@ BLIND_SPOTS = [
 
 
 def audit_sessions(
-    rows: list[dict], control_conditions: list[str], decisions: dict | None = None
+    rows: list[dict],
+    control_conditions: list[str],
+    decisions: dict | None = None,
+    *,
+    include_synthetic: bool = False,
 ) -> dict:
+    """Synthetic rows are audited only on request, for a labelled example view."""
     sessions = defaultdict(list)
     for row in rows:
-        if row.get("condition") in control_conditions and not (
-            row.get("payload") or {}
-        ).get("synthetic"):
+        if row.get("condition") in control_conditions and (
+            include_synthetic or not (row.get("payload") or {}).get("synthetic")
+        ):
             sessions[row["sessionId"]].append(row)
     results = []
     for sid, events in sorted(sessions.items()):

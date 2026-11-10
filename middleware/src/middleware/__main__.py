@@ -20,6 +20,7 @@ def main() -> None:
             "corpus-candidates",
             "corpus-decide",
             "templates",
+            "seed-example",
         ],
         help="Command to run (default: serve)",
     )
@@ -208,6 +209,27 @@ def main() -> None:
         for problem in problems:
             print(f"  FAIL {problem}")
         sys.exit(0 if not problems else 1)
+
+    elif args.command == "seed-example":
+        from middleware.example_study import seed_example
+
+        try:
+            result = seed_example()
+        except RuntimeError as exc:
+            print(f"seed-example: {exc}", file=sys.stderr)
+            sys.exit(1)
+        if not result["created"]:
+            print(f"{result['studyId']}: already present, nothing changed")
+        else:
+            print(
+                f"{result['studyId']}: {result['title']}\n"
+                f"  {result['participantLinks']} participant links, "
+                f"{result['sessions']} simulated sessions, "
+                f"{result['events']} events, all marked synthetic\n"
+                "  Synthetic example data, not a finding: excluded from data "
+                "bundles, pilot estimates and analysis recipes."
+            )
+        sys.exit(0)
 
 
 if __name__ == "__main__":

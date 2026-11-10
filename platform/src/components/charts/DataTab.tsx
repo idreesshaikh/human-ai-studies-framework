@@ -23,7 +23,9 @@ import {
 import { cn } from "@/lib/cn";
 import { laneLabel } from "@/lib/timeline";
 import { hasRole, type Role } from "@/lib/capabilities";
+import { Notice } from "@/components/ui/notice";
 import { OPEN_SETUP, DATA_EMPTY_TITLE, DATA_EMPTY_BODY } from "@/lib/uiText";
+import { SYNTHETIC_EXAMPLE_LABEL } from "@/lib/syntheticExample";
 
 export function DataTab({
   studyId,
@@ -38,6 +40,7 @@ export function DataTab({
   const [statusDoc, setStatusDoc] = useState<StudyStatusDoc | null>(null);
   const [conditions, setConditions] = useState<string[]>([]);
   const [rows, setRows] = useState<DatasetRow[]>([]);
+  const [synthetic, setSynthetic] = useState(false);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -49,9 +52,21 @@ export function DataTab({
     const version = ++generation.current;
     setLoading(true);
     setLoadError(null);
+    // The seeded example holds only simulated sessions. They are read on
+    // request, for that study alone, and shown under a notice; every other
+    // study keeps the default read, which leaves synthetic rows out.
     Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)])
+      .then((plain) =>
+        plain[0].syntheticExample
+          ? Promise.all([
+              studyApi.status(studyId, true),
+              studyApi.dataset(studyId, true),
+            ])
+          : plain,
+      )
       .then(([s, d]) => {
         if (generation.current !== version) return;
+        setSynthetic(Boolean(s.syntheticExample));
         setSessions(s.sessions);
         setStatusDoc(s);
         setConditions(s.conditions);
@@ -111,6 +126,16 @@ export function DataTab({
         </p>
       ) : (
         <>
+          {synthetic && (
+            <Notice>
+              <strong>{SYNTHETIC_EXAMPLE_LABEL}</strong> Every session below was
+              simulated by <code>seed-example</code> to show how a study reads
+              once data arrives. No participant took part. The rows are marked
+              synthetic and are left out of data bundles, pilot estimates and
+              analysis recipes, so a downloaded data bundle for this study is
+              empty.
+            </Notice>
+          )}
           <section className="flex flex-col gap-3 border-b border-border pb-5">
             <h2 className="type-subhead text-text">Download study records</h2>
             <p className="type-note text-text-muted">
@@ -153,7 +178,9 @@ export function DataTab({
             )}
           </section>
           <section className="flex flex-col gap-stack">
-            <h2 className="type-section text-text">Sessions</h2>
+            <h2 className="type-section text-text">
+              {synthetic ? "Sessions (synthetic)" : "Sessions"}
+            </h2>
             {sessions.length === 0 ? (
               <EmptyState line="No sessions yet. Collected data appears here per session, with its completeness and any integrity flags." />
             ) : (
@@ -274,16 +301,23 @@ export function DataTab({
             sessions={sessions}
             role={role}
             onUpdated={() => setRevision((r) => r + 1)}
+            synthetic={synthetic}
           />
           <div className="flex flex-col gap-stack">
             <section className="flex flex-col gap-stack">
               <h2 className="type-section text-text">
                 Confirmatory metrics by condition
               </h2>
-              <p className="type-note text-text-muted">
-                Pilot sessions and researcher-excluded sessions are omitted from
-                this comparison.
-              </p>
+              {synthetic ? (
+                <p className="type-note text-text">
+                  {SYNTHETIC_EXAMPLE_LABEL} These charts plot simulated values.
+                </p>
+              ) : (
+                <p className="type-note text-text-muted">
+                  Pilot sessions and researcher-excluded sessions are omitted
+                  from this comparison.
+                </p>
+              )}
               <MetricStrip
                 rows={rows.filter(
                   (r) => !r.pilot && r.inclusionDecision !== "exclude",

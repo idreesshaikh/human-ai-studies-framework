@@ -10,6 +10,7 @@ import {
   type SessionDecision,
 } from "@/lib/plannerApi";
 import type { SessionStatus } from "@/lib/studyApi";
+import { SYNTHETIC_EXAMPLE_LABEL } from "@/lib/syntheticExample";
 
 const STATUS = {
   "no-evidence": "No captured evidence",
@@ -21,11 +22,14 @@ export function ControlAudit({
   sessions,
   role,
   onUpdated,
+  synthetic = false,
 }: {
   studyId: string;
   sessions: SessionStatus[];
   role?: Role | null;
   onUpdated: () => void;
+  /** The seeded example: audit its simulated sessions, and record no decisions. */
+  synthetic?: boolean;
 }) {
   const [audit, setAudit] = useState<AuditResult | null>(null);
   const [decisions, setDecisions] = useState<Record<string, SessionDecision>>(
@@ -35,7 +39,7 @@ export function ControlAudit({
   const generation = useRef(0);
   useEffect(() => {
     const version = ++generation.current;
-    Promise.all([plannerApi.audit(studyId), plannerApi.load(studyId)])
+    Promise.all([plannerApi.audit(studyId, synthetic), plannerApi.load(studyId)])
       .then(([a, p]) => {
         if (generation.current === version) {
           setAudit(a);
@@ -52,16 +56,23 @@ export function ControlAudit({
     return () => {
       generation.current++;
     };
-  }, [studyId, sessions]);
+  }, [studyId, sessions, synthetic]);
   return (
     <section className="flex flex-col gap-3 border-t border-border pt-5">
       <h2 className="type-section text-text">
         Control-arm audit and session decisions
       </h2>
       <p className="max-w-reading type-note text-text-muted">
-        The audit reports captured signals. No captured evidence is never proof
-        of no AI use. Inclusion remains your decision.
+        The audit reports the signals that were captured. An absence of signals
+        does not prove that no AI was used. Whether a session stays in the
+        analysis is your decision.
       </p>
+      {synthetic && (
+        <p className="type-note text-text">
+          {SYNTHETIC_EXAMPLE_LABEL} Pilot tags and inclusion decisions are not
+          recorded for simulated sessions.
+        </p>
+      )}
       {error && (
         <p className="type-note text-critical" role="alert">
           {error}
@@ -69,11 +80,13 @@ export function ControlAudit({
       )}
       {audit && (
         <>
-          <p className="type-note text-text-muted">{audit.accuracy}</p>
+          <p className="type-note text-text-muted">
+            Audit accuracy: {audit.accuracy}
+          </p>
           {!audit.sessions.length && (
             <p className="type-note text-text-muted">
-              No real captured sessions in declared control conditions. Set
-              controlConditions in the protocol to name the arms to audit.
+              No captured sessions in a control condition yet. Name the
+              arms to audit under controlConditions in the protocol.
             </p>
           )}
           <div className="flex flex-col gap-4">
@@ -113,7 +126,7 @@ export function ControlAudit({
                       </p>
                     </>
                   )}
-                  <SessionControls
+                  {!synthetic && <SessionControls
                     key={`${session.sessionId}:${decisions[session.sessionId]?.updatedAt ?? ""}`}
                     studyId={studyId}
                     sessionId={session.sessionId}
@@ -126,7 +139,7 @@ export function ControlAudit({
                       }));
                       onUpdated();
                     }}
-                  />
+                  />}
                 </div>
               );
             })}

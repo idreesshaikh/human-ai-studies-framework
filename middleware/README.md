@@ -74,6 +74,7 @@ same paper work offline.
 | `corpus-verify` | Check the imported corpus is complete |
 | `corpus-enrich` | Fill in missing abstracts from Semantic Scholar |
 | `templates` | Validate and list the template registry |
+| `seed-example` | Add one labelled synthetic example study (protocol, plan, links, simulated sessions); idempotent |
 
 The default is local single-user access. In Clerk mode, configure
 `MIDDLEWARE_CLERK_JWKS_URL`, `MIDDLEWARE_CLERK_ISSUER`, and

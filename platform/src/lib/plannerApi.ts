@@ -127,8 +127,10 @@ export const plannerApi = {
     post<PlanResult>(`${path(id)}/plan`, inputs),
   pilot: (id: string, inputs: PlanInputs) =>
     post<PlanResult>(`${path(id)}/pilot-variance`, inputs),
-  audit: (id: string) =>
-    studyRequest<AuditResult>(`${path(id)}/control-arm-audit`),
+  audit: (id: string, includeSynthetic = false) =>
+    studyRequest<AuditResult>(
+      `${path(id)}/control-arm-audit${includeSynthetic ? "?includeSynthetic=true" : ""}`,
+    ),
   annotate: (
     id: string,
     session: string,
