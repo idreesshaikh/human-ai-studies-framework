@@ -109,6 +109,23 @@ def outage():
     return _Raises()
 
 
+def rejected_key():
+    """A configured provider that refuses the credential, counting its calls."""
+    import urllib.error
+
+    class _Rejects:
+        model = "test"
+        api_key = "k"
+        base_url = "https://example.invalid/chat/completions"
+        calls = 0
+
+        def post(self, *a, **k):
+            self.calls += 1
+            raise urllib.error.HTTPError(self.base_url, 401, "Unauthorized", {}, None)
+
+    return _Rejects()
+
+
 def move(kind: str, section: str, value: str, *, refs: tuple[str, ...] = ()) -> dict:
     return {
         "kind": kind,

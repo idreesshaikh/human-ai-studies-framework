@@ -14,7 +14,7 @@ from fastapi import (
 from fastapi.responses import (
     StreamingResponse,
 )
-from protocol.measure_catalog import catalog_entry, suggest_measures
+from protocol.measure_catalog import suggest_measures
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,7 @@ from middleware import (
     corpus_importer,
     design_assistant,
     elicitation,
+    study_plan,
     template_registry,
     template_repertoire,
 )
@@ -409,10 +410,13 @@ def register(app: FastAPI, deps: ApiDeps):
         identity: auth.Identity = Depends(deps.authz["resolve_identity"]),
     ) -> StreamingResponse:
         """The same turn as ``POST .../turns``, streamed (NFR-12)."""
+        # Validate while the HTTP status can still report a conflict. Once the
+        # stream starts, an invalid card decision would otherwise look like a
+        # successful request followed by an internal stream error.
+        _validate_decision_followup(s, study_id, body.decision)
 
         def frames():
             try:
-                _validate_decision_followup(s, study_id, body.decision)
                 existing = _turn_for_request(s, study_id, body.requestId)
                 if existing is not None:
                     replay = _stored_turn_payload(s, study_id, existing)
@@ -454,10 +458,13 @@ def register(app: FastAPI, deps: ApiDeps):
                     s, study_id, researcher, design_assistant.holding_turn(str(exc))
                 )
                 yield _sse("done", payload)
-            except Exception as exc:
+            except Exception:
                 log.exception("streaming conversation turn failed")
                 s.rollback()
-                yield _sse("error", {"detail": str(exc)})
+                yield _sse(
+                    "error",
+                    {"detail": "The reply could not be saved. Please try again."},
+                )
 
         return StreamingResponse(
             frames(),
@@ -598,234 +605,17 @@ def register(app: FastAPI, deps: ApiDeps):
         study_id: str, body: QuickProtocolIn, s: Session = Depends(deps.db)
     ) -> dict:
         """Validate a bounded developer-study checklist and compile it in one pass."""
-        if any(
-            not value.strip()
-            for value in (
-                body.title,
-                body.participantDescription,
-                body.taskDescription,
-            )
-        ):
-            raise HTTPException(422, "the study brief fields cannot be blank")
-        questions = [question.strip() for question in body.researchQuestions]
-        if any(not 10 <= len(question) <= 500 for question in questions):
-            raise HTTPException(
-                422, "each research question needs 10 to 500 characters"
-            )
-        if len({question.casefold() for question in questions}) != len(questions):
-            raise HTTPException(422, "research questions must be different")
-        conditions = [condition.strip() for condition in body.conditions]
-        if any(not condition or len(condition) > 80 for condition in conditions):
-            raise HTTPException(
-                422, "each condition needs a short, non-empty name (80 characters max)"
-            )
-        if len({condition.casefold() for condition in conditions}) != 2:
-            raise HTTPException(422, "the two conditions must be different")
-        if body.design == "within-subjects" and not body.counterbalanced:
-            raise HTTPException(
-                422,
-                "within-subjects studies in this quick path must counterbalance "
-                "condition order",
-            )
-        if body.design == "between-subjects" and body.plannedParticipants < 6:
-            raise HTTPException(
-                422,
-                "between-subjects studies need at least 6 planned participants",
-            )
-
-        scope = elicitation.classify_scope(
-            [*questions, body.taskDescription, body.participantDescription]
-        )
-        if scope != "supported":
-            raise HTTPException(
-                422,
-                "Quick protocol is limited to task-based human–AI software-development "
-                "studies that run in VS Code. Use the chat for a supported idea that "
-                "needs shaping, or choose a different tool for exams, classroom, "
-                "clinical, marketing, or general survey studies.",
-            )
-
-        measures = [measure.strip() for measure in body.measures]
-        if any(not measure or len(measure) > 100 for measure in measures):
-            raise HTTPException(
-                422,
-                "each outcome needs a short, non-empty description "
-                "(100 characters max)",
-            )
-        if len({measure.casefold() for measure in measures}) != len(measures):
-            raise HTTPException(422, "selected outcomes must be different")
-
         existing = s.get(ProtocolDraftRow, study_id)
         base_yaml = existing.yaml if existing else ""
         current = compiler.compile_moves(
             deps.conversation_moves(s, study_id), base_yaml=base_yaml
         ).draft
-        typed_mode = (
-            body.typedMeasures
-            or bool(body.measureIds)
-            or bool(body.existingMeasureIds)
-            or current.get("protocolVersion") == 6
-        )
-        preserved = {
-            row["id"]: row
-            for row in current.get("measures", [])
-            if isinstance(row, dict)
-        }
-        if typed_mode:
-            if len(body.measureIds) + len(body.existingMeasureIds) != len(
-                measures
-            ) or len(set(body.measureIds)) != len(body.measureIds):
-                raise HTTPException(
-                    422, "Choose a supported mapping for every outcome before saving."
-                )
-            if len(set(body.existingMeasureIds)) != len(body.existingMeasureIds) or any(
-                ident not in preserved for ident in body.existingMeasureIds
-            ):
-                raise HTTPException(
-                    422,
-                    "An existing measurement changed; reload the draft before editing.",
-                )
-            for ident in body.measureIds:
-                entry = catalog_entry(ident)
-                if entry is None or (
-                    entry["id"] != "S10"
-                    and not entry["recipeByDesign"].get(body.design)
-                ):
-                    raise HTTPException(
-                        422,
-                        "A selected outcome has no supported analysis for this design.",
-                    )
-            for ident in body.existingMeasureIds:
-                recipe = preserved[ident]["analysisRecipe"]
-                if (
-                    recipe == "paired-nonparametric"
-                    and body.design != "within-subjects"
-                ) or (
-                    recipe in {"two-group-nonparametric", "two-proportion"}
-                    and body.design != "between-subjects"
-                ):
-                    raise HTTPException(
-                        422,
-                        "The existing measurement analysis is incompatible "
-                        "with this design; choose its analysis in Setup.",
-                    )
-
-        template_id = (
-            "within-subjects-crossover-v1"
-            if body.design == "within-subjects"
-            else "two-group-rct-v1"
-        )
-        parameters = {
-            "studyId": study_id,
-            "title": body.title.strip(),
-            "researchQuestion": questions[0],
-            "conditions": conditions,
-            "participantPlan": body.plannedParticipants,
-            "sessionMinutes": body.sessionMinutes,
-            "taskDescription": body.taskDescription.strip(),
-        }
-        move_specs = [
-            {
-                "kind": "choose-template",
-                "target": "design",
-                "proposal": (
-                    "Use a counterbalanced within-subjects comparison."
-                    if body.design == "within-subjects"
-                    else "Use a two-group between-subjects comparison."
-                ),
-                "patch": {
-                    "templateId": template_id,
-                    "parameters": parameters,
-                    "manual": True,
-                    "researchQuestions": questions,
-                    "typedMeasures": typed_mode,
-                    "baseProtocol": current
-                    if current.get("protocolVersion") == 6
-                    else None,
-                    "design": body.design,
-                    "counterbalanced": body.counterbalanced,
-                },
-            },
-            *(
-                {
-                    "kind": "add-rq",
-                    "target": "researchQuestions[]",
-                    "proposal": question,
-                    "patch": {
-                        "section": "researchQuestions",
-                        "op": "append",
-                        "value": question,
-                    },
-                }
-                for question in questions[1:]
-            ),
-            {
-                "kind": "set-field",
-                "target": "participants.description",
-                "proposal": f"Recruit {body.participantDescription.strip()}.",
-                "patch": {
-                    "op": "set-field",
-                    "path": ["participants", "description"],
-                    "value": body.participantDescription.strip(),
-                },
-            },
-            {
-                "kind": "add-measure",
-                "target": "measures[]",
-                "proposal": "Measure " + ", ".join(measures) + ".",
-                "patch": {
-                    "section": "measures",
-                    "op": "set" if typed_mode else "append",
-                    "value": [
-                        *[preserved[ident] for ident in body.existingMeasureIds],
-                        *[{"catalogId": ident} for ident in body.measureIds],
-                    ]
-                    if typed_mode
-                    else measures,
-                },
-            },
-            {
-                "kind": "declare-task",
-                "target": "tasks[]",
-                "proposal": body.taskDescription.strip().rstrip(".") + ".",
-                "patch": {
-                    "id": "primary-task",
-                    "title": body.taskDescription.strip()[:80],
-                    "description": body.taskDescription.strip(),
-                    "minutes": body.sessionMinutes,
-                    "conditions": conditions,
-                },
-            },
-        ]
-
-        kept_recipes = {
-            rq.get("text"): entry.get("recipes", [])
-            for rq in current.get("researchQuestions") or []
-            for entry in current.get("analysisPlan") or []
-            if entry.get("rq") == rq.get("id")
-        }
-        preview = compiler.compile_moves(
-            [{**spec, "status": "accepted"} for spec in move_specs]
-        ).draft
-        move_specs += [
-            {
-                "kind": "prescribe-statistics",
-                "target": "analysisPlan",
-                "proposal": f"Keep the {preserved[ident]['analysisRecipe']} analysis.",
-                "patch": {"recipeId": preserved[ident]["analysisRecipe"], "rq": "RQ-1"},
-            }
-            for ident in body.existingMeasureIds
-        ]
-        move_specs += [
-            {
-                "kind": "prescribe-statistics",
-                "target": "analysisPlan",
-                "proposal": f"Keep the {recipe} analysis for {rq['id']}.",
-                "patch": {"recipeId": recipe, "rq": rq["id"]},
-            }
-            for rq in preview.get("researchQuestions") or []
-            for recipe in kept_recipes.get(rq.get("text"), [])
-        ]
+        try:
+            move_specs = study_plan.plan_moves(study_id, body, current)
+        except study_plan.PlanError as err:
+            raise HTTPException(422, str(err)) from err
+        questions = [question.strip() for question in body.researchQuestions]
+        measures = [measure.strip() for measure in body.measures]
 
         researcher = ConversationTurn(
             id=secrets.token_hex(8),

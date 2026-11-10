@@ -6,6 +6,7 @@ import difflib
 import json
 import logging
 import re
+import urllib.error
 
 from middleware import assistant
 from middleware.compiler import FILLABLE_SLOTS
@@ -425,7 +426,10 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
     if kind == "choose-template":
         template_id = patch.get("templateId")
         if isinstance(template_id, str) and template_id:
-            parameters = dict(patch.get("parameters") or {})
+            raw_parameters = patch.get("parameters", {})
+            if not isinstance(raw_parameters, dict):
+                return None
+            parameters = dict(raw_parameters)
             # The comparison is a conditions section, never a template parameter.
             parameters.pop("comparison", None)
             return {"templateId": template_id, "parameters": parameters}
@@ -502,7 +506,8 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
             return patch
         return None
     if (
-        patch.get("section") in _PATCHABLE_SECTIONS
+        isinstance(patch.get("section"), str)
+        and patch["section"] in _PATCHABLE_SECTIONS
         and patch.get("op") in ("append", "set")
         and "value" in patch
     ):
@@ -630,9 +635,12 @@ def _parse_moves(
         if not isinstance(m, dict):
             continue
         kind = m.get("kind")
-        if kind not in _ALLOWED_KINDS:
+        if not isinstance(kind, str) or kind not in _ALLOWED_KINDS:
             continue
-        proposal = str(m.get("proposal", "")).strip()
+        proposal = m.get("proposal")
+        if not isinstance(proposal, str):
+            continue
+        proposal = proposal.strip()
         if not proposal:
             continue
         if kind == "caution" and _EMPTY_CAUTION.match(proposal):
@@ -1033,6 +1041,8 @@ class _ReplyTextExtractor:
         self._in_text = False
         self._done = False
         self._escape = False
+        self._unicode_digits: str | None = None
+        self._high_surrogate: int | None = None
         self.text = ""
 
     def feed(self, chunk: str) -> str:
@@ -1053,24 +1063,65 @@ class _ReplyTextExtractor:
                     self._buf = self._buf[-8:]
                     continue
                 rest = self._buf[marker + len('"text"') :]
-                opened = rest.find('"')
-                if opened == -1:
+                opened = re.match(r'\s*:\s*"', rest)
+                if opened is None:
+                    # A non-string field must never leak the next JSON key as
+                    # prose. Final reply validation handles the unusable value.
+                    if re.match(r'\s*:\s*[^"\s]', rest):
+                        self._done = True
+                        break
                     continue
                 self._in_text = True
                 self._buf = ""
-                chunk_tail = rest[opened + 1 :]
+                chunk_tail = rest[opened.end() :]
                 if chunk_tail:
                     out.append(self._feed(chunk_tail))
                 continue
-            if self._escape:
-                out.append({"n": "\n", "t": "\t", "r": "\r"}.get(ch, ch))
+            if self._unicode_digits is not None:
+                self._unicode_digits += ch
+                if len(self._unicode_digits) < 4:
+                    continue
+                codepoint = int(self._unicode_digits, 16)
+                self._unicode_digits = None
+                if 0xD800 <= codepoint <= 0xDBFF:
+                    if self._high_surrogate is not None:
+                        out.append("\ufffd")
+                    self._high_surrogate = codepoint
+                    continue
+                if self._high_surrogate is not None:
+                    if 0xDC00 <= codepoint <= 0xDFFF:
+                        codepoint = (
+                            0x10000
+                            + ((self._high_surrogate - 0xD800) << 10)
+                            + codepoint
+                            - 0xDC00
+                        )
+                    else:
+                        out.append("\ufffd")
+                    self._high_surrogate = None
+                out.append(
+                    chr(codepoint) if not 0xDC00 <= codepoint <= 0xDFFF else "\ufffd"
+                )
+            elif self._escape:
                 self._escape = False
+                if ch == "u":
+                    self._unicode_digits = ""
+                    continue
+                if self._high_surrogate is not None:
+                    out.append("\ufffd")
+                    self._high_surrogate = None
+                out.append(
+                    {"b": "\b", "f": "\f", "n": "\n", "t": "\t", "r": "\r"}.get(ch, ch)
+                )
             elif ch == "\\":
                 self._escape = True
-            elif ch == '"':
-                self._done = True
-                break
             else:
+                if self._high_surrogate is not None:
+                    out.append("\ufffd")
+                    self._high_surrogate = None
+                if ch == '"':
+                    self._done = True
+                    break
                 out.append(ch)
         return "".join(out)
 
@@ -1112,6 +1163,16 @@ def _messages(
         *([{"role": "system", "content": directive}] if directive else []),
         {"role": "user", "content": content},
     ]
+
+
+def _note_rejection(client, exc: Exception) -> None:
+    """Mark the client when the provider refused the credential.
+
+    A rejected key is not transient: retrying wastes the researcher's time and the
+    generic "did not respond" message sends them looking in the wrong place.
+    """
+    if isinstance(exc, urllib.error.HTTPError) and exc.code in (401, 403):
+        client.rejected = True
 
 
 def propose_turn_streaming(
@@ -1188,7 +1249,7 @@ def propose_turn_streaming(
             MAX_BATCH_CARDS if "BATCH INTAKE" in directive else MAX_CARDS,
         )
         reply_text = _clean_reply(
-            str(parsed.get("text", "")).strip(),
+            parsed["text"].strip() if isinstance(parsed.get("text"), str) else "",
             papers,
             templates,
             decision_followup,
@@ -1199,6 +1260,9 @@ def propose_turn_streaming(
         )
     except Exception as exc:  # noqa: BLE001 - any provider/parse failure degrades
         log.warning("streaming conversation turn failed, falling back: %s", exc)
+        _note_rejection(client, exc)
+        if getattr(client, "rejected", False):
+            return None
         return propose_turn(
             client,
             text,
@@ -1259,7 +1323,7 @@ def propose_turn(
             MAX_BATCH_CARDS if "BATCH INTAKE" in directive else MAX_CARDS,
         )
         reply_text = _clean_reply(
-            str(parsed.get("text", "")).strip(),
+            parsed["text"].strip() if isinstance(parsed.get("text"), str) else "",
             papers,
             templates,
             decision_followup,
@@ -1270,6 +1334,7 @@ def propose_turn(
         )
     except Exception as exc:  # noqa: BLE001 - any provider/parse failure degrades
         log.warning("LLM conversation turn unavailable: %s", exc)
+        _note_rejection(client, exc)
         return None
     if not reply_text and not moves:
         log.warning("LLM conversation turn produced no usable content, falling back")

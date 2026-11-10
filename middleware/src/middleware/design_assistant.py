@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from middleware import compiler, elicitation, matching
-from middleware.db import ConversationTurn, DesignMoveRow
+from middleware.db import ConversationTurn, DesignMoveRow, ProtocolDraftRow
 from middleware.template_registry import list_templates
 
 log = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ def holding_turn(reason: str, stance: dict | None = None) -> dict:
 
 
 SCOPE_REDIRECT = (
-    "PHOENIX is for task-based human–AI software-development studies. It can "
+    "StudyLoop is for task-based human–AI software-development studies. It can "
     "configure TERN sessions in VS Code, capture what developers do and what "
     "the AI does, and prepare the resulting dataset. This idea is outside that "
     "lane, so I will not keep asking protocol questions. Use a coding task with "
@@ -76,7 +76,7 @@ SCOPE_REDIRECT = (
 )
 
 SCOPE_CLARIFICATION = (
-    "PHOENIX is built for task-based studies of people using AI while developing "
+    "StudyLoop is built for task-based studies of people using AI while developing "
     "software in VS Code. Is your study about a coding task and an AI-assisted "
     "versus unassisted comparison? Other study types are outside this workspace."
 )
@@ -91,6 +91,21 @@ MODEL_SILENT = (
     "The model did not respond. Your message is saved and nothing was applied. "
     "Retry in a minute, or author the protocol manually."
 )
+MODEL_REJECTED = (
+    "The model provider rejected the server's API key, so no reply was generated. "
+    "Your message is saved and nothing was applied. Set a valid LLM_API_KEY and "
+    "restart the server."
+)
+
+
+MODEL_LIMITED = (
+    "The model provider is rate-limiting this server right now. Your message is "
+    "saved and nothing was applied. Wait a few seconds and send it again."
+)
+
+
+def _silent_reason(client) -> str:
+    return MODEL_REJECTED if getattr(client, "rejected", False) else MODEL_SILENT
 
 
 class ModelUnavailable(RuntimeError):
@@ -125,6 +140,8 @@ def _propose_with_retry(
         )
         if turn is not None:
             return turn
+        if getattr(client, "rejected", False):
+            return None
         if attempt + 1 < TURN_ATTEMPTS:
             delay = TURN_RETRY_DELAY_SECONDS * (2**attempt)
             log.info(
@@ -1375,6 +1392,161 @@ def _load_design_state(s: Session, study_id: str | None) -> dict | None:
     }
 
 
+DRAFT_READY = (
+    "The draft now has every required decision and validates. Open Review draft "
+    "to check it and apply it to the protocol, or tell me what to change."
+)
+
+
+def _ready_turn(decision: dict | None, state: dict | None, stance: dict) -> dict | None:
+    """After a decision completes a valid draft, point at the review, ask nothing."""
+    if not decision or not state or not state.get("compileValid"):
+        return None
+    if state.get("proposed"):
+        return None
+    return {**holding_turn(DRAFT_READY, stance), "source": "scripted"}
+
+
+def _working_draft(s: Session, study_id: str) -> dict:
+    """The draft the researcher is looking at: accepted moves plus the newest
+    pending study plan, over the applied protocol.
+
+    Pending plan cards count so that "make it 30 participants" refines the plan
+    just proposed, not the one before it.
+    """
+    rows = s.scalars(
+        select(DesignMoveRow)
+        .join(ConversationTurn, DesignMoveRow.turn_id == ConversationTurn.id)
+        .where(DesignMoveRow.study_id == study_id)
+        .order_by(ConversationTurn.seq, DesignMoveRow.seq)
+    ).all()
+    pending_plan_turn = next(
+        (
+            row.turn_id
+            for row in reversed(rows)
+            if row.status == "proposed" and (row.patch or {}).get("manual")
+        ),
+        None,
+    )
+    moves = [
+        {
+            "moveId": row.id,
+            "kind": row.kind,
+            "target": row.target,
+            "proposal": row.proposal,
+            "patch": row.patch,
+            "status": "accepted"
+            if row.status == "proposed" and row.turn_id == pending_plan_turn
+            else row.status,
+        }
+        for row in rows
+    ]
+    applied = s.get(ProtocolDraftRow, study_id)
+    return compiler.compile_moves(
+        moves, base_yaml=applied.yaml if applied else ""
+    ).draft
+
+
+def _plan_turn(
+    s: Session,
+    text: str,
+    *,
+    seq: int,
+    study_id: str | None,
+    client,
+    decision: dict | None,
+    stance: dict,
+) -> dict | None:
+    """A chat turn handled against the shared study plan (see ``study_plan``).
+
+    None hands the turn to the caller's other paths, so declining is always safe.
+    """
+    if client is None or study_id is None or decision:
+        return None
+    from middleware import study_plan
+
+    try:
+        turn = study_plan.propose(
+            client,
+            text,
+            study_id,
+            current=_working_draft(s, study_id),
+            history=_load_history(s, study_id),
+        )
+    except study_plan.Unreachable as down:
+        raise ModelUnavailable(
+            {"rejected": MODEL_REJECTED, "limited": MODEL_LIMITED}.get(
+                down.reason, MODEL_SILENT
+            )
+        ) from down
+    if turn is None:
+        return None
+    moves = []
+    retrieved: set[str] = set()
+    for i, spec in enumerate(turn["moves"]):
+        grounding = (
+            _resolve_grounding(s, _template_source_refs(spec["patch"]["templateId"]))
+            if spec["kind"] == "choose-template"
+            else []
+        )
+        retrieved.update(g["ref"] for g in grounding)
+        moves.append(
+            {
+                "moveId": f"t{seq}-m{i + 1}",
+                **spec,
+                "grounding": grounding,
+                "status": "proposed",
+            }
+        )
+    return {
+        **holding_turn(turn["text"], stance),
+        "moves": moves,
+        "retrievedRefs": sorted(retrieved),
+        "source": "llm",
+    }
+
+
+def _plan_decision_turn(
+    s: Session,
+    study_id: str | None,
+    decision: dict | None,
+    state: dict | None,
+    stance: dict,
+) -> dict | None:
+    """Acknowledge a decision on a study-plan card without a model call.
+
+    The researcher's click needs a status, not prose: what is still pending, or
+    what the draft still lacks.
+    """
+    if not decision or not study_id or not state:
+        return None
+    row = s.get(DesignMoveRow, decision.get("moveId"))
+    plan_cards = s.scalars(
+        select(DesignMoveRow).where(
+            DesignMoveRow.study_id == study_id,
+            DesignMoveRow.turn_id == (row.turn_id if row else None),
+        )
+    ).all()
+    if not any((card.patch or {}).get("manual") for card in plan_cards):
+        return None
+    pending = sum(card.status == "proposed" for card in plan_cards)
+    if pending:
+        text = (
+            f"Recorded. {pending} of this plan's cards "
+            f"{'is' if pending == 1 else 'are'} still waiting for your decision."
+        )
+    elif state.get("compileValid"):
+        text = DRAFT_READY
+    elif all(card.status == "rejected" for card in plan_cards):
+        text = "Plan set aside. Tell me what you would change and I will redraft it."
+    else:
+        text = (
+            "Recorded. The draft is not complete with only part of this plan "
+            "accepted. Accept the remaining cards, or tell me what to change."
+        )
+    return {**holding_turn(text, stance), "source": "scripted"}
+
+
 def respond(
     s: Session,
     text: str,
@@ -1411,6 +1583,20 @@ def respond(
             source="scope",
             suppress_recommendations=True,
         )
+    opening = _plan_decision_turn(s, study_id, decision, state, stance) or _plan_turn(
+        s,
+        text,
+        seq=seq,
+        study_id=study_id,
+        client=client,
+        decision=decision,
+        stance=stance,
+    )
+    if opening is not None:
+        return opening
+    ready = _ready_turn(decision, state, stance)
+    if ready is not None:
+        return ready
     explicit = _explicit_turn(stance, state)
     if explicit is not None and not stance.get("namedDesign"):
         return _assemble(
@@ -1486,7 +1672,7 @@ def respond(
                 state=state,
                 source="scripted",
             )
-        raise ModelUnavailable(MODEL_SILENT)
+        raise ModelUnavailable(_silent_reason(client))
     if len(stance.get("explicitMoves") or ()) > 1:
         explicit_moves = _filter_repeated_moves(tuple(stance["explicitMoves"]), state)
         if explicit_moves:
@@ -1598,6 +1784,22 @@ def respond_streaming(
             source="scope",
             suppress_recommendations=True,
         )
+    opening = _plan_decision_turn(s, study_id, decision, state, stance) or _plan_turn(
+        s,
+        text,
+        seq=seq,
+        study_id=study_id,
+        client=client,
+        decision=decision,
+        stance=stance,
+    )
+    if opening is not None:
+        yield opening["text"]
+        return opening
+    ready = _ready_turn(decision, state, stance)
+    if ready is not None:
+        yield ready["text"]
+        return ready
     explicit = _explicit_turn(stance, state)
     if explicit is not None and not stance.get("namedDesign"):
         if explicit.text:
@@ -1665,7 +1867,7 @@ def respond_streaming(
         decision_followup=bool(stance.get("decisionAction")),
         next_question=stance.get("nextQuestion") or "",
     )
-    if turn is None:
+    if turn is None and not getattr(client, "rejected", False):
         log.info("streamed design turn produced nothing; retrying blocking")
         turn = _propose_with_retry(
             client,
@@ -1696,7 +1898,7 @@ def respond_streaming(
                 state=state,
                 source="scripted",
             )
-        raise ModelUnavailable(MODEL_SILENT)
+        raise ModelUnavailable(_silent_reason(client))
     if len(stance.get("explicitMoves") or ()) > 1:
         explicit_moves = _filter_repeated_moves(tuple(stance["explicitMoves"]), state)
         if explicit_moves:

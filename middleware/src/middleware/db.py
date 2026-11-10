@@ -18,6 +18,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     create_engine,
+    event,
     inspect,
     text,
 )
@@ -576,7 +577,18 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     if not is_pg:
         path_part = db_url_str.replace("sqlite:///", "")
         Path(path_part).parent.mkdir(parents=True, exist_ok=True)
-        engine = create_engine(db_url_str)
+        # A streamed design turn keeps a write transaction open while the model
+        # answers. WAL lets readers proceed meanwhile, and the longer busy timeout
+        # makes a second writer wait instead of failing with "database is locked".
+        engine = create_engine(db_url_str, connect_args={"timeout": 30})
+
+        @event.listens_for(engine, "connect")
+        def _sqlite_pragmas(dbapi_connection, _record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.close()
+
     else:
         engine = create_engine(
             db_url_str,

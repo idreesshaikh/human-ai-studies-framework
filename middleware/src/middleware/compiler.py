@@ -962,12 +962,23 @@ def _template_supplied_notes(
     sections: dict[str, list],
 ) -> list[str]:
     """Plain-language notes, one per item the template brought beyond the researcher."""
+    # Only questions that survived into the draft can have been "brought" by the
+    # template: a manual plan or brief replaces the template's own questions.
     stated = set(sections["researchQuestions"])
+    kept = {
+        rq.get("text")
+        for rq in draft.get("researchQuestions") or []
+        if isinstance(rq, dict)
+    }
     title = _template_title(template_id) or str(template_id or "chosen")
     lead = f"From the {title} template: "
     notes: list[str] = []
     for index, rq in enumerate(skeleton.get("researchQuestions") or [], start=1):
-        if not isinstance(rq, dict) or rq.get("text") in stated:
+        if (
+            not isinstance(rq, dict)
+            or rq.get("text") in stated
+            or rq.get("text") not in kept
+        ):
             continue
         match = re.search(r"(\d+)\s*$", str(rq.get("id") or ""))
         number = match.group(1) if match else str(index)
@@ -1307,9 +1318,18 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
     _dedupe_conditions(draft)
     _canonical_task_conditions(draft)
     if instantiated:
-        warnings.extend(
-            _template_supplied_notes(template_id, skeleton, draft, sections)
+        stated = (
+            {
+                **sections,
+                "researchQuestions": [
+                    *sections["researchQuestions"],
+                    *manual_patch["researchQuestions"],
+                ],
+            }
+            if manual_patch
+            else sections
         )
+        warnings.extend(_template_supplied_notes(template_id, skeleton, draft, stated))
     if text_minutes is not None:
         draft.setdefault("session", {})["durationMinutes"] = text_minutes
     _sync_tern_session_minutes(draft, moves, slot_minutes)
