@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -26,6 +26,7 @@ import { hasRole, type Role } from "@/lib/capabilities";
 import { Notice } from "@/components/ui/notice";
 import { OPEN_SETUP, DATA_EMPTY_TITLE, DATA_EMPTY_BODY } from "@/lib/uiText";
 import { SYNTHETIC_EXAMPLE_LABEL } from "@/lib/syntheticExample";
+import { OutcomeChecks } from "./OutcomeChecks";
 
 export function DataTab({
   studyId,
@@ -47,15 +48,13 @@ export function DataTab({
   const [revision, setRevision] = useState(0);
   const [download, setDownload] = useState({ busy: false, error: "" });
   const generation = useRef(0);
-  useEffect(() => {
-    if (!hasProtocol) return;
+  const loadData = useCallback(() => {
     const version = ++generation.current;
-    setLoading(true);
     setLoadError(null);
     // The seeded example holds only simulated sessions. They are read on
     // request, for that study alone, and shown under a notice; every other
     // study keeps the default read, which leaves synthetic rows out.
-    Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)])
+    return Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)])
       .then((plain) =>
         plain[0].syntheticExample
           ? Promise.all([
@@ -81,10 +80,15 @@ export function DataTab({
       .finally(() => {
         if (generation.current === version) setLoading(false);
       });
+  }, [studyId]);
+  useEffect(() => {
+    if (!hasProtocol) return;
+    setLoading(true);
+    void loadData();
     return () => {
       generation.current++;
     };
-  }, [studyId, revision, hasProtocol]);
+  }, [revision, hasProtocol, loadData]);
   async function downloadFile(kind: "data" | "card" | "kit") {
     setDownload({ busy: true, error: "" });
     try {
@@ -177,6 +181,7 @@ export function DataTab({
               </p>
             )}
           </section>
+          <OutcomeChecks key={studyId} studyId={studyId} synthetic={synthetic} onChecked={() => void loadData()} />
           <section className="flex flex-col gap-stack">
             <h2 className="type-section text-text">
               {synthetic ? "Sessions (synthetic)" : "Sessions"}

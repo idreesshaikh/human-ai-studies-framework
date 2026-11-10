@@ -16,6 +16,7 @@ from protocol.assignment import assign, tasks_of
 from protocol.errors import ProtocolError
 
 MANIFEST_VERSION = "1"
+KNOWN_EVENT_SCHEMA_VERSIONS = {2, 3, 4, 5, 6}
 CONTENT_POLICIES = ("metadata-only", "redacted", "full")
 POLICY_DESCRIPTIONS = {
     "metadata-only": (

@@ -108,6 +108,30 @@ def client(seeded):
         yield tc
 
 
+def test_outcome_checks_inspect_synthetic_example_without_changing_data(client, seeded):
+    before = _events(seeded)
+    default = client.get(f"{BASE}/outcome-checks")
+    assert default.status_code == 200
+    assert default.json()["sessionUnits"] == 0
+    assert default.json()["synthetic"] is False
+    response = client.get(f"{BASE}/outcome-checks?includeSynthetic=true")
+    assert response.status_code == 200
+    report = response.json()
+    assert report["sessionUnits"] == SESSIONS and report["synthetic"] is True
+    assert report["outcomes"]
+    assert any(o["observedUnits"] for o in report["outcomes"])
+    assert any(o["issues"] for o in report["outcomes"])
+    assert _events(seeded) == before
+    assert client.get(f"{BASE}/dataset").json()["rows"] == []
+    assert (
+        client.get(f"{BASE}/outcome-checks?includeSynthetic=invalid").status_code == 422
+    )
+    blank = client.post(
+        "/projects/implicit/studies", json={"name": "No capture protocol"}
+    ).json()["id"]
+    assert client.get(f"/studies/{blank}/outcome-checks").status_code == 409
+
+
 def test_seeding_twice_changes_nothing(seeded):
     before = _counts(seeded)
     assert before["studies"] == 1

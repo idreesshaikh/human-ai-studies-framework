@@ -6,6 +6,7 @@ import re
 from collections.abc import Callable
 from datetime import datetime
 
+from protocol.capture import KNOWN_EVENT_SCHEMA_VERSIONS
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -14,10 +15,6 @@ from middleware.db import (
     Event,
     Study,
 )
-
-# Event schema versions this service is written against; other versions are stored and
-# flagged, never rejected (FR-PROT-2 discipline).
-KNOWN_EVENT_SCHEMA_VERSIONS = {2, 3, 4, 5, 6}
 
 # Agent-capture producers set their own ``source`` so their ``seq`` stream never
 # collides (see db.py).

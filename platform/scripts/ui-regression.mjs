@@ -518,6 +518,56 @@ await context.route("**/*", (route) => {
   await page.getByRole("button", { name: "Data", exact: true }).click();
   await page.getByRole("heading", { name: "Download study records" }).waitFor();
   await auditPage(page, "typed protocol Data");
+  const captureChecks = page.getByRole("region", { name: "Outcome capture checks", exact: true });
+  const checksPath = `/studies/${bare}/outcome-checks`;
+  await page.route(`**${checksPath}`, (route) => route.abort("failed"));
+  await captureChecks.getByRole("button", { name: "Check captured inputs", exact: true }).click();
+  await captureChecks.getByRole("alert").waitFor();
+  check(await captureChecks.getByRole("button", { name: "Download checks (.json)", exact: true }).count() === 0, "failed outcome checks expose recovery without a stale report");
+  await page.unroute(`**${checksPath}`);
+  await captureChecks.getByRole("button", { name: "Check captured inputs", exact: true }).click();
+  await captureChecks.getByRole("status").filter({ hasText: "0 sessions checked" }).waitFor();
+  check(true, "outcome checks distinguish no rehearsal data from missing measurements");
+  const pairingToken = new URL(editorLinks[0]).searchParams.get("c").split("#").at(-1);
+  const paired = await api("/pair/redeem", { method: "POST", body: JSON.stringify({ token: pairingToken }) });
+  const participantHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${paired.sessionCredential}` };
+  const captureEvent = async (sessionId, seq, payload) => {
+    const configResponse = await fetch(`${base}/studies/${bare}/capture-config?sessionId=${sessionId}`, { headers: participantHeaders });
+    if (!configResponse.ok) throw new Error("Rehearsal capture configuration failed");
+    const config = await configResponse.json();
+    const response = await fetch(`${base}/ingest/events`, { method: "POST", headers: participantHeaders, body: JSON.stringify([
+      { sessionId, seq, v: 6, ts: new Date(Date.now() + seq).toISOString(), source: "task-harness", taskId: config.block.taskId, type: "task_outcome", payload },
+    ]) });
+    if (!response.ok) throw new Error("Rehearsal event ingest failed");
+  };
+  await captureEvent("browser-outcome-rehearsal-a", 0, { passed: true, failed: 0, total: 0 });
+  await captureChecks.getByRole("button", { name: "Check again", exact: true }).click();
+  await captureChecks.getByRole("status").filter({ hasText: "1 sessions checked" }).waitFor();
+  for (const summary of await captureChecks.locator("details > summary").all()) await summary.click();
+  check(await captureChecks.getByText("No coherent, nonempty test run was recorded.", { exact: true }).isVisible(), "outcome checks detect a fake passing result with no executed tests");
+  await auditPage(page, "outcome capture discrepancies");
+  if (values.screenshots) {
+    const details = captureChecks.locator("details");
+    await details.evaluateAll((elements) => elements.forEach((element, index) => { element.open = index === 0; }));
+    await captureChecks.evaluate((element) => element.scrollIntoView({ block: "start" }));
+    await page.screenshot({ path: join(values.screenshots, "outcome-checks-desktop.png"), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await captureChecks.evaluate((element) => element.scrollIntoView({ block: "start" }));
+    await page.screenshot({ path: join(values.screenshots, "outcome-checks-mobile.png"), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 800 });
+  }
+  await captureEvent("browser-outcome-rehearsal-a", 1, { passed: true, failed: 0, total: 3, firstGreenMs: 1000 });
+  await captureEvent("browser-outcome-rehearsal-b", 0, { passed: true, failed: 0, total: 3, firstGreenMs: 1200 });
+  await captureChecks.getByRole("button", { name: "Check again", exact: true }).click();
+  await captureChecks.getByRole("status").filter({ hasText: "2 sessions checked" }).waitFor();
+  await page.getByRole("button").filter({ hasText: "browser-outcome-rehearsal-b" }).waitFor();
+  check(true, "checking capture refreshes the session list without discarding the report");
+  const correctedCapture = await api(checksPath);
+  check(correctedCapture.outcomes.some((outcome) => outcome.fields.includes("task_outcome.firstGreenMs") && outcome.observedUnits === 2 && outcome.pairedParticipants === 1), "outcome checks count session units and paired participant coverage after repair");
+  const reportDownload = page.waitForEvent("download");
+  await captureChecks.getByRole("button", { name: "Download checks (.json)", exact: true }).click();
+  const exportedChecks = JSON.parse(readFileSync(await (await reportDownload).path(), "utf8"));
+  check(exportedChecks.protocolHash === correctedCapture.protocolHash && exportedChecks.dataHash === correctedCapture.dataHash, "downloaded outcome checks retain the exact protocol and data fingerprints");
   for (const name of ["Data (.zip)", "Design card (.md)", "Replication kit"]) {
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name, exact: true }).click();

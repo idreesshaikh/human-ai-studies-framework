@@ -6,6 +6,29 @@ import type { PowerDoc, Recommendation } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
+export interface OutcomeCheckReport {
+  studyId: string;
+  protocolHash: string;
+  dataHash: string;
+  synthetic: boolean;
+  sessionUnits: number;
+  scope: string;
+  limitations: string[];
+  outcomes: {
+    measureId: string;
+    outcome: string;
+    instrument: string | null;
+    fields: string[];
+    recipe: string | null;
+    status: "observed" | "review" | "incomplete" | "missing" | "not-observed" | "unverified" | "configuration";
+    checkedUnits: number;
+    observedUnits: number | null;
+    participantsByCondition: Record<string, number>;
+    pairedParticipants: number | null;
+    issues: { code: string; message: string; action: string; units: number; sessionIds: string[] }[];
+  }[];
+}
+
 export class OfflineError extends Error {
   constructor() {
     super(
@@ -348,6 +371,10 @@ export const studyApi = {
       req<{ studyId: string; rows: DatasetRow[] }>(
         `/studies/${enc(study)}/dataset${includeSynthetic ? "?includeSynthetic=true" : ""}`,
       ))(),
+  outcomeChecks: (study: string, includeSynthetic = false) =>
+    req<OutcomeCheckReport>(
+      `/studies/${enc(study)}/outcome-checks${includeSynthetic ? "?includeSynthetic=true" : ""}`,
+    ),
   /** Sessions the middleware has heard from recently (FR-DASH-3).
    *
    * Deliberately *not* seeded when the server is unreachable: an empty live

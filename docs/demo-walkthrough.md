@@ -18,6 +18,9 @@ needed. Downloaded exports remain in your download folder.
    illustrative and cannot connect an editor.
 3. In **Data**, inspect the 25 simulated sessions, including incomplete capture,
    sequence gaps, and control-arm signals.
+   Select **Check captured inputs** and expand an outcome to trace its declared
+   fields to observed coverage, missing inputs, and corrective actions.
+   Download the JSON checks to retain the protocol and data fingerprints.
 4. Download a data bundle and design card. Default research exports exclude
    simulated observations.
 5. Create a separate study and use manual protocol entry. Review and apply the

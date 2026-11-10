@@ -4,6 +4,13 @@ The Data tab shows real captured sessions and their source/sequence integrity. S
 
 The audit reports `no-evidence`, `evidence-of-ai-use`, or `cannot-assess`. No evidence is never proof of no AI use. Paste origins and AI edit classifications are heuristics; missing capture boundaries or configuration produce an abstention. External CLI reloads and activity outside the editor remain blind spots.
 
+Use **Check captured inputs** after a rehearsal to inspect declared outcomes,
+required fields, instrument versions, condition coverage, and participant pairs.
+Expand a result for corrective actions and download the JSON checks to preserve
+the protocol and data fingerprints. Unknown custom measures remain unverified;
+observed inputs do not establish study validity. Pilot sessions can be checked
+without changing their tags or inclusion decisions.
+
 Download tidy event CSVs, joined JSON and a data dictionary as a data bundle. Design cards (JSON and Markdown) record saved power assumptions, fixed analysis, instrument versions and wording, session tool/model provenance, audit results and inclusion decisions. Replication kits include the same design card and the frozen protocol/data/report. Nothing rates validity or automatically pools re-runs.
 
 See [planner methods and API](https://github.com/idreesshaikh/human-ai-studies-framework/blob/main/docs/planner.md) for pilot updates, numerical limits and independently labelled audit calibration.

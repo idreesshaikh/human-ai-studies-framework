@@ -58,6 +58,29 @@ log = logging.getLogger("middleware.app")
 
 def register(app: FastAPI, deps: ApiDeps):
     @app.get(
+        "/studies/{study_id}/outcome-checks",
+        dependencies=[Depends(deps.authz["require_project_for_study"]("view"))],
+    )
+    def outcome_checks(
+        study_id: str,
+        includeSynthetic: bool = False,
+        s: Session = Depends(deps.db),
+    ):
+        from analysis.outcome_checks import check_outcome_capture
+
+        protocol = deps.resolve_study_protocol(s, study_id)
+        if protocol is None:
+            raise HTTPException(
+                409, "Record a protocol before checking outcome capture."
+            )
+        report = check_outcome_capture(
+            protocol,
+            deps.joined_rows(s, study_id, includeSynthetic),
+            include_synthetic=includeSynthetic,
+        )
+        return {"studyId": study_id, **report}
+
+    @app.get(
         "/studies/{study_id}/dataset",
         dependencies=[Depends(deps.authz["require_project_for_study"]("view"))],
     )

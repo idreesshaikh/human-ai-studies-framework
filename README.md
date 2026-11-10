@@ -35,7 +35,8 @@ Environment files must be loaded explicitly, for example with
 3. **Run:** connect participants through [TERN](extension/README.md), disclose
    the capture configuration, and obtain consent before recording.
 4. **Data:** inspect sessions and integrity signals, identify pilots, and record
-   inclusion decisions.
+   inclusion decisions. Check outcome capture to find missing measurement inputs
+   in a rehearsal before collecting participant data.
 5. Export datasets, design cards, analysis materials, and replication kits.
 
 Calculations depend on their stated assumptions. Capture has blind spots;
