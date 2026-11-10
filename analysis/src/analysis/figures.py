@@ -291,38 +291,52 @@ def scatter_fit(
     ylabel: str = "",
 ) -> Figure:
     """
-    Scatter plot with linear least-squares fit line (OLS), each observation drawn, fit
-    shaded at 95% CI. ``x_col`` and ``y_col`` are numeric columns in ``df``.
+    Scatter plot of complete, finite observation pairs with a descriptive OLS line.
+    Non-numeric values are excluded by row; no confidence interval is implied.
     """
     fig, ax = new_axes(title, xlabel or x_col, ylabel or y_col)
-    x = pd.to_numeric(df[x_col], errors="coerce").dropna().values
-    y = pd.to_numeric(df[y_col], errors="coerce").dropna().values
-    n = min(len(x), len(y))
-    x, y = x[:n], y[:n]
-    if n < 2:
-        ax.text(
-            0.5, 0.5, "too few points", transform=ax.transAxes, ha="center", va="center"
+    pairs = (
+        pd.DataFrame(
+            {
+                "x": pd.to_numeric(df[x_col], errors="coerce"),
+                "y": pd.to_numeric(df[y_col], errors="coerce"),
+            }
         )
-        fig.tight_layout()
-        return fig
-    ax.scatter(
-        x,
-        y,
-        s=30,
-        color=PALETTE[0],
-        edgecolors=SURFACE,
-        linewidths=1.2,
-        zorder=3,
-        alpha=0.7,
+        .replace([np.inf, -np.inf], np.nan)
+        .dropna()
     )
-    from numpy.polynomial import polynomial as poly
+    x, y = pairs["x"].to_numpy(), pairs["y"].to_numpy()
+    n = len(pairs)
+    if n:
+        ax.scatter(
+            x,
+            y,
+            s=30,
+            color=PALETTE[0],
+            edgecolors=SURFACE,
+            linewidths=1.2,
+            zorder=3,
+            alpha=0.7,
+        )
+    if n >= 2 and x.min() != x.max():
+        from numpy.polynomial import polynomial as poly
 
-    coeffs, _stats = poly.polyfit(x, y, 1, full=True)
-    x_sorted = np.sort(x)
-    y_fit = poly.polyval(x_sorted, coeffs)
-    ax.plot(x_sorted, y_fit, color=INK, linewidth=1.5, zorder=4)
-    ax.set_xlim(x.min(), x.max())
-    ax.set_ylim(min(0, y.min()), y.max())
+        coeffs, _stats = poly.polyfit(x, y, 1, full=True)
+        x_sorted = np.sort(x)
+        y_fit = poly.polyval(x_sorted, coeffs)
+        ax.plot(x_sorted, y_fit, color=INK, linewidth=1.5, zorder=4)
+        ax.set_xlim(x.min(), x.max())
+    else:
+        ax.text(
+            0.5,
+            0.5,
+            "too few points for a fit" if n < 2 else "constant x; no fit",
+            transform=ax.transAxes,
+            ha="center",
+            va="center",
+        )
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(min(0, lo), hi)
     n_text = f"n = {n} {label}"
     ax.text(
         0.97,
