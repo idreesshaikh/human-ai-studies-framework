@@ -5,6 +5,7 @@ description = "Ingestion middleware on :8000 - idempotent ingest, gap detection,
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.139.0",
+    "httpx>=0.28.1",
     "analysis",
     "protocol",
     "psycopg[binary]>=3.1.0",

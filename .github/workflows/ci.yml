@@ -115,4 +115,14 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Build middleware image
-        run: docker build -f middleware/Dockerfile .
+        run: docker build -t studyloop-ci -f middleware/Dockerfile .
+
+      - name: Synthetic demo seeds in the production image
+        run: >-
+          docker run --rm
+          -e MIDDLEWARE_PROTOCOL=
+          -e MIDDLEWARE_AUTH=none
+          -e MIDDLEWARE_CORPUS_BOOTSTRAP=0
+          studyloop-ci
+          uv run --no-sync --no-dev --package middleware
+          python -m middleware seed-example

@@ -389,10 +389,10 @@ def seed_example(settings: Settings | None = None) -> dict:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             from fastapi.testclient import TestClient
-    except (ImportError, RuntimeError) as exc:  # httpx is a development dependency
+    except (ImportError, RuntimeError) as exc:
         raise RuntimeError(
             "seed-example drives the service in-process and needs httpx; "
-            "run `uv sync --all-packages` first"
+            "run `uv sync --package middleware` first"
         ) from exc
     from protocol.assignment import assign
 
