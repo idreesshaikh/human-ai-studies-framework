@@ -5,8 +5,8 @@ import { studyApi, type OutcomeCheckReport } from "@/lib/studyApi";
 const STATUS = {
   observed: "Inputs observed",
   review: "Review coverage",
-  incomplete: "Incomplete capture",
-  missing: "Inputs missing",
+  incomplete: "Partial outcome coverage",
+  missing: "No usable inputs",
   "not-observed": "No sessions checked",
   unverified: "Custom check needed",
   configuration: "Configuration needs attention",
@@ -73,7 +73,7 @@ export function OutcomeChecks({ studyId, synthetic, onChecked }: { studyId: stri
       {report && (
         <>
           <p role="status" className="type-note text-text-muted">
-            {report.sessionUnits} {report.synthetic ? "synthetic " : ""}sessions checked, including pilots.
+            {report.sessionUnits} {report.synthetic ? "synthetic " : ""}{report.sessionUnits === 1 ? "session" : "sessions"} checked, including pilots.
             {report.outcomes.length === 0 && " No outcomes are declared. Add measures in Setup."}
           </p>
           <div className="divide-y divide-border">

@@ -1,5 +1,10 @@
 # Data and study records
 
+Search captured sessions by participant, condition or session ID, and use the
+page controls for long lists. **Session review** starts with control sessions
+needing attention; choose **All sessions** to review any inclusion decision.
+Expand a row for its evidence and decision controls.
+
 The Data tab shows real captured sessions and their source/sequence integrity. Synthetic rows are excluded. Mark real pilot sessions with a reason; these rows remain in exports, explicitly tagged, and are excluded from confirmatory recipes and metric comparisons. Record a researcher's inclusion or exclusion decision beside control-arm audit signals. Decisions carry the researcher identity and date, and their history is retained.
 
 The audit reports `no-evidence`, `evidence-of-ai-use`, or `cannot-assess`. No evidence is never proof of no AI use. Paste origins and AI edit classifications are heuristics; missing capture boundaries or configuration produce an abstention. External CLI reloads and activity outside the editor remain blind spots.

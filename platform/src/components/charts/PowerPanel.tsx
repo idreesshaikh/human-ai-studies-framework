@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Surface } from "@/components/shell/Surface";
 import { EmptyState } from "@/components/shell/EmptyState";
-import { OPEN_SETUP, PLAN_EMPTY_TITLE, PLAN_EMPTY_BODY } from "@/lib/uiText";
+import { OPEN_SETUP, PLAN_EMPTY_TITLE, PLAN_EMPTY_BODY, conditionLabel } from "@/lib/uiText";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -225,8 +225,8 @@ export function PowerPanel({
             Plan participant recruitment
           </h2>
           <p className="max-w-reading type-body text-text-muted">
-            Estimate power for the analysis in your protocol. A plan based on
-            assumptions is a hypothesis; it is not a study finding.
+            Estimate recruitment for the analysis in your protocol. Results
+            depend on the assumptions below.
           </p>
         </div>
         {loading && (
@@ -249,7 +249,7 @@ export function PowerPanel({
             <p className="type-note text-text-muted">
               Recorded design:{" "}
               <span className="text-text">{protocol.participants.design}</span>,{" "}
-              {protocol.conditions.join(" / ")}.{" "}
+              {protocol.conditions.map(conditionLabel).join(" / ")}.{" "}
               {protocol.participants.counterbalanced
                 ? "Counterbalanced order."
                 : "Fixed order."}{" "}
