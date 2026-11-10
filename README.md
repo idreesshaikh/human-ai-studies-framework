@@ -29,6 +29,10 @@ To see every tab populated, seed the synthetic example study once (running it ag
 uv run python -m middleware seed-example
 ```
 
+For a fresh, disposable showcase with no live model calls, use
+`uv run --no-sync python scripts/run_demo.py` after building the platform.
+See the [seven-minute walkthrough](docs/demo-walkthrough.md).
+
 It adds "Example: Copilot and bug fixing (synthetic data)" to "My project": a v6 protocol from the featured crossover template, a saved recruitment plan, 24 illustrative participant links and 25 simulated sessions. The example links cannot connect an editor; create a separate study for live capture. Every row is marked synthetic. The Data tab shows them only for this study, under a "Synthetic example data, not a finding" notice; they stay out of data bundles, pilot estimates and analysis recipes. Delete the study in the app to remove it.
 
 The design conversation and model-assisted matching share `ministral-14b-latest` by default. Set `LLM_API_KEY` for a hosted provider or `LLM_BASE_URL` for a compatible local server. Use `LLM_MODEL` for a shared model and `LLM_DESIGN_MODEL` for a design-only override; legacy `MISTRAL_*` settings remain supported. Record the exact tool/model version used in each study condition. See [server configuration](middleware/README.md).
@@ -42,6 +46,10 @@ The design conversation and model-assisted matching share `ministral-14b-latest`
 5. Export the data bundle, design card (JSON/Markdown), and replication kit. A re-run records `rerunOf` and compares designs without pooling data.
 
 Read [planner methods, API and limits](docs/planner.md), the [v6 example](protocol/examples/planner-v6.yaml), and [research evaluation](docs/research-evaluation.md).
+
+The [finalization guide](docs/finalization.md) links the interview consolidation
+workflow, showcase and paper-shaped project report. Current work focuses on
+cleanup, the existing interview study and documentation.
 
 ## Validate
 

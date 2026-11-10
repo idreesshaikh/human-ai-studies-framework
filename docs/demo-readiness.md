@@ -52,6 +52,26 @@ checks complement human keyboard and assistive-technology review.
 
 ## Rehearse in a separate demo database
 
+After the platform build, the shortest isolated launch is:
+
+```bash
+uv run --no-sync python scripts/run_demo.py
+```
+
+This seeds a fresh temporary database and serves the built app on
+`http://127.0.0.1:8000`. It overrides inherited study storage, authentication,
+protocol and background-job settings and disables live model calls. The manual
+checklist and populated example work without a provider. Use `--port 8001` if
+8000 is occupied. Ctrl+C stops the server and removes its temporary data.
+Changes made in this rehearsal disappear on exit. Use the normal server with
+explicit storage configuration for work you intend to retain.
+
+The [showcase walkthrough](demo-walkthrough.md) gives a seven-minute script,
+audience prompts and a fallback route. This is an illustrative example rather
+than an additional empirical study.
+
+For manual control of the demo environment instead:
+
 Run these commands in the same terminal. The directory is new and contains
 only the labelled example, keeping rehearsal separate from collected data.
 
@@ -100,5 +120,5 @@ not replace installing the extension in the intended VS Code version,
 pairing it with the demo study, obtaining consent and completing a session.
 Verify Firefox/WebKit, assistive technology, PostgreSQL, the Docker image and
 the deployed public URL when those are part of the presentation environment.
-See [the WSESE evidence requirements](wsese-2027-readiness.md) before making
+See [the WSESE claim boundaries](wsese-2027-readiness.md) before making
 claims about research quality or validated instruments.

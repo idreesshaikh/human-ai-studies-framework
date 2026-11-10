@@ -5,6 +5,12 @@ that the implemented contracts work under the tested conditions. A research
 contribution also needs evidence that those contracts address a methodological
 problem in a defined setting.
 
+The current delivery follows the supervisor's priorities: finish the tool,
+consolidate the existing interview study with at most two or three additional
+interviews within eight hours including analysis, prepare an illustrative demo,
+and package the final report as a paper. A new effectiveness experiment or
+self-study is not part of this scope. See [finalization](finalization.md).
+
 ## Venue and contribution
 
 Checked on 10 November 2026: the [official WSESE 2027 call](https://conf.researchr.org/home/icse-2027/wsese-2027)
@@ -16,14 +22,20 @@ It lists technical papers (6–8 pages), experience/work-in-progress reports
 instructions before submission rather than carrying forward earlier years'
 formatting or review rules.
 
-The candidate contribution is an executable connection between a reviewed
-study design, declared measures, participant capture and reproducible analysis.
+The candidate contribution is a bounded implementation connecting a reviewed
+study design, declared measures, participant capture and reproducible analysis,
+informed by the existing interview study once its findings are consolidated.
 Frame the paper around the methodological failure it addresses and the
 evidence for the proposed remedy. A working tool alone does not establish that
 its advice improves study quality. Select the paper category to match the
 evaluation actually completed.
 
 ## Claims and their evidence
+
+The final column describes evidence for stronger future claims. It is not an
+additional-study checklist required to finish this project. Current reporting
+must stay within the implementation, interviews actually analyzed, and software
+verification; the example demonstrates behavior without supplying human findings.
 
 | Claim or concern | Implemented evidence | Evidence still required for publication |
 | --- | --- | --- |
@@ -36,7 +48,7 @@ evaluation actually completed.
 | Retrieval or model assistance improves design decisions | Frozen benchmark/evaluation interfaces, abstention and failure reporting | Independently labelled held-out cases, fair baselines, reviewer agreement and actual measured effects |
 | Artifacts can be reproduced | Lockfiles, protocol/data hashes, deterministic exports, one-command verification with versioned logs | Archived immutable release and materials, exact model identifiers, redacted outputs and an independent reproduction |
 
-## Evaluation needed before stronger claims
+## Future evaluation for stronger claims
 
 Define primary research questions and success criteria before inspecting
 comparative results. A suitable evaluation can compare the framework with a

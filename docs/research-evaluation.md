@@ -1,5 +1,14 @@
 # Evidence review and evaluation
 
+## Current delivery scope
+
+The current project finishes the existing interview study, tool cleanup,
+documentation and an illustrative example. The [finalization guide](finalization.md)
+and [interview consolidation workflow](interview-study.md) govern that work.
+A separate effectiveness study, self-study, expanded benchmark or classifier
+comparison is not a requirement for this delivery. The methods below remain
+available for future work supporting stronger claims.
+
 Supports #47, #50, #90–98 without claiming that integration is scientific
 evaluation. The reusable evaluator is `middleware.evaluation`; it is offline
 and cannot modify a study, bypass approval, or promote a classifier.

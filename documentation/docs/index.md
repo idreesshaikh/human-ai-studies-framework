@@ -6,7 +6,7 @@
 **PHOENIX**, the researcher platform, and **TERN**, the participant extension
 for VS Code. They share an approved study protocol and analysis handoff.
 
-## From a research idea to a study you can trust
+## From a research question to a recorded protocol
 
 PHOENIX is the researcher-facing half of the framework: a grounded design
 conversation, a deterministic protocol compiler, a participant hand-off, and a
@@ -25,8 +25,8 @@ signals the protocol permits.
 | --- | --- | --- |
 | Frame the question | Literature-grounded design moves with citations or an explicit unsourced label | — |
 | Freeze the method | A versioned protocol, validation, consent statement, and capture configuration | Reads only the approved configuration |
-| Rehearse the study | Synthetic participants through the real ingest and analysis path | — |
-| Invite a participant | A one-use pairing link and counterbalanced task assignment | Installs the study into VS Code after consent |
+| Rehearse the study | Labelled synthetic examples through real ingest; research exports exclude simulated rows | — |
+| Invite a participant | A pairing link and protocol-derived task assignment | Reads the study configuration in VS Code after consent |
 | Run the session | Live session and integrity visibility | Timer, probes, behaviour signals, local JSONL, optional HTTP mirror |
 | Make the result portable | Dataset, dictionary, analysis recipes, notebook, and replication kit | — |
 
@@ -70,12 +70,15 @@ git clone https://github.com/idreesshaikh/human-ai-studies-framework.git
 cd human-ai-studies-framework
 uv sync --all-packages
 (cd platform && npm ci && npm run build)
-echo "LLM_API_KEY=sk-..." >> .env
-uv run python -m middleware corpus-import
-uv run python -m middleware serve
+uv run --no-sync python scripts/run_demo.py
 ```
 
-Open <http://localhost:8000>, or run the
+Open <http://127.0.0.1:8000> for a fresh disposable showcase with no provider
+calls. Stop it with Ctrl+C; rehearsal changes are removed. For persistent work,
+use the normal server with explicit storage configuration as described in the
+[repository README](https://github.com/idreesshaikh/human-ai-studies-framework#readme).
+Optional provider-backed sessions need exported settings or an explicit
+`uv run --env-file .env` invocation. You can also run the
 [TERN lab on GitHub](https://github.com/idreesshaikh/human-ai-studies-framework/tree/main/extension/examples/tern-lab)
 in VS Code to see the participant side without pairing a real study.
 
