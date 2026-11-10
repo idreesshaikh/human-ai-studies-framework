@@ -81,6 +81,45 @@ test('lastSeqIn walks back past a torn final line from a crash mid-write', () =>
   assert.equal(JsonlSink.lastSeqIn(file), 7);
 });
 
+test('crash recovery separates a torn tail from the first resumed event', async () => {
+  const file = tempFile('resume-torn.jsonl');
+  const before = JSON.stringify(makeEvent(7)) + '\n' + '{"seq":8,"type":"tru';
+  fs.writeFileSync(file, before);
+  const nextSeq = JsonlSink.lastSeqIn(file) + 1;
+  const sink = new JsonlSink(file);
+  try {
+    sink.write(makeEvent(nextSeq, 'session_resumed'));
+    await sink.flush();
+    const contents = fs.readFileSync(file, 'utf8');
+    assert.ok(contents.startsWith(before), 'existing evidence is preserved');
+    const lastLine = contents.trimEnd().split('\n').at(-1)!;
+    assert.deepEqual(JSON.parse(lastLine), makeEvent(8, 'session_resumed'));
+    assert.equal(JsonlSink.lastSeqIn(file), 8);
+  } finally {
+    sink.dispose();
+  }
+});
+
+test('reopening a complete JSONL record without a newline keeps both records', async () => {
+  const file = tempFile('resume-complete.jsonl');
+  fs.writeFileSync(file, JSON.stringify(makeEvent(7)));
+  const sink = new JsonlSink(file);
+  try {
+    sink.write(makeEvent(8));
+    await sink.flush();
+    assert.deepEqual(
+      fs
+        .readFileSync(file, 'utf8')
+        .trimEnd()
+        .split('\n')
+        .map((l) => JSON.parse(l)),
+      [makeEvent(7), makeEvent(8)],
+    );
+  } finally {
+    sink.dispose();
+  }
+});
+
 test('CompositeSink fans every write out to all sinks', () => {
   const a = new RecordingSink();
   const b = new RecordingSink();
@@ -113,6 +152,28 @@ test('CompositeSink flush and dispose reach every sink', async () => {
   assert.equal(a.flushed, 1);
   assert.equal(b.flushed, 1);
   assert.ok(a.disposed && b.disposed);
+});
+
+test('CompositeSink flush isolates synchronous and asynchronous failures', async () => {
+  const good = new RecordingSink();
+  const synchronous: EventSink = {
+    write() {},
+    flush() {
+      throw new Error('synchronous failure');
+    },
+    dispose() {},
+  };
+  const asynchronous: EventSink = {
+    write() {},
+    async flush() {
+      throw new Error('asynchronous failure');
+    },
+    dispose() {},
+  };
+  await assert.doesNotReject(
+    new CompositeSink([synchronous, asynchronous, good]).flush(),
+  );
+  assert.equal(good.flushed, 1);
 });
 
 test('HttpSink attaches the session credential as a bearer when set', async () => {
@@ -184,6 +245,150 @@ test('HttpSink tracks pending count and last successful send time', async () => 
     assert.equal(typeof sink.lastSuccessAt, 'number');
   } finally {
     globalThis.fetch = realFetch;
+    sink.dispose();
+  }
+});
+
+test('HttpSink counts an in-flight batch as pending until the server accepts it', async (t) => {
+  let accept!: (response: Response) => void;
+  t.mock.method(
+    globalThis,
+    'fetch',
+    () =>
+      new Promise<Response>((resolve) => {
+        accept = resolve;
+      }),
+  );
+  const sink = new HttpSink('http://x.test/ingest', 3_600_000);
+  try {
+    sink.write(makeEvent(0));
+    const sending = sink.flush();
+    assert.equal(sink.pendingCount, 1);
+    assert.equal(sink.deliveredCount, 0);
+    accept(new Response(null, { status: 204 }));
+    await sending;
+    assert.equal(sink.pendingCount, 0);
+    assert.equal(sink.deliveredCount, 1);
+  } finally {
+    accept?.(new Response(null, { status: 204 }));
+    sink.dispose();
+  }
+});
+
+test('HttpSink flush waits for an active request and sends events queued meanwhile', async (t) => {
+  let accept!: (response: Response) => void;
+  const batches: number[][] = [];
+  t.mock.method(globalThis, 'fetch', (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string) as { events: StudyEvent[] };
+    batches.push(body.events.map((event) => event.seq));
+    return batches.length === 1
+      ? new Promise<Response>((resolve) => {
+          accept = resolve;
+        })
+      : Promise.resolve(new Response(null, { status: 204 }));
+  });
+  const sink = new HttpSink('http://x.test/ingest', 3_600_000);
+  try {
+    sink.write(makeEvent(0));
+    const sending = sink.flush();
+    sink.write(makeEvent(1, 'session_end'));
+    let completed = false;
+    const finalFlush = sink.flush().then(() => {
+      completed = true;
+    });
+    await Promise.resolve();
+    assert.equal(completed, false, 'final flush must await server acceptance');
+    accept(new Response(null, { status: 204 }));
+    await Promise.all([sending, finalFlush]);
+    assert.deepEqual(batches, [[0], [1]]);
+    assert.equal(sink.pendingCount, 0);
+    assert.equal(sink.deliveredCount, 2);
+  } finally {
+    accept?.(new Response(null, { status: 204 }));
+    sink.dispose();
+  }
+});
+
+test('HttpSink retries a failed batch before newer events', async (t) => {
+  const batches: number[][] = [];
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async (_url: unknown, init: RequestInit) => {
+      const body = JSON.parse(init.body as string) as { events: StudyEvent[] };
+      batches.push(body.events.map((event) => event.seq));
+      return new Response(null, { status: batches.length === 1 ? 503 : 204 });
+    },
+  );
+  const sink = new HttpSink('http://x.test/ingest', 3_600_000);
+  try {
+    sink.write(makeEvent(0));
+    await sink.flush();
+    sink.write(makeEvent(1));
+    await sink.flush();
+    assert.deepEqual(batches, [[0], [0, 1]]);
+    assert.equal(sink.deliveredCount, 2);
+  } finally {
+    sink.dispose();
+  }
+});
+
+test('HttpSink bounds the outage queue and retains the newest events', async (t) => {
+  const batches: number[][] = [];
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async (_url: unknown, init: RequestInit) => {
+      const body = JSON.parse(init.body as string) as { events: StudyEvent[] };
+      batches.push(body.events.map((event) => event.seq));
+      return new Response(null, { status: batches.length === 1 ? 503 : 204 });
+    },
+  );
+  const sink = new HttpSink('http://x.test/ingest', 3_600_000);
+  try {
+    for (let i = 0; i < 2_500; i++) sink.write(makeEvent(i));
+    assert.equal(sink.pendingCount, 2_000);
+    await sink.flush();
+    for (let i = 2_500; i < 3_000; i++) sink.write(makeEvent(i));
+    await sink.flush();
+    assert.equal(batches[0].length, 2_000);
+    assert.equal(batches[0][0], 500);
+    assert.equal(batches[1].length, 2_000);
+    assert.equal(batches[1][0], 1_000);
+    assert.equal(batches[1].at(-1), 2_999);
+    assert.equal(sink.pendingCount, 0);
+  } finally {
+    sink.dispose();
+  }
+});
+
+test('HttpSink aborts a hung request and allows the next retry', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let requests = 0;
+  t.mock.method(globalThis, 'fetch', (_url: unknown, init: RequestInit) => {
+    requests++;
+    if (requests > 1)
+      return Promise.resolve(new Response(null, { status: 204 }));
+    return new Promise<Response>((_resolve, reject) => {
+      init.signal!.addEventListener(
+        'abort',
+        () => reject(new Error('aborted')),
+        { once: true },
+      );
+    });
+  });
+  const sink = new HttpSink('http://x.test/ingest', 3_600_000);
+  try {
+    sink.write(makeEvent(0));
+    const sending = sink.flush();
+    t.mock.timers.tick(4_000);
+    await sending;
+    assert.equal(sink.pendingCount, 1);
+    assert.equal(sink.deliveredCount, 0);
+    await sink.flush();
+    assert.equal(sink.pendingCount, 0);
+    assert.equal(sink.deliveredCount, 1);
+  } finally {
     sink.dispose();
   }
 });
