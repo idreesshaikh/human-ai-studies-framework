@@ -125,7 +125,7 @@ export function enrollmentHeading(
   created: number,
   redeemed: number,
 ): { title: string; detail: string } {
-  if (created === 0) return { title: "No links yet", detail: "" };
+  if (created === 0) return { title: "Invite participants", detail: "" };
   return {
     title: `${created} ${created === 1 ? "link" : "links"} created`,
     detail: `${redeemed} redeemed`,

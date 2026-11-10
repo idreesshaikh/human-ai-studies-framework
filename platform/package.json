@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "PHOENIX researcher workspace",
+  "description": "StudyLoop researcher workspace",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

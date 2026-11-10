@@ -207,8 +207,8 @@ export function EnrollmentPanel({
             * name, not a truncation  -  but marooned at the end of a very long
             * line it read as a string that had been cut off. */}
           <p className="mt-2 max-w-work type-body text-text-muted">
-            Participants need the {EXTENSION_NAME} extension first. It is not
-            on the Marketplace.
+            Participants install the {EXTENSION_NAME} extension for VS Code
+            first. It is a direct download, not a Marketplace listing.
           </p>
           <div className="mt-1 flex max-w-work flex-wrap items-center gap-x-1.5 gap-y-1 type-caption text-text-muted">
             <span>Download the extension:</span>{" "}

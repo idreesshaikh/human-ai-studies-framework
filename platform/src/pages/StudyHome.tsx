@@ -138,7 +138,9 @@ export function StudyHome() {
        * an unrelated border. */}
       <header className="border-b border-border bg-surface">
         <div className="flex items-center gap-3 px-4 py-1">
-          <div className="flex min-w-0 items-baseline gap-2">
+          {/* Below `sm` the back link is an icon with no text baseline, so
+            * baseline alignment lifted the title above the chevron. */}
+          <div className="flex min-w-0 items-center gap-2 sm:items-baseline">
             <Link
               to={`/p/${slug}`}
               aria-label={`Back to ${project?.name ?? slug}`}

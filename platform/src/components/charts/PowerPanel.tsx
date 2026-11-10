@@ -478,12 +478,28 @@ export function PowerPanel({
                     Recalculate to update the result below.
                   </p>
                 )}
-                <p className="type-body text-text">
-                  {result.required
-                    ? `${result.required.recruitTotal} participants to recruit (${result.required.recruitPerArm} ${paired ? "paired participants" : "per arm"}), allowing for dropout. ${result.required.totalN} complete participants reach estimated ${percent(result.required.power)} power.`
-                    : (result.requiredWithheld?.message ??
-                      `The target is not reached within ${result.inputs.max_n} participants. No required sample size is reported.`)}
-                </p>
+                {/* The answer the researcher came for leads at heading weight;
+                  * how it breaks down and what it assumes follow in body text. */}
+                {result.required ? (
+                  <div className="flex flex-col gap-1">
+                    <p className="tabular type-section text-text">
+                      Recruit {result.required.recruitTotal} participants
+                    </p>
+                    <p className="max-w-reading type-body text-text-muted">
+                      {paired
+                        ? "Each participant works under both conditions."
+                        : `${result.required.recruitPerArm} per condition.`}{" "}
+                      {result.required.totalN} complete participants reach an
+                      estimated {percent(result.required.power)} power, after
+                      the dropout you expect.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="type-body text-text">
+                    {result.requiredWithheld?.message ??
+                      `The target is not reached within ${result.inputs.max_n} participants. No required sample size is reported.`}
+                  </p>
+                )}
                 {result.required?.ci && (
                   <p className="type-note text-text-muted">
                     Simulation 95% interval at the estimated sample size:{" "}

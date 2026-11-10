@@ -96,6 +96,7 @@ export function ProjectHome() {
   };
 
   const newStudy = async () => {
+    if (creating) return;
     if (!studyName.trim()) {
       setCreateError("Give the study a name to create it.");
       return;
@@ -159,7 +160,9 @@ export function ProjectHome() {
           Back to projects
         </Link>}
         <h1 className="type-title text-text">{data.name}</h1>
-        <p className="type-body text-text-muted">/{data.slug}</p>
+        {/* The address only matters when there is more than one project to
+          * tell apart; alone it is an internal id sitting under the title. */}
+        {!isSolo && <p className="type-body text-text-muted">/{data.slug}</p>}
       </div>
 
       <section className="flex flex-col gap-3">

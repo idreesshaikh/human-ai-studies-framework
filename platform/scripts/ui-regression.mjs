@@ -539,6 +539,98 @@ await context.route("**/*", (route) => {
   check(new URL(starter.url()).searchParams.get("tab") === "planning", "featured starter reaches a saved plan without typing a protocol");
   await starter.close();
 
+  // Failed transport must leave the message editable, and the next Send must
+  // actually retry the same request instead of silently becoming a local turn.
+  const chatStudy = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "Chat recovery fixtures" }) })).id;
+  const chat = await context.newPage();
+  const chatRequests = [];
+  const recoveredReply = "Synthetic transport fixture: your research question was received.";
+  let chatMode = "offline";
+  let releasePending;
+  const pendingGate = new Promise((resolve) => { releasePending = resolve; });
+  await chat.route(new RegExp(`/studies/${chatStudy}/conversation/turns(?:/stream)?$`), async (route) => {
+    const request = route.request();
+    const body = request.postDataJSON();
+    chatRequests.push({ path: new URL(request.url()).pathname, ...body });
+    if (chatMode === "offline") return route.abort("connectionfailed");
+    if (chatMode === "truncated") return route.fulfill({ status: 200, contentType: "text/event-stream", body: 'event: token\ndata: {"text":"Synthetic partial reply"}\n\n' });
+    if (chatMode === "pending") {
+      await pendingGate;
+      return route.abort("aborted").catch(() => {}); // Stop already aborted this request.
+    }
+    const reply = { researcherTurnId: "fixture-researcher", platformTurnId: "fixture-platform", text: recoveredReply, moves: [], recommendations: [], source: "llm" };
+    return route.fulfill({ status: 200, contentType: "text/event-stream", body: `event: token\ndata: ${JSON.stringify({ text: recoveredReply })}\n\nevent: done\ndata: ${JSON.stringify(reply)}\n\n` });
+  });
+  await chat.goto(`${base}/p/implicit/studies/${chatStudy}?tab=conversation`);
+  const composer = chat.getByRole("textbox", { name: "Message the design assistant", exact: true });
+  const send = chat.getByRole("button", { name: "Send", exact: true });
+  check(await send.isDisabled(), "chat: blank messages cannot be submitted");
+  const chatText = "Does AI change debugging time?\nDevelopers: naïve, 日本語, العربية 🔬 <script>window.fixtureRan=true</script>";
+  await composer.fill(chatText);
+  await send.click();
+  await chat.getByRole("status").filter({ hasText: "Not sent:" }).waitFor();
+  check(await composer.inputValue() === chatText, "chat: a failed stream and fallback restore the complete Unicode message");
+  check(chatRequests.length === 2 && chatRequests[0].requestId === chatRequests[1].requestId, "chat: fallback reuses the original request id");
+  chatMode = "recovered";
+  await send.click();
+  await chat.getByText(recoveredReply, { exact: true }).waitFor({ timeout: 2500 }).catch(() => {});
+  check(chatRequests.length === 3 && chatRequests[2].requestId === chatRequests[0].requestId, "chat: Send after recovery reaches the server with the same request id");
+  check(await chat.getByText(recoveredReply, { exact: true }).count() > 0 && await composer.inputValue() === "", "chat: retry renders the recovered reply and clears the composer");
+  check(await chat.evaluate(() => window.fixtureRan !== true && !document.querySelector("#root script")), "chat: user HTML remains text and never executes");
+  chatMode = "truncated";
+  const interruptedText = "Keep this message when the connection drops during a reply.";
+  await composer.fill(interruptedText);
+  await send.click();
+  await chat.getByRole("status").filter({ hasText: "Not sent:" }).waitFor();
+  check(chatRequests.length === 4 && await composer.inputValue() === interruptedText, "chat: a partial stream restores input without an automatic duplicate POST");
+  chatMode = "recovered";
+  await send.click();
+  await chat.getByRole("button", { name: "Stop reply", exact: true }).waitFor({ state: "hidden" });
+  check(chatRequests.length === 5 && chatRequests[4].requestId === chatRequests[3].requestId, "chat: retry after a partial stream preserves request identity");
+  chatMode = "pending";
+  const stoppedText = "Let me stop this slow reply and edit the research question.";
+  await composer.fill(stoppedText);
+  const pendingRequest = chat.waitForRequest((request) => request.url().endsWith(`/studies/${chatStudy}/conversation/turns/stream`));
+  await send.click();
+  await pendingRequest;
+  await chat.getByRole("button", { name: "Stop reply", exact: true }).click();
+  await chat.getByRole("status").filter({ hasText: "Stopped. Your message is back in the box." }).waitFor();
+  check(chatRequests.length === 6 && await composer.inputValue() === stoppedText, "chat: Stop restores editable text without a fallback POST");
+  releasePending();
+  await auditPage(chat, "chat transport recovery");
+  await chat.close();
+
+  const create = await context.newPage();
+  let createRequests = 0;
+  let releaseCreate;
+  const createGate = new Promise((resolve) => { releaseCreate = resolve; });
+  await create.route(`${base}/projects/implicit/studies`, async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    createRequests++;
+    await createGate;
+    return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "Synthetic outage: try creating the study again." }) });
+  });
+  await create.setViewportSize({ width: 360, height: 800 });
+  await create.goto(`${base}/p/implicit`);
+  await create.getByRole("button", { name: "New study", exact: true }).click();
+  await create.getByRole("button", { name: "Start with a blank study", exact: true }).click();
+  const studyName = create.getByRole("textbox", { name: "New study name", exact: true });
+  const longName = "調査 العربية naïve 🔬 ".repeat(6);
+  await studyName.fill(longName);
+  const storedName = await studyName.inputValue();
+  check(storedName.length <= 80, "new study: long Unicode names respect the stated length limit");
+  const creatingRequest = create.waitForRequest((request) => request.url() === `${base}/projects/implicit/studies` && request.method() === "POST");
+  await studyName.press("Enter");
+  await creatingRequest;
+  await studyName.press("Enter");
+  await studyName.press("Enter");
+  check(createRequests === 1, "new study: repeated Enter during creation sends one request");
+  releaseCreate();
+  await create.getByRole("alert").filter({ hasText: "Synthetic outage" }).waitFor();
+  check(await studyName.inputValue() === storedName, "new study: a failed save preserves the name for retry");
+  await auditPage(create, "new study creation error");
+  await create.close();
+
   const mutation = await context.newPage();
   await mutation.goto(`${base}/p/implicit/studies/${bare}?tab=conversation`);
   await mutation.waitForLoadState("networkidle");
