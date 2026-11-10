@@ -1,19 +1,6 @@
 /**
- * The four instrument legs, as the participant sees them (FR-INST-22).
- *
- * Portable core: this module only shapes the data  -  rendering it in a tree
- * view is the adapter's job, and nothing here imports `vscode`.
- *
- * The display state comes from the middleware's `leg_summary` (FR-DASH-13),
- * carried on the capture config. The extension deliberately does not re-derive
- * what a leg captures from the flat `tern.*` settings: two of the four legs
- * (static metrics, agent interaction) live outside that subtree entirely, so a
- * locally-derived answer would be confidently wrong about half the study.
- *
- * The rule this module exists to enforce: **a leg is never hidden.** A
- * participant can only check the consent promise (FR-ETH-2) if they can see
- * what is *not* captured as well as what is, so all four legs always come
- * back, and "we don't know" is its own state rather than a silent "off".
+ * Shapes all four capture legs from the server configuration, including external
+ * producers. Missing configuration stays unavailable rather than implying off.
  */
 
 export const LEG_IDS = ['metrics', 'behavioral', 'cognitive', 'agent'] as const;

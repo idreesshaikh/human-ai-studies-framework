@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from middleware import assistant, design_llm
 
 PAPERS = [
@@ -48,6 +50,57 @@ def test_propose_turn_happy_path_returns_validated_moves():
     assert len(script.moves) == 1
     assert script.moves[0].kind == "add-measure"
     assert script.moves[0].refs == ("corpus:trust-in-ai-code-generation",)
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        {"kind": ["caution"], "proposal": "Invalid kind."},
+        {"kind": {"name": "caution"}, "proposal": "Invalid kind."},
+        {"kind": "caution", "proposal": {"text": "Invalid proposal."}},
+        {
+            "kind": "set-parameter",
+            "proposal": "Invalid section.",
+            "patch": {"section": ["ethics"], "op": "set", "value": "Consent"},
+        },
+        {
+            "kind": "choose-template",
+            "proposal": "Invalid parameters.",
+            "patch": {"templateId": "metr-rct-v1", "parameters": 42},
+        },
+    ],
+)
+def test_malformed_card_cannot_discard_other_valid_cards(broken):
+    valid = {
+        "kind": "add-rq",
+        "proposal": "Does AI change task completion time?",
+        "patch": {
+            "section": "researchQuestions",
+            "op": "append",
+            "value": "Does AI change task completion time?",
+        },
+    }
+    turn = design_llm.propose_turn(
+        _fake_client(
+            {"text": "Measure task completion time.", "moves": [broken, valid]}
+        ),
+        "task time",
+        [],
+        PAPERS,
+        TEMPLATES,
+    )
+    assert turn is not None
+    assert len(turn.moves) == 1 and turn.moves[0].kind == "add-rq"
+
+
+@pytest.mark.parametrize("value", [None, 42, {"text": "nested"}, ["list"]])
+def test_nontext_reply_is_not_displayed_as_invented_prose(value):
+    assert (
+        design_llm.propose_turn(
+            _fake_client({"text": value, "moves": []}), "question", [], [], []
+        )
+        is None
+    )
 
 
 def test_propose_turn_strips_refs_outside_the_candidate_menu():
@@ -623,7 +676,14 @@ def test_decision_followup_reply_is_capped_to_a_short_length():
 
 def test_decision_followup_cap_applies_when_streaming_falls_back():
     long = " ".join(f"Distinct sentence number {i} is here." for i in range(40))
-    client = _fake_client({"text": long, "moves": []})  # no .stream
+    client = _fake_client({"text": long, "moves": []})
+
+    def broken_stream(*a, **k):
+        # A local failure: the default transport would call the real provider.
+        raise ConnectionError("simulated stream failure")
+        yield ""
+
+    client.stream = broken_stream
     gen = design_llm.propose_turn_streaming(
         client, "t", [], PAPERS, TEMPLATES, decision_followup=True
     )

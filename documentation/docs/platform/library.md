@@ -81,5 +81,5 @@ contact address. No source failure silently counts as a successful refresh.
 Paper metadata includes data from Semantic Scholar and arXiv. Recommendation
 abstracts are omitted from conversation exports and replication kits; this also
 keeps Semantic Scholar abstracts out of those exports. Uploaded researcher files
-remain the researcher's responsibility. Confirm Semantic Scholar caching terms
-with AI2 before deploying abstract storage for other users (open decision D11).
+remain the researcher's responsibility. Review Semantic Scholar caching and reuse terms before storing or sharing
+abstracts.

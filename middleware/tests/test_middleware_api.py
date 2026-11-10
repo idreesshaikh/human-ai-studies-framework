@@ -330,6 +330,61 @@ def test_file_upload_is_content_addressed(client, tmp_path):
     assert again["sha256"] == first.json()["sha256"]
 
 
+@pytest.mark.parametrize(
+    "filename", ["../notes.txt", "nested/notes.txt", "..\\notes.txt", "x" * 256]
+)
+def test_file_upload_rejects_unsafe_names_without_writing(client, tmp_path, filename):
+    response = client.post(
+        "/ingest/files",
+        data={"studyId": "pilot-2026"},
+        files={"file": (filename, b"synthetic notes", "text/plain")},
+    )
+    assert response.status_code == 400, response.text
+    assert not list((tmp_path / "data").rglob("*notes*"))
+
+
+def test_unicode_upload_keeps_metadata_and_exports_content_with_safe_name(client):
+    import io
+    import zipfile
+
+    filename = "研究 notes 🧪.txt"
+    content = "Synthetic observations: naïve – fine".encode()
+    response = client.post(
+        "/ingest/files",
+        data={"studyId": "pilot-2026"},
+        files={"file": (filename, content, "text/plain")},
+    )
+    assert response.status_code == 200, response.text
+    metadata = client.get("/files").json()
+    assert metadata[0]["filename"] == filename
+    exported = client.get("/studies/pilot-2026/data-bundle")
+    assert exported.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(exported.content)) as bundle:
+        name = next(n for n in bundle.namelist() if n.startswith("files/"))
+        assert name.endswith("_notes_.txt")
+        assert ".." not in name and "\\" not in name
+        assert bundle.read(name) == content
+
+
+@pytest.mark.parametrize("version", [None, "invalid", 1.5, True, [], {}, 2**63])
+def test_invalid_metric_schema_rejects_whole_batch_and_allows_retry(client, version):
+    rows = [metric_row(), {**metric_row(file="bad.py"), "schemaVersion": version}]
+    response = client.post("/ingest/metrics", json=rows)
+    assert response.status_code == 422, response.text
+    assert client.get("/studies/pilot-2026/sessions").json() == []
+    response = client.post("/ingest/metrics", json=[metric_row()])
+    assert response.status_code == 200, response.text
+    assert response.json()["inserted"] == 1
+
+
+def test_missing_metric_schema_is_retained_with_an_integrity_flag(client):
+    row = metric_row()
+    del row["schemaVersion"]
+    response = client.post("/ingest/metrics", json=[row])
+    assert response.status_code == 200, response.text
+    assert response.json()["flagged"] == 1
+
+
 def upload(
     client, filename: str, content: bytes = b"x", study: str = "pilot-2026"
 ) -> dict:
@@ -560,7 +615,7 @@ def test_no_protocol_means_accept_all(tmp_path):
 
 def test_stale_database_schema_fails_loudly_at_startup(tmp_path):
     """
-    A database created by an older middleware (e.g. a compose volume from before
+    A database created by an older middleware (e.g. a database from before
     events.source existed) must be rejected AT STARTUP with a remediation message - not
     pass /health and then 500 on the first ingest (NFR-1/NFR-2: sensor-facing failures
     are never quiet).
@@ -574,5 +629,5 @@ def test_stale_database_schema_fails_loudly_at_startup(tmp_path):
     con.close()
 
     settings = Settings(db_path=db, data_dir=tmp_path, protocol_path=None)
-    with pytest.raises(RuntimeError, match=r"source.*docker compose down -v|predates"):
+    with pytest.raises(RuntimeError, match=r"source.*current schema|predates"):
         create_app(settings, clock=lambda: FROZEN_NOW)

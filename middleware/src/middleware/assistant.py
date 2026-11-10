@@ -114,7 +114,10 @@ def _retry_delay(exc: urllib.error.HTTPError | None, attempt: int) -> float:
                 return min(max(value, 0.0), _MAX_RETRY_AFTER_S)
         except ValueError:
             pass
-    return min(0.5 * 2**attempt, 8.0)
+    # A rate limit without Retry-After clears in seconds, not fractions of one:
+    # retrying sooner only spends the retries inside the same window.
+    base = 2.0 if exc is not None and exc.code == 429 else 0.5
+    return min(base * 2**attempt, 8.0)
 
 
 def _can_retry(exc: Exception, attempt: int, retries: int) -> bool:
@@ -188,11 +191,20 @@ def _post_stream(url: str, body: dict, headers: dict[str, str]):
                         return
                     try:
                         frame = json.loads(payload)
-                        delta = (frame.get("choices") or [{}])[0].get("delta", {})
-                        piece = delta.get("content")
-                    except (json.JSONDecodeError, IndexError, AttributeError):
+                    except json.JSONDecodeError:
                         continue
-                    if piece:
+                    if not isinstance(frame, dict):
+                        continue
+                    choices = frame.get("choices")
+                    if (
+                        not isinstance(choices, list)
+                        or not choices
+                        or not isinstance(choices[0], dict)
+                    ):
+                        continue
+                    delta = choices[0].get("delta")
+                    piece = delta.get("content") if isinstance(delta, dict) else None
+                    if isinstance(piece, str) and piece:
                         yield piece
             return
         except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
@@ -214,6 +226,8 @@ class ChatProvider:
         self.model = model_name()
         self.post = post if post is not None else _post_json
         self.stream = stream if stream is not None else _post_stream
+        # Set when the provider answers 401/403: the key is wrong, not the network.
+        self.rejected = False
 
     @property
     def headers(self) -> dict[str, str]:

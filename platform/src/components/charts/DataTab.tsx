@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -23,7 +23,13 @@ import {
 import { cn } from "@/lib/cn";
 import { laneLabel } from "@/lib/timeline";
 import { hasRole, type Role } from "@/lib/capabilities";
-import { OPEN_SETUP, DATA_EMPTY_TITLE, DATA_EMPTY_BODY } from "@/lib/uiText";
+import { Notice } from "@/components/ui/notice";
+import { OPEN_SETUP, DATA_EMPTY_TITLE, DATA_EMPTY_BODY, conditionLabel } from "@/lib/uiText";
+import { SYNTHETIC_EXAMPLE_LABEL } from "@/lib/syntheticExample";
+import { OutcomeChecks } from "./OutcomeChecks";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Pagination, paginate } from "@/components/ui/pagination";
 
 export function DataTab({
   studyId,
@@ -38,20 +44,33 @@ export function DataTab({
   const [statusDoc, setStatusDoc] = useState<StudyStatusDoc | null>(null);
   const [conditions, setConditions] = useState<string[]>([]);
   const [rows, setRows] = useState<DatasetRow[]>([]);
+  const [synthetic, setSynthetic] = useState(false);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [sessionQuery, setSessionQuery] = useState("");
+  const [sessionPage, setSessionPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [revision, setRevision] = useState(0);
+  const [decisionRevision, setDecisionRevision] = useState(0);
   const [download, setDownload] = useState({ busy: false, error: "" });
   const generation = useRef(0);
-  useEffect(() => {
-    if (!hasProtocol) return;
+  const loadData = useCallback(() => {
     const version = ++generation.current;
-    setLoading(true);
     setLoadError(null);
-    Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)])
+    // The seeded example holds only simulated sessions. They are read on
+    // request, for that study alone, and shown under a notice; every other
+    // study keeps the default read, which leaves synthetic rows out.
+    return Promise.all([studyApi.status(studyId), studyApi.dataset(studyId)])
+      .then((plain) =>
+        plain[0].syntheticExample
+          ? Promise.all([
+              studyApi.status(studyId, true),
+              studyApi.dataset(studyId, true),
+            ])
+          : plain,
+      )
       .then(([s, d]) => {
         if (generation.current !== version) return;
+        setSynthetic(Boolean(s.syntheticExample));
         setSessions(s.sessions);
         setStatusDoc(s);
         setConditions(s.conditions);
@@ -66,10 +85,18 @@ export function DataTab({
       .finally(() => {
         if (generation.current === version) setLoading(false);
       });
+  }, [studyId]);
+  useEffect(() => {
+    if (!hasProtocol) return;
+    setLoading(true);
+    setSessionQuery("");
+    setSessionPage(0);
+    setExpandedSession(null);
+    void loadData();
     return () => {
       generation.current++;
     };
-  }, [studyId, revision, hasProtocol]);
+  }, [hasProtocol, loadData]);
   async function downloadFile(kind: "data" | "card" | "kit") {
     setDownload({ busy: true, error: "" });
     try {
@@ -84,6 +111,9 @@ export function DataTab({
       });
     }
   }
+  const visibleSessions = paginate(sessions.filter((session) =>
+    `${session.participantId} ${session.condition} ${conditionLabel(session.condition)} ${session.sessionId}`.toLowerCase().includes(sessionQuery.trim().toLowerCase()),
+  ), sessionPage);
   if (!hasProtocol)
     return (
       <Surface measure="work" label="Data">
@@ -111,13 +141,21 @@ export function DataTab({
         </p>
       ) : (
         <>
+          {synthetic && (
+            <Notice>
+              <strong>{SYNTHETIC_EXAMPLE_LABEL}</strong> Every session below was
+              simulated by <code>seed-example</code> to show how a study reads
+              once data arrives. No participant took part. The rows are marked
+              synthetic and are left out of data bundles, pilot estimates and
+              analysis recipes, so a downloaded data bundle for this study is
+              empty.
+            </Notice>
+          )}
           <section className="flex flex-col gap-3 border-b border-border pb-5">
             <h2 className="type-subhead text-text">Download study records</h2>
             <p className="type-note text-text-muted">
-              Data bundles include real captured rows, pilot tags and inclusion
-              decisions. Synthetic rows are excluded. The design card records
-              assumptions, instruments, tool versions and audit signals without
-              rating validity.
+              Export captured data or the recorded study design. Synthetic rows
+              are excluded; pilot tags and inclusion decisions are retained.
             </p>
             <div className="flex flex-wrap gap-3">
               <Button
@@ -152,13 +190,19 @@ export function DataTab({
               </p>
             )}
           </section>
-          <section className="flex flex-col gap-stack">
-            <h2 className="type-section text-text">Sessions</h2>
+          <OutcomeChecks key={`${studyId}:${decisionRevision}`} studyId={studyId} synthetic={synthetic} onChecked={() => void loadData()} />
+          <section className="flex flex-col gap-stack" aria-label="Captured sessions">
+            <h2 className="type-section text-text">
+              {synthetic ? "Sessions (synthetic)" : "Sessions"}
+            </h2>
+            {sessions.length > 0 && <Field label="Search sessions">
+              <Input type="search" value={sessionQuery} placeholder="Participant, condition or session" onChange={(e) => { setSessionQuery(e.target.value); setSessionPage(0); setExpandedSession(null); }} />
+            </Field>}
             {sessions.length === 0 ? (
               <EmptyState line="No sessions yet. Collected data appears here per session, with its completeness and any integrity flags." />
             ) : (
               <div className="flex flex-col gap-3">
-                {sessions.map((s) => {
+                {visibleSessions.rows.map((s) => {
                   const isOpen = expandedSession === s.sessionId;
                   const missingProducers = statusDoc
                     ? statusDoc.requiredProducers.filter((id) => {
@@ -173,12 +217,13 @@ export function DataTab({
                     >
                       <button
                         type="button"
-                        className="flex w-full items-center justify-between p-4 text-left hover:bg-zone-9"
+                        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-card p-3 text-left hover:bg-zone-9 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+                        aria-expanded={isOpen}
                         onClick={() =>
                           setExpandedSession(isOpen ? null : s.sessionId)
                         }
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
                           {isOpen ? (
                             <ChevronDown
                               className="size-4 text-text-muted"
@@ -196,7 +241,7 @@ export function DataTab({
                                 {s.participantId}
                               </span>
                               <span className="ml-2 rounded-chip bg-zone-9 px-2 py-0.5 type-legend text-text">
-                                {s.condition}
+                                {conditionLabel(s.condition)}
                               </span>
                             </div>
                             <span
@@ -207,30 +252,28 @@ export function DataTab({
                             </span>
                           </div>
                         </div>
-                        <dl className="flex gap-4 type-body">
+                        <dl className="col-span-2 flex gap-4 type-body sm:col-span-1 sm:col-start-2 sm:row-start-1">
                           <Stat label="events" value={s.events} />
                           <Stat label="metric rows" value={s.metricRows} />
                           <Stat label="gaps" value={s.gapCount} />
                         </dl>
                         <p
                           className={cn(
-                            "flex items-center gap-1 type-caption",
+                            "col-start-2 row-start-1 flex items-center gap-1 type-caption sm:col-start-3",
                             s.complete ? "text-text" : "text-critical",
                           )}
                         >
                           {s.complete ? (
                             <>
                               <CheckCircle2 className="size-3" aria-hidden />{" "}
-                              complete
+                              no flags
                             </>
                           ) : (
                             <>
                               <AlertTriangle className="size-3" aria-hidden />
-                              {s.missingEvents > 0
+                              {s.flagKinds.length > 0 ? "Review capture" : s.missingEvents > 0
                                 ? `${s.missingEvents} event${s.missingEvents === 1 ? "" : "s"} missing`
                                 : "in progress"}
-                              {s.flagKinds.length > 0 &&
-                                ` · ${s.flagKinds.join(", ")}`}
                             </>
                           )}
                         </p>
@@ -239,6 +282,7 @@ export function DataTab({
                         <div className="border-t border-border px-4 pb-4 pt-3">
                           <div className="mb-3 flex flex-wrap items-center gap-2 type-caption text-text-muted">
                             <span>task: {s.taskId || "not stamped"}</span>
+                            {s.flagKinds.length > 0 && <span className="break-words text-critical">{s.flagKinds.join(", ")}</span>}
                             {Object.entries(s.sourceCounts ?? {}).map(
                               ([source, count]) => (
                                 <span
@@ -265,6 +309,8 @@ export function DataTab({
                     </div>
                   );
                 })}
+                {visibleSessions.total === 0 && <p className="type-note text-text-muted" role="status">No matching sessions. Try another search.</p>}
+                <Pagination {...visibleSessions} label="Sessions" onChange={(page) => { setSessionPage(page); setExpandedSession(null); }} />
               </div>
             )}
           </section>
@@ -273,17 +319,24 @@ export function DataTab({
             studyId={studyId}
             sessions={sessions}
             role={role}
-            onUpdated={() => setRevision((r) => r + 1)}
+            onUpdated={() => { setDecisionRevision((r) => r + 1); void loadData(); }}
+            synthetic={synthetic}
           />
           <div className="flex flex-col gap-stack">
-            <section className="flex flex-col gap-stack">
+            <section className="flex flex-col gap-stack" aria-label="Measurements">
               <h2 className="type-section text-text">
-                Confirmatory metrics by condition
+                Measurements by condition
               </h2>
-              <p className="type-note text-text-muted">
-                Pilot sessions and researcher-excluded sessions are omitted from
-                this comparison.
-              </p>
+              {synthetic ? (
+                <p className="type-note text-text">
+                  {SYNTHETIC_EXAMPLE_LABEL}
+                </p>
+              ) : (
+                <p className="type-note text-text-muted">
+                  Pilot sessions and researcher-excluded sessions are omitted
+                  from this comparison.
+                </p>
+              )}
               <MetricStrip
                 rows={rows.filter(
                   (r) => !r.pilot && r.inclusionDecision !== "exclude",

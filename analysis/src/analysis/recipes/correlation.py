@@ -9,6 +9,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import numpy as np
 import pandas as pd
 
 from analysis import figures, stats
@@ -31,7 +32,10 @@ METHOD_TEMPLATE = (
     "coefficient (\u03c1). Spearman's \u03c1 is identical to Pearson's correlation "
     "on the ranks, making it robust to outliers and distributional "
     "assumptions. The test statistic and effect size are the same value. "
-    "Per-variable n always reported. Figure: {figure}. Source: "
+    "Complete-pair n is reported; missing or non-finite pairs are excluded by row. "
+    "Inference requires independent observations; repeated observations need "
+    "a suitable model. The OLS line is descriptive, without a confidence band. "
+    "Figure: {figure}. Source: "
     "``analysis.stats.spearman``."
 )
 
@@ -58,10 +62,18 @@ def run(dataset: Dataset) -> RecipeResult:
             summary=f"Required columns '{x_col}' and/or '{y_col}' not found in data."
         )
 
-    x = pd.to_numeric(df[x_col], errors="coerce").dropna().tolist()
-    y = pd.to_numeric(df[y_col], errors="coerce").dropna().tolist()
-    n = min(len(x), len(y))
-    x, y = x[:n], y[:n]
+    paired = (
+        pd.DataFrame(
+            {
+                "x": pd.to_numeric(df[x_col], errors="coerce"),
+                "y": pd.to_numeric(df[y_col], errors="coerce"),
+            }
+        )
+        .replace([np.inf, -np.inf], np.nan)
+        .dropna()
+    )
+    x, y = paired["x"].tolist(), paired["y"].tolist()
+    n = len(paired)
 
     if n < 2:
         return RecipeResult(summary="Too few observations for correlation analysis.")

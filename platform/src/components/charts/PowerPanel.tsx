@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Surface } from "@/components/shell/Surface";
 import { EmptyState } from "@/components/shell/EmptyState";
-import { OPEN_SETUP, PLAN_EMPTY_TITLE, PLAN_EMPTY_BODY } from "@/lib/uiText";
+import { OPEN_SETUP, PLAN_EMPTY_TITLE, PLAN_EMPTY_BODY, conditionLabel } from "@/lib/uiText";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -225,8 +225,8 @@ export function PowerPanel({
             Plan participant recruitment
           </h2>
           <p className="max-w-reading type-body text-text-muted">
-            Estimate power for the analysis in your protocol. A plan based on
-            assumptions is a hypothesis; it is not a study finding.
+            Estimate recruitment for the analysis in your protocol. Results
+            depend on the assumptions below.
           </p>
         </div>
         {loading && (
@@ -249,7 +249,7 @@ export function PowerPanel({
             <p className="type-note text-text-muted">
               Recorded design:{" "}
               <span className="text-text">{protocol.participants.design}</span>,{" "}
-              {protocol.conditions.join(" / ")}.{" "}
+              {protocol.conditions.map(conditionLabel).join(" / ")}.{" "}
               {protocol.participants.counterbalanced
                 ? "Counterbalanced order."
                 : "Fixed order."}{" "}
@@ -478,12 +478,28 @@ export function PowerPanel({
                     Recalculate to update the result below.
                   </p>
                 )}
-                <p className="type-body text-text">
-                  {result.required
-                    ? `${result.required.recruitTotal} participants to recruit (${result.required.recruitPerArm} ${paired ? "paired participants" : "per arm"}), allowing for dropout. ${result.required.totalN} complete participants reach estimated ${percent(result.required.power)} power.`
-                    : (result.requiredWithheld?.message ??
-                      `The target is not reached within ${result.inputs.max_n} participants. No required sample size is reported.`)}
-                </p>
+                {/* The answer the researcher came for leads at heading weight;
+                  * how it breaks down and what it assumes follow in body text. */}
+                {result.required ? (
+                  <div className="flex flex-col gap-1">
+                    <p className="tabular type-section text-text">
+                      Recruit {result.required.recruitTotal} participants
+                    </p>
+                    <p className="max-w-reading type-body text-text-muted">
+                      {paired
+                        ? "Each participant works under both conditions."
+                        : `${result.required.recruitPerArm} per condition.`}{" "}
+                      {result.required.totalN} complete participants reach an
+                      estimated {percent(result.required.power)} power, after
+                      the dropout you expect.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="type-body text-text">
+                    {result.requiredWithheld?.message ??
+                      `The target is not reached within ${result.inputs.max_n} participants. No required sample size is reported.`}
+                  </p>
+                )}
                 {result.required?.ci && (
                   <p className="type-note text-text-muted">
                     Simulation 95% interval at the estimated sample size:{" "}

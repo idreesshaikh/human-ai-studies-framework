@@ -8,7 +8,7 @@ body:
         **Before you start:** if this involves participant data leaking, an
         auth bypass, or the design conversation receiving participant row-level data, stop
         and report it privately instead — see
-        [security policy](https://github.com/idreesshaikh/human-ai-studies-framework/blob/main/docs/security.md).
+        [security policy](https://github.com/idreesshaikh/human-ai-studies-framework/blob/main/SECURITY.md).
 
 
         **Never paste real participant data into this form**, even redacted.
@@ -28,7 +28,7 @@ body:
         - metrics
         - templates
         - docs
-        - build, CI, or deployment
+        - build or CI
         - other
     validations:
       required: true

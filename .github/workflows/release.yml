@@ -1,26 +1,3 @@
-# Release pipeline.
-#
-# Push a tag to cut a release:
-#   v1.0.1-rc.1  → gates → GHCR image → GitHub pre-release.
-#   v1.0.1       → the same, as a full release.
-#
-# A manual run can repair or refresh an existing release without moving its
-# tag. This keeps the artifact hand-off idempotent after a partial run.
-#
-# Railway is the sole deployment target. The container image is pushed to
-# GHCR and a Railway redeploy is triggered via the Railway API. The extension
-# is distributed as a .vsix attached to the GitHub Release, and
-# only that way — TERN is deliberately not on the VS Code Marketplace. The
-# platform's pairing link therefore has to point participants at the release
-# page before it can hand them a vscode:// deep link, since a sideloaded
-# extension cannot be installed on demand the way a Marketplace one can
-# (platform/src/lib/extension.ts).
-#
-# Secrets (each step skips cleanly when its secret is unset; see middleware/README.md):
-#   RAILWAY_API_TOKEN      - Railway API token for StudyLoop redeploy
-#   RAILWAY_SERVICE_ID     - Railway service ID
-#   RAILWAY_ENVIRONMENT_ID - Railway environment ID (optional)
-
 name: Release
 
 on:
@@ -35,7 +12,9 @@ on:
 
 permissions:
   contents: write
-  packages: write
+
+env:
+  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
 
 jobs:
   verify:
@@ -43,6 +22,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
+
+      - name: Validate release tag and extension version
+        run: |
+          git check-ref-format "refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          VERSION="${RELEASE_TAG#v}"
+          test "$VERSION" != "$RELEASE_TAG"
+          test "$(node -p "require('./extension/package.json').version")" = "$VERSION"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -54,7 +43,8 @@ jobs:
           uv sync --all-packages --frozen
           uv run ruff check .
           uv run python scripts/check_workspace_config.py
-          uv run pytest
+          uv run pytest --cov --cov-report=term-missing --cov-fail-under=79
+          uv run coverage report --include='metrics/src/*' --fail-under=95
 
       - uses: actions/setup-node@v7
         with:
@@ -68,32 +58,25 @@ jobs:
         working-directory: extension
         run: |
           npm ci
+          npm audit --audit-level=high
           npm run check
 
       - name: Platform gate
         working-directory: platform
         run: |
           npm ci
+          npm audit --audit-level=high
           npx playwright install --with-deps chromium
           npm run check
 
   build:
-    name: Image + .vsix + GitHub Release
+    name: Extension package and GitHub Release
     needs: verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Build and push versioned image
-        run: |
-          TAG="${{ inputs.release_tag || github.ref_name }}"
-          IMAGE="ghcr.io/${{ github.repository }}/middleware"
-          docker build -f middleware/Dockerfile -t "$IMAGE:$TAG" .
-          docker push "$IMAGE:$TAG"
-          docker manifest inspect "$IMAGE:$TAG" >/dev/null
+        with:
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
 
       - uses: actions/setup-node@v7
         with:
@@ -103,7 +86,7 @@ jobs:
 
       - name: Check extension version matches release tag
         run: |
-          TAG="${{ inputs.release_tag || github.ref_name }}"
+          TAG="$RELEASE_TAG"
           VERSION="${TAG#v}"
           test "$(node -p "require('./extension/package.json').version")" = "$VERSION"
 
@@ -117,12 +100,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ inputs.release_tag || github.ref_name }}"
+          TAG="$RELEASE_TAG"
           FLAGS=""
           case "$TAG" in *-rc.*) FLAGS="--prerelease" ;; esac
-          NOTES="Container image: \`ghcr.io/${{ github.repository }}/middleware:$TAG\`
-
-          Extension \`.vsix\` attached (install via \`code --install-extension\`)."
+          NOTES="Extension \`.vsix\` attached (install via \`code --install-extension\`)."
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release edit "$TAG" --repo "${{ github.repository }}" --title "$TAG" $FLAGS --notes "$NOTES"
           else
@@ -130,35 +111,3 @@ jobs:
           fi
           VERSION="${TAG#v}"
           gh release upload "$TAG" --repo "${{ github.repository }}" --clobber "extension/tern-$VERSION.vsix"
-
-  deploy-studyloop:
-    name: Deploy StudyLoop to Railway (all tags)
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger Railway StudyLoop deploy
-        env:
-          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
-          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
-        run: |
-          if [ -z "$RAILWAY_API_TOKEN" ] || [ -z "$RAILWAY_SERVICE_ID" ]; then
-            echo "RAILWAY_API_TOKEN or RAILWAY_SERVICE_ID not set - skipping Railway deploy (secrets are optional; see middleware/README.md)."
-            exit 0
-          fi
-          ENV_PART=""
-          if [ -n "$RAILWAY_ENVIRONMENT_ID" ]; then
-            ENV_PART=", environmentId: \"$RAILWAY_ENVIRONMENT_ID\""
-          fi
-          RESPONSE=$(curl -fsS -X POST https://backboard.railway.app/graphql/v2 \
-            -H "Authorization: Bearer $RAILWAY_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"query\": \"mutation { serviceInstanceRedeploy(serviceId: \\\"$RAILWAY_SERVICE_ID\\\"$ENV_PART) }\"}" \
-            -w "\n%{http_code}")
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "Railway deploy triggered successfully."
-          else
-            echo "Railway deploy trigger failed (HTTP $HTTP_CODE)."
-            exit 1
-          fi

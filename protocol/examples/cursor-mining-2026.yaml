@@ -1,19 +1,5 @@
-# Curated-dataset demo study (experimental)  -  the "dataset already exists"
-# branch made real. Instead of running live sessions, this study mines merged
-# pull requests from GitHub, comparing agent-authored and human-authored work.
-# It records an experimental observational-study shape; the current release
-# does not ship a source adapter or mining job for this protocol.
-#
-# The `curated:` section is the sampling frame: the mined equivalent of "the
-# approved protocol is the executed protocol". The mining adapter
-# refuses to run without it. `protocolVersion` is 4 (kite -> tern
-# rename, 2026-07-21; the additive `curated:` section from v2 stays valid).
-#
-# The live instruments block below is retained only so this example validates
-# against the current live-study schema.  The experimental mining package does
-# not consume it. Mining-only studies are outside the current schema and
-# release boundary, so this file is a design reference rather than a runnable
-# study.
+# Experimental design reference: no mining adapter is included in this release.
+# The instruments block is retained for live-study schema compatibility.
 
 protocolVersion: 4
 
@@ -21,10 +7,9 @@ study:
   id: cursor-mining-2026
   title: "Agent- vs human-authored pull requests: a curated GitHub study"
   researchers:
-    - Idrees Razak
+    - Example researcher
   ethicsRef: >-
-    Public-data study; mined authors are pseudonymized by construction
-    (salted-hash actor units) and only content-free aggregates are stored.
+    Illustrative public-data design; verify applicable review and data-use requirements.
 
 researchQuestions:
   - id: RQ-M1

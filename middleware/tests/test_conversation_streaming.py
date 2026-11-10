@@ -95,6 +95,23 @@ def test_extractor_decodes_escapes_and_stops_at_the_close():
     assert streamed == 'a "quoted" line\nnext'
 
 
+@pytest.mark.parametrize("size", [1, 2, 5, 17])
+@pytest.mark.parametrize("ascii_escaped", [True, False])
+def test_extractor_preserves_multilingual_text_and_emoji(size, ascii_escaped):
+    text = 'Grüße, 日本語, العربية, 👩🏽‍💻.\n"quoted" \\ slash /\tend'
+    body = json.dumps({"text": text, "moves": []}, ensure_ascii=ascii_escaped)
+    extractor = _ReplyTextExtractor()
+    assert "".join(extractor.feed(c) for c in _chunks(body, size)) == text
+    assert extractor.text == text
+
+
+@pytest.mark.parametrize("value", [None, 42, [], {}])
+def test_extractor_never_streams_json_keys_for_nontext_values(value):
+    body = json.dumps({"text": value, "moves": [{"kind": "caution"}]})
+    extractor = _ReplyTextExtractor()
+    assert "".join(extractor.feed(c) for c in _chunks(body, 2)) == ""
+
+
 def test_stream_emits_tokens_then_the_full_turn(client):
     with client.stream(
         "POST", f"/studies/{STUDY}/conversation/turns/stream", json={"text": "rct"}
@@ -138,6 +155,37 @@ def test_retried_stream_replays_without_duplicate_turns(client):
     assert replay["platformTurnId"] == first["platformTurnId"]
     turns = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
     assert [turn["role"] for turn in turns] == ["researcher", "platform"]
+
+
+@pytest.mark.parametrize("suffix", ["", "/stream"])
+def test_invalid_decision_is_an_http_conflict_without_recording_a_turn(client, suffix):
+    response = client.post(
+        f"/studies/{STUDY}/conversation/turns{suffix}",
+        json={
+            "text": "Accepted.",
+            "decision": {"moveId": "missing-card", "action": "accepted"},
+        },
+    )
+    assert response.status_code == 409
+    assert client.get(f"/studies/{STUDY}/conversation").json()["turns"] == []
+
+
+def test_unexpected_stream_failure_is_generic_and_rolls_back(client, monkeypatch):
+    from middleware import design_assistant
+
+    def broken(*args, **kwargs):
+        yield "Before failure"
+        raise RuntimeError("database error includes private internal details")
+
+    monkeypatch.setattr(design_assistant, "respond_streaming", broken)
+    response = client.post(
+        f"/studies/{STUDY}/conversation/turns/stream", json={"text": "rct"}
+    )
+    events = _events(response.text)
+    assert [kind for kind, _ in events] == ["token", "error"]
+    assert "try again" in events[-1][1]["detail"]
+    assert "private internal" not in response.text
+    assert client.get(f"/studies/{STUDY}/conversation").json()["turns"] == []
 
 
 def test_a_broken_stream_falls_back_to_the_blocking_call(client, monkeypatch):

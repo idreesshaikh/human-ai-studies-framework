@@ -1,16 +1,7 @@
 /**
- * Comprehension-probe state machine  -  vscode-free, injected clock (NFR-3).
- *
- * Satisfies FR-INST-19 (comprehension probes for accepted AI chunks) and
- * FR-DASH-12 (protocol-configured cadence). The machine transitions:
- *   idle → chunk-accepted → probe-pending → answered | expired
- *
- * An external caller (the adapter layer, via behavior.ts burst signals)
- * determines *when* a chunk is truly accepted (survived the undo window)
- * and calls acceptChunk(). The machine handles sampling, probe-type
- * selection, metadata sufficiency, and the answer/timeout lifecycle.
- *
- * NEVER captures, logs, or transmits code content (FR-ETH-2).
+ * Content-free probe state machine with an injected clock.
+ * The adapter confirms accepted chunks; this core handles sampling, metadata
+ * requirements, answers, and expiry.
  */
 
 export type ProbeState = 'idle' | 'chunk-accepted' | 'probe-pending';

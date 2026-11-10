@@ -1,44 +1,9 @@
 import { Disposable } from './types';
 
 /**
- * Region-level attention / time-on-code tracking (fills the behavior doc's
- * "time spent on a specific line of code" data point, which left
- * unmeasured: `heartbeat` gives whole-session active time and `editor_focus`
- * lets analysis reconstruct per-file time, but nothing measured per-region
- * dwell). Pure logic, no IDE imports (NFR-3); driven entirely by timestamped
- * signals so it is deterministic under mocked timers like the other cores.
- *
- * ## What it measures
- *
- * "Where is the participant's attention" has no ground truth without eye
- * tracking, so we approximate it from two signals the adapter forwards:
- *
- *  - `cursor` - the caret line (where they are positioned / editing).
- *  - `hover`  - a mouse-hover ping (where they are *reading* without moving
- *    the caret - people point at code they read). Discrete pings, accumulated.
- *
- * A region is a line +/- `regionRadiusLines` band (like StuckDetector's dwell
- * radius): movement within the band stays the same region so caret jitter and
- * reading a line up/down does not shatter the metric. Leaving the band, or
- * switching files, closes the region and emits one `attention` event.
- *
- * ## Honest gating (why the number is trustworthy)
- *
- * Time only accrues while the participant is *present* - the adapter calls
- * `setPresent(false)` on window blur or idle and `setPresent(true)` on return,
- * so a coffee break is banked as zero, not as an hour on line 12. The clock is
- * partitioned into `cursorMs` vs `hoverMs` by which signal was most recent, and
- * `focusMs = cursorMs + hoverMs` is the present-and-active total.
- *
- * ## Known failure modes
- *
- *  - It is caret/pointer position, not gaze: a participant can read line 10
- *    while the caret sits on line 50 and never hovers - undercounted.
- *  - Perfectly motionless reading (no caret move, no hover) eventually trips
- *    the idle gate and stops the clock - the deliberate trade-off of not
- *    counting away-time as attention.
- *  - Hover pings only fire after the mouse rests briefly on hoverable content;
- *    fast skimming and hovering over blank lines register nothing.
+ * Tracks caret/hover dwell within a line region, excluding idle and blurred time.
+ * This is a position proxy, not gaze: motionless reading and fast skimming can
+ * be missed. Movement outside the region or a file switch closes the event.
  */
 
 export type AttentionMode = 'reading' | 'editing' | 'mixed';

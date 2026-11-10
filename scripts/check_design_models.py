@@ -8,7 +8,10 @@ from time import perf_counter
 
 from evaluate_research import save
 from middleware.assistant import _post_json, make_design_client, model_name
-from middleware.design_llm import propose_turn
+
+from middleware import compiler, study_plan
+
+ADAPTER = "study_plan.propose+compiler.compile_moves"
 
 BRIEFS = (
     "Compare AI-assisted and unassisted Python debugging for novice developers. "
@@ -53,16 +56,46 @@ def main() -> None:
         for index, brief in enumerate(BRIEFS):
             observations.clear()
             started = perf_counter()
-            turn = propose_turn(client, brief, [], [], [])
+            failure = None
+            try:
+                turn = study_plan.propose(client, brief, f"compatibility-{index}")
+            except study_plan.Unreachable as error:
+                turn = None
+                failure = error.reason
+            moves = turn["moves"] if turn else []
+            compiled = (
+                compiler.compile_moves(
+                    [{**move, "status": "accepted"} for move in moves]
+                )
+                if moves
+                else None
+            )
+            outcome = (
+                "provider-unavailable"
+                if failure
+                else "reviewable-draft"
+                if compiled and compiled.valid
+                else "invalid-draft"
+                if compiled
+                else "reply-without-draft"
+                if turn
+                else "unparsed-reply"
+            )
             results.append(
                 {
                     "requestedModel": selected,
                     "brief": index,
+                    "adapter": ADAPTER,
                     "latencyMs": round((perf_counter() - started) * 1000, 2),
                     "usableParsedTurn": turn is not None,
-                    "acceptedPatchCount": sum(bool(move.patch) for move in turn.moves)
-                    if turn
-                    else 0,
+                    "outcome": outcome,
+                    "compilerValidDraft": compiled.valid if compiled else None,
+                    "proposedPatchCount": sum(
+                        bool(move.get("patch")) for move in moves
+                    ),
+                    "acceptedPatchCount": 0,
+                    "researcherApproved": False,
+                    "failureReason": failure,
                     "costUsd": None,
                     **observations,
                 }
@@ -71,7 +104,8 @@ def main() -> None:
                 break  # Do not keep hammering an inaccessible model.
     report = {
         "checkedAt": datetime.now(UTC).isoformat(),
-        "maxOutputTokens": 1200,
+        "adapter": ADAPTER,
+        "maxOutputTokens": study_plan._MAX_TOKENS,
         "briefs": list(BRIEFS),
         "results": results,
         "decision": (
@@ -80,6 +114,10 @@ def main() -> None:
         ),
         "limits": (
             "Synthetic compatibility only. Parsing is not methodological quality. "
+            "Question-only or incomplete briefs need not produce a draft. "
+            "compilerValidDraft is null when no cards are proposed. Compiling proposed "
+            "cards in memory checks feasibility, not researcher approval; "
+            "acceptedPatchCount remains zero because no study is changed. "
             "Alias versions may change; freeze returned versions for research. "
             "Missing cost is unknown, not zero. "
             "No classifier or model is silently promoted."

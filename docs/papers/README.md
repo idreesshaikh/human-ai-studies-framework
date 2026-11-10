@@ -1,42 +1,30 @@
-# Literature corpus: human–AI developer studies
+# Literature seeds
 
-This is the literature input for the Master's project. It records the studies
-that motivate the protocol, capture, and analysis choices: how developers work
-with AI tools, how those studies are measured, and where the evidence is weak.
+Source records used by corpus import and template review. The tables are parsed
+by the importer; preserve their links and file identifiers. Source summaries
+are discovery context, not independent verification of methodological validity.
 
-The seed list and `corpus-index.json` are tracked research inputs. The seed list
-contains a short reason for every paper; the index is maintained by
-`scripts/corpus_harvest.py` and is never hand-edited. Changing the seeds needs a
-source and a rationale. The live product does not depend on a paper being
-downloaded locally.
-
-- **100 papers**: 58 have PDFs in this folder (`<file>.pdf` matches the *File* column); the remaining 42 are linked and can be fetched when needed.
-- ★ = paper from the professor's / our original reading list;
-  unmarked = found via our own related-work search.
-- PDFs are **gitignored** (≈136 MB); this index is the tracked record. Re-fetch any
-  PDF from its arXiv link.
+`corpus-index.json` records harvested metadata; refresh it with
+`scripts/corpus_harvest.py`. PDFs are ignored and are not required at runtime.
+External publications retain their own terms.
 
 ## A. Empirical studies of developers working with AI (the "human in context" core)
-
-These are the kind of studies our framework must be able to *run*: controlled
-experiments, field studies, and observational work with real developers.
-
 | File | Paper | Year | Why it's here |
 | --- | --- | --- | --- |
-| `sharp-tools-agentic-ai` | ★ [Sharp Tools: How Developers Wield Agentic AI in Real SE Tasks](https://arxiv.org/abs/2506.12347), Kumar et al. | 2025 | Observational study, 19 devs + in-IDE agent on real issues; interaction style predicts success |
-| `metr-early-2025-dev-productivity` | ★ [Measuring the Impact of Early-2025 AI on Experienced Open-Source Developer Productivity](https://arxiv.org/abs/2507.09089), Becker et al. (METR) | 2025 | RCT: devs 19% *slower* with AI while believing the opposite: the perception gap our instrumentation targets |
+| `sharp-tools-agentic-ai` | [Sharp Tools: How Developers Wield Agentic AI in Real SE Tasks](https://arxiv.org/abs/2506.12347), Kumar et al. | 2025 | Observational study, 19 devs + in-IDE agent on real issues; interaction style predicts success |
+| `metr-early-2025-dev-productivity` | [Measuring the Impact of Early-2025 AI on Experienced Open-Source Developer Productivity](https://arxiv.org/abs/2507.09089), Becker et al. (METR) | 2025 | RCT: devs 19% *slower* with AI while believing the opposite: the perception gap our instrumentation targets |
 | `im-not-reading-all-of-that` | ["I'm Not Reading All of That": Cognitive Engagement with Agentic Coding Assistants](https://arxiv.org/abs/2603.14225), Catalan et al. | 2026 | Levels of cognitive engagement with agent output (added manually to this folder) |
 | `grounded-copilot` | [Grounded Copilot: How Programmers Interact with Code-Generating Models](https://arxiv.org/abs/2206.15000), Barke et al. | 2022 | Foundational acceleration-vs-exploration interaction taxonomy |
 | `reading-between-the-lines` | [Reading Between the Lines: Modeling User Behavior and Costs in AI-Assisted Programming](https://arxiv.org/abs/2210.14306), Mozannar et al. | 2022 | CUPS state taxonomy for coding sessions: a template for our behavioral leg |
 | `realhumaneval` | [The RealHumanEval: Evaluating LLMs' Abilities to Support Programmers](https://arxiv.org/abs/2404.02806), Mozannar et al. | 2024 | Web platform for human-centric LLM evaluation; benchmark scores ≠ human utility |
 | `copilot-productivity-rct-peng` | [The Impact of AI on Developer Productivity: Evidence from GitHub Copilot](https://arxiv.org/abs/2302.06590), Peng et al. | 2023 | The canonical "55.8% faster" Copilot RCT |
 | `copilot-productivity-ziegler` | [Productivity Assessment of Neural Code Completion](https://arxiv.org/abs/2205.06537), Ziegler et al. | 2022 | Joins telemetry with self-report: exactly our multi-leg join problem |
-| `generative-ai-at-work` | ★ [Generative AI at Work](https://arxiv.org/abs/2304.11771), Brynjolfsson et al. | 2023 | Large-scale field evidence; skill-level heterogeneity of AI gains |
+| `generative-ai-at-work` | [Generative AI at Work](https://arxiv.org/abs/2304.11771), Brynjolfsson et al. | 2023 | Large-scale field evidence; skill-level heterogeneity of AI gains |
 | `ai-code-authoring-at-scale` | [AI-assisted Code Authoring at Scale (CodeCompose)](https://arxiv.org/abs/2305.12050), Murali et al. (Meta) | 2023 | Mixed-methods evaluation of an assistant deployed to thousands of devs |
-| `more-code-less-understanding` | ★ [More Code, Less Understanding? AI Assistants, Productivity and Code Ownership](https://personal.us.es/amarlop/wp-content/uploads/2026/03/More-Code-Less-Understanding-On-the-Impact-of-AI-Assistants-on-Developers-Productivity-and-Code-Ownership.pdf), Martin-Lopez et al. | 2026 | Productivity vs comprehension/ownership trade-off (not on arXiv; author preprint) |
-| `speed-at-cost-of-quality-cursor` | ★ [Speed at the Cost of Quality: Cursor AI, Velocity and Long-Term Complexity](https://arxiv.org/abs/2511.04427), He et al. | 2025 | Short-term speed vs long-term complexity in OSS motivates our static-metrics leg |
-| `evolving-with-ai-developer-logs` | ★ [Evolving with AI: A Longitudinal Analysis of Developer Logs](https://arxiv.org/abs/2601.10258), Sergeyuk et al. | 2026 | Longitudinal log analysis: method model for our timeline data |
-| `how-students-use-generative-ai` | ★ [How Do Programming Students Use Generative AI?](https://arxiv.org/abs/2501.10091), Rahe & Maalej | 2025 | Study of novice usage patterns; participant-population contrast |
+| `more-code-less-understanding` | [More Code, Less Understanding? AI Assistants, Productivity and Code Ownership](https://personal.us.es/amarlop/wp-content/uploads/2026/03/More-Code-Less-Understanding-On-the-Impact-of-AI-Assistants-on-Developers-Productivity-and-Code-Ownership.pdf), Martin-Lopez et al. | 2026 | Productivity vs comprehension/ownership trade-off (not on arXiv; author preprint) |
+| `speed-at-cost-of-quality-cursor` | [Speed at the Cost of Quality: Cursor AI, Velocity and Long-Term Complexity](https://arxiv.org/abs/2511.04427), He et al. | 2025 | Short-term speed vs long-term complexity in OSS motivates our static-metrics leg |
+| `evolving-with-ai-developer-logs` | [Evolving with AI: A Longitudinal Analysis of Developer Logs](https://arxiv.org/abs/2601.10258), Sergeyuk et al. | 2026 | Longitudinal log analysis: method model for our timeline data |
+| `how-students-use-generative-ai` | [How Do Programming Students Use Generative AI?](https://arxiv.org/abs/2501.10091), Rahe & Maalej | 2025 | Study of novice usage patterns; participant-population contrast |
 | `ai-assistants-in-practice` | [Using AI-Based Coding Assistants in Practice](https://arxiv.org/abs/2406.07765), Sergeyuk et al. | 2024 | 481-developer survey of adoption per SE activity |
 | `devgpt-developer-chatgpt` | [DevGPT: Studying Developer-ChatGPT Conversations](https://arxiv.org/abs/2309.03914), Xiao et al. | 2023 | Curated conversation dataset parallels our agent-transcript leg |
 | `llm-code-understanding` | [Using an LLM to Help With Code Understanding](https://arxiv.org/abs/2307.08177), Nam et al. | 2023 | In-IDE user study of LLM comprehension support |
@@ -44,74 +32,50 @@ experiments, field studies, and observational work with real developers.
 | `insecure-code-with-ai-assistants` | [Do Users Write More Insecure Code with AI Assistants?](https://arxiv.org/abs/2211.03622), Perry et al. | 2022 | Classic controlled user study; also shows over-trust measurement |
 | `asleep-at-the-keyboard` | [Asleep at the Keyboard? Security of Copilot's Code Contributions](https://arxiv.org/abs/2108.09293), Pearce et al. | 2021 | Security baseline for AI-generated code |
 | `trust-in-ai-code-generation` | [Investigating and Designing for Trust in AI-powered Code Generation Tools](https://arxiv.org/abs/2305.11248), Wang et al. | 2023 | Trust as a measurable construct in dev-AI interaction |
-
 ## B. Human-AI collaboration: frameworks, benchmarks, theory
-
-The closest relatives of our own framework: what already exists for *enabling and
-evaluating* human-agent collaboration, and the theory of what to measure.
-
 | File | Paper | Year | Why it's here |
 | --- | --- | --- | --- |
-| `collaborative-gym` | ★ [Collaborative Gym: Enabling and Evaluating Human-Agent Collaboration](https://arxiv.org/abs/2412.15701), Shao et al. | 2024 | The most direct framework analogue; async human-agent interaction environment |
-| `cooperbench-agent-teammates` | ★ [CooperBench: Why Coding Agents Cannot be Your Teammates Yet](https://arxiv.org/abs/2601.13295), Khatua et al. | 2026 | Benchmarks agents as *collaborators*, not solo solvers |
-| `hai-eval-human-ai-synergy` | ★ [HAI-Eval: Measuring Human-AI Synergy in Collaborative Coding](https://arxiv.org/abs/2512.04111), Luo et al. | 2025 | Within-subject synergy study (45 participants × 5 LLMs), study-design model |
-| `human-in-the-loop-sd-agents` | ★ [Human-In-the-Loop Software Development Agents](https://arxiv.org/abs/2411.12924), Takerngsaksiri et al. | 2024 | Where humans belong inside agentic SD pipelines |
-| `tom-swe-user-mental-modeling` | ★ [TOM-SWE: User Mental Modeling for SE Agents](https://arxiv.org/abs/2510.21903), Zhou et al. | 2025 | Agents modeling the *human*: inverse of our observation problem |
+| `collaborative-gym` | [Collaborative Gym: Enabling and Evaluating Human-Agent Collaboration](https://arxiv.org/abs/2412.15701), Shao et al. | 2024 | The most direct framework analogue; async human-agent interaction environment |
+| `cooperbench-agent-teammates` | [CooperBench: Why Coding Agents Cannot be Your Teammates Yet](https://arxiv.org/abs/2601.13295), Khatua et al. | 2026 | Benchmarks agents as *collaborators*, not solo solvers |
+| `hai-eval-human-ai-synergy` | [HAI-Eval: Measuring Human-AI Synergy in Collaborative Coding](https://arxiv.org/abs/2512.04111), Luo et al. | 2025 | Within-subject synergy study (45 participants × 5 LLMs), study-design model |
+| `human-in-the-loop-sd-agents` | [Human-In-the-Loop Software Development Agents](https://arxiv.org/abs/2411.12924), Takerngsaksiri et al. | 2024 | Where humans belong inside agentic SD pipelines |
+| `tom-swe-user-mental-modeling` | [TOM-SWE: User Mental Modeling for SE Agents](https://arxiv.org/abs/2510.21903), Zhou et al. | 2025 | Agents modeling the *human*: inverse of our observation problem |
 | `copilot-arena` | [Copilot Arena: Code LLM Evaluation in the Wild](https://arxiv.org/abs/2502.09328), Chi et al. | 2025 | In-the-wild preference evaluation platform |
 | `challenges-human-agent-communication` | [Challenges in Human-Agent Communication](https://arxiv.org/abs/2412.10380), Bansal et al. (MSR) | 2024 | Twelve open communication challenges: a requirements checklist for us |
 | `metacognitive-demands-genai` | [The Metacognitive Demands and Opportunities of Generative AI](https://arxiv.org/abs/2312.10893), Tankelevitch et al. | 2023 | Cognitive constructs (monitoring, confidence) our cognitive leg should capture |
 | `ironies-of-generative-ai` | [Ironies of Generative AI: Productivity Loss in Human-AI Interaction](https://arxiv.org/abs/2402.11364), Simkute et al. | 2024 | HCI account of why AI can slow experts down |
-
 ## C. Agentic coding systems and their design space
-
-What the "AI side" of a human-AI study actually is: the architecture and
-capabilities of the agents whose sessions we instrument.
-
 | File | Paper | Year | Why it's here |
 | --- | --- | --- | --- |
-| `dive-into-claude-code` | ★ [Dive into Claude Code: The Design Space of AI Agent Systems](https://arxiv.org/abs/2604.14228), Liu et al. | 2026 | Anatomy of the agent our agent-capture leg hooks into |
+| `dive-into-claude-code` | [Dive into Claude Code: The Design Space of AI Agent Systems](https://arxiv.org/abs/2604.14228), Liu et al. | 2026 | Anatomy of the agent our agent-capture leg hooks into |
 | `swe-agent` | [SWE-agent: Agent-Computer Interfaces Enable Automated SE](https://arxiv.org/abs/2405.15793), Yang et al. | 2024 | Agent-computer interface concept |
 | `openhands-platform` | [OpenHands: An Open Platform for AI Software Developers](https://arxiv.org/abs/2407.16741), Wang et al. | 2024 | Open agent platform; event-stream architecture worth comparing |
 | `agentless` | [Agentless: Demystifying LLM-based SE Agents](https://arxiv.org/abs/2407.01489), Xia et al. | 2024 | Counterpoint: how much "agency" is actually needed |
 | `autodev` | [AutoDev: Automated AI-Driven Development](https://arxiv.org/abs/2403.08299), Tufano et al. | 2024 | Industrial autonomous-development framework |
 | `chatdev-communicative-agents` | [ChatDev: Communicative Agents for Software Development](https://arxiv.org/abs/2307.07924), Qian et al. | 2023 | Multi-agent software company simulation |
 | `metagpt-multi-agent` | [MetaGPT: Meta Programming for Multi-Agent Collaboration](https://arxiv.org/abs/2308.00352), Hong et al. | 2023 | SOP-driven multi-agent workflows |
-
 ## D. Measuring agents and mining agent activity at scale
-
-Analytical work on what agents do in the wild and how to evaluate them honestly,
-directly informs our metrics and analysis legs.
-
 | File | Paper | Year | Why it's here |
 | --- | --- | --- | --- |
 | `swe-bench` | [SWE-bench: Can LMs Resolve Real-World GitHub Issues?](https://arxiv.org/abs/2310.06770), Jimenez et al. | 2023 | The benchmark that defined agentic SE evaluation |
-| `swe-effi-resource-constraints` | ★ [SWE-Effi: Re-Evaluating AI Agent Effectiveness Under Resource Constraints](https://arxiv.org/abs/2509.09853), Fan et al. | 2025 | Effectiveness ≠ leaderboard score; cost-aware metrics |
+| `swe-effi-resource-constraints` | [SWE-Effi: Re-Evaluating AI Agent Effectiveness Under Resource Constraints](https://arxiv.org/abs/2509.09853), Fan et al. | 2025 | Effectiveness ≠ leaderboard score; cost-aware metrics |
 | `ai-agents-that-matter` | [AI Agents That Matter](https://arxiv.org/abs/2407.01502), Kapoor et al. | 2024 | Critique of agent-eval practice; reproducibility and cost reporting |
-| `aidev-ai-coding-agents-github` | ★ [AIDev: Studying AI Coding Agents on GitHub](https://arxiv.org/abs/2602.09185), Li et al. | 2026 | Large-scale dataset of agent PRs in the wild |
-| `agentic-much-adoption` | ★ [Agentic Much? Adoption of Coding Agents on GitHub](https://arxiv.org/abs/2601.18341), Robbes et al. | 2026 | Adoption measurement methodology |
-| `mining-coding-agent-activity` | ★ [Promises, Perils, and (Timely) Heuristics for Mining Coding Agent Activity](https://arxiv.org/abs/2601.18345), Robbes et al. | 2026 | Pitfalls when mining agent traces: validity threats we must design around |
-| `ai-ides-or-autonomous-agents` | ★ [AI IDEs or Autonomous Agents? Impact of Coding Agents on SD](https://arxiv.org/abs/2601.13597), Agarwal et al. | 2026 | Compares assistance modalities: our `condition` variable |
-| `evaluating-agents-md` | ★ [Evaluating AGENTS.md: Are Repo-Level Context Files Helpful?](https://arxiv.org/abs/2602.11988), Gloaguen et al. | 2026 | Controlled evaluation of agent-context interventions |
-| `agents-md-efficiency` | ★ [On the Impact of AGENTS.md Files on the Efficiency of AI Coding Agents](https://arxiv.org/abs/2601.20404), Lulla et al. | 2026 | Companion evidence on context-file effects |
-| `is-vibe-coding-safe` | ★ [Is Vibe Coding Safe? Vulnerability of Agent-Generated Code](https://arxiv.org/abs/2512.03262), Zhao et al. | 2025 | Security as an outcome metric for agent output |
-| `stalled-biased-confused-rca` | ★ [Stalled, Biased, and Confused: LLM Reasoning Failures in Root Cause Analysis](https://arxiv.org/abs/2601.22208), Riddell et al. | 2026 | Failure-mode taxonomy methodology |
-
+| `aidev-ai-coding-agents-github` | [AIDev: Studying AI Coding Agents on GitHub](https://arxiv.org/abs/2602.09185), Li et al. | 2026 | Large-scale dataset of agent PRs in the wild |
+| `agentic-much-adoption` | [Agentic Much? Adoption of Coding Agents on GitHub](https://arxiv.org/abs/2601.18341), Robbes et al. | 2026 | Adoption measurement methodology |
+| `mining-coding-agent-activity` | [Promises, Perils, and (Timely) Heuristics for Mining Coding Agent Activity](https://arxiv.org/abs/2601.18345), Robbes et al. | 2026 | Pitfalls when mining agent traces: validity threats we must design around |
+| `ai-ides-or-autonomous-agents` | [AI IDEs or Autonomous Agents? Impact of Coding Agents on SD](https://arxiv.org/abs/2601.13597), Agarwal et al. | 2026 | Compares assistance modalities: our `condition` variable |
+| `evaluating-agents-md` | [Evaluating AGENTS.md: Are Repo-Level Context Files Helpful?](https://arxiv.org/abs/2602.11988), Gloaguen et al. | 2026 | Controlled evaluation of agent-context interventions |
+| `agents-md-efficiency` | [On the Impact of AGENTS.md Files on the Efficiency of AI Coding Agents](https://arxiv.org/abs/2601.20404), Lulla et al. | 2026 | Companion evidence on context-file effects |
+| `is-vibe-coding-safe` | [Is Vibe Coding Safe? Vulnerability of Agent-Generated Code](https://arxiv.org/abs/2512.03262), Zhao et al. | 2025 | Security as an outcome metric for agent output |
+| `stalled-biased-confused-rca` | [Stalled, Biased, and Confused: LLM Reasoning Failures in Root Cause Analysis](https://arxiv.org/abs/2601.22208), Riddell et al. | 2026 | Failure-mode taxonomy methodology |
 ## E. Study methodology and RE instruments
-
-The requirements-engineering and empirical-methods backbone: how studies like
-ours *should* be designed, and LLM-powered elicitation instruments.
-
 | File | Paper | Year | Why it's here |
 | --- | --- | --- | --- |
-| `guidelines-empirical-llm-se` | ★ [Guidelines for Empirical Studies in SE involving LLMs](https://arxiv.org/abs/2508.15503), Baltes et al. | 2025 | The methodology anchor for our whole protocol design |
-| `genai-usability-testing` | ★ [Does GenAI Make Usability Testing Obsolete?](https://arxiv.org/abs/2411.00634), Pourasad & Maalej | 2024 | AI-assisted evaluation of human studies |
-| `llmrei-requirements-elicitation` | ★ [LLMREI: Automating Requirements Elicitation Interviews with LLMs](https://arxiv.org/abs/2507.02564), Korn et al. | 2025 | LLM-driven elicitation: RE core of the thesis |
-| `feedaide-feedback-reports` | ★ [FeedAIde: Rich Feedback Reports via Context-Aware Follow-Up Questions](https://arxiv.org/abs/2603.04244), Pourasad et al. | 2026 | Structured feedback capture from study participants |
-
+| `guidelines-empirical-llm-se` | [Guidelines for Empirical Studies in SE involving LLMs](https://arxiv.org/abs/2508.15503), Baltes et al. | 2025 | The methodology anchor for our whole protocol design |
+| `genai-usability-testing` | [Does GenAI Make Usability Testing Obsolete?](https://arxiv.org/abs/2411.00634), Pourasad & Maalej | 2024 | AI-assisted evaluation of human studies |
+| `llmrei-requirements-elicitation` | [LLMREI: Automating Requirements Elicitation Interviews with LLMs](https://arxiv.org/abs/2507.02564), Korn et al. | 2025 | LLM-driven elicitation: RE core of the thesis |
+| `feedaide-feedback-reports` | [FeedAIde: Rich Feedback Reports via Context-Aware Follow-Up Questions](https://arxiv.org/abs/2603.04244), Pourasad et al. | 2026 | Structured feedback capture from study participants |
 ## F. Surveys and visions
-
-Field-level maps for the related-work chapter.
-
 | File | Paper | Year | Why it's here |
 | --- | --- | --- | --- |
 | `in-ide-human-ai-experience` | [In-IDE Human-AI Experience in the Era of LLMs: A Literature Review](https://arxiv.org/abs/2401.10739), Sergeyuk et al. | 2024 | Literature map of exactly our study setting |
@@ -120,15 +84,7 @@ Field-level maps for the related-work chapter.
 | `rise-and-potential-llm-agents` | [The Rise and Potential of LLM Based Agents: A Survey](https://arxiv.org/abs/2309.07864), Xi et al. | 2023 | General agent foundations |
 | `llm-autonomous-agents-survey` | [A Survey on LLM based Autonomous Agents](https://arxiv.org/abs/2308.11432), Wang et al. | 2023 | General agent foundations |
 | `se3-ai-native-vision` | [Towards AI-Native Software Engineering (SE 3.0)](https://arxiv.org/abs/2410.06107), Hassan et al. | 2024 | Vision framing for human-AI teaming in SE |
-
 ## G. Added from the archive harvest (2026-07-17)
-
-These 42 records were selected from the archive because they fit the corpus
-scope: empirical human–AI development, agent measurement, agentic design, or
-study methodology. Metadata and author lists were fetched from Semantic Scholar
-at that time; the short reasons below are the human-maintained part. DOI-only
-rows remain valid references but cannot seed an arXiv snowballing walk.
-
 | File | Paper | Year | Why it's here |
 | --- | --- | --- | --- |
 | `why-multiagent-llm-systems-fail` | [Why Do Multi-Agent LLM Systems Fail?](https://arxiv.org/abs/2503.13657), M. Cemri et al. | 2025 | Failure-mode taxonomy for multi-agent LLM systems; grounds agent-leg failure analysis |
@@ -173,15 +129,4 @@ rows remain valid references but cannot seed an arXiv snowballing walk.
 | `human-oversight-agentic-systems-practice-examining` | [Human oversight of agentic systems in practice: Examining the oversight work, challenges, and heuristics of developers using software agents](https://arxiv.org/abs/2606.05391), Shipi Dhanorkar et al. | 2026 | FAccT study of human oversight of agentic systems in practice; oversight instrumentation |
 | `understanding-predicting-accepted-code-suggestions-aiassisted` | [Understanding and Predicting Accepted Code Suggestions in AI-Assisted Programming](https://doi.org/10.1145/3808125), Jing Jiang et al. | 2026 | Predicting accepted code suggestions; direct neighbor of review-latency capture |
 | `when-help-hurts-verification-load-fatigue` | [When Help Hurts: Verification Load and Fatigue with AI Coding Assistants](https://doi.org/10.1145/3772318.3791176), Guangrui Fan et al. | 2026 | Verification load and fatigue with AI coding assistants; our fatigue-probe leg's closest neighbor |
-
 ## Not downloaded (recommended, but not openly available)
-
-- ★ **The ABC of Software Engineering Research**, Stol & Fitzgerald, TOSEM 2018
-  ([doi:10.1145/3241743](https://doi.org/10.1145/3241743)). The study-strategy
-  vocabulary (field/lab/sample strategies) every empirical chapter should use;
-  fetch via university library access.
-
-Screenshot papers deliberately left out as peripheral to the human-AI-study core:
-SWE-AGI (MoonBit benchmark), ISO-Bench, On Generating Development Backlogs,
-On AI-Inspired UI-Design, LikeThis!, Automated Repair of Ambiguous Problem
-Descriptions; re-add if a chapter ends up needing them.

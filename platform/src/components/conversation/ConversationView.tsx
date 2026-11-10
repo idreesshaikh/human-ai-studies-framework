@@ -20,6 +20,7 @@ import {
   rejectedMoveText,
   shouldFollowUpAfterDecision,
   nextStepPrompt,
+  plainErrorMessage,
 } from "@/lib/uiText";
 import type { Recommendation } from "@/lib/types";
 import {
@@ -405,49 +406,50 @@ export function ConversationView({
     scrollDown();
 
     try {
-      if (live) {
-        // sendTurn returns [researcher(server id), platform]; replace our
-        // optimistic turn with the server pair so ids reconcile without a
-        // duplicated message.
-        // Streamed: the reply's prose appears as the model writes it, so the
-        // thread is alive instead of blank for the whole round-trip. The
-        // streamed text is presentation only  -  the resolved turns are the
-        // same ones the blocking call returns, and replace it wholesale.
-        setStreamingText("");
-        const appended = await conversationApi.sendTurnStreaming(
-          studyId,
-          text,
-          "You",
-          (fragment) => {
-            if (abortRef.current === controller) setStreamingText((prev) => prev + fragment);
-          },
-          steer,
-          decision,
-          requestId,
-          controller.signal,
-        );
-        if (abortRef.current !== controller) return;
-        setStreamingText(null);
-        setUnderstanding(appended.understanding);
-        setTurns((prev) => {
-          /* The first platform prompt is a real part of the user's reading
-           * path even though it is not stored as a researcher turn. Keep it
-           * in front of the first server response; replacing the optimistic
-           * pair wholesale made the user's first message appear to be the
-           * conversation opener, and made the opening prompt flash and vanish. */
-          const openingPrompt = prev.find((t) => t.turnId === "opening");
-          return [
-            ...(openingPrompt ? [openingPrompt] : []),
-            ...prev.filter(
-              (t) => t.turnId !== pendingId && t.turnId !== "opening",
-            ),
-            ...appended.turns,
-          ];
-        });
-        /* A reply to a decision never takes the caret: the researcher is
-         * already working through the cards and focus stays where they put it. */
-        if (!decision && followReply.current) setFocusMoveId(firstProposed(appended.turns));
-      }
+      // A failed request marks the connection offline, but Send must always
+      // try again. Otherwise retry only clears the restored text locally.
+      // sendTurn returns [researcher(server id), platform]; replace our
+      // optimistic turn with the server pair so ids reconcile without a
+      // duplicated message.
+      // Streamed: the reply's prose appears as the model writes it, so the
+      // thread is alive instead of blank for the whole round-trip. The
+      // streamed text is presentation only  -  the resolved turns are the
+      // same ones the blocking call returns, and replace it wholesale.
+      setStreamingText("");
+      const appended = await conversationApi.sendTurnStreaming(
+        studyId,
+        text,
+        "You",
+        (fragment) => {
+          if (abortRef.current === controller) setStreamingText((prev) => prev + fragment);
+        },
+        steer,
+        decision,
+        requestId,
+        controller.signal,
+      );
+      if (abortRef.current !== controller) return;
+      setStreamingText(null);
+      setLive(true);
+      setUnderstanding(appended.understanding);
+      setTurns((prev) => {
+        /* The first platform prompt is a real part of the user's reading
+         * path even though it is not stored as a researcher turn. Keep it
+         * in front of the first server response; replacing the optimistic
+         * pair wholesale made the user's first message appear to be the
+         * conversation opener, and made the opening prompt flash and vanish. */
+        const openingPrompt = prev.find((t) => t.turnId === "opening");
+        return [
+          ...(openingPrompt ? [openingPrompt] : []),
+          ...prev.filter(
+            (t) => t.turnId !== pendingId && t.turnId !== "opening",
+          ),
+          ...appended.turns,
+        ];
+      });
+      /* A reply to a decision never takes the caret: the researcher is
+       * already working through the cards and focus stays where they put it. */
+      if (!decision && followReply.current) setFocusMoveId(firstProposed(appended.turns));
       scrollDown();
       const queued = queuedFollowUp.current;
       if (queued) {
@@ -469,10 +471,10 @@ export function ConversationView({
       if (controller.signal.aborted) {
         setNote("Stopped. Your message is back in the box.");
       } else {
-        setLive(false);
+        setLive(e instanceof ApiError);
         setNote(
-          e instanceof ApiError && e.status === 503
-            ? e.message
+          e instanceof ApiError
+            ? plainErrorMessage(e, "Your message could not be sent. Try again.")
             : "Not sent: the server is unreachable. Your message is back in the box. Check the connection and send again.",
         );
       }

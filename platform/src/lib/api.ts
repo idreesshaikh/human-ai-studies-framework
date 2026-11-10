@@ -100,8 +100,10 @@ export interface EnrollmentTokenView {
   condition: string;
   grain: "participant" | "session";
   status: "unredeemed" | "paired" | "streaming" | "revoked";
+  /** A seeded example row that cannot enroll an editor. */
+  illustrative?: boolean;
   /** Present only right after minting  -  the participant's one-paste link. */
-  connectionString?: string;
+  connectionString?: string | null;
   /** The capture config the IDE will run under (FR-DASH-10 pre-flight
    * visibility); null for an agent-participant study with no overlay. */
   captureConfig?: EnrollmentTokenCaptureConfig | null;
@@ -372,7 +374,7 @@ class HttpBackend implements Api {
     }>("GET", "/conversation/profiles");
 }
 
-/** Same-origin by default; override only for a separate API deployment. */
+/** Same-origin by default; override only for a separate API origin. */
 export function apiBase(): string {
   return (
     (typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_BASE : undefined) ?? ""

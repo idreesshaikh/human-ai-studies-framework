@@ -42,6 +42,26 @@ export function newRequestId(): string {
   );
 }
 
+async function responseError(res: Response): Promise<ApiError> {
+  let detail: unknown;
+  try {
+    detail = (await res.json()).detail;
+  } catch {
+    /* A proxy may return a non-JSON error. */
+  }
+  const messages = typeof detail === "string" ? [detail] : Array.isArray(detail)
+    ? detail.flatMap((entry) => entry && typeof entry.msg === "string" ? [entry.msg] : [])
+    : [];
+  const message = messages.slice(0, 3).map((text) => text.replace(/^Value error,\s*/, "").trim()).filter(Boolean).join(" ");
+  if (res.status === 401) notifyUnauthorized();
+  const fallback = res.status === 429
+    ? "Too many requests. Wait a few seconds and try again."
+    : res.status === 422
+      ? "Check the message and try again."
+      : "The request could not be completed. Please try again.";
+  return new ApiError(res.status, message || fallback);
+}
+
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
@@ -53,21 +73,7 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   } catch {
     throw new OfflineError();
   }
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      detail = (await res.json()).detail ?? detail;
-    } catch {
-      /* non-JSON */
-    }
-    if (res.status === 401) notifyUnauthorized();
-    throw new ApiError(
-      res.status,
-      typeof detail === "string" && detail
-        ? detail
-        : `Request failed (${res.status})`,
-    );
-  }
+  if (!res.ok) throw await responseError(res);
   if (res.status === 204) return undefined as T;
   try {
     return (await res.json()) as T;
@@ -380,8 +386,8 @@ export const conversationApi = {
           }),
         },
       );
-      if (res.status === 401) notifyUnauthorized();
-      if (!res.ok || !res.body) throw new Error("stream unavailable");
+      if (!res.ok) throw await responseError(res);
+      if (!res.body) throw new Error("stream unavailable");
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -406,6 +412,11 @@ export const conversationApi = {
       }
       if (!done) throw new Error("stream ended without a turn");
     } catch (error) {
+      // Validation, permissions and rate limits apply to both endpoints.
+      // Only a missing streaming endpoint warrants a compatibility fallback.
+      if (error instanceof ApiError && ![404, 405, 501].includes(error.status)) {
+        throw error;
+      }
       /* Resend only when the server had not started answering and the
        * researcher did not cancel. Otherwise the reply may already be
        * persisted, so surface the failure; the caller keeps their text. The

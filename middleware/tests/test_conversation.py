@@ -1,5 +1,6 @@
 """Design-conversation end-to-end tests."""
 
+import io
 import json
 from pathlib import Path
 
@@ -16,9 +17,10 @@ from middleware.db import (
 )
 from middleware.settings import Settings
 
-from middleware import assistant, design_assistant, paper_index
+from middleware import assistant, paper_index
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+_POST_JSON = assistant._post_json
 
 _SEEDS = [
     (
@@ -199,11 +201,14 @@ def _drive_to_valid_draft(client) -> dict:
     protocol draft, all in-conversation (F1.1).
     """
     _ask(client, _STUDY_SKETCH)
-    reply = _ask(client, (
-        "what design and statistics should I use? I was thinking "
-        "within-subjects, with each developer doing both conditions "
-        "counterbalanced"
-    ))
+    reply = _ask(
+        client,
+        (
+            "what design and statistics should I use? I was thinking "
+            "within-subjects, with each developer doing both conditions "
+            "counterbalanced"
+        ),
+    )
     template_moves = [m for m in reply["moves"] if m["kind"] == "choose-template"]
     assert template_moves, "the design script must propose a template"
     for m in template_moves:
@@ -594,9 +599,7 @@ def test_card_decision_can_trigger_one_empty_move_followup(client, monkeypatch):
     assert followup.json()["moves"] == []
 
 
-def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(
-    client, monkeypatch
-):
+def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(client, monkeypatch):
     """A failing provider ends the turn honestly, without ending the session."""
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())
     r = client.post(
@@ -609,6 +612,21 @@ def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(
     assert body["moves"] == []
     assert body["recommendations"] == []
     assert body["text"]
+
+
+def test_a_rejected_key_is_named_and_not_retried(client, monkeypatch):
+    """A 401 is a configuration fault: say so once instead of retrying a dead key."""
+    double = model_double.rejected_key()
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: double)
+    r = client.post(
+        f"/studies/{STUDY}/conversation/turns",
+        json={"text": "I think junior developers over-trust AI-generated code"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["source"] == "unavailable"
+    assert "rejected the server's API key" in body["text"]
+    assert double.calls == 1
 
 
 def test_a_holding_turn_survives_a_reload(client, monkeypatch):
@@ -732,27 +750,36 @@ def test_a_flaky_provider_is_retried_before_giving_up(client, monkeypatch):
     """
     calls = {"n": 0}
     delays: list[float] = []
-    good = model_double.always(
-        {"text": "Second time lucky.", "moves": []}
-    )
+    envelope = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps({"text": "Second time lucky.", "moves": []})
+                }
+            }
+        ]
+    }
 
-    def flaky(url, body, headers):
+    def flaky(request, timeout):
         calls["n"] += 1
         if calls["n"] < 3:
             raise TimeoutError("one blip")
-        return good.post(url, body, headers)
+        return io.BytesIO(json.dumps(envelope).encode())
 
     monkeypatch.setattr(
         assistant,
         "make_client",
-        lambda *a, **k: assistant.MistralProvider("test-key", post=flaky),
+        lambda *a, **k: assistant.MistralProvider("test-key", post=_POST_JSON),
     )
-    monkeypatch.setattr(design_assistant.time, "sleep", delays.append)
+    monkeypatch.setattr(assistant.urllib.request, "urlopen", flaky)
+    monkeypatch.setattr(assistant, "_sleep", delays.append)
+    monkeypatch.setenv("LLM_MAX_RETRIES", "2")
     turn = _ask(client, "does a blip lose my turn?")
     assert turn["source"] == "llm"
     assert turn["text"].startswith("Second time lucky.")
-    assert calls["n"] == 3
-    assert delays == [0.25, 0.5]
+    # Two blips, the recovered call, then the turn itself.
+    assert calls["n"] == 4
+    assert delays == [0.5, 1.0]
 
 
 _LATENCY_MOVE = {

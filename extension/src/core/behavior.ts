@@ -1,43 +1,10 @@
 import { Disposable } from './types';
 
 /**
- * Edit-burst aggregation and origin classification for the behavioral
- * telemetry leg (FR-INST-5, FR-INST-10). Pure logic, no IDE imports (NFR-3).
- *
- * The adapter feeds primitive change signals (sizes and shapes only - never
- * text content, FR-ETH-2); this module aggregates them into bursts and
- * classifies each burst's origin.
- *
- * ## Origin heuristic (FR-INST-10)
- *
- * Evidence is ranked per burst, strongest first:
- *
- *  1. `undo-redo` - the IDE itself flags undo/redo document changes; this is
- *     ground truth, never a guess.
- *  2. `ai` (correlated) - an accepted AI suggestion was signalled within
- *     `aiCorrelationMs` of the burst. Direct evidence from the completion
- *     lifecycle hooks.
- *  3. `paste` - a clipboard-paste signal landed within `pasteCorrelationMs`
- *     of the burst. Direct evidence from the wrapped paste command.
- *  4. `ai` (block heuristic) - at least `aiBlockCharThreshold` chars arrived
- *     within `aiBlockMaxDurationMs` (the behavior doc's "massive block in
- *     1 ms" - humans do not type 80 chars in 50 ms). Circumstantial, so it
- *     ranks BELOW paste correlation: a large paste satisfies both, and the
- *     paste signal is direct evidence while block size is not.
- *  5. `human` - otherwise: incremental typing.
- *
- * ## Known failure modes (documented per FR-INST-10)
- *
- *  - AI tools that stream insertions keystroke-by-keystroke (rare) evade the
- *    block heuristic; they are only caught via accept-correlation (2).
- *  - Pastes that bypass the wrapped paste command (context-menu paste, drag
- *    & drop) emit no paste signal; large ones misclassify as `ai` via (4),
- *    small ones as `human`.
- *  - External tools editing files on disk (e.g. a CLI agent) surface as
- *    bulk document changes when the editor reloads; they classify as `ai`
- *    via (4), which for agent-driven studies is usually the right call.
- *  - Correlation windows are wall-clock; a suggestion accepted > 500 ms
- *    before its text lands (slow extension host) misses the window.
+ * Aggregates content-free edit signals and classifies burst origin.
+ * Precedence: undo/redo, correlated AI acceptance, correlated paste, bulk-edit
+ * heuristic, then human typing. Unobserved paste, streaming AI edits, external
+ * file changes, and delayed acceptance signals can be misclassified.
  */
 
 /** Origin classification of an edit burst (FR-INST-10). */

@@ -1,5 +1,6 @@
 """FastAPI ingestion service (FR-ING-1..6)."""
 
+import json
 import logging
 import math
 import os
@@ -10,9 +11,12 @@ from pathlib import Path
 from fastapi import (
     FastAPI,
     Header,
+    Request,
 )
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import (
     FileResponse,
+    Response,
 )
 from fastapi.staticfiles import StaticFiles
 from protocol.capture import (
@@ -125,6 +129,20 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             s.commit()
 
     app = FastAPI(title="Study ingestion middleware", version="0.1.0")
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(_request: Request, exc: RequestValidationError):
+        # Echoing raw input can itself fail JSON serialization (unpaired
+        # surrogates, NaN/Infinity). Keep the useful field and error explanation.
+        detail = [
+            {key: error[key] for key in ("type", "loc", "msg") if key in error}
+            for error in exc.errors()
+        ]
+        return Response(
+            json.dumps({"detail": detail}),
+            status_code=422,
+            media_type="application/json",
+        )
 
     # The repository ships the full corpus, so a fresh local database should not
     # silently degrade every grounded template into "seen in 0 papers". Import it in

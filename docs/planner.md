@@ -72,6 +72,35 @@ Real scripted calibration sessions with independent truth are still required. Su
 
 ## API and exports
 
+### Outcome capture checks
+
+In **Data → Check outcome capture**, inspect a rehearsal against its declared
+measures. The check connects each supported instrument and field to observed
+events, its analysis recipe, session counts, condition coverage, and participant
+pairs. Expand an outcome for discrepancies and corrective actions; download the
+JSON report to retain protocol, capture configuration, and data fingerprints.
+
+The built-in checks cover task-test success, explicit `firstGreenMs` timing,
+and declared post-task survey items or scores. They check producer configuration,
+attribution, event schemas and sequences, nonempty test runs, survey versions,
+content hashes, scales, and scoring inputs. Client-supplied survey scores are
+not trusted. Unsupported custom fields, recipes, and legacy string measures
+remain unverified. Baseline covariates need a separate coverage rule; paired
+pass/fail analysis needs separate review.
+
+Counts concern observed sessions, including pilots, rather than planned
+recruitment. Flagged and excluded sessions remain in storage and are identified
+in the report. Synthetic sessions are excluded unless explicitly requested;
+the labelled example opts in. A task that never passes is non-completion,
+not zero time. Coverage does not establish construct validity, test-suite
+quality, or suitability of a statistical model, including carryover effects.
+The check does not change protocols, records, or inclusion decisions.
+
+`GET /studies/{id}/outcome-checks` requires study view access and a recorded
+protocol. `includeSynthetic=true` explicitly includes synthetic sessions.
+The reusable checker is `analysis.outcome_checks.check_outcome_capture`;
+it needs a protocol and joined event rows, without a server or model provider.
+
 All study routes retain project authorization. Calculations/tags/calibration require contribution permission; reading and exporting require view permission. A lineage comparison authorizes both studies.
 
 | Route | Purpose |

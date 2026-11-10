@@ -23,6 +23,23 @@ export class JsonlSink implements EventSink {
   ) {
     this.filePath = filePath;
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    // A crash can leave a partial final line. Preserve those bytes, but keep
+    // the first recovered event from being concatenated onto that torn record.
+    if (fs.existsSync(filePath)) {
+      const fd = fs.openSync(filePath, 'r');
+      let needsNewline = false;
+      try {
+        const size = fs.fstatSync(fd).size;
+        if (size) {
+          const last = Buffer.alloc(1);
+          fs.readSync(fd, last, 0, 1, size - 1);
+          needsNewline = last[0] !== 10;
+        }
+      } finally {
+        fs.closeSync(fd);
+      }
+      if (needsNewline) fs.appendFileSync(filePath, '\n');
+    }
     this.stream = this.openStream();
   }
 
@@ -99,7 +116,8 @@ export class JsonlSink implements EventSink {
 export class HttpSink implements EventSink {
   private buffer: StudyEvent[] = [];
   private timer: ReturnType<typeof setInterval>;
-  private inFlight = false;
+  private inFlight?: Promise<void>;
+  private inFlightCount = 0;
   private consecutiveFailures = 0;
   /** Events confirmed delivered by a successful POST  -  the sidebar's Data
    *  view reads this to say how much of what was written has actually left
@@ -125,14 +143,28 @@ export class HttpSink implements EventSink {
   }
 
   async flush(): Promise<void> {
-    if (!this.buffer.length || this.inFlight) return;
+    if (this.inFlight) {
+      await this.inFlight;
+      // A final session flush must include events written while the previous
+      // request was running, such as the survey and session_end records.
+      return this.flush();
+    }
+    if (!this.buffer.length) return;
     // Simple backoff: after repeated failures, only try every 4th interval.
     if (this.consecutiveFailures >= 3 && this.consecutiveFailures % 4 !== 3) {
       this.consecutiveFailures++;
       return;
     }
-    this.inFlight = true;
     const batch = this.buffer.splice(0, this.buffer.length);
+    this.inFlightCount = batch.length;
+    this.inFlight = this.sendBatch(batch).finally(() => {
+      this.inFlightCount = 0;
+      this.inFlight = undefined;
+    });
+    await this.inFlight;
+  }
+
+  private async sendBatch(batch: StudyEvent[]): Promise<void> {
     try {
       const ctrl = new AbortController();
       const timeout = setTimeout(
@@ -165,8 +197,6 @@ export class HttpSink implements EventSink {
       if (this.buffer.length > HttpSink.MAX_BUFFER) {
         this.buffer.splice(0, this.buffer.length - HttpSink.MAX_BUFFER);
       }
-    } finally {
-      this.inFlight = false;
     }
   }
 
@@ -177,7 +207,7 @@ export class HttpSink implements EventSink {
 
   /** Events buffered and not yet accepted by the server. */
   get pendingCount(): number {
-    return this.buffer.length;
+    return this.buffer.length + this.inFlightCount;
   }
 
   /** Epoch ms of the last accepted POST, if any. */
@@ -207,7 +237,7 @@ export class CompositeSink implements EventSink {
   }
 
   async flush(): Promise<void> {
-    await Promise.allSettled(this.sinks.map((s) => s.flush()));
+    await Promise.allSettled(this.sinks.map(async (s) => s.flush()));
   }
 
   dispose(): void {

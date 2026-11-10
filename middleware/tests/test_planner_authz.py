@@ -39,6 +39,7 @@ def client(request):
         ),
         ("get", "lineage", None),
         ("get", "design-card", None),
+        ("get", "outcome-checks", None),
     ],
 )
 def test_planner_routes_require_study_membership(client, method, path, body):

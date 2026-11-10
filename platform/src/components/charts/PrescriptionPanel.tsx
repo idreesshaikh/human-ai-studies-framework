@@ -6,14 +6,7 @@ import { useAsync } from "@/lib/useAsync";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 
-/* The prescription table (FR-TPL-6, NFR-8): for each design shape, the exact
- * test, effect size, correction, and sample-size guidance  -  each with its
- * plain-language rationale, never a bare test name. This is the reassurance a
- * researcher needs before collecting data: the statistical formulation they
- * most fear getting wrong, made explicit and honest. Deterministic, LLM-free.
- *
- * Nice-to-read labels for the design shapes; the server is the source of the
- * rows themselves. */
+/* Analysis guidance comes from the study's recorded plan. */
 const SHAPE_LABEL: Record<string, string> = {
   "two-group": "Two independent groups",
   paired: "Paired / within-subjects",
@@ -36,12 +29,11 @@ export function PrescriptionPanel({ studyId }: { studyId: string }) {
       <div>
         <h2 className="type-subhead flex items-center gap-2 text-text">
           <FlaskConical className="size-4 text-text-muted" aria-hidden />
-          What analysis your design calls for
+          Recorded analysis plan
         </h2>
         <p className="mt-1 type-note text-text-muted">
-          The exact test, effect size, and correction this study's own compiled
-          analysis plan calls for, with the reasoning. Honest by construction:
-          effect sizes and per-cell n, never a bare p-value.
+          Planned tests, effect sizes and corrections. Review their assumptions
+          before interpreting results.
         </p>
       </div>
 
@@ -53,8 +45,7 @@ export function PrescriptionPanel({ studyId }: { studyId: string }) {
         </p>
       ) : rows.length === 0 ? (
         <p className="type-body text-text-muted">
-          Nothing prescribed yet  -  this fills in once your design conversation
-          compiles a research question with an analysis plan.
+          No analysis plan recorded. Add one in Setup.
         </p>
       ) : (
         <div className="overflow-hidden rounded-card border border-border bg-surface">

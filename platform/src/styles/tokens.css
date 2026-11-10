@@ -130,7 +130,7 @@
   --constellation-h: clamp(20rem, 46vh, 36rem);
   --constellation-h-sparse: clamp(16rem, 32vh, 22rem);
   --library-pane-h: clamp(28rem, 68dvh, 42rem);
-  --enrollment-table-min-width: 60rem;
+  --enrollment-table-min-width: 48rem;
 }
 
 :root[data-theme="dark"] {

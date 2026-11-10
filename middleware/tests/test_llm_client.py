@@ -222,6 +222,29 @@ def test_stream_is_retried_before_the_first_byte_and_yields_deltas(monkeypatch):
     assert len(sleeps) == 1
 
 
+def test_stream_ignores_malformed_frames_without_losing_valid_content(monkeypatch):
+    frames = [
+        None,
+        [],
+        17,
+        {"choices": 17},
+        {"choices": {}},
+        {"choices": [None]},
+        {"choices": [{"delta": []}]},
+        {"choices": [{"delta": {"content": {"text": "wrong shape"}}}]},
+        {"choices": [{"delta": {"content": 42}}]},
+        {"choices": [{"delta": {"content": "Hello 世界"}}]},
+    ]
+    body = (
+        ": heartbeat\n\ndata: not-json\n"
+        + "".join(f"data: {json.dumps(frame)}\n\n" for frame in frames)
+        + "data: [DONE]\n\n"
+    )
+    calls = _script(monkeypatch, [body.encode()])
+    assert list(llm._post_stream("http://x", {}, {})) == ["Hello 世界"]
+    assert len(calls) == 1 and sleeps == []
+
+
 def test_design_compatibility_cli_honors_a_keyless_local_route(monkeypatch, tmp_path):
     from pathlib import Path
 
@@ -257,6 +280,87 @@ def test_design_compatibility_cli_honors_a_keyless_local_route(monkeypatch, tmp_
     )
     check_design_models.main()
     assert calls == [("http://localhost:11434/v1/chat/completions", {})] * 3
+    report = json.loads((tmp_path / "comparison.json").read_text())
+    assert report["adapter"] == "study_plan.propose+compiler.compile_moves"
+    assert all(row["outcome"] == "unparsed-reply" for row in report["results"])
+    assert all(row["compilerValidDraft"] is None for row in report["results"])
+
+
+def _compatibility_cli(monkeypatch, tmp_path, post):
+    from pathlib import Path
+
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[2] / "scripts"))
+    import check_design_models
+
+    output = tmp_path / "comparison.json"
+    monkeypatch.setenv("LLM_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.setattr(check_design_models, "_post_json", post)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["check_design_models", "--live", "--output", str(output)],
+    )
+    check_design_models.main()
+    return json.loads(output.read_text())
+
+
+def test_compatibility_smoke_exercises_primary_plan_and_compiler(monkeypatch, tmp_path):
+    bodies = []
+    plan = {
+        "title": "AI-assisted Python debugging",
+        "researchQuestions": ["Does AI assistance change time to a passing test?"],
+        "design": "within-subjects",
+        "conditions": ["without AI", "with AI"],
+        "participantDescription": "Novice Python developers",
+        "plannedParticipants": 24,
+        "taskDescription": "Repair two seeded bugs in a small Python service.",
+        "sessionMinutes": 45,
+        "measureIds": ["E1"],
+    }
+
+    def post(url, body, headers):
+        bodies.append(body)
+        content = {
+            "reply": "A reviewable proposal.",
+            "plan": plan if len(bodies) == 1 else {},
+        }
+        return {
+            "model": "local-fixed-1",
+            "usage": {"total_tokens": 100},
+            "choices": [{"message": {"content": json.dumps(content)}}],
+        }
+
+    report = _compatibility_cli(monkeypatch, tmp_path, post)
+    first, *questions = report["results"]
+    assert len(bodies) == 3
+    assert "Current plan:" in bodies[0]["messages"][-1]["content"]
+    assert first["outcome"] == "reviewable-draft"
+    assert first["compilerValidDraft"] is True
+    assert first["proposedPatchCount"] > 0
+    assert first["acceptedPatchCount"] == 0 and first["researcherApproved"] is False
+    assert first["resolvedModel"] == "local-fixed-1"
+    assert first["usage"] == {"total_tokens": 100}
+    assert first["costUsd"] is None
+    assert report["maxOutputTokens"] == bodies[0]["max_tokens"]
+    assert all(row["outcome"] == "reply-without-draft" for row in questions)
+    assert all(row["compilerValidDraft"] is None for row in questions)
+    assert all(row["failureReason"] is None for row in questions)
+
+
+@pytest.mark.parametrize("code", [401, 403, 429])
+def test_compatibility_smoke_stops_inaccessible_model(monkeypatch, tmp_path, code):
+    calls = []
+
+    def post(url, body, headers):
+        calls.append(body)
+        raise urllib.error.HTTPError(url, code, "unavailable", {}, None)
+
+    report = _compatibility_cli(monkeypatch, tmp_path, post)
+    assert len(calls) == len(report["results"]) == 1
+    result = report["results"][0]
+    assert result["outcome"] == "provider-unavailable"
+    assert result["httpStatus"] == code
+    assert result["failureReason"] == ("limited" if code == 429 else "rejected")
+    assert result["compilerValidDraft"] is None
 
 
 @pytest.mark.parametrize("key", ["", " \t"])

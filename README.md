@@ -1,46 +1,69 @@
 # StudyLoop
 
-StudyLoop helps researchers plan and run human–AI developer experiments. Record the design and analysis, estimate recruitment, collect versioned measures, inspect control-arm signals, and export the study record for replication.
-
-Power estimates report their assumptions and simulation uncertainty. Pilot sessions are tagged and excluded from confirmatory analysis. Audit signals are not proof of whether AI was used outside the capture boundary.
+StudyLoop helps researchers configure, run, and inspect human–AI developer
+studies. PHOENIX provides the researcher workspace; TERN collects disclosed
+events and surveys in VS Code. Both use a reviewed, versioned study protocol.
 
 ## Run locally
 
+Requires Python 3.12+, Node.js 22+, and uv.
+
 ```bash
-uv sync --all-packages
+uv sync --all-packages --frozen
 npm --prefix platform ci
 npm --prefix platform run build
-uv run python -m middleware
+uv run --no-sync python scripts/run_demo.py
 ```
 
-Open http://127.0.0.1:8000. The server resolves `platform/dist` from the repository root, logs its build hash, and fails with the full path if the build is missing. `MIDDLEWARE_API_ONLY=1` explicitly enables operation without the frontend.
+Open <http://127.0.0.1:8000>. This starts a disposable, offline example with
+labelled synthetic sessions. Use the manual checklist to create a protocol;
+Ctrl+C stops the server and removes rehearsal data. See the
+[example walkthrough](docs/demo-walkthrough.md).
 
-To load the protocol v6 example:
+For persistent work, run `uv run --no-sync python -m middleware` instead.
+Configure storage, authentication, and optional model access using the
+[server guide](middleware/README.md) and [.env.example](.env.example).
+Environment files must be loaded explicitly, for example with
+`uv run --env-file .env python -m middleware`.
 
-```bash
-MIDDLEWARE_PROTOCOL=protocol/examples/planner-v6.yaml uv run python -m middleware
-```
+## Workflow
 
-The example contains configuration, not collected evidence. Supply actual task materials and tool versions before recruitment. Existing protocol versions 1–5 remain readable; their string measures remain untyped.
+1. **Setup:** enter a checklist, choose a template, or use model-assisted
+   authoring. Review proposed changes and approve the compiled protocol.
+2. **Plan:** record recruitment assumptions and save the plan against the
+   protocol version.
+3. **Run:** connect participants through [TERN](extension/README.md), disclose
+   the capture configuration, and obtain consent before recording.
+4. **Data:** inspect sessions and integrity signals, identify pilots, and record
+   inclusion decisions. Check outcome capture to find missing measurement inputs
+   in a rehearsal before collecting participant data.
+5. Export datasets, design cards, analysis materials, and replication kits.
 
-The design conversation and model-assisted matching share `ministral-14b-latest` by default. Set `LLM_API_KEY` for a hosted provider or `LLM_BASE_URL` for a compatible local server. Use `LLM_MODEL` for a shared model and `LLM_DESIGN_MODEL` for a design-only override; legacy `MISTRAL_*` settings remain supported. Record the exact tool/model version used in each study condition. See [server configuration](middleware/README.md).
+Calculations depend on their stated assumptions. Capture has blind spots;
+missing AI signals do not prove that no external AI was used. Synthetic sessions
+are excluded from research exports and estimates. The tool does not certify
+study validity or replace ethics review and statistical judgment.
 
-## Study workflow
+## Documentation
 
-1. Record a protocol with two conditions and a supported, fixed analysis.
-2. Open **Plan** to enter effects, variance, distribution, power, and dropout assumptions. Save the recruitment plan against the protocol hash.
-3. Connect participants with the [StudyLoop extension](extension/README.md). Protocol-declared surveys and the pre-task form are captured with instrument versions and hashes.
-4. In **Data**, tag pilot sessions and record audit inclusion decisions with reasons. Update the plan from real tagged pilot outcomes. A pilot below eight participants is explicitly flagged.
-5. Export the data bundle, design card (JSON/Markdown), and replication kit. A re-run records `rerunOf` and compares designs without pooling data.
-
-Read [planner methods, API and limits](docs/planner.md), the [v6 example](protocol/examples/planner-v6.yaml), and [research evaluation](docs/research-evaluation.md).
+- [Architecture](docs/architecture.md) and [supported scope](docs/scope.md)
+- [Planning methods and limits](docs/planner.md)
+- [Protocol v6 example](protocol/examples/planner-v6.yaml)
+- [Evidence mapping](docs/evidence-workflow.md)
+- [Development and checks](CONTRIBUTING.md)
+- [Security and participant data](SECURITY.md)
 
 ## Validate
 
 ```bash
-uv run pytest protocol/tests analysis/tests middleware/tests metrics/tests agent-capture/tests
-npm --prefix extension run check
-npm --prefix platform run check
+npm --prefix extension ci
+npm --prefix platform exec playwright install chromium
+uv sync --all-packages --group docs --frozen
+uv run --no-sync python scripts/check_demo.py
 ```
 
-Planner numerical tests check nominal alpha within 0.015 and agreement with normal-theory power within 0.06 for the tested configurations. These are computational checks. Audit sensitivity/specificity require independent labels from real calibration sessions; the platform makes no accuracy claim before those exist.
+The gate runs Python, extension, frontend, browser, and documentation checks.
+See [verification](docs/demo-readiness.md) for individual commands and limits.
+
+Code is available under the [MIT License](LICENSE). External sources and
+dependencies retain their own terms.

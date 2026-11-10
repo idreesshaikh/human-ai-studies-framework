@@ -9,13 +9,13 @@ From the repository root:
 
 ```bash
 uv sync --all-packages --frozen
+npm --prefix platform ci
 npm --prefix platform run build
 uv run python -m middleware serve
 ```
 
 Storage defaults to SQLite at `.study-data/middleware.sqlite3`. Set
-`DATABASE_URL` to use PostgreSQL. `docker compose up --build` starts PostgreSQL,
-and the app in shared storage.
+`DATABASE_URL` to connect to your PostgreSQL database.
 
 To load a protocol directly:
 
@@ -74,10 +74,11 @@ same paper work offline.
 | `corpus-verify` | Check the imported corpus is complete |
 | `corpus-enrich` | Fill in missing abstracts from Semantic Scholar |
 | `templates` | Validate and list the template registry |
+| `seed-example` | Add one labelled synthetic example study (protocol, plan, links, simulated sessions); idempotent |
 
 The default is local single-user access. In Clerk mode, configure
 `MIDDLEWARE_CLERK_JWKS_URL`, `MIDDLEWARE_CLERK_ISSUER`, and
-`MIDDLEWARE_CLERK_PUBLISHABLE_KEY`. See the [security policy](../docs/security.md)
+`MIDDLEWARE_CLERK_PUBLISHABLE_KEY`. See the [security policy](../SECURITY.md)
 and [Clerk appearance notes](docs/clerk-appearance.md).
 
 ## Data flow

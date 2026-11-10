@@ -1,12 +1,12 @@
 // Researcher workflows against a disposable backend; --audit also checks WCAG,
 // themes, responsive layouts and scroll reach. Build the platform first.
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 const ROOT = resolve(import.meta.dirname, "..", "..");
@@ -518,6 +518,68 @@ await context.route("**/*", (route) => {
   await page.getByRole("button", { name: "Data", exact: true }).click();
   await page.getByRole("heading", { name: "Download study records" }).waitFor();
   await auditPage(page, "typed protocol Data");
+  const captureChecks = page.getByRole("region", { name: "Outcome capture checks", exact: true });
+  const checksPath = `/studies/${bare}/outcome-checks`;
+  await page.route(`**${checksPath}`, (route) => route.abort("failed"));
+  await captureChecks.getByRole("button", { name: "Check captured inputs", exact: true }).click();
+  await captureChecks.getByRole("alert").waitFor();
+  check(await captureChecks.getByRole("button", { name: "Download checks (.json)", exact: true }).count() === 0, "failed outcome checks expose recovery without a stale report");
+  await page.unroute(`**${checksPath}`);
+  await captureChecks.getByRole("button", { name: "Check captured inputs", exact: true }).click();
+  await captureChecks.getByRole("status").filter({ hasText: "0 sessions checked" }).waitFor();
+  check(true, "outcome checks distinguish no rehearsal data from missing measurements");
+  const pairingToken = new URL(editorLinks[0]).searchParams.get("c").split("#").at(-1);
+  const paired = await api("/pair/redeem", { method: "POST", body: JSON.stringify({ token: pairingToken }) });
+  const participantHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${paired.sessionCredential}` };
+  const captureEvent = async (sessionId, seq, payload) => {
+    const configResponse = await fetch(`${base}/studies/${bare}/capture-config?sessionId=${sessionId}`, { headers: participantHeaders });
+    if (!configResponse.ok) throw new Error("Rehearsal capture configuration failed");
+    const config = await configResponse.json();
+    const response = await fetch(`${base}/ingest/events`, { method: "POST", headers: participantHeaders, body: JSON.stringify([
+      { sessionId, seq, v: 6, ts: new Date(Date.now() + seq).toISOString(), source: "task-harness", taskId: config.block.taskId, type: "task_outcome", payload },
+    ]) });
+    if (!response.ok) throw new Error("Rehearsal event ingest failed");
+  };
+  await captureEvent("browser-outcome-rehearsal-a", 0, { passed: true, failed: 0, total: 0 });
+  await captureChecks.getByRole("button", { name: "Check again", exact: true }).click();
+  await captureChecks.getByRole("status").filter({ hasText: "1 session checked" }).waitFor();
+  for (const summary of await captureChecks.locator("details > summary").all()) await summary.click();
+  check(await captureChecks.getByText("No coherent, nonempty test run was recorded.", { exact: true }).isVisible(), "outcome checks detect a fake passing result with no executed tests");
+  await auditPage(page, "outcome capture discrepancies");
+  if (values.screenshots) {
+    const details = captureChecks.locator("details");
+    await details.evaluateAll((elements) => elements.forEach((element, index) => { element.open = index === 0; }));
+    await captureChecks.evaluate((element) => element.scrollIntoView({ block: "start" }));
+    await page.screenshot({ path: join(values.screenshots, "outcome-checks-desktop.png"), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await captureChecks.evaluate((element) => element.scrollIntoView({ block: "start" }));
+    await page.screenshot({ path: join(values.screenshots, "outcome-checks-mobile.png"), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 800 });
+  }
+  await captureEvent("browser-outcome-rehearsal-a", 1, { passed: true, failed: 0, total: 3, firstGreenMs: 1000 });
+  await captureEvent("browser-outcome-rehearsal-b", 0, { passed: true, failed: 0, total: 3, firstGreenMs: 1200 });
+  await captureChecks.getByRole("button", { name: "Check again", exact: true }).click();
+  await captureChecks.getByRole("status").filter({ hasText: "2 sessions checked" }).waitFor();
+  await page.getByRole("button").filter({ hasText: "browser-outcome-rehearsal-b" }).waitFor();
+  check(true, "checking capture refreshes the session list without discarding the report");
+  const correctedCapture = await api(checksPath);
+  check(correctedCapture.outcomes.some((outcome) => outcome.fields.includes("task_outcome.firstGreenMs") && outcome.observedUnits === 2 && outcome.pairedParticipants === 1), "outcome checks count session units and paired participant coverage after repair");
+  const reportDownload = page.waitForEvent("download");
+  await captureChecks.getByRole("button", { name: "Download checks (.json)", exact: true }).click();
+  const exportedChecks = JSON.parse(readFileSync(await (await reportDownload).path(), "utf8"));
+  check(exportedChecks.protocolHash === correctedCapture.protocolHash && exportedChecks.dataHash === correctedCapture.dataHash, "downloaded outcome checks retain the exact protocol and data fingerprints");
+  const sessionReview = page.getByRole("region", { name: "Session review", exact: true });
+  await sessionReview.getByRole("button", { name: "Show sessions", exact: true }).click();
+  await page.getByRole("menuitemradio", { name: "All sessions", exact: true }).click();
+  await sessionReview.getByRole("button", { name: /^P\d+/ }).first().click();
+  await sessionReview.getByRole("button", { name: /Include in analysis/ }).click();
+  await page.getByRole("menuitemradio", { name: "Exclude", exact: true }).click();
+  await sessionReview.getByRole("textbox", { name: "Reason for the decision or pilot tag", exact: true }).fill("Synthetic browser fixture: exercise decision recovery.");
+  await sessionReview.getByRole("button", { name: "Save decision", exact: true }).click();
+  await sessionReview.getByText(/Last recorded by/).waitFor();
+  check(await sessionReview.getByRole("textbox", { name: "Reason for the decision or pilot tag", exact: true }).isVisible(), "saving a session decision preserves the selected review and expanded row");
+  await captureChecks.getByRole("button", { name: "Check captured inputs", exact: true }).waitFor();
+  check(true, "changing an inclusion decision clears an outdated outcome report");
   for (const name of ["Data (.zip)", "Design card (.md)", "Replication kit"]) {
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name, exact: true }).click();
@@ -538,6 +600,205 @@ await context.route("**/*", (route) => {
   await auditPage(starter, "saved featured plan");
   check(new URL(starter.url()).searchParams.get("tab") === "planning", "featured starter reaches a saved plan without typing a protocol");
   await starter.close();
+
+  // Failed transport must leave the message editable, and the next Send must
+  // actually retry the same request instead of silently becoming a local turn.
+  const chatStudy = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "Chat recovery fixtures" }) })).id;
+  const chat = await context.newPage();
+  const chatRequests = [];
+  const recoveredReply = "Synthetic transport fixture: your research question was received.";
+  let chatMode = "offline";
+  const chatErrors = {
+    validation: { status: 422, detail: [{ loc: ["body", "text"], msg: "Text must contain valid Unicode characters." }], message: "Text must contain valid Unicode characters." },
+    forbidden: { status: 403, detail: "Only project contributors can send messages.", message: "Only project contributors can send messages." },
+    conflict: { status: 409, detail: "Refresh the conversation and try again.", message: "Refresh the conversation and try again." },
+    limited: { status: 429, detail: "Too many requests. Wait a few seconds and try again.", message: "Too many requests. Wait a few seconds and try again." },
+  };
+  let releasePending;
+  const pendingGate = new Promise((resolve) => { releasePending = resolve; });
+  await chat.route(new RegExp(`/studies/${chatStudy}/conversation/turns(?:/stream)?$`), async (route) => {
+    const request = route.request();
+    const body = request.postDataJSON();
+    chatRequests.push({ path: new URL(request.url()).pathname, ...body });
+    if (chatErrors[chatMode]) {
+      const error = chatErrors[chatMode];
+      return route.fulfill({ status: error.status, contentType: "application/json", body: JSON.stringify({ detail: error.detail }) });
+    }
+    if (chatMode === "offline") return route.abort("connectionfailed");
+    if (chatMode === "truncated") return route.fulfill({ status: 200, contentType: "text/event-stream", body: 'event: token\ndata: {"text":"Synthetic partial reply"}\n\n' });
+    if (chatMode === "pending") {
+      await pendingGate;
+      return route.abort("aborted").catch(() => {}); // Stop already aborted this request.
+    }
+    const reply = { researcherTurnId: "fixture-researcher", platformTurnId: "fixture-platform", text: recoveredReply, moves: [], recommendations: [], source: "llm" };
+    return route.fulfill({ status: 200, contentType: "text/event-stream", body: `event: token\ndata: ${JSON.stringify({ text: recoveredReply })}\n\nevent: done\ndata: ${JSON.stringify(reply)}\n\n` });
+  });
+  await chat.goto(`${base}/p/implicit/studies/${chatStudy}?tab=conversation`);
+  const composer = chat.getByRole("textbox", { name: "Message the design assistant", exact: true });
+  const send = chat.getByRole("button", { name: "Send", exact: true });
+  check(await send.isDisabled(), "chat: blank messages cannot be submitted");
+  const chatText = "Does AI change debugging time?\nDevelopers: naïve, 日本語, العربية 🔬 <script>window.fixtureRan=true</script>";
+  await composer.fill(chatText);
+  await send.click();
+  await chat.getByRole("status").filter({ hasText: "Not sent:" }).waitFor();
+  check(await composer.inputValue() === chatText, "chat: a failed stream and fallback restore the complete Unicode message");
+  check(chatRequests.length === 2 && chatRequests[0].requestId === chatRequests[1].requestId, "chat: fallback reuses the original request id");
+  chatMode = "recovered";
+  await send.click();
+  await chat.getByText(recoveredReply, { exact: true }).waitFor({ timeout: 2500 }).catch(() => {});
+  check(chatRequests.length === 3 && chatRequests[2].requestId === chatRequests[0].requestId, "chat: Send after recovery reaches the server with the same request id");
+  check(await chat.getByText(recoveredReply, { exact: true }).count() > 0 && await composer.inputValue() === "", "chat: retry renders the recovered reply and clears the composer");
+  check(await chat.evaluate(() => window.fixtureRan !== true && !document.querySelector("#root script")), "chat: user HTML remains text and never executes");
+  chatMode = "truncated";
+  const interruptedText = "Keep this message when the connection drops during a reply.";
+  await composer.fill(interruptedText);
+  await send.click();
+  await chat.getByRole("status").filter({ hasText: "Not sent:" }).waitFor();
+  check(chatRequests.length === 4 && await composer.inputValue() === interruptedText, "chat: a partial stream restores input without an automatic duplicate POST");
+  chatMode = "recovered";
+  await send.click();
+  await chat.getByRole("button", { name: "Stop reply", exact: true }).waitFor({ state: "hidden" });
+  check(chatRequests.length === 5 && chatRequests[4].requestId === chatRequests[3].requestId, "chat: retry after a partial stream preserves request identity");
+  chatMode = "pending";
+  const stoppedText = "Let me stop this slow reply and edit the research question.";
+  await composer.fill(stoppedText);
+  const pendingRequest = chat.waitForRequest((request) => request.url().endsWith(`/studies/${chatStudy}/conversation/turns/stream`));
+  await send.click();
+  await pendingRequest;
+  await chat.getByRole("button", { name: "Stop reply", exact: true }).click();
+  await chat.getByRole("status").filter({ hasText: "Stopped. Your message is back in the box." }).waitFor();
+  check(chatRequests.length === 6 && await composer.inputValue() === stoppedText, "chat: Stop restores editable text without a fallback POST");
+  releasePending();
+  for (const [mode, error] of Object.entries(chatErrors)) {
+    chatMode = mode;
+    const before = chatRequests.length;
+    const text = `Preserve my message after ${mode}: العربية 日本語 🔬`;
+    await composer.fill(text);
+    const refused = chat.waitForResponse((response) => response.url().endsWith(`/studies/${chatStudy}/conversation/turns/stream`) && response.request().method() === "POST");
+    await send.click();
+    await refused;
+    await expect(composer).toHaveValue(text);
+    await chat.getByRole("button", { name: "Stop reply", exact: true }).waitFor({ state: "hidden" });
+    check(chatRequests.length === before + 1, `chat: ${error.status} does not cause an automatic duplicate POST`);
+    check(await composer.inputValue() === text, `chat: ${error.status} preserves the editable message`);
+    check(await chat.getByRole("status").filter({ hasText: error.message }).isVisible(), `chat: ${error.status} explains the server refusal without calling it offline`);
+  }
+  await auditPage(chat, "chat transport recovery");
+  await chat.close();
+
+  const create = await context.newPage();
+  let createRequests = 0;
+  let releaseCreate;
+  const createGate = new Promise((resolve) => { releaseCreate = resolve; });
+  await create.route(`${base}/projects/implicit/studies`, async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    createRequests++;
+    await createGate;
+    return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "Synthetic outage: try creating the study again." }) });
+  });
+  await create.setViewportSize({ width: 360, height: 800 });
+  await create.goto(`${base}/p/implicit`);
+  await create.getByRole("button", { name: "New study", exact: true }).click();
+  await create.getByRole("button", { name: "Start with a blank study", exact: true }).click();
+  const studyName = create.getByRole("textbox", { name: "New study name", exact: true });
+  const longName = "調査 العربية naïve 🔬 ".repeat(6);
+  await studyName.fill(longName);
+  const storedName = await studyName.inputValue();
+  check(storedName.length <= 80, "new study: long Unicode names respect the stated length limit");
+  const creatingRequest = create.waitForRequest((request) => request.url() === `${base}/projects/implicit/studies` && request.method() === "POST");
+  await studyName.press("Enter");
+  await creatingRequest;
+  await studyName.press("Enter");
+  await studyName.press("Enter");
+  check(createRequests === 1, "new study: repeated Enter during creation sends one request");
+  releaseCreate();
+  await create.getByRole("alert").filter({ hasText: "Synthetic outage" }).waitFor();
+  check(await studyName.inputValue() === storedName, "new study: a failed save preserves the name for retry");
+  await auditPage(create, "new study creation error");
+  await create.close();
+
+  const seeded = spawnSync("uv", ["run", "python", "-m", "middleware", "seed-example"], {
+    cwd: ROOT, encoding: "utf8", env: {
+      ...process.env, DATABASE_URL: "", MIDDLEWARE_AUTH: "none", MIDDLEWARE_PROTOCOL: "",
+      MIDDLEWARE_WEB: DIST, MIDDLEWARE_DB: join(data, "ui.sqlite3"), MIDDLEWARE_DATA_DIR: data,
+      MIDDLEWARE_CORPUS_BOOTSTRAP: "0", MIDDLEWARE_REFRESH_INTERVAL_H: "",
+      LLM_API_KEY: "", LLM_BASE_URL: "", MISTRAL_API_KEY: "",
+    },
+  });
+  if (seeded.status !== 0) throw new Error(`Synthetic example seed failed: ${seeded.stderr}`);
+  const example = await context.newPage();
+  const examplePath = `${base}/p/implicit/studies/example-copilot-and-bug-fixing-synthetic-data`;
+  await example.goto(`${examplePath}?tab=data`);
+  const sessionList = example.getByRole("region", { name: "Captured sessions", exact: true });
+  await expect(sessionList.getByRole("button", { name: /^P\d+/ })).toHaveCount(6);
+  await sessionList.getByRole("button", { name: "Next sessions page", exact: true }).click();
+  check(await sessionList.getByRole("status").innerText() === "7–12 of 25", "captured sessions use bounded pages");
+  await sessionList.getByRole("searchbox", { name: "Search sessions", exact: true }).fill("P13");
+  await expect(sessionList.getByRole("button", { name: /^P\d+/ })).toHaveCount(1);
+  check(await sessionList.getByRole("navigation").count() === 0, "searching sessions resets pagination and keeps the match visible");
+  await sessionList.getByRole("searchbox", { name: "Search sessions", exact: true }).fill("");
+  const review = example.getByRole("region", { name: "Session review", exact: true });
+  await review.getByRole("button", { name: "Show sessions", exact: true }).waitFor();
+  check(await review.getByRole("button", { name: /^P\d+/ }).count() <= 6, "session review starts with a compact set needing attention");
+  await review.getByRole("button", { name: "Show sessions", exact: true }).click();
+  await example.getByRole("menuitemradio", { name: "Control conditions", exact: true }).click();
+  await review.getByRole("button", { name: "Next audit page", exact: true }).click();
+  check(await review.getByRole("status").innerText() === "7–12 of 13", "control-session review paginates without treatment-row clutter");
+  await review.getByRole("searchbox", { name: "Search review sessions", exact: true }).fill("<script>invalid</script>");
+  await review.getByText("No matching sessions. Try another search.", { exact: true }).waitFor();
+  await review.getByRole("searchbox", { name: "Search review sessions", exact: true }).fill("P13");
+  await expect(review.getByRole("button", { name: /^P\d+/ })).toHaveCount(1);
+  await review.getByRole("searchbox", { name: "Search review sessions", exact: true }).fill("");
+  await review.getByRole("button", { name: "Show sessions", exact: true }).click();
+  await example.getByRole("menuitemradio", { name: "Needs review", exact: true }).click();
+  await review.getByRole("button", { name: /^P\d+/ }).first().click();
+  await auditPage(example, "populated Data and session review");
+  const captureScreens = async (label, target) => {
+    if (!values.screenshots) return;
+    await example.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
+    for (const [width, suffix] of [[1280, "desktop"], [390, "mobile"]]) {
+      await example.setViewportSize({ width, height: 844 });
+      await target.evaluate((element) => element.scrollIntoView({ block: "start" }));
+      await example.screenshot({ path: join(values.screenshots, `${label}-${suffix}.png`), fullPage: true });
+    }
+    await example.setViewportSize({ width: 1280, height: 800 });
+  };
+  await captureScreens("session-review", review);
+  const measurements = example.getByRole("region", { name: "Measurements", exact: true });
+  await measurements.getByRole("button", { name: "Metric", exact: true }).click();
+  await example.getByRole("menuitemradio", { name: "Acceptance-test outcome", exact: true }).click();
+  const spacing = await measurements.evaluate((element) => {
+    const chart = [...element.querySelectorAll("div")].find((node) => node.classList.contains("relative") && node.textContent.includes("Each record counts once"));
+    const next = [...document.querySelectorAll("h2")].find((heading) => heading.textContent === "Recorded analysis plan");
+    return next.getBoundingClientRect().top - chart.getBoundingClientRect().bottom;
+  });
+  check(spacing >= 0 && spacing <= 64, "categorical charts leave no fixed-height blank area before the analysis plan");
+  await auditPage(example, "categorical measurements and recorded analysis");
+  await captureScreens("measurements", measurements);
+  await example.getByRole("button", { name: "Run", exact: true }).click();
+  const roster = example.getByRole("region", { name: "Participant links", exact: true });
+  await expect(roster.locator("tbody tr")).toHaveCount(6);
+  await example.getByRole("button", { name: "Next participants page", exact: true }).click();
+  await example.getByRole("searchbox", { name: "Search participants", exact: true }).fill("P24");
+  await expect(roster.locator("tbody tr")).toHaveCount(1);
+  check(await roster.getByText("P24", { exact: true }).isVisible(), "participant search finds records beyond the first roster page");
+  await example.getByRole("searchbox", { name: "Search participants", exact: true }).fill("without AI");
+  check((await roster.locator("tbody tr").allTextContents()).every((text) => text.includes("Without AI")), "participant search accepts the displayed condition wording");
+  await example.getByRole("searchbox", { name: "Search participants", exact: true }).fill("");
+  await example.setViewportSize({ width: 360, height: 800 });
+  await roster.focus();
+  await example.keyboard.press("ArrowRight");
+  await expect.poll(() => roster.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+  check(true, "the participant table scrolls horizontally with the keyboard");
+  await roster.evaluate((element) => { element.scrollLeft = 0; });
+  await auditPage(example, "populated Run roster");
+  await captureScreens("participant-roster", example.getByRole("searchbox", { name: "Search participants", exact: true }));
+  await example.getByRole("button", { name: "Plan", exact: true }).click();
+  await example.getByRole("heading", { name: "Plan participant recruitment", exact: true }).waitFor();
+  await example.waitForLoadState("networkidle");
+  await auditPage(example, "populated recruitment plan");
+  await captureScreens("recruitment-plan", example.getByRole("heading", { name: "Plan participant recruitment", exact: true }));
+  await example.close();
 
   const mutation = await context.newPage();
   await mutation.goto(`${base}/p/implicit/studies/${bare}?tab=conversation`);

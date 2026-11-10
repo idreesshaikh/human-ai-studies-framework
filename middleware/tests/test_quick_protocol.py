@@ -1,6 +1,9 @@
 """The bounded checklist path compiles without a conversational model."""
 
+import json
+
 import model_double
+import pytest
 from fastapi.testclient import TestClient
 
 from middleware import assistant
@@ -20,6 +23,32 @@ BODY = {
     "measures": ["task completion time", "solution correctness", "cognitive load"],
     "counterbalanced": True,
 }
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("title", "broken \ud800 title"),
+        ("researchQuestions", ["Does \udfff change debugging time?"]),
+        ("conditions", ["AI-assisted", "without \ud800"]),
+        ("participantDescription", "developers \ud800"),
+        ("taskDescription", "Fix a Python bug \udfff"),
+        ("measures", ["task completion time \ud800"]),
+        ("measureIds", ["E1\ud800"]),
+        ("existingMeasureIds", ["custom\udfff"]),
+    ],
+)
+def test_checklist_rejects_broken_unicode_without_saving_a_draft(
+    client_no_protocol, field, value
+):
+    response = client_no_protocol.post(
+        "/studies/pilot/quick-protocol",
+        content=json.dumps({**BODY, field: value}),
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]
+    assert client_no_protocol.get("/studies/pilot/protocol").status_code == 404
 
 
 def test_checklist_creates_a_compiler_verified_draft(client_no_protocol: TestClient):

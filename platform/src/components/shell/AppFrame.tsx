@@ -48,10 +48,7 @@ const NAV_ITEM_IDLE = "border-transparent text-text-muted hover:bg-zone-9 hover:
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const { me, isSolo, setThemePreference } = useSession();
   const { signOut, user: clerkUser, hasCredential } = useAuth();
-  /* No identity, and this deployment wants one. `hasCredential` already reads
-   * true in `mode: "none"` (a local deployment has no accounts to be signed
-   * out of), so this is only ever true on a public route reached by someone
-   * who has not signed in. */
+  // No-auth mode already reports a credential.
   const signedOut = !hasCredential;
   const { pathname, search } = useLocation();
   const { slug: routeSlug } = useParams<{ slug?: string }>();
@@ -265,21 +262,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             )}
           </div>
 
-          {/* The rail's footer, not a floating square in the corner. Expanded,
-            * it says what it does; folded, the icon carries it and the name
-            * moves to the accessible label. As a bare `size-icon` button it
-            * painted as one unexplained 44px glyph pinned to the bottom-left
-            * of the window, visually detached from the rail it belongs to.
-            *
-            * `hidden lg:flex`: this `<nav>` is shared between the desktop
-            * static rail and the mobile slide-over (`navOpen`), and folding
-            * is a desktop-only idea  -  the overlay already has a show/hide
-            * control, the hamburger, so a second one that shrinks it to an
-            * icon strip *while it stays open* has no coherent job to do.
-            * Rendered anyway, tapping it inside the mobile drawer collapsed
-            * every label to a 52px column of bare glyphs with no visible way
-            * back  -  the button that had just done that was now unlabelled
-            * too. Below `lg` the control simply is not there. */}
+          {/* Folding applies to the desktop rail; the mobile drawer has its own toggle. */}
           <div className="hidden shrink-0 border-t border-border p-3 lg:block">
           <button
             type="button"

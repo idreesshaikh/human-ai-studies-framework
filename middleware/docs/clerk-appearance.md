@@ -2,7 +2,7 @@
 
 Applies only when the middleware runs in **`clerk`** auth mode
 (`MIDDLEWARE_AUTH=clerk`; see `src/middleware/auth.py`). Self-hosted
-`none`/`token` deployments never see a Clerk page and can ignore this.
+`none`/`token` configurations never see a Clerk page and can ignore this.
 
 ## The one thing to know first
 

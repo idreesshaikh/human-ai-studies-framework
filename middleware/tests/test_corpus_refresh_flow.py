@@ -201,7 +201,7 @@ def test_a_candidate_is_invisible_to_matching_until_it_is_accepted(
         before = matching.match_papers(s, query, use_llm=False, expand=False)
         assert ref not in [m["ref"] for m in before]
         assert not paper_index.search(s, "harnesses")
-        cr.promote(s, ref, decided_by="idrees", now=NOW(), note="relevant")
+        cr.promote(s, ref, decided_by="reviewer", now=NOW(), note="relevant")
         s.commit()
     with sf() as s:
         after = matching.match_papers(s, query, use_llm=False, expand=False)
@@ -216,7 +216,7 @@ def test_a_candidate_is_invisible_to_matching_until_it_is_accepted(
         cand = s.query(CorpusCandidate).filter_by(ref=ref).one()
         assert (cand.status, cand.decided_by, cand.note) == (
             "accepted",
-            "idrees",
+            "reviewer",
             "relevant",
         )
 

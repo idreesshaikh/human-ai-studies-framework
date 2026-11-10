@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Field } from "@/components/ui/field";
 import { EmptyState } from "@/components/shell/EmptyState";
+import { conditionLabel } from "@/lib/uiText";
 import type { DatasetRow } from "@/lib/studyApi";
 import {
   METRIC_REGISTRY,
@@ -77,28 +78,22 @@ export function MetricStrip({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end gap-3">
-        <Field label="Metric" className="w-full sm:w-80">
+        <Field label="Metric" className="w-full sm:w-80" action={
+          <Button size="sm" variant="ghost" className="type-caption" onClick={() => setAsTable((v) => !v)}>
+            {asTable ? <ChartScatter aria-hidden /> : <Table2 aria-hidden />}
+            {asTable ? "Chart" : "Table"}
+          </Button>
+        }>
           <Select
             value={metricKey}
             onValueChange={setChosen}
             options={METRIC_REGISTRY.map((m) => ({ value: m.key, label: m.label }))}
           />
         </Field>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="ml-auto type-caption"
-          onClick={() => setAsTable((v) => !v)}
-        >
-          {asTable ? <ChartScatter aria-hidden /> : <Table2 aria-hidden />}
-          {asTable ? "Chart" : "Table"}
-        </Button>
       </div>
       <p className="type-note text-text-muted">{metric.definition}</p>
 
-      {/* Full chart/table states keep a stable working height, while an empty
-          metric stays content-sized. */}
-      <div className={obs.length === 0 ? "" : "min-h-[19rem]"}>
+      <div>
         {obs.length === 0 ? (
           <EmptyState
             line={
@@ -517,7 +512,7 @@ function CategoricalShare({
                   {cat}
                 </th>
               ))}
-              <th className="px-3 py-2 font-medium">n</th>
+              <th className="px-3 py-2 font-medium">Records</th>
             </tr>
           </thead>
           <tbody className="tabular">
@@ -546,7 +541,7 @@ function CategoricalShare({
           <div key={c.condition} className="flex flex-col gap-1">
             <div className="flex items-baseline justify-between type-caption">
               <span className="font-semibold text-text">{conditionLabel(c.condition)}</span>
-              <span className="tabular text-text-muted">n = {c.n}</span>
+              <span className="tabular text-text-muted">{c.n} records</span>
             </div>
             {c.n === 0 ? (
               <p className="type-caption text-text-muted">no data</p>
@@ -564,7 +559,7 @@ function CategoricalShare({
                   .map((s) => (
                     <div
                       key={s.category}
-                      style={{ width: `${s.share * 100}%`, background: `var(--series-${slotOf(s.category)})` }}
+                      style={{ width: `${s.share * 100}%`, background: categoryColor(s.category, slotOf(s.category)) }}
                       onPointerMove={(e) =>
                         show(
                           e,
@@ -579,7 +574,9 @@ function CategoricalShare({
           </div>
         ))}
         <p className="type-note text-text-muted">
-          Shares are weighted by volume; exact counts in the table view.
+          {obs.some((o) => (o.weight ?? 1) !== 1)
+            ? "Shares use recorded quantities. Exact values are available in Table."
+            : "Each record counts once. Exact counts are available in Table."}
         </p>
         <Tooltip tip={tip} />
       </div>
@@ -588,6 +585,10 @@ function CategoricalShare({
 }
 
 // ---------------------------------------------------------------- shared
+
+function categoryColor(label: string, slot: number): string {
+  return label === "failed" || label === "incorrect" ? "var(--critical)" : `var(--series-${slot})`;
+}
 
 function Legend({
   items,
@@ -600,7 +601,7 @@ function Legend({
         <li key={it.label} className="flex items-center gap-1.5 type-caption text-text-muted">
           <span
             className="inline-block size-2.5 rounded-chip"
-            style={{ background: `var(--series-${it.slot})` }}
+            style={{ background: categoryColor(it.label, it.slot) }}
             aria-hidden
           />
           <span className="text-text">{it.label}</span>
@@ -622,10 +623,4 @@ function niceCeil(v: number): number {
 function fmtTick(value: number, span: number): string {
   const decimals = span >= 10 ? 0 : span >= 1 ? 1 : 2;
   return value.toFixed(decimals);
-}
-
-function conditionLabel(value: string): string {
-  return value
-    .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

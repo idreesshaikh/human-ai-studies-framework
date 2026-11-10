@@ -215,10 +215,10 @@ def test_scope_gate_allows_a_programming_task_named_by_its_language():
     assert (
         elicitation.classify_scope(
             [
-                "Does AI assistance change the time to a passing solution for HPI "
-                "students?",
+                "Does AI assistance change the time to a passing solution for "
+                "university students?",
                 "Implement the toy HTTP engine in JavaScript; 12 automated checks",
-                "HPI students with basic JavaScript experience",
+                "university students with basic JavaScript experience",
             ]
         )
         == "supported"

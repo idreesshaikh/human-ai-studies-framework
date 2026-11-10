@@ -42,9 +42,7 @@ export function StudyHome() {
   const [planVisited, setPlanVisited] = useState<string | null>(null);
   const api = useApi();
   const { me, loading: meLoading } = useSession();
-  // The active tab lives in the URL (not local state) so a refresh, a
-  // shared link, or the browser's back button lands on the same tab
-  // instead of always bouncing back to the conversation.
+  // Store the active tab in the URL for refresh and shared links.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const tab: Tab = resolveStudyTab(tabParam);
@@ -124,34 +122,19 @@ export function StudyHome() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* TWO ruled tiers, not one row that wraps. The identity of the study
-       * (where it lives, what it is called, what you can do to the whole of
-       * it) is one kind of thing; which part of it you are looking at is
-       * another. Packed into a single row these four groups could not fit a
-       * 1440px window, so `flex-wrap` silently dropped the actions onto a
-       * second line under the title  -  a two-tier header by accident, aligned
-       * to nothing.
-       *
-       * Tiering it deliberately also puts the tab strip on the workspace's
-       * real spine: the axis mark under the active section now lands on the
-       * rule that divides chrome from work, instead of floating 20px above
-       * an unrelated border. */}
+      {/* Keep study identity and workspace navigation in separate rows. */}
       <header className="border-b border-border bg-surface">
         <div className="flex items-center gap-3 px-4 py-1">
-          <div className="flex min-w-0 items-baseline gap-2">
+          {/* Below `sm` the back link is an icon with no text baseline, so
+            * baseline alignment lifted the title above the chevron. */}
+          <div className="flex min-w-0 items-center gap-2 sm:items-baseline">
             <Link
               to={`/p/${slug}`}
               aria-label={`Back to ${project?.name ?? slug}`}
               className="touch-link type-label flex shrink-0 items-center gap-1 self-center rounded-control px-1.5 py-1 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
             >
               <ChevronLeft className="size-4" aria-hidden />
-              {/* A project's slug is its address, not its name. The name is
-               * already on the payload this page loads for the role check.
-               *
-               * Below `sm` the name gives its width back to the study's own
-               * title, which is the thing this screen is about  -  carrying
-               * both truncated a 390px header to "Trust cali…". The chevron
-               * still goes back, and the link keeps its name above. */}
+              {/* Keep the accessible project name when its visible label is hidden. */}
               <span className="hidden max-w-40 truncate sm:inline">
                 {project?.name ?? slug}
               </span>
@@ -159,9 +142,6 @@ export function StudyHome() {
             <span className="hidden shrink-0 text-border-strong sm:inline" aria-hidden>
               /
             </span>
-            {/* A study id IS its slug in the schema, so the header was
-             * printing `trust-calibration-in-ai-code-review` at 28px as the
-             * study's name. Same string, read as words. */}
             <h1 className="type-control truncate text-text" title={studyDisplayName(browserNameStore(), id)}>
               {studyDisplayName(browserNameStore(), id)}
             </h1>

@@ -1,19 +1,4 @@
-# Pilot study protocol - the with/without-AI developer study this framework
-# exists to run.
-#
-# This file is the study's requirements specification ("study-as-code"):
-# instruments, gates, and analyses below are derived from it by command,
-# never hand-configured.
-#
-# FROZEN: pilot-2026 v1.0 (2026-07-12, first freeze; git tag
-# `protocol/pilot-2026-v1.0`). Amendments after this
-# line require a new version marker here plus a row in the change
-# log - history is never rewritten.
-# AMENDED: v1.1 (2026-07-12, second amendment) - analysisPlan RQ-P3 gains
-# `meyer-fragmentation` (second replicated-paper recipe) and the
-# literature list gains its source; no instrument or session changes.
-# AMENDED: v1.2 (2026-07-21) - kite -> tern rename: instruments.kite becomes
-# instruments.tern, protocolVersion bumps 1 -> 4 to match; no other change.
+# Illustrative within-subjects protocol; no participant findings or ethics approval.
 
 protocolVersion: 4
 
@@ -21,9 +6,9 @@ study:
   id: pilot-2026
   title: "AI assistance and developer cognitive load: a within-subjects pilot"
   researchers:
-    - Idrees Razak
-    - Project Supervisor
-  ethicsRef: "UoM CS ethics application (pending  -  not yet obtained)"
+    - Example researcher
+    - Example collaborator
+  ethicsRef: "Illustrative example; obtain required approval before collection."
 
 researchQuestions:
   - id: RQ-P1

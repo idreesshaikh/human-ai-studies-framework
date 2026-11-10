@@ -24,7 +24,7 @@ const THEME_ICON = { light: Sun, dark: Moon };
  * script has loaded, themed to the app's own tokens (see auth.tsx's
  * CLERK_APPEARANCE) so it never reads as a foreign, unstyled widget; every
  * mode also accepts a pasted session token, so a broken CDN or a
- * self-hosted `token` deployment never dead-ends. */
+ * `token` configuration never dead-ends. */
 export function SignInScreen() {
   const { config, clerkReady, mountSignIn, unmountSignIn, hasCredential, resolving } =
     useAuth();
@@ -134,10 +134,10 @@ function TokenForm({ awaitingClerk }: { awaitingClerk: boolean }) {
         label="Session token"
         hint={
         awaitingClerk ? (
-          "The sign-in widget couldn't load. Check your connection, or ask whoever runs this deployment for a session token."
+          "The sign-in widget couldn't load. Check your connection, or ask the instance administrator for a session token."
         ) : (
           <>
-            This deployment signs in with a token rather than an account. Ask
+            This instance signs in with a token rather than an account. Ask
             whoever runs it for yours  -  it is the value of{" "}
             {/* An identifier, so it is set in the measurement voice, the same
               * as every other literal a reader has to match exactly. */}

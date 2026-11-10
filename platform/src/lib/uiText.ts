@@ -5,6 +5,12 @@ import type { ProjectSummary } from "./api.ts";
 /** Longest project or study name a researcher can enter. */
 export const NAME_MAX_LENGTH = 80;
 
+export function conditionLabel(value: string): string {
+  return value.replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .replace(/\bAi\b/g, "AI");
+}
+
 export function clampName(name: string): string {
   return name.slice(0, NAME_MAX_LENGTH);
 }
@@ -125,7 +131,7 @@ export function enrollmentHeading(
   created: number,
   redeemed: number,
 ): { title: string; detail: string } {
-  if (created === 0) return { title: "No links yet", detail: "" };
+  if (created === 0) return { title: "Invite participants", detail: "" };
   return {
     title: `${created} ${created === 1 ? "link" : "links"} created`,
     detail: `${redeemed} redeemed`,

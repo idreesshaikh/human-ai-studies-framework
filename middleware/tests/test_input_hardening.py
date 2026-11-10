@@ -1,6 +1,7 @@
 """Input validation, honest errors and unknown-id handling on the public routes."""
 
 import io
+import json
 
 import pytest
 from fastapi.testclient import TestClient
@@ -134,6 +135,57 @@ def test_blank_turn_is_rejected(client_no_protocol):
     assert "turns" not in turns or turns["turns"] == []
 
 
+@pytest.mark.parametrize("suffix", ["", "/stream"])
+@pytest.mark.parametrize("field", ["text", "author", "steer", "requestId"])
+def test_broken_unicode_is_rejected_before_recording_a_turn(
+    client_no_protocol, suffix, field
+):
+    _, study = _project_and_study(client_no_protocol)
+    body = {"text": "Compare AI-assisted debugging.", field: "broken \ud800 text"}
+    response = client_no_protocol.post(
+        f"/studies/{study}/conversation/turns{suffix}",
+        content=json.dumps(body),
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]
+    conversation = client_no_protocol.get(f"/studies/{study}/conversation").json()
+    assert conversation["turns"] == []
+
+
+@pytest.mark.parametrize("value", [{"broken": "\udfff"}, float("inf"), float("nan")])
+def test_validation_errors_remain_valid_json_with_hostile_input(
+    client_no_protocol, value
+):
+    response = client_no_protocol.post(
+        "/studies/pilot/conversation/turns",
+        content=json.dumps({"text": value}),
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 422
+    detail = json.loads(response.text, parse_constant=lambda value: pytest.fail(value))[
+        "detail"
+    ]
+    assert detail[0]["loc"] == ["body", "text"]
+    assert detail[0]["msg"]
+
+
+def test_valid_multilingual_text_survives_a_failed_turn(client_no_protocol):
+    _, study = _project_and_study(client_no_protocol)
+    endpoint = f"/studies/{study}/conversation/turns"
+    refused = client_no_protocol.post(
+        endpoint,
+        content=json.dumps({"text": "\ud800"}),
+        headers={"Content-Type": "application/json"},
+    )
+    assert refused.status_code == 422
+    text = "Compare debugging time: naïve, 日本語, العربية 🔬 <script>text</script>"
+    accepted = client_no_protocol.post(endpoint, json={"text": text})
+    assert accepted.status_code == 200, accepted.text
+    turns = client_no_protocol.get(f"/studies/{study}/conversation").json()["turns"]
+    assert [turn["text"] for turn in turns if turn["role"] == "researcher"] == [text]
+
+
 def test_turn_for_a_study_that_does_not_exist_is_404(strict_client):
     r = strict_client.post(
         f"/studies/{NOPE}/conversation/turns", json={"text": "hello there"}
@@ -168,6 +220,27 @@ def test_study_name_is_capped(client_no_protocol):
     r = client_no_protocol.post(f"/projects/{slug}/studies", json={"name": "z" * 500})
     assert r.status_code == 400
     assert "120" in r.json()["detail"]
+
+
+@pytest.mark.parametrize("name", [None, [], {}, 42, True, "broken \ud800 name"])
+def test_names_require_unicode_text_without_creating_or_renaming_rows(
+    client_no_protocol, name
+):
+    slug, _ = _project_and_study(client_no_protocol)
+    before = client_no_protocol.get(f"/projects/{slug}").json()
+    projects_before = client_no_protocol.get("/projects").json()
+    body = json.dumps({"name": name})
+    for method, path in [
+        ("post", "/projects"),
+        ("post", f"/projects/{slug}/studies"),
+        ("patch", f"/projects/{slug}"),
+    ]:
+        response = getattr(client_no_protocol, method)(
+            path, content=body, headers={"Content-Type": "application/json"}
+        )
+        assert response.status_code == 422, response.text
+    assert client_no_protocol.get(f"/projects/{slug}").json() == before
+    assert client_no_protocol.get("/projects").json() == projects_before
 
 
 def test_project_slug_is_capped(client_no_protocol):

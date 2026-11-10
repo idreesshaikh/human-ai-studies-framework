@@ -44,6 +44,7 @@ from middleware.db import (
     StoredFile,
 )
 from middleware.evidence_mapping import evidence_export
+from middleware.example_study import is_example_study
 from middleware.route_helpers import (
     _session_gap_facts,
 )
@@ -56,6 +57,29 @@ log = logging.getLogger("middleware.app")
 
 
 def register(app: FastAPI, deps: ApiDeps):
+    @app.get(
+        "/studies/{study_id}/outcome-checks",
+        dependencies=[Depends(deps.authz["require_project_for_study"]("view"))],
+    )
+    def outcome_checks(
+        study_id: str,
+        includeSynthetic: bool = False,
+        s: Session = Depends(deps.db),
+    ):
+        from analysis.outcome_checks import check_outcome_capture
+
+        protocol = deps.resolve_study_protocol(s, study_id)
+        if protocol is None:
+            raise HTTPException(
+                409, "Record a protocol before checking outcome capture."
+            )
+        report = check_outcome_capture(
+            protocol,
+            deps.joined_rows(s, study_id, includeSynthetic),
+            include_synthetic=includeSynthetic,
+        )
+        return {"studyId": study_id, **report}
+
     @app.get(
         "/studies/{study_id}/dataset",
         dependencies=[Depends(deps.authz["require_project_for_study"]("view"))],
@@ -417,6 +441,9 @@ def register(app: FastAPI, deps: ApiDeps):
             ],
             "producers": producer_capabilities(proto),
             "requiredProducers": required_producers(proto),
+            # The seeded example holds only simulated sessions; the Data tab
+            # asks for them explicitly and labels them. No other study is marked.
+            "syntheticExample": is_example_study(study_id),
         }
 
     @app.get(
