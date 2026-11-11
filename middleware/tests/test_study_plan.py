@@ -454,10 +454,11 @@ def test_partial_acceptance_is_reported_not_papered_over(api):
 # ------------------------------------------------------------- QA regressions
 
 
-def test_a_declined_extra_question_stays_out_of_the_protocol():
+def test_a_declined_question_stays_out_of_the_protocol():
     turn = study_plan.propose(_Model(_reply()), BRIEF, "s")
+    second = PLAN["researchQuestions"][1]
     decided = [
-        {**m, "status": "rejected" if m["kind"] == "add-rq" else "accepted"}
+        {**m, "status": "rejected" if m["proposal"] == second else "accepted"}
         for m in turn["moves"]
     ]
     built = compiler.compile_moves(decided)
@@ -467,6 +468,25 @@ def test_a_declined_extra_question_stays_out_of_the_protocol():
     ]
     # Accepting the card keeps it.
     assert len(_built(turn).draft["researchQuestions"]) == 2
+
+
+def test_every_research_question_is_its_own_card_not_part_of_the_design():
+    """The Design card used to end with "Research question: ...", so accepting
+    it read as accepting a question while it filled five protocol sections."""
+    turn = study_plan.propose(_Model(_reply()), BRIEF, "s")
+    design = turn["moves"][0]
+    assert design["kind"] == "choose-template"
+    assert "Research question" not in design["proposal"]
+    cards = [m["proposal"] for m in turn["moves"] if m["kind"] == "add-rq"]
+    assert cards == PLAN["researchQuestions"]
+    only_design = compiler.compile_moves(
+        [
+            {**m, "status": "accepted" if m is design else "proposed"}
+            for m in turn["moves"]
+        ]
+    )
+    assert not only_design.draft.get("researchQuestions")
+    assert "the research question" in only_design.unresolved
 
 
 def test_the_design_card_states_every_value_it_commits():

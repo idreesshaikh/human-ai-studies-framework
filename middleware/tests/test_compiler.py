@@ -426,7 +426,10 @@ def test_template_supplied_items_get_one_plain_warning_each():
     )
     rq2 = next(n for n in notes if "research question 2" in n)
     assert '"' in rq2 and "(you did not state it; remove it if unwanted)" in rq2
-    assert "From the template: the NASA-TLX cognitive-load measure set." in notes
+    assert (
+        "From the template: the code-complexity metrics, computed from the "
+        "participant's code after each session." in notes
+    )
     assert (
         "From the template: the paired nonparametric test and the NASA-TLX "
         "debrief analysis." in notes

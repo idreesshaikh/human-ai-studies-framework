@@ -378,7 +378,7 @@ def _moves(
                     "value": question,
                 },
             }
-            for question in questions[1:]
+            for question in questions
         ),
         {
             "kind": "set-field",
@@ -728,7 +728,6 @@ def propose(
             "The plan is unchanged.",
             "moves": [],
         }
-    moves[0]["proposal"] += f" Research question: {body.researchQuestions[0]}"
     raw_assumed = raw.get("assumed")
     assumed = (
         [n for n in raw_assumed if isinstance(n, str)]

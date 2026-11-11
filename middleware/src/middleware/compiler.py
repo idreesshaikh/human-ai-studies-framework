@@ -477,7 +477,7 @@ def _manual_questions(manual_patch: dict, moves: list[dict]) -> list[str]:
     return [
         question
         for index, question in enumerate(questions)
-        if index == 0 or offered.get(" ".join(question.split()).casefold(), True)
+        if offered.get(" ".join(question.split()).casefold(), True)
     ]
 
 
@@ -973,8 +973,13 @@ RECIPE_LABELS: dict[str, str] = {
 }
 
 METRIC_SET_LABELS: dict[str, str] = {
-    "cognitive-load-9": "NASA-TLX cognitive-load measure set",
-    "code-quality-5": "code-quality measure set",
+    # Static measures of the participant's code (metrics/), run after each
+    # session. Not a workload questionnaire: calling this set "NASA-TLX" led
+    # researchers to expect it to disappear when they dropped workload surveys.
+    "cognitive-load-9": "code-complexity metrics, computed from the "
+    "participant's code after each session",
+    "code-quality-5": "code-quality metrics, computed from the participant's "
+    "code after each session",
 }
 
 
