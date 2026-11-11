@@ -19,13 +19,13 @@ FROZEN_NOW = dt.datetime(2026, 7, 18, 12, 0, tzinfo=dt.UTC)
 
 def _fake_verifier(authorization: str) -> Identity:
     """
-    A test verifier: ``Authorization: Bearer <sub>`` becomes a clerk-mode identity whose
+    A test verifier: ``Authorization: Bearer <sub>`` becomes a distinct identity whose
     sub is the token.
     """
     if not authorization.startswith("Bearer "):
         raise HTTPException(401, "missing bearer token")
     sub = authorization.removeprefix("Bearer ")
-    return Identity(sub=sub, display_name=sub, mode="clerk")
+    return Identity(sub=sub, display_name=sub, mode="token")
 
 
 @pytest.fixture()

@@ -10,11 +10,11 @@ import {
 } from "react";
 import { createApi, type Api, type Me, type Preferences } from "./api.ts";
 import { applyTheme } from "./theme";
-import { CREDENTIAL_READY_EVENT, useAuth } from "./auth.tsx";
+import { CREDENTIAL_READY_EVENT } from "./auth.tsx";
 
-/* Provides the API client and the signed-in identity to the tree. In
- * none/token auth modes `me.mode` tells the shell to hide project UI
- * (single-facilitator continuity); in clerk mode the full shell shows. */
+/* Provides the API client and the signed-in identity to the tree. Both sign-in
+ * modes (none and a shared token) serve one researcher identity, so the shell
+ * hides multi-member project UI. */
 
 const ApiContext = createContext<Api | null>(null);
 
@@ -51,8 +51,7 @@ const SessionContext = createContext<SessionState | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const api = useApi();
-  const { config } = useAuth();
-  const isSolo = config.mode !== "clerk";
+  const isSolo = true;
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -96,8 +95,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  // When the auth layer establishes a live credential (e.g. after a Clerk
-  // sign-in reload), the session's first /me may have 401'd  -  re-fetch now
+  // When the auth layer establishes a live credential, the session's first
+  // /me may have 401'd  -  re-fetch now
   // that a token is available.
   useEffect(() => {
     const onReady = () => {

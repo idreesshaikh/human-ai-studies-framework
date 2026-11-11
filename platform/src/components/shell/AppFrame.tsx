@@ -47,7 +47,7 @@ const NAV_ITEM_IDLE = "border-transparent text-text-muted hover:bg-zone-9 hover:
  * viewports. */
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const { me, isSolo, setThemePreference } = useSession();
-  const { signOut, user: clerkUser, hasCredential } = useAuth();
+  const { signOut, hasCredential } = useAuth();
   // No-auth mode already reports a credential.
   const signedOut = !hasCredential;
   const { pathname, search } = useLocation();
@@ -69,10 +69,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   });
   const Icon = THEME_ICON[theme];
 
-  // In hosted (clerk) mode the Clerk session carries the real identity
-  // (name, email, avatar); fall back to the server's /me otherwise.
-  const accountName = clerkUser?.label ?? me?.displayName ?? "You";
-  const accountImg = clerkUser?.imageUrl;
+  const accountName = me?.displayName ?? "You";
 
   const cycleTheme = () => {
     // Persist to the identity's profile (FR-OPS-7); the local apply inside
@@ -164,17 +161,12 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
                 className="header-control px-0"
                 aria-label="Account"
               >
-                <Avatar name={accountName} src={accountImg} />
+                <Avatar name={accountName} />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>
                 <span className="block truncate">{accountName}</span>
-                {clerkUser?.email && (
-                  <span className="block truncate type-caption font-normal text-text-muted">
-                    {clerkUser.email}
-                  </span>
-                )}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>

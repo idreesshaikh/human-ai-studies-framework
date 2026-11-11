@@ -37,7 +37,7 @@ automatically.
 | `MIDDLEWARE_DATA_DIR` | Uploaded files and local study artifacts |
 | `MIDDLEWARE_PROTOCOL` | Optional boot-protocol YAML |
 | `MIDDLEWARE_WEB` | Built frontend directory; defaults to `platform/dist` |
-| `MIDDLEWARE_AUTH` | `none`, `token`, or `clerk` |
+| `MIDDLEWARE_AUTH` | `none` (default, single user) or `token` |
 | `MIDDLEWARE_TOKEN` | Shared bearer token for token mode |
 | `MIDDLEWARE_PUBLIC_URL` | Public base URL used in participant links |
 | `MIDDLEWARE_CORS_ORIGINS` | Comma-separated origins for a separate frontend |
@@ -76,10 +76,9 @@ same paper work offline.
 | `templates` | Validate and list the template registry |
 | `seed-example` | Add one labelled synthetic example study (protocol, plan, links, simulated sessions); idempotent |
 
-The default is local single-user access. In Clerk mode, configure
-`MIDDLEWARE_CLERK_JWKS_URL`, `MIDDLEWARE_CLERK_ISSUER`, and
-`MIDDLEWARE_CLERK_PUBLISHABLE_KEY`. See the [security policy](../SECURITY.md)
-and [Clerk appearance notes](docs/clerk-appearance.md).
+The default is local single-user access. To require a shared token, set
+`MIDDLEWARE_AUTH=token` and `MIDDLEWARE_TOKEN`. See the
+[security policy](../SECURITY.md).
 
 ## Data flow
 

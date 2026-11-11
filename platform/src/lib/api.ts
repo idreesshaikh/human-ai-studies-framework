@@ -12,7 +12,7 @@ export interface Membership {
 export interface Me {
   sub: string;
   displayName: string;
-  mode: "none" | "token" | "clerk";
+  mode: "none" | "token";
   memberships: Membership[];
   /** Server-persisted display and conversation preferences. */
   preferences: Preferences;
@@ -196,11 +196,9 @@ export class OfflineError extends Error {
   }
 }
 
-/** A bearer token to send with every request, refreshed on demand  -  Clerk
- * session JWTs are short-lived, so this is called per request rather than
- * cached. Set by the auth layer once a Clerk session exists; defaults to the
- * pasted-token fallback (`localStorage['middleware.token']`), matching
- * `studyApi.ts`'s auth header. */
+/** The bearer token sent with every request: the token the researcher
+ * entered at sign-in (`localStorage['middleware.token']`), read per request
+ * so signing in or out takes effect without a reload. */
 let tokenProvider: () => Promise<string | null> = async () =>
   localStorage.getItem("middleware.token");
 
@@ -217,10 +215,8 @@ export function onUnauthorized(listener: () => void): () => void {
   return () => unauthorizedListeners.delete(listener);
 }
 
-/** The live bearer token (Clerk session JWT, or the pasted-token fallback)
- *  -  exported so `studyApi.ts`/`conversationApi.ts` share
- * the exact same token source as this module instead of each re-reading
- * `localStorage` directly, which never sees a Clerk-issued token at all. */
+/** The live bearer token, exported so `studyApi.ts`/`conversationApi.ts`
+ * share the exact same token source as this module. */
 export async function getAuthToken(): Promise<string | null> {
   return tokenProvider();
 }

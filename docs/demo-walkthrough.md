@@ -10,6 +10,12 @@ Open <http://127.0.0.1:8000>. The launcher uses temporary storage, disables
 live model calls, and removes rehearsal data on Ctrl+C. Add `--port 8001` if
 needed. Downloaded exports remain in your download folder.
 
+To try the design chat in the same disposable setup, add `--live` and load your
+model key, for example
+`uv run --no-sync --env-file .env.local python scripts/run_demo.py --live`.
+The chat then makes provider requests, and literature suggestions start once
+the bundled paper corpus has loaded (about a minute).
+
 ## Explore the workflow
 
 1. Open **Example: Copilot and bug fixing (synthetic data)**. Inspect its

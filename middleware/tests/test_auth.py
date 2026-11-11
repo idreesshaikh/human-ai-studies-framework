@@ -1,13 +1,8 @@
 """Sign-in provider seam (FR-OPS-5, D29)."""
 
-import datetime as dt
-
-import jwt
 import pytest
-from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
 from middleware.auth import (
-    ClerkVerifier,
     public_config,
     resolve_mode,
     verifier_from_settings,
@@ -49,9 +44,11 @@ def test_token_mode_without_token_fails_loudly(tmp_path):
         verifier_from_settings(s)
 
 
-def test_clerk_mode_without_jwks_fails_loudly(tmp_path):
+def test_removed_clerk_mode_fails_with_a_clear_reason(tmp_path):
+    """An old deployment .env may still say clerk; it must not start silently
+    open or with a generic error."""
     s = make_settings(tmp_path, auth="clerk")
-    with pytest.raises(ValueError, match="JWKS"):
+    with pytest.raises(ValueError, match="no longer supported"):
         verifier_from_settings(s)
 
 
@@ -64,88 +61,9 @@ def test_token_verifier_accepts_and_rejects(tmp_path):
         assert e.value.status_code == 401
 
 
-@pytest.fixture(scope="module")
-def rsa_key():
-    return rsa.generate_private_key(public_exponent=65537, key_size=2048)
-
-
-def clerk_verifier_with_key(key, issuer=None) -> ClerkVerifier:
-    v = ClerkVerifier("https://example.test/jwks.json", issuer=issuer)
-    v._signing_key = lambda token: key.public_key()
-    return v
-
-
-def make_jwt(key, *, minutes=5, issuer="https://clerk.example.test", **claims):
-    now = dt.datetime.now(dt.UTC)
-    payload = {
-        "sub": "user_1",
-        "iss": issuer,
-        "iat": now,
-        "exp": now + dt.timedelta(minutes=minutes),
-        **claims,
-    }
-    return jwt.encode(payload, key, algorithm="RS256")
-
-
-def test_clerk_accepts_valid_jwt(rsa_key):
-    verify = clerk_verifier_with_key(rsa_key)
-    verify(f"Bearer {make_jwt(rsa_key)}")
-
-
-def test_clerk_rejects_expired_jwt(rsa_key):
-    verify = clerk_verifier_with_key(rsa_key)
-    with pytest.raises(HTTPException) as e:
-        verify(f"Bearer {make_jwt(rsa_key, minutes=-5)}")
-    assert e.value.status_code == 401
-
-
-def test_clerk_rejects_wrong_signature(rsa_key):
-    other = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    verify = clerk_verifier_with_key(rsa_key)
-    with pytest.raises(HTTPException) as e:
-        verify(f"Bearer {make_jwt(other)}")
-    assert e.value.status_code == 401
-
-
-def test_clerk_checks_issuer_when_configured(rsa_key):
-    verify = clerk_verifier_with_key(rsa_key, issuer="https://good.test")
-    verify(f"Bearer {make_jwt(rsa_key, issuer='https://good.test')}")
-    with pytest.raises(HTTPException) as e:
-        verify(f"Bearer {make_jwt(rsa_key, issuer='https://evil.test')}")
-    assert e.value.status_code == 401
-
-
-def test_clerk_missing_header_is_401(rsa_key):
-    verify = clerk_verifier_with_key(rsa_key)
-    with pytest.raises(HTTPException) as e:
-        verify("")
-    assert e.value.status_code == 401
-
-
-def test_jwks_outage_fails_closed_with_503(rsa_key):
-    verify = clerk_verifier_with_key(rsa_key)
-
-    def boom(_token):
-        raise OSError("connection refused")
-
-    verify._signing_key = boom
-    with pytest.raises(HTTPException) as e:
-        verify(f"Bearer {make_jwt(rsa_key)}")
-    assert e.value.status_code == 503
-
-
 def test_auth_config_shapes(tmp_path):
     assert public_config(make_settings(tmp_path)) == {"mode": "none"}
     assert public_config(make_settings(tmp_path, token="sekrit")) == {"mode": "token"}
-    clerk = public_config(
-        make_settings(
-            tmp_path,
-            auth="clerk",
-            clerk_jwks_url="https://example.test/jwks.json",
-            clerk_publishable_key="pk_test_abc",
-        )
-    )
-    assert clerk == {"mode": "clerk", "clerkPublishableKey": "pk_test_abc"}
     # the secret token never appears in any config payload.
     assert "sekrit" not in str(public_config(make_settings(tmp_path, token="sekrit")))
 

@@ -558,3 +558,94 @@ def test_a_plan_turn_still_recommends_literature(api, tmp_path):
         for t in stored
         for r in t.get("recommendations") or []
     )
+
+
+@pytest.mark.parametrize(
+    ("prose", "plain"),
+    [
+        ("**E1** (time to first green) first", "**time to first green** first"),
+        ("**E1 (time to first green)** first", "**time to first green** first"),
+        ("E1 alone", "time to first green alone"),
+        ("Z9 stays", "Z9 stays"),
+    ],
+)
+def test_catalog_codes_become_plain_names_once(prose, plain):
+    assert study_plan._plain_measure_names(prose) == plain
+
+
+# ------------------------------------------------------------- cited literature
+
+PAPERS = [
+    {"ref": "corpus:copilot-speed", "title": "Copilot and developer speed"}
+    | {"year": 2023},
+    {"ref": "corpus:workload-ai", "title": "AI assistants and workload", "year": 2024},
+]
+
+
+def test_the_model_sees_the_retrieved_papers_by_id():
+    model = _Model(_reply())
+    study_plan.propose(model, BRIEF, "s", papers=PAPERS)
+    prompt = model.bodies[0]["messages"][-1]["content"]
+    assert "P1. Copilot and developer speed (2023)" in prompt
+    assert "P2. AI assistants and workload (2024)" in prompt
+
+
+def test_cards_cite_only_retrieved_papers():
+    reply = _reply(
+        sources={
+            "design": ["P1", "P9"],
+            "researchQuestions": [["P1"], ["P2", "invented"]],
+            "measures": ["P2"],
+            "task": [],
+            "participants": "P1",
+        }
+    )
+    turn = study_plan.propose(_Model(reply), BRIEF, "s", papers=PAPERS)
+    cites = {
+        (m["kind"], m["proposal"][:20]): m.get("cites") for m in turn["moves"]
+    }
+    by_kind = {}
+    for (kind, _), refs in cites.items():
+        by_kind.setdefault(kind, []).append(refs)
+    assert by_kind["choose-template"] == [["corpus:copilot-speed"]]
+    assert by_kind["add-rq"] == [["corpus:copilot-speed"], ["corpus:workload-ai"]]
+    assert by_kind["add-measure"] == [["corpus:workload-ai"]]
+    assert by_kind["declare-task"] == [[]]
+    assert by_kind["set-field"] == [[]]  # a bare string is not a list of ids
+
+
+def test_no_papers_means_no_citations_and_no_prompt_section():
+    model = _Model(_reply(sources={"design": ["P1"]}))
+    turn = study_plan.propose(model, BRIEF, "s")
+    assert "P1." not in model.bodies[0]["messages"][-1]["content"]
+    assert all(not m.get("cites") for m in turn["moves"])
+
+
+def test_cited_papers_become_card_grounding(api, tmp_path):
+    from middleware.db import CORPUS_STUDY_ID, Paper, make_session_factory
+
+    from middleware import paper_index
+
+    client, model = api(_reply())
+    factory = make_session_factory(f"sqlite:///{tmp_path / 't.sqlite3'}")
+    with factory() as s:
+        ref = "corpus:copilot-bug-fixing"
+        title = "Copilot and bug fixing in unfamiliar Java code"
+        why = "Developers fixing bugs with Copilot in an unfamiliar codebase."
+        s.add(
+            Paper(
+                study_id=CORPUS_STUDY_ID,
+                paper_ref=ref,
+                title=title,
+                abstract=why,
+                tier="A",
+                added_at="",
+            )
+        )
+        paper_index.index_paper(s, ref, title, why)
+        s.commit()
+    model.replies = [_reply(sources={"researchQuestions": [["P1"], []]})]
+    turn = _say(client, BRIEF)
+    first_rq = next(m for m in turn["moves"] if m["kind"] == "add-rq")
+    assert [g["ref"] for g in first_rq["grounding"]] == ["corpus:copilot-bug-fixing"]
+    assert "cites" not in first_rq

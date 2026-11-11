@@ -1,5 +1,4 @@
-/* Place hosted Clerk styles before utilities so workspace overrides win. */
-@layer theme, base, clerk, components, utilities;
+@layer theme, base, components, utilities;
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@fontsource-variable/archivo/wght.css";
@@ -494,58 +493,6 @@ body::before {
   ):focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-}
-.clerk-embed {
-  padding-top: 0.875rem;
-  padding-left: 0.25rem;
-}
-.clerk-embed .cl-rootBox,
-.clerk-embed .cl-cardBox,
-.clerk-embed .cl-card {
-  width: 100%;
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-.clerk-embed .cl-header,
-.clerk-embed .cl-headerTitle,
-.clerk-embed .cl-headerSubtitle {
-  display: none !important;
-}
-.clerk-embed .cl-footer {
-  background: transparent !important;
-  padding-top: 0.75rem !important;
-}
-.clerk-embed .cl-scrollBox {
-  overflow: visible !important;
-  max-height: none !important;
-}
-.clerk-embed .cl-lastAuthenticationStrategyBadge {
-  display: none !important;
-}
-.clerk-embed .cl-footerItem {
-  position: relative;
-  margin-top: 0.5rem;
-}
-.clerk-embed [data-clerk-dev-mode-overlay],
-.clerk-embed [data-clerk-dev-mode-overlay] * {
-  position: static !important;
-  inset: auto !important;
-  background: transparent !important;
-  width: 0 !important;
-  height: 0 !important;
-  overflow: hidden !important;
-}
-.clerk-embed .cl-formButtonPrimary {
-  background: var(--accent) !important;
-  color: var(--accent-contrast) !important;
-  border-radius: var(--radius-control) !important;
-  opacity: 1 !important;
-}
-.clerk-embed .cl-formButtonPrimary:disabled {
-  opacity: 0.5 !important;
 }
 @layer components {
   .control {

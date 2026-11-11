@@ -24,7 +24,7 @@ def strict_client(tmp_path, monkeypatch):
         "verifier_from_settings",
         lambda settings: (
             lambda authorization: Identity(
-                sub="researcher", display_name="Researcher", mode="clerk"
+                sub="researcher", display_name="Researcher", mode="token"
             )
         ),
     )

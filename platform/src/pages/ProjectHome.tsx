@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { RoleGate } from "@/components/shell/RoleGate";
 import { useApi, useSession } from "@/lib/session";
-import { useAuth } from "@/lib/auth.tsx";
 import { useAsync } from "@/lib/useAsync";
 import { memberLabel, viewerIdentity } from "@/lib/memberLabel";
 import { ApiError } from "@/lib/api.ts";
@@ -26,7 +25,6 @@ import {
 export function ProjectHome() {
   const api = useApi();
   const { me, isSolo, loading: meLoading, refresh } = useSession();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const { slug = "" } = useParams();
   const { data, loading, error, reload } = useAsync(() => api.projectHome(slug), [api, slug]);
@@ -47,7 +45,7 @@ export function ProjectHome() {
     return () => { active = false; };
   }, [composing, featured]);
   const names = browserNameStore();
-  const viewer = viewerIdentity(user, me);
+  const viewer = viewerIdentity(me);
   // Two-step confirm for study deletion: first click arms, second deletes.
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);

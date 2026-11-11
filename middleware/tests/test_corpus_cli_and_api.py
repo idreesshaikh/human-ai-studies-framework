@@ -177,7 +177,7 @@ def client(tmp_path, monkeypatch, env):
         if not authorization.startswith("Bearer "):
             raise auth_mod.HTTPException(401, "missing bearer token")
         sub = authorization.removeprefix("Bearer ")
-        return Identity(sub=sub, display_name=sub, mode="clerk")
+        return Identity(sub=sub, display_name=sub, mode="token")
 
     monkeypatch.setattr(auth_mod, "verifier_from_settings", lambda _s: _verifier)
     settings = Settings(
