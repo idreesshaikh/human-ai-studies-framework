@@ -31,6 +31,7 @@ import { signInHref } from "@/lib/returnTo";
 import { plainMatchReason } from "@/lib/uiText";
 import { hasRole } from "@/lib/capabilities";
 import { publicPaperReference } from "@/lib/paperReference";
+import { browserNameStore, rememberStudyName } from "@/lib/studyNames";
 
 const BAND_COPY: Record<RepertoireEntry["band"], string> = {
   common: "Widely used across the corpus",
@@ -83,6 +84,7 @@ export function Templates() {
       const slug = await studyProject();
       const { protocol } = await templatesApi.instantiate(templateId, { title });
       const study = await api.createStudy(slug, title, protocol);
+      rememberStudyName(browserNameStore(), study.id, title);
       await refresh().catch(() => {});
       navigate(`/p/${slug}/studies/${study.id}?tab=planning`);
     } catch (error) {
@@ -142,6 +144,7 @@ export function Templates() {
       const title =
         text.length > 60 ? `${text.slice(0, 57).trimEnd()}…` : text;
       const study = await api.createStudy(slug, title);
+      rememberStudyName(browserNameStore(), study.id, title);
       await refresh();
       navigate(`/p/${slug}/studies/${study.id}`, {
         state: { opening: text },

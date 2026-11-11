@@ -61,7 +61,8 @@ def test_export_returns_a_downloadable_zip_with_both_artifacts(client):
 
     with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
         names = set(zf.namelist())
-        assert names == {"notebook.ipynb", "data-dictionary.md"}
+        assert names == {"notebook.ipynb", "data-dictionary.md", "dataset.json"}
+        assert json.loads(zf.read("dataset.json"))["rows"] == []
         doc = json.loads(zf.read("notebook.ipynb"))
         assert doc["nbformat"] == 4
         assert "## Data dictionary" in zf.read("data-dictionary.md").decode()
@@ -88,3 +89,21 @@ def test_export_is_byte_reproducible(client):
     first = client.get(f"/studies/{STUDY}/notebook").content
     second = client.get(f"/studies/{STUDY}/notebook").content
     assert first == second
+
+
+def test_the_downloaded_notebook_loads_its_dataset_as_shipped(
+    client, tmp_path, monkeypatch
+):
+    """Its load and timeline cells run from the unzipped folder, even with no
+    sessions yet."""
+    _seed_draft(client)
+    res = client.get(f"/studies/{STUDY}/notebook")
+    with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
+        zf.extractall(tmp_path)
+    doc = json.loads((tmp_path / "notebook.ipynb").read_text())
+    code = ["".join(c["source"]) for c in doc["cells"] if c["cell_type"] == "code"]
+    monkeypatch.chdir(tmp_path)
+    namespace: dict = {}
+    for source in code[:2]:
+        exec(compile(source, "notebook", "exec"), namespace)  # noqa: S102
+    assert namespace["dataset"].study_id == STUDY

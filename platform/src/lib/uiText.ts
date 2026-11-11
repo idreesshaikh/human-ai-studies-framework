@@ -130,11 +130,12 @@ export function captureTokenLabel(token: string): string {
 export function enrollmentHeading(
   created: number,
   redeemed: number,
+  revoked = 0,
 ): { title: string; detail: string } {
   if (created === 0) return { title: "Invite participants", detail: "" };
   return {
     title: `${created} ${created === 1 ? "link" : "links"} created`,
-    detail: `${redeemed} redeemed`,
+    detail: revoked ? `${redeemed} redeemed, ${revoked} revoked` : `${redeemed} redeemed`,
   };
 }
 

@@ -123,3 +123,32 @@ def test_power_route_works_without_a_compiled_protocol(client):
     study_id = make_study(client, "alice")
     r = client.get(f"/studies/{study_id}/power", headers=bearer("alice"))
     assert r.status_code == 200
+
+
+def test_power_route_refuses_protocols_that_are_not_two_arm(client):
+    """A 1-arm, 3-arm or 2x2 factorial protocol used to get a two-arm sample size.
+    Like POST /plan, the curve now refuses with a reason and no number."""
+    made = client.post("/projects", json={"name": "Lab"}, headers=bearer("alice"))
+    slug = made.json()["slug"]
+    for template_id in (
+        "single-arm-benchmark-v1",
+        "multi-arm-rct-v1",
+        "factorial-2x2-v1",
+    ):
+        instantiated = client.post(
+            f"/templates/{template_id}/instantiate",
+            json={"title": template_id},
+            headers=bearer("alice"),
+        )
+        assert instantiated.status_code == 200, instantiated.text
+        study = client.post(
+            f"/projects/{slug}/studies",
+            json={"name": template_id, "protocol": instantiated.json()["protocol"]},
+            headers=bearer("alice"),
+        )
+        assert study.status_code == 200, study.text
+        r = client.get(
+            f"/studies/{study.json()['id']}/power", headers=bearer("alice")
+        )
+        assert r.status_code == 422, (template_id, r.text)
+        assert "exactly two declared conditions" in r.json()["detail"]

@@ -166,3 +166,40 @@ def shapes_from_recipe_ids(recipe_ids: set[str]) -> set[str]:
     full catalogue every study saw regardless of its own design."""
     recipe_to_shape = {recipe: shape for shape, recipe in _SHAPE_RECIPES.items()}
     return {recipe_to_shape[r] for r in recipe_ids if r in recipe_to_shape}
+
+
+def recipe_prescriptions(recipe_ids: set[str], design: str) -> list[Prescription]:
+    """Prescriptions for typed recipes that are not a catalogue design shape.
+
+    A v6 protocol records ``mean-comparison`` for continuous outcomes. Showing
+    the design shape's non-parametric catalogue row instead would contradict
+    the test the protocol, the Plan tab and the notebook actually use."""
+    if "mean-comparison" not in recipe_ids:
+        return []
+    if str(design).lower() in {"within-subjects", "paired"}:
+        return [
+            Prescription(
+                design_shape="paired",
+                test="Paired t-test (two-sided)",
+                effect_size="Mean difference with its confidence interval",
+                correction="none",
+                sample_size_guidance="From the saved recruitment plan",
+                rationale="The protocol records a normal-theory mean comparison "
+                "(recipe mean-comparison) for a within-subjects design: each "
+                "participant's two condition values are compared as pairs. "
+                "Incomplete pairs are not imputed.",
+            )
+        ]
+    return [
+        Prescription(
+            design_shape="two-group",
+            test="Pooled-variance two-sample t-test, or OLS ANCOVA when a "
+            "pre-task covariate is declared (two-sided)",
+            effect_size="Mean difference with its confidence interval",
+            correction="none",
+            sample_size_guidance="From the saved recruitment plan",
+            rationale="The protocol records a normal-theory mean comparison "
+            "(recipe mean-comparison) for independent groups. A declared "
+            "pre-task covariate adjusts the comparison; no interactions.",
+        )
+    ]

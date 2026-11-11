@@ -290,16 +290,21 @@ def recommend_prescription(design_shape: str) -> dict[str, Any] | None:
         p = prescribe(design_shape)
         if p is None:
             return None
-        return {
-            "designShape": p.design_shape,
-            "test": p.test,
-            "effectSize": p.effect_size,
-            "correction": p.correction,
-            "sampleSizeGuidance": p.sample_size_guidance,
-            "rationale": p.rationale,
-        }
+        return prescription_dict(p)
     except ImportError:
         return None
+
+
+def prescription_dict(p: Any) -> dict[str, Any]:
+    """A prescription as the API returns it."""
+    return {
+        "designShape": p.design_shape,
+        "test": p.test,
+        "effectSize": p.effect_size,
+        "correction": p.correction,
+        "sampleSizeGuidance": p.sample_size_guidance,
+        "rationale": p.rationale,
+    }
 
 
 def suggest_figures(result_shape: str) -> list[dict[str, Any]]:
@@ -1481,8 +1486,14 @@ def _plan_turn(
         ) from down
     if turn is None:
         return None
+    # The plan turn replaces the conversational turn, so it must carry that
+    # turn's literature too. Returning before retrieval left every plan-shaped
+    # reply with an empty recommendation rail. The same deterministic, bounded
+    # retrieval runs here (no extra model call); it happens after the plan so a
+    # declined turn falls through to the caller's own retrieval exactly once.
+    papers, _, _ = _retrieve(s, text, study_id, None)
     moves = []
-    retrieved: set[str] = set()
+    retrieved: set[str] = {paper["ref"] for paper in papers}
     for i, spec in enumerate(turn["moves"]):
         grounding = (
             _resolve_grounding(s, _template_source_refs(spec["patch"]["templateId"]))
@@ -1501,6 +1512,7 @@ def _plan_turn(
     return {
         **holding_turn(turn["text"], stance),
         "moves": moves,
+        "recommendations": papers,
         "retrievedRefs": sorted(retrieved),
         "source": "llm",
     }

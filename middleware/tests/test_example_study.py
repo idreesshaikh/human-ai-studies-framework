@@ -381,3 +381,12 @@ def test_a_separate_study_still_mints_and_redeems_live_links(client):
     )
     assert response.status_code == 200, response.text
     assert response.json()["studyId"] == study
+
+
+def test_the_recorded_analysis_plan_matches_the_protocols_test(client):
+    """The example records mean-comparison for a within-subjects design; the Data
+    tab must show the paired t-test, not the non-parametric catalogue row."""
+    rows = client.get(
+        "/analysis/prescriptions", params={"study_id": EXAMPLE_STUDY_ID}
+    ).json()["prescriptions"]
+    assert [row["test"] for row in rows] == ["Paired t-test (two-sided)"]

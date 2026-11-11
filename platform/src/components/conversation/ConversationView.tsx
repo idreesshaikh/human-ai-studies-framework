@@ -803,7 +803,12 @@ export function ConversationView({
     ? {
         ...compileResult,
         valid: false,
-        unresolved: [...new Set([...compileResult.unresolved, ...missingCoreSlots])],
+        // The server's compile is authoritative and names gaps in its own
+        // words ("the analysis plan"); merging the client's slot keys as well
+        // listed the same gap twice ("the analysis plan, Statistical plan").
+        unresolved: compileResult.unresolved.length > 0
+          ? compileResult.unresolved
+          : missingCoreSlots,
       }
     : compileResult;
   const displayedPlatform = activePlatform && missingCoreSlots.length > 0 &&
