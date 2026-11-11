@@ -31,6 +31,8 @@ from middleware import (
     workspace,
 )
 from middleware.db import (
+    ConversationTurn,
+    DesignMoveRow,
     EnrollmentToken,
     Event,
     ProtocolDraftRow,
@@ -138,15 +140,15 @@ def register(app: FastAPI, deps: ApiDeps):
         windowSeconds: int = 300,
         s: Session = Depends(deps.db),
     ) -> list[dict]:
-        """List a study's active enrollment tokens (FR-INST-20)."""
+        """List a study's enrollment tokens (FR-INST-20).
+
+        Revoked links stay listed with status ``revoked`` and no connection
+        string, so the roster keeps a record of every link that was issued."""
         from protocol.errors import ProtocolError
 
         rows = s.scalars(
             select(EnrollmentToken)
-            .where(
-                EnrollmentToken.study_id == study_id,
-                EnrollmentToken.revoked_at.is_(None),
-            )
+            .where(EnrollmentToken.study_id == study_id)
             .order_by(EnrollmentToken.participant_id)
         ).all()
 
@@ -165,7 +167,9 @@ def register(app: FastAPI, deps: ApiDeps):
         illustrative = is_example_study(study_id)
         out = []
         for r in rows:
-            if r.redeemed_at and r.participant_id in streaming_participants:
+            if r.revoked_at:
+                status = "revoked"
+            elif r.redeemed_at and r.participant_id in streaming_participants:
                 status = "streaming"
             elif r.redeemed_at:
                 status = "paired"
@@ -208,7 +212,7 @@ def register(app: FastAPI, deps: ApiDeps):
                     "status": status,
                     "connectionString": (
                         None
-                        if illustrative
+                        if illustrative or r.revoked_at
                         else enrollment.connection_string(base, r.token)
                     ),
                     **({"illustrative": True} if illustrative else {}),
@@ -286,13 +290,57 @@ def register(app: FastAPI, deps: ApiDeps):
                 422, f"toggle would produce an invalid protocol: {'; '.join(errors)}"
             )
 
-        new_yaml = yaml.safe_dump(draft, default_flow_style=False)
+        # Key order is kept so the applied protocol does not read as a wholesale
+        # rewrite against the Setup draft.
+        new_yaml = yaml.safe_dump(draft, default_flow_style=False, sort_keys=False)
         row = s.get(ProtocolDraftRow, study_id)
         if row is None:
             row = ProtocolDraftRow(study_id=study_id)
             s.add(row)
         row.yaml = new_yaml
         row.updated_at = deps.now()
+        # The change is a protocol amendment, so it joins the design ledger as an
+        # accepted move with its reason. Otherwise the next "Apply protocol" in
+        # Setup recompiled the ledger and silently reverted it, and nothing
+        # recorded who changed capture or why.
+        setting = ".".join([body.instrument, *map(str, body.path)])
+        reason = " ".join(str(body.rationale or "").split())[:500]
+        turn = ConversationTurn(
+            id=secrets.token_hex(8),
+            study_id=study_id,
+            seq=deps.conversation_seq(s, study_id),
+            role="platform",
+            author="Platform",
+            text=(
+                f"Capture setting {setting} changed to {body.value!r} from the Run "
+                "tab. It applies to participant links created from now on; links "
+                "already issued keep their capture configuration."
+                + (f" Reason: {reason}" if reason else "")
+            ),
+            retrieved_refs=[],
+            recommendations=[],
+            created_at=deps.now(),
+            source="scripted",
+        )
+        s.add(turn)
+        s.flush()
+        s.add(
+            DesignMoveRow(
+                id=f"{turn.id}:{toggle_move['moveId']}",
+                study_id=study_id,
+                turn_id=turn.id,
+                seq=1,
+                kind=toggle_move["kind"],
+                target=toggle_move["target"],
+                proposal=f"Set {setting} to {body.value!r}."
+                + (f" {reason}" if reason else ""),
+                patch=toggle_move["patch"],
+                grounding=[],
+                status="accepted",
+                decided_by="Researcher",
+                decided_at=deps.now(),
+            )
+        )
         s.commit()
         return {"applied": True}
 

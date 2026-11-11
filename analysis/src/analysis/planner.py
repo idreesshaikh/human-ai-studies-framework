@@ -355,6 +355,24 @@ def estimate_variance(values: list[float]) -> dict:
     }
 
 
+def require_two_arms(conditions) -> None:
+    """
+    Refuse a protocol that is not a two-arm comparison.
+
+    Every calculation here compares exactly two groups (independent arms or paired
+    conditions). A one-condition benchmark, a three-arm trial or a 2x2 factorial
+    (four cells) would otherwise receive a two-arm sample size, which understates or
+    misstates the recruitment it needs. Refusing carries a reason and no number.
+    """
+    count = len(conditions or [])
+    if count != 2:
+        raise ValueError(
+            "Planning requires exactly two declared conditions; this protocol "
+            f"declares {count}. The planner supports two-arm comparisons only, "
+            "so no sample size is reported"
+        )
+
+
 def compatibility_curve(
     effect_sizes,
     *,

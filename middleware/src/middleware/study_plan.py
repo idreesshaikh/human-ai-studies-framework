@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import urllib.error
 
 from protocol.measure_catalog import catalog_entry, measure_catalog
@@ -136,6 +137,34 @@ def _clip(value: object, limit: int) -> str:
     # usable prose without passing an unencodable string to storage or the UI.
     value = value.encode("utf-8", errors="replace").decode("utf-8")
     return " ".join(value.split())[:limit].strip()
+
+
+def _clip_reply(value: object, limit: int) -> str:
+    """Model prose shortened to whole sentences, never cut mid-word."""
+    text = _clip(value, 100_000)
+    if len(text) <= limit:
+        return text
+    cut = text[: limit + 1]
+    ends = [m.end() for m in re.finditer(r"[.!?](?=\s|$)", cut)]
+    if ends and ends[-1] >= limit // 2:
+        return cut[: ends[-1]].strip()
+    return cut[:limit].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+
+
+_CATALOG_CODE = re.compile(r"\b([ES]\d{1,2})\b(?:\s*\(([^()]{1,120})\))?")
+
+
+def _plain_measure_names(text: str) -> str:
+    """Replace internal catalog ids (``E1``, ``S8``) in model prose with the
+    construct names the rest of the interface uses."""
+
+    def name(match: re.Match) -> str:
+        entry = catalog_entry(match.group(1))
+        if entry is None:
+            return match.group(0)
+        return match.group(2) or str(entry.get("construct") or match.group(1))
+
+    return _CATALOG_CODE.sub(name, text)
 
 
 def plan_of(draft: dict | None) -> dict:
@@ -258,6 +287,22 @@ def _body(plan: dict, current: dict | None) -> tuple[QuickProtocolIn | None, str
     return body, ""
 
 
+def _dropped_measures(plan: dict, kept: list[str]) -> list[str]:
+    """Catalog outcomes the model asked for that the plan could not include."""
+    requested = plan.get("measureIds")
+    if not isinstance(requested, list):
+        return []
+    names: list[str] = []
+    for ident in requested:
+        entry = catalog_entry(str(ident)) if isinstance(ident, str) else None
+        if entry is None or entry["id"] in kept:
+            continue
+        name = str(entry.get("construct") or entry["id"])
+        if name not in names:
+            names.append(name)
+    return names
+
+
 def _task_title(task: str, limit: int = 80) -> str:
     """The task's first sentence, cut at a word boundary rather than mid-word."""
     first = task.split(". ")[0].rstrip(".")
@@ -287,10 +332,17 @@ def _moves(
         {
             "kind": "choose-template",
             "target": "design",
+            # Accepting this card commits every value below, so the card says so.
             "proposal": (
-                "Use a counterbalanced within-subjects comparison."
-                if within
-                else "Use a two-group between-subjects comparison."
+                (
+                    "Use a counterbalanced within-subjects comparison"
+                    if within
+                    else "Use a two-group between-subjects comparison"
+                )
+                + f" of {conditions[0]} and {conditions[1]}"
+                + f" with {body.plannedParticipants} participants"
+                + f" in {body.sessionMinutes}-minute sessions."
+                + f" Study title: {body.title.strip()}."
             ),
             "patch": {
                 "templateId": (
@@ -326,7 +378,7 @@ def _moves(
                     "value": question,
                 },
             }
-            for question in questions[1:]
+            for question in questions
         ),
         {
             "kind": "set-field",
@@ -622,7 +674,7 @@ def propose(
     raw = _ask(client, text, before, history or [])
     if raw is None:
         return None
-    reply = _clip(raw.get("reply"), _REPLY_CHARS)
+    reply = _plain_measure_names(_clip_reply(raw.get("reply"), _REPLY_CHARS))
     body, problem = _body(raw["plan"], current)
     if body is None:
         # The model's prose describes a plan that was not applied, so it is not
@@ -637,6 +689,21 @@ def propose(
         **{f: getattr(body, f) for f in PLAN_FIELDS if f != "measureIds"},
         "measureIds": [*body.existingMeasureIds, *body.measureIds],
     }
+    dropped = _dropped_measures(raw["plan"], after["measureIds"])
+    if dropped:
+        # The model's prose may claim these were added; the server says what
+        # actually happened.
+        reply = " ".join(
+            part
+            for part in (
+                reply,
+                f"Not added: {_join(dropped)}. The catalog has no supported "
+                f"analysis for {'it' if len(dropped) == 1 else 'them'} as an "
+                f"outcome in a {body.design} design, or the plan already has "
+                "six outcomes.",
+            )
+            if part
+        )
     changed = _changed(before, after)
     if not changed:
         return {
@@ -661,14 +728,13 @@ def propose(
             "The plan is unchanged.",
             "moves": [],
         }
-    moves[0]["proposal"] += f" Research question: {body.researchQuestions[0]}"
     raw_assumed = raw.get("assumed")
     assumed = (
         [n for n in raw_assumed if isinstance(n, str)]
         if isinstance(raw_assumed, list)
         else []
     )
-    caution = _clip(raw.get("caution"), 300)
+    caution = _plain_measure_names(_clip_reply(raw.get("caution"), 300))
     if not any(before.values()):
         return {"text": _opening_reply(body, assumed, caution, reply), "moves": moves}
     summary = "Changed: " + _join([_FIELD_LABELS[f] for f in changed]) + "."

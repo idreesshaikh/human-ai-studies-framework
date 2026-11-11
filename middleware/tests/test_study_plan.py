@@ -449,3 +449,112 @@ def test_partial_acceptance_is_reported_not_papered_over(api):
     note = _say(client, "Accepted.", decision={"moveId": first, "action": "accepted"})
     assert "still waiting for your decision" in note["text"]
     assert len(model.bodies) == calls
+
+
+# ------------------------------------------------------------- QA regressions
+
+
+def test_a_declined_question_stays_out_of_the_protocol():
+    turn = study_plan.propose(_Model(_reply()), BRIEF, "s")
+    second = PLAN["researchQuestions"][1]
+    decided = [
+        {**m, "status": "rejected" if m["proposal"] == second else "accepted"}
+        for m in turn["moves"]
+    ]
+    built = compiler.compile_moves(decided)
+    assert built.valid, (built.errors, built.unresolved)
+    assert [rq["text"] for rq in built.draft["researchQuestions"]] == [
+        PLAN["researchQuestions"][0]
+    ]
+    # Accepting the card keeps it.
+    assert len(_built(turn).draft["researchQuestions"]) == 2
+
+
+def test_every_research_question_is_its_own_card_not_part_of_the_design():
+    """The Design card used to end with "Research question: ...", so accepting
+    it read as accepting a question while it filled five protocol sections."""
+    turn = study_plan.propose(_Model(_reply()), BRIEF, "s")
+    design = turn["moves"][0]
+    assert design["kind"] == "choose-template"
+    assert "Research question" not in design["proposal"]
+    cards = [m["proposal"] for m in turn["moves"] if m["kind"] == "add-rq"]
+    assert cards == PLAN["researchQuestions"]
+    only_design = compiler.compile_moves(
+        [
+            {**m, "status": "accepted" if m is design else "proposed"}
+            for m in turn["moves"]
+        ]
+    )
+    assert not only_design.draft.get("researchQuestions")
+    assert "the research question" in only_design.unresolved
+
+
+def test_the_design_card_states_every_value_it_commits():
+    plan = {**PLAN, "plannedParticipants": 24, "sessionMinutes": 45}
+    turn = study_plan.propose(_Model(_reply(plan)), BRIEF, "s")
+    card = turn["moves"][0]["proposal"]
+    for fragment in ("without AI", "with Copilot", "24 participants", "45-minute"):
+        assert fragment in card
+    assert PLAN["title"] in card
+
+
+def test_a_stated_45_minute_session_is_not_reported_as_assumed():
+    plan = {**PLAN, "sessionMinutes": 45}
+    built = _built(study_plan.propose(_Model(_reply(plan)), BRIEF, "s"))
+    assert built.valid
+    assert not any("not stated" in warning for warning in built.warnings)
+
+
+def test_outcomes_the_plan_could_not_include_are_named_in_the_reply():
+    plan = {**PLAN, "measureIds": ["E1", "E2"]}
+    reply = {**_reply(plan), "reply": "I added E1 (time to first green) and E2."}
+    turn = study_plan.propose(_Model(reply), BRIEF, "s")
+    assert "Not added:" in turn["text"]
+    assert "E1" not in turn["text"] and "E2 " not in turn["text"]
+
+
+def test_long_model_prose_is_cut_at_a_sentence_not_mid_word():
+    prose = "First sentence is here. " + "word " * 300
+    clipped = study_plan._clip_reply(prose, 700)
+    assert clipped.endswith(("…", "."))
+    assert len(clipped) <= 701
+    assert study_plan._clip_reply("One. Two three.", 700) == "One. Two three."
+
+
+def test_a_plan_turn_still_recommends_literature(api, tmp_path):
+    """The plan path used to return before retrieval, so chat turns that produced
+    a plan carried no literature at all."""
+    from middleware.db import CORPUS_STUDY_ID, Paper, make_session_factory
+
+    from middleware import paper_index
+
+    client, _ = api(_reply())
+    factory = make_session_factory(f"sqlite:///{tmp_path / 't.sqlite3'}")
+    with factory() as s:
+        ref = "corpus:copilot-bug-fixing"
+        title = "Copilot and bug fixing in unfamiliar Java code"
+        why = "Developers fixing bugs with Copilot in an unfamiliar codebase."
+        s.add(
+            Paper(
+                study_id=CORPUS_STUDY_ID,
+                paper_ref=ref,
+                title=title,
+                abstract=why,
+                tier="A",
+                added_at="",
+            )
+        )
+        paper_index.index_paper(s, ref, title, why)
+        s.commit()
+
+    turn = _say(client, BRIEF)
+    assert turn["moves"], "the brief must still produce plan cards"
+    refs = {r["ref"] for r in turn["recommendations"]}
+    assert "corpus:copilot-bug-fixing" in refs
+    # Recommendations persist with the turn, like the conversational path.
+    stored = client.get("/studies/s1/conversation").json()["turns"]
+    assert any(
+        r["ref"] == "corpus:copilot-bug-fixing"
+        for t in stored
+        for r in t.get("recommendations") or []
+    )

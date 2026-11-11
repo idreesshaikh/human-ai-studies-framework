@@ -51,7 +51,11 @@ def test_list_then_revoke(client_designed: TestClient):
         client_designed.delete(f"/studies/pilot/enrollment/tokens/{tid}").status_code
         == 200
     )
-    assert client_designed.get("/studies/pilot/enrollment/tokens").json() == []
+    # The roster keeps the revoked link, without a usable connection string.
+    (revoked,) = client_designed.get("/studies/pilot/enrollment/tokens").json()
+    assert revoked["id"] == tid
+    assert revoked["status"] == "revoked"
+    assert revoked["connectionString"] is None
     # IDOR guard: a token that isn't in this study cannot be revoked via it.
     other = client_designed.post(
         "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "session"}
@@ -470,3 +474,22 @@ def test_credential_never_persists_into_stored_rows(client_designed: TestClient)
     )
     dump = client_designed.get("/sessions/s1/events").text
     assert cred not in dump
+
+
+def test_a_run_tab_toggle_is_recorded_and_survives_the_next_compile(client_designed):
+    """A capture change is an audited amendment: the ledger records it with its
+    reason, and recompiling the Setup draft keeps it instead of reverting it."""
+    body = {
+        "instrument": "tern",
+        "path": ["stuck", "enabled"],
+        "value": False,
+        "rationale": "quieter pilot",
+    }
+    response = client_designed.post("/studies/pilot/enrollment/toggles", json=body)
+    assert response.status_code == 200, response.text
+    conversation = client_designed.get("/studies/pilot/conversation").json()
+    assert any("quieter pilot" in t["text"] for t in conversation["turns"])
+    response = client_designed.post("/studies/pilot/conversation/compile", json={})
+    assert response.status_code == 200, response.text
+    compiled = response.json()
+    assert compiled["protocol"]["instruments"]["tern"]["stuck"]["enabled"] is False

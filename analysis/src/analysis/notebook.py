@@ -284,8 +284,8 @@ def build_notebook(protocol: dict, dataset: Dataset, study_id: str) -> dict:
         _code_cell(
             "from analysis.dataset import Dataset\n"
             "\n"
-            "# Point this at your dataset export, or start the middleware\n"
-            '# and use Dataset.fetch("http://127.0.0.1:8000", "' + study_id + '").\n'
+            "# dataset.json ships beside this notebook. For newer data, use\n"
+            '# Dataset.fetch("<your StudyLoop server URL>", "' + study_id + '").\n'
             'dataset = Dataset.from_json("dataset.json")\n'
             "# The frozen protocol defines scoring and the planned test.\n"
             f"protocol = {protocol!r}\n"
@@ -311,9 +311,12 @@ def build_notebook(protocol: dict, dataset: Dataset, study_id: str) -> dict:
             "\n"
             "# The first analysed session; loop over analysis_rows for all of them:\n"
             "# for sid in sorted({r['sessionId'] for r in dataset.analysis_rows}):\n"
-            "session_id = dataset.analysis_rows[0]['sessionId']\n"
-            "fig = figures.session_timeline(dataset, session_id)\n"
-            'fig.savefig(f"session-timeline-{session_id}.png", dpi=150)\n',
+            "if dataset.analysis_rows:\n"
+            "    session_id = dataset.analysis_rows[0]['sessionId']\n"
+            "    fig = figures.session_timeline(dataset, session_id)\n"
+            '    fig.savefig(f"session-timeline-{session_id}.png", dpi=150)\n'
+            "else:\n"
+            '    print("No analysable sessions yet.")\n',
             len(cells),
         )
     )

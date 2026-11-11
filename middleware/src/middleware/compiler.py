@@ -453,6 +453,34 @@ def _task_text_session_minutes(moves: list[dict]) -> int | None:
     return found
 
 
+def _manual_session_minutes(manual_patch: dict | None) -> int | None:
+    """The session length a checklist or chat study plan states explicitly."""
+    parameters = (manual_patch or {}).get("parameters") or {}
+    value = parameters.get("sessionMinutes")
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _manual_questions(manual_patch: dict, moves: list[dict]) -> list[str]:
+    """The plan's research questions, less any the researcher declined.
+
+    A study plan lists every question in its design patch and offers each one
+    after the first as its own ``add-rq`` card. A question whose card was not
+    accepted is not part of the protocol."""
+    questions = [q for q in manual_patch["researchQuestions"] if isinstance(q, str)]
+    offered: dict[str, bool] = {}
+    for move in moves:
+        patch = move.get("patch") or {}
+        if move.get("kind") != "add-rq" or not isinstance(patch.get("value"), str):
+            continue
+        key = " ".join(patch["value"].split()).casefold()
+        offered[key] = offered.get(key, False) or move.get("status") == "accepted"
+    return [
+        question
+        for index, question in enumerate(questions)
+        if offered.get(" ".join(question.split()).casefold(), True)
+    ]
+
+
 def _stated_tern_minutes(moves: list[dict]) -> bool:
     return any(
         move.get("status") == "accepted"
@@ -945,8 +973,13 @@ RECIPE_LABELS: dict[str, str] = {
 }
 
 METRIC_SET_LABELS: dict[str, str] = {
-    "cognitive-load-9": "NASA-TLX cognitive-load measure set",
-    "code-quality-5": "code-quality measure set",
+    # Static measures of the participant's code (metrics/), run after each
+    # session. Not a workload questionnaire: calling this set "NASA-TLX" led
+    # researchers to expect it to disappear when they dropped workload surveys.
+    "cognitive-load-9": "code-complexity metrics, computed from the "
+    "participant's code after each session",
+    "code-quality-5": "code-quality metrics, computed from the participant's "
+    "code after each session",
 }
 
 
@@ -1280,7 +1313,9 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
     if manual_patch:
         draft["researchQuestions"] = [
             {"id": f"RQ-{index}", "text": text}
-            for index, text in enumerate(manual_patch["researchQuestions"], start=1)
+            for index, text in enumerate(
+                _manual_questions(manual_patch, moves), start=1
+            )
         ]
         declared = {row["id"] for row in draft["researchQuestions"]}
         draft["analysisPlan"] = (
@@ -1333,7 +1368,11 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
     if text_minutes is not None:
         draft.setdefault("session", {})["durationMinutes"] = text_minutes
     _sync_tern_session_minutes(draft, moves, slot_minutes)
-    if slot_minutes is None and not _stated_tern_minutes(moves):
+    if (
+        slot_minutes is None
+        and not _stated_tern_minutes(moves)
+        and _manual_session_minutes(manual_patch) is None
+    ):
         tern_session = ((draft.get("instruments") or {}).get("tern") or {}).get(
             "session"
         )

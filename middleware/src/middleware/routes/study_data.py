@@ -602,11 +602,15 @@ def register(app: FastAPI, deps: ApiDeps):
         two-sample t-test power (non-central t, equal per-group n, two-sided) across
         per-group n, plus the first n reaching the target power, per effect size.
         """
-        from analysis.planner import compatibility_curve
+        from analysis.planner import compatibility_curve, require_two_arms
 
         try:
             sizes = [float(x.strip()) for x in effectSizes.split(",")]
             proto = deps.resolve_study_protocol(s, study_id)
+            if proto:
+                # Same refusal as POST /plan: a 1-arm, 3-arm or factorial protocol
+                # must not be shown a two-arm sample size.
+                require_two_arms(proto.get("conditions"))
             participants = (proto or {}).get("participants", {})
             design = participants.get("design", "between-subjects")
             recipes = {
@@ -666,7 +670,11 @@ def register(app: FastAPI, deps: ApiDeps):
         on every study's Data tab, identical regardless of that study's actual
         design, which the researcher reads as bespoke guidance it isn't.
         """
-        from analysis.prescribe import design_shapes, shapes_from_recipe_ids
+        from analysis.prescribe import (
+            design_shapes,
+            recipe_prescriptions,
+            shapes_from_recipe_ids,
+        )
 
         if study_id is None:
             rows = [
@@ -688,12 +696,22 @@ def register(app: FastAPI, deps: ApiDeps):
         # the prescription catalogue is keyed by statistical design shape. The
         # protocol's participant design is the authoritative bridge when a
         # recipe has no generic shape mapping.
-        if str(participant_design).lower() in {"within-subjects", "paired"}:
+        # A typed recipe (mean-comparison) names its own test; show that, not
+        # the design shape's non-parametric catalogue row.
+        typed = recipe_prescriptions(recipe_ids, str(participant_design))
+        typed_shapes = {p.design_shape for p in typed}
+        if (
+            str(participant_design).lower() in {"within-subjects", "paired"}
+            and not typed
+        ):
             matched_shapes.add("paired")
         rows = [
-            design_assistant.recommend_prescription(shape)
-            for shape in design_shapes()
-            if shape in matched_shapes
+            *(design_assistant.prescription_dict(p) for p in typed),
+            *(
+                design_assistant.recommend_prescription(shape)
+                for shape in design_shapes()
+                if shape in matched_shapes and shape not in typed_shapes
+            ),
         ]
         return {"prescriptions": [r for r in rows if r is not None]}
 
@@ -776,9 +794,15 @@ def register(app: FastAPI, deps: ApiDeps):
             # A replication artifact should be stable: fix the DOS timestamp and
             # permissions while retaining normal deflate compression.
             epoch = (1980, 1, 1, 0, 0, 0)
+            # The notebook loads dataset.json from its own folder, so it runs
+            # as downloaded.
             for name, content in (
                 ("notebook.ipynb", notebook_json),
                 ("data-dictionary.md", dictionary_md),
+                (
+                    "dataset.json",
+                    json.dumps(payload, indent=1, sort_keys=True, ensure_ascii=False),
+                ),
             ):
                 info = zipfile.ZipInfo(name, date_time=epoch)
                 info.compress_type = zipfile.ZIP_DEFLATED

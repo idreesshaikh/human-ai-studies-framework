@@ -73,6 +73,9 @@ export function EnrollmentPanel({
   );
   const [copied, setCopied] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState("");
+  /* Revoking cuts a participant off and cannot be undone, so it takes a
+   * second, explicit confirmation on the same row. */
+  const [confirmingRevoke, setConfirmingRevoke] = useState<string | null>(null);
   const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -142,6 +145,7 @@ export function EnrollmentPanel({
    * reason. */
   const revoke = async (tokenId: string) => {
     const before = rows;
+    setConfirmingRevoke(null);
     setRevokeError("");
     setRows((list) =>
       list.map((r) => (r.id === tokenId ? { ...r, status: "revoked" } : r)),
@@ -185,7 +189,8 @@ export function EnrollmentPanel({
   const redeemed = rows.filter(
     (r) => r.status === "paired" || r.status === "streaming",
   ).length;
-  const heading = enrollmentHeading(rows.length, redeemed);
+  const revokedCount = rows.filter((r) => r.status === "revoked").length;
+  const heading = enrollmentHeading(rows.length, redeemed, revokedCount);
 
   return (
     /* Keep the workspace measure stable; let the roster scroll within it. */
@@ -432,16 +437,43 @@ export function EnrollmentPanel({
                     )}
                   </td>
                   {canMint && <td className="sticky right-0 whitespace-nowrap bg-bg px-3 py-2 text-right align-top">
-                    {t.status !== "revoked" && (
+                    {t.status !== "revoked" && confirmingRevoke !== t.id && (
                       <Button
                         size="sm"
                         variant="outline"
                         className="text-critical"
                         aria-label={`Revoke link for ${t.participantId}`}
-                        onClick={() => void revoke(t.id)}
+                        onClick={() => setConfirmingRevoke(t.id)}
                       >
                         Revoke
                       </Button>
+                    )}
+                    {t.status !== "revoked" && confirmingRevoke === t.id && (
+                      <span
+                        role="group"
+                        aria-label={`Confirm revoking ${t.participantId}`}
+                        className="inline-flex items-center gap-2"
+                      >
+                        <span className="type-caption text-text-muted">
+                          Revoke permanently?
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          autoFocus
+                          aria-label={`Confirm revoke link for ${t.participantId}`}
+                          onClick={() => void revoke(t.id)}
+                        >
+                          Revoke
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setConfirmingRevoke(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </span>
                     )}
                   </td>}
                 </tr>
