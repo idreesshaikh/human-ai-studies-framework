@@ -231,9 +231,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             select(SessionOpen.session_id).where(SessionOpen.study_id == study_id),
             select(SessionBlock.session_id).where(SessionBlock.study_id == study_id),
         )
-        # Multi-tenant (clerk) never adopts them: an unattributable session there could
-        # have come from anyone, which is precisely the leak this scoping closes.
-        adopt_unattributed = settings.auth != "clerk" and check.study_id == study_id
+        # Only the study a protocol-loaded server was started for adopts them.
+        adopt_unattributed = check.study_id == study_id
         mapped = union(select(SessionOpen.session_id), select(SessionBlock.session_id))
         synthetic = union(
             select(Event.session_id).where(Event.payload["synthetic"].as_boolean()),

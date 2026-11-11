@@ -73,8 +73,8 @@ how to read the recruitment boundary before inviting anyone.
 
 ## Local setup
 
-The platform uses Clerk in production. Locally, leave `MIDDLEWARE_AUTH` unset
-to use the single-process development server without authentication.
+Leave `MIDDLEWARE_AUTH` unset to run without sign-in, as a single researcher.
+Set `MIDDLEWARE_AUTH=token` and `MIDDLEWARE_TOKEN` to require a shared token.
 
 ```bash
 uv sync --all-packages

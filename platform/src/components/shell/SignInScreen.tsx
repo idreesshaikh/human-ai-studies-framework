@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useId, useState, useSyncExternalStore } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { KeyRound, Moon, Sun } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,33 +12,14 @@ import { safeNext } from "@/lib/returnTo";
 
 const THEME_ICON = { light: Sun, dark: Moon };
 
-/* The sign-in gate for the multi-researcher shell (FR-OPS-5). `Shell`
- * (App.tsx) renders this instead of the project chrome whenever no
- * credential is present. Clerk mode mounts the hosted sign-in UI once its
- * script has loaded, themed to the app's own tokens (see auth.tsx's
- * CLERK_APPEARANCE) so it never reads as a foreign, unstyled widget; every
- * mode also accepts a pasted session token, so a broken CDN or a
- * `token` configuration never dead-ends. */
+/* The sign-in gate (FR-OPS-5). `Shell` (App.tsx) renders this instead of the
+ * project chrome when the server runs in token mode and no token is stored. */
 export function SignInScreen() {
-  const { config, clerkReady, mountSignIn, unmountSignIn, hasCredential, resolving } =
-    useAuth();
-  const mountRef = useRef<HTMLDivElement>(null);
-  const showClerkWidget = config.mode === "clerk" && clerkReady;
+  const { hasCredential, resolving } = useAuth();
   const theme = useSyncExternalStore(subscribeTheme, getTheme, getTheme);
   const ThemeIcon = THEME_ICON[theme];
   const [searchParams] = useSearchParams();
   const next = safeNext(searchParams.get("next"));
-
-  useEffect(() => {
-    if (!showClerkWidget || !mountRef.current) return;
-    const el = mountRef.current;
-    mountSignIn(el);
-    // Without this, StrictMode's dev-only double-invoke mounts a second
-    // widget instance into the same node without tearing down the first,
-    // and the two overlap (Clerk's step content is absolutely positioned)
-    // instead of stacking  -  read as clipped/ghosted content.
-    return () => unmountSignIn(el);
-  }, [showClerkWidget, mountSignIn, unmountSignIn]);
 
   /* Wait for auth to resolve, then replace the sign-in URL with its saved return path. */
   if (!resolving && hasCredential) {
@@ -81,22 +56,10 @@ export function SignInScreen() {
           <span className="type-section text-text">StudyLoop</span>
         </Link>
 
-        {/* One clean card is the sign-in frame. Clerk's hosted widget mounts
-         * inside it rendered transparent (CLERK_APPEARANCE strips its own card
-         * chrome and hides its heading, auth.tsx), so there's a single frame,
-         * not a card-within-a-card, and our own "Sign in" heading shows once. */}
         <Card>
           <CardContent className="flex flex-col gap-4 p-8">
             <h1 className="type-title text-text">Sign in</h1>
-            {showClerkWidget ? (
-              /* `relative`: Clerk's internal step-transition wrapper is
-               * absolutely positioned; without a positioned ancestor here it
-               * anchors to the outer screen wrapper (also `relative`) instead,
-               * floating the widget free of this card. */
-              <div ref={mountRef} className="clerk-embed relative" />
-            ) : (
-              <TokenForm awaitingClerk={config.mode === "clerk"} />
-            )}
+            <TokenForm />
           </CardContent>
         </Card>
 
@@ -111,7 +74,7 @@ export function SignInScreen() {
   );
 }
 
-function TokenForm({ awaitingClerk }: { awaitingClerk: boolean }) {
+function TokenForm() {
   const { signInWithToken } = useAuth();
   const [token, setToken] = useState("");
   const fieldId = useId();
@@ -133,9 +96,6 @@ function TokenForm({ awaitingClerk }: { awaitingClerk: boolean }) {
         id={fieldId}
         label="Session token"
         hint={
-        awaitingClerk ? (
-          "The sign-in widget couldn't load. Check your connection, or ask the instance administrator for a session token."
-        ) : (
           <>
             This instance signs in with a token rather than an account. Ask
             whoever runs it for yours  -  it is the value of{" "}
@@ -144,7 +104,6 @@ function TokenForm({ awaitingClerk }: { awaitingClerk: boolean }) {
             <span className="font-mono text-text">MIDDLEWARE_TOKEN</span> on the
             server.
           </>
-        )
         }
       >
         <Input

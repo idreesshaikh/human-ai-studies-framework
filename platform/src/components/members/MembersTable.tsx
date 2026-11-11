@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { RoleGate } from "@/components/shell/RoleGate";
 import { useApi } from "@/lib/session";
-import { useAuth } from "@/lib/auth.tsx";
 import { ROLE_LABELS, type Role } from "@/lib/capabilities.ts";
 import { ApiError, type Member } from "@/lib/api.ts";
 import { memberLabel, viewerIdentity } from "@/lib/memberLabel";
@@ -38,9 +37,8 @@ export function MembersTable({
   onChanged: () => void;
 }) {
   const api = useApi();
-  const { user: authUser } = useAuth();
   const { me } = useSession();
-  const user = viewerIdentity(authUser, me);
+  const user = viewerIdentity(me);
   const [rows, setRows] = useState(members);
   const [error, setError] = useState("");
 

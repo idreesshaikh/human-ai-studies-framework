@@ -75,17 +75,6 @@ class Settings:
     auth: str | None = field(
         default_factory=lambda: os.environ.get("MIDDLEWARE_AUTH") or None
     )
-    clerk_jwks_url: str | None = field(
-        default_factory=lambda: os.environ.get("MIDDLEWARE_CLERK_JWKS_URL") or None
-    )
-    clerk_issuer: str | None = field(
-        default_factory=lambda: os.environ.get("MIDDLEWARE_CLERK_ISSUER") or None
-    )
-    clerk_publishable_key: str | None = field(
-        default_factory=lambda: (
-            os.environ.get("MIDDLEWARE_CLERK_PUBLISHABLE_KEY") or None
-        )
-    )
     cors_origins: tuple[str, ...] = field(
         default_factory=lambda: tuple(
             o.strip()

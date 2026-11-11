@@ -6,25 +6,56 @@ events and surveys in VS Code. Both use a reviewed, versioned study protocol.
 
 ## Run locally
 
-Requires Python 3.12+, Node.js 22+, and uv.
+Requires Python 3.12+, Node.js 22+, and uv. Install once:
 
 ```bash
 uv sync --all-packages --frozen
 npm --prefix platform ci
+cp .env.example .env.local
+```
+
+Set `LLM_API_KEY` (or `MISTRAL_API_KEY`) in `.env.local` to turn on the design
+chat. Without a key the chat is off; the checklist, templates, capture, and
+exports still work.
+
+Start the server, which provides the API on port 8000 and stores data in
+`.study-data/`:
+
+```bash
+uv run --no-sync --env-file .env.local python -m middleware
+```
+
+In a second terminal, start the web app and open <http://localhost:5173>:
+
+```bash
+npm --prefix platform run dev
+```
+
+- On first start the server imports the bundled paper corpus in the
+  background, which takes about a minute. Literature suggestions and citations
+  appear once <http://127.0.0.1:8000/corpus/status> reports `"ready"`.
+- The web app reloads itself when its code changes; the server does not.
+  Restart the server after `git pull`.
+- To serve everything from the server instead, run
+  `npm --prefix platform run build` and open <http://127.0.0.1:8000>.
+
+See the [server guide](middleware/README.md) for storage, sign-in, and model
+settings.
+
+### Example study
+
+A disposable copy with a labelled synthetic study, for exploring without
+setting anything up. It needs the built web app:
+
+```bash
 npm --prefix platform run build
 uv run --no-sync python scripts/run_demo.py
 ```
 
-Open <http://127.0.0.1:8000>. This starts a disposable, offline example with
-labelled synthetic sessions. Use the manual checklist to create a protocol;
-Ctrl+C stops the server and removes rehearsal data. See the
-[example walkthrough](docs/demo-walkthrough.md).
-
-For persistent work, run `uv run --no-sync python -m middleware` instead.
-Configure storage, authentication, and optional model access using the
-[server guide](middleware/README.md) and [.env.example](.env.example).
-Environment files must be loaded explicitly, for example with
-`uv run --env-file .env python -m middleware`.
+Open <http://127.0.0.1:8000>. Ctrl+C stops it and deletes its data. The chat is
+off in this mode; add `--live` to use your model provider and the paper corpus
+(`uv run --no-sync --env-file .env.local python scripts/run_demo.py --live`).
+See the [example walkthrough](docs/demo-walkthrough.md).
 
 ## Workflow
 

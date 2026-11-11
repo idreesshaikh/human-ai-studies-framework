@@ -1470,13 +1470,19 @@ def _plan_turn(
         return None
     from middleware import study_plan
 
+    history = _load_history(s, study_id)
+    # Retrieve first so the model can cite what was retrieved, and only that.
+    # A declined turn falls through to the caller's own retrieval; the search
+    # is a local full-text query, so running it twice then costs little.
+    papers, _, _ = _retrieve(s, text, study_id, history)
     try:
         turn = study_plan.propose(
             client,
             text,
             study_id,
             current=_working_draft(s, study_id),
-            history=_load_history(s, study_id),
+            history=history,
+            papers=papers,
         )
     except study_plan.Unreachable as down:
         raise ModelUnavailable(
@@ -1486,20 +1492,19 @@ def _plan_turn(
         ) from down
     if turn is None:
         return None
-    # The plan turn replaces the conversational turn, so it must carry that
-    # turn's literature too. Returning before retrieval left every plan-shaped
-    # reply with an empty recommendation rail. The same deterministic, bounded
-    # retrieval runs here (no extra model call); it happens after the plan so a
-    # declined turn falls through to the caller's own retrieval exactly once.
-    papers, _, _ = _retrieve(s, text, study_id, None)
+    # The plan turn replaces the conversational turn, so it carries that turn's
+    # literature: the recommendation rail, and on each card the retrieved papers
+    # the model cited for it.
     moves = []
     retrieved: set[str] = {paper["ref"] for paper in papers}
     for i, spec in enumerate(turn["moves"]):
-        grounding = (
-            _resolve_grounding(s, _template_source_refs(spec["patch"]["templateId"]))
+        cited = tuple(spec.pop("cites", None) or ())
+        template_refs = (
+            _template_source_refs(spec["patch"]["templateId"])
             if spec["kind"] == "choose-template"
-            else []
+            else ()
         )
+        grounding = _resolve_grounding(s, tuple(dict.fromkeys(template_refs + cited)))
         retrieved.update(g["ref"] for g in grounding)
         moves.append(
             {

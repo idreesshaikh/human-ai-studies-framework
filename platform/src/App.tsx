@@ -64,7 +64,7 @@ const PUBLIC_PATHS = new Set(["/repertoire"]);
 function Shell() {
   const { config, needed, hasCredential, resolving } = useAuth();
   const { pathname } = useLocation();
-  // While the credential check is still in flight (clerk-js loading), show
+  // While the server's sign-in mode is still being fetched, show
   // neither the app nor the sign-in card  -  `hasCredential` reads false for
   // that whole window even for an already-signed-in session, and rendering
   // the sign-in screen on its say-so flashes it on every refresh.

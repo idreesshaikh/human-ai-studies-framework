@@ -30,7 +30,8 @@ from middleware.schemas import QuickProtocolIn
 log = logging.getLogger(__name__)
 
 _COVARIATE_ONLY = {"S10"}
-_MAX_TOKENS = 1100
+# Room for the plan, its prose and the per-card sources.
+_MAX_TOKENS = 1400
 _HISTORY_TURNS = 6
 _HISTORY_CHARS = 600
 _REPLY_CHARS = 700
@@ -124,8 +125,16 @@ def system_prompt() -> str:
         "  },\n"
         '  "assumed": names of plan fields you chose yourself in this turn,\n'
         '  "caution": the most important threat to validity for this design in '
-        "one sentence, or an empty string\n"
-        "}"
+        "one sentence, or an empty string,\n"
+        '  "sources": the ids of retrieved papers (P1, P2, ...) that directly '
+        "support each part of the plan: "
+        '{"design": [...], "researchQuestions": [[...] for each question, in '
+        'order], "participants": [...], "task": [...], "measures": [...]}\n'
+        "}\n\n"
+        "When the message lists retrieved papers, cite a paper only where it "
+        "directly supports that part of the plan, and leave a list empty "
+        "otherwise. Use only the listed ids; never cite a paper that is not "
+        "listed. Without a list, return empty sources."
     )
 
 
@@ -151,7 +160,9 @@ def _clip_reply(value: object, limit: int) -> str:
     return cut[:limit].rsplit(" ", 1)[0].rstrip(",;:") + "…"
 
 
-_CATALOG_CODE = re.compile(r"\b([ES]\d{1,2})\b(?:\s*\(([^()]{1,120})\))?")
+# Models often bold the code ("**E1** (time to first green)"), so emphasis may
+# sit between the code and its bracketed name.
+_CATALOG_CODE = re.compile(r"\b([ES]\d{1,2})\b(\*{0,2})(?:\s*\(([^()]{1,120})\))?")
 
 
 def _plain_measure_names(text: str) -> str:
@@ -162,7 +173,8 @@ def _plain_measure_names(text: str) -> str:
         entry = catalog_entry(match.group(1))
         if entry is None:
             return match.group(0)
-        return match.group(2) or str(entry.get("construct") or match.group(1))
+        name = match.group(3) or str(entry.get("construct") or match.group(1))
+        return name + match.group(2)
 
     return _CATALOG_CODE.sub(name, text)
 
@@ -285,6 +297,45 @@ def _body(plan: dict, current: dict | None) -> tuple[QuickProtocolIn | None, str
         log.info("the model's study plan is unusable: %s", exc)
         return None, "the plan is incomplete"
     return body, ""
+
+
+def _cited(value: object, ids: dict[str, str]) -> list[str]:
+    """The refs behind a list of paper ids, ignoring anything not retrieved."""
+    if not isinstance(value, list):
+        return []
+    refs: list[str] = []
+    for ident in value:
+        ref = ids.get(str(ident).strip()) if isinstance(ident, str) else None
+        if ref and ref not in refs:
+            refs.append(ref)
+    return refs
+
+
+def _attach_citations(
+    moves: list[dict], sources: object, asked: list[str], ids: dict[str, str]
+) -> None:
+    """Give each card the retrieved papers the model cited for its part of the
+    plan. Model output is untrusted: unknown ids and malformed lists cite
+    nothing, so a card never shows a paper that was not retrieved."""
+    sources = sources if isinstance(sources, dict) else {}
+    questions = sources.get("researchQuestions")
+    questions = questions if isinstance(questions, list) else []
+    by_question = {
+        " ".join(q.split()).casefold(): _cited(cited, ids)
+        for q, cited in zip(asked, questions, strict=False)
+    }
+    part = {
+        "choose-template": "design",
+        "set-field": "participants",
+        "declare-task": "task",
+        "add-measure": "measures",
+    }
+    for move in moves:
+        if move["kind"] == "add-rq":
+            key = " ".join(str(move["proposal"]).split()).casefold()
+            move["cites"] = by_question.get(key, [])
+        elif move["kind"] in part:
+            move["cites"] = _cited(sources.get(part[move["kind"]]), ids)
 
 
 def _dropped_measures(plan: dict, kept: list[str]) -> list[str]:
@@ -604,7 +655,26 @@ def _changed(before: dict, after: dict) -> list[str]:
     return changed
 
 
-def _ask(client, text: str, current_plan: dict, history: list[dict]) -> dict | None:
+def _paper_ids(papers: list[dict]) -> dict[str, str]:
+    """Short ids for the retrieved papers, in retrieval order: P1 -> ref."""
+    return {f"P{index}": paper["ref"] for index, paper in enumerate(papers, start=1)}
+
+
+def _paper_lines(papers: list[dict]) -> str:
+    lines = []
+    for index, paper in enumerate(papers, start=1):
+        year = f" ({paper['year']})" if paper.get("year") else ""
+        lines.append(f"P{index}. {_clip(paper.get('title'), 200)}{year}")
+    return "\n".join(lines)
+
+
+def _ask(
+    client,
+    text: str,
+    current_plan: dict,
+    history: list[dict],
+    papers: list[dict] | None = None,
+) -> dict | None:
     messages = [{"role": "system", "content": system_prompt()}]
     for turn in history[-_HISTORY_TURNS:]:
         messages.append(
@@ -618,6 +688,11 @@ def _ask(client, text: str, current_plan: dict, history: list[dict]) -> dict | N
             "role": "user",
             "content": "Current plan:\n"
             + json.dumps(current_plan, ensure_ascii=False)
+            + (
+                "\n\nRetrieved papers you may cite:\n" + _paper_lines(papers)
+                if papers
+                else ""
+            )
             + "\n\nResearcher's message:\n"
             + text,
         }
@@ -663,15 +738,21 @@ def propose(
     study_id: str,
     current: dict | None = None,
     history: list[dict] | None = None,
+    papers: list[dict] | None = None,
 ) -> dict | None:
     """One chat turn against the study plan: ``{"text", "moves"}``, or None.
+
+    ``papers`` are the literature retrieved for this turn. The model may cite
+    them by short id; each card's ``cites`` holds the refs it cited, and only
+    refs from ``papers`` can appear there.
 
     None means the model answered with nothing plan-shaped and the caller should
     handle the turn another way. An answer with no change has no moves. Raises
     :class:`Unreachable` when the provider cannot be reached at all.
     """
     before = plan_of(current)
-    raw = _ask(client, text, before, history or [])
+    papers = papers or []
+    raw = _ask(client, text, before, history or [], papers)
     if raw is None:
         return None
     reply = _plain_measure_names(_clip_reply(raw.get("reply"), _REPLY_CHARS))
@@ -728,6 +809,13 @@ def propose(
             "The plan is unchanged.",
             "moves": [],
         }
+    asked = raw["plan"].get("researchQuestions")
+    _attach_citations(
+        moves,
+        raw.get("sources"),
+        [_clip(q, 500) for q in asked] if isinstance(asked, list) else [],
+        _paper_ids(papers),
+    )
     raw_assumed = raw.get("assumed")
     assumed = (
         [n for n in raw_assumed if isinstance(n, str)]

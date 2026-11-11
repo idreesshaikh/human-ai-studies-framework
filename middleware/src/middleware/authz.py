@@ -135,7 +135,7 @@ def build_authz(
         """``study_id -> studies.project_id -> membership``, or 403/404."""
         study = s.scalar(select(Study).where(Study.id == study_id))
         if study is None:
-            if loaded_study_id() is None and identity.mode != "clerk":
+            if loaded_study_id() is None:
                 implicit = _membership_for(s, identity.sub, IMPLICIT_PROJECT_ID)
                 if implicit is not None and has_role(implicit.role, capability):
                     return implicit
@@ -180,10 +180,6 @@ def build_authz(
                     )
                 )
                 if study_id is None:
-                    if identity.mode == "clerk":
-                        raise HTTPException(
-                            status_code=404, detail=f"unknown session {session_id!r}"
-                        )
                     study_id = loaded_study_id() or ""
                 return _authorize_study(s, identity, study_id, capability)
             finally:
