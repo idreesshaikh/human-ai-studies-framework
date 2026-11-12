@@ -4,7 +4,6 @@ import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
 import { dataBundleFilename, dataBundlePath } from "./dataBundle.ts";
 import type { PowerDoc, Recommendation } from "./types";
 
-const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 export interface OutcomeCheckReport {
   studyId: string;
@@ -196,7 +195,7 @@ export async function studyRequest<T>(
 ): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(API_BASE + path, {
+    res = await fetch(path, {
       ...init,
       headers: { ...(await authHeaders()), ...(init.headers ?? {}) },
       credentials: "include",
@@ -244,7 +243,7 @@ const enc = encodeURIComponent;
 async function saveAs(path: string, filename: string): Promise<void> {
   let res: Response;
   try {
-    res = await fetch(API_BASE + path, {
+    res = await fetch(path, {
       headers: await authHeaders(),
       credentials: "include",
     });

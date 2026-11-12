@@ -28,8 +28,6 @@ export interface BehaviorPort {
 
 /** How long a wrapped paste/accept command waits for its document change. */
 const PENDING_MATCH_WINDOW_MS = 1_500;
-/** Inline-suggestion queries further apart than this start a new ghost session. */
-const SUGGESTION_SESSION_GAP_MS = 2_000;
 /** Internal-copy hashes are kept for at most this long (and never written). */
 const COPY_HASH_TTL_MS = 30 * 60_000;
 const MAX_COPY_HASHES = 8;
@@ -77,10 +75,7 @@ export class BehaviorCapture implements vscode.Disposable {
   private pendingPaste?: { at: number };
   private pendingAiAccept?: { at: number; suggestionId: string };
 
-  private lastInlineQueryAt = Number.NEGATIVE_INFINITY;
-  private suggestionShownAt = 0;
   private suggestionSeq = 0;
-  private currentSuggestionId?: string;
 
   private readonly erroredSources = new Set<string>();
 
@@ -198,23 +193,6 @@ export class BehaviorCapture implements vscode.Disposable {
         this.guard('save', () => this.onSave(doc)),
       ),
     );
-
-    if (cfg('captureAiLifecycle', true)) {
-      // Passive provider: never contributes items, only observes when the
-      // editor computes inline completions. This is the public-API stand-in
-      // for "a suggestion is being shown" (blind spots in adaptation-notes).
-      this.subs.push(
-        vscode.languages.registerInlineCompletionItemProvider(
-          { pattern: '**' },
-          {
-            provideInlineCompletionItems: () => {
-              this.guard('inline-query', () => this.onInlineQuery());
-              return [];
-            },
-          },
-        ),
-      );
-    }
 
     if (cfg('captureAttention', true)) {
       // Passive hover provider: never contributes a hover, only observes WHERE
@@ -364,7 +342,7 @@ export class BehaviorCapture implements vscode.Disposable {
     // Wrapped-command correlation must precede the aggregator feed so the
     // burst classifier sees the paste/accept timestamps.
     this.matchPendingPaste(now, meta, charsAdded, insertedText);
-    this.matchPendingAiAccept(now, charsAdded, insertedText);
+    this.matchPendingAiAccept(now, meta, charsAdded, insertedText);
 
     if (cfg('captureEditBursts', true)) {
       const undoRedo =
@@ -442,7 +420,7 @@ export class BehaviorCapture implements vscode.Disposable {
       if (!cfg('captureAiLifecycle', true)) return;
       this.pendingAiAccept = {
         at: Date.now(),
-        suggestionId: this.currentSuggestionId ?? this.newSuggestionId(),
+        suggestionId: this.newSuggestionId(),
       };
     });
   }
@@ -452,11 +430,9 @@ export class BehaviorCapture implements vscode.Disposable {
     this.guard('inline-dismiss', () => {
       if (!cfg('captureAiLifecycle', true)) return;
       this.port.record('ai_suggestion', {
-        suggestionId: this.currentSuggestionId ?? this.newSuggestionId(),
+        suggestionId: this.newSuggestionId(),
         action: 'dismissed',
-        visibleMs: Date.now() - this.suggestionShownAt,
       });
-      this.currentSuggestionId = undefined;
     });
   }
 
@@ -464,20 +440,9 @@ export class BehaviorCapture implements vscode.Disposable {
   // AI suggestion lifecycle
   // -------------------------------------------------------------------------
 
-  private onInlineQuery(): void {
-    if (!cfg('captureAiLifecycle', true)) return;
-    const now = Date.now();
-    if (now - this.lastInlineQueryAt > SUGGESTION_SESSION_GAP_MS) {
-      // A fresh ghost-text session after a quiet spell: one `shown` event.
-      const suggestionId = this.newSuggestionId();
-      this.suggestionShownAt = now;
-      this.port.record('ai_suggestion', { suggestionId, action: 'shown' });
-    }
-    this.lastInlineQueryAt = now;
-  }
-
   private matchPendingAiAccept(
     now: number,
+    meta: FileMeta,
     charsAdded: number,
     insertedText: string,
   ): void {
@@ -489,15 +454,13 @@ export class BehaviorCapture implements vscode.Disposable {
     }
     if (charsAdded === 0) return;
     this.pendingAiAccept = undefined;
-    this.aggregator.noteAiAccept(now);
+    this.aggregator.noteAiAccept(now, meta.workspaceRelativePath ?? 'external');
     this.port.record('ai_suggestion', {
       suggestionId: pending.suggestionId,
       action: 'accepted',
-      visibleMs: pending.at - this.suggestionShownAt,
       charCount: charsAdded,
       lineCount: (insertedText.match(/\n/g) ?? []).length + 1,
     });
-    this.currentSuggestionId = undefined;
   }
 
   // -------------------------------------------------------------------------
@@ -518,7 +481,7 @@ export class BehaviorCapture implements vscode.Disposable {
     }
     if (charsAdded === 0) return;
     this.pendingPaste = undefined;
-    this.aggregator.notePaste(now);
+    this.aggregator.notePaste(now, meta.workspaceRelativePath ?? 'external');
 
     const cutoff = now - COPY_HASH_TTL_MS;
     this.recentCopies = this.recentCopies.filter((c) => c.at >= cutoff);
@@ -545,8 +508,7 @@ export class BehaviorCapture implements vscode.Disposable {
   }
 
   private newSuggestionId(): string {
-    this.currentSuggestionId = `sg-${++this.suggestionSeq}`;
-    return this.currentSuggestionId;
+    return `sg-${++this.suggestionSeq}`;
   }
 
   /** NFR-1: swallow, count, report once per source - never interrupt. */

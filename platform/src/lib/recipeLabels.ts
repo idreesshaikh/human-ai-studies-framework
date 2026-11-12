@@ -4,7 +4,7 @@
  * fails when an id has no label here. */
 export const RECIPE_LABELS: Record<string, string> = {
   "agent-interaction-dynamics": "Agent interaction dynamics",
-  "ai-review-behavior": "AI review behavior",
+  "ai-review-behavior": "Captured inline-suggestion actions",
   "code-quality-by-condition": "Code quality by condition",
   correlation: "Correlation",
   "fatigue-by-condition": "Fatigue by condition",
@@ -16,7 +16,7 @@ export const RECIPE_LABELS: Record<string, string> = {
   "tlx-debrief": "Workload debrief (NASA-TLX)",
   "two-group-nonparametric": "Two-group comparison (non-parametric)",
   "two-proportion": "Two-proportion comparison",
-  "ziegler-acceptance-rate": "Suggestion acceptance rate",
+  "ziegler-acceptance-rate": "Captured inline-suggestion accept counts",
 };
 
 /** A recipe id as a researcher reads it; an unknown id is humanised. */

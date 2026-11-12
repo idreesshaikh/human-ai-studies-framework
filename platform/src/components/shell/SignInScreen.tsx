@@ -13,7 +13,7 @@ import { safeNext } from "@/lib/returnTo";
 const THEME_ICON = { light: Sun, dark: Moon };
 
 /* The sign-in gate (FR-OPS-5). `Shell` (App.tsx) renders this instead of the
- * project chrome when the server runs in token mode and no token is stored. */
+ * app shell when the server runs in token mode and no token is stored. */
 export function SignInScreen() {
   const { hasCredential, resolving } = useAuth();
   const theme = useSyncExternalStore(subscribeTheme, getTheme, getTheme);

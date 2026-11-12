@@ -1,11 +1,10 @@
 import type { Role } from "./capabilities.ts";
 import type { StudyWorkspace } from "./workspaceSetting.ts";
 
-/** Typed HTTP client for projects, membership, enrollment, and preferences. */
+/** Typed HTTP client for studies, enrollment, and account preferences. */
 
 export interface Membership {
   projectSlug: string;
-  projectName: string;
   role: Role;
 }
 
@@ -31,45 +30,12 @@ export interface Preferences {
   researcherProfile?: ResearcherProfile;
 }
 
-export interface ProjectSummary {
+/** Storage details stay behind the study-first researcher interface. */
+export interface StudySummary {
   id: string;
-  slug: string;
-  name: string;
-  role: Role;
-  createdAt: string;
-  /** How many studies the project holds. Carried on the list response so
-   * the project list can say what a project *is* without a request per row. */
-  studyCount: number;
-}
-
-export interface StudyRef {
-  id: string;
+  projectSlug: string;
   hasProtocol: boolean;
-}
-
-export interface Member {
-  identitySub: string;
   role: Role;
-  invitedBy?: string;
-  joinedAt?: string;
-}
-
-export interface Invitation {
-  id: string;
-  role: Role;
-  token?: string;
-  url?: string;
-  createdAt?: string;
-  expiresAt: string;
-}
-
-export interface ProjectHome {
-  id: string;
-  slug: string;
-  name: string;
-  studies: StudyRef[];
-  members: Member[];
-  invitations: Invitation[];
 }
 
 export interface EnrollmentTokenCaptureConfig {
@@ -124,23 +90,15 @@ export interface ToggleCatalogOverride {
 
 export interface Api {
   me(): Promise<Me>;
-  listProjects(): Promise<ProjectSummary[]>;
-  createProject(name: string): Promise<ProjectSummary>;
-  projectHome(slug: string): Promise<ProjectHome>;
+  listStudies(): Promise<StudySummary[]>;
+  studySummary(studyId: string): Promise<StudySummary>;
+  ensurePersonalContainer(): Promise<{ slug: string }>;
   createStudy(
     slug: string,
     name: string,
     protocol?: Record<string, unknown>,
   ): Promise<{ id: string }>;
   deleteStudy(studyId: string): Promise<void>;
-  renameProject(slug: string, name: string): Promise<void>;
-  deleteProject(slug: string, confirm: string): Promise<void>;
-  members(slug: string): Promise<Member[]>;
-  changeRole(slug: string, sub: string, role: Role): Promise<void>;
-  removeMember(slug: string, sub: string): Promise<void>;
-  createInvitation(slug: string, role: Role): Promise<Invitation>;
-  revokeInvitation(slug: string, id: string): Promise<void>;
-  acceptInvitation(token: string): Promise<{ projectSlug: string; role: Role }>;
   mintEnrollmentTokens(
     studyId: string,
     count: number,
@@ -296,10 +254,11 @@ class HttpBackend implements Api {
   }
 
   me = () => this.call<Me>("GET", "/me");
-  listProjects = () => this.call<ProjectSummary[]>("GET", "/projects");
-  createProject = (name: string) =>
-    this.call<ProjectSummary>("POST", "/projects", { name });
-  projectHome = (slug: string) => this.call<ProjectHome>("GET", `/projects/${slug}`);
+  listStudies = () => this.call<StudySummary[]>("GET", "/studies");
+  studySummary = (studyId: string) =>
+    this.call<StudySummary>("GET", `/studies/${encodeURIComponent(studyId)}/summary`);
+  ensurePersonalContainer = () =>
+    this.call<{ slug: string }>("POST", "/projects", { name: "Personal" });
   createStudy = (slug: string, name: string, protocol?: Record<string, unknown>) =>
     this.call<{ id: string }>("POST", `/projects/${slug}/studies`, {
       name,
@@ -307,23 +266,6 @@ class HttpBackend implements Api {
     });
   deleteStudy = (studyId: string) =>
     this.call<void>("DELETE", `/studies/${studyId}`);
-  renameProject = (slug: string, name: string) =>
-    this.call<void>("PATCH", `/projects/${slug}`, { name });
-  deleteProject = (slug: string, confirm: string) =>
-    this.call<void>("DELETE", `/projects/${slug}`, { confirm });
-  members = (slug: string) => this.call<Member[]>("GET", `/projects/${slug}/members`);
-  changeRole = (slug: string, sub: string, role: Role) =>
-    this.call<void>("PATCH", `/projects/${slug}/members/${sub}`, { role });
-  removeMember = (slug: string, sub: string) =>
-    this.call<void>("DELETE", `/projects/${slug}/members/${sub}`);
-  createInvitation = (slug: string, role: Role) =>
-    this.call<Invitation>("POST", `/projects/${slug}/invitations`, { role });
-  revokeInvitation = (slug: string, id: string) =>
-    this.call<void>("DELETE", `/projects/${slug}/invitations/${id}`);
-  acceptInvitation = (token: string) =>
-    this.call<{ projectSlug: string; role: Role }>(
-      "POST",
-      `/invitations/${token}/accept`);
   mintEnrollmentTokens = (
     studyId: string,
     count: number,
@@ -370,13 +312,6 @@ class HttpBackend implements Api {
     }>("GET", "/conversation/profiles");
 }
 
-/** Same-origin by default; override only for a separate API origin. */
-export function apiBase(): string {
-  return (
-    (typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_BASE : undefined) ?? ""
-  );
-}
-
 export function createApi(): Api {
-  return new HttpBackend(apiBase());
+  return new HttpBackend("");
 }

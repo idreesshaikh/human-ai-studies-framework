@@ -1,7 +1,12 @@
 """Score declared instruments from captured responses, never trust a client score."""
 
 import pandas as pd
-from protocol.measures import normalized_measures, score_survey, validated_responses
+from protocol.measures import (
+    normalized_measures,
+    score_survey,
+    score_survey_scales,
+    validated_responses,
+)
 from protocol.versioning import version_record
 
 from analysis.core import RecipeResult, recipe
@@ -42,6 +47,11 @@ def run(dataset: Dataset) -> RecipeResult:
             for field in measure["fields"]:
                 if field.endswith(".score"):
                     value = score
+                elif ".scoreGroups." in field:
+                    group_id = field.split(".scoreGroups.", 1)[1]
+                    value = score_survey_scales(
+                        instrument, p.get("responses", {})
+                    ).get(group_id)
                 else:
                     value = p.get("responses", {}).get(field.split(".responses.")[-1])
                 if value is not None:

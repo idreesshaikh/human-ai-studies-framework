@@ -169,10 +169,6 @@ export function MoveCard({
               >
                 <Check aria-hidden />
                 {isCaution ? "Note it" : "Accept"}
-                {/* Drawn as a key cap, the same one the command hint in
-                  * ProjectSwitcher wears. As a bare dimmed letter butted
-                  * against the label it read as part of the sentence  -
-                  * "Note it a…" had a reviewer asking "note it as what?" */}
               </Button>
               <Button
                 size="sm"

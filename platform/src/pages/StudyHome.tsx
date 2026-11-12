@@ -18,9 +18,9 @@ import { StudyTour } from "@/components/shell/StudyTour";
 import { ExportStudy } from "@/components/shell/ExportStudy";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
-import { useApi, useSession } from "@/lib/session";
+import { useApi } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
-import { resolveRole, roleOrNull } from "@/lib/role";
+import { roleOrNull } from "@/lib/role";
 import { cn } from "@/lib/cn";
 import { browserNameStore, studyDisplayName } from "@/lib/studyNames";
 import { resolveStudyTab } from "@/lib/studyTabs";
@@ -38,10 +38,9 @@ const TABS: { id: Tab; label: string; icon: typeof Library }[] = [
 ];
 
 export function StudyHome() {
-  const { slug = "", id = "" } = useParams();
+  const { id = "" } = useParams();
   const [planVisited, setPlanVisited] = useState<string | null>(null);
   const api = useApi();
-  const { me, loading: meLoading } = useSession();
   // Store the active tab in the URL for refresh and shared links.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
@@ -56,7 +55,7 @@ export function StudyHome() {
       },
       { replace: true },
     );
-  /* A study reached straight from project creation carries the researcher's
+  /* A study reached straight from creation carries the researcher's
    * answer to "what do you want to find out?"  -  their first turn, typed
    * before this workspace existed. Router state, not a query param: it is a
    * one-time hand-off, not part of the study's address. */
@@ -84,38 +83,30 @@ export function StudyHome() {
     setTab(tabBeforeTour.current);
   };
 
-  // My role in this study's project. The project payload is the fresh source
-  // (the session's memberships can be a session old, which is what made the
-  // Revoke control on Participants come and go); "still loading" stays
-  // distinct from "member"  -  see lib/role.ts.
-  const { data: project, loading: projectLoading, reload: reloadProject } = useAsync(
-    () => api.projectHome(slug),
-    [api, slug],
+  const { data: study, loading: studyLoading, error: studyError, reload: reloadStudy } = useAsync(
+    () => api.studySummary(id),
+    [api, id],
   );
-  // Local auth permits unknown ids, so verify membership in the loaded project
-  // before rendering an editable study workspace.
-  const studyExists =
-    projectLoading || !project ? null : project.studies.some((st) => st.id === id);
-  const hasProtocol = project?.studies.find((study) => study.id === id)?.hasProtocol ?? false;
-  const roleState = resolveRole({
-    projectMembers: project?.members,
-    meSub: me?.sub,
-    memberships: me?.memberships,
-    meLoading,
-    slug,
-  });
+  const currentStudy = study?.id === id ? study : null;
+  const roleState = studyLoading || !currentStudy
+    ? { status: "loading" as const }
+    : { status: "known" as const, role: currentStudy.role };
   const role = roleOrNull(roleState);
+  const hasProtocol = currentStudy?.hasProtocol ?? false;
 
-  if (studyExists === false) {
+  if (studyError && !currentStudy) {
     return (
       <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
         <Notice kind="problem">
-          Study &quot;{id}&quot; doesn&apos;t exist in {slug}.{" "}
-          <Link to={`/p/${slug}`} className="underline">
-            Back to studies
-          </Link>
-          .
+          This study isn’t available. <Link to="/home" className="underline">Return to studies</Link>.
         </Notice>
+      </div>
+    );
+  }
+  if (!currentStudy) {
+    return (
+      <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
+        <p role="status" className="type-body text-text-muted">Loading study…</p>
       </div>
     );
   }
@@ -125,19 +116,14 @@ export function StudyHome() {
       {/* Keep study identity and workspace navigation in separate rows. */}
       <header className="border-b border-border bg-surface">
         <div className="flex items-center gap-3 px-4 py-1">
-          {/* Below `sm` the back link is an icon with no text baseline, so
-            * baseline alignment lifted the title above the chevron. */}
           <div className="flex min-w-0 items-center gap-2 sm:items-baseline">
             <Link
-              to={`/p/${slug}`}
-              aria-label={`Back to ${project?.name ?? slug}`}
+              to="/home"
+              aria-label="Back to studies"
               className="touch-link type-label flex shrink-0 items-center gap-1 self-center rounded-control px-1.5 py-1 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
             >
               <ChevronLeft className="size-4" aria-hidden />
-              {/* Keep the accessible project name when its visible label is hidden. */}
-              <span className="hidden max-w-40 truncate sm:inline">
-                {project?.name ?? slug}
-              </span>
+              <span className="hidden sm:inline">Studies</span>
             </Link>
             <span className="hidden shrink-0 text-border-strong sm:inline" aria-hidden>
               /
@@ -173,8 +159,7 @@ export function StudyHome() {
               aria-current={tab === t.id ? "page" : undefined}
               /* The active section carries the axis mark  -  a rule on the
                * edge the strip is ruled against, plus a cleared ground. It is
-               * the same "you are here" form the project sidebar uses, and it
-               * is deliberately not a fill: a fill in this app means "an
+               * deliberately not a fill: a fill in this app means "an
                * action you can take", and a tab you are already on is a
                * position, not an action. */
               className={cn(
@@ -203,7 +188,7 @@ export function StudyHome() {
            * whole workspace column off the side of a phone. A definite width
            * here is also what lets the citation wrap instead of clamp. */
           <div className="min-h-0 min-w-0 flex-1">
-            <ConversationView studyId={id} opening={opening} roleState={roleState} onProtocolChanged={reloadProject} />
+            <ConversationView studyId={id} opening={opening} roleState={roleState} onProtocolChanged={reloadStudy} />
           </div>
         )}
         {tab === "library" && (

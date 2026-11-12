@@ -252,3 +252,42 @@ def test_middleware_down_then_import_recovers(transcript_path, keys, middleware)
         "/ingest/events", json={"source": SOURCE_AGENT, "events": events}
     ).json()
     assert recovered["inserted"] == len(events)
+
+
+def test_import_skips_torn_jsonl_tail_and_tolerates_malformed_records(tmp_path, keys):
+    path = tmp_path / "partial.jsonl"
+    path.write_text(
+        "not-json\n"
+        + json.dumps({"type": "assistant", "message": "wrong-shape"})
+        + "\n"
+        + json.dumps(
+            {
+                "type": "assistant",
+                "sessionId": "cc-safe",
+                "cwd": 5,
+                "message": {
+                    "model": ["bad"],
+                    "content": [{"type": "text", "text": None}],
+                    "usage": ["bad"],
+                },
+            }
+        )
+        + "\n{\"type\": \"assistant\", \"message\":"
+    )
+    events = normalize_transcript(path, keys, "metadata-only")
+    assert events[0]["type"] == "agent_session_meta"
+    assert events[0]["payload"]["agentSessionId"] == "cc-safe"
+    assert [e["seq"] for e in events] == list(range(len(events)))
+    assert all(isinstance(e["payload"], dict) for e in events)
+
+
+def test_generic_import_ignores_non_text_fields_safely(tmp_path, keys):
+    path = tmp_path / "generic.jsonl"
+    path.write_text(
+        json.dumps({"role": "assistant", "content": 123, "tool_input": []})
+        + "\n"
+        + json.dumps({"role": ["bad"], "content": {"secret": "fixture"}})
+    )
+    events = normalize_transcript(path, keys, "redacted", format="generic-json")
+    assert [e["seq"] for e in events] == list(range(len(events)))
+    assert all(isinstance(e["payload"], dict) for e in events)

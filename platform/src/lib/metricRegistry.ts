@@ -307,9 +307,9 @@ export const METRIC_REGISTRY: MetricEntry[] = [
   },
   {
     key: "ai_char_share",
-    label: "AI-authored share",
+    label: "Rapid-edit heuristic share",
     definition:
-      "Per participant, the share of added characters the AI wrote (origin = ai ÷ all origins). One point per participant.",
+      "Per participant, the share of added characters in bursts marked origin=ai by the size-and-speed heuristic. Formatters, snippets, renames and other non-AI edits can trigger it; this is not an AI-authorship measure.",
     measurementType: "continuous",
     origin: "behavioral",
     rqId: "RQ-P3",
@@ -341,7 +341,7 @@ export const METRIC_REGISTRY: MetricEntry[] = [
           condition: e.condition,
           participantId: e.participantId,
           value: share,
-          detail: `${(share * 100).toFixed(0)}% AI · ${e.participantId}`,
+          detail: `${(share * 100).toFixed(0)}% heuristic · ${e.participantId}`,
         });
       }
       return out;
@@ -349,9 +349,9 @@ export const METRIC_REGISTRY: MetricEntry[] = [
   },
   {
     key: "ai_insertion_share",
-    label: "AI character share (session)",
+    label: "Edit-origin heuristic share (session)",
     definition:
-      "Per session, AI-authored characters divided by all characters added in edit bursts, computed server-side. One point per session.",
+      "Per session, characters in bursts marked origin=ai by the size-and-speed heuristic divided by all added characters. This is not verified AI authorship and can include non-AI bulk edits.",
     measurementType: "continuous",
     origin: "agent",
     rqId: "RQ-P3",
@@ -365,7 +365,7 @@ export const METRIC_REGISTRY: MetricEntry[] = [
           condition: r.condition,
           participantId: r.participantId,
           value: v,
-          detail: `${(v * 100).toFixed(0)}% AI-inserted · ${r.participantId}`,
+          detail: `${(v * 100).toFixed(0)}% heuristic · ${r.participantId}`,
         });
       }
       return out;

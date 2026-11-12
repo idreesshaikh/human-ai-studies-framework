@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { apiBase, onUnauthorized } from "./api.ts";
+import { onUnauthorized } from "./api.ts";
 
 /* Resolve sign-in mode from the server. "none" is a local, single-user
  * workspace; "token" asks once for the shared bearer token and stores it. */
@@ -45,8 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void (async () => {
       let cfg: AuthConfig = { mode: "none" };
       try {
-        // Against the API's base, not a bare relative path  -  see apiBase().
-        const res = await fetch(`${apiBase()}/auth/config`, {
+        const res = await fetch("/auth/config", {
           credentials: "include",
         });
         if (res.ok) {

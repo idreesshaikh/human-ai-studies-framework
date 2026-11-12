@@ -649,3 +649,13 @@ def test_cited_papers_become_card_grounding(api, tmp_path):
     first_rq = next(m for m in turn["moves"] if m["kind"] == "add-rq")
     assert [g["ref"] for g in first_rq["grounding"]] == ["corpus:copilot-bug-fixing"]
     assert "cites" not in first_rq
+
+
+def test_answers_only_never_turns_a_message_into_plan_cards(api):
+    """The plan path used to ignore the assistant style, so "Checks only" still
+    received a full set of cards."""
+    client, _ = api(_reply())
+    turn = _say(client, BRIEF, steer="checks")
+    assert turn["moves"] == []
+    drafting = _say(client, BRIEF, steer="leads")
+    assert drafting["moves"], "the default style still drafts the plan"

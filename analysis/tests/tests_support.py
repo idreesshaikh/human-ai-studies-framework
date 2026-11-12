@@ -2,8 +2,9 @@
 Synthetic dataset builder with *constructed known answers* used by the runner tests:
 every participant reports fatigue exactly one step class higher unassisted (distinct
 paired differences -0.5, -1.0, -1.5, -2.0 -> exact Wilcoxon two-sided p = 0.125,
-rank-biserial r = -1.0), and every ai-assisted session shows two suggestions and accepts
-one (acceptance rate = 0.5, the Ziegler et al.
+rank-biserial r = -1.0), and every ai-assisted session has two legacy provider-query
+proxies, one captured accept and one dismiss. The query proxies are not a valid
+denominator for an acceptance rate.
 """
 
 from __future__ import annotations

@@ -89,7 +89,7 @@ export const AI_CONDITION_ITEM: LikertItem = {
 
 /** Resolve the debrief from the session's locked assignment. */
 export function endSurveyItems(condition: string): LikertItem[] {
-  return condition === 'ai-assisted'
+  return condition.trim().toLowerCase() === 'ai-assisted'
     ? [...END_SURVEY_ITEMS, AI_CONDITION_ITEM]
     : [...END_SURVEY_ITEMS];
 }
@@ -100,7 +100,9 @@ export interface SurveyInstrument {
   version: string;
   title: string;
   timing: 'pre-task' | 'post-task';
+  instructions?: string;
   conditions?: string[];
+  scales?: Array<{ id: string; label: string; items: string[] }>;
   items: Array<{
     id: string;
     text: string;
@@ -113,7 +115,7 @@ export interface SurveyInstrument {
     };
     reverse?: boolean;
   }>;
-  scoring: 'mean' | 'sum' | 'sus' | 'none';
+  scoring: 'mean' | 'sum' | 'sus' | 'none' | 'scales';
   validation?: string;
 }
 
@@ -133,7 +135,7 @@ export function readInstruments(
       i.timing !== timing ||
       !Array.isArray(i.items) ||
       !i.items.length ||
-      !['mean', 'sum', 'sus', 'none'].includes(i.scoring)
+      !['mean', 'sum', 'sus', 'none', 'scales'].includes(i.scoring)
     )
       return false;
     if (
@@ -142,7 +144,7 @@ export function readInstruments(
     )
       return false;
     const ids = new Set<string>();
-    return i.items.every((item) => {
+    const validItems = i.items.every((item) => {
       if (
         !item ||
         !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(item.id) ||
@@ -163,6 +165,25 @@ export function readInstruments(
         typeof lowLabel === 'string' &&
         typeof highLabel === 'string'
       );
+    });
+    if (!validItems) return false;
+    if (i.scoring !== 'scales') return true;
+    if (!Array.isArray(i.scales) || !i.scales.length) return false;
+    const itemIds = new Set(i.items.map((item) => item.id));
+    const scaleIds = new Set<string>();
+    return i.scales.every((scale) => {
+      if (
+        !scale ||
+        !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(scale.id) ||
+        scaleIds.has(scale.id) ||
+        typeof scale.label !== 'string' ||
+        !Array.isArray(scale.items) ||
+        !scale.items.length ||
+        scale.items.some((itemId) => !itemIds.has(itemId))
+      )
+        return false;
+      scaleIds.add(scale.id);
+      return true;
     });
   });
 }
@@ -198,7 +219,8 @@ export function scoreInstrument(
     if (instrument.scoring === 'sus') value -= min;
     values.push(value);
   }
-  if (!values.length || instrument.scoring === 'none') return null;
+  if (!values.length || ['none', 'scales'].includes(instrument.scoring))
+    return null;
   const sum = values.reduce((total, value) => total + value, 0);
   return instrument.scoring === 'sus'
     ? sum * 2.5

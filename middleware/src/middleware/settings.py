@@ -16,7 +16,7 @@ def _sqlite_path(raw: str) -> Path:
 
 @dataclass(frozen=True)
 class Settings:
-    """Runtime configuration; every field has a ``MIDDLEWARE_*`` env var."""
+    """Runtime configuration from process environment variables."""
 
     database_url: str | None = field(
         default_factory=lambda: os.environ.get("DATABASE_URL") or None
@@ -52,10 +52,10 @@ class Settings:
             Path(p) if (p := os.environ.get("MIDDLEWARE_PROTOCOL")) else None
         )
     )
-    # Explicit port takes precedence over the process environment and local default.
+    # Explicit local override; otherwise use the standard development port.
     port: int = field(
         default_factory=lambda: int(
-            os.environ.get("MIDDLEWARE_PORT") or os.environ.get("PORT") or "8000"
+            os.environ.get("MIDDLEWARE_PORT") or "8000"
         )
     )
     spa_dist: Path = field(
@@ -75,17 +75,6 @@ class Settings:
     auth: str | None = field(
         default_factory=lambda: os.environ.get("MIDDLEWARE_AUTH") or None
     )
-    cors_origins: tuple[str, ...] = field(
-        default_factory=lambda: tuple(
-            o.strip()
-            for o in os.environ.get("MIDDLEWARE_CORS_ORIGINS", "").split(",")
-            if o.strip()
-        )
-    )
-    public_base_url: str | None = field(
-        default_factory=lambda: os.environ.get("MIDDLEWARE_PUBLIC_URL") or None
-    )
-
     @property
     def files_dir(self) -> Path:
         return self.data_dir / "files"

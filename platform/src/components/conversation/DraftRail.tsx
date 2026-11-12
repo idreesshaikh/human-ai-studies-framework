@@ -7,6 +7,7 @@ import {
 } from "@/lib/types";
 import { formatSlotValue, summarizeProtocol, type ProtocolSection } from "@/lib/protocolFormat";
 import { buildProtocolPath } from "@/lib/protocolPath";
+import { protocolToDraft } from "@/lib/compiler";
 import { Button } from "@/components/ui/button";
 import { ProtocolGuide } from "./ProtocolGuide";
 import { cn } from "@/lib/cn";
@@ -20,7 +21,6 @@ export function DraftRail({
   protocol,
   compileValid,
   compileErrors,
-  compileWarnings,
   unresolved,
   onApply,
   onEdit,
@@ -52,19 +52,6 @@ export function DraftRail({
    *  into the composer without sending it. */
   onNextStep?: (sectionLabel: string) => void;
 }) {
-  const nextStep = (): { label: string } | null => {
-    const slot = MANDATORY_SLOTS.find((s) => draft[s].length === 0);
-    return slot ? { label: SLOT_LABELS[slot] } : null;
-  };
-  const path = buildProtocolPath(draft, scopeBlocked ? undefined : understanding);
-  const complete = unresolved !== undefined
-    ? unresolved.length === 0
-    : MANDATORY_SLOTS.every((slot) => draft[slot].length > 0);
-  /* The compiler can validate a partial scaffold while the conversation is
-   * still walking the researcher through its core sections. Readiness in this
-   * rail is a researcher-facing hand-off, so the visible path must also be
-   * complete before the draft can read as runnable. */
-  const ready = complete && path.done === path.total && compileValid === true;
   const conversationStarted = MANDATORY_SLOTS.some((slot) => draft[slot].length > 0);
   const protocolStudy = protocol?.study;
   const isFreshDraft = Boolean(
@@ -77,26 +64,35 @@ export function DraftRail({
   const sections: ProtocolSection[] | null = protocol && !isFreshDraft && !conversationStarted
     ? summarizeProtocol(protocol)
     : null;
+  /* A study whose protocol exists before any conversation (a template, the
+   * example, an applied draft) is not "0 of 7": read the checklist from that
+   * protocol until the conversation starts changing it. */
+  const shown: ProtocolDraft = sections && protocol ? protocolToDraft(protocol) : draft;
+  const nextSlot = MANDATORY_SLOTS.find((s) => shown[s].length === 0);
+  const nextStep = (): { label: string } | null =>
+    nextSlot ? { label: SLOT_LABELS[nextSlot] } : null;
+  const path = buildProtocolPath(shown, scopeBlocked ? undefined : understanding);
+  const complete = unresolved !== undefined
+    ? unresolved.length === 0
+    : MANDATORY_SLOTS.every((slot) => shown[slot].length > 0);
+  /* The compiler can validate a partial scaffold while the conversation is
+   * still walking the researcher through its core sections. Readiness in this
+   * rail is a researcher-facing hand-off, so the visible path must also be
+   * complete before the draft can read as runnable. */
+  const ready = complete && path.done === path.total && compileValid === true;
   const draftCaption = loading
     ? "Restoring your latest decisions."
     : compileErrors && compileErrors.length > 0
       ? "Needs a correction before it can run."
     : ready
       ? "Ready to review and apply."
-      : "Updates as you settle each choice.";
+      : null;
 
   return (
     <aside className="flex h-full min-w-0 flex-col bg-surface">
       <div className="shrink-0 border-b border-border px-5 py-4">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="mt-1 type-note text-text-muted">{draftCaption}</p>
-          </div>
-          <ProtocolGuide />
-        </div>
-
-        <div className="mt-3">
-          <p className="type-caption text-text" aria-live="polite">
+          <p className="mt-1 type-caption text-text" aria-live="polite">
             <span className="type-quantity">{path.done} of {path.total} drafted.</span>
             {!scopeBlocked && !ready && nextStep() && (
               <>
@@ -116,6 +112,12 @@ export function DraftRail({
             )}
             {ready && " Review the draft."}
           </p>
+          <ProtocolGuide />
+        </div>
+        {draftCaption && (
+          <p className="mt-1 type-note text-text-muted">{draftCaption}</p>
+        )}
+        <div className="mt-3">
           <div
             className="mt-2 h-1.5 overflow-hidden rounded-chip bg-well"
             role="progressbar"
@@ -140,46 +142,10 @@ export function DraftRail({
       </div>
 
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 py-4">
-        <details className="mb-4">
-          <summary className="type-control cursor-pointer text-text-muted hover:text-text">Show the path</summary>
-          <div className="mt-3 flex flex-col gap-3 border-l border-border pl-3">
-            {path.phases.map((phase) => (
-              <div key={phase.title}>
-                <p className="type-legend text-text-muted">{phase.title}</p>
-                <ol className="mt-1 flex flex-col gap-1.5">
-                  {phase.steps.map((step) => (
-                    <li key={step.id} className="flex items-center gap-2 type-caption text-text">
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "size-2 shrink-0 rounded-dot border",
-                          step.status === "done" && "border-ink bg-ink",
-                          step.status === "current" && "border-accent bg-accent",
-                          step.status === "todo" && "border-border-strong",
-                        )}
-                      />
-                      <span className={cn(step.status === "todo" && "text-text-muted")}>{step.label}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            ))}
-          </div>
-        </details>
-
-        {unresolved && unresolved.length > 0 && (
-          <details className="mb-4">
-            <summary className="type-caption cursor-pointer text-text-muted">Open choices</summary>
-            <ul className="mt-1 flex flex-col gap-1 type-caption text-text-muted">
-              {unresolved.map((slot) => (
-                <li key={slot}>{SLOT_LABELS[slot as keyof typeof SLOT_LABELS] ?? slot}</li>
-              ))}
-            </ul>
-            <p className="mt-2 type-note text-text-muted">
-              These stay in the draft while you work. They only matter when you review a runnable protocol.
-            </p>
-          </details>
-        )}
+        {/* One list answers "what is decided and what is next". It replaces
+          * a path list, an open-choices list and a section list that each
+          * repeated the same seven sections. Compiler notes appear in the
+          * Review draft dialog, where they are acted on. */}
         {compileErrors && compileErrors.length > 0 && (
           <details className="mb-4 rounded-input border border-critical bg-surface p-3" open>
             <summary className="type-caption cursor-pointer font-medium text-critical">Draft needs correction</summary>
@@ -188,27 +154,21 @@ export function DraftRail({
             </ul>
           </details>
         )}
-        {compileWarnings && compileWarnings.length > 0 && (
-          <details className="mb-4">
-            <summary className="type-caption cursor-pointer text-text-muted">Compiler notes ({compileWarnings.length})</summary>
-            <ul className="mt-1 flex flex-col gap-1 type-caption text-text-muted">
-              {compileWarnings.map((warning) => <li key={warning} className="break-words leading-snug [overflow-wrap:anywhere]">{warning}</li>)}
-            </ul>
-          </details>
-        )}
-        {sections && sections.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            {sections.map((section) => (
-              <SectionBlock key={section.heading} section={section} collapsible={sections.length > 4} />
-            ))}
-          </div>
-        ) : (
-          <SlotPlate draft={draft} />
-        )}
-        {serverYaml?.trim() && sections && (
-          <details className="mt-5">
-            <summary className="type-caption cursor-pointer text-text-muted">View raw YAML</summary>
-            <pre className="tabular mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-2 type-quantity leading-relaxed text-text">{serverYaml}</pre>
+        <SlotPlate draft={shown} next={scopeBlocked || ready ? undefined : nextSlot} />
+        {sections && sections.length > 0 && (
+          <details className="mt-5 border-t border-border pt-4">
+            <summary className="type-control cursor-pointer text-text-muted hover:text-text">Full protocol</summary>
+            <div className="mt-3 flex flex-col gap-3">
+              {sections.map((section) => (
+                <SectionBlock key={section.heading} section={section} />
+              ))}
+            </div>
+            {serverYaml?.trim() && (
+              <details className="mt-4">
+                <summary className="type-caption cursor-pointer text-text-muted">View raw YAML</summary>
+                <pre className="tabular mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded-input border border-border-strong bg-bg p-2 type-quantity leading-relaxed text-text">{serverYaml}</pre>
+              </details>
+            )}
           </details>
         )}
       </div>
@@ -243,16 +203,32 @@ export function DraftRail({
   );
 }
 
-function SlotPlate({ draft }: { draft: ProtocolDraft }) {
+function SlotPlate({
+  draft,
+  next,
+}: {
+  draft: ProtocolDraft;
+  /** The section to settle next, marked so the list doubles as the path. */
+  next?: keyof ProtocolDraft;
+}) {
   return (
     <ul className="min-w-0 divide-y divide-border">
       {MANDATORY_SLOTS.map((slot) => (
         <li key={slot} className="flex items-start gap-3 py-3">
-          <span className="type-label min-w-0 flex-1 text-text">{SLOT_LABELS[slot]}</span>
+          <span
+            className={cn(
+              "type-label min-w-0 flex-1",
+              draft[slot].length > 0 || slot === next ? "text-text" : "text-text-muted",
+            )}
+          >
+            {SLOT_LABELS[slot]}
+          </span>
           {draft[slot].length > 0 ? (
             <ul className="flex min-w-0 flex-[1.4] flex-col gap-0.5 type-caption text-text">
               {draft[slot].map((value, index) => <li key={index}>{formatSlotValue(slot, value)}</li>)}
             </ul>
+          ) : slot === next ? (
+            <span className="type-caption text-accent">Next</span>
           ) : (
             <span className="mt-1.5 size-2 shrink-0 rounded-dot border border-border-strong" role="img" aria-label="not yet resolved" />
           )}
@@ -274,13 +250,13 @@ function SlotPlate({ draft }: { draft: ProtocolDraft }) {
   );
 }
 
-function SectionBlock({ section, collapsible }: { section: ProtocolSection; collapsible: boolean }) {
+function SectionBlock({ section }: { section: ProtocolSection }) {
   return (
-    <details open={!collapsible} className="border-t border-border pt-3 first:border-0 first:pt-0">
-      <summary className="type-control cursor-pointer text-text-muted hover:text-text">{section.heading}</summary>
+    <section>
+      <h3 className="type-legend text-text-muted">{section.heading}</h3>
       <ul className="mt-1 flex flex-col gap-1">
         {section.lines.map((line, index) => <li key={index} className="break-words type-caption text-text">{line}</li>)}
       </ul>
-    </details>
+    </section>
   );
 }

@@ -83,20 +83,35 @@ export class JsonlSink implements EventSink {
    * missing/empty/corrupt file (caller starts at 0).
    */
   static lastSeqIn(filePath: string): number {
+    return JsonlSink.lastEventIn(filePath)?.seq ?? -1;
+  }
+
+  /** Read the final complete record's monotonic clock and sequence. */
+  static lastEventIn(
+    filePath: string,
+  ): { seq: number; mono?: number } | undefined {
     try {
       const text = fs.readFileSync(filePath, 'utf8');
       const lines = text.split('\n').filter((l) => l.trim().length > 0);
       for (let i = lines.length - 1; i >= 0; i--) {
         try {
-          const parsed = JSON.parse(lines[i]) as { seq?: number };
-          if (typeof parsed.seq === 'number') return parsed.seq;
+          const parsed = JSON.parse(lines[i]) as {
+            seq?: number;
+            mono?: number;
+          };
+          if (typeof parsed.seq === 'number') {
+            return {
+              seq: parsed.seq,
+              ...(typeof parsed.mono === 'number' ? { mono: parsed.mono } : {}),
+            };
+          }
         } catch {
           // Torn final line from a crash mid-write - walk one line back.
         }
       }
-      return -1;
+      return undefined;
     } catch {
-      return -1;
+      return undefined;
     }
   }
 }

@@ -1,10 +1,5 @@
-/* The permission matrix, mirrored from the server so the UI can reflect it.
- *
- * The server is the enforcement  -  this copy exists only so the shell can
- * show or hide controls a role can't use, and never as the security
- * boundary. Keep it in step with middleware/authz.py's CAPABILITIES; a
- * mismatch just means a button appears that the server then refuses (safe,
- * if untidy). */
+/* The role and UI capability subset used to show or hide controls. The server
+ * remains the authorization boundary. */
 
 export type Role = "owner" | "member" | "viewer";
 
@@ -13,8 +8,6 @@ export type Capability =
   | "contribute"
   | "apply_draft"
   | "run_recipe"
-  | "invite_member"
-  | "manage_members"
   | "delete"
   | "mint_token"
   | "toggle_capture";
@@ -31,22 +24,13 @@ export const MATRIX: Record<Capability, Role> = {
   contribute: "member",
   apply_draft: "member",
   run_recipe: "member",
-  invite_member: "member",
-  manage_members: "owner",
   delete: "owner",
   mint_token: "member",
   toggle_capture: "member",
 };
 
-/** True if `role` can exercise `capability`. A missing role (non-member)
- * satisfies nothing. */
+/** True if `role` can exercise `capability`. Missing access satisfies nothing. */
 export function hasRole(role: Role | null | undefined, capability: Capability): boolean {
   if (!role) return false;
   return ROLE_RANK[role] >= ROLE_RANK[MATRIX[capability]];
 }
-
-export const ROLE_LABELS: Record<Role, string> = {
-  owner: "Owner",
-  member: "Member",
-  viewer: "Viewer",
-};

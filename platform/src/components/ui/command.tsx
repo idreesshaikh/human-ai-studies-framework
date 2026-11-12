@@ -62,7 +62,7 @@ CommandInput.displayName = "CommandInput";
 
 /* The list scrolls vertically inside the palette's height cap and never
  * sideways: cmdk's list is `overflow: auto`, so any row wider than the plate
- * (a long project name, the role chip) or the scrollbar gutter produced a
+ * (a long label or trailing metadata) or the scrollbar gutter produced a
  * horizontal scrollbar. min-w-0 lets rows truncate instead of widening it. */
 export const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,

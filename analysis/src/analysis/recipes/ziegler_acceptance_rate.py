@@ -1,30 +1,19 @@
-"""
-ziegler-acceptance-rate (RQ-P4): a published paper's analysis as a recipe - the FR-ANA-5
-proof of concept that "papers become recipes".
-"""
+"""Captured inline-suggestion accept counts; no reliable display denominator."""
 
 from __future__ import annotations
 
 import pandas as pd
 
-from analysis import figures, stats
 from analysis.core import RecipeResult, recipe
 from analysis.dataset import Dataset
-from analysis.recipes._common import compare_or_describe
 
 METHODS = (
-    "Small untied samples use exact tests; ties/large samples use "
-    "the asymptotic approximation with tie correction. "
-    "Replication of Ziegler et al. (MAPS '22, arXiv:2205.06537): "
-    "acceptance rate = accepted / shown `ai_suggestion` events, computed "
-    "per session (the paper's unit is developer-weeks of Copilot "
-    "telemetry; the metric definition is unchanged). Conditions are "
-    "compared with the Wilcoxon/Mann-Whitney machinery "
-    "(exact when valid; otherwise tie-corrected asymptotic) (effect "
-    "sizes, per-cell n). Where the paper correlates acceptance rate with "
-    "self-reported productivity (Spearman), the pilot correlates it with "
-    "the session's mean fatigue response - an explicit stand-in, reported "
-    "as such. Pilot n is hypothesis-generating."
+    "TERN records accepted inline-suggestion keybindings, but the public VS Code "
+    "API does not expose a reliable count of displayed suggestions. The legacy "
+    "`shown` action records an inline-provider query, not a displayed suggestion. "
+    "Therefore this recipe reports captured accept counts only and does not "
+    "calculate an acceptance rate or compare rates across conditions. Counts "
+    "are a lower bound on inline-suggestion use and omit other AI surfaces."
 )
 
 
@@ -32,63 +21,40 @@ METHODS = (
     id="ziegler-acceptance-rate",
     answers=["RQ-P4"],
     requires_events=["ai_suggestion"],
-    title="Acceptance rate per Ziegler et al. 2022",
+    title="Captured inline-suggestion accept counts",
 )
 def run(dataset: Dataset) -> RecipeResult:
-    sug = dataset.of_type("ai_suggestion")
-    per_session = (
-        sug.assign(
-            shown=(sug["action"] == "shown").astype(int),
-            accepted=(sug["action"] == "accepted").astype(int),
+    suggestions = dataset.of_type("ai_suggestion")
+    columns = ["sessionId", "participantId", "condition", "acceptedEvents"]
+
+    if suggestions.empty or "action" not in suggestions:
+        per_session = pd.DataFrame(columns=columns)
+    else:
+        accepted = suggestions.assign(
+            acceptedEvents=(suggestions["action"] == "accepted").astype(int)
         )
-        .groupby(["sessionId", "participantId", "condition"], as_index=False)
-        .agg(shown=("shown", "sum"), accepted=("accepted", "sum"))
-    )
-    per_session = per_session[per_session["shown"] > 0].copy()
-    per_session["acceptanceRate"] = per_session["accepted"] / per_session["shown"]
+        per_session = accepted.groupby(
+            ["sessionId", "participantId", "condition"], as_index=False
+        )["acceptedEvents"].sum()
 
-    test, cells, sentence = compare_or_describe(per_session, "acceptanceRate", dataset)
-
-    tables: dict[str, pd.DataFrame] = {
-        "per_session": per_session,
-        "per_condition": cells,
-    }
-    sentences = [
-        f"Acceptance rate (Ziegler et al. 2022 metric): {sentence}",
-    ]
-    if test:
-        tables["test"] = pd.DataFrame([test.row()])
-
-    fatigue = dataset.of_type("fatigue_response")
-    if not fatigue.empty:
-        f_mean = fatigue.groupby("sessionId")["score"].mean().rename("fatigueMean")
-        j = per_session.join(f_mean, on="sessionId").dropna(subset=["fatigueMean"])
-        if len(j) >= 3:
-            t = stats.spearman(
-                j["acceptanceRate"].tolist(), j["fatigueMean"].tolist(), "sessions"
-            )
-            tables["rate_vs_fatigue_test"] = pd.DataFrame([t.row()])
-            sentences.append(
-                f"Acceptance rate vs mean fatigue (paper's survey stand-in): {t.line()}"
-            )
-        else:
-            sentences.append(
-                f"Rate-vs-self-report correlation needs >= 3 sessions with "
-                f"both measures (have {len(j)})."
-            )
-
-    fig = figures.strip_by_condition(
-        per_session,
-        "acceptanceRate",
-        dataset.conditions,
-        "Suggestion acceptance rate per session (Ziegler et al. 2022)",
-        "accepted / shown",
-        unit_label="session",
-    )
+    if per_session.empty:
+        per_condition = pd.DataFrame(
+            columns=["condition", "sessionCount", "acceptedEvents"]
+        )
+        accepted_total = 0
+    else:
+        per_condition = per_session.groupby("condition", as_index=False).agg(
+            sessionCount=("sessionId", "nunique"),
+            acceptedEvents=("acceptedEvents", "sum"),
+        )
+        accepted_total = int(per_session["acceptedEvents"].sum())
 
     return RecipeResult(
-        tables=tables,
-        figures={"acceptance_rate": fig},
-        summary="AI suggestion acceptance. " + " ".join(sentences),
+        tables={"per_session": per_session, "per_condition": per_condition},
+        summary=(
+            f"Captured {accepted_total} inline-suggestion accept event(s). "
+            "No acceptance rate is reported because TERN cannot reliably "
+            "observe the number of suggestions displayed."
+        ),
         methods=METHODS,
     )

@@ -17,7 +17,7 @@ export interface PreflightItem {
 const TRACKED: { key: string; label: string }[] = [
   { key: 'stuck.enabled', label: 'Stuck detection' },
   { key: 'behavior.captureEditBursts', label: 'Edit bursts' },
-  { key: 'behavior.captureAiLifecycle', label: 'AI suggestion lifecycle' },
+  { key: 'behavior.captureAiLifecycle', label: 'Inline suggestion actions' },
   { key: 'behavior.captureClipboard', label: 'Paste events' },
   { key: 'behavior.captureVisibleRanges', label: 'Scroll coverage' },
   { key: 'behavior.captureFocus', label: 'Focus switches' },

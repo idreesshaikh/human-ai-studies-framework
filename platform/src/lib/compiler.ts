@@ -168,6 +168,13 @@ export function compileAll(
   moves: DesignMove[],
   compiled?: Record<string, unknown>,
 ): ProtocolDraft {
+  // The server's compile contains template defaults and normalized values
+  // that cannot be reconstructed from conversation moves alone (for example
+  // the instruments and analysis recipes supplied by a selected template).
+  // Prefer that authoritative projection whenever it belongs to this move
+  // history; the caller keeps the local fold as an optimistic fallback while
+  // the next server compile is in flight.
+  if (compiled) return protocolToDraft(compiled);
   if (lastManualEntry(moves) < 0) return compile(emptyDraft(), moves);
-  return compiled ? protocolToDraft(compiled) : compile(emptyDraft(), sinceManualEntry(moves));
+  return compile(emptyDraft(), sinceManualEntry(moves));
 }

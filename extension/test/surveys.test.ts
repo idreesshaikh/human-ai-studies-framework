@@ -61,6 +61,11 @@ test('locked AI assignment receives the reliance item without changing base item
     endSurveyItems('ai-assisted').map((item) => item.id),
     [...baseIds, 'ai_reliance'],
   );
+  assert.deepEqual(
+    endSurveyItems('AI-assisted').map((item) => item.id),
+    [...baseIds, 'ai_reliance'],
+    'server title casing retains the AI reliance item',
+  );
   for (const condition of ['unassisted', 'unknown', '']) {
     assert.deepEqual(
       endSurveyItems(condition).map((item) => item.id),

@@ -46,15 +46,11 @@ def bearer(sub: str) -> dict:
     return {"Authorization": f"Bearer {sub}"}
 
 
-
-
 def make_project(client: TestClient, owner: str, name: str) -> str:
     """Create a project as ``owner`` (auto owner membership); return slug."""
     res = client.post("/projects", json={"name": name}, headers=bearer(owner))
     assert res.status_code == 200, res.text
     return res.json()["slug"]
-
-
 
 
 def add_member(client, slug, owner, sub, role) -> None:
@@ -246,14 +242,22 @@ def test_view_capability_across_roles(client):
 def test_manage_members_is_owner_only_with_uniform_403(client):
     slug = make_project(client, "alice", "Lab")
     add_member(client, slug, "alice", "rea", "member")
-    res = client.patch(
+    member = client.patch(
         f"/projects/{slug}/members/rea",
         json={"role": "owner"},
         headers=bearer("rea"),
     )
-    assert res.status_code == 403
-    detail = res.json()["detail"]
-    assert detail and "role" in detail.lower()
+    outsider = client.patch(
+        f"/projects/{slug}/members/rea",
+        json={"role": "owner"},
+        headers=bearer("stranger"),
+    )
+    assert member.status_code == outsider.status_code == 403
+    assert member.json()["detail"] == outsider.json()["detail"]
+    assert member.json()["detail"] == (
+        "You don't have permission to do that. "
+        "Ask the study owner to check your access."
+    )
 
 
 def test_member_can_invite_but_not_mint_owner(client):

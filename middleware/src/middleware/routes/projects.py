@@ -445,7 +445,7 @@ def register(app: FastAPI, deps: ApiDeps):
         if m is None:
             raise HTTPException(404, "member not found")
         new_role = str(body.get("role", "")).strip()
-        if new_role not in authz.ROLES:
+        if new_role not in authz.MEMBERSHIP_ROLES:
             raise HTTPException(400, "Choose owner, member or viewer as the role.")
         m.role = new_role
         s.flush()

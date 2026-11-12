@@ -346,5 +346,980 @@
     "source": "StudyLoop experimental item set, 2026-10-08",
     "licence": "Repository MIT licence",
     "validation": "Unvalidated draft: researcher must pilot before using as a skill covariate"
+  },
+  {
+    "id": "bfi-2",
+    "version": "1.0",
+    "title": "Big Five Inventory 2 (BFI-2)",
+    "timing": "pre-task",
+    "instructions": "Rate how much you agree or disagree with each statement: 1 Disagree strongly; 2 Disagree a little; 3 Neutral, no opinion; 4 Agree a little; 5 Agree strongly.",
+    "items": [
+      {
+        "id": "bfi2_01",
+        "text": "Is outgoing, sociable",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_02",
+        "text": "Is compassionate, has a soft heart",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_03",
+        "text": "Tends to be disorganized",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_04",
+        "text": "Is relaxed, handles stress well",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_05",
+        "text": "Has few artistic interests",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_06",
+        "text": "Has an assertive personality",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_07",
+        "text": "Is respectful, treats others with respect",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_08",
+        "text": "Tends to be lazy",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_09",
+        "text": "Stays optimistic after experiencing a setback",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_10",
+        "text": "Is curious about many different things",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_11",
+        "text": "Rarely feels excited or eager",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_12",
+        "text": "Tends to find fault with others",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_13",
+        "text": "Is dependable, steady",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_14",
+        "text": "Is moody, has up and down mood swings",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_15",
+        "text": "Is inventive, finds clever ways to do things",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_16",
+        "text": "Tends to be quiet",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_17",
+        "text": "Feels little sympathy for others",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_18",
+        "text": "Is systematic, likes to keep things in order",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_19",
+        "text": "Can be tense",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_20",
+        "text": "Is fascinated by art, music, or literature",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_21",
+        "text": "Is dominant, acts as a leader",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_22",
+        "text": "Starts arguments with others",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_23",
+        "text": "Has difficulty getting started on tasks",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_24",
+        "text": "Feels secure, comfortable with self",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_25",
+        "text": "Avoids intellectual, philosophical discussions",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_26",
+        "text": "Is less active than other people",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_27",
+        "text": "Has a forgiving nature",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_28",
+        "text": "Can be somewhat careless",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_29",
+        "text": "Is emotionally stable, not easily upset",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_30",
+        "text": "Has little creativity",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_31",
+        "text": "Is sometimes shy, introverted",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_32",
+        "text": "Is helpful and unselfish with others",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_33",
+        "text": "Keeps things neat and tidy",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_34",
+        "text": "Worries a lot",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_35",
+        "text": "Values art and beauty",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_36",
+        "text": "Finds it hard to influence people",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_37",
+        "text": "Is sometimes rude to others",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_38",
+        "text": "Is efficient, gets things done",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_39",
+        "text": "Often feels sad",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_40",
+        "text": "Is complex, a deep thinker",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_41",
+        "text": "Is full of energy",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_42",
+        "text": "Is suspicious of others’ intentions",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_43",
+        "text": "Is reliable, can always be counted on",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_44",
+        "text": "Keeps their emotions under control",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_45",
+        "text": "Has difficulty imagining things",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_46",
+        "text": "Is talkative",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_47",
+        "text": "Can be cold and uncaring",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_48",
+        "text": "Leaves a mess, doesn’t clean up",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_49",
+        "text": "Rarely feels anxious or afraid",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_50",
+        "text": "Thinks poetry and plays are boring",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_51",
+        "text": "Prefers to have others take charge",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_52",
+        "text": "Is polite, courteous to others",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_53",
+        "text": "Is persistent, works until the task is finished",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_54",
+        "text": "Tends to feel depressed, blue",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_55",
+        "text": "Has little interest in abstract ideas",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_56",
+        "text": "Shows a lot of enthusiasm",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_57",
+        "text": "Assumes the best about people",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_58",
+        "text": "Sometimes behaves irresponsibly",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": true
+      },
+      {
+        "id": "bfi2_59",
+        "text": "Is temperamental, gets emotional easily",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      },
+      {
+        "id": "bfi2_60",
+        "text": "Is original, comes up with new ideas",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "lowLabel": "Disagree strongly",
+          "highLabel": "Agree strongly"
+        },
+        "reverse": false
+      }
+    ],
+    "scoring": "scales",
+    "scales": [
+      {
+        "id": "extraversion",
+        "label": "Extraversion",
+        "items": [
+          "bfi2_01",
+          "bfi2_06",
+          "bfi2_11",
+          "bfi2_16",
+          "bfi2_21",
+          "bfi2_26",
+          "bfi2_31",
+          "bfi2_36",
+          "bfi2_41",
+          "bfi2_46",
+          "bfi2_51",
+          "bfi2_56"
+        ]
+      },
+      {
+        "id": "agreeableness",
+        "label": "Agreeableness",
+        "items": [
+          "bfi2_02",
+          "bfi2_07",
+          "bfi2_12",
+          "bfi2_17",
+          "bfi2_22",
+          "bfi2_27",
+          "bfi2_32",
+          "bfi2_37",
+          "bfi2_42",
+          "bfi2_47",
+          "bfi2_52",
+          "bfi2_57"
+        ]
+      },
+      {
+        "id": "conscientiousness",
+        "label": "Conscientiousness",
+        "items": [
+          "bfi2_03",
+          "bfi2_08",
+          "bfi2_13",
+          "bfi2_18",
+          "bfi2_23",
+          "bfi2_28",
+          "bfi2_33",
+          "bfi2_38",
+          "bfi2_43",
+          "bfi2_48",
+          "bfi2_53",
+          "bfi2_58"
+        ]
+      },
+      {
+        "id": "negative_emotionality",
+        "label": "Negative Emotionality",
+        "items": [
+          "bfi2_04",
+          "bfi2_09",
+          "bfi2_14",
+          "bfi2_19",
+          "bfi2_24",
+          "bfi2_29",
+          "bfi2_34",
+          "bfi2_39",
+          "bfi2_44",
+          "bfi2_49",
+          "bfi2_54",
+          "bfi2_59"
+        ]
+      },
+      {
+        "id": "open_mindedness",
+        "label": "Open-Mindedness",
+        "items": [
+          "bfi2_05",
+          "bfi2_10",
+          "bfi2_15",
+          "bfi2_20",
+          "bfi2_25",
+          "bfi2_30",
+          "bfi2_35",
+          "bfi2_40",
+          "bfi2_45",
+          "bfi2_50",
+          "bfi2_55",
+          "bfi2_60"
+        ]
+      },
+      {
+        "id": "sociability",
+        "label": "Sociability",
+        "items": [
+          "bfi2_01",
+          "bfi2_16",
+          "bfi2_31",
+          "bfi2_46"
+        ]
+      },
+      {
+        "id": "assertiveness",
+        "label": "Assertiveness",
+        "items": [
+          "bfi2_06",
+          "bfi2_21",
+          "bfi2_36",
+          "bfi2_51"
+        ]
+      },
+      {
+        "id": "energy_level",
+        "label": "Energy Level",
+        "items": [
+          "bfi2_11",
+          "bfi2_26",
+          "bfi2_41",
+          "bfi2_56"
+        ]
+      },
+      {
+        "id": "compassion",
+        "label": "Compassion",
+        "items": [
+          "bfi2_02",
+          "bfi2_17",
+          "bfi2_32",
+          "bfi2_47"
+        ]
+      },
+      {
+        "id": "respectfulness",
+        "label": "Respectfulness",
+        "items": [
+          "bfi2_07",
+          "bfi2_22",
+          "bfi2_37",
+          "bfi2_52"
+        ]
+      },
+      {
+        "id": "trust",
+        "label": "Trust",
+        "items": [
+          "bfi2_12",
+          "bfi2_27",
+          "bfi2_42",
+          "bfi2_57"
+        ]
+      },
+      {
+        "id": "organization",
+        "label": "Organization",
+        "items": [
+          "bfi2_03",
+          "bfi2_18",
+          "bfi2_33",
+          "bfi2_48"
+        ]
+      },
+      {
+        "id": "productiveness",
+        "label": "Productiveness",
+        "items": [
+          "bfi2_08",
+          "bfi2_23",
+          "bfi2_38",
+          "bfi2_53"
+        ]
+      },
+      {
+        "id": "responsibility",
+        "label": "Responsibility",
+        "items": [
+          "bfi2_13",
+          "bfi2_28",
+          "bfi2_43",
+          "bfi2_58"
+        ]
+      },
+      {
+        "id": "anxiety",
+        "label": "Anxiety",
+        "items": [
+          "bfi2_04",
+          "bfi2_19",
+          "bfi2_34",
+          "bfi2_49"
+        ]
+      },
+      {
+        "id": "depression",
+        "label": "Depression",
+        "items": [
+          "bfi2_09",
+          "bfi2_24",
+          "bfi2_39",
+          "bfi2_54"
+        ]
+      },
+      {
+        "id": "emotional_volatility",
+        "label": "Emotional Volatility",
+        "items": [
+          "bfi2_14",
+          "bfi2_29",
+          "bfi2_44",
+          "bfi2_59"
+        ]
+      },
+      {
+        "id": "intellectual_curiosity",
+        "label": "Intellectual Curiosity",
+        "items": [
+          "bfi2_10",
+          "bfi2_25",
+          "bfi2_40",
+          "bfi2_55"
+        ]
+      },
+      {
+        "id": "aesthetic_sensitivity",
+        "label": "Aesthetic Sensitivity",
+        "items": [
+          "bfi2_05",
+          "bfi2_20",
+          "bfi2_35",
+          "bfi2_50"
+        ]
+      },
+      {
+        "id": "creative_imagination",
+        "label": "Creative Imagination",
+        "items": [
+          "bfi2_15",
+          "bfi2_30",
+          "bfi2_45",
+          "bfi2_60"
+        ]
+      }
+    ],
+    "source": "Soto, C. J., & John, O. P. (2017), The Next Big Five Inventory (BFI-2), https://doi.org/10.1037/pspp0000096; Berkeley Personality Lab, https://www.ocf.berkeley.edu/~johnlab/bfi",
+    "licence": "Copyright © 2015 Oliver P. John and Christopher J. Soto. Available for non-commercial research use; commercial use requires author permission. The repository MIT licence does not apply to these items.",
+    "validation": "Full 60-item form. Reverse-keyed items are scored before the 15 facet and five domain means. Obtain the authors’ official form/scoring details and cite Soto & John (2017) before research use."
   }
 ]

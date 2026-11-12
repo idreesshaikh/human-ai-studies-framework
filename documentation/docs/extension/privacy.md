@@ -11,9 +11,9 @@ text, or off-workspace paths.
   content), save events, active/idle heartbeats, scroll coverage.
 - How you **felt**: fatigue Likert answers (1–7) and the end-of-session
   debrief responses.
-- What the **AI did**: inline-suggestion lifecycle  -  shown, accepted,
-  rejected, dismissed  -  with review latency, and the agent tool/model
-  environment.
+- What TERN **recorded**: accepted or dismissed inline-suggestion keybindings,
+  plus the agent tool/model environment. Suggestion display, ignored or partial
+  accepts, and review latency are not observable through the public API.
 - Where you got **stuck**: a line-region band with the reason (dwell /
   scroll-thrash), plus your answer to the stuck prompt.
 

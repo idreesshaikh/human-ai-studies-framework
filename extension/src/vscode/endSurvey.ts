@@ -29,6 +29,7 @@ export function showInstrumentSurvey(
     instrumentItems(instrument),
     instrument.title,
     instrument.timing === 'pre-task',
+    instrument.instructions,
     instrument.validation,
   );
 }
@@ -37,6 +38,7 @@ function showSurvey(
   items: LikertItem[],
   title: string,
   preTask: boolean,
+  instructions?: string,
   note?: string,
 ): Promise<EndSurveyResult | undefined> {
   const panel = vscode.window.createWebviewPanel(
@@ -46,7 +48,14 @@ function showSurvey(
     { enableScripts: true, retainContextWhenHidden: true },
   );
   const nonce = Math.random().toString(36).slice(2);
-  panel.webview.html = renderHtml(items, nonce, title, preTask, note);
+  panel.webview.html = renderHtml(
+    items,
+    nonce,
+    title,
+    preTask,
+    instructions,
+    note,
+  );
 
   const shownAt = Date.now();
   return new Promise((resolve) => {
@@ -77,6 +86,7 @@ function renderHtml(
   nonce: string,
   title: string,
   preTask: boolean,
+  instructions?: string,
   note?: string,
 ): string {
   const rows = items
@@ -176,6 +186,7 @@ function renderHtml(
   <main class="card">
     <h1>${escapeHtml(title)}</h1>
     <p class="sub">${preTask ? 'Before your task begins, answer these questions about your experience.' : 'The task is complete. Answer these questions about your experience.'} Answers are linked to your participant ID and session.</p>
+    ${instructions ? `<p class="sub">${escapeHtml(instructions)}</p>` : ''}
     ${note ? `<p class="sub">${escapeHtml(note)}</p>` : ''}
     ${rows}
     <fieldset class="q">

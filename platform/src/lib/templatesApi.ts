@@ -4,7 +4,6 @@ import { OfflineError } from "./studyApi";
 /* The template registry (FR-TPL): published, citable study designs that
  * instantiate into protocols. Not study-scoped, so its own tiny client. */
 
-const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 export interface TemplateSource {
   paperRef: string;
@@ -64,7 +63,7 @@ export interface CorpusStatus {
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(API_BASE + path, {
+    res = await fetch(path, {
       ...init,
       headers: {
         ...(init.body ? { "content-type": "application/json" } : {}),

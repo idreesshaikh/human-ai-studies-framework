@@ -1,60 +1,49 @@
 /* Steer maps assistant response style to the server's researcher profiles. */
 
-export type SteerLevel = 0 | 1 | 2 | 3;
+/** 0 answers only; 3 drafts the plan. The numbers are kept from the earlier
+ * four-stop dial so a saved choice still reads back (see `readSteer`). */
+export type SteerLevel = 0 | 3;
 
 export interface SteerStop {
   level: SteerLevel;
   /** Sent to the middleware; joins `profile` on the turn payload. */
-  id: "checks" | "assists" | "guides" | "leads";
+  id: "checks" | "leads";
   label: string;
-  /** The live readout under the dial: what changes about the next turn. */
+  /** What changes about the next turn. */
   summary: string;
   /** The register this stop speaks in (elicitation.PROFILES key). */
-  profile: "student" | "new-researcher" | "experienced";
+  profile: "student" | "experienced";
 }
 
-/** Low to high, so the array index IS the level and the slider's own
- * left-to-right order is the order of increasing help. */
+/* Two styles that behave differently, not four that read alike: one turns
+ * the conversation into plan cards, the other only answers and never changes
+ * the draft. The default comes first. */
 export const STEER_STOPS: readonly SteerStop[] = [
-  {
-    level: 0,
-    id: "checks",
-    label: "Checks only",
-    summary: "Answers what you ask. Flags only risks and unsourced claims.",
-    profile: "experienced",
-  },
-  {
-    level: 1,
-    id: "assists",
-    label: "Fills gaps",
-    summary: "Suggests missing details in your protocol.",
-    profile: "experienced",
-  },
-  {
-    level: 2,
-    id: "guides",
-    label: "Guides you",
-    summary: "Proposes freely and explains why, following your order.",
-    profile: "new-researcher",
-  },
   {
     level: 3,
     id: "leads",
-    label: "Suggests",
-    summary: "Keeps one useful next step visible. You can redirect or defer.",
+    label: "Drafts the plan",
+    summary: "Turns what you say into plan cards you accept or reject.",
     profile: "student",
+  },
+  {
+    level: 0,
+    id: "checks",
+    label: "Answers only",
+    summary: "Answers questions and flags risks. Never changes the draft.",
+    profile: "experienced",
   },
 ] as const;
 
-/** Where a researcher who has never touched the dial starts: a light hand.
- *
- * The default keeps a useful next step visible without turning the opening into
- * an intake form. A researcher can move toward quieter checking or more active
- * guidance at any time. Matches `elicitation.DEFAULT_STEER` on the server. */
+/** Where a researcher who has never chosen a style starts. Matches
+ * `elicitation.DEFAULT_STEER` on the server. */
 export const DEFAULT_STEER: SteerLevel = 3;
 
 export function steerStop(level: SteerLevel): SteerStop {
-  return STEER_STOPS[level] ?? STEER_STOPS[DEFAULT_STEER];
+  return (
+    STEER_STOPS.find((stop) => stop.level === level) ??
+    STEER_STOPS.find((stop) => stop.level === DEFAULT_STEER)!
+  );
 }
 
 /** Per-study, because the amount of help you want belongs to the study you
@@ -76,7 +65,10 @@ export function readSteer(
     const raw = localStorage.getItem(key(studyId));
     if (raw == null) return fallback;
     const level = Number(raw);
-    return isSteerLevel(level) ? level : fallback;
+    if (!Number.isInteger(level) || level < 0 || level > 3) return fallback;
+    // The earlier dial had four stops. Only its quietest one withheld
+    // proposals; the other three all proposed, so they map to drafting.
+    return level === 0 ? 0 : 3;
   } catch {
     // A browser with storage denied still gets a working dial for the
     // session; only the memory of it across reloads is lost.
@@ -90,8 +82,4 @@ export function writeSteer(studyId: string, level: SteerLevel): void {
   } catch {
     /* see readSteer */
   }
-}
-
-function isSteerLevel(n: number): n is SteerLevel {
-  return Number.isInteger(n) && n >= 0 && n <= 3;
 }

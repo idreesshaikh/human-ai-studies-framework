@@ -1,8 +1,6 @@
 /* Small pure helpers for wording and behaviour that several screens share.
  * Kept free of React; scripts/ui-regression.mjs checks the rendered states. */
-import type { ProjectSummary } from "./api.ts";
-
-/** Longest project or study name a researcher can enter. */
+/** Longest study name a researcher can enter. */
 export const NAME_MAX_LENGTH = 80;
 
 export function conditionLabel(value: string): string {
@@ -147,15 +145,6 @@ export function shortcutLabel(mac: boolean): string {
   return mac ? "⌘K" : "Ctrl K";
 }
 
-/** Where the palette's "New project" row goes: the list, composer open. */
-export const NEW_PROJECT_PATH = "/home?new=1";
-
-/** Every project the viewer can open, in the order /home lists them. */
-export function paletteProjects(list: ProjectSummary[]): ProjectSummary[] {
-  const seen = new Set<string>();
-  return list.filter((p) => !seen.has(p.slug) && !!seen.add(p.slug));
-}
-
 /** After deciding a move by keyboard, where focus should go: the next card
  * still waiting on a decision (later ones first, then earlier), otherwise the
  * decided card's own Undo. */
@@ -173,27 +162,6 @@ export function nextFocusAfterDecision(
   return next
     ? { kind: "move", moveId: next.moveId }
     : { kind: "undo", moveId: decidedId };
-}
-
-/** First letter upper-cased; the rest untouched. */
-export function sentenceCase(text: string): string {
-  const t = text.trim();
-  return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
-}
-
-/** A server message made fit to print: capitalised and ended with a full stop
- * (the API's `detail` strings are often lowercase fragments). */
-export function displayServerMessage(text: string): string {
-  const t = sentenceCase(text);
-  if (!t) return "";
-  return /[.!?…]$/.test(t) ? t : `${t}.`;
-}
-
-/** An invitation that is gone (404) or expired/revoked (410) will not work on a
- * second try, so the page stops offering to accept it. */
-export function isFatalInviteError(e: unknown): boolean {
-  const status = (e as { status?: unknown } | null | undefined)?.status;
-  return status === 404 || status === 410;
 }
 
 /** The registry's generated match reason, in plain words. */

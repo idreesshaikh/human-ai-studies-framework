@@ -108,6 +108,49 @@ export interface Lineage {
     changed: boolean;
   }[];
 }
+export interface AiAccessWarning {
+  code:
+    | "ai-access-undeclared"
+    | "ai-access-unverifiable"
+    | "deviation-without-sensitivity";
+  condition: string | null;
+  message: string;
+  unverifiableRoutes: string[];
+  suggestions: string[];
+}
+export type NonComplianceEstimator =
+  | "itt"
+  | "exclude-detected"
+  | "as-detected";
+export type NonComplianceMechanism = "random" | "skill-linked";
+/** Pass exactly one of `mix` (calibrated rates) or `sensitivity` with `specificity`. */
+export interface NonComplianceInputs {
+  effect_d: number;
+  n_per_arm: number;
+  control_violation: number;
+  treatment_nonuse: number;
+  mechanism: NonComplianceMechanism;
+  mix?: string;
+  sensitivity?: number;
+  specificity?: number;
+}
+/** A metric is null when every simulated study was refused (`refused`). */
+export interface NonComplianceMetrics {
+  bias: number | null;
+  coverage: number | null;
+  power: number | null;
+  refused: number;
+}
+export interface NonComplianceResult {
+  estimators: Record<NonComplianceEstimator, NonComplianceMetrics>;
+  /** Smallest n per arm reaching the target; null when not reached in range. */
+  requiredN: { itt: number | null; "exclude-detected": number | null };
+  detection: {
+    sensitivity: number;
+    specificity: number;
+    source: "calibration" | "entered";
+  };
+}
 const path = (id: string) => `/studies/${encodeURIComponent(id)}`;
 function post<T>(url: string, body: unknown) {
   return studyRequest<T>(url, {
@@ -122,6 +165,7 @@ export const plannerApi = {
       plan: PlanResult | null;
       protocol: PlannerProtocol;
       decisions: Record<string, SessionDecision>;
+      aiAccessWarnings: AiAccessWarning[];
     }>(`${path(id)}/plan`),
   calculate: (id: string, inputs: PlanInputs) =>
     post<PlanResult>(`${path(id)}/plan`, inputs),
@@ -141,4 +185,6 @@ export const plannerApi = {
       body,
     ),
   lineage: (id: string) => studyRequest<Lineage>(`${path(id)}/lineage`),
+  noncompliance: (id: string, inputs: NonComplianceInputs) =>
+    post<NonComplianceResult>(`${path(id)}/plan/noncompliance`, inputs),
 };

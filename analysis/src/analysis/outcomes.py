@@ -3,7 +3,7 @@
 import math
 from collections import defaultdict
 
-from protocol.measures import score_survey, validated_responses
+from protocol.measures import score_survey, score_survey_scales, validated_responses
 from protocol.versioning import version_record
 
 
@@ -35,6 +35,11 @@ def participant_outcomes(
                 continue
             if path == "score":
                 value = score_survey(inst, payload.get("responses", {}))
+            elif path.startswith("scoreGroups."):
+                group_id = path.split(".", 1)[1]
+                value = score_survey_scales(
+                    inst, payload.get("responses", {})
+                ).get(group_id)
             else:
                 value = payload
                 for key in path.split("."):

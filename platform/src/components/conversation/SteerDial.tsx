@@ -51,19 +51,20 @@ export function SteerDial({
         onClick={() => setOpen((current) => !current)}
       >
         <SlidersHorizontal className="size-4 text-text-muted" aria-hidden />
-        <span className="type-caption">{stop.label}</span>
+        {/* Icon-only on phones, where the label would squeeze the message box. */}
+        <span className="type-caption hidden sm:inline">{stop.label}</span>
       </button>
 
       {open && (
         <div
           role="dialog"
-          aria-label="Choose steer mode"
+          aria-label="Choose assistant style"
           className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-card border border-border bg-surface-raised p-2 shadow-lifted"
         >
           <div className="px-2 pb-2 pt-1">
             <p className="type-subhead text-text">Assistant style</p>
             <p className="type-note mt-0.5 text-text-muted">
-              How much the assistant proposes on its own.
+              Whether replies can change your draft.
             </p>
           </div>
           <div className="space-y-1">

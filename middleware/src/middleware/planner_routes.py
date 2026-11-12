@@ -3,16 +3,25 @@
 from dataclasses import asdict
 
 import numpy as np
+from analysis.adherence_sim import (
+    MIXES,
+    Scenario,
+    mixed_sensitivity,
+    required_n,
+    simulate,
+)
 from analysis.outcomes import participant_outcomes
 from analysis.planner import PlanInput, estimate_variance, plan_study
 from analysis.recipes.control_arm_audit import audit_sessions, calibration_report
 from fastapi import Depends, Header, HTTPException
+from protocol.ai_access import ai_access_warnings
 from protocol.measures import normalized_measures, shipped_instruments
 from protocol.versioning import compare_designs, content_hash, provenance
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from scipy import stats
 from sqlalchemy import select
 
+from analysis import calibration_rates
 from middleware.db import SessionAnnotation, StudyAuditRecord, StudyPlan
 
 
@@ -51,7 +60,75 @@ class SessionTagRequest(BaseModel):
 class CalibrationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     labels: dict[str, bool]
+    scenarios: dict[str, str] | None = None
     source: str = Field(min_length=1, max_length=4000)
+
+    @model_validator(mode="after")
+    def scenarios_belong_to_labelled_sessions(self):
+        if self.scenarios and set(self.scenarios) - set(self.labels):
+            raise ValueError("Every scenario must belong to a labelled session")
+        return self
+
+
+# Replicate counts for the non-compliance simulation. Memory and time scale with
+# n_per_arm x reps, so n_per_arm is capped; tests set the counts small.
+NONCOMPLIANCE_REPS = 2000
+NONCOMPLIANCE_REQUIRED_N_REPS = 1000
+NONCOMPLIANCE_MAX_N_PER_ARM = 1000
+NONCOMPLIANCE_MAX_ABS_EFFECT = 10  # SD units; beyond this is not a plausible effect
+NONCOMPLIANCE_REQUIRED_N_LIMIT = 2000
+NONCOMPLIANCE_REQUIRED_N_ESTIMATORS = ("itt", "exclude-detected")
+NO_CALIBRATION = (
+    "Calibration rates are not available yet; "
+    "enter sensitivity and specificity instead."
+)
+
+
+class NonComplianceRequest(BaseModel):
+    """Range checks live in `Scenario`, so every refusal is a readable sentence."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False, strict=True)
+    effect_d: float
+    n_per_arm: int
+    control_violation: float
+    treatment_nonuse: float
+    mechanism: str
+    mix: str | None = None
+    sensitivity: float | None = None
+    specificity: float | None = None
+
+
+def noncompliance_detection(body: NonComplianceRequest) -> dict:
+    """Resolve the telemetry's sensitivity and specificity, or raise ValueError."""
+    if body.mix is not None and body.sensitivity is not None:
+        raise ValueError("Pass either a mix or a sensitivity, not both")
+    if body.mix is None:
+        if body.sensitivity is None:
+            raise ValueError("Pass a mix or a sensitivity with a specificity")
+        if body.specificity is None:
+            raise ValueError("Enter a specificity together with the sensitivity")
+        return {
+            "sensitivity": body.sensitivity,
+            "specificity": body.specificity,
+            "source": "entered",
+        }
+    per_route, specificity = calibration_rates.PER_ROUTE, calibration_rates.SPECIFICITY
+    if per_route is None or specificity is None:
+        raise ValueError(NO_CALIBRATION)
+    if body.specificity is not None:
+        raise ValueError(
+            "A route mix uses the calibrated specificity; do not enter one"
+        )
+    if body.mix not in MIXES:
+        raise ValueError(f"Unknown mix {body.mix!r}; choose one of {sorted(MIXES)}")
+    sensitivity = mixed_sensitivity(per_route, MIXES[body.mix])
+    if not -1e-9 <= sensitivity <= 1 + 1e-9:
+        raise ValueError(f"Calibrated sensitivity must be in [0, 1], got {sensitivity}")
+    return {
+        "sensitivity": min(1.0, max(0.0, sensitivity)),  # absorb float rounding
+        "specificity": specificity,
+        "source": "calibration",
+    }
 
 
 TEST_RECIPES = {
@@ -215,6 +292,7 @@ def register_routes(app, db, authorize, resolve_protocol, joined_rows, now, iden
             ),
             "protocol": proto,
             "decisions": decision_records(s, study_id),
+            "aiAccessWarnings": ai_access_warnings(proto),
         }
 
     @app.post(
@@ -347,6 +425,46 @@ def register_routes(app, db, authorize, resolve_protocol, joined_rows, now, iden
             s, study_id, proto, {**inputs, "measure_id": body.measure_id}, after, now
         )
 
+    @app.post(
+        "/studies/{study_id}/plan/noncompliance",
+        dependencies=[Depends(authorize("view"))],
+    )
+    def noncompliance(study_id: str, body: NonComplianceRequest):
+        # A what-if on entered or calibrated rates: it reads and writes no study data.
+        try:
+            if body.n_per_arm > NONCOMPLIANCE_MAX_N_PER_ARM:
+                raise ValueError(
+                    f"n_per_arm must be at most {NONCOMPLIANCE_MAX_N_PER_ARM}"
+                )
+            limit = NONCOMPLIANCE_MAX_ABS_EFFECT
+            if abs(body.effect_d) > limit:
+                raise ValueError(f"effect_d must be between -{limit} and {limit}")
+            detection = noncompliance_detection(body)
+            scenario = Scenario(
+                effect_d=body.effect_d,
+                n_per_arm=body.n_per_arm,
+                control_violation=body.control_violation,
+                treatment_nonuse=body.treatment_nonuse,
+                mechanism=body.mechanism,
+                sensitivity=detection["sensitivity"],
+                specificity=detection["specificity"],
+            )
+            return {
+                "estimators": simulate(scenario, reps=NONCOMPLIANCE_REPS),
+                "requiredN": {
+                    name: required_n(
+                        scenario,
+                        name,
+                        reps=NONCOMPLIANCE_REQUIRED_N_REPS,
+                        max_n=NONCOMPLIANCE_REQUIRED_N_LIMIT,
+                    )
+                    for name in NONCOMPLIANCE_REQUIRED_N_ESTIMATORS
+                },
+                "detection": detection,
+            }
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
     @app.get(
         "/studies/{study_id}/control-arm-audit",
         dependencies=[Depends(authorize("view"))],
@@ -423,19 +541,20 @@ def register_routes(app, db, authorize, resolve_protocol, joined_rows, now, iden
         study_id: str, body: CalibrationRequest, s=Depends(db), who=Depends(identity)
     ):
         proto = protocol(s, study_id)
-        audit = audit_sessions(
-            joined_rows(s, study_id), proto.get("controlConditions", [])
-        )
+        # Calibration sessions may run in any declared condition, not only the
+        # control arm, so scripted scenarios can cover every route.
+        audit = audit_sessions(joined_rows(s, study_id), proto.get("conditions", []))
         known = {row["sessionId"] for row in audit["sessions"]}
         if not body.labels or set(body.labels) - known:
             raise HTTPException(
                 422,
-                "Labels must reference real captured control sessions in this study",
+                "Labels must reference real captured sessions in this study",
             )
         result = {
-            **calibration_report(audit, body.labels),
+            **calibration_report(audit, body.labels, body.scenarios),
             "source": body.source,
             "labels": body.labels,
+            "scenarios": body.scenarios,
             "protocolHash": content_hash(proto),
             "labelPolicy": "Researcher-supplied independent truth; no inferred labels",
         }

@@ -42,8 +42,17 @@ class ShadowRepo:
         git(*self._args(), "config", "user.name", "study-snapshotter")
 
     def commit(self, message: str) -> str | None:
-        """Stage everything and commit."""
-        git(*self._args(), "add", "-A")
+        """Stage the workspace, excluding this repo if it lives inside it."""
+        pathspecs = ["."]
+        try:
+            shadow_path = self.git_dir.resolve().relative_to(self.workspace.resolve())
+        except ValueError:
+            pass
+        else:
+            if shadow_path == Path("."):
+                raise ValueError("Shadow Git directory must be separate from workspace")
+            pathspecs.append(f":(exclude,literal){shadow_path.as_posix()}")
+        git(*self._args(), "add", "-A", "--", *pathspecs)
         head_before = git(*self._args(), "rev-parse", "HEAD")
         git(*self._args(), "commit", "--allow-empty-message", "-m", message)
         head_after = git(*self._args(), "rev-parse", "HEAD")

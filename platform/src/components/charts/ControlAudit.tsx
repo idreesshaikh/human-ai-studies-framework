@@ -16,12 +16,15 @@ import type { SessionStatus } from "@/lib/studyApi";
 import { conditionLabel } from "@/lib/uiText";
 
 const STATUS = {
-  "no-evidence": "No AI signals captured",
-  "evidence-of-ai-use": "AI signals captured",
+  "no-evidence": "No captured AI-use signal",
+  "evidence-of-ai-use": "Captured AI-use signal",
   "cannot-assess": "Capture needs review",
 };
 const SIGNALS: Record<string, string> = {
-  ai_suggestion: "AI suggestions", ai_edit_heuristic: "Possible AI edits",
+  accepted_inline_suggestion: "Accepted inline suggestions",
+  inline_completion_query: "Provider-query proxy events",
+  dismissed_inline_suggestion: "Dismissed inline suggestions",
+  possible_bulk_edit: "Possible bulk edits (ambiguous)",
   agent_turn: "Agent turns", tool_call: "Tool calls",
   clipboard_paste: "Clipboard pastes", paste_edit: "Paste edits",
 };
@@ -66,8 +69,10 @@ export function ControlAudit({ studyId, sessions, role, onUpdated, synthetic = f
     <section className="flex min-w-0 flex-col gap-3 border-t border-border pt-5" aria-label="Session review">
       <h2 className="type-section text-text">Session review</h2>
       <p className="max-w-reading type-note text-text-muted">
-        Review AI signals in control conditions and record inclusion decisions.
-        Missing signals cannot rule out AI use outside the captured tools.
+        Inspect captured-use signals in control conditions. Accepted inline suggestions
+        and hooked-agent events count as evidence; provider queries, bulk edits and
+        pastes are ambiguous. No captured signal cannot establish that a participant
+        stayed AI-free.
       </p>
       {synthetic && <p className="type-note text-text-muted">Example sessions only. Decisions are disabled.</p>}
       {error && <p className="type-note text-critical" role="alert">{error}</p>}
@@ -75,7 +80,7 @@ export function ControlAudit({ studyId, sessions, role, onUpdated, synthetic = f
       {audit && !error && (
         <>
           <p className="type-note text-text-muted">
-            {audit.sessions.length} control sessions · {audit.sessions.filter((s) => s.status === "evidence-of-ai-use").length} with AI signals · {audit.sessions.filter((s) => s.status === "cannot-assess").length} with incomplete capture
+            {audit.sessions.length} control sessions · {audit.sessions.filter((s) => s.status === "evidence-of-ai-use").length} with captured-use signals · {audit.sessions.filter((s) => s.status === "cannot-assess").length} with incomplete capture · {audit.sessions.filter((s) => s.status === "no-evidence").length} with no signal captured (not proof of no AI use)
           </p>
           <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2">
             <Field label="Show sessions">
@@ -112,7 +117,7 @@ export function ControlAudit({ studyId, sessions, role, onUpdated, synthetic = f
                       <div className="flex min-w-0 flex-col gap-2 px-3 pb-4 type-note text-text-muted">
                         <p className="break-all">Session: {session.sessionId}</p>
                         {assessment && <>
-                          <ul className="list-disc space-y-1 pl-5">{assessment.reasons.filter((reason) => !/^Captured \d+ (ai_suggestion|agent_turn|tool_call) event\(s\)\.$/.test(reason)).map((reason) => <li key={reason}>{reason}</li>)}</ul>
+                          <ul className="list-disc space-y-1 pl-5">{assessment.reasons.filter((reason) => !/^Captured \d+ (agent_turn|tool_call) event\(s\)\.$/.test(reason)).map((reason) => <li key={reason}>{reason}</li>)}</ul>
                           <p>{Object.entries(assessment.counts).map(([name, count]) => `${SIGNALS[name] ?? name}: ${count}`).join(" · ") || "No signal counts recorded."}</p>
                         </>}
                         {!synthetic && <SessionControls

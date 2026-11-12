@@ -170,6 +170,383 @@
     ]
   },
   {
+    "id": "S11",
+    "construct": "BFI-2 Extraversion",
+    "description": "Extraversion domain mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.extraversion"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "extraversion",
+      "BFI-2 Extraversion"
+    ]
+  },
+  {
+    "id": "S12",
+    "construct": "BFI-2 Agreeableness",
+    "description": "Agreeableness domain mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.agreeableness"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "agreeableness",
+      "BFI-2 Agreeableness"
+    ]
+  },
+  {
+    "id": "S13",
+    "construct": "BFI-2 Conscientiousness",
+    "description": "Conscientiousness domain mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.conscientiousness"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "conscientiousness",
+      "BFI-2 Conscientiousness"
+    ]
+  },
+  {
+    "id": "S14",
+    "construct": "BFI-2 Negative Emotionality",
+    "description": "Negative Emotionality domain mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.negative_emotionality"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "negative emotionality",
+      "BFI-2 Negative Emotionality"
+    ]
+  },
+  {
+    "id": "S15",
+    "construct": "BFI-2 Open-Mindedness",
+    "description": "Open-Mindedness domain mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.open_mindedness"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "open-mindedness",
+      "BFI-2 Open-Mindedness"
+    ]
+  },
+  {
+    "id": "S16",
+    "construct": "BFI-2 Sociability",
+    "description": "Sociability facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.sociability"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "sociability",
+      "BFI-2 Sociability"
+    ]
+  },
+  {
+    "id": "S17",
+    "construct": "BFI-2 Assertiveness",
+    "description": "Assertiveness facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.assertiveness"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "assertiveness",
+      "BFI-2 Assertiveness"
+    ]
+  },
+  {
+    "id": "S18",
+    "construct": "BFI-2 Energy Level",
+    "description": "Energy Level facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.energy_level"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "energy level",
+      "BFI-2 Energy Level"
+    ]
+  },
+  {
+    "id": "S19",
+    "construct": "BFI-2 Compassion",
+    "description": "Compassion facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.compassion"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "compassion",
+      "BFI-2 Compassion"
+    ]
+  },
+  {
+    "id": "S20",
+    "construct": "BFI-2 Respectfulness",
+    "description": "Respectfulness facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.respectfulness"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "respectfulness",
+      "BFI-2 Respectfulness"
+    ]
+  },
+  {
+    "id": "S21",
+    "construct": "BFI-2 Trust",
+    "description": "Trust facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.trust"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "interpersonal trust",
+      "BFI-2 Trust"
+    ]
+  },
+  {
+    "id": "S22",
+    "construct": "BFI-2 Organization",
+    "description": "Organization facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.organization"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "organization",
+      "BFI-2 Organization"
+    ]
+  },
+  {
+    "id": "S23",
+    "construct": "BFI-2 Productiveness",
+    "description": "Productiveness facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.productiveness"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "productiveness",
+      "BFI-2 Productiveness"
+    ]
+  },
+  {
+    "id": "S24",
+    "construct": "BFI-2 Responsibility",
+    "description": "Responsibility facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.responsibility"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "responsibility",
+      "BFI-2 Responsibility"
+    ]
+  },
+  {
+    "id": "S25",
+    "construct": "BFI-2 Anxiety",
+    "description": "Anxiety facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.anxiety"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "anxiety",
+      "BFI-2 Anxiety"
+    ]
+  },
+  {
+    "id": "S26",
+    "construct": "BFI-2 Depression",
+    "description": "Depression facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.depression"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "depression",
+      "BFI-2 Depression"
+    ]
+  },
+  {
+    "id": "S27",
+    "construct": "BFI-2 Emotional Volatility",
+    "description": "Emotional Volatility facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.emotional_volatility"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "emotional volatility",
+      "BFI-2 Emotional Volatility"
+    ]
+  },
+  {
+    "id": "S28",
+    "construct": "BFI-2 Intellectual Curiosity",
+    "description": "Intellectual Curiosity facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.intellectual_curiosity"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "intellectual curiosity",
+      "BFI-2 Intellectual Curiosity"
+    ]
+  },
+  {
+    "id": "S29",
+    "construct": "BFI-2 Aesthetic Sensitivity",
+    "description": "Aesthetic Sensitivity facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.aesthetic_sensitivity"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "aesthetic sensitivity",
+      "BFI-2 Aesthetic Sensitivity"
+    ]
+  },
+  {
+    "id": "S30",
+    "construct": "BFI-2 Creative Imagination",
+    "description": "Creative Imagination facet mean from the full Big Five Inventory 2, reverse-keyed per the official scoring key.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.creative_imagination"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "creative imagination",
+      "BFI-2 Creative Imagination"
+    ]
+  },
+  {
+    "id": "S31",
+    "construct": "BFI-2 personality profile",
+    "description": "Full 60-item Big Five Inventory 2. Returns five domain and fifteen facet means separately; the inventory has no overall total. Responses are collected before the task.",
+    "instrument": "bfi-2",
+    "fields": [
+      "survey_response.scoreGroups.extraversion",
+      "survey_response.scoreGroups.agreeableness",
+      "survey_response.scoreGroups.conscientiousness",
+      "survey_response.scoreGroups.negative_emotionality",
+      "survey_response.scoreGroups.open_mindedness",
+      "survey_response.scoreGroups.sociability",
+      "survey_response.scoreGroups.assertiveness",
+      "survey_response.scoreGroups.energy_level",
+      "survey_response.scoreGroups.compassion",
+      "survey_response.scoreGroups.respectfulness",
+      "survey_response.scoreGroups.trust",
+      "survey_response.scoreGroups.organization",
+      "survey_response.scoreGroups.productiveness",
+      "survey_response.scoreGroups.responsibility",
+      "survey_response.scoreGroups.anxiety",
+      "survey_response.scoreGroups.depression",
+      "survey_response.scoreGroups.emotional_volatility",
+      "survey_response.scoreGroups.intellectual_curiosity",
+      "survey_response.scoreGroups.aesthetic_sensitivity",
+      "survey_response.scoreGroups.creative_imagination"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "Big Five Inventory 2",
+      "BFI-2",
+      "Big Five personality profile"
+    ]
+  },
+  {
     "id": "E1",
     "construct": "time to first green",
     "description": "Time to first passing test milestone; not total active work or perceived productivity.",
@@ -273,8 +650,8 @@
   },
   {
     "id": "E7",
-    "construct": "suggestion review timing",
-    "description": "Observed suggestion review actions and timing; not review quality or care.",
+    "construct": "inline suggestion actions",
+    "description": "Captured accept and dismiss keybindings; suggestion visibility and review timing are not available through the public API.",
     "instrument": "tern",
     "fields": [
       "ai_suggestion.action"
@@ -284,14 +661,14 @@
       "between-subjects": "ai-review-behavior"
     },
     "aliases": [
-      "review latency",
-      "suggestion review"
+      "inline suggestion actions",
+      "captured accepts"
     ]
   },
   {
     "id": "E8",
-    "construct": "suggestion acceptance",
-    "description": "Share of shown AI suggestions accepted under the recipe denominator.",
+    "construct": "captured inline suggestion accepts",
+    "description": "Count of captured accept keybindings; TERN cannot observe a reliable denominator of all displayed suggestions.",
     "instrument": "tern",
     "fields": [
       "ai_suggestion.action"
@@ -301,7 +678,7 @@
       "between-subjects": "ziegler-acceptance-rate"
     },
     "aliases": [
-      "acceptance rate",
+      "accepted suggestion count",
       "accepted completions"
     ]
   },

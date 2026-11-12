@@ -61,7 +61,7 @@ the complete loop. If you are a participant, start with [Installing TERN](extens
 Prerequisites: [uv](https://docs.astral.sh/uv/) and Node 22. The optional design
 conversation uses the model configured in `.env`: `LLM_API_KEY`, `LLM_BASE_URL`
 and `LLM_MODEL`. The default is `ministral-14b-latest` on Mistral's API.
-`LLM_DESIGN_MODEL` overrides design alone; legacy `MISTRAL_*` names still work.
+`LLM_DESIGN_MODEL` overrides design alone.
 A local chat-completions server needs only `LLM_BASE_URL`. Manual authoring,
 templates, capture and exports work without a model.
 

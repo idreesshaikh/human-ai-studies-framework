@@ -34,8 +34,10 @@ ROLE_RANK: dict[Role, int] = {
 }
 
 
-# Assignable membership roles; "viewer" is an internal read-only grant.
+# Roles that may be granted through an invitation. Owners may convert a member into
+# the internal read-only viewer role through the member-management route.
 ROLES: frozenset[str] = frozenset({"owner", "member"})
+MEMBERSHIP_ROLES: frozenset[str] = frozenset(role.value for role in Role)
 
 
 CAPABILITIES: dict[str, Role] = {
@@ -60,19 +62,13 @@ def has_role(their: Role | str | None, capability: str) -> bool:
     return ROLE_RANK[role] >= ROLE_RANK[required]
 
 
-def _forbidden(capability: str, role: str | None) -> HTTPException:
+def _forbidden() -> HTTPException:
     """Plain-language 403 (F2.2)."""
-    if role is None:
-        body = (
-            f"You're not a member of this project; {capability} needs at "
-            "least the member role. Ask an owner for an invitation."
-        )
-    else:
-        body = (
-            f"You're a {role} on this project; {capability} needs a higher "
-            "role. Ask an owner to change your role."
-        )
-    return HTTPException(status_code=403, detail=body)
+    return HTTPException(
+        status_code=403,
+        detail="You don't have permission to do that. "
+        "Ask the study owner to check your access.",
+    )
 
 
 def _membership_for(
@@ -111,7 +107,7 @@ def build_authz(
     ) -> Membership:
         m = _membership_for(s, identity.sub, project.id)
         if m is None or not has_role(m.role, capability):
-            raise _forbidden(capability, m.role if m else None)
+            raise _forbidden()
         return m
 
     def require_project(capability: str) -> Callable:
@@ -216,6 +212,7 @@ def build_authz(
 
 __all__ = [
     "CAPABILITIES",
+    "MEMBERSHIP_ROLES",
     "ROLES",
     "ROLE_RANK",
     "Role",

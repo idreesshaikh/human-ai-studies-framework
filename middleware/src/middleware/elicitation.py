@@ -151,7 +151,7 @@ _SUPPORTED_STUDY_CUES = (
     "telemetry",
     "instrument",
     "capture",
-    "review latency",
+    "inline suggestion actions",
     "ai-generated code",
     "ai assistant",
 )

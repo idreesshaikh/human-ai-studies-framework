@@ -47,13 +47,6 @@ def resolve_mode(settings: Settings) -> str:
     mode = (settings.auth or "").strip().lower()
     if not mode:
         return "token" if settings.token else "none"
-    if mode == "clerk":
-        # Hosted Clerk sign-in was removed; say so instead of a generic error,
-        # because an old deployment .env still carries this value.
-        raise ValueError(
-            "MIDDLEWARE_AUTH=clerk is no longer supported: hosted sign-in was "
-            "removed. Use none (local, single user) or token (shared token)."
-        )
     if mode not in {"none", "token"}:
         raise ValueError(f"MIDDLEWARE_AUTH={mode!r}: expected none or token")
     return mode

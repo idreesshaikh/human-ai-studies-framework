@@ -36,7 +36,7 @@ export function ProtocolGuide() {
         <DialogHeader>
           <DialogTitle>The sections of a protocol draft</DialogTitle>
           <DialogDescription>
-            Open choices can stay open while you draft. Ethics status is recorded, not approved.
+            Unfinished sections can stay open while you draft. Ethics status is recorded, not approved.
           </DialogDescription>
         </DialogHeader>
         <DialogBody>

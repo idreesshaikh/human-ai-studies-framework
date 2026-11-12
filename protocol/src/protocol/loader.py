@@ -103,7 +103,19 @@ def _referential_errors(data: dict) -> list[str]:
             "capture.privacy.agentContentPolicy: full requires instruments.agentCapture"
         )
     errors.extend(_v6_errors(data))
+    errors.extend(_ai_access_errors(data))
     return errors
+
+
+def _ai_access_errors(data: dict) -> list[str]:
+    """``aiAccess`` may only describe conditions the protocol declares."""
+    declared = set(data.get("conditions", []))
+    conditions = (data.get("aiAccess") or {}).get("conditions", {})
+    return [
+        f"aiAccess.conditions.{name}: not a declared condition"
+        for name in conditions
+        if name not in declared
+    ]
 
 
 def _v6_errors(data: dict) -> list[str]:
@@ -155,6 +167,24 @@ def _v6_errors(data: dict) -> list[str]:
                     f"surveys.{survey['id']}.{item['id']}: "
                     "scale must have 2–101 equally spaced values"
                 )
+        scale_ids = set()
+        for group in survey.get("scales", []):
+            group_items = group.get("items", [])
+            if (
+                group["id"] in scale_ids
+                or not group_items
+                or len(set(group_items)) != len(group_items)
+                or set(group_items) - set(ids)
+            ):
+                errors.append(
+                    f"surveys.{survey['id']}.{group['id']}: "
+                    "scale groups need unique IDs and valid item references"
+                )
+            scale_ids.add(group["id"])
+        if survey["scoring"] == "scales" and not scale_ids:
+            errors.append(
+                f"surveys.{survey['id']}: scales scoring requires score groups"
+            )
         if survey["scoring"] == "sus" and (
             len(survey["items"]) != 10
             or any(
@@ -188,9 +218,15 @@ def _v6_errors(data: dict) -> list[str]:
                 if survey["timing"] == "pre-task"
                 else "survey_response"
             )
-            allowed = {f"{event}.score"} | {
+            allowed = {
                 f"{event}.responses.{i['id']}" for i in survey["items"]
             }
+            if survey["scoring"] not in {"none", "scales"}:
+                allowed.add(f"{event}.score")
+            allowed.update(
+                f"{event}.scoreGroups.{group['id']}"
+                for group in survey.get("scales", [])
+            )
             if set(measure["fields"]) - allowed:
                 errors.append(
                     f"measures.{measure['id']}.fields: "
@@ -199,15 +235,21 @@ def _v6_errors(data: dict) -> list[str]:
     cov = data.get("covariate")
     if cov:
         survey = next((i for i in surveys if i["id"] == cov["instrument"]), None)
+        score_fields = {"pre_task_covariate.score"}
+        if survey and survey["scoring"] == "scales":
+            score_fields = {
+                f"pre_task_covariate.scoreGroups.{group['id']}"
+                for group in survey.get("scales", [])
+            }
         if (
             not survey
             or survey["timing"] != "pre-task"
-            or cov["field"] != "pre_task_covariate.score"
+            or cov["field"] not in score_fields
             or survey["scoring"] == "none"
         ):
             errors.append(
                 "covariate: requires a scored pre-task survey and "
-                "pre_task_covariate.score"
+                "a declared score field"
             )
     return errors
 

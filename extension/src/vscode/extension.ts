@@ -2,8 +2,9 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { EditBurst } from '../core/behavior';
-import { Recorder } from '../core/recorder';
+import { Recorder, recoveryMonoOffset } from '../core/recorder';
 import { newSessionId, StudySession } from '../core/session';
+import { conditionForSessionBlock } from '../core/sessionCondition';
 import { DEFAULT_STUCK_CONFIG, StuckDetector } from '../core/stuckDetector';
 import {
   FATIGUE_ITEM,
@@ -53,6 +54,7 @@ import { CompositeSink, HttpSink, JsonlSink } from './sinks';
 import { SessionStatusBar } from './statusBar';
 import { registerSidebar, SidebarSession } from './sidebar';
 import { StuckPromptController } from './stuckPrompt';
+import { shouldRetryFatiguePrompt } from '../core/fatiguePrompt';
 
 const SNAPSHOT_KEY = 'tern.activeSession';
 /** How often (in 1 s ticks) the crash-recovery snapshot is refreshed. */
@@ -77,6 +79,8 @@ interface RunningStudy {
   dataFile: string;
   fatiguePending: boolean;
   activeFatiguePrompt?: LikertPromptHandle;
+  statusMenuOpen: boolean;
+  statusMenuInterruptedFatigue: boolean;
   ending: boolean;
   ticksSinceSnapshot: number;
   /** Setting edits ignored and recorded this session (issue #38). */
@@ -103,14 +107,15 @@ function sidebarSession(): SidebarSession {
   if (!s) {
     return { active: false, paused: false, send: lastSend };
   }
-  const paired = getPairedIdentity(extContext);
   return {
     active: true,
     ending: s.ending,
     paused: s.session.paused,
-    participantId:
-      paired?.participantId ??
-      vscode.workspace.getConfiguration('tern').get<string>('participantId'),
+    // In standalone sessions the participant can enter an ID at start that
+    // differs from the workspace default. Keep the live session view aligned
+    // with the ID written to its recording; paired sessions use that same
+    // server-issued value in the session config.
+    participantId: s.session.cfg.participantId,
     dataFile: s.dataFile,
     written: s.recorder.nextSeq,
     mirrored: s.httpSink ? s.httpSink.deliveredCount : s.recorder.nextSeq,
@@ -355,6 +360,15 @@ async function startSession(): Promise<void> {
     Boolean(study),
     plannedSessionId,
   );
+  if (paired) {
+    // A within-subject participant may advance to a different condition from
+    // the enrollment's first block. The refreshed block is authoritative for
+    // this session's survey selection and recorded events.
+    condition = conditionForSessionBlock(
+      condition,
+      pairingState<{ condition?: string }>(extContext, STATE_BLOCK),
+    );
+  }
 
   // Everything below reads capture settings, so freeze them first.
   lockSessionConfig();
@@ -500,6 +514,8 @@ interface BootConfig {
     sessionId: string;
     startedAtEpochMs: number;
     pausedMsAccumulated: number;
+    fatiguePromptPending?: boolean;
+    monoOffsetMs?: number;
     startSeq: number;
   };
 }
@@ -636,7 +652,9 @@ function bootSession(boot: BootConfig): void {
     },
     {
       startSeq: boot.restore ? boot.restore.startSeq : 0,
-      monoOffsetMs: boot.restore ? session.elapsedMs : 0,
+      monoOffsetMs: boot.restore
+        ? (boot.restore.monoOffsetMs ?? session.elapsedMs)
+        : 0,
       onSinkError: (err) => reportSinkError(err),
     },
   );
@@ -657,6 +675,8 @@ function bootSession(boot: BootConfig): void {
     ),
     dataFile: boot.dataFile,
     fatiguePending: false,
+    statusMenuOpen: false,
+    statusMenuInterruptedFatigue: false,
     ending: false,
     ticksSinceSnapshot: 0,
   };
@@ -723,13 +743,13 @@ function onTick(remaining: number): void {
     statusBar.tick(remaining);
   }
   // The status bar is the live second-by-second clock. Rebuilding all three
-  // tree providers here made the sidebar visibly flicker every second and
-  // caused an avoidable burst of accessibility work. The sidebar is refreshed
-  // at session start, pause/resume, and end instead; its countdown is
-  // intentionally secondary to the status bar.
+  // tree providers every second made the sidebar visibly flicker and caused
+  // avoidable accessibility work. Refresh at the slower snapshot cadence so
+  // the local event count stays current without competing with the timer.
   if (++s.ticksSinceSnapshot >= SNAPSHOT_EVERY_TICKS) {
     s.ticksSinceSnapshot = 0;
     persistSnapshot();
+    sidebar.refresh();
   }
 }
 
@@ -892,6 +912,7 @@ function persistSnapshot(): void {
     startedAtEpochMs: s.session.startedAt,
     plannedDurationMs: s.session.cfg.durationMs,
     fatigueIntervalMs: s.session.cfg.fatigueIntervalMs,
+    fatiguePromptPending: s.session.hasPendingFatiguePrompt,
     pausedMsAccumulated: s.session.pausedMsAccumulated,
     dataFile: s.dataFile,
     savedAtEpochMs: Date.now(),
@@ -953,13 +974,21 @@ async function offerCrashRecovery(): Promise<void> {
   }
 
   const gapMs = Math.max(0, Date.now() - snap.savedAtEpochMs);
-  const startSeq = JsonlSink.lastSeqIn(snap.dataFile) + 1;
+  const lastEvent = JsonlSink.lastEventIn(snap.dataFile);
+  const startSeq = (lastEvent?.seq ?? -1) + 1;
 
   // A crash-recovery resume continues the interrupted session, it does not
   // start a new one  -  reuse the paired credential as-is, never re-pull
   // config here (wall #6: a running/resuming session is never reconfigured).
   const credential = await getStoredCredential(extContext);
   lockSessionConfig();
+
+  const pausedMsAccumulated = snap.pausedMsAccumulated + gapMs;
+  const resumedElapsedMs = Math.max(
+    0,
+    Date.now() - snap.startedAtEpochMs - pausedMsAccumulated,
+  );
+  const monoOffsetMs = recoveryMonoOffset(lastEvent?.mono, resumedElapsedMs);
 
   bootSession({
     participantId: snap.participantId,
@@ -972,7 +1001,9 @@ async function offerCrashRecovery(): Promise<void> {
       sessionId: snap.sessionId,
       startedAtEpochMs: snap.startedAtEpochMs,
       // Downtime is treated as a pause, not as study time.
-      pausedMsAccumulated: snap.pausedMsAccumulated + gapMs,
+      pausedMsAccumulated,
+      fatiguePromptPending: snap.fatiguePromptPending,
+      monoOffsetMs,
       startSeq,
     },
   });
@@ -1065,22 +1096,37 @@ async function runFatiguePrompt(
   s.fatiguePending = true;
   statusBar.attention(true);
   const dueAt = Date.now();
+  let retryPending = false;
 
   try {
     if (trigger === 'scheduled') {
       const pauseMs = cfg('fatigue.waitForPauseSeconds', 4) * 1000;
       const deadline = Date.now() + 60_000;
       while (Date.now() < deadline) {
+        if (!study || study !== s || s.ending) return;
+        if (s.session.paused) {
+          retryPending = true;
+          return;
+        }
+        if (s.statusMenuOpen) {
+          await delay(250);
+          continue;
+        }
         const sinceEdit = Date.now() - s.detector.lastEditTime;
         if (sinceEdit >= pauseMs) break;
         await delay(1000);
-        if (!study || study.ending || study.session.paused) return;
+        if (!study || study !== s || s.ending) return;
+        if (s.session.paused) {
+          retryPending = true;
+          return;
+        }
       }
     } else {
       // A manual probe replaces the next scheduled one instead of doubling up.
       s.session.deferNextFatigue();
     }
 
+    if (!study || study !== s || s.ending) return;
     const deferralMs = Date.now() - dueAt;
     s.recorder.record('fatigue_prompt_shown', { trigger, deferralMs });
     s.detector.notePromptShown();
@@ -1088,21 +1134,49 @@ async function runFatiguePrompt(
     s.activeFatiguePrompt = handle;
     const result = await handle.result;
     s.activeFatiguePrompt = undefined;
-    s.recorder.record('fatigue_response', {
-      trigger,
-      scaleId: FATIGUE_ITEM.id,
-      points: FATIGUE_ITEM.points,
-      value: result.value,
-      skipped: result.skipped,
-      cancelled: result.cancelled,
-      msToAnswer: result.msToAnswer,
-      deferralMs,
-      minutesIntoSession: minutesIntoSession(),
+    const interrupted = shouldRetryFatiguePrompt(result, {
+      paused: s.session.paused,
+      statusMenuInterrupted: s.statusMenuInterruptedFatigue,
+      ending: s.ending,
     });
-    if (!result.cancelled) armResumptionLag('fatigue');
+    if (interrupted) {
+      retryPending = true;
+      if (!s.ending) {
+        s.recorder.record('fatigue_prompt_interrupted', {
+          trigger,
+          reason: s.session.paused
+            ? 'session-paused'
+            : s.statusMenuInterruptedFatigue
+              ? 'status-menu'
+              : 'programmatic-cancel',
+          deferralMs,
+          minutesIntoSession: minutesIntoSession(),
+        });
+      }
+    } else {
+      s.recorder.record('fatigue_response', {
+        trigger,
+        scaleId: FATIGUE_ITEM.id,
+        points: FATIGUE_ITEM.points,
+        value: result.value,
+        skipped: result.skipped,
+        cancelled: result.cancelled,
+        msToAnswer: result.msToAnswer,
+        deferralMs,
+        minutesIntoSession: minutesIntoSession(),
+      });
+      if (trigger === 'scheduled') s.session.completeFatiguePrompt();
+      if (!result.cancelled) armResumptionLag('fatigue');
+      persistSnapshot();
+    }
   } finally {
-    s.fatiguePending = false;
     s.activeFatiguePrompt = undefined;
+    s.fatiguePending = false;
+    if (retryPending && !s.ending) {
+      s.session.retryFatiguePrompt();
+      persistSnapshot();
+    }
+    s.statusMenuInterruptedFatigue = false;
     statusBar.attention(false);
   }
 }
@@ -1112,11 +1186,20 @@ async function runFatiguePrompt(
 // ---------------------------------------------------------------------------
 
 async function statusMenu(): Promise<void> {
-  if (!study) {
+  const s = study;
+  if (!s) {
     await startSession();
     return;
   }
-  const paused = study.session.paused;
+  s.statusMenuOpen = true;
+  if (s.activeFatiguePrompt) {
+    // A second QuickPick hides the fatigue prompt. Mark it as a system
+    // interruption so the scheduled probe is replayed instead of logged as
+    // the participant choosing Esc.
+    s.statusMenuInterruptedFatigue = true;
+    s.activeFatiguePrompt.cancel();
+  }
+  const paused = s.session.paused;
   const items = [
     paused
       ? {
@@ -1133,9 +1216,14 @@ async function statusMenu(): Promise<void> {
       action: 'data',
     });
   }
-  const pick = await vscode.window.showQuickPick(items, {
-    title: 'StudyLoop - session menu',
-  });
+  let pick: (typeof items)[number] | undefined;
+  try {
+    pick = await vscode.window.showQuickPick(items, {
+      title: 'StudyLoop - session menu',
+    });
+  } finally {
+    if (study === s) s.statusMenuOpen = false;
+  }
   if (pick?.action === 'pause') pauseSession();
   if (pick?.action === 'resume') resumeSession();
   if (pick?.action === 'fatigue') void runFatiguePrompt('manual');

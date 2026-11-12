@@ -31,16 +31,15 @@ automatically.
 
 | Variable | Use |
 | --- | --- |
-| `MIDDLEWARE_PORT` | Listen port; defaults to `PORT`, then 8000 |
-| `MIDDLEWARE_DB` | SQLite path |
-| `DATABASE_URL` | PostgreSQL URL; takes precedence over the SQLite path |
+| `MIDDLEWARE_PORT` | Listen port; defaults to 8000 |
+| `MIDDLEWARE_DB` | SQLite path; defaults to `.study-data/middleware.sqlite3` |
+| `DATABASE_URL` | Optional PostgreSQL URL; takes precedence over SQLite |
 | `MIDDLEWARE_DATA_DIR` | Uploaded files and local study artifacts |
 | `MIDDLEWARE_PROTOCOL` | Optional boot-protocol YAML |
 | `MIDDLEWARE_WEB` | Built frontend directory; defaults to `platform/dist` |
+| `MIDDLEWARE_API_ONLY` | Set to `1` to run without a built frontend |
 | `MIDDLEWARE_AUTH` | `none` (default, single user) or `token` |
 | `MIDDLEWARE_TOKEN` | Shared bearer token for token mode |
-| `MIDDLEWARE_PUBLIC_URL` | Public base URL used in participant links |
-| `MIDDLEWARE_CORS_ORIGINS` | Comma-separated origins for a separate frontend |
 | `LLM_API_KEY` | Enables the design conversation and model-assisted matching |
 | `LLM_BASE_URL` | Chat-completions API base or full URL; defaults to Mistral's API; local servers need no key |
 | `LLM_MODEL` | Shared model (default `ministral-14b-latest`) |
@@ -49,11 +48,11 @@ automatically.
 | `LLM_STREAM_TIMEOUT_S` | Stream timeout in seconds; default 120, range 1–1800 |
 | `LLM_MAX_RETRIES` | Retries for 429, transient server and connection failures; default 2, range 0–5 |
 | `LLM_ALLOW_HTTP` | Set to 1 to allow plain HTTP to a non-local host |
-| `MISTRAL_API_KEY` | Legacy alias for `LLM_API_KEY` |
-| `MISTRAL_MODEL` | Legacy alias for `LLM_MODEL` |
-| `MISTRAL_DESIGN_MODEL` | Legacy alias for `LLM_DESIGN_MODEL` |
 | `MIDDLEWARE_CORPUS_BOOTSTRAP` | Set to 0 to disable background corpus import |
-| `MIDDLEWARE_S2_API_KEY` | Optional Semantic Scholar key for higher rate limits (`S2_API_KEY` is a legacy alias) |
+| `MIDDLEWARE_REFRESH_INTERVAL_H` | Optional interval for scheduled paper refreshes; unset disables the scheduler |
+| `MIDDLEWARE_REFRESH_QUERIES` | Optional JSON file with refresh queries |
+| `MIDDLEWARE_CONTACT_EMAIL` | Contact address in outbound arXiv requests |
+| `MIDDLEWARE_S2_API_KEY` | Optional Semantic Scholar key for higher rate limits |
 
 With no model key or local endpoint configured, the design assistant replies
 that no language model is connected. Templates, the quick checklist and the rest of the app keep

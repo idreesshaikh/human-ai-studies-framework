@@ -29,9 +29,9 @@ import { useAuth } from "@/lib/auth.tsx";
 import { ApiError } from "@/lib/api";
 import { signInHref } from "@/lib/returnTo";
 import { plainMatchReason } from "@/lib/uiText";
-import { hasRole } from "@/lib/capabilities";
 import { publicPaperReference } from "@/lib/paperReference";
 import { browserNameStore, rememberStudyName } from "@/lib/studyNames";
+import { studyContainer } from "@/lib/studyContainer";
 
 const BAND_COPY: Record<RepertoireEntry["band"], string> = {
   common: "Widely used across the corpus",
@@ -64,11 +64,6 @@ export function Templates() {
   const [describeBusy, setDescribeBusy] = useState(false);
   const [describeError, setDescribeError] = useState("");
 
-  async function studyProject() {
-    return me?.memberships.find((membership) => hasRole(membership.role, "contribute"))?.projectSlug
-      ?? (await api.createProject("Personal")).slug;
-  }
-
   useEffect(() => {
     let active = true;
     void templatesApi.featured().then((items) => { if (active) setFeatured(items); })
@@ -81,12 +76,12 @@ export function Templates() {
     setStarting(templateId);
     setError(null);
     try {
-      const slug = await studyProject();
+      const slug = await studyContainer(api, me, refresh);
       const { protocol } = await templatesApi.instantiate(templateId, { title });
       const study = await api.createStudy(slug, title, protocol);
       rememberStudyName(browserNameStore(), study.id, title);
       await refresh().catch(() => {});
-      navigate(`/p/${slug}/studies/${study.id}?tab=planning`);
+      navigate(`/studies/${encodeURIComponent(study.id)}?tab=planning`);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Could not start this study.");
     } finally {
@@ -140,13 +135,13 @@ export function Templates() {
     setDescribeBusy(true);
     setDescribeError("");
     try {
-      const slug = await studyProject();
+      const slug = await studyContainer(api, me, refresh);
       const title =
         text.length > 60 ? `${text.slice(0, 57).trimEnd()}…` : text;
       const study = await api.createStudy(slug, title);
       rememberStudyName(browserNameStore(), study.id, title);
       await refresh();
-      navigate(`/p/${slug}/studies/${study.id}`, {
+      navigate(`/studies/${encodeURIComponent(study.id)}`, {
         state: { opening: text },
       });
     } catch (e) {
@@ -164,9 +159,8 @@ export function Templates() {
     <div className="mx-auto flex max-w-work flex-col gap-section p-gutter">
       <div>
         <h1 className="type-title text-text">Templates</h1>
-        <p className="type-body mt-1 max-w-reading text-pretty text-text-muted">
-          Start with a protocol or browse the full collection of design shapes
-          and their references. No project needed to browse.
+        <p className="type-body mt-1 max-w-[68ch] text-pretty text-text-muted">
+          Browse study designs, their research sources, and protocol details.
         </p>
         {entries && corpusReady && (
           <p className="mt-2 type-caption text-text-muted">
@@ -276,7 +270,7 @@ export function Templates() {
                 entry={entry}
                 onDetail={() => setDetailId(entry.id)}
                 onUse={() => void useTemplate(entry.id, entry.title)}
-                canUse={!signedOut && Boolean(me?.memberships.length) && starting === null}
+                canUse={!signedOut && !meLoading && starting === null}
               />
             ))}
           </div>
@@ -302,7 +296,7 @@ export function Templates() {
                 <p className="type-note mt-0.5 text-text-muted">
                   {entry.admissionNote}
                 </p>
-                {!signedOut && <Button className="mt-3" variant="outline" size="sm" disabled={!me?.memberships.length || starting !== null} onClick={() => void useTemplate(entry.id, entry.title)}>Use this template</Button>}
+                {!signedOut && <Button className="mt-3" variant="outline" size="sm" disabled={meLoading || starting !== null} onClick={() => void useTemplate(entry.id, entry.title)}>Use this template</Button>}
               </div>
             ))}
           </div>

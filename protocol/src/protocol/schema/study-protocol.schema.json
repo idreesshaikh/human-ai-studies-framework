@@ -429,7 +429,7 @@
                   "type": "boolean"
                 },
                 "captureAiLifecycle": {
-                  "description": "AI suggestion shown/accepted/rejected, with review latency.",
+                  "description": "Accepted and dismissed inline-suggestion keybindings; visibility and review latency are not captured.",
                   "type": "boolean"
                 },
                 "captureSaves": {
@@ -619,6 +619,10 @@
                 "type": "string",
                 "minLength": 1
               },
+              "instructions": {
+                "type": "string",
+                "minLength": 1
+              },
               "timing": {
                 "enum": [
                   "pre-task",
@@ -689,12 +693,44 @@
                   ]
                 }
               },
+              "scales": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "items": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "items"
+                  ]
+                }
+              },
               "scoring": {
                 "enum": [
                   "mean",
                   "sum",
                   "sus",
-                  "none"
+                  "none",
+                  "scales"
                 ]
               },
               "source": {
@@ -1057,6 +1093,81 @@
       "items": {
         "type": "string",
         "minLength": 1
+      }
+    },
+    "aiAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conditions",
+        "deviationStrategy"
+      ],
+      "properties": {
+        "conditions": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "aiAllowed",
+              "enforcement",
+              "verification"
+            ],
+            "properties": {
+              "aiAllowed": {
+                "type": "boolean"
+              },
+              "allowedTools": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "enforcement": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "none",
+                    "instruction",
+                    "locked-environment",
+                    "screen-recording",
+                    "proctor"
+                  ]
+                }
+              },
+              "verification": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "none",
+                    "self-report",
+                    "ide-telemetry",
+                    "agent-hooks",
+                    "screen-recording",
+                    "proctor"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "deviationStrategy": {
+          "enum": [
+            "itt",
+            "exclusion",
+            "per-protocol",
+            "as-treated"
+          ]
+        },
+        "sensitivityAnalysis": {
+          "type": "boolean"
+        }
       }
     }
   },

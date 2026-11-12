@@ -70,11 +70,11 @@ export function ConversationView({
   onProtocolChanged,
 }: {
   studyId?: string;
-  /** My role in the project; a viewer's open never issues the compile POST. */
+  /** My access to this study; a viewer's open never issues the compile POST. */
   roleState?: RoleState;
   /** A first line to send on arrival, typed by the researcher elsewhere  -
-   *  the "what do you want to find out?" answer given while creating the
-   *  project. Sent once, then never again for this study. */
+   *  the "what do you want to find out?" answer given while starting the
+   *  study. Sent once, then never again for this study. */
   opening?: string;
   onProtocolChanged?: () => void;
 }) {
@@ -107,10 +107,10 @@ export function ConversationView({
   const [rail, setRail] = useState<RailId>(() => readRail(studyId));
   /* The one move the caret goes to, set only when a reply lands in answer
    * to something this researcher just sent. Never on a page they merely
-   * opened, and never for a colleague's change arriving over the stream:
+   * opened, and never for a change arriving over the stream:
    * `a` and `r` decide a move from one unmodified keystroke. */
   const [focusMoveId, setFocusMoveId] = useState<string | null>(null);
-  /* A project-opening idea is already the researcher's first contribution. Keep
+  /* A study-opening idea is already the researcher's first contribution. Keep
    * the hand-off idempotent while the empty conversation is being replaced by
    * the real LLM turn. */
   const openingSubmitted = useRef<string | null>(null);
@@ -244,6 +244,14 @@ export function ConversationView({
     () => turns.flatMap((t) => t.moves),
     [turns],
   );
+  // Tie a server compilation to the exact accepted/proposed/rejected move
+  // ledger it compiled. Otherwise a valid response from the previous turn can
+  // briefly enable Apply while the next compile request is still in flight.
+  const movesSignature = useMemo(() => JSON.stringify(allMoves), [allMoves]);
+  const movesSignatureRef = useRef(movesSignature);
+  movesSignatureRef.current = movesSignature;
+  const [compiledMovesSignature, setCompiledMovesSignature] = useState<string | null>(null);
+  const currentCompileResult = compiledMovesSignature === movesSignature ? compileResult : null;
 
   /* An unanswered opening question still needs the setup guidance. */
   /* `opening` is a client-side prompt, not an answered turn. Treating it as
@@ -257,8 +265,8 @@ export function ConversationView({
   const openingPending =
     Boolean(opening.trim()) && openingSubmitted.current === openingKey;
   const clientDraft = useMemo(
-    () => compileAll(allMoves, compileResult?.protocol),
-    [allMoves, compileResult],
+    () => compileAll(allMoves, currentCompileResult?.protocol),
+    [allMoves, currentCompileResult],
   );
   const missingCoreSlots = useMemo(
     () => MANDATORY_SLOTS.filter((slot) => clientDraft[slot].length === 0),
@@ -298,6 +306,7 @@ export function ConversationView({
        * study's record from the view-capability document instead. */
       if (roleLoading) return;
       setCompileResult(null);
+      setCompiledMovesSignature(null);
       try {
         const protocol = await studyApi.protocol(studyId);
         if (request === compileRequest.current) setReadOnlyProtocol(protocol);
@@ -307,14 +316,17 @@ export function ConversationView({
       return;
     }
     setCompiling(true);
+    const requestedMovesSignature = movesSignatureRef.current;
     try {
       const result = await conversationApi.compile(studyId);
       if (request !== compileRequest.current) return;
       setCompileResult(result);
+      setCompiledMovesSignature(requestedMovesSignature);
       setReadOnlyProtocol(null);
     } catch {
       if (request !== compileRequest.current) return;
       setCompileResult(null);
+      setCompiledMovesSignature(null);
       // Readers can load the recorded protocol even when they cannot compile.
       try {
         const protocol = await studyApi.protocol(studyId);
@@ -357,7 +369,7 @@ export function ConversationView({
 
   /* The turn itself, given its text. Split out from `send` so an opening
    * line the researcher already typed  -  in the "what do you want to find
-   * out?" field on project creation  -  can be sent on arrival without being
+   * out?" field while starting the study  -  can be sent on arrival without being
    * round-tripped through the composer's state first. */
   async function sendText(text: string, decision?: DecisionTrigger, fromQueue = false) {
     if (!text || (busy && !fromQueue)) return;
@@ -775,10 +787,10 @@ export function ConversationView({
   }
 
   async function applyDraft() {
-    if (!compileResult?.valid || missingCoreSlots.length > 0 || compiling || applying) return;
+    if (!currentCompileResult?.valid || missingCoreSlots.length > 0 || compiling || applying) return;
     setApplying(true);
     try {
-      await conversationApi.approve(studyId, compileResult.compilationId);
+      await conversationApi.approve(studyId, currentCompileResult.compilationId);
       setApplied(true);
       onProtocolChanged?.();
       setNote("Draft applied to the protocol.");
@@ -799,18 +811,18 @@ export function ConversationView({
   // the researcher should have to read back as a speech bubble. They remain in the
   // compact history as “Decision recorded” so the audit trail is intact.
   const conversationTurns = turns.filter(turn => turn.turnId !== "opening" && !isDecisionEcho(turn.text));
-  const visibleCompile = compileResult && missingCoreSlots.length > 0
+  const visibleCompile = currentCompileResult && missingCoreSlots.length > 0
     ? {
-        ...compileResult,
+        ...currentCompileResult,
         valid: false,
         // The server's compile is authoritative and names gaps in its own
         // words ("the analysis plan"); merging the client's slot keys as well
         // listed the same gap twice ("the analysis plan, Statistical plan").
-        unresolved: compileResult.unresolved.length > 0
-          ? compileResult.unresolved
+        unresolved: currentCompileResult.unresolved.length > 0
+          ? currentCompileResult.unresolved
           : missingCoreSlots,
       }
-    : compileResult;
+    : currentCompileResult;
   const displayedPlatform = activePlatform && missingCoreSlots.length > 0 &&
       /protocol is complete.*ready to (?:compile|apply)/i.test(activePlatform.text)
     ? {
@@ -969,7 +981,7 @@ export function ConversationView({
             <div className="border-t border-border bg-surface px-4 py-2 sm:px-6">
               <Notice kind="offline" className="mx-auto w-full max-w-bubble">
                 {note}
-                {!live && compileResult && <Button variant="ghost" size="sm" onClick={() => setManualOpen(true)}>Enter details manually</Button>}
+                {!live && currentCompileResult && <Button variant="ghost" size="sm" onClick={() => setManualOpen(true)}>Enter details manually</Button>}
               </Notice>
             </div>
           )}
@@ -1051,23 +1063,23 @@ export function ConversationView({
               scopeBlocked={scopeBlocked}
               loading={conversationLoading}
               draft={clientDraft}
-              serverYaml={conversationLoading ? undefined : compileResult?.yaml}
+              serverYaml={conversationLoading ? undefined : currentCompileResult?.yaml}
               protocol={
                 conversationLoading
                   ? undefined
-                  : compileResult?.protocol ?? readOnlyProtocol ?? undefined
+                  : currentCompileResult?.protocol ?? readOnlyProtocol ?? undefined
               }
               compileValid={visibleCompile?.valid}
               unresolved={visibleCompile?.unresolved}
-              compileErrors={compileResult?.errors}
-              compileWarnings={compileResult?.warnings}
+              compileErrors={currentCompileResult?.errors}
+              compileWarnings={currentCompileResult?.warnings}
               /* A reader can see the record; only a contributor can change it,
                * so the actions stay off when the compile came back 403. */
-              onApply={live && compileResult ? applyDraft : undefined}
-              onEdit={live && compileResult ? () => setManualOpen(true) : undefined}
+              onApply={live && currentCompileResult ? applyDraft : undefined}
+              onEdit={live && currentCompileResult ? () => setManualOpen(true) : undefined}
               applying={applying}
               onFinish={
-                live && compileResult
+                live && currentCompileResult
                   ? () => { void refreshCompile(); setShowFinish(true); }
                   : undefined
               }
@@ -1082,7 +1094,7 @@ export function ConversationView({
       {manualOpen && (
         <ManualProtocolDialog
           studyId={studyId}
-          protocol={compileResult?.protocol}
+          protocol={currentCompileResult?.protocol}
           moves={allMoves}
           onClose={() => setManualOpen(false)}
           onEntered={() => { setLive(true); void reloadConversation(); onProtocolChanged?.(); }}

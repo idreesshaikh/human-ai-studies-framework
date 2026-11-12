@@ -39,8 +39,10 @@ _COLUMN_MEANINGS: dict[str, str] = {
     "passed": "task-harness verdict: did the acceptance suite pass",
     "firstGreenMs": "milliseconds from session start to the first passing run",
     "responseChars": "agent response size in characters (metadata-only policy)",
-    "action": "ai_suggestion lifecycle: shown, accepted, or dismissed",
-    "visibleMs": "milliseconds a suggestion was visible before the choice",
+    "action": "ai_suggestion: accepted or dismissed inline-suggestion action; "
+    "legacy shown is a provider-query proxy",
+    "visibleMs": "legacy elapsed time from an inline-provider query to a decision; "
+    "not verified visibility",
     "suggestionId": "suggestion identifier within the session",
     "file": "path of the focused file (line numbers only, never text)",
     "role": "agent conversation role (user/assistant)",

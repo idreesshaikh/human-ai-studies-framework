@@ -60,7 +60,9 @@ def _text_of(content: object) -> str:
         return "".join(
             b.get("text", "")
             for b in content
-            if isinstance(b, dict) and b.get("type") == "text"
+            if isinstance(b, dict)
+            and b.get("type") == "text"
+            and isinstance(b.get("text", ""), str)
         )
     return ""
 
@@ -94,10 +96,16 @@ def _usage(message: dict) -> dict:
     policy; `requirements/metric-coverage.md` §4).
     """
     usage = message.get("usage") or {}
+    if not isinstance(usage, dict):
+        return {}
     out = {}
-    if "input_tokens" in usage:
+    if isinstance(usage.get("input_tokens"), (int, float)) and not isinstance(
+        usage["input_tokens"], bool
+    ):
         out["inputTokens"] = usage["input_tokens"]
-    if "output_tokens" in usage:
+    if isinstance(usage.get("output_tokens"), (int, float)) and not isinstance(
+        usage["output_tokens"], bool
+    ):
         out["outputTokens"] = usage["output_tokens"]
     return out
 
@@ -108,10 +116,19 @@ def _session_meta_payload(lines: list[dict], transcript_path: str | Path) -> dic
     agent_session_id = Path(transcript_path).stem
     cwd = ""
     for line in lines:
-        agent_session_id = line.get("sessionId") or agent_session_id
-        cwd = cwd or line.get("cwd", "")
+        session_id = line.get("sessionId")
+        agent_session_id = (
+            session_id
+            if isinstance(session_id, str) and session_id
+            else agent_session_id
+        )
+        candidate_cwd = line.get("cwd", "")
+        cwd = cwd or (candidate_cwd if isinstance(candidate_cwd, str) else "")
         msg = line.get("message") or {}
-        model = model or msg.get("model", "")
+        if not isinstance(msg, dict):
+            msg = {}
+        candidate_model = msg.get("model", "")
+        model = model or (candidate_model if isinstance(candidate_model, str) else "")
         if model and cwd:
             break
     return {
@@ -135,9 +152,14 @@ def _normalize_copilot_chat(
     for turn_index, line in enumerate(lines):
         ts = line.get("timestamp", "")
         role = line.get("role", "")
+        ts = ts if isinstance(ts, str) else ""
+        role = role if isinstance(role, str) else ""
         content = line.get("content", "") or ""
+        content = content if isinstance(content, str) else ""
         tool_name = line.get("tool_name", "")
+        tool_name = tool_name if isinstance(tool_name, str) else ""
         tool_input = line.get("tool_input") or {}
+        tool_input = tool_input if isinstance(tool_input, dict) else {}
 
         payload: dict = {"role": role, "turnIndex": turn_index, "chars": len(content)}
         if prev_ts and ts:
@@ -166,9 +188,9 @@ def _normalize_copilot_chat(
 
     meta = {"agentTool": "generic", "modelId": "", "agentSessionId": "", "cwdHash": ""}
     for line in lines:
-        if line.get("model"):
+        if isinstance(line.get("model"), str) and line["model"]:
             meta["modelId"] = line["model"]
-        if line.get("sessionId"):
+        if isinstance(line.get("sessionId"), str) and line["sessionId"]:
             meta["agentSessionId"] = line["sessionId"]
 
     ordered = [("", EVENT_SESSION_META, meta), *logical]
@@ -214,7 +236,10 @@ def normalize_transcript(
     for line in lines:
         mtype = line.get("type")
         ts = line.get("timestamp", "")
+        ts = ts if isinstance(ts, str) else ""
         msg = line.get("message") or {}
+        if not isinstance(msg, dict):
+            msg = {}
         content = msg.get("content")
 
         if mtype == "assistant":
@@ -236,10 +261,17 @@ def normalize_transcript(
             turn_index += 1
             for b in _blocks(content):
                 if b.get("type") == "tool_use":
-                    pending[b.get("id", f"tu-{len(pending)}")] = {
-                        "name": b.get("name", ""),
+                    tool_id = b.get("id")
+                    if not isinstance(tool_id, str) or not tool_id:
+                        tool_id = f"tu-{len(pending)}"
+                    name = b.get("name", "")
+                    tool_input = b.get("input") or {}
+                    pending[tool_id] = {
+                        "name": name if isinstance(name, str) else "",
                         "ts": ts,
-                        "targetHash": _target_hash(b.get("input") or {}),
+                        "targetHash": _target_hash(
+                            tool_input if isinstance(tool_input, dict) else {}
+                        ),
                     }
 
         elif mtype == "user":
@@ -291,6 +323,8 @@ def _tool_call_event(
     result_block: dict, pending: dict, ts: str
 ) -> tuple[str, str, dict]:
     tid = result_block.get("tool_use_id", "")
+    if not isinstance(tid, str):
+        tid = ""
     info = pending.pop(tid, {"name": "", "ts": ts, "targetHash": ""})
     payload = {
         "tool": info["name"],

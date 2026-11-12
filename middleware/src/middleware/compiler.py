@@ -969,7 +969,7 @@ RECIPE_LABELS: dict[str, str] = {
     "tlx-debrief": "NASA-TLX debrief analysis",
     "two-group-nonparametric": "two-group nonparametric test",
     "two-proportion": "two-proportion test",
-    "ziegler-acceptance-rate": "suggestion acceptance rate analysis",
+    "ziegler-acceptance-rate": "captured inline-suggestion accept counts",
 }
 
 METRIC_SET_LABELS: dict[str, str] = {

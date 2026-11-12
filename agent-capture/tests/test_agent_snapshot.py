@@ -104,6 +104,24 @@ def test_shadow_repo_never_captures_participant_git_internals(tmp_path, workspac
     assert "detect.py" in tracked
 
 
+def test_shadow_repo_inside_workspace_is_excluded_from_its_own_snapshot(tmp_path):
+    ws = tmp_path / "task"
+    ws.mkdir()
+    (ws / "detect.py").write_text("def detect():\n    return 1\n")
+    shadow_dir = ws / ".study-data" / "shadow.git"
+    snap = Snapshotter(Keys("P01", "ai-assisted", "S1"), ws, shadow_dir)
+    snap.snapshot()
+    tracked = git(
+        f"--git-dir={shadow_dir}",
+        f"--work-tree={ws}",
+        "ls-tree",
+        "-r",
+        "--name-only",
+        "HEAD",
+    )
+    assert tracked.splitlines() == ["detect.py"]
+
+
 def test_code_diff_is_explicit_file_scoped_and_off_by_default(tmp_path, workspace):
     (workspace / ".env").write_text("SYNTHETIC_SECRET=fixture\n")
     (workspace / "other.py").write_text("unselected fixture\n")

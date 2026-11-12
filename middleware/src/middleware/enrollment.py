@@ -234,10 +234,11 @@ _TOGGLE_CATALOG: list[dict] = [
         "instrument": "tern",
         "leg": LEG_BEHAVIORAL,
         "path": ["behavior", "captureAiLifecycle"],
-        "label": "AI completion lifecycle",
+        "label": "Inline suggestion actions",
         "description": (
-            "Records when a suggestion appears and whether it was accepted, "
-            "rejected, or dismissed, with the review latency before the choice."
+            "Records accepted and dismissed inline-suggestion keybindings. "
+            "Suggestion visibility and review latency are not available "
+            "through the public API."
         ),
         "grounding": {"ref": "FR-INST-8", "source": "srs"},
     },
@@ -458,7 +459,8 @@ def consent_statement(protocol: dict) -> str:
     return (
         f'You are joining "{title}". '
         f"This study uses these instruments: {instruments}. Editor activity "
-        "telemetry records sizes, shapes, timings and salted hashes; "
+        "telemetry records sizes, shapes and timings of edits, "
+        "file paths relative to the workspace, and the workspace folder name; "
         "it does not record keystrokes or clipboard text. "
         f'{workspace_content} Agent-conversation capture is set to "{policy}": '
         f"{policy_desc}. Session records use an assigned participant ID. "

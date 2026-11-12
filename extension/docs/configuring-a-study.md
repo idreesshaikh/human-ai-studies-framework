@@ -141,7 +141,7 @@ say. Under it, each stream can be turned off independently:
 | `tern.behavior.captureVisibleRanges` | Scroll position, recorded when scrolling settles, for coverage analysis. |
 | `tern.behavior.captureEditBursts`    | Aggregated edits with an origin guess (human / AI / paste / undo-redo).  |
 | `tern.behavior.captureClipboard`     | Paste sizes and internal-copy timing.                                    |
-| `tern.behavior.captureAiLifecycle`   | AI suggestion shown/accepted/rejected, with review latency.              |
+| `tern.behavior.captureAiLifecycle`   | Inline suggestion accepts and dismissals from session keybindings; visibility and review latency are not captured. |
 | `tern.behavior.captureSaves`         | File save sizes.                                                         |
 | `tern.behavior.captureHeartbeat`     | Active/idle transitions.                                                 |
 | `tern.behavior.captureAttention`     | Region-level time-on-code from caret and hover.                          |

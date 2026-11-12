@@ -50,9 +50,9 @@ Event-derived measures read the event `type` from the one-timeline dataset.
 | Indentation variance | static (`indentation_variance`) | continuous | RQ-P2 |
 | Line width (mean / max) | static (`mean_line_width`, `max_line_width`) | continuous / count | RQ-P2 |
 | Time to first passing test | `task_outcome.firstGreenMs` (minutes, one per session) | continuous | RQ-P2 |
-| Code authorship (AI vs human) | `edit_burst.origin` | categorical | RQ-P3 |
-| AI-authored share | `edit_burst` (per participant) | continuous | RQ-P3 |
-| AI character share (session) | `code_evolution.aiInsertionShare` | continuous | RQ-P3 |
+| Edit-origin heuristic | `edit_burst.origin` | categorical | RQ-P3 |
+| Rapid-edit heuristic share | `edit_burst` (per participant) | continuous | RQ-P3 |
+| Edit-origin heuristic share (session) | `code_evolution.aiInsertionShare` | continuous | RQ-P3 |
 | Lines per edit burst | `edit_burst.linesTouched` | count | RQ-P3 |
 | Self-reported fatigue | `fatigue_response.value` (1–7) | ordinal | RQ-P1 |
 | Comprehension probe correctness | `comprehension_probe_response.correct` | categorical | RQ-P1 |
