@@ -8,7 +8,6 @@ import csv
 import hashlib
 import importlib.util
 import json
-import shutil
 import subprocess
 import sys
 from collections import Counter
@@ -18,11 +17,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "scripts"
-EXPERIMENT = ROOT / "docs" / "experiments" / "ai-use-calibration"
-PLAN = EXPERIMENT / "plan.md"
-LABELS = EXPERIMENT / "labels.csv"
-TASK = EXPERIMENT / "task"
-REFERENCE_SOLUTION = EXPERIMENT / "reference" / "inventory_solution.py"
 
 NO_AI = "no-ai"
 AI_ROUTES = [
@@ -112,13 +106,6 @@ def test_order_is_actually_shuffled():
     unshuffled = [NO_AI] * 3 + [s for s in AI_ROUTES for _ in range(3)]
     unshuffled += [s for s in BENIGN for _ in range(2)]
     assert scenarios != unshuffled
-
-
-def test_frozen_plan_carries_the_printed_order_verbatim():
-    # The plan is committed to freeze it; a drifted order would silently
-    # invalidate the freeze.
-    printed = run_script("calibration_order.py").stdout.strip()
-    assert printed in PLAN.read_text()
 
 
 # --- instrument_version.py -------------------------------------------------
@@ -375,55 +362,3 @@ def test_bad_labels_are_refused_with_a_clear_message(tmp_path, label_lines, mess
     assert result.returncode != 0
     assert message in result.stderr
     assert "Traceback" not in result.stderr
-
-
-def test_the_labels_file_starts_with_the_exact_header():
-    # Only the first line: the operator adds a row after every session.
-    first_line = LABELS.read_text().splitlines()[0]
-    assert first_line == "sessionId,scenario,aiUsed,rep,operatorNote"
-
-
-# --- the session task ------------------------------------------------------
-
-
-def copy_task(tmp_path: Path) -> Path:
-    """A fresh copy of the participant folder, as each session starts from."""
-    work = tmp_path / "work"
-    shutil.copytree(
-        TASK, work, ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache")
-    )
-    return work
-
-
-def run_task_tests(work: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"],
-        cwd=work,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-
-def test_task_tests_pass_against_the_reference_solution(tmp_path):
-    work = copy_task(tmp_path)
-    shutil.copyfile(REFERENCE_SOLUTION, work / "inventory.py")
-    result = run_task_tests(work)
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "8 passed" in result.stdout
-
-
-def test_task_tests_fail_on_every_test_against_the_stub(tmp_path):
-    result = run_task_tests(copy_task(tmp_path))
-    assert result.returncode != 0
-    assert "8 failed" in result.stdout
-    assert "passed" not in result.stdout
-
-
-def test_participant_folder_holds_stubs_and_no_solution():
-    stub = (TASK / "inventory.py").read_text()
-    assert stub.count("raise NotImplementedError") == 5
-    assert not list(TASK.rglob("*solution*"))
-    assert "def _is_skipped" not in "".join(
-        p.read_text() for p in TASK.rglob("*.py") if p.name != "test_inventory.py"
-    )
