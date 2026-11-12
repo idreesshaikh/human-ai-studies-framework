@@ -1,14 +1,12 @@
-import { lazy, Suspense, useState, useSyncExternalStore } from "react";
-import { Link, NavLink, useLocation, useParams } from "react-router-dom";
+import { useState, useSyncExternalStore } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   Menu,
   Moon,
   Sun,
   LogOut,
-  FolderOpen,
   FlaskConical,
   Layers,
-  Users,
   Settings,
   PanelLeft,
   PanelLeftClose,
@@ -33,7 +31,6 @@ import { useRouteTitle } from "@/lib/useDocumentTitle";
 import { browserNameStore, studyDisplayName } from "@/lib/studyNames";
 
 const THEME_ICON = { light: Sun, dark: Moon };
-const ProjectSwitcher = lazy(() => import("./ProjectSwitcher").then((module) => ({ default: module.ProjectSwitcher })));
 
 /* One row spec for every control in the rail: the nav links and the fold
  * button share height, radius, type and hover so none reads as a different
@@ -42,27 +39,21 @@ const NAV_ITEM =
   "type-control flex items-center gap-2 rounded-control border py-2 transition-all duration-standard";
 const NAV_ITEM_IDLE = "border-transparent text-text-muted hover:bg-zone-9 hover:text-text";
 
-/* The signed-in chrome: a project-scoped sidebar + a top bar (breadcrumb,
- * project switcher, theme, account). Collapses to a toggle on narrow
- * viewports. */
+/* The signed-in shell keeps the study list and shared settings in one rail. */
 export function AppFrame({ children }: { children: React.ReactNode }) {
-  const { me, isSolo, setThemePreference } = useSession();
+  const { me, setThemePreference } = useSession();
   const { signOut, hasCredential } = useAuth();
   // No-auth mode already reports a credential.
   const signedOut = !hasCredential;
   const { pathname, search } = useLocation();
-  const { slug: routeSlug } = useParams<{ slug?: string }>();
-  const hasProjectNav = /^\/p\/[^/]+/.test(pathname);
-  const isWorkspace = /^\/p\/[^/]+\/studies\/[^/]+/.test(pathname);
-  const navSlug = routeSlug ?? me?.memberships?.[0]?.projectSlug ?? "";
+  const isWorkspace = /^\/studies\/[^/]+/.test(pathname);
   const theme = useSyncExternalStore(subscribeTheme, getTheme, getTheme);
   const navFolded = usePanel("nav");
   const [navOpen, setNavOpen] = useState(false);
   /* A mobile drawer always shows labels, regardless of the saved desktop fold preference. */
   const showFolded = navFolded && !navOpen;
-  const studyId = /^\/p\/[^/]+\/studies\/([^/]+)/.exec(pathname)?.[1];
+  const studyId = /^\/studies\/([^/]+)/.exec(pathname)?.[1];
   useRouteTitle({
-    projectName: me?.memberships?.find((m) => m.projectSlug === routeSlug)?.projectName,
     studyName: studyId
       ? studyDisplayName(browserNameStore(), decodeURIComponent(studyId))
       : undefined,
@@ -128,7 +119,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             <Menu className="size-5" aria-hidden />
           </button>
         )}
-        {/* Signed out, "home" is the public front, not the projects list the
+        {/* Signed out, "home" is the public front, not the studies list the
           * visitor cannot see  -  the wordmark was the one control on a public
           * page guaranteed to dead-end at the sign-in gate. */}
         <Link
@@ -140,15 +131,12 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           <span className="hidden type-subhead tracking-tight text-text sm:inline">StudyLoop</span>
         </Link>
         <div className="ml-auto flex items-center gap-2">
-          {!signedOut && !isSolo && <Suspense fallback={null}><ProjectSwitcher memberships={me?.memberships ?? []} /></Suspense>}
           <button type="button" className="header-control" onClick={cycleTheme} aria-label={themeToggleLabel(theme)}>
             <Icon aria-hidden />
           </button>
-          {/* Signed out, there is no account to open a menu about and no
-            * project to switch between  -  an avatar reading "You" over a
-            * "Sign out" item would be describing a session that does not
-            * exist. The one thing a visitor on a public page can do with
-            * their identity is acquire one. */}
+          {/* Signed out, there is no account menu to open. The one thing a
+            * visitor on a public page can do with their identity is acquire
+            * one. */}
           {signedOut ? (
             <Link to={signInHref(pathname + search)} className="header-control px-3 text-text">
               Sign in
@@ -184,11 +172,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* One sidebar, always  -  a researcher switches between projects,
-       * templates, members and settings from the same rail everywhere,
-       * rather than a top strip outside a project and a side rail inside
-       * one. The "Project" group only appears once a project is in scope,
-       * since Studies, Members and Settings need a slug to resolve. */}
+      {/* Studies, templates and account preferences are the three destinations. */}
       <div className="flex min-h-0 flex-1">
         {navOpen && (
           <div
@@ -215,43 +199,14 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           )}
         >
           <div className="flex flex-1 flex-col gap-1 overflow-auto p-3">
-            {!isSolo && navItem(
+            {navItem(
               "/home",
-              "Projects",
-              <FolderOpen className="size-4" aria-hidden />,
-              // /start creates a project's first study, so Projects is where
-              // the researcher is.
-              { forceActive: pathname === "/start" },
+              "Studies",
+              <FlaskConical className="size-4" aria-hidden />,
+              { forceActive: pathname === "/start" || pathname === "/home" || pathname.startsWith("/studies/") },
             )}
             {navItem("/repertoire", "Templates", <Layers className="size-4" aria-hidden />)}
-            {!hasProjectNav &&
-              navItem("/settings", "Account settings", <Settings className="size-4" aria-hidden />)}
-
-            {hasProjectNav && (
-              <>
-                {!showFolded && (
-                  <p className="type-legend mb-2 mt-4 border-t border-border px-1 pt-4 text-text-muted">
-                    Project
-                  </p>
-                )}
-                <div className="flex flex-col gap-1">
-                  {navItem(
-                    `/p/${navSlug}`,
-                    "Studies",
-                    <FlaskConical className="size-4" aria-hidden />,
-                    {
-                      forceActive: pathname.includes("/studies/"),
-                    },
-                  )}
-                  {!isSolo && navItem(`/p/${navSlug}/members`, "Members", <Users className="size-4" aria-hidden />)}
-                  {navItem(
-                    `/p/${navSlug}/settings`,
-                    "Project settings",
-                    <Settings className="size-4" aria-hidden />,
-                  )}
-                </div>
-              </>
-            )}
+            {navItem("/settings", "Account settings", <Settings className="size-4" aria-hidden />)}
           </div>
 
           {/* Folding applies to the desktop rail; the mobile drawer has its own toggle. */}

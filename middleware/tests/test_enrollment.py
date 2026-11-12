@@ -77,6 +77,14 @@ def test_consent_statement_is_derived_and_names_the_policy():
     assert 'set to "full"' in full_text
 
 
+def test_consent_statement_states_paths_not_hashes():
+    text = enrollment.consent_statement(PROTOCOL)
+    assert "salted" not in text
+    assert "file paths relative to the workspace" in text
+    assert "workspace folder name" in text
+    assert "does not record keystrokes or clipboard text" in text
+
+
 ALL_FOUR = {
     **PROTOCOL,
     "instruments": {

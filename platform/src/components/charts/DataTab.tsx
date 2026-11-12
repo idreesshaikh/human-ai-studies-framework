@@ -204,6 +204,10 @@ export function DataTab({
               <div className="flex flex-col gap-3">
                 {visibleSessions.rows.map((s) => {
                   const isOpen = expandedSession === s.sessionId;
+                  const hasCaptureFlags =
+                    s.flaggedEvents > 0 || s.flagKinds.length > 0;
+                  const needsCaptureReview =
+                    hasCaptureFlags || s.missingEvents > 0;
                   const missingProducers = statusDoc
                     ? statusDoc.requiredProducers.filter((id) => {
                         const source = statusDoc.producers[id]?.source ?? id;
@@ -260,10 +264,12 @@ export function DataTab({
                         <p
                           className={cn(
                             "col-start-2 row-start-1 flex items-center gap-1 type-caption sm:col-start-3",
-                            s.complete ? "text-text" : "text-critical",
+                            s.complete && !needsCaptureReview
+                              ? "text-text"
+                              : "text-critical",
                           )}
                         >
-                          {s.complete ? (
+                          {s.complete && !needsCaptureReview ? (
                             <>
                               <CheckCircle2 className="size-3" aria-hidden />{" "}
                               no flags
@@ -271,7 +277,9 @@ export function DataTab({
                           ) : (
                             <>
                               <AlertTriangle className="size-3" aria-hidden />
-                              {s.flagKinds.length > 0 ? "Review capture" : s.missingEvents > 0
+                              {hasCaptureFlags
+                                ? `Review capture · ${s.flaggedEvents} flagged event${s.flaggedEvents === 1 ? "" : "s"}`
+                                : s.missingEvents > 0
                                 ? `${s.missingEvents} event${s.missingEvents === 1 ? "" : "s"} missing`
                                 : "in progress"}
                             </>

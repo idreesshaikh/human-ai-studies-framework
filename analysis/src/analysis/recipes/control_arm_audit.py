@@ -12,8 +12,13 @@ BLIND_SPOTS = [
     "External CLI agents may arrive as bulk file reloads without AI events.",
     "Drag-and-drop, external clipboard tools and activity "
     "outside the editor may not be captured.",
-    "Edit-origin heuristics have no independent ground truth; "
-    "paste alone is ambiguous.",
+    "Inline-completion provider queries do not establish that a suggestion "
+    "was returned, displayed or accepted.",
+    "Inline-suggestion keybindings miss partial accepts, toolbar clicks and "
+    "typing-through dismissals.",
+    "Bulk-edit heuristics can be triggered by formatters, snippets, renames "
+    "and other non-AI edits; they are not counted as AI-use evidence.",
+    "Paste alone is ambiguous and does not establish AI origin.",
     "No evidence of AI use is never proof of no AI use.",
 ]
 
@@ -40,9 +45,18 @@ def audit_sessions(
             payload = row.get("payload") or {}
             kind = row.get("type")
             if kind == "ai_suggestion":
-                counts["ai_suggestion"] += 1
+                action = payload.get("action")
+                if action == "accepted":
+                    counts["accepted_inline_suggestion"] += 1
+                elif action in {"shown", "queried"}:
+                    # Older TERN versions called a provider query "shown".
+                    # The passive provider cannot establish that a suggestion
+                    # was actually returned or displayed.
+                    counts["inline_completion_query"] += 1
+                elif action == "dismissed":
+                    counts["dismissed_inline_suggestion"] += 1
             if kind == "edit_burst" and payload.get("origin") == "ai":
-                counts["ai_edit_heuristic"] += 1
+                counts["possible_bulk_edit"] += 1
             if kind == "edit_burst" and payload.get("origin") == "paste":
                 counts["paste_edit"] += 1
             if kind in {"agent_turn", "tool_call"}:
@@ -51,15 +65,30 @@ def audit_sessions(
                 counts["clipboard_paste"] += 1
         evidence = any(
             counts[k]
-            for k in ("ai_suggestion", "ai_edit_heuristic", "agent_turn", "tool_call")
+            for k in ("accepted_inline_suggestion", "agent_turn", "tool_call")
         )
-        if counts["ai_edit_heuristic"]:
+        if counts["accepted_inline_suggestion"]:
             reasons.append(
-                "Edit-origin heuristic marked AI; this signal is unvalidated."
+                f"Captured {counts['accepted_inline_suggestion']} accepted "
+                "inline suggestion(s). This confirms captured inline-completion "
+                "use, not total AI use."
             )
-        for k in ("ai_suggestion", "agent_turn", "tool_call"):
+        for k in ("agent_turn", "tool_call"):
             if counts[k]:
                 reasons.append(f"Captured {counts[k]} {k} event(s).")
+        if counts["inline_completion_query"]:
+            reasons.append(
+                f"TERN recorded {counts['inline_completion_query']} legacy "
+                "inline-provider query proxy event(s). VS Code can make these "
+                "queries during ordinary typing; they do not show that a "
+                "suggestion was returned, displayed or accepted."
+            )
+        if counts["possible_bulk_edit"]:
+            reasons.append(
+                f"{counts['possible_bulk_edit']} bulk-edit heuristic signal(s) "
+                "were observed; formatters, snippets, renames and other "
+                "non-AI edits can trigger this heuristic."
+            )
         if counts["clipboard_paste"] or counts["paste_edit"]:
             reasons.append(
                 "Paste signals are present; they do not establish AI origin."
@@ -123,27 +152,40 @@ def audit_sessions(
     }
 
 
-def calibration_report(audit: dict, labels: dict[str, bool]) -> dict:
-    """Independent labels only. Abstentions are reported, never counted as negatives."""
-    samples = [s for s in audit["sessions"] if s["sessionId"] in labels]
-    assessed = [s for s in samples if s["status"] != "cannot-assess"]
-    report = {
-        "labelled": len(samples),
-        "assessed": len(assessed),
-        "abstained": len(samples) - len(assessed),
-        "signals": {},
-    }
-    for signal in (
-        "combined",
-        "ai_suggestion",
-        "ai_edit_heuristic",
-        "agent_turn",
-        "tool_call",
-        "clipboard_paste",
-        "paste_edit",
-    ):
-        tp = tn = positives = negatives = 0
-        for session in assessed:
+_CALIBRATION_SIGNALS = (
+    "combined",
+    "accepted_inline_suggestion",
+    "possible_bulk_edit",
+    "agent_turn",
+    "tool_call",
+    "clipboard_paste",
+    "paste_edit",
+)
+
+
+def _rate(successes: int, total: int) -> dict:
+    if not total:
+        return {"value": None, "ci": None, "n": 0}
+    ci = stats.binomtest(successes, total).proportion_ci(method="exact")
+    return {"value": successes / total, "ci": [ci.low, ci.high], "n": total}
+
+
+def _calibration_signals(
+    assessed: list[dict], labels: dict[str, bool], *, fired: bool = False
+) -> dict:
+    """Rates over assessed sessions only. `fired` ignores the label.
+
+    "combined" grades every assessed session, because positive evidence stands
+    even when capture was incomplete. Every other signal grades only sessions
+    with complete capture: an incomplete session may have missed that channel,
+    so its silence there is not a negative.
+    """
+    complete = [s for s in assessed if s["captureComplete"]]
+    signals = {}
+    for signal in _CALIBRATION_SIGNALS:
+        graded = assessed if signal == "combined" else complete
+        tp = tn = positives = negatives = fires = 0
+        for session in graded:
             truth = labels[session["sessionId"]]
             predicted = (
                 session["status"] == "evidence-of-ai-use"
@@ -154,17 +196,53 @@ def calibration_report(audit: dict, labels: dict[str, bool]) -> dict:
             negatives += int(not truth)
             tp += int(truth and predicted)
             tn += int(not truth and not predicted)
-
-        def rate(successes, total):
-            if not total:
-                return {"value": None, "ci": None, "n": 0}
-            ci = stats.binomtest(successes, total).proportion_ci(method="exact")
-            return {"value": successes / total, "ci": [ci.low, ci.high], "n": total}
-
-        report["signals"][signal] = {
-            "sensitivity": rate(tp, positives),
-            "specificity": rate(tn, negatives),
+            fires += int(predicted)
+        signals[signal] = {
+            "sensitivity": _rate(tp, positives),
+            "specificity": _rate(tn, negatives),
         }
+        if fired:
+            signals[signal]["fired"] = _rate(fires, len(graded))
+    return signals
+
+
+def _incomplete(sessions: list[dict]) -> int:
+    return sum(1 for s in sessions if not s["captureComplete"])
+
+
+def calibration_report(
+    audit: dict, labels: dict[str, bool], scenarios: dict[str, str] | None = None
+) -> dict:
+    """Independent labels only. Abstentions are reported, never counted as negatives.
+
+    With `scenarios`, the same rates are also reported per scripted scenario.
+    A scenario with no assessed sessions reports null rates, not zero.
+    `incompleteCaptureExcluded` counts labelled sessions with incomplete capture
+    (abstentions included), which are left out of every per-signal rate.
+    """
+    samples = [s for s in audit["sessions"] if s["sessionId"] in labels]
+    assessed = [s for s in samples if s["status"] != "cannot-assess"]
+    report = {
+        "labelled": len(samples),
+        "assessed": len(assessed),
+        "abstained": len(samples) - len(assessed),
+        "incompleteCaptureExcluded": _incomplete(samples),
+        "signals": _calibration_signals(assessed, labels),
+    }
+    if scenarios is not None:
+        report["byScenario"] = {}
+        for scenario in sorted(set(scenarios.values())):
+            group = [s for s in samples if scenarios.get(s["sessionId"]) == scenario]
+            if not group:
+                continue
+            graded = [s for s in group if s["status"] != "cannot-assess"]
+            report["byScenario"][scenario] = {
+                "labelled": len(group),
+                "assessed": len(graded),
+                "abstained": len(group) - len(graded),
+                "incompleteCaptureExcluded": _incomplete(group),
+                "signals": _calibration_signals(graded, labels, fired=True),
+            }
     return report
 
 

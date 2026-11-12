@@ -277,7 +277,7 @@ class Membership(Base):
     __tablename__ = "memberships"
     __table_args__ = (
         CheckConstraint(
-            "role IN ('owner', 'member')",
+            "role IN ('owner', 'member', 'viewer')",
             name="ck_membership_role",
         ),
     )
@@ -614,11 +614,13 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _migrate_paper_edge_abstract(engine)
 
     if is_pg:
+        _migrate_membership_role_viewer(engine)
         _setup_pg_fts(engine)
         PG_FTS_AVAILABLE = True
         _migrate_projects(engine, db_url_str)
     else:
         _check_schema(engine, db_url_str)
+        _migrate_membership_role_viewer(engine)
         _migrate_projects(engine, db_url_str)
         _create_fts(engine)
 
@@ -942,6 +944,48 @@ def _check_schema(engine, db_url: str) -> None:
             + ". Either point MIDDLEWARE_DB at a fresh file, or migrate a "
             "backed-up database to the current schema."
         )
+
+
+def _migrate_membership_role_viewer(engine) -> None:
+    """Allow the internal read-only viewer grant on existing databases."""
+    with engine.begin() as conn:
+        # Check after taking the transaction so concurrent app starts can observe a
+        # migration another process just completed.
+        inspector = inspect(conn)
+        if not inspector.has_table("memberships"):
+            return
+        checks = inspector.get_check_constraints("memberships")
+        if any("viewer" in (check.get("sqltext") or "").lower() for check in checks):
+            return
+
+        if _is_postgres(engine):
+            conn.execute(
+                text(
+                    "ALTER TABLE memberships DROP CONSTRAINT IF EXISTS "
+                    "ck_membership_role"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE memberships ADD CONSTRAINT ck_membership_role "
+                    "CHECK (role IN ('owner', 'member', 'viewer'))"
+                )
+            )
+            return
+
+        # SQLite cannot alter a CHECK constraint in place. Rebuild only this small
+        # table, copying all membership rows before dropping the old constraint.
+        conn.execute(text("ALTER TABLE memberships RENAME TO memberships_role_old"))
+        Membership.__table__.create(conn)
+        conn.execute(
+            text(
+                "INSERT INTO memberships "
+                "(project_id, identity_sub, role, invited_by, joined_at) "
+                "SELECT project_id, identity_sub, role, invited_by, joined_at "
+                "FROM memberships_role_old"
+            )
+        )
+        conn.execute(text("DROP TABLE memberships_role_old"))
 
 
 def _migrate_projects(engine, db_url: str) -> None:

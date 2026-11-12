@@ -24,9 +24,6 @@ def clean_env(monkeypatch):
         "LLM_TIMEOUT_S",
         "LLM_STREAM_TIMEOUT_S",
         "LLM_MAX_RETRIES",
-        "MISTRAL_API_KEY",
-        "MISTRAL_MODEL",
-        "MISTRAL_DESIGN_MODEL",
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(llm, "_sleep", lambda seconds: sleeps.append(seconds))
@@ -35,19 +32,16 @@ def clean_env(monkeypatch):
     sleeps.clear()
 
 
-def test_legacy_mistral_settings_still_work(monkeypatch):
-    monkeypatch.setenv("MISTRAL_API_KEY", "k")
-    monkeypatch.setenv("MISTRAL_MODEL", "legacy-model")
-    assert llm.make_client().model == "legacy-model"
+def test_default_provider_uses_the_shared_settings(monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "k")
+    monkeypatch.setenv("LLM_MODEL", "shared-model")
+    assert llm.make_client().model == "shared-model"
     assert llm.make_client().base_url == llm.DEFAULT_BASE_URL
 
 
-def test_llm_settings_win_over_legacy(monkeypatch):
-    monkeypatch.setenv("MISTRAL_API_KEY", "old")
+def test_design_override_uses_the_shared_settings(monkeypatch):
     monkeypatch.setenv("LLM_API_KEY", "new")
-    monkeypatch.setenv("MISTRAL_MODEL", "legacy")
     monkeypatch.setenv("LLM_MODEL", "shared")
-    monkeypatch.setenv("MISTRAL_DESIGN_MODEL", "legacy-design")
     monkeypatch.setenv("LLM_DESIGN_MODEL", "design")
     assert llm.make_client().api_key == "new"
     assert llm.make_client().model == "shared"

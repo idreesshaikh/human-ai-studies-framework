@@ -1,25 +1,21 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Outlet, Route, Routes, Link, useLocation } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { PhoenixMark } from "@/components/brand/PhoenixMark";
 import { useRouteTitle } from "@/lib/useDocumentTitle";
 import { AppFrame } from "@/components/shell/AppFrame";
 import { SignInScreen } from "@/components/shell/SignInScreen";
 import { useAuth } from "@/lib/auth.tsx";
-import { useSession } from "@/lib/session";
 
-/* Route-level code splitting. The marketing hero and the study workspace (the
+/* Route-level code splitting. The template collection and study workspace (the
  * two heaviest subtrees  -  the workspace pulls the whole conversation, charts,
  * constellation, and enrollment stack) load only when the researcher actually
  * opens them, instead of riding in the first payload everyone pays for. The
  * chrome (AppFrame + auth) stays eager: it is on every signed-in screen and
  * must paint immediately. */
 
-const Projects = lazy(() =>
-  import("@/pages/Projects").then((m) => ({ default: m.Projects })),
-);
-const ProjectHome = lazy(() =>
-  import("@/pages/ProjectHome").then((m) => ({ default: m.ProjectHome })),
+const Studies = lazy(() =>
+  import("@/pages/Studies").then((m) => ({ default: m.Studies })),
 );
 const StudyHome = lazy(() =>
   import("@/pages/StudyHome").then((m) => ({ default: m.StudyHome })),
@@ -27,17 +23,8 @@ const StudyHome = lazy(() =>
 const Templates = lazy(() =>
   import("@/pages/Templates").then((m) => ({ default: m.Templates })),
 );
-const Members = lazy(() =>
-  import("@/pages/Members").then((m) => ({ default: m.Members })),
-);
 const AccountSettings = lazy(() =>
   import("@/pages/AccountSettings").then((m) => ({ default: m.AccountSettings })),
-);
-const ProjectSettings = lazy(() =>
-  import("@/pages/ProjectSettings").then((m) => ({ default: m.ProjectSettings })),
-);
-const InviteAccept = lazy(() =>
-  import("@/pages/InviteAccept").then((m) => ({ default: m.InviteAccept })),
 );
 
 /* A route's fallback while its chunk loads. Chunks are small, so this rarely
@@ -51,11 +38,10 @@ function PageFallback() {
   );
 }
 
-function Home() {
-  const { isSolo, me, loading } = useSession();
-  if (isSolo && loading) return <PageFallback />;
-  const slug = me?.memberships[0]?.projectSlug;
-  return isSolo && slug ? <Navigate to={`/p/${slug}`} replace /> : <Projects />;
+function LegacyStudyRedirect() {
+  const { id = "" } = useParams();
+  const { search } = useLocation();
+  return <Navigate to={`/studies/${encodeURIComponent(id)}${search}`} replace />;
 }
 
 /* Templates are publicly readable; creating a study still requires an identity. */
@@ -107,7 +93,7 @@ function NotFound() {
         </p>
         <Button asChild>
           <Link to={hasCredential ? "/home" : "/"}>
-            {hasCredential ? "Go to Projects" : "Back to the start"}
+            {hasCredential ? "Go to Studies" : "Back to the start"}
           </Link>
         </Button>
       </main>
@@ -126,30 +112,24 @@ export default function App() {
             and once there is one it forwards rather than framing an app the
             visitor has already left. */}
         <Route path="/signin" element={<SignInScreen />} />
-        <Route path="/invitations/:token" element={<InviteAccept />} />
+        <Route path="/invitations/:token" element={<Navigate to="/home" replace />} />
         <Route element={<Shell />}>
-          {/* Not "/projects"  -  that's the backend's GET /projects API path
-              (app.py); same-path SPA route + API route can't coexist on a
-              hard navigation (refresh, bookmark, the sign-in/sign-out
-              location.reload()), which bypasses the SPA shell entirely and
-              shows the raw API response instead of this page. */}
           <Route path="/start" element={<Navigate to="/home" replace />} />
-          <Route path="/home" element={<Home />} />
+          <Route path="/home" element={<Studies />} />
           <Route path="/settings" element={<AccountSettings />} />
-          {/* Templates are project-agnostic (FR-TPL): one global browse,
-              not one per project. Not "/templates"  -  that's the backend's
-              GET /templates API path (app.py), and the same-path collision
-              would show raw JSON on a hard navigation. The old project-scoped
-              URL keeps working. */}
+          {/* The template collection is shared by every study. */}
           <Route path="/repertoire" element={<Templates />} />
-          <Route path="/p/:slug" element={<ProjectHome />} />
-          <Route path="/p/:slug/studies/:id" element={<StudyHome />} />
+          <Route path="/studies/:id" element={<StudyHome />} />
+          {/* Old links keep opening their study, while containers stay out of
+              the researcher-facing navigation. */}
+          <Route path="/p/:slug" element={<Navigate to="/home" replace />} />
+          <Route path="/p/:slug/studies/:id" element={<LegacyStudyRedirect />} />
           <Route
             path="/p/:slug/templates"
             element={<Navigate to="/repertoire" replace />}
           />
-          <Route path="/p/:slug/members" element={<Members />} />
-          <Route path="/p/:slug/settings" element={<ProjectSettings />} />
+          <Route path="/p/:slug/members" element={<Navigate to="/home" replace />} />
+          <Route path="/p/:slug/settings" element={<Navigate to="/settings" replace />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -156,11 +156,19 @@ def apply_catalog_measures(protocol: dict) -> list[str]:
                 "timing": "pre-task",
             }
             continue
+        fields = entry["fields"]
+        if instrument in surveys and surveys[instrument].get("timing") == "pre-task":
+            fields = [
+                field.replace("survey_response.", "pre_task_covariate.", 1)
+                if field.startswith("survey_response.")
+                else field
+                for field in fields
+            ]
         measure = {
             "id": entry["id"],
             "construct": entry["construct"],
             "instrument": instrument,
-            "fields": entry["fields"],
+            "fields": fields,
             "analysisRecipe": recipe,
             "version": CATALOG_VERSION,
         }

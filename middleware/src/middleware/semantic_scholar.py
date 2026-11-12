@@ -70,9 +70,7 @@ class SemanticScholarError(Exception):
 
 
 def _headers() -> dict[str, str]:
-    key = (
-        os.environ.get("MIDDLEWARE_S2_API_KEY") or os.environ.get("S2_API_KEY") or ""
-    ).strip()
+    key = os.environ.get("MIDDLEWARE_S2_API_KEY", "").strip()
     return {"x-api-key": key} if key else {}
 
 def _pace(url: str) -> None:

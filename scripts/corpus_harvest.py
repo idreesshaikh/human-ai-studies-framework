@@ -107,9 +107,7 @@ def fetch_seed(arxiv_id: str, cache_dir: Path) -> dict | None:
 
 
 def api_headers() -> dict[str, str]:
-    key = (
-        os.environ.get("MIDDLEWARE_S2_API_KEY") or os.environ.get("S2_API_KEY") or ""
-    ).strip()
+    key = os.environ.get("MIDDLEWARE_S2_API_KEY", "").strip()
     return {"x-api-key": key} if key else {}
 
 

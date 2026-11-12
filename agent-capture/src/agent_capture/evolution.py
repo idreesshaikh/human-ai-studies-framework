@@ -46,8 +46,10 @@ def compute_evolution(events: list[dict]) -> dict:
         "aiPersistenceApprox": ai_persistence,
         "participantCommits": commits,
         "approximation": (
-            "churn and AI persistence are char-approximated; line-level "
-            "awaits edit_burst startLine/endLine (schema v4)."
+            "origin=ai values come from TERN's size-and-speed heuristic, "
+            "not verified authorship; formatters, snippets and renames can "
+            "trigger it. Churn and persistence are char-approximated; "
+            "line-level awaits edit_burst startLine/endLine (schema v4)."
         ),
         "derived": True,
     }

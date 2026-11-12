@@ -66,6 +66,7 @@ from middleware.routes import (
     meta,
     participants,
     projects,
+    studies,
     study_data,
 )
 from middleware.routes.deps import ApiDeps
@@ -182,17 +183,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                     ),
                 ),
             )
-
-    if settings.cors_origins:
-        from fastapi.middleware.cors import CORSMiddleware
-
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=list(settings.cors_origins),
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
 
     def db() -> Session:
         session = session_factory()
@@ -399,6 +389,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     export_elicitation = conversation.register(app, deps)
 
+    studies.register(app, deps)
+
     projects.register(app, deps)
 
     participants.register(app, deps)
@@ -443,6 +435,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             "/settings",
             "/repertoire",
             "/signin",
+            "/studies/{study_id}",
             "/p/{rest:path}",
             "/invitations/{rest:path}",
         ):

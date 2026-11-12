@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from middleware.app import create_app
 from middleware.settings import Settings
 from protocol.loader import validate_protocol
+from protocol.measure_catalog import measure_catalog
 
 from middleware import compiler, design_llm
 
@@ -30,7 +31,11 @@ def study(client):
 def test_catalog_and_suggestions_are_read_only_and_work_before_a_protocol(client):
     catalog = client.get("/measure-catalog")
     assert catalog.status_code == 200
-    assert len(catalog.json()["measures"]) == 20
+    measures = catalog.json()["measures"]
+    assert measures == measure_catalog()
+    assert {measure["id"] for measure in measures} >= {
+        f"S{index}" for index in range(21, 32)
+    }
     sid = study(client)
     result = client.post(
         f"/studies/{sid}/measure-suggestions",

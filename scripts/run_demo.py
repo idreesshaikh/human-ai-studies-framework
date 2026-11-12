@@ -27,13 +27,13 @@ SERVER = (
 )
 
 
-MODEL_ROUTE = ("LLM_", "MISTRAL_")
+MODEL_ROUTE = ("LLM_",)
 LOCAL_HOSTS = ("localhost", "127.0.0.1", "[::1]")
 
 
 def has_model_route(environ) -> bool:
     """A provider key, or a local OpenAI-compatible server that needs none."""
-    if environ.get("LLM_API_KEY") or environ.get("MISTRAL_API_KEY"):
+    if environ.get("LLM_API_KEY"):
         return True
     base = environ.get("LLM_BASE_URL", "")
     return any(f"//{host}" in base for host in LOCAL_HOSTS)
@@ -61,7 +61,6 @@ def demo_environment(directory: Path, port: int, live: bool = False) -> dict[str
         MIDDLEWARE_PROTOCOL="",
         MIDDLEWARE_CORPUS_BOOTSTRAP="1" if live else "0",
         MIDDLEWARE_REFRESH_INTERVAL_H="",
-        MIDDLEWARE_PUBLIC_URL=f"http://127.0.0.1:{port}",
     )
     return env
 
@@ -80,7 +79,7 @@ def main() -> int:
         parser.error("port must be between 1 and 65535")
     if args.live and not has_model_route(os.environ):
         parser.error(
-            "--live needs a model provider: set LLM_API_KEY (or MISTRAL_API_KEY), "
+            "--live needs a model provider: set LLM_API_KEY "
             "or LLM_BASE_URL for a local server. To use .env: uv run --no-sync "
             "--env-file .env python scripts/run_demo.py --live"
         )

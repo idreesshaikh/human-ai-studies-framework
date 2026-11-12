@@ -28,6 +28,22 @@ def test_redacted_masks_literals_and_long_identifiers():
     assert "=" in out and "(" in out
 
 
+def test_redacted_masks_numeric_and_bearer_credential_values():
+    text = (
+        "password = 123456; AWS_SECRET_ACCESS_KEY=987654321; "
+        "Authorization: Bearer 1234567890.0987654321.sig"
+    )
+    out = redact_text(text)
+    for leaked in ("123456", "987654321", "1234567890", "0987654321", ".sig"):
+        assert leaked not in out
+
+
+def test_redacted_masks_escaped_string_literals_without_leaking_tail():
+    text = r'password = "before\"123456789"'
+    out = redact_text(text)
+    assert "123456789" not in out
+
+
 def test_unknown_policy_collapses_to_safe_default():
     assert normalize_policy("full-send") == "metadata-only"
     assert apply_policy(SECRET, None) is None

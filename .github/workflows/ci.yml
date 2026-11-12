@@ -105,5 +105,3 @@ jobs:
 
       - name: Check (lint + tsc + build + accessible researcher workflows)
         run: npm run check
-        env:
-          VITE_API_BASE: ""

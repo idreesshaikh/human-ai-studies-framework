@@ -22,12 +22,12 @@ Copilot's non-public `handleDidShowCompletionItem` (suggestion shown), and
 timestamp minus provider-invocation timestamp; rejection is inferred from
 absence of an accept.
 
-**Taken:** the _shape_ of the lifecycle instrument - suggestion-shown and
-decision timestamps as separate joinable events, with review latency
-(`visibleMs`) computed between them; rejection-by-absence as an
-analysis-side concept.
+**Taken:** joinable IDs for explicit accept/dismiss keybinding events.
+Suggestion display and review latency are not observable through the public
+API, and an absent accept does not establish rejection.
 
-**Rejected:** the mechanism. `Module._cache` patching requires activating
+**Rejected:** both the mechanism and the display/rejection claims.
+`Module._cache` patching requires activating
 before the target extension, only works in a same-process Node extension
 host, and is welded to undocumented Copilot internals that have already
 changed since Tako shipped. That is debt, not engineering, and a
@@ -36,30 +36,29 @@ dataset.
 
 **Chosen instead (public API only):**
 
-1. A **passive `InlineCompletionItemProvider`** (returns no items) timestamps
-   when the editor computes inline completions - the public stand-in for
-   "a suggestion is on screen". Queries separated by a quiet gap (> 2 s)
-   start a new `suggestionId` and emit `ai_suggestion action=shown`.
-2. **Keybinding-scoped wrapper commands** (see below) on `Tab`
+1. **Keybinding-scoped wrapper commands** (see below) on `Tab`
    (`when: inlineSuggestionVisible`) and `Escape` record
    `accepted`/`dismissed` and then delegate to the real
    `editor.action.inlineSuggest.commit` / `.hide`.
-3. The **block-injection heuristic** (>= 80 chars inside 50 ms, both
-   protocol-configurable) as the fallback that also catches non-inline AI
-   surfaces (chat-panel "apply", CLI agents editing files on disk).
+2. The **block-injection heuristic** (>= 80 chars inside 50 ms, both
+   protocol-configurable) as a possible signal for non-inline AI surfaces
+   (chat-panel "apply", CLI agents editing files on disk). It can also flag
+   formatters, snippets, renames and other non-AI edits, so it does not
+   establish AI origin.
+
+The passive provider was removed because VS Code can query it during ordinary
+typing, and its public API does not reveal whether another provider returned or
+displayed a suggestion. TERN records keybinding accept/dismiss actions only;
+these actions are incomplete measures of all suggestion use.
 
 **Blind spots:**
 
-- _Query is not display_: the passive provider fires when completions are
-  computed; a provider may return nothing, so some `shown` events have no
-  visible ghost text, and `visibleMs` is an upper bound on true visibility.
 - Partial accepts (accept-next-word commands), mouse-click accepts on the
   suggestion toolbar, and typing-through dismissals bypass the keybindings;
-  sizeable accepted blocks are still caught by the size heuristic as
-  `edit_burst origin=ai`, but without a lifecycle event.
-- Explicit `rejected` is not directly observable in VS Code; `dismissed`
-  (Esc) is captured, and rejection can be inferred in analysis as a `shown`
-  with no matching decision.
+  sizeable rapid edits may be caught by the bulk-edit heuristic, but that
+  heuristic cannot establish AI origin.
+- The public API does not expose reliable suggestion display, rejection, or
+  review-latency events. Do not infer rejection from the absence of an accept.
 
 ## From ActivityWatch (sensor -> local daemon)
 
@@ -128,8 +127,9 @@ cut/paste` bound to `Ctrl/Cmd+C/X/V` with
 
 **Blind spots:** context-menu/menu-bar paste, drag-and-drop, and paste while
 the extension host is not yet activated bypass the keybindings (no
-`clipboard_paste` event; large ones land as `edit_burst origin=ai` via the
-block heuristic, small ones as `human`). Keybindings only apply during an
+`clipboard_paste` event; large ones may land as `edit_burst origin=ai` via the
+block heuristic, which does not prove AI origin, while small ones may appear as
+`human`). Keybindings only apply during an
 active session (`sessionActive` context), so out-of-session copy/paste is
 untouched native behavior. Multi-cursor copies are hashed as their
 newline-joined concatenation, matching VS Code's own multi-cursor clipboard

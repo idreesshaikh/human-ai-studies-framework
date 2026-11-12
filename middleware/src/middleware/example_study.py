@@ -236,16 +236,12 @@ def _session_events(
             suggestion += 1
             sid = f"sg-{suggestion}"
             timeline.append(
-                (at - 1_800, "ai_suggestion", {"suggestionId": sid, "action": "shown"})
-            )
-            timeline.append(
                 (
                     at - 200,
                     "ai_suggestion",
                     {
                         "suggestionId": sid,
                         "action": "accepted",
-                        "visibleMs": 1_600,
                         "charCount": chars,
                         "lineCount": max(1, chars // 45),
                     },
@@ -273,8 +269,7 @@ def _session_events(
                     "ai_suggestion",
                     {
                         "suggestionId": f"sg-{n}",
-                        "action": "shown" if n == 1 else "dismissed",
-                        **({"visibleMs": 2_500} if n == 2 else {}),
+                        "action": "accepted" if n == 1 else "dismissed",
                     },
                 )
             )

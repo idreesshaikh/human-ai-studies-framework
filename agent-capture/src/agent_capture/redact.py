@@ -17,8 +17,15 @@ POLICIES = (METADATA_ONLY, REDACTED, FULL)
 DEFAULT_POLICY = METADATA_ONLY
 DEFAULT_MIN_TOKEN_LEN = 4
 
-_STRING_LITERAL = re.compile(r"""(['"]).*?\1""", re.DOTALL)
+_STRING_LITERAL = re.compile(r"""(['"])(?:\\.|(?!\1)[\s\S])*?\1""")
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_SENSITIVE_ASSIGNMENT = re.compile(
+    r"(?i)(\b(?:password|passwd|pwd|token|secret|credential|authorization|"
+    r"[a-z0-9_]*(?:password|passwd|token|secret|credential|api[_-]?key|"
+    r"access[_-]?key|private[_-]?key)[a-z0-9_]*)\b\s*[:=]\s*)"
+    r"(?:\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'|"
+    r"Bearer\s+[^\s,;]+|[^\s,;]+)"
+)
 
 
 def normalize_policy(policy: str | None) -> str:
@@ -47,7 +54,10 @@ def apply_policy(
 
 def redact_text(text: str, *, min_token_len: int = DEFAULT_MIN_TOKEN_LEN) -> str:
     """Mask string literals then long identifiers (the ``redacted`` level)."""
-    masked = _STRING_LITERAL.sub(lambda m: m.group(1) + "***" + m.group(1), text)
+    # Scrub credential values before general literal/identifier masking. Long
+    # identifiers alone do not protect digit-only values such as password=123456.
+    masked = _SENSITIVE_ASSIGNMENT.sub(lambda m: m.group(1) + "***", text)
+    masked = _STRING_LITERAL.sub(lambda m: m.group(1) + "***" + m.group(1), masked)
 
     def mask_ident(m: re.Match) -> str:
         tok = m.group(0)

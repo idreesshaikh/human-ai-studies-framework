@@ -66,6 +66,8 @@ export interface SessionSnapshot {
   startedAtEpochMs: number;
   plannedDurationMs: number;
   fatigueIntervalMs: number;
+  /** A scheduled fatigue probe is pending after an interruption. */
+  fatiguePromptPending?: boolean;
   /** Accumulated paused time so far (excluded from the study clock). */
   pausedMsAccumulated: number;
   dataFile: string;

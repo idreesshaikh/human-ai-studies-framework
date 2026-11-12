@@ -39,13 +39,38 @@ def score_survey(instrument: dict, responses: dict) -> float | None:
         if instrument["scoring"] == "sus":
             value -= scale["min"]
         values.append(value)
-    if not values or instrument["scoring"] == "none":
+    if not values or instrument["scoring"] in {"none", "scales"}:
         return None
     if instrument["scoring"] == "sus":
         return sum(values) * 2.5
     if instrument["scoring"] == "sum":
         return sum(values)
     return sum(values) / len(values)
+
+
+def score_survey_scales(instrument: dict, responses: dict) -> dict[str, float]:
+    """Score declared subscales after applying each item's reverse key."""
+    if instrument.get("scoring") != "scales" or not validated_responses(
+        instrument, responses
+    ):
+        return {}
+    items = {item["id"]: item for item in instrument["items"]}
+    scores = {}
+    for group in instrument.get("scales", []):
+        values = []
+        for item_id in group.get("items", []):
+            item = items.get(item_id)
+            if item is None:
+                return {}
+            value = responses[item_id]
+            scale = item["scale"]
+            if item.get("reverse", False):
+                value = scale["min"] + scale["max"] - value
+            values.append(value)
+        if not values:
+            return {}
+        scores[group["id"]] = sum(values) / len(values)
+    return scores
 
 
 def shipped_instruments() -> list[dict]:

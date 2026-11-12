@@ -9,7 +9,12 @@ from protocol.capture import (
     capture_config_version,
     producer_capabilities,
 )
-from protocol.measures import normalized_measures, score_survey, validated_responses
+from protocol.measures import (
+    normalized_measures,
+    score_survey,
+    score_survey_scales,
+    validated_responses,
+)
 from protocol.versioning import content_hash, version_record
 
 LIMITATIONS = [
@@ -67,12 +72,19 @@ def _contract(protocol, measure):
     )
     if not survey or recipe != "typed-measures":
         return None, "This instrument/recipe needs a custom outcome check."
-    if survey.get("timing") == "pre-task":
-        return None, "Baseline covariates need a separate coverage rule."
+    # A pre-task score is a treatment-independent adjustment input, not a
+    # repeated outcome to review for condition coverage.
+    if survey.get("timing") == "pre-task" or any(
+        field.startswith("pre_task_covariate.") for field in fields
+    ):
+        return None, "Baseline survey inputs are covariates, not outcome measures."
     event = "survey_response"
     known = {f"{event}.responses.{i['id']}" for i in survey["items"]}
-    if survey.get("scoring") != "none":
+    if survey.get("scoring") not in {"none", "scales"}:
         known.add(f"{event}.score")
+    known.update(
+        f"{event}.scoreGroups.{group['id']}" for group in survey.get("scales", [])
+    )
     if not set(fields) <= known:
         return None, "A field or score is not defined by the declared survey."
     return ("tern", event, survey), None
@@ -106,6 +118,11 @@ def _input_problem(row, measure, survey):
             and score_survey(survey, payload["responses"]) is None
         ):
             return "survey-score", "The declared survey cannot produce a score."
+        if any(".scoreGroups." in f for f in measure["fields"]):
+            scores = score_survey_scales(survey, payload["responses"])
+            groups = {f.split(".scoreGroups.", 1)[1] for f in measure["fields"]}
+            if groups - set(scores):
+                return "survey-score", "The declared survey scale score is unavailable."
         return None
     passed, total, failed = (payload.get(k) for k in ("passed", "total", "failed"))
     if (

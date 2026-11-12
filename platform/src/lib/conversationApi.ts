@@ -28,7 +28,6 @@ type ConversationReply = {
   understanding?: Understanding;
 };
 
-const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await getAuthToken();
@@ -65,7 +64,7 @@ async function responseError(res: Response): Promise<ApiError> {
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(API_BASE + path, {
+    res = await fetch(path, {
       ...init,
       headers: { ...(await authHeaders()), ...(init.headers ?? {}) },
       credentials: "include",
@@ -367,7 +366,7 @@ export const conversationApi = {
     } | null = null;
     try {
       const res = await fetch(
-        `${API_BASE}/studies/${encodeURIComponent(studyId)}/conversation/turns/stream`,
+        `/studies/${encodeURIComponent(studyId)}/conversation/turns/stream`,
         {
           method: "POST",
           headers: {

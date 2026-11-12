@@ -22,6 +22,9 @@ import { useAsync } from "@/lib/useAsync";
 import { hasRole } from "@/lib/capabilities";
 import type { RoleState } from "@/lib/role";
 
+/* Below this many papers the list fits at a glance and needs no filter. */
+const LIST_TOOLS_FROM = 6;
+
 const SORT_OPTIONS = [
   { value: "recent", label: "Recently added" },
   { value: "title", label: "Title" },
@@ -78,7 +81,8 @@ export function LibraryTab({
     targetsOf(linkDraft).sort().join(",") !==
     [...(selectedPaper?.links ?? [])].sort().join(",");
   const needle = query.trim().toLowerCase();
-  const filtered = papers.filter((paper) =>
+  // With the controls hidden, a leftover filter must not hide papers.
+  const filtered = papers.length < LIST_TOOLS_FROM ? papers : papers.filter((paper) =>
     [
       paper.title,
       ...(paper.authors ?? []),
@@ -295,7 +299,7 @@ export function LibraryTab({
       )}
       {roleState.status === "known" && !canEdit && (
         <p className="type-note text-text-muted">
-          You have read-only access. Owners and members can add papers and edit
+          Your access is read-only. Study editors can add papers and edit
           protocol links.
         </p>
       )}
@@ -328,23 +332,25 @@ export function LibraryTab({
               {papers.length} {papers.length === 1 ? "paper" : "papers"}
             </span>
           </div>
-          {papers.length > 0 && (
-            <div className="flex shrink-0 flex-col gap-2 border-b border-border p-3">
-              <Field id="evidence-filter" label="Filter papers">
-                <Input
-                  type="search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Title, author, year or identifier"
-                />
-              </Field>
-              <Field id="evidence-sort" label="Sort papers">
-                <Select
-                  value={sort}
-                  onValueChange={setSort}
-                  options={SORT_OPTIONS}
-                />
-              </Field>
+          {/* Filtering a handful of papers costs more space than it saves, so
+            * the controls appear once the list needs them, on one row. */}
+          {papers.length >= LIST_TOOLS_FROM && (
+            <div className="flex shrink-0 items-center gap-2 border-b border-border p-3">
+              <Input
+                type="search"
+                aria-label="Filter papers"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Filter papers"
+                className="min-w-0 flex-1"
+              />
+              <Select
+                aria-label="Sort papers"
+                value={sort}
+                onValueChange={setSort}
+                options={SORT_OPTIONS}
+                className="w-auto shrink-0"
+              />
             </div>
           )}
           {paperRequest.error && (

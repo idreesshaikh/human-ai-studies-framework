@@ -1,10 +1,9 @@
 """
 Chat-completions client layer. Provider, endpoint, model, key, timeouts and retries
-come from the environment only (see ``.env.example``); nothing here names a vendor
-except the legacy ``MISTRAL_*`` aliases and the default endpoint.
+come from the environment only (see ``.env.example``). The OpenAI-compatible API
+shape lets the same settings work with hosted and local providers.
 
-Resolution order, per setting: ``LLM_*`` > legacy ``MISTRAL_*`` > built-in default.
-Design turns use ``LLM_DESIGN_MODEL`` (alias ``MISTRAL_DESIGN_MODEL``) when set.
+Design turns use ``LLM_DESIGN_MODEL`` when set.
 The design conversation and the corpus match ladder are the only callers; this module
 holds no conversational surface of its own.
 """
@@ -24,9 +23,6 @@ log = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://api.mistral.ai/v1/chat/completions"
 DEFAULT_MODEL = "ministral-14b-latest"
-# Legacy names other modules and tests import.
-MISTRAL_MODEL = DEFAULT_MODEL
-MISTRAL_DESIGN_MODEL = DEFAULT_MODEL
 
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 _RETRYABLE = {429, 500, 502, 503, 504}
@@ -34,13 +30,9 @@ _MAX_RETRY_AFTER_S = 30.0
 _sleep = time.sleep  # tests replace this so retries do not wait
 
 
-def _env(*names: str) -> str:
-    """First non-blank value among the named variables ('' when none is set)."""
-    for name in names:
-        value = os.environ.get(name, "").strip()
-        if value:
-            return value
-    return ""
+def _env(name: str) -> str:
+    """Read one non-blank setting ('' when it is unset)."""
+    return os.environ.get(name, "").strip()
 
 
 def _number_env(name: str, default: float, low: float, high: float) -> float:
@@ -57,9 +49,9 @@ def _number_env(name: str, default: float, low: float, high: float) -> float:
 
 def model_name(*, design: bool = False) -> str:
     """Design override > shared override > default; blank settings are unset."""
-    shared = _env("LLM_MODEL", "MISTRAL_MODEL") or DEFAULT_MODEL
+    shared = _env("LLM_MODEL") or DEFAULT_MODEL
     if design:
-        return _env("LLM_DESIGN_MODEL", "MISTRAL_DESIGN_MODEL") or shared
+        return _env("LLM_DESIGN_MODEL") or shared
     return shared
 
 
@@ -97,7 +89,7 @@ def _resolve() -> tuple[str, str] | None:
             "(set LLM_ALLOW_HTTP=1 to override)"
         )
         return None
-    key = _env("LLM_API_KEY", "MISTRAL_API_KEY")
+    key = _env("LLM_API_KEY")
     if not key and not _is_local(url):
         return None
     return key, url

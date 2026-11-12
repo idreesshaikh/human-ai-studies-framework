@@ -14,8 +14,8 @@ npm --prefix platform ci
 cp .env.example .env.local
 ```
 
-Set `LLM_API_KEY` (or `MISTRAL_API_KEY`) in `.env.local` to turn on the design
-chat. Without a key the chat is off; the checklist, templates, capture, and
+Set `LLM_API_KEY` in `.env.local` to turn on the design chat. Without a key the
+chat is off; the checklist, templates, capture, and
 exports still work.
 
 Start the server, which provides the API on port 8000 and stores data in
@@ -70,10 +70,12 @@ See the [example walkthrough](docs/demo-walkthrough.md).
    in a rehearsal before collecting participant data.
 5. Export datasets, design cards, analysis materials, and replication kits.
 
-Calculations depend on their stated assumptions. Capture has blind spots;
-missing AI signals do not prove that no external AI was used. Synthetic sessions
-are excluded from research exports and estimates. The tool does not certify
-study validity or replace ethics review and statistical judgment.
+Calculations depend on their stated assumptions. TERN can record accepted inline
+suggestions and agent activity from installed hooks, but it cannot verify that a
+no-AI group stayed clean. Provider queries, bulk-edit heuristics, and pastes are
+ambiguous; missing signals do not prove that no external AI was used. Synthetic
+sessions are excluded from research exports and estimates. The tool does not
+certify study validity or replace ethics review and statistical judgment.
 
 ## Documentation
 

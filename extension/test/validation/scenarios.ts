@@ -18,8 +18,8 @@ export type EditEvent =
       lines?: number;
       undoRedo?: boolean;
     }
-  | { t: number; kind: 'aiAccept' }
-  | { t: number; kind: 'paste' };
+  | { t: number; kind: 'aiAccept'; fileKey?: string }
+  | { t: number; kind: 'paste'; fileKey?: string };
 
 export interface EditScenario {
   id: string;
@@ -217,11 +217,9 @@ export const EDIT_SCENARIOS: EditScenario[] = [
     expected: ['human', 'paste'],
     events: [
       chg(0, 5, { fileKey: 'a.py' }),
-      { t: 100, kind: 'paste' },
+      { t: 100, kind: 'paste', fileKey: 'b.py' },
       chg(100, 25, { fileKey: 'b.py' }),
     ],
-    knownFailure:
-      'the paste signal is stamped before the file-switch closes a.py, so a.py (within 100 ms) is also tagged paste',
   },
   {
     id: 'multi-file-paste-second-after-gap',
@@ -229,7 +227,7 @@ export const EDIT_SCENARIOS: EditScenario[] = [
     expected: ['human', 'paste'],
     events: [
       chg(0, 5, { fileKey: 'a.py' }),
-      { t: 300, kind: 'paste' },
+      { t: 300, kind: 'paste', fileKey: 'b.py' },
       chg(300, 25, { fileKey: 'b.py' }),
     ],
   },
@@ -241,6 +239,41 @@ export const EDIT_SCENARIOS: EditScenario[] = [
   lagged('paste-signal-110ms-before', 'paste', 'paste', 890, PASTE_LAG),
   lagged('paste-signal-90ms-after', 'paste', 'paste', 1_090),
   lagged('paste-signal-110ms-after', 'paste', 'paste', 1_110, PASTE_LAG),
+  {
+    id: 'formatter-on-save',
+    description:
+      'format-on-save rewrites 30 lines: 400 chars removed, 420 added in one event',
+    expected: ['human'],
+    events: [chg(0, 420, { charsDeleted: 400, lines: 30 })],
+    knownFailure:
+      'behavior.ts known failure: benign look-alike: formatter rewrite lands as ai via the block heuristic',
+  },
+  {
+    id: 'snippet-expansion',
+    description: 'user-triggered snippet expands to 140 chars over 6 lines',
+    expected: ['human'],
+    events: [chg(0, 140, { lines: 6 })],
+    knownFailure:
+      'behavior.ts known failure: benign look-alike: snippet expansion lands as ai via the block heuristic',
+  },
+  {
+    id: 'rename-refactor',
+    description:
+      'rename symbol across 15 occurrences: 150 chars removed, 180 added, summed in one event',
+    expected: ['human'],
+    events: [chg(0, 180, { charsDeleted: 150, lines: 15 })],
+    knownFailure:
+      'behavior.ts known failure: benign look-alike: multi-site rename lands as ai via the block heuristic',
+  },
+  {
+    id: 'git-checkout-reload',
+    description:
+      'git checkout reloads a file from disk: 600 chars removed, 900 added, 40 lines',
+    expected: ['human'],
+    events: [chg(0, 900, { charsDeleted: 600, lines: 40 })],
+    knownFailure:
+      'behavior.ts known failure: benign look-alike: git checkout reload lands as ai via the block heuristic',
+  },
 ];
 
 // --------------------------------------------------------------- stuck
@@ -312,9 +345,7 @@ export const STUCK_SCENARIOS: StuckScenario[] = [
       sel(0, 100),
       ...Array.from({ length: 15 }, (_, i) => scr((i + 1) * 10, 100 + i * 30)),
     ],
-    expectedFires: 1,
-    knownFalseAlarm:
-      'dwell keys on caret position only; scrolling while the caret is parked still counts as dwell',
+    expectedFires: 0,
   },
   {
     id: 'scroll-thrash',

@@ -108,13 +108,15 @@ def register(app: FastAPI, deps: ApiDeps):
                 "type",
                 "seq",
                 "flags",
+                "pilot",
+                "inclusionDecision",
                 "payload",
             ]
             writer.writerow(header)
             for r in rows:
                 writer.writerow(
                     [
-                        r[k] if k not in ("flags", "payload") else json.dumps(r[k])
+                        r.get(k) if k not in ("flags", "payload") else json.dumps(r[k])
                         for k in header
                     ]
                 )

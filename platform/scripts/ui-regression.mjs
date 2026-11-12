@@ -80,7 +80,6 @@ uvicorn.run(create_app(Settings()), host="127.0.0.1", port=int(os.environ["MIDDL
     MIDDLEWARE_CORPUS_BOOTSTRAP: "0",
     LLM_API_KEY: "",
     LLM_BASE_URL: "",
-    MISTRAL_API_KEY: "",
     UI_METADATA_FIXTURE: join(data, "metadata.json"),
   },
   detached: process.platform !== "win32",
@@ -188,10 +187,7 @@ const addedDoi = await addingDoi;
 check(addedDoi.ok() && addedDoi.request().postDataJSON().doi === "10.1234/fixture", "Evidence accepts a pasted DOI link");
 await evidence.getByRole("heading", { name: evidenceFixtures[1].title, exact: true }).waitFor();
 const list = evidence.getByRole("region", { name: "Study paper list", exact: true });
-await evidence.getByRole("searchbox", { name: "Filter papers", exact: true }).fill("2024");
-check(await list.getByRole("button").count() === 1 && await list.getByRole("button", { name: new RegExp(evidenceFixtures[1].title) }).isVisible(), "study papers filter by bibliographic information");
-await evidence.getByRole("searchbox", { name: "Filter papers", exact: true }).fill("no such paper");
-await evidence.getByRole("button", { name: "Clear filter", exact: true }).click();
+check(await evidence.getByRole("searchbox", { name: "Filter papers", exact: true }).count() === 0, "a short paper list shows no filter or sort controls");
 await list.getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
 await evidence.getByRole("textbox", { name: "Protocol links", exact: true }).fill("RQ-1, RQ-1, RQ-2");
 await evidence.getByRole("button", { name: "Save links", exact: true }).click();
@@ -203,9 +199,6 @@ await list.getByRole("button", { name: new RegExp(evidenceFixtures[1].title) }).
 await list.getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
 check(await evidence.getByRole("textbox", { name: "Protocol links", exact: true }).inputValue() === "RQ-9", "switching papers preserves unsaved protocol-link drafts");
 await evidence.getByRole("textbox", { name: "Protocol links", exact: true }).fill("RQ-1, RQ-2");
-await evidence.getByRole("button", { name: "Sort papers", exact: true }).click();
-await evidence.getByRole("menuitemradio", { name: "Newest publication", exact: true }).click();
-check((await list.getByRole("button").first().innerText()).includes(evidenceFixtures[0].title), "study papers can be sorted by publication year");
 await evidence.waitForFunction(() => ![...document.querySelectorAll('[role="status"]')].some((element) => element.textContent.includes("Finding related literature")));
 const related = evidence.getByRole("button", { name: `${evidenceFixtures[2].title} (related paper)`, exact: true });
 await related.focus();
@@ -266,6 +259,13 @@ await evidence.getByRole("button", { name: "Fit literature map", exact: true }).
 for (const record of collectionFixtures) await api(`/studies/${literature}/papers`, { method: "POST", body: JSON.stringify({ arxivId: record.externalIds.ArXiv }) });
 await evidence.reload();
 const collection = evidence.getByRole("region", { name: "Study paper list", exact: true });
+await evidence.getByRole("searchbox", { name: "Filter papers", exact: true }).fill("2024");
+check(await collection.getByRole("button").count() === 1 && await collection.getByRole("button", { name: new RegExp(evidenceFixtures[1].title) }).isVisible(), "study papers filter by bibliographic information");
+await evidence.getByRole("searchbox", { name: "Filter papers", exact: true }).fill("no such paper");
+await evidence.getByRole("button", { name: "Clear filter", exact: true }).click();
+await evidence.getByRole("button", { name: "Sort papers", exact: true }).click();
+await evidence.getByRole("menuitemradio", { name: "Newest publication", exact: true }).click();
+check((await collection.getByRole("button").first().innerText()).includes(evidenceFixtures[0].title), "study papers can be sorted by publication year");
 await collection.getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
 const frameHeight = async () => evidence.getByRole("complementary", { name: "Paper details", exact: true }).evaluate((element) => element.getBoundingClientRect().height);
 const longHeight = await frameHeight();
@@ -295,14 +295,14 @@ check(!/upload failed:|HTTP \d{3}/.test(await evidence.getByRole("alert").innerT
 await evidence.close();
 
 const viewer = await context.newPage();
-await viewer.route(`${base}/projects/implicit`, async (route) => {
+await viewer.route(`${base}/studies/${literature}/summary`, async (route) => {
   const response = await route.fetch();
   const body = await response.json();
-  body.members = body.members.map((member) => ({ ...member, role: "viewer" }));
+  body.role = "viewer";
   await route.fulfill({ response, json: body });
 });
 await viewer.goto(`${base}/p/implicit/studies/${literature}?tab=library`);
-await viewer.getByText("You have read-only access.", { exact: false }).waitFor();
+await viewer.getByText("Your access is read-only.", { exact: false }).waitFor();
 check(await viewer.getByRole("button", { name: "Add paper", exact: true }).count() === 0, "read-only Evidence hides paper mutations");
 await viewer.getByRole("region", { name: "Study paper list", exact: true }).getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
 check(await viewer.getByRole("button", { name: "Save links", exact: true }).count() === 0 && await viewer.getByRole("link", { name: "Open source", exact: true }).isVisible(), "viewers can inspect sources and saved links without editing controls");
@@ -381,31 +381,17 @@ await context.route("**/*", (route) => {
       await page.close();
     }
   }
-  for (const path of ["/home", "/repertoire", "/settings", "/p/implicit", "/p/implicit/members", "/p/implicit/settings"]) {
+  for (const path of ["/home", "/repertoire", "/settings"]) {
     const page = await context.newPage();
     await page.goto(base + path);
     await page.waitForLoadState("networkidle");
     await auditPage(page, path);
-    if (path === "/p/implicit") {
-      check(!/Members|Team|Manage members|Switch project/.test(await page.locator("body").innerText()), "solo project: no team or switching controls");
-    }
     if (path === "/home") {
-      check(new URL(page.url()).pathname === "/p/implicit", "solo home: opens the first project directly");
+      check(await page.getByRole("heading", { name: "Studies", exact: true }).isVisible(), "home opens the study list");
     }
     if (path === "/repertoire") {
       check(await page.getByText("No literature indexed yet.", { exact: false }).isVisible(), "empty evidence index has an honest state");
       check(await page.getByRole("textbox", { name: "Describe your study", exact: true }).isVisible(), "starting a conversation remains available before literature indexing");
-    }
-    if (path === "/p/implicit/settings") {
-      const field = page.getByRole("textbox", { name: "Project name", exact: true });
-      check(await field.inputValue() === "My project", "project settings show the current editable name");
-      await field.fill("Research workspace");
-      await field.press("Enter");
-      await page.getByRole("status").filter({ hasText: "Project name saved" }).waitFor();
-      check((await api("/projects/implicit")).name === "Research workspace", "project name saves with Enter and retains its URL");
-      await field.fill("My project");
-      await page.getByRole("button", { name: "Save", exact: true }).click();
-      await page.getByRole("status").filter({ hasText: "Project name saved" }).waitFor();
     }
     const { focusable, doubles } = await page.evaluate(RING_SCAN);
     check(doubles.length === 0, `${path}: at most one focus ring per element (${focusable} focusable; stacked: ${doubles.join(", ") || "none"})`);
@@ -540,6 +526,19 @@ await context.route("**/*", (route) => {
     ]) });
     if (!response.ok) throw new Error("Rehearsal event ingest failed");
   };
+  const captureFlaggedEvent = async (sessionId) => {
+    const configResponse = await fetch(`${base}/studies/${bare}/capture-config?sessionId=${sessionId}`, { headers: participantHeaders });
+    if (!configResponse.ok) throw new Error("Flagged rehearsal configuration failed");
+    const config = await configResponse.json();
+    const response = await fetch(`${base}/ingest/events`, { method: "POST", headers: participantHeaders, body: JSON.stringify([
+      {
+        sessionId, seq: 0, v: 6, ts: new Date().toISOString(), source: "task-harness",
+        participantId: "P99", condition: config.block.condition, taskId: config.block.taskId,
+        type: "edit_burst", payload: { charsAdded: 80, charsDeleted: 0, linesTouched: 1, durationMs: 1000, origin: "human" },
+      },
+    ]) });
+    if (!response.ok) throw new Error("Flagged rehearsal event ingest failed");
+  };
   await captureEvent("browser-outcome-rehearsal-a", 0, { passed: true, failed: 0, total: 0 });
   await captureChecks.getByRole("button", { name: "Check again", exact: true }).click();
   await captureChecks.getByRole("status").filter({ hasText: "1 session checked" }).waitFor();
@@ -568,16 +567,37 @@ await context.route("**/*", (route) => {
   await captureChecks.getByRole("button", { name: "Download checks (.json)", exact: true }).click();
   const exportedChecks = JSON.parse(readFileSync(await (await reportDownload).path(), "utf8"));
   check(exportedChecks.protocolHash === correctedCapture.protocolHash && exportedChecks.dataHash === correctedCapture.dataHash, "downloaded outcome checks retain the exact protocol and data fingerprints");
+  const flaggedSessionId = "browser-flagged-integrity";
+  await captureFlaggedEvent(flaggedSessionId);
+  const integrityStatus = await api(`/studies/${bare}/status`);
+  const integritySession = integrityStatus.sessions.find((session) => session.sessionId === flaggedSessionId);
+  check(integritySession?.complete === true && integritySession.flaggedEvents > 0, "integrity fixture has complete event sequencing and flagged events");
+  await page.reload();
+  await page.getByRole("heading", { name: "Download study records" }).waitFor();
+  const capturedSessions = page.getByRole("region", { name: "Captured sessions", exact: true });
+  const flaggedCard = capturedSessions.getByRole("button").filter({ hasText: flaggedSessionId });
+  await flaggedCard.waitFor();
+  await expect(flaggedCard).toContainText("Review capture · 1 flagged event");
+  await expect(flaggedCard).not.toContainText("no flags");
+  await flaggedCard.click();
+  await capturedSessions.getByText("credential-mismatch", { exact: true }).waitFor();
+  check(true, "a complete sequence with flagged rows is visibly marked for capture review");
   const sessionReview = page.getByRole("region", { name: "Session review", exact: true });
   await sessionReview.getByRole("button", { name: "Show sessions", exact: true }).click();
   await page.getByRole("menuitemradio", { name: "All sessions", exact: true }).click();
+  await sessionReview.getByRole("searchbox", { name: "Search review sessions", exact: true }).fill(flaggedSessionId);
   await sessionReview.getByRole("button", { name: /^P\d+/ }).first().click();
+  await sessionReview.getByText(`Session: ${flaggedSessionId}`, { exact: true }).waitFor();
   await sessionReview.getByRole("button", { name: /Include in analysis/ }).click();
   await page.getByRole("menuitemradio", { name: "Exclude", exact: true }).click();
-  await sessionReview.getByRole("textbox", { name: "Reason for the decision or pilot tag", exact: true }).fill("Synthetic browser fixture: exercise decision recovery.");
+  await sessionReview.getByRole("textbox", { name: "Reason for the decision or pilot tag", exact: true }).fill("Synthetic browser fixture: exclude flagged capture from analysis.");
   await sessionReview.getByRole("button", { name: "Save decision", exact: true }).click();
   await sessionReview.getByText(/Last recorded by/).waitFor();
   check(await sessionReview.getByRole("textbox", { name: "Reason for the decision or pilot tag", exact: true }).isVisible(), "saving a session decision preserves the selected review and expanded row");
+  const flaggedDecision = await api(`/studies/${bare}/plan`);
+  check(flaggedDecision.decisions[flaggedSessionId]?.decision === "exclude", "the flagged session exclusion is persisted in the study plan");
+  const annotatedRows = (await api(`/studies/${bare}/dataset`)).rows.filter((row) => row.sessionId === flaggedSessionId);
+  check(annotatedRows.length > 0 && annotatedRows.every((row) => row.inclusionDecision === "exclude"), "excluded raw rows retain their decision for downstream filtering");
   await captureChecks.getByRole("button", { name: "Check captured inputs", exact: true }).waitFor();
   check(true, "changing an inclusion decision clears an outdated outcome report");
   for (const name of ["Data (.zip)", "Design card (.md)", "Replication kit"]) {
@@ -590,9 +610,7 @@ await context.route("**/*", (route) => {
   await page.close();
 
   const starter = await context.newPage();
-  await starter.goto(`${base}/p/implicit`);
-  await starter.getByRole("button", { name: "New study", exact: true }).click();
-  await auditPage(starter, "new study dialog");
+  await starter.goto(`${base}/repertoire`);
   await starter.getByRole("button", { name: "Use this template", exact: true }).first().click();
   await starter.getByRole("heading", { name: "Plan participant recruitment" }).waitFor();
   await starter.getByRole("button", { name: "Calculate and save plan", exact: true }).click();
@@ -697,10 +715,9 @@ await context.route("**/*", (route) => {
     return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "Synthetic outage: try creating the study again." }) });
   });
   await create.setViewportSize({ width: 360, height: 800 });
-  await create.goto(`${base}/p/implicit`);
+  await create.goto(`${base}/home`);
   await create.getByRole("button", { name: "New study", exact: true }).click();
-  await create.getByRole("button", { name: "Start with a blank study", exact: true }).click();
-  const studyName = create.getByRole("textbox", { name: "New study name", exact: true });
+  const studyName = create.getByRole("textbox", { name: "Study name", exact: true });
   const longName = "調査 العربية naïve 🔬 ".repeat(6);
   await studyName.fill(longName);
   const storedName = await studyName.inputValue();
@@ -722,7 +739,7 @@ await context.route("**/*", (route) => {
       ...process.env, DATABASE_URL: "", MIDDLEWARE_AUTH: "none", MIDDLEWARE_PROTOCOL: "",
       MIDDLEWARE_WEB: DIST, MIDDLEWARE_DB: join(data, "ui.sqlite3"), MIDDLEWARE_DATA_DIR: data,
       MIDDLEWARE_CORPUS_BOOTSTRAP: "0", MIDDLEWARE_REFRESH_INTERVAL_H: "",
-      LLM_API_KEY: "", LLM_BASE_URL: "", MISTRAL_API_KEY: "",
+      LLM_API_KEY: "", LLM_BASE_URL: "",
     },
   });
   if (seeded.status !== 0) throw new Error(`Synthetic example seed failed: ${seeded.stderr}`);

@@ -10,7 +10,7 @@ Start with the [repository setup](../../README.md) and
 | Location | Responsibility |
 | --- | --- |
 | `src/App.tsx` | Routes and authentication boundary |
-| `src/pages/` | Projects, study workspace, templates, settings |
+| `src/pages/` | Study list, study workspace, templates, settings |
 | `src/components/conversation/` | Design proposals and protocol review |
 | `src/components/library/` | Papers and citation graph |
 | `src/components/charts/` | Data, timelines, and planning |
@@ -22,14 +22,14 @@ Start with the [repository setup](../../README.md) and
 
 Run the middleware on port 8000 and `npm run dev` here. The Vite proxy keeps API
 requests on the same origin during development. Production serves `dist/`
-through the middleware. Set `VITE_API_BASE` only for a separate API origin.
+through the middleware.
 
 ## Data and state
 
-`useApi()` provides the HTTP client for projects, members, and enrollment.
+`useApi()` provides the HTTP client for studies and enrollment.
 `studyApi.ts`, `conversationApi.ts`, and `templatesApi.ts` handle workspace
 requests. They share the authentication token provider. A 401 tells the auth
-layer to show sign-in; network failure does not create temporary projects or
+layer to show sign-in; network failure does not create temporary study records or
 participant links.
 
 Study reads require the live middleware. The conversation
@@ -41,8 +41,8 @@ or request deduplication.
 
 ## Make a change
 
-Add pages under `src/pages/` and declare their routes in `App.tsx`. Avoid API
-path collisions: the project page is `/home`, while `/projects` is an API.
+Add pages under `src/pages/` and declare their routes in `App.tsx`. Keep page
+routes distinct from API paths such as `/studies` and `/templates`.
 Use the existing components and [design guide](../../docs/design.md).
 
 The browser compiler mirrors part of `middleware/compiler.py`. When changing

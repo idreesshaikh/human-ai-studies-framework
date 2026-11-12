@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Recorder, SessionMeta } from '../src/core/recorder';
+import {
+  Recorder,
+  recoveryMonoOffset,
+  SessionMeta,
+} from '../src/core/recorder';
 import { EventSink, SCHEMA_VERSION, StudyEvent } from '../src/core/types';
 
 const META: SessionMeta = {
@@ -8,6 +12,12 @@ const META: SessionMeta = {
   participantId: 'P01',
   condition: 'ai-assisted',
 };
+
+test('recovery monotonic offset preserves the final persisted event time', () => {
+  assert.equal(recoveryMonoOffset(1_800_000, 900_000), 1_800_000);
+  assert.equal(recoveryMonoOffset(900_000, 1_800_000), 1_800_000);
+  assert.equal(recoveryMonoOffset(undefined, 900_000), 900_000);
+});
 
 class CapturingSink implements EventSink {
   readonly events: StudyEvent[] = [];

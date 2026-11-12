@@ -112,6 +112,23 @@ test('fires a scroll-thrash region on repeated re-reading oscillation', () => {
   d.dispose();
 });
 
+test('scrolling with a parked caret does not fire a dwell prompt', () => {
+  mock.timers.enable({ apis: ['Date', 'setInterval'], now: CLOCK_BASE });
+  const { d, fired } = detector({ stuckAfterMs: 30_000, idleAfterMs: 45_000 });
+  d.start();
+  d.signal(selection(100));
+  advanceTo(Date.now() + 20_000);
+  d.signal(scroll(130));
+  advanceTo(Date.now() + 20_000);
+  d.signal(scroll(160));
+  advanceTo(Date.now() + 20_000);
+  d.signal(scroll(190));
+  advanceTo(Date.now() + 20_000);
+  d.signal(scroll(220));
+  assert.equal(fired.length, 0);
+  d.dispose();
+});
+
 test('respects the cooldown between two prompts', () => {
   mock.timers.enable({ apis: ['Date', 'setInterval'], now: CLOCK_BASE });
   const { d, fired } = detector({ stuckAfterMs: 30_000, cooldownMs: 300_000 });

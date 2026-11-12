@@ -150,6 +150,35 @@ def test_dataset_csv_download_has_a_filename(client):
     assert f'filename="{STUDY}-dataset.csv"' in res.headers["content-disposition"]
 
 
+def test_dataset_csv_retains_exclusion_decision_for_flagged_session(client):
+    _seed(client)
+    flagged = client.post(
+        "/ingest/events",
+        json=[_event(4, {"answer": 6}, session="S1")],
+        headers={"authorization": "Bearer invalid-synthetic-credential"},
+    )
+    assert flagged.status_code == 200, flagged.text
+
+    decision = client.post(
+        f"/studies/{STUDY}/sessions/S1/annotation",
+        json={
+            "decision": "exclude",
+            "reason": "Synthetic QA: exclude credential-mismatched capture.",
+        },
+    )
+    assert decision.status_code == 200, decision.text
+
+    response = client.get(f"/studies/{STUDY}/dataset?format=csv")
+    assert response.status_code == 200
+    rows = list(csv.DictReader(io.StringIO(response.text)))
+    flagged_row = next(
+        row for row in rows if row["sessionId"] == "S1" and row["seq"] == "4"
+    )
+    assert "unauthenticated" in json.loads(flagged_row["flags"])
+    assert flagged_row["pilot"] == "False"
+    assert flagged_row["inclusionDecision"] == "exclude"
+
+
 def test_manifest_records_provenance_metadata(client):
     import hashlib
 
@@ -168,9 +197,10 @@ def test_manifest_records_provenance_metadata(client):
     protocol = manifest["protocol"]
     assert protocol["id"] == STUDY
     assert protocol["title"]
-    assert protocol["version"] == yaml.safe_load(zf.read("protocol.yaml"))[
-        "protocolVersion"
-    ]
+    assert (
+        protocol["version"]
+        == yaml.safe_load(zf.read("protocol.yaml"))["protocolVersion"]
+    )
     canonical = json.dumps(yaml.safe_load(zf.read("protocol.yaml")), sort_keys=True)
     assert protocol["sha256"] == hashlib.sha256(canonical.encode()).hexdigest()
 

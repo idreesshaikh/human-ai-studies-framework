@@ -25,8 +25,9 @@ researchQuestions:
       switching, edit provenance, active vs idle time?
   - id: RQ-P4
     text: >-
-      How do developers review AI-generated code before accepting it
-      (review latency, scroll coverage, accept rate by suggestion size)?
+      How many inline-suggestion accepts and dismissals are captured, and what
+      are the sizes of accepted blocks? These events are lower-bound measures;
+      TERN cannot observe all suggestions or AI use.
   - id: RQ-P5
     text: >-
       How does the conversation with the agent unfold over a session - turn
@@ -132,6 +133,6 @@ literature:
   - paperRef: "arxiv:2302.06590" # Peng et al., Copilot productivity RCT
     justifies: [RQ-P3, RQ-P4]
   - paperRef: "arxiv:2205.06537" # Ziegler et al., acceptance rate metric
-    justifies: [RQ-P4] # replicated as the ziegler-acceptance-rate recipe
+    justifies: [RQ-P4] # paper motivates telemetry; StudyLoop reports captured accept counts only
   - paperRef: "doi:10.1109/TSE.2017.2656886" # Meyer et al., work fragmentation
     justifies: [RQ-P3] # replicated as the meyer-fragmentation recipe

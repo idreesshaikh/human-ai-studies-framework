@@ -86,5 +86,5 @@ uv run python -m middleware serve
 The design conversation uses the model configured in `.env` (`LLM_API_KEY`,
 `LLM_BASE_URL`, `LLM_MODEL`); the default is `ministral-14b-latest` on Mistral's
 API. Paper matching shares that model. `LLM_DESIGN_MODEL` overrides design
-alone; legacy `MISTRAL_*` names still work. A local server needs no key. The
+alone. A local server needs no key. The
 compiled protocol, pairing, and analysis paths do not need a model.

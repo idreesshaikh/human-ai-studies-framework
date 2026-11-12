@@ -7,6 +7,17 @@ export interface SessionMeta {
   taskId?: string;
 }
 
+/** Keep crash-resumed event times after both the active clock and last record. */
+export function recoveryMonoOffset(
+  lastMono: number | undefined,
+  elapsedMs: number,
+): number {
+  const persisted =
+    typeof lastMono === 'number' && Number.isFinite(lastMono) ? lastMono : 0;
+  const elapsed = Number.isFinite(elapsedMs) ? elapsedMs : 0;
+  return Math.max(0, persisted, elapsed);
+}
+
 /**
  * Stamps every event with session metadata, wall-clock + monotonic
  * timestamps, and a monotonic sequence number, then hands it to the sink(s).

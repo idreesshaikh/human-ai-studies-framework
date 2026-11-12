@@ -240,11 +240,13 @@ body::before {
     font-family: var(--font-text);
     font-size: var(--text-body-lg);
     line-height: var(--leading-relaxed);
+    text-wrap: pretty;
   }
   .type-body {
     font-family: var(--font-text);
     font-size: var(--text-body);
     line-height: var(--leading-normal);
+    text-wrap: pretty;
   }
   .type-label {
     font-family: var(--font-text);
@@ -282,6 +284,7 @@ body::before {
     font-family: var(--font-text);
     font-size: var(--text-note);
     line-height: var(--leading-normal);
+    text-wrap: pretty;
   }
   .header-control {
     display: inline-flex;

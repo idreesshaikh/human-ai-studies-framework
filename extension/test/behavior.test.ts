@@ -67,6 +67,31 @@ test('a file switch closes the open burst immediately', () => {
   a.dispose();
 });
 
+test('a paste in another file does not relabel the preceding burst', () => {
+  mock.timers.enable({ apis: ['Date', 'setInterval'], now: CLOCK_BASE });
+  const { a, bursts } = aggregator();
+  a.start();
+
+  a.change(typing({ fileKey: 'src/a.py', charsAdded: 3 }));
+  advanceTo(Date.now() + 100);
+  a.notePaste(Date.now(), 'src/b.py');
+  a.change(typing({ fileKey: 'src/b.py', charsAdded: 25 }));
+
+  assert.deepEqual(
+    bursts.map((burst) => [burst.file, burst.origin]),
+    [['src/a.py', 'human']],
+  );
+  a.flush();
+  assert.deepEqual(
+    bursts.map((burst) => [burst.file, burst.origin]),
+    [
+      ['src/a.py', 'human'],
+      ['src/b.py', 'paste'],
+    ],
+  );
+  a.dispose();
+});
+
 test('flush closes the open burst (session end / pause)', () => {
   mock.timers.enable({ apis: ['Date', 'setInterval'], now: CLOCK_BASE });
   const { a, bursts } = aggregator();

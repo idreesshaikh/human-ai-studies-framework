@@ -25,10 +25,12 @@ def draft(design="within-subjects"):
     }
 
 
-def test_catalog_has_twenty_classes_and_only_registered_outcome_recipes():
+def test_catalog_has_unique_core_and_bfi2_measures_with_registered_recipes():
     catalog = measure_catalog()
-    assert len(catalog) == 20
-    assert len({row["id"] for row in catalog}) == 20
+    ids = {row["id"] for row in catalog}
+    assert len(ids) == len(catalog)
+    assert {f"S{index}" for index in range(1, 32)} <= ids
+    assert {f"E{index}" for index in range(1, 11)} <= ids
     for row in catalog:
         for recipe in row["recipeByDesign"].values():
             assert recipe is None or recipe in REGISTRY
@@ -96,6 +98,12 @@ def test_suggestions_match_aliases_and_abstain_for_unknown_constructs():
     assert result["method"] == "catalog-aliases"
     assert result["calibrated"] is False
     assert result["abstain"] is False
+    assert (
+        suggest_measures("interpersonal trust", "within-subjects")["suggestions"][0][
+            "id"
+        ]
+        == "S21"
+    )
     assert suggest_measures("trust in AI", "within-subjects")["abstain"] is True
     assert (
         suggest_measures("productivity perception", "between-subjects")["suggestions"]

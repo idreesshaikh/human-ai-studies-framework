@@ -84,8 +84,8 @@ interface OpenBurst {
 export class BurstAggregator implements Disposable {
   private timer?: ReturnType<typeof setInterval>;
   private open?: OpenBurst;
-  private lastAiAcceptAt = Number.NEGATIVE_INFINITY;
-  private lastPasteAt = Number.NEGATIVE_INFINITY;
+  private lastAiAccept?: { at: number; file?: string };
+  private lastPaste?: { at: number; file?: string };
 
   constructor(
     private readonly cfg: BurstConfig,
@@ -110,13 +110,13 @@ export class BurstAggregator implements Disposable {
   }
 
   /** The adapter saw an AI suggestion get accepted (FR-INST-8 hook). */
-  noteAiAccept(tsMono: number): void {
-    this.lastAiAcceptAt = tsMono;
+  noteAiAccept(tsMono: number, file?: string): void {
+    this.lastAiAccept = { at: tsMono, file };
   }
 
   /** The adapter saw a clipboard paste (wrapped paste command). */
-  notePaste(tsMono: number): void {
-    this.lastPasteAt = tsMono;
+  notePaste(tsMono: number, file?: string): void {
+    this.lastPaste = { at: tsMono, file };
   }
 
   change(s: ChangeSignal): void {
@@ -180,10 +180,10 @@ export class BurstAggregator implements Disposable {
   /** Priority order per FR-INST-10 - see the module doc for the rationale. */
   private classify(b: OpenBurst): EditOrigin {
     if (b.hadUndoRedo) return 'undo-redo';
-    if (this.correlates(this.lastAiAcceptAt, b, this.cfg.aiCorrelationMs)) {
+    if (this.correlates(this.lastAiAccept, b, this.cfg.aiCorrelationMs)) {
       return 'ai';
     }
-    if (this.correlates(this.lastPasteAt, b, this.cfg.pasteCorrelationMs)) {
+    if (this.correlates(this.lastPaste, b, this.cfg.pasteCorrelationMs)) {
       return 'paste';
     }
     if (b.hadAiBlock) return 'ai';
@@ -191,7 +191,16 @@ export class BurstAggregator implements Disposable {
   }
 
   /** Did `at` land within `windowMs` of the burst's span? */
-  private correlates(at: number, b: OpenBurst, windowMs: number): boolean {
-    return at >= b.firstAt - windowMs && at <= b.lastAt + windowMs;
+  private correlates(
+    signal: { at: number; file?: string } | undefined,
+    b: OpenBurst,
+    windowMs: number,
+  ): boolean {
+    return (
+      signal !== undefined &&
+      (signal.file === undefined || signal.file === b.file) &&
+      signal.at >= b.firstAt - windowMs &&
+      signal.at <= b.lastAt + windowMs
+    );
   }
 }

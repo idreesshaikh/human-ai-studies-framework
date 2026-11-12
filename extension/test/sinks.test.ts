@@ -66,6 +66,7 @@ test('lastSeqIn returns the final seq of an existing file', async () => {
   await sink.flush();
   sink.dispose();
   assert.equal(JsonlSink.lastSeqIn(file), 4);
+  assert.deepEqual(JsonlSink.lastEventIn(file), { seq: 4, mono: 4 });
 });
 
 test('lastSeqIn returns -1 for a missing file', () => {
@@ -79,6 +80,16 @@ test('lastSeqIn walks back past a torn final line from a crash mid-write', () =>
     JSON.stringify(makeEvent(7)) + '\n' + '{"seq":8,"type":"tru',
   );
   assert.equal(JsonlSink.lastSeqIn(file), 7);
+  assert.deepEqual(JsonlSink.lastEventIn(file), { seq: 7, mono: 7 });
+});
+
+test('lastEventIn preserves the last monotonic timestamp for crash recovery', () => {
+  const file = tempFile('last-mono.jsonl');
+  const first = makeEvent(7);
+  const last = { ...makeEvent(8), mono: 1_234_567 };
+  fs.writeFileSync(file, `${JSON.stringify(first)}\n${JSON.stringify(last)}\n`);
+
+  assert.deepEqual(JsonlSink.lastEventIn(file), { seq: 8, mono: 1_234_567 });
 });
 
 test('crash recovery separates a torn tail from the first resumed event', async () => {

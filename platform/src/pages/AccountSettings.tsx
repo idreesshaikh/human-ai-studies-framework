@@ -16,18 +16,13 @@ export function AccountSettings() {
       <div>
         <h1 className="type-title text-text">Account settings</h1>
         <p className="type-body mt-1 max-w-reading text-text-muted">
-          Manage your preferences across all projects.
+          Your preferences apply to your account.
         </p>
       </div>
 
       <Card>
         <CardContent className="flex flex-col gap-4 p-4">
-          <div>
-            <h2 className="type-subhead text-text">Display</h2>
-            <p className="type-note text-text-muted">
-              These settings apply to all your projects.
-            </p>
-          </div>
+          <h2 className="type-subhead text-text">Appearance</h2>
           <Field id="theme" label="Theme">
             <Select
               value={prefs.theme ?? "light"}

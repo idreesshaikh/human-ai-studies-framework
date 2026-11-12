@@ -60,20 +60,42 @@ def register(app: FastAPI, deps: ApiDeps):
                 )
             )
         }
+        open_sessions = {
+            opened.session_id: opened
+            for opened in s.scalars(
+                select(SessionOpen).where(
+                    SessionOpen.session_id.in_({e.sessionId for e in events})
+                )
+            )
+        }
+        if cred_row is not None:
+            # A participant credential is scoped to the study that minted it. Reject
+            # the whole batch before writing if any named session is already mapped to
+            # a different study; otherwise a caller who learns a session id could
+            # inject rows into another study's exports.
+            for event in events:
+                block = blocks.get(event.sessionId)
+                opened = open_sessions.get(event.sessionId)
+                if (block and block.study_id != cred_row.study_id) or (
+                    opened and opened.study_id != cred_row.study_id
+                ):
+                    raise HTTPException(403, "session belongs to another study")
+                if block and block.participant_id != cred_row.participant_id:
+                    raise HTTPException(403, "session belongs to another participant")
         for e in events:
             pid, cond = e.participantId, e.condition
             block = blocks.get(e.sessionId)
             extra_flags: list[str] = []
             if cred_row is not None:
-                if s.get(SessionOpen, e.sessionId) is None:
-                    s.add(
-                        SessionOpen(
-                            session_id=e.sessionId,
-                            study_id=cred_row.study_id,
-                            protocol_version=1,
-                            opened_at=received,
-                        )
+                if e.sessionId not in open_sessions:
+                    opened = SessionOpen(
+                        session_id=e.sessionId,
+                        study_id=cred_row.study_id,
+                        protocol_version=1,
+                        opened_at=received,
                     )
+                    s.add(opened)
+                    open_sessions[e.sessionId] = opened
                 expected = block.condition if block else cred_row.condition
                 if (e.participantId and e.participantId != cred_row.participant_id) or (
                     e.condition and e.condition != expected
@@ -126,18 +148,50 @@ def register(app: FastAPI, deps: ApiDeps):
         }
 
     @app.post("/ingest/metrics")
-    def ingest_metrics(rows: list[dict], s: Session = Depends(deps.db)) -> dict:
+    def ingest_metrics(
+        rows: list[dict],
+        authorization: str = Header(default=""),
+        s: Session = Depends(deps.db),
+    ) -> dict:
         from middleware.ingest_core import store_metric_rows
 
         received = deps.now()
+        cred_row = deps.resolve_credential(s, authorization)
+        session_ids = {str(row.get("sessionId", "")) for row in rows}
+        session_ids.discard("")
+        blocks = {
+            block.session_id: block
+            for block in s.scalars(
+                select(SessionBlock).where(SessionBlock.session_id.in_(session_ids))
+            )
+        }
+        open_sessions = {
+            opened.session_id: opened
+            for opened in s.scalars(
+                select(SessionOpen).where(SessionOpen.session_id.in_(session_ids))
+            )
+        }
+        if cred_row is not None:
+            # Check the whole batch before inserting anything. A session credential
+            # cannot write into another study or another participant's assigned block.
+            for row in rows:
+                session_id = str(row.get("sessionId", ""))
+                block = blocks.get(session_id)
+                opened = open_sessions.get(session_id)
+                if (block and block.study_id != cred_row.study_id) or (
+                    opened and opened.study_id != cred_row.study_id
+                ):
+                    raise HTTPException(403, "session belongs to another study")
+                if block and block.participant_id != cred_row.participant_id:
+                    raise HTTPException(403, "session belongs to another participant")
+
         flagged = 0
         flags_by_row: list[list[str]] = []
-        for index, row in enumerate(rows):
+        stored_rows = []
+        for index, incoming in enumerate(rows):
+            row = dict(incoming)
             version = row.get("schemaVersion", -1)
-            if (
-                type(version) is not int
-                or not -(2**31) <= version < 2**31
-            ):
+            if type(version) is not int or not -(2**31) <= version < 2**31:
                 raise HTTPException(
                     422, f"Metric row {index + 1}: schemaVersion must be an integer."
                 )
@@ -145,7 +199,37 @@ def register(app: FastAPI, deps: ApiDeps):
             condition = str(row.get("condition", ""))
             session_id = str(row.get("sessionId", ""))
             task_id = str(row.get("taskId", ""))
-            flags = deps.check.flags_for(participant_id, condition, None)
+            block = blocks.get(session_id)
+            extra_flags: list[str] = []
+            if cred_row is not None:
+                expected_condition = block.condition if block else cred_row.condition
+                if participant_id and participant_id != cred_row.participant_id:
+                    extra_flags.append("credential-mismatch")
+                if condition and condition != expected_condition:
+                    extra_flags.append("condition-mismatch")
+                if block and task_id != block.task_id:
+                    extra_flags.append("task-mismatch")
+                participant_id = cred_row.participant_id
+                condition = expected_condition
+                task_id = block.task_id if block else ""
+                row.update(
+                    {
+                        "participantId": participant_id,
+                        "condition": condition,
+                        "taskId": task_id,
+                    }
+                )
+                if session_id and session_id not in open_sessions:
+                    opened = SessionOpen(
+                        session_id=session_id,
+                        study_id=cred_row.study_id,
+                        protocol_version=1,
+                        opened_at=received,
+                    )
+                    s.add(opened)
+                    open_sessions[session_id] = opened
+
+            flags = deps.check.flags_for(participant_id, condition, None) + extra_flags
             if not session_id:
                 flags.append("missing-session")
             if not row.get("metricId"):
@@ -156,19 +240,23 @@ def register(app: FastAPI, deps: ApiDeps):
                 flags.append("missing-timestamp")
             if row.get("source", "metrics") != "metrics":
                 flags.append("source-mismatch")
-            block = s.get(SessionBlock, session_id) if session_id else None
             if block:
-                if participant_id and participant_id != block.participant_id:
+                if (
+                    cred_row is None
+                    and participant_id
+                    and participant_id != block.participant_id
+                ):
                     flags.append("credential-mismatch")
-                if condition and condition != block.condition:
+                if cred_row is None and condition and condition != block.condition:
                     flags.append("condition-mismatch")
-                if task_id != block.task_id:
+                if cred_row is None and task_id != block.task_id:
                     flags.append("task-mismatch")
-            elif session_id:
+            elif session_id and cred_row is None:
                 flags.append("unknown-session")
             flagged += bool(flags)
             flags_by_row.append(flags)
-        inserted = store_metric_rows(s, rows, received, flags_by_row)
+            stored_rows.append(row)
+        inserted = store_metric_rows(s, stored_rows, received, flags_by_row)
         if flagged:
             log.warning(
                 "%d/%d metric rows stored with integrity flags", flagged, len(rows)

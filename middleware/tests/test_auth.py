@@ -44,14 +44,6 @@ def test_token_mode_without_token_fails_loudly(tmp_path):
         verifier_from_settings(s)
 
 
-def test_removed_clerk_mode_fails_with_a_clear_reason(tmp_path):
-    """An old deployment .env may still say clerk; it must not start silently
-    open or with a generic error."""
-    s = make_settings(tmp_path, auth="clerk")
-    with pytest.raises(ValueError, match="no longer supported"):
-        verifier_from_settings(s)
-
-
 def test_token_verifier_accepts_and_rejects(tmp_path):
     verify = verifier_from_settings(make_settings(tmp_path, token="sekrit"))
     verify("Bearer sekrit")

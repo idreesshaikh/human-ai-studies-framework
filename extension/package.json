@@ -299,7 +299,7 @@
         "tern.behavior.captureAiLifecycle": {
           "type": "boolean",
           "default": true,
-          "description": "Record the AI-completion lifecycle: shown/accepted/rejected/dismissed with review latency (ai_suggestion events). When paired, this comes from the study protocol; edits are ignored and recorded."
+          "description": "Record accepted or dismissed inline suggestions from the session keybindings. Suggestion visibility and review latency are not available through the public API. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.captureSaves": {
           "type": "boolean",
@@ -344,12 +344,12 @@
         "tern.behavior.aiBlockCharThreshold": {
           "type": "number",
           "default": 80,
-          "description": "A block of at least this many characters landing within aiBlockMaxDurationMs is classified origin=ai (injected, not typed). When paired, this comes from the study protocol; edits are ignored and recorded."
+          "description": "A block of at least this many characters landing within aiBlockMaxDurationMs is flagged origin=ai by a bulk-edit heuristic. Formatters, snippets, renames and other non-AI edits can trigger it. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.aiBlockMaxDurationMs": {
           "type": "number",
           "default": 50,
-          "description": "Window for the AI block-injection heuristic - humans do not type aiBlockCharThreshold characters this fast. When paired, this comes from the study protocol; edits are ignored and recorded."
+          "description": "Time window for the rapid bulk-edit heuristic. It can flag non-AI changes and does not establish AI origin. When paired, this comes from the study protocol; edits are ignored and recorded."
         },
         "tern.behavior.pasteCorrelationMs": {
           "type": "number",

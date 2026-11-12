@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from analysis.adherence_sim import MIXES, Scenario, mixed_sensitivity, simulate
 from analysis.dataset import Dataset
 from analysis.recipes.typed_measures import run as score_measures
 from analysis.runner import run_plan
@@ -17,6 +18,9 @@ from middleware.enrollment import build_capture_config
 from middleware.settings import Settings
 from protocol.loader import load_protocol
 from protocol.versioning import content_hash
+
+from analysis import calibration_rates
+from middleware import planner_routes
 
 ROOT = Path(__file__).parents[2]
 EXAMPLE = ROOT / "protocol/examples/planner-v6.yaml"
@@ -299,3 +303,326 @@ def test_independent_calibration_and_inclusion_history_are_recorded(client):
         ).status_code
         == 422
     )
+
+
+def _study_with_non_control_session(client):
+    import yaml
+
+    protocol = load_protocol(EXAMPLE)
+    protocol["controlConditions"] = ["tool-version-a"]
+    with make_session_factory(f"sqlite:///{client.db_path}")() as s:
+        s.add(
+            ProtocolDraftRow(
+                study_id=STUDY,
+                yaml=yaml.safe_dump(protocol),
+                compilation_id="",
+                updated_at="",
+            )
+        )
+        s.commit()
+    template = next(e for e in _pilot_events() if e["condition"] == "tool-version-b")
+    capture = {"aiLifecycle": True, "editBursts": True, "clipboard": True}
+    # A complete capture: boundaries, full audit coverage and contiguous seq.
+    events = [
+        {**template, "seq": seq, "type": kind, "payload": payload}
+        for seq, (kind, payload) in enumerate(
+            [
+                ("session_start", {}),
+                ("environment_snapshot", {"auditCapture": capture}),
+                ("ai_suggestion", {"action": "accepted"}),
+                ("session_end", {}),
+            ]
+        )
+    ]
+    assert client.post("/ingest/events", json=events).status_code == 200
+    return template["sessionId"]
+
+
+def test_calibration_endpoint_accepts_non_control_session(client):
+    session = _study_with_non_control_session(client)
+    body = {
+        "labels": {session: True},
+        "scenarios": {session: "copilot-inline"},
+        "source": "Independent scripted-session observer fixture; "
+        "not a real calibration result",
+    }
+    result = client.post(f"/studies/{STUDY}/audit-calibration", json=body)
+    assert result.status_code == 200, result.text
+    by_scenario = result.json()["byScenario"]["copilot-inline"]
+    assert by_scenario["labelled"] == 1
+    assert by_scenario["assessed"] == 1
+    assert by_scenario["incompleteCaptureExcluded"] == 0
+    signal = by_scenario["signals"]["accepted_inline_suggestion"]
+    assert signal["fired"]["value"] == 1
+    assert signal["sensitivity"]["value"] == 1
+    audit = client.get(f"/studies/{STUDY}/control-arm-audit").json()
+    assert audit["sessions"] == []
+    assert audit["records"][0]["record"]["scenarios"] == {session: "copilot-inline"}
+
+
+def test_calibration_endpoint_rejects_scenario_without_label(client):
+    session = _study_with_non_control_session(client)
+    body = {
+        "labels": {session: True},
+        "scenarios": {session: "copilot-inline", "unlabelled": "retype"},
+        "source": "Independent scripted-session observer fixture",
+    }
+    result = client.post(f"/studies/{STUDY}/audit-calibration", json=body)
+    assert result.status_code == 422
+    assert "labelled session" in result.text
+    body["scenarios"].pop("unlabelled")
+    retry = client.post(f"/studies/{STUDY}/audit-calibration", json=body)
+    assert retry.status_code == 200, retry.text
+
+
+def test_get_plan_returns_ai_access_warnings(client):
+    body = client.get(f"/studies/{STUDY}/plan").json()
+    assert isinstance(body["aiAccessWarnings"], list)
+    assert body["aiAccessWarnings"] == []
+
+
+def test_get_plan_ai_access_warnings_flag_an_undeclared_policy(client):
+    import yaml
+
+    protocol = load_protocol(EXAMPLE)
+    protocol["controlConditions"] = ["tool-version-a"]
+    with make_session_factory(f"sqlite:///{client.db_path}")() as s:
+        s.add(
+            ProtocolDraftRow(
+                study_id=STUDY,
+                yaml=yaml.safe_dump(protocol),
+                compilation_id="",
+                updated_at="",
+            )
+        )
+        s.commit()
+    warnings = client.get(f"/studies/{STUDY}/plan").json()["aiAccessWarnings"]
+    assert [w["code"] for w in warnings] == ["ai-access-undeclared"]
+
+
+def test_get_plan_survives_a_malformed_ai_access_draft(client):
+    import yaml
+
+    protocol = load_protocol(EXAMPLE)
+    protocol["controlConditions"] = ["tool-version-a"]
+    protocol["aiAccess"] = {
+        "conditions": {"tool-version-a": "garbage", "ghost": ["x"]},
+        "deviationStrategy": 3,
+    }
+    with make_session_factory(f"sqlite:///{client.db_path}")() as s:
+        s.add(
+            ProtocolDraftRow(
+                study_id=STUDY,
+                yaml=yaml.safe_dump(protocol),
+                compilation_id="",
+                updated_at="",
+            )
+        )
+        s.commit()
+    response = client.get(f"/studies/{STUDY}/plan")
+    assert response.status_code == 200, response.text
+    assert response.json()["aiAccessWarnings"] == []
+
+
+NONCOMPLIANCE_URL = f"/studies/{STUDY}/plan/noncompliance"
+NO_CALIBRATION = (
+    "Calibration rates are not available yet; "
+    "enter sensitivity and specificity instead."
+)
+
+
+def noncompliance_body(**extra):
+    return {
+        "effect_d": 0.5,
+        "n_per_arm": 30,
+        "control_violation": 0.25,
+        "treatment_nonuse": 0.1,
+        "mechanism": "random",
+        "sensitivity": 0.8,
+        "specificity": 0.95,
+        **extra,
+    }
+
+
+@pytest.fixture
+def fast_noncompliance(monkeypatch):
+    """Small replicate counts for speed, and no calibration unless a test adds it."""
+    monkeypatch.setattr(planner_routes, "NONCOMPLIANCE_REPS", 60)
+    monkeypatch.setattr(planner_routes, "NONCOMPLIANCE_REQUIRED_N_REPS", 40)
+    monkeypatch.setattr(calibration_rates, "PER_ROUTE", None)
+    monkeypatch.setattr(calibration_rates, "SPECIFICITY", None)
+
+
+@pytest.fixture
+def calibrated(fast_noncompliance, monkeypatch):
+    per_route = dict.fromkeys(MIXES["instruction-only"], 0.9)
+    per_route["retype"] = 0.2
+    monkeypatch.setattr(calibration_rates, "PER_ROUTE", per_route)
+    monkeypatch.setattr(calibration_rates, "SPECIFICITY", 0.97)
+    return per_route
+
+
+def test_noncompliance_entered_rates_returns_estimators(client, fast_noncompliance):
+    response = client.post(NONCOMPLIANCE_URL, json=noncompliance_body())
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert set(body["estimators"]) == {"itt", "exclude-detected", "as-detected"}
+    for metrics in body["estimators"].values():
+        assert set(metrics) == {"bias", "coverage", "power", "refused"}
+    assert set(body["requiredN"]) == {"itt", "exclude-detected"}
+    assert body["detection"] == {
+        "sensitivity": 0.8,
+        "specificity": 0.95,
+        "source": "entered",
+    }
+    # The route uses the fixed seed, so it matches a direct simulation.
+    scenario = Scenario(0.5, 30, 0.25, 0.1, "random", 0.8, 0.95)
+    assert body["estimators"] == simulate(scenario, reps=60)
+
+
+def test_noncompliance_mix_without_calibration_is_422(client, fast_noncompliance):
+    body = noncompliance_body(mix="instruction-only")
+    del body["sensitivity"], body["specificity"]
+    response = client.post(NONCOMPLIANCE_URL, json=body)
+    assert response.status_code == 422
+    assert response.json()["detail"] == NO_CALIBRATION
+
+
+def test_noncompliance_mix_with_missing_specificity_calibration_is_422(
+    client, calibrated, monkeypatch
+):
+    monkeypatch.setattr(calibration_rates, "SPECIFICITY", None)
+    body = noncompliance_body(mix="locked-environment")
+    del body["sensitivity"], body["specificity"]
+    response = client.post(NONCOMPLIANCE_URL, json=body)
+    assert response.status_code == 422
+    assert response.json()["detail"] == NO_CALIBRATION
+
+
+def test_noncompliance_rejects_both_mix_and_sensitivity(client, fast_noncompliance):
+    response = client.post(
+        NONCOMPLIANCE_URL, json=noncompliance_body(mix="instruction-only")
+    )
+    assert response.status_code == 422
+    assert "either" in response.json()["detail"]
+
+
+def test_noncompliance_requires_a_detection_source(client, fast_noncompliance):
+    body = noncompliance_body()
+    del body["sensitivity"], body["specificity"]
+    response = client.post(NONCOMPLIANCE_URL, json=body)
+    assert response.status_code == 422
+    assert "mix or a sensitivity" in response.json()["detail"]
+
+
+def test_noncompliance_entered_sensitivity_needs_specificity(
+    client, fast_noncompliance
+):
+    body = noncompliance_body()
+    del body["specificity"]
+    response = client.post(NONCOMPLIANCE_URL, json=body)
+    assert response.status_code == 422
+    assert "specificity" in response.json()["detail"]
+
+
+def test_noncompliance_mix_uses_calibrated_rates(client, calibrated):
+    body = noncompliance_body(mix="locked-environment")
+    del body["sensitivity"], body["specificity"]
+    response = client.post(NONCOMPLIANCE_URL, json=body)
+    assert response.status_code == 200, response.text
+    detection = response.json()["detection"]
+    assert detection["source"] == "calibration"
+    assert detection["specificity"] == 0.97
+    assert detection["sensitivity"] == pytest.approx(
+        mixed_sensitivity(calibrated, MIXES["locked-environment"])
+    )
+    assert detection["sensitivity"] == pytest.approx(0.55)
+
+
+def test_noncompliance_calibrated_mix_refuses_a_specificity_override(
+    client, calibrated
+):
+    body = noncompliance_body(mix="instruction-only")
+    del body["sensitivity"]
+    response = client.post(NONCOMPLIANCE_URL, json=body)
+    assert response.status_code == 422
+    assert "calibrated specificity" in response.json()["detail"]
+
+
+def test_noncompliance_unknown_mix_is_422(client, calibrated):
+    body = noncompliance_body(mix="telepathy")
+    del body["sensitivity"], body["specificity"]
+    response = client.post(NONCOMPLIANCE_URL, json=body)
+    assert response.status_code == 422
+    assert "telepathy" in response.json()["detail"]
+
+
+def test_noncompliance_mix_naming_an_uncalibrated_route_is_422(
+    client, calibrated, monkeypatch
+):
+    monkeypatch.setattr(calibration_rates, "PER_ROUTE", {"retype": 0.2})
+    body = noncompliance_body(mix="instruction-only")
+    del body["sensitivity"], body["specificity"]
+    response = client.post(NONCOMPLIANCE_URL, json=body)
+    assert response.status_code == 422
+    assert "without a sensitivity" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("change", "fragment"),
+    [
+        ({"n_per_arm": 1001}, "n_per_arm"),
+        ({"effect_d": 11}, "effect_d"),
+        ({"effect_d": -11}, "effect_d"),
+        ({"n_per_arm": 3}, "n_per_arm"),
+        ({"control_violation": 0.6}, "control_violation"),
+        ({"treatment_nonuse": 1.5}, "treatment_nonuse"),
+        ({"sensitivity": -0.1}, "sensitivity"),
+        ({"specificity": 2}, "specificity"),
+        ({"mechanism": "telepathy"}, "mechanism"),
+    ],
+)
+def test_noncompliance_invalid_scenario_is_422_with_a_message(
+    client, fast_noncompliance, change, fragment
+):
+    response = client.post(NONCOMPLIANCE_URL, json=noncompliance_body(**change))
+    assert response.status_code == 422, response.text
+    assert fragment in response.json()["detail"]
+
+
+@pytest.mark.parametrize("change", [{"effect_d": None}, {"unexpected": 1}])
+def test_noncompliance_rejects_malformed_bodies(client, fast_noncompliance, change):
+    response = client.post(NONCOMPLIANCE_URL, json=noncompliance_body(**change))
+    assert response.status_code == 422
+
+
+def test_noncompliance_edge_rates_return_numbers_or_a_refusal(
+    client, fast_noncompliance
+):
+    response = client.post(
+        NONCOMPLIANCE_URL,
+        json=noncompliance_body(
+            control_violation=0.35, treatment_nonuse=1, sensitivity=0, specificity=1
+        ),
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    # Nobody is ever flagged, so the as-detected comparison has no second group.
+    assert body["estimators"]["as-detected"] == {
+        "bias": None,
+        "coverage": None,
+        "power": None,
+        "refused": 60,
+    }
+    assert body["estimators"]["itt"]["refused"] == 0
+    assert set(body["requiredN"]) == {"itt", "exclude-detected"}
+
+
+def test_noncompliance_required_n_is_none_when_the_target_is_out_of_reach(
+    client, fast_noncompliance
+):
+    response = client.post(
+        NONCOMPLIANCE_URL, json=noncompliance_body(effect_d=0, n_per_arm=10)
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["requiredN"] == {"itt": None, "exclude-detected": None}

@@ -115,15 +115,17 @@ def test_fatigue_recipe_recovers_the_constructed_effect(dataset):
     assert "hypothesis-generating" in result.summary
 
 
-def test_ai_review_recipe_compares_latency_by_outcome(dataset):
+def test_ai_review_recipe_reports_captured_actions_without_claiming_latency(dataset):
     from analysis.core import REGISTRY
 
     result = REGISTRY["ai-review-behavior"].run(dataset)
-    t = result.tables["latency_test"].iloc[0]
-    assert t["effect"] == pytest.approx(-1.0)
-    assert t["n_accepted"] == 4
-    assert t["n_not-accepted"] == 4
-    assert "schema v3" in result.summary
+    per_session = result.tables["per_session"]
+    assert len(per_session) == 4
+    assert (per_session["acceptedEvents"] == 1).all()
+    assert (per_session["dismissedEvents"] == 1).all()
+    assert (per_session["legacyQueryProxyEvents"] == 2).all()
+    assert "latency_test" not in result.tables
+    assert "incomplete counts" in result.summary
 
 
 def test_task_outcome_recipe_on_constructed_verdicts():
@@ -158,14 +160,14 @@ def test_task_outcome_recipe_on_constructed_verdicts():
     assert "fatigue_by_outcome" in result.tables
 
 
-def test_ziegler_recipe_computes_known_acceptance_rate(dataset):
+def test_ziegler_recipe_reports_accepts_without_an_unobserved_denominator(dataset):
     from analysis.core import REGISTRY
 
     result = REGISTRY["ziegler-acceptance-rate"].run(dataset)
     per_session = result.tables["per_session"]
-    assert (per_session["acceptanceRate"] == 0.5).all()
-    assert "Ziegler" in result.methods
-    assert "2205.06537" in result.methods
+    assert (per_session["acceptedEvents"] == 1).all()
+    assert "acceptanceRate" not in per_session
+    assert "No acceptance rate is reported" in result.summary
 
 
 def _rows_with_three_exclusions():

@@ -32,6 +32,8 @@ export interface SessionRestoreState {
   sessionId: string;
   startedAtEpochMs: number;
   pausedMsAccumulated: number;
+  /** A scheduled fatigue probe was due but did not get a participant response. */
+  fatiguePromptPending?: boolean;
 }
 
 export function newSessionId(): string {
@@ -60,6 +62,8 @@ export class StudySession implements Disposable {
   private pausedSince?: number;
   private pausedMsTotal = 0;
   private nextFatigueAtElapsed: number;
+  private fatiguePromptPending = false;
+  private fatiguePromptDispatched = false;
 
   constructor(
     readonly cfg: SessionConfig,
@@ -77,7 +81,10 @@ export class StudySession implements Disposable {
     this.id = restore?.sessionId ?? plannedId ?? newSessionId();
     this.startedAt = restore?.startedAtEpochMs ?? Date.now();
     this.pausedMsTotal = restore?.pausedMsAccumulated ?? 0;
-    this.nextFatigueAtElapsed = this.elapsedMs + this.jitteredInterval();
+    this.fatiguePromptPending = restore?.fatiguePromptPending ?? false;
+    this.nextFatigueAtElapsed =
+      this.elapsedMs +
+      (this.fatiguePromptPending ? 0 : this.jitteredInterval());
     this.tickTimer = setInterval(() => this.tick(), 1_000);
   }
 
@@ -100,6 +107,10 @@ export class StudySession implements Disposable {
     return this.pausedMsTotal + pausedNow;
   }
 
+  get hasPendingFatiguePrompt(): boolean {
+    return this.fatiguePromptPending;
+  }
+
   pause(): void {
     if (this.ended || this.pausedSince !== undefined) return;
     this.pausedSince = Date.now();
@@ -120,7 +131,23 @@ export class StudySession implements Disposable {
 
   /** Push the next probe back (e.g. after a manual probe, to avoid doubling). */
   deferNextFatigue(): void {
+    this.fatiguePromptPending = false;
+    this.fatiguePromptDispatched = false;
     this.nextFatigueAtElapsed = this.elapsedMs + this.jitteredInterval();
+  }
+
+  /** Keep an interrupted scheduled probe due and make it eligible for replay. */
+  retryFatiguePrompt(): void {
+    if (this.ended) return;
+    this.fatiguePromptPending = true;
+    this.fatiguePromptDispatched = false;
+    this.nextFatigueAtElapsed = this.elapsedMs;
+  }
+
+  /** Complete a scheduled probe, including a participant's explicit skip. */
+  completeFatiguePrompt(): void {
+    this.fatiguePromptPending = false;
+    this.fatiguePromptDispatched = false;
   }
 
   end(reason: 'elapsed' | 'manual'): void {
@@ -152,7 +179,13 @@ export class StudySession implements Disposable {
 
     const inQuietTail =
       this.cfg.durationMs - elapsed <= this.cfg.fatigueQuietTailMs;
-    if (elapsed >= this.nextFatigueAtElapsed && !inQuietTail) {
+    if (
+      (this.fatiguePromptPending || elapsed >= this.nextFatigueAtElapsed) &&
+      !inQuietTail &&
+      !this.fatiguePromptDispatched
+    ) {
+      this.fatiguePromptPending = true;
+      this.fatiguePromptDispatched = true;
       this.nextFatigueAtElapsed = elapsed + this.jitteredInterval();
       this.hooks.onFatigueDue();
     }

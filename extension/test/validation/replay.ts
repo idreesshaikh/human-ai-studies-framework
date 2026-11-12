@@ -29,8 +29,8 @@ export function replayEditScenario(s: EditScenario): BurstOutcome[] {
     for (const e of s.events) {
       advanceTo(CLOCK_BASE + e.t);
       const ts = CLOCK_BASE + e.t;
-      if (e.kind === 'aiAccept') a.noteAiAccept(ts);
-      else if (e.kind === 'paste') a.notePaste(ts);
+      if (e.kind === 'aiAccept') a.noteAiAccept(ts, e.fileKey);
+      else if (e.kind === 'paste') a.notePaste(ts, e.fileKey);
       else {
         a.change({
           fileKey: e.fileKey ?? 'src/task.py',

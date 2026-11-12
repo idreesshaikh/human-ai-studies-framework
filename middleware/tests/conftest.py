@@ -16,7 +16,7 @@ def _model(monkeypatch):
     from middleware import assistant
 
     double = model_double.plausible()
-    monkeypatch.setenv("MISTRAL_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
     monkeypatch.setattr(assistant, "_post_json", double.post)
 
 

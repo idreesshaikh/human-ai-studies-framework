@@ -5,12 +5,13 @@ templateVersion: 1
 # Joins telemetry data with self-report survey data
 templateId: ziegler-telemetry-survey-v1
 
-title: Telemetry and self-report join for AI code completion productivity
+title: Captured AI code-completion use and self-report
 
 description: |
-  Combines fine-grained telemetry (acceptance rate, latency) with self-report
-  survey data to measure productivity. The existing acceptance-rate analysis
-  connects the study design to the analysis plan.
+  Combines captured inline-suggestion accept counts with self-report survey
+  data. TERN cannot reliably observe displayed suggestions, so it does not
+  estimate acceptance rates or review latency. Captured accepts are a lower
+  bound on AI use and do not verify that a no-AI condition stayed clean.
 
 source:
   - paperRef: arxiv:2205.06537
@@ -25,7 +26,7 @@ designSignature:
   - "telemetry"
   - "usage logs"
   - "instrumented"
-  - "acceptance rate"
+  - "accepted completion counts"
   - "self-reported productivity"
 
 # This template supports live instrumentation (telemetry + survey)
@@ -37,7 +38,7 @@ parameters:
     default: 10
     min: 5
     description: Number of coding tasks per participant
-    rationale: Sufficient for stable acceptance rate measurement
+    rationale: Provides repeated tasks for comparing captured accept counts
 
   sessionMinutes:
     type: int
@@ -52,7 +53,7 @@ parameters:
     default: 5
     min: 3
     description: Minimum number of completed tasks for inclusion
-    rationale: Ensures sufficient data for acceptance rate calculation
+    rationale: Ensures enough completed tasks for descriptive telemetry
 
   conditions:
     type: conditions
@@ -95,17 +96,18 @@ parameters:
     description: The instrument's ingestion endpoint
 
 measures:
-  - id: acceptance-rate
+  - id: captured-accept-count
     leg: behavioral
-    elements: [completion_accepted, completion_shown]
-    description: Ratio of accepted completions to shown completions
-    caution: Acceptance rate alone may not correlate with productivity
+    elements: [completion_accepted]
+    description: Count of captured inline-suggestion accept keybindings
+    caution: Lower bound on use; no reliable displayed-suggestion denominator
     cite: arxiv:2205.06537
 
-  - id: latency
+  - id: captured-dismiss-count
     leg: behavioral
-    elements: [completion_display_time, acceptance_time]
-    description: Time from completion display to acceptance/rejection
+    elements: [completion_dismissed]
+    description: Count of captured inline-suggestion dismiss keybindings
+    caution: Does not count all rejected or ignored suggestions
     cite: arxiv:2205.06537
 
   - id: self-report-productivity
@@ -134,7 +136,7 @@ statisticalPlan:
 
   perRQ:
     - rq: primary
-      outcome: acceptance-rate (proportion, paired)
+      outcome: captured-accept-count (count, paired)
       test: wilcoxon-signed-rank
       effectSize: matched-pairs rank-biserial
       aggregationUnit: per-participant
@@ -142,7 +144,7 @@ statisticalPlan:
       multipleComparison: bonferroni
 
     - rq: correlation
-      outcome: acceptance-rate (continuous) vs self-report-productivity (ordinal)
+      outcome: captured-accept-count (lower-bound count) vs self-report-productivity (ordinal)
       test: spearman
       effectSize: spearman-rho
       aggregationUnit: per-participant
@@ -150,7 +152,7 @@ statisticalPlan:
 
 threats:
   - threat: demand-characteristics
-    mitigation: Participants unaware of acceptance rate being measured
+    mitigation: Participants unaware that captured accept counts are being summarized
     cite: guidelines-empirical-llm-se
 
   - threat: social-desirability-bias
@@ -168,11 +170,11 @@ protocolSkeleton:
 
   researchQuestions:
     - id: RQ-1
-      text: "What is the acceptance rate for AI-generated code completions?"
+      text: "How many inline-suggestion accept actions does TERN capture under each tool-availability condition?"
     - id: RQ-2
-      text: "How does acceptance rate correlate with self-reported productivity?"
+      text: "How are captured accept counts associated with self-reported productivity?"
     - id: RQ-3
-      text: "What is the latency between code completion display and acceptance?"
+      text: "What AI use do participants report that TERN did not capture?"
 
   conditions: "{{ conditions }}"
 
@@ -184,8 +186,9 @@ protocolSkeleton:
   session:
     durationMinutes: "{{ sessionMinutes }}"
     taskDescription: |
-      Participants complete {{ taskCount }} coding tasks. Code completion suggestions
-      are shown by the AI assistant. Participants may accept or reject each suggestion.
+      Participants complete {{ taskCount }} coding tasks. The assigned AI assistant
+      may provide code-completion suggestions. TERN records accept and dismiss
+      keybindings but cannot observe every displayed suggestion or AI-use surface.
       {{ taskDescription }}
 
   instruments:

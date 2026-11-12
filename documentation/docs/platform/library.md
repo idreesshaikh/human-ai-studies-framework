@@ -26,8 +26,8 @@ such as `RQ-1`, to **Protocol links**, then choose **Save links**. Unsaved draft
 remain available when switching between papers; saving reports the server result.
 
 **Remove paper** asks for confirmation before removing the paper and its links
-from the study. Viewers can read papers and their saved links; owners and members
-can change the collection.
+from the study. Read access includes saved links; edit access can change the
+collection.
 
 ## Explore related work
 
@@ -40,7 +40,7 @@ continues through the page. Drag the map background to pan and choose **Fit** to
 frame the visible papers. Arrow keys move between papers; Enter or Space opens
 their details. Map labels remain readable across screen sizes and zoom levels.
 
-Local development can import the project corpus with:
+Local development can import the literature corpus with:
 
 ```bash
 uv run python -m middleware corpus-import
@@ -75,7 +75,7 @@ the date watermark; retries overlap by one day. Recent concurrent runs are refus
 arXiv requests are paced to at least three seconds apart. Semantic Scholar requests
 use its existing rate limiter and bounded retries; keyless requests can receive 429
 responses. A failed source produces a partial run when another source succeeds.
-Set `S2_API_KEY` if available and `MIDDLEWARE_REFRESH_CONTACT_EMAIL` for an arXiv
+Set `MIDDLEWARE_S2_API_KEY` if available and `MIDDLEWARE_CONTACT_EMAIL` for an arXiv
 contact address. No source failure silently counts as a successful refresh.
 
 Paper metadata includes data from Semantic Scholar and arXiv. Recommendation

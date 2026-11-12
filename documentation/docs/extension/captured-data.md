@@ -55,7 +55,7 @@ workspace-internal files.
 | `visible_range` | Scroll/resize settled | file, topLine, bottomLine, totalLines |
 | `edit_burst` | 2 s without edits, or file switch | file, charsAdded, charsDeleted, linesTouched, durationMs, origin |
 | `clipboard_paste` | Paste landed in a captured file | charCount, lineCount, msSinceInternalCopy, targetFile |
-| `ai_suggestion` | Inline suggestion decision | suggestionId, action (`shown`/`accepted`/`rejected`/`dismissed`), visibleMs, charCount, lineCount |
+| `ai_suggestion` | Captured inline-suggestion keybinding action | suggestionId, action (`accepted`/`dismissed`), charCount, lineCount; legacy events may include `shown` and `visibleMs`, which do not establish display or visibility |
 | `file_save` | Captured file saved | file, charCount, lineCount |
 | `heartbeat` | Active/idle transition only | state (`active`/`idle`) |
 | `attention` | Caret/hover left a line-region band, or file switch | file, startLine, endLine, focusMs, cursorMs, hoverMs, edited, mode, exitReason |

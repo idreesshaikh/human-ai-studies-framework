@@ -14,7 +14,7 @@ PYPROJECT = REPO / "pyproject.toml"
 
 SOURCES = ("middleware/src", "analysis/src", "protocol/src", "scripts")
 # Standard process environment variables.
-PLATFORM_PROVIDED = {"PORT", "USER"}
+PLATFORM_PROVIDED = {"USER"}
 
 _DIRECT = re.compile(
     r"""os\.environ(?:\.get\()\s*["']([A-Z0-9_]+)["']"""
@@ -40,15 +40,21 @@ def _names_read() -> set[str]:
 
 
 def _documented() -> set[str]:
-    text = (REPO / ".env.example").read_text()
-    return set(re.findall(r"^#?\s*([A-Z][A-Z0-9_]+)=", text, re.M))
+    sample = (REPO / ".env.example").read_text()
+    reference = (REPO / "middleware" / "README.md").read_text()
+    sample_names = set(re.findall(r"^#?\s*([A-Z][A-Z0-9_]+)=", sample, re.M))
+    reference_names = set(re.findall(r"`([A-Z][A-Z0-9_]+)`", reference))
+    return sample_names | reference_names
 
 
 def _environment_problems() -> list[str]:
     problems = []
     missing = sorted(_names_read() - _documented() - PLATFORM_PROVIDED)
     if missing:
-        problems.append(f"undocumented in .env.example: {', '.join(missing)}")
+        problems.append(
+            "undocumented in .env.example or middleware/README.md: "
+            + ", ".join(missing)
+        )
     return problems
 
 

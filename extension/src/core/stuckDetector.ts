@@ -57,6 +57,7 @@ export class StuckDetector implements Disposable {
   private lastPromptAt = 0;
   private focused = true;
   private anchor?: { file: string; line: number; since: number };
+  private lastScroll?: { file: string; at: number };
   private scrollSamples: ScrollSample[] = [];
 
   constructor(
@@ -70,6 +71,8 @@ export class StuckDetector implements Disposable {
     this.lastSignalAt = now;
     this.lastEditAt = now;
     this.lastPromptAt = 0;
+    this.lastScroll = undefined;
+    this.scrollSamples = [];
     this.timer = setInterval(() => this.check(), this.cfg.checkIntervalMs);
   }
 
@@ -125,6 +128,7 @@ export class StuckDetector implements Disposable {
 
       case 'scroll': {
         if (s.file === undefined || s.line === undefined) break;
+        this.lastScroll = { file: s.file, at: s.at };
         if (
           this.scrollSamples.length &&
           this.scrollSamples[this.scrollSamples.length - 1].file !== s.file
@@ -167,6 +171,15 @@ export class StuckDetector implements Disposable {
 
   private checkDwell(now: number): StuckRegion | undefined {
     if (!this.anchor) return undefined;
+    // A parked caret can stay on the same line while the participant reads
+    // elsewhere in the document. Keep dwell anchored to the caret heuristic
+    // only when the viewport has not recently moved in that same file.
+    if (
+      this.lastScroll?.file === this.anchor.file &&
+      now - this.lastScroll.at < this.cfg.stuckAfterMs
+    ) {
+      return undefined;
+    }
     const clockStart = Math.max(
       this.anchor.since,
       this.lastEditAt,

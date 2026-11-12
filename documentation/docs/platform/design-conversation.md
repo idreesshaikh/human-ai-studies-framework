@@ -7,7 +7,7 @@ the answer to be interpretable, then proposes one decision at a time.
 The live design loop uses the model configured in `.env` (`LLM_API_KEY`,
 `LLM_BASE_URL`, `LLM_MODEL`). The default is `ministral-14b-latest` on Mistral's
 API; paper matching uses the same shared model. `LLM_DESIGN_MODEL` overrides
-only design turns, and legacy `MISTRAL_*` names still work. A local
+only design turns. A local
 chat-completions server needs no key. When no usable model is configured,
 PHOENIX shows an offline state instead of presenting scripted replies as live
 reasoning.

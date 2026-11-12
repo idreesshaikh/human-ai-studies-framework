@@ -1468,6 +1468,10 @@ def _plan_turn(
     """
     if client is None or study_id is None or decision:
         return None
+    # "Answers only" never drafts: the conversational path answers and flags
+    # risks without cards. Without this, every style received a full plan.
+    if not elicitation.proposals_permitted(stance.get("steer")):
+        return None
     from middleware import study_plan
 
     history = _load_history(s, study_id)

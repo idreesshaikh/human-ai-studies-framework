@@ -1,14 +1,11 @@
-"""Settings.port precedence: MIDDLEWARE_PORT > PORT > 8000."""
+"""The server uses the local port override or its development default."""
 
 from middleware.settings import Settings
 
 
 def test_port_precedence_is_resolved_from_the_current_environment(monkeypatch):
     monkeypatch.delenv("MIDDLEWARE_PORT", raising=False)
-    monkeypatch.delenv("PORT", raising=False)
     assert Settings().port == 8000
-    monkeypatch.setenv("PORT", "4123")
-    assert Settings().port == 4123
     monkeypatch.setenv("MIDDLEWARE_PORT", "9001")
     assert Settings().port == 9001
 

@@ -6,9 +6,12 @@ import { OPEN_SETUP, PLAN_EMPTY_TITLE, PLAN_EMPTY_BODY, conditionLabel } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { AiAccessWarnings } from "@/components/charts/AiAccessWarnings";
+import { NonCompliancePanel } from "@/components/charts/NonCompliancePanel";
 import { hasRole, type Role } from "@/lib/capabilities";
 import {
   plannerApi,
+  type AiAccessWarning,
   type Lineage,
   type PlanInputs,
   type PlanResult,
@@ -75,6 +78,9 @@ export function PowerPanel({
   const [inputs, setInputs] = useState<PlanInputs>(DEFAULTS);
   const [result, setResult] = useState<PlanResult | null>(null);
   const [lineage, setLineage] = useState<Lineage | null>(null);
+  const [aiAccessWarnings, setAiAccessWarnings] = useState<AiAccessWarning[]>(
+    [],
+  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -99,6 +105,7 @@ export function PowerPanel({
         if (version !== generation.current) return;
         setProtocol(doc.protocol);
         setResult(doc.plan);
+        setAiAccessWarnings(doc.aiAccessWarnings ?? []);
         const measures =
           doc.protocol.measures?.filter(
             (m): m is TypedMeasure => typeof m === "object",
@@ -220,6 +227,7 @@ export function PowerPanel({
   return (
     <Surface measure="work" label="Planning" className="bg-surface">
       <section className="flex flex-col gap-5">
+        <AiAccessWarnings warnings={aiAccessWarnings} />
         <div className="flex flex-col gap-2">
           <h2 className="type-section text-text">
             Plan participant recruitment
@@ -259,8 +267,8 @@ export function PowerPanel({
             </p>
             {!canEdit && (
               <p className="type-note text-text-muted">
-                You can read saved plans. A project member can calculate and
-                save a new plan.
+                You can read saved plans. Study editors can calculate and save
+                a new plan.
               </p>
             )}
             <form
@@ -592,6 +600,7 @@ export function PowerPanel({
                 </p>
               </section>
             )}
+            <NonCompliancePanel studyId={studyId} />
             {protocol.rerunOf && (
               <details
                 className="border-t border-border pt-3"

@@ -12,9 +12,7 @@ import { createApi, type Api, type Me, type Preferences } from "./api.ts";
 import { applyTheme } from "./theme";
 import { CREDENTIAL_READY_EVENT } from "./auth.tsx";
 
-/* Provides the API client and the signed-in identity to the tree. Both sign-in
- * modes (none and a shared token) serve one researcher identity, so the shell
- * hides multi-member project UI. */
+/* Provides the API client and signed-in identity to the tree. */
 
 const ApiContext = createContext<Api | null>(null);
 
@@ -38,7 +36,6 @@ export function useApi(): Api {
 
 interface SessionState {
   me: Me | null;
-  isSolo: boolean;
   loading: boolean;
   refresh: () => Promise<void>;
   /** Persist part of this identity's profile (FR-OPS-7) and refresh `me`. */
@@ -51,7 +48,6 @@ const SessionContext = createContext<SessionState | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const api = useApi();
-  const isSolo = true;
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -119,8 +115,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [me]);
 
   const value = useMemo(
-    () => ({ me, isSolo, loading, refresh, updatePreferences, setThemePreference }),
-    [me, isSolo, loading, refresh, updatePreferences, setThemePreference],
+    () => ({ me, loading, refresh, updatePreferences, setThemePreference }),
+    [me, loading, refresh, updatePreferences, setThemePreference],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
