@@ -24,7 +24,18 @@ export default defineConfig({
       "/me": "http://127.0.0.1:8000",
       "/measure-catalog": "http://127.0.0.1:8000",
       "/projects": "http://127.0.0.1:8000",
-      "/studies": "http://127.0.0.1:8000",
+      "/studies": {
+        target: "http://127.0.0.1:8000",
+        bypass(req) {
+          if (
+            req.method === "GET" &&
+            req.headers.accept?.includes("text/html") &&
+            /^\/studies\/[^/?]+\/?(?:\?.*)?$/.test(req.url ?? "")
+          ) {
+            return "/index.html";
+          }
+        },
+      },
       "/templates": "http://127.0.0.1:8000",
     },
   },

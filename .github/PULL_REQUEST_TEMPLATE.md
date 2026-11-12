@@ -1,6 +1,6 @@
 ## Linked issue
 
-Closes #<issue>
+Link a related issue if one exists.
 
 ## Summary
 

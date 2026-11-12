@@ -78,8 +78,8 @@ body:
     attributes:
       label: Environment
       description: >-
-        OS, Python version, Node version, and whether you are on PostgreSQL
-        (the default) or the SQLite fallback. For extension reports, your
+        OS, Python version, Node version, and whether you use the default
+        SQLite database or PostgreSQL. For extension reports, your
         VS Code version.
     validations:
       required: true
