@@ -1,8 +1,7 @@
 """Print the frozen, shuffled session order for the AI-use calibration.
 
-Prints a CSV `order,scenario,rep` of every session in
-docs/superpowers/specs/2026-11-12-ai-use-verification-design.md section 3,
-shuffled with the fixed seed 20261112: 3 no-AI sessions, 3 sessions for each of
+Prints a CSV `order,scenario,rep` shuffled with the fixed seed 20261112:
+3 no-AI sessions, 3 sessions for each of
 6 AI routes, and 2 sessions for each of 5 benign look-alikes, 31 in all.
 
 `rep` counts up in session order within a scenario, so the first time a scenario
