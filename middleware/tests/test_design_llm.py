@@ -6,6 +6,56 @@ import pytest
 
 from middleware import assistant, design_llm
 
+
+def test_model_field_and_condition_variants_reach_the_compiled_draft():
+    from middleware.compiler import compile_moves
+
+    reply = {
+        "text": "Prepare the comparison and title.",
+        "moves": [
+            {
+                "kind": "set-field",
+                "target": "study.title",
+                "proposal": "Name the study.",
+                "patch": {
+                    "section": "study",
+                    "op": "set-field",
+                    "path": ["title"],
+                    "value": "Assisted debugging",
+                },
+            },
+            {
+                "kind": "set-parameter",
+                "target": "conditions",
+                "proposal": "Compare the two conditions.",
+                "patch": {
+                    "section": "conditions",
+                    "op": "append",
+                    "value": [{"label": "Assisted"}, {"id": "Unassisted"}],
+                },
+            },
+        ],
+    }
+    turn = design_llm.propose_turn(_fake_client(reply), "Prepare the draft", [], [], [])
+    assert turn is not None and len(turn.moves) == 2
+    compiled = compile_moves(
+        [
+            {"kind": move.kind, "patch": move.patch, "status": "accepted"}
+            for move in turn.moves
+        ]
+    )
+    assert compiled.draft["study"]["title"] == "Assisted debugging"
+    assert compiled.draft["conditions"] == ["Assisted", "Unassisted"]
+
+
+def test_incomplete_condition_objects_are_not_partially_accepted():
+    patch = {
+        "section": "conditions",
+        "op": "append",
+        "value": [{"label": "Assisted"}, {"description": "missing label"}],
+    }
+    assert design_llm._validate_patch("set-parameter", patch) is None
+
 PAPERS = [
     {"ref": "corpus:trust-in-ai-code-generation", "title": "Trust in AI Code"},
     {"ref": "corpus:metr-early-2025-dev-productivity", "title": "METR Productivity"},
