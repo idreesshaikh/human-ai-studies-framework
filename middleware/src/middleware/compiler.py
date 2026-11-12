@@ -412,6 +412,8 @@ def _scaffold_from_sections(sections: dict[str, list]) -> dict:
         ]
     if sections["conditions"]:
         draft["conditions"] = list(sections["conditions"])
+    if sections["measures"]:
+        draft["measures"] = list(sections["measures"])
     return draft
 
 
@@ -1080,6 +1082,11 @@ def _apply_task_moves(draft: dict, moves: list[dict]) -> list[str]:
         tasks[task_id] = task
     if tasks:
         draft["tasks"] = list(tasks.values())
+        session = draft.setdefault("session", {})
+        if not session.get("taskDescription"):
+            session["taskDescription"] = "; ".join(
+                task.get("description") or task["title"] for task in tasks.values()
+            )
         if int(draft.get("protocolVersion") or 0) < 5:
             draft["protocolVersion"] = 5
     return warnings

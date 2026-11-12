@@ -317,3 +317,41 @@ def test_decision_followup_flag_reaches_the_model_call(monkeypatch):
         None, "t", [], [], [], "d", None, decision_followup=True
     )
     assert seen["decision_followup"] is True
+
+
+def test_repeated_detail_does_not_claim_a_pending_card_is_recorded():
+    from middleware.design_assistant import _explicit_turn
+
+    state = {
+        "keyTexts": [_numeric_key("Sessions run 30 minutes.", 30)],
+        "proposed": [{"proposal": "Sessions run 30 minutes."}],
+    }
+    turn = _explicit_turn({"explicitMoves": (_duration_move(),)}, state)
+    assert turn.moves == ()
+    assert "waiting for your decision" in turn.text
+    assert "already in the draft" not in turn.text
+
+
+def test_repeated_detail_in_a_valid_draft_points_to_review():
+    from middleware.design_assistant import _explicit_turn
+
+    state = {
+        "keyTexts": [_numeric_key("Sessions run 30 minutes.", 30)],
+        "compileValid": True,
+    }
+    turn = _explicit_turn({"explicitMoves": (_duration_move(),)}, state)
+    assert turn.moves == ()
+    assert "Review" in turn.text
+
+
+def test_repeated_declined_detail_is_not_said_to_be_in_the_draft():
+    from middleware.design_assistant import _explicit_turn
+
+    state = {
+        "keyTexts": [_numeric_key("Sessions run 30 minutes.", 30)],
+        "rejected": [{"proposal": "Sessions run 30 minutes."}],
+    }
+    turn = _explicit_turn({"explicitMoves": (_duration_move(),)}, state)
+    assert turn.moves == ()
+    assert "previously declined" in turn.text
+    assert "already in the draft" not in turn.text

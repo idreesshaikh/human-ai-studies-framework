@@ -358,6 +358,34 @@ def _task_move(text: str, **extra) -> dict:
     }
 
 
+def test_accepted_task_supplies_session_description_without_overwriting_a_slot():
+    task = _task_move("Diagnose a failure in a shared project")
+    result = compiler.compile_moves([task])
+    assert result.draft["session"]["taskDescription"] == task["patch"]["description"]
+    explicit = _field_move(["session", "taskDescription"], "A different task")
+    result = compiler.compile_moves([task, explicit])
+    assert result.draft["session"]["taskDescription"] == "A different task"
+
+
+def test_accepted_catalog_measure_compiles_without_a_template():
+    measure = {
+        "kind": "add-measure",
+        "target": "measures",
+        "status": "accepted",
+        "patch": {"section": "measures", "op": "append", "value": {"catalogId": "E1"}},
+    }
+    result = compiler.compile_moves(
+        [
+            _rq_move(),
+            _field_move(["participants", "design"], "between-subjects"),
+            measure,
+        ]
+    )
+    assert result.draft["measures"][0]["fields"] == ["task_outcome.firstGreenMs"]
+    assert result.draft["instruments"]["taskHarness"]["enabled"]
+    assert result.draft["analysisPlan"][0]["recipes"] == ["two-group-nonparametric"]
+
+
 def _crossover() -> dict:
     return _template_move("m-t", "within-subjects-crossover-v1", {})
 

@@ -6,9 +6,12 @@ events and surveys in VS Code. Both use a reviewed, versioned study protocol.
 
 ## Run locally
 
-Requires Python 3.12+, Node.js 22+, and uv. Install once:
+Requires Python 3.12+, Node.js 22+, and [uv](https://docs.astral.sh/uv/).
+Clone the repository and install the dependencies:
 
 ```bash
+git clone https://github.com/idreesshaikh/human-ai-studies-framework.git
+cd human-ai-studies-framework
 uv sync --all-packages --frozen
 npm --prefix platform ci
 cp .env.example .env.local
@@ -22,7 +25,7 @@ Start the server, which provides the API on port 8000 and stores data in
 `.study-data/`:
 
 ```bash
-uv run --no-sync --env-file .env.local python -m middleware
+MIDDLEWARE_API_ONLY=1 uv run --no-sync --env-file .env.local python -m middleware
 ```
 
 In a second terminal, start the web app and open <http://localhost:5173>:
@@ -37,7 +40,8 @@ npm --prefix platform run dev
 - The web app reloads itself when its code changes; the server does not.
   Restart the server after `git pull`.
 - To serve everything from the server instead, run
-  `npm --prefix platform run build` and open <http://127.0.0.1:8000>.
+  `npm --prefix platform run build`, restart the server without
+  `MIDDLEWARE_API_ONLY=1`, and open <http://127.0.0.1:8000>.
 
 See the [server guide](middleware/README.md) for storage, sign-in, and model
 settings.
@@ -98,5 +102,7 @@ uv run --no-sync python scripts/check_demo.py
 The gate runs Python, extension, frontend, browser, and documentation checks.
 See [verification](docs/demo-readiness.md) for individual commands and limits.
 
-Code is available under the [MIT License](LICENSE). External sources and
-dependencies retain their own terms.
+Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) for setup,
+checks, and pull requests. Report vulnerabilities as described in
+[SECURITY.md](SECURITY.md). The code is available under the [MIT License](LICENSE).
+External sources and dependencies retain their own terms.

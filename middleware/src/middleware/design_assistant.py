@@ -659,6 +659,26 @@ def _explicit_turn(stance: dict, state: dict | None = None) -> Turn | None:
     moves = protocol_moves
     kept = _filter_repeated_moves(moves, state)
     if not kept:
+        pending = (state or {}).get("proposed") or []
+        if pending:
+            return Turn(
+                text="A proposal is waiting for your decision. "
+                "Review it before continuing.",
+                moves=(),
+            )
+        if (state or {}).get("compileValid"):
+            return Turn(text=DRAFT_READY, moves=())
+        declined = (state or {}).get("rejected") or []
+        if any(
+            _is_near_duplicate(move.proposal, row.get("proposal", ""))
+            for move in moves
+            for row in declined
+            if isinstance(row, dict)
+        ):
+            return Turn(
+                text="That choice was previously declined. Tell me what to change.",
+                moves=(),
+            )
         recorded = " ".join(m.proposal.strip() for m in moves[:3] if m.proposal)
         question = (stance.get("nextQuestion") or "").strip() or (
             "What would you like to settle next?"

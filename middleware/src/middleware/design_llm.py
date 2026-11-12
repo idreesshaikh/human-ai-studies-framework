@@ -480,6 +480,8 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
             and "value" in patch
         ):
             canonical = _canonical_slot_path(path)
+            if canonical is None and isinstance(patch.get("section"), str):
+                canonical = _canonical_slot_path([patch["section"], *path])
             if canonical is None:
                 return None
             return {"op": "set-field", "path": canonical, "value": patch["value"]}
@@ -511,15 +513,32 @@ def _validate_patch(kind: str, patch: object) -> dict | None:
         and patch.get("op") in ("append", "set")
         and "value" in patch
     ):
+        raw_value = patch["value"]
+        if patch["section"] == "conditions":
+            raw_value = _condition_value(raw_value)
         value = (
             _normalize_measure_value(patch["value"])
             if patch["section"] == "measures"
-            else _normalize_value(patch["value"])
+            else _normalize_value(raw_value)
         )
         if value is None:
             return None
         return {"section": patch["section"], "op": patch["op"], "value": value}
     return None
+
+
+def _condition_value(value: object):
+    if isinstance(value, dict):
+        label = value.get("name") or value.get("label") or value.get("id")
+        return label if isinstance(label, str) and label.strip() else None
+    if isinstance(value, list):
+        items = [_condition_value(item) for item in value]
+        return (
+            items
+            if items and all(isinstance(v, (str, int, float, bool)) for v in items)
+            else None
+        )
+    return value
 
 
 def _normalize_measure_value(value: object):
