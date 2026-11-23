@@ -1,87 +1,91 @@
-# Participants
+# Participant links
 
-Participants is the bridge between a protocol on the platform and a person in
-VS Code. It makes the install, consent, assignment, and capture boundary
-visible before anyone starts a real session.
+The **Run** tab connects people to the study. You create a link for each
+participant, they open it in VS Code with [TERN](../extension/index.md), and
+their sessions appear here while they run.
 
 <figure markdown="span">
-  ![The current Phoenix Participants tab](../assets/screens/study-participants.png){ width="900" }
-  <figcaption>Install the exact TERN release first, then create a one-use link for each participant.</figcaption>
+  ![The Run tab with 24 links, their conditions and pairing status](../assets/screens/run-light.webp#only-light)
+  ![The Run tab with 24 links, their conditions and pairing status](../assets/screens/run-dark.webp#only-dark)
+  <figcaption>The example study's links. They are illustrative and cannot connect an editor.</figcaption>
 </figure>
 
-## The hand-off contract
+## Create links
 
-1. The researcher installs the [TERN 1.0.1 release](https://github.com/idreesshaikh/human-ai-studies-framework/releases/tag/v1.0.1)
-   into VS Code with **Extensions: Install from VSIX…**.
-2. PHOENIX creates a participant-specific, one-use enrollment token.
-3. The participant opens the link (`vscode://…/pair`) in VS Code.
-4. TERN redeems the token, shows the consent statement, stores the approved
-   capture configuration, and receives the participant’s assignment.
-5. Events are written locally first and optionally mirrored to the middleware;
-   the platform can then show session integrity in **Data**.
+Apply the protocol first; links carry the applied version. Then choose
+**Create participant links**:
 
-The deep link is intentionally not an installer. TERN is a GitHub-release VSIX,
-not a Marketplace package, so the participant installs it once before pairing.
+| Field | What to choose |
+| --- | --- |
+| **How many** | 1 to 100 links at once. Participant IDs are assigned in order: P01, P02, and so on |
+| **Link type** | **Per participant**: one link a participant keeps for all their sessions. **Per session**: a new link for every session, usable once |
+| **Study folder** | The task folder TERN opens after consent. See below |
+| **Capture settings** | Which instruments this link records: Static metrics, Behavioral, Cognitive, Agent interaction |
 
-## Choose the study folder
+Links expire after 30 days. **Revoke** stops a link from working, after you
+confirm **Revoke permanently**.
 
-A participant link can open the task's folder in VS Code right
-after consent. In **Create participant links**, set the **Study folder** once for the study,
-in one of two ways:
+## Send them
+
+Participants need TERN installed first; see
+[Install and connect](../extension/install.md). Then send either:
+
+- the **Open in VS Code** link, which connects in one click; or
+- the connection string from **Copy link**, which participants paste into
+  **StudyLoop: Connect to Study**.
+
+TERN reads the link, shows the consent statement, and waits for
+**I consent** before anything is recorded. The roster then shows the link as
+paired, and **Will capture** shows what it records.
+
+!!! note "Per-session links and consent"
+    TERN redeems a link before it shows the consent statement. A participant
+    who declines has used up a **Per session** link; create a new one if they
+    change their mind.
+
+## The study folder
+
+A link can open the task's folder in VS Code right after consent. Set the
+**Study folder** once for the study, in one of two ways:
 
 - **A path** that already exists on participants' computers, such as
-  `/home/participant/study-task`, `~/study-task`, `C:\study\task` or a
-  `file://` address. Use this when the study kit is delivered separately.
-- **A zip** of the folder (up to 50 MB). TERN downloads it with the
-  participant's own session credential, checks it against the uploaded hash,
-  unpacks it into its own storage and opens it. A zip with one top-level
-  folder opens that folder.
+  `~/study-task`, `/home/participant/study-task`, `C:\study\task` or a `file://`
+  address. Use this when you deliver the task separately.
+- **A zip** of the folder, up to 50 MB. TERN downloads it with the
+  participant's own credential, checks it against the uploaded file, unpacks it
+  into its own storage and opens it. A zip with one top-level folder opens that
+  folder.
 
-If no folder is set here, TERN falls back to the task's `materials` value in
-the protocol when that is an absolute path. TERN never clones or downloads a
-repository from a URL.
+Without a study folder, TERN uses the task's `materials` value from the
+protocol when it is an absolute path. TERN never downloads a repository from a
+URL.
 
-When the folder cannot be opened, pairing and consent still succeed and the
-participant sees a message that names the reason, with **Open Folder…** and
-**Try again** buttons. That happens when the path is relative or a web
-address, the folder does not exist on the computer, the download fails or does
-not match the uploaded zip, or VS Code could not open it, or the participant
-is in VS Code for the web, which has no local file system. In a WSL, SSH or
-container window the path is checked, and a zip is unpacked, on that window's
-own machine, so a path must exist where the participant's VS Code runs (for
-WSL, a Linux path such as `/home/participant/task`; for desktop Windows, a
-`C:\` path).
+If the folder cannot be opened, pairing and consent still succeed. The
+participant sees the reason, with **Open Folder…** and **Try again**. That
+happens when the path is relative or a web address, does not exist on that
+computer, the download fails or does not match, VS Code cannot open it, or the
+participant uses VS Code for the web. In a WSL, SSH or container window, the
+path is checked and a zip unpacked on that window's machine, so a WSL path must
+be a Linux path such as `/home/participant/task`.
 
-Supported launch path: the `vscode://…/pair` deep link or **StudyLoop: Connect to
-Study** in desktop VS Code. `vscode-insiders://` links are not generated.
+`vscode-insiders://` links are not generated; use desktop VS Code.
 
-## Assignment is part of the protocol
+## Who gets which condition
 
-Task order is rotated automatically so participants meet every condition in a
-counterbalanced order. The participant does not choose the condition, and the
-researcher does not have to keep a spreadsheet of assignments.
+The protocol assigns conditions; participants never choose, and TERN never
+shows them theirs.
 
-## What the participant sees before recording
+- **Within subjects, counterbalanced:** each participant meets every condition,
+  and the order rotates across participants.
+- **Within subjects, not counterbalanced:** every participant meets the
+  conditions in the same order.
+- **Between subjects:** each participant gets one condition, assigned in turn.
 
-The pairing flow keeps three things aligned:
+## Watch sessions
 
-- **Consent statement** — why the study is running and what it captures.
-- **Capture config** — the protocol-approved instrument legs and endpoint.
-- **Task assignment** — the run that the analysis plan expects. The assigned
-  condition is never shown to the participant; it stays in the study's records
-  and is stamped on every event by the server.
-
-TERN’s preflight summary is the last gate. No session file is created until the
-participant confirms **Begin session**.
-
-## Projects, roles, and invitations
-
-| Role | What they can do |
-| --- | --- |
-| Owner | Projects, roles, invitations, protocol, participants, and data |
-| Researcher | Collaborate on the conversation, participants, and data |
-| Viewer | Read-only access |
+While sessions run, the Run tab shows each one's event rate and the gaps in its
+event sequence. This is also the way to check that TERN's events are arriving.
 
 Run a small pilot with a few real participants first, and tag those sessions as
-pilot in the [Data tab](data.md). Pilot sessions stay in the export but are kept
-out of confirmatory analysis.
+pilots on [Data](data.md). Pilot sessions stay in exports but are left out of
+confirmatory analysis.

@@ -1,91 +1,87 @@
 # Protocol draft
 
-The protocol draft is where a conversation becomes a study. It compiles from
-the design moves you accepted and stays visible while the next decision is
-being made.
+The protocol draft is the study as it will run. It builds up from the cards you
+accept in the [design chat](design-conversation.md), or from the details you
+enter directly, and stays open beside the chat on **Setup**.
+
+## What the draft shows
+
+The panel lists eight sections: research questions, design, participants,
+conditions, measures, instruments, statistical plan, and ethics. Ethics is
+optional, so the progress count covers the other seven. **What are these
+sections?** explains each one, and **Edit details** opens the form described
+below. The study name and the administrative fields the schema requires are in
+the study header and the raw YAML, not in the count.
+
+At any moment the draft answers three questions:
+
+1. Which decisions are in it?
+2. Which decision is missing next?
+3. Is it valid enough to apply?
+
+## Review and apply
+
+**Review draft** opens the full compiled protocol before anything changes. It
+marks which decisions are backed by papers and which are your call, shows the
+YAML, and highlights what changed since the protocol you last applied.
 
 <figure markdown="span">
-  ![The current protocol rail](../assets/screens/phoenix-demo-conversation-current.png){ width="900" }
-<figcaption>The draft rail shows coverage, missing sections, and the exact choices that will drive the run.</figcaption>
+  ![The Review draft dialog listing the decisions to apply, with Keep editing and Apply protocol buttons](../assets/screens/review-draft-light.webp#only-light)
+  ![The Review draft dialog listing the decisions to apply, with Keep editing and Apply protocol buttons](../assets/screens/review-draft-dark.webp#only-dark)
+  <figcaption>Review draft, before Apply protocol. Applying records who approved which compilation.</figcaption>
 </figure>
 
-## What the rail shows
+Choose **Keep editing** to go back, or **Apply protocol** to make this version
+the study's protocol. PHOENIX records the approval, and the next step,
+**Plan recruitment**, appears.
 
-The rail keeps the method legible while the conversation stays focused. Its
-eight researcher-controlled sections are research questions, design,
-participants, conditions, measures, instruments, statistical plan, and ethics.
-Study identity and schema-required administrative fields remain available in
-the study header and the raw YAML; they do not inflate the visible progress
-meter.
+Only the applied protocol reaches participants. It sets:
 
-The rail always answers three questions:
+- the conditions and the order each participant meets them in;
+- the measures and the instruments that capture them;
+- the consent statement TERN shows when a participant connects;
+- TERN's capture settings;
+- the analysis plan and the checks it must pass.
 
-1. What decisions are already in the draft?
-2. What is the next missing decision?
-3. Is the compiled protocol valid enough to apply?
+## How compiling works
 
-Only the active decision is expanded in the conversation. Earlier decisions,
-warnings, and raw YAML are disclosures so they remain inspectable without
-becoming a wall of repeated text.
+- **No model involved.** The protocol compiler turns accepted decisions into a
+  versioned YAML document the same way every time.
+- **Checked.** Missing conditions, measures or participant-count rules are named
+  as errors, never filled in with defaults.
+- **Two compilers, one authority.** Your browser shows the result of each card
+  at once. The server then compiles again, and its result decides: if it finds
+  an error, **Apply protocol** stays blocked.
 
-## The document of record
-
-The conversation explains the reasoning; the compiled protocol defines the
-study. Only the protocol drives:
-
-- the conditions and counterbalanced task order;
-- the measures and instrument legs;
-- the consent statement shown before pairing;
-- TERN’s approved capture configuration;
-- the analysis plan and its validation rules.
-
-That is how the framework keeps the thesis coherent: the artifact designed by
-the researcher is the artifact the participant runs.
-
-## What compilation means
-
-- **Deterministic.** Accepted choices compile through the protocol schema into a
-  versioned document. No LLM is involved in compilation.
-- **Diffed.** Changes are visible against the previous version before approval.
-- **Validated.** Missing conditions, measures, or participant-count rules are
-  named instead of being silently defaulted.
-- **Human-approved.** A draft is not a study run until the researcher approves
-  the change.
-
-The browser projection and server compiler are intentionally separate. The
-client compiler gives instant feedback while a card is accepted; the server
-compile is authoritative and blocks **Apply to protocol** when validation fails.
-Both compilers must understand the same move shapes. In particular,
-`prescribe-statistics` stores an executable recipe identifier, not a paragraph
-of statistical advice.
-
-Older saved conversations are recovered where possible. The former
-`taskTimer` name maps to the registered TERN capture instrument with a visible
-warning. Recognizable legacy statistical-plan sentences map to a runnable
-recipe. Unknown values remain warnings or errors and are never presented as a
-valid protocol.
+Older saved conversations are recovered where possible. The former `taskTimer`
+name maps to TERN's capture instrument with a visible warning, and recognisable
+old statistical-plan sentences map to a runnable recipe. Anything else stays a
+warning or an error.
 
 ## Entering a design directly
 
-Researchers who already have a design can skip the conversation. **Enter the
-protocol details directly** on a new study, or **Edit details** on the draft
-rail, opens a form for the supported fields: study name, up to six research
-questions, design, two conditions, participants, task, session length, and
-outcomes. It is prefilled from the current draft. Saving records the entry as
-accepted moves that replace the decisions made before it, keeping the analysis
-recipes of research questions it leaves unchanged, so the same compiler
-validates it and **Apply protocol** approves it. The conversation stays
-available, and moves accepted after a manual entry refine it.
+If you already have a design, skip the chat. **Enter the protocol details
+directly** on a new study, or **Edit details** on the draft, opens a form with
+the study name, up to six research questions, the design, two conditions, the
+participants, the task, the session length, and the outcomes. It starts from the
+current draft.
+
+Saving records your entry as accepted decisions that replace the earlier ones,
+and keeps the analysis recipes of research questions you did not change. The
+same compiler checks it, and **Apply protocol** approves it. The chat stays
+available, and cards accepted afterwards refine your entry.
 
 ## Consent and responsibility
 
 PHOENIX does not grant ethics approval. It makes the capture decision explicit:
-the participant sees the protocol-derived consent statement, and TERN applies
-the approved configuration for that run. The researcher remains responsible for
-institutional review and for deciding when an amendment requires a new review.
+the participant sees the consent statement written from the protocol, and TERN
+applies the protocol's capture settings. You remain responsible for review by
+your institution, and for deciding when a change to the protocol needs a new
+review. TERN applies a newly applied protocol at each participant's next
+session without asking for consent again.
 
-## Proven shapes
+## Templates
 
-The [Library](library.md) ranks described design shapes by corpus usage. Each shape
-binds the statistical plan it requires, and the draft stays grounded in the
-papers attached to the chosen moves.
+**Templates**, in the sidebar, ranks study designs by how often published
+studies in the corpus use them. Each template includes the statistical plan it
+needs.

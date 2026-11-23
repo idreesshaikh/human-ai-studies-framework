@@ -1,0 +1,102 @@
+[
+ {
+  "do": "start"
+ },
+ {
+  "do": "open",
+  "file": "inventory.py"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "paste",
+  "text": "def stock_levels(lines):\n    totals = {}\n    for line in lines:\n        parsed = parse_line(line)\n        if parsed is None:\n            continue\n        sku, _, change = parsed\n        totals[sku] = totals.get(sku, 0) + change\n    return totals\n"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "paste",
+  "text": "x = 1  # tiny"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "paste",
+  "text": "ROW_00000 = 0 * 2  # filler line for a very large paste\nROW_00001 = 1 * 2  # filler line for a very large paste\nROW_00002 = 2 * 2  # filler line for a very large paste\nROW_00003 = 3 * 2  # filler line for a very large paste\nROW_00004 = 4 * 2  # filler line for a very large paste\nROW_00005 = 5 * 2  # filler line for a very large paste\nROW_00006 = 6 * 2  # filler line for a very large paste\nROW_00007 = 7 * 2  # filler line for a very large paste\nROW_00008 = 8 * 2  # filler line for a very large paste\nROW_00009 = 9 * 2  # filler line for a very large paste\nROW_00010 = 10 * 2  # filler line for a very large paste\nROW_00011 = 11 * 2  # filler line for a very large paste\nROW_00012 = 12 * 2  # filler line for a very large paste\nROW_00013 = 13 * 2  # filler line for a very large paste\nROW_00014 = 14 * 2  # filler line for a very large paste\nROW_00015 = 15 * 2  # filler line for a very large paste\nROW_00016 = 16 * 2  # filler line for a very large paste\nROW_00017 = 17 * 2  # filler line for a very large paste\nROW_00018 = 18 * 2  # filler line for a very large paste\nROW_00019 = 19 * 2  # filler line for a very large paste\nROW_00020 = 20 * 2  # filler line for a very large paste\nROW_00021 = 21 * 2  # filler line for a very large paste\nROW_00022 = 22 * 2  # filler line for a very large paste\nROW_00023 = 23 * 2  # filler line for a very large paste\nROW_00024 = 24 * 2  # filler line for a very large paste\nROW_00025 = 25 * 2  # filler line for a very large paste\nROW_00026 = 26 * 2  # filler line for a very large paste\nROW_00027 = 27 * 2  # filler line for a very large paste\nROW_00028 = 28 * 2  # filler line for a very large paste\nROW_00029 = 29 * 2  # filler line for a very large paste\nROW_00030 = 30 * 2  # filler line for a very large paste\nROW_00031 = 31 * 2  # filler line for a very large paste\nROW_00032 = 32 * 2  # filler line for a very large paste\nROW_00033 = 33 * 2  # filler line for a very large paste\nROW_00034 = 34 * 2  # filler line for a very large paste\nROW_00035 = 35 * 2  # filler line for a very large paste\nROW_00036 = 36 * 2  # filler line for a very large paste\nROW_00037 = 37 * 2  # filler line for a very large paste\nROW_00038 = 38 * 2  # filler line for a very large paste\nROW_00039 = 39 * 2  # filler line for a very large paste\nROW_00040 = 40 * 2  # filler line for a very large paste\nROW_00041 = 41 * 2  # filler line for a very large paste\nROW_00042 = 42 * 2  # filler line for a very large paste\nROW_00043 = 43 * 2  # filler line for a very large paste\nROW_00044 = 44 * 2  # filler line for a very large paste\nROW_00045 = 45 * 2  # filler line for a very large paste\nROW_00046 = 46 * 2  # filler line for a very large paste\nROW_00047 = 47 * 2  # filler line for a very large paste\nROW_00048 = 48 * 2  # filler line for a very large paste\nROW_00049 = 49 * 2  # filler line for a very large paste\nROW_00050 = 50 * 2  # filler line for a very large paste\nROW_00051 = 51 * 2  # filler line for a very large paste\nROW_00052 = 52 * 2  # filler line for a very large paste\nROW_00053 = 53 * 2  # filler line for a very large paste\nROW_00054 = 54 * 2  # filler line for a very large paste\nROW_00055 = 55 * 2  # filler line for a very large paste\nROW_00056 = 56 * 2  # filler line for a very large paste\nROW_00057 = 57 * 2  # filler line for a very large paste\nROW_00058 = 58 * 2  # filler line for a very large paste\nROW_00059 = 59 * 2  # filler line for a very large paste\nROW_00060 = 60 * 2  # filler line for a very large paste\nROW_00061 = 61 * 2  # filler line for a very large paste\nROW_00062 = 62 * 2  # filler line for a very large paste\nROW_00063 = 63 * 2  # filler line for a very large paste\nROW_00064 = 64 * 2  # filler line for a very large paste\nROW_00065 = 65 * 2  # filler line for a very large paste\nROW_00066 = 66 * 2  # filler line for a very large paste\nROW_00067 = 67 * 2  # filler line for a very large paste\nROW_00068 = 68 * 2  # filler line for a very large paste\nROW_00069 = 69 * 2  # filler line for a very large paste\nROW_00070 = 70 * 2  # filler line for a very large paste\nROW_00071 = 71 * 2  # filler line for a very large paste\nROW_00072 = 72 * 2  # filler line for a very large paste\nROW_00073 = 73 * 2  # filler line for a very large paste\nROW_00074 = 74 * 2  # filler line for a very large paste\nROW_00075 = 75 * 2  # filler line for a very large paste\nROW_00076 = 76 * 2  # filler line for a very large paste\nROW_00077 = 77 * 2  # filler line for a very large paste\nROW_00078 = 78 * 2  # filler line for a very large paste\nROW_00079 = 79 * 2  # filler line for a very large paste\nROW_00080 = 80 * 2  # filler line for a very large paste\nROW_00081 = 81 * 2  # filler line for a very large paste\nROW_00082 = 82 * 2  # filler line for a very large paste\nROW_00083 = 83 * 2  # filler line for a very large paste\nROW_00084 = 84 * 2  # filler line for a very large paste\nROW_00085 = 85 * 2  # filler line for a very large paste\nROW_00086 = 86 * 2  # filler line for a very large paste\nROW_00087 = 87 * 2  # filler line for a very large paste\nROW_00088 = 88 * 2  # filler line for a very large paste\nROW_00089 = 89 * 2  # filler line for a very large paste\nROW_00090 = 90 * 2  # filler line for a very large paste\nROW_00091 = 91 * 2  # filler line for a very large paste\nROW_00092 = 92 * 2  # filler line for a very large paste\nROW_00093 = 93 * 2  # filler line for a very large paste\nROW_00094 = 94 * 2  # filler line for a very large paste\nROW_00095 = 95 * 2  # filler line for a very large paste\nROW_00096 = 96 * 2  # filler line for a very large paste\nROW_00097 = 97 * 2  # filler line for a very large paste\nROW_00098 = 98 * 2  # filler line for a very large paste\nROW_00099 = 99 * 2  # filler line for a very large paste\nROW_00100 = 100 * 2  # filler line for a very large paste\nROW_00101 = 101 * 2  # filler line for a very large paste\nROW_00102 = 102 * 2  # filler line for a very large paste\nROW_00103 = 103 * 2  # filler line for a very large paste\nROW_00104 = 104 * 2  # filler line for a very large paste\nROW_00105 = 105 * 2  # filler line for a very large paste\nROW_00106 = 106 * 2  # filler line for a very large paste\nROW_00107 = 107 * 2  # filler line for a very large paste\nROW_00108 = 108 * 2  # filler line for a very large paste\nROW_00109 = 109 * 2  # filler line for a very large paste\nROW_00110 = 110 * 2  # filler line for a very large paste\nROW_00111 = 111 * 2  # filler line for a very large paste\nROW_00112 = 112 * 2  # filler line for a very large paste\nROW_00113 = 113 * 2  # filler line for a very large paste\nROW_00114 = 114 * 2  # filler line for a very large paste\nROW_00115 = 115 * 2  # filler line for a very large paste\nROW_00116 = 116 * 2  # filler line for a very large paste\nROW_00117 = 117 * 2  # filler line for a very large paste\nROW_00118 = 118 * 2  # filler line for a very large paste\nROW_00119 = 119 * 2  # filler line for a very large paste\nROW_00120 = 120 * 2  # filler line for a very large paste\nROW_00121 = 121 * 2  # filler line for a very large paste\nROW_00122 = 122 * 2  # filler line for a very large paste\nROW_00123 = 123 * 2  # filler line for a very large paste\nROW_00124 = 124 * 2  # filler line for a very large paste\nROW_00125 = 125 * 2  # filler line for a very large paste\nROW_00126 = 126 * 2  # filler line for a very large paste\nROW_00127 = 127 * 2  # filler line for a very large paste\nROW_00128 = 128 * 2  # filler line for a very large paste\nROW_00129 = 129 * 2  # filler line for a very large paste\nROW_00130 = 130 * 2  # filler line for a very large paste\nROW_00131 = 131 * 2  # filler line for a very large paste\nROW_00132 = 132 * 2  # filler line for a very large paste\nROW_00133 = 133 * 2  # filler line for a very large paste\nROW_00134 = 134 * 2  # filler line for a very large paste\nROW_00135 = 135 * 2  # filler line for a very large paste\nROW_00136 = 136 * 2  # filler line for a very large paste\nROW_00137 = 137 * 2  # filler line for a very large paste\nROW_00138 = 138 * 2  # filler line for a very large paste\nROW_00139 = 139 * 2  # filler line for a very large paste\nROW_00140 = 140 * 2  # filler line for a very large paste\nROW_00141 = 141 * 2  # filler line for a very large paste\nROW_00142 = 142 * 2  # filler line for a very large paste\nROW_00143 = 143 * 2  # filler line for a very large paste\nROW_00144 = 144 * 2  # filler line for a very large paste\nROW_00145 = 145 * 2  # filler line for a very large paste\nROW_00146 = 146 * 2  # filler line for a very large paste\nROW_00147 = 147 * 2  # filler line for a very large paste\nROW_00148 = 148 * 2  # filler line for a very large paste\nROW_00149 = 149 * 2  # filler line for a very large paste\nROW_00150 = 150 * 2  # filler line for a very large paste\nROW_00151 = 151 * 2  # filler line for a very large paste\nROW_00152 = 152 * 2  # filler line for a very large paste\nROW_00153 = 153 * 2  # filler line for a very large paste\nROW_00154 = 154 * 2  # filler line for a very large paste\nROW_00155 = 155 * 2  # filler line for a very large paste\nROW_00156 = 156 * 2  # filler line for a very large paste\nROW_00157 = 157 * 2  # filler line for a very large paste\nROW_00158 = 158 * 2  # filler line for a very large paste\nROW_00159 = 159 * 2  # filler line for a very large paste\nROW_00160 = 160 * 2  # filler line for a very large paste\nROW_00161 = 161 * 2  # filler line for a very large paste\nROW_00162 = 162 * 2  # filler line for a very large paste\nROW_00163 = 163 * 2  # filler line for a very large paste\nROW_00164 = 164 * 2  # filler line for a very large paste\nROW_00165 = 165 * 2  # filler line for a very large paste\nROW_00166 = 166 * 2  # filler line for a very large paste\nROW_00167 = 167 * 2  # filler line for a very large paste\nROW_00168 = 168 * 2  # filler line for a very large paste\nROW_00169 = 169 * 2  # filler line for a very large paste\nROW_00170 = 170 * 2  # filler line for a very large paste\nROW_00171 = 171 * 2  # filler line for a very large paste\nROW_00172 = 172 * 2  # filler line for a very large paste\nROW_00173 = 173 * 2  # filler line for a very large paste\nROW_00174 = 174 * 2  # filler line for a very large paste\nROW_00175 = 175 * 2  # filler line for a very large paste\nROW_00176 = 176 * 2  # filler line for a very large paste\nROW_00177 = 177 * 2  # filler line for a very large paste\nROW_00178 = 178 * 2  # filler line for a very large paste\nROW_00179 = 179 * 2  # filler line for a very large paste\nROW_00180 = 180 * 2  # filler line for a very large paste\nROW_00181 = 181 * 2  # filler line for a very large paste\nROW_00182 = 182 * 2  # filler line for a very large paste\nROW_00183 = 183 * 2  # filler line for a very large paste\nROW_00184 = 184 * 2  # filler line for a very large paste\nROW_00185 = 185 * 2  # filler line for a very large paste\nROW_00186 = 186 * 2  # filler line for a very large paste\nROW_00187 = 187 * 2  # filler line for a very large paste\nROW_00188 = 188 * 2  # filler line for a very large paste\nROW_00189 = 189 * 2  # filler line for a very large paste\nROW_00190 = 190 * 2  # filler line for a very large paste\nROW_00191 = 191 * 2  # filler line for a very large paste\nROW_00192 = 192 * 2  # filler line for a very large paste\nROW_00193 = 193 * 2  # filler line for a very large paste\nROW_00194 = 194 * 2  # filler line for a very large paste\nROW_00195 = 195 * 2  # filler line for a very large paste\nROW_00196 = 196 * 2  # filler line for a very large paste\nROW_00197 = 197 * 2  # filler line for a very large paste\nROW_00198 = 198 * 2  # filler line for a very large paste\nROW_00199 = 199 * 2  # filler line for a very large paste\nROW_00200 = 200 * 2  # filler line for a very large paste\nROW_00201 = 201 * 2  # filler line for a very large paste\nROW_00202 = 202 * 2  # filler line for a very large paste\nROW_00203 = 203 * 2  # filler line for a very large paste\nROW_00204 = 204 * 2  # filler line for a very large paste\nROW_00205 = 205 * 2  # filler line for a very large paste\nROW_00206 = 206 * 2  # filler line for a very large paste\nROW_00207 = 207 * 2  # filler line for a very large paste\nROW_00208 = 208 * 2  # filler line for a very large paste\nROW_00209 = 209 * 2  # filler line for a very large paste\nROW_00210 = 210 * 2  # filler line for a very large paste\nROW_00211 = 211 * 2  # filler line for a very large paste\nROW_00212 = 212 * 2  # filler line for a very large paste\nROW_00213 = 213 * 2  # filler line for a very large paste\nROW_00214 = 214 * 2  # filler line for a very large paste\nROW_00215 = 215 * 2  # filler line for a very large paste\nROW_00216 = 216 * 2  # filler line for a very large paste\nROW_00217 = 217 * 2  # filler line for a very large paste\nROW_00218 = 218 * 2  # filler line for a very large paste\nROW_00219 = 219 * 2  # filler line for a very large paste\nROW_00220 = 220 * 2  # filler line for a very large paste\nROW_00221 = 221 * 2  # filler line for a very large paste\nROW_00222 = 222 * 2  # filler line for a very large paste\nROW_00223 = 223 * 2  # filler line for a very large paste\nROW_00224 = 224 * 2  # filler line for a very large paste\nROW_00225 = 225 * 2  # filler line for a very large paste\nROW_00226 = 226 * 2  # filler line for a very large paste\nROW_00227 = 227 * 2  # filler line for a very large paste\nROW_00228 = 228 * 2  # filler line for a very large paste\nROW_00229 = 229 * 2  # filler line for a very large paste\nROW_00230 = 230 * 2  # filler line for a very large paste\nROW_00231 = 231 * 2  # filler line for a very large paste\nROW_00232 = 232 * 2  # filler line for a very large paste\nROW_00233 = 233 * 2  # filler line for a very large paste\nROW_00234 = 234 * 2  # filler line for a very large paste\nROW_00235 = 235 * 2  # filler line for a very large paste\nROW_00236 = 236 * 2  # filler line for a very large paste\nROW_00237 = 237 * 2  # filler line for a very large paste\nROW_00238 = 238 * 2  # filler line for a very large paste\nROW_00239 = 239 * 2  # filler line for a very large paste\nROW_00240 = 240 * 2  # filler line for a very large paste\nROW_00241 = 241 * 2  # filler line for a very large paste\nROW_00242 = 242 * 2  # filler line for a very large paste\nROW_00243 = 243 * 2  # filler line for a very large paste\nROW_00244 = 244 * 2  # filler line for a very large paste\nROW_00245 = 245 * 2  # filler line for a very large paste\nROW_00246 = 246 * 2  # filler line for a very large paste\nROW_00247 = 247 * 2  # filler line for a very large paste\nROW_00248 = 248 * 2  # filler line for a very large paste\nROW_00249 = 249 * 2  # filler line for a very large paste\nROW_00250 = 250 * 2  # filler line for a very large paste\nROW_00251 = 251 * 2  # filler line for a very large paste\nROW_00252 = 252 * 2  # filler line for a very large paste\nROW_00253 = 253 * 2  # filler line for a very large paste\nROW_00254 = 254 * 2  # filler line for a very large paste\nROW_00255 = 255 * 2  # filler line for a very large paste\nROW_00256 = 256 * 2  # filler line for a very large paste\nROW_00257 = 257 * 2  # filler line for a very large paste\nROW_00258 = 258 * 2  # filler line for a very large paste\nROW_00259 = 259 * 2  # filler line for a very large paste\n"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "paste",
+  "text": "# naïve café ✓ — 東京 🚀 tab\there\r\nzero​width = 'x'\r\n"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "goto",
+  "line": 41
+ },
+ {
+  "do": "copyLine"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "key",
+  "keys": "Meta+V"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "palettePaste",
+  "text": "def stock_levels(lines):\n    totals = {}\n    for line in lines:\n        parsed = parse_line(line)\n        if parsed is None:\n            continue\n        sku, _, change = parsed\n        totals[sku] = totals.get(sku, 0) + change\n    return totals\n"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "save"
+ },
+ {
+  "do": "end"
+ }
+]

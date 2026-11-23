@@ -1,0 +1,235 @@
+[
+ {
+  "do": "notification",
+  "button": "Discard"
+ },
+ {
+  "do": "start"
+ },
+ {
+  "do": "open",
+  "file": "inventory.py"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "type",
+  "text": "def summarise(levels):\n    total = 0\n    for sku in levels:\n        total += levels[sku]\n    return total\n",
+  "wpm": 65,
+  "typos": 0.04,
+  "seed": 31,
+  "keepIndent": true
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "key",
+  "keys": "Shift+ArrowUp",
+  "times": 4
+ },
+ {
+  "do": "key",
+  "keys": "Shift+Tab"
+ },
+ {
+  "do": "key",
+  "keys": "Shift+Tab"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "paste",
+  "text": "Hi team, quick reminder that the standup moves to 10:30 tomorrow.\nBring the Q3 numbers. Thanks!\n$ git log --oneline | head -20\n"
+ },
+ {
+  "do": "pause",
+  "ms": 3000
+ },
+ {
+  "do": "key",
+  "keys": "Meta+Z"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "goto",
+  "line": 33
+ },
+ {
+  "do": "key",
+  "keys": "Shift+ArrowDown",
+  "times": 8
+ },
+ {
+  "do": "type",
+  "text": "def stock_levels(lines):\n    levels = {}\n    for raw in lines:\n        if not raw.strip():\n            continue\n        sku, wh, qty = raw.split(',')\n        levels[sku] = levels.get(sku, 0) + int(qty)\n    return levels\n",
+  "wpm": 70,
+  "typos": 0.05,
+  "seed": 32
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "goto",
+  "line": 33
+ },
+ {
+  "do": "key",
+  "keys": "Shift+ArrowDown",
+  "times": 5
+ },
+ {
+  "do": "key",
+  "keys": "Shift+Alt+ArrowDown"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "goto",
+  "line": 15
+ },
+ {
+  "do": "key",
+  "keys": "Shift+ArrowDown",
+  "times": 10
+ },
+ {
+  "do": "key",
+  "keys": "Meta+/"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "key",
+  "keys": "Alt+ArrowUp",
+  "times": 3
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "goto",
+  "line": 43
+ },
+ {
+  "do": "key",
+  "keys": "Shift+ArrowDown",
+  "times": 4
+ },
+ {
+  "do": "key",
+  "keys": "Meta+X"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "key",
+  "keys": "Meta+V"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "goto",
+  "line": 33
+ },
+ {
+  "do": "key",
+  "keys": "Alt+Shift+ArrowRight"
+ },
+ {
+  "do": "key",
+  "keys": "Meta+D",
+  "times": 3
+ },
+ {
+  "do": "type",
+  "text": "stock_totals",
+  "wpm": 70,
+  "typos": 0
+ },
+ {
+  "do": "key",
+  "keys": "Escape"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "key",
+  "keys": "Meta+A"
+ },
+ {
+  "do": "key",
+  "keys": "Backspace"
+ },
+ {
+  "do": "pause",
+  "ms": 1500
+ },
+ {
+  "do": "key",
+  "keys": "Meta+Z"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "save"
+ },
+ {
+  "do": "end"
+ }
+]

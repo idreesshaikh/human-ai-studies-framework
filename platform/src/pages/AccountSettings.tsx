@@ -1,15 +1,17 @@
+import { useSyncExternalStore } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { useSession } from "@/lib/session";
-import type { Theme } from "@/lib/theme";
+import { getTheme, subscribeTheme, type Theme } from "@/lib/theme";
 
 /* Account settings: preferences persisted server-side so they follow the
  * person across devices, rather than living in one browser's storage. */
 export function AccountSettings() {
-  const { me, setThemePreference } = useSession();
-
-  const prefs = me?.preferences ?? {};
+  const { setThemePreference } = useSession();
+  // The applied theme, not the saved preference: they differ when a theme was
+  // applied without a save (sign-in toggle, failed save) or before /me loads.
+  const theme = useSyncExternalStore(subscribeTheme, getTheme, getTheme);
 
   return (
     <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
@@ -25,7 +27,7 @@ export function AccountSettings() {
           <h2 className="type-subhead text-text">Appearance</h2>
           <Field id="theme" label="Theme">
             <Select
-              value={prefs.theme ?? "light"}
+              value={theme}
               onValueChange={(v) => void setThemePreference(v as Theme)}
               options={[
                 { value: "light", label: "Light" },

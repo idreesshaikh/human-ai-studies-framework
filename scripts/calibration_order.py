@@ -1,8 +1,8 @@
 """Print the frozen, shuffled session order for the AI-use calibration.
 
 Prints a CSV `order,scenario,rep` shuffled with the fixed seed 20261112:
-3 no-AI sessions, 3 sessions for each of
-6 AI routes, and 2 sessions for each of 5 benign look-alikes, 31 in all.
+2 no-AI sessions, 2 sessions for each of 6 AI routes, 2 sessions for each of
+5 benign look-alikes, and 1 session for each of 7 boundary probes, 31 in all.
 
 `rep` counts up in session order within a scenario, so the first time a scenario
 appears in the order it is rep 1.
@@ -32,18 +32,29 @@ BENIGN = (
     "benign-own-paste",
     "benign-stackoverflow-paste",
 )
+PROBES = (
+    "probe-menu-paste",
+    "probe-word-accept",
+    "probe-mouse-accept",
+    "probe-agent-closed-file",
+    "probe-agent-explain",
+    "probe-format-large",
+    "probe-rename-many",
+)
 
 # (scenario, repetitions), in canonical (unshuffled) order.
 SESSION_PLAN: tuple[tuple[str, int], ...] = (
-    (NO_AI, 3),
-    *((route, 3) for route in AI_ROUTES),
+    (NO_AI, 2),
+    *((route, 2) for route in AI_ROUTES),
     *((scenario, 2) for scenario in BENIGN),
+    *((scenario, 1) for scenario in PROBES),
 )
 SCENARIOS: tuple[str, ...] = tuple(scenario for scenario, _ in SESSION_PLAN)
 GROUP_OF: dict[str, str] = {
     NO_AI: "no AI",
     **dict.fromkeys(AI_ROUTES, "AI route"),
     **dict.fromkeys(BENIGN, "benign look-alike"),
+    **dict.fromkeys(PROBES, "boundary probe"),
 }
 
 

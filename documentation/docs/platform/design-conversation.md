@@ -1,94 +1,82 @@
-# Design conversation
+# Design chat
 
-The design conversation is the platform’s methodologist at the edge of the
-desk. You describe what you want to learn; PHOENIX asks what must be true for
-the answer to be interpretable, then proposes one decision at a time.
-
-The live design loop uses the model configured in `.env` (`LLM_API_KEY`,
-`LLM_BASE_URL`, `LLM_MODEL`). The default is `ministral-14b-latest` on Mistral's
-API; paper matching uses the same shared model. `LLM_DESIGN_MODEL` overrides
-only design turns. A local
-chat-completions server needs no key. When no usable model is configured,
-PHOENIX shows an offline state instead of presenting scripted replies as live
-reasoning.
+The design chat on **Setup** turns a plain description of your study into
+protocol decisions. You describe what you want to learn; it asks what must be
+true for the answer to mean something, and proposes decisions as cards you
+accept or reject. Accepted cards build the [protocol draft](protocol-draft.md).
 
 <figure markdown="span">
-  ![A current Phoenix design conversation](../assets/screens/phoenix-demo-conversation-current.png){ width="900" }
-  <figcaption>Every move is reviewable, reversible, and connected to the protocol draft.</figcaption>
+  ![The Setup tab with the chat box and the protocol draft panel open on the right](../assets/screens/setup-light.webp#only-light)
+  ![The Setup tab with the chat box and the protocol draft panel open on the right](../assets/screens/setup-dark.webp#only-dark)
+  <figcaption>Setup, with the protocol draft open beside the chat. The chat stays off until a model is connected.</figcaption>
 </figure>
 
-## A move, not a magic answer
+The chat needs a model; see the settings in
+[Run PHOENIX yourself](index.md#your-own-server). Without one, it says that no
+language model is connected, and templates, direct entry and everything after
+Setup still work. It supports studies of coding tasks, not exams, classrooms or
+surveys.
 
-1. **Describe the question.** Start with the phenomenon, population, task, and
-   comparison you care about.
-2. **Inspect the proposal.** A move might choose a within-subjects design,
-   define a measure, add a condition, or set a participant-count rule.
-3. **Check the evidence.** Each citation chip points back to the literature
-   corpus with a confidence score. If no source supports the move, the UI says
-   **unsourced**.
-4. **Accept or reject.** Accepted moves compile into the protocol draft;
-   rejected moves leave no hidden configuration behind.
+## Ways to start
 
-The point is not to outsource judgement. The point is to make judgement
-explicit, evidenced, and easy to audit later.
+- **Describe your question** in the chat box: the behaviour, the people, the
+  task, and the comparison you care about.
+- **Start from details or an example**, then:
+    - **Add known details** to fill in what you already know, then
+      **Add to chat**;
+    - **Try an example** to start from a sample question;
+    - **Enter the protocol details directly** to skip the chat. See
+      [Entering a design directly](protocol-draft.md#entering-a-design-directly).
 
-## The interaction contract
+## Cards
 
-The conversation is a design session, not an infinite transcript.
+Each reply is a few sentences and up to five cards. When you give several facts
+at once, the chat makes one card per fact, up to eight, and offers
+**Accept all**. A card is one of three things:
 
-- One focused question is visible at a time.
-- At most one decision card is offered for that question. A grounded caution
-  takes priority over a new protocol choice when both arrive together.
-- Accepting, rejecting, or noting a card records the decision and advances the
-  session. The synthetic acknowledgement is not treated as a new research idea.
-- Earlier decisions fold into a compact history. The active answer and its next
-  decision stay in view; the researcher does not have to reread the whole
-  conversation to continue.
-- The draft rail is a live summary, not a second transcript. It shows the eight
-  researcher-controlled sections, the next missing decision, and any compiler
-  error that blocks application.
+- **A protocol change**, such as a within-subjects design, a measure, a
+  condition, or a rule for how many participants to recruit.
+- **An analysis recipe** that the analysis code can run, such as
+  `paired-nonparametric`. A paragraph of advice is not an analysis plan.
+- **A caution** about a risk in the design. **Note it** records that you saw it.
 
-The assistant keeps a short conversational window and relies on the structured
-move ledger plus compiled draft for durable state. This prevents old prose from
-making replies slower or causing accepted decisions to be proposed again.
+Accepted cards go into the draft; rejected cards leave nothing behind. **Undo**
+reverses a decision. The chat keeps a short memory of recent messages and reads
+the accepted decisions from the draft, so it does not propose them again.
 
-## Move and response rules
+## Where a card's evidence comes from
 
-The design model returns schema-checked JSON. Its response is deliberately
-small: two short sentences at most, one question, and one move. A move is either
-a protocol patch, an executable analysis recipe, or a caution. Analysis moves
-must name a runnable recipe such as `paired-nonparametric`; free-form prose is
-not an analysis plan. Instrument moves must use a registered instrument name.
+Each card shows its basis:
 
-The compiler remains the authority. The browser preview updates immediately from
-accepted moves, then the server compiles and validates the protocol before the
-researcher can apply it. Invalid or legacy moves are surfaced as warnings or
-errors rather than being silently shown as completed protocol sections.
+| Label | Meaning |
+| --- | --- |
+| **grounded** | Backed by papers in the corpus. Hover for the title, venue, confidence and the reason it applies |
+| **Evidence and conditions** | Backed by an evidence map you imported, with its version |
+| **No source: your call** | No paper in the corpus supports it. It may still be right, but it is your judgement, not evidence |
 
-## Grounding is a type, not a tone
+The chat never presents an unsourced card as backed by literature.
 
-Every proposal is exactly one of:
+## Assistant style
 
-- **Cited** — backed by papers in the corpus, with the supporting literature
-  visible in the move card.
-- **Unsourced** — a useful possibility that has no supporting paper in the
-  available corpus and must not be mistaken for evidence.
+The **Assistant style** control sets how the chat behaves from the next reply
+on. It never changes decisions you already accepted.
 
-There is no third state. Clicking a citation opens the paper in the study’s
-Library, where the researcher can inspect its place in the constellation.
+- **Drafts the plan** (the default) turns what you say into cards.
+- **Answers only** answers questions and flags risks, and never changes the
+  draft.
 
-## Steering the assistant
+## More tools
 
-The **Steer** control adjusts how assertively the assistant drives the next turn.
-High steer proposes more aggressively; low steer asks more and presumes less.
-It changes the next response, not the protocol already accepted.
+- The panel on the right switches between **Protocol draft** and
+  **Literature**. Literature suggests papers; **Add to study** adds one to
+  [Evidence](library.md).
+- **Research tools** (**⋯**) opens **Method evidence**, where you can import an
+  evidence map, compare methods and send a choice back to the chat for review.
+  It also offers **Enter protocol manually**.
 
-## What the assistant will not do
+## What the chat will not do
 
-- Fabricate a citation or imply that an unsourced move is literature-backed.
-- Silently rewrite an accepted protocol decision.
-- Present demo or synthetic data as a result.
-- Replace the researcher’s ethics review, preregistration, or final analysis.
-
-The [protocol draft](protocol-draft.md) is the document of record; the
-conversation is the trace of how it became that way.
+- Invent a citation, or present an unsourced card as backed by literature.
+- Change a decision you accepted without your say.
+- Present synthetic or demo data as a result.
+- Replace your ethics review, preregistration or final analysis.

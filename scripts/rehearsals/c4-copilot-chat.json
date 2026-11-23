@@ -1,0 +1,113 @@
+[
+ {
+  "do": "notification",
+  "button": "Discard"
+ },
+ {
+  "do": "start"
+ },
+ {
+  "do": "open",
+  "file": "inventory.py"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "type",
+  "text": "def count_comment_lines(lines):\n",
+  "wpm": 60,
+  "typos": 0.02,
+  "seed": 43
+ },
+ {
+  "do": "ghost",
+  "accept": "none",
+  "waitMs": 10000
+ },
+ {
+  "do": "chatOpen"
+ },
+ {
+  "do": "chatMode",
+  "mode": "Ask"
+ },
+ {
+  "do": "chatAsk",
+  "prompt": "Write a Python function is_blank(line) that returns True for empty lines and lines starting with #. Code only."
+ },
+ {
+  "do": "chatUse",
+  "how": "insert"
+ },
+ {
+  "do": "pause",
+  "ms": 3000
+ },
+ {
+  "do": "chatAsk",
+  "prompt": "Now write total_units(levels) that sums the values of a dict. Code only."
+ },
+ {
+  "do": "chatUse",
+  "how": "apply"
+ },
+ {
+  "do": "keep"
+ },
+ {
+  "do": "pause",
+  "ms": 3000
+ },
+ {
+  "do": "chatAsk",
+  "prompt": "Write a one-line Python constant DEFAULT_LEVEL = 10 with a short comment. Code only."
+ },
+ {
+  "do": "chatUse",
+  "how": "copy"
+ },
+ {
+  "do": "open",
+  "file": "inventory.py"
+ },
+ {
+  "do": "goto",
+  "line": 400
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "key",
+  "keys": "Meta+V"
+ },
+ {
+  "do": "pause",
+  "ms": 3000
+ },
+ {
+  "do": "save"
+ },
+ {
+  "do": "end"
+ }
+]

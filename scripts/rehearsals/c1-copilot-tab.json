@@ -1,0 +1,85 @@
+[
+ {
+  "do": "notification",
+  "button": "Discard"
+ },
+ {
+  "do": "start"
+ },
+ {
+  "do": "open",
+  "file": "inventory.py"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "type",
+  "text": "def count_blank_lines(lines):\n",
+  "wpm": 60,
+  "typos": 0.02,
+  "seed": 41
+ },
+ {
+  "do": "ghost",
+  "accept": "tab"
+ },
+ {
+  "do": "pause",
+  "ms": 3000
+ },
+ {
+  "do": "key",
+  "keys": "Escape"
+ },
+ {
+  "do": "goto",
+  "line": 400
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "type",
+  "text": "def total_units(levels):\n",
+  "wpm": 60,
+  "typos": 0.02,
+  "seed": 42
+ },
+ {
+  "do": "ghost",
+  "accept": "tab"
+ },
+ {
+  "do": "pause",
+  "ms": 3000
+ },
+ {
+  "do": "save"
+ },
+ {
+  "do": "end"
+ }
+]

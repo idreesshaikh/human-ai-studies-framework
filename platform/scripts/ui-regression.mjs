@@ -406,6 +406,20 @@ await context.route("**/*", (route) => {
     }
     await page.close();
   }
+  {
+    // A theme applied with no saved preference behind it (the sign-in
+    // toggle, or a save that failed) is still what is on screen.
+    const page = await context.newPage();
+    await page.goto(base + "/settings");
+    await page.evaluate(() => localStorage.setItem("platform-theme", "dark"));
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    const applied = await page.evaluate(() => document.documentElement.dataset.theme);
+    const shown = (await page.getByRole("button", { name: "Theme", exact: true }).innerText()).trim();
+    check(applied === "dark" && shown === "Dark", `settings theme control shows the applied theme (applied ${applied}, shown ${shown})`);
+    await page.evaluate(() => localStorage.setItem("platform-theme", "light"));
+    await page.close();
+  }
 
   const page = await context.newPage();
   const requests = [];
