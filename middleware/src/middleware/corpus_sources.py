@@ -100,8 +100,13 @@ def parse_s2_bulk(payload: dict) -> list[dict]:
     """Candidates from a Semantic Scholar ``/paper/search/bulk`` response."""
     if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
         raise SourceFormatError("Semantic Scholar response has no 'data' list")
+    return parse_s2_papers(payload["data"])
+
+
+def parse_s2_papers(papers: list, *, source: str = "s2") -> list[dict]:
+    """Candidates from a list of Semantic Scholar paper objects."""
     out = []
-    for paper in payload["data"]:
+    for paper in papers:
         if not isinstance(paper, dict):
             continue
         ids = paper.get("externalIds") or {}
@@ -131,7 +136,7 @@ def parse_s2_bulk(payload: dict) -> list[dict]:
                     if a.get("name")
                 ],
                 "citationCount": paper.get("citationCount"),
-                "source": "s2",
+                "source": source,
                 "url": (
                     f"https://arxiv.org/abs/{strip_version(ids['ArXiv'])}"
                     if ids.get("ArXiv")

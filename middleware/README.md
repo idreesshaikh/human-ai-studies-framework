@@ -72,12 +72,18 @@ same paper work offline.
 | `corpus-import` | Import the bundled literature corpus |
 | `corpus-verify` | Check the imported corpus is complete |
 | `corpus-enrich` | Fill in missing abstracts from Semantic Scholar |
+| `corpus-curate --dry-run` | Preview literature curation using stored metadata; makes no network calls or changes |
+| `corpus-curate` | Refresh literature metadata and apply curation decisions |
+| `corpus-review` | List literature awaiting review |
 | `templates` | Validate and list the template registry |
 | `seed-example` | Add one labelled synthetic example study (protocol, plan, links, simulated sessions); idempotent |
 
 The default is local single-user access. To require a shared token, set
 `MIDDLEWARE_AUTH=token` and `MIDDLEWARE_TOKEN`. See the
 [security policy](../SECURITY.md).
+
+Scheduled refreshes collect candidates; they do not run curation. Review the
+curation preview before applying it, because curation can hide papers from search.
 
 ## Data flow
 

@@ -5,7 +5,12 @@ import pytest
 from protocol.capture import producer_capabilities
 from protocol.derive import derive_overlay_settings
 from protocol.loader import load_protocol, validate_protocol
-from protocol.measures import normalized_measures, score_survey, shipped_instruments
+from protocol.measures import (
+    normalized_measures,
+    score_survey,
+    score_survey_scales,
+    shipped_instruments,
+)
 from protocol.versioning import (
     compare_designs,
     content_hash,
@@ -46,7 +51,7 @@ def test_v6_round_trip_and_legacy_versions_remain_untyped(pilot_doc, write_proto
         lambda p: p["measures"][0].update(analysisRecipe="not-in-plan"),
         lambda p: p["measures"].append(p["measures"][0].copy()),
         lambda p: p["instruments"]["surveys"][0]["items"][0]["scale"].update(max=0),
-        lambda p: p["covariate"].update(instrument="raw-nasa-tlx"),
+        lambda p: p["covariate"].update(instrument="raw-tlx"),
         lambda p: p["instruments"]["surveys"][0]["items"][0]["scale"].update(
             max=float("nan")
         ),
@@ -68,21 +73,36 @@ def test_shipped_instrument_scoring_reverse_missing_and_scale_checks():
     assert score_survey(sus, dict.fromkeys(best, 3)) == 50
     assert score_survey(sus, {}) is None
     assert score_survey(sus, {**best, "sus_1": 6}) is None
-    tlx = instruments["raw-nasa-tlx"]
+    tlx = instruments["raw-tlx"]
     assert score_survey(tlx, {i["id"]: 50 for i in tlx["items"]}) == 50
-    assert score_survey(tlx, {i["id"]: 51 for i in tlx["items"]}) is None
-    assert (
-        score_survey(
-            instruments["legacy-tlx-inspired"],
-            {i["id"]: 4 for i in instruments["legacy-tlx-inspired"]["items"]},
-        )
-        is None
-    )
+    assert score_survey(tlx, {i["id"]: 55 for i in tlx["items"]}) is None
+    # Rated a perfect performance with no load: zero workload, TLX direction.
+    calm = {i["id"]: 100 if i["id"] == "performance" else 0 for i in tlx["items"]}
+    assert score_survey(tlx, calm) == 0
+    check = instruments["session-check"]
+    assert score_survey(check, {"ai_use": 0, "comprehension": 5}) is None
     assert "Unvalidated" in instruments["pre-task-skill"]["validation"]
     assert all(
         i.get("source") and i.get("licence") and i.get("validation")
         for i in instruments.values()
     )
+
+
+def test_bfi_2_xs_follows_the_published_extra_short_key():
+    xs = {i["id"]: i for i in shipped_instruments()}["bfi-2-xs"]
+    # Soto & John (2017): E 1R 6 11, A 2 7R 12, C 3R 8R 13, N 4 9 14R, O 5 10R 15.
+    assert [n for n, item in enumerate(xs["items"], 1) if item["reverse"]] == [
+        1,
+        3,
+        7,
+        8,
+        10,
+        14,
+    ]
+    assert [len(group["items"]) for group in xs["scales"]] == [3] * 5
+    high = {i["id"]: 1 if i["reverse"] else 5 for i in xs["items"]}
+    assert set(score_survey_scales(xs, high).values()) == {5}
+    assert score_survey(xs, high) is None  # domains only, no total
 
 
 def test_hashes_are_content_addressed_and_lineage_never_pools():

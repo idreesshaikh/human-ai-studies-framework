@@ -170,6 +170,17 @@ def search_by_connectivity(s: Session, query: str, *, limit: int = 10) -> list[d
         )
         entry["votes"] += 1
         entry["via"].append(edge.src_ref)
+    hidden = set(
+        s.scalars(
+            select(Paper.paper_ref).where(
+                Paper.study_id == CORPUS_STUDY_ID,
+                Paper.curation == "hidden",
+                Paper.paper_ref.in_(list(votes)),
+            )
+        )
+    )
+    for ref in hidden:
+        del votes[ref]
     for entry in votes.values():
         entry["score"] = WEIGHT_GRAPH_VOTE * min(entry["votes"], GRAPH_VOTE_CAP)
     ranked = sorted(votes.values(), key=lambda e: (-e["score"], e["ref"]))
@@ -315,7 +326,7 @@ def match_papers(
                     Paper.paper_ref == candidate["ref"],
                 )
             ).scalar_one_or_none()
-        if row is None:
+        if row is None or row.curation == "hidden":
             continue
         conf = paper_confidence(row.score)
         candidate.update(
@@ -483,7 +494,7 @@ def get_paper_metadata(s: Session, paper_ref: str) -> dict | None:
         "ref": row.paper_ref,
         "title": row.title,
         "year": row.year,
-        "venue": row.venue or "corpus",
+        "venue": row.venue or "",
         "confidence": paper_confidence(row.score),
         "why": row.abstract,
     }

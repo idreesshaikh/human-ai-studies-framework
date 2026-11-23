@@ -124,9 +124,14 @@ def test_every_instrument_round_trips_through_extension_ingest_and_recipe(
     rows = client.get(f"/studies/{STUDY}/dataset").json()["rows"]
     result = score_measures(Dataset(rows, meta={"protocol": proto}))
     scores = result.tables["scores"]
-    assert len(scores) == 8  # six legacy items + raw TLX + SUS
+    assert set(scores.measureId) == {
+        "raw-tlx-1",
+        "session-check-1",
+        "session-check-2",
+        "sus-1",
+    }
     assert scores.loc[scores.measureId == "sus-1", "value"].iloc[0] == 100
-    assert scores.loc[scores.measureId == "raw-nasa-tlx-1", "value"].iloc[0] == 100
+    assert scores.loc[scores.measureId == "raw-tlx-1", "value"].iloc[0] == 100
     # The skill form is captured separately, not treated as an outcome.
     assert any(r["type"] == "pre_task_covariate" for r in rows)
     changed = copy.deepcopy(rows)

@@ -10,6 +10,7 @@ from protocol.measure_catalog import (
     measure_catalog,
     suggest_measures,
 )
+from protocol.measures import shipped_instruments
 
 
 def draft(design="within-subjects"):
@@ -25,15 +26,34 @@ def draft(design="within-subjects"):
     }
 
 
-def test_catalog_has_unique_core_and_bfi2_measures_with_registered_recipes():
+def test_catalog_has_unique_concise_measures_with_registered_recipes():
     catalog = measure_catalog()
     ids = {row["id"] for row in catalog}
     assert len(ids) == len(catalog)
-    assert {f"S{index}" for index in range(1, 32)} <= ids
+    assert {i for i in ids if i.startswith("S")} == {f"S{n}" for n in range(1, 46)}
     assert {f"E{index}" for index in range(1, 11)} <= ids
     for row in catalog:
         for recipe in row["recipeByDesign"].values():
             assert recipe is None or recipe in REGISTRY
+
+
+def test_personality_profile_names_only_scales_the_instrument_scores():
+    profile = next(row for row in measure_catalog() if row["id"] == "S45")
+    survey = next(
+        row for row in shipped_instruments() if row["id"] == profile["instrument"]
+    )
+    assert set(profile["fields"]) == {
+        f"survey_response.scoreGroups.{scale['id']}" for scale in survey["scales"]
+    }
+
+
+def test_existing_catalog_ids_keep_their_instruments():
+    catalog = {row["id"]: row for row in measure_catalog()}
+    for ident in ("S1", "S2", "S3", "S4", "S5", "S8"):
+        assert catalog[ident]["instrument"] == "raw-nasa-tlx"
+    assert catalog["S6"]["instrument"] == "legacy-tlx-inspired"
+    for ident in ("S11", "S12", "S13", "S14", "S15", "S31"):
+        assert catalog[ident]["instrument"] == "bfi-2"
 
 
 @pytest.mark.parametrize(
@@ -94,16 +114,16 @@ def test_unknown_free_text_does_not_get_an_invented_measure():
 
 def test_suggestions_match_aliases_and_abstain_for_unknown_constructs():
     result = suggest_measures("time pressure", "within-subjects")
-    assert result["suggestions"][0]["id"] == "S4"
+    assert result["suggestions"][0]["id"] == "S36"
     assert result["method"] == "catalog-aliases"
     assert result["calibrated"] is False
     assert result["abstain"] is False
-    assert (
-        suggest_measures("interpersonal trust", "within-subjects")["suggestions"][0][
-            "id"
-        ]
-        == "S21"
-    )
+
+    def top(text):
+        return suggest_measures(text, "within-subjects")["suggestions"][0]["id"]
+
+    assert top("conscientiousness") == "S13"
+    assert top("reported AI use") == "S32"
     assert suggest_measures("trust in AI", "within-subjects")["abstain"] is True
     assert (
         suggest_measures("productivity perception", "between-subjects")["suggestions"]

@@ -271,11 +271,20 @@ def test_an_unusable_plan_is_explained_and_never_offered(broken):
     assert turn["text"]
 
 
-@pytest.mark.parametrize("assumed", [42, "plannedParticipants", {"title": True}, None])
+@pytest.mark.parametrize(
+    "assumed", [42, "plannedParticipants", {"notAField": "why"}, {7: "why"}, None]
+)
 def test_malformed_optional_metadata_does_not_break_a_valid_plan(assumed):
     turn = study_plan.propose(_Model(_reply(assumed=assumed)), BRIEF, "s")
     assert _built(turn).valid
     assert "suggestions:" not in turn["text"]
+    assert all(not m["patch"].get("suggested") for m in turn["moves"] if m["patch"])
+
+
+def test_a_reason_that_is_not_text_still_marks_the_choice_as_the_assistants():
+    turn = study_plan.propose(_Model(_reply(assumed={"title": True})), BRIEF, "s")
+    design = turn["moves"][0]["patch"]["suggested"]
+    assert design == [{"field": "title", "label": "study title", "why": ""}]
 
 
 def test_overlong_and_odd_strings_are_clipped_not_fatal():
@@ -601,9 +610,7 @@ def test_cards_cite_only_retrieved_papers():
         }
     )
     turn = study_plan.propose(_Model(reply), BRIEF, "s", papers=PAPERS)
-    cites = {
-        (m["kind"], m["proposal"][:20]): m.get("cites") for m in turn["moves"]
-    }
+    cites = {(m["kind"], m["proposal"][:20]): m.get("cites") for m in turn["moves"]}
     by_kind = {}
     for (kind, _), refs in cites.items():
         by_kind.setdefault(kind, []).append(refs)
@@ -649,6 +656,10 @@ def test_cited_papers_become_card_grounding(api, tmp_path):
     first_rq = next(m for m in turn["moves"] if m["kind"] == "add-rq")
     assert [g["ref"] for g in first_rq["grounding"]] == ["corpus:copilot-bug-fixing"]
     assert "cites" not in first_rq
+    # The design template's own sources are not evidence for this study's
+    # values, so a design card the model cited nothing for cites nothing.
+    design = next(m for m in turn["moves"] if m["kind"] == "choose-template")
+    assert design["grounding"] == []
 
 
 def test_answers_only_never_turns_a_message_into_plan_cards(api):
@@ -659,3 +670,177 @@ def test_answers_only_never_turns_a_message_into_plan_cards(api):
     assert turn["moves"] == []
     drafting = _say(client, BRIEF, steer="leads")
     assert drafting["moves"], "the default style still drafts the plan"
+
+
+# ------------------------------------------------- ask once, then draft and mark
+
+IDEA = "How do AI assistants help junior devs fix bugs?"
+
+THIN = {
+    "action": "ask",
+    "reply": "I read this as junior developers fixing bugs with and without an "
+    "AI assistant.",
+    "questions": [
+        "What counts as helping: faster fixes, more correct fixes, or learning?",
+        "Seeded bugs in a repo you control, or real issues?",
+    ],
+    "plan": PLAN,
+    "assumed": {
+        "design": "Each person can be their own control.",
+        "plannedParticipants": "A typical size for a pilot.",
+        "sessionMinutes": "Two short bug fixes fit an hour.",
+        "taskDescription": "Seeded bugs keep conditions comparable.",
+        "measureIds": "Speed and workload are the usual pair.",
+    },
+}
+
+
+def test_unsupported_study_does_not_trigger_generic_questions_or_draft():
+    raw = {
+        **THIN,
+        "action": "unsupported",
+        "reply": "This longitudinal interview study is outside the supported workflow.",
+    }
+    turn = study_plan.propose(
+        _Model(raw), "Observe a team for a year.", "s", may_ask=True
+    )
+    assert turn == {"text": raw["reply"], "moves": []}
+
+
+def test_an_idea_on_the_first_exchange_gets_questions_not_cards():
+    turn = study_plan.propose(_Model(THIN), IDEA, "s", may_ask=True)
+    assert turn["moves"] == [] and turn["asked"]
+    text = turn["text"]
+    assert text.startswith("I read this as junior developers")
+    assert "(1) What counts as helping" in text and "(2) Seeded bugs" in text
+    assert "draft it" in text
+
+
+def test_many_assumed_decisions_ask_even_when_the_model_says_draft():
+    """The model's verdict is not the only gate: a plan it had to make up
+    mostly by itself is still an idea, not a brief."""
+    turn = study_plan.propose(
+        _Model({**THIN, "action": "draft"}), IDEA, "s", may_ask=True
+    )
+    assert turn["moves"] == [] and turn["asked"]
+
+
+def test_asking_without_usable_questions_falls_back_to_the_open_decisions():
+    raw = {**THIN, "questions": [42, ""], "assumed": ["measureIds", "taskDescription"]}
+    turn = study_plan.propose(_Model(raw), IDEA, "s", may_ask=True)
+    assert "(1) What should count as the assistant making a difference" in turn["text"]
+    assert "(2) What will participants work on" in turn["text"]
+    assert "(3)" not in turn["text"]
+
+
+def test_questions_are_capped_and_never_repeated():
+    raw = {**THIN, "questions": ["Who takes part?"] * 2 + ["A?", "B?", "C?"]}
+    text = study_plan.propose(_Model(raw), IDEA, "s", may_ask=True)["text"]
+    assert text.count("Who takes part?") == 1
+    assert "(3) B?" in text and "(4)" not in text
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "How do AI assistants help junior devs fix bugs? Just draft it.",
+        "Junior devs fixing bugs with AI. You pick the rest.",
+        "AI and junior devs fixing bugs, use your defaults",
+        "Skip the questions: AI assistants and junior developers fixing bugs.",
+    ],
+)
+def test_draft_now_skips_the_questions(message):
+    turn = study_plan.propose(_Model(THIN), message, "s", may_ask=True)
+    assert turn["moves"] and "asked" not in turn
+
+
+def test_a_brief_that_states_its_decisions_is_drafted_straight_away():
+    turn = study_plan.propose(_Model(_reply()), BRIEF, "s", may_ask=True)
+    assert turn["moves"] and "asked" not in turn
+
+
+def test_questions_are_never_asked_once_a_plan_exists():
+    current = _draft()
+    turn = study_plan.propose(
+        _Model({**THIN, "plan": {**PLAN, "plannedParticipants": 30}}),
+        "Make it 30.",
+        "s",
+        current=current,
+        may_ask=True,
+    )
+    assert turn["moves"] and "asked" not in turn
+
+
+def test_each_card_says_which_of_its_values_the_assistant_chose_and_why():
+    turn = study_plan.propose(_Model(THIN), IDEA, "s")
+    marks = {m["kind"]: m["patch"].get("suggested") for m in turn["moves"]}
+    design = {s["field"]: s for s in marks["choose-template"]}
+    assert set(design) == {"design", "plannedParticipants", "sessionMinutes"}
+    assert design["plannedParticipants"] == {
+        "field": "plannedParticipants",
+        "label": "number of participants",
+        "why": "A typical size for a pilot.",
+    }
+    assert [s["field"] for s in marks["declare-task"]] == ["taskDescription"]
+    assert [s["field"] for s in marks["add-measure"]] == ["measureIds"]
+    # Stated by the researcher: marked as such with an empty list, not absent.
+    assert marks["set-field"] == [] and marks["add-rq"] == []
+    assert "prescribe-statistics" not in marks or marks["prescribe-statistics"] is None
+
+
+def test_the_suggestion_marks_do_not_change_the_compiled_protocol():
+    marked = _built(study_plan.propose(_Model(THIN), IDEA, "s"))
+    plain = _built(study_plan.propose(_Model(_reply()), BRIEF, "s"))
+    assert marked.valid and marked.draft == plain.draft
+
+
+def test_a_revision_keeps_the_marks_on_what_the_researcher_did_not_restate():
+    current = _draft()
+    turn = study_plan.propose(
+        _Model(_reply({**PLAN, "plannedParticipants": 30}, assumed={})),
+        "Make it 30 participants.",
+        "s",
+        current=current,
+        suggested_before={
+            "plannedParticipants": "Pilot size.",
+            "sessionMinutes": "An hour.",
+        },
+    )
+    design = turn["moves"][0]["patch"]["suggested"]
+    assert design == [
+        {"field": "sessionMinutes", "label": "session length", "why": "An hour."}
+    ]
+
+
+def test_the_conversation_asks_once_then_drafts_with_marked_suggestions(api):
+    answered = {
+        **THIN,
+        "action": "ask",  # a model that keeps asking is overruled after one round
+        "reply": "Drafted with your answers.",
+        "assumed": {"sessionMinutes": "Two short bug fixes fit an hour."},
+    }
+    client, model = api(
+        THIN, answered, _reply({**PLAN, "plannedParticipants": 30}, assumed={})
+    )
+    asked = _say(client, IDEA)
+    assert asked["moves"] == [] and asked["source"] == "llm"
+    assert "(1) What counts as helping" in asked["text"]
+
+    drafted = _say(client, "Correct fixes matter most; seeded bugs; 24 juniors.")
+    assert drafted["moves"], "the second message always drafts"
+    # The model saw its own questions in the history.
+    sent = "\n".join(m["content"] for m in model.bodies[-1]["messages"])
+    assert "What counts as helping" in sent
+    design = next(m for m in drafted["moves"] if m["kind"] == "choose-template")
+    assert [s["field"] for s in design["patch"]["suggested"]] == ["sessionMinutes"]
+
+    # A revision of the still-undecided plan keeps the mark on the session
+    # length the researcher never stated.
+    revised = _say(client, "Make it 30 participants.")
+    design = next(m for m in revised["moves"] if m["kind"] == "choose-template")
+    assert [s["field"] for s in design["patch"]["suggested"]] == ["sessionMinutes"]
+
+    # The marks survive a reload of the conversation.
+    stored = client.get("/studies/s1/conversation").json()
+    stored_moves = [m for t in stored["turns"] for m in t.get("moves", [])]
+    assert any(m["patch"].get("suggested") for m in stored_moves if m.get("patch"))

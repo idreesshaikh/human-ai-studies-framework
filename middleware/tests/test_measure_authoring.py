@@ -33,9 +33,7 @@ def test_catalog_and_suggestions_are_read_only_and_work_before_a_protocol(client
     assert catalog.status_code == 200
     measures = catalog.json()["measures"]
     assert measures == measure_catalog()
-    assert {measure["id"] for measure in measures} >= {
-        f"S{index}" for index in range(21, 32)
-    }
+    assert {measure["id"] for measure in measures} >= {"S10", "S31", "S32"}
     sid = study(client)
     result = client.post(
         f"/studies/{sid}/measure-suggestions",
@@ -47,7 +45,7 @@ def test_catalog_and_suggestions_are_read_only_and_work_before_a_protocol(client
     )
     assert result.status_code == 200, result.text
     assert result.json()["requestId"] == "request-1"
-    assert result.json()["suggestions"][0]["id"] == "S4"
+    assert result.json()["suggestions"][0]["id"] == "S36"
     assert result.json()["calibrated"] is False
     assert client.get(f"/studies/{sid}/conversation").json()["turns"] == []
     assert client.get("/projects/implicit").json()["studies"][0]["hasProtocol"] is False

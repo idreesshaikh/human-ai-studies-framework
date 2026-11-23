@@ -31,3 +31,24 @@ def test_scheduler_configuration(tmp_path, monkeypatch, caplog, value, expected)
     )
     if value is not None and expected is None:
         assert "MIDDLEWARE_REFRESH_INTERVAL_H" in caplog.text
+
+
+def test_scheduled_refresh_does_not_curate_existing_papers(tmp_path, monkeypatch):
+    calls = []
+    refreshed = []
+    monkeypatch.setenv("MIDDLEWARE_REFRESH_INTERVAL_H", "6")
+    monkeypatch.setattr(
+        corpus_refresh, "start_scheduler", lambda **kw: calls.append(kw)
+    )
+    monkeypatch.setattr(
+        corpus_refresh, "run_once", lambda *args, **kw: refreshed.append(True)
+    )
+    create_app(
+        Settings(
+            db_path=tmp_path / "scheduler.sqlite3",
+            data_dir=tmp_path / "data",
+            spa_dist=tmp_path / "no-dist",
+        )
+    )
+    calls[0]["run"]()
+    assert refreshed == [True]

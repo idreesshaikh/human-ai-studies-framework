@@ -13,23 +13,33 @@ RECOGNIZED_VENUES = re.compile(
 )
 
 
+def age_citation_weakness(year: int | None, cites: int | None, this_year: int) -> str:
+    """
+    Why a paper is too old for how little it is cited, or "" when it is not:
+    the older the paper, the more citations it needs to stay worth surfacing.
+    """
+    if not year:
+        return "no publication year"
+    cites = cites or 0
+    for older_than, needs in (
+        (year < 2015, 200),
+        (year < 2018, 100),
+        (year <= this_year - 3, 10),
+        (year == this_year - 2, 3),
+    ):
+        if older_than and cites < needs:
+            return f"from {year} with {cites} citations (needs {needs})"
+    return ""
+
+
 def quality_gate(p: dict, this_year: int) -> bool:
     """Good-quality only: verifiable, titled, and either fresh or cited."""
     ext = p.get("externalIds") or {}
     if not (ext.get("ArXiv") or ext.get("DOI")):
         return False
-    year, cites = p.get("year"), p.get("citationCount") or 0
-    if not p.get("title") or not year:
+    if not p.get("title") or not p.get("year"):
         return False
-    if year < 2015 and cites < 200:
-        return False
-    if year < 2018 and cites < 100:
-        return False
-    if year <= this_year - 3 and cites < 10:
-        return False
-    if year == this_year - 2 and cites < 3:  # noqa: SIM103 - guard ladder
-        return False
-    return True
+    return not age_citation_weakness(p.get("year"), p.get("citationCount"), this_year)
 
 
 def is_recognized_venue(p: dict) -> bool:

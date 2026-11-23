@@ -148,8 +148,9 @@ def test_candidates_then_decide(env, monkeypatch, capsys):
             "--decision",
             "reject",
         )
-        == 1
-    )  # cannot reverse
+        == 0
+    )
+    assert "hidden" in capsys.readouterr().out
     assert (
         run_cli(
             monkeypatch,
@@ -205,7 +206,12 @@ def bearer(sub):
 
 def test_status_reports_the_last_refresh_and_candidate_counts(client):
     body = client.get("/corpus/status").json()
-    assert body["candidates"] == {"new": 4, "accepted": 0, "rejected": 0}
+    assert body["candidates"] == {
+        "new": 4,
+        "accepted": 0,
+        "rejected": 0,
+        "dismissed": 0,
+    }
     assert (
         body["lastRefresh"]["status"] == "ok"
         and body["lastRefresh"]["newCandidates"] == 4

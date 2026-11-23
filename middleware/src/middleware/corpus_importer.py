@@ -162,6 +162,22 @@ def enriched_abstracts(s: Session) -> dict[str, str]:
     return dict(rows)
 
 
+REFRESHED_FIELDS = frozenset(
+    {"venue", "citation_count", "score", "s2_id", "year", "doi"}
+)
+
+
+def hidden_refs(s: Session) -> set[str]:
+    """Corpus rows curation hid; they stay out of the search index."""
+    return set(
+        s.scalars(
+            select(Paper.paper_ref).where(
+                Paper.study_id == CORPUS_STUDY_ID, Paper.curation == "hidden"
+            )
+        )
+    )
+
+
 def _upsert_corpus_paper(s: Session, values: dict) -> None:
     """Upsert one corpus row, keeping the longer ``abstract``."""
     engine = get_engine()
@@ -173,6 +189,13 @@ def _upsert_corpus_paper(s: Session, values: dict) -> None:
         from sqlalchemy.dialects.sqlite import insert as _sq_insert
         stmt = _sq_insert(Paper).values([row])
     update_set = {k: v for k, v in values.items() if k != "paper_ref"}
+    # Once a curation run has re-checked a row, its Semantic Scholar metadata is
+    # newer than the checked-in manifest; a re-import must not roll it back.
+    refreshed = func.coalesce(Paper.checked_at, "") != ""
+    for key in REFRESHED_FIELDS & update_set.keys():
+        update_set[key] = case(
+            (refreshed, getattr(Paper, key)), else_=getattr(stmt.excluded, key)
+        )
     if "abstract" in update_set:
         update_set["abstract"] = case(
             (
@@ -222,6 +245,7 @@ def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
     """Land the harvested Tier B rows + FTS entries + via-edges."""
     seed_by_arxiv = {p["arxivId"]: p["ref"] for p in parse_tier_a() if p["arxivId"]}
     enriched = enriched_abstracts(s)
+    hidden = hidden_refs(s)
     indexed: dict[str, int] = {}
     entries = parse_tier_b()
     for i, entry in enumerate(entries):
@@ -254,7 +278,11 @@ def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
             )
             if part
         )
-        indexed[ref] = paper_index.index_paper(s, ref, entry.get("title", ""), body)
+        indexed[ref] = (
+            0
+            if ref in hidden
+            else paper_index.index_paper(s, ref, entry.get("title", ""), body)
+        )
         for via in entry.get("via", []):
             src = seed_by_arxiv.get(via)
             if not src:
