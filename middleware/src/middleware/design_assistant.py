@@ -1472,6 +1472,36 @@ def _working_draft(s: Session, study_id: str) -> dict:
     ).draft
 
 
+def _pending_suggestions(s: Session, study_id: str) -> dict[str, str]:
+    """Plan fields the newest pending plan marked as the assistant's choice.
+
+    Only undecided cards count: accepting a card makes its values the
+    researcher's decision, and a rejected card's values are gone.
+    """
+    rows = s.scalars(
+        select(DesignMoveRow)
+        .join(ConversationTurn, DesignMoveRow.turn_id == ConversationTurn.id)
+        .where(DesignMoveRow.study_id == study_id)
+        .order_by(ConversationTurn.seq, DesignMoveRow.seq)
+    ).all()
+    pending_turn = next(
+        (
+            row.turn_id
+            for row in reversed(rows)
+            if row.status == "proposed" and (row.patch or {}).get("manual")
+        ),
+        None,
+    )
+    suggested: dict[str, str] = {}
+    for row in rows:
+        if row.turn_id != pending_turn or row.status != "proposed":
+            continue
+        for item in (row.patch or {}).get("suggested") or []:
+            if isinstance(item, dict) and isinstance(item.get("field"), str):
+                suggested[item["field"]] = str(item.get("why") or "")
+    return suggested
+
+
 def _plan_turn(
     s: Session,
     text: str,
@@ -1499,6 +1529,10 @@ def _plan_turn(
     # A declined turn falls through to the caller's own retrieval; the search
     # is a local full-text query, so running it twice then costs little.
     papers, _, _ = _retrieve(s, text, study_id, history)
+    # Questions come at most once: only before the platform has said anything
+    # in this study. After that every message drafts or revises, so a
+    # researcher is never walked through the plan one question at a time.
+    first_exchange = not any(turn.get("role") == "assistant" for turn in history)
     try:
         turn = study_plan.propose(
             client,
@@ -1507,6 +1541,8 @@ def _plan_turn(
             current=_working_draft(s, study_id),
             history=history,
             papers=papers,
+            may_ask=first_exchange,
+            suggested_before=_pending_suggestions(s, study_id),
         )
     except study_plan.Unreachable as down:
         raise ModelUnavailable(
@@ -1518,17 +1554,14 @@ def _plan_turn(
         return None
     # The plan turn replaces the conversational turn, so it carries that turn's
     # literature: the recommendation rail, and on each card the retrieved papers
-    # the model cited for it.
+    # the model cited for it. Only those: the design template's own sources
+    # describe the template, not this study, and pinned under a card they made
+    # every value on it (40 participants, 60 minutes) look evidenced.
     moves = []
     retrieved: set[str] = {paper["ref"] for paper in papers}
     for i, spec in enumerate(turn["moves"]):
         cited = tuple(spec.pop("cites", None) or ())
-        template_refs = (
-            _template_source_refs(spec["patch"]["templateId"])
-            if spec["kind"] == "choose-template"
-            else ()
-        )
-        grounding = _resolve_grounding(s, tuple(dict.fromkeys(template_refs + cited)))
+        grounding = _resolve_grounding(s, tuple(dict.fromkeys(cited)))
         retrieved.update(g["ref"] for g in grounding)
         moves.append(
             {

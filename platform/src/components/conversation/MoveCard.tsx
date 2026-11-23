@@ -21,7 +21,7 @@ export function MoveCard({
   autoFocus = false,
 }: {
   move: DesignMove;
-  onDecide: (moveId: string, status: MoveStatus, move?: DesignMove) => void;
+  onDecide?: (moveId: string, status: MoveStatus, move?: DesignMove) => void;
   /** True only for the first undecided move of a reply the researcher just
    *  asked for (see ConversationView)  -  never on a page they merely opened. */
   autoFocus?: boolean;
@@ -37,12 +37,20 @@ export function MoveCard({
   const eyebrow = moveEyebrow(move.kind, move.patch);
   const isMergedResearchQuestion =
     move.kind === "add-rq" && move.status === "accepted" && compiled;
+  /* Which values on this card the researcher never stated. A researcher who
+   * questions the plan needs to see which choices were not theirs, and why
+   * the assistant made them, before accepting. */
+  const suggestions = move.suggested;
+  const chosen = suggestions?.length
+    ? ` Chosen by the assistant: ${suggestions.map((s) => s.label).join(", ")}.`
+    : "";
   /* Whether ANY citation stands behind this move. How strongly each one does
    * is carried by that citation's own printed score on its chip, so the card
    * needs the boolean and not the maximum. */
 
   const onKey = useCallback(
     (e: React.KeyboardEvent) => {
+      if (!onDecide) return;
       if (e.target !== e.currentTarget || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat || e.nativeEvent.isComposing) return;
       if (decided) {
         if (e.key !== "u") return;
@@ -63,18 +71,19 @@ export function MoveCard({
    * a proposal they have not read  -  the human decides, and they cannot decide
    * what they have not been shown. The thread's own scroll-to-end brings a new
    * reply into view either way. */
+  const shouldFocus = Boolean(onDecide && autoFocus && !decided);
   useEffect(() => {
-    if (autoFocus && !decided) ref.current?.focus();
-  }, [autoFocus, decided]);
+    if (shouldFocus) ref.current?.focus();
+  }, [shouldFocus]);
 
   return (
     <Card
       ref={ref}
       role="group"
-      tabIndex={decided ? -1 : 0}
+      tabIndex={onDecide && !decided ? 0 : undefined}
       data-move-id={move.moveId}
       onKeyDown={onKey}
-      aria-label={`${eyebrow}: ${cleanProposalText(move.proposal)}. ${move.status === "proposed" ? "Awaiting your decision" : moveStateLabel(move.status, move.kind)}`}
+      aria-label={`${eyebrow}: ${cleanProposalText(move.proposal)}.${chosen} ${move.status === "proposed" ? "Awaiting your decision" : moveStateLabel(move.status, move.kind)}`}
       className={cn(
         "relative transition-all",
       /* A proposed move is a compact decision sheet: it has enough framing to
@@ -135,6 +144,22 @@ export function MoveCard({
               {cleanProposalText(move.proposal)}
             </p>
           )}
+          {suggestions && suggestions.length > 0 && (
+            <div className="type-caption text-text-muted">
+              <p className="text-text">Chosen by the assistant:</p>
+              <ul className="mt-0.5 flex flex-col gap-0.5">
+                {suggestions.map((s) => (
+                  <li key={s.field}>
+                    <span className="text-text">{s.label}</span>
+                    {s.why && `: ${s.why}`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {suggestions && suggestions.length === 0 && (
+            <p className="type-caption text-text-muted">Based on what you said.</p>
+          )}
         </div>
 
         {/* Citations stay fully legible regardless of the card's decided
@@ -158,7 +183,7 @@ export function MoveCard({
 
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 border-t border-border pt-1 sm:justify-end">
+        {onDecide && <div className="flex flex-wrap items-center gap-1.5 border-t border-border pt-1 sm:justify-end">
           {!decided && (
             <div className="flex gap-2">
               <Button
@@ -196,7 +221,7 @@ export function MoveCard({
               </Button>
             </div>
           )}
-        </div>
+        </div>}
       </CardContent>
     </Card>
   );

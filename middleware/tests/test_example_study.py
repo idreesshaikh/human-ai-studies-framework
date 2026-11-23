@@ -275,10 +275,15 @@ def test_data_tab_reads_return_the_labelled_example_sessions(client):
     assert sum(with_tool) < sum(without)
 
     protocol = client.get(f"{BASE}/protocol").json()["document"]
-    survey = protocol["instruments"]["surveys"][0]
+    surveys = {s["id"]: s for s in protocol["instruments"]["surveys"]}
     answers = [r for r in rows if r["type"] == "survey_response"]
-    assert len(answers) == COMPLETED_PARTICIPANTS * 2
-    assert all(validated_responses(survey, r["payload"]["responses"]) for r in answers)
+    assert len(answers) == COMPLETED_PARTICIPANTS * 2 * len(surveys)
+    assert all(
+        validated_responses(
+            surveys[r["payload"]["instrumentId"]], r["payload"]["responses"]
+        )
+        for r in answers
+    )
     assert {r["type"] for r in rows} >= {
         "session_start",
         "environment_snapshot",

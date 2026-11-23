@@ -172,6 +172,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "MIDDLEWARE_REFRESH_INTERVAL_H=%r ignored: %s", refresh_hours, exc
             )
         else:
+            # Scheduled refresh only gathers candidates; curation is an explicit
+            # operation because it can change which existing papers are searchable.
             corpus_refresh.start_scheduler(
                 interval_hours=hours,
                 run=lambda: corpus_refresh.run_once(

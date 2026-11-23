@@ -258,3 +258,27 @@ def fetch_edges(paper_ref: str, *, fetch=get_json) -> dict[str, list[dict]]:
             papers = _neighbours(body.get("data") or [], inner)
         out[kind] = [normalize_paper(p) for p in papers]
     return out
+
+
+def fetch_recommendations(
+    positive: list[str],
+    negative: list[str],
+    *,
+    fields: str,
+    limit: int = 100,
+    post=post_json,
+) -> list[dict]:
+    """
+    Papers like ``positive`` and unlike ``negative`` (S2 paper ids), newest
+    work first: ``POST /recommendations/v1/papers``. Raw S2 paper objects.
+    """
+    if not positive:
+        return []
+    body = post(
+        f"{REC_API}/papers?fields={fields}&limit={max(1, min(limit, 500))}",
+        {"positivePaperIds": positive, "negativePaperIds": negative},
+    )
+    papers = body.get("recommendedPapers") if isinstance(body, dict) else None
+    if not isinstance(papers, list):
+        raise SemanticScholarError("recommendations response has no paper list")
+    return [p for p in papers if isinstance(p, dict)]

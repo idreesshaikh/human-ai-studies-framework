@@ -283,8 +283,7 @@ export function Templates() {
             <Info className="size-4" aria-hidden /> Held back
           </h2>
           <p className="type-note text-text-muted">
-            Too rare to propose without a strong source. Shown, not hidden: the
-            reason is stated so you can judge it yourself.
+            Too rare to propose without a strong source; each card says why.
           </p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {held.map((entry) => (

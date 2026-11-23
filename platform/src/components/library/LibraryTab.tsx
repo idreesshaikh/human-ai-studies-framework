@@ -215,9 +215,9 @@ export function LibraryTab({
   }
 
   return (
-    <Surface measure="work" label="Evidence">
+    <Surface measure="work" label="Literature">
       <header className="flex flex-col gap-2">
-        <h1 className="type-section text-text">Evidence</h1>
+        <h1 className="type-section text-text">Literature</h1>
         <p className="max-w-reading type-body text-text-muted">
           Collect the papers behind your study. Read their abstracts, connect
           them to your protocol and explore related work.
@@ -319,7 +319,7 @@ export function LibraryTab({
       )}
       {actionError && <Notice kind="problem">{actionError}</Notice>}
 
-      <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-[minmax(14rem,1fr)_minmax(0,2fr)]">
+      <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-[minmax(16rem,2fr)_minmax(0,3fr)]">
         <section
           className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-plate border border-border bg-surface lg:h-[var(--library-pane-h)]"
           aria-labelledby="evidence-papers-heading"

@@ -6,12 +6,14 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { chromium, expect } from "@playwright/test";
+import { chromium, expect, webkit } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 const ROOT = resolve(import.meta.dirname, "..", "..");
 const extension = JSON.parse(readFileSync(join(ROOT, "extension", "package.json"), "utf8"));
-const { values } = parseArgs({ options: { dist: { type: "string" }, screenshots: { type: "string" }, audit: { type: "boolean", default: false } } });
+const { values } = parseArgs({ options: { dist: { type: "string" }, screenshots: { type: "string" }, audit: { type: "boolean", default: false }, browser: { type: "string", default: "chromium" } } });
+const engine = { chromium, webkit }[values.browser];
+if (engine !== chromium && engine !== webkit) throw new Error("Use --browser chromium or --browser webkit");
 const DIST = values.dist ?? process.env.UI_DIST ?? join(ROOT, "platform", "dist");
 if (values.screenshots) mkdirSync(values.screenshots, { recursive: true });
 if (!existsSync(join(DIST, "index.html"))) {
@@ -105,7 +107,7 @@ const check = (ok, message) => {
 const auditPage = async (page, label) => {
   if (!values.audit) return;
   await page.bringToFront();
-  for (const [theme, width, height] of [["light", 1280, 800], ["dark", 1280, 800], ["light", 390, 844], ["dark", 390, 844], ["light", 768, 1024], ["light", 360, 800]]) {
+  for (const [theme, width, height] of [["light", 1280, 800], ["dark", 1280, 800], ["light", 390, 844], ["dark", 390, 844], ["light", 768, 1024], ["light", 360, 800], ["dark", 320, 568]]) {
     await page.setViewportSize({ width, height });
     await page.evaluate((theme) => document.documentElement.setAttribute("data-theme", theme), theme);
     await page.evaluate(async () => {
@@ -167,8 +169,34 @@ const bare = (await api("/projects/implicit/studies", { method: "POST", body: JS
 const full = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "With protocol", protocol }) })).id;
 const literature = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "Evidence browser fixtures" }) })).id;
 
-browser = await chromium.launch();
+browser = await engine.launch();
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+context.on("weberror", (event) => check(false, `uncaught browser error: ${event.error().message}`));
+const navigation = await context.newPage();
+await navigation.emulateMedia({ reducedMotion: "reduce" });
+await navigation.setViewportSize({ width: 320, height: 568 });
+await navigation.goto(base + "/home");
+const skip = navigation.getByRole("link", { name: "Skip to main content" });
+await skip.press("Enter");
+await expect(navigation.getByRole("main")).toBeFocused();
+const navToggle = navigation.getByRole("button", { name: "Toggle navigation", includeHidden: true });
+await navToggle.press("Enter");
+const drawer = navigation.getByRole("dialog", { name: "Navigation" });
+await expect(drawer).toBeVisible();
+await expect(navToggle).toHaveAttribute("aria-expanded", "true");
+for (let index = 0; index < 6; index++) {
+  await navigation.keyboard.press("Tab");
+  check(await drawer.evaluate((el) => el.contains(document.activeElement)), "mobile navigation keeps keyboard focus within the drawer");
+}
+await navigation.keyboard.press("Escape");
+await expect(drawer).toBeHidden();
+await expect(navToggle).toBeFocused();
+check(true, "skip link and Escape return keyboard focus to the expected destination");
+await navigation.setViewportSize({ width: 1280, height: 800 });
+await navigation.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+await expect(navigation.getByRole("heading", { name: "Studies", exact: true })).toBeInViewport();
+check(await navigation.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "the study list reflows at 200% text size");
+await navigation.close();
 const evidence = await context.newPage();
 await evidence.goto(`${base}/p/implicit/studies/${literature}?tab=library`);
 const paperInput = evidence.getByRole("textbox", { name: /arXiv id or DOI|Paper link or identifier/i });
@@ -207,7 +235,7 @@ await evidence.getByRole("heading", { name: evidenceFixtures[2].title, exact: tr
 check(await evidence.getByRole("button", { name: "Add to study", exact: true }).isVisible(), "map papers open with Space and can be added from their detail");
 await auditPage(evidence, "populated Evidence and related paper");
 if (values.screenshots) {
-  await evidence.evaluate(() => { document.activeElement?.blur(); document.querySelector('[role="region"][aria-label="Evidence"]').scrollTop = 0; });
+  await evidence.evaluate(() => { document.activeElement?.blur(); document.querySelector('[role="region"][aria-label="Literature"]').scrollTop = 0; });
   await evidence.screenshot({ path: join(values.screenshots, "evidence-populated-desktop.png"), fullPage: true });
   await evidence.setViewportSize({ width: 390, height: 844 });
   await evidence.screenshot({ path: join(values.screenshots, "evidence-populated-mobile.png"), fullPage: true });
@@ -245,12 +273,12 @@ await evidence.getByRole("button", { name: "Try again", exact: true }).click();
 await evidence.getByRole("alert").filter({ hasText: "Could not refresh study papers." }).waitFor({ state: "hidden" });
 const map = evidence.getByRole("group", { name: /^Literature map/ });
 await map.scrollIntoViewIfNeeded();
-const bodyScroll = evidence.getByRole("region", { name: "Evidence", exact: true });
+const bodyScroll = evidence.getByRole("region", { name: "Literature", exact: true });
 await bodyScroll.evaluate((element) => { element.scrollTop = 0; });
 const beforeScroll = await bodyScroll.evaluate((element) => element.scrollTop);
 await map.hover();
 await evidence.mouse.wheel(0, 250);
-await evidence.waitForFunction((before) => document.querySelector('[role="region"][aria-label="Evidence"]').scrollTop > before, beforeScroll);
+await evidence.waitForFunction((before) => document.querySelector('[role="region"][aria-label="Literature"]').scrollTop > before, beforeScroll);
 check(true, "normal scrolling over the map continues through the Evidence page");
 const beforeZoom = await map.locator(":scope > g").getAttribute("transform");
 await evidence.getByRole("button", { name: "Zoom out", exact: true }).click();
@@ -283,7 +311,7 @@ await evidence.getByText("View all 40 authors", { exact: true }).click();
 await content.evaluate((element) => { element.scrollTop = 0; });
 await auditPage(evidence, "bounded Evidence with long bibliography");
 if (values.screenshots) {
-  await evidence.evaluate(() => { document.activeElement?.blur(); document.querySelector('[role="region"][aria-label="Evidence"]').scrollTop = 0; });
+  await evidence.evaluate(() => { document.activeElement?.blur(); document.querySelector('[role="region"][aria-label="Literature"]').scrollTop = 0; });
   await evidence.screenshot({ path: join(values.screenshots, "evidence-long-desktop.png"), fullPage: true });
   await evidence.setViewportSize({ width: 390, height: 844 });
   await evidence.screenshot({ path: join(values.screenshots, "evidence-long-mobile.png"), fullPage: true });
@@ -307,6 +335,15 @@ check(await viewer.getByRole("button", { name: "Add paper", exact: true }).count
 await viewer.getByRole("region", { name: "Study paper list", exact: true }).getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
 check(await viewer.getByRole("button", { name: "Save links", exact: true }).count() === 0 && await viewer.getByRole("link", { name: "Open source", exact: true }).isVisible(), "viewers can inspect sources and saved links without editing controls");
 await auditPage(viewer, "read-only Evidence");
+const viewerWrites = [];
+viewer.on("request", (request) => {
+  if (request.method() === "POST") viewerWrites.push(request.url());
+});
+await viewer.getByRole("button", { name: "Setup", exact: true }).click();
+await viewer.getByText("No messages have been recorded for this study.", { exact: true }).waitFor();
+check(await viewer.getByRole("textbox", { name: "Message the design assistant" }).count() === 0 &&
+  await viewer.getByRole("button", { name: "Research tools" }).count() === 0 &&
+  viewerWrites.length === 0, "read-only Setup does not offer or send write actions");
 await viewer.close();
 
 const PROTOCOL_ONLY = /\/studies\/[^/]+\/(plan|status|dataset|live|enrollment)(\/|\?|$)/;
@@ -484,8 +521,21 @@ await context.route("**/*", (route) => {
   await page.getByRole("dialog").waitFor({ state: "hidden" });
   await page.getByRole("button", { name: "Review draft", exact: true }).last().click();
   await auditPage(page, "protocol review dialog");
+  const approvalPath = `${base}/studies/${bare}/conversation/approve`;
+  const staleDraft = "The draft changed. Review the refreshed protocol before applying it.";
+  await page.route(approvalPath, (route) => route.fulfill({
+    status: 409,
+    json: { detail: staleDraft },
+  }), { times: 1 });
+  const draftReview = page.getByRole("dialog", { name: "Review draft" });
+  await page.setViewportSize({ width: 320, height: 568 });
+  await draftReview.getByRole("button", { name: "Apply protocol", exact: true }).click();
+  await expect(draftReview.getByRole("alert")).toHaveText(staleDraft);
+  await expect(draftReview.getByRole("button", { name: "Apply protocol", exact: true })).toBeEnabled();
+  check(true, "a stale approval shows its error inside the mobile review and requires explicit reapproval");
+  await page.setViewportSize({ width: 1280, height: 800 });
   await page.getByRole("button", { name: "Apply protocol", exact: true }).click();
-  await page.getByText("Draft applied to the protocol.", { exact: true }).waitFor();
+  await page.getByRole("link", { name: /Applied\. Plan recruitment/ }).waitFor();
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Plan", exact: true }).click();
   await page.getByRole("heading", { name: "Plan participant recruitment" }).waitFor();
@@ -513,10 +563,11 @@ await context.route("**/*", (route) => {
     const link = new URL(href);
     return link.protocol === "vscode:" && link.hostname === `${extension.publisher}.${extension.name}` && link.searchParams.get("c")?.startsWith(base + "#");
   }), "participant links open the installed extension with the correct enrollment token");
+  await page.getByText("Install TERN in VS Code", { exact: true }).click();
   const release = await page.getByRole("link", { name: "Download the .vsix", exact: true }).getAttribute("href");
   check(release?.startsWith(extension.repository.url.replace(/\.git$/, "")), "extension download points to its release repository");
   await page.getByRole("button", { name: "Data", exact: true }).click();
-  await page.getByRole("heading", { name: "Download study records" }).waitFor();
+  await page.locator("summary").filter({ hasText: /^Outcome capture checks$/ }).click();
   await auditPage(page, "typed protocol Data");
   const captureChecks = page.getByRole("region", { name: "Outcome capture checks", exact: true });
   const checksPath = `/studies/${bare}/outcome-checks`;
@@ -587,7 +638,7 @@ await context.route("**/*", (route) => {
   const integritySession = integrityStatus.sessions.find((session) => session.sessionId === flaggedSessionId);
   check(integritySession?.complete === true && integritySession.flaggedEvents > 0, "integrity fixture has complete event sequencing and flagged events");
   await page.reload();
-  await page.getByRole("heading", { name: "Download study records" }).waitFor();
+  await page.locator("summary").filter({ hasText: /^Outcome capture checks$/ }).click();
   const capturedSessions = page.getByRole("region", { name: "Captured sessions", exact: true });
   const flaggedCard = capturedSessions.getByRole("button").filter({ hasText: flaggedSessionId });
   await flaggedCard.waitFor();
@@ -614,6 +665,7 @@ await context.route("**/*", (route) => {
   check(annotatedRows.length > 0 && annotatedRows.every((row) => row.inclusionDecision === "exclude"), "excluded raw rows retain their decision for downstream filtering");
   await captureChecks.getByRole("button", { name: "Check captured inputs", exact: true }).waitFor();
   check(true, "changing an inclusion decision clears an outdated outcome report");
+  await page.getByText("Download study records", { exact: true }).click();
   for (const name of ["Data (.zip)", "Design card (.md)", "Replication kit"]) {
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name, exact: true }).click();
@@ -665,14 +717,30 @@ await context.route("**/*", (route) => {
     const reply = { researcherTurnId: "fixture-researcher", platformTurnId: "fixture-platform", text: recoveredReply, moves: [], recommendations: [], source: "llm" };
     return route.fulfill({ status: 200, contentType: "text/event-stream", body: `event: token\ndata: ${JSON.stringify({ text: recoveredReply })}\n\nevent: done\ndata: ${JSON.stringify(reply)}\n\n` });
   });
+  await chat.route(`${base}/studies/${chatStudy}/conversation`, (route) => route.abort("connectionfailed"), { times: 1 });
   await chat.goto(`${base}/p/implicit/studies/${chatStudy}?tab=conversation`);
   const composer = chat.getByRole("textbox", { name: "Message the design assistant", exact: true });
   const send = chat.getByRole("button", { name: "Send", exact: true });
+  const retryLoad = chat.getByRole("button", { name: "Retry conversation", exact: true });
+  await retryLoad.waitFor();
+  check(await composer.count() === 0, "chat: an unread conversation shows a retry and prevents writes");
+  const compiled = chat.waitForResponse((response) => response.url().endsWith(`/studies/${chatStudy}/conversation/compile`));
+  await retryLoad.click();
+  await compiled;
   check(await send.isDisabled(), "chat: blank messages cannot be submitted");
+  const compileRequests = [];
+  chat.on("request", (request) => {
+    if (request.url().endsWith(`/studies/${chatStudy}/conversation/compile`)) compileRequests.push(request);
+  });
   const chatText = "Does AI change debugging time?\nDevelopers: naïve, 日本語, العربية 🔬 <script>window.fixtureRan=true</script>";
   await composer.fill(chatText);
-  await send.click();
-  await chat.getByRole("status").filter({ hasText: "Not sent:" }).waitFor();
+  await chat.getByRole("button", { name: "Plan", exact: true }).click();
+  await chat.getByRole("button", { name: "Setup", exact: true }).click();
+  await expect(composer).toHaveValue(chatText);
+  check(true, "chat: moving between Setup and Plan preserves unsent multiline text");
+  await composer.press("Enter");
+  await chat.getByRole("status").filter({ hasText: "Connection interrupted." }).waitFor();
+  await expect(composer).toBeFocused();
   check(await composer.inputValue() === chatText, "chat: a failed stream and fallback restore the complete Unicode message");
   check(chatRequests.length === 2 && chatRequests[0].requestId === chatRequests[1].requestId, "chat: fallback reuses the original request id");
   chatMode = "recovered";
@@ -685,7 +753,7 @@ await context.route("**/*", (route) => {
   const interruptedText = "Keep this message when the connection drops during a reply.";
   await composer.fill(interruptedText);
   await send.click();
-  await chat.getByRole("status").filter({ hasText: "Not sent:" }).waitFor();
+  await chat.getByRole("status").filter({ hasText: "Connection interrupted." }).waitFor();
   check(chatRequests.length === 4 && await composer.inputValue() === interruptedText, "chat: a partial stream restores input without an automatic duplicate POST");
   chatMode = "recovered";
   await send.click();
@@ -715,6 +783,14 @@ await context.route("**/*", (route) => {
     check(await composer.inputValue() === text, `chat: ${error.status} preserves the editable message`);
     check(await chat.getByRole("status").filter({ hasText: error.message }).isVisible(), `chat: ${error.status} explains the server refusal without calling it offline`);
   }
+  chatMode = "recovered";
+  const decisionLikeMessage = "I accepted: the limitations of this design still matter.";
+  const compiledBeforeReply = compileRequests.length;
+  await composer.fill(decisionLikeMessage);
+  await send.click();
+  await chat.getByRole("button", { name: "Stop reply", exact: true }).waitFor({ state: "hidden" });
+  check(await chat.getByText(decisionLikeMessage, { exact: true }).isVisible(), "chat: a typed message is not hidden because it resembles a card decision");
+  check(compileRequests.length === compiledBeforeReply, "chat: receiving a text-only reply does not write another compilation");
   await auditPage(chat, "chat transport recovery");
   await chat.close();
 
@@ -747,6 +823,60 @@ await context.route("**/*", (route) => {
   check(await studyName.inputValue() === storedName, "new study: a failed save preserves the name for retry");
   await auditPage(create, "new study creation error");
   await create.close();
+
+  const deletable = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "Deletion refresh fixture" }) })).id;
+  const deletingPage = await context.newPage();
+  await deletingPage.goto(`${base}/home`);
+  const deleteButton = deletingPage.getByRole("button", { name: "Delete Deletion refresh fixture", exact: true });
+  await deleteButton.click();
+  await deletingPage.route(`${base}/studies/${deletable}`, (route) => route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ detail: "Delete refused" }) }));
+  await deletingPage.getByRole("button", { name: "Delete study", exact: true }).click();
+  await deletingPage.getByText("Delete refused", { exact: true }).waitFor();
+  check(await deletingPage.locator(`a[href="/studies/${deletable}"]`).count() === 1, "a refused deletion keeps the study in the list");
+  await deletingPage.unroute(`${base}/studies/${deletable}`);
+  await deletingPage.route(`${base}/studies`, (route) => route.abort("connectionfailed"));
+  await deletingPage.getByRole("button", { name: "Delete study", exact: true }).click();
+  await deletingPage.getByRole("dialog").waitFor({ state: "hidden" });
+  await expect(deleteButton).toHaveCount(0);
+  check(!(await api("/studies")).some((study) => study.id === deletable), "confirmed deletion removes the study even if refreshing the list fails");
+  await deletingPage.close();
+
+  const sourceStudy = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "Source history fixture" }) })).id;
+  const sourcePage = await context.newPage();
+  await sourcePage.route(`${base}/studies/${sourceStudy}/conversation`, (route) => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ turns: [{
+      turnId: "fixture-turn", role: "platform", text: "Fixture decisions.",
+      recommendations: [], moves: [
+        { moveId: "earlier", kind: "add-rq", target: "researchQuestions", proposal: "An earlier question", status: "accepted", grounding: [{ ref: "fixture:paper", title: "Earlier fixture paper" }] },
+        { moveId: "replacement", kind: "choose-template", target: "design", proposal: "A replacement plan", status: "accepted", grounding: [], patch: { templateId: "two-group-rct-v1", manual: true } },
+        { moveId: "pending-choice", kind: "add-rq", target: "researchQuestions", proposal: "Does assistance change debugging time?", status: "proposed", grounding: [] },
+      ],
+    }] }),
+  }));
+  await sourcePage.route(`${base}/studies/${sourceStudy}/conversation/moves/pending-choice/decision`, (route) => route.fulfill({
+    json: { moveId: "pending-choice", status: route.request().postDataJSON().status },
+  }));
+  await sourcePage.route(`${base}/studies/${sourceStudy}/conversation/turns/stream`, (route) => route.fulfill({
+    status: 409, json: { detail: "Fixture decision saved." },
+  }));
+  await sourcePage.goto(`${base}/p/implicit/studies/${sourceStudy}?tab=conversation`);
+  await sourcePage.getByText("Fixture decisions.", { exact: true }).first().waitFor();
+  await sourcePage.getByRole("button", { name: "Review draft", exact: true }).last().click();
+  const reviewDialog = sourcePage.getByRole("dialog");
+  await expect(reviewDialog).toContainText("0 with linked sources");
+  await reviewDialog.getByText("Earlier sourced decisions (1)", { exact: true }).click();
+  await expect(reviewDialog).toContainText("Earlier fixture paper");
+  check(true, "review distinguishes current sources from earlier sourced decisions");
+  await reviewDialog.getByRole("button", { name: "Close", exact: true }).click();
+  const pendingChoice = sourcePage.locator('[data-move-id="pending-choice"]');
+  await pendingChoice.press("r");
+  const undoChoice = pendingChoice.getByRole("button", { name: "Undo", exact: true });
+  await expect(undoChoice).toBeFocused();
+  await undoChoice.press("Enter");
+  await expect(pendingChoice).toBeFocused();
+  check(true, "keyboard focus follows the last decision into Undo and returns to the reopened card");
+  await sourcePage.close();
 
   const seeded = spawnSync("uv", ["run", "python", "-m", "middleware", "seed-example"], {
     cwd: ROOT, encoding: "utf8", env: {
@@ -809,6 +939,17 @@ await context.route("**/*", (route) => {
   await example.getByRole("button", { name: "Run", exact: true }).click();
   const roster = example.getByRole("region", { name: "Participant links", exact: true });
   await expect(roster.locator("tbody tr")).toHaveCount(6);
+  const conditionCell = roster.locator("tbody tr").first().locator("td").nth(1);
+  const originalCondition = await conditionCell.textContent();
+  await conditionCell.evaluate((cell) => { cell.textContent = "Without AI Assistant (Baseline)"; });
+  const conditionFits = await conditionCell.evaluate((cell) => {
+    const range = document.createRange();
+    range.selectNodeContents(cell);
+    const boundary = cell.getBoundingClientRect();
+    return [...range.getClientRects()].every((line) => line.right <= boundary.right + 1);
+  });
+  check(conditionFits, "long condition names wrap within their participant table column");
+  await conditionCell.evaluate((cell, value) => { cell.textContent = value; }, originalCondition);
   await example.getByRole("button", { name: "Next participants page", exact: true }).click();
   await example.getByRole("searchbox", { name: "Search participants", exact: true }).fill("P24");
   await expect(roster.locator("tbody tr")).toHaveCount(1);
@@ -817,6 +958,11 @@ await context.route("**/*", (route) => {
   check((await roster.locator("tbody tr").allTextContents()).every((text) => text.includes("Without AI")), "participant search accepts the displayed condition wording");
   await example.getByRole("searchbox", { name: "Search participants", exact: true }).fill("");
   await example.setViewportSize({ width: 360, height: 800 });
+  await expect.poll(() => roster.evaluate((element) => {
+    const status = element.querySelector("tbody tr")?.cells[2];
+    return status && status.getBoundingClientRect().right <= element.getBoundingClientRect().right;
+  })).toBe(true);
+  check(true, "the mobile roster shows participant, condition, and status before horizontal scrolling");
   await roster.focus();
   await example.keyboard.press("ArrowRight");
   await expect.poll(() => roster.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);

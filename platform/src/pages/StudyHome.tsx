@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
@@ -10,10 +10,6 @@ import {
   UserPlus,
 } from "lucide-react";
 import { ConversationView } from "@/components/conversation/ConversationView";
-import { LibraryTab } from "@/components/library/LibraryTab";
-import { DataTab } from "@/components/charts/DataTab";
-import { PowerPanel } from "@/components/charts/PowerPanel";
-import { EnrollmentPanel } from "@/components/enrollment/EnrollmentPanel";
 import { StudyTour } from "@/components/shell/StudyTour";
 import { ExportStudy } from "@/components/shell/ExportStudy";
 import { Button } from "@/components/ui/button";
@@ -25,13 +21,18 @@ import { cn } from "@/lib/cn";
 import { browserNameStore, studyDisplayName } from "@/lib/studyNames";
 import { resolveStudyTab } from "@/lib/studyTabs";
 
-/* Study workflow: Setup → Evidence → Plan → Run → Data. Route IDs stay stable for deep links. */
+const LibraryTab = lazy(() => import("@/components/library/LibraryTab").then((module) => ({ default: module.LibraryTab })));
+const DataTab = lazy(() => import("@/components/charts/DataTab").then((module) => ({ default: module.DataTab })));
+const PowerPanel = lazy(() => import("@/components/charts/PowerPanel").then((module) => ({ default: module.PowerPanel })));
+const EnrollmentPanel = lazy(() => import("@/components/enrollment/EnrollmentPanel").then((module) => ({ default: module.EnrollmentPanel })));
+
+/* Study workflow: Setup → Literature → Plan → Run → Data. Route IDs stay stable for deep links. */
 
 type Tab = "conversation" | "library" | "data" | "planning" | "enrollment";
 
 const TABS: { id: Tab; label: string; icon: typeof Library }[] = [
   { id: "conversation", label: "Setup", icon: MessagesSquare },
-  { id: "library", label: "Evidence", icon: Library },
+  { id: "library", label: "Literature", icon: Library },
   { id: "planning", label: "Plan", icon: Target },
   { id: "enrollment", label: "Run", icon: UserPlus },
   { id: "data", label: "Data", icon: BarChart3 },
@@ -40,12 +41,14 @@ const TABS: { id: Tab; label: string; icon: typeof Library }[] = [
 export function StudyHome() {
   const { id = "" } = useParams();
   const [planVisited, setPlanVisited] = useState<string | null>(null);
+  const [setupVisited, setSetupVisited] = useState<string | null>(null);
   const api = useApi();
   // Store the active tab in the URL for refresh and shared links.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const tab: Tab = resolveStudyTab(tabParam);
   useEffect(() => { if (tab === "planning") setPlanVisited(id); }, [tab, id]);
+  useEffect(() => { if (tab === "conversation") setSetupVisited(id); }, [tab, id]);
   const setTab = (next: Tab) =>
     setSearchParams(
       (prev) => {
@@ -83,12 +86,12 @@ export function StudyHome() {
     setTab(tabBeforeTour.current);
   };
 
-  const { data: study, loading: studyLoading, error: studyError, reload: reloadStudy } = useAsync(
+  const { data: study, error: studyError, reload: reloadStudy } = useAsync(
     () => api.studySummary(id),
     [api, id],
   );
   const currentStudy = study?.id === id ? study : null;
-  const roleState = studyLoading || !currentStudy
+  const roleState = !currentStudy
     ? { status: "loading" as const }
     : { status: "known" as const, role: currentStudy.role };
   const role = roleOrNull(roleState);
@@ -98,8 +101,9 @@ export function StudyHome() {
     return (
       <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
         <Notice kind="problem">
-          This study isn’t available. <Link to="/home" className="underline">Return to studies</Link>.
+          The study couldn’t be loaded. <Link to="/home" className="underline">Return to studies</Link>.
         </Notice>
+        <Button className="self-start" variant="outline" onClick={reloadStudy}>Retry study</Button>
       </div>
     );
   }
@@ -182,35 +186,37 @@ export function StudyHome() {
        * scroller (a Surface body, or  -  for Library  -  its own split-rail
        * columns), so the workspace never ends up with two scrollbars. */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {tab === "conversation" && (
-          /* min-w-0: without it this flex item takes its width from its widest
-           * unshrinkable descendant, so one long citation title pushed the
-           * whole workspace column off the side of a phone. A definite width
-           * here is also what lets the citation wrap instead of clamp. */
-          <div className="min-h-0 min-w-0 flex-1">
-            <ConversationView studyId={id} opening={opening} roleState={roleState} onProtocolChanged={reloadStudy} />
+        <Suspense fallback={<p role="status" className="p-gutter type-body text-text-muted">Loading section…</p>}>
+          {(tab === "conversation" || setupVisited === id) && (
+            /* min-w-0: without it this flex item takes its width from its widest
+             * unshrinkable descendant, so one long citation title pushed the
+             * whole workspace column off the side of a phone. A definite width
+             * here is also what lets the citation wrap instead of clamp. */
+            <div hidden={tab !== "conversation"} className="min-h-0 min-w-0 flex-1">
+              <ConversationView key={id} studyId={id} opening={opening} roleState={roleState} onProtocolChanged={reloadStudy} />
+            </div>
+          )}
+          {tab === "library" && (
+            <div className="min-h-0 min-w-0 flex-1">
+              <LibraryTab key={id} studyId={id} roleState={roleState} />
+            </div>
+          )}
+          {tab === "data" && (
+            <div className="min-h-0 min-w-0 flex-1">
+              <DataTab key={id} studyId={id} role={role} hasProtocol={hasProtocol} />
+            </div>
+          )}
+          <div hidden={tab !== "planning"} className={cn("min-h-0 min-w-0 flex-1", tab !== "planning" && "hidden")}>
+            {tab === "planning" || planVisited === id ? (
+              <PowerPanel key={id} studyId={id} active={tab === "planning"} role={role} hasProtocol={hasProtocol} />
+            ) : null}
           </div>
-        )}
-        {tab === "library" && (
-          <div className="min-h-0 min-w-0 flex-1">
-            <LibraryTab key={id} studyId={id} roleState={roleState} />
-          </div>
-        )}
-        {tab === "data" && (
-          <div className="min-h-0 min-w-0 flex-1">
-            <DataTab studyId={id} role={role} hasProtocol={hasProtocol} />
-          </div>
-        )}
-        <div hidden={tab !== "planning"} className={cn("min-h-0 min-w-0 flex-1", tab !== "planning" && "hidden")}>
-          {tab === "planning" || planVisited === id ? (
-            <PowerPanel key={id} studyId={id} active={tab === "planning"} role={role} hasProtocol={hasProtocol} />
-          ) : null}
-        </div>
-        {tab === "enrollment" && (
-          <div className="min-h-0 min-w-0 flex-1">
-            <EnrollmentPanel key={id} studyId={id} role={role} hasProtocol={hasProtocol} />
-          </div>
-        )}
+          {tab === "enrollment" && (
+            <div className="min-h-0 min-w-0 flex-1">
+              <EnrollmentPanel key={id} studyId={id} role={role} hasProtocol={hasProtocol} />
+            </div>
+          )}
+        </Suspense>
       </div>
 
       {showTour && (

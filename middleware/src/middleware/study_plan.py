@@ -11,7 +11,13 @@ continued in the other at any point. The model decides what the study is. It
 never writes protocol YAML: the compiler builds and validates the draft, and
 nothing reaches the protocol until the researcher accepts the cards and applies
 the reviewed draft. Whatever the model chose on its own is named as an
-assumption in the reply.
+assumption in the reply and marked, with its reason, on the card it lands on.
+
+A one-line idea does not become nine decisions. On a study's first exchange,
+when the model would have to choose most of the plan itself, the turn asks the
+few questions only the researcher can answer instead of drafting; their answer,
+or "draft it", produces the cards. A brief that states its decisions is drafted
+straight away.
 """
 
 from __future__ import annotations
@@ -30,8 +36,8 @@ from middleware.schemas import QuickProtocolIn
 log = logging.getLogger(__name__)
 
 _COVARIATE_ONLY = {"S10"}
-# Room for the plan, its prose and the per-card sources.
-_MAX_TOKENS = 1400
+# Room for the plan, its prose, the questions, the reasons and the sources.
+_MAX_TOKENS = 1800
 _HISTORY_TURNS = 6
 _HISTORY_CHARS = 600
 _REPLY_CHARS = 700
@@ -49,10 +55,78 @@ _FIELD_LABELS = {
 }
 PLAN_FIELDS = tuple(_FIELD_LABELS)
 
+# The decisions that shape a study. Title and research-question wording follow
+# from them, so choosing those alone does not make a brief thin.
+_CORE_FIELDS = (
+    "design",
+    "conditions",
+    "participantDescription",
+    "plannedParticipants",
+    "taskDescription",
+    "sessionMinutes",
+    "measureIds",
+)
+# A first message that leaves this many core decisions to the model is an idea,
+# not a brief: ask before drafting.
+_ASK_WHEN_ASSUMED = 3
+_MAX_QUESTIONS = 3
+_QUESTION_CHARS = 240
+_WHY_CHARS = 200
+
+# Asked when the model wanted to ask but wrote no usable questions, most
+# consequential first. Each is something only the researcher can know.
+_FALLBACK_QUESTIONS = {
+    "measureIds": "What should count as the assistant making a difference: "
+    "faster work, more correct work, or how the work feels?",
+    "taskDescription": "What will participants work on: seeded problems in code "
+    "you control, or real issues from a project?",
+    "participantDescription": "Who can you realistically recruit, and how many?",
+    "conditions": "What exactly is compared: working without AI against which "
+    "assistant?",
+    "sessionMinutes": "How long can one session be?",
+    "design": "Can each person work in both conditions, or only in one?",
+}
+_FALLBACK_ORDER = (
+    "measureIds",
+    "taskDescription",
+    "participantDescription",
+    "conditions",
+    "sessionMinutes",
+    "design",
+)
+
+# Which plan fields each card commits, so a card can say which of its values
+# the assistant chose.
+_CARD_FIELDS = {
+    "choose-template": (
+        "design",
+        "conditions",
+        "plannedParticipants",
+        "sessionMinutes",
+        "title",
+    ),
+    "add-rq": ("researchQuestions",),
+    "set-field": ("participantDescription",),
+    "add-measure": ("measureIds",),
+    "declare-task": ("taskDescription",),
+}
+
+# "Draft it", "you pick", "skip the questions": the researcher wants cards now.
+_DRAFT_NOW = re.compile(
+    r"\b(?:"
+    r"(?:just |go ahead and |please )?draft (?:it|this|that|the plan|a plan|now)"
+    r"|(?:you|just) (?:pick|choose|decide)"
+    r"|your call"
+    r"|(?:use|pick|go with) (?:your|sensible|the) defaults?"
+    r"|(?:skip|stop|no more) (?:the )?questions"
+    r"|fill (?:in )?the rest"
+    r")\b",
+    re.IGNORECASE,
+)
+
 NOT_A_PLAN = (
-    "I could not turn that into a study plan yet. Tell me the coding task, the "
-    "two ways of working you want to compare, who takes part and what you want "
-    "to measure, or fill in the checklist."
+    "I could not turn that into a study plan yet. Tell me who takes part, what "
+    "they will do and what you want to learn or measure, or fill in the checklist."
 )
 
 
@@ -93,13 +167,30 @@ def system_prompt() -> str:
         "researcher's own words and numbers. Keep every field they did not ask "
         "to change exactly as it is. Where something is still undecided, choose "
         "what an experienced empirical software-engineering methodologist would "
-        "choose for this particular study and list that field's name in "
-        "`assumed`, so the researcher can see which choices were yours. When the "
-        "message is a question or a comment, answer it in `reply` and return the "
-        "plan unchanged. When the researcher asks for something a plan cannot "
-        "hold, such as a third condition, keep the plan as it is and say so "
-        "plainly in `reply`, with the closest design that would work. Describe "
-        "in `reply` only what the plan you return actually contains.\n\n"
+        "choose for this particular study, and record it in `assumed` with one "
+        "plain sentence on why that choice suits this study, so the researcher "
+        "can see which choices were yours and challenge them. Every field whose "
+        "value the researcher did not state in their own words is assumed. Never "
+        "invent evidence for a choice: no made-up effect sizes, power figures or "
+        "citations. When the message is a question or a comment, answer it in "
+        "`reply` and return the plan unchanged. When the researcher asks for "
+        "something a plan cannot hold, such as a third condition, keep the plan "
+        "as it is and say so plainly in `reply`, with the closest design that "
+        "would work. Describe in `reply` only what the plan you return actually "
+        "contains.\n\n"
+        "Write research questions neutrally: ask whether and how the conditions "
+        "differ, never presuppose that the assistant helps.\n\n"
+        "Researchers question their designs, so do not decide for them what only "
+        "they can know. When the researcher has given only an idea, and the "
+        "outcome that matters, the task or who takes part is still open, set "
+        '`action` to "ask": `reply` is then one sentence saying how you read the '
+        "idea, and `questions` holds the two or three decisions that would change "
+        "this study most, each a short question with a brief note on why it "
+        "matters. Ask nothing the researcher has already said, and nothing a "
+        'sensible default settles. If the requested study is outside the supported '
+        'coding-task comparisons, set `action` to "unsupported", explain the '
+        'limitation in `reply`, and leave `questions` empty. Otherwise set '
+        '`action` to "draft".\n\n'
         "Outcome measures come from this catalog, because these are what the "
         "platform can capture and analyse:\n"
         f"{_catalog_lines()}\n"
@@ -109,8 +200,10 @@ def system_prompt() -> str:
         "stay valid even when they are not in the catalog.\n\n"
         "Reply with one JSON object:\n"
         "{\n"
+        '  "action": "ask", "draft", or "unsupported",\n'
         '  "reply": two or three plain sentences to the researcher: what you '
         "changed and why, or the answer to their question,\n"
+        '  "questions": the questions you ask before drafting, or [],\n'
         '  "plan": {\n'
         '    "title": short study title,\n'
         '    "researchQuestions": one to three questions, each a full sentence,\n'
@@ -123,7 +216,8 @@ def system_prompt() -> str:
         '    "sessionMinutes": minutes per session,\n'
         '    "measureIds": measure ids\n'
         "  },\n"
-        '  "assumed": names of plan fields you chose yourself in this turn,\n'
+        '  "assumed": {plan field name: one sentence on why you chose it} for '
+        "every field you chose yourself in this turn,\n"
         '  "caution": the most important threat to validity for this design in '
         "one sentence, or an empty string,\n"
         '  "sources": the ids of retrieved papers (P1, P2, ...) that directly '
@@ -732,6 +826,94 @@ def _ask(
     return raw if isinstance(raw, dict) and isinstance(raw.get("plan"), dict) else None
 
 
+def wants_draft(text: str) -> bool:
+    """Whether the researcher asked for cards now rather than questions."""
+    return bool(_DRAFT_NOW.search(text or ""))
+
+
+def _assumed(raw: dict) -> dict[str, str]:
+    """The fields the model chose itself, each with its reason ("" if none).
+
+    The prompt asks for ``{field: why}``; a bare list of names, from an older
+    or less obedient model, still counts. Anything else assumes nothing.
+    """
+    value = raw.get("assumed")
+    if isinstance(value, list):
+        return {n: "" for n in value if isinstance(n, str) and n in _FIELD_LABELS}
+    if isinstance(value, dict):
+        return {
+            name: _plain_measure_names(_clip_reply(why, _WHY_CHARS))
+            for name, why in value.items()
+            if isinstance(name, str) and name in _FIELD_LABELS
+        }
+    return {}
+
+
+def _questions(raw: dict) -> list[str]:
+    value = raw.get("questions")
+    if not isinstance(value, list):
+        return []
+    questions: list[str] = []
+    for item in value:
+        question = _plain_measure_names(_clip_reply(item, _QUESTION_CHARS))
+        if question and question not in questions:
+            questions.append(question)
+    return questions[:_MAX_QUESTIONS]
+
+
+def _fallback_questions(assumed: dict[str, str]) -> list[str]:
+    open_fields = [f for f in _FALLBACK_ORDER if f in assumed] or list(_FALLBACK_ORDER)
+    return [_FALLBACK_QUESTIONS[f] for f in open_fields[:_MAX_QUESTIONS]]
+
+
+def _asking_reply(reading: str, questions: list[str]) -> str:
+    """The reading, the questions and the way out, one paragraph each.
+
+    The chat renders paragraphs, not line breaks, and starts a sentence after
+    "1.", so each question is its own paragraph numbered "(1)".
+    """
+    lead = (
+        "Before I draft anything, these are yours to decide:"
+        if len(questions) > 1
+        else "Before I draft anything, this one is yours to decide:"
+    )
+    return "\n\n".join(
+        part
+        for part in (
+            reading,
+            lead,
+            *(f"({i}) {q}" for i, q in enumerate(questions, start=1)),
+            "Answer what you can. Whatever you leave open I will fill with a "
+            "suggestion marked as mine, with my reason. Or say “draft it” and "
+            "I will draft now.",
+        )
+        if part
+    )
+
+
+def _short_label(field: str) -> str:
+    label = _FIELD_LABELS[field]
+    return label[4:] if label.startswith("the ") else label
+
+
+def _mark_suggestions(moves: list[dict], suggested: dict[str, str]) -> None:
+    """Tell each plan card which of its values the assistant chose, and why.
+
+    Rides on the patch, as merge reasons already do, so it is stored with the
+    card; the compiler reads only the keys it knows. An empty list marks a plan
+    card whose values all came from the researcher.
+    """
+    for move in moves:
+        fields = _CARD_FIELDS.get(move["kind"])
+        if fields is None or not isinstance(move.get("patch"), dict):
+            continue
+        move["patch"]["suggested"] = [
+            {"field": f, "label": _short_label(f), "why": suggested[f]}
+            for f in fields
+            if f in suggested
+        ]
+
+
 def propose(
     client,
     text: str,
@@ -739,12 +921,21 @@ def propose(
     current: dict | None = None,
     history: list[dict] | None = None,
     papers: list[dict] | None = None,
+    *,
+    may_ask: bool = False,
+    suggested_before: dict[str, str] | None = None,
 ) -> dict | None:
     """One chat turn against the study plan: ``{"text", "moves"}``, or None.
 
     ``papers`` are the literature retrieved for this turn. The model may cite
     them by short id; each card's ``cites`` holds the refs it cited, and only
     refs from ``papers`` can appear there.
+
+    ``may_ask`` allows a turn of questions instead of cards; the caller grants it
+    on a study's first exchange only, so asking happens at most once. A turn
+    that asks has ``"asked": True`` and no moves. ``suggested_before`` holds the
+    fields earlier, still undecided cards marked as the assistant's choice, so a
+    revision keeps marking them until the researcher accepts or restates them.
 
     None means the model answered with nothing plan-shaped and the caller should
     handle the turn another way. An answer with no change has no moves. Raises
@@ -756,7 +947,22 @@ def propose(
     if raw is None:
         return None
     reply = _plain_measure_names(_clip_reply(raw.get("reply"), _REPLY_CHARS))
+    if raw.get("action") == "unsupported" and reply:
+        return {"text": reply, "moves": []}
+    assumed = _assumed(raw)
     body, problem = _body(raw["plan"], current)
+    if may_ask and not wants_draft(text) and not any(before.values()):
+        # The model's own verdict, or the count of core decisions it had to make
+        # itself: both say whether this message is an idea or a brief. Keyword
+        # cues are not used; they read "bug" as both a task and an outcome.
+        thin = (
+            raw.get("action") == "ask"
+            or body is None
+            or sum(f in assumed for f in _CORE_FIELDS) >= _ASK_WHEN_ASSUMED
+        )
+        if thin:
+            questions = _questions(raw) or _fallback_questions(assumed)
+            return {"text": _asking_reply(reply, questions), "moves": [], "asked": True}
     if body is None:
         # The model's prose describes a plan that was not applied, so it is not
         # shown: only the reason is.
@@ -816,11 +1022,16 @@ def propose(
         [_clip(q, 500) for q in asked] if isinstance(asked, list) else [],
         _paper_ids(papers),
     )
-    raw_assumed = raw.get("assumed")
-    assumed = (
-        [n for n in raw_assumed if isinstance(n, str)]
-        if isinstance(raw_assumed, list)
-        else []
+    # A choice stays the assistant's until the researcher restates or accepts
+    # it: unchanged fields keep the mark an earlier, undecided card gave them.
+    carried = {
+        field: why
+        for field, why in (suggested_before or {}).items()
+        if field in _FIELD_LABELS and field not in changed
+    }
+    _mark_suggestions(
+        moves,
+        {**carried, **{f: why or carried.get(f, "") for f, why in assumed.items()}},
     )
     caution = _plain_measure_names(_clip_reply(raw.get("caution"), 300))
     if not any(before.values()):

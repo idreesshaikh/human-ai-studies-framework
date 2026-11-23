@@ -16,6 +16,5 @@ export function roleOrNull(state: RoleState): Role | null {
  * opens, with no user action. Never while access is unknown or for a viewer;
  * the server remains the final authorization check. */
 export function compileOnOpenAllowed(state: RoleState): boolean {
-  if (state.status === "loading") return false;
-  return state.role !== "viewer";
+  return state.status === "known" && state.role != null && state.role !== "viewer";
 }

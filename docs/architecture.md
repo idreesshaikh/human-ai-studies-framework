@@ -69,6 +69,10 @@ function merely to reduce a line count would hide, rather than remove, coupling.
 `middleware/design_assistant.py` combines study state and retrieved literature;
 `design_llm.py` constrains and parses model output. `assistant.py` supplies the
 configured chat-provider transport. There is no separate knowledge-chat interface.
+Conversation routes read the study and generate the reply before opening a
+write transaction. They commit the researcher message, reply, and proposed
+changes together. Capture and other study writes can proceed while the model
+is answering.
 
 After researcher review, `middleware/compiler.py` folds accepted changes into
 YAML and validates it through `protocol/loader.py`. The browser compiler in

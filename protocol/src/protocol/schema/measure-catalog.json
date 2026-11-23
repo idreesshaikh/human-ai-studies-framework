@@ -715,5 +715,253 @@
       "cognitive complexity",
       "static code metrics"
     ]
+  },
+  {
+    "id": "S33",
+    "construct": "mental demand (adapted TLX)",
+    "description": "Perceived mental demands of the task, as a declared questionnaire item.",
+    "instrument": "raw-tlx",
+    "fields": [
+      "survey_response.responses.mental_demand"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "mentally demanding",
+      "mental demand"
+    ]
+  },
+  {
+    "id": "S34",
+    "construct": "effort (adapted TLX)",
+    "description": "Self-reported effort invested in accomplishing the task.",
+    "instrument": "raw-tlx",
+    "fields": [
+      "survey_response.responses.effort"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "effort",
+      "worked hard"
+    ]
+  },
+  {
+    "id": "S35",
+    "construct": "frustration (adapted TLX)",
+    "description": "Self-reported frustration during the task.",
+    "instrument": "raw-tlx",
+    "fields": [
+      "survey_response.responses.frustration"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "frustration",
+      "annoyance"
+    ]
+  },
+  {
+    "id": "S36",
+    "construct": "temporal demand (adapted TLX)",
+    "description": "Perceived time pressure, distinct from elapsed task duration.",
+    "instrument": "raw-tlx",
+    "fields": [
+      "survey_response.responses.temporal_demand"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "temporal demand",
+      "time pressure"
+    ]
+  },
+  {
+    "id": "S37",
+    "construct": "perceived performance (adapted TLX)",
+    "description": "Self-rated success on the task (0 poor, 100 good), distinct from objective test success.",
+    "instrument": "raw-tlx",
+    "fields": [
+      "survey_response.responses.performance"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "perceived performance",
+      "self-rated performance"
+    ]
+  },
+  {
+    "id": "S38",
+    "construct": "self-rated comprehension (session check)",
+    "description": "Self-rated understanding of the code the participant ended with; not a comprehension test.",
+    "instrument": "session-check",
+    "fields": [
+      "survey_response.responses.comprehension"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "self-rated comprehension",
+      "reported understanding"
+    ]
+  },
+  {
+    "id": "S39",
+    "construct": "overall workload (adapted TLX)",
+    "description": "Unweighted mean of the five raw TLX ratings, performance reversed so higher means more workload; an adapted raw TLX, not weighted NASA-TLX.",
+    "instrument": "raw-tlx",
+    "fields": [
+      "survey_response.score"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "raw TLX",
+      "raw NASA-TLX",
+      "NASA-TLX",
+      "overall workload"
+    ]
+  },
+  {
+    "id": "S40",
+    "construct": "BFI-2-XS Extraversion",
+    "description": "Extraversion domain mean of three BFI-2-XS items after reverse-keying; less reliable than the full BFI-2.",
+    "instrument": "bfi-2-xs",
+    "fields": [
+      "survey_response.scoreGroups.extraversion"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "extraversion",
+      "BFI-2 Extraversion"
+    ]
+  },
+  {
+    "id": "S41",
+    "construct": "BFI-2-XS Agreeableness",
+    "description": "Agreeableness domain mean of three BFI-2-XS items after reverse-keying; less reliable than the full BFI-2.",
+    "instrument": "bfi-2-xs",
+    "fields": [
+      "survey_response.scoreGroups.agreeableness"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "agreeableness",
+      "BFI-2 Agreeableness"
+    ]
+  },
+  {
+    "id": "S42",
+    "construct": "BFI-2-XS Conscientiousness",
+    "description": "Conscientiousness domain mean of three BFI-2-XS items after reverse-keying; less reliable than the full BFI-2.",
+    "instrument": "bfi-2-xs",
+    "fields": [
+      "survey_response.scoreGroups.conscientiousness"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "conscientiousness",
+      "BFI-2 Conscientiousness"
+    ]
+  },
+  {
+    "id": "S43",
+    "construct": "BFI-2-XS Negative Emotionality",
+    "description": "Negative Emotionality domain mean of three BFI-2-XS items after reverse-keying; less reliable than the full BFI-2.",
+    "instrument": "bfi-2-xs",
+    "fields": [
+      "survey_response.scoreGroups.negative_emotionality"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "negative emotionality",
+      "BFI-2 Negative Emotionality"
+    ]
+  },
+  {
+    "id": "S44",
+    "construct": "BFI-2-XS Open-Mindedness",
+    "description": "Open-Mindedness domain mean of three BFI-2-XS items after reverse-keying; less reliable than the full BFI-2.",
+    "instrument": "bfi-2-xs",
+    "fields": [
+      "survey_response.scoreGroups.open_mindedness"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "open-mindedness",
+      "BFI-2 Open-Mindedness"
+    ]
+  },
+  {
+    "id": "S45",
+    "construct": "BFI-2-XS personality profile",
+    "description": "Extra-short Big Five Inventory 2 (15 items), answered before the task. Returns five domain means; no facets and no total. Use only when a hypothesis names a trait.",
+    "instrument": "bfi-2-xs",
+    "fields": [
+      "survey_response.scoreGroups.extraversion",
+      "survey_response.scoreGroups.agreeableness",
+      "survey_response.scoreGroups.conscientiousness",
+      "survey_response.scoreGroups.negative_emotionality",
+      "survey_response.scoreGroups.open_mindedness"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "Big Five Inventory 2",
+      "BFI-2",
+      "Big Five personality profile",
+      "BFI-2-XS",
+      "personality"
+    ]
+  },
+  {
+    "id": "S32",
+    "construct": "self-reported AI use",
+    "description": "How much each participant says they used AI tools, inside or outside the editor, asked in every condition. 0 is a self-report, not verified non-use.",
+    "instrument": "session-check",
+    "fields": [
+      "survey_response.responses.ai_use"
+    ],
+    "recipeByDesign": {
+      "within-subjects": "typed-measures",
+      "between-subjects": "typed-measures"
+    },
+    "aliases": [
+      "self-reported AI use",
+      "reported AI use",
+      "manipulation check"
+    ]
   }
 ]

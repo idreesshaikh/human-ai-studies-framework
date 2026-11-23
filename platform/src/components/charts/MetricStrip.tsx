@@ -457,8 +457,8 @@ function OrdinalDistribution({
           </g>
         </svg>
         <p className="px-2 type-note text-text-muted">
-          Counts per level — an ordinal scale is shown as a distribution, never
-          averaged. Exact counts in the table view.
+          Counts per level. Ordinal ratings are shown as a distribution, not an
+          average. Exact counts are in the table view.
         </p>
         <Tooltip tip={tip} />
       </div>
@@ -541,7 +541,7 @@ function CategoricalShare({
           <div key={c.condition} className="flex flex-col gap-1">
             <div className="flex items-baseline justify-between type-caption">
               <span className="font-semibold text-text">{conditionLabel(c.condition)}</span>
-              <span className="tabular text-text-muted">{c.n} records</span>
+              <span className="tabular text-text-muted">{c.n} {c.n === 1 ? "record" : "records"}</span>
             </div>
             {c.n === 0 ? (
               <p className="type-caption text-text-muted">no data</p>

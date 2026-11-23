@@ -17,7 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from middleware import corpus_fetchers, corpus_scoring, paper_index
+from middleware import corpus_fetchers, corpus_scoring, paper_index, semantic_scholar
 from middleware.corpus_importer import _upsert_corpus_paper
 from middleware.corpus_sources import (
     SourceFormatError,
@@ -25,6 +25,7 @@ from middleware.corpus_sources import (
     merge_sources,
     parse_arxiv_atom,
     parse_s2_bulk,
+    parse_s2_papers,
     title_key,
 )
 from middleware.db import CORPUS_STUDY_ID, CorpusCandidate, CorpusRefreshRun, Paper
@@ -118,10 +119,13 @@ def refresh(
     score_fn: Callable[[dict], float | None],
     now: Callable[[], str],
     dry_run: bool = False,
+    fetch_recs: Callable[[list[str], list[str], int], list[dict]] | None = None,
 ) -> dict:
     """
     Fetch new papers from each configured source and store the unseen ones as
-    candidates.
+    candidates. Besides the keyword queries, ``recommendations`` asks Semantic
+    Scholar for papers like the human-chosen examples and unlike the rejected
+    ones, so discovery follows the field even when its vocabulary moves.
     """
     max_per_query = int(config.get("maxPerQuery", 100))
     with session_factory() as s:
@@ -167,6 +171,19 @@ def refresh(
             ("s2", q, lambda q=q: _collect_s2(fetch_s2, q, since, until, max_per_query))
             for q in config.get("semanticScholar", [])
         ]
+        rec_limit = int(config.get("recommendations", 0) or 0)
+        if rec_limit and fetch_recs is not None:
+            positive, negative = example_s2_ids(s)
+            if positive:
+                jobs.append(
+                    (
+                        "s2-recs",
+                        f"{len(positive)} examples, {len(negative)} counter-examples",
+                        lambda: parse_s2_papers(
+                            fetch_recs(positive, negative, rec_limit), source="s2-recs"
+                        ),
+                    )
+                )
         for source, label, job in jobs:
             try:
                 fetched.extend(job())
@@ -371,7 +388,125 @@ def load_config(path: Path) -> dict:
     max_per_query = data.get("maxPerQuery", 100)
     if not isinstance(max_per_query, int) or not 1 <= max_per_query <= 1000:
         raise ValueError("maxPerQuery must be an integer from 1 to 1000")
-    return {"arxiv": arxiv, "semanticScholar": s2, "maxPerQuery": max_per_query}
+    recommendations = data.get("recommendations", 0)
+    if not isinstance(recommendations, int) or not 0 <= recommendations <= 500:
+        raise ValueError("recommendations must be an integer from 0 (off) to 500")
+    return {
+        "arxiv": arxiv,
+        "semanticScholar": s2,
+        "maxPerQuery": max_per_query,
+        "recommendations": recommendations,
+        "curation": curation_config(data.get("curation", {})),
+    }
+
+
+CURATION_DEFAULTS = {
+    # Re-check a corpus row's Semantic Scholar metadata after this many days.
+    "staleDays": 90,
+    # Relevance = mean similarity to this many nearest example papers.
+    "neighbours": 3,
+    # Keep cutoff: this percentile of the examples' own leave-one-out relevance.
+    "keepPercentile": 10,
+    # Hide cutoff: this far below the keep cutoff.
+    "hideMargin": 0.05,
+    # Fixed cutoffs, overriding the calibration when both are set.
+    "keepAt": None,
+    "hideBelow": None,
+}
+
+
+def curation_config(raw: object) -> dict:
+    """The ``curation`` section with defaults filled in; ValueError names a problem."""
+    if not isinstance(raw, dict):
+        raise ValueError("curation must be a JSON object")
+    unknown = set(raw) - set(CURATION_DEFAULTS)
+    if unknown:
+        raise ValueError(f"curation has unknown keys: {sorted(unknown)}")
+    cfg = {**CURATION_DEFAULTS, **raw}
+    for key, low, high in (("staleDays", 1, 3650), ("neighbours", 1, 20)):
+        if not isinstance(cfg[key], int) or not low <= cfg[key] <= high:
+            raise ValueError(f"curation.{key} must be an integer from {low} to {high}")
+    for key, low, high in (("keepPercentile", 0, 100), ("hideMargin", 0, 1)):
+        if not isinstance(cfg[key], int | float) or not low <= cfg[key] <= high:
+            raise ValueError(f"curation.{key} must be a number from {low} to {high}")
+    fixed = [cfg["keepAt"], cfg["hideBelow"]]
+    if any(v is not None for v in fixed):
+        if not all(isinstance(v, int | float) and -1 <= v <= 1 for v in fixed):
+            raise ValueError("curation.keepAt and hideBelow must both be set, -1..1")
+        if cfg["hideBelow"] > cfg["keepAt"]:
+            raise ValueError("curation.hideBelow must not exceed keepAt")
+    return cfg
+
+
+HUMAN = "human:"
+
+
+def human_examples(s: Session) -> tuple[list[str], list[str]]:
+    """
+    Refs a person chose (the README seeds and anything accepted or kept by
+    hand) and refs a person turned down. Automatic decisions are never
+    examples, so curation cannot drift by learning from itself.
+    """
+    corpus = Paper.study_id == CORPUS_STUDY_ID
+    positive = list(
+        s.scalars(
+            select(Paper.paper_ref)
+            .where(corpus)
+            .where(
+                (Paper.tier == "A")
+                | ((Paper.curation == "keep") & Paper.curation_by.startswith(HUMAN))
+            )
+            .order_by(Paper.year.desc().nulls_last(), Paper.paper_ref)
+        )
+    )
+    negative = list(
+        s.scalars(
+            select(Paper.paper_ref).where(
+                corpus,
+                Paper.curation == "hidden",
+                Paper.curation_by.startswith(HUMAN),
+            )
+        )
+    )
+    negative += list(
+        s.scalars(
+            select(CorpusCandidate.ref).where(
+                CorpusCandidate.status == "rejected",
+                ~func.coalesce(CorpusCandidate.decided_by, "").startswith("auto:"),
+            )
+        )
+    )
+    return positive, negative
+
+
+def example_s2_ids(s: Session, *, cap: int = 100) -> tuple[list[str], list[str]]:
+    """Semantic Scholar ids of the human examples, newest first, capped."""
+    positive, negative = human_examples(s)
+
+    def ids(refs: list[str]) -> list[str]:
+        if not refs:
+            return []
+        found = dict(
+            s.execute(
+                select(Paper.paper_ref, Paper.s2_id).where(
+                    Paper.study_id == CORPUS_STUDY_ID, Paper.paper_ref.in_(refs)
+                )
+            ).all()
+        )
+        found.update(
+            {
+                r: i
+                for r, i in s.execute(
+                    select(CorpusCandidate.ref, CorpusCandidate.s2_id).where(
+                        CorpusCandidate.ref.in_(refs)
+                    )
+                ).all()
+                if i and not found.get(r)
+            }
+        )
+        return [found[r] for r in refs if found.get(r)][:cap]
+
+    return ids(positive), ids(negative)
 
 
 def run_once(
@@ -402,6 +537,9 @@ def run_once(
         # Looked up at call time so tests (and the CLI tests) can substitute them.
         fetch_arxiv=lambda *a: corpus_fetchers.fetch_arxiv(*a),
         fetch_s2=lambda *a: corpus_fetchers.fetch_s2(*a),
+        fetch_recs=lambda pos, neg, n: semantic_scholar.fetch_recommendations(
+            pos, neg, fields=corpus_fetchers.S2_FIELDS, limit=n
+        ),
         score_fn=lambda cand: corpus_scoring.candidate_score(cand, today.year),
         now=now,
         dry_run=dry_run,
@@ -473,6 +611,19 @@ def promote(s: Session, ref: str, *, decided_by: str, now: str, note: str = "") 
         note,
     )
     s.flush()
+    row = s.scalar(
+        select(Paper).where(
+            Paper.study_id == CORPUS_STUDY_ID, Paper.paper_ref == cand.ref
+        )
+    )
+    automatic = decided_by.startswith("auto:")
+    row.curation = "keep"
+    row.curation_by = "auto" if automatic else f"{HUMAN}{decided_by}"
+    row.curation_reason = note or ("accepted by hand" if not automatic else "")
+    row.relevance = cand.relevance
+    if automatic:
+        row.added_via = "refresh-auto"
+    s.flush()
     return {"ref": ref, "status": "accepted", "alreadyAccepted": False}
 
 
@@ -494,7 +645,9 @@ def reject(s: Session, ref: str, *, decided_by: str, now: str, note: str = "") -
     return {"ref": ref, "status": "rejected"}
 
 
-CANDIDATE_STATUSES = ("new", "accepted", "rejected")
+# "dismissed" is an automatic, reversible rejection (off-topic or weak); a
+# person can still accept or reject a dismissed candidate.
+CANDIDATE_STATUSES = ("new", "accepted", "rejected", "dismissed")
 
 
 def candidate_counts(s: Session) -> dict[str, int]:
@@ -518,7 +671,11 @@ def list_candidates(s: Session, *, status: str = "new", limit: int = 50) -> list
     rows = s.scalars(
         select(CorpusCandidate)
         .where(CorpusCandidate.status == status)
-        .order_by(CorpusCandidate.score.desc().nulls_last(), CorpusCandidate.id)
+        .order_by(
+            CorpusCandidate.relevance.desc().nulls_last(),
+            CorpusCandidate.score.desc().nulls_last(),
+            CorpusCandidate.id,
+        )
         .limit(max(1, min(limit, 200)))
     )
     return [
@@ -531,6 +688,8 @@ def list_candidates(s: Session, *, status: str = "new", limit: int = 50) -> list
             "source": c.source,
             "url": c.url,
             "score": c.score,
+            "relevance": c.relevance,
+            "reason": c.triage_reason or "",
             "firstSeenAt": c.first_seen_at,
         }
         for c in rows

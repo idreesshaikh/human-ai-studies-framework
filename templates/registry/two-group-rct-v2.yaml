@@ -65,7 +65,13 @@ measures:
   leg: cognitive
   elements:
   - survey_response.score
-  description: Declared raw NASA-TLX mean.
+  description: Declared raw TLX mean (adapted, five subscales).
+- id: ai-use-report
+  leg: cognitive
+  elements:
+  - survey_response.responses.ai_use
+  description: Self-reported AI use, asked in every condition; a manipulation check, not
+    verified use.
 statisticalPlan:
   unit: participant
   perRQ:
@@ -125,79 +131,97 @@ protocolSkeleton:
     taskHarness:
       enabled: true
     surveys:
-    - id: raw-nasa-tlx
+    - id: raw-tlx
       version: '1.0'
-      title: Raw NASA-TLX
+      title: Task workload
       timing: post-task
+      instructions: Rate the task you just finished.
       items:
       - id: mental_demand
-        text: How much mental and perceptual activity was required (e.g., thinking, deciding,
-          calculating, remembering, looking, searching, etc.)? Was the task easy or demanding,
-          simple or complex, exacting or forgiving?
+        text: How much mental and perceptual activity was required?
         scale:
           min: 0
           max: 100
-          step: 5
-          lowLabel: Low
-          highLabel: High
-        reverse: false
-      - id: physical_demand
-        text: How much physical activity was required (e.g., pushing, pulling, turning, controlling,
-          activating, etc.)? Was the task easy or demanding, slow or brisk, slack or strenuous,
-          restful or laborious?
-        scale:
-          min: 0
-          max: 100
-          step: 5
+          step: 10
           lowLabel: Low
           highLabel: High
         reverse: false
       - id: temporal_demand
-        text: How much time pressure did you feel due to the rate or pace at which the tasks
-          or task elements occurred? Was the pace slow and leisurely or rapid and frantic?
+        text: How much time pressure did you feel?
         scale:
           min: 0
           max: 100
-          step: 5
+          step: 10
           lowLabel: Low
           highLabel: High
         reverse: false
       - id: performance
-        text: How successful do you think you were in accomplishing the goals of the task set
-          by the experimenter (or yourself)? How satisfied were you with your performance in
-          accomplishing these goals?
+        text: How successful do you think you were in accomplishing the goals of the task?
         scale:
           min: 0
           max: 100
-          step: 5
-          lowLabel: Good
-          highLabel: Poor
-        reverse: false
+          step: 10
+          lowLabel: Poor
+          highLabel: Good
+        reverse: true
       - id: effort
-        text: How hard did you have to work (mentally and physically) to accomplish your level
-          of performance?
+        text: How hard did you have to work to accomplish your level of performance?
         scale:
           min: 0
           max: 100
-          step: 5
+          step: 10
           lowLabel: Low
           highLabel: High
         reverse: false
       - id: frustration
-        text: How insecure, discouraged, irritated, stressed and annoyed versus secure, gratified,
-          content, relaxed and complacent did you feel during the task?
+        text: How insecure, discouraged, irritated, stressed and annoyed did you feel during the task?
         scale:
           min: 0
           max: 100
-          step: 5
+          step: 10
           lowLabel: Low
           highLabel: High
         reverse: false
       scoring: mean
       source: https://ntrs.nasa.gov/citations/20000021488
       licence: US government work; NASA permits use and modification without permission
-      validation: Raw unweighted mean; not the weighted NASA-TLX. Labels and descriptions from
-        NASA paper-and-pencil v1.0; electronic 0–100 scale in steps of 5.
+      validation: 'Adapted raw TLX: five of the six NASA v1.0 subscales (physical demand dropped for
+        desk tasks), each question the first sentence of NASA''s definition, rated 0–100 in steps
+        of 10 (11 points; the paper form has 21). Performance runs Poor → Good and is reverse-scored,
+        so the score is the unweighted mean with higher meaning more workload. Report it as an adapted
+        raw TLX, not the weighted NASA-TLX.'
+    - id: session-check
+      version: '1.0'
+      title: About this session
+      timing: post-task
+      instructions: There are no right answers. Please answer honestly.
+      items:
+      - id: ai_use
+        text: How much did you use AI tools during the task (chat, code completion or agents, inside
+          or outside the editor)?
+        scale:
+          min: 0
+          max: 4
+          step: 1
+          lowLabel: Not at all
+          highLabel: Throughout the task
+        reverse: false
+      - id: comprehension
+        text: How well do you understand the code you ended up with?
+        scale:
+          min: 1
+          max: 5
+          step: 1
+          lowLabel: Not at all
+          highLabel: Completely
+        reverse: false
+      scoring: none
+      source: StudyLoop item set, 2026-11-23
+      licence: Repository MIT licence
+      validation: 'Unvalidated single items, analysed separately. ai_use is asked in every condition:
+        above 0 is reported AI use, and 0 is a self-report, not verified non-use. Interpret responses in
+        the context of the study protocol and analyse by assigned condition.
+        comprehension is a self-rating, not a comprehension test.'
   phases:
   - name: design
     gates:
@@ -237,10 +261,17 @@ protocolSkeleton:
     analysisRecipe: mean-comparison
     version: '1.0'
   - id: workload
-    construct: Raw NASA-TLX workload
-    instrument: raw-nasa-tlx
+    construct: Raw TLX workload
+    instrument: raw-tlx
     fields:
     - survey_response.score
+    analysisRecipe: typed-measures
+    version: '1.0'
+  - id: ai-use-report
+    construct: Self-reported AI use (manipulation check)
+    instrument: session-check
+    fields:
+    - survey_response.responses.ai_use
     analysisRecipe: typed-measures
     version: '1.0'
   controlConditions:

@@ -14,6 +14,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -142,6 +143,19 @@ class Paper(Base):
     added_via: Mapped[str] = mapped_column(String, default="")
     match_reason: Mapped[str] = mapped_column(Text, default="")
     added_at: Mapped[str] = mapped_column(String)
+    # Corpus curation (``corpus_curate``). ``curation`` is "" until a curation
+    # run decides, then keep | review | hidden; hidden rows leave search and
+    # matching but are never deleted. ``curation_by`` is "auto", "seed" or
+    # "human:<who>"; automatic runs never override a human decision.
+    curation: Mapped[str] = mapped_column(String, default="")
+    curation_by: Mapped[str] = mapped_column(String, default="")
+    curation_reason: Mapped[str] = mapped_column(Text, default="")
+    relevance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    influential_citation_count: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    # When Semantic Scholar metadata was last re-checked ("" = never).
+    checked_at: Mapped[str] = mapped_column(String, default="")
 
 
 class PaperEdge(Base):
@@ -243,6 +257,33 @@ class CorpusCandidate(Base):
     decided_at: Mapped[str | None] = mapped_column(String, nullable=True)
     decided_by: Mapped[str | None] = mapped_column(String, nullable=True)
     note: Mapped[str] = mapped_column(Text, default="")
+    relevance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    triage_reason: Mapped[str] = mapped_column(Text, default="")
+
+
+class CorpusCurationRun(Base):
+    """One curation pass over the corpus and the candidate pool."""
+
+    __tablename__ = "corpus_curation_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    started_at: Mapped[str] = mapped_column(String)
+    finished_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="running")
+    summary: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class PaperEmbedding(Base):
+    """A Semantic Scholar SPECTER2 vector for one paper ref (``corpus_curate``)."""
+
+    __tablename__ = "paper_embeddings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ref: Mapped[str] = mapped_column(String, unique=True, index=True)
+    model: Mapped[str] = mapped_column(String, default="specter_v2")
+    # float32, little-endian
+    vector: Mapped[bytes] = mapped_column(LargeBinary)
+    fetched_at: Mapped[str] = mapped_column(String, default="")
 
 
 class RecipeRun(Base):
@@ -577,9 +618,8 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     if not is_pg:
         path_part = db_url_str.replace("sqlite:///", "")
         Path(path_part).parent.mkdir(parents=True, exist_ok=True)
-        # A streamed design turn keeps a write transaction open while the model
-        # answers. WAL lets readers proceed meanwhile, and the longer busy timeout
-        # makes a second writer wait instead of failing with "database is locked".
+        # WAL keeps readers independent of writers. A busy timeout gives
+        # concurrent capture batches time to finish their short write transactions.
         engine = create_engine(db_url_str, connect_args={"timeout": 30})
 
         @event.listens_for(engine, "connect")
@@ -602,6 +642,7 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _create_schema(engine, db_url_str)
     _migrate_stored_file_study_id(engine)
     _migrate_paper_curator_note(engine)
+    _migrate_corpus_curation(engine)
     _migrate_conversation_recommendations(engine)
     _migrate_conversation_request_id(engine)
     _migrate_paper_edge_authors(engine)
@@ -768,6 +809,33 @@ def _migrate_paper_curator_note(engine) -> None:
         if "curator_note" not in cols:
             conn.execute(text("ALTER TABLE papers ADD COLUMN curator_note TEXT"))
             log.info("Added curator_note column to papers (abstract enrichment)")
+
+
+_CURATION_COLUMNS = {
+    "papers": (
+        ("curation", "VARCHAR DEFAULT ''"),
+        ("curation_by", "VARCHAR DEFAULT ''"),
+        ("curation_reason", "TEXT DEFAULT ''"),
+        ("relevance", "FLOAT"),
+        ("influential_citation_count", "INTEGER"),
+        ("checked_at", "VARCHAR DEFAULT ''"),
+    ),
+    "corpus_candidates": (
+        ("relevance", "FLOAT"),
+        ("triage_reason", "TEXT DEFAULT ''"),
+    ),
+}
+
+
+def _migrate_corpus_curation(engine) -> None:
+    """Add the corpus-curation columns if missing (both dialects, idempotent)."""
+    with engine.begin() as conn:
+        for table, columns in _CURATION_COLUMNS.items():
+            have = {c["name"] for c in inspect(engine).get_columns(table)}
+            for name, ddl in columns:
+                if name not in have:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+                    log.info("Added %s.%s (corpus curation)", table, name)
 
 
 def _migrate_paper_edge_authors(engine) -> None:

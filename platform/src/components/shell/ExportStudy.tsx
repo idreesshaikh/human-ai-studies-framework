@@ -16,7 +16,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   async function run(
-    kind: "kit" | "record" | "notebook" | "data",
+    kind: "kit" | "record" | "notebook" | "data" | "card",
     download: () => Promise<void>,
   ) {
     setBusy(kind);
@@ -42,7 +42,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
     <div className="flex items-center gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" aria-label="Share and export">
+          <Button variant="ghost" size="sm" aria-label="Export study">
             {busy ? (
               <Loader2 className="size-4 animate-spin" aria-hidden />
             ) : done ? (
@@ -50,7 +50,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
             ) : (
               <Download className="size-4" aria-hidden />
             )}
-            <span className="hidden sm:inline">Share</span>
+            <span className="hidden sm:inline">Export</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="max-w-72">
@@ -60,8 +60,19 @@ export function ExportStudy({ studyId }: { studyId: string }) {
             <div className="flex flex-col gap-0.5">
               <span>Data (.zip)</span>
               <span className="type-caption text-text-muted">
-                Tidy CSV per event type, the joined timeline and a data
-                dictionary, for your own analysis. Synthetic rows excluded.
+                Event CSVs, joined timeline and data dictionary. Synthetic rows excluded.
+              </span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() =>
+              void run("card", () => studyApi.downloadDesignCard(studyId))
+            }
+          >
+            <div className="flex flex-col gap-0.5">
+              <span>Design card (.md)</span>
+              <span className="type-caption text-text-muted">
+                The recorded study design in Markdown.
               </span>
             </div>
           </DropdownMenuItem>
@@ -73,8 +84,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
             <div className="flex flex-col gap-0.5">
               <span>Replication kit</span>
               <span className="type-caption text-text-muted">
-                Protocol, dataset, report and pinned versions: byte-identical
-                on every export.
+                Protocol, data, report and pinned versions. Reproducible on every export.
               </span>
             </div>
           </DropdownMenuItem>
@@ -86,8 +96,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
             <div className="flex flex-col gap-0.5">
               <span>Elicitation record</span>
               <span className="type-caption text-text-muted">
-                The decision chain: turns, moves and their grounding,
-                compilations, approvals.
+                Conversation, decisions, sources, compilations and approvals.
               </span>
             </div>
           </DropdownMenuItem>
@@ -99,8 +108,7 @@ export function ExportStudy({ studyId }: { studyId: string }) {
             <div className="flex flex-col gap-0.5">
               <span>Starter notebook</span>
               <span className="type-caption text-text-muted">
-                Loaded, documented dataset and every planned recipe imported,
-                nothing run yet. Your analysis starts at the last cell.
+                Dataset and planned recipes ready for your analysis. Nothing run yet.
               </span>
             </div>
           </DropdownMenuItem>

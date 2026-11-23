@@ -14,6 +14,8 @@ from protocol.capture import (
 )
 from protocol.derive import derive_overlay_settings
 
+_RESEARCHER_NOTES = ("source", "licence", "validation")
+
 
 def connection_string(base_url: str, token: str) -> str:
     """The copy-safe string a participant pastes: ``serverUrl#token``."""
@@ -43,7 +45,12 @@ def build_capture_config(
     effective = apply_capture_overrides(protocol, overrides)
     settings = derive_overlay_settings(effective, participant_id, condition, task)
     settings["tern.protocolVersion"] = protocol.get("protocolVersion", 1)
-    settings["tern.surveys"] = protocol.get("instruments", {}).get("surveys", [])
+    # TERN prints a survey's validation note under its title, so researcher-only
+    # notes stay in the protocol; the recorded instrument hash still covers them.
+    settings["tern.surveys"] = [
+        {k: v for k, v in survey.items() if k not in _RESEARCHER_NOTES}
+        for survey in protocol.get("instruments", {}).get("surveys", [])
+    ]
     settings["tern.toolVersions"] = protocol.get("toolVersions", {}).get(condition, {})
     from protocol.versioning import provenance
 

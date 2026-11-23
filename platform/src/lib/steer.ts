@@ -23,7 +23,8 @@ export const STEER_STOPS: readonly SteerStop[] = [
     level: 3,
     id: "leads",
     label: "Drafts the plan",
-    summary: "Turns what you say into plan cards you accept or reject.",
+    summary:
+      "Asks what only you can decide, then drafts plan cards you accept or reject. Its own choices are marked.",
     profile: "student",
   },
   {

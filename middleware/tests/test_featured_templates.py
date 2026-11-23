@@ -88,14 +88,26 @@ def test_featured_recipes_run_on_design_matched_synthetic_rows(template_id):
                     },
                 }
             )
-            for survey in protocol["instruments"]["surveys"]:
+            for seq, survey in enumerate(protocol["instruments"]["surveys"], start=2):
                 responses = {
-                    item["id"]: 20 + i * 3 + arm * 10 for item in survey["items"]
+                    item["id"]: item["scale"]["min"]
+                    + (
+                        (i + arm)
+                        % (
+                            1
+                            + int(
+                                (item["scale"]["max"] - item["scale"]["min"])
+                                / item["scale"].get("step", 1)
+                            )
+                        )
+                    )
+                    * item["scale"].get("step", 1)
+                    for item in survey["items"]
                 }
                 rows.append(
                     {
                         **base,
-                        "seq": 2,
+                        "seq": seq,
                         "type": "survey_response",
                         "payload": {
                             "instrumentId": survey["id"],

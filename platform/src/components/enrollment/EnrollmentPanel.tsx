@@ -231,10 +231,11 @@ export function EnrollmentPanel({
                 * "Extensions: Install from VSIX…"  -  that ellipsis is part of the
                 * name, not a truncation  -  but marooned at the end of a very long
                 * line it read as a string that had been cut off. */}
-              <p className="mt-2 max-w-work type-body text-text-muted">
-                Install the {EXTENSION_NAME} extension for VS Code first.
-              </p>
-              <div className="mt-1 flex max-w-work flex-wrap items-center gap-x-1.5 gap-y-1 type-caption text-text-muted">
+              <details className="mt-2 max-w-work type-note text-text-muted">
+                <summary className="cursor-pointer rounded-control py-1 text-text">
+                  Install {EXTENSION_NAME} in VS Code
+                </summary>
+              <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 type-caption text-text-muted">
                 <span>Download the extension:</span>{" "}
                 <a
                   href={EXTENSION_RELEASES_URL}
@@ -254,6 +255,7 @@ export function EnrollmentPanel({
                   Extensions: Install from VSIX…
                 </kbd>
               </div>
+              </details>
             </>
           )}
         </div>
@@ -307,21 +309,34 @@ export function EnrollmentPanel({
             <Input type="search" value={query} placeholder="Participant, condition or link status" onChange={(e) => { setQuery(e.target.value); setPage(0); }} />
           </Field>
           <p className="type-caption text-text-muted sm:hidden">Scroll sideways to see link and capture settings.</p>
-        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Participant links">
+        <div
+          className="overflow-x-auto"
+          tabIndex={0}
+          role="region"
+          aria-label="Participant links"
+          onKeyDown={(event) => {
+            const region = event.currentTarget;
+            if (event.target !== region || event.altKey || event.metaKey || event.ctrlKey) return;
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            if (region.scrollWidth <= region.clientWidth) return;
+            event.preventDefault();
+            region.scrollBy({ left: region.clientWidth / 4 * (event.key === "ArrowLeft" ? -1 : 1) });
+          }}
+        >
           <table className="w-full min-w-[var(--enrollment-table-min-width)] table-fixed type-body">
             <colgroup>
-              <col className="w-24" />
-              <col className="w-32" />
-              <col className="w-28" />
+              <col className="w-22 sm:w-24" />
+              <col className="w-22 sm:w-40" />
+              <col className="w-20 sm:w-28" />
               <col className="w-44" />
               <col />
-              {canMint && <col className="w-20" />}
+              {canMint && <col className="w-24" />}
             </colgroup>
             <thead>
               <tr className="text-left text-text-muted">
-                <th className="sticky left-0 z-10 whitespace-nowrap bg-bg px-3 py-2 font-medium">Participant</th>
-                <th className="whitespace-nowrap px-3 py-2 font-medium">Condition</th>
-                <th className="whitespace-nowrap px-3 py-2 font-medium">Status</th>
+                <th className="sticky left-0 z-10 whitespace-nowrap bg-bg px-2 py-2 font-medium sm:px-3">Participant</th>
+                <th className="whitespace-nowrap px-2 py-2 font-medium sm:px-3">Condition</th>
+                <th className="whitespace-nowrap px-2 py-2 font-medium sm:px-3">Status</th>
                 <th className="whitespace-nowrap px-3 py-2 font-medium">Link</th>
                 <th className="whitespace-nowrap px-3 py-2 font-medium">Will capture</th>
                 {canMint && <th className="sticky right-0 bg-bg"><span className="sr-only">Actions</span></th>}
@@ -330,12 +345,12 @@ export function EnrollmentPanel({
             <tbody>
               {roster.rows.map((t) => (
                 <tr key={t.id} className="border-t border-border">
-                  <td className="sticky left-0 z-10 whitespace-nowrap bg-bg px-3 py-2 align-top type-quantity">
+                  <td className="sticky left-0 z-10 whitespace-nowrap bg-bg px-2 py-2 align-top type-quantity sm:px-3">
                     {t.participantId}
                     {t.grain !== "participant" && <span className="block type-caption text-text-muted">{GRAIN_LABEL[t.grain] ?? t.grain}</span>}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 align-top">{conditionLabel(t.condition)}</td>
-                  <td className={cn("whitespace-nowrap px-3 py-2 align-top", STATUS_STYLE[t.status])}>
+                  <td className="break-words px-2 py-2 align-top sm:px-3">{conditionLabel(t.condition)}</td>
+                  <td className={cn("break-words px-2 py-2 align-top sm:px-3", STATUS_STYLE[t.status])}>
                     {STATUS_LABEL[t.status] ?? t.status}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 align-top">
