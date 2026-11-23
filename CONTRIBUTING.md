@@ -15,6 +15,17 @@ npm --prefix extension ci
 npm --prefix platform exec playwright install chromium
 ```
 
+To work on the web app with live reload, run the server without the built app
+and the Vite dev server beside it, then open <http://localhost:5173>:
+
+```bash
+MIDDLEWARE_API_ONLY=1 uv run --no-sync --env-file .env.local python -m middleware
+npm --prefix platform run dev   # in a second terminal
+```
+
+The web app reloads when its code changes; restart the server after Python
+changes.
+
 Run checks for the code you change. CI checks the whole workspace:
 
 ```bash

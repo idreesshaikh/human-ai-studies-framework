@@ -1,0 +1,59 @@
+[
+ {
+  "do": "notification",
+  "button": "Discard"
+ },
+ {
+  "do": "start"
+ },
+ {
+  "do": "open",
+  "file": "inventory.py"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "type",
+  "text": "def count_comment_lines(lines):\nreturn sum(1 for l in lines if l.strip().startswith('#'))\n",
+  "wpm": 60,
+  "typos": 0.03,
+  "seed": 44
+ },
+ {
+  "do": "ghost",
+  "accept": "tab",
+  "waitMs": 12000
+ },
+ {
+  "do": "chatOpen"
+ },
+ {
+  "do": "chatAsk",
+  "prompt": "Write a Python function is_blank(line). Code only.",
+  "waitMs": 30000
+ },
+ {
+  "do": "key",
+  "keys": "Escape"
+ },
+ {
+  "do": "save"
+ },
+ {
+  "do": "end"
+ }
+]

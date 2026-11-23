@@ -1,0 +1,42 @@
+[
+ {
+  "do": "notification",
+  "button": "Discard"
+ },
+ {
+  "do": "start"
+ },
+ {
+  "do": "open",
+  "file": "inventory.py"
+ },
+ {
+  "do": "chatOpen"
+ },
+ {
+  "do": "chatMode",
+  "mode": "Agent"
+ },
+ {
+  "do": "chatAsk",
+  "prompt": "Implement only the function parse_thresholds in inventory.py according to its docstring. Do not change anything else and do not run anything.",
+  "waitMs": 150000
+ },
+ {
+  "do": "pause",
+  "ms": 20000
+ },
+ {
+  "do": "keep"
+ },
+ {
+  "do": "pause",
+  "ms": 3000
+ },
+ {
+  "do": "save"
+ },
+ {
+  "do": "end"
+ }
+]

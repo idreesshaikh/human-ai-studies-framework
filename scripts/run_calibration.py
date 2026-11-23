@@ -9,14 +9,15 @@
 several files are merged; a row seen twice (same sessionId, source and seq) is
 kept once.
 
---labels is the operator's labels.csv (`sessionId,scenario,aiUsed,rep,operatorNote`).
+--labels is the operator's labels.csv
+(`sessionId,scenario,aiUsed,exposed,assisted,rep,operatorNote`).
 
 Writes to --out:
     matrix.csv   scenario,signal,fired,fired_ci_low,fired_ci_high,n,abstained
     report.json  `calibration_report` with per-scenario strata
     matrix.png   heatmap of the fired rate, scenario by signal
 
-Characterisation, not accuracy: with 2-3 sessions per scenario the exact 95%
+Characterisation, not accuracy: with 1-2 sessions per scenario the exact 95%
 intervals are wide, and nothing here is tuned on the sessions.
 """
 
@@ -37,6 +38,13 @@ from analysis.recipes.control_arm_audit import audit_sessions, calibration_repor
 from calibration_order import GROUP_OF, SCENARIOS
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
 from matplotlib.patches import Rectangle
+from scipy.stats import binomtest
+
+# RECAP, He et al. (2026), arXiv:2605.01104, flags implied speed >100 WPM.
+# The paper does not state chars/word or a size threshold; these are our choices.
+TYPING_CHARS_PER_WORD = 5
+TYPING_MIN_CHARS = 20
+TYPING_WPM_THRESHOLD = 100
 
 MATRIX_COLUMNS = [
     "scenario",
@@ -49,6 +57,15 @@ MATRIX_COLUMNS = [
 ]
 TRUE_WORDS = {"true", "1", "yes"}
 FALSE_WORDS = {"false", "0", "no"}
+LABEL_HEADER = [
+    "sessionId",
+    "scenario",
+    "aiUsed",
+    "exposed",
+    "assisted",
+    "rep",
+    "operatorNote",
+]
 
 
 class CalibrationError(Exception):
@@ -92,7 +109,7 @@ def _rows_in(path: Path) -> list[dict]:
 def load_rows(paths: list[Path]) -> list[dict]:
     """Merge rows from every file; ingest's (sessionId, source, seq) is the key."""
     merged: list[dict] = []
-    seen: set[tuple] = set()
+    seen: dict[tuple, dict] = {}
     for path in paths:
         for row in _rows_in(path):
             if "sessionId" not in row:
@@ -100,28 +117,34 @@ def load_rows(paths: list[Path]) -> list[dict]:
             if isinstance(row.get("seq"), int):
                 key = (row["sessionId"], row.get("source") or "tern", row["seq"])
                 if key in seen:
+                    if seen[key] != row:
+                        raise CalibrationError(f"conflicting duplicate row: {key!r}")
                     continue
-                seen.add(key)
+                seen[key] = row
             merged.append(row)
     return merged
 
 
-def load_labels(path: Path) -> tuple[dict[str, bool], dict[str, str]]:
-    """Return `(labels, scenarios)` keyed by sessionId, validated."""
+def load_labels(
+    path: Path,
+) -> tuple[dict[str, bool], dict[str, str], dict[str, dict[str, int]]]:
+    """Return validated labels, scenarios and per-scenario label counts."""
     try:
         handle = path.open(newline="", encoding="utf-8")
     except OSError as exc:
         raise CalibrationError(f"cannot read labels file {path}: {exc}") from exc
     labels: dict[str, bool] = {}
     scenarios: dict[str, str] = {}
+    summary: dict[str, dict[str, int]] = {}
     with handle:
         reader = csv.DictReader(handle)
-        missing = {"sessionId", "scenario", "aiUsed"} - set(reader.fieldnames or [])
-        if missing:
-            raise CalibrationError(
-                f"{path} is missing column(s): {', '.join(sorted(missing))}"
-            )
+        if reader.fieldnames != LABEL_HEADER:
+            raise CalibrationError(f"{path}: expected header {','.join(LABEL_HEADER)}")
         for number, row in enumerate(reader, start=2):
+            if None in row or any(value is None for value in row.values()):
+                raise CalibrationError(
+                    f"{path} line {number}: expected {len(LABEL_HEADER)} fields"
+                )
             if not any((value or "").strip() for value in row.values()):
                 continue
             session = (row["sessionId"] or "").strip()
@@ -139,32 +162,117 @@ def load_labels(path: Path) -> tuple[dict[str, bool], dict[str, str]]:
                     f"{path} line {number}: aiUsed must be true or false, "
                     f"got {row['aiUsed']!r}"
                 )
+            for name in ("exposed", "assisted"):
+                if row[name] not in {"true", "false"}:
+                    raise CalibrationError(
+                        f"{path} line {number}: {name} must be true or false, "
+                        f"got {row[name]!r}"
+                    )
             if session in labels:
                 raise CalibrationError(
                     f"{path} line {number}: duplicate sessionId {session!r}"
                 )
             labels[session] = used in TRUE_WORDS
             scenarios[session] = scenario
+            counts = summary.setdefault(
+                scenario, {"labelled": 0, "aiUsed": 0, "exposed": 0, "assisted": 0}
+            )
+            counts["labelled"] += 1
+            counts["aiUsed"] += labels[session]
+            counts["exposed"] += row["exposed"] == "true"
+            counts["assisted"] += row["assisted"] == "true"
     if not labels:
         raise CalibrationError(
             f"no labelled sessions in {path}; record one row per session first"
         )
-    return labels, scenarios
+    return labels, scenarios, summary
 
 
 # --- analysis --------------------------------------------------------------
 
 
+def typing_speed_flag(row: dict) -> bool:
+    """Whether a TERN burst exceeds the declared RECAP speed threshold."""
+    if row.get("source", "tern") != "tern" or row.get("type") != "edit_burst":
+        return False
+    payload = row.get("payload") or {}
+    chars = payload.get("charsAdded", 0)
+    duration = payload.get("durationMs")
+    if chars < TYPING_MIN_CHARS or duration is None or duration < 0:
+        return False
+    return duration == 0 or (
+        (chars / TYPING_CHARS_PER_WORD) / (duration / 60000) > TYPING_WPM_THRESHOLD
+    )
+
+
+def _rate(successes: int, total: int) -> dict:
+    if not total:
+        return {"value": None, "ci": None, "n": 0}
+    ci = binomtest(successes, total).proportion_ci(method="exact")
+    return {"value": successes / total, "ci": [ci.low, ci.high], "n": total}
+
+
+def _typing_rates(sessions: list[dict], labels: dict[str, bool], fires: set) -> dict:
+    complete = [s["sessionId"] for s in sessions if s["captureComplete"]]
+    positive = [sid for sid in complete if labels[sid]]
+    negative = [sid for sid in complete if not labels[sid]]
+    return {
+        "sensitivity": _rate(sum(sid in fires for sid in positive), len(positive)),
+        "specificity": _rate(sum(sid not in fires for sid in negative), len(negative)),
+        "fired": _rate(sum(sid in fires for sid in complete), len(complete)),
+    }
+
+
+def _labelled_report(audit: dict, labels: dict, scenarios: dict, fires: set) -> dict:
+    """Include missing captures as abstentions without changing the audit."""
+    captured = {s["sessionId"] for s in audit["sessions"]}
+    missing = sorted(set(labels) - captured)
+    sessions = audit["sessions"] + [
+        {"sessionId": sid, "status": "cannot-assess", "captureComplete": False}
+        for sid in missing
+    ]
+    report = calibration_report({"sessions": sessions}, labels, scenarios)
+    labelled = [s for s in sessions if s["sessionId"] in labels]
+    report["signals"]["typing_speed_flag"] = _typing_rates(labelled, labels, fires)
+    for scenario, stratum in report["byScenario"].items():
+        group = [s for s in labelled if scenarios.get(s["sessionId"]) == scenario]
+        stratum["signals"]["typing_speed_flag"] = _typing_rates(group, labels, fires)
+    report["unmatchedLabels"] = missing
+    report["unlabelledSessions"] = sorted(captured - set(labels))
+    return report
+
+
 def build_report(
     rows: list[dict], labels: dict[str, bool], scenarios: dict[str, str]
 ) -> dict:
-    """Task 1's report. Every condition present is audited, not only controls."""
+    """Audit every condition and report channel health alongside the rates."""
     conditions = sorted({row.get("condition") for row in rows}, key=str)
     audit = audit_sessions(rows, conditions)
-    report = calibration_report(audit, labels, scenarios)
-    captured = {session["sessionId"] for session in audit["sessions"]}
-    report["unmatchedLabels"] = sorted(set(labels) - captured)
-    report["unlabelledSessions"] = sorted(captured - set(labels))
+    fires = {r["sessionId"] for r in rows if typing_speed_flag(r)}
+    report = _labelled_report(audit, labels, scenarios, fires)
+    health = {
+        sid: {"sensorErrors": 0, "errorSources": []}
+        for sid in sorted(set(labels) | {r["sessionId"] for r in rows})
+    }
+    for row in rows:
+        if row.get("type") == "behavior_sensor_error":
+            entry = health[row["sessionId"]]
+            entry["sensorErrors"] += 1
+            source = (row.get("payload") or {}).get("source")
+            if source is not None and source not in entry["errorSources"]:
+                entry["errorSources"].append(source)
+    for entry in health.values():
+        entry["errorSources"].sort()
+    report["channelHealth"] = health
+    healthy_labels = {
+        sid: used for sid, used in labels.items() if not health[sid]["sensorErrors"]
+    }
+    report["excludingSensorErrors"] = _labelled_report(
+        audit,
+        healthy_labels,
+        {sid: scenarios[sid] for sid in healthy_labels},
+        fires,
+    )
     return report
 
 
@@ -172,11 +280,10 @@ def matrix_rows(report: dict, scenarios: dict[str, str]) -> list[dict]:
     """One row per scenario and signal. A labelled session with no captured rows
     is an abstention, so it adds to `abstained` and never to a rate."""
     present = set(scenarios.values())
-    lost = [scenarios[sid] for sid in report["unmatchedLabels"]]
     rows = []
     for scenario in (s for s in SCENARIOS if s in present):
         stratum = report["byScenario"].get(scenario)
-        abstained = (stratum["abstained"] if stratum else 0) + lost.count(scenario)
+        abstained = stratum["abstained"] if stratum else 0
         for signal in report["signals"]:
             rate = stratum["signals"][signal]["fired"] if stratum else None
             ci = (rate or {}).get("ci")
@@ -398,13 +505,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        labels, scenarios = load_labels(args.labels)
+        labels, scenarios, label_summary = load_labels(args.labels)
         rows = load_rows(args.rows)
     except CalibrationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
     report = build_report(rows, labels, scenarios)
+    report["labelSummary"] = label_summary
     if report["unmatchedLabels"]:
         print(
             "warning: labelled session(s) with no captured rows, counted as "

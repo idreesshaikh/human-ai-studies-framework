@@ -1,0 +1,124 @@
+[
+ {
+  "do": "notification",
+  "button": "Discard"
+ },
+ {
+  "do": "start"
+ },
+ {
+  "do": "open",
+  "file": "inventory.py"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "type",
+  "text": "# first notes before anything odd happens\n",
+  "wpm": 45,
+  "typos": 0.05,
+  "seed": 11
+ },
+ {
+  "do": "start"
+ },
+ {
+  "do": "pause",
+  "ms": 1500
+ },
+ {
+  "do": "key",
+  "keys": "Escape"
+ },
+ {
+  "do": "key",
+  "keys": "Escape"
+ },
+ {
+  "do": "type",
+  "text": "# typed after a second start attempt\n",
+  "wpm": 45,
+  "typos": 0.05,
+  "seed": 12
+ },
+ {
+  "do": "save"
+ },
+ {
+  "do": "reload"
+ },
+ {
+  "do": "open",
+  "file": "inventory.py"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "type",
+  "text": "# typed after a window reload\n",
+  "wpm": 45,
+  "typos": 0.05,
+  "seed": 13
+ },
+ {
+  "do": "key",
+  "keys": "Meta+N"
+ },
+ {
+  "do": "type",
+  "text": "scratch text in an untitled file\n",
+  "wpm": 60,
+  "typos": 0
+ },
+ {
+  "do": "open",
+  "file": "test_inventory.py"
+ },
+ {
+  "do": "goto",
+  "line": 1
+ },
+ {
+  "do": "type",
+  "text": "# a comment in the tests\n",
+  "wpm": 50,
+  "typos": 0
+ },
+ {
+  "do": "key",
+  "keys": "Meta+Z"
+ },
+ {
+  "do": "pause",
+  "ms": 35000
+ },
+ {
+  "do": "save"
+ },
+ {
+  "do": "end"
+ },
+ {
+  "do": "end"
+ }
+]

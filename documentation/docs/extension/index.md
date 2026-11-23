@@ -1,67 +1,85 @@
-# TERN 1.0.1 · Developer Study Companion
+# TERN
 
-TERN is the participant extension in StudyLoop; PHOENIX is its researcher platform.
+TERN is the VS Code extension participants run during a study. It times the
+session, asks the study's short questions, and records editor activity as one
+JSONL event file per session. It does not record keystrokes or the code
+participants write.
 
-TERN is the VS Code extension participants run during a study. It hosts two of
-the framework's instrument legs  -  the **cognitive/self-report** leg and the
-**behavioural telemetry** leg  -  under one install and one sink pipeline. It is
-configured entirely by the protocol you designed, so the study you designed is
-the study that runs.
+This guide describes TERN as it is in the repository, listed in the VS Code
+Extensions view as **StudyLoop Capture**. The last published release is older;
+see [Install and connect](install.md) for the differences.
 
-> **The participant experience in one line:** pair once, consent first, work
-> normally, and leave with a clean timeline—not a recording of the work itself.
+## Paired and unpaired sessions
 
-## What TERN does
+A participant connects TERN to a study with the link the researcher sends from
+PHOENIX. Everything else follows from whether that connection exists.
 
-- **Runs the study session clock**  -  start a session with a participant ID and
-  an A/B condition; a status-bar countdown is the only permanent UI. When time
-  is up, a frosted-glass end-of-study debrief (NASA-TLX-inspired, 7-point
-  scale) opens automatically.
-- **Samples fatigue in flow**  -  a 7-point Likert micro-prompt appears at a
-  configurable interval as a native floating QuickPick. It waits for a typing
-  pause, so it never interrupts mid-keystroke.
-- **Detects stuck moments**  -  when a participant dwells on the same code region
-  without editing, or scroll-thrashes re-reading the same area, a soft
-  rectangular border is drawn around those lines with clickable actions:
-  *Yes, I'm stuck · No, just thinking · I'd like a hint · Dismiss*.
-- **Records everything as research-ready JSONL**  -  one file per session,
-  optionally mirrored to the team's Python middleware over HTTP.
-- **Pairs with the platform**  -  participant links (`vscode://…/pair` deep
-  links) install the study already configured as designed: consent statement,
-  capture config, everything.
+=== "Paired with a study"
 
-## The four angles
+    - The study server sets every option. Changes to `tern.*` settings are
+      ignored, reverted, and recorded as `settings_override_attempt`.
+    - The server assigns the condition. TERN never shows it to the participant.
+    - Events are written to VS Code's own storage for the extension and sent
+      to the study server in batches.
+    - The participant reads the study's consent statement and chooses
+      **I consent** before any session can start.
 
-| Leg | Instrument | What it captures |
+=== "Unpaired"
+
+    - For trying TERN and for development. TERN reads the `tern.*` settings.
+    - Each session asks for a participant ID and a condition.
+    - Events are written to a local folder. They are sent to a server only if
+      `tern.output.httpEndpoint` is set.
+    - No consent statement is shown.
+
+## What participants see
+
+| Where | What it shows |
+| --- | --- |
+| Status bar | `Study: idle`, then the countdown (`42:10`), `42:10 paused` during a break, and `Study: debrief` at the end. Click it to open the session menu. |
+| **StudyLoop study** sidebar | Three views: **Session**, **What is captured** and **Your data**. |
+| Prompts | The fatigue question, the stuck prompt on the code, and the questions at the start and end of a session. |
+
+[Run a session](using.md) walks through each of these.
+
+## Where the data comes from
+
+TERN is one of several instruments a study can use. Each writes its own events,
+and PHOENIX joins them by session.
+
+| Instrument | Records | Set up by |
 | --- | --- | --- |
-| How participants feel | TERN probes | Fatigue Likert, adapted TLX-inspired debrief |
-| What participants do | TERN telemetry | Focus switches, edit bursts, pastes (sizes only), stuck episodes |
-| What the AI does | agent-capture | Tool calls, transcripts, suggestion lifecycle |
-| What the code looks like | metrics | Complexity profile of the code produced |
+| TERN prompts | Fatigue ratings, stuck responses, questionnaires | The protocol |
+| TERN editor activity | Focus switches, scroll ranges, edit sizes, paste sizes, accepted or dismissed inline suggestions, saves, idle time | The protocol |
+| agent-capture | Agent sessions, turns, tool calls, workspace snapshots, commits and task outcomes from Claude Code | Hooks the researcher installs |
+| Code metrics | Structural measures of the Python code a participant produced | The researcher, after the session |
 
-## Design principles
+!!! note "Signals are not proof of AI use"
+    An edit marked `origin: ai` arrived within 500 ms of an accepted inline
+    suggestion, or added 80 or more characters in under 50 ms. Formatters,
+    snippets and renames can produce the same pattern. TERN cannot show that a
+    participant in a no-AI condition used no AI, and a missing signal does not
+    show that no AI was used.
 
-- **Zero distraction.** The countdown in the status bar is the only permanent
-  UI. Prompts defer to flow  -  fatigue prompts wait for ≥4 s of typing silence,
-  stuck prompts never steal focus and time out silently after 60 s.
-- **One prompt at a time, everywhere.** Any visible prompt suppresses stuck
-  detection, and every prompt interaction resets the detector cooldown.
-- **Content-free by construction.** Capture is sizes, shapes, and timings
-  only  -  never code content, keystrokes, clipboard text, or off-workspace
-  paths.
+## Prompts wait for the participant
 
-## Section contents
+- The fatigue question waits for at least 4 seconds without typing before it
+  appears.
+- The stuck prompt never takes keyboard focus. It closes itself after 60
+  seconds, and that timeout is recorded too.
+- No fatigue question appears in the last 5 minutes of a session.
 
-- [Install](install.md)  -  install the extension and pair it with a study.
-- [Using TERN](using.md)  -  sessions, fatigue probes, stuck detection, and the
-  debrief.
-- [Captured data](captured-data.md)  -  the event schema, one file per session.
-- [Privacy](privacy.md)  -  what is captured, what never is, and where data
-  goes.
+## Try it without a study
 
-## Try it before pairing a real study
+The repository includes [`extension/examples/tern-lab`](https://github.com/idreesshaikh/human-ai-studies-framework/tree/main/extension/examples/tern-lab),
+an unpaired workspace that writes only to a local folder. It sets a 15-minute
+session and a 15-second stuck threshold. Open `sample_app.py`, start a session,
+make a few edits, then stay on `prioritize_tasks` without typing to see the
+stuck prompt.
 
-The repository ships a small [`TERN lab`](https://github.com/idreesshaikh/human-ai-studies-framework/tree/main/extension/examples/tern-lab)
-workspace. It is deliberately local-only and tuned for a quick demonstration:
-open `sample_app.py`, start a ten-minute session, make a few edits, and pause
-on `prioritize_tasks` long enough to see the inline stuck prompt.
+## In this section
+
+- [Install and connect](install.md)
+- [Run a session](using.md)
+- [Captured data](captured-data.md)
+- [Privacy](privacy.md)

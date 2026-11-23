@@ -1,0 +1,79 @@
+[
+ {
+  "do": "notification",
+  "button": "Discard"
+ },
+ {
+  "do": "start"
+ },
+ {
+  "do": "open",
+  "file": "inventory.py"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "type",
+  "text": "# work in progress when the editor dies\nvalue = 42\n",
+  "wpm": 50,
+  "typos": 0.03,
+  "seed": 21
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "crash"
+ },
+ {
+  "do": "relaunch"
+ },
+ {
+  "do": "notification",
+  "button": "Resume session"
+ },
+ {
+  "do": "open",
+  "file": "inventory.py"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "type",
+  "text": "# typed after recovering from the crash\n",
+  "wpm": 50,
+  "typos": 0.03,
+  "seed": 22
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "save"
+ },
+ {
+  "do": "end"
+ }
+]

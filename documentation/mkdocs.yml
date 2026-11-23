@@ -1,38 +1,40 @@
-site_name: StudyLoop · Human–AI Study Framework
-site_description: StudyLoop connects study design, capture and analysis through the PHOENIX researcher platform and TERN VS Code extension.
+site_name: StudyLoop
+site_description: Design, run and analyse human-AI developer studies with PHOENIX, the researcher web app, and TERN, the VS Code capture extension.
 repo_url: https://github.com/idreesshaikh/human-ai-studies-framework
 repo_name: idreesshaikh/human-ai-studies-framework
 edit_uri: blob/main/documentation/docs/
 
 theme:
   name: material
+  custom_dir: overrides
   favicon: assets/favicon.svg
   icon:
-    logo: material/microscope
+    logo: studyloop/mark
     repo: fontawesome/brands/github
-  font:
-    text: Inter
-    code: JetBrains Mono
+  # Archivo and Spline Sans Mono are served from assets/fonts, the same files
+  # the app ships, so the site makes no font requests to third parties.
+  font: false
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: blue
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-night
-        name: Switch to dark mode
+        name: Switch to dark theme
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: blue
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
-        name: Switch to light mode
+        name: Switch to light theme
   features:
+    - navigation.instant
     - navigation.tabs
+    - navigation.indexes
     - navigation.top
     - navigation.sections
-    - navigation.expand
     - navigation.footer
     - toc.follow
     - content.code.annotate
@@ -40,6 +42,14 @@ theme:
     - search.suggest
     - search.highlight
     - header.autohide
+
+extra_css:
+  - stylesheets/studyloop.css
+
+validation:
+  omitted_files: warn
+  unrecognized_links: warn
+  anchors: warn
 
 plugins:
   - search
@@ -53,10 +63,14 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
+  - pymdownx.keys
   - pymdownx.snippets
   - pymdownx.tabbed:
       alternate_style: true
   - attr_list
+  - toc:
+      permalink: true
+      permalink_title: Link to this section
   - md_in_html
   - tables
   - footnotes
@@ -68,20 +82,20 @@ extra:
       link: https://github.com/idreesshaikh/human-ai-studies-framework
   generator: false
 
-copyright: Copyright &copy; 2026  -  Released under the MIT License
+copyright: Copyright &copy; 2026 Idrees Razak and Ole Becker. Released under the MIT License.
 
 nav:
   - Home: index.md
-  - Platform:
+  - PHOENIX:
     - platform/index.md
     - platform/quickstart.md
     - platform/design-conversation.md
     - platform/protocol-draft.md
+    - platform/library.md
     - platform/planning.md
     - platform/participants.md
     - platform/data.md
-    - platform/library.md
-  - TERN Extension:
+  - TERN:
     - extension/index.md
     - extension/install.md
     - extension/using.md

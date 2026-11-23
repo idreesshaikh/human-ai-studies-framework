@@ -1,0 +1,157 @@
+[
+ {
+  "do": "start"
+ },
+ {
+  "do": "open",
+  "file": "inventory.py"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "type",
+  "text": "tdef",
+  "wpm": 50,
+  "typos": 0
+ },
+ {
+  "do": "pause",
+  "ms": 800
+ },
+ {
+  "do": "key",
+  "keys": "Tab"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "key",
+  "keys": "Escape"
+ },
+ {
+  "do": "goto",
+  "line": 200
+ },
+ {
+  "do": "key",
+  "keys": "End"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "type",
+  "text": "def h(x):\nreturn x\n",
+  "wpm": 70,
+  "typos": 0
+ },
+ {
+  "do": "key",
+  "keys": "Shift+Tab"
+ },
+ {
+  "do": "type",
+  "text": "a1=h(1);a2=h(2);a3=h(3);a4=h(4);a5=h(5)\nb1=h(1);b2=h(2);b3=h(3);b4=h(4);b5=h(5)\n",
+  "wpm": 90,
+  "typos": 0.02,
+  "seed": 5
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "command",
+  "name": "Find"
+ },
+ {
+  "do": "key",
+  "keys": "Escape"
+ },
+ {
+  "do": "command",
+  "name": "Go to Symbol in Editor"
+ },
+ {
+  "do": "type",
+  "text": "h",
+  "typos": 0
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "pause",
+  "ms": 800
+ },
+ {
+  "do": "key",
+  "keys": "F2"
+ },
+ {
+  "do": "pause",
+  "ms": 800
+ },
+ {
+  "do": "type",
+  "text": "parse_movement_line",
+  "wpm": 80,
+  "typos": 0
+ },
+ {
+  "do": "key",
+  "keys": "Enter"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "command",
+  "name": "Format Document"
+ },
+ {
+  "do": "pause",
+  "ms": 3000
+ },
+ {
+  "do": "key",
+  "keys": "Meta+Z"
+ },
+ {
+  "do": "key",
+  "keys": "Meta+Z"
+ },
+ {
+  "do": "key",
+  "keys": "Meta+Shift+Z"
+ },
+ {
+  "do": "pause",
+  "ms": 2500
+ },
+ {
+  "do": "save"
+ },
+ {
+  "do": "end"
+ }
+]

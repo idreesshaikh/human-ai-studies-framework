@@ -97,7 +97,17 @@ def register(app: FastAPI, deps: ApiDeps):
         """
 
         def fetch(url: str) -> object:
-            hit = s.scalar(select(S2Cache).where(S2Cache.url == url))
+            # Look up without flushing. An autoflush here writes the previous
+            # response's cache row, which opens SQLite's single write transaction
+            # and holds it through the network request below, so a concurrent
+            # writer such as protocol approval fails with "database is locked".
+            with s.no_autoflush:
+                hit = s.scalar(select(S2Cache).where(S2Cache.url == url))
+            if hit is None:  # rows added in this session but not yet flushed
+                hit = next(
+                    (o for o in s.new if isinstance(o, S2Cache) and o.url == url),
+                    None,
+                )
             if hit is not None:
                 return hit.body
             body = semantic_scholar.get_json(url)

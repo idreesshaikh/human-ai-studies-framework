@@ -1,90 +1,94 @@
-# PHOENIX Platform
+# PHOENIX
 
-PHOENIX is the researcher-facing platform in StudyLoop.
-
-## The study desk, from first question to clean hand-off
-
-PHOENIX is the web application where a researcher turns an idea into a study
-that another person can actually run. It keeps the conversation, protocol,
-participant setup, live data checks, literature, and analysis hand-off on the
-same study spine.
+PHOENIX is the web app where researchers design a study, connect participants,
+and read what TERN recorded. The app itself is titled **StudyLoop**.
 
 <figure markdown="span">
-  ![The current Phoenix home page](../assets/screens/phoenix-home-current.png){ width="900" }
-  <figcaption>The current home page: a grounded design session is the product's first move.</figcaption>
+  ![The Setup tab of the example study, with the Setup, Evidence, Plan, Run and Data tabs along the top and the protocol draft open on the right](../assets/screens/setup-light.webp#only-light)
+  ![The Setup tab of the example study, with the Setup, Evidence, Plan, Run and Data tabs along the top and the protocol draft open on the right](../assets/screens/setup-dark.webp#only-dark)
+  <figcaption>Setup, the first of five tabs in every study, with the protocol draft open.</figcaption>
 </figure>
 
-## The researcher’s loop
+## A study, tab by tab
 
-1. **Design.** Explain the question in ordinary language. PHOENIX asks the
-   methodologist’s follow-up questions and offers one concrete design move at a
-   time.
-2. **Compile.** Accept the decisions you mean to keep. The protocol draft,
-   analysis plan, consent statement, and capture config compile deterministically
-   from those decisions.
-3. **Rehearse.** Run synthetic participants through the same ingest and plan
-   validation used for a real session. Fix missing measures or sequence problems
-   before recruiting anyone.
-4. **Coordinate.** Mint one participant link per person. The link carries the
-   approved study configuration into TERN, with counterbalanced task assignment.
-5. **Inspect.** Watch session integrity and distinguish complete data from
-   sequence gaps, synthetic fixtures, and data collected outside the link flow.
-6. **Hand off.** Export the schema, data dictionary, notebook scaffold, and
-   analysis recipes so the research team can continue in its own tools.
+Each study opens on five tabs, in the order you usually need them.
 
-## What belongs in the platform
-
-| Area | Researcher-facing job | Output that matters |
+| Tab | What you do there | Guide |
 | --- | --- | --- |
-| Conversation | Make design choices explicit and evidence-aware | Accepted design moves |
-| Protocol draft | Show what the study currently means | Versioned, validated protocol |
-| Planning | Make sample-size assumptions visible | Power/sensitivity curve |
-| Participants | Connect a person to one study run | Pairing token and assignment |
-| Data | Rehearse, monitor, and curate | Integrity-aware dataset |
-| Library | Inspect described shapes and supporting papers | Reusable design evidence |
+| **Setup** | Describe the study in the design chat, or enter it directly, then review and apply the protocol | [Design chat](design-conversation.md), [Protocol draft](protocol-draft.md) |
+| **Evidence** | Collect the papers behind the study and link them to the protocol | [Evidence](library.md) |
+| **Plan** | Estimate how many participants the analysis needs | [Plan](planning.md) |
+| **Run** | Create participant links and watch sessions as they run | [Participant links](participants.md) |
+| **Data** | Check captured sessions, record inclusion decisions, and download the records | [Data](data.md) |
 
-<figure markdown="span">
-  ![A grounded Phoenix design session](../assets/screens/phoenix-demo-conversation-current.png){ width="900" }
-  <figcaption>A live study view: the conversation proposes a counterbalanced design while the protocol rail shows what is covered and what is still missing.</figcaption>
-</figure>
+**Share** in the study header downloads the data bundle (**Data (.zip)**), the
+**Replication kit**, the **Elicitation record** and a **Starter notebook**.
+The **?** button next to it opens a short tour of the workspace.
 
-## Where TERN enters
+## How PHOENIX and TERN connect
 
-The platform does not pretend to be the participant’s editor. On **Participants**
-it tells the researcher which TERN release to install, then mints a one-use
-pairing link. TERN redeems that token, displays the protocol-derived consent
-statement, stores the approved capture configuration, assigns the participant’s
-condition, and streams only the permitted event shapes back to middleware.
-
-This is one contract, not two disconnected demos:
+The applied protocol is the only thing that configures a participant's session.
 
 ```text
-PHOENIX protocol
-      │ consent + capture config + assignment
-      ▼
-TERN in VS Code ── local JSONL first ──► middleware ──► PHOENIX Data
+Protocol in PHOENIX
+   │  consent statement, capture settings, assigned condition
+   ▼
+TERN in VS Code ── writes a local file first ──► study server ──► Data tab
 ```
 
-See [Participants](participants.md) for pairing and [TERN’s captured data](../extension/captured-data.md)
-for the event contract.
+[Participant links](participants.md) covers the hand-off and
+[TERN's captured data](../extension/captured-data.md) covers every event.
 
-See [Planning](planning.md) for the power curve, sample-size assumptions, and
-how to read the recruitment boundary before inviting anyone.
+## Run PHOENIX yourself
 
-## Local setup
+You need Python 3.12 or later, Node.js 22 or later, and
+[uv](https://docs.astral.sh/uv/).
 
-Leave `MIDDLEWARE_AUTH` unset to run without sign-in, as a single researcher.
-Set `MIDDLEWARE_AUTH=token` and `MIDDLEWARE_TOKEN` to require a shared token.
+### The example study
+
+The example runs on temporary storage and needs no API key.
 
 ```bash
-uv sync --all-packages
-(cd platform && npm ci && npm run build)
-uv run python -m middleware corpus-import
-uv run python -m middleware serve
+uv sync --all-packages --frozen
+npm --prefix platform ci
+npm --prefix platform run build
+uv run --no-sync python scripts/run_demo.py
 ```
 
-The design conversation uses the model configured in `.env` (`LLM_API_KEY`,
-`LLM_BASE_URL`, `LLM_MODEL`); the default is `ministral-14b-latest` on Mistral's
-API. Paper matching shares that model. `LLM_DESIGN_MODEL` overrides design
-alone. A local server needs no key. The
-compiled protocol, pairing, and analysis paths do not need a model.
+Open <http://127.0.0.1:8000>. ++ctrl+c++ stops the server and deletes its data.
+Use `--port` to pick another port. The design chat is off in this mode; to try
+it with your model provider and the paper corpus, add `--live` and pass your
+settings file:
+
+```bash
+uv run --no-sync --env-file .env.local python scripts/run_demo.py --live
+```
+
+`--live` sends requests to your model provider, which may cost money.
+
+### Your own server
+
+```bash
+cp .env.example .env.local
+MIDDLEWARE_API_ONLY=1 uv run --no-sync --env-file .env.local python -m middleware
+npm --prefix platform run dev    # in a second terminal
+```
+
+Open <http://localhost:5173>. The server keeps its data in `.study-data/`. On
+first start it imports the bundled paper corpus in the background, which takes
+about a minute; literature suggestions appear once
+<http://127.0.0.1:8000/corpus/status> reports `"ready"`. To serve everything
+from one process instead, build the web app, start the server without
+`MIDDLEWARE_API_ONLY=1`, and open <http://127.0.0.1:8000>.
+
+| Setting | What it does |
+| --- | --- |
+| `LLM_API_KEY` | Turns on the design chat. Without a model, the chat is off and everything else works |
+| `LLM_BASE_URL` | A chat-completions server to use instead. A local server needs no key |
+| `LLM_MODEL` | The model. The default is `ministral-14b-latest` on Mistral's API |
+| `LLM_DESIGN_MODEL` | A different model for the design chat only |
+| `MIDDLEWARE_AUTH` | Unset: no sign-in, for one researcher. `token`: require `MIDDLEWARE_TOKEN`. Setting `MIDDLEWARE_TOKEN` alone also turns on token mode |
+
+The server does not read `.env.local` by itself; pass it with `--env-file` as
+above. The [server guide](https://github.com/idreesshaikh/human-ai-studies-framework/blob/main/middleware/README.md)
+covers storage and the remaining settings.

@@ -1,0 +1,30 @@
+{
+  "description": "sha256 of the private AI-use calibration materials, frozen before the first session; see scripts/freeze_calibration.py",
+  "rule": "plan.md and predictions.md are hashed up to their '## Deviations' heading",
+  "instrument": {
+    "head": "9d5aa2da4514c250db1ad4d1ab17fb5b9c4796db",
+    "vsixVersion": "1.0.1"
+  },
+  "files": {
+    "plan.md": "5cf19d5db6193111dd68ff3e7d758f554a06b9e840238d9bc0c97387f352d429",
+    "predictions.md": "40c45df4c8ea1de7f4d50c501df2d9645919c83b684cebfc617d294de407fa92",
+    "task/README.md": "a7a8cf52a4aa98b1357ae159f32536a9e2ea384c4f4a1c9e586a1e273d946310",
+    "task/inventory.py": "967aa519195cb79b0ac241de30837ace62b070b34ae7d05f66dfdc5de445a258",
+    "task/pytest.ini": "b160d82f7811555051f8966d8e02750a985227c1d022208c784e606946f2eada",
+    "task/skus.py": "19fce8f85f00341600ced1e1a07dec18aeb4376cf64fbb4271ec120498feba22",
+    "task/tests/test_inventory.py": "c3e43932ef9ab7e200404d953e01078a08c2fe07dac961cbc28fb033d6292a92",
+    "reference/inventory_solution.py": "7b27a371b8fb60384f0233e90ffebe07e31853e91cbb28b08465ca73d19001ec"
+  },
+  "procedure": {
+    "scripts/calibration_session.py": "483df7714ed6cb0ed1921b6033b96d3d886619f11029ad8840fb208df57618a4",
+    "scripts/calibration_order.py": "d0f5b0dadfa0f8fb7be3c490e1f479d6918c39a58071fc193a10342dd33e6370",
+    "scripts/run_calibration.py": "c2906c133ea40526f5ad0f2ecb2662eea6d7560d7f139bd6ddfdc135bbb3094e",
+    "scripts/freeze_calibration.py": "e99044d19c216d5ea9ea42b4679bcba5e8492894d5075bca3c9cd9f65ef931d5",
+    "scripts/instrument_version.py": "58077c739f639e3185729de5e5f2584b239193b9618bef4aecc1d55de335459a",
+    "analysis/src/analysis/adherence_sim.py": "98de8ca4d1ed30403d27303fc207ef201a398b5b55dc85f8e2228a716cda6462",
+    "protocol/examples/pilot-study.yaml": "5e9970363579c76ba4a74ce18f61fac99f6a436ff526e8bd965b3d68274d5bc7"
+  },
+  "frozenAtUtc": "2026-11-17T18:18:34+00:00",
+  "procedureCommitted": false,
+  "note": "Frozen without a commit: the procedure and materials are fixed by the sha256 values above, not by a git revision, and the date is local."
+}

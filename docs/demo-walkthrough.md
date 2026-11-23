@@ -1,6 +1,6 @@
 # Example walkthrough
 
-After [installation and build](../README.md#run-locally), run:
+After [installation and build](../README.md#run-it), run:
 
 ```bash
 uv run --no-sync python scripts/run_demo.py

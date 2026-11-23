@@ -1,8 +1,14 @@
 # Evidence
 
-The Evidence tab holds the papers used to design a study, their protocol links,
-and related literature. Paper counts and citations describe the collection;
-they do not establish the quality or validity of a study.
+The **Evidence** tab holds the papers behind a study, the protocol decisions
+each one supports, and related literature. Paper counts and citations describe
+the collection; they do not establish the quality or validity of a study.
+
+<figure markdown="span">
+  ![The Evidence tab with the paper link field, Add paper and Upload PDF, and an empty paper list](../assets/screens/evidence-light.webp#only-light)
+  ![The Evidence tab with the paper link field, Add paper and Upload PDF, and an empty paper list](../assets/screens/evidence-dark.webp#only-dark)
+  <figcaption>Evidence for a study with no papers yet. Papers accepted from recommendations in Setup appear here too.</figcaption>
+</figure>
 
 ## Add and find papers
 
@@ -10,13 +16,14 @@ Paste an arXiv or DOI link, or enter its identifier, in **Paper link or identifi
 Choose **Add paper**, or use **Upload PDF** for a researcher-supplied file. Failed
 lookups preserve the input and explain how to try again.
 
-Filter study papers by title, author, year or identifier. Sort by recently added,
-title or publication year. Templates and design recommendations remain available
-in Templates and Setup.
+Once a study has six or more papers, you can filter them by title, author, year
+or identifier, and sort them by recently added, title or
+**Newest publication**. Templates and design recommendations stay in Templates
+and Setup.
 
 The desktop collection and reader have equal, stable heights. Long collections
 scroll inside the list; long abstracts scroll inside the reader. Author summaries
-keep rows compact, with the full list available through **View all authors**.
+keep rows compact, with the full list under **View all *N* authors**.
 
 ## Read and connect
 
@@ -43,7 +50,7 @@ their details. Map labels remain readable across screen sizes and zoom levels.
 Local development can import the literature corpus with:
 
 ```bash
-uv run python -m middleware corpus-import
+uv run --no-sync python -m middleware corpus-import
 ```
 
 ## Keeping the library current
@@ -54,11 +61,11 @@ until a researcher accepts them. The Evidence tab shows when the last refresh ra
 and how many candidates await review; an incomplete or failed refresh is identified.
 
 ```bash
-uv run python -m middleware corpus-refresh --dry-run
-uv run python -m middleware corpus-refresh
-uv run python -m middleware corpus-candidates --limit 20
-uv run python -m middleware corpus-decide --ref arxiv:2610.00000 --decision accept --note "Reviewed title and abstract; relevant to this study area"
-uv run python -m middleware corpus-decide --ref arxiv:2610.00001 --decision reject --note "Model benchmark without developer participants"
+uv run --no-sync python -m middleware corpus-refresh --dry-run
+uv run --no-sync python -m middleware corpus-refresh
+uv run --no-sync python -m middleware corpus-candidates --limit 20
+uv run --no-sync python -m middleware corpus-decide --ref arxiv:2610.00000 --decision accept --note "Reviewed title and abstract; relevant to this study area"
+uv run --no-sync python -m middleware corpus-decide --ref arxiv:2610.00001 --decision reject --note "Model benchmark without developer participants"
 ```
 
 The example references are placeholders; review actual candidates before deciding.
@@ -81,5 +88,5 @@ contact address. No source failure silently counts as a successful refresh.
 Paper metadata includes data from Semantic Scholar and arXiv. Recommendation
 abstracts are omitted from conversation exports and replication kits; this also
 keeps Semantic Scholar abstracts out of those exports. Uploaded researcher files
-remain the researcher's responsibility. Review Semantic Scholar caching and reuse terms before storing or sharing
-abstracts.
+remain the researcher's responsibility. Review Semantic Scholar's caching and
+reuse terms before storing or sharing abstracts.
