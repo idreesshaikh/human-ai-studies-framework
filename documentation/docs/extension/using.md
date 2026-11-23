@@ -1,7 +1,8 @@
 # Run a session
 
-A session runs from **Begin session** to the last question at the end. TERN
-records events for the whole of it, except the time you spend on a break.
+A session runs from **Begin session** to the last question at the end. Editor
+activity capture pauses during a break; TERN still records session and settings
+events needed to describe the break and enforce the study configuration.
 
 ## Start
 
@@ -48,9 +49,9 @@ notes the size of what was pasted or accepted.
 ### The fatigue question
 
 Every 15 minutes, varied by up to 20% so it cannot be anticipated, TERN asks how
-tired you feel on a 7-point scale. It waits until you have stopped typing for 4
-seconds. Press a number from `1` to `7` and ++enter++, or ++esc++ to skip. No
-question appears in the last 5 minutes.
+tired you feel on a 7-point scale. It waits for 4 seconds without typing, up to
+60 seconds, before showing the question. Press a number from `1` to `7` and
+++enter++, or ++esc++ to skip. No question appears in the last 5 minutes.
 
 ### The stuck prompt
 
@@ -76,8 +77,8 @@ The session ends when the clock runs out or when you choose
 the closing questions.
 
 - **Protocol version 6 and later:** the questionnaires the study declares, such
-  as the raw NASA-TLX with its own wording and scoring. If the study declares
-  none, no questions appear.
+  as a five-question workload form and a two-question session check. If the
+  study declares none, no questions appear.
 - **Earlier protocols:** six questions on a 7-point scale adapted from the
   NASA-TLX, plus a question about reliance on the AI in AI-assisted sessions,
   and an optional comment. This is not the standard NASA-TLX and has no

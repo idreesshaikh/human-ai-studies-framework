@@ -45,15 +45,17 @@ Each typed measure must name a declared instrument and a recipe in `analysisPlan
 
 | Instrument | Interpretation and reuse source |
 | --- | --- |
-| `raw-nasa-tlx` | Unweighted mean of six 0–100 ratings, step 5; performance runs Good → Poor. Wording/labels from the [NASA paper-and-pencil package](https://ntrs.nasa.gov/citations/20000021488). NASA [permits use and modification without permission](https://www.nasa.gov/human-systems-integration-division/nasa-task-load-index-tlx/). This electronic raw variant is not weighted TLX. |
-| `bfi-2` | Full 60-item English form; five domain means and fifteen facet means, with reverse-keyed items scored before averaging. No overall total score. Choose `S31` for all 20 scores or `S11`–`S30` for one domain or facet. |
-| `sus` | Original ten 1–5 items; reverse even items, sum contributions × 2.5. [John Brooke (1996)](https://hci-studies.org/methods-and-measures/downloads/SUS_Brooke1996.pdf) permits usability assessment with source acknowledgement in published reports. Define the system under assessment in participant instructions. |
-| `legacy-tlx-inspired` | Existing six items, 1–7. Subscales only; no validated aggregate, and not NASA-TLX. Repository MIT licence. |
+| `raw-tlx` | Adapted raw TLX, five items rated 0–100 in steps of 10. Physical demand is dropped for desk tasks; each question is the first sentence of the definition in the [NASA paper-and-pencil package](https://ntrs.nasa.gov/citations/20000021488). Performance is shown Poor → Good and reverse-scored, so the score is the unweighted mean with higher meaning more workload. NASA [permits use and modification without permission](https://www.nasa.gov/human-systems-integration-division/nasa-task-load-index-tlx/). Report it as adapted raw TLX, not weighted NASA-TLX. |
+| `session-check` | Two unvalidated items, asked in every condition: AI use (0 not at all to 4 throughout, inside or outside the editor) and understanding of the final code (1–5). No aggregate. Reported AI use is self-report, not verified use, and never a reason to exclude; analyse by assigned condition. Repository MIT licence. |
 | `pre-task-skill` | Three 1–5 items on relevant experience, debugging confidence and task familiarity. Experimental, unvalidated item set; researcher must pilot before treating it as a skill covariate. Repository MIT licence. |
+| `sus` | Original ten 1–5 items; reverse even items, sum contributions × 2.5. [John Brooke (1996)](https://hci-studies.org/methods-and-measures/downloads/SUS_Brooke1996.pdf) permits usability assessment with source acknowledgement in published reports. Define the system under assessment in participant instructions. |
+| `bfi-2-xs` | Extra-short BFI-2, 15 items, before the task; five domain means of three items each, reverse-keyed items scored first. No facets, no total. Opt-in: add it only when a hypothesis names a trait (`S31` for all five domains, `S11`–`S15` for one). |
+
+A typical AI-versus-control study needs only `pre-task-skill` before the task and `raw-tlx` plus `session-check` after it: ten questions, about two minutes. Add `sus` when usability of the tool is itself a question. The `source`, `licence` and `validation` fields are for researchers and are not sent to TERN, which would otherwise print them on the participant's form.
 
 The extension supports pre-task/post-task timing and explicit condition lists, including condition names defined by tool versions. v6 does not infer AI reliance from the literal `ai-assisted` name. v1–v5 retain their legacy survey behavior. v6 events carry `instrumentId`, `instrumentVersion`, `instrumentHash`, responses and a client score when the instrument has a single aggregate. Analysis independently checks and scores declared scalar or grouped scales instead of trusting the client score. Missing, invalid or mismatched responses have no score.
 
-The [BFI-2](https://www.ocf.berkeley.edu/~johnlab/bfi) is copyrighted by Oliver P. John and Christopher J. Soto and is available for non-commercial research use; commercial use requires author permission. The bundled full form reports its 5 domains and 15 facets as separate means, not a single personality total. See [Soto and John (2017)](https://doi.org/10.1037/pspp0000096); check the authors' current instructions before use or translation.
+The BFI-2 items are copyrighted by Oliver P. John and Christopher J. Soto and available for non-commercial research use; commercial use requires author permission. The bundled BFI-2-XS is the authors' 15-item extra-short form ([Soto and John, 2017](https://doi.org/10.1016/j.jrp.2017.02.004)); its items are a subset of the full [BFI-2](https://doi.org/10.1037/pspp0000096). Three-item domains are less reliable than the full form, so treat trait results as exploratory in small studies, and check the authors' current form and key before use or translation.
 
 The extension's event schema is v6. Middleware still accepts and recognizes versions 2–5; unknown versions are stored with an integrity flag. The environment snapshot records available editor/extension versions, capture coverage, protocol/task/measure provenance, date and a participant-confirmed model name (or explicitly unknown). The configured model identifier is kept separate from the participant confirmation.
 
@@ -79,7 +81,7 @@ Real scripted calibration sessions with independent truth are still required. Su
 
 ### Outcome capture checks
 
-In **Data → Check outcome capture**, inspect a rehearsal against its declared
+In **Data → Outcome capture**, inspect a rehearsal against its declared
 measures. The check connects each supported instrument and field to observed
 events, its analysis recipe, session counts, condition coverage, and participant
 pairs. Expand an outcome for discrepancies and corrective actions; download the

@@ -5,9 +5,9 @@ participant, they open it in VS Code with [TERN](../extension/index.md), and
 their sessions appear here while they run.
 
 <figure markdown="span">
-  ![The Run tab with 24 links, their conditions and pairing status](../assets/screens/run-light.webp#only-light)
-  ![The Run tab with 24 links, their conditions and pairing status](../assets/screens/run-dark.webp#only-dark)
-  <figcaption>The example study's links. They are illustrative and cannot connect an editor.</figcaption>
+  ![Run tab showing synthetic participant links](../assets/screens/run-light.webp#only-light)
+  ![Run tab showing synthetic participant links](../assets/screens/run-dark.webp#only-dark)
+  <figcaption>The example links are illustrative and cannot connect an editor.</figcaption>
 </figure>
 
 ## Create links

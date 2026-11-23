@@ -3,12 +3,6 @@
 PHOENIX is the web app where researchers design a study, connect participants,
 and read what TERN recorded. The app itself is titled **StudyLoop**.
 
-<figure markdown="span">
-  ![The Setup tab of the example study, with the Setup, Evidence, Plan, Run and Data tabs along the top and the protocol draft open on the right](../assets/screens/setup-light.webp#only-light)
-  ![The Setup tab of the example study, with the Setup, Evidence, Plan, Run and Data tabs along the top and the protocol draft open on the right](../assets/screens/setup-dark.webp#only-dark)
-  <figcaption>Setup, the first of five tabs in every study, with the protocol draft open.</figcaption>
-</figure>
-
 ## A study, tab by tab
 
 Each study opens on five tabs, in the order you usually need them.
@@ -16,13 +10,14 @@ Each study opens on five tabs, in the order you usually need them.
 | Tab | What you do there | Guide |
 | --- | --- | --- |
 | **Setup** | Describe the study in the design chat, or enter it directly, then review and apply the protocol | [Design chat](design-conversation.md), [Protocol draft](protocol-draft.md) |
-| **Evidence** | Collect the papers behind the study and link them to the protocol | [Evidence](library.md) |
+| **Literature** | Collect the papers behind the study and link them to the protocol | [Literature](library.md) |
 | **Plan** | Estimate how many participants the analysis needs | [Plan](planning.md) |
 | **Run** | Create participant links and watch sessions as they run | [Participant links](participants.md) |
 | **Data** | Check captured sessions, record inclusion decisions, and download the records | [Data](data.md) |
 
-**Share** in the study header downloads the data bundle (**Data (.zip)**), the
-**Replication kit**, the **Elicitation record** and a **Starter notebook**.
+**Export** in the study header offers the data bundle, design card, replication
+kit, elicitation record and starter notebook. The Data tab also offers the first
+three downloads.
 The **?** button next to it opens a short tour of the workspace.
 
 ## How PHOENIX and TERN connect
@@ -69,6 +64,8 @@ uv run --no-sync --env-file .env.local python scripts/run_demo.py --live
 ### Your own server
 
 ```bash
+uv sync --all-packages --frozen
+npm --prefix platform ci
 cp .env.example .env.local
 MIDDLEWARE_API_ONLY=1 uv run --no-sync --env-file .env.local python -m middleware
 npm --prefix platform run dev    # in a second terminal

@@ -30,12 +30,6 @@ runs that protocol with each participant and records what it allows.
 
 </div>
 
-<figure markdown="span">
-  ![The example study in PHOENIX, on its Data tab](assets/screens/data-light.webp#only-light)
-  ![The example study in PHOENIX, on its Data tab](assets/screens/data-dark.webp#only-dark)
-  <figcaption>The example study that ships with StudyLoop. Its sessions are synthetic.</figcaption>
-</figure>
-
 ## How a study moves through StudyLoop
 
 | Step | PHOENIX | TERN |
@@ -63,8 +57,7 @@ session, so the study you designed is the study that runs.
   exports and estimates.
 
 !!! warning "Example data is not a finding"
-    The example study and every screenshot in this guide use synthetic data.
-    They show how the workflow looks and must never be reported as results.
+    The example study uses synthetic data and must never be reported as a result.
 
 ## Try it
 
