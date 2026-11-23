@@ -5,6 +5,7 @@ import logging
 import re
 from pathlib import Path
 from threading import Lock, Thread
+from time import sleep
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
@@ -241,7 +242,9 @@ def import_tier_a(s: Session) -> dict[str, int]:
     return indexed
 
 
-def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
+def import_tier_b(
+    s: Session, *, batch_size: int = 500, pause_between_batches: float = 0
+) -> dict[str, int]:
     """Land the harvested Tier B rows + FTS entries + via-edges."""
     seed_by_arxiv = {p["arxivId"]: p["ref"] for p in parse_tier_a() if p["arxivId"]}
     enriched = enriched_abstracts(s)
@@ -324,16 +327,25 @@ def import_tier_b(s: Session, *, batch_size: int = 500) -> dict[str, int]:
         if (i + 1) % batch_size == 0:
             s.commit()
             log.info("Tier B: %d/%d landed", i + 1, len(entries))
+            if pause_between_batches and i + 1 < len(entries):
+                # Give waiting study writes a chance to acquire SQLite's writer slot.
+                sleep(pause_between_batches)
     return indexed
 
 
-def import_corpus(db_url: str, *, session_factory=None) -> dict:
+def import_corpus(
+    db_url: str, *, session_factory=None, background: bool = False
+) -> dict:
     """One-shot, idempotent import of both tiers."""
     factory = session_factory or make_session_factory(db_url)
     with factory() as s:
         tier_a = import_tier_a(s)
         s.commit()
-        tier_b = import_tier_b(s)
+        tier_b = import_tier_b(
+            s,
+            batch_size=100 if background else 500,
+            pause_between_batches=0.1 if background else 0,
+        )
         s.commit()
     return {
         "tierA": {"count": len(tier_a), "chunks": sum(tier_a.values())},
@@ -364,7 +376,7 @@ def start_background_import(db_url: str, session_factory) -> dict[str, object]:
         def run() -> None:
             global _BOOTSTRAP_THREAD
             try:
-                import_corpus(db_url, session_factory=session_factory)
+                import_corpus(db_url, session_factory=session_factory, background=True)
                 with session_factory() as s:
                     total = core_row_count(s)
                 with _BOOTSTRAP_LOCK:

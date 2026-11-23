@@ -5,19 +5,20 @@ needs. Every number on it follows from assumptions you enter, and the tab shows
 them next to the result.
 
 <figure markdown="span">
-  ![The Plan tab with the recorded design, the outcome measure and the planned test](../assets/screens/plan-light.webp#only-light)
-  ![The Plan tab with the recorded design, the outcome measure and the planned test](../assets/screens/plan-dark.webp#only-dark)
-  <figcaption>Plan for the example study. A warning at the top flags that the protocol does not yet say how AI access is controlled in each condition.</figcaption>
+  ![Plan tab showing recruitment assumptions for the synthetic example](../assets/screens/plan-light.webp#only-light)
+  ![Plan tab showing recruitment assumptions for the synthetic example](../assets/screens/plan-dark.webp#only-dark)
+  <figcaption>Recruitment assumptions for the synthetic example.</figcaption>
 </figure>
 
 ## Estimate recruitment
 
-The tab reads the design, the outcome and the planned test from the protocol.
-To change them, change the protocol on **Setup**. You enter:
+The tab reads the study design from the protocol. Select an outcome and a
+compatible planned test, then enter:
 
 - the outcome's distribution;
 - the effect to detect, in the outcome's units, and its spread;
 - the two-sided alpha and the target power;
+- the planned number of complete participants;
 - the share of participants you expect to drop out.
 
 t-tests and ANCOVA are computed directly; rank tests are simulated with a fixed

@@ -80,7 +80,7 @@ def main() -> None:
         from middleware.settings import Settings
 
         settings = Settings()
-        uvicorn.run(create_app(settings), host="0.0.0.0", port=settings.port)
+        uvicorn.run(create_app(settings), host=settings.host, port=settings.port)
 
     elif args.command == "corpus-import":
         from middleware.corpus_importer import import_corpus

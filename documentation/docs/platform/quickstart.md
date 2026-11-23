@@ -9,9 +9,9 @@ On **Studies**, choose **New study**, give it a name, and choose
 **Create study**. The study opens on its **Setup** tab.
 
 <figure markdown="span">
-  ![The Studies page with the example study and the New study button](../assets/screens/studies-light.webp#only-light)
-  ![The Studies page with the example study and the New study button](../assets/screens/studies-dark.webp#only-dark)
-  <figcaption>Studies lists every study and whether its protocol is ready.</figcaption>
+  ![Studies page showing the synthetic example and New study button](../assets/screens/studies-light.webp#only-light)
+  ![Studies page showing the synthetic example and New study button](../assets/screens/studies-dark.webp#only-dark)
+  <figcaption>The Studies page with the synthetic example.</figcaption>
 </figure>
 
 ## 2. Describe it, or start from a template
@@ -19,17 +19,16 @@ On **Studies**, choose **New study**, give it a name, and choose
 On **Setup**, describe what you want to learn and the
 [design chat](design-conversation.md) proposes decisions for you to accept or
 reject. If you already know the design, choose
-**Start from details or an example**, then
-**Enter the protocol details directly**.
+**Start from details or an example**, then **Enter the protocol details directly**.
 
 You can also start from **Templates** in the sidebar. **Use this template**
 creates a new study with that template's protocol and opens it on **Plan**.
 **Describe your study instead** opens the design chat.
 
 <figure markdown="span">
-  ![The Templates page with a featured template and the option to describe a study instead](../assets/screens/templates-light.webp#only-light)
-  ![The Templates page with a featured template and the option to describe a study instead](../assets/screens/templates-dark.webp#only-dark)
-  <figcaption>Templates. With the paper corpus loaded, the page also ranks study designs by how often published studies use them.</figcaption>
+  ![Templates page with available study designs](../assets/screens/templates-light.webp#only-light)
+  ![Templates page with available study designs](../assets/screens/templates-dark.webp#only-dark)
+  <figcaption>Choose a template or describe your own study.</figcaption>
 </figure>
 
 ## 3. Apply the protocol

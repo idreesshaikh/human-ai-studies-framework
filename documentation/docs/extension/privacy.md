@@ -52,9 +52,10 @@ code. When one does, the **What is captured** view says
 ## Delete your data
 
 TERN never deletes event files, including when you disconnect from a study.
-To remove them, delete the `study-data` folder yourself. A study's task folder,
-if TERN downloaded one, is in `study-workspaces` in the same place. Events
-already sent to the study server stay there; ask the researcher to remove them.
+Delete the files from their [session output folder](captured-data.md#where-the-file-is).
+A study's task folder, if TERN downloaded one, is in `study-workspaces` in the
+extension's storage. Events already sent to the study server stay there; ask the
+researcher to remove them.
 
 ## Consent
 

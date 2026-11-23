@@ -5,13 +5,14 @@ literature retrieval, and exports. It serves the built web app at the same origi
 
 ## Run
 
-From the repository root:
+From the repository root, copy `.env.example` to `.env.local` once and keep any
+local settings you already have.
 
 ```bash
-uv sync --all-packages --frozen
+uv sync --package middleware --no-dev --frozen
 npm --prefix platform ci
 npm --prefix platform run build
-uv run python -m middleware serve
+uv run --no-sync --env-file .env.local python -m middleware serve
 ```
 
 Storage defaults to SQLite at `.study-data/middleware.sqlite3`. Set
@@ -20,17 +21,18 @@ Storage defaults to SQLite at `.study-data/middleware.sqlite3`. Set
 To load a protocol directly:
 
 ```bash
-MIDDLEWARE_PROTOCOL=protocol/examples/pilot-study.yaml uv run python -m middleware
+MIDDLEWARE_PROTOCOL=protocol/examples/pilot-study.yaml uv run --no-sync --env-file .env.local python -m middleware
 ```
 
-The [.env.example](../.env.example) lists common options. Pass an environment file
-explicitly with `uv run --env-file .env python -m middleware`; it is not loaded
-automatically.
+Pass `.env.local` with `--env-file` each time you start the server. The sample
+binds to loopback. Use an explicit listen address, access controls, and HTTPS
+for a deployment that participants will reach. [Access and capture](../SECURITY.md#access-and-capture)
 
 ## Configuration
 
 | Variable | Use |
 | --- | --- |
+| `MIDDLEWARE_HOST` | Listen address. The sample uses `127.0.0.1`; without the setting the server binds to `0.0.0.0` |
 | `MIDDLEWARE_PORT` | Listen port; defaults to 8000 |
 | `MIDDLEWARE_DB` | SQLite path; defaults to `.study-data/middleware.sqlite3` |
 | `DATABASE_URL` | Optional PostgreSQL URL; takes precedence over SQLite |
@@ -54,9 +56,24 @@ automatically.
 | `MIDDLEWARE_CONTACT_EMAIL` | Contact address in outbound arXiv requests |
 | `MIDDLEWARE_S2_API_KEY` | Optional Semantic Scholar key for higher rate limits |
 
-With no model key or local endpoint configured, the design assistant replies
-that no language model is connected. Templates, the quick checklist and the rest of the app keep
-working. Set the key and restart the server to enable it.
+## Model settings and troubleshooting
+
+The [model setup guide](../README.md#connect-a-model) has configurations for
+Mistral, Ollama, and other OpenAI-compatible providers. Use a model that accepts
+`response_format: json_object` on its chat-completions endpoint. Base URLs ending
+in `/v1` are extended to `/v1/chat/completions`. You can also pass the full
+chat-completions URL.
+
+| Symptom | What to check |
+| --- | --- |
+| Design assistant says no model is connected | Start the server with `--env-file .env.local` and confirm your provider key or local endpoint is set. |
+| Provider rejected the request | Confirm the key is active and has access to the exact `LLM_MODEL` or `LLM_DESIGN_MODEL` you selected. |
+| Ollama times out or returns an unavailable model | Check that Ollama is running and the configured model appears in `ollama list`. Allow a longer timeout on slower hardware. |
+| A model replies without a usable design | Confirm the endpoint and model support JSON output. You can continue from a template or enter the protocol manually. |
+
+Restart StudyLoop after changing the settings. If port 8000 is in use, run
+`uv run --no-sync python scripts/run_demo.py --port 8010` for the demo or set
+`MIDDLEWARE_PORT=8010` in `.env.local` for the regular server.
 
 Adding or searching for papers by arXiv id or DOI makes outbound requests to the
 Semantic Scholar API. Results are cached in the database, so repeat lookups of the
@@ -72,12 +89,18 @@ same paper work offline.
 | `corpus-import` | Import the bundled literature corpus |
 | `corpus-verify` | Check the imported corpus is complete |
 | `corpus-enrich` | Fill in missing abstracts from Semantic Scholar |
+| `corpus-curate --dry-run` | Preview literature curation using stored metadata; makes no network calls or changes |
+| `corpus-curate` | Refresh literature metadata and apply curation decisions |
+| `corpus-review` | List literature awaiting review |
 | `templates` | Validate and list the template registry |
 | `seed-example` | Add one labelled synthetic example study (protocol, plan, links, simulated sessions); idempotent |
 
-The default is local single-user access. To require a shared token, set
+The default access mode is single-user. To require a shared token, set
 `MIDDLEWARE_AUTH=token` and `MIDDLEWARE_TOKEN`. See the
 [security policy](../SECURITY.md).
+
+Scheduled refreshes collect candidates; they do not run curation. Review the
+curation preview before applying it, because curation can hide papers from search.
 
 ## Data flow
 

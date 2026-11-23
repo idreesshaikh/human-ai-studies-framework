@@ -1,6 +1,6 @@
 # Evidence-linked methods
 
-In **Setup → Method evidence**, import a JSON document conforming to the
+In **Setup → Research tools → Compare methods**, import a JSON document conforming to the
 [evidence contract](evidence-mapping.md). Versions are immutable and scoped to
 the study. Reimporting the active version is idempotent; changed content needs
 a new `mapVersion`.
