@@ -49,12 +49,17 @@ function describeValue(v: unknown): string {
   return String(v);
 }
 
-const INSTRUMENT_DISPLAY_NAMES: Record<string, string> = {
+/* One name per instrument, whatever spelling the id arrives in
+ * (agentCapture, agent-capture, agent_capture). */
+const INSTRUMENT_LABELS: Record<string, string> = {
   tern: "TERN",
-  metrics: "Metrics",
-  agentCapture: "Agent capture",
-  taskHarness: "Task harness",
+  metrics: "Code metrics",
+  agentcapture: "Agent capture",
+  taskharness: "Task harness",
 };
+export function instrumentLabel(id: string): string | undefined {
+  return INSTRUMENT_LABELS[id.toLowerCase().replace(/[-_\s]+/g, "")];
+}
 
 function formatResearchQuestions(rqs: unknown[]): ProtocolSection {
   const lines = rqs
@@ -126,7 +131,7 @@ function formatTasks(tasks: unknown[]): ProtocolSection {
 
 function formatInstruments(instruments: Record<string, unknown>): ProtocolSection {
   const lines = Object.entries(instruments).map(([name, config]) => {
-    const label = INSTRUMENT_DISPLAY_NAMES[name] ?? humanizeKey(name);
+    const label = instrumentLabel(name) ?? humanizeKey(name);
     const detail = describeValue(config);
     return detail ? `${label}: ${detail}` : label;
   });
@@ -210,14 +215,6 @@ export function summarizeProtocol(
 
 const KEBAB_ID = /^[a-z0-9]+(?:-[a-z0-9]+)+$/;
 const ACRONYM_WORDS = new Set(["ai", "tern", "tlx", "llm", "ide"]);
-const INSTRUMENT_LABELS: Record<string, string> = {
-  tern: "TERN",
-  metrics: "Metrics",
-  "agent-capture": "Agent capture",
-  agentcapture: "Agent capture",
-  "task-harness": "Task harness",
-  taskharness: "Task harness",
-};
 
 const upperFirst = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
@@ -260,7 +257,7 @@ export function formatSlotValue(slot: string, value: string): string {
     return sentence(v.replace(/\s*,\s*/g, ", "));
   }
   if (slot === "instruments") {
-    return INSTRUMENT_LABELS[v.toLowerCase()] ?? sentence(v.replace(/[-_]+/g, " "));
+    return instrumentLabel(v) ?? sentence(v.replace(/[-_]+/g, " "));
   }
   if (slot === "statisticalPlan") {
     return v.split(/\s*,\s*/).map(recipeLabel).join(", ");

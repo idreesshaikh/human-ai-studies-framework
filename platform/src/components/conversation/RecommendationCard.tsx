@@ -25,7 +25,7 @@ export function RecommendationCard({
 }: {
   rec: Recommendation;
   added: boolean;
-  onAdd: (ref: string) => void;
+  onAdd?: (ref: string) => void;
 }) {
   const url = sourceUrl(rec.identifier);
 
@@ -72,7 +72,7 @@ export function RecommendationCard({
           <p className="type-legend text-text-muted">Why it surfaced</p>
           <p className="mt-1 type-body text-text">{rec.matchReason}</p>
         </div>
-        <Button
+        {onAdd && <Button
           size="sm"
           variant={added ? "ghost" : "outline"}
           disabled={added}
@@ -81,7 +81,7 @@ export function RecommendationCard({
         >
           <Plus aria-hidden />
           {added ? "In your paper set" : "Add to study"}
-        </Button>
+        </Button>}
         {url && (
           <a
             className="inline-flex items-center gap-1.5 type-caption text-accent hover:underline"

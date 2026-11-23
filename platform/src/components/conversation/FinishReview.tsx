@@ -19,20 +19,12 @@ import { BlinkComparator } from "./BlinkComparator";
 import { hasEarlierVersion } from "@/lib/comparator";
 import { cleanProposalText } from "@/lib/uiText";
 
-/* A YAML-scalar line whose entire value is an empty collection, e.g.
- * "instruments: {}" or "  gates: []"  -  a still-unresolved slot rendered as
- * flow-style by the YAML dumper (empty mappings/sequences have no block
- * form). It carries no information the "Still unresolved" line below
- * doesn't already say in plain words, so it's dropped rather than shown
- * as bare braces. */
+/* A YAML line whose whole value is an empty collection ("gates: []"): an unresolved slot
+* the "Still unresolved" line already names, so it is dropped. */
 const EMPTY_COLLECTION = /^\s*[\w.]+:\s*(\{\}|\[\])\s*$/;
 
-/* Turns the server's unified diff (`---`/`+++`/`@@`/`+`/`-` lines) into
- * per-line pieces so each can be colored on its own  -  a flat <pre> string
- * can't do that. File-header lines are dropped ("draft-before"/"draft-after"
- * mean nothing to a researcher), as are empty-collection placeholder lines;
- * hunk headers become a plain divider instead of raw `@@ -0,0 +1,3 @@` diff
- * jargon. */
+/* Splits the server's unified diff into per-line pieces so each can be coloured. File headers,
+* empty-collection placeholders and raw `@@` hunk headers become a plain divider or are dropped. */
 function parseDiffLines(diff: string) {
   return diff
     .split("\n")
@@ -50,27 +42,27 @@ function parseDiffLines(diff: string) {
     });
 }
 
-/* The "finish the conversation → here's your protocol" moment. When the
- * researcher wraps up, this gathers everything the conversation produced  -
- * the design moves they accepted, how many are grounded in the literature,
- * and the compiled protocol  -  into one calm review before it becomes the
- * document of record. It's the payoff: talk became a study. */
+/* Gathers what the conversation produced (accepted moves, grounding, compiled protocol) into one review. */
 export function FinishReview({
   open,
   onOpenChange,
   moves,
+  earlierMoves = [],
   compile,
   compiling,
   applying,
+  applyError,
   applied,
   onApply,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   moves: DesignMove[];
+  earlierMoves?: DesignMove[];
   compile: CompileResult | null;
   compiling: boolean;
   applying: boolean;
+  applyError: string | null;
   applied: boolean;
   onApply: () => void;
 }) {
@@ -80,6 +72,9 @@ export function FinishReview({
   );
   const grounded = accepted.filter((m) => m.grounding.length > 0).length;
   const judgment = accepted.length - grounded;
+  const earlierSourced = earlierMoves.filter(
+    (move) => move.status === "accepted" && move.grounding.length > 0,
+  );
   const valid = compile?.valid ?? false;
   const warnings = compile?.warnings ?? [];
   const diffLines = useMemo(
@@ -87,10 +82,8 @@ export function FinishReview({
     [compile?.diff],
   );
   const hasDiff = diffLines.some((d) => d.kind === "add" || d.kind === "remove");
-  /* Something existed before this compile, so the two plates genuinely differ.
-   * Shared with the comparator itself (lib/comparator.ts) so the dialog's
-   * decision to show it and the component's own first-version branch can never
-   * disagree; `verify-comparator.mjs` exercises both. */
+  /* Something existed before this compile, so the two plates genuinely differ. Shared with the
+  * comparator (lib/comparator.ts) so the dialog and the component agree on the first-version case. */
   const earlier = hasEarlierVersion(diffLines);
 
   return (
@@ -99,24 +92,45 @@ export function FinishReview({
         <DialogHeader>
           <DialogTitle>Review draft</DialogTitle>
           <DialogDescription>
-            This is what your conversation became. Review it, then apply it to the
-            protocol: the study's document of record.
+            Check the draft, then apply it as the study's protocol.
           </DialogDescription>
         </DialogHeader>
+        {applyError && <Notice kind="problem" className="mx-gutter mt-2">{applyError}</Notice>}
         <DialogBody>
 
-        {/* One line, not three cells. Three big numbers over three small
-          * labels is the hero-metric template, and it was the loudest thing in
-          * a dialog whose actual subject is the protocol below it. The counts
-          * still align and still compare, in the measurement voice, at the
-          * weight a summary deserves. */}
+        {/* One summary line, not three hero-metric cells. */}
         <p className="type-body text-text-muted">
           <span className="type-quantity text-text">{accepted.length}</span>{" "}
           {accepted.length === 1 ? "decision" : "decisions"} accepted:{" "}
-          <span className="type-quantity text-text">{grounded}</span> grounded in
-          sources, <span className="type-quantity text-text">{judgment}</span> on
-          your judgment.
+          <span className="type-quantity text-text">{grounded}</span> with linked
+          sources, <span className="type-quantity text-text">{judgment}</span> without
+          linked sources.
         </p>
+        {accepted.length > 0 && (
+          <p className="mt-1 type-note text-text-muted">
+            Only sources linked to a decision are counted. Papers in Literature
+            are listed separately.
+          </p>
+        )}
+        {earlierSourced.length > 0 && (
+          <details className="mt-3 type-note text-text-muted">
+            <summary className="cursor-pointer rounded-control text-text">
+              Earlier sourced decisions ({earlierSourced.length})
+            </summary>
+            <p className="mt-2">
+              These decisions preceded the current plan replacement. Their
+              sources are not counted as support for the current decisions.
+            </p>
+            <ul className="mt-2 flex flex-col gap-2">
+              {earlierSourced.map((move) => (
+                <li key={move.moveId} className="break-words">
+                  <span className="text-text">{cleanProposalText(move.proposal)}</span>
+                  <span className="block">{move.grounding.map((source) => source.title || source.ref).join("; ")}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
 
         {accepted.length > 0 && (
           <ul className="mt-3 rounded-input border border-border bg-surface">
@@ -126,25 +140,17 @@ export function FinishReview({
                 className="flex items-start gap-2 border-b border-border px-3 py-2 type-body last:border-0"
               >
                 <span className="mt-0.5 w-32 shrink-0 type-caption text-text-muted">
-                  {/* The plain-words label, never the raw dotted path (see
-                    * rowLabel: an earlier prompt version had the model
-                    * literally echoing "protocol.design" as a real target,
-                    * and even a well-formed path like "researchQuestions[]"
-                    * is still code, not a name a researcher reads). A fixed
-                    * width here  -  not just shrink-0  -  is what makes every
-                    * row's proposal text start at the same x position;
-                    * without it "Design" and "Research questions" left each
-                    * row's second column starting somewhere different. */}
+                  {/* Plain-words label, never the raw dotted path; a fixed width keeps every row's proposal text aligned. */}
                   {rowLabel(m.target)}
                 </span>
                 <span className="min-w-0 flex-1 break-words text-text">{cleanProposalText(m.proposal)}</span>
                 {m.grounding.length > 0 ? (
-                  <span className="shrink-0 type-caption text-grounded" title="grounded in the corpus">
+                  <span className="shrink-0 type-caption text-grounded" title="source linked to this decision">
                     cited
                   </span>
                 ) : (
-                  <span className="shrink-0 type-caption text-unsourced" title="your own judgment">
-                    your call
+                  <span className="shrink-0 type-caption text-unsourced" title="no source linked to this decision">
+                    no linked source
                   </span>
                 )}
               </li>
@@ -162,11 +168,7 @@ export function FinishReview({
                 ? "The server couldn't compile this draft. Check your connection, then reopen this review."
                 : "The draft is still empty. Accept a few design moves first.")}
           </pre>
-          {/* On a first compile the comparator's at-rest record is the same
-            * document as the block above, line for line, so showing both
-            * stacked two ~200-line monospace slabs in one dialog and marked
-            * nothing as changed. The comparator earns its place only once
-            * there is an earlier version to alternate against. */}
+          {/* The comparator earns its place only once there is an earlier version to alternate against. */}
           {hasDiff && earlier && (
             <BlinkComparator lines={diffLines} className="mt-3" />
           )}
@@ -203,10 +205,7 @@ export function FinishReview({
           )}
         </div>
 
-        {/* Pinned to the foot of the dialog's scroller. Measured at 1440x900
-          * this dialog is taller than the viewport, and the action row sat
-          * ~370px below the fold: the one thing the review exists to let the
-          * researcher do was invisible when it opened. */}
+        {/* Pinned to the foot of the dialog's scroller so the action row stays visible when the dialog is taller than the viewport. */}
         </DialogBody>
         <DialogFooter>
           <Button
@@ -218,9 +217,7 @@ export function FinishReview({
           >
             Keep editing
           </Button>
-          {/* Applying is not the end of the road: the next step is sample-size
-            * planning, so the pinned primary action becomes that step instead of
-            * a dead "Applied" label below the fold. */}
+          {/* Once applied, the pinned primary action becomes the next step: sample-size planning. */}
           {applied ? (
             <Button size="sm" asChild>
               <Link to="?tab=planning" onClick={() => onOpenChange(false)}>

@@ -9,7 +9,9 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogBody,
   DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useApi, useSession } from "@/lib/session";
@@ -24,7 +26,7 @@ export function Studies() {
   const api = useApi();
   const { me, loading: meLoading, refresh } = useSession();
   const navigate = useNavigate();
-  const { data, loading, error, reload } = useAsync(() => api.listStudies(), [api]);
+  const { data, loading, error, reload, setData } = useAsync(() => api.listStudies(), [api]);
   const [composing, setComposing] = useState(false);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -77,6 +79,7 @@ export function Studies() {
     setDeleteError("");
     try {
       await api.deleteStudy(deleteTarget.id);
+      setData((current) => current?.filter((study) => study.id !== deleteTarget.id) ?? null);
       setDeleteTarget(null);
       reload();
     } catch (e) {
@@ -185,19 +188,20 @@ export function Studies() {
       )}
 
       {studies.length > 0 && (
-        <ul className="divide-y divide-border border-y border-border bg-surface">
+        <ul className="overflow-hidden rounded-plate border border-border bg-surface divide-y divide-border">
           {studies.map((study) => {
             const title = studyDisplayName(names, study.id);
             return (
-              <li key={study.id} className="flex items-center gap-2 px-2 sm:px-3">
+              <li key={study.id} className="flex items-center gap-2 px-3 py-1 sm:px-4">
                 <Link
                   to={`/studies/${encodeURIComponent(study.id)}`}
                   className="flex min-h-14 min-w-0 flex-1 items-center justify-between gap-3 rounded-control px-2 py-2 transition-colors duration-fast hover:bg-zone-9 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
                   title={title}
                 >
                   <span className="truncate type-body font-medium text-text">{title}</span>
-                  <span className="shrink-0 type-caption text-text-muted">
+                  <span className="flex shrink-0 items-center gap-2 type-caption text-text-muted">
                     {study.hasProtocol ? "Protocol ready" : "Setup in progress"}
+                    <ChevronRight className="size-4" aria-hidden />
                   </span>
                 </Link>
                 {hasRole(study.role, "delete") && (
@@ -225,12 +229,16 @@ export function Studies() {
         onOpenChange={changeDeleteOpen}
       >
         <DialogContent>
-          <DialogTitle>Delete this study?</DialogTitle>
-          <DialogDescription className="mt-2">
-            “{deleteName}” and its collected data will be permanently deleted. This can’t be undone.
-          </DialogDescription>
-          {deleteError && <Notice kind="problem" className="mt-3">{deleteError}</Notice>}
-          <DialogFooter>
+          <DialogHeader>
+            <DialogTitle>Delete this study?</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <DialogDescription>
+              “{deleteName}” and its collected data will be permanently deleted. This can’t be undone.
+            </DialogDescription>
+            {deleteError && <Notice kind="problem" className="mt-3">{deleteError}</Notice>}
+          </DialogBody>
+          <DialogFooter className="border-0 pt-0">
             <Button variant="outline" disabled={deleting} onClick={() => changeDeleteOpen(false)}>
               Cancel
             </Button>

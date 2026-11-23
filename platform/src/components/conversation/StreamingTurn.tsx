@@ -19,7 +19,7 @@ export function StreamingTurn({
   showKeyHint = false,
 }: {
   turn: Turn;
-  onDecide: (moveId: string, status: MoveStatus, move?: Turn["moves"][number]) => void;
+  onDecide?: (moveId: string, status: MoveStatus, move?: Turn["moves"][number]) => void;
   onAcceptBatch?: (moves: Turn["moves"]) => void;
   /** The one move the thread is handing the caret to, if any  -  set only when
    *  a reply lands in answer to something the researcher just sent. */
@@ -33,6 +33,11 @@ export function StreamingTurn({
   const isPlatform = turn.role === "platform";
   const isUnavailable = turn.source === "unavailable";
   const isScope = turn.source === "scope";
+  /* One click may accept what the researcher said, never what the assistant
+   * chose for them: those cards wait for their own decision. */
+  const pending = turn.moves.filter((m) => m.status === "proposed" && m.kind !== "caution");
+  const batch = pending.filter((m) => !m.suggested?.length);
+  const withChoices = batch.length < pending.length;
   return (
     <div
       className={cn(
@@ -59,29 +64,31 @@ export function StreamingTurn({
         {isPlatform ? (
           <ReplyParagraphs text={turn.text} />
         ) : (
-          <p className="whitespace-pre-wrap">{turn.text}</p>
+          <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{turn.text}</p>
         )}
       </div>}
 
       {turn.moves.length > 0 && (
         <div className="flex w-full min-w-0 flex-col gap-2">
-          {onAcceptBatch && turn.moves.filter((m) => m.status === "proposed" && m.kind !== "caution").length > 1 && (
+          {onAcceptBatch && batch.length > 1 && (
             <div className="flex items-center justify-between gap-3 rounded-card border border-accent/30 bg-accent/5 px-3 py-2">
               <p className="type-caption text-text-muted">
-                Suggested protocol changes
+                {withChoices
+                  ? "Cards with the assistant’s own choices need your decision one by one."
+                  : "Suggested protocol changes"}
               </p>
               <Button
                 size="sm"
                 variant="subtle"
                 className="shrink-0 !h-8 !px-2.5"
-                onClick={() => onAcceptBatch(turn.moves.filter((m) => m.status === "proposed" && m.kind !== "caution"))}
+                onClick={() => onAcceptBatch(batch)}
               >
                 <Check aria-hidden />
-                Accept all
+                {withChoices ? `Accept the other ${batch.length}` : "Accept all"}
               </Button>
             </div>
           )}
-          {showKeyHint && turn.moves.some((m) => m.status === "proposed") && <KeyHint />}
+          {onDecide && showKeyHint && turn.moves.some((m) => m.status === "proposed") && <KeyHint />}
           {turn.moves.filter(move => !active || move.status === "proposed").map((m) => (
             <MoveCard
               key={m.moveId}
@@ -131,12 +138,18 @@ function KeyHint() {
   );
 }
 
+/* A sentence ends at . ! or ? before a capital or digit, except after an
+ * abbreviation, so "(Peng et al. 2023)" and "e.g. TERN" stay whole. */
+const SENTENCE_END = /(?<=[.!?])(?<!\b(?:al|e\.g|i\.e|vs|cf|approx|Fig|Eq)\.)\s+(?=[A-Z0-9“])/;
+
+/* Long model paragraphs read as two-sentence groups. Grouping always starts
+ * from the first sentence, so while a reply streams each new sentence only
+ * extends the last group and the text above it never reflows. */
 function ReplyParagraphs({ text }: { text: string }) {
   const blocks = text
     .split(/\n{2,}/)
     .flatMap((block) => {
-      const sentences = block.trim().split(/(?<=[.!?])\s+(?=[A-Z0-9“])/);
-      if (sentences.length < 4) return [block.trim()];
+      const sentences = block.trim().split(SENTENCE_END);
       const chunks: string[] = [];
       for (let i = 0; i < sentences.length; i += 2) {
         chunks.push(sentences.slice(i, i + 2).join(" "));

@@ -61,24 +61,17 @@ export function ProtocolGuide() {
           ))}
         </dl>
 
-        {/* Where the list comes from, because "the app says so" is not a
-          * citable answer. The core sections organise the conversation, while
-          * the schema's `required` list is the authority for validation. Ethics
-          * status is intentionally outside that required list. */}
         <p className="type-note mt-4 border-t border-border pt-3 text-text-muted">
-          These are the core sections the design conversation works through.
-          What a protocol must contain in order to validate is defined by the
-          study protocol schema, which you can read at{" "}
+          The compiler checks the draft against the{" "}
           <a
             href="/schemas/protocol"
             target="_blank"
             rel="noreferrer"
             className="underline decoration-border underline-offset-4 hover:text-text hover:decoration-control-edge"
           >
-            /schemas/protocol
-          </a>
-          . The compiler checks the draft against that schema and names
-          anything still missing in plain words.
+            protocol schema
+          </a>{" "}
+          and names anything still missing.
         </p>
         </DialogBody>
         <DialogFooter>

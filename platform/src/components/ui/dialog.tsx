@@ -92,7 +92,6 @@ export const DialogContent = React.forwardRef<
                 "flex max-h-[calc(100dvh-2rem)] flex-col",
                 "rounded-plate border border-border bg-surface-raised p-5 shadow-lifted",
               ),
-          "duration-entrance data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95",
           className,
         )}
         {...props}
@@ -113,7 +112,7 @@ export const DialogContent = React.forwardRef<
               {children}
             </div>
             <DialogPrimitive.Close
-              className="absolute right-4 top-4 rounded-control bg-surface-raised text-text-muted transition-colors duration-fast hover:text-text"
+              className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-control bg-surface-raised text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
               aria-label="Close"
             >
               <X className="size-4" aria-hidden />

@@ -157,12 +157,8 @@ export class OfflineError extends Error {
 /** The bearer token sent with every request: the token the researcher
  * entered at sign-in (`localStorage['middleware.token']`), read per request
  * so signing in or out takes effect without a reload. */
-let tokenProvider: () => Promise<string | null> = async () =>
+const tokenProvider = async (): Promise<string | null> =>
   localStorage.getItem("middleware.token");
-
-export function setTokenProvider(provider: () => Promise<string | null>): void {
-  tokenProvider = provider;
-}
 
 /** Notified whenever the server answers 401  -  the auth layer subscribes to
  * show the sign-in surface without every page needing to catch it itself. */
@@ -200,6 +196,7 @@ class HttpBackend implements Api {
     try {
       res = await fetch(this.base + path, {
         method,
+        ...(method === "GET" && path === "/studies" ? { cache: "no-store" } : {}),
         headers: {
           ...(body && !(body instanceof FormData)
             ? { "content-type": "application/json" }

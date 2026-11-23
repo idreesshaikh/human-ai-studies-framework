@@ -17,7 +17,6 @@ export type DecisionTrigger = {
   moveId: string;
   action: "accepted" | "rejected" | "noted";
 };
-
 type ConversationReply = {
   researcherTurnId: string;
   platformTurnId: string;
@@ -84,11 +83,12 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
-function post<T>(path: string, body: unknown): Promise<T> {
+function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   return req<T>(path, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
+    signal,
   });
 }
 
@@ -177,6 +177,19 @@ function mapPatch(raw: unknown): DesignMove["patch"] {
   return undefined;
 }
 
+/** A plan card's marks (server: study_plan._mark_suggestions), or undefined
+ * for a card that carries none. */
+function mapSuggested(raw: unknown): DesignMove["suggested"] {
+  const list = (raw as { suggested?: unknown } | null | undefined)?.suggested;
+  if (!Array.isArray(list)) return undefined;
+  return list.flatMap((item) => {
+    const s = item as Record<string, unknown> | null;
+    return s && typeof s.label === "string"
+      ? [{ field: String(s.field ?? s.label), label: s.label, why: typeof s.why === "string" ? s.why : "" }]
+      : [];
+  });
+}
+
 function mapMove(raw: Record<string, unknown>): DesignMove {
   const rawMerge = raw.mergeData as Record<string, unknown> | undefined;
   return {
@@ -185,6 +198,8 @@ function mapMove(raw: Record<string, unknown>): DesignMove {
     target: String(raw.target ?? ""),
     proposal: String(raw.proposal ?? ""),
     patch: mapPatch(raw.patch),
+    // Read before mapPatch narrows the patch to the keys the compiler uses.
+    suggested: mapSuggested(raw.patch),
     grounding: mapGrounding((raw.grounding as unknown[]) ?? []),
     status: (raw.status as DesignMove["status"]) ?? "proposed",
     mergeData:
@@ -215,6 +230,27 @@ function mapTurn(raw: Record<string, unknown>): Turn {
         ? raw.source
         : undefined,
   };
+}
+
+function mapReply(reply: ConversationReply, text: string, author: string) {
+  const researcher: Turn = {
+    turnId: reply.researcherTurnId,
+    role: "researcher",
+    author,
+    text,
+    moves: [],
+    recommendations: [],
+  };
+  const platform: Turn = {
+    turnId: reply.platformTurnId,
+    role: "platform",
+    author: "Platform",
+    text: reply.text,
+    moves: reply.moves.map(mapMove),
+    recommendations: reply.recommendations ?? [],
+    source: reply.source,
+  };
+  return { turns: [researcher, platform], understanding: reply.understanding };
 }
 
 export interface CompileResult {
@@ -300,6 +336,7 @@ export const conversationApi = {
     steer?: SteerLevel,
     decision?: DecisionTrigger,
     requestId?: string,
+    signal?: AbortSignal,
   ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
     const reply = await post<ConversationReply>(
       `/studies/${encodeURIComponent(studyId)}/conversation/turns`,
@@ -310,37 +347,17 @@ export const conversationApi = {
         ...(decision ? { decision } : {}),
         ...(requestId ? { requestId } : {}),
       },
+      signal,
     );
-    const researcher: Turn = {
-      turnId: reply.researcherTurnId,
-      role: "researcher",
-      author,
-      text,
-      moves: [],
-      recommendations: [],
-    };
-    const platform: Turn = {
-      turnId: reply.platformTurnId,
-      role: "platform",
-      author: "Platform",
-      text: reply.text,
-      moves: reply.moves.map(mapMove),
-      recommendations: reply.recommendations ?? [],
-      source: reply.source,
-    };
-    return {
-      turns: [researcher, platform],
-      understanding: reply.understanding,
-    };
+    return mapReply(reply, text, author);
   },
 
   /** `sendTurn`, with the reply's prose surfaced as the model writes it.
    *
    * `onToken` is called with each prose fragment; the resolved value is the
    * same `{turns}` the blocking call returns, so a caller can treat the
-   * stream as presentation only. Any streaming failure  -  no SSE support, a
-   * proxy that buffers, a mid-stream drop  -  falls back to `sendTurn`, so
-   * the turn is never lost to a display feature. */
+   * stream as presentation only. A failure before the first frame can retry
+   * through `sendTurn` with the same request ID. */
   async sendTurnStreaming(
     studyId: string,
     text: string,
@@ -355,15 +372,7 @@ export const conversationApi = {
     signal?: AbortSignal,
   ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
     let eventsReceived = 0;
-    let done: {
-      researcherTurnId: string;
-      platformTurnId: string;
-      text: string;
-      moves: Record<string, unknown>[];
-      recommendations: Recommendation[];
-      source?: "llm" | "scripted" | "unavailable" | "scope";
-      understanding?: Understanding;
-    } | null = null;
+    let done: ConversationReply | null = null;
     try {
       const res = await fetch(
         `/studies/${encodeURIComponent(studyId)}/conversation/turns/stream`,
@@ -406,7 +415,7 @@ export const conversationApi = {
           eventsReceived += 1;
           if (event === "token") onToken?.(String(payload.text ?? ""));
           else if (event === "done") done = payload;
-          else if (event === "error") throw new Error(String(payload.detail));
+          else if (event === "error") throw new ApiError(payload.status ?? 500, String(payload.detail));
         }
       }
       if (!done) throw new Error("stream ended without a turn");
@@ -428,27 +437,10 @@ export const conversationApi = {
       ) {
         throw error;
       }
-      return this.sendTurn(studyId, text, author, steer, decision, requestId);
+      return this.sendTurn(studyId, text, author, steer, decision, requestId, signal);
     }
 
-    const researcher: Turn = {
-      turnId: done.researcherTurnId,
-      role: "researcher",
-      author,
-      text,
-      moves: [],
-      recommendations: [],
-    };
-    const platform: Turn = {
-      turnId: done.platformTurnId,
-      role: "platform",
-      author: "Platform",
-      text: done.text,
-      moves: done.moves.map(mapMove),
-      recommendations: done.recommendations ?? [],
-      source: done.source,
-    };
-    return { turns: [researcher, platform], understanding: done.understanding };
+    return mapReply(done, text, author);
   },
 
   async decide(studyId: string, moveId: string, status: MoveStatus) {
@@ -482,14 +474,3 @@ export const conversationApi = {
     );
   },
 };
-
-/** Callers (`ConversationView`) need to tell a genuine live load apart from
- * an offline fallback so `live` state stays accurate  -  swallowing
- * `OfflineError` here would report success either way and leave the caller
- * stuck retrying doomed live calls. Let it throw; the caller's own catch
- * keeps the thread as it is and says why. */
-export function loadConversation(
-  studyId: string,
-): Promise<{ turns: Turn[]; understanding?: Understanding }> {
-  return conversationApi.get(studyId);
-}

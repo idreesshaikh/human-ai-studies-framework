@@ -14,7 +14,7 @@ export function RecommenderRail({
 }: {
   recommendations: Recommendation[];
   addedRefs: Set<string>;
-  onAdd: (ref: string) => void;
+  onAdd?: (ref: string) => void;
 }) {
   return (
     <aside
@@ -25,12 +25,12 @@ export function RecommenderRail({
           Literature
         </h2>
         <p className="type-note text-text-muted">
-          Study-specific matches appear first. A paper is evidence for a design move only when its relevance is clear.
+          Matched to this conversation, newest first.
         </p>
       </div>
 
       {recommendations.length === 0 ? (
-        <EmptyState line="No close study-specific matches yet. Describe the participants, task, comparison, or outcome and the corpus will look for papers with that vocabulary." />
+        <EmptyState line="No close matches yet. Describe the participants, task, comparison or outcome to find related papers." />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
           {recommendations.map((r) => (

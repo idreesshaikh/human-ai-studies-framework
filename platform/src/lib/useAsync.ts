@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { CREDENTIAL_READY_EVENT } from "./auth.tsx";
 
 interface AsyncState<T> {
@@ -6,6 +6,7 @@ interface AsyncState<T> {
   loading: boolean;
   error: string | null;
   reload: () => void;
+  setData: Dispatch<SetStateAction<T | null>>;
 }
 
 /* Run an async loader, tracking loading/error and exposing a reload. Keeps
@@ -44,5 +45,5 @@ export function useAsync<T>(load: () => Promise<T>, deps: unknown[]): AsyncState
     return () => window.removeEventListener(CREDENTIAL_READY_EVENT, reload);
   }, [reload]);
 
-  return { data, loading, error, reload };
+  return { data, loading, error, reload, setData };
 }

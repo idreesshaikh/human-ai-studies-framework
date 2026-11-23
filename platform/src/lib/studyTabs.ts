@@ -14,6 +14,7 @@ export const STUDY_TAB_IDS: StudyTab[] = [
 const ALIASES: Record<string, StudyTab> = {
   setup: "conversation",
   evidence: "library",
+  literature: "library",
   plan: "planning",
   run: "enrollment",
 };
@@ -27,7 +28,7 @@ export function resolveStudyTab(param: string | null): StudyTab {
 /** The labels people see on the tabs (StudyHome), reused in the page title. */
 export const STUDY_TAB_LABELS: Record<StudyTab, string> = {
   conversation: "Setup",
-  library: "Evidence",
+  library: "Literature",
   planning: "Plan",
   enrollment: "Run",
   data: "Data",

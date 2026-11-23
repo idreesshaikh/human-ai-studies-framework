@@ -1,6 +1,5 @@
 import * as React from "react";
 import * as Menu from "@radix-ui/react-dropdown-menu";
-import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 /* Dropdown menu built on Radix (keyboard nav, typeahead, ARIA). */
@@ -45,21 +44,6 @@ export const DropdownMenuItem = React.forwardRef<
   />
 ));
 DropdownMenuItem.displayName = "DropdownMenuItem";
-
-export function DropdownMenuCheckItem({
-  checked,
-  children,
-  ...props
-}: React.ComponentPropsWithoutRef<typeof Menu.Item> & { checked?: boolean }) {
-  return (
-    <DropdownMenuItem {...props}>
-      <span className="flex size-4 items-center justify-center">
-        {checked && <Check className="size-4 text-text" aria-hidden />}
-      </span>
-      {children}
-    </DropdownMenuItem>
-  );
-}
 
 export const DropdownMenuLabel = ({
   className,

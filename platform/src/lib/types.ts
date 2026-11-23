@@ -49,6 +49,10 @@ export interface DesignMove {
   patch?: DraftPatch;
   grounding: Grounding[];
   status: MoveStatus;
+  /** On a study-plan card, the values the assistant chose itself. `[]` means
+   * every value came from the researcher; absent means the card carries no
+   * marks (older or non-plan cards), so nothing can be said either way. */
+  suggested?: PlanSuggestion[];
   /** For merge-templates moves: the template IDs being merged and why */
   mergeData?: {
     templateIds: string[];
@@ -161,6 +165,14 @@ export type DraftPatch =
   | InstrumentPatch
   | StatisticsPatch
   | FieldPatch;
+
+/** A value on a study-plan card that the assistant chose because the
+ * researcher had not said it (server: study_plan._mark_suggestions). */
+export interface PlanSuggestion {
+  field: string;
+  label: string;
+  why: string;
+}
 
 export function isSectionPatch(p: DraftPatch): p is SectionPatch {
   return "op" in p && (p.op === "append" || p.op === "set");

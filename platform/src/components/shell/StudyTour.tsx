@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { StudyTab } from "@/lib/studyTabs";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,12 +14,7 @@ import {
 
 /* Optional walkthrough: each step opens the tab it describes. */
 
-export type TourTab =
-  | "conversation"
-  | "library"
-  | "data"
-  | "planning"
-  | "enrollment";
+export type TourTab = StudyTab;
 
 interface Step {
   tab: TourTab;
@@ -30,17 +26,17 @@ const STEPS: Step[] = [
   {
     tab: "conversation",
     title: "Configure the study",
-    body: "Describe a coding task and the AI comparison. The assistant turns that brief into a protocol TERN can run, while the map keeps only what you accept.",
+    body: "Describe a coding task and the AI comparison. The assistant drafts a protocol from it; only what you accept goes in.",
   },
   {
     tab: "library",
-    title: "Keep evidence close",
-    body: "Evidence is where you inspect the papers behind a choice. The design surface stays focused on the next decision instead of repeating the whole literature record.",
+    title: "Check the evidence",
+    body: "Inspect the papers behind each choice.",
   },
   {
     tab: "planning",
     title: "Run only a valid plan",
-    body: "Plan shows the participant journey, tasks, timing, and capture scope. Review and apply the compiled protocol from Setup before collecting data; unresolved issues keep Apply disabled.",
+    body: "Plan shows the participant journey, tasks, timing and capture. Apply the protocol in Setup first; Apply stays off until nothing is unresolved.",
   },
   {
     tab: "enrollment",

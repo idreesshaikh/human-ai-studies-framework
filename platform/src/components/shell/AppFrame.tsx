@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   Menu,
@@ -11,6 +11,7 @@ import {
   PanelLeft,
   PanelLeftClose,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -50,8 +51,14 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   const theme = useSyncExternalStore(subscribeTheme, getTheme, getTheme);
   const navFolded = usePanel("nav");
   const [navOpen, setNavOpen] = useState(false);
-  /* A mobile drawer always shows labels, regardless of the saved desktop fold preference. */
-  const showFolded = navFolded && !navOpen;
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 64rem)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) setNavOpen(false);
+    };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
   const studyId = /^\/studies\/([^/]+)/.exec(pathname)?.[1];
   useRouteTitle({
     studyName: studyId
@@ -72,28 +79,18 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
     to: string,
     label: string,
     icon: React.ReactNode,
-    { end = true, forceActive = false }: { end?: boolean; forceActive?: boolean } = {},
+    folded: boolean,
+    forceActive = false,
   ) => (
     <NavLink
       to={to}
-      end={end}
+      end
       onClick={() => setNavOpen(false)}
-      // Folded, the rail is icon-only by design (w-[3.25rem])  -  but the
-      // label itself never stopped rendering, so it just got clipped
-      // mid-word ("Pro", "Ten") by the narrow container instead of
-      // disappearing. `title` keeps the destination discoverable on hover
-      // once the visible text is gone.
-      title={showFolded ? label : undefined}
+      title={folded ? label : undefined}
       className={({ isActive }) =>
         cn(
           NAV_ITEM,
-          // The folded rail is 3.25rem (52px) wide with 0.75rem of outer
-          // padding on each side (12px), leaving 28px per row  -  px-2.5's
-          // 20px of horizontal padding was sized for the expanded row and
-          // left too little room for even the icon alone, which then
-          // flex-shrank to a sliver instead of staying square. Folded gets
-          // its own tight, centred padding sized to the icon.
-          showFolded ? "justify-center px-1.5" : "px-2.5",
+          folded ? "justify-center px-1.5" : "px-2.5",
           isActive || forceActive
             ? "control-axis"
             : NAV_ITEM_IDLE,
@@ -101,23 +98,39 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       }
     >
       <span className="shrink-0">{icon}</span>
-      <span className={showFolded ? "sr-only" : undefined}>{label}</span>
+      <span className={folded ? "sr-only" : undefined}>{label}</span>
     </NavLink>
+  );
+
+  const navigationItems = (folded: boolean) => (
+    <>
+      {navItem("/home", "Studies", <FlaskConical className="size-4" aria-hidden />, folded, pathname.startsWith("/studies/"))}
+      {navItem("/repertoire", "Templates", <Layers className="size-4" aria-hidden />, folded)}
+      {navItem("/settings", "Account settings", <Settings className="size-4" aria-hidden />, folded)}
+    </>
   );
 
   return (
     <div className="flex h-full flex-col">
+      <a href="#workspace-content" className="sr-only rounded-control bg-surface p-3 type-control text-accent focus:not-sr-only focus:fixed focus:z-50">
+        Skip to main content
+      </a>
       <header className="flex items-center gap-2 border-b border-border bg-surface px-3 py-2 sm:gap-3 sm:px-4">
-        {/* Nothing to open when the rail is not rendered. */}
         {!signedOut && (
-          <button
-            type="button"
-            className="header-control lg:hidden"
-            onClick={() => setNavOpen((v) => !v)}
-            aria-label="Toggle navigation"
-          >
-            <Menu className="size-5" aria-hidden />
-          </button>
+          <Dialog open={navOpen} onOpenChange={setNavOpen}>
+            <DialogTrigger className="header-control lg:hidden" aria-label="Toggle navigation">
+              <Menu className="size-5" aria-hidden />
+            </DialogTrigger>
+            <DialogContent
+              aria-describedby={undefined}
+              className="left-0 top-0 h-dvh max-h-dvh w-56 translate-x-0 translate-y-0 rounded-none p-3"
+            >
+              <DialogTitle className="px-2 py-3 type-subhead text-text">Navigation</DialogTitle>
+              <nav aria-label="Main" className="mt-2 flex flex-col gap-1 p-1">
+                {navigationItems(false)}
+              </nav>
+            </DialogContent>
+          </Dialog>
         )}
         {/* Signed out, "home" is the public front, not the studies list the
           * visitor cannot see  -  the wordmark was the one control on a public
@@ -174,39 +187,17 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
 
       {/* Studies, templates and account preferences are the three destinations. */}
       <div className="flex min-h-0 flex-1">
-        {navOpen && (
-          <div
-            className="fixed inset-0 z-30 bg-scrim lg:hidden"
-            onClick={() => setNavOpen(false)}
-            aria-hidden
-          />
-        )}
-        {/* Signed out, the rail would hold one reachable destination and two
-          * that bounce straight back to the sign-in gate. A nav whose items
-          * mostly refuse is worse than no nav: the public page keeps the
-          * header (mark, theme, Sign in) and gets its whole width. */}
         <nav
           aria-label="Main"
           hidden={signedOut}
           className={cn(
-            "shrink-0 border-r border-border-strong bg-surface transition-all duration-fast",
-            showFolded ? "w-[3.25rem]" : "w-56",
-            signedOut
-              ? "hidden"
-              : navOpen
-                ? "fixed inset-y-0 left-0 z-40 block pt-[calc(var(--header-h)+0.5rem)] lg:static lg:pt-0"
-                : "hidden lg:flex lg:flex-col",
+            "hidden shrink-0 border-r border-border-strong bg-surface transition-all duration-fast",
+            !signedOut && "lg:flex lg:flex-col",
+            navFolded ? "w-[3.25rem]" : "w-56",
           )}
         >
           <div className="flex flex-1 flex-col gap-1 overflow-auto p-3">
-            {navItem(
-              "/home",
-              "Studies",
-              <FlaskConical className="size-4" aria-hidden />,
-              { forceActive: pathname === "/start" || pathname === "/home" || pathname.startsWith("/studies/") },
-            )}
-            {navItem("/repertoire", "Templates", <Layers className="size-4" aria-hidden />)}
-            {navItem("/settings", "Account settings", <Settings className="size-4" aria-hidden />)}
+            {navigationItems(navFolded)}
           </div>
 
           {/* Folding applies to the desktop rail; the mobile drawer has its own toggle. */}
@@ -232,7 +223,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           </button>
           </div>
         </nav>
-        <main className={cn("min-h-0 flex-1", isWorkspace ? "overflow-hidden" : "overflow-auto")}>
+        <main id="workspace-content" tabIndex={-1} className={cn("min-h-0 flex-1", isWorkspace ? "overflow-hidden" : "overflow-auto")}>
           {children}
         </main>
       </div>
