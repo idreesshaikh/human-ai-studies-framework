@@ -3,14 +3,14 @@
 Participants install TERN into VS Code once, then connect it to the study with
 the link the researcher sends. TERN needs VS Code 1.134 or later.
 
-!!! note "The published release is older than this guide"
-    The [1.0.1 release](https://github.com/idreesshaikh/human-ai-studies-framework/releases/tag/v1.0.1)
-    from 25 August 2026 is listed as
-    **TERN: Telemetry for Engineering & Reasoning Norms**, and its commands
-    start with **TERN:** rather than **StudyLoop:**. It has no
-    **Disconnect from Study** command and does not download a study's task
-    folder. The code in the repository still reports version 1.0.1. To get the
-    version this guide describes, [build it from source](#build-from-source).
+!!! note "Check which extension build you have"
+    The `v1.0.1` tag names the extension **TERN: Telemetry for Engineering &
+    Reasoning Norms** and uses **TERN:** command names. It has no
+    **Disconnect from Study** command or task-folder download. The current
+    source uses **StudyLoop:** commands but still reports version 1.0.1, so
+    the version number alone cannot distinguish these builds. For the features
+    in this guide, use a VSIX built from the current source by your researcher
+    or [build it yourself](#build-from-source).
 
 ## For participants
 
@@ -23,8 +23,8 @@ the link the researcher sends. TERN needs VS Code 1.134 or later.
    and paste it.
 3. **Read the consent statement** and choose **I consent**. Nothing is
    recorded before you do.
-4. **Wait for the study folder.** If the study has a task folder, TERN
-   downloads it and opens it in the window.
+4. **Open the study folder.** If the researcher provided a folder, TERN opens
+   the path or downloads and opens the supplied archive.
 
 A message then lists what this study will capture, and the **StudyLoop study**
 sidebar shows the same list under **What is captured**. Start when you are
@@ -84,9 +84,9 @@ the sinks with mocked timers, so they run without launching VS Code.
 
 ## Settings for unpaired sessions
 
-Unpaired sessions read the `tern.*` settings. While a study is connected, the
-study sets them and your changes are ignored. These are the ones you are most
-likely to change:
+Unpaired sessions read the `tern.*` settings. Paired sessions use the study's
+locked configuration instead of participant changes. These are the settings
+you are most likely to change for an unpaired session:
 
 | Setting | Default | What it does |
 | --- | --- | --- |

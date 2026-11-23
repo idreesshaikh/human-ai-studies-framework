@@ -1,7 +1,7 @@
 import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Badge } from "@/components/ui/badge";
-import { Confidence, ConfidenceValue, GroundingMark } from "./Confidence";
+import { Confidence } from "./Confidence";
 import type { Grounding } from "@/lib/types";
 import { publicPaperReference } from "@/lib/paperReference";
 
@@ -82,7 +82,7 @@ export function GroundingChip({ g }: { g: Grounding }) {
       <button
         type="button"
         className="cursor-help min-h-9 max-w-full"
-        aria-label={`Grounded citation: ${g.title}${g.confidence != null ? `, confidence ${g.confidence.toFixed(2)}` : ""}`}
+        aria-label={`Cited paper: ${g.title}`}
         aria-expanded={open}
         aria-describedby={open ? cardId : undefined}
         onFocus={() => setOpen(true)}
@@ -92,12 +92,11 @@ export function GroundingChip({ g }: { g: Grounding }) {
           setOpen(true);
         }}
       >
-        {/* The chip is clean; the citation's own confidence is the framed
-          * mark and its printed score at the left. A wall of citations reads
-          * as a field of magnitudes against identical frames  -  the strong
-          * support is visible before a single title is read  -  without marking
-          * up the whole chip. The words stay in the hover card, where there is
-          * room for them. */}
+        {/* The chip names the paper and nothing more. Its score is a corpus
+          * quality prior (recency, citations, venue; every seed paper gets the
+          * same 0.85), not how well the paper supports this card, and printed
+          * beside "grounded" on the card it read as exactly that. The score
+          * stays in the hover card under its real name. */}
         {/* `normal-case` and the caption voice: the Badge's own role is
           * `type-legend`, which uppercases and tracks its label. That is right
           * for a key ("OWNER", "DESIGN") and wrong for a citation, which is
@@ -109,13 +108,6 @@ export function GroundingChip({ g }: { g: Grounding }) {
           variant="grounded"
           className="type-caption max-w-full gap-1.5 normal-case tracking-normal"
         >
-          {g.confidence != null && (
-            <span className="flex shrink-0 items-center gap-1 self-start">
-              <GroundingMark value={g.confidence} />
-              <ConfidenceValue value={g.confidence} />
-            </span>
-          )}
-          <span className="type-legend shrink-0 text-grounded">grounded</span>
           {/* Two lines of title, not one clamped line: a citation cut to
               "MORE CODE, LESS UNDERSTANDING…" identifies nothing, and two of
               them read as the same source. The flex chain above this now has
@@ -145,8 +137,12 @@ export function GroundingChip({ g }: { g: Grounding }) {
               <span className="type-caption block text-text-muted">{g.venue}</span>
             )}
             <span className="mt-1.5 flex items-center gap-2">
-              <span className="type-legend text-text-muted">Confidence</span>
-              <Confidence value={g.confidence} />
+              <span className="type-legend text-text-muted">Source quality</span>
+              <Confidence value={g.confidence} words={false} />
+            </span>
+            <span className="type-caption block text-text-muted">
+              From recency, citations and venue. It does not measure how well
+              this paper supports the card.
             </span>
             <span className="type-body mt-1 block text-text">{g.why}</span>
             {citation && (

@@ -26,9 +26,9 @@ marks which decisions are backed by papers and which are your call, shows the
 YAML, and highlights what changed since the protocol you last applied.
 
 <figure markdown="span">
-  ![The Review draft dialog listing the decisions to apply, with Keep editing and Apply protocol buttons](../assets/screens/review-draft-light.webp#only-light)
-  ![The Review draft dialog listing the decisions to apply, with Keep editing and Apply protocol buttons](../assets/screens/review-draft-dark.webp#only-dark)
-  <figcaption>Review draft, before Apply protocol. Applying records who approved which compilation.</figcaption>
+  ![Review draft dialog showing a compiled protocol and Apply protocol button](../assets/screens/review-draft-light.webp#only-light)
+  ![Review draft dialog showing a compiled protocol and Apply protocol button](../assets/screens/review-draft-dark.webp#only-dark)
+  <figcaption>Review the compiled protocol before applying it.</figcaption>
 </figure>
 
 Choose **Keep editing** to go back, or **Apply protocol** to make this version

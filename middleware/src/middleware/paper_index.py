@@ -71,6 +71,7 @@ def search(s: Session, query: str, *, limit: int = 6) -> list[dict]:
             text(
                 "SELECT paper_ref, title, abstract FROM papers "
                 "WHERE search_vector @@ plainto_tsquery('english', :q) "
+                "AND COALESCE(curation, '') <> 'hidden' "
                 "ORDER BY ts_rank(search_vector, plainto_tsquery('english', :q)) DESC "
                 "LIMIT :n"
             ),

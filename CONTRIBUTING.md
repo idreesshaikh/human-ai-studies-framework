@@ -6,17 +6,18 @@ contracts. Read the [architecture](docs/architecture.md) and
 
 ## Setup and checks
 
-Use Python 3.12+, Node.js 22+, and uv:
+Use Python 3.12, Node.js 22.13+ or a newer LTS release, and uv.
 
 ```bash
 uv sync --all-packages --group docs --frozen
 npm --prefix platform ci
 npm --prefix extension ci
-npm --prefix platform exec playwright install chromium
+npm --prefix platform exec -- playwright install chromium
 ```
 
-To work on the web app with live reload, run the server without the built app
-and the Vite dev server beside it, then open <http://localhost:5173>:
+Copy `.env.example` to `.env.local` if you have no local settings file yet.
+For frontend development, run the API and Vite in separate terminals, then open
+<http://localhost:5173>.
 
 ```bash
 MIDDLEWARE_API_ONLY=1 uv run --no-sync --env-file .env.local python -m middleware

@@ -360,7 +360,7 @@ def register(app: FastAPI, deps: ApiDeps):
         Delete a study and everything scoped to it (FR-PLAT-1): its conversation, design
         moves, drafts, papers, enrollment, and mining records.
         """
-        study = s.get(Study, study_id)
+        study = s.get(Study, study_id, with_for_update=True)
         if study is None:
             raise HTTPException(404, "study not found")
         _delete_study_scoped_rows(s, study_id)

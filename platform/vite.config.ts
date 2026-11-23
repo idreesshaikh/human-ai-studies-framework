@@ -36,6 +36,7 @@ export default defineConfig({
           }
         },
       },
+      "/sessions": "http://127.0.0.1:8000",
       "/templates": "http://127.0.0.1:8000",
     },
   },

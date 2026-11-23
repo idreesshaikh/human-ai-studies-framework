@@ -182,7 +182,7 @@ export function ManualProtocolDialog({
     const measures = allMeasures();
     const found = validateManualProtocol({ ...form, measures });
     if (measures.some((text) => !existingChoices[text] && !choiceFor(text)?.recipeByDesign[form.design])) {
-      found.push({ id: "manual-other-outcomes", label: "Other outcomes", message: "Choose a supported mapping for each outcome. Custom capture or an incompatible analysis must be defined in Setup before saving." });
+      found.push({ id: "manual-other-outcomes", label: "Other outcomes", message: "Choose a supported mapping for each outcome. Set up custom capture or analysis in the chat instead." });
     }
     setProblems(found);
     if (found.length) {
@@ -422,7 +422,7 @@ export function ManualProtocolDialog({
                     }}><Plus aria-hidden />Add {choice.construct}</Button>
                   </div>
                 ))}
-                {((lookup === "ready" && suggestions.length === 0) || lookup === "unavailable" || catalogError) && <p className="type-caption text-text-muted">Define custom capture and analysis in Setup, or choose an available measure before saving.</p>}
+                {((lookup === "ready" && suggestions.length === 0) || lookup === "unavailable" || catalogError) && <p className="type-caption text-text-muted">Choose an available measure, or set up custom capture in the chat.</p>}
               </div>
             </fieldset>
             {error && <Notice kind="problem">{error}</Notice>}

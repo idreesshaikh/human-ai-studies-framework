@@ -22,9 +22,7 @@ export function DraftRail({
   compileValid,
   compileErrors,
   unresolved,
-  onApply,
   onEdit,
-  applying,
   onFinish,
   understanding,
   loading,
@@ -36,11 +34,8 @@ export function DraftRail({
   protocol?: Record<string, unknown>;
   compileValid?: boolean;
   compileErrors?: string[];
-  compileWarnings?: string[];
   unresolved?: string[];
-  onApply?: () => void;
   onEdit?: () => void;
-  applying?: boolean;
   onFinish?: () => void;
   understanding?: Understanding;
   loading?: boolean;
@@ -173,7 +168,7 @@ export function DraftRail({
         )}
       </div>
 
-      {(onFinish || onApply || onEdit) && (
+      {(onFinish || onEdit) && (
         <div className="flex gap-2 border-t border-border bg-surface p-4">
           {onEdit && (
             <Button size="sm" variant="ghost" onClick={onEdit}>
@@ -183,18 +178,6 @@ export function DraftRail({
           {onFinish && (
             <Button size="sm" onClick={onFinish} className="flex-1">
               Review draft
-            </Button>
-          )}
-          {onApply && !onFinish && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!ready || applying}
-              onClick={onApply}
-              className="flex-1"
-              title={ready ? undefined : "Finish the required sections before applying this draft."}
-            >
-              {applying ? "Applying…" : "Apply protocol"}
             </Button>
           )}
         </div>

@@ -148,16 +148,22 @@ def _traits(rng: random.Random) -> dict:
     }
 
 
-def _tlx(rng: random.Random, survey: dict, level: float) -> dict:
-    offsets = {"physical_demand": -35, "performance": -15, "frustration": -8}
+def _answers(rng: random.Random, survey: dict, workload: float, ai_use: int) -> dict:
+    """Plausible answers: TLX items track workload, reverse-keyed items mirror it."""
+    offsets = {"performance": -15, "frustration": -8}
     out = {}
     for item in survey["items"]:
         scale = item["scale"]
-        raw = level + offsets.get(item["id"], 0) + rng.gauss(0, 8)
-        step = scale.get("step", 1)
-        out[item["id"]] = int(
-            _clamp(round(raw / step) * step, scale["min"], scale["max"])
-        )
+        low, high, step = scale["min"], scale["max"], scale.get("step", 1)
+        if item["id"] == "ai_use":
+            raw = ai_use
+        elif item["id"] == "comprehension":
+            raw = rng.randint(high - 2, high)
+        else:
+            raw = workload + offsets.get(item["id"], 0) + rng.gauss(0, 8)
+            if item.get("reverse"):
+                raw = low + high - raw
+        out[item["id"]] = int(_clamp(round(raw / step) * step, low, high))
     return out
 
 
@@ -321,23 +327,25 @@ def _session_events(
         }
         harness.append((first_green_ms, {"trigger": "save", **green}))
         harness.append((end_ms - 500, {"trigger": "session-end", **green}))
-        survey = protocol["instruments"]["surveys"][0]
-        responses = _tlx(rng, survey, workload)
-        timeline.append(
-            (
-                end_ms - 60_000,
-                "survey_response",
-                {
-                    "instrumentId": survey["id"],
-                    "instrumentVersion": survey["version"],
-                    "instrumentHash": version_record(survey)["sha256"],
-                    "timing": survey["timing"],
-                    "responses": responses,
-                    "msToComplete": rng.randint(35_000, 80_000),
-                    "score": score_survey(survey, responses),
-                },
+        # The contaminated control session admits a little AI use.
+        reported_ai = rng.randint(2, 4) if condition == TREATMENT else int(ai_events)
+        for k, survey in enumerate(protocol["instruments"]["surveys"]):
+            responses = _answers(rng, survey, workload, reported_ai)
+            timeline.append(
+                (
+                    end_ms - 60_000 + k * 20_000,
+                    "survey_response",
+                    {
+                        "instrumentId": survey["id"],
+                        "instrumentVersion": survey["version"],
+                        "instrumentHash": version_record(survey)["sha256"],
+                        "timing": survey["timing"],
+                        "responses": responses,
+                        "msToComplete": rng.randint(15_000, 50_000),
+                        "score": score_survey(survey, responses),
+                    },
+                )
             )
-        )
         timeline.append((end_ms, "session_end", {"reason": "completed"}))
 
     def stamped(at: int, kind: str, payload: dict) -> dict:

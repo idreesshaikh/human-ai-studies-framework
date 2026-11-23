@@ -6,8 +6,8 @@ JSONL event file per session. It does not record keystrokes or the code
 participants write.
 
 This guide describes TERN as it is in the repository, listed in the VS Code
-Extensions view as **StudyLoop Capture**. The last published release is older;
-see [Install and connect](install.md) for the differences.
+Extensions view as **StudyLoop Capture**. The `v1.0.1` tagged version differs
+from the current source; see [Install and connect](install.md).
 
 ## Paired and unpaired sessions
 
@@ -16,8 +16,9 @@ PHOENIX. Everything else follows from whether that connection exists.
 
 === "Paired with a study"
 
-    - The study server sets every option. Changes to `tern.*` settings are
-      ignored, reverted, and recorded as `settings_override_attempt`.
+    - The study configuration controls capture. During a paired session,
+      changes to locked settings do not change capture and are recorded as
+      `settings_override_attempt`; TERN also attempts to restore the settings.
     - The server assigns the condition. TERN never shows it to the participant.
     - Events are written to VS Code's own storage for the extension and sent
       to the study server in batches.
@@ -63,8 +64,8 @@ and PHOENIX joins them by session.
 
 ## Prompts wait for the participant
 
-- The fatigue question waits for at least 4 seconds without typing before it
-  appears.
+- A scheduled fatigue question waits for 4 seconds without typing, up to 60
+  seconds, before it appears.
 - The stuck prompt never takes keyboard focus. It closes itself after 60
   seconds, and that timeout is recorded too.
 - No fatigue question appears in the last 5 minutes of a session.

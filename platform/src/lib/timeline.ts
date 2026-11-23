@@ -41,12 +41,12 @@ const LANE_LABELS: Record<string, string> = {
   // Rows written before the stream was renamed. New events are normalised at
   // ingest, but a database that predates the rename still holds the old value
   // and an unlabelled lane would read as an unknown producer.
-  "cognitive-overlay": "Editor capture",
+  "cognitive-overlay": "TERN",
   "agent-capture": "Agent interaction",
   "agent-derived": "Agent-derived",
   "workspace-snapshot": "Workspace snapshots",
   "task-harness": "Task harness",
-  metrics: "Static metrics",
+  metrics: "Code metrics",
 };
 
 /** Fallback label for unknown sources. */

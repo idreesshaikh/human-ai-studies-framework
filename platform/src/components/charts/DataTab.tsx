@@ -151,8 +151,9 @@ export function DataTab({
               empty.
             </Notice>
           )}
-          <section className="flex flex-col gap-3 border-b border-border pb-5">
-            <h2 className="type-subhead text-text">Download study records</h2>
+          <details>
+            <summary className="cursor-pointer rounded-control type-subhead text-text">Download study records</summary>
+            <div className="mt-3 flex flex-col gap-3">
             <p className="type-note text-text-muted">
               Export captured data or the recorded study design. Synthetic rows
               are excluded; pilot tags and inclusion decisions are retained.
@@ -189,8 +190,12 @@ export function DataTab({
                 {download.error}
               </p>
             )}
-          </section>
-          <OutcomeChecks key={`${studyId}:${decisionRevision}`} studyId={studyId} synthetic={synthetic} onChecked={() => void loadData()} />
+            </div>
+          </details>
+          <details>
+            <summary className="cursor-pointer rounded-control type-subhead text-text">Outcome capture checks</summary>
+            <OutcomeChecks key={`${studyId}:${decisionRevision}`} studyId={studyId} synthetic={synthetic} onChecked={() => void loadData()} />
+          </details>
           <section className="flex flex-col gap-stack" aria-label="Captured sessions">
             <h2 className="type-section text-text">
               {synthetic ? "Sessions (synthetic)" : "Sessions"}

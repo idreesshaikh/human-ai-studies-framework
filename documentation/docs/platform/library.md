@@ -1,13 +1,13 @@
-# Evidence
+# Literature
 
-The **Evidence** tab holds the papers behind a study, the protocol decisions
+The **Literature** tab holds the papers behind a study, the protocol decisions
 each one supports, and related literature. Paper counts and citations describe
 the collection; they do not establish the quality or validity of a study.
 
 <figure markdown="span">
-  ![The Evidence tab with the paper link field, Add paper and Upload PDF, and an empty paper list](../assets/screens/evidence-light.webp#only-light)
-  ![The Evidence tab with the paper link field, Add paper and Upload PDF, and an empty paper list](../assets/screens/evidence-dark.webp#only-dark)
-  <figcaption>Evidence for a study with no papers yet. Papers accepted from recommendations in Setup appear here too.</figcaption>
+  ![Literature tab with a paper input and an empty study collection](../assets/screens/evidence-light.webp#only-light)
+  ![Literature tab with a paper input and an empty study collection](../assets/screens/evidence-dark.webp#only-dark)
+  <figcaption>The Literature tab before papers have been added.</figcaption>
 </figure>
 
 ## Add and find papers
@@ -16,14 +16,8 @@ Paste an arXiv or DOI link, or enter its identifier, in **Paper link or identifi
 Choose **Add paper**, or use **Upload PDF** for a researcher-supplied file. Failed
 lookups preserve the input and explain how to try again.
 
-Once a study has six or more papers, you can filter them by title, author, year
-or identifier, and sort them by recently added, title or
-**Newest publication**. Templates and design recommendations stay in Templates
-and Setup.
-
-The desktop collection and reader have equal, stable heights. Long collections
-scroll inside the list; long abstracts scroll inside the reader. Author summaries
-keep rows compact, with the full list under **View all *N* authors**.
+Larger collections can be filtered by title, author, year or identifier and
+sorted by date added, title or publication year.
 
 ## Read and connect
 
@@ -42,10 +36,8 @@ The literature map shows references, later citations and similar work. Select a
 related paper to inspect its details, then choose **Add to study** if it belongs
 in the collection. Citation updates keep the reading pane available.
 
-Use the zoom buttons or Ctrl/Command plus scroll to zoom; ordinary scrolling
-continues through the page. Drag the map background to pan and choose **Fit** to
-frame the visible papers. Arrow keys move between papers; Enter or Space opens
-their details. Map labels remain readable across screen sizes and zoom levels.
+Use the zoom controls, drag the background to pan, or choose **Fit**. Arrow keys
+move between papers; Enter or Space opens their details.
 
 Local development can import the literature corpus with:
 
@@ -57,7 +49,7 @@ uv run --no-sync python -m middleware corpus-import
 
 A refresh searches arXiv and Semantic Scholar for recent metadata and stores
 unseen papers as candidates. It does not fetch PDFs. Candidates are not searchable
-until a researcher accepts them. The Evidence tab shows when the last refresh ran
+until a researcher accepts them. The Literature tab shows when the last refresh ran
 and how many candidates await review; an incomplete or failed refresh is identified.
 
 ```bash

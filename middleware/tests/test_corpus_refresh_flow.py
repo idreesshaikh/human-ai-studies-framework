@@ -284,3 +284,28 @@ def test_boot_import_still_runs_when_only_promoted_rows_make_up_the_count(
     if thread is not None:
         thread.join(5)
     assert calls == [1]
+
+
+def test_background_import_releases_the_writer_between_small_batches(sf, monkeypatch):
+    monkeypatch.setattr(corpus_importer, "parse_tier_a", list)
+    monkeypatch.setattr(
+        corpus_importer,
+        "parse_tier_b",
+        lambda: [
+            {"ref": f"arxiv:2601.{i:05d}", "title": f"Paper {i}"} for i in range(101)
+        ],
+    )
+    rows_visible_between_batches = []
+
+    def allow_study_write(_seconds):
+        with sf() as other:
+            rows_visible_between_batches.append(corpus_importer.core_row_count(other))
+            other.add(_paper("arxiv:2602.00000", "C"))
+            other.commit()
+
+    monkeypatch.setattr(corpus_importer, "sleep", allow_study_write)
+    result = corpus_importer.import_corpus(
+        "unused", session_factory=sf, background=True
+    )
+    assert rows_visible_between_batches == [100]
+    assert result["tierB"]["count"] == 101

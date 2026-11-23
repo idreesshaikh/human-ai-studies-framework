@@ -16,6 +16,7 @@ from fastapi.responses import (
 )
 from protocol.measure_catalog import suggest_measures
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from middleware import (
@@ -37,6 +38,7 @@ from middleware.db import (
     Membership,
     Paper,
     ProtocolDraftRow,
+    Study,
 )
 from middleware.evidence_mapping import evidence_export
 from middleware.route_helpers import (
@@ -203,19 +205,6 @@ def register(app: FastAPI, deps: ApiDeps):
                 detail="Only a caution card can be noted.",
             )
 
-    def _turn_for_request(
-        s: Session, study_id: str, request_id: str | None
-    ) -> ConversationTurn | None:
-        """Find a previously committed turn for a retried browser request."""
-        if not request_id:
-            return None
-        return s.scalar(
-            select(ConversationTurn).where(
-                ConversationTurn.study_id == study_id,
-                ConversationTurn.request_id == request_id,
-            )
-        )
-
     def _stored_turn_payload(
         s: Session, study_id: str, researcher: ConversationTurn
     ) -> dict | None:
@@ -257,9 +246,37 @@ def register(app: FastAPI, deps: ApiDeps):
             "moves": moves,
             "recommendations": platform.recommendations or [],
             "source": platform.source,
-            "understanding": None,
+            "understanding": elicitation.understanding_summary(
+                elicitation.assess_understanding(
+                    design_assistant.researcher_texts(s, study_id)
+                )
+            ),
             "turnIntent": "",
         }
+
+    def _replay_turn(
+        s: Session, study_id: str, body: ConversationTurnIn
+    ) -> dict | None:
+        if not body.requestId:
+            return None
+        researcher = s.scalar(
+            select(ConversationTurn).where(
+                ConversationTurn.study_id == study_id,
+                ConversationTurn.request_id == body.requestId,
+            )
+        )
+        if researcher is None:
+            return None
+        if researcher.text != body.text or researcher.author != body.author:
+            raise HTTPException(
+                409, "This request ID already belongs to another message."
+            )
+        replay = _stored_turn_payload(s, study_id, researcher)
+        if replay is None:
+            raise HTTPException(
+                409, "This message is still being processed. Try again."
+            )
+        return replay
 
     @app.post(
         "/studies/{study_id}/conversation/turns",
@@ -274,13 +291,12 @@ def register(app: FastAPI, deps: ApiDeps):
         """
         Append a researcher turn and generate the platform's grounded reply (FR-CONV-1).
         """
+        replay = _replay_turn(s, study_id, body)
+        if replay is not None:
+            return replay
         _validate_decision_followup(s, study_id, body.decision)
-        existing = _turn_for_request(s, study_id, body.requestId)
-        if existing is not None:
-            replay = _stored_turn_payload(s, study_id, existing)
-            if replay is not None:
-                return replay
-        researcher = _append_researcher_turn(s, study_id, body)
+        known_study = s.get(Study, study_id) is not None
+        researcher = _prepare_turn(s, study_id, body)
         try:
             reply = design_assistant.respond(
                 s,
@@ -293,24 +309,14 @@ def register(app: FastAPI, deps: ApiDeps):
             )
         except design_assistant.ModelUnavailable as exc:
             log.info("design turn unanswered: %s", exc)
-            # Persisted like any other reply, not held in memory only. The
-            # unpersisted version was the researcher's own question surviving
-            # a reload while the platform's explanation of why it went
-            # unanswered did not  -  so the exact moment a plain answer mattered
-            # most was the one moment it was allowed to vanish. `source:
-            # "unavailable"` still marks it as neither grounded nor scripted;
-            # the client already renders that source as "Not answered"
-            # (StreamingTurn.tsx) rather than as a real reply.
-            return _persist_platform_turn(
-                s, study_id, researcher, design_assistant.holding_turn(str(exc))
-            )
-        return _persist_platform_turn(s, study_id, researcher, reply)
+            reply = design_assistant.holding_turn(str(exc))
+        return _save_turn(s, researcher, body, reply, known_study=known_study)
 
-    def _append_researcher_turn(
+    def _prepare_turn(
         s: Session, study_id: str, body: ConversationTurnIn
     ) -> ConversationTurn:
-        """Land the researcher's own turn; its seq settles the reply's."""
-        researcher = ConversationTurn(
+        """Assign the expected sequence without starting a write transaction."""
+        return ConversationTurn(
             id=secrets.token_hex(8),
             study_id=study_id,
             seq=deps.conversation_seq(s, study_id),
@@ -321,9 +327,44 @@ def register(app: FastAPI, deps: ApiDeps):
             created_at=deps.now(),
             request_id=body.requestId or None,
         )
+
+    def _save_turn(
+        s: Session,
+        researcher: ConversationTurn,
+        body: ConversationTurnIn,
+        reply: dict,
+        *,
+        known_study: bool,
+    ) -> dict:
+        """Write the complete turn pair in one transaction after generation."""
+        study_id, seq = researcher.study_id, researcher.seq
+        # Start the write on a fresh snapshot, particularly on SQLite in WAL mode.
+        s.rollback()
+        replay = _replay_turn(s, study_id, body)
+        if replay is not None:
+            return replay
         s.add(researcher)
-        s.flush()
-        return researcher
+        try:
+            s.flush()
+            if known_study and s.get(Study, study_id, with_for_update=True) is None:
+                raise HTTPException(
+                    404, "The study was removed before the reply was saved."
+                )
+            _validate_decision_followup(s, study_id, body.decision)
+            return _persist_platform_turn(s, study_id, researcher, reply)
+        except IntegrityError:
+            s.rollback()
+            replay = _replay_turn(s, study_id, body)
+            if replay is not None:
+                return replay
+            if deps.conversation_seq(s, study_id) > seq:
+                raise HTTPException(
+                    409, "Another message was saved first. Send your message again."
+                ) from None
+            raise
+        except HTTPException:
+            s.rollback()
+            raise
 
     def _design_turn_client():
         """
@@ -413,51 +454,45 @@ def register(app: FastAPI, deps: ApiDeps):
         # Validate while the HTTP status can still report a conflict. Once the
         # stream starts, an invalid card decision would otherwise look like a
         # successful request followed by an internal stream error.
-        _validate_decision_followup(s, study_id, body.decision)
+        replay = _replay_turn(s, study_id, body)
+        known_study = False
+        if replay is None:
+            _validate_decision_followup(s, study_id, body.decision)
+            known_study = s.get(Study, study_id) is not None
 
         def frames():
             try:
-                existing = _turn_for_request(s, study_id, body.requestId)
-                if existing is not None:
-                    replay = _stored_turn_payload(s, study_id, existing)
-                    if replay is not None:
-                        yield _sse("done", replay)
-                        return
-                researcher = _append_researcher_turn(s, study_id, body)
-                stream = design_assistant.respond_streaming(
-                    s,
-                    body.text,
-                    seq=researcher.seq + 1,
-                    study_id=study_id,
-                    client=_design_turn_client(),
-                    steer=body.steer,
-                    decision=body.decision.model_dump() if body.decision else None,
+                if replay is not None:
+                    yield _sse("done", replay)
+                    return
+                researcher = _prepare_turn(s, study_id, body)
+                try:
+                    stream = design_assistant.respond_streaming(
+                        s,
+                        body.text,
+                        seq=researcher.seq + 1,
+                        study_id=study_id,
+                        client=_design_turn_client(),
+                        steer=body.steer,
+                        decision=body.decision.model_dump() if body.decision else None,
+                    )
+                    while True:
+                        try:
+                            prose = next(stream)
+                        except StopIteration as done:
+                            reply = done.value
+                            break
+                        yield _sse("token", {"text": prose})
+                except design_assistant.ModelUnavailable as exc:
+                    log.info("conversation turn unanswered: %s", exc)
+                    reply = design_assistant.holding_turn(str(exc))
+                yield _sse(
+                    "done",
+                    _save_turn(s, researcher, body, reply, known_study=known_study),
                 )
-                reply = None
-                while True:
-                    try:
-                        prose = next(stream)
-                    except StopIteration as done:
-                        reply = done.value
-                        break
-                    yield _sse("token", {"text": prose})
-                payload = _persist_platform_turn(s, study_id, researcher, reply)
-                yield _sse("done", payload)
-            except design_assistant.ModelUnavailable as exc:
-                # Keep the researcher's own turn so they never have to retype it, and
-                # close the stream with a normal `done` frame carrying the holding turn
-                # - an `error` frame would leave the thread looking broken rather than
-                # waiting.
-                #
-                # Persisted, same as the blocking endpoint's branch just above
-                # and for the same reason: unpersisted, a reload kept the
-                # researcher's question on screen and silently dropped the one
-                # sentence explaining why nothing answered it.
-                log.info("conversation turn unanswered: %s", exc)
-                payload = _persist_platform_turn(
-                    s, study_id, researcher, design_assistant.holding_turn(str(exc))
-                )
-                yield _sse("done", payload)
+            except HTTPException as exc:
+                s.rollback()
+                yield _sse("error", {"detail": exc.detail, "status": exc.status_code})
             except Exception:
                 log.exception("streaming conversation turn failed")
                 s.rollback()

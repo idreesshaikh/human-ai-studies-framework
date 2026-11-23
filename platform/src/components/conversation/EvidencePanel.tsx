@@ -69,12 +69,12 @@ export function EvidencePanel({ studyId, onProposed, onClose }: { studyId: strin
   }
 
   return (
-    <section aria-label="Evidence-linked methods" className="mx-auto w-full max-w-reading space-y-4 px-4 py-5 sm:px-8">
+    <section aria-label="Compare methods" className="mx-auto w-full max-w-reading space-y-4 px-4 py-5 sm:px-8">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="type-subhead text-text">Evidence-linked methods</h3>
+        <h3 className="type-subhead text-text">Compare methods</h3>
         {onClose && <Button variant="ghost" size="icon" aria-label="Close method comparison" onClick={onClose}><X aria-hidden /></Button>}
       </div>
-      <p className="type-note text-text-muted">Compare source-backed methods. No choice changes the protocol without your approval.</p>
+      <p className="type-note text-text-muted">Methods backed by an imported evidence map. Nothing changes the protocol until you accept it.</p>
       {map.loading && <p role="status" className="type-caption text-text-muted">Loading evidence…</p>}
       {map.error && <Notice kind="problem">{map.error} <button className="underline" onClick={map.reload}>Retry</button></Notice>}
       {map.data?.document && <p className="type-caption text-text-muted">{map.data.document.mapId} · {map.data.document.mapVersion}<br />{map.data.document.description}</p>}

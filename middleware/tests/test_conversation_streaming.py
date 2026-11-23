@@ -1,12 +1,17 @@
 """Streamed design turn (D3): SSE token frames + an identical stored turn."""
 
 import json
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier, Event
 
 import pytest
 from fastapi.testclient import TestClient
 from middleware.app import create_app
+from middleware.db import ConversationTurn
 from middleware.design_llm import _ReplyTextExtractor
 from middleware.settings import Settings
+from sqlalchemy import event
+from sqlalchemy.orm import Session
 
 from middleware import assistant
 
@@ -155,6 +160,114 @@ def test_retried_stream_replays_without_duplicate_turns(client):
     assert replay["platformTurnId"] == first["platformTurnId"]
     turns = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
     assert [turn["role"] for turn in turns] == ["researcher", "platform"]
+
+
+@pytest.mark.parametrize("same_message", [True, False])
+def test_overlapping_stream_and_blocking_turn(client, same_message):
+    path = f"/studies/{STUDY}/conversation"
+    initial = {"text": "rct", "requestId": "original"}
+    retry = initial if same_message else {"text": "different", "requestId": "other"}
+    barrier = Barrier(2, timeout=5)
+
+    def wait_before_insert(session, *_):
+        if any(
+            isinstance(row, ConversationTurn) and row.role == "researcher"
+            for row in session.new
+        ):
+            barrier.wait()
+
+    # Force both requests to calculate the same sequence before either inserts.
+    event.listen(Session, "before_flush", wait_before_insert)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            streaming = pool.submit(client.post, f"{path}/turns/stream", json=initial)
+            blocking = pool.submit(client.post, f"{path}/turns", json=retry)
+            stream_response, block_response = streaming.result(), blocking.result()
+    finally:
+        event.remove(Session, "before_flush", wait_before_insert)
+
+    stream_event, stream_reply = _events(stream_response.text)[-1]
+    if same_message:
+        assert stream_event == "done"
+        assert block_response.status_code == 200
+        assert stream_reply["platformTurnId"] == block_response.json()["platformTurnId"]
+    elif stream_event == "done":
+        assert block_response.status_code == 409
+    else:
+        assert stream_reply["status"] == 409
+        assert block_response.status_code == 200
+    assert len(client.get(path).json()["turns"]) == 2
+
+
+@pytest.mark.parametrize("suffix", ["", "/stream"])
+@pytest.mark.parametrize("remove_study", [False, True])
+def test_waiting_for_model_does_not_block_database_writes(
+    client, monkeypatch, suffix, remove_study
+):
+    started = Event()
+    release = Event()
+
+    class SlowClient(_StubClient):
+        def post(self, *args, **kwargs):
+            started.set()
+            assert release.wait(10), "the unrelated write did not finish"
+            return super().post(*args, **kwargs)
+
+        def stream(self, *args, **kwargs):
+            started.set()
+            assert release.wait(10), "the unrelated write did not finish"
+            yield from super().stream(*args, **kwargs)
+
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: SlowClient())
+    created = client.post("/projects/implicit/studies", json={"name": "Wait fixture"})
+    assert created.is_success
+    study_path = f"/studies/{created.json()['id']}"
+    path = f"{study_path}/conversation"
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        turn = pool.submit(client.post, f"{path}/turns{suffix}", json={"text": "rct"})
+        try:
+            assert started.wait(5)
+            if remove_study:
+                write = pool.submit(client.delete, study_path)
+            else:
+                write = pool.submit(
+                    client.post,
+                    "/projects/implicit/studies",
+                    json={"name": "Independent"},
+                )
+            assert write.result(timeout=5).is_success
+            assert client.get(path).json()["turns"] == []
+        finally:
+            release.set()
+        response = turn.result(timeout=5)
+    turns = client.get(path).json()["turns"]
+    if remove_study:
+        if suffix:
+            kind, error = _events(response.text)[-1]
+            assert kind == "error"
+            assert error["status"] == 404
+        else:
+            assert response.status_code == 404
+        assert turns == []
+    else:
+        assert response.is_success
+        assert [turn["role"] for turn in turns] == ["researcher", "platform"]
+
+
+@pytest.mark.parametrize("suffix", ["", "/stream"])
+def test_request_id_cannot_replay_a_different_message(client, suffix):
+    path = f"/studies/{STUDY}/conversation"
+    assert (
+        client.post(
+            f"{path}/turns", json={"text": "rct", "requestId": "original"}
+        ).status_code
+        == 200
+    )
+    response = client.post(
+        f"{path}/turns{suffix}", json={"text": "edited", "requestId": "original"}
+    )
+    assert response.status_code == 409
+    assert len(client.get(path).json()["turns"]) == 2
 
 
 @pytest.mark.parametrize("suffix", ["", "/stream"])

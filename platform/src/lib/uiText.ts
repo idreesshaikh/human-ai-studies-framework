@@ -137,14 +137,6 @@ export function enrollmentHeading(
   };
 }
 
-export function isMacPlatform(nav: { platform?: string } | undefined): boolean {
-  return /mac|iphone|ipad|ipod/i.test(nav?.platform ?? "");
-}
-
-export function shortcutLabel(mac: boolean): string {
-  return mac ? "⌘K" : "Ctrl K";
-}
-
 /** After deciding a move by keyboard, where focus should go: the next card
  * still waiting on a decision (later ones first, then earlier), otherwise the
  * decided card's own Undo. */
@@ -204,11 +196,15 @@ const MOVE_NOUN: Record<string, string> = {
   "prescribe-statistics": "analysis plan",
 };
 
-/** The researcher's own turn when they reject a card. It names the kind of
- * card, never its text, so it cannot be read back as a new study idea. */
+/* The turn sent on the researcher's behalf after they decide a card. A
+ * rejection names the kind of card, never its text, so it cannot be read back
+ * as a new study idea. */
 export function rejectedMoveText(kind: string): string {
   return `I rejected the proposed ${MOVE_NOUN[kind] ?? "choice"}.`;
 }
+export const acceptedMoveText = (proposal: string) => `I accepted: ${proposal}`;
+export const notedMoveText = (proposal: string) => `I noted the caution about ${proposal}`;
+export const acceptedBatchText = (count: number) => `I accepted ${count} proposed choices together.`;
 
 /** A proposal as the review prints it: no "Declare the task:" template prefix
  * and no doubled full stop. */
@@ -247,8 +243,9 @@ export function measureOptionsFromMoves(
 export const MEASURE_LABELS: Record<string, string> = {
   "time to first green": "Time to first passing test",
   "test success": "Tests pass (yes/no)",
-  "overall workload": "Workload (NASA-TLX)",
+  "overall workload": "Workload (raw TLX)",
   "self-rated comprehension": "Self-rated code understanding",
+  "self-reported AI use": "Self-reported AI use",
 };
 
 const EYEBROW_BY_SECTION: Record<string, string> = {
@@ -259,7 +256,7 @@ const EYEBROW_BY_SECTION: Record<string, string> = {
   measures: "Measure",
   instruments: "Instrument",
   statisticalPlan: "Analysis",
-  ethics: "Setting",
+  ethics: "Ethics",
 };
 
 const EYEBROW_BY_KIND: Record<string, string> = {

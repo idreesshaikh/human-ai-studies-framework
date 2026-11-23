@@ -471,13 +471,16 @@ body::before {
   transition-duration: var(--motion-instant);
 }
 @media (pointer: coarse), (max-width: 640px) {
-  button, summary, nav a, header a, a.type-control, [role="tab"], [role="menuitem"], [role="menuitemradio"], [role="radio"],
+  button, summary, nav a, header a, a.type-control, .checkbox-row, [role="tab"], [role="menuitem"], [role="menuitemradio"], [role="radio"],
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not(.control-bare),
   select {
     min-height: var(--touch-target);
   }
   button[aria-label] {
     min-width: var(--touch-target);
+  }
+  .checkbox-row {
+    align-items: center;
   }
   .header-control {
     height: var(--touch-target);
@@ -491,6 +494,7 @@ body::before {
     min-height: var(--touch-target);
   }
 }
+
 :where(button, a, [tabindex], input, textarea, select, [role="slider"]):not(
     .focus-ring-owned
   ):focus-visible {

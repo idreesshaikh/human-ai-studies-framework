@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from middleware import (
     assistant,
+    corpus_curate,
     corpus_enrich,
     corpus_importer,
     corpus_refresh,
@@ -937,6 +938,8 @@ def register(app: FastAPI, deps: ApiDeps):
                 s, today=deps.clock().date()
             ),
             "candidates": corpus_refresh.candidate_counts(s),
+            "curation": corpus_curate.curation_counts(s),
+            "lastCuration": corpus_curate.last_run_summary(s),
         }
 
     @app.get(

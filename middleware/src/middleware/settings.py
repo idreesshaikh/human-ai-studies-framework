@@ -52,7 +52,10 @@ class Settings:
             Path(p) if (p := os.environ.get("MIDDLEWARE_PROTOCOL")) else None
         )
     )
-    # Explicit local override; otherwise use the standard development port.
+    # Deployments keep their existing bind address. The local sample uses loopback.
+    host: str = field(
+        default_factory=lambda: os.environ.get("MIDDLEWARE_HOST") or "0.0.0.0",  # noqa: S104
+    )
     port: int = field(
         default_factory=lambda: int(
             os.environ.get("MIDDLEWARE_PORT") or "8000"

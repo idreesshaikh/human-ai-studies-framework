@@ -6,9 +6,9 @@ true for the answer to mean something, and proposes decisions as cards you
 accept or reject. Accepted cards build the [protocol draft](protocol-draft.md).
 
 <figure markdown="span">
-  ![The Setup tab with the chat box and the protocol draft panel open on the right](../assets/screens/setup-light.webp#only-light)
-  ![The Setup tab with the chat box and the protocol draft panel open on the right](../assets/screens/setup-dark.webp#only-dark)
-  <figcaption>Setup, with the protocol draft open beside the chat. The chat stays off until a model is connected.</figcaption>
+  ![Setup with the design chat and protocol draft](../assets/screens/setup-light.webp#only-light)
+  ![Setup with the design chat and protocol draft](../assets/screens/setup-dark.webp#only-dark)
+  <figcaption>Setup and the example protocol draft.</figcaption>
 </figure>
 
 The chat needs a model; see the settings in
@@ -21,18 +21,12 @@ surveys.
 
 - **Describe your question** in the chat box: the behaviour, the people, the
   task, and the comparison you care about.
-- **Start from details or an example**, then:
-    - **Add known details** to fill in what you already know, then
-      **Add to chat**;
-    - **Try an example** to start from a sample question;
-    - **Enter the protocol details directly** to skip the chat. See
-      [Entering a design directly](protocol-draft.md#entering-a-design-directly).
+- **Start from details or an example** to add known details, choose an example,
+  or enter the protocol directly. See [Entering a design directly](protocol-draft.md#entering-a-design-directly).
 
 ## Cards
 
-Each reply is a few sentences and up to five cards. When you give several facts
-at once, the chat makes one card per fact, up to eight, and offers
-**Accept all**. A card is one of three things:
+Replies can include cards for you to review. A card can propose:
 
 - **A protocol change**, such as a within-subjects design, a measure, a
   condition, or a rule for how many participants to recruit.
@@ -41,8 +35,8 @@ at once, the chat makes one card per fact, up to eight, and offers
 - **A caution** about a risk in the design. **Note it** records that you saw it.
 
 Accepted cards go into the draft; rejected cards leave nothing behind. **Undo**
-reverses a decision. The chat keeps a short memory of recent messages and reads
-the accepted decisions from the draft, so it does not propose them again.
+reverses a decision. The chat uses recent messages and accepted decisions as
+context.
 
 ## Where a card's evidence comes from
 
@@ -52,9 +46,9 @@ Each card shows its basis:
 | --- | --- |
 | **grounded** | Backed by papers in the corpus. Hover for the title, venue, confidence and the reason it applies |
 | **Evidence and conditions** | Backed by an evidence map you imported, with its version |
-| **No source: your call** | No paper in the corpus supports it. It may still be right, but it is your judgement, not evidence |
+| **No source: your call** | The proposal has no cited source. Assess it using your own judgement |
 
-The chat never presents an unsourced card as backed by literature.
+Review cited papers and their relevance before relying on a proposal.
 
 ## Assistant style
 
@@ -68,15 +62,14 @@ on. It never changes decisions you already accepted.
 ## More tools
 
 - The panel on the right switches between **Protocol draft** and
-  **Literature**. Literature suggests papers; **Add to study** adds one to
-  [Evidence](library.md).
-- **Research tools** (**⋯**) opens **Method evidence**, where you can import an
+  **Literature**. It lists papers matched to the chat; **Add to study** adds one
+  to [Literature](library.md).
+- **Research tools** (**⋯**) opens **Compare methods**, where you can import an
   evidence map, compare methods and send a choice back to the chat for review.
   It also offers **Enter protocol manually**.
 
 ## What the chat will not do
 
-- Invent a citation, or present an unsourced card as backed by literature.
 - Change a decision you accepted without your say.
 - Present synthetic or demo data as a result.
 - Replace your ethics review, preregistration or final analysis.

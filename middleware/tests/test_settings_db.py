@@ -38,3 +38,8 @@ def test_postgres_urls_win_and_are_normalised_to_the_psycopg_driver(monkeypatch)
 
 def test_the_default_is_a_relative_file_under_the_data_directory(monkeypatch):
     assert Settings().db_url == "sqlite:///.study-data/middleware.sqlite3"
+
+
+def test_the_sample_configuration_binds_to_loopback(monkeypatch):
+    monkeypatch.setenv("MIDDLEWARE_HOST", "127.0.0.1")
+    assert Settings().host == "127.0.0.1"

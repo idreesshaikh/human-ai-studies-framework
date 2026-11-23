@@ -306,9 +306,6 @@ export function PowerPanel({
                         }));
                       }}
                     />
-                    <span className="type-note text-text-muted">
-                      {measure?.fields.join(", ")}
-                    </span>
                   </label>
                 )}
                 <label className="flex flex-col gap-1">
@@ -318,10 +315,6 @@ export function PowerPanel({
                     options={tests.map((t) => ({ value: t, label: LABELS[t] }))}
                     onValueChange={(t) => set("test", t)}
                   />
-                  <span className="type-note text-text-muted">
-                    {measure?.analysisRecipe ??
-                      "Uses the recorded analysis plan."}
-                  </span>
                 </label>
                 <label className="flex flex-col gap-1">
                   <span className="type-label text-text">

@@ -61,18 +61,32 @@ def _user_agent() -> str:
     return "StudyLoop-corpus-refresh" + (f" (mailto:{contact})" if contact else "")
 
 
+def arxiv_ids_url(ids: list[str]) -> str:
+    """Metadata for specific arXiv ids (``id_list``), one entry per id."""
+    params = {"id_list": ",".join(ids), "max_results": len(ids)}
+    return f"{ARXIV_API}?{urllib.parse.urlencode(params)}"
+
+
 def fetch_arxiv(
     query: str, since: str, until: str, start: int, max_results: int
 ) -> bytes:
     """One arXiv API page, paced to the published limit of one request per 3 s."""
+    return _arxiv_get(arxiv_url(query, since, until, start, max_results))
+
+
+def fetch_arxiv_by_ids(ids: list[str]) -> bytes:
+    """Atom entries for the given arXiv ids (the abstract backfill's fallback)."""
+    return _arxiv_get(arxiv_ids_url(ids))
+
+
+def _arxiv_get(url: str) -> bytes:
     global _arxiv_last
     with _arxiv_lock:
         wait = ARXIV_MIN_INTERVAL_S - (_clock() - _arxiv_last)
         if wait > 0:
             _sleep(wait)
         req = urllib.request.Request(  # noqa: S310 - fixed HTTPS endpoint
-            arxiv_url(query, since, until, start, max_results),
-            headers={"User-Agent": _user_agent()},
+            url, headers={"User-Agent": _user_agent()}
         )
         try:
             with urllib.request.urlopen(req, timeout=30) as res:  # noqa: S310

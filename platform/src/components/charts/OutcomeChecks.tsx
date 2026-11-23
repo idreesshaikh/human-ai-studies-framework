@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { recipeLabel } from "@/lib/recipeLabels";
 import { studyApi, type OutcomeCheckReport } from "@/lib/studyApi";
 
 const STATUS = {
@@ -56,19 +57,21 @@ export function OutcomeChecks({ studyId, synthetic, onChecked }: { studyId: stri
   }
 
   return (
-    <section className="flex min-w-0 flex-col gap-3 break-words border-b border-border pb-5" aria-label="Outcome capture checks">
-      <h2 className="type-subhead text-text">Check outcome capture</h2>
-      <p className="type-note text-text-muted">
-        Check a rehearsal for the instrument, fields and condition coverage each
-        declared outcome needs. This checks captured inputs, not study validity.
-      </p>
-      <div className="flex flex-wrap gap-3">
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => void check()}>
-          {busy ? "Checking capture…" : report ? "Check again" : "Check captured inputs"}
-        </Button>
-        {report && <Button size="sm" variant="outline" onClick={download}>Download checks (.json)</Button>}
+    <section className="mt-3 flex min-w-0 flex-col gap-3 break-words" aria-label="Outcome capture checks">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="type-note text-text-muted">
+            Does each declared outcome have its instrument, fields and condition
+            coverage? Checks inputs, not study validity.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {report && <Button size="sm" variant="ghost" onClick={download}>Download checks (.json)</Button>}
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void check()}>
+            {busy ? "Checking capture…" : report ? "Check again" : "Check captured inputs"}
+          </Button>
+        </div>
       </div>
-      {busy && <p role="status" className="type-note text-text-muted">Checking the recorded protocol and captured sessions…</p>}
       {error && <p role="alert" className="type-note text-critical">{error}</p>}
       {report && (
         <>
@@ -85,7 +88,8 @@ export function OutcomeChecks({ studyId, synthetic, onChecked }: { studyId: stri
                 </summary>
                 <div className="mt-3 flex flex-col gap-2 type-note text-text-muted">
                   <p>{outcome.instrument ?? "No typed instrument"} · {outcome.fields.join(", ") || "No typed fields"}</p>
-                  <p>Recipe: {outcome.recipe ?? "Not declared"}. {outcome.observedUnits === null ? "Coverage is unverified." : `${outcome.observedUnits} of ${outcome.checkedUnits} session units have observed inputs.`}</p>
+                  <p>{outcome.observedUnits === null ? "Coverage is unverified." : `${outcome.observedUnits} of ${outcome.checkedUnits} session units have observed inputs.`}</p>
+                  <p>Analysis method · {outcome.recipe ? recipeLabel(outcome.recipe) : "Not declared"}</p>
                   <p>{Object.entries(outcome.participantsByCondition).map(([condition, count]) => `${condition}: ${count} participants`).join(" · ")}{outcome.pairedParticipants !== null && ` · ${outcome.pairedParticipants} complete participant pairs`}</p>
                   {outcome.issues.map((issue) => (
                     <p key={issue.code}>

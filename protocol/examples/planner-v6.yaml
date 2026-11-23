@@ -52,143 +52,98 @@ instruments:
     adapter: claude-code
     contentPolicy: metadata-only
   surveys:
-  - id: legacy-tlx-inspired
+  - id: raw-tlx
     version: '1.0'
-    title: Legacy workload and comprehension
+    title: Task workload
     timing: post-task
+    instructions: Rate the task you just finished.
     items:
     - id: mental_demand
-      text: How mentally demanding was the task?
-      scale:
-        min: 1
-        max: 7
-        step: 1
-        lowLabel: Very low
-        highLabel: Very high
-      reverse: false
-    - id: effort
-      text: How hard did you have to work to accomplish your level of performance?
-      scale:
-        min: 1
-        max: 7
-        step: 1
-        lowLabel: Very little
-        highLabel: Very hard
-      reverse: false
-    - id: frustration
-      text: How insecure, discouraged, irritated, or annoyed were you?
-      scale:
-        min: 1
-        max: 7
-        step: 1
-        lowLabel: Not at all
-        highLabel: Extremely
-      reverse: false
-    - id: time_pressure
-      text: How hurried or rushed was the pace of the task?
-      scale:
-        min: 1
-        max: 7
-        step: 1
-        lowLabel: Very relaxed
-        highLabel: Very rushed
-      reverse: false
-    - id: perceived_performance
-      text: How successful were you in accomplishing what you were asked to do?
-      scale:
-        min: 1
-        max: 7
-        step: 1
-        lowLabel: Failure
-        highLabel: Perfect
-      reverse: false
-    - id: comprehension
-      text: How well did you understand the code you worked with?
-      scale:
-        min: 1
-        max: 7
-        step: 1
-        lowLabel: Not at all
-        highLabel: Completely
-      reverse: false
-    scoring: none
-    source: StudyLoop legacy six-item survey
-    licence: Repository MIT licence
-    validation: TLX-inspired, not NASA-TLX; no validated aggregate
-  - id: raw-nasa-tlx
-    version: '1.0'
-    title: Raw NASA-TLX
-    timing: post-task
-    items:
-    - id: mental_demand
-      text: How much mental and perceptual activity was required (e.g., thinking,
-        deciding, calculating, remembering, looking, searching, etc.)? Was the task
-        easy or demanding, simple or complex, exacting or forgiving?
+      text: How much mental and perceptual activity was required?
       scale:
         min: 0
         max: 100
-        step: 5
-        lowLabel: Low
-        highLabel: High
-      reverse: false
-    - id: physical_demand
-      text: How much physical activity was required (e.g., pushing, pulling, turning,
-        controlling, activating, etc.)? Was the task easy or demanding, slow or brisk,
-        slack or strenuous, restful or laborious?
-      scale:
-        min: 0
-        max: 100
-        step: 5
+        step: 10
         lowLabel: Low
         highLabel: High
       reverse: false
     - id: temporal_demand
-      text: How much time pressure did you feel due to the rate or pace at which the
-        tasks or task elements occurred? Was the pace slow and leisurely or rapid
-        and frantic?
+      text: How much time pressure did you feel?
       scale:
         min: 0
         max: 100
-        step: 5
+        step: 10
         lowLabel: Low
         highLabel: High
       reverse: false
     - id: performance
-      text: How successful do you think you were in accomplishing the goals of the
-        task set by the experimenter (or yourself)? How satisfied were you with your
-        performance in accomplishing these goals?
+      text: How successful do you think you were in accomplishing the goals of the task?
       scale:
         min: 0
         max: 100
-        step: 5
-        lowLabel: Good
-        highLabel: Poor
-      reverse: false
+        step: 10
+        lowLabel: Poor
+        highLabel: Good
+      reverse: true
     - id: effort
-      text: How hard did you have to work (mentally and physically) to accomplish
-        your level of performance?
+      text: How hard did you have to work to accomplish your level of performance?
       scale:
         min: 0
         max: 100
-        step: 5
+        step: 10
         lowLabel: Low
         highLabel: High
       reverse: false
     - id: frustration
-      text: How insecure, discouraged, irritated, stressed and annoyed versus secure,
-        gratified, content, relaxed and complacent did you feel during the task?
+      text: How insecure, discouraged, irritated, stressed and annoyed did you feel during
+        the task?
       scale:
         min: 0
         max: 100
-        step: 5
+        step: 10
         lowLabel: Low
         highLabel: High
       reverse: false
     scoring: mean
     source: https://ntrs.nasa.gov/citations/20000021488
     licence: US government work; NASA permits use and modification without permission
-    validation: Raw unweighted mean; not the weighted NASA-TLX. Labels and descriptions
-      from NASA paper-and-pencil v1.0; electronic 0–100 scale in steps of 5.
+    validation: 'Adapted raw TLX: five of the six NASA v1.0 subscales (physical demand dropped
+      for desk tasks), each question the first sentence of NASA''s definition, rated 0–100
+      in steps of 10 (11 points; the paper form has 21). Performance runs Poor → Good and
+      is reverse-scored, so the score is the unweighted mean with higher meaning more workload.
+      Report it as an adapted raw TLX, not the weighted NASA-TLX.'
+  - id: session-check
+    version: '1.0'
+    title: About this session
+    timing: post-task
+    instructions: There are no right answers. Please answer honestly.
+    items:
+    - id: ai_use
+      text: How much did you use AI tools during the task (chat, code completion or agents,
+        inside or outside the editor)?
+      scale:
+        min: 0
+        max: 4
+        step: 1
+        lowLabel: Not at all
+        highLabel: Throughout the task
+      reverse: false
+    - id: comprehension
+      text: How well do you understand the code you ended up with?
+      scale:
+        min: 1
+        max: 5
+        step: 1
+        lowLabel: Not at all
+        highLabel: Completely
+      reverse: false
+    scoring: none
+    source: StudyLoop item set, 2026-11-23
+    licence: Repository MIT licence
+    validation: 'Unvalidated single items, analysed separately. ai_use is asked in every
+      condition: above 0 is reported AI use, and 0 is a self-report, not verified non-use.
+      Interpret responses in the context of the study protocol and analyse by assigned condition.
+      comprehension is a self-rating, not a comprehension test.'
   - id: sus
     version: '1.0'
     title: System Usability Scale
@@ -222,8 +177,8 @@ instruments:
         highLabel: Strongly agree
       reverse: false
     - id: sus_4
-      text: I think that I would need the support of a technical person to be able
-        to use this system
+      text: I think that I would need the support of a technical person to be able to use
+        this system
       scale:
         min: 1
         max: 5
@@ -287,18 +242,18 @@ instruments:
       reverse: true
     scoring: sus
     source: https://hci-studies.org/methods-and-measures/downloads/SUS_Brooke1996.pdf
-    licence: © Digital Equipment Corporation 1986; freely available for usability
-      assessment with acknowledgement of John Brooke (1996) in published reports
-    validation: Original ten-item wording; reverse even items; sum contributions ×
-      2.5 (0–100). Define the system being assessed in participant instructions.
+    licence: © Digital Equipment Corporation 1986; freely available for usability assessment
+      with acknowledgement of John Brooke (1996) in published reports
+    validation: Original ten-item wording; reverse even items; sum contributions × 2.5 (0–100).
+      Define the system being assessed in participant instructions.
   - id: pre-task-skill
     version: '1.0'
     title: Pre-task programming skill (experimental)
     timing: pre-task
     items:
     - id: experience
-      text: How much experience do you have maintaining code in the language used
-        in this study?
+      text: How much experience do you have maintaining code in the language used in this
+        study?
       scale:
         min: 1
         max: 5
@@ -327,8 +282,7 @@ instruments:
     scoring: mean
     source: StudyLoop experimental item set, 2026-10-08
     licence: Repository MIT licence
-    validation: 'Unvalidated draft: researcher must pilot before using as a skill
-      covariate'
+    validation: 'Unvalidated draft: researcher must pilot before using as a skill covariate'
   taskHarness:
     enabled: true
 phases:
@@ -381,53 +335,25 @@ measures:
   - task_outcome.firstGreenMs
   analysisRecipe: paired-nonparametric
   version: '1.0'
-- id: legacy-tlx-inspired-1
-  construct: mental demand
-  instrument: legacy-tlx-inspired
+- id: raw-tlx-1
+  construct: Raw TLX workload
+  instrument: raw-tlx
   fields:
-  - survey_response.responses.mental_demand
+  - survey_response.score
   analysisRecipe: typed-measures
   version: '1.0'
-- id: legacy-tlx-inspired-2
-  construct: effort
-  instrument: legacy-tlx-inspired
-  fields:
-  - survey_response.responses.effort
-  analysisRecipe: typed-measures
-  version: '1.0'
-- id: legacy-tlx-inspired-3
-  construct: frustration
-  instrument: legacy-tlx-inspired
-  fields:
-  - survey_response.responses.frustration
-  analysisRecipe: typed-measures
-  version: '1.0'
-- id: legacy-tlx-inspired-4
-  construct: time pressure
-  instrument: legacy-tlx-inspired
-  fields:
-  - survey_response.responses.time_pressure
-  analysisRecipe: typed-measures
-  version: '1.0'
-- id: legacy-tlx-inspired-5
-  construct: perceived performance
-  instrument: legacy-tlx-inspired
-  fields:
-  - survey_response.responses.perceived_performance
-  analysisRecipe: typed-measures
-  version: '1.0'
-- id: legacy-tlx-inspired-6
-  construct: comprehension
-  instrument: legacy-tlx-inspired
+- id: session-check-1
+  construct: self-rated comprehension
+  instrument: session-check
   fields:
   - survey_response.responses.comprehension
   analysisRecipe: typed-measures
   version: '1.0'
-- id: raw-nasa-tlx-1
-  construct: Raw NASA-TLX
-  instrument: raw-nasa-tlx
+- id: session-check-2
+  construct: self-reported AI use
+  instrument: session-check
   fields:
-  - survey_response.score
+  - survey_response.responses.ai_use
   analysisRecipe: typed-measures
   version: '1.0'
 - id: sus-1

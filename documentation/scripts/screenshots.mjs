@@ -38,12 +38,16 @@ const click =
 // name: file stem; path: route in the app; prepare: steps before the shot;
 // clip: a locator to crop to instead of the whole window.
 const SHOTS = [
-  { name: "studies", path: "/home" },
-  { name: "templates", path: "/repertoire" },
+  { name: "studies", path: "/home", heading: "Studies" },
+  { name: "templates", path: "/repertoire", heading: "Templates" },
   {
     name: "setup",
     path: `${STUDY}?tab=setup`,
-    prepare: click("Show protocol draft"),
+    prepare: async (page) => {
+      const closed = page.getByRole("button", { name: "Protocol draft", exact: true });
+      if (await closed.isVisible()) await closed.click();
+      await page.getByRole("button", { name: "Hide protocol draft" }).waitFor();
+    },
   },
   {
     name: "review-draft",
@@ -51,10 +55,10 @@ const SHOTS = [
     prepare: click("Review draft"),
     dialog: true,
   },
-  { name: "evidence", path: `${STUDY}?tab=evidence` },
-  { name: "plan", path: `${STUDY}?tab=plan` },
-  { name: "run", path: `${STUDY}?tab=run` },
-  { name: "data", path: `${STUDY}?tab=data` },
+  { name: "evidence", path: `${STUDY}?tab=literature`, heading: "Literature" },
+  { name: "plan", path: `${STUDY}?tab=plan`, region: "Planning" },
+  { name: "run", path: `${STUDY}?tab=run`, region: "Participants" },
+  { name: "data", path: `${STUDY}?tab=data`, region: "Data" },
 ];
 
 const only = new Set(process.argv.slice(2));
@@ -150,6 +154,8 @@ try {
     for (const shot of SHOTS) {
       if (only.size && !only.has(shot.name)) continue;
       await page.goto(base + shot.path, { waitUntil: "networkidle" });
+      if (shot.heading) await page.getByRole("heading", { name: shot.heading, exact: true }).first().waitFor();
+      if (shot.region) await page.getByRole("region", { name: shot.region, exact: true }).waitFor();
       await page.waitForTimeout(400);
       if (shot.prepare) await shot.prepare(page);
       const target = shot.dialog

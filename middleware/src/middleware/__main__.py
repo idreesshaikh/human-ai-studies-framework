@@ -17,6 +17,8 @@ def main() -> None:
             "corpus-verify",
             "corpus-enrich",
             "corpus-refresh",
+            "corpus-curate",
+            "corpus-review",
             "corpus-candidates",
             "corpus-decide",
             "templates",
@@ -35,7 +37,9 @@ def main() -> None:
         type=int,
         default=None,
         help="corpus-enrich: cap how many papers to backfill "
-        "(highest confidence first; default: every one still missing)",
+        "(highest confidence first; default: every one still missing); "
+        "corpus-curate: cap how many stale rows to re-check; "
+        "corpus-review / corpus-candidates: rows to list",
     )
     parser.add_argument(
         "--since",
@@ -46,17 +50,21 @@ def main() -> None:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="corpus-refresh: fetch and report, but store nothing",
+        help="corpus-refresh: fetch and report, but store nothing; "
+        "corpus-curate: preview the triage on stored data (no network, no writes)",
     )
     parser.add_argument(
         "--queries",
         default=None,
-        help="corpus-refresh: queries JSON (default: MIDDLEWARE_REFRESH_QUERIES, "
-        "else docs/papers/refresh-queries.json)",
+        help="corpus-refresh / corpus-curate: queries JSON (default: "
+        "MIDDLEWARE_REFRESH_QUERIES, else docs/papers/refresh-queries.json)",
     )
     parser.add_argument("--ref", default=None, help="corpus-decide: the paper ref")
     parser.add_argument(
-        "--decision", choices=["accept", "reject"], help="corpus-decide: the decision"
+        "--decision",
+        choices=["accept", "reject"],
+        help="corpus-decide: accept (admit or keep) or reject (turn down or hide) "
+        "a candidate or a corpus paper",
     )
     parser.add_argument("--note", default="", help="corpus-decide: why")
 
@@ -72,7 +80,7 @@ def main() -> None:
         from middleware.settings import Settings
 
         settings = Settings()
-        uvicorn.run(create_app(settings), host="0.0.0.0", port=settings.port)
+        uvicorn.run(create_app(settings), host=settings.host, port=settings.port)
 
     elif args.command == "corpus-import":
         from middleware.corpus_importer import import_corpus
@@ -146,6 +154,46 @@ def main() -> None:
         print(corpus_refresh.format_summary(result))
         sys.exit(0 if result["status"] in ("ok", "dry-run") else 1)
 
+    elif args.command == "corpus-curate":
+        import logging
+        from pathlib import Path
+
+        from middleware import corpus_curate, corpus_refresh
+        from middleware.db import make_session_factory
+        from middleware.settings import Settings
+
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
+        queries = args.queries or os.environ.get("MIDDLEWARE_REFRESH_QUERIES")
+        try:
+            config = corpus_refresh.load_config(
+                Path(queries) if queries else corpus_refresh.DEFAULT_QUERIES
+            )
+        except ValueError as exc:
+            print(f"corpus-curate: {exc}", file=sys.stderr)
+            sys.exit(2)
+        factory = make_session_factory(Settings().db_url)
+        result = corpus_curate.run(
+            factory, config=config, limit=args.limit, dry_run=args.dry_run
+        )
+        print(corpus_curate.format_summary(result))
+        sys.exit(0 if result["status"] in ("ok", "dry-run") else 1)
+
+    elif args.command == "corpus-review":
+        from middleware import corpus_curate
+        from middleware.db import make_session_factory
+        from middleware.settings import Settings
+
+        factory = make_session_factory(Settings().db_url)
+        with factory() as s:
+            rows = corpus_curate.review_queue(s, limit=args.limit or 30)
+        print(f"{len(rows)} waiting (decide with corpus-decide --ref REF --decision)")
+        for row in rows:
+            rel = "  -  " if row["relevance"] is None else f"{row['relevance']:.3f}"
+            label = f"{row['kind']:<9} {row['ref']}"
+            print(f"  {rel}  {label}  {row['year']}  {row['title']}")
+            print(f"         {row['reason']}")
+        sys.exit(0)
+
     elif args.command == "corpus-candidates":
         from middleware import corpus_refresh
         from middleware.db import make_session_factory
@@ -157,14 +205,17 @@ def main() -> None:
             rows = corpus_refresh.list_candidates(s, limit=args.limit or 20)
         print(
             f"candidates: {counts['new']} new, {counts['accepted']} accepted, "
-            f"{counts['rejected']} rejected"
+            f"{counts['rejected']} rejected, {counts['dismissed']} dismissed"
         )
         for row in rows:
-            print(f"  {row['ref']}  [{row['score']}]  {row['year']}  {row['title']}")
+            rel = "" if row["relevance"] is None else f" rel {row['relevance']:.3f}"
+            print(
+                f"  {row['ref']}  [{row['score']}{rel}]  {row['year']}  {row['title']}"
+            )
         sys.exit(0)
 
     elif args.command == "corpus-decide":
-        from middleware import corpus_refresh
+        from middleware import corpus_curate, corpus_refresh
         from middleware.db import make_session_factory
         from middleware.settings import Settings
 
@@ -176,22 +227,18 @@ def main() -> None:
             sys.exit(2)
         factory = make_session_factory(Settings().db_url)
         who = os.environ.get("USER") or "cli"
-        decide = (
-            corpus_refresh.promote
-            if args.decision == "accept"
-            else corpus_refresh.reject
-        )
         with factory() as s:
             try:
-                out = decide(
+                out = corpus_curate.decide(
                     s,
                     args.ref,
+                    accept=args.decision == "accept",
                     decided_by=who,
                     now=corpus_refresh.utc_now(),
                     note=args.note,
                 )
             except KeyError:
-                print(f"no candidate {args.ref}", file=sys.stderr)
+                print(f"no candidate or corpus paper {args.ref}", file=sys.stderr)
                 sys.exit(1)
             except ValueError as exc:
                 print(str(exc), file=sys.stderr)

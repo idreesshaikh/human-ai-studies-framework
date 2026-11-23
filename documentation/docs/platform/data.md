@@ -1,13 +1,13 @@
 # Data
 
-The **Data** tab shows every session TERN captured for the study, checks it for
-gaps, and records your decision on whether each session counts. It is also
-where you download the study's records.
+The **Data** tab shows captured sessions for the study, checks them for
+gaps, and records your decision on whether each session counts. Open **Download
+study records** here, or use **Export** in the study header.
 
 <figure markdown="span">
-  ![The Data tab with the download buttons, Check captured inputs, and synthetic sessions with their event counts](../assets/screens/data-light.webp#only-light)
-  ![The Data tab with the download buttons, Check captured inputs, and synthetic sessions with their event counts](../assets/screens/data-dark.webp#only-dark)
-  <figcaption>The example study's sessions are simulated and labelled as such. A real study shows only captured sessions here.</figcaption>
+  ![Data tab showing synthetic sessions and download controls](../assets/screens/data-light.webp#only-light)
+  ![Data tab showing synthetic sessions and download controls](../assets/screens/data-dark.webp#only-dark)
+  <figcaption>The example sessions are synthetic and excluded from research exports.</figcaption>
 </figure>
 
 ## Download study records
@@ -23,10 +23,11 @@ rates the study's validity or pools repeated runs.
 
 ## Check outcome capture
 
-After a rehearsal, **Check captured inputs** compares what was captured with
-what each declared outcome needs: the instrument, the required fields, their
-versions, condition coverage and participant pairs. Expand a result for what to
-fix, and download the checks as JSON to keep the protocol and data fingerprints.
+After a rehearsal, open **Outcome capture checks**. **Check captured inputs**
+compares what was captured with what each declared outcome needs: the
+instrument, required fields and versions, condition coverage, and participant
+pairs. Expand a result for what to fix, and download the checks as JSON to keep
+the protocol and data fingerprints.
 
 This checks inputs, not validity. Custom measures the checker does not know
 stay unverified, and pilot sessions can be checked without changing their tags
@@ -58,7 +59,7 @@ For sessions in a no-AI condition, the audit reports one of three outcomes:
 | **Capture needs review** | Capture boundaries or settings were missing, so the audit abstains |
 
 !!! warning "Accuracy not yet measured"
-    The audit's error rates have not been measured; independent scripted
+    The audit's error rates have not been measured; independent human
     calibration sessions are required first. Until then, treat every outcome
     as a prompt for your own judgement. **Capture limits** on the tab lists
     what the audit cannot see: paste origins and AI edit classifications are
