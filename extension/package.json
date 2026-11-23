@@ -452,5 +452,10 @@
     "typescript": "^5.4.0",
     "typescript-eslint": "^8.67.0"
   },
+  "overrides": {
+    "@vscode/vsce": {
+      "minimatch": "^11.0.1"
+    }
+  },
   "icon": "media/icon.png"
 }
