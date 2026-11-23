@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   remain in builds.
 - Update packaging dependencies (`fast-uri`, `js-yaml`, and `qs`) to resolve
   reported security advisories.
+- Update lint and packaging tools to resolve the `minimatch` advisory.
 
 ## [1.0.1] - 2026-08-25
 
